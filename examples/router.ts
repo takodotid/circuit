@@ -155,6 +155,11 @@ export default defineDevice({
                 set: { local_pref: 200, preferred_source: "192.0.2.255", add_large_communities: ["64500:1:1"] },
                 action: "accept",
             },
+            {
+                description: "The upstream's own customers",
+                match: { as_path_length: { min: 1, max: 2 } },
+                action: "accept",
+            },
         ],
         "UPSTREAM-OUT": [
             { description: "Not to upstreams", match: { large_community: "64500:100:0" }, action: "reject" },

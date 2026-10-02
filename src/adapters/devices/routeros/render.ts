@@ -977,6 +977,8 @@ function conditions(rule: AnyRule): string[] {
     if (match.prefix_set) tests.push(`dst in ${match.prefix_set}`);
     if (match.prefix_length?.min !== undefined) tests.push(`dst-len>${match.prefix_length.min - 1}`);
     if (match.prefix_length?.max !== undefined) tests.push(`dst-len<${match.prefix_length.max + 1}`);
+    if (match.as_path_length?.min !== undefined) tests.push(`bgp-path-len>${match.as_path_length.min - 1}`);
+    if (match.as_path_length?.max !== undefined) tests.push(`bgp-path-len<${match.as_path_length.max + 1}`);
     if (match.rpki) tests.push(`rpki ${match.rpki}`);
     if (match.community) tests.push(`bgp-communities includes ${match.community}`);
     if (match.large_community) tests.push(`bgp-large-communities includes ${match.large_community}`);
