@@ -25,4 +25,8 @@ Read the platform's `TRAPS.md` first, and add to it what the change taught. New 
 
 `examples/` uses every field each adapter supports, and `test/` checks each example plans nothing against its own render. A reader and renderer that disagree on a form show up there before they show up as a change on every apply.
 
-Commits follow Conventional Commits with a scope from `commitlint.config.js`. Releases are tags, `v<major>.<minor>.<patch>`.
+`docs/` is the documentation site at circuit.tako.id. A change to what Circuit does changes the page that describes it in the same commit. Platform pages include each adapter's `TRAPS.md`.
+
+Commits follow Conventional Commits with a scope from `commitlint.config.js`. Releases are cut with `bun run release`, which tags `vX.Y.Z` or `vX.Y.Z-rc.N`; the tag publishes to GitHub Packages and a GitHub release. Publishing to npm starts with 1.0.0.
+
+Circuit is Tako's, under the Business Source License 1.1 in `LICENSE`. Keep `LICENSE` and `NOTICE` as they are.

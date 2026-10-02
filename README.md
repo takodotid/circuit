@@ -2,23 +2,32 @@
 
 Declarative, vendor-neutral network configuration. Describe each device in TypeScript, and Circuit renders it for the platform, compares it with what the device runs, and makes the device match.
 
+Built by [Tako](https://tako.id) and run in production on Tako's own network, [AS219484](https://bgp.tools/as/219484): border router, core and top-of-rack switches, BGP with transits and internet exchanges.
+
+Documentation: [circuit.tako.id](https://circuit.tako.id)
+
 ## Principles
 
 1. **The config is the whole truth.** Whatever a device runs that its config does not say is removed, or returned to its default. There are no exceptions and nothing is left alone.
 2. **Absent means off.** A field is written when it has a value. An undeclared port is shut down, an undeclared service is disabled, an undeclared feature is not running. There is no `enabled: false` and no placeholder.
 3. **Neutral words only.** The schema says `access_vlan`, `https`, `hardware_offload`. Each adapter translates, and a field a platform cannot express fails validation instead of being skipped.
 4. **Names are checked.** A device declares its VLANs, interfaces, policies and the rest; every reference to one is type-checked, so a typo does not compile and the editor suggests the names that exist. Port names come from the hardware model.
-5. **Secrets are references.** `secret("NAME")` is resolved from the environment or `.env.local` only when a command is sent. Rendered config, plans and snapshots never hold a secret.
+5. **Secrets are references.** `secret("NAME")` is resolved from the environment or `.env.local`, and `secretFile("path")` from a file kept out of git, only when a command is sent. Rendered config, plans and snapshots never hold a secret.
 
 ## Install
 
-Circuit runs on [Bun](https://bun.sh) and ships as TypeScript source.
+Circuit runs on [Bun](https://bun.sh), ships as TypeScript source, and is published to GitHub Packages. Point the `@takodotid` scope there in `bunfig.toml`, with a GitHub token that can read packages:
 
-```bash
-bun add @takodotid/circuit@git+ssh://git@github.com/takodotid/circuit.git#v0.1.0
+```toml
+[install.scopes]
+"@takodotid" = { token = "$GITHUB_TOKEN", url = "https://npm.pkg.github.com/" }
 ```
 
-Add `"net": "circuit"` to the project's `scripts` to run it as `bun net`.
+```bash
+bun add @takodotid/circuit
+```
+
+Add `"net": "circuit"` to the project's `scripts` to run it as `bun net`. Every release is on the [releases page](https://github.com/takodotid/circuit/releases); release candidates are tagged `-rc.N` and published under the `rc` dist-tag.
 
 ## A device
 
@@ -168,3 +177,23 @@ cd ../my-network && bun link @takodotid/circuit
 3. Register it in `src/adapters/devices/index.ts` and the catalog in `src/adapters/devices/catalog.ts`.
 4. `unsupported()` lists every field it cannot express. Silence is not an option.
 5. An example in `examples/` using every field it supports.
+
+## Documentation site
+
+`docs/` is the site at [circuit.tako.id](https://circuit.tako.id), built with VitePress: `bun run docs:dev` serves it locally. It is not part of the package.
+
+## Releases
+
+```bash
+bun run release patch | minor | major
+bun run release rc [patch | minor | major]
+bun run release stable
+```
+
+The script commits the version and pushes a tag; the tag publishes the package and a GitHub release.
+
+## License
+
+[Business Source License 1.1](LICENSE). Free in production for an organization whose yearly revenue and funding, with its affiliates, are each under US$1,000,000; above that, production use needs a commercial license from Tako, [dev@tako.id](mailto:dev@tako.id). Each version becomes Apache License 2.0 four years after it is published. Every copy and derivative work keeps [LICENSE](LICENSE) and [NOTICE](NOTICE), which name Tako as the author.
+
+Copyright 2026 [Tako](https://tako.id).
