@@ -1,6 +1,6 @@
 # Devices
 
-A device is one call to `defineDevice`. Every field is documented in the schema, so hovering a field in the editor shows what it does; this page is the map.
+A device is one call to `defineDevice`. Every field is documented in the schema, so hovering a field in the editor shows what it does; this page is the map, and the [schema reference](/reference/schema) lists every field.
 
 | Field                | What it holds                                                               |
 | -------------------- | --------------------------------------------------------------------------- |

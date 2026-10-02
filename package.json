@@ -54,8 +54,8 @@
         "test": "bun test",
         "format": "bunx prettier --write .",
         "format:check": "bunx prettier --check .",
-        "docs:dev": "vitepress dev docs",
-        "docs:build": "vitepress build docs",
+        "docs:dev": "bun scripts/schema-reference.ts && vitepress dev docs",
+        "docs:build": "bun scripts/schema-reference.ts && vitepress build docs",
         "docs:preview": "vitepress preview docs",
         "release": "bun scripts/release.ts",
         "prepare": "husky || true"

@@ -17,6 +17,7 @@ export default defineConfig({
         nav: [
             { text: "Guide", link: "/guide/introduction" },
             { text: "Platforms", link: "/platforms/" },
+            { text: "Reference", link: "/reference/schema" },
             { text: "Releases", link: "https://github.com/takodotid/circuit/releases" },
         ],
 
@@ -42,6 +43,10 @@ export default defineConfig({
                     { text: "VRP", link: "/platforms/vrp" },
                     { text: "Raisecom ROS", link: "/platforms/raisecom-ros" },
                 ],
+            },
+            {
+                text: "Reference",
+                items: [{ text: "Schema", link: "/reference/schema" }],
             },
             {
                 text: "Project",

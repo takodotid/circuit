@@ -16,3 +16,5 @@ Thumbs.db
 # The documentation site, built.
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+# Generated from the schema by scripts/schema-reference.ts.
+docs/reference/
