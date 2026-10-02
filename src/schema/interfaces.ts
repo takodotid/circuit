@@ -106,6 +106,7 @@ export type Port<V extends string, A extends string, L extends string, F extends
         link?: Link;
     };
 
+/** Settings every interface that is not a physical port shares. */
 type Base<F extends string> = Routed<F> & {
     /** What the interface is for. */
     description?: string;

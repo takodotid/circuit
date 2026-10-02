@@ -39,7 +39,7 @@ export type NeighborSettings<P extends string> = {
     multihop?: boolean;
     /** TCP MD5 password shared with the neighbor. */
     password?: Secret;
-    /** Close the session when the neighbor announces more prefixes than this. */
+    /** Close the session when the neighbor announces more prefixes than this. It stays closed until cleared by hand, on RouterOS with `/routing bgp session clear <session> flag=limit-exceeded`. */
     max_prefixes?: number;
     /** Seconds without a message before the session is declared down. */
     hold_time?: number;
