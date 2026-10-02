@@ -1,8 +1,17 @@
-/** A value kept out of the repository and resolved by name when a device is applied. Create one with `secret("NAME")`. */
-export type Secret = {
-    /** Name of the value in the environment or in `.env.local`. */
-    readonly secret: string;
-};
+/**
+ * A value kept out of the repository and resolved only when a device is applied.
+ *
+ * `secret("NAME")` reads a variable from the environment or `.env.local`. `secretFile("path")` reads a file, relative to the project root, for a value that spans lines such as a private key in PEM. Keep that file out of git.
+ */
+export type Secret =
+    | {
+          /** Name of the value in the environment or in `.env.local`. */
+          readonly secret: string;
+      }
+    | {
+          /** Path of a file holding the value, relative to the project root. */
+          readonly secret_file: string;
+      };
 
 /** An address without a length, IPv4 or IPv6, for example `10.0.0.1`. */
 export type IP = string;

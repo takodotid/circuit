@@ -4,6 +4,12 @@ import type { Device, Secret } from "../schema";
 /** A value resolved by name when a device is applied, from the environment or `.env.local`. Never the value itself. */
 export const secret = (name: string): Secret => ({ secret: name });
 
+/** A value read from a file when a device is applied, such as a private key in PEM. The path is relative to the project root; keep the file out of git. */
+export const secretFile = (path: string): Secret => {
+    if (!/^[A-Za-z0-9_./-]+$/.test(path)) throw new Error(`secret file path ${path} may hold only letters, digits, _ . / and -`);
+    return { secret_file: path };
+};
+
 /**
  * Declare one device.
  *

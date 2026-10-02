@@ -9,7 +9,8 @@ import type { Device, Family } from "../../../schema";
 import { connect, exec, upload } from "../../../transport/ssh";
 import type { ApplyOptions, DeviceAdapter, Plan } from "../types";
 import { INSTALL_CERTIFICATE, plan } from "./plan";
-import { render } from "./render";
+import { spell } from "../catalog";
+import { mediumOf, render } from "./render";
 
 /** The major version this adapter renders for. Version 6 has a different BGP and filter language altogether. */
 export const SUPPORTED_MAJOR = 7;
@@ -84,7 +85,9 @@ export function unsupported(device: Device): string[] {
     for (const [name, port] of Object.entries(device.ports ?? {})) {
         if (!port) continue;
 
-        if (port.speed) found.push(`ports.${name}.speed, the platform names a speed by medium`);
+        if (port.speed && !mediumOf(spell(device.platform, device.model, name), port.speed)) {
+            found.push(`ports.${name}.speed ${port.speed}, the port has no fixed speed by that name`);
+        }
 
         const thresholds = Object.values(port.storm_control ?? {});
         const percents = new Set(thresholds.map((threshold) => ("percent" in threshold ? threshold.percent : undefined)));
@@ -147,7 +150,10 @@ async function installCertificate(client: Client, device: Device, name: string):
     await exec(client, `/certificate import file-name=${name}.crt name=${name} passphrase=""`);
 
     if (certificate.private_key) {
-        const privateKey = Buffer.from(resolve(certificate.private_key), "base64").toString("utf8");
+        // A key from a file is PEM as it is; one from a variable is PEM encoded as one line of base64.
+        const value = resolve(certificate.private_key);
+        const privateKey = value.includes("-----BEGIN") ? `${value}\n` : Buffer.from(value, "base64").toString("utf8");
+
         await upload(client, `${name}.key`, privateKey);
         await exec(client, `/certificate import file-name=${name}.key name=${name} passphrase=""`);
     }

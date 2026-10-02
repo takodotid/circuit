@@ -170,7 +170,7 @@ export type DhcpRelay<I extends string> = {
 export type Certificate = {
     /** The certificate, PEM. Public, so it lives in the repository. */
     certificate: string;
-    /** Its private key, PEM, base64-encoded as one line. A certificate only trusted, such as a CA, has none. */
+    /** Its private key: a PEM file through `secretFile`, or PEM base64-encoded as one line through `secret`. A certificate only trusted, such as a CA, has none. */
     private_key?: Secret;
 };
 
@@ -184,7 +184,7 @@ export type FlowExport<I extends string> = {
         /** UDP port. 6343 for sFlow and 2055 otherwise when absent. */
         port?: number;
     }[];
-    /** Sample one packet in this many. Every packet when absent. */
+    /** Sample one packet in this many. Every packet when absent, on a platform that can export every packet. */
     sampling?: number;
     /** Where traffic is observed. Every interface when absent. */
     interfaces?: readonly I[];
