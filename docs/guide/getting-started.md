@@ -4,15 +4,12 @@ Circuit runs on [Bun](https://bun.sh) and ships as TypeScript source; there is n
 
 ## Install
 
-Circuit is published to GitHub Packages. Point the `@takodotid` scope at it in `bunfig.toml`, with a GitHub token that can read packages:
-
-```toml
-[install.scopes]
-"@takodotid" = { token = "$GITHUB_TOKEN", url = "https://npm.pkg.github.com/" }
-```
+::: warning Alpha
+Circuit is in alpha. It runs a production network, but it is not yet stable: the schema, the CLI and the adapters can still change in breaking ways between releases. Pin an exact version and read the [release notes](https://github.com/takodotid/circuit/releases) before upgrading.
+:::
 
 ```bash
-bun add @takodotid/circuit
+bun add --exact @takodotid/circuit
 ```
 
 Add a script so the CLI runs as `bun net`:

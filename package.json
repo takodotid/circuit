@@ -1,7 +1,7 @@
 {
     "name": "@takodotid/circuit",
     "version": "0.4.1",
-    "description": "Declarative, vendor-neutral network configuration: describe each device in TypeScript, and Circuit makes the device match.",
+    "description": "Declarative, vendor-neutral network configuration: describe each device in TypeScript, and Circuit makes the device match. Alpha.",
     "keywords": [
         "network",
         "network-automation",
@@ -15,7 +15,7 @@
         "huawei",
         "raisecom"
     ],
-    "homepage": "https://circuit.os.tako.id",
+    "homepage": "https://circuit.tako.id",
     "bugs": {
         "url": "https://github.com/takodotid/circuit/issues",
         "email": "noc@tako.id"
@@ -53,7 +53,7 @@
         "bun": ">=1.3.5"
     },
     "publishConfig": {
-        "registry": "https://npm.pkg.github.com"
+        "access": "public"
     },
     "scripts": {
         "typecheck": "bunx tsc --noEmit",

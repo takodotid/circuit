@@ -2,7 +2,10 @@
 
 Declarative, vendor-neutral network configuration. Describe each device in TypeScript, and Circuit renders it for the platform, compares it with what the device runs, and makes the device match.
 
-Documentation: [circuit.os.tako.id](https://circuit.os.tako.id)
+Documentation: [circuit.tako.id](https://circuit.tako.id)
+
+> [!WARNING]
+> Circuit is in alpha. It runs a production network, but it is not yet stable: the schema, the CLI and the adapters can still change in breaking ways between releases. Pin an exact version and read the release notes before upgrading.
 
 ## Principles
 
@@ -14,15 +17,10 @@ Documentation: [circuit.os.tako.id](https://circuit.os.tako.id)
 
 ## Install
 
-Circuit runs on [Bun](https://bun.sh), ships as TypeScript source, and is published to GitHub Packages. Point the `@takodotid` scope there in `bunfig.toml`, with a GitHub token that can read packages:
-
-```toml
-[install.scopes]
-"@takodotid" = { token = "$GITHUB_TOKEN", url = "https://npm.pkg.github.com/" }
-```
+Circuit runs on [Bun](https://bun.sh) and ships as TypeScript source, on npm and GitHub Packages.
 
 ```bash
-bun add @takodotid/circuit
+bun add --exact @takodotid/circuit
 ```
 
 Add `"net": "circuit"` to the project's `scripts` to run it as `bun net`. Every release is on the [releases page](https://github.com/takodotid/circuit/releases); release candidates are tagged `-rc.N` and published under the `rc` dist-tag.
@@ -178,7 +176,7 @@ cd ../my-network && bun link @takodotid/circuit
 
 ## Documentation site
 
-`docs/` is the site at [circuit.os.tako.id](https://circuit.os.tako.id), built with VitePress: `bun run docs:dev` serves it locally. It is not part of the package.
+`docs/` is the site at [circuit.tako.id](https://circuit.tako.id), built with VitePress: `bun run docs:dev` serves it locally. It is not part of the package.
 
 ## Releases
 

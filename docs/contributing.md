@@ -41,6 +41,6 @@ bun run release rc               # 0.4.0-rc.0 to 0.4.0-rc.1
 bun run release stable           # 0.4.0-rc.1 to 0.4.0
 ```
 
-The script commits the version and pushes a tag. The tag publishes the package to GitHub Packages and a GitHub release with generated notes; a candidate is published under the `rc` dist-tag and marked as a prerelease.
+The script commits the version and pushes a tag. The tag publishes the package to npm and GitHub Packages, and a GitHub release with generated notes; a candidate is published under the `rc` dist-tag and marked as a prerelease.
 
 Commits follow Conventional Commits with a scope from `commitlint.config.js`.

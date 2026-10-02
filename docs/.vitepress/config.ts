@@ -8,7 +8,7 @@ export default defineConfig({
     lastUpdated: true,
 
     sitemap: {
-        hostname: "https://circuit.os.tako.id",
+        hostname: "https://circuit.tako.id",
     },
 
     head: [["meta", { name: "author", content: "Tako Network Engineering Team" }]],

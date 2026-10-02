@@ -23,3 +23,7 @@ features:
     - title: Guarded applies
       details: Each platform is applied the safest way it allows, with a rollback or a commit and a fresh login before anything is saved.
 ---
+
+::: warning Alpha
+Circuit runs a production network, but it is not yet stable: the schema, the CLI and the adapters can still change in breaking ways between releases. Pin an exact version and read the [release notes](https://github.com/takodotid/circuit/releases) before upgrading.
+:::

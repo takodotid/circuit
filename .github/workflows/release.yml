@@ -1,6 +1,6 @@
 name: release
 
-# A tag `vX.Y.Z` or `vX.Y.Z-rc.N`, pushed by `bun run release`, publishes the package to GitHub Packages and a GitHub release. A candidate is published under the `rc` dist-tag and marked as a prerelease.
+# A tag `vX.Y.Z` or `vX.Y.Z-rc.N`, pushed by `bun run release`, publishes the package to GitHub Packages, a GitHub release, then npm. A candidate is published under the `rc` dist-tag and marked as a prerelease. npm takes no token: the package trusts this workflow, npm Trusted Publishing.
 
 on:
     push:
@@ -9,6 +9,8 @@ on:
 permissions:
     contents: write
     packages: write
+    # npm Trusted Publishing proves the workflow's identity with an OIDC token.
+    id-token: write
 
 jobs:
     release:
@@ -45,3 +47,19 @@ jobs:
                       *-rc.*) gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --prerelease --latest=false ;;
                       *) gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --latest ;;
                   esac
+
+            # Set the repository variable NPM_TRUSTED_PUBLISHING to true once npm trusts this workflow; until then npm is published by hand.
+            - uses: actions/setup-node@v4
+              if: vars.NPM_TRUSTED_PUBLISHING == 'true'
+              with:
+                  node-version: 24
+                  registry-url: https://registry.npmjs.org
+
+            - name: publish to npm
+              if: vars.NPM_TRUSTED_PUBLISHING == 'true'
+              run: |
+                  case "$GITHUB_REF_NAME" in
+                      *-rc.*) dist_tag=rc ;;
+                      *) dist_tag=latest ;;
+                  esac
+                  npx -y npm@latest publish --access public --provenance --tag "$dist_tag"
