@@ -1,0 +1,14 @@
+# Secrets live in .env.local and nowhere else.
+.env
+.env.local
+.env.*.local
+*.key
+
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
