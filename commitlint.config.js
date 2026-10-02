@@ -9,13 +9,14 @@ export default {
             "always",
             [
                 "repo", // tooling and meta files
-                "docs", // README, AGENTS.md, TRAPS.md
+                "docs", // the documentation site, README, AGENTS.md, TRAPS.md
                 "schema", // src/schema, the neutral model
                 "core", // src/core, definition, validation, secrets, addresses
                 "adapters", // src/adapters, platforms and registries
                 "transport", // src/transport, sessions to devices
                 "cli", // src/cli
                 "examples", // examples and tests
+                "release", // version bumps
             ],
         ],
         "body-max-line-length": [0, "always"],
