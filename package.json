@@ -1,7 +1,35 @@
 {
     "name": "@takodotid/circuit",
     "version": "0.1.0",
-    "description": "Declarative, vendor-neutral network configuration: describe each device, and make the device match.",
+    "description": "Declarative, vendor-neutral network configuration: describe each device in TypeScript, and Circuit makes the device match. Built by Tako and run on its own network, AS219484.",
+    "keywords": [
+        "network",
+        "network-automation",
+        "infrastructure-as-code",
+        "declarative",
+        "netops",
+        "bgp",
+        "routeros",
+        "mikrotik",
+        "vrp",
+        "huawei",
+        "raisecom"
+    ],
+    "homepage": "https://circuit.tako.id",
+    "bugs": {
+        "url": "https://github.com/takodotid/circuit/issues",
+        "email": "dev@tako.id"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/takodotid/circuit.git"
+    },
+    "license": "BUSL-1.1",
+    "author": {
+        "name": "Tako",
+        "email": "dev@tako.id",
+        "url": "https://tako.id"
+    },
     "type": "module",
     "exports": {
         ".": "./src/index.ts"
@@ -10,14 +38,27 @@
         "circuit": "./src/cli/index.ts"
     },
     "files": [
-        "src"
+        "src",
+        "LICENSE",
+        "NOTICE",
+        "README.md"
     ],
+    "engines": {
+        "bun": ">=1.3.5"
+    },
+    "publishConfig": {
+        "registry": "https://npm.pkg.github.com"
+    },
     "scripts": {
         "typecheck": "bunx tsc --noEmit",
         "test": "bun test",
         "format": "bunx prettier --write .",
         "format:check": "bunx prettier --check .",
-        "prepare": "husky"
+        "docs:dev": "vitepress dev docs",
+        "docs:build": "vitepress build docs",
+        "docs:preview": "vitepress preview docs",
+        "release": "bun scripts/release.ts",
+        "prepare": "husky || true"
     },
     "dependencies": {
         "@types/ssh2": "^1.15.6",
@@ -29,7 +70,8 @@
         "@types/bun": "^1.4.2",
         "husky": "^9.1.6",
         "prettier": "^3.9.9",
-        "typescript": "^7.0.2"
+        "typescript": "^7.0.2",
+        "vitepress": "^1.6.4"
     },
     "packageManager": "bun@1.3.5"
 }
