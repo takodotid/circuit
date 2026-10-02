@@ -3,12 +3,13 @@
 // Configuration reads as blocks indented under their header, `#` between blocks, and `undo` to remove a line. Changes stage in a candidate and take effect only at `commit`, so a refused line leaves nothing applied: the candidate is cleared. `commit` does not write to flash; `save` does, and without it a reboot brings the old configuration back. There is no scheduler to restore from, so access is proved by a fresh login before saving.
 
 import type { Client, ClientChannel } from "ssh2";
-import { familyOf, host, netmask, network, split, wildcard } from "../../../core/addr";
+import { familyOf, host, netmask, split, wildcard } from "../../../core/addr";
 import { marker, resolve, substitute, valueOfReference } from "../../../core/secrets";
 import { offset } from "../../../core/time";
 import type { Device, Interface, Port, Vrrp } from "../../../schema";
 import { connect, readUntil, send, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
+import { ipv4Networks, lagIds } from "../derive";
 import { compare, type Dialect, scrub, steps } from "../lines";
 import type { DeviceAdapter, Plan } from "../types";
 
@@ -97,7 +98,7 @@ const OSPF_PROCESS = 1;
 const FIRST_COLLECTOR = 1;
 
 /** The SNMPv3 group every user joins, with read access to everything. */
-const SNMP_GROUP = "framework";
+const SNMP_GROUP = "circuit";
 
 const USER_LEVEL = { admin: 3, operator: 2, "read-only": 1 } as const;
 const SNMP_AUTH = { sha1: "sha", sha256: "sha2-256" } as const;
@@ -193,21 +194,6 @@ export function render(device: Device): string {
     ssh(config, device);
     userInterfaces(config, device);
     return config.text();
-}
-
-/** The number of each LAG: the one it states, or its position among the device's LAGs. */
-function lagIds(device: Device): Map<string, number> {
-    const numbers = new Map<string, number>();
-    let position = 0;
-
-    for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
-        if (iface.type !== "lag") continue;
-
-        position++;
-        numbers.set(name, iface.id ?? position);
-    }
-
-    return numbers;
 }
 
 function system(config: Config, device: Device): void {
@@ -446,13 +432,6 @@ function ospf(config: Config, device: Device, nameOf: (name: string) => string):
     }
 
     config.block(`ospf ${OSPF_PROCESS}${routerId ? ` router-id ${routerId}` : ""}`, [...lines, ...areaLines]);
-}
-
-/** The IPv4 networks an interface or port has addresses in. */
-function ipv4Networks(device: Device, iface: string): string[] {
-    const settings = device.interfaces?.[iface] ?? device.ports?.[iface as keyof typeof device.ports];
-    const addresses = (settings?.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
-    return addresses.filter((address) => familyOf(address) === "ipv4").map((address) => network(address));
 }
 
 function wantsBfd(device: Device): boolean {
