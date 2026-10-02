@@ -12,3 +12,7 @@ pnpm-lock.yaml
 Thumbs.db
 *.swp
 .idea/
+
+# The documentation site, built.
+docs/.vitepress/dist/
+docs/.vitepress/cache/
