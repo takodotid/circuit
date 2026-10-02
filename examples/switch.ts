@@ -60,5 +60,5 @@ export default defineDevice({
     },
 
     dhcp_relay: { guests: { interface: "guests", servers: ["198.51.100.66"] } },
-    flow_export: { protocol: "sflow", collectors: [{ address: "192.0.2.99" }], interfaces: ["10g-1"] },
+    flow_export: { protocol: "sflow", collectors: [{ address: "192.0.2.99" }], sampling: 4096, interfaces: ["10g-1"] },
 });

@@ -4,7 +4,7 @@
 
 import type { Client, ClientChannel } from "ssh2";
 import { familyOf, host, netmask, network, split, wildcard } from "../../../core/addr";
-import { marker, resolve, substitute } from "../../../core/secrets";
+import { marker, resolve, substitute, valueOfReference } from "../../../core/secrets";
 import { offset } from "../../../core/time";
 import type { Device, Interface, Port, Vrrp } from "../../../schema";
 import { connect, readUntil, send, shell } from "../../../transport/ssh";
@@ -402,6 +402,7 @@ function physicalPort(
     const observed = flow?.protocol === "sflow" && (!flow.interfaces || flow.interfaces.includes(port));
     if (observed) {
         for (let index = 0; index < flow!.collectors.length; index++) lines.push(`sflow sampling collector ${FIRST_COLLECTOR + index}`);
+        lines.push(`sflow sampling rate ${flow!.sampling}`);
         lines.push("sflow sampling inbound");
     }
 
@@ -646,7 +647,12 @@ export function unsupported(device: Device): string[] {
 
     const flow = device.flow_export;
     if (flow && flow.protocol !== "sflow") found.push(`flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
-    if (flow?.sampling !== undefined) found.push("flow_export.sampling, not verified on the platform yet");
+    const sampling = flow?.protocol === "sflow" ? flow.sampling : undefined;
+    const samplingInRange = sampling !== undefined && Number.isInteger(sampling) && sampling >= 4096 && sampling <= 4_294_967_295;
+
+    if (flow?.protocol === "sflow" && !samplingInRange) {
+        found.push("flow_export.sampling, required and between 4096 and 4294967295: the platform samples, one packet in 4096 at most");
+    }
 
     return found;
 }
@@ -655,14 +661,14 @@ export function unsupported(device: Device): string[] {
 const REFUSED = /^\s*Error|Unrecognized command|Incomplete command|Wrong parameter|Too many parameters/m;
 
 /** A setting whose password the platform asks for interactively: the command, then the password, then the password again. */
-const INTERACTIVE = /^(snmp-agent usm-user v3 \S+ (?:authentication|privacy)-mode \S+) cipher <secret:(\w+)>$/;
+const INTERACTIVE = /^(snmp-agent usm-user v3 \S+ (?:authentication|privacy)-mode \S+) cipher <secret:([A-Za-z0-9_./:-]+)>$/;
 
 /** Send one line, answering a confirmation, and return what the device said. */
 async function sendLine(channel: ClientChannel, line: string): Promise<string> {
     const interactive = INTERACTIVE.exec(line.trim());
     if (interactive) {
-        const [, command, secretName] = interactive;
-        const password = resolve(secretName!);
+        const [, command, reference] = interactive;
+        const password = valueOfReference(reference!);
         let answer = await send(channel, command!, 15_000, 900);
         answer += await send(channel, password, 15_000, 900);
         answer += await send(channel, password, 15_000, 900);

@@ -18,3 +18,4 @@ Behaviour that looks like something else. Each one has been hit on a CE6855 runn
 - An empty block such as `bfd` enters its view; the next line sent goes into it unless the view is left.
 - SNMPv3 passwords are asked for interactively, twice. `authentication-mode` must come before `privacy-mode`.
 - `abort` is not a command here. `clear configuration candidate` discards uncommitted changes.
+- sFlow samples per port, `sflow sampling rate N`, N from 4096; the default is 8192 and an explicit 8192 is kept as written. A port names a collector only once the collector exists globally; until then it is refused with "collector does not exist".
