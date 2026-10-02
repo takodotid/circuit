@@ -10,7 +10,7 @@ import type { Device, Interface, Port, Vrrp } from "../../../schema";
 import { connect, readUntil, send, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import { ipv4Networks, lagIds } from "../derive";
-import { compare, type Dialect, scrub, steps } from "../lines";
+import { compare, type Dialect, scrub, steps, vlanListChange } from "../lines";
 import type { DeviceAdapter, Plan } from "../types";
 
 /** Lines the device prints whatever is configured, or that describe the hardware rather than its configuration. */
@@ -109,6 +109,26 @@ type AnyInterface = Interface<string, string>;
 type LagInterface = Extract<AnyInterface, { type: "lag" }>;
 
 /** `99 999 to 1000 2000`, the platform's compression of a VLAN list. */
+/** The VLAN IDs of a `vlan batch` line: `vlan batch 10 20 to 30`. */
+export function batchIds(line: string): number[] {
+    const words = line.replace(/^vlan batch /, "").split(" ");
+    const ids: number[] = [];
+
+    for (let index = 0; index < words.length; index++) {
+        const first = Number(words[index]);
+
+        if (words[index + 1] === "to") {
+            const last = Number(words[index + 2]);
+            for (let id = first; id <= last; id++) ids.push(id);
+            index += 2;
+        } else {
+            ids.push(first);
+        }
+    }
+
+    return ids;
+}
+
 export function vlanBatch(ids: number[]): string {
     const sorted = [...new Set(ids)].sort((a, b) => a - b);
     const ranges: string[] = [];
@@ -707,6 +727,16 @@ export const vrp: DeviceAdapter = {
     unsupported,
     render,
     read,
-    plan: (desired, current) => ({ steps: steps(compare(desired, current, dialect), dialect), problems: [] }),
+    plan: (desired, current) => {
+        const groups = compare(desired, current, dialect);
+        vlanListChange(
+            groups,
+            "vlan batch ",
+            batchIds,
+            (ids) => [`vlan batch ${vlanBatch(ids)}`],
+            (ids) => [`vlan batch ${vlanBatch(ids)}`]
+        );
+        return { steps: steps(groups, dialect), problems: [] };
+    },
     apply,
 };

@@ -47,3 +47,14 @@ test("example-core-switch plans nothing against how the device prints it", () =>
     const plan = adapter.plan(rendered, printed, { secrets: false, rollback: 10 });
     expect(plan.steps.flatMap((step) => step.show)).toEqual([]);
 });
+
+// Undoing a whole VLAN list line deletes VLANs still in use, which a switch refuses; only the change is sent.
+test("a VLAN list change sends only the VLANs added and removed", () => {
+    const options = { secrets: false, rollback: 10 };
+
+    const vrp = adapters["vrp"]!.plan("vlan batch 10 20 to 21 127\n", "vlan batch 10 20 to 22 99\n", options);
+    expect(vrp.steps.flatMap((step) => step.send)).toEqual(["undo vlan batch 22 99", "vlan batch 127"]);
+
+    const raisecom = adapters["raisecom-ros"]!.plan("create vlan 10,20-21,127 active\n", "create vlan 10,20-22,99 active\n", options);
+    expect(raisecom.steps.flatMap((step) => step.send)).toEqual(["no vlan 22", "no vlan 99", "create vlan 127 active"]);
+});

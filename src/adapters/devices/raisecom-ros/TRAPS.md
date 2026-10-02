@@ -18,3 +18,5 @@ Behaviour that looks like something else. Each one has been hit on a RAX721 runn
 - An SNMPv3 user prints as localized keys, `authkey sha <hex> privkey  aes128 <hex>`, which authenticate as well as the passphrase. The read redacts them. An access group prints a `notify internet` it was not given. A user's group is removed with `no snmp-server group user <user> usm`.
 - A VRRP group is enabled once it has an address and preempts unless `no vrrp N preempt`. `no vrrp N ip <address>` removes the whole group.
 - OSPF settings for an interface sit on the interface, `ip ospf cost`, `ip ospf network ptp`, `ip ospf passive-interface enable`; passive is undone with `... disable`, not `no`.
+- `create vlan <list> active` holds every VLAN on one line. A change creates only the new VLANs and removes each gone one with `no vlan <id>`.
+- An access-list rule is not replaced by one with the same number: the device answers `Set unsuccessfully.` and keeps the old rule. The old one is removed first. `no rule N` answers slowly, after a second or more.

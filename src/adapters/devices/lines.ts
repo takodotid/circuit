@@ -143,6 +143,39 @@ export function compare(desired: string, current: string, dialect: Dialect): Gro
     return [...groups.values()].filter((group) => group.add.length || group.remove.length);
 }
 
+/**
+ * Replace a changed VLAN list line with only what changed.
+ *
+ * A platform keeps its VLANs as one line, such as `vlan batch 10 20 to 30`. Undoing the old line would delete VLANs still in use, so the plan adds the new IDs and removes the gone ones instead.
+ */
+export function vlanListChange(
+    groups: Group[],
+    prefix: string,
+    parse: (line: string) => number[],
+    format: (ids: number[]) => string[],
+    removal: (ids: number[]) => string[]
+): void {
+    const top = groups.find((group) => group.path.length === 0);
+    if (!top) return;
+
+    const old = top.remove.find((line) => line.startsWith(prefix));
+    const fresh = top.add.find((line) => line.startsWith(prefix));
+    if (!old && !fresh) return;
+
+    const before = old ? parse(old) : [];
+    const after = fresh ? parse(fresh) : [];
+
+    top.remove = top.remove.filter((line) => line !== old);
+    top.add = top.add.filter((line) => line !== fresh);
+
+    const added = after.filter((id) => !before.includes(id));
+    const removed = before.filter((id) => !after.includes(id));
+
+    // New VLANs exist before anything uses them; gone ones go after.
+    if (added.length) top.add.unshift(...format(added));
+    if (removed.length) top.remove.push(...removal(removed));
+}
+
 /** Commands a platform needs around one group, such as releasing a binding before a change and restoring it after. */
 export type Around = (group: Group) => { before: string[]; after: string[] };
 

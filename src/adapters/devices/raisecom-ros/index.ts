@@ -10,7 +10,7 @@ import type { Device, Port, SnmpUser, Switched, Vrrp } from "../../../schema";
 import { connect, readUntil, send, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import { ipv4Networks, lagIds } from "../derive";
-import { compare, type Dialect, type Group, scrub, steps } from "../lines";
+import { compare, type Dialect, entries, type Group, scrub, steps, vlanListChange } from "../lines";
 import type { DeviceAdapter, Plan, Step } from "../types";
 
 /** Lines the device prints whatever is configured, or that are part of moving around the CLI. */
@@ -460,7 +460,7 @@ export function unsupported(device: Device): string[] {
 }
 
 /** What the device prints when it refuses a line. */
-const REFUSED = /^(%|Error|Incomplete|Unrecognized)|can not|cannot |is in use|Wrong parameter|invalid/im;
+const REFUSED = /^(%|Error|Incomplete|Unrecognized)|can not|cannot |is in use|Wrong parameter|invalid|unsuccessful/im;
 
 /** Lines that ask for `y` and do nothing without it. */
 const CONFIRM = /^(portswitch|switchport trunk allowed vlan|switchport mode)/;
@@ -478,7 +478,7 @@ export async function apply(device: Device, _network: readonly Device[], plan: P
 
         for (const step of plan.steps) {
             for (const line of step.send) {
-                let answer = await send(channel, substitute(line), 20_000, 1000);
+                let answer = await send(channel, substitute(line), 20_000, 2000);
                 if (/[[(]y\/n[\])]|input 'y'/i.test(answer) || CONFIRM.test(line)) answer += await send(channel, "y", 10_000, 1000);
                 if (REFUSED.test(answer)) throw new Error(`${step.title}: ${line}\n    device said: ${answer.trim().slice(0, 300)}`);
 
@@ -513,8 +513,48 @@ export async function apply(device: Device, _network: readonly Device[], plan: P
 const holders = (config: string) =>
     [...config.matchAll(new RegExp(`^([a-z0-9-]+) access-list ${MANAGEMENT_ACL}$`, "gm"))].map((match) => match[1]!);
 
+/** The VLAN IDs of a `create vlan 10,20-30 active` line. */
+export function createdIds(line: string): number[] {
+    const list = line.replace(/^create vlan /, "").replace(/ active$/, "");
+    const ids: number[] = [];
+
+    for (const part of list.split(",")) {
+        const [first, last] = part.split("-").map(Number);
+        for (let id = first!; id <= (last ?? first!); id++) ids.push(id);
+    }
+
+    return ids;
+}
+
 function plan(desired: string, current: string): ReturnType<DeviceAdapter["plan"]> {
     const groups = compare(desired, current, dialect);
+
+    // An access-list rule is not overwritten by one with the same number; the old one is removed first.
+    const existing = entries(current, dialect);
+
+    for (const group of groups) {
+        if (!group.path[0]?.startsWith("access-list ")) continue;
+
+        for (const line of group.add) {
+            const number = /^rule (\d+) /.exec(line)?.[1];
+            if (!number) continue;
+
+            const old = existing.find(
+                (entry) =>
+                    entry.path.join("\n") === group.path.join("\n") && entry.line.startsWith(`rule ${number} `) && entry.line !== line
+            );
+            if (old && !group.remove.includes(old.line)) group.remove.push(old.line);
+        }
+    }
+
+    // A VLAN is created in a list and removed one at a time, with `no vlan <id>`.
+    vlanListChange(
+        groups,
+        "create vlan ",
+        createdIds,
+        (ids) => [`create vlan ${vlanList(ids)} active`],
+        (ids) => ids.map((id) => `vlan ${id}`)
+    );
 
     // A port takes layer 2 settings only once it is switched.
     for (const group of groups) {
