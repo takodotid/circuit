@@ -1,6 +1,6 @@
 name: pages
 
-# Builds the documentation site in docs/ and publishes it to GitHub Pages, served at circuit.tako.id.
+# Builds the documentation site in docs/ and publishes it to GitHub Pages, served at circuit.os.tako.id.
 
 on:
     push:

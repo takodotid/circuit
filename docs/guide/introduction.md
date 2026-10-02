@@ -12,6 +12,4 @@ Network gear has no Terraform provider worth the name for most platforms, and ha
 4. **Names are checked.** A device declares its VLANs, interfaces, policies and the rest; every reference to one is type-checked, so a typo does not compile and the editor suggests the names that exist. Port names come from the hardware model.
 5. **Secrets are references.** A password or key is resolved from the environment, `.env.local` or a file only when a command is sent. Rendered config, plans and snapshots never hold a secret.
 
-## Who builds it
-
-Circuit is built by [Tako](https://tako.id) and runs Tako's own production network, AS219484. Every adapter was proved on that network's devices before it was released.
+Every adapter was proved on production devices before it was released.

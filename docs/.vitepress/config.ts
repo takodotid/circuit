@@ -2,16 +2,16 @@ import { defineConfig } from "vitepress";
 
 export default defineConfig({
     title: "Circuit",
-    description: "Declarative, vendor-neutral network configuration. Built by Tako and run on its own network, AS219484.",
+    description: "Declarative, vendor-neutral network configuration.",
     lang: "en",
     cleanUrls: true,
     lastUpdated: true,
 
     sitemap: {
-        hostname: "https://circuit.tako.id",
+        hostname: "https://circuit.os.tako.id",
     },
 
-    head: [["meta", { name: "author", content: "Tako, dev@tako.id" }]],
+    head: [["meta", { name: "author", content: "Tako Network Engineering Team" }]],
 
     themeConfig: {
         nav: [
@@ -52,6 +52,7 @@ export default defineConfig({
                 text: "Project",
                 items: [
                     { text: "Contributing", link: "/contributing" },
+                    { text: "Credits", link: "/credits" },
                     { text: "License", link: "/license" },
                 ],
             },
@@ -69,7 +70,7 @@ export default defineConfig({
 
         footer: {
             message: "Released under the Business Source License 1.1.",
-            copyright: 'Copyright 2026 <a href="https://tako.id">Tako</a>. Built and run in production on AS219484.',
+            copyright: "Copyright 2026 PT Hobimu Jadi Cuan.",
         },
     },
 });

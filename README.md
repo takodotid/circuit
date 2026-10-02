@@ -2,9 +2,7 @@
 
 Declarative, vendor-neutral network configuration. Describe each device in TypeScript, and Circuit renders it for the platform, compares it with what the device runs, and makes the device match.
 
-Built by [Tako](https://tako.id) and run in production on Tako's own network, [AS219484](https://bgp.tools/as/219484): border router, core and top-of-rack switches, BGP with transits and internet exchanges.
-
-Documentation: [circuit.tako.id](https://circuit.tako.id)
+Documentation: [circuit.os.tako.id](https://circuit.os.tako.id)
 
 ## Principles
 
@@ -180,7 +178,7 @@ cd ../my-network && bun link @takodotid/circuit
 
 ## Documentation site
 
-`docs/` is the site at [circuit.tako.id](https://circuit.tako.id), built with VitePress: `bun run docs:dev` serves it locally. It is not part of the package.
+`docs/` is the site at [circuit.os.tako.id](https://circuit.os.tako.id), built with VitePress: `bun run docs:dev` serves it locally. It is not part of the package.
 
 ## Releases
 
@@ -194,6 +192,6 @@ The script commits the version and pushes a tag; the tag publishes the package a
 
 ## License
 
-[Business Source License 1.1](LICENSE). Free in production for an organization whose yearly revenue and funding, with its affiliates, are each under US$1,000,000; above that, production use needs a commercial license from Tako, [dev@tako.id](mailto:dev@tako.id). Each version becomes Apache License 2.0 four years after it is published. Every copy and derivative work keeps [LICENSE](LICENSE) and [NOTICE](NOTICE), which name Tako as the author.
+[Business Source License 1.1](LICENSE). Free in production for an organization whose yearly revenue and funding, with its affiliates, are each under US$100,000; above that, production use needs a commercial license: [legal@tako.id](mailto:legal@tako.id). Each version becomes Apache License 2.0 four years after it is published.
 
-Copyright 2026 [Tako](https://tako.id).
+Maintained by the Tako Network Engineering Team. Copyright 2026 PT Hobimu Jadi Cuan.

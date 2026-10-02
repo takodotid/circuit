@@ -1,7 +1,7 @@
 {
     "name": "@takodotid/circuit",
     "version": "0.4.0",
-    "description": "Declarative, vendor-neutral network configuration: describe each device in TypeScript, and Circuit makes the device match. Built by Tako and run on its own network, AS219484.",
+    "description": "Declarative, vendor-neutral network configuration: describe each device in TypeScript, and Circuit makes the device match.",
     "keywords": [
         "network",
         "network-automation",
@@ -15,10 +15,10 @@
         "huawei",
         "raisecom"
     ],
-    "homepage": "https://circuit.tako.id",
+    "homepage": "https://circuit.os.tako.id",
     "bugs": {
         "url": "https://github.com/takodotid/circuit/issues",
-        "email": "dev@tako.id"
+        "email": "noc@tako.id"
     },
     "repository": {
         "type": "git",
@@ -26,10 +26,17 @@
     },
     "license": "BUSL-1.1",
     "author": {
-        "name": "Tako",
-        "email": "dev@tako.id",
+        "name": "Tako Network Engineering Team",
+        "email": "noc@tako.id",
         "url": "https://tako.id"
     },
+    "contributors": [
+        {
+            "name": "Rafly Maulana",
+            "email": "rafly@tako.id",
+            "url": "https://raflymaulana.com"
+        }
+    ],
     "type": "module",
     "exports": {
         ".": "./src/index.ts"
@@ -40,7 +47,6 @@
     "files": [
         "src",
         "LICENSE",
-        "NOTICE",
         "README.md"
     ],
     "engines": {

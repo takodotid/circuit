@@ -23,7 +23,3 @@ features:
     - title: Guarded applies
       details: Each platform is applied the safest way it allows, with a rollback or a commit and a fresh login before anything is saved.
 ---
-
-## Run in production
-
-Circuit is built by [Tako](https://tako.id), which runs its own network, AS219484, on it: border router, core switch and top-of-rack switches, BGP with transits and internet exchanges, firewall and tenant networks.
