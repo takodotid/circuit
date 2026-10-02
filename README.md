@@ -140,15 +140,15 @@ Not every platform can express every field. What one cannot is reported by `vali
 | ----------------------------------------- | --------------------- | --------------------- | ----------------------- |
 | VLANs, access and trunk ports, links      | yes                   | yes                   | yes                     |
 | Per-port STP, storm control, LLDP         | yes, storm in percent | yes, storm in percent | off only, broadcast pps |
-| LAGs                                      | yes                   | yes                   | no                      |
+| LAGs                                      | yes                   | yes                   | yes                     |
 | Routed ports, loopbacks, tunnels          | yes                   | VLAN interfaces only  | VLAN interfaces only    |
-| VRRP, VRFs, DHCP relay                    | yes                   | IPv4                  | no                      |
+| VRRP, VRFs, DHCP relay                    | yes                   | IPv4                  | VRRP, IPv4              |
 | Static routes                             | yes                   | yes                   | IPv4 next hop           |
-| OSPF and BFD                              | yes                   | IPv4                  | no                      |
+| OSPF and BFD                              | yes                   | IPv4                  | OSPF, IPv4              |
 | BGP, policies, prefix sets, RPKI          | yes                   | no                    | no                      |
 | Firewall, NAT, hardware ACLs, DHCP server | yes                   | no                    | no                      |
 | Flow export                               | NetFlow 9, IPFIX      | sFlow                 | no                      |
-| SNMP                                      | v2c, v3 with SHA1     | v2c, v3               | v2c                     |
+| SNMP                                      | v2c, v3 with SHA1     | v2c, v3               | v2c, v3 with SHA1       |
 | Certificates, web and API                 | yes                   | no                    | no                      |
 
 `examples/` holds a device per platform using every field its adapter supports. `bun run test` validates them and checks each plans nothing against its own render. Their commands were compiled on real devices without being run.
