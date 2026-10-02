@@ -123,7 +123,7 @@ export const DEFAULTS: Record<string, Record<string, string>> = {
     "/interface bridge": { "protocol-mode": "rstp", priority: "0x8000", "vlan-filtering": "no", pvid: "1" },
     "/interface bridge port": { pvid: "1", "frame-types": "admit-all", edge: "auto", "path-cost": "10", priority: "0x80" },
     "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
-    "/interface ethernet": { mtu: "1500" },
+    "/interface ethernet": { mtu: "1500", "auto-negotiation": "yes" },
     "/interface ethernet switch port": {
         "storm-rate": "100",
         "limit-broadcasts": "yes",
@@ -196,6 +196,11 @@ export function defaultOf(command: Command, property: string): string | undefine
 
     return DEFAULTS[command.menu]?.[property] ?? DEFAULTS["*"]![property];
 }
+
+/** A property the device stops printing once another returns to its default. Resetting that other one clears it, so it is never reset on its own. */
+export const CLEARED_WITH: Record<string, Record<string, string>> = {
+    "/interface ethernet": { speed: "auto-negotiation" },
+};
 
 /** Properties whose value cannot be read back from the device. They are compared only by the presence of what holds them. */
 export const SECRET_KEYS = new Set(["private-key", "password", "tcp-md5-key", "authentication-password", "encryption-password"]);

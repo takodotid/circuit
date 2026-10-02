@@ -3,7 +3,7 @@
 // Two phases. Additions and changes go first, in dependency order, so nothing ever points at something that does not exist yet. Removals go last, in reverse order, so nothing is removed while something still uses it.
 
 import type { ApplyOptions, Plan, Step } from "../types";
-import { canonical, type Command, defaultOf, identity, isSecretMarker, normal, ORDERED, parse, SECRET_KEYS } from "./export";
+import { canonical, CLEARED_WITH, type Command, defaultOf, identity, isSecretMarker, normal, ORDERED, parse, SECRET_KEYS } from "./export";
 
 /** A plan line the apply handles itself: upload a certificate and its key, and import them. */
 export const INSTALL_CERTIFICATE = "#install-certificate ";
@@ -139,6 +139,9 @@ function changes(
 
     for (const property of Object.keys(have)) {
         if (property in want) continue;
+
+        const clearedWith = CLEARED_WITH[wanted.menu]?.[property];
+        if (clearedWith && !(clearedWith in want)) continue;
 
         const fallback = defaultOf(wanted, property);
         if (fallback === undefined) {

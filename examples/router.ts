@@ -77,6 +77,7 @@ export default defineDevice({
             storm_control: { broadcast: { percent: 5 }, multicast: { percent: 5 } },
         },
         "25g-4": { description: "Lab switch that must not join our spanning tree", access_vlan: "guests", stp: false },
+        "25g-5": { description: "A 10G optic in a 25G cage", speed: "10g", access_vlan: "guests" },
         "1g-1": { description: "Out-of-band", addresses: ["198.51.100.2/30"] },
     },
 

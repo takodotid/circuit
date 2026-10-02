@@ -240,6 +240,30 @@ function bridge(out: Output, ctx: Context): void {
     }
 }
 
+type Speed = NonNullable<AnyPort["speed"]>;
+
+/** The platform names a fixed speed by its medium: an optic in a cage, or copper. */
+const MEDIUM: Record<"optical" | "copper", Partial<Record<Speed, string>>> = {
+    optical: {
+        "1g": "1G-baseX",
+        "10g": "10G-baseSR-LR",
+        "25g": "25G-baseSR-LR",
+        "40g": "40G-baseSR4-LR4",
+        "50g": "50G-baseSR2-LR2",
+        "100g": "100G-baseSR4-LR4",
+    },
+    copper: {
+        "100m": "100M-baseT-full",
+        "1g": "1G-baseT-full",
+    },
+};
+
+/** The platform's name for a fixed speed on a port, or undefined when it has none. */
+export function mediumOf(platformPortName: string, speed: Speed): string | undefined {
+    const medium = platformPortName.startsWith("ether") ? "copper" : "optical";
+    return MEDIUM[medium][speed];
+}
+
 /** Every port of the model is stated. One the config does not declare is disabled. */
 function ethernet(out: Output, ctx: Context): void {
     const { device } = ctx;
@@ -252,7 +276,17 @@ function ethernet(out: Output, ctx: Context): void {
             continue;
         }
 
-        out.add("/interface ethernet", command(selector, { comment: settings.description, mtu: settings.mtu }));
+        const fixedSpeed = settings.speed && mediumOf(spell(device.platform, device.model, port), settings.speed);
+
+        out.add(
+            "/interface ethernet",
+            command(selector, {
+                "auto-negotiation": fixedSpeed ? "no" : undefined,
+                comment: settings.description,
+                mtu: settings.mtu,
+                speed: fixedSpeed,
+            })
+        );
     }
 }
 

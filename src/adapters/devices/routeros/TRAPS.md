@@ -29,3 +29,4 @@ Behaviour that looks like something else. Each one has been hit on a real device
 - In a quoted string `$` starts a variable. The adapter escapes it.
 - A script sent over SSH exec runs as one line; a multi-line script fails with `expected closing brace`.
 - `:find` on an array returns a number or `nil`. Globals persist between exec commands of one login.
+- A fixed port speed is named by medium, `speed=10G-baseSR-LR` for an optic or `speed=1G-baseT-full` for copper, and only holds with `auto-negotiation=no`. With auto-negotiation back on, the export no longer prints the speed, so the plan resets only auto-negotiation. `speed=""` is refused as ambiguous and `unset speed` does not exist.
