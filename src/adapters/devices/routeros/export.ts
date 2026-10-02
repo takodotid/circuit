@@ -222,7 +222,8 @@ function normalValue(command: Command, property: string, value: string): string 
     if (property === "tagged" || property === "untagged" || property === "slaves") return value.split(",").sort().join(",");
 
     const onInterface = property === "address" && (command.menu === "/ip address" || command.menu === "/ipv6 address");
-    const isAddress = /(^|-)address$/.test(property);
+    // An IP address property, which a MAC address is not.
+    const isAddress = /(^|-)address$/.test(property) && !property.endsWith("mac-address");
     // On an interface, a bare address is shorthand for /32 on IPv4 and /64 on IPv6.
     if (onInterface && !value.includes("/")) return `${value}/${value.includes(":") ? 64 : 32}`;
     // Elsewhere a host is printed bare on IPv4 and with /128 on IPv6.
