@@ -14,3 +14,7 @@ Behaviour that looks like something else. Each one has been hit on a RAX721 runn
 - Several commands are not the usual spelling: `terminal page-break disable`, `telnet-server disable`, `ip rarp server disable`.
 - An access-list description takes one word. A space is refused with `Error input`.
 - The out-of-band port `fastethernet 1/0/1` cannot be shut down and is not in the catalog.
+- A LAG is `interface port-channel N`. LACP is its default and prints nothing; a static LAG prints `mode manual`. The LAG takes layer 2 settings only after `portswitch`, and a port joins with `portswitch` then `port-channel N`.
+- An SNMPv3 user prints as localized keys, `authkey sha <hex> privkey  aes128 <hex>`, which authenticate as well as the passphrase. The read redacts them. An access group prints a `notify internet` it was not given. A user's group is removed with `no snmp-server group user <user> usm`.
+- A VRRP group is enabled once it has an address and preempts unless `no vrrp N preempt`. `no vrrp N ip <address>` removes the whole group.
+- OSPF settings for an interface sit on the interface, `ip ospf cost`, `ip ospf network ptp`, `ip ospf passive-interface enable`; passive is undone with `... disable`, not `no`.

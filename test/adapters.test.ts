@@ -4,10 +4,11 @@ import { describe, expect, test } from "bun:test";
 import { adapters } from "../src/adapters/devices";
 import { defineNetwork } from "../src/core/define";
 import { validate } from "../src/core/validate";
+import coreSwitch from "../examples/core-switch";
 import router from "../examples/router";
 import switchDevice from "../examples/switch";
 
-const examples = [router, switchDevice];
+const examples = [router, switchDevice, coreSwitch];
 
 describe("examples", () => {
     test("validate", () => {
@@ -24,4 +25,25 @@ describe("examples", () => {
             expect(plan.steps.flatMap((step) => step.show)).toEqual([]);
         });
     }
+});
+
+// The forms a Raisecom switch prints, seen on a RAX721: an access group with its notify view, an SNMPv3 user as localized keys, and `portswitch` on a switched LAG.
+test("example-core-switch plans nothing against how the device prints it", () => {
+    const adapter = adapters["raisecom-ros"]!;
+    const rendered = adapter.render(coreSwitch);
+    const printed = rendered
+        .replace(
+            /^snmp-server access (\S+) read internet usm authpriv$/m,
+            "snmp-server access $1 read internet notify internet usm authpriv"
+        )
+        .replace(
+            /^snmp-server user (\S+) authentication sha \S+ privacy aes128 \S+$/m,
+            "snmp-server user $1 authkey sha <redacted> privkey  aes128 <redacted>"
+        )
+        .replace(/^interface port-channel (\d+)$/m, "interface port-channel $1\nportswitch");
+
+    expect(printed).not.toEqual(rendered);
+
+    const plan = adapter.plan(rendered, printed, { secrets: false, rollback: 10 });
+    expect(plan.steps.flatMap((step) => step.show)).toEqual([]);
 });

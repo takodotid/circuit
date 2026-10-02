@@ -1,16 +1,17 @@
 // Raisecom ROS, as on the RAX700 series.
 //
-// An interface or access-list opens a block, `!` closes it, and `no` removes a line. Commands apply as they arrive and persist only on `write`. There is no rollback, so management is proved reachable in a fresh session before anything is written: a reboot then restores what was there before.
+// An interface, an access-list or an OSPF process opens a block, `!` closes it, and `no` removes a line. Commands apply as they arrive and persist only on `write`. There is no rollback, so management is proved reachable in a fresh session before anything is written: a reboot then restores what was there before.
 
 import type { ClientChannel } from "ssh2";
-import { familyOf, host, netmask, split } from "../../../core/addr";
+import { familyOf, host, netmask, split, wildcard } from "../../../core/addr";
 import { marker, resolve, substitute } from "../../../core/secrets";
 import { offset } from "../../../core/time";
-import type { Device, Port } from "../../../schema";
+import type { Device, Port, SnmpUser, Switched, Vrrp } from "../../../schema";
 import { connect, readUntil, send, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
+import { ipv4Networks, lagIds } from "../derive";
 import { compare, type Dialect, type Group, scrub, steps } from "../lines";
-import type { DeviceAdapter, Plan } from "../types";
+import type { DeviceAdapter, Plan, Step } from "../types";
 
 /** Lines the device prints whatever is configured, or that are part of moving around the CLI. */
 const DEVICE_FACTS = [
@@ -30,6 +31,8 @@ const DEVICE_FACTS = [
 
 /** Lines whose opposite is not `no` and the line. */
 const OPPOSITES: [RegExp, string][] = [
+    [/^mode manual$/, "mode lacp"],
+    [/^ip ospf passive-interface enable$/, "ip ospf passive-interface disable"],
     [/^lldp disable$/, "lldp enable"],
     [/^spanning-tree disable$/, "spanning-tree enable"],
     [/^switchport mode trunk$/, "switchport mode access"],
@@ -39,11 +42,28 @@ const OPPOSITES: [RegExp, string][] = [
 
 /** Lines whose removal takes only their keyword, not their value. */
 const UNDO_BY_KEYWORD =
-    /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control mode|ip address)\b/;
+    /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control mode|ip address|port-channel|ip ospf cost|ip ospf network)\b/;
 
 function undo(line: string): string {
     for (const [pattern, opposite] of OPPOSITES) if (pattern.test(line)) return opposite;
     if (/^rule \d+/.test(line)) return `no ${line.split(" ").slice(0, 2).join(" ")}`;
+
+    // A VRRP group goes with its address; its other settings return to their defaults by keyword. Preemption is on unless turned off.
+    const vrrp = /^(no )?vrrp (\d+) (ip \S+|priority|timers advertise-interval|preempt)/.exec(line);
+    if (vrrp) return vrrp[1] ? `vrrp ${vrrp[2]} preempt` : `no vrrp ${vrrp[2]} ${vrrp[3]}`;
+
+    const ospfProcess = /^router ospf (\d+)/.exec(line);
+    if (ospfProcess) return `no router ospf ${ospfProcess[1]}`;
+
+    // An SNMPv3 user, its group and its access are each removed by their name alone.
+    const snmpUser = /^snmp-server user (\S+)/.exec(line);
+    if (snmpUser) return `no snmp-server user ${snmpUser[1]}`;
+
+    const snmpGroup = /^snmp-server group \S+ user (\S+) usm$/.exec(line);
+    if (snmpGroup) return `no snmp-server group user ${snmpGroup[1]} usm`;
+
+    const snmpAccess = /^snmp-server access (\S+) .* usm (\S+)$/.exec(line);
+    if (snmpAccess) return `no snmp-server access ${snmpAccess[1]} usm ${snmpAccess[2]}`;
 
     const keyword = UNDO_BY_KEYWORD.exec(line);
     if (keyword) return `no ${keyword[1]}`;
@@ -52,7 +72,7 @@ function undo(line: string): string {
 }
 
 export const dialect: Dialect = {
-    block: /^(interface |access-list )/,
+    block: /^(interface |access-list |router ospf )/,
     indented: false,
     terminator: "!",
     ignore: (line) => line.startsWith("!") || DEVICE_FACTS.some((fact) => line.startsWith(fact)),
@@ -60,8 +80,33 @@ export const dialect: Dialect = {
     leave: "exit",
     // A password prints as a cipher and renders as a marker; both are a secret.
     canon: (line) =>
-        line.replace(/password (cipher )?(\S+)/, "password <secret>").replace(/community <secret:\w+>/, "community <redacted>"),
+        line
+            .replace(/password (cipher )?(\S+)/, "password <secret>")
+            .replace(/community <secret:\w+>/, "community <redacted>")
+            // An SNMPv3 user prints its localized keys and renders its passphrases; both are secrets.
+            .replace(
+                /^snmp-server user (\S+) (?:authentication|authkey) (\S+) \S+ (?:privacy|privkey)\s+(\S+) \S+$/,
+                "snmp-server user $1 $2 $3 <secret>"
+            )
+            // An access group prints a notify view the render leaves to its default.
+            .replace(/^(snmp-server access \S+ read \S+) notify internet (usm \S+)$/, "$1 $2"),
+    // A LAG exists before a port joins it, and an OSPF process comes after the interfaces it names.
+    order: (path) => {
+        const header = path[0] ?? "";
+        if (header.startsWith("interface port-channel")) return 1;
+        if (header.startsWith("interface ")) return 2;
+        if (header.startsWith("router ospf")) return 3;
+        return 0;
+    },
 };
+
+/** The OSPF process number. */
+const OSPF_PROCESS = 1;
+
+/** The SNMPv3 access group every user belongs to, read-only on the whole tree. */
+const SNMP_GROUP = "circuit";
+
+const SNMP_AUTH: Partial<Record<SnmpUser["auth"], string>> = { sha1: "sha" };
 
 /** The access-list that guards every management service. */
 export const MANAGEMENT_ACL = 1000;
@@ -93,6 +138,17 @@ export function render(device: Device): string {
     const ids = Object.values(vlans).map((vlan) => vlan.id);
     if (ids.length) lines.push(`create vlan ${vlanList(ids)} active`, "!");
 
+    const lagNumbers = lagIds(device);
+
+    for (const [name, lag] of Object.entries(device.interfaces ?? {})) {
+        if (lag.type !== "lag") continue;
+
+        lines.push(`interface port-channel ${lagNumbers.get(name)}`);
+        if (lag.description) lines.push(`description ${lag.description}`);
+        if (lag.mode === "static") lines.push("mode manual");
+        lines.push(...switching(lag, vlanId), "!");
+    }
+
     if (allow.length) {
         // An access-list description takes one word.
         lines.push(`access-list ${MANAGEMENT_ACL}`, "  description management");
@@ -115,10 +171,12 @@ export function render(device: Device): string {
 
     for (const port of portsOf(device.platform, device.model)) {
         const settings = device.ports?.[port as keyof typeof device.ports];
-        lines.push(`interface ${spell(device.platform, device.model, port)}`, ...physicalPort(settings, vlanId), "!");
+        lines.push(`interface ${spell(device.platform, device.model, port)}`, ...physicalPort(settings, vlanId, lagNumbers), "!");
     }
 
-    for (const iface of Object.values(device.interfaces ?? {})) {
+    const ospf = device.routing?.ospf;
+
+    for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
         if (iface.type !== "vlan") continue;
 
         lines.push(`interface vlan ${vlanId(iface.vlan)}`);
@@ -128,6 +186,29 @@ export function render(device: Device): string {
             if (familyOf(address) === "ipv4") lines.push(`ip address ${host(address)} ${netmask(split(address).len)}`);
         }
 
+        const ospfSettings = Object.values(ospf?.areas ?? {}).find((area) => area.interfaces[name])?.interfaces[name];
+        if (ospfSettings?.network === "point-to-point") lines.push("ip ospf network ptp");
+        if (ospfSettings?.cost !== undefined) lines.push(`ip ospf cost ${ospfSettings.cost}`);
+        if (ospfSettings?.passive) lines.push("ip ospf passive-interface enable");
+
+        for (const group of iface.vrrp ?? []) lines.push(...vrrpLines(group));
+
+        lines.push("!");
+    }
+
+    if (ospf) {
+        const routerId = device.routing?.router_id;
+        lines.push(`router ospf ${OSPF_PROCESS}${routerId ? ` router-id ${routerId}` : ""}`);
+
+        for (const [areaId, area] of Object.entries(ospf.areas)) {
+            for (const iface of Object.keys(area.interfaces)) {
+                for (const prefix of ipv4Networks(device, iface)) {
+                    lines.push(`network ${host(prefix)} ${wildcard(split(prefix).len)} area ${areaId}`);
+                }
+            }
+        }
+
+        for (const source of ospf.redistribute ?? []) lines.push(`redistribute ${source}`);
         lines.push("!");
     }
 
@@ -143,10 +224,19 @@ export function render(device: Device): string {
 
     // The factory communities survive a reset, and one of them can write, so they are always removed.
     lines.push("no snmp-server community public", "no snmp-server community private");
-    if (management.snmp?.community) {
-        lines.push(`snmp-server community ${marker(management.snmp.community)} ro`);
-        if (allow.length) lines.push(`snmp-server access-list ${MANAGEMENT_ACL}`);
+    const snmp = management.snmp;
+    if (snmp?.community) lines.push(`snmp-server community ${marker(snmp.community)} ro`);
+
+    const snmpUsers = Object.entries(snmp?.users ?? {});
+    if (snmpUsers.length) lines.push(`snmp-server access ${SNMP_GROUP} read internet usm authpriv`);
+
+    for (const [name, user] of snmpUsers) {
+        const authentication = `authentication ${SNMP_AUTH[user.auth]} ${marker(user.auth_password)}`;
+        const privacy = `privacy ${user.privacy} ${marker(user.privacy_password)}`;
+        lines.push(`snmp-server user ${name} ${authentication} ${privacy}`, `snmp-server group ${SNMP_GROUP} user ${name} usm`);
     }
+
+    if ((snmp?.community || snmpUsers.length) && allow.length) lines.push(`snmp-server access-list ${MANAGEMENT_ACL}`);
 
     for (const route of device.routing?.static ?? []) {
         const { addr, len } = split(route.prefix);
@@ -169,17 +259,37 @@ export function render(device: Device): string {
     return lines.join("\n") + "\n";
 }
 
-/** A port the config does not declare is shut down. */
-function physicalPort(settings: AnyPort | undefined, vlanId: (name: string) => number): string[] {
-    if (!settings) return ["shutdown"];
-
+/** Access or trunk membership, for a port or a LAG. */
+function switching(settings: Switched<string>, vlanId: (name: string) => number): string[] {
     const lines: string[] = [];
-    if (settings.description) lines.push(`description ${settings.description}`);
     if (settings.access_vlan) lines.push(`switchport access vlan ${vlanId(settings.access_vlan)}`);
+
     if (settings.trunk_vlans) {
         if (settings.native_vlan) lines.push(`switchport trunk native vlan ${vlanId(settings.native_vlan)}`);
         lines.push(`switchport trunk allowed vlan ${vlanList(settings.trunk_vlans.map(vlanId))}`, "switchport mode trunk");
     }
+
+    return lines;
+}
+
+/** A VRRP group. The platform enables a group once it has an address, and preempts unless told not to. */
+function vrrpLines(group: Vrrp): string[] {
+    const lines = [`vrrp ${group.id} ip ${group.address}`];
+    if (group.interval !== undefined && group.interval !== 1) lines.push(`vrrp ${group.id} timers advertise-interval ${group.interval}`);
+    if (group.priority !== undefined && group.priority !== 100) lines.push(`vrrp ${group.id} priority ${group.priority}`);
+    if (!group.preempt) lines.push(`no vrrp ${group.id} preempt`);
+    return lines;
+}
+
+/** A port the config does not declare is shut down. A LAG member holds its membership and description; the LAG holds the rest. */
+function physicalPort(settings: AnyPort | undefined, vlanId: (name: string) => number, lagNumbers: Map<string, number>): string[] {
+    if (!settings) return ["shutdown"];
+
+    const lines: string[] = [];
+    if (settings.description) lines.push(`description ${settings.description}`);
+    if (settings.lag) return [...lines, `port-channel ${lagNumbers.get(settings.lag)}`];
+
+    lines.push(...switching(settings, vlanId));
 
     if (settings.lldp === false) lines.push("lldp disable");
     if (settings.stp === false) lines.push("spanning-tree disable");
@@ -239,7 +349,8 @@ export async function read(device: Device): Promise<string> {
             .join("\n")
             .replace(/^!(System (up )?time|Boot times):.*\n/gm, "")
             .trim();
-        return scrub(text + "\n");
+        // An SNMPv3 user prints localized keys, which authenticate as well as the passphrase.
+        return scrub(text + "\n").replace(/(authkey \S+|privkey\s+\S+) \S+/g, "$1 <redacted>");
     } finally {
         close();
     }
@@ -251,7 +362,7 @@ export function unsupported(device: Device): string[] {
     for (const [name, port] of Object.entries(device.ports ?? {})) {
         if (!port) continue;
 
-        for (const field of ["speed", "acl", "lag", "mtu", "addresses", "vrrp", "vrf"] as const) {
+        for (const field of ["speed", "acl", "mtu", "addresses", "vrrp", "vrf"] as const) {
             if (port[field] !== undefined) found.push(`ports.${name}.${field}`);
         }
 
@@ -264,14 +375,40 @@ export function unsupported(device: Device): string[] {
     }
 
     for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
-        if (iface.type !== "vlan") found.push(`interfaces.${name}, a ${iface.type}`);
-        else if (iface.vrrp || iface.vrf) found.push(`interfaces.${name}.vrrp and vrf`);
+        if (iface.type === "lag") {
+            for (const field of ["addresses", "vrrp", "vrf", "mtu", "storm_control", "stp"] as const) {
+                if (iface[field] !== undefined) found.push(`interfaces.${name}.${field}, a LAG here only switches`);
+            }
+            continue;
+        }
+
+        if (iface.type !== "vlan") {
+            found.push(`interfaces.${name}, a ${iface.type}`);
+            continue;
+        }
+
+        if (iface.vrf) found.push(`interfaces.${name}.vrf`);
+
+        for (const group of iface.vrrp ?? []) {
+            if (familyOf(group.address) === "ipv6") found.push(`interfaces.${name}.vrrp for IPv6`);
+        }
     }
 
     const routing = device.routing;
 
-    for (const field of ["bgp", "rpki", "ospf"] as const) {
+    for (const field of ["bgp", "rpki"] as const) {
         if (routing?.[field]) found.push(`routing.${field}`);
+    }
+
+    const ospf = routing?.ospf;
+    if (ospf?.families?.includes("ipv6")) found.push("routing.ospf for IPv6");
+
+    for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
+        for (const [name, settings] of Object.entries(area.interfaces)) {
+            if (device.interfaces?.[name]?.type !== "vlan")
+                found.push(`routing.ospf.areas.${areaId}.${name}, OSPF runs on VLAN interfaces here`);
+            if (settings?.bfd) found.push(`routing.ospf.areas.${areaId}.${name}.bfd`);
+        }
     }
 
     for (const route of routing?.static ?? []) {
@@ -301,7 +438,10 @@ export function unsupported(device: Device): string[] {
         if (management[field]) found.push(`management.${field}`);
     }
 
-    if (management.snmp?.users) found.push("management.snmp.users, version 3");
+    for (const [name, user] of Object.entries(management.snmp?.users ?? {})) {
+        if (!SNMP_AUTH[user.auth])
+            found.push(`management.snmp.users.${name}.auth ${user.auth}, the platform authenticates with SHA1 or MD5`);
+    }
 
     if (device.lldp && device.lldp !== true) found.push("lldp.interfaces, LLDP is per device");
     if (device.stp?.mode && device.stp.mode !== "mstp") found.push("stp.mode other than mstp");
@@ -379,7 +519,17 @@ function plan(desired: string, current: string): ReturnType<DeviceAdapter["plan"
     // A port takes layer 2 settings only once it is switched.
     for (const group of groups) {
         const isPort = group.path[0]?.startsWith("interface ") ?? false;
-        if (isPort && group.add.some((line) => line.startsWith("switchport"))) group.add.unshift("portswitch");
+        const switches = group.add.some((line) => line.startsWith("switchport") || line.startsWith("port-channel"));
+        if (isPort && switches) group.add.unshift("portswitch");
+    }
+
+    // A LAG is removed only once no port is in it, so its removal goes after every other step.
+    const lagRemovals: string[] = [];
+
+    for (const group of groups) {
+        if (group.path.length) continue;
+        lagRemovals.push(...group.remove.filter((line) => line.startsWith("interface port-channel")));
+        group.remove = group.remove.filter((line) => !line.startsWith("interface port-channel"));
     }
 
     // Editing the access-list means releasing every service holding it first, and binding the wanted ones after.
@@ -392,7 +542,22 @@ function plan(desired: string, current: string): ReturnType<DeviceAdapter["plan"
         };
     };
 
-    return { steps: steps(groups, dialect, releaseAndBind), problems: [] };
+    const planned = steps(
+        groups.filter((group) => group.add.length || group.remove.length),
+        dialect,
+        releaseAndBind
+    );
+
+    if (lagRemovals.length) {
+        const removeLags: Step = {
+            title: "LAGs no longer used",
+            show: lagRemovals.map((line) => `- ${line}`),
+            send: lagRemovals.map(undo),
+        };
+        planned.push(removeLags);
+    }
+
+    return { steps: planned, problems: [] };
 }
 
 export const raisecom: DeviceAdapter = { extension: ".txt", unsupported, render, read, plan, apply };
