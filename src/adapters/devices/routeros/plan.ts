@@ -10,6 +10,8 @@ export const INSTALL_CERTIFICATE = "#install-certificate ";
 
 /** Dependency order. A menu not listed sorts after all of these. The longest matching prefix decides. */
 const ORDER = [
+    // Certificates depend on nothing, and services name them.
+    "/certificate",
     "/interface bridge",
     "/interface ethernet",
     "/interface bonding",
@@ -42,7 +44,6 @@ const ORDER = [
     "/ipv6",
     "/routing",
     "/interface ethernet switch",
-    "/certificate",
     "/snmp",
     "/tool",
     "/user",
@@ -257,7 +258,7 @@ function planEntries(menu: string, wanted: Command[], existing: Command[], sendS
 }
 
 /**
- * Certificates are installed from the config when missing or different, after the old one of that name is removed. One the config does not hold is removed in the last phase.
+ * Certificates are installed from the config when missing or different, after the old one of that name is removed. One the device holds under another name, with the same fingerprint and key, is renamed rather than imported a second time. One the config does not hold is removed in the last phase.
  */
 function planCertificates(wanted: Command[], existing: Command[]): MenuPlan {
     const menu = "/certificate";
@@ -265,11 +266,29 @@ function planCertificates(wanted: Command[], existing: Command[]): MenuPlan {
     const install: Step = { title: menu, show: [], send: [] };
     const remove: Step = { title: menu, show: [], send: [] };
     const existingByName = new Map(existing.map((item) => [item.attrs.name, item]));
+    const wantedNames = new Set(wanted.map((item) => item.attrs.name));
+    const renamed = new Set<string>();
 
     for (const entry of wanted) {
         const name = entry.attrs.name!;
         const current = existingByName.get(name);
         if (current && canonical(current) === canonical(entry)) continue;
+
+        const sameCertificate = existing.find(
+            (item) =>
+                !wantedNames.has(item.attrs.name) &&
+                !renamed.has(item.attrs.name!) &&
+                item.attrs.fingerprint === entry.attrs.fingerprint &&
+                item.attrs["private-key"] === entry.attrs["private-key"]
+        );
+
+        if (!current && sameCertificate) {
+            const oldName = sameCertificate.attrs.name!;
+            renamed.add(oldName);
+            install.show.push(`~ rename ${oldName} to ${name}`);
+            install.send.push(`${menu} set [ find name=${quote(oldName)} ] name=${quote(name)}`);
+            continue;
+        }
 
         install.show.push(`${current ? "~" : "+"} install ${name}`);
         if (current) install.send.push(`${menu} remove [ find name=${quote(name)} ]`);
@@ -277,7 +296,7 @@ function planCertificates(wanted: Command[], existing: Command[]): MenuPlan {
     }
 
     for (const entry of existing) {
-        if (wanted.some((candidate) => candidate.attrs.name === entry.attrs.name)) continue;
+        if (wantedNames.has(entry.attrs.name) || renamed.has(entry.attrs.name!)) continue;
 
         remove.show.push(`- ${entry.attrs.name}`);
         remove.send.push(`${menu} remove [ find name=${quote(entry.attrs.name!)} ]`);
