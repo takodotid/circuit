@@ -76,3 +76,22 @@ test("presets build the rules they describe", async () => {
     const findings = exportsEndInReject([{ ...router, policies: { ...router.policies, "UPSTREAM-OUT": [{ action: "accept" }] } }]);
     expect(findings.map((finding) => finding.message)).toContain("upstream-1: export UPSTREAM-OUT does not end in an unconditional reject");
 });
+
+test("trustBoundary finds an untrusted VLAN beside a trusted one away from a router", async () => {
+    const { trustBoundary, vlansOf } = await import("../src/presets");
+
+    expect(vlansOf({ access_vlan: "a", trunk_vlans: ["b"] })).toEqual(["a", "b"]);
+
+    const check = trustBoundary({ untrusted: ["guests"], trusted: ["servers"], routers: ["example-router"] });
+    expect(check([switchDevice]).map((finding) => finding.message)).toEqual([
+        "LAG uplink carries an untrusted VLAN beside a trusted one and does not face a router",
+        "interface guests puts an address on untrusted VLAN guests; only a router may",
+    ]);
+});
+
+test("merge refuses a name two records hold", async () => {
+    const { merge } = await import("../src/core/merge");
+
+    expect(merge({ a: 1 }, { b: 2 })).toEqual({ a: 1, b: 2 });
+    expect(() => merge({ a: 1 }, { a: 2 })).toThrow("merge: a is declared twice");
+});

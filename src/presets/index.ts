@@ -1,4 +1,4 @@
-// Building blocks most networks write the same way: address lists, edge filters, a BGP import sanity policy, and checks. Each returns plain config to place where it belongs, so nothing here applies itself.
+// Building blocks most networks write the same way: address lists, edge filters, a BGP import sanity policy, checks, and helpers for checks of your own. Each returns plain config to place where it belongs, so nothing here applies itself.
 
 import { contains } from "../core/addr";
 import type { Check, Finding } from "../core/define";
@@ -67,7 +67,7 @@ export function bgpSanity(lengths: SanityLengths = {}): PolicyRule<never, never>
 }
 
 /** Each BGP neighbor's own policies, or its group's. */
-function neighborPolicies(device: Device) {
+export function neighborPolicies(device: Device) {
     const bgp = device.routing?.bgp;
 
     return Object.entries(bgp?.neighbors ?? {}).map(([name, neighbor]) => {
@@ -102,6 +102,84 @@ export const exportsEndInReject: Check = (devices) => {
 
     return findings;
 };
+
+/** The VLANs a port carries, untagged or tagged. */
+export const vlansOf = (port: { access_vlan?: string; trunk_vlans?: readonly string[] }): string[] =>
+    [port.access_vlan, ...(port.trunk_vlans ?? [])].filter((vlan): vlan is string => vlan !== undefined);
+
+/** Where traffic from outside, before anything filters it, may go. */
+export type TrustBoundary = {
+    /** VLANs carrying traffic straight from outside: transits, exchanges, an ISP handoff. */
+    untrusted: readonly string[];
+    /** VLANs that must not meet them on a port: customers, servers, management. */
+    trusted: readonly string[];
+    /** The devices that filter: the only ones that may give an untrusted VLAN an address, and the only ones a port carrying both may face. */
+    routers: readonly string[];
+};
+
+/** A check: untrusted traffic reaches trusted VLANs only through a router. A port carrying both faces a router or is on one, and only a router gives an untrusted VLAN an address. */
+export const trustBoundary =
+    (boundary: TrustBoundary): Check =>
+    (devices) => {
+        const untrusted = new Set(boundary.untrusted);
+        const trusted = new Set(boundary.trusted);
+        const routers = new Set(boundary.routers);
+        const findings: Finding[] = [];
+
+        for (const device of devices) {
+            const isRouter = routers.has(device.name);
+            const ports = Object.entries(device.ports ?? {}).flatMap(([name, port]) => (port ? [{ name, port }] : []));
+
+            // What carries VLANs: a port on its own, or a LAG, which faces whatever its members link to.
+            const carriers = [
+                ...ports
+                    .filter(({ port }) => !port.lag)
+                    .map(({ name, port }) => ({
+                        what: `port ${name}`,
+                        carried: vlansOf(port),
+                        faces: port.link ? [port.link.device] : [],
+                    })),
+                ...Object.entries(device.interfaces ?? {}).flatMap(([name, iface]) =>
+                    iface.type === "lag"
+                        ? [
+                              {
+                                  what: `LAG ${name}`,
+                                  carried: vlansOf(iface),
+                                  faces: ports.filter(({ port }) => port.lag === name && port.link).map(({ port }) => port.link!.device),
+                              },
+                          ]
+                        : []
+                ),
+            ];
+
+            for (const { what, carried, faces } of carriers) {
+                const mixes = carried.some((vlan) => untrusted.has(vlan)) && carried.some((vlan) => trusted.has(vlan));
+                const facesRouter = isRouter || faces.some((name) => routers.has(name));
+
+                if (mixes && !facesRouter) {
+                    findings.push({
+                        level: "error",
+                        device: device.name,
+                        message: `${what} carries an untrusted VLAN beside a trusted one and does not face a router`,
+                    });
+                }
+            }
+
+            if (isRouter) continue;
+
+            for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
+                if (iface.type === "vlan" && untrusted.has(iface.vlan)) {
+                    findings.push({
+                        level: "error",
+                        device: device.name,
+                        message: `interface ${name} puts an address on untrusted VLAN ${iface.vlan}; only a router may`,
+                    });
+                }
+            }
+        }
+
+        return findings;
+    };
 
 /** A GRE or VXLAN tunnel's local address is outside what the neighbors over it are offered, or their replies route back into the tunnel. */
 export const tunnelsOutsideOffered: Check = (devices) => {
