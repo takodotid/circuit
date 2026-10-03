@@ -49,7 +49,7 @@ export default defineDevice({
 
 Ports are named `<speed>-<position>`: `10g-1` is the first 10G cage. The model decides which exist; the adapter knows what the platform calls each one. Everything a device can hold is in `src/schema/`, with a comment on every field.
 
-A network is a list of devices in `circuit.config.ts` at the root of the project:
+A network is a list of devices in `circuit.config.ts` at the root of the project, or any file named with `--config <path>`:
 
 ```ts
 import { defineNetwork } from "@takodotid/circuit";

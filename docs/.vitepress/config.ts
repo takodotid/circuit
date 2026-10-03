@@ -16,6 +16,7 @@ export default defineConfig({
     themeConfig: {
         nav: [
             { text: "Guide", link: "/guide/introduction" },
+            { text: "Patterns", link: "/patterns/" },
             { text: "Platforms", link: "/platforms/" },
             { text: "Reference", link: "/reference/schema" },
             { text: "Releases", link: "https://github.com/takodotid/circuit/releases" },
@@ -33,6 +34,16 @@ export default defineConfig({
                     { text: "Commands", link: "/guide/commands" },
                     { text: "How a device converges", link: "/guide/convergence" },
                     { text: "Publishing the network", link: "/guide/publishing" },
+                    { text: "Presets", link: "/guide/presets" },
+                ],
+            },
+            {
+                text: "Patterns",
+                items: [
+                    { text: "Overview", link: "/patterns/" },
+                    { text: "A single site", link: "/patterns/single-site" },
+                    { text: "An edge router", link: "/patterns/edge-router" },
+                    { text: "Colocation with tenants", link: "/patterns/colocation" },
                 ],
             },
             {

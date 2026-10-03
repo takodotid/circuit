@@ -1,6 +1,6 @@
 # Commands
 
-The CLI is `circuit`; a project usually runs it as `bun net`. It loads `circuit.config.ts` from the working directory.
+The CLI is `circuit`; a project usually runs it as `bun net`. It loads `circuit.config.ts` from the working directory, or the file `--config <path>` names. The state directory is relative to that file.
 
 | Command                          | What it does                                                             | Touches a device       |
 | -------------------------------- | ------------------------------------------------------------------------ | ---------------------- |

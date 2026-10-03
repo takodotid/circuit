@@ -1,6 +1,6 @@
 # The network
 
-`circuit.config.ts` at the root of the project declares the network:
+`circuit.config.ts` at the root of the project declares the network. Another name or place works too, with `--config <path>` on every command:
 
 ```ts
 import { defineNetwork, secret } from "@takodotid/circuit";
