@@ -56,6 +56,21 @@ export const vlans = {
 } as const satisfies Record<string, Vlan>;
 ```
 
+## From several sources
+
+When a device's ports or interfaces come partly from its own file and partly from a function, such as one that derives what each customer needs, spreading them lets one silently replace the other. `merge` combines them and stops at a name two of them hold:
+
+```ts
+import { defineDevice, merge } from "@takodotid/circuit";
+
+export default defineDevice({
+    // ...
+    ports: merge(customerPorts("tor-01"), {
+        "40g-1": { description: "Uplink", trunk_vlans: ["mgmt", "servers"] },
+    }),
+});
+```
+
 ## What a platform cannot do
 
 Not every platform can express every field. One it cannot is reported by `validate`, with the reason, and the device is not applied. See [Platforms](/platforms/).
