@@ -39,7 +39,8 @@
     ],
     "type": "module",
     "exports": {
-        ".": "./src/index.ts"
+        ".": "./src/index.ts",
+        "./presets": "./src/presets/index.ts"
     },
     "bin": {
         "circuit": "src/cli/index.ts"

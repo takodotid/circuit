@@ -12,7 +12,8 @@
         "verbatimModuleSyntax": true,
         "forceConsistentCasingInFileNames": true,
         "paths": {
-            "@takodotid/circuit": ["./src/index.ts"]
+            "@takodotid/circuit": ["./src/index.ts"],
+            "@takodotid/circuit/presets": ["./src/presets/index.ts"]
         },
         "noUnusedLocals": true,
         "noUnusedParameters": true

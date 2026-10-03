@@ -15,6 +15,7 @@ export default {
                 "adapters", // src/adapters, platforms and registries
                 "transport", // src/transport, sessions to devices
                 "cli", // src/cli
+                "presets", // src/presets, building blocks most networks write the same way
                 "examples", // examples and tests
                 "release", // version bumps
             ],

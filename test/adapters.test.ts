@@ -58,3 +58,21 @@ test("a VLAN list change sends only the VLANs added and removed", () => {
     const raisecom = adapters["raisecom-ros"]!.plan("create vlan 10,20-21,127 active\n", "create vlan 10,20-22,99 active\n", options);
     expect(raisecom.steps.flatMap((step) => step.send)).toEqual(["no vlan 22", "no vlan 99", "create vlan 127 active"]);
 });
+
+// Presets are plain config: what they return is what a device holds.
+test("presets build the rules they describe", async () => {
+    const { antiSpoofing, badTcpFlags, bgpSanity, exportsEndInReject, MARTIANS } = await import("../src/presets");
+
+    expect(antiSpoofing("ix", MARTIANS).map((rule) => rule.match?.src)).toEqual([...MARTIANS]);
+    expect(badTcpFlags()).toHaveLength(6);
+    expect(bgpSanity().map((rule) => rule.description)).toEqual([
+        "IPv4 shorter than /8",
+        "IPv4 longer than /24",
+        "IPv6 shorter than /16",
+        "IPv6 longer than /48",
+        "RPKI invalid",
+    ]);
+
+    const findings = exportsEndInReject([{ ...router, policies: { ...router.policies, "UPSTREAM-OUT": [{ action: "accept" }] } }]);
+    expect(findings.map((finding) => finding.message)).toContain("upstream-1: export UPSTREAM-OUT does not end in an unconditional reject");
+});
