@@ -722,21 +722,52 @@ export async function apply(device: Device, _network: readonly Device[], plan: P
     console.log("  committed, login proved, saved");
 }
 
+/**
+ * What changes, in the order the platform accepts.
+ *
+ * A VLAN list changes by ID. VLANs no longer used go first, with their VLAN interfaces, so their names and numbers are free before a new VLAN takes them: a VLAN name is unique, and a VLAN with an interface cannot be removed. The whole plan is one candidate, so going first leaves nothing half done.
+ */
+function plan(desired: string, current: string): Plan {
+    const groups = compare(desired, current, dialect);
+    vlanListChange(
+        groups,
+        "vlan batch ",
+        batchIds,
+        (ids) => [`vlan batch ${vlanBatch(ids)}`],
+        (ids) => [`vlan batch ${vlanBatch(ids)}`]
+    );
+
+    const top = groups.find((group) => group.path.length === 0);
+    const removedBatch = top?.remove.find((line) => line.startsWith("vlan batch ")) ?? "";
+    const removedIds = removedBatch ? batchIds(removedBatch) : [];
+
+    const firstRemovals = [
+        ...removedIds.map((id) => `interface Vlanif${id}`).filter((line) => top?.remove.includes(line)),
+        ...removedIds.map((id) => `vlan ${id}`).filter((line) => top?.remove.includes(line)),
+        ...(removedBatch ? [removedBatch] : []),
+    ];
+
+    if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line));
+
+    const planned = steps(
+        groups.filter((group) => group.add.length || group.remove.length),
+        dialect
+    );
+
+    if (firstRemovals.length) {
+        // `undo vlan batch` removes a VLAN's own settings with it, so only the interfaces and the list are sent.
+        const sent = firstRemovals.filter((line) => !/^vlan \d+$/.test(line)).map(undo);
+        planned.unshift({ title: "VLANs no longer used", show: firstRemovals.map((line) => `- ${line}`), send: sent });
+    }
+
+    return { steps: planned, problems: [] };
+}
+
 export const vrp: DeviceAdapter = {
     extension: ".cfg",
     unsupported,
     render,
     read,
-    plan: (desired, current) => {
-        const groups = compare(desired, current, dialect);
-        vlanListChange(
-            groups,
-            "vlan batch ",
-            batchIds,
-            (ids) => [`vlan batch ${vlanBatch(ids)}`],
-            (ids) => [`vlan batch ${vlanBatch(ids)}`]
-        );
-        return { steps: steps(groups, dialect), problems: [] };
-    },
+    plan,
     apply,
 };

@@ -20,3 +20,4 @@ Behaviour that looks like something else. Each one has been hit on a CE6855 runn
 - `abort` is not a command here. `clear configuration candidate` discards uncommitted changes.
 - sFlow samples per port, `sflow sampling rate N`, N from 4096; the default is 8192 and an explicit 8192 is kept as written. A port names a collector only once the collector exists globally; until then it is refused with "collector does not exist".
 - `vlan batch` holds every VLAN on one line, and undoing a list that names a VLAN with an L3 interface is refused. A change sends only the VLANs added and `undo vlan batch` for the ones removed.
+- A VLAN name is unique across VLANs: a new VLAN cannot take a name another still holds. VLANs no longer used, and their VLAN interfaces, are removed first, in the same candidate.
