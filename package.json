@@ -42,7 +42,7 @@
         ".": "./src/index.ts"
     },
     "bin": {
-        "circuit": "./src/cli/index.ts"
+        "circuit": "src/cli/index.ts"
     },
     "files": [
         "src",
