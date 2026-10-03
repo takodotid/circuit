@@ -3,7 +3,7 @@
 
 import { createPrivateKey, createPublicKey } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { adapters } from "../adapters/devices";
 import type { ApplyOptions, DeviceAdapter, Plan } from "../adapters/devices/types";
 import { registries } from "../adapters/registries";
@@ -27,21 +27,33 @@ const HELP = `usage: circuit <command> [device...] [options]
   wireguard <device> <interface> <peer>
                         a client config for one peer, its private key left for the peer to fill
   communities           the network's BGP communities, one per line, for a looking glass or bgp.tools
-  peeringdb             bring PeeringDB's exchange records in line with the config, with --confirm`;
+  peeringdb             bring PeeringDB's exchange records in line with the config, with --confirm
 
-const CONFIG_FILE = "circuit.config.ts";
+  --config <path>       the network's config file, circuit.config.ts in the working directory by default`;
 
-const root = process.cwd();
-const configPath = resolve(root, CONFIG_FILE);
+const DEFAULT_CONFIG = "circuit.config.ts";
+
+const [command, ...args] = process.argv.slice(2);
+
+// `--config <path>` and `--config=<path>` both name the config file; neither is a device name.
+const configAt = args.indexOf("--config");
+const configArgument = configAt >= 0 ? args[configAt + 1] : args.find((arg) => arg.startsWith("--config="))?.slice("--config=".length);
+const rest = args.filter((arg, index) => index !== configAt && (configAt < 0 || index !== configAt + 1) && !arg.startsWith("--config="));
+
+const configPath = resolve(process.cwd(), configArgument ?? DEFAULT_CONFIG);
 
 if (!existsSync(configPath)) {
-    console.error(`no ${CONFIG_FILE} in ${root}`);
+    console.error(
+        configArgument ? `no config at ${configPath}` : `no ${DEFAULT_CONFIG} in ${process.cwd()}; name another with --config <path>`
+    );
     process.exit(1);
 }
 
+/** The directory of the config file. The state directory is relative to it. */
+const root = dirname(configPath);
+
 const network = (await import(configPath)).default as Network;
 
-const [command, ...rest] = process.argv.slice(2);
 const flags = rest.filter((arg) => arg.startsWith("--"));
 const names = rest.filter((arg) => !arg.startsWith("--"));
 const confirmed = flags.includes("--confirm");
