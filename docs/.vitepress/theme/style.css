@@ -1,0 +1,40 @@
+/* The whole site in the home page's voice: Newsreader for headings, terracotta for the brand. */
+
+:root {
+    --circuit-serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+
+    --vp-c-brand-1: #a8432b;
+    --vp-c-brand-2: #b4492f;
+    --vp-c-brand-3: #b4492f;
+    --vp-c-brand-soft: rgba(180, 73, 47, 0.14);
+}
+
+.dark {
+    --vp-c-brand-1: #e8866b;
+    --vp-c-brand-2: #d9735a;
+    --vp-c-brand-3: #b4492f;
+    --vp-c-brand-soft: rgba(232, 134, 107, 0.16);
+}
+
+.vp-doc h1,
+.vp-doc h2 {
+    font-family: var(--circuit-serif);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+}
+
+.vp-doc h1 {
+    font-size: 44px;
+    line-height: 1.1;
+}
+
+.vp-doc h2 {
+    font-size: 30px;
+    line-height: 1.25;
+}
+
+.VPNavBarTitle .title {
+    font-family: var(--circuit-serif);
+    font-size: 22px;
+    font-weight: 400;
+}

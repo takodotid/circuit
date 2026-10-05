@@ -162,19 +162,15 @@ const platforms = [
 
 <style scoped>
 .home {
-    --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --serif: var(--circuit-serif);
     --ink: var(--vp-c-text-1);
     --soft: var(--vp-c-text-2);
     --rule: var(--vp-c-divider);
-    --mark: #b4492f;
+    --mark: var(--vp-c-brand-1);
 
     max-width: 1040px;
     margin: 0 auto;
     padding: 56px 16px 120px;
-}
-
-.dark .home {
-    --mark: #e8866b;
 }
 
 @media (min-width: 768px) {
