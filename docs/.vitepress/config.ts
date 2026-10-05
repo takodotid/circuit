@@ -16,6 +16,7 @@ export default defineConfig({
 
     head: [
         ["meta", { name: "author", content: circuit.author.name }],
+        ["link", { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
         // Newsreader, for the headings of the home page.
         ["link", { rel: "preconnect", href: "https://fonts.googleapis.com" }],
         ["link", { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" }],
