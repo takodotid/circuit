@@ -13,591 +13,433 @@ async function copy() {
     setTimeout(() => (copied.value = false), 1500);
 }
 
+const releases = `${circuit.repository.url.replace(/^git\+/, "").replace(/\.git$/, "")}/releases`;
+
 const platforms = [
     { name: "MikroTik RouterOS 7", platform: "routeros" },
     { name: "Huawei VRP", platform: "vrp" },
     { name: "Raisecom ROS", platform: "raisecom-ros" },
-].map((entry) => ({ ...entry, models: Object.keys(catalog[entry.platform as keyof typeof catalog]) }));
-
-const steps = [
-    { command: "edit switch.ts", text: "Say how the device should be: its VLANs, ports, addresses, routing, firewall." },
-    { command: "bun circuit validate", text: "Typos, missing values and anything the device cannot do are caught here." },
-    { command: "bun circuit diff", text: "See every command that would change, without touching the device." },
-    { command: "bun circuit apply switch --confirm", text: "Send it. The change is kept only if Circuit can still log in." },
-];
-
-const beliefs = [
-    {
-        title: "The file is the whole truth",
-        text: "A port the file does not mention is shut down, a user it does not list is removed. Nothing stays on a device because nobody wrote it down.",
-    },
-    { title: "Leave it out to turn it off", text: "You only write what is on. There is no enabled: false." },
-    {
-        title: "One way to write it, every vendor",
-        text: "access_vlan becomes MikroTik, Huawei or Raisecom commands. A field a device cannot do is an error, never skipped.",
-    },
-    {
-        title: "Typos never reach a device",
-        text: "Every VLAN, port and policy name is checked in your editor, which suggests the names that exist.",
-    },
-    { title: "Secrets stay out of git", text: 'A password is secret("NAME"), read from .env or 1Password only when a command is sent.' },
-    { title: "Made for AI agents too", text: "Every project has an AGENTS.md. An agent can plan any change; only you confirm it." },
-];
-
-const patterns = [
-    {
-        title: "A single site",
-        text: "A home, an office or an internal network. A router and a switch, no BGP.",
-        link: "/patterns/single-site",
-    },
-    { title: "An edge router", text: "Your own AS number, with an IP transit and an internet exchange.", link: "/patterns/edge-router" },
-    {
-        title: "Colocation with tenants",
-        text: "Customers who each get their own VLANs, addresses and ports.",
-        link: "/patterns/colocation",
-    },
-];
+].map((entry) => ({ ...entry, models: Object.keys(catalog[entry.platform as keyof typeof catalog]).join(", ") }));
 </script>
 
 <template>
-    <div class="home">
-        <section class="hero">
-            <div class="intro">
-                <p class="badge"><span class="dot" />v{{ circuit.version }}, alpha</p>
-                <h1>Your network,<br />written down.</h1>
-                <p class="lead">
-                    Write how each router and switch should be configured, one TypeScript file per device. Circuit shows you every command
-                    that would change, then makes the device match.
-                </p>
-
-                <button class="install" type="button" @click="copy" :aria-label="`Copy ${install}`">
-                    <span class="prompt">$</span>
-                    <code>{{ install }}</code>
-                    <span class="copy">{{ copied ? "copied" : "copy" }}</span>
-                </button>
-
-                <div class="actions">
-                    <a class="button primary" :href="withBase('/guide/getting-started')">Get started</a>
-                    <a class="button" :href="withBase('/guide/introduction')">What Circuit is</a>
-                </div>
-            </div>
-
-            <div class="demo" aria-label="A change to a file, and the plan Circuit makes from it">
-                <div class="window">
-                    <div class="bar"><span>switch.ts</span></div>
-                    <pre><code><span class="muted">vlans: {</span>
-<span class="muted">    ...</span>
-<span class="add">    cameras: { id: 40, description: "Cameras" },</span>
-<span class="muted">},</span>
-<span class="muted">ports: {</span>
-<span class="muted">    "10g-1": { trunk_vlans: ["mgmt", "home", "guests", </span><span class="add">"cameras"</span><span class="muted">] },</span>
-<span class="add">    "10g-5": { description: "Camera, gate", access_vlan: "cameras" },</span>
-<span class="muted">},</span></code></pre>
-                </div>
-
-                <div class="link" aria-hidden="true"><span /></div>
-
-                <div class="window">
-                    <div class="bar"><span>$ bun circuit diff switch</span></div>
-                    <pre><code><span class="title">vlan 40</span>
-<span class="add">  + name cameras</span>
-<span class="add">  + description Cameras</span>
-<span class="title">(top level)</span>
-<span class="add">  + vlan batch 40</span>
-<span class="title">interface 10GE1/0/1</span>
-<span class="remove">  - port trunk allow-pass vlan 10 20 30</span>
-<span class="add">  + port trunk allow-pass vlan 10 20 30 40</span>
-<span class="title">interface 10GE1/0/5</span>
-<span class="remove">  - shutdown</span>
-<span class="add">  + description Camera, gate</span>
-<span class="add">  + port default vlan 40</span></code></pre>
-                </div>
-            </div>
-        </section>
-
-        <section class="section">
-            <h2><span class="index">01</span>From a file to a device</h2>
-            <ol class="path">
-                <li v-for="(step, index) in steps" :key="step.command">
-                    <span class="node">{{ index + 1 }}</span>
-                    <code>{{ step.command }}</code>
-                    <p>{{ step.text }}</p>
-                </li>
-            </ol>
-        </section>
-
-        <section class="section">
-            <h2><span class="index">02</span>What Circuit believes</h2>
-            <div class="beliefs">
-                <div v-for="belief in beliefs" :key="belief.title" class="belief">
-                    <h3>{{ belief.title }}</h3>
-                    <p>{{ belief.text }}</p>
-                </div>
-            </div>
-        </section>
-
-        <section class="section">
-            <h2><span class="index">03</span>Start from a pattern</h2>
-            <div class="patterns">
-                <a v-for="pattern in patterns" :key="pattern.link" class="pattern" :href="withBase(pattern.link)">
-                    <h3>{{ pattern.title }}</h3>
-                    <p>{{ pattern.text }}</p>
-                    <span class="more">See the files</span>
-                </a>
-            </div>
-        </section>
-
-        <section class="section">
-            <h2><span class="index">04</span>Devices</h2>
-            <div class="platforms">
-                <a v-for="entry in platforms" :key="entry.platform" class="platform" :href="withBase(`/platforms/${entry.platform}`)">
-                    <code>{{ entry.platform }}</code>
-                    <h3>{{ entry.name }}</h3>
-                    <p>Proved on {{ entry.models.join(", ") }}</p>
-                </a>
-            </div>
-        </section>
-
-        <section class="alpha">
-            <p>
-                <strong>Alpha.</strong> Circuit runs a production network, but the way you write config, the commands and the supported
-                devices can still change between releases. Install an exact version, and read the
-                <a :href="`${circuit.repository.url.replace(/^git\+/, '').replace(/\.git$/, '')}/releases`">release notes</a>
-                before you upgrade.
+    <article class="home">
+        <header class="opening">
+            <h1>Your network, written down.</h1>
+            <p class="lead">
+                Circuit keeps the configuration of every router and switch in plain files, in git. Before anything reaches a device, it
+                shows you exactly what would change. Then it makes the device match the file, and nothing else.
             </p>
+
+            <p class="start">
+                Start a project with
+                <button type="button" class="command" @click="copy" :title="copied ? 'Copied' : 'Copy'">{{ install }}</button>
+                <span class="copied" aria-live="polite">{{ copied ? " copied" : "" }}</span>
+                or read <a :href="withBase('/guide/introduction')">what Circuit is</a> first.
+            </p>
+        </header>
+
+        <figure class="figure">
+            <svg viewBox="0 0 760 290" role="img" aria-labelledby="figure-caption">
+                <g class="files">
+                    <g
+                        v-for="(file, index) in ['edge-01.ts', 'core-01.ts', 'tor-01.ts']"
+                        :key="file"
+                        :transform="`translate(${70 + index * 240}, 8)`"
+                    >
+                        <path d="M0 0 H62 L80 18 V92 H0 Z" />
+                        <path d="M62 0 V18 H80" />
+                        <line x1="14" y1="34" x2="64" y2="34" />
+                        <line x1="14" y1="46" x2="56" y2="46" />
+                        <line x1="14" y1="58" x2="66" y2="58" />
+                        <line x1="14" y1="70" x2="44" y2="70" />
+                        <text x="40" y="122" text-anchor="middle">{{ file }}</text>
+                    </g>
+                </g>
+
+                <g class="ties">
+                    <line v-for="index in [0, 1, 2]" :key="index" :x1="110 + index * 240" y1="142" :x2="110 + index * 240" y2="196" />
+                </g>
+
+                <g class="devices">
+                    <g
+                        v-for="(device, index) in ['router', 'core switch', 'top-of-rack switch']"
+                        :key="device"
+                        :transform="`translate(${40 + index * 240}, 196)`"
+                    >
+                        <rect width="140" height="40" rx="3" />
+                        <rect v-for="port in 6" :key="port" class="port" :x="14 + (port - 1) * 19" y="15" width="10" height="10" />
+                        <text x="70" y="66" text-anchor="middle">{{ device }}</text>
+                    </g>
+                </g>
+
+                <g class="cables">
+                    <path d="M180 216 H280" />
+                    <path d="M420 216 H520" />
+                </g>
+            </svg>
+            <figcaption id="figure-caption">One file for each device. What the file says is what the device runs.</figcaption>
+        </figure>
+
+        <section class="chapter">
+            <h2>Why</h2>
+            <div class="text">
+                <p>
+                    A network configured by hand drifts. Someone adds a VLAN during an outage, someone else tests a firewall rule and
+                    forgets it, and a year later nobody knows why a port is on. The device is the only record, and it does not say who
+                    changed what, or why.
+                </p>
+                <p>
+                    With Circuit the record is the file. A port the file does not mention is shut down. A user it does not list is removed.
+                    A service it does not turn on is off. Git keeps every change, with its author and its reason.
+                </p>
+            </div>
         </section>
-    </div>
+
+        <section class="chapter">
+            <h2>How</h2>
+            <div class="text">
+                <ol class="steps">
+                    <li>
+                        <strong>Change the file.</strong> VLANs, ports, addresses, routing, firewall: the same words for every vendor. Your
+                        editor checks every name as you type.
+                    </li>
+                    <li>
+                        <strong>Check it.</strong> Circuit catches what a device cannot do, and any rule of your own that the change breaks.
+                    </li>
+                    <li>
+                        <strong>Read the plan.</strong> Every command that would be sent, in the vendor's own language, before anything is
+                        sent.
+                    </li>
+                    <li>
+                        <strong>Confirm.</strong> Circuit applies the change the safest way the device allows, and keeps it only once it can
+                        still log in afterwards.
+                    </li>
+                </ol>
+                <p><a class="onward" :href="withBase('/guide/getting-started')">Get started</a></p>
+            </div>
+        </section>
+
+        <section class="chapter">
+            <h2>Where to begin</h2>
+            <div class="text">
+                <p>Pick the layout closest to your network. Each one is a working project you change to your own.</p>
+                <dl class="patterns">
+                    <div>
+                        <dt><a :href="withBase('/patterns/single-site')">A single site</a></dt>
+                        <dd>A home, an office or an internal network. A router and a switch, no BGP.</dd>
+                    </div>
+                    <div>
+                        <dt><a :href="withBase('/patterns/edge-router')">An edge router</a></dt>
+                        <dd>Your own AS number, with an IP transit and an internet exchange.</dd>
+                    </div>
+                    <div>
+                        <dt><a :href="withBase('/patterns/colocation')">Colocation with tenants</a></dt>
+                        <dd>Customers who each get their own VLANs, addresses and ports.</dd>
+                    </div>
+                </dl>
+            </div>
+        </section>
+
+        <section class="chapter">
+            <h2>What it runs on</h2>
+            <div class="text">
+                <ul class="platforms">
+                    <li v-for="entry in platforms" :key="entry.platform">
+                        <a :href="withBase(`/platforms/${entry.platform}`)">{{ entry.name }}</a
+                        >, proved on the {{ entry.models }}
+                    </li>
+                </ul>
+                <p>Each was proved on production devices before it was released.</p>
+                <p class="aside">
+                    Circuit is young. It runs a production network, but the way you write config can still change between releases, so
+                    install an exact version and read the <a :href="releases">release notes</a> before you upgrade.
+                </p>
+            </div>
+        </section>
+    </article>
 </template>
 
 <style scoped>
 .home {
-    --signal: #0f9f6e;
-    --signal-soft: rgba(15, 159, 110, 0.12);
-    --cut: #d1495b;
-    --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+    --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --ink: var(--vp-c-text-1);
+    --soft: var(--vp-c-text-2);
+    --rule: var(--vp-c-divider);
+    --mark: #b4492f;
 
-    max-width: 1152px;
+    max-width: 1040px;
     margin: 0 auto;
-    padding: 32px 16px 96px;
-}
-
-@media (min-width: 640px) {
-    .home {
-        padding: 48px 24px 96px;
-    }
+    padding: 56px 16px 120px;
 }
 
 .dark .home {
-    --signal: #3ddc97;
-    --signal-soft: rgba(61, 220, 151, 0.12);
-    --cut: #ff7b8a;
+    --mark: #e8866b;
 }
 
-/* Hero */
-
-.hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 48px;
-    align-items: center;
-    padding: 24px 0 64px;
-}
-
-@media (min-width: 960px) {
-    .hero {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-        padding: 56px 0 88px;
+@media (min-width: 768px) {
+    .home {
+        padding: 96px 32px 160px;
     }
 }
 
-.badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 0 20px;
-    padding: 4px 12px;
-    border: 1px solid var(--vp-c-divider);
-    border-radius: 999px;
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--vp-c-text-2);
+a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--rule);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.2s;
 }
 
-.dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--signal);
-    box-shadow: 0 0 0 4px var(--signal-soft);
+a:hover {
+    text-decoration-color: var(--mark);
+}
+
+/* Opening */
+
+.opening {
+    max-width: 820px;
 }
 
 h1 {
     margin: 0;
-    font-size: clamp(40px, 7vw, 64px);
-    line-height: 1.05;
-    letter-spacing: -0.03em;
-    font-weight: 700;
-    color: var(--vp-c-text-1);
+    font-family: var(--serif);
+    font-size: clamp(48px, 9vw, 104px);
+    font-weight: 400;
+    line-height: 0.98;
+    letter-spacing: -0.02em;
+    color: var(--ink);
 }
 
 .lead {
-    margin: 20px 0 28px;
-    max-width: 520px;
-    font-size: 18px;
+    margin: 32px 0 0;
+    max-width: 600px;
+    font-size: 20px;
     line-height: 1.6;
-    color: var(--vp-c-text-2);
+    color: var(--soft);
 }
 
-.install {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    max-width: 440px;
-    padding: 12px 16px;
-    border: 1px solid var(--vp-c-divider);
-    border-radius: 10px;
-    background: var(--vp-c-bg-soft);
-    font-family: var(--mono);
-    font-size: 15px;
-    text-align: left;
-    cursor: pointer;
+.start {
+    margin: 28px 0 0;
+    max-width: 640px;
+    font-size: 16px;
+    line-height: 2;
+    color: var(--soft);
+}
+
+.command {
+    display: inline;
+    padding: 2px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: copy;
     transition: border-color 0.2s;
 }
 
-.install:hover {
-    border-color: var(--signal);
+.command:hover {
+    border-color: var(--mark);
 }
 
-.install code {
-    flex: 1;
-    min-width: 0;
-    overflow-x: auto;
-    white-space: nowrap;
-    background: none;
+.copied {
+    font-size: 14px;
+    color: var(--mark);
+}
+
+/* The figure */
+
+.figure {
+    margin: 80px 0 0;
     padding: 0;
-    color: var(--vp-c-text-1);
 }
 
-.prompt {
-    color: var(--signal);
+.figure svg {
+    display: block;
+    width: 100%;
+    max-width: 760px;
+    height: auto;
+    overflow: visible;
 }
 
-.copy {
-    font-size: 12px;
-    color: var(--vp-c-text-3);
+.figure path,
+.figure line,
+.figure rect {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.25;
 }
 
-.actions {
-    display: flex;
-    flex-wrap: wrap;
+.figure .files line {
+    stroke: var(--soft);
+}
+
+.figure .ties line {
+    stroke: var(--mark);
+    stroke-dasharray: 3 4;
+}
+
+.figure .port {
+    stroke: var(--soft);
+}
+
+.figure .cables path {
+    stroke-width: 2;
+}
+
+.figure text {
+    fill: var(--soft);
+    font-family: var(--vp-font-family-base);
+    font-size: 14px;
+}
+
+/* The figure shrinks with the screen, so its labels grow to stay readable. */
+@media (max-width: 640px) {
+    .figure text {
+        font-size: 24px;
+    }
+}
+
+figcaption {
+    margin-top: 16px;
+    max-width: 760px;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    color: var(--soft);
+}
+
+/* Chapters: a heading in the margin, the text beside it. */
+
+.chapter {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
-    margin-top: 20px;
+    margin-top: 72px;
+    padding-top: 28px;
+    border-top: 1px solid var(--rule);
 }
 
-.button {
-    padding: 10px 20px;
-    border: 1px solid var(--vp-c-divider);
-    border-radius: 999px;
-    font-weight: 600;
-    font-size: 15px;
-    color: var(--vp-c-text-1);
-    text-decoration: none;
-    transition:
-        border-color 0.2s,
-        background 0.2s;
-}
-
-.button:hover {
-    border-color: var(--vp-c-text-2);
-}
-
-.button.primary {
-    border-color: var(--vp-c-text-1);
-    background: var(--vp-c-text-1);
-    color: var(--vp-c-bg);
-}
-
-.button.primary:hover {
-    opacity: 0.85;
-}
-
-/* The file and its plan */
-
-/* On a dotted board, like a patch panel. */
-.demo {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    padding: 12px;
-    border-radius: 16px;
-    background-image: radial-gradient(var(--vp-c-divider) 1px, transparent 1px);
-    background-size: 18px 18px;
-}
-
-.window {
-    border: 1px solid var(--vp-c-divider);
-    border-radius: 12px;
-    background: var(--vp-c-bg-soft);
-    overflow: hidden;
-}
-
-.bar {
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--vp-c-divider);
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--vp-c-text-2);
-}
-
-.window pre {
-    margin: 0;
-    padding: 14px 16px;
-    overflow-x: auto;
-    font-family: var(--mono);
-    font-size: 12.5px;
-    line-height: 1.65;
-}
-
-.window code {
-    background: none;
-    padding: 0;
-    font-size: inherit;
-    color: var(--vp-c-text-1);
-}
-
-.window .muted {
-    color: var(--vp-c-text-3);
-}
-
-.window .add {
-    color: var(--signal);
-}
-
-.window .remove {
-    color: var(--cut);
-}
-
-.window .title {
-    color: var(--vp-c-text-2);
-}
-
-/* A cable between the two windows. */
-.link {
-    display: flex;
-    justify-content: center;
-    height: 36px;
-}
-
-.link span {
-    position: relative;
-    width: 2px;
-    background: repeating-linear-gradient(to bottom, var(--signal) 0 6px, transparent 6px 12px);
-    background-size: 2px 12px;
-    animation: flow 1s linear infinite;
-}
-
-@keyframes flow {
-    from {
-        background-position: 0 0;
+@media (min-width: 768px) {
+    .chapter {
+        grid-template-columns: 240px minmax(0, 620px);
+        gap: 48px;
+        margin-top: 96px;
     }
-    to {
-        background-position: 0 12px;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .link span {
-        animation: none;
-    }
-}
-
-/* Sections */
-
-.section {
-    padding: 48px 0;
-    border-top: 1px solid var(--vp-c-divider);
 }
 
 h2 {
-    display: flex;
-    align-items: baseline;
-    gap: 14px;
-    margin: 0 0 28px;
+    margin: 0;
     padding: 0;
     border: none;
-    font-size: 26px;
+    font-family: var(--serif);
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1.2;
     letter-spacing: -0.01em;
-    color: var(--vp-c-text-1);
+    color: var(--ink);
 }
 
-.index {
-    font-family: var(--mono);
-    font-size: 14px;
-    color: var(--signal);
-}
-
-h3 {
-    margin: 0 0 8px;
+.text p,
+.platforms li {
+    margin: 0 0 18px;
     font-size: 17px;
+    line-height: 1.75;
+    color: var(--soft);
+}
+
+.text strong {
+    color: var(--ink);
     font-weight: 600;
-    color: var(--vp-c-text-1);
 }
 
-p {
-    margin: 0;
-    line-height: 1.6;
-    color: var(--vp-c-text-2);
-}
-
-/* The path, like hops on a trace. */
-.path {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
-    margin: 0;
+.steps {
+    margin: 0 0 24px;
     padding: 0;
     list-style: none;
-    counter-reset: none;
+    counter-reset: step;
 }
 
-@media (min-width: 768px) {
-    .path {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 20px;
-    }
-}
-
-.path li {
+.steps li {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    margin: 0 0 16px;
+    padding-left: 40px;
+    font-size: 17px;
+    line-height: 1.75;
+    color: var(--soft);
+    counter-increment: step;
 }
 
-@media (min-width: 768px) {
-    .path li:not(:last-child)::after {
-        content: "";
-        position: absolute;
-        top: 15px;
-        left: 40px;
-        right: -12px;
-        height: 2px;
-        background: var(--vp-c-divider);
-    }
+.steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: -2px;
+    font-family: var(--serif);
+    font-size: 26px;
+    font-style: italic;
+    line-height: 1.4;
+    color: var(--mark);
 }
 
-.node {
-    display: grid;
-    place-items: center;
-    width: 32px;
-    height: 32px;
-    border: 2px solid var(--signal);
-    border-radius: 50%;
-    background: var(--vp-c-bg);
-    font-family: var(--mono);
-    font-size: 13px;
+.onward {
     font-weight: 600;
-    color: var(--signal);
 }
 
-.path code {
-    align-self: flex-start;
-    max-width: 100%;
-    overflow-x: auto;
-    white-space: nowrap;
-    font-family: var(--mono);
-    font-size: 13px;
+.onward::after {
+    content: " \2192";
 }
 
-.beliefs {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1px;
-    border: 1px solid var(--vp-c-divider);
-    border-radius: 12px;
-    background: var(--vp-c-divider);
-    overflow: hidden;
+.patterns {
+    margin: 8px 0 0;
 }
 
-@media (min-width: 640px) {
-    .beliefs {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+.patterns div {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--rule);
 }
 
-@media (min-width: 960px) {
-    .beliefs {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
+.patterns div:first-child {
+    border-top: 1px solid var(--rule);
 }
 
-.belief {
-    padding: 22px;
-    background: var(--vp-c-bg);
+.patterns dt {
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1.3;
 }
 
-.patterns,
-.platforms {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
-}
-
-@media (min-width: 768px) {
-    .patterns,
-    .platforms {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
-.pattern,
-.platform {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 22px;
-    border: 1px solid var(--vp-c-divider);
-    border-radius: 12px;
-    color: inherit;
+.patterns dt a {
     text-decoration: none;
-    transition: border-color 0.2s;
 }
 
-.pattern:hover,
-.platform:hover {
-    border-color: var(--signal);
+.patterns dt a:hover {
+    color: var(--mark);
 }
 
-.pattern h3,
-.platform h3 {
-    margin: 0;
+.patterns dd {
+    margin: 4px 0 0;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--soft);
 }
 
-.more {
-    margin-top: auto;
-    padding-top: 10px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--signal);
+.platforms {
+    margin: 0 0 8px;
+    padding: 0;
+    list-style: none;
 }
 
-.platform code {
-    align-self: flex-start;
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--signal);
+.platforms li {
+    margin: 0 0 6px;
 }
 
-.alpha {
-    margin-top: 24px;
-    padding: 18px 22px;
-    border: 1px dashed var(--vp-c-divider);
-    border-radius: 12px;
-}
-
-.alpha a {
-    color: var(--vp-c-text-1);
-    text-decoration: underline;
+.aside {
+    margin-top: 32px !important;
+    padding-left: 16px;
+    border-left: 2px solid var(--mark);
+    font-size: 15px !important;
 }
 </style>

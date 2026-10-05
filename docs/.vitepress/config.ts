@@ -14,7 +14,19 @@ export default defineConfig({
         hostname: circuit.homepage,
     },
 
-    head: [["meta", { name: "author", content: circuit.author.name }]],
+    head: [
+        ["meta", { name: "author", content: circuit.author.name }],
+        // Newsreader, for the headings of the home page.
+        ["link", { rel: "preconnect", href: "https://fonts.googleapis.com" }],
+        ["link", { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" }],
+        [
+            "link",
+            {
+                rel: "stylesheet",
+                href: "https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap",
+            },
+        ],
+    ],
 
     themeConfig: {
         nav: [
