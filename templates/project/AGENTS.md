@@ -18,21 +18,21 @@ What each field means is written as a comment on the field, in `node_modules/@ta
 
 | Command                                | What it does                                                         | Changes a device |
 | -------------------------------------- | -------------------------------------------------------------------- | ---------------- |
-| `bun circuit validate`                 | Checks every file and every rule in the checks                       | no               |
-| `bun circuit diff [device]`            | Shows what would change, compared with the last snapshot             | no               |
-| `bun circuit build <device>`           | Prints the full configuration the device should run                  | no               |
-| `bun circuit snapshot [device]`        | Reads what each device runs now into `.circuit/state/`               | no, only reads   |
-| `bun circuit apply <device>`           | Reads the device, then shows what would change on it                 | no               |
-| `bun circuit apply <device> --confirm` | Sends the change to the device                                       | **yes**          |
-| `bun circuit secrets`                  | Lists every secret the config uses, and whether each one can be read | no               |
+| `npx circuit validate`                 | Checks every file and every rule in the checks                       | no               |
+| `npx circuit diff [device]`            | Shows what would change, compared with the last snapshot             | no               |
+| `npx circuit build <device>`           | Prints the full configuration the device should run                  | no               |
+| `npx circuit snapshot [device]`        | Reads what each device runs now into `.circuit/state/`               | no, only reads   |
+| `npx circuit apply <device>`           | Reads the device, then shows what would change on it                 | no               |
+| `npx circuit apply <device> --confirm` | Sends the change to the device                                       | **yes**          |
+| `npx circuit secrets`                  | Lists every secret the config uses, and whether each one can be read | no               |
 
 ## Making a change
 
 1. Edit the device's file.
-2. Run `bun circuit validate`. Fix every error.
-3. Run `bun circuit diff <device>` and read the result.
+2. Run `npx circuit validate`. Fix every error.
+3. Run `npx circuit diff <device>` and read the result.
 4. Show the owner what will change and why, in plain words.
-5. Run `bun circuit apply <device>` to see the plan against the live device.
+5. Run `npx circuit apply <device>` to see the plan against the live device.
 6. **Stop.** Only run `apply <device> --confirm` after the owner says yes to that exact plan. Never confirm on your own, even if you were told to finish the task.
 7. After the apply, commit the device file together with the updated `.circuit/state/`.
 

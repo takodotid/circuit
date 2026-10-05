@@ -16,3 +16,6 @@ docs/.vitepress/dist/
 docs/.vitepress/cache/
 # Generated from the schema by scripts/schema-reference.ts.
 docs/reference/
+
+# Built for Node by scripts/build.ts: published, never committed.
+/dist/

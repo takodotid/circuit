@@ -18,3 +18,5 @@ jobs:
             - run: bun run test
             - run: bun run format:check
             - run: bun run docs:build
+            - run: bun run build
+            - run: for pattern in single-site edge-router colocation; do node dist/cli/index.js validate --config "templates/$pattern/circuit.config.ts"; done

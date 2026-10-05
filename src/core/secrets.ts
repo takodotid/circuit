@@ -1,5 +1,6 @@
 // Secrets are references in the config and values only at the moment a command is sent. A reference names a variable, set in the environment or in `.env` beside the config, or a file kept out of the repository. A variable's value may itself be a 1Password reference, `op://vault/item/field`, read with the 1Password CLI.
 
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Secret } from "../schema";
@@ -44,19 +45,16 @@ function readOnePassword(name: string, reference: string): string {
     const cached = fromOnePassword.get(reference);
     if (cached !== undefined) return cached;
 
-    let result: ReturnType<typeof Bun.spawnSync>;
-    try {
-        result = Bun.spawnSync(["op", "read", "--no-newline", reference], { stdout: "pipe", stderr: "pipe" });
-    } catch {
-        throw new Error(`secret ${name} is a 1Password reference, and the 1Password CLI, op, is not installed`);
-    }
+    const result = spawnSync("op", ["read", "--no-newline", reference], { encoding: "utf8" });
 
-    if (result.exitCode !== 0) {
-        const reason = result.stderr?.toString().trim() || `op exited with ${result.exitCode}`;
+    if (result.error) throw new Error(`secret ${name} is a 1Password reference, and the 1Password CLI, op, is not installed`);
+
+    if (result.status !== 0) {
+        const reason = result.stderr.trim() || `op exited with ${result.status}`;
         throw new Error(`secret ${name}: 1Password could not read ${reference}: ${reason}`);
     }
 
-    const value = result.stdout?.toString() ?? "";
+    const value = result.stdout;
     fromOnePassword.set(reference, value);
     return value;
 }

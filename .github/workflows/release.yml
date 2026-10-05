@@ -23,6 +23,9 @@ jobs:
             - run: bun install --frozen-lockfile
             - run: bun run typecheck
             - run: bun run test
+            # dist/ for Node, npm and pnpm, checked by running every template's config through it with Node.
+            - run: bun run build
+            - run: for pattern in single-site edge-router colocation; do node dist/cli/index.js validate --config "templates/$pattern/circuit.config.ts"; done
 
             - name: version and dist-tag
               run: |

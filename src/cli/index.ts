@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 // The command line. `new` starts a project; every other command loads the network from `circuit.config.ts` in the working directory, or the file `--config` names.
 
 import { createPrivateKey, createPublicKey } from "node:crypto";
@@ -66,7 +66,15 @@ if (!existsSync(configPath)) {
 const root = dirname(configPath);
 useRoot(root);
 
-const network = (await import(configPath)).default as Network;
+/** The config, a TypeScript file. Bun imports it as it is; Node needs jiti, which also resolves imports written without an extension. */
+async function load(path: string): Promise<Network> {
+    if (process.versions.bun) return (await import(path)).default;
+
+    const { createJiti } = await import("jiti");
+    return createJiti(import.meta.url).import(path, { default: true });
+}
+
+const network = await load(configPath);
 
 const flags = rest.filter((arg) => arg.startsWith("--"));
 const names = rest.filter((arg) => !arg.startsWith("--"));

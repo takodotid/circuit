@@ -1,12 +1,44 @@
 // `circuit new`: start a project from one of the patterns in templates/. In a terminal it asks what it needs; the same answers can be given as options, for a script or an AI agent.
 
+import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { basename, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
-const TEMPLATES = fileURLToPath(new URL("../../templates", import.meta.url));
-const circuit = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+/** Circuit's own directory: this file runs from src/cli/ in Bun, and from dist/ once built. */
+function packageRoot(): string {
+    let directory = dirname(fileURLToPath(import.meta.url));
+
+    while (!existsSync(join(directory, "templates"))) {
+        const parent = dirname(directory);
+        if (parent === directory) throw new Error("Circuit's templates are missing from its package");
+        directory = parent;
+    }
+
+    return directory;
+}
+
+const ROOT = packageRoot();
+const TEMPLATES = join(ROOT, "templates");
+const circuit = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
+
+/** How each package manager installs and runs. The templates are written for npm; the others are swapped in. */
+const MANAGERS = {
+    npm: { install: "npm install", run: "npx circuit", types: "node" },
+    pnpm: { install: "pnpm install", run: "pnpm circuit", types: "node" },
+    bun: { install: "bun install", run: "bun circuit", types: "bun" },
+} as const;
+
+type Manager = keyof typeof MANAGERS;
+
+/** The package manager that started this, from what it says about itself, such as `pnpm/9.1.0 npm/? node/v22`. */
+function detectManager(): Manager {
+    const agent = process.env.npm_config_user_agent ?? "";
+    if (agent.startsWith("pnpm/")) return "pnpm";
+    if (agent.startsWith("bun/") || process.versions.bun) return "bun";
+    return "npm";
+}
 
 const PATTERNS = {
     "single-site": { title: "A single site", fits: "a home, an office or an internal network: a router and a switch, no BGP", asn: false },
@@ -28,7 +60,8 @@ const USAGE = `usage: circuit new [directory] [options]
   --pattern <name>   single-site, edge-router or colocation
   --asn <number>     your AS number, for edge-router and colocation
   --1password        write .env with 1Password references instead of empty values
-  --no-install       do not run bun install`;
+  --use <manager>    npm, pnpm or bun; the one that ran this by default
+  --no-install       do not install the dependencies`;
 
 function fail(message: string): never {
     console.error(message);
@@ -55,7 +88,7 @@ export async function create(args: string[]): Promise<void> {
         return;
     }
 
-    const valued = new Set(["--pattern", "--asn"]);
+    const valued = new Set(["--pattern", "--asn", "--use"]);
     const positional = args.filter((arg, index) => !arg.startsWith("--") && !valued.has(args[index - 1] ?? ""));
 
     const interactive = process.stdin.isTTY === true;
@@ -89,6 +122,10 @@ export async function create(args: string[]): Promise<void> {
     }
     if (asn && !/^\d+$/.test(asn)) fail(`${asn} is not an AS number`);
 
+    const manager = (option(args, "use") ?? detectManager()) as Manager;
+    if (!(manager in MANAGERS)) fail(`no package manager ${manager}; there are ${Object.keys(MANAGERS).join(", ")}`);
+    const { install, run, types } = MANAGERS[manager];
+
     const onePassword =
         args.includes("--1password") || (await ask("Keep the secrets in 1Password? y or n", "n")).toLowerCase().startsWith("y");
     terminal?.close();
@@ -97,6 +134,16 @@ export async function create(args: string[]): Promise<void> {
     cpSync(join(TEMPLATES, pattern), target, { recursive: true });
     cpSync(join(TEMPLATES, "project"), target, { recursive: true });
     renameSync(join(target, "gitignore"), join(target, ".gitignore"));
+
+    // What the templates say about npm, said for the package manager in use.
+    for (const file of ["AGENTS.md", "README.md", "tsconfig.json"]) {
+        const path = join(target, file);
+        const text = readFileSync(path, "utf8")
+            .replaceAll("npx circuit", run)
+            .replaceAll("npm install", install)
+            .replaceAll('"types": ["node"]', `"types": ["${types}"]`);
+        writeFileSync(path, text);
+    }
 
     const sources = filesIn(target).filter((file) => file.endsWith(".ts"));
     const secrets = new Set<string>();
@@ -127,24 +174,25 @@ export async function create(args: string[]): Promise<void> {
         private: true,
         type: "module",
         dependencies: { "@takodotid/circuit": circuit.version },
-        devDependencies: { "@types/bun": circuit.devDependencies["@types/bun"] },
+        devDependencies: { [`@types/${types}`]: circuit.devDependencies[`@types/${types}`] },
     };
     writeFileSync(join(target, "package.json"), JSON.stringify(packageJson, null, 4) + "\n");
 
     if (!args.includes("--no-install")) {
-        const install = Bun.spawnSync(["bun", "install"], { cwd: target, stdout: "inherit", stderr: "inherit" });
-        if (install.exitCode !== 0) console.log("bun install failed; run it again in the project.");
+        // npm and pnpm are scripts on Windows, which only a shell runs.
+        const result = spawnSync(install, { cwd: target, stdio: "inherit", shell: true });
+        if (result.status !== 0) console.log(`${install} failed; run it again in the project.`);
     }
 
     const steps = [
         `cd ${directory}`,
         onePassword
-            ? "Point each line of .env at the item that holds it in 1Password, then run: bun circuit secrets"
-            : "Fill in each password in .env, then run: bun circuit secrets",
+            ? `Point each line of .env at the item that holds it in 1Password, then run: ${run} secrets`
+            : `Fill in each password in .env, then run: ${run} secrets`,
         "Change the names, addresses and ports in the device files to your own.",
         ...(PATTERNS[pattern].asn && (!asn || asn === EXAMPLE_ASN) ? ["Put your own AS number in routing.ts."] : []),
-        "bun circuit validate",
-        "bun circuit snapshot, then bun circuit diff, to see what would change on each device",
+        `${run} validate`,
+        `${run} snapshot, then ${run} diff, to see what would change on each device`,
     ];
 
     console.log(`\nCreated ${directory} from the pattern "${PATTERNS[pattern].title}".\n\nNext:`);
