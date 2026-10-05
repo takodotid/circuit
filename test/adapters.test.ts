@@ -129,4 +129,8 @@ test("communityScheme blackholes only inside the customer's space, and never ann
     expect(communities.catalogue).toEqual([
         { community: "64500:666:0", description: "Blackhole: dropped in AS64500, not announced further" },
     ]);
+
+    // A neighbor with its own blackhole community gets the route, tagged with it, and none of ours.
+    const passed = communities.actions(64501, { blackhole: "64501:666" })[0]!;
+    expect(passed).toMatchObject({ action: "accept", set: { add_communities: ["64501:666"], remove_large_communities: ["64500:*:*"] } });
 });

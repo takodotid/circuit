@@ -239,7 +239,7 @@ const article = (word: string) => (/^[aeiou]/i.test(word) ? `an ${word}` : `a ${
  * Policy rules and a catalogue from one community scheme, so the communities your routers set, the ones they act on, and the ones you publish never disagree.
  *
  * - `tag(neighborClass, neighborAs, { site, keepActions })`: a rule for an import policy. It removes your communities a neighbor set, then adds where the route was learned. `site` is needed when the scheme has `learned_at`. With `keepActions`, for a customer, its action communities stay.
- * - `actions(neighborAs)`: rules for an export policy toward one neighbor. They act on a customer's action communities, then remove all of yours. Place them before the rules that accept.
+ * - `actions(neighborAs, { blackhole })`: rules for an export policy toward one neighbor. They act on a customer's action communities, then remove all of yours. Place them before the rules that accept. A blackholed route goes no further, unless `blackhole` names the neighbor's own blackhole community: then it is passed on with it, so the neighbor drops the traffic too.
  * - `blackhole(prefixSet)`: a rule for a customer's import policy, before anything that rejects long prefixes. It takes a route the customer asked to blackhole, but only inside `prefixSet`, its own space, and drops traffic to it here.
  * - `catalogue`: every community, for `communities` in `defineNetwork`.
  */
@@ -286,8 +286,8 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
         };
     };
 
-    const actions = (neighborAs: number): PolicyRule<never, never>[] => [
-        ...(scheme.blackhole !== undefined
+    const actions = (neighborAs: number, options: { blackhole?: string } = {}): PolicyRule<never, never>[] => [
+        ...(scheme.blackhole !== undefined && !options.blackhole
             ? [
                   {
                       description: "Blackholed here, never announced",
@@ -307,6 +307,20 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
                       description: `Asked not to be announced to AS${neighborAs}`,
                       match: { large_community: community(scheme.do_not_announce, neighborAs) },
                       action: "reject" as const,
+                  },
+              ]
+            : []),
+        ...(scheme.blackhole !== undefined && options.blackhole
+            ? [
+                  {
+                      description: `Blackhole passed on to AS${neighborAs}`,
+                      match: { large_community: community(scheme.blackhole, 0) },
+                      set: {
+                          remove_communities: ours.standard,
+                          remove_large_communities: ours.large,
+                          add_communities: [options.blackhole],
+                      },
+                      action: "accept" as const,
                   },
               ]
             : []),

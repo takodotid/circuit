@@ -65,7 +65,7 @@ A customer adds these to the routes it sends you. Your router acts on them when 
 | Name                             | What it is                                              | Where it goes                        |
 | -------------------------------- | ------------------------------------------------------- | ------------------------------------ |
 | `tag(class, asn, options)`       | One rule that tags a route as it comes in               | Each neighbor's import policy        |
-| `actions(asn)`                   | Rules that do what customers asked, toward one neighbor | Each neighbor's export policy        |
+| `actions(asn, { blackhole })`    | Rules that do what customers asked, toward one neighbor | Each neighbor's export policy        |
 | `blackhole(prefixSet)`           | One rule that takes a customer's blackhole request      | Each customer's import policy, first |
 | `catalogue`                      | Every community with its meaning                        | `communities` in `defineNetwork`     |
 | `community(function, parameter)` | One community, written out                              | A rule of your own                   |
@@ -117,7 +117,7 @@ Put it in each import, after the filters that decide whether to accept the route
 communities.actions(64501);
 ```
 
-`asn` is the AS of the neighbor this export goes to. For that neighbor, it makes these rules, in this order:
+`asn` is the AS of the neighbor this export goes to. `blackhole`, optional, is that neighbor's own blackhole community; see [passing a blackhole on](#passing-a-blackhole-on). For that neighbor, it makes these rules, in this order:
 
 1. Reject a route tagged `64500:666:0`, blackholed: it stays in your network.
 2. Reject a route tagged `64500:100:0`, "do not announce to anyone".
@@ -166,7 +166,22 @@ Put it first in the customer's import, before `SANITY`: `bgpSanity()` refuses an
 ],
 ```
 
-The router then drops traffic to that address itself, and `actions` makes sure the route is never announced to anyone. Passing the request on to your own upstreams, so the traffic stops before it even reaches you, needs each upstream's own blackhole community, and is not done here.
+The router then drops traffic to that address itself, and `actions` makes sure the route is never announced to anyone.
+
+### Passing a blackhole on
+
+Dropping the traffic at your router protects the customer, but the attack still fills your own links from your upstreams. An upstream that offers blackholing can drop it before it reaches you. Each one has its own community for it, which you get from its NOC; `65535:666` from RFC 7999 is common.
+
+Give it to `actions` for that neighbor:
+
+```ts
+"TRANSIT-OUT": [
+    ...communities.actions(64501, { blackhole: "64501:666" }),
+    // ...
+],
+```
+
+For that neighbor, the reject in step 1 of [actions](#actions) is replaced by a rule placed after the "do not announce" ones: a blackholed route is announced to the neighbor with its blackhole community, and without any of yours. A customer who also asked not to be announced to that neighbor still is not. Every neighbor without the option keeps rejecting it.
 
 ### catalogue
 
