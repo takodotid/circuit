@@ -12,7 +12,7 @@ const examples = [router, switchDevice, coreSwitch];
 
 describe("examples", () => {
     test("validate", () => {
-        const findings = validate(defineNetwork({ devices: examples, state: "" }));
+        const findings = validate(defineNetwork({ devices: examples }));
         expect(findings).toEqual([]);
     });
 
@@ -82,7 +82,7 @@ test("trustBoundary finds an untrusted VLAN beside a trusted one away from a rou
 
     expect(vlansOf({ access_vlan: "a", trunk_vlans: ["b"] })).toEqual(["a", "b"]);
 
-    const check = trustBoundary({ untrusted: ["guests"], trusted: ["servers"], routers: ["example-router"] });
+    const check = trustBoundary({ untrusted: ["guests"], routers: ["example-router"] });
     expect(check([switchDevice]).map((finding) => finding.message)).toEqual([
         "LAG uplink carries an untrusted VLAN beside a trusted one and does not face a router",
         "interface guests puts an address on untrusted VLAN guests; only a router may",
@@ -94,4 +94,23 @@ test("merge refuses a name two records hold", async () => {
 
     expect(merge({ a: 1 }, { b: 2 })).toEqual({ a: 1, b: 2 });
     expect(() => merge({ a: 1 }, { a: 2 })).toThrow("merge: a is declared twice");
+});
+
+// Templates are what `circuit new` copies and what the pattern pages show: each validates, with its own checks, and plans nothing against its own render.
+describe("templates", () => {
+    for (const pattern of ["single-site", "edge-router", "colocation"]) {
+        test(pattern, async () => {
+            const network = (await import(`../templates/${pattern}/circuit.config.ts`)).default;
+            const findings = validate(network).filter((finding) => finding.level === "error");
+            expect(findings).toEqual([]);
+
+            for (const device of network.devices) {
+                const adapter = adapters[device.platform]!;
+                const rendered = adapter.render(device);
+                const plan = adapter.plan(rendered, rendered, { secrets: false, rollback: 10 });
+                expect(plan.problems).toEqual([]);
+                expect(plan.steps.flatMap((step) => step.show)).toEqual([]);
+            }
+        });
+    }
 });

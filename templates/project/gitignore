@@ -1,0 +1,5 @@
+node_modules/
+
+# Secrets, or references to them. Never commit these.
+.env
+*.key.pem

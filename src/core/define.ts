@@ -1,10 +1,10 @@
 import type { ModelName, PlatformName, PortName } from "../adapters/devices/catalog";
 import type { Device, Secret } from "../schema";
 
-/** A value resolved by name when a device is applied, from the environment or `.env.local`. Never the value itself. */
+/** A value resolved by name when a device is applied, from the environment or `.env` beside the config, and through 1Password when that value is an `op://` reference. Never the value itself. */
 export const secret = (name: string): Secret => ({ secret: name });
 
-/** A value read from a file when a device is applied, such as a private key in PEM. The path is relative to the project root; keep the file out of git. */
+/** A value read from a file when a device is applied, such as a private key in PEM. The path is relative to the config file; keep the file out of git. */
 export const secretFile = (path: string): Secret => {
     if (!/^[A-Za-z0-9_./-]+$/.test(path)) throw new Error(`secret file path ${path} may hold only letters, digits, _ . / and -`);
     return { secret_file: path };
@@ -77,8 +77,6 @@ export type Network = {
     devices: readonly Device[];
     /** Rules of your own design. */
     checks?: readonly Check[];
-    /** Where snapshots of what each device runs are kept, relative to the config file. */
-    state: string;
     /** The AS the network operates, for what is published about it. */
     asn?: number;
     /** The BGP communities the network defines, printed by `circuit communities` for a looking glass or bgp.tools. */

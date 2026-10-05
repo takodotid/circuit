@@ -1,21 +1,22 @@
 #!/usr/bin/env bun
-// The command line. Loads `circuit.config.ts` from the working directory.
+// The command line. `new` starts a project; every other command loads the network from `circuit.config.ts` in the working directory, or the file `--config` names.
 
 import { createPrivateKey, createPublicKey } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { adapters } from "../adapters/devices";
 import type { ApplyOptions, DeviceAdapter, Plan } from "../adapters/devices/types";
 import { registries } from "../adapters/registries";
 import { planPeeringDb, sendPeeringDb } from "../adapters/registries/peeringdb";
 import { network as prefixOf } from "../core/addr";
 import type { Network } from "../core/define";
-import { resolve as reveal } from "../core/secrets";
+import { isSecret, referenceOf, resolve as reveal, sourceOf, useRoot } from "../core/secrets";
 import { validate } from "../core/validate";
 import type { Device } from "../schema";
 
 const HELP = `usage: circuit <command> [device...] [options]
 
+  new [directory]       start a project from a pattern, asking what it needs
   validate              check the config, then every rule in checks
   build <device>        print the configuration the device should run, without contacting it
   diff [device...]      what apply would send, planned against the last snapshot, offline
@@ -28,12 +29,24 @@ const HELP = `usage: circuit <command> [device...] [options]
                         a client config for one peer, its private key left for the peer to fill
   communities           the network's BGP communities, one per line, for a looking glass or bgp.tools
   peeringdb             bring PeeringDB's exchange records in line with the config, with --confirm
+  secrets               every secret the config uses, and whether each can be read
 
   --config <path>       the network's config file, circuit.config.ts in the working directory by default`;
 
 const DEFAULT_CONFIG = "circuit.config.ts";
 
 const [command, ...args] = process.argv.slice(2);
+
+if (command === "new") {
+    const { create } = await import("./new");
+    await create(args);
+    process.exit(0);
+}
+
+if (!command || command === "help" || command === "--help" || command === "-h") {
+    console.log(HELP);
+    process.exit(0);
+}
 
 // `--config <path>` and `--config=<path>` both name the config file; neither is a device name.
 const configAt = args.indexOf("--config");
@@ -49,8 +62,9 @@ if (!existsSync(configPath)) {
     process.exit(1);
 }
 
-/** The directory of the config file. The state directory is relative to it. */
+/** The directory of the config file. `.circuit/`, `.env` and secret files are found from here. */
 const root = dirname(configPath);
+useRoot(root);
 
 const network = (await import(configPath)).default as Network;
 
@@ -83,20 +97,22 @@ function one(): Device {
 }
 
 const adapterOf = (device: Device): DeviceAdapter => adapters[device.platform] ?? fail(`no adapter for ${device.platform}`);
-const stateDirectory = join(root, network.state);
+/** What Circuit writes, beside the config. */
+const generated = join(root, ".circuit");
+const stateDirectory = join(generated, "state");
 const statePath = (device: Device) => join(stateDirectory, device.name + adapterOf(device).extension);
 
-const STATE_README = `# Do not edit
+const GENERATED_README = `# Written by Circuit
 
-Written by \`circuit snapshot\` and \`circuit apply\`: what each device ran when it was last read, with secrets removed.
+Do not edit anything here: an edit changes nothing on a device, and Circuit overwrites it. Change the config instead.
 
-An edit here changes nothing on a device and is overwritten on the next read. Change the config instead.
+\`state/\` holds what each device ran when Circuit last read it, with secrets removed. \`circuit snapshot\` and \`circuit apply\` write it, and \`circuit diff\` plans against it. Commit it, so the history of this directory is the history of the network.
 `;
 
 /** Record what a device runs, beside a note that the directory is generated. */
 function writeState(device: Device, text: string): void {
     mkdirSync(stateDirectory, { recursive: true });
-    writeFileSync(join(stateDirectory, "README.md"), STATE_README);
+    writeFileSync(join(generated, "README.md"), GENERATED_README);
     writeFileSync(statePath(device), text);
 }
 
@@ -167,6 +183,17 @@ async function snapshotCommand(): Promise<void> {
         const text = await adapterOf(device).read(device, network.devices);
         writeState(device, text);
         console.log(`${device.name}: ${text.split("\n").length} lines`);
+    }
+
+    // With every device read, a snapshot of a device the config no longer has, such as one renamed, is removed.
+    if (names.length || !existsSync(stateDirectory)) return;
+
+    const current = new Set(network.devices.map((device) => basename(statePath(device))));
+    for (const file of readdirSync(stateDirectory)) {
+        if (current.has(file)) continue;
+
+        rmSync(join(stateDirectory, file));
+        console.log(`${file}: removed, no such device in the config`);
     }
 }
 
@@ -290,6 +317,36 @@ async function peeringdbCommand(): Promise<void> {
     await sendPeeringDb(network, plan.changes);
 }
 
+/** Every secret reference in a value, however deep. */
+function secretsIn(value: unknown, found = new Set<string>()): Set<string> {
+    if (isSecret(value)) found.add(referenceOf(value));
+    else if (Array.isArray(value)) for (const item of value) secretsIn(item, found);
+    else if (typeof value === "object" && value !== null) for (const item of Object.values(value)) secretsIn(item, found);
+
+    return found;
+}
+
+function secretsCommand(): void {
+    const references = [...secretsIn([network.devices, network.peeringdb])].sort();
+    let missing = 0;
+
+    for (const reference of references) {
+        const name = reference.replace(/^file:/, "");
+
+        try {
+            reveal(reference);
+            console.log(`  ok       ${name}, from ${sourceOf(reference)}`);
+        } catch (error) {
+            missing++;
+            console.log(`  missing  ${name}: ${(error as Error).message}`);
+        }
+    }
+
+    console.log(`
+${references.length} secret(s), ${missing} missing.`);
+    process.exit(missing ? 1 : 0);
+}
+
 const commands: Record<string, () => void | Promise<void>> = {
     validate: validateCommand,
     build: buildCommand,
@@ -300,8 +357,12 @@ const commands: Record<string, () => void | Promise<void>> = {
     wireguard: wireguardCommand,
     communities: communitiesCommand,
     peeringdb: peeringdbCommand,
+    secrets: secretsCommand,
 };
 
-const run = commands[command ?? ""];
+const run = commands[command];
 if (run) await run();
-else console.log(HELP);
+else
+    fail(`no command ${command}
+
+${HELP}`);

@@ -1,15 +1,15 @@
 /**
  * A value kept out of the repository and resolved only when a device is applied.
  *
- * `secret("NAME")` reads a variable from the environment or `.env.local`. `secretFile("path")` reads a file, relative to the project root, for a value that spans lines such as a private key in PEM. Keep that file out of git.
+ * `secret("NAME")` reads a variable from the environment or `.env` beside the config; a value written as `op://vault/item/field` is read from 1Password. `secretFile("path")` reads a file, relative to the config file, for a value that spans lines such as a private key in PEM. Keep that file out of git.
  */
 export type Secret =
     | {
-          /** Name of the value in the environment or in `.env.local`. */
+          /** Name of the value in the environment or in `.env`. */
           readonly secret: string;
       }
     | {
-          /** Path of a file holding the value, relative to the project root. */
+          /** Path of a file holding the value, relative to the config file. */
           readonly secret_file: string;
       };
 
