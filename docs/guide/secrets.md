@@ -54,7 +54,7 @@ The path is relative to `circuit.config.ts`. The certificate itself is public an
 ## Check every secret
 
 ```bash
-bun circuit secrets
+npx circuit secrets
 ```
 
 lists every secret your files use, where each one comes from, and whether it can be read. It never prints a value. Run it after you set up a new computer, or when `apply` says a secret is missing.
@@ -66,4 +66,4 @@ A device never shows its passwords back, so Circuit cannot tell whether one chan
 To change a password that already exists:
 
 1. Change the value in `.env` or in 1Password.
-2. Run `bun circuit apply <device> --secrets --confirm`. `--secrets` sends every secret the device holds, including the new one.
+2. Run `npx circuit apply <device> --secrets --confirm`. `--secrets` sends every secret the device holds, including the new one.

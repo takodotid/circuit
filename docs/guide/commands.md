@@ -1,6 +1,6 @@
 # Commands
 
-Run every command from your project as `bun circuit <command>`. It reads `circuit.config.ts` in the current directory, or the file you name with `--config <path>`.
+Run every command from your project as `npx circuit <command>`, or `pnpm circuit <command>` with pnpm, or `bun circuit <command>` with Bun. It reads `circuit.config.ts` in the current directory, or the file you name with `--config <path>`.
 
 ## Every command
 
@@ -41,8 +41,8 @@ These four are easy to mix up:
 ## Making a change, step by step
 
 1. Edit the device's file.
-2. `bun circuit validate`, and fix every error.
-3. `bun circuit diff <device>` to see the change, offline.
-4. `bun circuit apply <device>` to see the plan against the live device. Read every line. A line that sets a menu's settings, shown as `~ set`, can turn something off.
-5. `bun circuit apply <device> --confirm` to send it.
+2. `npx circuit validate`, and fix every error.
+3. `npx circuit diff <device>` to see the change, offline.
+4. `npx circuit apply <device>` to see the plan against the live device. Read every line. A line that sets a menu's settings, shown as `~ set`, can turn something off.
+5. `npx circuit apply <device> --confirm` to send it.
 6. Commit the device's file together with the new snapshot in `.circuit/state/`.

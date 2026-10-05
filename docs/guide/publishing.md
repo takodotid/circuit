@@ -23,11 +23,11 @@ A network with its own AS number also tells the rest of the internet about itsel
     asn: 64500,
     peeringdb: { api_key: secret("PEERINGDB_API_KEY") },
     ```
-3. Run `bun circuit peeringdb`. It compares each marked interface with PeeringDB and prints what differs:
+3. Run `npx circuit peeringdb`. It compares each marked interface with PeeringDB and prints what differs:
     - the port speed;
     - the addresses, but only the ones reachable from the internet, so an exchange you reach over a tunnel on private addresses is not published;
     - whether you have a BGP session with the exchange's route server.
-4. Run `bun circuit peeringdb --confirm` to send the changes.
+4. Run `npx circuit peeringdb --confirm` to send the changes.
 
 If PeeringDB lists an exchange your config does not, Circuit reports it but never deletes it. Remove it by hand if you really left.
 
@@ -44,7 +44,7 @@ communities: [
 ],
 ```
 
-`bun circuit communities` prints them one per line, as `community,description`. This is the format of the [NLNOG Ring looking glass](https://github.com/NLNOG/lg.ring.nlnog.net), which bgp.tools also reads. In a community:
+`npx circuit communities` prints them one per line, as `community,description`. This is the format of the [NLNOG Ring looking glass](https://github.com/NLNOG/lg.ring.nlnog.net), which bgp.tools also reads. In a community:
 
 - `nnn` matches any number;
 - `x` matches one digit;

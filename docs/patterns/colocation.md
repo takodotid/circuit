@@ -5,7 +5,7 @@ A provider that hosts servers for its customers, the tenants. Each tenant gets i
 This is the [edge router](/patterns/edge-router) with a top-of-rack switch and tenants added. Each tenant is one small file. Everything the router and the switch need for it, such as its VLANs, its gateway and its ports, is worked out from that file.
 
 ```bash
-bunx @takodotid/circuit new my-network --pattern colocation --asn 64500
+npx @takodotid/circuit new my-network --pattern colocation --asn 64500
 ```
 
 ```

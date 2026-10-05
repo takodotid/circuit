@@ -1,6 +1,6 @@
 # Patterns
 
-A pattern is a ready-made layout for one kind of network, with example devices you change to your own. `bunx @takodotid/circuit new` asks which one is closest to yours and copies it. The files on each page are exactly the files you get.
+A pattern is a ready-made layout for one kind of network, with example devices you change to your own. `npx @takodotid/circuit new` asks which one is closest to yours and copies it. The files on each page are exactly the files you get.
 
 | Pattern                                         | For                                                                      | Uses BGP |
 | ----------------------------------------------- | ------------------------------------------------------------------------ | -------- |

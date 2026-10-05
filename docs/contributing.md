@@ -9,13 +9,14 @@ cd circuit && bun link
 cd ../my-network && bun link @takodotid/circuit
 ```
 
-`bun install` in the network's project returns it to the release it pins.
+The `circuit` command runs from `dist/`, so run `bun run build` in Circuit after a change. `bun install` in the network's project returns it to the release it pins.
 
 ## Checks
 
 ```bash
 bun run typecheck
 bun run test        # every example and template validates, and plans nothing against its own render
+bun run build       # dist/, what Node, npm and pnpm run
 bun run docs:dev    # this site, locally
 ```
 

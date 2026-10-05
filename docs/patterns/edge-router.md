@@ -3,7 +3,7 @@
 Your own AS number and address space, announced to the internet through an IP transit and an internet exchange. The router is where traffic from outside is filtered, before it reaches the rest of your network.
 
 ```bash
-bunx @takodotid/circuit new my-network --pattern edge-router --asn 64500
+npx @takodotid/circuit new my-network --pattern edge-router --asn 64500
 ```
 
 ```
@@ -48,8 +48,8 @@ To publish your exchanges on PeeringDB as well, see [Publishing the network](/gu
 
 ## Next
 
-1. Put the router's password in `.env`, then run `bun circuit secrets`.
-2. Run `bun circuit validate`, `bun circuit snapshot` and `bun circuit diff`.
-3. Run `bun circuit apply edge-01`, read the plan, then add `--confirm`.
+1. Put the router's password in `.env`, then run `npx circuit secrets`.
+2. Run `npx circuit validate`, `npx circuit snapshot` and `npx circuit diff`.
+3. Run `npx circuit apply edge-01`, read the plan, then add `--confirm`.
 
 To host customers behind the router, see [Colocation with tenants](/patterns/colocation).

@@ -2,7 +2,7 @@
 
 ## What you need
 
-- [Bun](https://bun.sh), which runs Circuit. Circuit is written in TypeScript and needs no build step.
+- [Node.js](https://nodejs.org) 20.12 or newer, with npm or pnpm. Or [Bun](https://bun.sh) instead, if you prefer it.
 - A computer that can reach your devices' management addresses over SSH.
 - An editor that understands TypeScript, such as VS Code. It shows what every field means as you type.
 
@@ -12,9 +12,21 @@ Circuit runs a production network, but it is not stable yet: the way you write c
 
 ## Start a project
 
-```bash
+::: code-group
+
+```bash [npm]
+npx @takodotid/circuit new
+```
+
+```bash [pnpm]
+pnpm dlx @takodotid/circuit new
+```
+
+```bash [Bun]
 bunx @takodotid/circuit new
 ```
+
+:::
 
 It asks a few questions:
 
@@ -26,11 +38,13 @@ It asks a few questions:
 3. **Your AS number**, for the patterns that use BGP.
 4. **Whether your secrets are in 1Password.** See [1Password](/integrations/1password).
 
-Then it creates the files and installs Circuit. The same answers can be given as options, which is handy in a script or for an AI agent:
+Then it creates the files and installs Circuit with the package manager you started it with. The same answers can be given as options, which is handy in a script or for an AI agent:
 
 ```bash
-bunx @takodotid/circuit new my-network --pattern edge-router --asn 64500 --1password
+npx @takodotid/circuit new my-network --pattern edge-router --asn 64500 --1password
 ```
+
+`--use npm`, `--use pnpm` or `--use bun` picks the package manager yourself.
 
 ## What you get
 
@@ -53,24 +67,24 @@ The example devices have example addresses. Change them to your own first: the n
 
 1. **Check that every secret can be read.**
     ```bash
-    bun circuit secrets
+    npx circuit secrets
     ```
 2. **Check the files.** This catches typos, missing values and anything a device cannot do.
     ```bash
-    bun circuit validate
+    npx circuit validate
     ```
 3. **Read what each device runs now.** This logs in to each device and saves its configuration in `.circuit/state/`. Nothing is changed.
     ```bash
-    bun circuit snapshot
+    npx circuit snapshot
     ```
 4. **See what would change.**
     ```bash
-    bun circuit diff
+    npx circuit diff
     ```
 5. **Apply one device.** `apply` reads the device again and shows the plan. Read it. Only `--confirm` sends it.
     ```bash
-    bun circuit apply router
-    bun circuit apply router --confirm
+    npx circuit apply router
+    npx circuit apply router --confirm
     ```
 
 ::: danger The first plan is long
@@ -82,7 +96,11 @@ A device that was configured by hand runs many things your files do not describe
 If you would rather write the files yourself, install Circuit with an exact version:
 
 ```bash
-bun add --exact @takodotid/circuit
+npm install --save-exact @takodotid/circuit
 ```
 
-and create `circuit.config.ts` as in [The network](/guide/network). The CLI then runs as `bun circuit`.
+or `pnpm add --save-exact @takodotid/circuit`, or `bun add --exact @takodotid/circuit`. Then create `circuit.config.ts` as in [The network](/guide/network).
+
+## The commands on these pages
+
+These pages write every command for npm, as `npx circuit`. With pnpm, write `pnpm circuit` instead; with Bun, `bun circuit`. Everything else is the same.

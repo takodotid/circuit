@@ -5,8 +5,8 @@
 1. Change `name` in the device's file. Circuit sets it as the device's hostname.
 2. Change every place that refers to the old name: a `link` on the device at the other end of a cable, and any check that names the device, such as `routers` in `trustBoundary`. `circuit validate` reports a `link` to a device that does not exist.
 3. Rename the file too if you like. It only matters to you; Circuit goes by `name`.
-4. Run `bun circuit apply <new name>`, then `--confirm`. The plan changes the hostname.
-5. Run `bun circuit snapshot` with no device names. It saves the device under its new name and removes the old snapshot from `.circuit/state/`.
+4. Run `npx circuit apply <new name>`, then `--confirm`. The plan changes the hostname.
+5. Run `npx circuit snapshot` with no device names. It saves the device under its new name and removes the old snapshot from `.circuit/state/`.
 
 ## How do I rename a site?
 
@@ -48,7 +48,7 @@ Only if it is part of the device's configuration. Some things a device creates o
 
 Yes, carefully. The first plan removes everything your file does not describe yet, so:
 
-1. Run `bun circuit snapshot` and read the device's current configuration in `.circuit/state/`.
+1. Run `npx circuit snapshot` and read the device's current configuration in `.circuit/state/`.
 2. Write the file to describe what should stay.
-3. Run `bun circuit diff` again, and repeat until the plan only holds changes you want.
+3. Run `npx circuit diff` again, and repeat until the plan only holds changes you want.
 4. Only then run `apply --confirm`.

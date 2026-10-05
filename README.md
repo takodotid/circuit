@@ -9,10 +9,10 @@ Documentation: [circuit.tako.id](https://circuit.tako.id)
 
 ## Start
 
-You need [Bun](https://bun.sh). Then:
+You need [Node.js](https://nodejs.org) 20.12 or newer, or [Bun](https://bun.sh). Then:
 
 ```bash
-bunx @takodotid/circuit new
+npx @takodotid/circuit new        # or: pnpm dlx @takodotid/circuit new, bunx @takodotid/circuit new
 ```
 
 It asks which kind of network you have, creates a project with example devices, and installs Circuit. [Getting started](https://circuit.tako.id/guide/getting-started) walks through the first run.
@@ -25,6 +25,7 @@ Circuit supports MikroTik RouterOS 7, Huawei VRP and Raisecom ROS. Releases are 
 bun install
 bun run typecheck
 bun run test        # every example and template validates, and plans nothing against its own render
+bun run build       # dist/, what Node, npm and pnpm run
 bun run docs:dev    # the documentation site, from docs/
 ```
 

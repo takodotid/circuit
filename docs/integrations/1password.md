@@ -25,11 +25,11 @@ This means:
     In the 1Password app, the menu of any field has "Copy Secret Reference", which gives you the exact reference.
 5. **Check every secret can be read:**
     ```bash
-    bun circuit secrets
+    npx circuit secrets
     ```
     It shows `1Password, through .env` next to each one it read from 1Password. It never prints a value.
 
-A project started with `bunx @takodotid/circuit new --1password` already has a `.env` with a reference for every secret its files use. Change each one to where the secret really is.
+A project started with `npx @takodotid/circuit new --1password` already has a `.env` with a reference for every secret its files use. Change each one to where the secret really is.
 
 ## In CI or on a server
 
@@ -37,7 +37,7 @@ Nobody is there to approve with a fingerprint, so use a [1Password service accou
 
 ```bash
 export OP_SERVICE_ACCOUNT_TOKEN=...
-bun circuit secrets
+npx circuit secrets
 ```
 
 `op` uses the token on its own; nothing changes in your project.
@@ -47,5 +47,5 @@ bun circuit secrets
 Circuit reads a variable from the environment before `.env`. So `op run` works as well, if you prefer it:
 
 ```bash
-op run --env-file=.env -- bun circuit apply router
+op run --env-file=.env -- npx circuit apply router
 ```

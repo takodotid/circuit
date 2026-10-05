@@ -4,7 +4,7 @@ import { withBase } from "vitepress";
 import circuit from "../../../package.json";
 import { catalog } from "../../../src/adapters/devices/catalog";
 
-const install = "bunx @takodotid/circuit new";
+const install = "npx @takodotid/circuit new";
 const copied = ref(false);
 
 async function copy() {
@@ -20,6 +20,43 @@ const platforms = [
     { name: "Huawei VRP", platform: "vrp" },
     { name: "Raisecom ROS", platform: "raisecom-ros" },
 ].map((entry) => ({ ...entry, models: Object.keys(catalog[entry.platform as keyof typeof catalog]).join(", ") }));
+
+// Traces behind the opening, like the copper on a circuit board. Each ends in a pad; the ones marked `live` carry a signal.
+const traces = [
+    { d: "M640 64 H452 L412 104 H292", live: false },
+    { d: "M640 132 H500 L460 172 V236 L420 276 H318", live: true },
+    { d: "M640 204 H548 L516 236 H430", live: false },
+    { d: "M640 316 H468 L428 356 H246", live: true },
+    { d: "M640 392 H528 L496 424 H370", live: false },
+    { d: "M600 0 V36 L560 76 H476", live: false },
+    { d: "M640 264 H596 L572 288 V364 L548 388 H488", live: false },
+    { d: "M548 470 V440 L512 404 H452", live: false },
+];
+
+/** The last point of a path written with M, H, V and L, where its pad sits. */
+function endOf(d: string): [number, number] {
+    let x = 0;
+    let y = 0;
+
+    for (const [, command, values] of d.matchAll(/([MHVL])([^MHVL]*)/g)) {
+        const numbers = values!
+            .trim()
+            .split(/[\s,]+/)
+            .map(Number);
+        if (command === "H") x = numbers[0]!;
+        else if (command === "V") y = numbers[0]!;
+        else [x, y] = [numbers[0]!, numbers[1]!];
+    }
+
+    return [x, y];
+}
+
+// Ports lit on each device in the figure, as if a cable were in them.
+const lit = [
+    [1, 2, 4],
+    [1, 3, 5, 6],
+    [1, 2, 3, 6],
+];
 </script>
 
 <template>
@@ -35,8 +72,21 @@ const platforms = [
                 Start a project with
                 <button type="button" class="command" @click="copy" :title="copied ? 'Copied' : 'Copy'">{{ install }}</button>
                 <span class="copied" aria-live="polite">{{ copied ? " copied" : "" }}</span>
-                or read <a :href="withBase('/guide/introduction')">what Circuit is</a> first.
+                or with pnpm or Bun, or read <a :href="withBase('/guide/introduction')">what Circuit is</a> first.
             </p>
+
+            <svg class="traces" viewBox="0 0 640 470" aria-hidden="true">
+                <path v-for="trace in traces" :key="trace.d" :d="trace.d" :class="{ live: trace.live }" />
+                <path v-for="trace in traces.filter((each) => each.live)" :key="`signal-${trace.d}`" :d="trace.d" class="signal" />
+                <circle
+                    v-for="trace in traces"
+                    :key="`pad-${trace.d}`"
+                    :cx="endOf(trace.d)[0]"
+                    :cy="endOf(trace.d)[1]"
+                    r="5"
+                    :class="{ live: trace.live }"
+                />
+            </svg>
         </header>
 
         <figure class="figure">
@@ -68,7 +118,16 @@ const platforms = [
                         :transform="`translate(${40 + index * 240}, 196)`"
                     >
                         <rect width="140" height="40" rx="3" />
-                        <rect v-for="port in 6" :key="port" class="port" :x="14 + (port - 1) * 19" y="15" width="10" height="10" />
+                        <rect
+                            v-for="port in 6"
+                            :key="port"
+                            class="port"
+                            :class="{ lit: lit[index]!.includes(port) }"
+                            :x="14 + (port - 1) * 19"
+                            y="15"
+                            width="10"
+                            height="10"
+                        />
                         <text x="70" y="66" text-anchor="middle">{{ device }}</text>
                     </g>
                 </g>
@@ -76,6 +135,11 @@ const platforms = [
                 <g class="cables">
                     <path d="M180 216 H280" />
                     <path d="M420 216 H520" />
+                </g>
+
+                <g class="notes">
+                    <text x="646" y="56">what you write</text>
+                    <text x="670" y="221">what it runs</text>
                 </g>
             </svg>
             <figcaption id="figure-caption">One file for each device. What the file says is what the device runs.</figcaption>
@@ -168,6 +232,7 @@ const platforms = [
     --rule: var(--vp-c-divider);
     --mark: var(--vp-c-brand-1);
 
+    position: relative;
     max-width: 1040px;
     margin: 0 auto;
     padding: 56px 16px 120px;
@@ -196,6 +261,79 @@ a:hover {
 
 .opening {
     max-width: 820px;
+}
+
+.opening > :not(.traces) {
+    position: relative;
+    z-index: 1;
+}
+
+/* The traces sit to the right of the opening, fading out toward the text. On a narrow screen they would sit under it. */
+.traces {
+    position: absolute;
+    top: 48px;
+    right: -64px;
+    width: 600px;
+    height: auto;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to right, transparent, black 40%);
+    mask-image: linear-gradient(to right, transparent, black 40%);
+}
+
+@media (max-width: 1099px) {
+    .traces {
+        display: none;
+    }
+}
+
+.traces path {
+    fill: none;
+    stroke: var(--rule);
+    stroke-width: 2;
+    stroke-linejoin: round;
+}
+
+.traces path.live {
+    stroke: var(--mark);
+    opacity: 0.45;
+}
+
+.traces path.signal {
+    stroke: var(--mark);
+    stroke-width: 2.5;
+    stroke-dasharray: 14 520;
+    animation: signal 4.5s linear infinite;
+}
+
+.traces path.signal:nth-of-type(odd) {
+    animation-delay: -2s;
+}
+
+@keyframes signal {
+    from {
+        stroke-dashoffset: 534;
+    }
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .traces path.signal {
+        animation: none;
+        stroke-dasharray: none;
+        opacity: 0.45;
+    }
+}
+
+.traces circle {
+    fill: var(--vp-c-bg);
+    stroke: var(--rule);
+    stroke-width: 2;
+}
+
+.traces circle.live {
+    stroke: var(--mark);
 }
 
 h1 {
@@ -279,6 +417,18 @@ h1 {
 
 .figure .port {
     stroke: var(--soft);
+}
+
+.figure .port.lit {
+    fill: var(--mark);
+    stroke: var(--mark);
+}
+
+.figure .notes text {
+    fill: var(--mark);
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 17px;
 }
 
 .figure .cables path {

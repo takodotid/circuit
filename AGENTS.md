@@ -27,6 +27,8 @@ Read the platform's `TRAPS.md` first, and add to it what the change taught. New 
 
 `examples/` uses every field each adapter supports, and `test/` checks each example plans nothing against its own render. A reader and renderer that disagree on a form show up there before they show up as a change on every apply.
 
+Circuit is developed with Bun, which runs `src/` as it is. `bun run build` bundles `dist/` for Node, npm and pnpm, with type declarations; the package's exports send Bun to `src/` and everyone else to `dist/`. Code in `src/` uses Node's APIs, never Bun's, so both run it. Under Node, the CLI loads the config with jiti.
+
 `templates/` is what `circuit new` copies: a directory per pattern, and `project/` for what every project gets. The tests validate each template with its own checks, and the pattern pages include its files, so a template is always a working example.
 
 `docs/` is the documentation site at circuit.tako.id. A change to what Circuit does changes the page that describes it in the same commit. Platform pages include each adapter's `TRAPS.md`.

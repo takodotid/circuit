@@ -24,7 +24,7 @@ Describe what you want, the way you would tell a colleague. Say whether the agen
 
 > Add a tenant called globex, number 2, with 198.51.100.16/29, on port 10g-3 of tor-01. Validate and diff, then stop.
 
-A good agent will edit the files, run `bun circuit validate` and `bun circuit diff`, and show you the result in plain words.
+A good agent will edit the files, run `npx circuit validate` and `npx circuit diff`, and show you the result in plain words.
 
 ## Keep the last step yours
 
@@ -39,7 +39,7 @@ Most agents let you require approval for a command. In Claude Code, for example,
 ```json
 {
     "permissions": {
-        "ask": ["Bash(bun circuit apply:*)"],
+        "ask": ["Bash(npx circuit apply:*)"],
         "deny": ["Read(./.env)"]
     }
 }

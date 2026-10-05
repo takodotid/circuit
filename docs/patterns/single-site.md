@@ -3,7 +3,7 @@
 One router and one switch: a home, an office, or an internal network. The router connects to the internet through your provider, and shares its one public address with everything behind it. There is no BGP, so there is no AS number either.
 
 ```bash
-bunx @takodotid/circuit new my-network --pattern single-site
+npx @takodotid/circuit new my-network --pattern single-site
 ```
 
 ```
@@ -55,8 +55,8 @@ Without BGP, the network needs no `asn`.
 
 ## Next
 
-1. Put the two passwords in `.env`, then run `bun circuit secrets`.
-2. Run `bun circuit validate`, then `bun circuit snapshot` and `bun circuit diff`.
-3. Apply the switch first, then the router: `bun circuit apply switch`, read the plan, then add `--confirm`.
+1. Put the two passwords in `.env`, then run `npx circuit secrets`.
+2. Run `npx circuit validate`, then `npx circuit snapshot` and `npx circuit diff`.
+3. Apply the switch first, then the router: `npx circuit apply switch`, read the plan, then add `--confirm`.
 
 When you get your own AS number, see [An edge router](/patterns/edge-router).
