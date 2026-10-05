@@ -56,8 +56,8 @@ function peersWithRouteServer(device: Device, iface: AnyInterface): boolean {
 
     return Object.values(bgp?.neighbors ?? {}).some((neighbor) => {
         const group = neighbor.group ? bgp?.groups?.[neighbor.group] : undefined;
-        const role = neighbor.local_role ?? group?.local_role;
-        return role === "rs-client" && subnets.some((subnet) => contains(subnet, neighbor.address));
+        const role = neighbor.role ?? group?.role;
+        return role === "rs" && subnets.some((subnet) => contains(subnet, neighbor.address));
     });
 }
 

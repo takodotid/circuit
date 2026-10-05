@@ -67,7 +67,7 @@ export default defineDevice({
                 "example-transit": {
                     address: "203.0.113.1",
                     remote_as: 64501,
-                    local_role: "customer",
+                    role: "provider",
                     import: "TRANSIT-IN",
                     export: "OUT",
                     max_prefixes: 1_200_000,
@@ -75,7 +75,7 @@ export default defineDevice({
                 "example-ix-rs-v4": {
                     address: "192.0.2.1",
                     remote_as: 64502,
-                    local_role: "rs-client",
+                    role: "rs",
                     import: "IX-IN",
                     export: "OUT",
                     max_prefixes: 100_000,
@@ -83,7 +83,7 @@ export default defineDevice({
                 "example-ix-rs-v6": {
                     address: "2001:db8:ffff::1",
                     remote_as: 64502,
-                    local_role: "rs-client",
+                    role: "rs",
                     import: "IX-IN",
                     export: "OUT",
                     max_prefixes: 50_000,

@@ -874,12 +874,13 @@ export const RPKI_GROUP = "rpki";
 /** The chain a session without a policy uses, so that it learns or announces nothing. */
 export const REJECT_ALL = "REJECT-ALL";
 
+// RouterOS takes our own role. The config states the neighbor's, so each becomes its opposite: a neighbor that is our provider makes us its customer.
 const ROLES = {
-    provider: "ebgp-provider",
-    customer: "ebgp-customer",
+    provider: "ebgp-customer",
+    customer: "ebgp-provider",
     peer: "ebgp-peer",
-    rs: "ebgp-rs",
-    "rs-client": "ebgp-rs-client",
+    rs: "ebgp-rs-client",
+    "rs-client": "ebgp-rs",
 } as const;
 
 type AnyRule = PolicyRule<string, string>;
@@ -1097,7 +1098,7 @@ function bgpConnections(out: Output, ctx: Context): void {
         const addressFamily = familyOf(neighbor.address);
         const internal = settings.remote_as === bgp.asn;
         const originates = bgp.networks?.some((prefix) => familyOf(host(prefix)) === family);
-        const role = settings.local_role ? ROLES[settings.local_role] : internal ? "ibgp" : "ebgp";
+        const role = settings.role ? ROLES[settings.role] : internal ? "ibgp" : "ebgp";
 
         out.add(
             "/routing bgp connection",

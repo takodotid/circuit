@@ -18,7 +18,9 @@ export type StaticRoute<I extends string, F extends string> = {
     description?: string;
 };
 
-/** Our side of the relationship, as RFC 9234 defines it. */
+/**
+ * What a BGP neighbor is to us, with the roles RFC 9234 defines: `provider`, a transit we buy from; `customer`, one we sell transit to; `peer`, one we exchange our own routes with; `rs`, an exchange's route server; `rs-client`, a network using our route server.
+ */
 export type BgpRole = "provider" | "customer" | "peer" | "rs" | "rs-client";
 
 /** Settings a BGP neighbor can state itself or take from its group. */
@@ -33,8 +35,8 @@ export type NeighborSettings<P extends string> = {
     import?: P;
     /** Policy for routes announced. Nothing is announced when absent. */
     export?: P;
-    /** Our role toward this neighbor, which lets both sides reject a leak. */
-    local_role?: BgpRole;
+    /** What the neighbor is to us, such as `provider` for a transit. Both sides then reject a route leak, after RFC 9234. */
+    role?: BgpRole;
     /** The neighbor is more than one hop away. */
     multihop?: boolean;
     /** TCP MD5 password shared with the neighbor. */

@@ -114,7 +114,7 @@ export default defineDevice({
             groups: {
                 upstream: {
                     remote_as: 64501,
-                    local_role: "customer",
+                    role: "provider",
                     import: "UPSTREAM-IN",
                     export: "UPSTREAM-OUT",
                     max_prefixes: 10,
