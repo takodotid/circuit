@@ -1006,6 +1006,7 @@ function actions(rule: AnyRule, family: Family): string[] {
     // An address only means something to routes of its own family.
     if (set.next_hop && familyOf(set.next_hop) === family) steps.push(`set gw ${set.next_hop}`);
     if (set.preferred_source && familyOf(set.preferred_source) === family) steps.push(`set pref-src ${set.preferred_source}`);
+    if (set.blackhole) steps.push("set blackhole yes");
     if (rule.action) steps.push(rule.action);
     return steps;
 }

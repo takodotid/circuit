@@ -150,6 +150,12 @@ export default defineDevice({
     policies: {
         "UPSTREAM-IN": [
             {
+                description: "Blackhole",
+                match: { large_community: "64500:666:0", prefix_set: "ours" },
+                set: { blackhole: true },
+                action: "accept",
+            },
+            {
                 description: "Only the default route",
                 match: { prefix: "0.0.0.0/0" },
                 set: { local_pref: 200, preferred_source: "192.0.2.255", add_large_communities: ["64500:1:1"] },

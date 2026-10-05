@@ -32,6 +32,7 @@ export const communities = communityScheme({
     learned_from_as: 3,
     do_not_announce: 100,
     prepend: { once: 101, twice: 102, three_times: 103 },
+    blackhole: 666,
 });
 ```
 
@@ -51,21 +52,23 @@ Your router adds these on import. A neighbor can never set them, because the rou
 
 A customer adds these to the routes it sends you. Your router acts on them when the route leaves toward the AS they name.
 
-| Field             | What you give                                                                            | What the customer sets, and what happens                                                                                        |
-| ----------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `do_not_announce` | The function number                                                                      | `64500:100:64501`: the route is not announced to AS64501. `64500:100:0`: it is not announced to anyone.                         |
-| `prepend`         | A function number for each of `once`, `twice` and `three_times`; give the ones you offer | `64500:101:64501`: your AS is added once more to the path toward AS64501, so that route looks longer and less attractive there. |
+| Field             | What you give                                                                            | What the customer sets, and what happens                                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `do_not_announce` | The function number                                                                      | `64500:100:64501`: the route is not announced to AS64501. `64500:100:0`: it is not announced to anyone.                                         |
+| `prepend`         | A function number for each of `once`, `twice` and `three_times`; give the ones you offer | `64500:101:64501`: your AS is added once more to the path toward AS64501, so that route looks longer and less attractive there.                 |
+| `blackhole`       | The function number                                                                      | `64500:666:0` on a route inside their own space: traffic to it is dropped in your network, before it reaches them. See [blackhole](#blackhole). |
 
 ## What you get back
 
-`communityScheme` returns four things:
+`communityScheme` returns five things:
 
-| Name                             | What it is                                              | Where it goes                    |
-| -------------------------------- | ------------------------------------------------------- | -------------------------------- |
-| `tag(class, asn, options)`       | One rule that tags a route as it comes in               | Each neighbor's import policy    |
-| `actions(asn)`                   | Rules that do what customers asked, toward one neighbor | Each neighbor's export policy    |
-| `catalogue`                      | Every community with its meaning                        | `communities` in `defineNetwork` |
-| `community(function, parameter)` | One community, written out                              | A rule of your own               |
+| Name                             | What it is                                              | Where it goes                        |
+| -------------------------------- | ------------------------------------------------------- | ------------------------------------ |
+| `tag(class, asn, options)`       | One rule that tags a route as it comes in               | Each neighbor's import policy        |
+| `actions(asn)`                   | Rules that do what customers asked, toward one neighbor | Each neighbor's export policy        |
+| `blackhole(prefixSet)`           | One rule that takes a customer's blackhole request      | Each customer's import policy, first |
+| `catalogue`                      | Every community with its meaning                        | `communities` in `defineNetwork`     |
+| `community(function, parameter)` | One community, written out                              | A rule of your own                   |
 
 ### tag
 
@@ -116,10 +119,11 @@ communities.actions(64501);
 
 `asn` is the AS of the neighbor this export goes to. For that neighbor, it makes these rules, in this order:
 
-1. Reject a route tagged `64500:100:0`, "do not announce to anyone".
-2. Reject a route tagged `64500:100:64501`, "do not announce to AS64501".
-3. Prepend once, twice or three times for a route tagged `64500:101:64501`, `64500:102:64501` or `64500:103:64501`.
-4. Remove every community of yours, so your tags stay inside your network.
+1. Reject a route tagged `64500:666:0`, blackholed: it stays in your network.
+2. Reject a route tagged `64500:100:0`, "do not announce to anyone".
+3. Reject a route tagged `64500:100:64501`, "do not announce to AS64501".
+4. Prepend once, twice or three times for a route tagged `64500:101:64501`, `64500:102:64501` or `64500:103:64501`.
+5. Remove every community of yours, so your tags stay inside your network.
 
 Put them at the start of each export, before the rules that accept your routes:
 
@@ -130,6 +134,39 @@ Put them at the start of each export, before the rules that accept your routes:
     { description: "Nothing else leaves", action: "reject" },
 ],
 ```
+
+### blackhole
+
+When a customer is under attack, it can ask you to drop all traffic to one of its addresses, so the attack stops at your router instead of filling its link. It sends you that address, usually a /32 or a /128, tagged `64500:666:0`.
+
+```ts
+communities.blackhole("customer-prefixes");
+```
+
+`prefixSet` is the prefix set that holds the customer's own space. The rule only takes a route inside it, so a customer can never blackhole someone else's address. It makes this rule:
+
+```json
+{
+    "description": "Blackhole, asked by the customer",
+    "match": { "large_community": "64500:666:0", "prefix_set": "customer-prefixes" },
+    "set": { "blackhole": true },
+    "action": "accept"
+}
+```
+
+Put it first in the customer's import, before `SANITY`: `bgpSanity()` refuses anything longer than a /24, and a blackholed address is usually a /32.
+
+```ts
+"CUSTOMER-IN": [
+    communities.blackhole("customer-prefixes"),
+    { call: "SANITY" },
+    communities.tag("customer", 64510, { site: 0, keepActions: true }),
+    { description: "Only their own prefixes", match: { prefix_set: "customer-prefixes" }, action: "accept" },
+    { action: "reject" },
+],
+```
+
+The router then drops traffic to that address itself, and `actions` makes sure the route is never announced to anyone. Passing the request on to your own upstreams, so the traffic stops before it even reaches you, needs each upstream's own blackhole community, and is not done here.
 
 ### catalogue
 
@@ -151,6 +188,7 @@ export default defineNetwork({ devices, asn: 64500, communities: communities.cat
 64500:101:nnn,Prepend once to AS$0
 64500:102:nnn,Prepend twice to AS$0
 64500:103:nnn,Prepend three times to AS$0
+64500:666:0,Blackhole: dropped in AS64500, not announced further
 ```
 
 `nnn` stands for any number, and `$0` for the number it matched. See [Publishing the network](/guide/publishing#bgp-communities) for the format.
@@ -158,7 +196,7 @@ export default defineNetwork({ devices, asn: 64500, communities: communities.cat
 To publish a community the scheme does not make, add it beside the catalogue:
 
 ```ts
-communities: [...communities.catalogue, { community: communities.community(666, 0), description: "Blackhole" }],
+communities: [...communities.catalogue, { community: communities.community(200, 0), description: "Our own test routes" }],
 ```
 
 ### community

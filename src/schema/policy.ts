@@ -64,6 +64,8 @@ export type Sets = {
     next_hop?: IP;
     /** Source address for traffic the device itself sends to the route. Applies to routes of the same family as the address. */
     preferred_source?: IP;
+    /** Drop traffic to the route on this device, instead of forwarding it. */
+    blackhole?: true;
 };
 
 /**

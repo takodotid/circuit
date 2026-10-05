@@ -31,3 +31,5 @@ Behaviour that looks like something else. Each one has been hit on a real device
 - `:find` on an array returns a number or `nil`. Globals persist between exec commands of one login.
 - A fixed port speed is named by medium, `speed=10G-baseSR-LR` for an optic or `speed=1G-baseT-full` for copper, and only holds with `auto-negotiation=no`. With auto-negotiation back on, the export no longer prints the speed, so the plan resets only auto-negotiation. `speed=""` is refused as ambiguous and `unset speed` does not exist.
 - `bgp-path-len` counts every AS in the path, prepends included, and takes the same strict comparisons as `dst-len`.
+- `:parse` checks the command, not the text inside `rule=`. A routing filter rule is only checked when it is added.
+- `/routing/filter/filter-wizard` adds the rule it builds; it is not a dry run. `set blackhole yes` was proved this way on 7.23, in an unused chain removed right after.

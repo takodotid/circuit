@@ -223,6 +223,8 @@ export type CommunityScheme<Class extends string = string> = {
     do_not_announce?: number;
     /** Set by a customer: prepend toward an AS once, twice or three times, `asn:function:asn`. */
     prepend?: { once?: number; twice?: number; three_times?: number };
+    /** Set by a customer: drop traffic to the route in your network, before it reaches them, `asn:function:0`. The route is never announced further. */
+    blackhole?: number;
 };
 
 const PREPENDS = [
@@ -238,6 +240,7 @@ const article = (word: string) => (/^[aeiou]/i.test(word) ? `an ${word}` : `a ${
  *
  * - `tag(neighborClass, neighborAs, { site, keepActions })`: a rule for an import policy. It removes your communities a neighbor set, then adds where the route was learned. `site` is needed when the scheme has `learned_at`. With `keepActions`, for a customer, its action communities stay.
  * - `actions(neighborAs)`: rules for an export policy toward one neighbor. They act on a customer's action communities, then remove all of yours. Place them before the rules that accept.
+ * - `blackhole(prefixSet)`: a rule for a customer's import policy, before anything that rejects long prefixes. It takes a route the customer asked to blackhole, but only inside `prefixSet`, its own space, and drops traffic to it here.
  * - `catalogue`: every community, for `communities` in `defineNetwork`.
  */
 export function communityScheme<const Class extends string>(scheme: CommunityScheme<Class>) {
@@ -272,7 +275,27 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
         };
     };
 
+    const blackhole = <S extends string>(prefixSet: S): PolicyRule<never, S> => {
+        if (scheme.blackhole === undefined) throw new Error("communityScheme: blackhole needs a function number in the scheme");
+
+        return {
+            description: "Blackhole, asked by the customer",
+            match: { large_community: community(scheme.blackhole, 0), prefix_set: prefixSet },
+            set: { blackhole: true },
+            action: "accept",
+        };
+    };
+
     const actions = (neighborAs: number): PolicyRule<never, never>[] => [
+        ...(scheme.blackhole !== undefined
+            ? [
+                  {
+                      description: "Blackholed here, never announced",
+                      match: { large_community: community(scheme.blackhole, 0) },
+                      action: "reject" as const,
+                  },
+              ]
+            : []),
         ...(scheme.do_not_announce !== undefined
             ? [
                   {
@@ -332,7 +355,10 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
             const fn = scheme.prepend?.[name];
             return fn === undefined ? [] : [{ community: community(fn, "nnn"), description: `Prepend ${name.replace("_", " ")} to AS$0` }];
         }),
+        ...(scheme.blackhole !== undefined
+            ? [{ community: community(scheme.blackhole, 0), description: `Blackhole: dropped in AS${asn}, not announced further` }]
+            : []),
     ];
 
-    return { community, tag, actions, catalogue };
+    return { community, tag, actions, blackhole, catalogue };
 }

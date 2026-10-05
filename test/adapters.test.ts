@@ -114,3 +114,17 @@ describe("templates", () => {
         });
     }
 });
+
+test("communityScheme blackholes only inside the customer's space, and never announces it", async () => {
+    const { communityScheme } = await import("../src/presets");
+    const communities = communityScheme({ asn: 64500, blackhole: 666 });
+
+    expect(communities.blackhole("customer-prefixes")).toEqual({
+        description: "Blackhole, asked by the customer",
+        match: { large_community: "64500:666:0", prefix_set: "customer-prefixes" },
+        set: { blackhole: true },
+        action: "accept",
+    });
+    expect(communities.actions(64501)[0]).toMatchObject({ match: { large_community: "64500:666:0" }, action: "reject" });
+    expect(communities.catalogue).toEqual([{ community: "64500:666:0", description: "Blackhole: dropped in AS64500, not announced further" }]);
+});
