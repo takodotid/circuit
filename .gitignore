@@ -1,7 +1,5 @@
-# Secrets live in .env.local and nowhere else.
+# Secrets live in .env and nowhere else.
 .env
-.env.local
-.env.*.local
 *.key
 
 node_modules/
