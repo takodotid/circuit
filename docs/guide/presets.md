@@ -8,17 +8,18 @@ A preset only returns plain config, like the config you write yourself. Nothing 
 import { antiSpoofing, badTcpFlags, bgpSanity, MARTIANS } from "@takodotid/circuit/presets";
 ```
 
-| Preset                   | What it gives you                                                      | Where it goes                    |
-| ------------------------ | ---------------------------------------------------------------------- | -------------------------------- |
-| `MARTIANS`               | IPv4 sources that never come from the internet                         | anywhere a list of prefixes goes |
-| `PRIVATE_RANGES`         | IPv4 private space, RFC 1918                                           | anywhere a list of prefixes goes |
-| `antiSpoofing(vlan, …)`  | ACL rules that drop forged sources arriving on a VLAN                  | `acls`                           |
-| `badTcpFlags()`          | Firewall rules that drop TCP packets no real program sends             | `firewall.filter.forward.rules`  |
-| `bgpSanity(lengths?)`    | Route policy rules that refuse routes no neighbor should send          | `policies`                       |
-| `communityScheme({ … })` | Your BGP communities: rules for your routers and the list you publish  | `policies`, `communities`        |
-| `exportsEndInReject`     | A check: every BGP export ends by rejecting what it did not accept     | `checks`                         |
-| `tunnelsOutsideOffered`  | A check: a tunnel never starts from an address it carries routes for   | `checks`                         |
-| `trustBoundary({ … })`   | A check: traffic from outside reaches your VLANs only through a router | `checks`                         |
+| Preset                             | What it gives you                                                         | Where it goes                    |
+| ---------------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
+| `MARTIANS`                         | IPv4 sources that never come from the internet                            | anywhere a list of prefixes goes |
+| `PRIVATE_RANGES`                   | IPv4 private space, RFC 1918                                              | anywhere a list of prefixes goes |
+| `antiSpoofing(vlan, …)`            | ACL rules that drop forged sources arriving on a VLAN                     | `acls`                           |
+| `badTcpFlags()`                    | Firewall rules that drop TCP packets no real program sends                | `firewall.filter.forward.rules`  |
+| `bgpSanity(lengths?)`              | Route policy rules that refuse routes no neighbor should send             | `policies`                       |
+| `communityScheme({ … })`           | Your BGP communities: rules for your routers and the list you publish     | `policies`, `communities`        |
+| `exportsEndInReject`               | A check: every BGP export ends by rejecting what it did not accept        | `checks`                         |
+| `tunnelsOutsideOffered`            | A check: a tunnel never starts from an address it carries routes for      | `checks`                         |
+| `trustBoundary({ … })`             | A check: traffic from outside reaches your VLANs only through a router    | `checks`                         |
+| `internetExchange({ … }, members)` | An internet exchange's member ports, and a check that keeps members apart | `ports`, `checks`                |
 
 The descriptions on the rules a preset makes are fixed, because a device stores them. A release that changes one is a breaking change.
 
@@ -72,7 +73,7 @@ export default defineNetwork({
 });
 ```
 
-**`exportsEndInReject`** makes sure every BGP export policy ends with a rule that rejects everything. Without it, a route you never meant to announce could leak out.
+**`exportsEndInReject`** makes sure every BGP export policy ends with a rule that rejects everything. Without it, a route you never meant to announce could leak out. An export to a neighbor whose `role` is `customer` is left out, because sending a customer every route you know is what it pays for.
 
 **`tunnelsOutsideOffered`** makes sure a GRE or VXLAN tunnel does not start from an address inside a prefix you announce to the neighbor on the other side. If it did, the neighbor's replies would be routed back into the tunnel itself.
 
@@ -111,7 +112,7 @@ const fewVlansPerPort: Check = (devices) =>
 
 ### neighborPolicies
 
-`neighborPolicies(device)` is each BGP neighbor with its import and export policy, taken from the neighbor itself or from its group.
+`neighborPolicies(device)` is each BGP neighbor with its `role`, its `import` and its `export`, taken from the neighbor itself or from its group.
 
 ```ts
 import type { Check } from "@takodotid/circuit";
@@ -142,3 +143,7 @@ const testPrefixStaysHome: Check = (devices) =>
             .map((neighbor) => ({ level: "error" as const, device: device.name, message: `${neighbor.name} is offered the test prefix` }))
     );
 ```
+
+## Internet exchange
+
+`internetExchange` builds an exchange's member ports and a check that keeps members apart. See [Running an internet exchange](/use-cases/internet-exchange#internetexchange).

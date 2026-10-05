@@ -48,12 +48,12 @@ export default defineConfig({
                     { text: "Devices", link: "/guide/devices" },
                     { text: "The network", link: "/guide/network" },
                     { text: "Secrets", link: "/guide/secrets" },
-                    { text: "CLI commands", link: "/guide/commands" },
+                    { text: "CLI commands", link: "/guide/cli" },
                     { text: "How a change is applied", link: "/guide/convergence" },
                     { text: "BGP communities", link: "/guide/communities" },
                     { text: "Publishing the network", link: "/guide/publishing" },
                     { text: "Presets", link: "/guide/presets" },
-                    { text: "FAQ", link: "/guide/questions" },
+                    { text: "FAQ", link: "/guide/faq" },
                     { text: "Glossary", link: "/guide/glossary" },
                 ],
             },
@@ -105,7 +105,10 @@ export default defineConfig({
             },
         ],
 
-        socialLinks: [{ icon: "github", link: repository }],
+        socialLinks: [
+            { icon: "github", link: repository },
+            { icon: "npm", link: `https://www.npmjs.com/package/${circuit.name}` },
+        ],
 
         editLink: {
             pattern: `${repository}/edit/main/docs/:path`,

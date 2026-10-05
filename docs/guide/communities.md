@@ -28,6 +28,7 @@ import { communityScheme } from "@takodotid/circuit/presets";
 export const communities = communityScheme({
     asn: 64500,
     learned_from: { function: 1, classes: { transit: 1, exchange: 2, customer: 3 } },
+    requests_from: ["customer"],
     learned_at: { function: 2, sites: { 0: "Jakarta" } },
     learned_from_as: 3,
     do_not_announce: 100,
@@ -50,7 +51,9 @@ Your router adds these on import. A neighbor can never set them, because the rou
 
 ### What a customer can ask for
 
-A customer adds these to the routes it sends you. Your router acts on them when the route leaves toward the AS they name.
+A customer adds these to the routes it sends you, to ask you for something. Your router does it when the route leaves toward the AS they name.
+
+Only the kinds of neighbor in `requests_from` may ask. Here that is `customer`, one of the names in `learned_from.classes`. From anyone else, such as a transit, the requests are removed when the route comes in, so a transit cannot tell your router what to do with your routes.
 
 | Field             | What you give                                                                            | What the customer sets, and what happens                                                                                                        |
 | ----------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -76,12 +79,11 @@ A customer adds these to the routes it sends you. Your router acts on them when 
 communities.tag("transit", 64501, { site: 0 });
 ```
 
-| Argument      | What it is                                                                                                                                   |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `class`       | Which kind of neighbor this is, one of the names in `learned_from.classes`. The editor only accepts those names.                             |
-| `asn`         | The neighbor's AS number.                                                                                                                    |
-| `site`        | The number of the site the router is at. Needed when the scheme has `learned_at`; otherwise leave it out.                                    |
-| `keepActions` | `true` for a customer, so the requests it set on its routes stay. Leave it out for anyone else: only a customer may ask you to do something. |
+| Argument | What it is                                                                                                       |
+| -------- | ---------------------------------------------------------------------------------------------------------------- |
+| `class`  | Which kind of neighbor this is, one of the names in `learned_from.classes`. The editor only accepts those names. |
+| `asn`    | The neighbor's AS number.                                                                                        |
+| `site`   | The number of the site the router is at. Needed when the scheme has `learned_at`; otherwise leave it out.        |
 
 It makes this rule:
 
@@ -96,8 +98,10 @@ It makes this rule:
 }
 ```
 
-1. First it removes every community of yours the neighbor sent, so nobody outside can fake one. With `keepActions`, it only removes the "where it came from" ones, `64500:1:*`, `64500:2:*` and `64500:3:*`, and the customer's requests stay.
-2. Then it adds where the route came from.
+1. It removes the communities of yours that the neighbor put on the route. A neighbor may not set your "where it came from" tags, so those are always removed. Its requests, such as "do not announce to AS64502", are removed too, unless its class is in `requests_from`.
+2. It adds where the route came from.
+
+So for a transit it removes `64500:*:*`, every community of yours. For a customer it removes only `64500:1:*`, `64500:2:*` and `64500:3:*`, and the customer's requests stay.
 
 Put it in each import, after the filters that decide whether to accept the route:
 
@@ -105,7 +109,7 @@ Put it in each import, after the filters that decide whether to accept the route
 "TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 64501, { site: 0 }), { action: "accept" }],
 "CUSTOMER-IN": [
     { call: "SANITY" },
-    communities.tag("customer", 64510, { site: 0, keepActions: true }),
+    communities.tag("customer", 64510, { site: 0 }),
     { description: "Only their own prefixes", match: { prefix_set: "customer-prefixes" }, action: "accept" },
     { action: "reject" },
 ],
@@ -160,7 +164,7 @@ Put it first in the customer's import, before `SANITY`: `bgpSanity()` refuses an
 "CUSTOMER-IN": [
     communities.blackhole("customer-prefixes"),
     { call: "SANITY" },
-    communities.tag("customer", 64510, { site: 0, keepActions: true }),
+    communities.tag("customer", 64510, { site: 0 }),
     { description: "Only their own prefixes", match: { prefix_set: "customer-prefixes" }, action: "accept" },
     { action: "reject" },
 ],

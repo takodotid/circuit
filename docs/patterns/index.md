@@ -9,5 +9,3 @@ A pattern is a ready-made layout for one kind of network, with example devices y
 | [Colocation with tenants](/patterns/colocation) | A provider whose customers each get their own VLANs, addresses and ports | yes      |
 
 Each pattern is a starting point. Take what fits, and grow from there: the colocation pattern is the edge router with a switch and tenants added.
-
-Every project also gets an `AGENTS.md` for [AI agents](/integrations/ai-agents), a `README.md`, a `.gitignore` and a `.env` for its [secrets](/guide/secrets).

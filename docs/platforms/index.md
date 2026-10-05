@@ -12,7 +12,7 @@ Each platform supports one hardware model so far, the one it was proved on. Anot
 
 ## What each platform can do
 
-Not every device can do everything. If you write a field the device's platform cannot do, `circuit validate` reports it as an error and nothing is sent to that device. Circuit never skips a field quietly.
+A field a platform cannot do is an error, never skipped; see [Devices](/guide/devices#when-a-device-cannot-do-what-you-wrote).
 
 | Feature                                   | routeros              | vrp                   | raisecom-ros            |
 | ----------------------------------------- | --------------------- | --------------------- | ----------------------- |

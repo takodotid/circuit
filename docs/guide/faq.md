@@ -20,10 +20,6 @@ It depends on what the AS numbers are for:
 - **Each AS has its own PeeringDB record or its own communities.** Give each AS its own config file in the same repository, such as `as64500.config.ts` and `as64501.config.ts`, and choose one with `--config`. Each config file gets its own `.circuit/` next to it, so put each in its own directory.
 - **The networks are run by different teams.** Use one repository per network. Each team then has its own history, secrets and access.
 
-## How do I sell IP transit, IX-only transit, or run an exchange?
-
-Each has its own page, with a complete config: see [Use cases](/use-cases/).
-
 ## Why does `trustBoundary` ask for untrusted VLANs, not trusted ones?
 
 The untrusted list is short and rarely changes: your transits, exchanges and ISP handoffs. Your own VLANs grow every time you add a customer or a service. Listing the untrusted ones means every VLAN you add later is protected from the start, without anyone remembering to add it to the check.
