@@ -96,11 +96,16 @@ test("merge refuses a name two records hold", async () => {
     expect(() => merge({ a: 1 }, { a: 2 })).toThrow("merge: a is declared twice");
 });
 
-// Templates are what `circuit new` copies and what the pattern pages show: each validates, with its own checks, and plans nothing against its own render.
-describe("templates", () => {
-    for (const pattern of ["single-site", "edge-router", "colocation"]) {
-        test(pattern, async () => {
-            const network = (await import(`../templates/${pattern}/circuit.config.ts`)).default;
+// Templates are what `circuit new` copies and what the pattern pages show; use cases are what the use case pages show. Each validates, with its own checks, and plans nothing against its own render.
+describe("templates and use cases", () => {
+    const configs = [
+        ...["single-site", "edge-router", "colocation"].map((pattern) => `../templates/${pattern}`),
+        ...["ip-transit", "ix-transit", "internet-exchange"].map((useCase) => `../examples/use-cases/${useCase}`),
+    ];
+
+    for (const directory of configs) {
+        test(directory, async () => {
+            const network = (await import(`${directory}/circuit.config.ts`)).default;
             const findings = validate(network).filter((finding) => finding.level === "error");
             expect(findings).toEqual([]);
 

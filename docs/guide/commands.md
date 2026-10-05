@@ -1,4 +1,4 @@
-# Commands
+# CLI commands
 
 Run every command from your project as `npx circuit <command>`, or `pnpm circuit <command>` with pnpm, or `bun circuit <command>` with Bun. It reads `circuit.config.ts` in the current directory, or the file you name with `--config <path>`.
 

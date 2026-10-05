@@ -1,4 +1,4 @@
-# Questions
+# Frequently asked questions
 
 ## How do I rename a device?
 
@@ -20,21 +20,9 @@ It depends on what the AS numbers are for:
 - **Each AS has its own PeeringDB record or its own communities.** Give each AS its own config file in the same repository, such as `as64500.config.ts` and `as64501.config.ts`, and choose one with `--config`. Each config file gets its own `.circuit/` next to it, so put each in its own directory.
 - **The networks are run by different teams.** Use one repository per network. Each team then has its own history, secrets and access.
 
-## How do I sell IP transit?
+## How do I sell IP transit, IX-only transit, or run an exchange?
 
-A transit customer is a BGP neighbor that sends you its own routes and receives the internet from you. In the router's file:
-
-1. Add the customer as a BGP neighbor with `role: "customer"`. Both routers then reject a route leak on their own.
-2. Accept only the customer's own prefixes. Write them in a `prefix_set`, or fetch them from a registry with `source: { registry: "ripe-stat", query: "AS64510", family: "ipv4" }` and keep them current with `circuit refresh`.
-3. Set `max_prefixes`, so a mistake on the customer's side closes the session instead of flooding your router.
-4. Tag their routes with `communities.tag("customer", 64510, { keepActions: true })` from [`communityScheme`](/guide/communities), so they can ask you not to announce a route somewhere.
-5. Let them blackhole an address under attack with `communities.blackhole("their-prefixes")`, first in their import. See [blackhole](/guide/communities#blackhole).
-6. Export the full table, or only a default route, as you agreed with them.
-7. Add their prefixes to your own export policies, so you announce them to your transits and exchanges.
-
-## How do I host servers or content for others?
-
-That is the [colocation pattern](/patterns/colocation): each customer gets their own VLANs, public addresses and switch ports, from one file per customer.
+Each has its own page, with a complete config: see [Use cases](/use-cases/).
 
 ## Why does `trustBoundary` ask for untrusted VLANs, not trusted ones?
 

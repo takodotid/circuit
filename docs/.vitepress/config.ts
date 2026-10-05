@@ -33,6 +33,7 @@ export default defineConfig({
         nav: [
             { text: "Guide", link: "/guide/introduction" },
             { text: "Patterns", link: "/patterns/" },
+            { text: "Use cases", link: "/use-cases/" },
             { text: "Platforms", link: "/platforms/" },
             { text: "Reference", link: "/reference/schema" },
             { text: "Releases", link: `${repository}/releases` },
@@ -47,13 +48,13 @@ export default defineConfig({
                     { text: "Devices", link: "/guide/devices" },
                     { text: "The network", link: "/guide/network" },
                     { text: "Secrets", link: "/guide/secrets" },
-                    { text: "Commands", link: "/guide/commands" },
+                    { text: "CLI commands", link: "/guide/commands" },
                     { text: "How a change is applied", link: "/guide/convergence" },
                     { text: "BGP communities", link: "/guide/communities" },
                     { text: "Publishing the network", link: "/guide/publishing" },
                     { text: "Presets", link: "/guide/presets" },
-                    { text: "Questions", link: "/guide/questions" },
-                    { text: "Words used here", link: "/guide/glossary" },
+                    { text: "FAQ", link: "/guide/questions" },
+                    { text: "Glossary", link: "/guide/glossary" },
                 ],
             },
             {
@@ -70,6 +71,15 @@ export default defineConfig({
                     { text: "A single site", link: "/patterns/single-site" },
                     { text: "An edge router", link: "/patterns/edge-router" },
                     { text: "Colocation with tenants", link: "/patterns/colocation" },
+                ],
+            },
+            {
+                text: "Use cases",
+                items: [
+                    { text: "Overview", link: "/use-cases/" },
+                    { text: "Selling IP transit", link: "/use-cases/ip-transit" },
+                    { text: "Selling IX-only transit", link: "/use-cases/ix-transit" },
+                    { text: "Running an internet exchange", link: "/use-cases/internet-exchange" },
                 ],
             },
             {
@@ -100,6 +110,9 @@ export default defineConfig({
         editLink: {
             pattern: `${repository}/edit/main/docs/:path`,
         },
+
+        // The outline beside each page lists its second- and third-level headings.
+        outline: { level: [2, 3], label: "On this page" },
 
         search: {
             provider: "local",

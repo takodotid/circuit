@@ -26,7 +26,7 @@ bun run docs:dev    # this site, locally
 
 ## Writing the documentation
 
-Write for someone who may be new to networking. Say what a thing does before how, explain a word the first time it matters or link [Words used here](/guide/glossary), and break a process into numbered steps. A longer sentence that is easy to follow beats a short one that has to be read twice.
+Write for someone who may be new to networking. Say what a thing does before how, explain a word the first time it matters or link the [Glossary](/guide/glossary), and break a process into numbered steps. A longer sentence that is easy to follow beats a short one that has to be read twice.
 
 ## Adding a platform
 
