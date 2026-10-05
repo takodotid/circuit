@@ -24,10 +24,10 @@ It depends on what the AS numbers are for:
 
 A transit customer is a BGP neighbor that sends you its own routes and receives the internet from you. In the router's file:
 
-1. Add the customer as a BGP neighbor with `local_role: "provider"`, because you are their provider. Both routers then reject a route leak on their own.
+1. Add the customer as a BGP neighbor with `role: "customer"`. Both routers then reject a route leak on their own.
 2. Accept only the customer's own prefixes. Write them in a `prefix_set`, or fetch them from a registry with `source: { registry: "ripe-stat", query: "AS64510", family: "ipv4" }` and keep them current with `circuit refresh`.
 3. Set `max_prefixes`, so a mistake on the customer's side closes the session instead of flooding your router.
-4. Tag their routes with `communities.tag("customer", 64510, { keepActions: true })` from [`communityScheme`](/guide/presets#bgp-communities), so they can ask you not to announce a route somewhere.
+4. Tag their routes with `communities.tag("customer", 64510, { keepActions: true })` from [`communityScheme`](/guide/communities), so they can ask you not to announce a route somewhere.
 5. Export the full table, or only a default route, as you agreed with them.
 6. Add their prefixes to your own export policies, so you announce them to your transits and exchanges.
 

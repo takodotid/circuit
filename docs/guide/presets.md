@@ -59,39 +59,7 @@ Other lengths can be given: `bgpSanity({ ipv4: { min: 8, max: 24 }, ipv6: { min:
 
 ## BGP communities
 
-`communityScheme` takes what your communities mean, once, and gives you everything that has to agree with it. It uses large communities, written `asn:function:parameter`.
-
-```ts
-const communities = communityScheme({
-    asn: 64500,
-    learned_from: { function: 1, classes: { transit: 1, exchange: 2, customer: 3 } },
-    learned_at: { function: 2, sites: { 0: "Jakarta" } },
-    learned_from_as: 3,
-    do_not_announce: 100,
-    prepend: { once: 101, twice: 102, three_times: 103 },
-});
-```
-
-Leave out what your network does not offer. Then:
-
-1. **Tag routes as they come in.** `communities.tag("transit", 64501, { site: 0 })` is a policy rule. It removes any of your communities the neighbor set, since a neighbor must not be able to fake them, and adds where the route came from: `64500:1:1`, `64500:2:0` and `64500:3:64501`. For a customer, add `keepActions: true`, so the customer's requests below stay.
-    ```ts
-    "TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 64501, { site: 0 }), { action: "accept" }],
-    ```
-2. **Follow your customers' requests on the way out.** `communities.actions(64501)` is a list of rules for the export toward AS64501. It rejects a route a customer asked you not to announce there, prepends when asked, then removes all your communities before the route leaves. Put it before the rules that accept:
-    ```ts
-    "TRANSIT-OUT": [
-        ...communities.actions(64501),
-        { match: { prefix: "198.51.100.0/24" }, action: "accept" },
-        { action: "reject" },
-    ],
-    ```
-3. **Publish what they mean.** `communities.catalogue` is the list for `communities` in `defineNetwork`:
-    ```ts
-    export default defineNetwork({ devices, asn: 64500, communities: communities.catalogue });
-    ```
-
-`communities.community(100, 0)` writes one community, `64500:100:0`, for a rule of your own.
+`communityScheme` turns what your BGP communities mean into the rules your routers need and the list you publish. It has its own page: [BGP communities](/guide/communities).
 
 ## Checks
 

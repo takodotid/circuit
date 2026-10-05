@@ -52,6 +52,4 @@ communities: [
 
 In the description, `$0` is what the first of these matched, `$1` the second, and so on.
 
-### One scheme for routers and catalogue
-
-Writing the list above by hand means your routers and your published list can drift apart. The `communityScheme` preset builds both from one definition: the rules your routers use, and the list you publish. See [Presets](/guide/presets#bgp-communities).
+Writing this list by hand means it can drift apart from what your routers do. [BGP communities](/guide/communities) shows how to build both from one definition.

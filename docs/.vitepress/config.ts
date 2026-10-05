@@ -36,6 +36,7 @@ export default defineConfig({
                     { text: "Secrets", link: "/guide/secrets" },
                     { text: "Commands", link: "/guide/commands" },
                     { text: "How a change is applied", link: "/guide/convergence" },
+                    { text: "BGP communities", link: "/guide/communities" },
                     { text: "Publishing the network", link: "/guide/publishing" },
                     { text: "Presets", link: "/guide/presets" },
                     { text: "Questions", link: "/guide/questions" },
