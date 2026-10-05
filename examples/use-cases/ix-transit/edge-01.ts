@@ -1,4 +1,6 @@
-// An edge router that sells IX-only transit, often sold as "content" or domestic transit. It buys transit from Example Transit, AS64501, and peers at Example IX, AS64502. Example Customer, AS64510, gets only what the exchange gives us: the networks there, often the big content networks, without the rest of the internet.
+// An edge router that sells IX-only transit to Example Customer, AS64510: only the routes it learns at Example IX, AS64502, not those from its own transit, Example Transit, AS64501.
+//
+// Addresses are from the documentation ranges. Ours are 198.51.100.0/24 and 2001:db8:100::/48, and the customer's link comes out of them. The customer's own are 192.0.2.0/24 and 2001:db8:200::/48. The transit's link and the exchange's peering LAN stand in for blocks those providers give you, from 203.0.113.0/24.
 
 import type { Prefix } from "@takodotid/circuit";
 import { defineDevice, secret } from "@takodotid/circuit";
@@ -34,8 +36,8 @@ export default defineDevice({
 
     interfaces: {
         transit: { type: "vlan", vlan: "transit", addresses: ["203.0.113.2/30"] },
-        ix: { type: "vlan", vlan: "ix", addresses: ["203.0.113.70/26", "2001:db8:ffff::70/64"] },
-        acme: { type: "vlan", vlan: "acme", addresses: ["203.0.113.5/30", "2001:db8:ff01::1/64"] },
+        ix: { type: "vlan", vlan: "ix", addresses: ["203.0.113.140/25", "2001:db8:ffff::70/64"] },
+        acme: { type: "vlan", vlan: "acme", addresses: ["198.51.100.253/30", "2001:db8:100:ff01::1/64"] },
     },
 
     routing: {
@@ -54,7 +56,7 @@ export default defineDevice({
                     max_prefixes: 1_200_000,
                 },
                 "example-ix-rs": {
-                    address: "203.0.113.65",
+                    address: "203.0.113.129",
                     remote_as: 64502,
                     role: "rs",
                     import: "IX-IN",
@@ -63,7 +65,7 @@ export default defineDevice({
                 },
                 // The customer sends a handful of prefixes at most. More means a mistake on their side, and the session closes.
                 "acme-v4": {
-                    address: "203.0.113.6",
+                    address: "198.51.100.254",
                     remote_as: 64510,
                     role: "customer",
                     import: "ACME-IN",
@@ -71,7 +73,7 @@ export default defineDevice({
                     max_prefixes: 10,
                 },
                 "acme-v6": {
-                    address: "2001:db8:ff01::2",
+                    address: "2001:db8:100:ff01::2",
                     remote_as: 64510,
                     role: "customer",
                     import: "ACME-IN",
@@ -99,7 +101,7 @@ export default defineDevice({
             communities.blackhole("acme-v4"),
             communities.blackhole("acme-v6"),
             { call: "SANITY" },
-            communities.tag("customer", 64510, { keepActions: true }),
+            communities.tag("customer", 64510),
             { description: "Their IPv4", match: { prefix_set: "acme-v4" }, set: { local_pref: 300 }, action: "accept" },
             { description: "Their IPv6", match: { prefix_set: "acme-v6" }, set: { local_pref: 300 }, action: "accept" },
             { description: "Nothing else", action: "reject" },
@@ -134,7 +136,7 @@ export default defineDevice({
     },
 
     firewall: {
-        address_sets: { "bgp-neighbors": ["203.0.113.1", "203.0.113.65", "203.0.113.6", "2001:db8:ff01::2"] },
+        address_sets: { "bgp-neighbors": ["203.0.113.1", "203.0.113.129", "198.51.100.254", "2001:db8:100:ff01::2"] },
         filter: {
             input: {
                 default: "drop",

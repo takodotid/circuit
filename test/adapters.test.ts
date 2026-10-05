@@ -139,3 +139,43 @@ test("communityScheme blackholes only inside the customer's space, and never ann
     const passed = communities.actions(64501, { blackhole: "64501:666" })[0]!;
     expect(passed).toMatchObject({ action: "accept", set: { add_communities: ["64501:666"], remove_large_communities: ["64500:*:*"] } });
 });
+
+test("a customer keeps its requests; anyone else's are removed", async () => {
+    const { communityScheme } = await import("../src/presets");
+    const communities = communityScheme({
+        asn: 64500,
+        learned_from: { function: 1, classes: { transit: 1, customer: 3 } },
+        requests_from: ["customer"],
+        do_not_announce: 100,
+    });
+
+    expect(communities.tag("customer", 64510).set?.remove_large_communities).toEqual(["64500:1:*"]);
+    expect(communities.tag("transit", 64501).set?.remove_large_communities).toEqual(["64500:*:*"]);
+});
+
+test("exportsEndInReject leaves out an export to a customer", async () => {
+    const { exportsEndInReject } = await import("../src/presets");
+    const policies = { ...router.policies, "UPSTREAM-OUT": [{ action: "accept" as const }] };
+    const bgp = router.routing!.bgp!;
+    const asCustomer = { ...bgp, groups: { upstream: { ...bgp.groups!.upstream!, role: "customer" as const } } };
+    const aboutUpstream = (devices: Parameters<typeof exportsEndInReject>[0]) =>
+        exportsEndInReject(devices).filter((finding) => finding.message.startsWith("upstream-1"));
+
+    expect(aboutUpstream([{ ...router, policies }])).toHaveLength(1);
+    expect(aboutUpstream([{ ...router, policies, routing: { ...router.routing, bgp: asCustomer } }])).toEqual([]);
+});
+
+test("internetExchange keeps members apart", async () => {
+    const { internetExchange } = await import("../src/presets");
+    const member = { name: "a", asn: 64510, ports: {}, ipv4: "203.0.113.1" };
+    const exchange = internetExchange({ vlan: "peering", lan: { ipv4: "203.0.113.0/24" }, reserved: ["203.0.113.1"] }, [
+        member,
+        { ...member, name: "b" },
+    ]);
+
+    expect(exchange.check([]).map((finding) => finding.message)).toEqual([
+        "members a and b share AS64510",
+        "203.0.113.1 of a is already reserved",
+        "203.0.113.1 of b is already a's",
+    ]);
+});
