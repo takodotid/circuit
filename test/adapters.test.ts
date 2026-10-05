@@ -126,5 +126,7 @@ test("communityScheme blackholes only inside the customer's space, and never ann
         action: "accept",
     });
     expect(communities.actions(64501)[0]).toMatchObject({ match: { large_community: "64500:666:0" }, action: "reject" });
-    expect(communities.catalogue).toEqual([{ community: "64500:666:0", description: "Blackhole: dropped in AS64500, not announced further" }]);
+    expect(communities.catalogue).toEqual([
+        { community: "64500:666:0", description: "Blackhole: dropped in AS64500, not announced further" },
+    ]);
 });
