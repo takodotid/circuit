@@ -15,7 +15,9 @@ Circuit is a declarative, vendor-neutral network configuration framework. It kno
 
 ## Writing
 
-English only. Short, neutral, plain. No em-dashes, no decorative comments, no manual line wrapping. Name no person or vendor unless the sentence needs it. Document only what is needed and delete what is not; git history is the archive.
+English only. No em-dashes, no decorative comments, no manual line wrapping. Name no person or vendor unless the sentence needs it. Document only what is needed and delete what is not; git history is the archive.
+
+Code comments are short and neutral. The documentation is written for every reader, including someone new to networking, after https://raflymaulana.com/blog/how-to-write-english.md: plain words over correct but dense ones, the direct answer first, a process as numbered steps, a niche word explained or linked to the glossary. A longer sentence that is easy to follow beats a short one that must be read twice. Never repeat what another file holds: the pattern pages include `templates/`, the credits read `package.json`.
 
 Code is written to be read: names that say what a value is, one step per line, a blank line between steps, and an object with more than a few fields spread over lines. Readability never means splitting a file; a platform's adapter stays in its own few files. Prettier keeps an object expanded when its source has a newline after `{`.
 
@@ -24,6 +26,8 @@ Code is written to be read: names that say what a value is, one step per line, a
 Read the platform's `TRAPS.md` first, and add to it what the change taught. New syntax is proved on a device without applying it: on RouterOS, `:put [:parse "..."]` compiles a command without running it; on VRP, lines go into the candidate and `clear configuration candidate` discards them; Raisecom applies at once, so only a spare port is safe.
 
 `examples/` uses every field each adapter supports, and `test/` checks each example plans nothing against its own render. A reader and renderer that disagree on a form show up there before they show up as a change on every apply.
+
+`templates/` is what `circuit new` copies: a directory per pattern, and `project/` for what every project gets. The tests validate each template with its own checks, and the pattern pages include its files, so a template is always a working example.
 
 `docs/` is the documentation site at circuit.tako.id. A change to what Circuit does changes the page that describes it in the same commit. Platform pages include each adapter's `TRAPS.md`.
 

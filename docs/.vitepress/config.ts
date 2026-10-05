@@ -1,17 +1,20 @@
 import { defineConfig } from "vitepress";
+import circuit from "../../package.json";
+
+const repository = circuit.repository.url.replace(/^git\+/, "").replace(/\.git$/, "");
 
 export default defineConfig({
     title: "Circuit",
-    description: "Declarative, vendor-neutral network configuration.",
+    description: circuit.description,
     lang: "en",
     cleanUrls: true,
     lastUpdated: true,
 
     sitemap: {
-        hostname: "https://circuit.tako.id",
+        hostname: circuit.homepage,
     },
 
-    head: [["meta", { name: "author", content: "Tako Network Engineering Team" }]],
+    head: [["meta", { name: "author", content: circuit.author.name }]],
 
     themeConfig: {
         nav: [
@@ -19,7 +22,7 @@ export default defineConfig({
             { text: "Patterns", link: "/patterns/" },
             { text: "Platforms", link: "/platforms/" },
             { text: "Reference", link: "/reference/schema" },
-            { text: "Releases", link: "https://github.com/takodotid/circuit/releases" },
+            { text: "Releases", link: `${repository}/releases` },
         ],
 
         sidebar: [
@@ -32,9 +35,18 @@ export default defineConfig({
                     { text: "The network", link: "/guide/network" },
                     { text: "Secrets", link: "/guide/secrets" },
                     { text: "Commands", link: "/guide/commands" },
-                    { text: "How a device converges", link: "/guide/convergence" },
+                    { text: "How a change is applied", link: "/guide/convergence" },
                     { text: "Publishing the network", link: "/guide/publishing" },
                     { text: "Presets", link: "/guide/presets" },
+                    { text: "Questions", link: "/guide/questions" },
+                    { text: "Words used here", link: "/guide/glossary" },
+                ],
+            },
+            {
+                text: "Working with others",
+                items: [
+                    { text: "AI agents", link: "/integrations/ai-agents" },
+                    { text: "1Password", link: "/integrations/1password" },
                 ],
             },
             {
@@ -69,10 +81,10 @@ export default defineConfig({
             },
         ],
 
-        socialLinks: [{ icon: "github", link: "https://github.com/takodotid/circuit" }],
+        socialLinks: [{ icon: "github", link: repository }],
 
         editLink: {
-            pattern: "https://github.com/takodotid/circuit/edit/main/docs/:path",
+            pattern: `${repository}/edit/main/docs/:path`,
         },
 
         search: {

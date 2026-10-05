@@ -1,88 +1,55 @@
 # An edge router
 
-Your own AS, announced to transits and internet exchanges. The router is the trust boundary: whatever arrives from outside is filtered there.
+Your own AS number and address space, announced to the internet through an IP transit and an internet exchange. The router is where traffic from outside is filtered, before it reaches the rest of your network.
+
+```bash
+bunx @takodotid/circuit new my-network --pattern edge-router --asn 64500
+```
 
 ```
 my-network/
-  site-a/
-    edge-01.ts
-    site.ts
-  shared/
-    routing.ts        your AS, your prefixes, what you announce
-  circuit.config.ts
+  circuit.config.ts    the devices, the checks, and what is published
+  routing.ts           your AS number and BGP communities
+  edge-01.ts           the router
+  checks.ts            rules of your own
+  .env                 the router's password, never committed
+  .circuit/            what Circuit writes
 ```
 
-## Routing facts, written once
+## routing.ts
 
-```ts
-// shared/routing.ts
-import type { PolicyRule, Prefix } from "@takodotid/circuit";
+Your AS number, and what your BGP communities mean. The router tags every route it learns with where it came from, and `circuit communities` publishes the same list. See [communityScheme](/guide/presets#bgp-communities).
 
-export const ASN = 64500;
-export const prefixes = { v4: "192.0.2.0/24", v6: "2001:db8::/32" } as const satisfies Record<string, Prefix>;
+<<< @/../templates/edge-router/routing.ts
 
-export const announce: PolicyRule<never, never>[] = [
-    { description: "Our IPv4", match: { prefix: prefixes.v4 }, action: "accept" },
-    { description: "Our IPv6", match: { prefix: prefixes.v6 }, action: "accept" },
-    { description: "Nothing else leaves", action: "reject" },
-];
-```
+## edge-01.ts
 
-## The router
+<<< @/../templates/edge-router/edge-01.ts
 
-```ts
-// site-a/edge-01.ts
-import { defineDevice } from "@takodotid/circuit";
-import { antiSpoofing, badTcpFlags, bgpSanity, MARTIANS, PRIVATE_RANGES } from "@takodotid/circuit/presets";
-import { announce, ASN, prefixes } from "../shared/routing";
+What it does, from top to bottom:
 
-export default defineDevice({
-    // name, platform, model, connection, users, ports, interfaces ...
-    routing: {
-        bgp: {
-            asn: ASN,
-            networks: [prefixes.v4, prefixes.v6],
-            neighbors: {
-                "transit-v4": {
-                    address: "203.0.113.1",
-                    remote_as: 64501,
-                    local_role: "customer",
-                    import: "TRANSIT-IMPORT",
-                    export: "TRANSIT-EXPORT",
-                    max_prefixes: 1_200_000,
-                },
-                "ix-rs1": {
-                    address: "198.51.100.1",
-                    remote_as: 64502,
-                    local_role: "rs-client",
-                    import: "IX-IMPORT",
-                    export: "IX-EXPORT",
-                    max_prefixes: 50_000,
-                },
-            },
-        },
-    },
-    policies: {
-        SANITY: bgpSanity(),
-        "TRANSIT-IMPORT": [{ call: "SANITY" }, { set: { local_pref: 100 } }, { action: "accept" }],
-        "IX-IMPORT": [{ call: "SANITY" }, { set: { local_pref: 300 } }, { action: "accept" }],
-        "TRANSIT-EXPORT": announce,
-        "IX-EXPORT": announce,
-    },
-    firewall: { filter: { forward: { rules: [...badTcpFlags()] } } },
-    acls: { edge: [...antiSpoofing("transit", [prefixes.v4, ...MARTIANS, ...PRIVATE_RANGES])] },
-});
-```
+1. **Ports.** `1g-1` is for management. The transit and the exchange each arrive on their own port and VLAN, and both ports use the `edge` ACL.
+2. **Routing.** A blackhole route for each of your blocks puts them in the routing table even when nothing inside is up, so they are always announced. `max_prefixes` closes a session that suddenly sends far more routes than expected. `local_role` turns on RFC 9234, so both sides reject a route leak.
+3. **Policies.** Every import first calls `SANITY`, which refuses routes that should never be on the internet. Routes from the exchange get a higher local preference than the same routes from the transit, so traffic to those networks takes the exchange, which is usually cheaper and closer. The export only accepts your own blocks, then rejects everything else.
+4. **Firewall.** The router itself only answers replies, ping, the management network, and BGP from its neighbors. Forwarded traffic loses packets with impossible TCP flags.
+5. **ACLs.** Traffic from outside with a forged source, such as your own space or a private address, is dropped in the switch chip.
 
-## Rules worth enforcing
+Change the addresses, the neighbors' AS numbers and the port names to your own.
 
-```ts
-// circuit.config.ts
-import { defineNetwork } from "@takodotid/circuit";
-import { exportsEndInReject, tunnelsOutsideOffered } from "@takodotid/circuit/presets";
-import edge from "./site-a/edge-01";
+## checks.ts
 
-export default defineNetwork({ devices: [edge], checks: [exportsEndInReject, tunnelsOutsideOffered], state: "state", asn: 64500 });
-```
+<<< @/../templates/edge-router/checks.ts
 
-`local_role` turns on RFC 9234 leak protection on both sides. `max_prefixes` closes a session that suddenly sends far more than it should.
+## circuit.config.ts
+
+<<< @/../templates/edge-router/circuit.config.ts
+
+To publish your exchanges on PeeringDB as well, see [Publishing the network](/guide/publishing).
+
+## Next
+
+1. Put the router's password in `.env`, then run `bun circuit secrets`.
+2. Run `bun circuit validate`, `bun circuit snapshot` and `bun circuit diff`.
+3. Run `bun circuit apply edge-01`, read the plan, then add `--confirm`.
+
+To host customers behind the router, see [Colocation with tenants](/patterns/colocation).

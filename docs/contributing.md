@@ -15,9 +15,17 @@ cd ../my-network && bun link @takodotid/circuit
 
 ```bash
 bun run typecheck
-bun run test        # every example validates and plans nothing against its own render
+bun run test        # every example and template validates, and plans nothing against its own render
 bun run docs:dev    # this site, locally
 ```
+
+## Templates
+
+`templates/` holds what `circuit new` copies: one directory per pattern, and `project/` with what every project gets. The pattern pages on this site show those same files, so a change to a template is a change to its page. `bun run test` validates every template with its own checks.
+
+## Writing the documentation
+
+Write for someone who may be new to networking. Say what a thing does before how, explain a word the first time it matters or link [Words used here](/guide/glossary), and break a process into numbered steps. A longer sentence that is easy to follow beats a short one that has to be read twice.
 
 ## Adding a platform
 
@@ -26,6 +34,8 @@ bun run docs:dev    # this site, locally
 3. Register it in `src/adapters/devices/index.ts` and the catalog in `src/adapters/devices/catalog.ts`.
 4. `unsupported()` lists every field it cannot express. Silence is not an option.
 5. An example in `examples/` using every field it supports, and a `TRAPS.md` with what the platform taught.
+
+Another model of an existing platform only needs its ports in that platform's `models.ts`: how many of each speed, and how the platform spells them.
 
 New syntax is proved on a device without applying it: RouterOS compiles a command with `:put [:parse "..."]`, VRP discards a candidate with `clear configuration candidate`. A platform that applies at once is tried on a spare port.
 

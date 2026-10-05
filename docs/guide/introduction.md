@@ -1,15 +1,29 @@
 # Introduction
 
-Circuit is declarative network configuration. A device is described once, in plain TypeScript data, and Circuit does the rest: it renders the description in the platform's own language, reads what the device runs, plans the difference, and applies it.
+Circuit lets you write down how your network should be configured, and then makes your devices match it.
 
-Network gear has no Terraform provider worth the name for most platforms, and hand-written configuration drifts. Circuit treats the repository as the source of truth, the way infrastructure-as-code treats cloud resources.
+Instead of logging in to each router and switch and typing commands, you keep one TypeScript file per device in a git repository. Circuit reads those files, compares them with what each device runs, shows you the difference, and sends the change when you confirm it.
 
-## Principles
+If you have used Terraform or Ansible for servers, this is the same idea for network gear. If you have not, the next pages explain everything you need.
 
-1. **The config is the whole truth.** Whatever a device runs that its config does not say is removed, or returned to its default. There are no exceptions and nothing is left alone.
-2. **Absent means off.** A field is written when it has a value. An undeclared port is shut down, an undeclared service is disabled, an undeclared feature is not running. There is no `enabled: false` and no placeholder.
-3. **Neutral words only.** The schema says `access_vlan`, `https`, `hardware_offload`. Each adapter translates, and a field a platform cannot express fails validation instead of being skipped.
-4. **Names are checked.** A device declares its VLANs, interfaces, policies and the rest; every reference to one is type-checked, so a typo does not compile and the editor suggests the names that exist. Port names come from the hardware model.
-5. **Secrets are references.** A password or key is resolved from the environment, `.env.local` or a file only when a command is sent. Rendered config, plans and snapshots never hold a secret.
+## How it works
 
-Every adapter was proved on production devices before it was released.
+1. You describe a device in a file: its VLANs, ports, addresses, routing, firewall and so on.
+2. `circuit diff` shows what would change on the device, without touching it.
+3. `circuit apply <device>` logs in to the device, reads what it runs, and shows the exact plan.
+4. `circuit apply <device> --confirm` sends the plan. The change is kept only after Circuit can log in again; see [How a change is applied](/guide/convergence).
+5. You commit the file. Git now holds the history of your network: who changed what, when, and why.
+
+## What Circuit believes
+
+1. **The file is the whole truth.** A device runs exactly what its file says. A port the file does not mention is shut down, a user it does not list is removed, a service it does not turn on is off. Nothing is left alone because nobody wrote it down.
+2. **Leave a field out to turn it off.** You only write what is on. There is no `enabled: false`.
+3. **The same words for every vendor.** You write `access_vlan`, `ssh` or `hardware_offload`, and each device gets its own vendor's commands. When a device cannot do something you wrote, `circuit validate` says so, with the reason, and nothing is sent.
+4. **Names are checked as you type.** Every VLAN, interface, policy and port you refer to must exist on that device. A typo is an error in your editor, before it is ever sent.
+5. **Secrets stay out of the files.** A password is written as `secret("NAME")`, and its value comes from `.env` or 1Password only when a command is sent. Plans and snapshots never hold a secret.
+
+## Which devices
+
+Circuit supports MikroTik RouterOS 7, Huawei VRP and Raisecom ROS. Each was proved on production devices before it was released. See [Platforms](/platforms/) for what each one can do.
+
+New to some of the words here? See [Words used here](/guide/glossary).

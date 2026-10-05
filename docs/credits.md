@@ -1,10 +1,18 @@
+<script setup>
+import circuit from "../package.json";
+</script>
+
 # Credits
 
-Maintained by the Tako Network Engineering Team, [noc@tako.id](mailto:noc@tako.id).
+Maintained by the {{ circuit.author.name }}, <a :href="`mailto:${circuit.author.email}`">{{ circuit.author.email }}</a>.
 
 ## Contributors
 
-- [Rafly Maulana](https://raflymaulana.com)
+<ul>
+    <li v-for="person in circuit.contributors" :key="person.name">
+        <a :href="person.url">{{ person.name }}</a>
+    </li>
+</ul>
 
 ## With thanks to
 

@@ -3,27 +3,27 @@ layout: home
 
 hero:
     name: Circuit
-    text: Your network, declared.
-    tagline: Describe each device in TypeScript. Circuit renders it for the platform, compares it with what the device runs, and makes the device match.
+    text: Your network, written down.
+    tagline: Write how each router and switch should be configured, in one file per device. Circuit shows you what would change, then makes the device match.
     actions:
         - theme: brand
           text: Get started
           link: /guide/getting-started
         - theme: alt
-          text: Why Circuit
+          text: What Circuit is
           link: /guide/introduction
 
 features:
-    - title: The config is the whole truth
-      details: Whatever a device runs that its config does not say is removed or returned to its default. Nothing drifts because nobody described it.
-    - title: One vocabulary, many vendors
-      details: The schema says access_vlan, https, hardware_offload. Each adapter translates, and a field a platform cannot express fails validation instead of being skipped.
-    - title: Typos do not compile
-      details: Every reference to a VLAN, interface, policy or port is type-checked, and the editor suggests the names that exist.
-    - title: Guarded applies
-      details: Each platform is applied the safest way it allows, with a rollback or a commit and a fresh login before anything is saved.
+    - title: The file is the whole truth
+      details: Whatever a device runs that its file does not mention is removed or turned off. Nobody's forgotten change stays behind on a device.
+    - title: One way to write it, for every vendor
+      details: You write access_vlan once, and Circuit turns it into MikroTik, Huawei or Raisecom commands. If a device cannot do what you wrote, Circuit tells you before anything is sent.
+    - title: Typos are caught before they reach a device
+      details: A VLAN, port or policy name that does not exist is an error in your editor, and the editor suggests the names that do.
+    - title: Changes you can undo
+      details: Each device is changed the safest way it allows, and a change is kept only after Circuit can still log in. A MikroTik router that loses you goes back on its own.
 ---
 
 ::: warning Alpha
-Circuit runs a production network, but it is not yet stable: the schema, the CLI and the adapters can still change in breaking ways between releases. Pin an exact version and read the [release notes](https://github.com/takodotid/circuit/releases) before upgrading.
+Circuit runs a production network, but it is not stable yet: the way you write config, the commands and the supported devices can still change between releases. Install an exact version, and read the [release notes](https://github.com/takodotid/circuit/releases) before you upgrade.
 :::

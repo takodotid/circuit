@@ -1,24 +1,41 @@
 # Secrets
 
-A secret is a reference in the config and a value only at the moment a command is sent. Rendered config, plans and snapshots never hold one.
+Passwords, keys and tokens never go in your device files. A file only names the secret, and Circuit looks up its value at the moment it sends a command. Plans, `build` output and `.circuit/state/` never contain a secret's value.
 
-## From a variable
+## A secret by name
 
 ```ts
 import { secret } from "@takodotid/circuit";
 
-users: { operator: { role: "admin", password: secret("SW1_PASSWORD") } },
+users: { operator: { role: "admin", password: secret("SWITCH_PASSWORD") } },
 ```
 
-The value comes from the environment first, then `.env.local` in the project root:
+Circuit looks for `SWITCH_PASSWORD` in two places, in this order:
+
+1. The environment, such as a variable set by your shell or by CI.
+2. `.env`, next to `circuit.config.ts`.
 
 ```bash
-SW1_PASSWORD=...
+# .env
+SWITCH_PASSWORD=correct-horse-battery-staple
 ```
 
-## From a file
+`.env` must never be committed. `circuit new` adds it to `.gitignore` for you.
 
-A value that spans lines, such as a private key in PEM, reads better as a file:
+## A secret kept in 1Password
+
+A value in `.env` can point at 1Password instead of holding the secret:
+
+```bash
+# .env
+SWITCH_PASSWORD=op://Network/switch/password
+```
+
+Circuit then reads it with the 1Password CLI. See [1Password](/integrations/1password) for how to set it up.
+
+## A secret in a file
+
+Some secrets are long and span several lines, such as a private key. Keep those in a file, out of git:
 
 ```ts
 import { readFileSync } from "node:fs";
@@ -32,12 +49,21 @@ certificates: {
 },
 ```
 
-The path is relative to the project root. The certificate is public and belongs in the repository; its key does not. Keep key files out of git:
+The path is relative to `circuit.config.ts`. The certificate itself is public and belongs in the repository; its private key does not. `circuit new` ignores `*.key.pem` in `.gitignore`.
 
+## Check every secret
+
+```bash
+bun circuit secrets
 ```
-*.key.pem
-```
 
-## Sending secrets
+lists every secret your files use, where each one comes from, and whether it can be read. It never prints a value. Run it after you set up a new computer, or when `apply` says a secret is missing.
 
-A device does not print its secrets back, so a plan cannot tell whether one changed. Circuit sends a secret when the object holding it is new. To rotate one, change the value and apply with `--secrets`, which sends every secret the device holds.
+## Changing a secret
+
+A device never shows its passwords back, so Circuit cannot tell whether one changed. It sends a secret only when the thing holding it is new, such as a new user.
+
+To change a password that already exists:
+
+1. Change the value in `.env` or in 1Password.
+2. Run `bun circuit apply <device> --secrets --confirm`. `--secrets` sends every secret the device holds, including the new one.
