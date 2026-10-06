@@ -180,14 +180,21 @@ test("internetExchange keeps members apart", async () => {
     ]);
 });
 
-test("prometheus lists every device with SNMP", async () => {
-    const { prometheusTargets } = await import("../src/adapters/registries/prometheus");
-    const { targets } = prometheusTargets(defineNetwork({ devices: [router, switchDevice] }));
+test("prometheus lists every device with SNMP, each with its own auth, and no secret in the auths", async () => {
+    const { prometheusTargets, snmpExporterAuths } = await import("../src/adapters/registries/prometheus");
+    const network = defineNetwork({ devices: [router, switchDevice] });
 
-    expect(targets).toEqual([
-        { targets: ["192.0.2.1"], labels: { device: "example-router", platform: "routeros", model: "CCR2216-1G-12XS-2XQ" } },
-        { targets: ["192.0.2.2"], labels: { device: "example-switch", platform: "vrp", model: "CE6855-48S6Q-HI" } },
+    expect(prometheusTargets(network).targets.map((target) => [target.targets, target.labels.__param_auth])).toEqual([
+        [["192.0.2.1"], "example-router"],
+        [["192.0.2.2"], "example-switch"],
     ]);
+
+    const { yaml, notes } = snmpExporterAuths(network);
+    expect(yaml).toContain(
+        "  example-switch:\n    version: 3\n    username: monitor\n    security_level: authPriv\n    password: ${EXAMPLE_SNMP_AUTH}"
+    );
+    expect(yaml).toContain("    priv_password: ${EXAMPLE_SNMP_PRIVACY}");
+    expect(notes).toEqual([]);
 });
 
 test("librenms adds what it does not monitor, with the device's SNMP version 3 user", async () => {

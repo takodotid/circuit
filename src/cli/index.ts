@@ -9,7 +9,7 @@ import type { ApplyOptions, DeviceAdapter, Plan } from "../adapters/devices/type
 import { registries } from "../adapters/registries";
 import { planLibreNms, sendLibreNms } from "../adapters/registries/librenms";
 import { planPeeringDb, sendPeeringDb } from "../adapters/registries/peeringdb";
-import { prometheusTargets } from "../adapters/registries/prometheus";
+import { prometheusTargets, snmpExporterAuths } from "../adapters/registries/prometheus";
 import { network as prefixOf } from "../core/addr";
 import type { Network } from "../core/define";
 import { isSecret, referenceOf, resolve as reveal, sourceOf, useRoot } from "../core/secrets";
@@ -33,6 +33,7 @@ const HELP = `usage: circuit <command> [device...] [options]
   peeringdb             bring PeeringDB's exchange records in line with the config, with --confirm
   librenms              add every device LibreNMS does not monitor yet, with --confirm
   prometheus            every device with SNMP, as Prometheus targets for snmp_exporter
+                          --auths        snmp_exporter's auths for them instead, with secrets as \${NAME}
   secrets               every secret the config uses, and whether each can be read
 
   --config <path>       the network's config file, circuit.config.ts in the working directory by default`;
@@ -352,6 +353,13 @@ async function librenmsCommand(): Promise<void> {
 }
 
 function prometheusCommand(): void {
+    if (flags.includes("--auths")) {
+        const { yaml, notes } = snmpExporterAuths(network);
+        for (const note of notes) console.error(note);
+        process.stdout.write(yaml);
+        return;
+    }
+
     const { targets, withoutSnmp } = prometheusTargets(network);
     for (const device of withoutSnmp) console.error(`${device.name} has no SNMP in its config; left out`);
     console.log(JSON.stringify(targets, null, 4));
