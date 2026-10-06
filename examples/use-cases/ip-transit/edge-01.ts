@@ -98,8 +98,8 @@ export default defineDevice({
 
         // The customer's own routes win over the same routes from anyone else. It may also ask for a blackhole, or another action.
         "ACME-IN": [
-            communities.blackhole("acme-v4"),
-            communities.blackhole("acme-v6"),
+            communities.blackhole("customer", "acme-v4"),
+            communities.blackhole("customer", "acme-v6"),
             { call: "SANITY" },
             communities.tag("customer", 65550),
             { description: "Their IPv4", match: { prefix_set: "acme-v4" }, set: { local_pref: 300 }, action: "accept" },
