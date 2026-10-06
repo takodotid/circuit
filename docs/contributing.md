@@ -42,7 +42,7 @@ New syntax is proved on a device without applying it: RouterOS compiles a comman
 
 ## Releases
 
-Circuit follows semantic versioning. Releases are cut from `main`:
+Every change is a branch and a pull request; a release is cut from `main` only after the work in it is merged and accepted. [DEPLOYMENT.md](https://github.com/takodotid/circuit/blob/main/DEPLOYMENT.md) has the whole path. Circuit follows semantic versioning:
 
 ```bash
 bun run release patch            # 0.2.0 to 0.2.1
