@@ -1,6 +1,6 @@
 {
     "name": "@takodotid/circuit",
-    "version": "0.12.0",
+    "version": "0.13.0",
     "description": "Declarative, vendor-neutral network configuration: describe each device in TypeScript, and Circuit makes the device match. Alpha.",
     "keywords": [
         "network",
