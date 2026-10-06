@@ -128,12 +128,14 @@ test("communityScheme blackholes only inside the customer's space, and never ann
         blackhole: { function: 666, upstreams: { 64501: "64501:666" } },
     });
 
-    expect(communities.blackhole("customer-prefixes")).toEqual({
-        description: "Blackhole, asked by the neighbor",
-        match: { large_community: "64500:666:0", prefix_set: "customer-prefixes" },
-        set: { blackhole: true },
-        action: "accept",
-    });
+    expect(communities.blackhole(["customer-v4", "customer-v6"])).toEqual(
+        (["customer-v4", "customer-v6"] as const).map((prefixSet) => ({
+            description: "Blackhole, asked by the neighbor",
+            match: { large_community: "64500:666:0", prefix_set: prefixSet },
+            set: { blackhole: true as const },
+            action: "accept" as const,
+        }))
+    );
     expect(communities.actions(64502)[0]).toMatchObject({ match: { large_community: "64500:666:0" }, action: "reject" });
     expect(communities.catalogue).toContainEqual({
         community: "64500:666:0",

@@ -66,7 +66,7 @@ A neighbor adds these to the routes it sends you, to ask you for something. Only
 | ------------------------------------ | ------------------------------------------------------- | -------------------------------------------- |
 | `tag(class, asn, { site, trusted })` | One rule that tags a route as it comes in               | Each neighbor's import policy                |
 | `actions(asn)`                       | Rules that do what neighbors asked, toward one neighbor | Each neighbor's export policy                |
-| `blackhole(prefixSet)`               | One rule that takes a blackhole request                 | The import of each neighbor you allow, first |
+| `blackhole(prefixSets)`              | Rules that take a blackhole request                     | The import of each neighbor you allow, first |
 | `catalogue`                          | Every community with its meaning                        | `communities` in `defineNetwork`             |
 | `community(function, parameter)`     | One community, written out                              | A rule of your own                           |
 
@@ -198,16 +198,17 @@ blackhole: { function: 666, upstreams: { 6939: "65535:666" } },
 
 ```ts
 "CUSTOMER-IN": [
-    communities.blackhole("customer-prefixes"),
+    ...communities.blackhole(["acme-v4", "acme-v6"]),
     { call: "SANITY" },
     communities.tag("customer", 65550, { site: 0, trusted: true }),
-    { description: "Only their own prefixes", match: { prefix_set: "customer-prefixes" }, action: "accept" },
+    { description: "Their IPv4", match: { prefix_set: "acme-v4" }, action: "accept" },
+    { description: "Their IPv6", match: { prefix_set: "acme-v6" }, action: "accept" },
     { action: "reject" },
 ],
 ```
 
 - It comes before `SANITY`, because `bgpSanity()` refuses anything longer than a /24, and a blackholed address is usually a /32.
-- It only takes an address inside `customer-prefixes`, the customer's own space, so a customer can never blackhole someone else's address.
+- It only takes an address inside the prefix sets you give it, `acme-v4` and `acme-v6`, the customer's own space, so a customer can never blackhole someone else's address. One call covers every set: it makes one rule for each.
 - Leave it out for a neighbor you do not allow to blackhole.
 
 The exports need nothing extra: `actions` already passes the route on to the upstreams in `upstreams`, and holds it back from everyone else.

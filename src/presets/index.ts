@@ -255,7 +255,7 @@ const article = (word: string) => (/^[aeiou]/i.test(word) ? `an ${word}` : `a ${
  *
  * - `tag(neighborClass, neighborAs, { site, trusted })`: a rule for an import policy. It removes your communities a neighbor set, then adds where the route was learned. A `trusted` neighbor keeps its requests: do not announce, prepend, blackhole. `site` is needed when the scheme has `learned_at`.
  * - `actions(neighborAs, { blackhole })`: rules for an export policy toward one neighbor. They act on a customer's action communities, then remove all of yours. Place them before the rules that accept. A blackholed route goes no further, unless `blackhole` names the neighbor's own blackhole community: then it is passed on with it, so the neighbor drops the traffic too.
- * - `blackhole(prefixSet)`: a rule for the import policy of a neighbor you trust with blackholes, before anything that rejects long prefixes. It takes a route the neighbor asked to blackhole, but only inside `prefixSet`, its own space, and drops traffic to it here.
+ * - `blackhole(prefixSets)`: rules for the import policy of a neighbor you trust with blackholes, before anything that rejects long prefixes. They take a route the neighbor asked to blackhole, but only inside `prefixSets`, its own space, and drop traffic to it here. One rule per set, so one call covers both families.
  * - `catalogue`: every community, for `communities` in `defineNetwork`.
  */
 export function communityScheme<const Class extends string>(scheme: CommunityScheme<Class>) {
@@ -291,15 +291,16 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
         };
     };
 
-    const blackhole = <S extends string>(prefixSet: S): PolicyRule<never, S> => {
-        if (scheme.blackhole === undefined) throw new Error("communityScheme: blackhole needs a function number in the scheme");
+    const blackhole = <S extends string>(prefixSets: readonly S[]): PolicyRule<never, S>[] => {
+        const fn = scheme.blackhole?.function;
+        if (fn === undefined) throw new Error("communityScheme: blackhole needs a function number in the scheme");
 
-        return {
+        return prefixSets.map((prefixSet) => ({
             description: "Blackhole, asked by the neighbor",
-            match: { large_community: community(scheme.blackhole.function, 0), prefix_set: prefixSet },
+            match: { large_community: community(fn, 0), prefix_set: prefixSet },
             set: { blackhole: true },
             action: "accept",
-        };
+        }));
     };
 
     const actions = (neighborAs: number): PolicyRule<never, never>[] => {
