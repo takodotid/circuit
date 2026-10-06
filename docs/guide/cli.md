@@ -33,12 +33,13 @@ These four are easy to mix up:
 
 ## Options
 
-| Option            | For                             | What it does                                                                                                            |
-| ----------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `--config <path>` | every command                   | Read the network from this file instead of `circuit.config.ts`                                                          |
-| `--confirm`       | `apply`, `refresh`, `peeringdb` | Actually send. Without it, nothing is sent.                                                                             |
-| `--secrets`       | `apply`                         | Send every secret again, when you change a password. See [Secrets](/guide/secrets#changing-a-secret).                   |
-| `--rollback=N`    | `apply`                         | On RouterOS, how many minutes the device waits before undoing the change if Circuit cannot log in again. 10 by default. |
+| Option            | For                             | What it does                                                                                                              |
+| ----------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `--config <path>` | every command                   | Read the network from this file instead of `circuit.config.ts`                                                            |
+| `--confirm`       | `apply`, `refresh`, `peeringdb` | Actually send. Without it, nothing is sent.                                                                               |
+| `--secrets`       | `apply`                         | Send every secret again, when you change a password. See [Secrets](/guide/secrets#changing-a-secret).                     |
+| `--auths`         | `prometheus`                    | Print the SNMP exporter's credentials instead of the devices. See [Prometheus](/integrations/prometheus#the-credentials). |
+| `--rollback=N`    | `apply`                         | On RouterOS, how many minutes the device waits before undoing the change if Circuit cannot log in again. 10 by default.   |
 
 ## Making a change, step by step
 

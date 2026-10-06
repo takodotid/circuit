@@ -2,10 +2,10 @@ name: pages
 
 # Builds the documentation site in docs/ and publishes it to GitHub Pages, served at circuit.tako.id.
 
+# Published with each stable release, so the site always describes the version on npm. DEPLOYMENT.md.
 on:
     push:
-        branches: [main]
-        paths: ["docs/**", "src/adapters/devices/*/TRAPS.md", "package.json", "bun.lock", ".github/workflows/pages.yml"]
+        tags: ["v*", "!v*-rc.*"]
     workflow_dispatch:
 
 permissions:
