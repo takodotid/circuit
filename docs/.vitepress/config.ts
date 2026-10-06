@@ -49,6 +49,7 @@ export default defineConfig({
                     { text: "The network", link: "/guide/network" },
                     { text: "Secrets", link: "/guide/secrets" },
                     { text: "CLI commands", link: "/guide/cli" },
+                    { text: "Scheduled refresh", link: "/guide/scheduled-refresh" },
                     { text: "How a change is applied", link: "/guide/convergence" },
                     { text: "BGP communities", link: "/guide/communities" },
                     { text: "Publishing the network", link: "/guide/publishing" },

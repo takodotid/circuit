@@ -17,7 +17,7 @@ Circuit does not know about sites. A site is only a directory you made to keep f
 It depends on what the AS numbers are for:
 
 - **Different routers speak BGP as different AS numbers.** One project is enough. Each router's AS number is `routing.bgp.asn` in its own file. `asn` in `circuit.config.ts` is only used for what Circuit publishes, PeeringDB and communities.
-- **Each AS has its own PeeringDB record or its own communities.** Give each AS its own config file in the same repository, such as `as64500.config.ts` and `as64501.config.ts`, and choose one with `--config`. Each config file gets its own `.circuit/` next to it, so put each in its own directory.
+- **Each AS has its own PeeringDB record or its own communities.** Give each AS its own config file in the same repository, such as `as64500.config.ts` and `as65551.config.ts`, and choose one with `--config`. Each config file gets its own `.circuit/` next to it, so put each in its own directory.
 - **The networks are run by different teams.** Use one repository per network. Each team then has its own history, secrets and access.
 
 ## Why does `trustBoundary` ask for untrusted VLANs, not trusted ones?

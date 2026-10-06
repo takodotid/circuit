@@ -13,7 +13,7 @@ A network with its own AS number also tells the rest of the internet about itsel
             type: "vlan",
             vlan: "ix",
             addresses: ["192.0.2.10/24", "2001:db8:1::10/64"],
-            exchange: { name: "Example IX", speed: 10_000, peeringdb_ixlan: 1234 },
+            exchange: { name: "SGIX", speed: 10_000, peeringdb_ixlan: 429 },
         },
     },
     ```

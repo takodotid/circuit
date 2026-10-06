@@ -2,8 +2,8 @@
 
 A BGP community is a tag on a route. Networks use them for two things:
 
-1. **To remember where a route came from.** Your router tags each route it learns, for example "learned from a transit, in Jakarta, from AS64501". Your own policies can then treat routes differently by where they came from.
-2. **To let customers ask for something.** A customer tags a route it sends you, for example "do not announce this to AS64501", and your router does it.
+1. **To remember where a route came from.** Your router tags each route it learns, for example "learned from a transit, in Jakarta, from AS6939". Your own policies can then treat routes differently by where they came from.
+2. **To let customers ask for something.** A customer tags a route it sends you, for example "do not announce this to AS6939", and your router does it.
 
 For this to work, three things must agree: the tags your routers add, the tags your routers act on, and the list you publish so others know what each tag means. `communityScheme` builds all three from one definition, so they cannot drift apart.
 
@@ -15,9 +15,9 @@ For this to work, three things must agree: the tags your routers add, the tags y
 | ----------- | --------------------------------------------------------------- | --------------------------- |
 | `asn`       | Your AS number. Every community of yours starts with it.        | `64500`                     |
 | `function`  | What the community means. You choose a number for each meaning. | `100`, "do not announce to" |
-| `parameter` | What it applies to, such as an AS number or a site.             | `64501`                     |
+| `parameter` | What it applies to, such as an AS number or a site.             | `6939`                      |
 
-So `64500:100:64501` reads "AS64500's function 100, toward AS64501": do not announce to AS64501.
+So `64500:100:6939` reads "AS64500's function 100, toward AS6939": do not announce to AS6939.
 
 ## Defining the scheme
 
@@ -28,7 +28,7 @@ import { communityScheme } from "@takodotid/circuit/presets";
 export const communities = communityScheme({
     asn: 64500,
     learned_from: { function: 1, classes: { transit: 1, exchange: 2, customer: 3 } },
-    requests_from: ["customer"],
+    customers: ["customer"],
     learned_at: { function: 2, sites: { 0: "Jakarta" } },
     learned_from_as: 3,
     do_not_announce: 100,
@@ -47,18 +47,18 @@ Your router adds these on import. A neighbor can never set them, because the rou
 | ----------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------- |
 | `learned_from`    | `function`, and `classes`: a name and a number for each kind of neighbor, such as `transit: 1`. You choose the names. | `64500:1:1` for a transit |
 | `learned_at`      | `function`, and optionally `sites`: a name for each site number, used only in the published list.                     | `64500:2:0` for site 0    |
-| `learned_from_as` | The function number. The parameter is the neighbor's AS.                                                              | `64500:3:64501`           |
+| `learned_from_as` | The function number. The parameter is the neighbor's AS.                                                              | `64500:3:6939`            |
 
 ### What a customer can ask for
 
 A customer adds these to the routes it sends you, to ask you for something. Your router does it when the route leaves toward the AS they name.
 
-Only the kinds of neighbor in `requests_from` may ask. Here that is `customer`, one of the names in `learned_from.classes`. From anyone else, such as a transit, the requests are removed when the route comes in, so a transit cannot tell your router what to do with your routes.
+Only customers may ask. `customers` says which of your classes are customers; here, the class named `customer`. From anyone else, such as a transit, the requests are removed when the route comes in, so a transit cannot tell your router what to do with your routes.
 
 | Field             | What you give                                                                            | What the customer sets, and what happens                                                                                                        |
 | ----------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `do_not_announce` | The function number                                                                      | `64500:100:64501`: the route is not announced to AS64501. `64500:100:0`: it is not announced to anyone.                                         |
-| `prepend`         | A function number for each of `once`, `twice` and `three_times`; give the ones you offer | `64500:101:64501`: your AS is added once more to the path toward AS64501, so that route looks longer and less attractive there.                 |
+| `do_not_announce` | The function number                                                                      | `64500:100:6939`: the route is not announced to AS6939. `64500:100:0`: it is not announced to anyone.                                           |
+| `prepend`         | A function number for each of `once`, `twice` and `three_times`; give the ones you offer | `64500:101:6939`: your AS is added once more to the path toward AS6939, so that route looks longer and less attractive there.                   |
 | `blackhole`       | The function number                                                                      | `64500:666:0` on a route inside their own space: traffic to it is dropped in your network, before it reaches them. See [blackhole](#blackhole). |
 
 ## What you get back
@@ -76,7 +76,7 @@ Only the kinds of neighbor in `requests_from` may ask. Here that is `customer`, 
 ### tag
 
 ```ts
-communities.tag("transit", 64501, { site: 0 });
+communities.tag("transit", 6939, { site: 0 });
 ```
 
 | Argument | What it is                                                                                                       |
@@ -89,16 +89,16 @@ It makes this rule:
 
 ```json
 {
-    "description": "Learned from AS64501",
+    "description": "Learned from AS6939",
     "set": {
         "remove_communities": ["64500:*"],
         "remove_large_communities": ["64500:*:*"],
-        "add_large_communities": ["64500:1:1", "64500:2:0", "64500:3:64501"]
+        "add_large_communities": ["64500:1:1", "64500:2:0", "64500:3:6939"]
     }
 }
 ```
 
-1. It removes the communities of yours that the neighbor put on the route. A neighbor may not set your "where it came from" tags, so those are always removed. Its requests, such as "do not announce to AS64502", are removed too, unless its class is in `requests_from`.
+1. It removes the communities of yours that the neighbor put on the route. A neighbor may not set your "where it came from" tags, so those are always removed. Its requests, such as "do not announce to AS55518", are removed too, unless the neighbor is a customer.
 2. It adds where the route came from.
 
 So for a transit it removes `64500:*:*`, every community of yours. For a customer it removes only `64500:1:*`, `64500:2:*` and `64500:3:*`, and the customer's requests stay.
@@ -106,10 +106,10 @@ So for a transit it removes `64500:*:*`, every community of yours. For a custome
 Put it in each import, after the filters that decide whether to accept the route:
 
 ```ts
-"TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 64501, { site: 0 }), { action: "accept" }],
+"TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 6939, { site: 0 }), { action: "accept" }],
 "CUSTOMER-IN": [
     { call: "SANITY" },
-    communities.tag("customer", 64510, { site: 0 }),
+    communities.tag("customer", 65550, { site: 0 }),
     { description: "Only their own prefixes", match: { prefix_set: "customer-prefixes" }, action: "accept" },
     { action: "reject" },
 ],
@@ -118,22 +118,22 @@ Put it in each import, after the filters that decide whether to accept the route
 ### actions
 
 ```ts
-communities.actions(64501);
+communities.actions(6939);
 ```
 
 `asn` is the AS of the neighbor this export goes to. `blackhole`, optional, is that neighbor's own blackhole community; see [passing a blackhole on](#passing-a-blackhole-on). For that neighbor, it makes these rules, in this order:
 
 1. Reject a route tagged `64500:666:0`, blackholed: it stays in your network.
 2. Reject a route tagged `64500:100:0`, "do not announce to anyone".
-3. Reject a route tagged `64500:100:64501`, "do not announce to AS64501".
-4. Prepend once, twice or three times for a route tagged `64500:101:64501`, `64500:102:64501` or `64500:103:64501`.
+3. Reject a route tagged `64500:100:6939`, "do not announce to AS6939".
+4. Prepend once, twice or three times for a route tagged `64500:101:6939`, `64500:102:6939` or `64500:103:6939`.
 5. Remove every community of yours, so your tags stay inside your network.
 
 Put them at the start of each export, before the rules that accept your routes:
 
 ```ts
 "TRANSIT-OUT": [
-    ...communities.actions(64501),
+    ...communities.actions(6939),
     { description: "Announce our block", match: { prefix: "198.51.100.0/24" }, action: "accept" },
     { description: "Nothing else leaves", action: "reject" },
 ],
@@ -164,7 +164,7 @@ Put it first in the customer's import, before `SANITY`: `bgpSanity()` refuses an
 "CUSTOMER-IN": [
     communities.blackhole("customer-prefixes"),
     { call: "SANITY" },
-    communities.tag("customer", 64510, { site: 0 }),
+    communities.tag("customer", 65550, { site: 0 }),
     { description: "Only their own prefixes", match: { prefix_set: "customer-prefixes" }, action: "accept" },
     { action: "reject" },
 ],
@@ -180,7 +180,7 @@ Give it to `actions` for that neighbor:
 
 ```ts
 "TRANSIT-OUT": [
-    ...communities.actions(64501, { blackhole: "64501:666" }),
+    ...communities.actions(6939, { blackhole: "65535:666" }),
     // ...
 ],
 ```

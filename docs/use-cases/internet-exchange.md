@@ -7,6 +7,8 @@ An exchange has two parts:
 1. **The fabric**: the switches that carry the peering LAN to every member port. Circuit configures it.
 2. **The route servers**: servers running BGP software such as BIRD, which pass every member's routes to every other member. Circuit does not configure these yet.
 
+The example is an exchange of two switches, with Cloudflare, Akamai and a small network, Acme, as members.
+
 ## What a member port must do
 
 Members share one LAN and do not trust each other. So each member port:
@@ -16,17 +18,11 @@ Members share one LAN and do not trust each other. So each member port:
 3. **Sends no LLDP,** so members learn nothing about the exchange's own devices.
 4. **Lets only a little broadcast, multicast and unknown unicast through**, 1% of its speed. A loop at one member does not flood the others.
 
-The switch has no address on the peering LAN. It only carries it.
+The switches have no address on the peering LAN. They only carry it.
 
 ## internetExchange
 
 The `internetExchange` preset builds member ports and a check from a list of members:
-
-```ts
-import { internetExchange } from "@takodotid/circuit/presets";
-
-const exchange = internetExchange({ vlan: "peering", lan: { ipv4: "203.0.113.0/24" }, reserved: ["203.0.113.1"] }, MEMBERS);
-```
 
 | Field           | What it is                                                                                  |
 | --------------- | ------------------------------------------------------------------------------------------- |
@@ -40,48 +36,55 @@ It returns two things:
 - **`exchange.ports(device)`:** every member's port on that switch, set up as above. Put it in the switch's `ports`.
 - **`exchange.check`:** a check that no two members share a name, an AS or an address, that every address is inside the peering LAN and not reserved, and that every member port carries the peering VLAN alone. Put it in `checks`.
 
+<<< @/../examples/use-cases/internet-exchange/exchange.ts
+
 ## A member
 
-One file per member, with its name, its AS, its port on each switch and its addresses on the peering LAN:
+One file per member: its name, its AS, its port on the switch it plugs into, and its addresses on the peering LAN.
 
-<<< @/../examples/use-cases/internet-exchange/members/example-isp.ts
+<<< @/../examples/use-cases/internet-exchange/members/cloudflare.ts
 
 <<< @/../examples/use-cases/internet-exchange/members/index.ts
 
-A member joins by being added to `members/index.ts` and leaves by being removed. The next apply shuts its port.
+A member joins by being added to `members/index.ts`, and leaves by being removed. The next apply shuts its port.
 
-## The files
+## The first switch
 
-<<< @/../examples/use-cases/internet-exchange/exchange.ts
+`ix-sw-01` has Cloudflare's port, the two route servers, the way in for management, and a trunk to the second switch.
 
 <<< @/../examples/use-cases/internet-exchange/ix-sw-01.ts
 
-<<< @/../examples/use-cases/internet-exchange/circuit.config.ts
-
 ## More than one switch
 
-Add a file for each switch, and give each member's `ports` the switch it plugs into. Connect the switches with trunks that carry the peering VLAN, with `link` on both ends, so `circuit validate` checks that both ends agree.
+`ix-sw-02` has Akamai and Acme. It reaches the rest of the exchange over one trunk to `ix-sw-01`, port `40g-5` on both, which carries the peering LAN and management.
+
+<<< @/../examples/use-cases/internet-exchange/ix-sw-02.ts
+
+1. **Each member's file names the switch it plugs into.** `exchange.ports("ix-sw-02")` only returns the ports on `ix-sw-02`.
+2. **`link` on both ends of the trunk** tells Circuit the two ports are connected. `circuit validate` then checks that both ends carry the same VLANs.
+3. **Management goes over the same trunk,** and stays off every member port: `exchange.check` makes sure of that.
+
+<<< @/../examples/use-cases/internet-exchange/circuit.config.ts
 
 ## A virtual exchange
 
-A virtual exchange, such as BGP.Exchange, has no shared switch. Each member reaches it over a tunnel instead, from anywhere, and peers with its route servers through the tunnel.
+A virtual exchange, such as BGP.Exchange, has no shared switch. Each member reaches it over a tunnel from anywhere, and peers with the route servers through that tunnel.
 
-**To join one,** add the tunnel and the BGP sessions to your router. The exchange gives you the tunnel's far end and your address inside it:
+In the example, a hub router ends one GRE tunnel per member. Each tunnel has a `/31`: the hub takes the even address, the member the odd one. The route servers sit on a LAN behind the hub. Members peer with the route servers through their tunnel, and traffic between two members goes through the hub.
 
-```ts
-interfaces: {
-    "vix-tunnel": {
-        type: "gre",
-        local: "198.51.100.1",
-        remote: "192.0.2.50",
-        addresses: ["10.255.0.10/24"],
-    },
-},
-```
+A member's file:
 
-and a BGP neighbor with `role: "rs"` for each route server, at its address inside the tunnel. Add the `tunnelsOutsideOffered` check from the [presets](/guide/presets#checks). If your tunnel starts from an address inside a prefix you announce to the exchange, the exchange's replies would come back through the tunnel itself, and the tunnel would break.
+<<< @/../examples/use-cases/virtual-exchange/members/acme.ts
 
-**To run one,** you need a tunnel to each member on a router, and route servers. Circuit can configure the tunnels on a RouterOS router, one GRE or WireGuard interface per member. The route servers are the same gap as above.
+The tunnels, one per member:
+
+<<< @/../examples/use-cases/virtual-exchange/exchange.ts
+
+The hub. Its firewall accepts GRE only from members' addresses, and lets traffic pass only inside the exchange's own space:
+
+<<< @/../examples/use-cases/virtual-exchange/hub-01.ts
+
+<<< @/../examples/use-cases/virtual-exchange/circuit.config.ts
 
 ## Not in Circuit yet
 

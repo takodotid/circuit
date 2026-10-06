@@ -51,6 +51,9 @@ function endOf(d: string): [number, number] {
     return [x, y];
 }
 
+// Networks that run on Circuit in production. Each logo is drawn in the page's own ink, so one image works in light and dark.
+const users = [{ name: "Tako", logo: "/users/tako.png", link: "https://tako.id", width: 1292, height: 602 }];
+
 // Ports lit on each device in the figure, as if a cable were in them.
 const lit = [
     [1, 2, 4],
@@ -144,6 +147,22 @@ const lit = [
             </svg>
             <figcaption id="figure-caption">One file for each device. What the file says is what the device runs.</figcaption>
         </figure>
+
+        <aside class="users">
+            <p>In production at</p>
+            <a
+                v-for="user in users"
+                :key="user.name"
+                :href="user.link"
+                :aria-label="user.name"
+                class="logo"
+                :style="{
+                    maskImage: `url(${withBase(user.logo)})`,
+                    WebkitMaskImage: `url(${withBase(user.logo)})`,
+                    aspectRatio: `${user.width} / ${user.height}`,
+                }"
+            />
+        </aside>
 
         <section class="chapter">
             <h2>Why</h2>
@@ -455,6 +474,40 @@ figcaption {
     font-style: italic;
     font-size: 18px;
     color: var(--soft);
+}
+
+/* The networks that run Circuit, between the figure and the chapters. */
+
+.users {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 32px;
+    margin-top: 56px;
+}
+
+.users p {
+    margin: 0;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    color: var(--soft);
+}
+
+.users .logo {
+    display: block;
+    height: 30px;
+    background-color: var(--ink);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.users .logo:hover {
+    opacity: 1;
 }
 
 /* Chapters: a heading in the margin, the text beside it. */

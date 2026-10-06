@@ -2,7 +2,7 @@
 
 IP transit is a connection to the whole internet. The customer has its own AS and its own addresses. It sends you its routes over BGP, you pass them on to the rest of the internet, and you send it every route you know.
 
-In the example, your router buys transit from Example Transit, AS64501, peers at Example IX, AS64502, and sells transit to Example Customer, AS64510.
+In the example, your router buys transit from Hurricane Electric, AS6939, peers at SGIX, AS55518, and sells transit to Acme, AS65550.
 
 ## Before you start
 
@@ -28,7 +28,7 @@ Your transit and the exchange's route servers do not take every route you send t
 3. **What it takes from the customer, `ACME-IN`**, in this order:
     1. A blackhole request, but only for an address inside the customer's own space. See [blackhole](/guide/communities#blackhole).
     2. `SANITY`, which refuses routes that should never be on the internet.
-    3. `communities.tag`, which tags the route as learned from a customer. The customer's own requests, such as "do not announce to AS64502", stay, because `routing.ts` lets customers ask: `requests_from: ["customer"]`.
+    3. `communities.tag`, which tags the route as learned from a customer. The customer's own requests, such as "do not announce to AS55518", stay, because `routing.ts` says which class is a customer: `customers: ["customer"]`.
     4. The customer's own prefixes, from the prefix sets `acme-v4` and `acme-v6`. They get the highest local preference, so traffic to the customer always goes straight to it.
     5. Nothing else.
 4. **What it sends the customer, `ACME-OUT`:** every route it knows. For a customer that only wants a default route, accept `0.0.0.0/0` and `::/0` and reject the rest.
@@ -51,7 +51,7 @@ A customer with customers of its own announces many prefixes, and they change. F
 
 ```ts
 prefix_sets: {
-    "acme-v4": { source: { registry: "ripe-stat", query: "AS64510", family: "ipv4" } },
+    "acme-v4": { source: { registry: "ripe-stat", query: "AS65550", family: "ipv4" } },
 },
 ```
 

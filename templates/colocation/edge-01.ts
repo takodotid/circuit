@@ -1,4 +1,6 @@
 // The edge router: BGP with an IP transit and an internet exchange, the gateway of every tenant, and the filter between them.
+//
+// Hurricane Electric and SGIX stand for your own transit and exchange. Addresses are from the documentation ranges; use the ones your providers give you.
 
 import type { Prefix } from "@takodotid/circuit";
 import { defineDevice, merge, secret } from "@takodotid/circuit";
@@ -29,16 +31,16 @@ export default defineDevice({
     vlans: merge(
         {
             mgmt: { id: 99, description: "Management of the switches" },
-            transit: { id: 300, description: "IP transit from Example Transit, AS64501" },
-            ix: { id: 200, description: "Peering LAN of Example IX" },
+            transit: { id: 300, description: "IP transit from Hurricane Electric, AS6939" },
+            ix: { id: 200, description: "Peering LAN of SGIX" },
         },
         internetVlans(TENANTS)
     ),
 
     ports: {
         "1g-1": { description: "Management", addresses: ["10.0.0.1/24"] },
-        "25g-1": { description: "Example Transit", access_vlan: "transit", acl: "edge" },
-        "25g-2": { description: "Example IX", access_vlan: "ix", acl: "edge" },
+        "25g-1": { description: "Hurricane Electric", access_vlan: "transit", acl: "edge" },
+        "25g-2": { description: "SGIX", access_vlan: "ix", acl: "edge" },
         "100g-1": {
             description: "tor-01",
             speed: "40g",
@@ -64,25 +66,25 @@ export default defineDevice({
             asn: ASN,
             networks: [...OURS],
             neighbors: {
-                "example-transit": {
+                "hurricane-electric": {
                     address: "203.0.113.1",
-                    remote_as: 64501,
+                    remote_as: 6939,
                     role: "provider",
                     import: "TRANSIT-IN",
                     export: "OUT",
                     max_prefixes: 1_200_000,
                 },
-                "example-ix-rs-v4": {
+                "sgix-rs-v4": {
                     address: "192.0.2.1",
-                    remote_as: 64502,
+                    remote_as: 55518,
                     role: "rs",
                     import: "IX-IN",
                     export: "OUT",
                     max_prefixes: 100_000,
                 },
-                "example-ix-rs-v6": {
+                "sgix-rs-v6": {
                     address: "2001:db8:ffff::1",
-                    remote_as: 64502,
+                    remote_as: 55518,
                     role: "rs",
                     import: "IX-IN",
                     export: "OUT",
@@ -95,8 +97,8 @@ export default defineDevice({
     policies: {
         SANITY: bgpSanity(),
         // A route from the exchange is preferred over the same route from the transit: higher local preference wins.
-        "TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 64501), { set: { local_pref: 100 } }, { action: "accept" }],
-        "IX-IN": [{ call: "SANITY" }, communities.tag("exchange", 64502), { set: { local_pref: 200 } }, { action: "accept" }],
+        "TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 6939), { set: { local_pref: 100 } }, { action: "accept" }],
+        "IX-IN": [{ call: "SANITY" }, communities.tag("exchange", 55518), { set: { local_pref: 200 } }, { action: "accept" }],
         OUT: [
             ...OURS.map((prefix) => ({ description: `Announce ${prefix}`, match: { prefix }, action: "accept" as const })),
             { description: "Nothing else leaves", action: "reject" },
