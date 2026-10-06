@@ -7,10 +7,9 @@ export const ASN = 64500;
 export const communities = communityScheme({
     asn: ASN,
     learned_from: { function: 1, classes: { transit: 1, exchange: 2, customer: 3 } },
-    // Only customers may ask us for something on their routes.
-    customers: ["customer"],
     learned_from_as: 3,
-    do_not_announce: 100,
-    prepend: { once: 101, twice: 102, three_times: 103 },
-    blackhole: 666,
+    // What a neighbor can ask us for, and who may: only customers.
+    do_not_announce: { function: 100, trusted: ["customer"] },
+    prepend: { once: 101, twice: 102, three_times: 103, trusted: ["customer"] },
+    blackhole: { function: 666, trusted: ["customer"] },
 });

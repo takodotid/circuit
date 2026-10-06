@@ -122,18 +122,23 @@ describe("templates and use cases", () => {
 
 test("communityScheme blackholes only inside the customer's space, and never announces it", async () => {
     const { communityScheme } = await import("../src/presets");
-    const communities = communityScheme({ asn: 64500, blackhole: 666 });
+    const communities = communityScheme({
+        asn: 64500,
+        learned_from: { function: 1, classes: { customer: 3 } },
+        blackhole: { function: 666, trusted: ["customer"] },
+    });
 
-    expect(communities.blackhole("customer-prefixes")).toEqual({
-        description: "Blackhole, asked by the customer",
+    expect(communities.blackhole("customer", "customer-prefixes")).toEqual({
+        description: "Blackhole, asked by the neighbor",
         match: { large_community: "64500:666:0", prefix_set: "customer-prefixes" },
         set: { blackhole: true },
         action: "accept",
     });
     expect(communities.actions(64501)[0]).toMatchObject({ match: { large_community: "64500:666:0" }, action: "reject" });
-    expect(communities.catalogue).toEqual([
-        { community: "64500:666:0", description: "Blackhole: dropped in AS64500, not announced further" },
-    ]);
+    expect(communities.catalogue).toContainEqual({
+        community: "64500:666:0",
+        description: "Blackhole: dropped in AS64500, not announced further",
+    });
 
     // A neighbor with its own blackhole community gets the route, tagged with it, and none of ours.
     const passed = communities.actions(64501, { blackhole: "64501:666" })[0]!;
@@ -145,8 +150,7 @@ test("a customer keeps its requests; anyone else's are removed", async () => {
     const communities = communityScheme({
         asn: 64500,
         learned_from: { function: 1, classes: { transit: 1, customer: 3 } },
-        customers: ["customer"],
-        do_not_announce: 100,
+        do_not_announce: { function: 100, trusted: ["customer"] },
     });
 
     expect(communities.tag("customer", 64510).set?.remove_large_communities).toEqual(["64500:1:*"]);
@@ -241,4 +245,20 @@ test("librenms adds what it does not monitor, with the device's SNMP version 3 u
     } finally {
         globalThis.fetch = original;
     }
+});
+
+test("trust is per request: a neighbor keeps only the requests its class is trusted with", async () => {
+    const { communityScheme } = await import("../src/presets");
+    const communities = communityScheme({
+        asn: 64500,
+        learned_from: { function: 1, classes: { transit: 1, customer: 3, pni: 4 } },
+        do_not_announce: { function: 100, trusted: ["customer"] },
+        blackhole: { function: 666, trusted: ["customer", "pni"] },
+    });
+
+    // A PNI partner may ask for a blackhole, not for "do not announce".
+    expect(communities.tag("pni", 65551).set?.remove_large_communities).toEqual(["64500:1:*", "64500:100:*"]);
+    expect(communities.tag("customer", 65550).set?.remove_large_communities).toEqual(["64500:1:*"]);
+    expect(communities.tag("transit", 6939).set?.remove_large_communities).toEqual(["64500:*:*"]);
+    expect(() => communities.blackhole("transit", "anything")).toThrow("transit is not trusted to ask for a blackhole");
 });

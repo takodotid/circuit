@@ -3,7 +3,7 @@
 A BGP community is a tag on a route. Networks use them for two things:
 
 1. **To remember where a route came from.** Your router tags each route it learns, for example "learned from a transit, in Jakarta, from AS6939". Your own policies can then treat routes differently by where they came from.
-2. **To let customers ask for something.** A customer tags a route it sends you, for example "do not announce this to AS6939", and your router does it.
+2. **To let a neighbor ask for something.** A customer, for example, tags a route it sends you with "do not announce this to AS6939", and your router does it.
 
 For this to work, three things must agree: the tags your routers add, the tags your routers act on, and the list you publish so others know what each tag means. `communityScheme` builds all three from one definition, so they cannot drift apart.
 
@@ -28,12 +28,11 @@ import { communityScheme } from "@takodotid/circuit/presets";
 export const communities = communityScheme({
     asn: 64500,
     learned_from: { function: 1, classes: { transit: 1, exchange: 2, customer: 3 } },
-    customers: ["customer"],
     learned_at: { function: 2, sites: { 0: "Jakarta" } },
     learned_from_as: 3,
-    do_not_announce: 100,
-    prepend: { once: 101, twice: 102, three_times: 103 },
-    blackhole: 666,
+    do_not_announce: { function: 100, trusted: ["customer"] },
+    prepend: { once: 101, twice: 102, three_times: 103, trusted: ["customer"] },
+    blackhole: { function: 666, trusted: ["customer"] },
 });
 ```
 
@@ -49,17 +48,24 @@ Your router adds these on import. A neighbor can never set them, because the rou
 | `learned_at`      | `function`, and optionally `sites`: a name for each site number, used only in the published list.                     | `64500:2:0` for site 0    |
 | `learned_from_as` | The function number. The parameter is the neighbor's AS.                                                              | `64500:3:6939`            |
 
-### What a customer can ask for
+### What a neighbor can ask for
 
-A customer adds these to the routes it sends you, to ask you for something. Your router does it when the route leaves toward the AS they name.
+A neighbor adds these to the routes it sends you, to ask you for something. Your router does it when the route leaves toward the AS they name.
 
-Only customers may ask. `customers` says which of your classes are customers; here, the class named `customer`. From anyone else, such as a transit, the requests are removed when the route comes in, so a transit cannot tell your router what to do with your routes.
+Each one says who may ask for it, in `trusted`: a list of classes from `learned_from.classes`. Trust is per request, so you choose exactly who may do what. For example, customers may ask for anything, while a partner on a private interconnect, a class `pni`, may only ask for a blackhole:
 
-| Field             | What you give                                                                            | What the customer sets, and what happens                                                                                                        |
-| ----------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `do_not_announce` | The function number                                                                      | `64500:100:6939`: the route is not announced to AS6939. `64500:100:0`: it is not announced to anyone.                                           |
-| `prepend`         | A function number for each of `once`, `twice` and `three_times`; give the ones you offer | `64500:101:6939`: your AS is added once more to the path toward AS6939, so that route looks longer and less attractive there.                   |
-| `blackhole`       | The function number                                                                      | `64500:666:0` on a route inside their own space: traffic to it is dropped in your network, before it reaches them. See [blackhole](#blackhole). |
+```ts
+do_not_announce: { function: 100, trusted: ["customer"] },
+blackhole: { function: 666, trusted: ["customer", "pni"] },
+```
+
+When a route comes in from a neighbor whose class is not trusted with a request, the request is removed, so it never reaches your router's decisions. A transit, trusted with nothing, can never tell your router what to do with your routes.
+
+| Field             | What you give                                                                                           | What the neighbor sets, and what happens                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `do_not_announce` | `function`, and `trusted`                                                                               | `64500:100:6939`: the route is not announced to AS6939. `64500:100:0`: it is not announced to anyone.                                           |
+| `prepend`         | A function number for each of `once`, `twice` and `three_times`; give the ones you offer. And `trusted` | `64500:101:6939`: your AS is added once more to the path toward AS6939, so that route looks longer and less attractive there.                   |
+| `blackhole`       | `function`, and `trusted`                                                                               | `64500:666:0` on a route inside their own space: traffic to it is dropped in your network, before it reaches them. See [blackhole](#blackhole). |
 
 ## What you get back
 
@@ -68,8 +74,8 @@ Only customers may ask. `customers` says which of your classes are customers; he
 | Name                             | What it is                                              | Where it goes                        |
 | -------------------------------- | ------------------------------------------------------- | ------------------------------------ |
 | `tag(class, asn, options)`       | One rule that tags a route as it comes in               | Each neighbor's import policy        |
-| `actions(asn, { blackhole })`    | Rules that do what customers asked, toward one neighbor | Each neighbor's export policy        |
-| `blackhole(prefixSet)`           | One rule that takes a customer's blackhole request      | Each customer's import policy, first |
+| `actions(asn, { blackhole })`    | Rules that do what neighbors asked, toward one neighbor | Each neighbor's export policy        |
+| `blackhole(class, prefixSet)`    | One rule that takes a neighbor's blackhole request      | That neighbor's import policy, first |
 | `catalogue`                      | Every community with its meaning                        | `communities` in `defineNetwork`     |
 | `community(function, parameter)` | One community, written out                              | A rule of your own                   |
 
@@ -141,17 +147,20 @@ Put them at the start of each export, before the rules that accept your routes:
 
 ### blackhole
 
-When a customer is under attack, it can ask you to drop all traffic to one of its addresses, so the attack stops at your router instead of filling its link. It sends you that address, usually a /32 or a /128, tagged `64500:666:0`.
+When a customer is under attack, it can ask you to drop all traffic to one of its addresses, so the attack stops at your router instead of filling its link. It sends you that address, usually a /32 or a /128, tagged with your community, `64500:666:0`. It needs nothing else: not your upstreams' communities, nor anything about them.
 
 ```ts
-communities.blackhole("customer-prefixes");
+communities.blackhole("customer", "customer-prefixes");
 ```
 
-`prefixSet` is the prefix set that holds the customer's own space. The rule only takes a route inside it, so a customer can never blackhole someone else's address. It makes this rule:
+- `class` is the neighbor's class. It must be trusted with `blackhole`, or Circuit stops with an error, so a blackhole can never be taken from someone you did not trust with it.
+- `prefixSet` is the prefix set that holds the neighbor's own space. The rule only takes a route inside it, so a neighbor can never blackhole someone else's address.
+
+It makes this rule:
 
 ```json
 {
-    "description": "Blackhole, asked by the customer",
+    "description": "Blackhole, asked by the neighbor",
     "match": { "large_community": "64500:666:0", "prefix_set": "customer-prefixes" },
     "set": { "blackhole": true },
     "action": "accept"
@@ -162,7 +171,7 @@ Put it first in the customer's import, before `SANITY`: `bgpSanity()` refuses an
 
 ```ts
 "CUSTOMER-IN": [
-    communities.blackhole("customer-prefixes"),
+    communities.blackhole("customer", "customer-prefixes"),
     { call: "SANITY" },
     communities.tag("customer", 65550, { site: 0 }),
     { description: "Only their own prefixes", match: { prefix_set: "customer-prefixes" }, action: "accept" },
@@ -186,6 +195,8 @@ Give it to `actions` for that neighbor:
 ```
 
 For that neighbor, the reject in step 1 of [actions](#actions) is replaced by a rule placed after the "do not announce" ones: a blackholed route is announced to the neighbor with its blackhole community, and without any of yours. A customer who also asked not to be announced to that neighbor still is not. Every neighbor without the option keeps rejecting it.
+
+The customer still sets only your `64500:666:0`. Your router swaps it for each upstream's own community on the way out. So one request from the customer is dropped at your router, and at every upstream you gave the option to.
 
 ### catalogue
 

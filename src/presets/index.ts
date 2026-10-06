@@ -226,18 +226,22 @@ export type CommunityScheme<Class extends string = string> = {
     asn: number;
     /** Set on import: the kind of neighbor a route came from, `asn:function:class`. */
     learned_from?: { function: number; classes: Readonly<Record<Class, number>> };
-    /** Which of the classes above are your customers. Only a customer may ask you for something, such as not announcing its route somewhere; what anyone else asks is removed when the route comes in. */
-    customers?: readonly NoInfer<Class>[];
     /** Set on import: the site a route was learned at, `asn:function:site`. `sites` names the sites, for the catalogue. */
     learned_at?: { function: number; sites?: Readonly<Record<number, string>> };
     /** Set on import: the AS a route was learned from, `asn:function:asn`. */
     learned_from_as?: number;
-    /** Set by a customer: do not announce the route to an AS, `asn:function:asn`, or to anyone, `asn:function:0`. */
-    do_not_announce?: number;
-    /** Set by a customer: prepend toward an AS once, twice or three times, `asn:function:asn`. */
-    prepend?: { once?: number; twice?: number; three_times?: number };
-    /** Set by a customer: drop traffic to the route in your network, before it reaches them, `asn:function:0`. The route is never announced further. */
-    blackhole?: number;
+    /** A neighbor asks: do not announce the route to an AS, `asn:function:asn`, or to anyone, `asn:function:0`. */
+    do_not_announce?: Request<Class> & { function: number };
+    /** A neighbor asks: prepend toward an AS once, twice or three times, `asn:function:asn`. */
+    prepend?: Request<Class> & { once?: number; twice?: number; three_times?: number };
+    /** A neighbor asks: drop traffic to the route in your network, before it reaches them, `asn:function:0`. */
+    blackhole?: Request<Class> & { function: number };
+};
+
+/** Something a neighbor can ask you for, and who may. */
+type Request<Class extends string> = {
+    /** The classes allowed to ask for it, from `learned_from.classes`. From anyone else, the request is removed when the route comes in. */
+    trusted: readonly NoInfer<Class>[];
 };
 
 const PREPENDS = [
@@ -251,9 +255,9 @@ const article = (word: string) => (/^[aeiou]/i.test(word) ? `an ${word}` : `a ${
 /**
  * Policy rules and a catalogue from one community scheme, so the communities your routers set, the ones they act on, and the ones you publish never disagree.
  *
- * - `tag(neighborClass, neighborAs, { site })`: a rule for an import policy. It removes your communities a neighbor set, then adds where the route was learned. A customer, a class in `customers`, keeps its requests. `site` is needed when the scheme has `learned_at`.
+ * - `tag(neighborClass, neighborAs, { site })`: a rule for an import policy. It removes your communities a neighbor set, then adds where the route was learned. A neighbor keeps the requests its class is trusted with. `site` is needed when the scheme has `learned_at`.
  * - `actions(neighborAs, { blackhole })`: rules for an export policy toward one neighbor. They act on a customer's action communities, then remove all of yours. Place them before the rules that accept. A blackholed route goes no further, unless `blackhole` names the neighbor's own blackhole community: then it is passed on with it, so the neighbor drops the traffic too.
- * - `blackhole(prefixSet)`: a rule for a customer's import policy, before anything that rejects long prefixes. It takes a route the customer asked to blackhole, but only inside `prefixSet`, its own space, and drops traffic to it here.
+ * - `blackhole(neighborClass, prefixSet)`: a rule for the import policy of a neighbor trusted with blackholes, before anything that rejects long prefixes. It takes a route the neighbor asked to blackhole, but only inside `prefixSet`, its own space, and drops traffic to it here.
  * - `catalogue`: every community, for `communities` in `defineNetwork`.
  */
 export function communityScheme<const Class extends string>(scheme: CommunityScheme<Class>) {
@@ -265,9 +269,17 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
         (fn): fn is number => fn !== undefined
     );
 
+    // Each request's function numbers, and who may make it.
+    const requests = [
+        { functions: [scheme.do_not_announce?.function], trusted: scheme.do_not_announce?.trusted },
+        { functions: PREPENDS.map(([name]) => scheme.prepend?.[name]), trusted: scheme.prepend?.trusted },
+        { functions: [scheme.blackhole?.function], trusted: scheme.blackhole?.trusted },
+    ].map(({ functions, trusted }) => ({ functions: functions.filter((fn): fn is number => fn !== undefined), trusted: trusted ?? [] }));
+
     const tag = (neighborClass: Class, neighborAs: number, options: { site?: number } = {}): PolicyRule<never, never> => {
         const { site } = options;
-        const isCustomer = scheme.customers?.includes(neighborClass) ?? false;
+        const untrusted = requests.filter((request) => !request.trusted.includes(neighborClass)).flatMap((request) => request.functions);
+        const trustedForAny = requests.some((request) => request.functions.length && request.trusted.includes(neighborClass));
         if (scheme.learned_at && site === undefined)
             throw new Error(`communityScheme: tag for AS${neighborAs} needs a site, for learned_at`);
 
@@ -275,7 +287,8 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
             description: `Learned from AS${neighborAs}`,
             set: {
                 remove_communities: ours.standard,
-                remove_large_communities: isCustomer ? information.map((fn) => community(fn, "*")) : ours.large,
+                // A neighbor trusted with nothing loses every community of ours it set. One trusted with some requests keeps those, and loses the rest.
+                remove_large_communities: trustedForAny ? [...information, ...untrusted].map((fn) => community(fn, "*")) : ours.large,
                 add_large_communities: [
                     ...(scheme.learned_from ? [community(scheme.learned_from.function, scheme.learned_from.classes[neighborClass])] : []),
                     ...(scheme.learned_at ? [community(scheme.learned_at.function, site!)] : []),
@@ -285,12 +298,14 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
         };
     };
 
-    const blackhole = <S extends string>(prefixSet: S): PolicyRule<never, S> => {
+    const blackhole = <S extends string>(neighborClass: Class, prefixSet: S): PolicyRule<never, S> => {
         if (scheme.blackhole === undefined) throw new Error("communityScheme: blackhole needs a function number in the scheme");
+        if (!scheme.blackhole.trusted.includes(neighborClass))
+            throw new Error(`communityScheme: ${neighborClass} is not trusted to ask for a blackhole`);
 
         return {
-            description: "Blackhole, asked by the customer",
-            match: { large_community: community(scheme.blackhole, 0), prefix_set: prefixSet },
+            description: "Blackhole, asked by the neighbor",
+            match: { large_community: community(scheme.blackhole.function, 0), prefix_set: prefixSet },
             set: { blackhole: true },
             action: "accept",
         };
@@ -301,7 +316,7 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
             ? [
                   {
                       description: "Blackholed here, never announced",
-                      match: { large_community: community(scheme.blackhole, 0) },
+                      match: { large_community: community(scheme.blackhole.function, 0) },
                       action: "reject" as const,
                   },
               ]
@@ -310,12 +325,12 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
             ? [
                   {
                       description: "Asked not to be announced anywhere",
-                      match: { large_community: community(scheme.do_not_announce, 0) },
+                      match: { large_community: community(scheme.do_not_announce.function, 0) },
                       action: "reject" as const,
                   },
                   {
                       description: `Asked not to be announced to AS${neighborAs}`,
-                      match: { large_community: community(scheme.do_not_announce, neighborAs) },
+                      match: { large_community: community(scheme.do_not_announce.function, neighborAs) },
                       action: "reject" as const,
                   },
               ]
@@ -324,7 +339,7 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
             ? [
                   {
                       description: `Blackhole passed on to AS${neighborAs}`,
-                      match: { large_community: community(scheme.blackhole, 0) },
+                      match: { large_community: community(scheme.blackhole.function, 0) },
                       set: {
                           remove_communities: ours.standard,
                           remove_large_communities: ours.large,
@@ -371,8 +386,8 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
             : []),
         ...(scheme.do_not_announce !== undefined
             ? [
-                  { community: community(scheme.do_not_announce, 0), description: "Do not announce to anyone" },
-                  { community: community(scheme.do_not_announce, "nnn"), description: "Do not announce to AS$0" },
+                  { community: community(scheme.do_not_announce.function, 0), description: "Do not announce to anyone" },
+                  { community: community(scheme.do_not_announce.function, "nnn"), description: "Do not announce to AS$0" },
               ]
             : []),
         ...PREPENDS.flatMap(([name]) => {
@@ -380,7 +395,7 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
             return fn === undefined ? [] : [{ community: community(fn, "nnn"), description: `Prepend ${name.replace("_", " ")} to AS$0` }];
         }),
         ...(scheme.blackhole !== undefined
-            ? [{ community: community(scheme.blackhole, 0), description: `Blackhole: dropped in AS${asn}, not announced further` }]
+            ? [{ community: community(scheme.blackhole.function, 0), description: `Blackhole: dropped in AS${asn}, not announced further` }]
             : []),
     ];
 
