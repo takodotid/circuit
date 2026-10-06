@@ -28,7 +28,7 @@ Your transit and the exchange's route servers do not take every route you send t
 3. **What it takes from the customer, `ACME-IN`**, in this order:
     1. A blackhole request, but only for an address inside the customer's own space. See [blackhole](/guide/communities#blackhole).
     2. `SANITY`, which refuses routes that should never be on the internet.
-    3. `communities.tag`, which tags the route as learned from a customer. The customer's own requests, such as "do not announce to AS55518", stay, because this customer is trusted with them: `trusted: ["do_not_announce", "prepend"]`.
+    3. `communities.tag`, which tags the route as learned from a customer. The customer's own requests, such as "do not announce to AS55518", stay, because this customer is trusted: `trusted: true`.
     4. The customer's own prefixes, from the prefix sets `acme-v4` and `acme-v6`. They get the highest local preference, so traffic to the customer always goes straight to it.
     5. Nothing else.
 4. **What it sends the customer, `ACME-OUT`:** every route it knows. For a customer that only wants a default route, accept `0.0.0.0/0` and `::/0` and reject the rest.

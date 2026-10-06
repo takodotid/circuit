@@ -125,7 +125,7 @@ test("communityScheme blackholes only inside the customer's space, and never ann
     const communities = communityScheme({
         asn: 64500,
         learned_from: { function: 1, classes: { customer: 3 } },
-        blackhole: 666,
+        blackhole: { function: 666, upstreams: { 64501: "64501:666" } },
     });
 
     expect(communities.blackhole("customer-prefixes")).toEqual({
@@ -134,14 +134,14 @@ test("communityScheme blackholes only inside the customer's space, and never ann
         set: { blackhole: true },
         action: "accept",
     });
-    expect(communities.actions(64501)[0]).toMatchObject({ match: { large_community: "64500:666:0" }, action: "reject" });
+    expect(communities.actions(64502)[0]).toMatchObject({ match: { large_community: "64500:666:0" }, action: "reject" });
     expect(communities.catalogue).toContainEqual({
         community: "64500:666:0",
-        description: "Blackhole: dropped in AS64500, not announced further",
+        description: "Blackhole: dropped in AS64500 and by its upstreams that take it",
     });
 
     // A neighbor with its own blackhole community gets the route, tagged with it, and none of ours.
-    const passed = communities.actions(64501, { blackhole: "64501:666" })[0]!;
+    const passed = communities.actions(64501).find((rule) => rule.description === "Blackhole passed on to AS64501")!;
     expect(passed).toMatchObject({ action: "accept", set: { add_communities: ["64501:666"], remove_large_communities: ["64500:*:*"] } });
 });
 
@@ -235,25 +235,16 @@ test("librenms adds what it does not monitor, with the device's SNMP version 3 u
     }
 });
 
-test("trust is per neighbor: each tag says which requests that neighbor keeps", async () => {
+test("a trusted neighbor keeps its requests; anyone else loses every community of ours", async () => {
     const { communityScheme } = await import("../src/presets");
     const communities = communityScheme({
         asn: 64500,
-        learned_from: { function: 1, classes: { transit: 1, customer: 3, pni: 4 } },
+        learned_from: { function: 1, classes: { transit: 1, customer: 3 } },
         do_not_announce: 100,
-        prepend: { once: 101 },
-        blackhole: 666,
+        blackhole: { function: 666 },
     });
 
-    // An experienced customer may ask for anything; a PNI partner only to prepend; a transit for nothing.
-    expect(communities.tag("customer", 65550, { trusted: ["do_not_announce", "prepend"] }).set?.remove_large_communities).toEqual([
-        "64500:1:*",
-        "64500:666:*",
-    ]);
-    expect(communities.tag("pni", 65551, { trusted: ["prepend"] }).set?.remove_large_communities).toEqual([
-        "64500:1:*",
-        "64500:100:*",
-        "64500:666:*",
-    ]);
+    expect(communities.tag("customer", 65550, { trusted: true }).set?.remove_large_communities).toEqual(["64500:1:*"]);
+    expect(communities.tag("customer", 65551).set?.remove_large_communities).toEqual(["64500:*:*"]);
     expect(communities.tag("transit", 6939).set?.remove_large_communities).toEqual(["64500:*:*"]);
 });

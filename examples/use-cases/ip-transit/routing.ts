@@ -10,5 +10,5 @@ export const communities = communityScheme({
     learned_from_as: 3,
     do_not_announce: 100,
     prepend: { once: 101, twice: 102, three_times: 103 },
-    blackhole: 666,
+    blackhole: { function: 666 },
 });
