@@ -179,3 +179,59 @@ test("internetExchange keeps members apart", async () => {
         "203.0.113.1 of b is already a's",
     ]);
 });
+
+test("prometheus lists every device with SNMP", async () => {
+    const { prometheusTargets } = await import("../src/adapters/registries/prometheus");
+    const { targets } = prometheusTargets(defineNetwork({ devices: [router, switchDevice] }));
+
+    expect(targets).toEqual([
+        { targets: ["192.0.2.1"], labels: { device: "example-router", platform: "routeros", model: "CCR2216-1G-12XS-2XQ" } },
+        { targets: ["192.0.2.2"], labels: { device: "example-switch", platform: "vrp", model: "CE6855-48S6Q-HI" } },
+    ]);
+});
+
+test("librenms adds what it does not monitor, with the device's SNMP version 3 user", async () => {
+    const { planLibreNms, sendLibreNms } = await import("../src/adapters/registries/librenms");
+    const { secret } = await import("../src/core/define");
+    for (const name of ["LIBRENMS_TOKEN", "EXAMPLE_SNMP_AUTH", "EXAMPLE_SNMP_PRIVACY"]) process.env[name] = `${name}-value`;
+
+    const sent: { url: string; init?: RequestInit }[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+        sent.push({ url, init });
+        const body =
+            init?.method === "POST"
+                ? { status: "ok", message: "added" }
+                : { devices: [{ hostname: "192.0.2.1" }, { hostname: "198.51.100.9" }] };
+        return new Response(JSON.stringify(body));
+    }) as typeof fetch;
+
+    try {
+        const network = defineNetwork({
+            devices: [router, switchDevice],
+            librenms: { url: "https://librenms.example/", api_token: secret("LIBRENMS_TOKEN") },
+        });
+        const plan = await planLibreNms(network);
+
+        expect(plan.additions.map((device) => device.name)).toEqual(["example-switch"]);
+        expect(plan.unknown).toEqual(["198.51.100.9"]);
+
+        await sendLibreNms(network, plan.additions);
+        const post = sent.at(-1)!;
+        expect(post.url).toBe("https://librenms.example/api/v0/devices");
+        expect((post.init!.headers as Record<string, string>)["X-Auth-Token"]).toBe("LIBRENMS_TOKEN-value");
+        expect(JSON.parse(post.init!.body as string)).toEqual({
+            hostname: "192.0.2.2",
+            display_template: "example-switch",
+            snmpver: "v3",
+            authlevel: "authPriv",
+            authname: "monitor",
+            authpass: "EXAMPLE_SNMP_AUTH-value",
+            authalgo: "SHA",
+            cryptopass: "EXAMPLE_SNMP_PRIVACY-value",
+            cryptoalgo: "AES",
+        });
+    } finally {
+        globalThis.fetch = original;
+    }
+});

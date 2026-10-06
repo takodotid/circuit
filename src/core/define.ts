@@ -86,6 +86,13 @@ export type Network = {
         /** An API key with write access to the network's record. */
         api_key: Secret;
     };
+    /** Keeps LibreNMS monitoring every device: `circuit librenms`. */
+    librenms?: {
+        /** Where LibreNMS is, such as `https://librenms.example.com`. */
+        url: string;
+        /** An API token that can add devices. */
+        api_token: Secret;
+    };
 };
 
 /** Declare the network, in `circuit.config.ts`. */

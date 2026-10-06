@@ -7,7 +7,9 @@ import { basename, dirname, join, resolve } from "node:path";
 import { adapters } from "../adapters/devices";
 import type { ApplyOptions, DeviceAdapter, Plan } from "../adapters/devices/types";
 import { registries } from "../adapters/registries";
+import { planLibreNms, sendLibreNms } from "../adapters/registries/librenms";
 import { planPeeringDb, sendPeeringDb } from "../adapters/registries/peeringdb";
+import { prometheusTargets } from "../adapters/registries/prometheus";
 import { network as prefixOf } from "../core/addr";
 import type { Network } from "../core/define";
 import { isSecret, referenceOf, resolve as reveal, sourceOf, useRoot } from "../core/secrets";
@@ -29,6 +31,8 @@ const HELP = `usage: circuit <command> [device...] [options]
                         a client config for one peer, its private key left for the peer to fill
   communities           the network's BGP communities, one per line, for a looking glass or bgp.tools
   peeringdb             bring PeeringDB's exchange records in line with the config, with --confirm
+  librenms              add every device LibreNMS does not monitor yet, with --confirm
+  prometheus            every device with SNMP, as Prometheus targets for snmp_exporter
   secrets               every secret the config uses, and whether each can be read
 
   --config <path>       the network's config file, circuit.config.ts in the working directory by default`;
@@ -325,6 +329,34 @@ async function peeringdbCommand(): Promise<void> {
     await sendPeeringDb(network, plan.changes);
 }
 
+async function librenmsCommand(): Promise<void> {
+    const plan = await planLibreNms(network);
+
+    for (const hostname of plan.unknown)
+        console.log(`  LibreNMS monitors ${hostname}, which the config does not. Remove it by hand if it is gone.`);
+    for (const device of plan.withoutSnmp)
+        console.log(`  ${device.name} has no SNMP in its config, so LibreNMS cannot poll it. Add management.snmp first.`);
+    for (const device of plan.additions) console.log(`  add ${device.name}, ${device.connection.host}`);
+
+    if (!plan.additions.length) {
+        console.log("LibreNMS monitors every device it can.");
+        return;
+    }
+
+    if (!confirmed) {
+        console.log("\nNothing sent. Re-run with --confirm.");
+        return;
+    }
+
+    await sendLibreNms(network, plan.additions);
+}
+
+function prometheusCommand(): void {
+    const { targets, withoutSnmp } = prometheusTargets(network);
+    for (const device of withoutSnmp) console.error(`${device.name} has no SNMP in its config; left out`);
+    console.log(JSON.stringify(targets, null, 4));
+}
+
 /** Every secret reference in a value, however deep. */
 function secretsIn(value: unknown, found = new Set<string>()): Set<string> {
     if (isSecret(value)) found.add(referenceOf(value));
@@ -335,7 +367,7 @@ function secretsIn(value: unknown, found = new Set<string>()): Set<string> {
 }
 
 function secretsCommand(): void {
-    const references = [...secretsIn([network.devices, network.peeringdb])].sort();
+    const references = [...secretsIn([network.devices, network.peeringdb, network.librenms])].sort();
     let missing = 0;
 
     for (const reference of references) {
@@ -365,6 +397,8 @@ const commands: Record<string, () => void | Promise<void>> = {
     wireguard: wireguardCommand,
     communities: communitiesCommand,
     peeringdb: peeringdbCommand,
+    librenms: librenmsCommand,
+    prometheus: prometheusCommand,
     secrets: secretsCommand,
 };
 
