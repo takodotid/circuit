@@ -30,9 +30,9 @@ export const communities = communityScheme({
     learned_from: { function: 1, classes: { transit: 1, exchange: 2, customer: 3 } },
     learned_at: { function: 2, sites: { 0: "Jakarta" } },
     learned_from_as: 3,
-    do_not_announce: { function: 100, trusted: ["customer"] },
-    prepend: { once: 101, twice: 102, three_times: 103, trusted: ["customer"] },
-    blackhole: { function: 666, trusted: ["customer"] },
+    do_not_announce: 100,
+    prepend: { once: 101, twice: 102, three_times: 103 },
+    blackhole: 666,
 });
 ```
 
@@ -52,32 +52,25 @@ Your router adds these on import. A neighbor can never set them, because the rou
 
 A neighbor adds these to the routes it sends you, to ask you for something. Your router does it when the route leaves toward the AS they name.
 
-Each one says who may ask for it, in `trusted`: a list of classes from `learned_from.classes`. Trust is per request, so you choose exactly who may do what. For example, customers may ask for anything, while a partner on a private interconnect, a class `pni`, may only ask for a blackhole:
+Who may ask is decided per neighbor, not here: see [tag](#tag) and [blackhole](#blackhole). Not every neighbor's NOC is equally careful, so you choose for each one. From a neighbor you have not trusted with a request, the request is removed when the route comes in.
 
-```ts
-do_not_announce: { function: 100, trusted: ["customer"] },
-blackhole: { function: 666, trusted: ["customer", "pni"] },
-```
-
-When a route comes in from a neighbor whose class is not trusted with a request, the request is removed, so it never reaches your router's decisions. A transit, trusted with nothing, can never tell your router what to do with your routes.
-
-| Field             | What you give                                                                                           | What the neighbor sets, and what happens                                                                                                        |
-| ----------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `do_not_announce` | `function`, and `trusted`                                                                               | `64500:100:6939`: the route is not announced to AS6939. `64500:100:0`: it is not announced to anyone.                                           |
-| `prepend`         | A function number for each of `once`, `twice` and `three_times`; give the ones you offer. And `trusted` | `64500:101:6939`: your AS is added once more to the path toward AS6939, so that route looks longer and less attractive there.                   |
-| `blackhole`       | `function`, and `trusted`                                                                               | `64500:666:0` on a route inside their own space: traffic to it is dropped in your network, before it reaches them. See [blackhole](#blackhole). |
+| Field             | What you give                                                                            | What the neighbor sets, and what happens                                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `do_not_announce` | The function number                                                                      | `64500:100:6939`: the route is not announced to AS6939. `64500:100:0`: it is not announced to anyone.                                           |
+| `prepend`         | A function number for each of `once`, `twice` and `three_times`; give the ones you offer | `64500:101:6939`: your AS is added once more to the path toward AS6939, so that route looks longer and less attractive there.                   |
+| `blackhole`       | The function number                                                                      | `64500:666:0` on a route inside their own space: traffic to it is dropped in your network, before it reaches them. See [blackhole](#blackhole). |
 
 ## What you get back
 
 `communityScheme` returns five things:
 
-| Name                             | What it is                                              | Where it goes                        |
-| -------------------------------- | ------------------------------------------------------- | ------------------------------------ |
-| `tag(class, asn, options)`       | One rule that tags a route as it comes in               | Each neighbor's import policy        |
-| `actions(asn, { blackhole })`    | Rules that do what neighbors asked, toward one neighbor | Each neighbor's export policy        |
-| `blackhole(class, prefixSet)`    | One rule that takes a neighbor's blackhole request      | That neighbor's import policy, first |
-| `catalogue`                      | Every community with its meaning                        | `communities` in `defineNetwork`     |
-| `community(function, parameter)` | One community, written out                              | A rule of your own                   |
+| Name                                 | What it is                                              | Where it goes                        |
+| ------------------------------------ | ------------------------------------------------------- | ------------------------------------ |
+| `tag(class, asn, { site, trusted })` | One rule that tags a route as it comes in               | Each neighbor's import policy        |
+| `actions(asn, { blackhole })`        | Rules that do what neighbors asked, toward one neighbor | Each neighbor's export policy        |
+| `blackhole(prefixSet)`               | One rule that takes a neighbor's blackhole request      | That neighbor's import policy, first |
+| `catalogue`                          | Every community with its meaning                        | `communities` in `defineNetwork`     |
+| `community(function, parameter)`     | One community, written out                              | A rule of your own                   |
 
 ### tag
 
@@ -85,11 +78,12 @@ When a route comes in from a neighbor whose class is not trusted with a request,
 communities.tag("transit", 6939, { site: 0 });
 ```
 
-| Argument | What it is                                                                                                       |
-| -------- | ---------------------------------------------------------------------------------------------------------------- |
-| `class`  | Which kind of neighbor this is, one of the names in `learned_from.classes`. The editor only accepts those names. |
-| `asn`    | The neighbor's AS number.                                                                                        |
-| `site`   | The number of the site the router is at. Needed when the scheme has `learned_at`; otherwise leave it out.        |
+| Argument  | What it is                                                                                                       |
+| --------- | ---------------------------------------------------------------------------------------------------------------- |
+| `class`   | Which kind of neighbor this is, one of the names in `learned_from.classes`. The editor only accepts those names. |
+| `asn`     | The neighbor's AS number.                                                                                        |
+| `site`    | The number of the site the router is at. Needed when the scheme has `learned_at`; otherwise leave it out.        |
+| `trusted` | The requests this neighbor may make: `"do_not_announce"`, `"prepend"`, or both. None when absent.                |
 
 It makes this rule:
 
@@ -104,10 +98,17 @@ It makes this rule:
 }
 ```
 
-1. It removes the communities of yours that the neighbor put on the route. A neighbor may not set your "where it came from" tags, so those are always removed. Its requests, such as "do not announce to AS55518", are removed too, unless the neighbor is a customer.
+1. It removes the communities of yours that the neighbor put on the route. A neighbor may never set your "where it came from" tags, so those are always removed. Its requests, such as "do not announce to AS55518", are removed too, except the ones in `trusted`.
 2. It adds where the route came from.
 
-So for a transit it removes `64500:*:*`, every community of yours. For a customer it removes only `64500:1:*`, `64500:2:*` and `64500:3:*`, and the customer's requests stay.
+So for a transit, trusted with nothing, it removes `64500:*:*`, every community of yours. For a customer you trust with everything, `trusted: ["do_not_announce", "prepend"]`, it removes only the "where it came from" tags and `64500:666:*`, and the customer's requests stay.
+
+Trust is per neighbor, so two customers can be trusted differently:
+
+```ts
+communities.tag("customer", 65550, { site: 0, trusted: ["do_not_announce", "prepend"] }),   // an experienced NOC
+communities.tag("customer", 65551, { site: 0, trusted: ["prepend"] }),                      // one still learning
+```
 
 Put it in each import, after the filters that decide whether to accept the route:
 
@@ -115,7 +116,7 @@ Put it in each import, after the filters that decide whether to accept the route
 "TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 6939, { site: 0 }), { action: "accept" }],
 "CUSTOMER-IN": [
     { call: "SANITY" },
-    communities.tag("customer", 65550, { site: 0 }),
+    communities.tag("customer", 65550, { site: 0, trusted: ["do_not_announce", "prepend"] }),
     { description: "Only their own prefixes", match: { prefix_set: "customer-prefixes" }, action: "accept" },
     { action: "reject" },
 ],
@@ -150,11 +151,12 @@ Put them at the start of each export, before the rules that accept your routes:
 When a customer is under attack, it can ask you to drop all traffic to one of its addresses, so the attack stops at your router instead of filling its link. It sends you that address, usually a /32 or a /128, tagged with your community, `64500:666:0`. It needs nothing else: not your upstreams' communities, nor anything about them.
 
 ```ts
-communities.blackhole("customer", "customer-prefixes");
+communities.blackhole("customer-prefixes");
 ```
 
-- `class` is the neighbor's class. It must be trusted with `blackhole`, or Circuit stops with an error, so a blackhole can never be taken from someone you did not trust with it.
-- `prefixSet` is the prefix set that holds the neighbor's own space. The rule only takes a route inside it, so a neighbor can never blackhole someone else's address.
+`prefixSet` is the prefix set that holds the neighbor's own space. The rule only takes a route inside it, so a neighbor can never blackhole someone else's address.
+
+Putting this rule in a neighbor's import is how you trust that neighbor with blackholes. Leave it out, and the neighbor's blackhole requests are removed by `tag`, like any request it is not trusted with.
 
 It makes this rule:
 
@@ -171,9 +173,9 @@ Put it first in the customer's import, before `SANITY`: `bgpSanity()` refuses an
 
 ```ts
 "CUSTOMER-IN": [
-    communities.blackhole("customer", "customer-prefixes"),
+    communities.blackhole("customer-prefixes"),
     { call: "SANITY" },
-    communities.tag("customer", 65550, { site: 0 }),
+    communities.tag("customer", 65550, { site: 0, trusted: ["do_not_announce", "prepend"] }),
     { description: "Only their own prefixes", match: { prefix_set: "customer-prefixes" }, action: "accept" },
     { action: "reject" },
 ],
