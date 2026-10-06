@@ -1,4 +1,4 @@
-// An edge router that sells IX-only transit to Example Customer, AS64510: only the routes it learns at Example IX, AS64502, not those from its own transit, Example Transit, AS64501.
+// An edge router that sells IX-only transit to Acme, AS65550: only the routes it learns at SGIX, AS55518, not those from its own transit, Hurricane Electric, AS6939.
 //
 // Addresses are from the documentation ranges. Ours are 198.51.100.0/24 and 2001:db8:100::/48, and the customer's link comes out of them. The customer's own are 192.0.2.0/24 and 2001:db8:200::/48. The transit's link and the exchange's peering LAN stand in for blocks those providers give you, from 203.0.113.0/24.
 
@@ -22,16 +22,16 @@ export default defineDevice({
     management: { allow: ["10.0.0.0/24"], ssh: {} },
 
     vlans: {
-        transit: { id: 300, description: "IP transit from Example Transit, AS64501" },
-        ix: { id: 200, description: "Peering LAN of Example IX" },
-        acme: { id: 1001, description: "Example Customer, AS64510" },
+        transit: { id: 300, description: "IP transit from Hurricane Electric, AS6939" },
+        ix: { id: 200, description: "Peering LAN of SGIX" },
+        acme: { id: 1001, description: "Acme, AS65550" },
     },
 
     ports: {
         "1g-1": { description: "Management", addresses: ["10.0.0.1/24"] },
-        "25g-1": { description: "Example Transit", access_vlan: "transit", acl: "edge" },
-        "25g-2": { description: "Example IX", access_vlan: "ix", acl: "edge" },
-        "25g-3": { description: "Example Customer", access_vlan: "acme" },
+        "25g-1": { description: "Hurricane Electric", access_vlan: "transit", acl: "edge" },
+        "25g-2": { description: "SGIX", access_vlan: "ix", acl: "edge" },
+        "25g-3": { description: "Acme", access_vlan: "acme" },
     },
 
     interfaces: {
@@ -47,17 +47,17 @@ export default defineDevice({
             asn: ASN,
             networks: [OURS.v4, OURS.v6],
             neighbors: {
-                "example-transit": {
+                "hurricane-electric": {
                     address: "203.0.113.1",
-                    remote_as: 64501,
+                    remote_as: 6939,
                     role: "provider",
                     import: "TRANSIT-IN",
                     export: "TRANSIT-OUT",
                     max_prefixes: 1_200_000,
                 },
-                "example-ix-rs": {
+                "sgix-rs": {
                     address: "203.0.113.129",
-                    remote_as: 64502,
+                    remote_as: 55518,
                     role: "rs",
                     import: "IX-IN",
                     export: "IX-OUT",
@@ -66,7 +66,7 @@ export default defineDevice({
                 // The customer sends a handful of prefixes at most. More means a mistake on their side, and the session closes.
                 "acme-v4": {
                     address: "198.51.100.254",
-                    remote_as: 64510,
+                    remote_as: 65550,
                     role: "customer",
                     import: "ACME-IN",
                     export: "ACME-OUT",
@@ -74,7 +74,7 @@ export default defineDevice({
                 },
                 "acme-v6": {
                     address: "2001:db8:100:ff01::2",
-                    remote_as: 64510,
+                    remote_as: 65550,
                     role: "customer",
                     import: "ACME-IN",
                     export: "ACME-OUT",
@@ -93,15 +93,15 @@ export default defineDevice({
     policies: {
         SANITY: bgpSanity(),
 
-        "TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 64501), { set: { local_pref: 100 } }, { action: "accept" }],
-        "IX-IN": [{ call: "SANITY" }, communities.tag("exchange", 64502), { set: { local_pref: 200 } }, { action: "accept" }],
+        "TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 6939), { set: { local_pref: 100 } }, { action: "accept" }],
+        "IX-IN": [{ call: "SANITY" }, communities.tag("exchange", 55518), { set: { local_pref: 200 } }, { action: "accept" }],
 
         // The customer's own routes win over the same routes from anyone else. It may also ask for a blackhole, or another action.
         "ACME-IN": [
             communities.blackhole("acme-v4"),
             communities.blackhole("acme-v6"),
             { call: "SANITY" },
-            communities.tag("customer", 64510),
+            communities.tag("customer", 65550),
             { description: "Their IPv4", match: { prefix_set: "acme-v4" }, set: { local_pref: 300 }, action: "accept" },
             { description: "Their IPv6", match: { prefix_set: "acme-v6" }, set: { local_pref: 300 }, action: "accept" },
             { description: "Nothing else", action: "reject" },
@@ -118,7 +118,7 @@ export default defineDevice({
 
         // Only our own space to the transit. The customer did not buy a way in from the whole internet.
         "TRANSIT-OUT": [
-            ...communities.actions(64501),
+            ...communities.actions(6939),
             { description: "Our IPv4", match: { prefix: OURS.v4 }, action: "accept" },
             { description: "Our IPv6", match: { prefix: OURS.v6 }, action: "accept" },
             { description: "Nothing else leaves", action: "reject" },
@@ -126,7 +126,7 @@ export default defineDevice({
 
         // Our space and the customer's to the exchange, so the networks there send their traffic for the customer through us.
         "IX-OUT": [
-            ...communities.actions(64502),
+            ...communities.actions(55518),
             { description: "Our IPv4", match: { prefix: OURS.v4 }, action: "accept" },
             { description: "Our IPv6", match: { prefix: OURS.v6 }, action: "accept" },
             { description: "Customer IPv4", match: { prefix_set: "acme-v4" }, action: "accept" },

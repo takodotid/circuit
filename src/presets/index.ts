@@ -226,8 +226,8 @@ export type CommunityScheme<Class extends string = string> = {
     asn: number;
     /** Set on import: the kind of neighbor a route came from, `asn:function:class`. */
     learned_from?: { function: number; classes: Readonly<Record<Class, number>> };
-    /** The kinds of neighbor allowed to ask you for something, usually your customers: the requests below that they set on their routes stay. From anyone else, they are removed on import. */
-    requests_from?: readonly NoInfer<Class>[];
+    /** Which of the classes above are your customers. Only a customer may ask you for something, such as not announcing its route somewhere; what anyone else asks is removed when the route comes in. */
+    customers?: readonly NoInfer<Class>[];
     /** Set on import: the site a route was learned at, `asn:function:site`. `sites` names the sites, for the catalogue. */
     learned_at?: { function: number; sites?: Readonly<Record<number, string>> };
     /** Set on import: the AS a route was learned from, `asn:function:asn`. */
@@ -251,7 +251,7 @@ const article = (word: string) => (/^[aeiou]/i.test(word) ? `an ${word}` : `a ${
 /**
  * Policy rules and a catalogue from one community scheme, so the communities your routers set, the ones they act on, and the ones you publish never disagree.
  *
- * - `tag(neighborClass, neighborAs, { site })`: a rule for an import policy. It removes your communities a neighbor set, then adds where the route was learned. A neighbor of a class in `requests_from` keeps its requests. `site` is needed when the scheme has `learned_at`.
+ * - `tag(neighborClass, neighborAs, { site })`: a rule for an import policy. It removes your communities a neighbor set, then adds where the route was learned. A customer, a class in `customers`, keeps its requests. `site` is needed when the scheme has `learned_at`.
  * - `actions(neighborAs, { blackhole })`: rules for an export policy toward one neighbor. They act on a customer's action communities, then remove all of yours. Place them before the rules that accept. A blackholed route goes no further, unless `blackhole` names the neighbor's own blackhole community: then it is passed on with it, so the neighbor drops the traffic too.
  * - `blackhole(prefixSet)`: a rule for a customer's import policy, before anything that rejects long prefixes. It takes a route the customer asked to blackhole, but only inside `prefixSet`, its own space, and drops traffic to it here.
  * - `catalogue`: every community, for `communities` in `defineNetwork`.
@@ -267,7 +267,7 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
 
     const tag = (neighborClass: Class, neighborAs: number, options: { site?: number } = {}): PolicyRule<never, never> => {
         const { site } = options;
-        const mayAsk = scheme.requests_from?.includes(neighborClass) ?? false;
+        const isCustomer = scheme.customers?.includes(neighborClass) ?? false;
         if (scheme.learned_at && site === undefined)
             throw new Error(`communityScheme: tag for AS${neighborAs} needs a site, for learned_at`);
 
@@ -275,7 +275,7 @@ export function communityScheme<const Class extends string>(scheme: CommunitySch
             description: `Learned from AS${neighborAs}`,
             set: {
                 remove_communities: ours.standard,
-                remove_large_communities: mayAsk ? information.map((fn) => community(fn, "*")) : ours.large,
+                remove_large_communities: isCustomer ? information.map((fn) => community(fn, "*")) : ours.large,
                 add_large_communities: [
                     ...(scheme.learned_from ? [community(scheme.learned_from.function, scheme.learned_from.classes[neighborClass])] : []),
                     ...(scheme.learned_at ? [community(scheme.learned_at.function, site!)] : []),

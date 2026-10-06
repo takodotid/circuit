@@ -8,7 +8,7 @@ export const communities = communityScheme({
     asn: ASN,
     learned_from: { function: 1, classes: { transit: 1, exchange: 2, customer: 3 } },
     // Only customers may ask us for something on their routes.
-    requests_from: ["customer"],
+    customers: ["customer"],
     learned_from_as: 3,
     do_not_announce: 100,
     prepend: { once: 101, twice: 102, three_times: 103 },

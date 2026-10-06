@@ -100,7 +100,7 @@ test("merge refuses a name two records hold", async () => {
 describe("templates and use cases", () => {
     const configs = [
         ...["single-site", "edge-router", "colocation"].map((pattern) => `../templates/${pattern}`),
-        ...["ip-transit", "ix-transit", "internet-exchange"].map((useCase) => `../examples/use-cases/${useCase}`),
+        ...["ip-transit", "ix-transit", "internet-exchange", "virtual-exchange"].map((useCase) => `../examples/use-cases/${useCase}`),
     ];
 
     for (const directory of configs) {
@@ -145,7 +145,7 @@ test("a customer keeps its requests; anyone else's are removed", async () => {
     const communities = communityScheme({
         asn: 64500,
         learned_from: { function: 1, classes: { transit: 1, customer: 3 } },
-        requests_from: ["customer"],
+        customers: ["customer"],
         do_not_announce: 100,
     });
 
