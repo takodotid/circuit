@@ -4,19 +4,21 @@ Run every command from your project as `npx circuit <command>`, or `pnpm circuit
 
 ## Every command
 
-| Command                          | What it does                                                                        | Touches a device |
-| -------------------------------- | ----------------------------------------------------------------------------------- | ---------------- |
-| `new [directory]`                | Starts a new project from a pattern. See [Getting started](/guide/getting-started). | no               |
-| `validate`                       | Checks every file and runs your checks                                              | no               |
-| `secrets`                        | Lists every secret the files use, and whether each one can be read                  | no               |
-| `build <device>`                 | Prints the whole configuration the device should run, in its vendor's commands      | no               |
-| `diff [device...]`               | Shows what would change, compared with the last snapshot                            | no               |
-| `snapshot [device...]`           | Reads what each device runs now, into `.circuit/state/`                             | reads only       |
-| `apply <device>`                 | Reads the device, then shows the plan; with `--confirm`, sends it                   | with `--confirm` |
-| `refresh <device>`               | Fetches prefix lists from a registry; with `--confirm`, puts them on the device     | with `--confirm` |
-| `wireguard <device> <if> <peer>` | Prints a WireGuard client config for one peer                                       | no               |
-| `communities`                    | Prints your BGP communities, for a looking glass or bgp.tools                       | no               |
-| `peeringdb`                      | Updates your PeeringDB record to match the config; with `--confirm`, sends it       | PeeringDB only   |
+| Command                          | What it does                                                                                                         | Touches a device |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `new [directory]`                | Starts a new project from a pattern. See [Getting started](/guide/getting-started).                                  | no               |
+| `validate`                       | Checks every file and runs your checks                                                                               | no               |
+| `secrets`                        | Lists every secret the files use, and whether each one can be read                                                   | no               |
+| `build <device>`                 | Prints the whole configuration the device should run, in its vendor's commands                                       | no               |
+| `diff [device...]`               | Shows what would change, compared with the last snapshot                                                             | no               |
+| `snapshot [device...]`           | Reads what each device runs now, into `.circuit/state/`                                                              | reads only       |
+| `apply <device>`                 | Reads the device, then shows the plan; with `--confirm`, sends it                                                    | with `--confirm` |
+| `refresh <device>`               | Fetches prefix lists from a registry; with `--confirm`, puts them on the device                                      | with `--confirm` |
+| `wireguard <device> <if> <peer>` | Prints a WireGuard client config for one peer                                                                        | no               |
+| `communities`                    | Prints your BGP communities, for a looking glass or bgp.tools                                                        | no               |
+| `peeringdb`                      | Updates your PeeringDB record to match the config; with `--confirm`, sends it                                        | PeeringDB only   |
+| `librenms`                       | Adds every device LibreNMS does not monitor yet; with `--confirm`, sends it. See [LibreNMS](/integrations/librenms). | LibreNMS only    |
+| `prometheus`                     | Prints every device with SNMP as a target for Prometheus. See [Prometheus](/integrations/prometheus).                | no               |
 
 `diff` and `snapshot` take device names, or work on every device when you give none.
 

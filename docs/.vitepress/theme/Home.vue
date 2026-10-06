@@ -162,6 +162,9 @@ const lit = [
                     aspectRatio: `${user.width} / ${user.height}`,
                 }"
             />
+            <p class="yours">
+                Running Circuit in production? <a :href="`mailto:${circuit.author.email}`">Tell us</a>, and your logo goes here too.
+            </p>
         </aside>
 
         <section class="chapter">
@@ -508,6 +511,13 @@ figcaption {
 
 .users .logo:hover {
     opacity: 1;
+}
+
+.users .yours {
+    flex-basis: 100%;
+    font-family: var(--vp-font-family-base);
+    font-style: normal;
+    font-size: 15px;
 }
 
 /* Chapters: a heading in the margin, the text beside it. */

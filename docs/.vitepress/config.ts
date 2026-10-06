@@ -63,6 +63,8 @@ export default defineConfig({
                 items: [
                     { text: "AI agents", link: "/integrations/ai-agents" },
                     { text: "1Password", link: "/integrations/1password" },
+                    { text: "Prometheus", link: "/integrations/prometheus" },
+                    { text: "LibreNMS", link: "/integrations/librenms" },
                 ],
             },
             {
