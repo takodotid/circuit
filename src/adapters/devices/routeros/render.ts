@@ -836,9 +836,11 @@ function helpers(out: Output, ctx: Context): void {
 }
 
 /**
- * ACLs run in the switch chip on the port traffic arrives on. The chip matches addresses with a dotted mask on IPv4, drops by forwarding to no port, and limits by rate.
+ * ACLs run in the switch chip on the port traffic arrives on. The chip matches addresses with a dotted mask on IPv4, drops by forwarding to no port, and limits by rate. A rule takes one port, so a list of ports becomes one rule for each.
  */
 function switchAcls(out: Output, ctx: Context): void {
+    const each = (ports: number | readonly number[] | undefined) => (ports === undefined ? [undefined] : [ports].flat());
+
     for (const [port, settings] of Object.entries(ctx.ports)) {
         if (!settings.acl) continue;
 
@@ -847,23 +849,27 @@ function switchAcls(out: Output, ctx: Context): void {
             const ipv6 = match.family === "ipv6" || [match.src, match.dst].some((address) => address && familyOf(address) === "ipv6");
             const address = (prefix: string | undefined) => (prefix && !ipv6 ? dottedMask(prefix) : prefix);
 
-            out.add(
-                "/interface ethernet switch rule",
-                command("add", {
-                    comment: rule.description,
-                    [ipv6 ? "dst-address6" : "dst-address"]: address(match.dst),
-                    "dst-port": portList(match.dst_port),
-                    "mac-protocol": ipv6 ? "ipv6" : "ip",
-                    "new-dst-ports": rule.action === "drop" ? "" : undefined,
-                    ports: ctx.name(port),
-                    protocol: match.protocol,
-                    rate: rule.rate && bitrate(rule.rate),
-                    [ipv6 ? "src-address6" : "src-address"]: address(match.src),
-                    "src-port": portList(match.src_port),
-                    switch: "switch1",
-                    "vlan-id": match.vlan && ctx.vlanId(match.vlan),
-                })
-            );
+            for (const srcPort of each(match.src_port)) {
+                for (const dstPort of each(match.dst_port)) {
+                    out.add(
+                        "/interface ethernet switch rule",
+                        command("add", {
+                            comment: rule.description,
+                            [ipv6 ? "dst-address6" : "dst-address"]: address(match.dst),
+                            "dst-port": dstPort,
+                            "mac-protocol": ipv6 ? "ipv6" : "ip",
+                            "new-dst-ports": rule.action === "drop" ? "" : undefined,
+                            ports: ctx.name(port),
+                            protocol: match.protocol,
+                            rate: rule.rate && bitrate(rule.rate),
+                            [ipv6 ? "src-address6" : "src-address"]: address(match.src),
+                            "src-port": srcPort,
+                            switch: "switch1",
+                            "vlan-id": match.vlan && ctx.vlanId(match.vlan),
+                        })
+                    );
+                }
+            }
         }
     }
 }
