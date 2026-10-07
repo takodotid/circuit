@@ -14,6 +14,9 @@ Behaviour that looks like something else. Each one has been hit on a real device
 - `tcp-md5-key` set from the CLI has been seen discarded without an error, and a mismatch logs nothing. Confirm with `/tool sniffer quick port=179`.
 - Incoming GRE is subject to the input chain. Accept it before testing the tunnel.
 - Switch-chip rules have no address lists and no connection state. A drop is an empty `new-dst-ports`.
+- A switch-chip rule's `rate` did not limit traffic the CPU routes. On a CCR2216 on 7.23.5, under a 12 Gbps flood, a rule at `2G` and then at `100M` changed nothing that reached the CPU, while a drop with the same match left 3 Mbps. Drop what you can recognise instead of limiting it.
+- The switch chip reads a UDP fragment after the first as port 0. `src-port=0` drops the rest of a fragmented flood whose first fragments another rule dropped by port; without it they reach the CPU, which holds them waiting for a first fragment that never comes.
+- A switch-chip rule takes one port or a range, `1900-1901`; a list is refused. The render makes one rule for each port in a list.
 - With hardware offload on, routed traffic bypasses the forward chain entirely. `hardware_offload: false` on an interface is what makes the firewall apply to it, at the cost of CPU. The only proof of offload is the `H` flag on a route.
 - `/ip cloud ddns-enabled` cannot be turned off on 7.23.5.
 - `mac-server` and `mac-winbox` work at layer 2 and ignore the IP firewall; they are limited by interface list.

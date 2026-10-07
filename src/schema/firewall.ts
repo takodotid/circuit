@@ -123,6 +123,6 @@ export type AclRule<V extends string> = {
     };
     /** What happens to a matching packet. */
     action: "accept" | "drop";
-    /** Accepted traffic above this rate is dropped. */
+    /** Accepted traffic above this rate is dropped. On RouterOS it did not limit traffic the CPU routes; see its TRAPS.md. */
     rate?: Rate;
 };
