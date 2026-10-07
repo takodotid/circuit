@@ -77,6 +77,35 @@ test("presets build the rules they describe", async () => {
     expect(findings.map((finding) => finding.message)).toContain("upstream-1: export UPSTREAM-OUT does not end in an unconditional reject");
 });
 
+test("antiAmplification accepts trusted sources, then drops fragments and every amplifier, one switch rule per port", async () => {
+    const { antiAmplification, AMPLIFIERS } = await import("../src/presets");
+    const rules = antiAmplification(["198.51.100.0/24"], ["192.0.2.53/32"]);
+
+    expect(rules.slice(0, 2)).toEqual([
+        {
+            description: "UDP to 198.51.100.0/24 from 192.0.2.53/32",
+            match: { protocol: "udp", src: "192.0.2.53/32", dst: "198.51.100.0/24" },
+            action: "accept",
+        },
+        {
+            description: "UDP fragments to 198.51.100.0/24",
+            match: { protocol: "udp", dst: "198.51.100.0/24", src_port: 0 },
+            action: "drop",
+        },
+    ]);
+    expect(rules.slice(2).map((rule) => rule.match?.src_port)).toEqual(Object.values(AMPLIFIERS));
+
+    const listed = {
+        ...router,
+        acls: { edge: [{ description: "Two ports", match: { protocol: "udp" as const, src_port: [53, 123] }, action: "drop" as const }] },
+    };
+    const rendered = adapters["routeros"]!.render(listed);
+    expect(rendered.match(/comment="Two ports".*/g)?.map((line) => line.match(/src-port=\S+/)?.[0])).toEqual([
+        "src-port=53",
+        "src-port=123",
+    ]);
+});
+
 test("trustBoundary finds an untrusted VLAN beside a trusted one away from a router", async () => {
     const { trustBoundary, vlansOf } = await import("../src/presets");
 

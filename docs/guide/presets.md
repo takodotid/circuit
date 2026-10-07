@@ -5,21 +5,23 @@ Many networks write the same building blocks: the same list of addresses that ne
 A preset only returns plain config, like the config you write yourself. Nothing happens until you put it somewhere in a device or in `circuit.config.ts`.
 
 ```ts
-import { antiSpoofing, badTcpFlags, bgpSanity, MARTIANS } from "@takodotid/circuit/presets";
+import { antiAmplification, antiSpoofing, badTcpFlags, bgpSanity, MARTIANS } from "@takodotid/circuit/presets";
 ```
 
-| Preset                             | What it gives you                                                         | Where it goes                    |
-| ---------------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| `MARTIANS`                         | IPv4 sources that never come from the internet                            | anywhere a list of prefixes goes |
-| `PRIVATE_RANGES`                   | IPv4 private space, RFC 1918                                              | anywhere a list of prefixes goes |
-| `antiSpoofing(vlan, …)`            | ACL rules that drop forged sources arriving on a VLAN                     | `acls`                           |
-| `badTcpFlags()`                    | Firewall rules that drop TCP packets no real program sends                | `firewall.filter.forward.rules`  |
-| `bgpSanity(lengths?)`              | Route policy rules that refuse routes no neighbor should send             | `policies`                       |
-| `communityScheme({ … })`           | Your BGP communities: rules for your routers and the list you publish     | `policies`, `communities`        |
-| `exportsEndInReject`               | A check: every BGP export ends by rejecting what it did not accept        | `checks`                         |
-| `tunnelsOutsideOffered`            | A check: a tunnel never starts from an address it carries routes for      | `checks`                         |
-| `trustBoundary({ … })`             | A check: traffic from outside reaches your VLANs only through a router    | `checks`                         |
-| `internetExchange({ … }, members)` | An internet exchange's member ports, and a check that keeps members apart | `ports`, `checks`                |
+| Preset                               | What it gives you                                                         | Where it goes                    |
+| ------------------------------------ | ------------------------------------------------------------------------- | -------------------------------- |
+| `MARTIANS`                           | IPv4 sources that never come from the internet                            | anywhere a list of prefixes goes |
+| `PRIVATE_RANGES`                     | IPv4 private space, RFC 1918                                              | anywhere a list of prefixes goes |
+| `antiSpoofing(vlan, …)`              | ACL rules that drop forged sources arriving on a VLAN                     | `acls`                           |
+| `antiAmplification(destinations, …)` | ACL rules that drop reflected UDP floods                                  | `acls`                           |
+| `AMPLIFIERS`                         | UDP ports of services attackers use to reflect floods                     | anywhere a list of ports goes    |
+| `badTcpFlags()`                      | Firewall rules that drop TCP packets no real program sends                | `firewall.filter.forward.rules`  |
+| `bgpSanity(lengths?)`                | Route policy rules that refuse routes no neighbor should send             | `policies`                       |
+| `communityScheme({ … })`             | Your BGP communities: rules for your routers and the list you publish     | `policies`, `communities`        |
+| `exportsEndInReject`                 | A check: every BGP export ends by rejecting what it did not accept        | `checks`                         |
+| `tunnelsOutsideOffered`              | A check: a tunnel never starts from an address it carries routes for      | `checks`                         |
+| `trustBoundary({ … })`               | A check: traffic from outside reaches your VLANs only through a router    | `checks`                         |
+| `internetExchange({ … }, members)`   | An internet exchange's member ports, and a check that keeps members apart | `ports`, `checks`                |
 
 The descriptions on the rules a preset makes are fixed, because a device stores them. A release that changes one is a breaking change.
 
@@ -32,6 +34,23 @@ acls: {
     edge: [...antiSpoofing("transit", ["198.51.100.0/24", ...MARTIANS, ...PRIVATE_RANGES])],
 },
 ```
+
+The largest floods are reflected. The attacker sends small requests to thousands of DNS, NTP or memcached servers with your address as the source, and the servers send their much larger replies to you. Every reply comes from the port of the service, so `antiAmplification` recognises the flood by its source port and drops it in the switch chip:
+
+```ts
+acls: {
+    edge: [
+        ...antiSpoofing("transit", ["198.51.100.0/24", ...MARTIANS, ...PRIVATE_RANGES]),
+        ...antiAmplification(["198.51.100.0/24"], ["1.1.1.1/32", "8.8.8.8/32"]),
+    ],
+},
+```
+
+1. The first list is what to protect: your own address space.
+2. The second list is the resolvers and time servers your own hosts ask. Their replies are accepted before anything is dropped. A host that asks any other resolver gets no answer, so list every one in use.
+3. A reply too large for one packet arrives in fragments, and only the first carries a port. The rest are dropped as well, so they never reach the CPU.
+
+This is not a limit. A game server or a voice call on UDP passes untouched, at any rate, because its packets do not come from these ports.
 
 `badTcpFlags()` drops TCP packets with flag combinations that no real program sends, such as SYN and FIN together. Scanners send them to learn about your network:
 

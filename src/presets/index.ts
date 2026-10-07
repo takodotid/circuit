@@ -18,6 +18,47 @@ export const antiSpoofing = <V extends string>(vlan: V, sources: readonly Prefix
         action: "drop",
     }));
 
+/** UDP ports of services that answer a small request with a much larger reply, which attackers use to reflect floods at a victim. A reflected flood arrives from these ports. */
+export const AMPLIFIERS = {
+    qotd: 17,
+    chargen: 19,
+    dns: 53,
+    portmap: 111,
+    ntp: 123,
+    netbios: 137,
+    snmp: 161,
+    cldap: 389,
+    slp: 427,
+    rip: 520,
+    "ms-sql": 1434,
+    ssdp: 1900,
+    ard: 3283,
+    "ws-discovery": 3702,
+    mdns: 5353,
+    coap: 5683,
+    ubiquiti: 10001,
+    memcached: 11211,
+    dvr: 37810,
+} as const satisfies Record<string, number>;
+
+/**
+ * Hardware ACL rules dropping reflected UDP floods toward `destinations`: replies from the ports in `AMPLIFIERS`, and the fragments after the first, which carry no port and which a switch chip reads as port 0. UDP from `trusted` sources, the resolvers and time servers your own hosts ask, is accepted before anything is dropped. Traffic that matches is dropped whole and everything else passes untouched, so nothing legitimate is slowed.
+ */
+export const antiAmplification = (destinations: readonly Prefix[], trusted: readonly Prefix[] = []): AclRule<never>[] =>
+    destinations.flatMap((dst) => [
+        ...trusted.map((src): AclRule<never> => ({
+            description: `UDP to ${dst} from ${src}`,
+            match: { protocol: "udp", src, dst },
+            action: "accept",
+        })),
+        { description: `UDP fragments to ${dst}`, match: { protocol: "udp", dst, src_port: 0 }, action: "drop" },
+        ...Object.entries(AMPLIFIERS).map(([name, port]): AclRule<never> => ({
+            description: `UDP to ${dst} from ${name}`,
+            match: { protocol: "udp", dst, src_port: port },
+            action: "drop",
+        })),
+    ]);
+
 /** TCP flag combinations no legitimate packet carries: name, flags set, flags unset. */
 const BAD_TCP_FLAGS = [
     ["FIN+SYN", ["fin", "syn"], []],
