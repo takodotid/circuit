@@ -77,14 +77,14 @@ test("presets build the rules they describe", async () => {
     expect(findings.map((finding) => finding.message)).toContain("upstream-1: export UPSTREAM-OUT does not end in an unconditional reject");
 });
 
-test("antiAmplification accepts trusted sources, then drops fragments and every amplifier, one switch rule per port", async () => {
+test("antiAmplification drops fragments and amplifiers, keeps asked services' answers, one switch rule per port", async () => {
     const { antiAmplification, AMPLIFIERS } = await import("../src/presets");
-    const rules = antiAmplification(["198.51.100.0/24"], ["192.0.2.53/32"]);
+    const rules = antiAmplification(["198.51.100.0/24"], { keep_fragments: ["198.51.100.64/27", "192.0.2.0/24"] });
 
     expect(rules.slice(0, 2)).toEqual([
         {
-            description: "UDP to 198.51.100.0/24 from 192.0.2.53/32",
-            match: { protocol: "udp", src: "192.0.2.53/32", dst: "198.51.100.0/24" },
+            description: "UDP fragments to 198.51.100.64/27 kept",
+            match: { protocol: "udp", dst: "198.51.100.64/27", src_port: 0 },
             action: "accept",
         },
         {
@@ -94,6 +94,16 @@ test("antiAmplification accepts trusted sources, then drops fragments and every 
         },
     ]);
     expect(rules.slice(2).map((rule) => rule.match?.src_port)).toEqual(Object.values(AMPLIFIERS));
+    expect(rules.find((rule) => rule.match?.src_port === 53)?.match?.dst_port).toEqual([
+        { min: 0, max: 52 },
+        { min: 54, max: 1023 },
+    ]);
+    expect(rules.find((rule) => rule.match?.src_port === 11211)?.match?.dst_port).toBeUndefined();
+
+    const dns = adapters["routeros"]!.render({ ...router, acls: { edge: rules } });
+    expect(
+        dns.match(/comment="UDP to 198.51.100.0\/24 from dns, to a port below 1024".*/g)?.map((line) => line.match(/dst-port=\S+/)?.[0])
+    ).toEqual(["dst-port=0-52", "dst-port=54-1023"]);
 
     const listed = {
         ...router,
@@ -104,6 +114,30 @@ test("antiAmplification accepts trusted sources, then drops fragments and every 
         "src-port=53",
         "src-port=123",
     ]);
+});
+
+test("untracked prefixes skip connection tracking both ways, in their own family", async () => {
+    const rendered = adapters["routeros"]!.render({
+        ...router,
+        firewall: { ...router.firewall, untracked: ["198.51.100.64/27", "2001:db8:100::/48"] },
+    });
+
+    expect(rendered).toContain(
+        [
+            "/ip firewall raw",
+            'add action=notrack chain=prerouting comment="Untracked to 198.51.100.64/27" dst-address=198.51.100.64/27',
+            'add action=notrack chain=prerouting comment="Untracked from 198.51.100.64/27" src-address=198.51.100.64/27',
+        ].join("\n")
+    );
+    expect(rendered).toContain(
+        [
+            "/ipv6 firewall raw",
+            'add action=notrack chain=prerouting comment="Untracked to 2001:db8:100::/48" dst-address=2001:db8:100::/48',
+        ].join("\n")
+    );
+
+    const adapter = adapters["routeros"]!;
+    expect(adapter.plan(rendered, rendered, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.show)).toEqual([]);
 });
 
 test("trustBoundary finds an untrusted VLAN beside a trusted one away from a router", async () => {

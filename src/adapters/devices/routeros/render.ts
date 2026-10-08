@@ -13,6 +13,7 @@ import type {
     NeighborSettings,
     PolicyRule,
     Port,
+    Ports,
     Service,
     Severity,
 } from "../../../schema";
@@ -72,11 +73,15 @@ export const yesNo = (on: boolean | undefined): string => (on ? "yes" : "no");
 /** `V4` or `V6`, the suffix of a chain rendered for one family. */
 export const familySuffix = (family: Family): string => (family === "ipv4" ? "V4" : "V6");
 
-/** One port or a list of ports, as `53,123`. */
-export function portList(ports: number | readonly number[] | undefined): string | undefined {
+/** Each port or range of ports as the platform writes it: `53`, `0-52`. */
+export const eachPort = (ports: Ports): string[] =>
+    [ports].flat().map((port) => (typeof port === "number" ? String(port) : `${port.min}-${port.max}`));
+
+/** One port, a range, or a list of them, as `53,0-52`. */
+export function portList(ports: Ports | undefined): string | undefined {
     if (ports === undefined) return undefined;
 
-    return [ports].flat().join(",");
+    return eachPort(ports).join(",");
 }
 
 /** Seconds as the platform writes a duration: `3600` becomes `1h`, `90` becomes `1m30s`. */
@@ -734,12 +739,32 @@ const CHAINS = ["input", "forward", "output"] as const;
 
 export function renderFirewall(out: Output, ctx: Context): void {
     for (const family of ["ipv4", "ipv6"] as const) {
+        untracked(out, ctx, family);
         filter(out, ctx, family);
         nat(out, ctx, family);
     }
 
     helpers(out, ctx);
     switchAcls(out, ctx);
+}
+
+/** Untracked prefixes skip connection tracking in the raw table, both ways, before a connection is ever made. */
+function untracked(out: Output, ctx: Context, family: Family): void {
+    const menu = family === "ipv4" ? "/ip firewall raw" : "/ipv6 firewall raw";
+
+    for (const prefix of ctx.device.firewall?.untracked ?? []) {
+        if (familyOf(prefix) !== family) continue;
+
+        for (const [direction, property] of [
+            ["to", "dst-address"],
+            ["from", "src-address"],
+        ] as const) {
+            out.add(
+                menu,
+                command("add", { action: "notrack", chain: "prerouting", comment: `Untracked ${direction} ${prefix}`, [property]: prefix })
+            );
+        }
+    }
 }
 
 /**
@@ -836,10 +861,10 @@ function helpers(out: Output, ctx: Context): void {
 }
 
 /**
- * ACLs run in the switch chip on the port traffic arrives on. The chip matches addresses with a dotted mask on IPv4, drops by forwarding to no port, and limits by rate. A rule takes one port, so a list of ports becomes one rule for each.
+ * ACLs run in the switch chip on the port traffic arrives on. The chip matches addresses with a dotted mask on IPv4, drops by forwarding to no port, and limits by rate. A rule takes one port or range, so a list becomes one rule for each.
  */
 function switchAcls(out: Output, ctx: Context): void {
-    const each = (ports: number | readonly number[] | undefined) => (ports === undefined ? [undefined] : [ports].flat());
+    const each = (ports: Ports | undefined) => (ports === undefined ? [undefined] : eachPort(ports));
 
     for (const [port, settings] of Object.entries(ctx.ports)) {
         if (!settings.acl) continue;

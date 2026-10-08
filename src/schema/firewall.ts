@@ -6,6 +6,12 @@ export type Protocol = "tcp" | "udp" | "icmp" | "gre" | "esp" | "ah" | "ospf" | 
 /** The state connection tracking assigns a packet. */
 export type ConnectionState = "new" | "established" | "related" | "untracked" | "invalid";
 
+/** Ports from `min` to `max`, both included. */
+export type PortRange = { min: number; max: number };
+
+/** A port, a range of ports, or any of several. */
+export type Ports = number | PortRange | readonly (number | PortRange)[];
+
 /** A TCP header flag. */
 export type TcpFlag = "fin" | "syn" | "rst" | "psh" | "ack" | "urg";
 
@@ -24,9 +30,9 @@ export type FilterMatch<I extends string, AS extends string> = {
     /** Destination is in this address set. */
     dst_set?: AS;
     /** Source port, or any of several. TCP and UDP only. */
-    src_port?: number | readonly number[];
+    src_port?: Ports;
     /** Destination port, or any of several. TCP and UDP only. */
-    dst_port?: number | readonly number[];
+    dst_port?: Ports;
     /** Arrived on this interface. */
     in_interface?: I;
     /** Leaves through this interface. */
@@ -98,6 +104,8 @@ export type Firewall<I extends string, AS extends string> = {
     };
     /** Helpers that run. None when absent. */
     helpers?: readonly Helper[];
+    /** Traffic to and from these prefixes passes without connection tracking. A flood toward them cannot fill the connection table, and rules see its packets in the state `untracked`. Everything is tracked when absent. */
+    untracked?: readonly Prefix[];
 };
 
 /** A stateless rule evaluated in hardware where traffic arrives, before routing. */
@@ -115,9 +123,9 @@ export type AclRule<V extends string> = {
         /** Destination prefix. */
         dst?: Prefix;
         /** Source port, or any of several. */
-        src_port?: number | readonly number[];
+        src_port?: Ports;
         /** Destination port, or any of several. */
-        dst_port?: number | readonly number[];
+        dst_port?: Ports;
         /** Carried in this VLAN. */
         vlan?: V;
     };
