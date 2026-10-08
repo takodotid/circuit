@@ -479,7 +479,9 @@ export async function apply(device: Device, _network: readonly Device[], plan: P
         for (const step of plan.steps) {
             for (const line of step.send) {
                 let answer = await send(channel, substitute(line), 20_000, 2000);
-                if (/[[(]y\/n[\])]|input 'y'/i.test(answer) || CONFIRM.test(line)) answer += await send(channel, "y", 10_000, 1000);
+                // A confirming line asks for `y` unless the change needs no confirming, when the device sets it at once.
+                const asks = /[[(]y\/n[\])]|input 'y'/i.test(answer) || (CONFIRM.test(line) && !/set successfully/i.test(answer));
+                if (asks) answer += await send(channel, "y", 10_000, 1000);
                 if (REFUSED.test(answer)) throw new Error(`${step.title}: ${line}\n    device said: ${answer.trim().slice(0, 300)}`);
 
                 const release = RELEASE.exec(line);
