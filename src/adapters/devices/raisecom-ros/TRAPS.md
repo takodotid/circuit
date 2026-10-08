@@ -7,7 +7,7 @@ Behaviour that looks like something else. Each one has been hit on a RAX721 runn
 - `show running-config` stops about halfway with no error unless `terminal page-break disable` is sent first and the read waits several seconds of silence.
 - A `?` sent by a script is executed. Once it applied an address with a /8 mask.
 - An access-list cannot change while any service holds it: `ACL 1000 is in use`. Every holder is released first and bound again after. `no ssh2 access-list` needs the list number.
-- `portswitch`, `switchport trunk allowed vlan` and `switchport mode` ask for `y` and do nothing without it.
+- `portswitch`, `switchport trunk allowed vlan` and `switchport mode` ask for `y` and do nothing without it, except when they need no confirming: `switchport mode trunk` on a port leaving access mode answers `Set successfully` at once, and a `y` sent after it is refused, `Error input`.
 - A VLAN is removed with `no vlan <id>`, not `no create vlan`.
 - The factory account `raisecom` cannot be removed and its service type cannot change. Only its password is ours.
 - Factory SNMP communities survive hardening, and `private` can write. The render removes both.
