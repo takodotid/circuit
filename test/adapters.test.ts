@@ -313,3 +313,13 @@ test("a trusted neighbor keeps its requests; anyone else loses every community o
     expect(communities.tag("customer", 65551).set?.remove_large_communities).toEqual(["64500:*:*"]);
     expect(communities.tag("transit", 6939).set?.remove_large_communities).toEqual(["64500:*:*"]);
 });
+
+// The device keeps a dynamic fasttrack counter rule in the raw table, which it refuses to remove.
+test("a rewrite of the raw table never selects a dynamic rule", () => {
+    const adapter = adapters["routeros"]!;
+    const before = adapter.render(router);
+    const after = adapter.render({ ...router, firewall: { ...router.firewall, untracked: ["198.51.100.64/27"] } });
+    const sent = adapter.plan(after, before, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+
+    expect(sent).toContain(":global frameworkOldRules [/ip firewall raw find where !dynamic]");
+});
