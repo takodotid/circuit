@@ -41,23 +41,44 @@ export const AMPLIFIERS = {
     dvr: 37810,
 } as const satisfies Record<string, number>;
 
+/** Of the amplifiers, the services hosts do ask across the internet: resolvers, time servers, monitoring. A reply to a real request goes back to the asking port, 1024 or above, or to the service's own port when two servers talk. */
+const ASKED: ReadonlySet<number> = new Set([AMPLIFIERS.dns, AMPLIFIERS.ntp, AMPLIFIERS.snmp]);
+
+/** What `antiAmplification` leaves alone. */
+export type AntiAmplificationOptions = {
+    /** Prefixes inside the destinations whose UDP fragments pass: for a host that receives UDP too large for one packet, such as SIP or some VPNs. Every fragment after the first is dropped when absent. */
+    keep_fragments?: readonly Prefix[];
+};
+
 /**
- * Hardware ACL rules dropping reflected UDP floods toward `destinations`: replies from the ports in `AMPLIFIERS`, and the fragments after the first, which carry no port and which a switch chip reads as port 0. UDP from `trusted` sources, the resolvers and time servers your own hosts ask, is accepted before anything is dropped. Traffic that matches is dropped whole and everything else passes untouched, so nothing legitimate is slowed.
+ * Hardware ACL rules dropping reflected UDP floods toward `destinations`, in the switch chip, without limiting anything else.
+ *
+ * - Replies from an amplifier no host asks across the internet are dropped.
+ * - Replies from DNS, NTP and SNMP are dropped only toward a port below 1024 that is not the service's own. A host that runs its own resolver, time server or monitoring keeps its answers.
+ * - The fragments after the first carry no port, and a switch chip reads them as port 0. They are dropped, but toward `keep_fragments`.
  */
-export const antiAmplification = (destinations: readonly Prefix[], trusted: readonly Prefix[] = []): AclRule<never>[] =>
-    destinations.flatMap((dst) => [
-        ...trusted.map((src): AclRule<never> => ({
-            description: `UDP to ${dst} from ${src}`,
-            match: { protocol: "udp", src, dst },
-            action: "accept",
-        })),
+export function antiAmplification(destinations: readonly Prefix[], options: AntiAmplificationOptions = {}): AclRule<never>[] {
+    const below1024Except = (port: number) => [
+        { min: 0, max: port - 1 },
+        { min: port + 1, max: 1023 },
+    ];
+
+    return destinations.flatMap((dst) => [
+        ...(options.keep_fragments ?? [])
+            .filter((prefix) => contains(dst, prefix))
+            .map((prefix): AclRule<never> => ({
+                description: `UDP fragments to ${prefix} kept`,
+                match: { protocol: "udp", dst: prefix, src_port: 0 },
+                action: "accept",
+            })),
         { description: `UDP fragments to ${dst}`, match: { protocol: "udp", dst, src_port: 0 }, action: "drop" },
         ...Object.entries(AMPLIFIERS).map(([name, port]): AclRule<never> => ({
-            description: `UDP to ${dst} from ${name}`,
-            match: { protocol: "udp", dst, src_port: port },
+            description: ASKED.has(port) ? `UDP to ${dst} from ${name}, to a port below 1024` : `UDP to ${dst} from ${name}`,
+            match: { protocol: "udp", dst, src_port: port, ...(ASKED.has(port) ? { dst_port: below1024Except(port) } : {}) },
             action: "drop",
         })),
     ]);
+}
 
 /** TCP flag combinations no legitimate packet carries: name, flags set, flags unset. */
 const BAD_TCP_FLAGS = [

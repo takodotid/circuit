@@ -41,16 +41,32 @@ The largest floods are reflected. The attacker sends small requests to thousands
 acls: {
     edge: [
         ...antiSpoofing("transit", ["198.51.100.0/24", ...MARTIANS, ...PRIVATE_RANGES]),
-        ...antiAmplification(["198.51.100.0/24"], ["1.1.1.1/32", "8.8.8.8/32"]),
+        ...antiAmplification(["198.51.100.0/24"]),
     ],
 },
 ```
 
-1. The first list is what to protect: your own address space.
-2. The second list is the resolvers and time servers your own hosts ask. Their replies are accepted before anything is dropped. A host that asks any other resolver gets no answer, so list every one in use.
-3. A reply too large for one packet arrives in fragments, and only the first carries a port. The rest are dropped as well, so they never reach the CPU.
+The list is what to protect: your own address space. What happens to UDP toward it:
 
-This is not a limit. A game server or a voice call on UDP passes untouched, at any rate, because its packets do not come from these ports.
+1. A reply from memcached, SSDP, chargen and the other services in `AMPLIFIERS` that nobody asks across the internet is dropped.
+2. A reply from DNS, NTP or SNMP is dropped only when it goes to a port below 1024 that is not the service's own. A real answer goes back to the port that asked, 1024 or above, so a host running its own resolver, time server or monitoring still gets it.
+3. A reply too large for one packet arrives in fragments, and only the first carries a port. The rest are dropped as well, so they never reach the CPU. A host that receives large UDP on purpose, such as SIP or some VPNs, keeps its fragments with `keep_fragments`:
+
+```ts
+...antiAmplification(["198.51.100.0/24"], { keep_fragments: ["198.51.100.64/27"] }),
+```
+
+This is not a limit. A game server, a voice call or any other UDP that does not come from these ports passes untouched, at any rate.
+
+A flood that comes from random ports looks like real traffic, and only a stateful firewall or the host itself can tell them apart. On a router that tracks connections, such a flood fills the connection table long before it fills a link. `untracked` keeps traffic to your customers' space out of the table:
+
+```ts
+firewall: {
+    untracked: ["198.51.100.64/27"],
+},
+```
+
+Accept the state `untracked` in the forward chain, since no other state applies to it.
 
 `badTcpFlags()` drops TCP packets with flag combinations that no real program sends, such as SYN and FIN together. Scanners send them to learn about your network:
 
