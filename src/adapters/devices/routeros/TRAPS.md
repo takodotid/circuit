@@ -7,7 +7,7 @@ Behaviour that looks like something else. Each one has been hit on a real device
 - `[find address=X/Y]` unquoted matches nothing, silently. Every selector the plan builds is quoted.
 - `~` in `find` has no anchors. Match exactly.
 - A property of the same group is printed as a bare suffix, `output.filter-chain=X .network=Y`, which only reads back inside that command. The parser expands it before building a `set`.
-- `/routing bgp connection add` without `local.role` is refused, so the render always states one.
+- `/routing bgp connection add` without `local.role` is refused, so the render always states one. On 7.23 one without `instance` is refused too, `missing value(s) of argument(s) instance`, although the export never prints `instance=default`.
 - A connection without `input.filter` accepts everything. A neighbor without a policy is given `REJECT-ALL`.
 - A session edited repeatedly can stick: SYN both ways, no RST, no log. Remove the connection and add it again.
 - A session that never established is missing from `/routing bgp session print`; look at `/routing bgp connection print`.

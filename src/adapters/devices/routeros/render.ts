@@ -1141,6 +1141,8 @@ function bgpConnections(out: Output, ctx: Context): void {
                 connect: settings.passive ? "no" : undefined,
                 "hold-time": settings.hold_time ? duration(settings.hold_time) : undefined,
                 "input.filter": chainName(settings.import ?? REJECT_ALL, family),
+                // The one instance bgpInstance adds. 7.23 refuses a new connection without it.
+                instance: "default",
                 [`input.limit-process-routes-${family}`]: settings.max_prefixes,
                 "keepalive-time": settings.keepalive ? duration(settings.keepalive) : undefined,
                 listen: settings.passive ? "yes" : undefined,
