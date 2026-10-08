@@ -336,3 +336,20 @@ test("a new BGP connection names its instance, and an existing one plans nothing
     const exported = rendered.replace(/ instance=default/g, "");
     expect(adapter.plan(rendered, exported, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.show)).toEqual([]);
 });
+
+// A peer's name is unique on the device, so a new key for the same peer must change the peer, not add another under its name.
+test("a new WireGuard key for a peer is set on it", () => {
+    const adapter = adapters["routeros"]!;
+    const line = (key: string) =>
+        `/interface wireguard peers\nadd allowed-address=10.0.0.2/32 interface=wg1 name=wg1-alice public-key="${key}"\n`;
+    const plan = adapter.plan(line("bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmU="), line("b2xkS2V5b2xkS2V5b2xkS2V5b2xkS2V5b2xkS2V5b2w="), {
+        secrets: false,
+        rollback: 10,
+    });
+    const sent = plan.steps.flatMap((step) => step.send);
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toBe(
+        '/interface wireguard peers set [ find name=wg1-alice ] public-key="bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmU="'
+    );
+});
