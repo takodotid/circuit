@@ -254,7 +254,6 @@ export function normal(command: Command): Record<string, string> {
 
 /** Properties that tell two `add` entries of a menu apart. `name` where the menu is not listed. */
 const IDENTITY: Record<string, string[]> = {
-    "/interface wireguard peers": ["public-key"],
     "/interface list member": ["list", "interface"],
     "/ip firewall address-list": ["list", "address"],
     "/ipv6 firewall address-list": ["list", "address"],

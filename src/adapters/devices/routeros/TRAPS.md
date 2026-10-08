@@ -13,6 +13,8 @@ Behaviour that looks like something else. Each one has been hit on a real device
 - A session that never established is missing from `/routing bgp session print`; look at `/routing bgp connection print`.
 - `tcp-md5-key` set from the CLI has been seen discarded without an error, and a mismatch logs nothing. Confirm with `/tool sniffer quick port=179`.
 - Incoming GRE is subject to the input chain. Accept it before testing the tunnel.
+- A WireGuard peer's name is unique on the device, and a new key under the same name is refused as a new peer, `entry with this name already exists`. The plan finds a peer by name, so a new key is a `set`.
+- `monitor-traffic` on a VLAN interface counts only what the CPU handles, and not consistently: during a flood a VLAN showed 14 Mbps leaving while its physical port sent 0.45 Mbps. Measure on the physical port, `/interface ethernet print stats`, which the switch chip counts.
 - Switch-chip rules have no address lists and no connection state. A drop is an empty `new-dst-ports`.
 - A switch-chip rule's `rate` did not limit traffic the CPU routes. On a CCR2216 on 7.23.5, under a 12 Gbps flood, a rule at `2G` and then at `100M` changed nothing that reached the CPU, while a drop with the same match left 3 Mbps. Drop what you can recognise instead of limiting it.
 - The switch chip reads a UDP fragment after the first as port 0. `src-port=0` drops the rest of a fragmented flood whose first fragments another rule dropped by port; without it they reach the CPU, which holds them waiting for a first fragment that never comes.
