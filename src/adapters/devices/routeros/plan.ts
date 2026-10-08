@@ -74,6 +74,11 @@ const DYNAMIC = new Set([
     "/ip firewall filter",
     "/ipv6 firewall filter",
     "/ip firewall nat",
+    "/ipv6 firewall nat",
+    "/ip firewall mangle",
+    "/ipv6 firewall mangle",
+    "/ip firewall raw",
+    "/ipv6 firewall raw",
     "/ip dhcp-server lease",
 ]);
 
