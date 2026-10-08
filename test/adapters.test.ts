@@ -323,3 +323,16 @@ test("a rewrite of the raw table never selects a dynamic rule", () => {
 
     expect(sent).toContain(":global frameworkOldRules [/ip firewall raw find where !dynamic]");
 });
+
+// 7.23 refuses a new BGP connection without its instance, and the export never prints the default one.
+test("a new BGP connection names its instance, and an existing one plans nothing for it", () => {
+    const adapter = adapters["routeros"]!;
+    const rendered = adapter.render(router);
+    const connections = rendered.split("\n").filter((line) => line.startsWith("add") && line.includes("remote.as="));
+
+    expect(connections.length).toBeGreaterThan(0);
+    expect(connections.every((line) => line.includes("instance=default"))).toBe(true);
+
+    const exported = rendered.replace(/ instance=default/g, "");
+    expect(adapter.plan(rendered, exported, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.show)).toEqual([]);
+});
