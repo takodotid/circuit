@@ -80,6 +80,7 @@ const DYNAMIC = new Set([
     "/ip firewall raw",
     "/ipv6 firewall raw",
     "/ip dhcp-server lease",
+    "/interface bridge vlan",
 ]);
 
 /** Quote a value for a command. */

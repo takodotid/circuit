@@ -353,3 +353,12 @@ test("a new WireGuard key for a peer is set on it", () => {
         '/interface wireguard peers set [ find name=wg1-alice ] public-key="bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmU="'
     );
 });
+
+// A VLAN interface on the bridge adds a dynamic bridge VLAN entry beside the static one, which a set must not select.
+test("a change to a bridge VLAN selects only its static entry", () => {
+    const adapter = adapters["routeros"]!;
+    const entry = (tagged: string) => `/interface bridge vlan\nadd bridge=bridge tagged=${tagged} vlan-ids=325\n`;
+    const sent = adapter.plan(entry("bridge,ether1"), entry("ether1"), { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+
+    expect(sent).toEqual(["/interface bridge vlan set [ find vlan-ids=325 and !dynamic ] tagged=bridge,ether1"]);
+});
