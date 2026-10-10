@@ -37,4 +37,4 @@ Every change goes on its own branch and pull request, never straight to `main`, 
 
 Circuit is licensed by PT Hobimu Jadi Cuan under the Business Source License 1.1 in `LICENSE`. Licensing questions go to legal@tako.id; the maintainers are the Tako Network Engineering Team, noc@tako.id. Attribution stays modest: the license, the copyright line and the credits page, no more.
 
-Use the `gh` CLI for anything on GitHub: issues, pull requests, releases, repository settings.
+Use the `gh` CLI for anything on GitHub: issues, pull requests, releases, repository settings. Planned work is a GitHub issue, and a release target is a milestone.

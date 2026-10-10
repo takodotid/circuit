@@ -92,4 +92,4 @@ The hub. Its firewall accepts GRE only from members' addresses, and lets traffic
 - **A MAC address limit per member port,** which stops a member from sending from more than one MAC address.
 - **An ethertype filter per member port,** which lets only IPv4, IPv6 and ARP through.
 
-All three are on Circuit's list. Until they are in, anything set by hand on the switch is removed by the next apply, because the file is the whole truth. So an exchange that needs MAC limits or ethertype filters today cannot manage its fabric with Circuit yet. A small or test exchange can.
+All three are on Circuit's list, in [issue #16](https://github.com/takodotid/circuit/issues/16). Until they are in, anything set by hand on the switch is removed by the next apply, because the file is the whole truth. So an exchange that needs MAC limits or ethertype filters today cannot manage its fabric with Circuit yet. A small or test exchange can.
