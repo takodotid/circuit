@@ -33,7 +33,7 @@ Circuit is developed with Bun, which runs `src/` as it is. `bun run build` bundl
 
 `docs/` is the documentation site at circuit.tako.id. A change to what Circuit does changes the page that describes it in the same commit. Platform pages include each adapter's `TRAPS.md`.
 
-Every change goes on its own branch and pull request, never straight to `main`, and a release is cut only from merged, accepted work: see `DEPLOYMENT.md`. Commits follow Conventional Commits with a scope from `commitlint.config.js`. Releases are cut with `bun run release`, which tags `vX.Y.Z` or `vX.Y.Z-rc.N`; the tag publishes to npm and GitHub Packages, and a GitHub release. Circuit is alpha until 1.0.0: say so wherever it is installed.
+A change goes on its own branch and pull request, unless it touches only documentation or repository meta files, and a release is cut only from accepted work on `main`: see `DEPLOYMENT.md`. Commits follow Conventional Commits with a scope from `commitlint.config.js`. Releases are cut with `bun run release`, which tags `vX.Y.Z` or `vX.Y.Z-rc.N`; the tag publishes to npm and GitHub Packages, and a GitHub release. Circuit is alpha until 1.0.0: say so wherever it is installed.
 
 Circuit is licensed by PT Hobimu Jadi Cuan under the Business Source License 1.1 in `LICENSE`. Licensing questions go to legal@tako.id; the maintainers are the Tako Network Engineering Team, noc@tako.id. Attribution stays modest: the license, the copyright line and the credits page, no more.
 

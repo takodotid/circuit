@@ -2,9 +2,11 @@
 
 How a change gets from an idea to a release on npm and to circuit.tako.id.
 
-## 1. A branch for every change
+## 1. A branch for a change
 
-Never commit to `main`. Start a branch from it, named after what it does:
+A change that touches only documentation or repository meta files, and nothing in `src/`, `templates/`, `examples/`, `test/` or `package.json`, may be committed straight to `main`. The documentation site publishes with each stable release, not with each commit, so such a commit reaches no one until the next release.
+
+Everything else goes on a branch. Start one from `main`, named after what it does:
 
 ```bash
 git checkout main && git pull
