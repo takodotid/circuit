@@ -1,7 +1,7 @@
 // Rules that span devices: what one device declares about another has to agree with what the other declares.
 
 import type { Device, Port, Routed, Switched } from "../schema";
-import { familyOf, host, isCidr, network as prefixOf } from "./addr";
+import { contains, familyOf, host, isCidr, network as prefixOf } from "./addr";
 import type { Finding } from "./define";
 import { type Holder, holdersOf, keyOf } from "./graph";
 
@@ -16,7 +16,7 @@ export function checkAcross(devices: readonly Device[]): Finding[] {
         if (!owners.has(key)) owners.set(key, holder);
     }
 
-    return [...checkLinks(devices), ...checkAddresses(holders), ...checkSessions(devices, owners)];
+    return [...checkLinks(devices), ...checkAddresses(holders), ...checkSessions(devices, owners), ...checkVrrp(holders)];
 }
 
 /** The VLAN ids a port carries, by how it carries them, so two ends can be compared across devices. */
@@ -215,6 +215,50 @@ function checkSessions(devices: readonly Device[], owners: Map<string, Holder>):
             // The far end only accepts the session from the address it names.
             if (session.localAddress && keyOf(session.localAddress) !== keyOf(back.address)) {
                 report(`starts from ${session.localAddress}, and ${far.name}'s session ${back.name} expects ${back.address}`);
+            }
+        }
+    }
+
+    return findings;
+}
+
+/** On one segment, a VRRP id has one address and an address has one id, on every device. */
+function checkVrrp(holders: Holder[]): Finding[] {
+    const findings: Finding[] = [];
+    const bySegment = new Map<string, { holder: Holder; id: number; address: string }[]>();
+
+    for (const holder of holders) {
+        const segment = prefixOf(holder.address);
+
+        for (const group of holder.vrrp) {
+            if (!keyOf(group.address) || familyOf(group.address) !== familyOf(holder.address)) continue;
+            if (!contains(segment, group.address)) continue;
+
+            bySegment.set(segment, [...(bySegment.get(segment) ?? []), { holder, id: group.id, address: group.address }]);
+        }
+    }
+
+    for (const members of bySegment.values()) {
+        for (const member of members) {
+            const where = `${member.holder.device.name} ${member.holder.name}`;
+            const others = members.filter((other) => other.holder.device !== member.holder.device);
+
+            const sameId = others.find((other) => other.id === member.id && keyOf(other.address) !== keyOf(member.address));
+            if (sameId) {
+                findings.push({
+                    level: "error",
+                    device: member.holder.device.name,
+                    message: `VRRP ${member.id} on ${member.holder.name} is ${member.address}, and on ${sameId.holder.device.name} ${sameId.holder.name} it is ${sameId.address}`,
+                });
+            }
+
+            const sameAddress = others.find((other) => keyOf(other.address) === keyOf(member.address) && other.id !== member.id);
+            if (sameAddress) {
+                findings.push({
+                    level: "error",
+                    device: member.holder.device.name,
+                    message: `VRRP address ${member.address} is id ${member.id} on ${where}, and id ${sameAddress.id} on ${sameAddress.holder.device.name} ${sameAddress.holder.name}`,
+                });
             }
         }
     }
