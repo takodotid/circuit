@@ -3,7 +3,7 @@
 
 import { createPrivateKey, createPublicKey } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { adapters } from "../adapters/devices";
 import type { ApplyOptions, DeviceAdapter, Plan } from "../adapters/devices/types";
 import { registries } from "../adapters/registries";
@@ -18,6 +18,7 @@ import { isSecret, referenceOf, resolve as reveal, sourceOf, useRoot } from "../
 import { validate } from "../core/validate";
 import type { Device } from "../schema";
 import { type Annotated, dot, type Drift, mermaid } from "./graph";
+import { applyRename, planRename, type RenamePlan } from "./rename";
 
 const HELP = `usage: circuit <command> [device...] [options]
 
@@ -38,6 +39,8 @@ const HELP = `usage: circuit <command> [device...] [options]
   prometheus            every device with SNMP, as Prometheus targets for snmp_exporter
                           --auths        snmp_exporter's auths for them instead, with secrets as \${NAME}
   secrets               every secret the config uses, and whether each can be read
+  rename <device> <new-name>
+                        give a device a new name in every file that names it, with --confirm
   addresses [prefix]    every address the config uses, by prefix, and what is still free
                           --length=N     free prefixes of this length, instead of the fewest that cover the free space
                           --format=json  as JSON
@@ -509,6 +512,47 @@ function addressesCommand(): void {
     if (!report.spaces.length && !segments.length && !blocks.length) console.log("The config holds no addresses.");
 }
 
+function renameCommand(): void {
+    const [from, to] = names;
+    if (!from || !to) fail("usage: circuit rename <device> <new-name> [--confirm]");
+
+    const device = network.devices.find((candidate) => candidate.name === from);
+    if (!device) fail(`no device ${from}; known: ${network.devices.map((candidate) => candidate.name).join(", ")}`);
+    if (network.devices.some((candidate) => candidate.name === to)) fail(`${to} is already a device`);
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(to)) fail(`${to} is not a hostname: letters, digits, dots, dashes and underscores`);
+
+    const snapshot = statePath(device);
+    const snapshots = existsSync(snapshot) ? [relative(root, snapshot)] : [];
+
+    let plan: RenamePlan;
+    try {
+        plan = planRename(root, from, to, { snapshots });
+    } catch (error) {
+        fail((error as Error).message);
+    }
+
+    for (const change of plan.changes) {
+        console.log(`${change.file}:${change.line}`);
+        console.log(`  - ${change.before.trim()}`);
+        console.log(`  + ${change.after.trim()}`);
+    }
+
+    for (const move of plan.moves) console.log(`move ${move.from} to ${move.to}`);
+
+    if (plan.mentions.length) {
+        console.log(`\nStill naming ${from}, left as they are: change them by hand if they mean the device.`);
+        for (const mention of plan.mentions) console.log(`  ${mention.file}:${mention.line}  ${mention.text.slice(0, 160)}`);
+    }
+
+    if (!confirmed) {
+        console.log("\nNothing written. Re-run with --confirm.");
+        return;
+    }
+
+    applyRename(root, plan);
+    console.log(`\nRenamed. Run circuit validate, then circuit apply ${to}: the device keeps its old hostname until then.`);
+}
+
 async function studioCommand(): Promise<void> {
     const port = Number(flagValue("port") ?? 4600);
     if (!Number.isInteger(port) || port < 1 || port > 65535) fail("--port takes a number from 1 to 65535");
@@ -530,6 +574,7 @@ const commands: Record<string, () => void | Promise<void>> = {
     librenms: librenmsCommand,
     prometheus: prometheusCommand,
     secrets: secretsCommand,
+    rename: renameCommand,
     addresses: addressesCommand,
     graph: graphCommand,
     studio: studioCommand,

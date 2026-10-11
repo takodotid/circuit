@@ -105,6 +105,19 @@ export default defineDevice({
 });
 ```
 
+## Renaming a device
+
+A device's name is written in more places than its own file: the `link` at the far end of each cable, your checks, and anything that looks a device up by name, such as `customerPorts("tor-01")` above. `circuit rename` changes all of them at once.
+
+1. Run `npx circuit rename tor-01 rack-a-01`. It shows every line it would change, and that the device's snapshot moves to the new name. Nothing is written yet.
+2. Read the list. Below it are the lines that still mention the old name inside a longer text, such as a description. Change those by hand if they mean the device.
+3. Run `npx circuit rename tor-01 rack-a-01 --confirm` to write the change.
+4. Run `npx circuit validate`, then `npx circuit apply rack-a-01`. Only then does the device take its new hostname.
+
+Every string that is exactly the old name changes, in every file of the project outside `node_modules` and `.circuit/`. That includes a BGP neighbor named after the device, which renames its session on the device that has it. `circuit diff` shows that before anything is sent.
+
+A name built from parts, such as `` `tor-0${n}` ``, cannot be found this way. Circuit stops and says so, and you rename it by hand.
+
 ## When a device cannot do what you wrote
 
 Circuit uses the same field names for every vendor, but not every device can do everything. For example, a Huawei switch has no firewall, and a Raisecom switch has no BGP.
