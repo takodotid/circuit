@@ -1,0 +1,54 @@
+<!doctype html>
+<!-- Circuit studio. The scripts fill the parts below from /data, and draw again when the server says the config changed. -->
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Circuit studio</title>
+        <link rel="stylesheet" href="style.css" />
+        <script type="module" src="app.js"></script>
+    </head>
+    <body>
+        <header>
+            <span class="brand">Circuit studio</span>
+            <nav id="views" aria-label="Views">
+                <button data-view="graph">Graph</button>
+                <button data-view="devices">Devices</button>
+                <button data-view="vlans">VLANs</button>
+                <button data-view="addresses">Addresses</button>
+                <button data-view="sessions">BGP</button>
+                <button data-view="cables">Cables</button>
+            </nav>
+            <input id="search" type="search" placeholder="Search the config" aria-label="Search the config" />
+            <span id="summary" class="summary"></span>
+            <span id="live" class="live">connecting</span>
+        </header>
+
+        <pre id="banner" class="banner" hidden></pre>
+
+        <main>
+            <section id="graph-view" class="view">
+                <div class="toolbar">
+                    <nav id="layers" aria-label="Layers"></nav>
+                    <div class="actions">
+                        <button id="fit" title="Fit the drawing to the window">Fit</button>
+                        <button id="lay-out" title="Forget where nodes were moved, and lay them out again">Lay out again</button>
+                    </div>
+                </div>
+                <div class="stage">
+                    <svg id="canvas" class="canvas" role="img" aria-label="The network">
+                        <g id="viewport">
+                            <g id="edges"></g>
+                            <g id="nodes"></g>
+                        </g>
+                    </svg>
+                    <aside id="panel"></aside>
+                </div>
+            </section>
+
+            <section id="tables-view" class="view" hidden>
+                <div id="tables" class="tables"></div>
+            </section>
+        </main>
+    </body>
+</html>

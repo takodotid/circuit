@@ -1,10 +1,10 @@
-// `circuit studio`: the network in the browser, on this machine only. Each time a file beside the config changes, what it shows is gathered again by `circuit studio --json` in a new process, so the config is always read fresh.
+// `circuit studio`: the network in the browser, on this machine only. The page is the files in public/, served as they are. What it shows comes from /data: gathered by `circuit studio --json` in a new process, so the config is always read fresh, and gathered again each time a file beside the config changes.
 
 import { execFile, spawn } from "node:child_process";
-import { watch } from "node:fs";
+import { existsSync, readFileSync, watch } from "node:fs";
 import { createServer, type ServerResponse } from "node:http";
-import { explorer } from "./studio-explorer";
-import { page, STYLE } from "./studio-page";
+import { extname, join } from "node:path";
+import { packageRoot } from "./data";
 
 export type StudioOptions = {
     /** The config file. */
@@ -16,22 +16,14 @@ export type StudioOptions = {
     open: boolean;
 };
 
-const HTML = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Circuit studio</title>
-<style>${STYLE}</style>
-</head>
-<body>
-<script>(${page.toString()})(${explorer.toString()})</script>
-</body>
-</html>
-`;
-
 /** Directories whose changes never change what studio shows. */
 const IGNORED = /(^|[\\/])(node_modules|\.git)([\\/]|$)/;
+
+const CONTENT_TYPES: Record<string, string> = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+};
 
 /** What studio shows, as JSON, from `circuit studio --json` run as a new process, or what stopped it. */
 function gather(configPath: string): Promise<string> {
@@ -65,8 +57,16 @@ function openBrowser(url: string): void {
 export async function studio(options: StudioOptions): Promise<void> {
     const { configPath, root, port } = options;
 
+    // The page's files ship in the package's sources, which Bun runs as they are and Node's build leaves in place.
+    const installed = packageRoot();
+    if (!installed) throw new Error("cannot find where Circuit is installed, so studio has no page to serve");
+    const pages = join(installed, "src", "cli", "studio", "public");
+
     let data = await gather(configPath);
     const listeners = new Set<ServerResponse>();
+    const tell = (message: string) => {
+        for (const listener of listeners) listener.write(`data: ${message}\n\n`);
+    };
 
     // Only this machine's own names are answered, so a web page elsewhere cannot read the network through a name it points here.
     const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
@@ -77,17 +77,14 @@ export async function studio(options: StudioOptions): Promise<void> {
             return;
         }
 
-        if (request.url === "/") {
-            response.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(HTML);
-            return;
-        }
+        const path = (request.url ?? "/").split("?")[0]!;
 
-        if (request.url === "/data") {
+        if (path === "/data") {
             response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(data);
             return;
         }
 
-        if (request.url === "/events") {
+        if (path === "/events") {
             response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
             response.write(": connected\n\n");
 
@@ -96,10 +93,20 @@ export async function studio(options: StudioOptions): Promise<void> {
             return;
         }
 
-        response.writeHead(404).end();
+        // Only a file directly in public/, by a plain name, is served: nothing above it can be reached.
+        const name = path === "/" ? "index.html" : path.slice(1);
+        const type = CONTENT_TYPES[extname(name)];
+        const file = join(pages, name);
+
+        if (!/^[a-z-]+\.[a-z]+$/.test(name) || !type || !existsSync(file)) {
+            response.writeHead(404).end();
+            return;
+        }
+
+        response.writeHead(200, { "content-type": type, "cache-control": "no-store" }).end(readFileSync(file));
     });
 
-    // Several files often change at once, such as on a save or a checkout: it is gathered once they settle.
+    // Several files often change at once, such as on a save or a checkout: the config is read again once they settle.
     let timer: NodeJS.Timeout | undefined;
 
     watch(root, { recursive: true }, (_event, filename) => {
@@ -108,10 +115,13 @@ export async function studio(options: StudioOptions): Promise<void> {
         clearTimeout(timer);
         timer = setTimeout(async () => {
             data = await gather(configPath);
-            for (const listener of listeners) listener.write("data: changed\n\n");
+            tell("changed");
             console.log(`${new Date().toLocaleTimeString()}  ${filename ?? "a file"} changed, read again`);
         }, 300);
     });
+
+    // A change to the page's own files, while working on Circuit, loads the page again.
+    watch(pages, () => tell("page"));
 
     server.on("error", (error: NodeJS.ErrnoException) => {
         const message = error.code === "EADDRINUSE" ? `port ${port} is in use; choose another with --port=N` : error.message;
