@@ -128,3 +128,18 @@ test("a BGP session to another device needs its session back, in the AS it expec
     );
     expect(wrongSource).toContain("error r1: neighbor r2: starts from 10.0.0.1, and r2's session r1 expects 10.255.0.1");
 });
+
+test("on one segment, a VRRP id has one address and an address one id", () => {
+    const [r1, r2] = routers();
+    const mgmt = (vrrp: { id: number; address: string }) => ({
+        ...r2,
+        interfaces: { ...r2.interfaces, mgmt: { type: "vlan" as const, vlan: "mgmt", addresses: ["10.0.10.2/24"], vrrp: [vrrp] } },
+    });
+
+    expect(findings(r1, mgmt({ id: 1, address: "10.0.10.253" }))).toContain(
+        "error r1: VRRP 1 on mgmt is 10.0.10.254, and on r2 mgmt it is 10.0.10.253"
+    );
+    expect(findings(r1, mgmt({ id: 2, address: "10.0.10.254" }))).toContain(
+        "error r1: VRRP address 10.0.10.254 is id 1 on r1 mgmt, and id 2 on r2 mgmt"
+    );
+});
