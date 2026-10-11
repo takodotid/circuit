@@ -3,11 +3,13 @@
 import type { Device, Port, Routed, Switched } from "../schema";
 import { familyOf, host, isCidr, network as prefixOf } from "./addr";
 import type { Finding } from "./define";
-import { keyOf } from "./graph";
+import { type Holder, holdersOf, keyOf } from "./graph";
 
 /** Every rule across devices. */
 export function checkAcross(devices: readonly Device[]): Finding[] {
-    return checkLinks(devices);
+    const holders = holdersOf(devices);
+
+    return [...checkLinks(devices), ...checkAddresses(holders)];
 }
 
 /** The VLAN ids a port carries, by how it carries them, so two ends can be compared across devices. */
@@ -124,6 +126,37 @@ function checkLinks(devices: readonly Device[]): Finding[] {
                 if (farName && farName !== name) report(`VLAN ${id} is ${name} here and ${farName} on ${link.device}`, "warning");
             }
         }
+    }
+
+    return findings;
+}
+
+/** No address is held by two devices. Two loopbacks may hold one on purpose, for anycast, so that is a warning. */
+function checkAddresses(holders: Holder[]): Finding[] {
+    const findings: Finding[] = [];
+    const first = new Map<string, Holder>();
+
+    const isLoopback = (holder: Holder) => holder.device.interfaces?.[holder.name]?.type === "loopback";
+
+    for (const holder of holders) {
+        const key = keyOf(host(holder.address))!;
+        const earlier = first.get(key);
+
+        if (!earlier) {
+            first.set(key, holder);
+            continue;
+        }
+
+        // Two on one device are reported by the device's own checks.
+        if (earlier.device === holder.device) continue;
+
+        const anycast = isLoopback(earlier) && isLoopback(holder);
+
+        findings.push({
+            level: anycast ? "warning" : "error",
+            device: holder.device.name,
+            message: `${host(holder.address)} on ${holder.name} is also on ${earlier.device.name} ${earlier.name}${anycast ? ", which is right only for anycast" : ""}`,
+        });
     }
 
     return findings;

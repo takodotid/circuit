@@ -48,6 +48,19 @@ test("two devices that agree pass", () => {
     expect(findings(...routers())).toEqual([]);
 });
 
+test("an address on two devices is an error, and on two loopbacks a warning, for anycast", () => {
+    const [r1, r2] = routers();
+
+    const clash = findings(r1, {
+        ...r2,
+        interfaces: { ...r2.interfaces, mgmt: { type: "vlan", vlan: "mgmt", addresses: ["10.0.10.1/24"] } },
+    });
+    expect(clash).toContain("error r2: 10.0.10.1 on mgmt is also on r1 mgmt");
+
+    const anycast = findings(r1, { ...r2, interfaces: { ...r2.interfaces, lo: { type: "loopback", addresses: ["10.255.0.1/32"] } } });
+    expect(anycast).toContain("warning r2: 10.255.0.1 on lo is also on r1 lo, which is right only for anycast");
+});
+
 test("the two ends of a cable agree on prefix, MTU and speed", () => {
     const [r1, r2] = routers();
 
