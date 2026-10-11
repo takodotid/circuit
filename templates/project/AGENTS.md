@@ -25,6 +25,7 @@ What each field means is written as a comment on the field, in `node_modules/@ta
 | `npx circuit apply <device>`                  | Reads the device, then shows what would change on it                          | no               |
 | `npx circuit apply <device> --confirm`        | Sends the change to the device                                                | **yes**          |
 | `npx circuit secrets`                         | Lists every secret the config uses, and whether each one can be read          | no               |
+| `npx circuit addresses`                       | Every address the config uses, by prefix, and what is still free              | no               |
 | `npx circuit graph --layer=all --format=json` | The whole network as a graph: cables, VLANs, addresses, BGP, OSPF and tunnels | no               |
 
 ## Making a change

@@ -10,7 +10,8 @@ import { registries } from "../adapters/registries";
 import { planLibreNms, sendLibreNms } from "../adapters/registries/librenms";
 import { planPeeringDb, sendPeeringDb } from "../adapters/registries/peeringdb";
 import { prometheusTargets, snmpExporterAuths } from "../adapters/registries/prometheus";
-import { network as prefixOf } from "../core/addr";
+import { isCidr, network as prefixOf } from "../core/addr";
+import { addressesOf, freeOfLength, type Segment } from "../core/addresses";
 import type { Network } from "../core/define";
 import { graphOf, LAYERS, only, type Layer } from "../core/graph";
 import { isSecret, referenceOf, resolve as reveal, sourceOf, useRoot } from "../core/secrets";
@@ -37,6 +38,9 @@ const HELP = `usage: circuit <command> [device...] [options]
   prometheus            every device with SNMP, as Prometheus targets for snmp_exporter
                           --auths        snmp_exporter's auths for them instead, with secrets as \${NAME}
   secrets               every secret the config uses, and whether each can be read
+  addresses [prefix]    every address the config uses, by prefix, and what is still free
+                          --length=N     free prefixes of this length, instead of the fewest that cover the free space
+                          --format=json  as JSON
   graph [device...]     the network as a graph, from the config alone, without contacting a device
                           --layer=l1     l1, l2, l3, bgp, ospf or tunnels, several with commas, or all
                           --format=mermaid  mermaid, dot or json
@@ -454,6 +458,57 @@ function graphCommand(): void {
     else fail(`no format ${format}; known: mermaid, dot, json`);
 }
 
+/** One segment and what uses each address in it. */
+function printSegment(segment: Segment, indent: string): void {
+    const next = segment.next ? `, next ${segment.next}` : "";
+    console.log(`${indent}${segment.prefix}, ${segment.free} free${next}`);
+
+    const width = Math.max(...segment.uses.map((use) => use.address.length)) + 2;
+    for (const use of segment.uses) console.log(`${indent}    ${use.address.padEnd(width)}${use.what}`);
+}
+
+function addressesCommand(): void {
+    const [within] = names;
+    if (within && !isCidr(within)) fail(`${within} is not a prefix, such as 10.0.0.0/16`);
+
+    const lengthText = flagValue("length");
+    const length = lengthText === undefined ? undefined : Number(lengthText);
+    if (length !== undefined && !(Number.isInteger(length) && length >= 0 && length <= 128))
+        fail("--length takes a prefix length, such as 24");
+
+    const report = addressesOf(network.devices, within);
+
+    if (flagValue("format") === "json") {
+        console.log(JSON.stringify(report, null, 4));
+        return;
+    }
+
+    for (const space of report.spaces) {
+        console.log(`${space.prefix}, ${space.owner}`);
+        for (const segment of space.segments) printSegment(segment, "  ");
+        for (const block of space.blocks) console.log(`  ${block.prefix}  ${block.what}`);
+
+        if (length === undefined) {
+            console.log(`  free: ${space.free.join(", ") || "none"}`);
+        } else {
+            const { prefixes, total } = freeOfLength(space.free, length, 16);
+            const more = total > BigInt(prefixes.length) ? `, and ${total - BigInt(prefixes.length)} more` : "";
+            console.log(`  free /${length}: ${prefixes.join(", ") || "none"}${more}`);
+        }
+
+        console.log("");
+    }
+
+    const { segments, blocks } = report.elsewhere;
+    if (segments.length || blocks.length) {
+        console.log("Outside the space the network originates");
+        for (const segment of segments) printSegment(segment, "  ");
+        for (const block of blocks) console.log(`  ${block.prefix}  ${block.what}`);
+    }
+
+    if (!report.spaces.length && !segments.length && !blocks.length) console.log("The config holds no addresses.");
+}
+
 async function studioCommand(): Promise<void> {
     const port = Number(flagValue("port") ?? 4600);
     if (!Number.isInteger(port) || port < 1 || port > 65535) fail("--port takes a number from 1 to 65535");
@@ -475,6 +530,7 @@ const commands: Record<string, () => void | Promise<void>> = {
     librenms: librenmsCommand,
     prometheus: prometheusCommand,
     secrets: secretsCommand,
+    addresses: addressesCommand,
     graph: graphCommand,
     studio: studioCommand,
 };
