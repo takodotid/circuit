@@ -12,9 +12,11 @@ import { planPeeringDb, sendPeeringDb } from "../adapters/registries/peeringdb";
 import { prometheusTargets, snmpExporterAuths } from "../adapters/registries/prometheus";
 import { network as prefixOf } from "../core/addr";
 import type { Network } from "../core/define";
+import { graphOf, LAYERS, only, type Layer } from "../core/graph";
 import { isSecret, referenceOf, resolve as reveal, sourceOf, useRoot } from "../core/secrets";
 import { validate } from "../core/validate";
 import type { Device } from "../schema";
+import { type Annotated, dot, type Drift, mermaid } from "./graph";
 
 const HELP = `usage: circuit <command> [device...] [options]
 
@@ -35,6 +37,9 @@ const HELP = `usage: circuit <command> [device...] [options]
   prometheus            every device with SNMP, as Prometheus targets for snmp_exporter
                           --auths        snmp_exporter's auths for them instead, with secrets as \${NAME}
   secrets               every secret the config uses, and whether each can be read
+  graph [device...]     the network as a graph, from the config alone, without contacting a device
+                          --layer=l1     l1, l2, l3, bgp, ospf or tunnels, several with commas, or all
+                          --format=mermaid  mermaid, dot or json
 
   --config <path>       the network's config file, circuit.config.ts in the working directory by default`;
 
@@ -395,6 +400,57 @@ ${references.length} secret(s), ${missing} missing.`);
     process.exit(missing ? 1 : 0);
 }
 
+/** The value of `--name=value`, or undefined when it is not given. */
+const flagValue = (name: string) => flags.find((flag) => flag.startsWith(`--${name}=`))?.slice(name.length + 3);
+
+/** How a device compares with its last snapshot, offline, as `diff` plans it. */
+function driftOf(device: Device): Drift {
+    const path = statePath(device);
+    if (!existsSync(path)) return { status: "no snapshot", lines: [] };
+
+    try {
+        const adapter = adapterOf(device);
+        const plan = adapter.plan(adapter.render(device), readFileSync(path, "utf8"), options);
+
+        const lines = [
+            ...plan.steps.flatMap((step) => [step.title, ...step.show.map((line) => `  ${line}`)]),
+            ...plan.problems.map((problem) => `PROBLEM ${problem}`),
+        ];
+
+        return { status: lines.length ? "differs" : "matches", lines };
+    } catch (error) {
+        return { status: "cannot plan", lines: [(error as Error).message] };
+    }
+}
+
+function graphCommand(): void {
+    const requested = (flagValue("layer") ?? "l1").split(",");
+    const layers = requested.includes("all") ? [...LAYERS] : (requested as Layer[]);
+
+    const unknown = layers.filter((layer) => !LAYERS.includes(layer));
+    if (unknown.length) fail(`no layer ${unknown.join(", ")}; known: ${LAYERS.join(", ")}, all`);
+
+    const format = flagValue("format") ?? "mermaid";
+    const devices = selected(true);
+
+    const graph = only(graphOf(network.devices), layers, names.length ? devices.map((device) => device.name) : []);
+    const shown = new Set(graph.nodes.map((node) => node.label));
+
+    // Each device drawn is compared with its snapshot; findings are kept for those, and for the network as a whole.
+    const annotated: Annotated = {
+        ...graph,
+        findings: validate(network).filter((finding) => !finding.device || shown.has(finding.device)),
+        drift: Object.fromEntries(
+            network.devices.filter((device) => shown.has(device.name)).map((device) => [device.name, driftOf(device)])
+        ),
+    };
+
+    if (format === "mermaid") process.stdout.write(mermaid(annotated));
+    else if (format === "dot") process.stdout.write(dot(annotated));
+    else if (format === "json") console.log(JSON.stringify(annotated, null, 4));
+    else fail(`no format ${format}; known: mermaid, dot, json`);
+}
+
 const commands: Record<string, () => void | Promise<void>> = {
     validate: validateCommand,
     build: buildCommand,
@@ -408,6 +464,7 @@ const commands: Record<string, () => void | Promise<void>> = {
     librenms: librenmsCommand,
     prometheus: prometheusCommand,
     secrets: secretsCommand,
+    graph: graphCommand,
 };
 
 const run = commands[command];
