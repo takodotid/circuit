@@ -113,6 +113,35 @@ export function contains(outer: string, inner: string): boolean {
     return (parse(innerAddress!)! & outerMask) === (parse(outerParts.addr)! & outerMask);
 }
 
+/** A number back to the address it stands for. */
+export const formatAddress = (value: bigint, family: Family) => format(value, family);
+
+/** The first and last address of a prefix, as numbers. */
+export function rangeOf(cidr: string): { first: bigint; last: bigint; family: Family } {
+    const { addr, len, family } = split(cidr);
+    const hostBits = mask(len, family) ^ ((1n << BigInt(bitsOf(family))) - 1n);
+    const first = parse(addr)! & mask(len, family);
+
+    return { first, last: first | hostBits, family };
+}
+
+/** The fewest prefixes that cover every address from `first` to `last` and nothing else. */
+export function prefixesBetween(first: bigint, last: bigint, family: Family): string[] {
+    const bits = bitsOf(family);
+    const prefixes: string[] = [];
+
+    for (let start = first; start <= last;) {
+        // The largest block that starts here on its own boundary and does not pass `last`.
+        let size = 0;
+        while (size < bits && start % (1n << BigInt(size + 1)) === 0n && start + (1n << BigInt(size + 1)) - 1n <= last) size++;
+
+        prefixes.push(`${format(start, family)}/${bits - size}`);
+        start += 1n << BigInt(size);
+    }
+
+    return prefixes;
+}
+
 /** `/25` to `255.255.255.128`. */
 export const netmask = (length: number) => format(mask(length, "ipv4"), "ipv4");
 
