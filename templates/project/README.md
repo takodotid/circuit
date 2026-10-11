@@ -6,6 +6,7 @@ This repository describes the network with [Circuit](https://circuit.tako.id). E
 npm install                     # once
 npx circuit secrets             # check every secret can be read
 npx circuit validate            # check the files
+npx circuit studio              # see the network in the browser
 npx circuit snapshot            # read what each device runs now
 npx circuit diff                # see what would change
 npx circuit apply <device>      # see the plan against the device

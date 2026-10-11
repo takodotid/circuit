@@ -20,6 +20,7 @@ Run every command from your project as `npx circuit <command>`, or `pnpm circuit
 | `librenms`                       | Adds every device LibreNMS does not monitor yet; with `--confirm`, sends it. See [LibreNMS](/integrations/librenms).   | LibreNMS only    |
 | `prometheus`                     | Prints every device with SNMP as a target for Prometheus. See [Prometheus](/integrations/prometheus).                  | no               |
 | `graph [device...]`              | Prints the network as a graph: cables, VLANs, addresses, BGP, OSPF or tunnels. See [Seeing the network](/guide/graph). | no               |
+| `studio`                         | Draws the network in your browser, again each time a file changes. See [Seeing the network](/guide/graph).             | no               |
 
 `diff` and `snapshot` take device names, or work on every device when you give none.
 
@@ -43,6 +44,8 @@ These four are easy to mix up:
 | `--rollback=N`    | `apply`                         | On RouterOS, how many minutes the device waits before undoing the change if Circuit cannot log in again. 10 by default.   |
 | `--layer=L`       | `graph`                         | Which layer to print: `l1`, `l2`, `l3`, `bgp`, `ospf` or `tunnels`, several with commas, or `all`. `l1` by default.       |
 | `--format=F`      | `graph`                         | `mermaid`, `dot` or `json`. `mermaid` by default.                                                                         |
+| `--port=N`        | `studio`                        | The port studio listens on. 4600 by default.                                                                              |
+| `--no-open`       | `studio`                        | Do not open the browser.                                                                                                  |
 
 ## Making a change, step by step
 
