@@ -143,3 +143,19 @@ test("on one segment, a VRRP id has one address and an address one id", () => {
         "error r1: VRRP address 10.0.10.254 is id 1 on r1 mgmt, and id 2 on r2 mgmt"
     );
 });
+
+test("a tunnel to another device needs one back, with the same VNI and port", () => {
+    const [r1, r2] = routers();
+    const { gre: _gre, ...withoutGre } = r2.interfaces!;
+
+    expect(findings(r1, { ...r2, interfaces: withoutGre })).toContain(
+        "error r1: interface gre: 10.255.0.2 is r2's, which has no GRE tunnel from there back to 10.255.0.1"
+    );
+
+    const otherVni = findings(r1, {
+        ...r2,
+        interfaces: { ...r2.interfaces, vxlan: { type: "vxlan", vni: 200, port: 8472, local: "10.255.0.2", remote: "10.255.0.1" } },
+    });
+    expect(otherVni).toContain("error r1: interface vxlan: VNI 100, and r2 vxlan has 200");
+    expect(otherVni).toContain("error r1: interface vxlan: UDP port 4789, and r2 vxlan has 8472");
+});

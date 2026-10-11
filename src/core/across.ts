@@ -1,6 +1,6 @@
 // Rules that span devices: what one device declares about another has to agree with what the other declares.
 
-import type { Device, Port, Routed, Switched } from "../schema";
+import type { Device, Gre, Port, Routed, Switched, Vxlan } from "../schema";
 import { contains, familyOf, host, isCidr, network as prefixOf } from "./addr";
 import type { Finding } from "./define";
 import { type Holder, holdersOf, keyOf } from "./graph";
@@ -16,7 +16,13 @@ export function checkAcross(devices: readonly Device[]): Finding[] {
         if (!owners.has(key)) owners.set(key, holder);
     }
 
-    return [...checkLinks(devices), ...checkAddresses(holders), ...checkSessions(devices, owners), ...checkVrrp(holders)];
+    return [
+        ...checkLinks(devices),
+        ...checkAddresses(holders),
+        ...checkSessions(devices, owners),
+        ...checkVrrp(holders),
+        ...checkTunnels(devices, owners),
+    ];
 }
 
 /** The VLAN ids a port carries, by how it carries them, so two ends can be compared across devices. */
@@ -261,6 +267,51 @@ function checkVrrp(holders: Holder[]): Finding[] {
                 });
             }
         }
+    }
+
+    return findings;
+}
+
+/** A GRE or VXLAN tunnel to another of our devices has a tunnel back there, with the endpoints mirrored and, for VXLAN, the same VNI and port. */
+function checkTunnels(devices: readonly Device[], owners: Map<string, Holder>): Finding[] {
+    const findings: Finding[] = [];
+
+    const ends = devices.flatMap((device) =>
+        Object.entries(device.interfaces ?? {}).flatMap(([name, iface]) =>
+            iface.type === "gre" || iface.type === "vxlan" ? [{ device, name, iface: iface as Gre<string> | Vxlan<string> }] : []
+        )
+    );
+
+    const same = (a: string, b: string) => keyOf(a) !== undefined && keyOf(a) === keyOf(b);
+
+    for (const end of ends) {
+        const far = owners.get(keyOf(end.iface.remote) ?? "")?.device;
+        if (!far || far === end.device) continue;
+
+        const report = (message: string) =>
+            findings.push({ level: "error", device: end.device.name, message: `interface ${end.name}: ${message}` });
+        const kind = end.iface.type === "gre" ? "GRE" : "VXLAN";
+
+        const mirror = ends.find(
+            (other) =>
+                other.device === far &&
+                other.iface.type === end.iface.type &&
+                same(other.iface.local, end.iface.remote) &&
+                same(other.iface.remote, end.iface.local)
+        );
+
+        if (!mirror) {
+            report(`${end.iface.remote} is ${far.name}'s, which has no ${kind} tunnel from there back to ${end.iface.local}`);
+            continue;
+        }
+
+        if (end.iface.type !== "vxlan" || mirror.iface.type !== "vxlan") continue;
+
+        if (end.iface.vni !== mirror.iface.vni) report(`VNI ${end.iface.vni}, and ${far.name} ${mirror.name} has ${mirror.iface.vni}`);
+
+        const port = end.iface.port ?? 4789;
+        const farPort = mirror.iface.port ?? 4789;
+        if (port !== farPort) report(`UDP port ${port}, and ${far.name} ${mirror.name} has ${farPort}`);
     }
 
     return findings;

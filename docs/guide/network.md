@@ -46,6 +46,7 @@ A check is a function. It gets every device and returns what it found. Each find
 - **An address** is on one device only. On two loopbacks it is a warning, since that is how anycast works.
 - **A BGP session to another of your devices** has a session back there, in the AS this end expects, to the address this end starts from.
 - **VRRP on one segment** gives each id one address, and each address one id, on every device.
+- **A GRE or VXLAN tunnel to another of your devices** has a tunnel back, with the same VNI and port.
 
 Here is a `checks.ts` with two rules of its own and two from the [presets](/guide/presets):
 
