@@ -9,7 +9,14 @@ import { type Holder, holdersOf, keyOf } from "./graph";
 export function checkAcross(devices: readonly Device[]): Finding[] {
     const holders = holdersOf(devices);
 
-    return [...checkLinks(devices), ...checkAddresses(holders)];
+    // Who holds each address. The first holder wins; a second is reported by checkAddresses.
+    const owners = new Map<string, Holder>();
+    for (const holder of holders) {
+        const key = keyOf(host(holder.address))!;
+        if (!owners.has(key)) owners.set(key, holder);
+    }
+
+    return [...checkLinks(devices), ...checkAddresses(holders), ...checkSessions(devices, owners)];
 }
 
 /** The VLAN ids a port carries, by how it carries them, so two ends can be compared across devices. */
@@ -157,6 +164,59 @@ function checkAddresses(holders: Holder[]): Finding[] {
             device: holder.device.name,
             message: `${host(holder.address)} on ${holder.name} is also on ${earlier.device.name} ${earlier.name}${anycast ? ", which is right only for anycast" : ""}`,
         });
+    }
+
+    return findings;
+}
+
+/** A BGP session to an address another of our devices holds needs that device's session back, in the AS it expects, from the address it names. */
+function checkSessions(devices: readonly Device[], owners: Map<string, Holder>): Finding[] {
+    const findings: Finding[] = [];
+
+    const sessionsOf = (device: Device) => {
+        const bgp = device.routing?.bgp;
+
+        return Object.entries(bgp?.neighbors ?? {}).map(([name, neighbor]) => {
+            const group = neighbor.group ? bgp?.groups?.[neighbor.group] : undefined;
+
+            return {
+                name,
+                address: neighbor.address,
+                remoteAs: neighbor.remote_as ?? group?.remote_as,
+                localAddress: neighbor.local_address ?? group?.local_address,
+            };
+        });
+    };
+
+    for (const device of devices) {
+        for (const session of sessionsOf(device)) {
+            const far = owners.get(keyOf(session.address) ?? "")?.device;
+            if (!far || far === device) continue;
+
+            const report = (message: string) =>
+                findings.push({ level: "error", device: device.name, message: `neighbor ${session.name}: ${message}` });
+
+            const farBgp = far.routing?.bgp;
+            if (!farBgp) {
+                report(`${session.address} is ${far.name}'s, which runs no BGP`);
+                continue;
+            }
+
+            if (session.remoteAs !== undefined && session.remoteAs !== farBgp.asn) {
+                report(`expects AS${session.remoteAs}, and ${far.name} is AS${farBgp.asn}`);
+            }
+
+            const back = sessionsOf(far).find((other) => owners.get(keyOf(other.address) ?? "")?.device === device);
+            if (!back) {
+                report(`${far.name} has no session back to ${device.name}`);
+                continue;
+            }
+
+            // The far end only accepts the session from the address it names.
+            if (session.localAddress && keyOf(session.localAddress) !== keyOf(back.address)) {
+                report(`starts from ${session.localAddress}, and ${far.name}'s session ${back.name} expects ${back.address}`);
+            }
+        }
     }
 
     return findings;

@@ -103,3 +103,28 @@ test("one VLAN under two names across a cable is a warning", () => {
         "warning r2: port 25g-1 link: VLAN 10 is management here and mgmt on r1",
     ]);
 });
+
+test("a BGP session to another device needs its session back, in the AS it expects, from the address it names", () => {
+    const [r1, r2] = routers();
+
+    const wrongAs = findings(
+        {
+            ...r1,
+            routing: { bgp: { asn: 64500, neighbors: { r2: { address: "10.255.0.2", remote_as: 64501, local_address: "10.255.0.1" } } } },
+        },
+        r2
+    );
+    expect(wrongAs).toContain("error r1: neighbor r2: expects AS64501, and r2 is AS64500");
+
+    const noBack = findings(r1, { ...r2, routing: undefined });
+    expect(noBack).toContain("error r1: neighbor r2: 10.255.0.2 is r2's, which runs no BGP");
+
+    const wrongSource = findings(
+        {
+            ...r1,
+            routing: { bgp: { asn: 64500, neighbors: { r2: { address: "10.255.0.2", remote_as: 64500, local_address: "10.0.0.1" } } } },
+        },
+        r2
+    );
+    expect(wrongSource).toContain("error r1: neighbor r2: starts from 10.0.0.1, and r2's session r1 expects 10.255.0.1");
+});
