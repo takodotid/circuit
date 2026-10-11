@@ -19,7 +19,7 @@ import { validate } from "../core/validate";
 import type { Device } from "../schema";
 import { type Annotated, dot, type Drift, mermaid } from "./graph";
 import { applyRename, planRename, type RenamePlan } from "./rename";
-import { studioData } from "./studio-data";
+import { studioData } from "./studio/data";
 
 const HELP = `usage: circuit <command> [device...] [options]
 
@@ -569,7 +569,7 @@ async function studioCommand(): Promise<void> {
     const port = Number(flagValue("port") ?? 4600);
     if (!Number.isInteger(port) || port < 1 || port > 65535) fail("--port takes a number from 1 to 65535");
 
-    const { studio } = await import("./studio");
+    const { studio } = await import("./studio/server");
     await studio({ configPath, root, port, open: !flags.includes("--no-open") });
 }
 

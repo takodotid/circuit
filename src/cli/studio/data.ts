@@ -3,13 +3,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { portsOf } from "../adapters/devices/catalog";
-import { host } from "../core/addr";
-import { type AddressReport, addressesOf } from "../core/addresses";
-import { type Holder, holdersOf, keyOf } from "../core/graph";
-import { SCHEMA_FILES, schemaTypes } from "../core/schema-docs";
-import type { Device } from "../schema";
-import type { Annotated } from "./graph";
+import { portsOf } from "../../adapters/devices/catalog";
+import { host } from "../../core/addr";
+import { type AddressReport, addressesOf } from "../../core/addresses";
+import { type Holder, holdersOf, keyOf } from "../../core/graph";
+import { SCHEMA_FILES, schemaTypes } from "../../core/schema-docs";
+import type { Device } from "../../schema";
+import type { Annotated } from "../graph";
 
 /** One BGP session, with its group's settings filled in, and what is at its far end. */
 export type Session = {
@@ -146,8 +146,8 @@ function cablesOf(devices: readonly Device[]): Cable[] {
     return cables;
 }
 
-/** The directory Circuit is installed in: the nearest one up with its package.json. The schema's sources ship with it, in src/schema. */
-function packageRoot(): string | undefined {
+/** The directory Circuit is installed in: the nearest one up with its package.json. Its sources ship with it, in src: the schema, and the files of studio's page. */
+export function packageRoot(): string | undefined {
     let directory = dirname(fileURLToPath(import.meta.url));
 
     while (true) {

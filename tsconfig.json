@@ -8,6 +8,8 @@
         "strict": true,
         "noEmit": true,
         "skipLibCheck": true,
+        "allowJs": true,
+        "checkJs": true,
         "allowImportingTsExtensions": true,
         "verbatimModuleSyntax": true,
         "forceConsistentCasingInFileNames": true,
@@ -18,6 +20,6 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true
     },
-    "include": ["src/**/*.ts", "examples/**/*.ts", "templates/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
+    "include": ["src/**/*.ts", "src/cli/studio/public/*.js", "examples/**/*.ts", "templates/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
     "exclude": ["node_modules"]
 }

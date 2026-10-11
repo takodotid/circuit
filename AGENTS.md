@@ -29,6 +29,8 @@ Read the platform's `TRAPS.md` first, and add to it what the change taught. New 
 
 Circuit is developed with Bun, which runs `src/` as it is. `bun run build` bundles `dist/` for Node, npm and pnpm, with type declarations; the package's exports send Bun to `src/` and everyone else to `dist/`. Code in `src/` uses Node's APIs, never Bun's, so both run it. Under Node, the CLI loads the config with jiti.
 
+`circuit studio`'s page is the files in `src/cli/studio/public/`: HTML, CSS, and JavaScript the browser runs as it is, typed with JSDoc that `bun run typecheck` checks. The server reads them from the package's `src/` under Bun and Node alike, and a saved change reloads an open page.
+
 `templates/` is what `circuit new` copies: a directory per pattern, and `project/` for what every project gets. The tests validate each template with its own checks, and the pattern pages include its files, so a template is always a working example.
 
 `docs/` is the documentation site at circuit.tako.id. A change to what Circuit does changes the page that describes it in the same commit. Platform pages include each adapter's `TRAPS.md`.

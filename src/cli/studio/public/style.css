@@ -1,0 +1,452 @@
+/* Circuit studio's look: colors as tokens, redefined for a dark screen, then the page, the tables and the graph. */
+:root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --line: #d7dbe0;
+    --text: #1d2228;
+    --muted: #5d6670;
+    --edge: #8a939c;
+    --accent: #2f6fdb;
+    --error: #d1242f;
+    --warning: #b07800;
+    --segment: #e9eef6;
+    --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #14171b;
+        --surface: #1c2026;
+        --line: #333a42;
+        --text: #e4e8ec;
+        --muted: #98a2ad;
+        --edge: #6c7680;
+        --accent: #6aa0ff;
+        --error: #ff6b6b;
+        --warning: #e3b341;
+        --segment: #232a33;
+    }
+}
+* {
+    box-sizing: border-box;
+}
+html,
+body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 var(--font);
+}
+body {
+    display: flex;
+    flex-direction: column;
+}
+button {
+    font: inherit;
+    color: inherit;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+button:hover {
+    border-color: var(--accent);
+}
+button[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+}
+header .brand {
+    font-weight: 600;
+}
+nav,
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.count {
+    opacity: 0.7;
+    margin-left: 4px;
+    font-size: 12px;
+}
+header input[type="search"] {
+    font: inherit;
+    color: inherit;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 10px;
+    width: 220px;
+    max-width: 100%;
+}
+header input[type="search"]:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+}
+a {
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}
+.muted {
+    color: var(--muted);
+}
+header .summary {
+    color: var(--muted);
+    font-size: 13px;
+}
+header .live {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 12px;
+}
+header .live::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--warning);
+    margin-right: 6px;
+}
+header .live.on::before {
+    background: #2da44e;
+}
+.banner {
+    margin: 0;
+    padding: 10px 16px;
+    background: var(--error);
+    color: #fff;
+    white-space: pre-wrap;
+    font: 12px/1.4 var(--mono);
+    max-height: 30vh;
+    overflow: auto;
+}
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.view[hidden] {
+    display: none;
+}
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+}
+.stage {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+.tables {
+    flex: 1;
+    overflow: auto;
+    padding: 16px 24px 48px;
+}
+.tables h2 {
+    font-size: 20px;
+    margin: 4px 0 8px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.tables h3 {
+    font-size: 14px;
+    margin: 24px 0 8px;
+}
+.tables h4 {
+    font-size: 13px;
+    margin: 16px 0 6px;
+    font-family: var(--mono);
+    font-weight: 600;
+}
+.tables p {
+    margin: 4px 0 8px;
+}
+.tables .crumbs {
+    margin: 0;
+    font-size: 13px;
+}
+.tables .tabs {
+    margin: 14px 0 6px;
+}
+.tables .findings {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.tables .findings li {
+    padding: 3px 0;
+}
+table.data {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    font-size: 13px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+table.data th,
+table.data td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    overflow-wrap: break-word;
+}
+table.data tr:last-child > td,
+table.data tr:last-child > th {
+    border-bottom: 0;
+}
+table.data thead th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 12px;
+    white-space: nowrap;
+}
+table.data th[title] {
+    cursor: help;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+}
+table.data tr.muted td {
+    color: var(--muted);
+}
+table.settings {
+    width: auto;
+    min-width: min(560px, 100%);
+}
+table.settings > tbody > tr > th {
+    width: 1%;
+    white-space: nowrap;
+    color: var(--muted);
+    font-weight: 500;
+}
+table.data table.data {
+    margin: 0;
+}
+pre.code {
+    margin: 0;
+    font: 12px/1.5 var(--mono);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    overflow: auto;
+    white-space: pre;
+}
+svg.canvas {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+svg.canvas.panning {
+    cursor: grabbing;
+}
+aside {
+    width: 340px;
+    overflow: auto;
+    padding: 14px 16px;
+    background: var(--surface);
+    border-left: 1px solid var(--line);
+}
+aside h2 {
+    font-size: 15px;
+    margin: 0 0 4px;
+    overflow-wrap: anywhere;
+}
+aside h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: 18px 0 6px;
+}
+aside ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+aside li {
+    padding: 3px 0;
+    overflow-wrap: anywhere;
+}
+aside .kind {
+    color: var(--muted);
+    font-size: 12px;
+}
+aside pre {
+    margin: 0;
+    font: 12px/1.45 var(--mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    background: var(--bg);
+    padding: 8px;
+    border-radius: 6px;
+}
+.badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 0 6px;
+    border-radius: 4px;
+    margin-right: 6px;
+    color: #fff;
+}
+.badge.error {
+    background: var(--error);
+}
+.badge.warning {
+    background: var(--warning);
+}
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.chips button {
+    padding: 2px 8px;
+    font-size: 12px;
+}
+.legend li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.legend svg {
+    flex: none;
+}
+.edge path {
+    fill: none;
+    stroke: var(--edge);
+    stroke-width: 1.6;
+}
+.edge.one-sided path:not(.hit) {
+    stroke: var(--warning);
+    stroke-dasharray: 6 4;
+}
+.edge text {
+    font-size: 11px;
+    fill: var(--muted);
+    paint-order: stroke;
+    stroke: var(--bg);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+}
+.edge .hit {
+    stroke: transparent;
+    stroke-width: 12;
+    cursor: pointer;
+}
+.edge.selected path:not(.hit),
+.edge.lit path:not(.hit) {
+    stroke: var(--accent);
+    stroke-width: 2.6;
+}
+.edge.selected text,
+.edge.lit text {
+    fill: var(--text);
+}
+.node {
+    cursor: pointer;
+}
+.node rect {
+    fill: var(--surface);
+    stroke: var(--line);
+    stroke-width: 1.5;
+}
+.node.segment rect {
+    fill: var(--segment);
+}
+.node.outside rect {
+    stroke-dasharray: 5 3;
+}
+.node.error rect {
+    stroke: var(--error);
+    stroke-width: 3;
+}
+.node.warning rect {
+    stroke: var(--warning);
+    stroke-width: 3;
+}
+.node.selected rect {
+    stroke: var(--accent);
+    stroke-width: 3;
+}
+.node text {
+    fill: var(--text);
+    font-size: 12px;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+}
+.node text.name {
+    font-weight: 600;
+    font-size: 13px;
+}
+.node text.sub {
+    fill: var(--muted);
+    font-size: 11px;
+}
+.node.segment text,
+.node.outside text {
+    font-family: var(--mono);
+    font-size: 11px;
+}
+.dim {
+    opacity: 0.18;
+}
+svg.far .edge text {
+    display: none;
+}
+@media (max-width: 760px) {
+    .stage {
+        flex-direction: column;
+    }
+    aside {
+        width: auto;
+        height: 40%;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+    }
+    .tables {
+        padding: 12px 16px 40px;
+    }
+    header input[type="search"] {
+        width: 100%;
+    }
+}
