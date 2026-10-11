@@ -4,6 +4,7 @@ import { X509Certificate } from "node:crypto";
 import { adapters } from "../adapters/devices";
 import { portsOf } from "../adapters/devices/catalog";
 import type { Device } from "../schema";
+import { checkAcross } from "./across";
 import { contains, familyOf, isAddress, isCidr } from "./addr";
 import type { Finding, Network } from "./define";
 
@@ -28,7 +29,7 @@ export function validate(network: Network): Finding[] {
         else for (const field of adapter.unsupported(device)) report(`${device.platform} cannot express ${field}`);
     }
 
-    findings.push(...checkLinks(network.devices));
+    findings.push(...checkAcross(network.devices));
     for (const check of network.checks ?? []) findings.push(...check(network.devices));
     return findings;
 }
@@ -326,55 +327,4 @@ function checkCertificates(device: Device, names: Names, report: Report): void {
             report(`${service} certificate ${name} has no private key to serve with`);
         }
     }
-}
-
-/** The VLAN ids a port carries, by how it carries them, so two ends can be compared across devices. */
-function carried(device: Device, port: NonNullable<NonNullable<Device["ports"]>[string]>) {
-    const id = (vlan: string | undefined) => (vlan ? device.vlans?.[vlan]?.id : undefined);
-    return {
-        access: id(port.access_vlan),
-        native: id(port.native_vlan),
-        trunk: (port.trunk_vlans ?? []).map(id).sort((a, b) => (a ?? 0) - (b ?? 0)),
-    };
-}
-
-/** A link names a device and port that exist, the far end links back, and both ends carry the same VLANs the same way. */
-function checkLinks(devices: readonly Device[]): Finding[] {
-    const findings: Finding[] = [];
-    const byName = new Map(devices.map((device) => [device.name, device]));
-
-    for (const device of devices) {
-        for (const [portName, port] of Object.entries(device.ports ?? {})) {
-            const link = port?.link;
-            if (!port || !link) continue;
-
-            const report = (message: string) =>
-                findings.push({
-                    level: "error",
-                    device: device.name,
-                    message: `port ${portName} link: ${message}`,
-                });
-
-            const far = byName.get(link.device);
-            if (!far) {
-                report(`device ${link.device} is not in the network`);
-                continue;
-            }
-
-            const farPort = far.ports?.[link.port];
-            if (!farPort) {
-                report(`${link.device} does not declare port ${link.port}`);
-                continue;
-            }
-
-            const linksBack = farPort.link?.device === device.name && farPort.link.port === portName;
-            if (!linksBack) report(`${link.device} ${link.port} does not link back to it`);
-
-            const here = JSON.stringify(carried(device, port));
-            const there = JSON.stringify(carried(far, farPort));
-            if (here !== there) report(`carries ${here}, and ${link.device} ${link.port} carries ${there}`);
-        }
-    }
-
-    return findings;
 }
