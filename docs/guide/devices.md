@@ -116,6 +116,8 @@ A device's name is written in more places than its own file: the `link` at the f
 
 Every string that is exactly the old name changes, in every file of the project outside `node_modules` and `.circuit/`. That includes a BGP neighbor named after the device, which renames its session on the device that has it. `circuit diff` shows that before anything is sent.
 
+The device's file keeps its name, since a file's name need not match the hostname. Add `--file` to rename it to `rack-a-01.ts` as well; every import of it follows.
+
 A name built from parts, such as `` `tor-0${n}` ``, cannot be found this way. Circuit stops and says so, and you rename it by hand.
 
 ## When a device cannot do what you wrote

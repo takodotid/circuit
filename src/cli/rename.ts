@@ -1,7 +1,7 @@
-// `circuit rename`: a device's new name everywhere the project's files name it, and its snapshot renamed to match. It plans first and writes only with --confirm.
+// `circuit rename`: a device's new name everywhere the project's files name it, its snapshot renamed to match, and with `--file` its file too. It plans first and writes only with --confirm.
 
-import { readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, extname, join, relative } from "node:path";
+import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 
 /** One line that changes. */
 export type LineChange = { file: string; line: number; before: string; after: string };
@@ -34,7 +34,7 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  *
  * A string that is exactly the old name becomes the new name: `name: "edge-01"`, `link: { device: "edge-01", ... }`, a check's list of routers, and a key such as a tenant's ports by device, which would otherwise no longer be found. A BGP neighbor named after the device is renamed too, which renames its session on the device: `circuit diff` shows it.
  */
-export function planRename(root: string, from: string, to: string, options: { snapshots: string[] }): RenamePlan {
+export function planRename(root: string, from: string, to: string, options: { file: boolean; snapshots: string[] }): RenamePlan {
     const changes: LineChange[] = [];
     const moves: RenamePlan["moves"] = [];
 
@@ -68,6 +68,17 @@ export function planRename(root: string, from: string, to: string, options: { sn
         moves.push({ from: snapshot, to: join(dirname(snapshot), `${to}${extname(snapshot)}`) });
     }
 
+    if (options.file) {
+        if (declaring.size > 1) throw new Error(`${[...declaring].join(" and ")} both declare name: "${from}"; rename the file by hand`);
+
+        const [file] = [...declaring] as [string];
+        const target = join(dirname(file), `${to}${extname(file)}`);
+        if (existsSync(join(root, target))) throw new Error(`${target} already exists`);
+
+        moves.push({ from: file, to: target });
+        changes.push(...importChanges(root, sources, file, target, changes));
+    }
+
     // What still names the device once every change is made.
     const mentions = sources.flatMap((file) =>
         readFileSync(join(root, file), "utf8")
@@ -79,6 +90,42 @@ export function planRename(root: string, from: string, to: string, options: { sn
     );
 
     return { changes, moves, mentions };
+}
+
+/** Imports of a file that moves, pointed at its new name. Lines already changed are changed further. */
+function importChanges(root: string, sources: string[], file: string, target: string, earlier: LineChange[]): LineChange[] {
+    const result: LineChange[] = [];
+    const withoutExtension = (path: string) => path.replace(/\.(ts|mts|cts|js|mjs|cjs)$/, "");
+    const moved = withoutExtension(resolve(root, file));
+
+    for (const source of sources) {
+        const lines = readFileSync(join(root, source), "utf8").split("\n");
+
+        for (const [index, original] of lines.entries()) {
+            const line = index + 1;
+            const changed = earlier.find((change) => change.file === source && change.line === line);
+            const before = changed?.after ?? original;
+
+            // A relative specifier that resolves to the moved file keeps its own form, extension or not.
+            const after = before.replace(
+                /(\bfrom\s+|\bimport\s*\(\s*)(["'])(\.{1,2}\/[^"']+)\2/g,
+                (match, lead: string, quote: string, specifier: string) => {
+                    if (withoutExtension(resolve(root, dirname(source), specifier)) !== moved) return match;
+
+                    const extension = specifier.match(/\.(ts|mts|cts|js|mjs|cjs)$/)?.[0] ?? "";
+                    const renamed = `${dirname(specifier)}/${basename(withoutExtension(target))}${extension}`;
+                    return `${lead}${quote}${renamed}${quote}`;
+                }
+            );
+
+            if (after === before) continue;
+
+            if (changed) changed.after = after;
+            else result.push({ file: source, line, before: original, after });
+        }
+    }
+
+    return result;
 }
 
 /** Write the plan: each changed line, then each move. */
