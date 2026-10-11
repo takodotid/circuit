@@ -40,6 +40,9 @@ const HELP = `usage: circuit <command> [device...] [options]
   graph [device...]     the network as a graph, from the config alone, without contacting a device
                           --layer=l1     l1, l2, l3, bgp, ospf or tunnels, several with commas, or all
                           --format=mermaid  mermaid, dot or json
+  studio                the graph in the browser, drawn again whenever the config changes
+                          --port=4600    the port it listens on, on this machine only
+                          --no-open      do not open the browser
 
   --config <path>       the network's config file, circuit.config.ts in the working directory by default`;
 
@@ -451,6 +454,14 @@ function graphCommand(): void {
     else fail(`no format ${format}; known: mermaid, dot, json`);
 }
 
+async function studioCommand(): Promise<void> {
+    const port = Number(flagValue("port") ?? 4600);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) fail("--port takes a number from 1 to 65535");
+
+    const { studio } = await import("./studio");
+    await studio({ configPath, root, port, open: !flags.includes("--no-open") });
+}
+
 const commands: Record<string, () => void | Promise<void>> = {
     validate: validateCommand,
     build: buildCommand,
@@ -465,6 +476,7 @@ const commands: Record<string, () => void | Promise<void>> = {
     prometheus: prometheusCommand,
     secrets: secretsCommand,
     graph: graphCommand,
+    studio: studioCommand,
 };
 
 const run = commands[command];

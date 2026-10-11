@@ -38,3 +38,14 @@
     font-size: 22px;
     font-weight: 400;
 }
+
+/* A screenshot taken in each theme: only the one matching the site's is shown. */
+.vp-doc .screenshot {
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 8px;
+}
+
+html:not(.dark) .vp-doc .screenshot.dark,
+.dark .vp-doc .screenshot.light {
+    display: none;
+}
