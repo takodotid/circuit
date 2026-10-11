@@ -19,6 +19,7 @@ Run every command from your project as `npx circuit <command>`, or `pnpm circuit
 | `peeringdb`                      | Updates your PeeringDB record to match the config; with `--confirm`, sends it                                          | PeeringDB only   |
 | `librenms`                       | Adds every device LibreNMS does not monitor yet; with `--confirm`, sends it. See [LibreNMS](/integrations/librenms).   | LibreNMS only    |
 | `prometheus`                     | Prints every device with SNMP as a target for Prometheus. See [Prometheus](/integrations/prometheus).                  | no               |
+| `addresses [prefix]`             | Lists every address the files use, by prefix, and what is still free. See [Finding a free address](/guide/addresses).  | no               |
 | `graph [device...]`              | Prints the network as a graph: cables, VLANs, addresses, BGP, OSPF or tunnels. See [Seeing the network](/guide/graph). | no               |
 | `studio`                         | Draws the network in your browser, again each time a file changes. See [Seeing the network](/guide/graph).             | no               |
 
@@ -42,8 +43,9 @@ These four are easy to mix up:
 | `--secrets`       | `apply`                         | Send every secret again, when you change a password. See [Secrets](/guide/secrets#changing-a-secret).                     |
 | `--auths`         | `prometheus`                    | Print the SNMP exporter's credentials instead of the devices. See [Prometheus](/integrations/prometheus#the-credentials). |
 | `--rollback=N`    | `apply`                         | On RouterOS, how many minutes the device waits before undoing the change if Circuit cannot log in again. 10 by default.   |
+| `--length=N`      | `addresses`                     | List the free prefixes of this length, instead of the fewest that cover the free space.                                   |
 | `--layer=L`       | `graph`                         | Which layer to print: `l1`, `l2`, `l3`, `bgp`, `ospf` or `tunnels`, several with commas, or `all`. `l1` by default.       |
-| `--format=F`      | `graph`                         | `mermaid`, `dot` or `json`. `mermaid` by default.                                                                         |
+| `--format=F`      | `graph`, `addresses`            | For `graph`, `mermaid`, `dot` or `json`, `mermaid` by default. For `addresses`, `json`.                                   |
 | `--port=N`        | `studio`                        | The port studio listens on. 4600 by default.                                                                              |
 | `--no-open`       | `studio`                        | Do not open the browser.                                                                                                  |
 

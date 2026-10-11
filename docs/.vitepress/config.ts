@@ -50,6 +50,7 @@ export default defineConfig({
                     { text: "Secrets", link: "/guide/secrets" },
                     { text: "CLI commands", link: "/guide/cli" },
                     { text: "Seeing the network", link: "/guide/graph" },
+                    { text: "Finding a free address", link: "/guide/addresses" },
                     { text: "Scheduled refresh", link: "/guide/scheduled-refresh" },
                     { text: "How a change is applied", link: "/guide/convergence" },
                     { text: "BGP communities", link: "/guide/communities" },
