@@ -48,7 +48,7 @@ export type Graph = {
 };
 
 /** An address one of the devices holds on a port or interface. */
-type Holder = {
+export type Holder = {
     device: Device;
     /** The port or interface. */
     name: string;
@@ -62,7 +62,7 @@ type Holder = {
 export const deviceId = (name: string) => `device:${name}`;
 
 /** An address as a key, so two spellings of one address compare equal. Undefined when it is not an address. */
-function keyOf(address: string | undefined): string | undefined {
+export function keyOf(address: string | undefined): string | undefined {
     if (!address || !isAddress(address)) return undefined;
     return `${familyOf(address)}:${parse(address)}`;
 }
@@ -93,7 +93,7 @@ class Builder {
 }
 
 /** Ports, then interfaces, that can hold an address. */
-function routedOf(device: Device): [string, Routed<string>][] {
+export function routedOf(device: Device): [string, Routed<string>][] {
     const ports = Object.entries(device.ports ?? {}).flatMap(([name, port]) => (port ? [[name, port] as [string, Routed<string>]] : []));
     const interfaces = Object.entries(device.interfaces ?? {}) as [string, Routed<string>][];
 
@@ -101,7 +101,7 @@ function routedOf(device: Device): [string, Routed<string>][] {
 }
 
 /** Every valid address the devices hold. An invalid one is left for `validate` to report. */
-function holdersOf(devices: readonly Device[]): Holder[] {
+export function holdersOf(devices: readonly Device[]): Holder[] {
     return devices.flatMap((device) =>
         routedOf(device).flatMap(([name, settings]) =>
             (settings.addresses ?? []).flatMap((entry) => {

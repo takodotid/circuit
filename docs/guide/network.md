@@ -40,7 +40,9 @@ A check is a function. It gets every device and returns what it found. Each find
 - An **error** stops `diff` and `apply`, so a change that breaks the rule cannot reach a device.
 - A **warning** is printed, and nothing is stopped.
 
-`circuit validate` runs your checks next to Circuit's own. Circuit's own checks catch names that do not exist, addresses that are not addresses, two ends of a link that disagree, and anything a device cannot do.
+`circuit validate` runs your checks next to Circuit's own. Circuit's own checks catch names that do not exist, addresses that are not addresses, and anything a device cannot do. They also compare what your devices say about each other:
+
+- **Both ends of a cable** name each other, and carry the same VLANs with the same MTU, speed and address prefix. One VLAN under two names is a warning.
 
 Here is a `checks.ts` with two rules of its own and two from the [presets](/guide/presets):
 
