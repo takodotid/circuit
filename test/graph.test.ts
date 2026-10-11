@@ -1,6 +1,7 @@
 // The graph is read from the config alone: each layer finds what the fields say, matches the far end where it is one of our devices, and marks what only one end declares.
 
 import { expect, test } from "bun:test";
+import { dot, mermaid } from "../src/cli/graph";
 import { defineDevice, secret } from "../src/core/define";
 import { graphOf, only, type GraphEdge } from "../src/core/graph";
 
@@ -181,4 +182,23 @@ test("only keeps the layers asked for, and the edges that touch the devices name
 test("the graph holds no secret, not even a reference to one", () => {
     expect(JSON.stringify(graph)).not.toContain("secret");
     expect(JSON.stringify(graph)).not.toContain("R1_WG_KEY");
+});
+
+test("mermaid and dot mark a device with an error, a device unlike its snapshot, and a line only one end declares", () => {
+    const annotated = {
+        ...only(graph, ["l1"]),
+        findings: [{ level: "error" as const, device: "r1", message: "broken" }],
+        drift: { r2: { status: "differs" as const, lines: ["/ip address"] } },
+    };
+
+    const chart = mermaid(annotated);
+    expect(chart).toStartWith("graph LR\n");
+    expect(chart).toContain('n0["r1<br/>routeros CCR2216-1G-12XS-2XQ"]');
+    expect(chart).toContain('n1 -.-|"25g-2 to 10g-4"| n2');
+    expect(chart).toContain("class n0 error");
+    expect(chart).toContain("class n1 warning");
+
+    const drawing = dot(annotated);
+    expect(drawing).toContain('"device:r2" -- "device:sw" [label="25g-2 to 10g-4", style=dashed];');
+    expect(drawing).toContain('color="#d1242f"');
 });
