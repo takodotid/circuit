@@ -41,6 +41,7 @@ const HELP = `usage: circuit <command> [device...] [options]
   secrets               every secret the config uses, and whether each can be read
   rename <device> <new-name>
                         give a device a new name in every file that names it, with --confirm
+                          --file         also rename the file that declares it, to <new-name>.ts
   addresses [prefix]    every address the config uses, by prefix, and what is still free
                           --length=N     free prefixes of this length, instead of the fewest that cover the free space
                           --format=json  as JSON
@@ -514,7 +515,7 @@ function addressesCommand(): void {
 
 function renameCommand(): void {
     const [from, to] = names;
-    if (!from || !to) fail("usage: circuit rename <device> <new-name> [--confirm]");
+    if (!from || !to) fail("usage: circuit rename <device> <new-name> [--file] [--confirm]");
 
     const device = network.devices.find((candidate) => candidate.name === from);
     if (!device) fail(`no device ${from}; known: ${network.devices.map((candidate) => candidate.name).join(", ")}`);
@@ -526,7 +527,7 @@ function renameCommand(): void {
 
     let plan: RenamePlan;
     try {
-        plan = planRename(root, from, to, { snapshots });
+        plan = planRename(root, from, to, { file: flags.includes("--file"), snapshots });
     } catch (error) {
         fail((error as Error).message);
     }
