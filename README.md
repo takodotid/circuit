@@ -7,6 +7,24 @@ Documentation: [circuit.tako.id](https://circuit.tako.id)
 > [!WARNING]
 > Circuit is in alpha. It runs a production network, but the way you write config, the commands and the supported devices can still change between releases. Install an exact version, and read the release notes before you upgrade.
 
+## What it does
+
+- **One file per device.** VLANs, ports, addresses, routing, firewall, users and services, written in TypeScript. Your editor checks every name you refer to as you type.
+- **The same words for every vendor.** MikroTik RouterOS 7, Huawei VRP and Raisecom ROS each get their own commands. What a device cannot do is an error before anything is sent.
+- **The file is the whole truth.** A port, user or service the file does not mention is removed or turned off, so nothing set by hand lingers.
+- **See every change first.** `diff` shows it offline, `apply` plans it against the live device, and nothing is sent without `--confirm`. On RouterOS, a change undoes itself if Circuit cannot log in again afterwards.
+- **History in git.** Each device's last snapshot is kept in `.circuit/state/`, so the repository's history is the network's history.
+- **Rules of your own.** Checks run on every change, and presets give ready-made filters, BGP policies and checks.
+- **Secrets stay out of the repository.** They come from `.env` or 1Password, and never appear in a plan or a snapshot.
+- **See the network.** `circuit studio` draws the cables, VLANs, addresses, BGP sessions, OSPF neighbors and tunnels in your browser, and marks what is broken or differs from the device. `circuit graph` prints the same as Mermaid, DOT or JSON.
+- **Keeps the rest in step.** Prefix lists fetched from a registry, your PeeringDB record, devices in LibreNMS, targets for Prometheus, WireGuard client configs, and your BGP communities for a looking glass.
+- **Safe with AI agents.** Every project gets an `AGENTS.md` that tells an agent what it may run, and the last step stays yours.
+
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/public/screenshots/studio-dark.png">
+    <img src="docs/public/screenshots/studio-light.png" alt="Circuit studio showing the cables between five devices. One device is outlined in amber because it differs from its last snapshot.">
+</picture>
+
 ## Start
 
 You need [Node.js](https://nodejs.org) 20.12 or newer, or [Bun](https://bun.sh). Then:
