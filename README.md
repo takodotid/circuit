@@ -16,7 +16,7 @@ Documentation: [circuit.tako.id](https://circuit.tako.id)
 - **History in git.** Each device's last snapshot is kept in `.circuit/state/`, so the repository's history is the network's history.
 - **Rules of your own.** Checks run on every change, and presets give ready-made filters, BGP policies and checks.
 - **Secrets stay out of the repository.** They come from `.env` or 1Password, and never appear in a plan or a snapshot.
-- **See the network.** `circuit studio` draws the cables, VLANs, addresses, BGP sessions, OSPF neighbors and tunnels in your browser, and marks what is broken or differs from the device. `circuit graph` prints the same as Mermaid, DOT or JSON.
+- **See the network.** `circuit studio` draws the cables, VLANs, addresses, BGP sessions, OSPF neighbors and tunnels in your browser, and marks what is broken or differs from the device. Its tables list everything each device holds, for anyone who does not read TypeScript. `circuit graph` prints the drawing as Mermaid, DOT or JSON.
 - **Keeps the rest in step.** Prefix lists fetched from a registry, your PeeringDB record, devices in LibreNMS, targets for Prometheus, WireGuard client configs, and your BGP communities for a looking glass.
 - **Safe with AI agents.** Every project gets an `AGENTS.md` that tells an agent what it may run, and the last step stays yours.
 

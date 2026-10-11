@@ -4,7 +4,7 @@ Circuit can draw your network from your files: which cable goes where, which VLA
 
 It reads only your files and the last [snapshot](/guide/glossary#circuit), and never logs in to a device, so it is safe to run at any time. There is nothing to write: run a command.
 
-- `circuit studio` draws the network in your browser, and draws it again each time you save a file.
+- `circuit studio` draws the network in your browser, with tables of everything your files hold, and shows it again each time you save a file.
 - `circuit graph` prints it as text, for a pull request, an image or a script.
 
 ## In the browser
@@ -14,13 +14,34 @@ It reads only your files and the last [snapshot](/guide/glossary#circuit), and n
 
 1. Run `npx circuit studio` in your project.
 2. Your browser opens the drawing, at `http://127.0.0.1:4600`.
-3. Pick a layer at the top: cables, VLANs, addresses, BGP, OSPF or tunnels. The keys 1 to 6 do the same.
+3. Pick a layer below the top bar: cables, VLANs, addresses, BGP, OSPF or tunnels. The keys 1 to 6 do the same.
 4. Click a device or a line to see everything about it on the right.
 5. Edit a device's file and save it. The drawing changes within a second.
 
 Drag a device to move it, drag the empty space to move the whole drawing, and scroll to zoom. Your browser remembers where you put each device. **Lay out again** forgets that and starts over.
 
 Studio answers only on your own machine: nobody else on the network can open it. Stop it with Ctrl+C. To use another port, run `npx circuit studio --port=5000`. To stop it opening the browser, add `--no-open`.
+
+## Looking things up
+
+Next to the graph, the top bar has tables of everything your files hold. You can read a network with them without reading TypeScript.
+
+<img class="screenshot light" src="/screenshots/studio-device-light.png" alt="A device's page in Circuit studio, listing every port of its model: the ones the config declares with their VLANs, addresses, LAG and the device at the other end, and the rest as shut down.">
+<img class="screenshot dark" src="/screenshots/studio-device-dark.png" alt="A device's page in Circuit studio, listing every port of its model: the ones the config declares with their VLANs, addresses, LAG and the device at the other end, and the rest as shut down.">
+
+| View      | What it lists                                                                                                                                                                                                                                                              |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Devices   | Every device. Each has a page per part: ports, including those the config leaves shut; interfaces; VLANs; routing; policies; firewall; users and ways in; DHCP and flow export; the config it would run, as `circuit build` prints it; and what `circuit diff` would send. |
+| VLANs     | Every VLAN, the devices that declare it, its gateways, and the ports that carry it.                                                                                                                                                                                        |
+| Addresses | Every address in use and what is free, as [`circuit addresses`](/guide/addresses) prints it.                                                                                                                                                                               |
+| BGP       | Every session, with its group's settings filled in, and what is at the far end.                                                                                                                                                                                            |
+| Cables    | Every cable, with the VLANs it carries.                                                                                                                                                                                                                                    |
+
+**Search** in the top bar finds a name, an address or any other value in any device. Point at a column's name to see what that field means; it is the same text your editor shows.
+
+A secret shows as the name its value is read from, such as `secret("EDGE_01_PASSWORD")`, never as the value. Studio only reads. To change something, edit the device's file, and studio shows the change when you save it.
+
+Each page has its own address, such as `http://127.0.0.1:4600/#devices/edge-01/ports`, so the browser's back button works and a bookmark opens the same page. `npx circuit studio --json` prints everything studio shows as JSON, for a script.
 
 ## The layers
 

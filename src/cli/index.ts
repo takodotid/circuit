@@ -19,6 +19,7 @@ import { validate } from "../core/validate";
 import type { Device } from "../schema";
 import { type Annotated, dot, type Drift, mermaid } from "./graph";
 import { applyRename, planRename, type RenamePlan } from "./rename";
+import { studioData } from "./studio-data";
 
 const HELP = `usage: circuit <command> [device...] [options]
 
@@ -51,6 +52,7 @@ const HELP = `usage: circuit <command> [device...] [options]
   studio                the graph in the browser, drawn again whenever the config changes
                           --port=4600    the port it listens on, on this machine only
                           --no-open      do not open the browser
+                          --json         print what studio shows, as JSON, instead
 
   --config <path>       the network's config file, circuit.config.ts in the working directory by default`;
 
@@ -434,6 +436,20 @@ function driftOf(device: Device): Drift {
     }
 }
 
+/** The graph on these layers, around these devices when any are named, with what validate found and how each device drawn compares with its snapshot. */
+function annotatedGraph(layers: readonly Layer[], deviceNames: readonly string[]): Annotated {
+    const graph = only(graphOf(network.devices), layers, deviceNames);
+    const shown = new Set(graph.nodes.map((node) => node.label));
+
+    return {
+        ...graph,
+        findings: validate(network).filter((finding) => !finding.device || shown.has(finding.device)),
+        drift: Object.fromEntries(
+            network.devices.filter((device) => shown.has(device.name)).map((device) => [device.name, driftOf(device)])
+        ),
+    };
+}
+
 function graphCommand(): void {
     const requested = (flagValue("layer") ?? "l1").split(",");
     const layers = requested.includes("all") ? [...LAYERS] : (requested as Layer[]);
@@ -443,18 +459,7 @@ function graphCommand(): void {
 
     const format = flagValue("format") ?? "mermaid";
     const devices = selected(true);
-
-    const graph = only(graphOf(network.devices), layers, names.length ? devices.map((device) => device.name) : []);
-    const shown = new Set(graph.nodes.map((node) => node.label));
-
-    // Each device drawn is compared with its snapshot; findings are kept for those, and for the network as a whole.
-    const annotated: Annotated = {
-        ...graph,
-        findings: validate(network).filter((finding) => !finding.device || shown.has(finding.device)),
-        drift: Object.fromEntries(
-            network.devices.filter((device) => shown.has(device.name)).map((device) => [device.name, driftOf(device)])
-        ),
-    };
+    const annotated = annotatedGraph(layers, names.length ? devices.map((device) => device.name) : []);
 
     if (format === "mermaid") process.stdout.write(mermaid(annotated));
     else if (format === "dot") process.stdout.write(dot(annotated));
@@ -555,6 +560,12 @@ function renameCommand(): void {
 }
 
 async function studioCommand(): Promise<void> {
+    if (flags.includes("--json")) {
+        const data = studioData(network.devices, annotatedGraph(LAYERS, []), (device) => adapterOf(device).render(device));
+        console.log(JSON.stringify(data));
+        return;
+    }
+
     const port = Number(flagValue("port") ?? 4600);
     if (!Number.isInteger(port) || port < 1 || port > 65535) fail("--port takes a number from 1 to 65535");
 
