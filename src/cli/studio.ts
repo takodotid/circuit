@@ -1,8 +1,9 @@
-// `circuit studio`: the graph in the browser, on this machine only. Each time a file beside the config changes, the graph is made again by `circuit graph` in a new process, so the config is always read fresh.
+// `circuit studio`: the network in the browser, on this machine only. Each time a file beside the config changes, what it shows is gathered again by `circuit studio --json` in a new process, so the config is always read fresh.
 
 import { execFile, spawn } from "node:child_process";
 import { watch } from "node:fs";
 import { createServer, type ServerResponse } from "node:http";
+import { explorer } from "./studio-explorer";
 import { page, STYLE } from "./studio-page";
 
 export type StudioOptions = {
@@ -24,18 +25,18 @@ const HTML = `<!doctype html>
 <style>${STYLE}</style>
 </head>
 <body>
-<script>(${page.toString()})()</script>
+<script>(${page.toString()})(${explorer.toString()})</script>
 </body>
 </html>
 `;
 
-/** Directories whose changes never change the graph. */
+/** Directories whose changes never change what studio shows. */
 const IGNORED = /(^|[\\/])(node_modules|\.git)([\\/]|$)/;
 
-/** The graph as JSON, from `circuit graph` run as a new process, or what stopped it. */
-function makeGraph(configPath: string): Promise<string> {
+/** What studio shows, as JSON, from `circuit studio --json` run as a new process, or what stopped it. */
+function gather(configPath: string): Promise<string> {
     const cli = process.argv[1]!;
-    const args = [...process.execArgv, cli, "graph", "--format=json", "--layer=all", `--config=${configPath}`];
+    const args = [...process.execArgv, cli, "studio", "--json", `--config=${configPath}`];
 
     return new Promise((done) => {
         execFile(process.execPath, args, { maxBuffer: 256 * 1024 * 1024 }, (error, stdout, stderr) => {
@@ -64,10 +65,10 @@ function openBrowser(url: string): void {
 export async function studio(options: StudioOptions): Promise<void> {
     const { configPath, root, port } = options;
 
-    let graph = await makeGraph(configPath);
+    let data = await gather(configPath);
     const listeners = new Set<ServerResponse>();
 
-    // Only this machine's own names are answered, so a web page elsewhere cannot read the graph through a name it points here.
+    // Only this machine's own names are answered, so a web page elsewhere cannot read the network through a name it points here.
     const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
 
     const server = createServer((request, response) => {
@@ -81,8 +82,8 @@ export async function studio(options: StudioOptions): Promise<void> {
             return;
         }
 
-        if (request.url === "/graph") {
-            response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(graph);
+        if (request.url === "/data") {
+            response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(data);
             return;
         }
 
@@ -98,7 +99,7 @@ export async function studio(options: StudioOptions): Promise<void> {
         response.writeHead(404).end();
     });
 
-    // Several files often change at once, such as on a save or a checkout: the graph is made once they settle.
+    // Several files often change at once, such as on a save or a checkout: it is gathered once they settle.
     let timer: NodeJS.Timeout | undefined;
 
     watch(root, { recursive: true }, (_event, filename) => {
@@ -106,9 +107,9 @@ export async function studio(options: StudioOptions): Promise<void> {
 
         clearTimeout(timer);
         timer = setTimeout(async () => {
-            graph = await makeGraph(configPath);
+            data = await gather(configPath);
             for (const listener of listeners) listener.write("data: changed\n\n");
-            console.log(`${new Date().toLocaleTimeString()}  ${filename ?? "a file"} changed, graph made again`);
+            console.log(`${new Date().toLocaleTimeString()}  ${filename ?? "a file"} changed, read again`);
         }, 300);
     });
 

@@ -1,8 +1,10 @@
 /// <reference lib="dom" />
-// The page `circuit studio` serves. `page` runs in the browser: the server sends its source, so it uses nothing from outside its own body but types.
+// The page `circuit studio` serves: the graph, and the tables of `studio-explorer.ts`. `page` runs in the browser: the server sends its source, so it uses nothing from outside its own body but types, and the explorer it is handed.
 
 import type { CarriedVlan, GraphEdge, GraphNode, Layer } from "../core/graph";
 import type { Annotated } from "./graph";
+import type { StudioData } from "./studio-data";
+import type { explorer } from "./studio-explorer";
 
 export const STYLE = `
 :root {
@@ -41,14 +43,42 @@ button:hover { border-color: var(--accent); }
 button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
 header .brand { font-weight: 600; }
-header nav, header .actions { display: flex; flex-wrap: wrap; gap: 6px; }
-header .count { opacity: 0.7; margin-left: 4px; font-size: 12px; }
+nav, .actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.count { opacity: 0.7; margin-left: 4px; font-size: 12px; }
+header input[type="search"] { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; width: 220px; max-width: 100%; }
+header input[type="search"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+a { color: var(--accent); cursor: pointer; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.muted { color: var(--muted); }
 header .summary { color: var(--muted); font-size: 13px; }
 header .live { margin-left: auto; color: var(--muted); font-size: 12px; }
 header .live::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warning); margin-right: 6px; }
 header .live.on::before { background: #2da44e; }
 .banner { margin: 0; padding: 10px 16px; background: var(--error); color: #fff; white-space: pre-wrap; font: 12px/1.4 var(--mono); max-height: 30vh; overflow: auto; }
-main { flex: 1; display: flex; min-height: 0; }
+main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.view[hidden] { display: none; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.stage { flex: 1; display: flex; min-height: 0; }
+.tables { flex: 1; overflow: auto; padding: 16px 24px 48px; }
+.tables h2 { font-size: 20px; margin: 4px 0 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.tables h3 { font-size: 14px; margin: 24px 0 8px; }
+.tables h4 { font-size: 13px; margin: 16px 0 6px; font-family: var(--mono); font-weight: 600; }
+.tables p { margin: 4px 0 8px; }
+.tables .crumbs { margin: 0; font-size: 13px; }
+.tables .tabs { margin: 14px 0 6px; }
+.tables .findings { list-style: none; padding: 0; margin: 0; }
+.tables .findings li { padding: 3px 0; }
+table.data { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+table.data th, table.data td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: break-word; }
+table.data tr:last-child > td, table.data tr:last-child > th { border-bottom: 0; }
+table.data thead th { color: var(--muted); font-weight: 600; font-size: 12px; white-space: nowrap; }
+table.data th[title] { cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }
+table.data tr.muted td { color: var(--muted); }
+table.settings { width: auto; min-width: min(560px, 100%); }
+table.settings > tbody > tr > th { width: 1%; white-space: nowrap; color: var(--muted); font-weight: 500; }
+table.data table.data { margin: 0; }
+pre.code { margin: 0; font: 12px/1.5 var(--mono); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; white-space: pre; }
 svg.canvas { flex: 1; min-width: 0; height: 100%; cursor: grab; touch-action: none; user-select: none; }
 svg.canvas.panning { cursor: grabbing; }
 aside { width: 340px; overflow: auto; padding: 14px 16px; background: var(--surface); border-left: 1px solid var(--line); }
@@ -58,9 +88,6 @@ aside ul { list-style: none; margin: 0; padding: 0; }
 aside li { padding: 3px 0; overflow-wrap: anywhere; }
 aside .kind { color: var(--muted); font-size: 12px; }
 aside pre { margin: 0; font: 12px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); padding: 8px; border-radius: 6px; }
-aside a { color: var(--accent); cursor: pointer; text-decoration: none; }
-aside a:hover { text-decoration: underline; }
-aside .muted { color: var(--muted); }
 .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: 4px; margin-right: 6px; color: #fff; }
 .badge.error { background: var(--error); }
 .badge.warning { background: var(--warning); }
@@ -88,15 +115,18 @@ aside .muted { color: var(--muted); }
 .dim { opacity: 0.18; }
 svg.far .edge text { display: none; }
 @media (max-width: 760px) {
-    main { flex-direction: column; }
+    .stage { flex-direction: column; }
     aside { width: auto; height: 40%; border-left: 0; border-top: 1px solid var(--line); }
+    .tables { padding: 12px 16px 40px; }
+    header input[type="search"] { width: 100%; }
 }
 `;
 
-/** Runs in the browser. */
-export function page(): void {
+/** Runs in the browser, handed the explorer that draws the tables. */
+export function page(explore: typeof explorer): void {
     type Point = { x: number; y: number };
-    type Data = Annotated & { error?: undefined };
+    type Data = Annotated;
+    type Loaded = StudioData & { error?: undefined };
     type Failed = { error: string };
     type Selection = { node: string } | { edge: GraphEdge } | undefined;
 
@@ -163,7 +193,20 @@ export function page(): void {
         return anchor;
     }
 
+    // The views, each with the place in the address that shows it.
+    const VIEWS = [
+        ["graph", "Graph"],
+        ["devices", "Devices"],
+        ["vlans", "VLANs"],
+        ["addresses", "Addresses"],
+        ["sessions", "BGP"],
+        ["cables", "Cables"],
+    ] as const;
+
     // The page's parts.
+    const viewButtons = new Map<string, HTMLButtonElement>();
+    const views = h("nav", { "aria-label": "Views", class: "views" });
+    const search = h("input", { type: "search", placeholder: "Search the config", "aria-label": "Search the config" });
     const layerButtons = new Map<Layer, HTMLButtonElement>();
     const nav = h("nav", { "aria-label": "Layers" });
     const summary = h("span", { class: "summary" });
@@ -180,25 +223,36 @@ export function page(): void {
     svg.append(viewport);
     const panel = h("aside");
 
+    const graphView = h(
+        "section",
+        { class: "view" },
+        h("div", { class: "toolbar" }, nav, h("div", { class: "actions" }, fitButton, layoutButton)),
+        h("div", { class: "stage" }, svg, panel)
+    );
+    const tables = h("div", { class: "tables" });
+    const explorerView = h("section", { class: "view", hidden: "" }, tables);
+
+    for (const [route, title] of VIEWS) {
+        const button = h("button", {}, title);
+        button.addEventListener("click", () => go(route === "graph" ? `graph/${layer}` : route));
+        views.append(button);
+        viewButtons.set(route, button);
+    }
+
     document.body.append(
-        h(
-            "header",
-            {},
-            h("span", { class: "brand" }, "Circuit studio"),
-            nav,
-            h("div", { class: "actions" }, fitButton, layoutButton),
-            summary,
-            live
-        ),
+        h("header", {}, h("span", { class: "brand" }, "Circuit studio"), views, search, summary, live),
         banner,
-        h("main", {}, svg, panel)
+        h("main", {}, graphView, explorerView)
     );
 
     // State.
+    let studio: StudioData | undefined;
     let data: Data | undefined;
-    // The layer named in the address, such as `#bgp`, or the one shown last.
-    const requested = [location.hash.slice(1), store.get<string>("layer")].find((name) => LAYERS.includes(name as Layer));
-    let layer = (requested ?? "l1") as Layer;
+    let layer = (LAYERS.find((name) => name === store.get<string>("layer")) ?? "l1") as Layer;
+    /** The graph has been drawn while visible at least once; until then it is drawn and fitted when shown. */
+    let drawn = false;
+    /** A VLAN to light up once the VLAN layer is shown, asked for from the tables. */
+    let pendingVlan: number | undefined;
     let selection: Selection;
     let hovered: string | undefined;
     let vlanFocus: number | undefined;
@@ -707,6 +761,16 @@ export function page(): void {
         const kinds = { device: "device", segment: "shared segment", outside: "outside the network" };
         panel.append(h("h2", {}, node.label), h("div", { class: "kind" }, kinds[node.kind]));
 
+        if (node.kind === "device") {
+            panel.append(
+                h(
+                    "p",
+                    {},
+                    link("Everything it holds", () => go(`devices/${encodeURIComponent(node.label)}`))
+                )
+            );
+        }
+
         if (node.detail.length) panel.append(h("h3", {}, "Details"), h("pre", {}, node.detail.join("\n")));
 
         if (node.kind === "device" && data) {
@@ -782,7 +846,7 @@ export function page(): void {
                 LAYER_NAMES[name],
                 h("span", { class: "count" }, String(count))
             );
-            button.addEventListener("click", () => chooseLayer(name));
+            button.addEventListener("click", () => go(`graph/${name}`));
             nav.append(button);
             layerButtons.set(name, button);
         }
@@ -803,46 +867,120 @@ export function page(): void {
     }
 
     function chooseLayer(next: Layer): void {
+        if (next !== layer && selection && "edge" in selection) selection = undefined;
+
         layer = next;
         store.set("layer", layer);
-        history.replaceState(null, "", `#${layer}`);
 
-        if (selection && "edge" in selection) selection = undefined;
-        vlanFocus = undefined;
+        vlanFocus = pendingVlan;
+        pendingVlan = undefined;
 
         showHeader();
+        showGraph();
+    }
+
+    /** Draw the graph, now that it is visible: its labels are measured as they are drawn. */
+    function showGraph(): void {
         draw();
         showPanel();
+
+        if (!drawn && data) fit();
+        drawn = Boolean(data);
     }
+
+    // Where the page is comes from the address, such as `#graph/bgp` or `#devices/edge-01/ports`, so the browser's back button and a copied link work.
+    function go(route: string): void {
+        location.hash = route;
+    }
+
+    const showTables = explore({
+        h,
+        link,
+        data: () => studio,
+        go,
+        showDevice(name) {
+            selection = { node: `device:${name}` };
+            go(`graph/${layer}`);
+        },
+        showVlan(id) {
+            pendingVlan = id;
+            selection = undefined;
+            go("graph/l2");
+        },
+    });
+
+    let shownRoute = "";
+
+    function route(): void {
+        const parts = location.hash.slice(1).split("/").map(decodeURIComponent).filter(Boolean);
+        const [view] = parts;
+
+        // The same place drawn again, when the config changes, keeps where the reader had scrolled to.
+        const moved = location.hash !== shownRoute;
+        shownRoute = location.hash;
+        showHeader();
+
+        // An address from before the tables, such as `#bgp`, still opens that layer.
+        const isGraph = !view || view === "graph" || LAYERS.includes(view as Layer);
+        const asked = view === "graph" ? parts[1] : view;
+
+        for (const [name, button] of viewButtons) button.setAttribute("aria-pressed", String(isGraph ? name === "graph" : name === view));
+        graphView.hidden = !isGraph;
+        explorerView.hidden = isGraph;
+
+        if (view === "search") {
+            if (search.value !== (parts[1] ?? "")) search.value = parts[1] ?? "";
+        } else if (document.activeElement !== search) {
+            search.value = "";
+        }
+
+        if (isGraph) {
+            chooseLayer(LAYERS.includes(asked as Layer) ? (asked as Layer) : layer);
+            return;
+        }
+
+        const scrolled = tables.scrollTop;
+        showTables(parts, tables);
+        tables.scrollTop = moved ? 0 : scrolled;
+    }
+
+    window.addEventListener("hashchange", route);
+
+    let searching: ReturnType<typeof setTimeout> | undefined;
+    search.addEventListener("input", () => {
+        clearTimeout(searching);
+        searching = setTimeout(() => go(search.value.trim() ? `search/${encodeURIComponent(search.value.trim())}` : "devices"), 200);
+    });
 
     document.addEventListener("keydown", (event) => {
         if (event.target instanceof HTMLInputElement) return;
 
         if (event.key === "Escape") select(undefined);
 
+        // Keys 1 to 6 pick a layer, while the graph is shown.
         const chosen = LAYERS[Number(event.key) - 1];
-        if (chosen) chooseLayer(chosen);
+        if (chosen && !graphView.hidden) go(`graph/${chosen}`);
     });
 
-    // Loading the graph, at the start and whenever the server says the config changed.
+    // Loading what studio shows, at the start and whenever the server says the config changed.
     async function load(): Promise<void> {
-        let next: Data | Failed;
+        let next: Loaded | Failed;
 
         try {
-            next = (await (await fetch("/graph", { cache: "no-store" })).json()) as Data | Failed;
+            next = (await (await fetch("/data", { cache: "no-store" })).json()) as Loaded | Failed;
         } catch (error) {
             next = { error: `could not reach circuit studio: ${(error as Error).message}` };
         }
 
         if (next.error !== undefined) {
-            banner.textContent = `The config could not be read, so the drawing is the last one that could:\n${next.error}`;
+            banner.textContent = `The config could not be read, so what is shown is the last that could:\n${next.error}`;
             banner.hidden = false;
             return;
         }
 
         banner.hidden = true;
-        const first = !data;
-        data = next;
+        studio = next;
+        data = next.graph;
 
         // A selection whose node or edge is gone is dropped.
         if (selection && "node" in selection && !nodeById(selection.node)) selection = undefined;
@@ -853,10 +991,7 @@ export function page(): void {
         }
 
         layout(data.nodes, data.edges, false);
-        showHeader();
-        draw();
-        showPanel();
-        if (first) fit();
+        route();
     }
 
     const events = new EventSource("/events");
