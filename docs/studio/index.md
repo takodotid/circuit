@@ -18,14 +18,15 @@ Studio answers only on your own machine: nobody else on the network can open it.
 
 ## What it has
 
-| View                        | What it shows                                                                                          |
-| --------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [Graph](/studio/graph)      | Cables, VLANs, addresses, BGP sessions, OSPF neighbors and tunnels, drawn, with what is broken marked. |
-| [Devices](/studio/tables)   | Every device, with a page for each part of it.                                                         |
-| [VLANs](/studio/tables)     | Every VLAN, where it is declared, its gateways and the ports that carry it.                            |
-| [Addresses](/studio/tables) | Every address in use, and what is free.                                                                |
-| [BGP](/studio/tables)       | Every BGP session, and what is at its far end.                                                         |
-| [Cables](/studio/tables)    | Every cable, with the VLANs it carries.                                                                |
-| [Problems](/studio/tables)  | Everything that needs a look, counted in the top bar.                                                  |
+| View                        | What it shows                                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| [Graph](/studio/graph)      | Cables, VLANs, addresses, BGP sessions, OSPF neighbors and tunnels, drawn, with what is broken marked.        |
+| [Devices](/studio/tables)   | Every device, with a page for each part of it.                                                                |
+| [VLANs](/studio/tables)     | Every VLAN, where it is declared, its gateways and the ports that carry it.                                   |
+| [Addresses](/studio/tables) | Every address in use, and what is free.                                                                       |
+| [BGP](/studio/tables)       | Every BGP session, and what is at its far end.                                                                |
+| [Cables](/studio/tables)    | Every cable, with the VLANs it carries.                                                                       |
+| [Problems](/studio/tables)  | Everything that needs a look, counted in the top bar.                                                         |
+| [Tools](/studio/tools)      | Trace an address, find a VLAN's path, and test a packet against a firewall or a route against a route policy. |
 
 Each page has its own address, such as `http://127.0.0.1:4600/#devices/edge-01/ports`, so the browser's back button works and a bookmark opens the same page. `npx circuit studio --json` prints everything studio shows as JSON, for a script.

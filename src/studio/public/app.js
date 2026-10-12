@@ -5,6 +5,7 @@
 import { byId, go } from "./dom.js";
 import { currentLayer, isLayer, setGraph, showLayer } from "./graph.js";
 import { problemCount, showTables } from "./tables.js";
+import { showTools } from "./tools.js";
 
 /** @typedef {import("../data").StudioData} StudioData */
 
@@ -84,7 +85,8 @@ function route() {
     }
 
     const scrolled = tables.scrollTop;
-    showTables(parts, tables, studio);
+    if (view === "tools") showTools(parts, tables, studio);
+    else showTables(parts, tables, studio);
     tables.scrollTop = moved ? 0 : scrolled;
 }
 

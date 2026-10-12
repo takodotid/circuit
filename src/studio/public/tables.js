@@ -82,7 +82,7 @@ function compact(value) {
  * @param {Table} table
  * @returns {Node}
  */
-function table({ head, rows, csv }) {
+export function table({ head, rows, csv }) {
     /** @param {Table["rows"][number]} row */
     const attributesOf = (row) => ({ ...(row.muted ? { class: "muted" } : {}), ...(row.id ? { id: row.id } : {}) });
 
@@ -210,20 +210,20 @@ function settings(object, types) {
  * @param {string} text
  * @param {"h2" | "h3" | "h4"} [level]
  */
-const heading = (text, level = "h3") => h(level, {}, text);
+export const heading = (text, level = "h3") => h(level, {}, text);
 
 /** @param {string} text */
-const empty = (text) => h("p", { class: "muted" }, text);
+export const empty = (text) => h("p", { class: "muted" }, text);
 
 /**
  * A muted paragraph of several parts, such as text with a command in it.
  *
  * @param {...import("./dom.js").Child} parts
  */
-const prose = (...parts) => h("p", { class: "muted" }, ...parts);
+export const prose = (...parts) => h("p", { class: "muted" }, ...parts);
 
 /** @param {string} name */
-const deviceLink = (name) => link(name, () => go(`devices/${encodeURIComponent(name)}`));
+export const deviceLink = (name) => link(name, () => go(`devices/${encodeURIComponent(name)}`));
 
 /** @param {string} name */
 const deviceRoute = (name) => `devices/${encodeURIComponent(name)}`;

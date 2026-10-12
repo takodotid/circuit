@@ -66,6 +66,7 @@ export default defineConfig({
                     { text: "Overview", link: "/studio/" },
                     { text: "The graph", link: "/studio/graph" },
                     { text: "Looking things up", link: "/studio/tables" },
+                    { text: "Tools", link: "/studio/tools" },
                 ],
             },
             {
