@@ -1,3 +1,7 @@
+---
+description: Who maintains Circuit, who has contributed to it, and the open source projects it is built with.
+---
+
 <script setup>
 import circuit from "../package.json";
 </script>

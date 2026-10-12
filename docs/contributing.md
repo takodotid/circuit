@@ -1,3 +1,7 @@
+---
+description: How to work on Circuit itself, beside a network project, with its checks, templates, documentation, new platforms and releases.
+---
+
 # Contributing
 
 ## Working on Circuit beside a network
