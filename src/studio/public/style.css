@@ -605,3 +605,65 @@ pre.diff .fold {
     font-style: italic;
     margin: 4px 0;
 }
+
+/* The tools' forms: a field per line on a narrow screen, several side by side on a wide one. */
+.tool-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 16px;
+    margin: 12px 0 16px;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--muted);
+}
+.field input[type="text"],
+.field select {
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 8px;
+    min-width: 150px;
+}
+.field small {
+    font-size: 11px;
+}
+.flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    color: var(--text);
+}
+.flag {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+button.primary {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: var(--on-accent);
+}
+.verdict {
+    font-weight: 600;
+}
+.verdict.accept {
+    color: var(--ok);
+}
+.verdict.drop,
+.verdict.reject {
+    color: var(--error);
+}
+.verdict.unknown {
+    color: var(--warning);
+}

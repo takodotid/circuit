@@ -65,6 +65,13 @@ let hovered;
 let vlanFocus;
 /** A VLAN to light up once the VLAN layer is shown, asked for from the tables. @type {number | undefined} */
 let pendingVlan;
+/** Cables to light up as one path, asked for from the tools, and those lit now. @type {GraphEdge[] | undefined} */
+let pendingPath;
+/** @type {Set<string> | undefined} */
+let pathFocus;
+
+/** @param {GraphEdge} edge */
+const edgeKey = (edge) => `${edge.layer} ${edge.from} ${edge.to} ${edge.label}`;
 let view = { x: 0, y: 0, k: 1 };
 
 const saved = /** @type {Record<string, [number, number]>} */ (store.get("positions") ?? {});
@@ -363,6 +370,7 @@ function emphasize() {
     /** @type {Set<GraphEdge> | undefined} */
     let litEdges;
     if (focus) litEdges = new Set(edgeElements.filter(({ edge }) => touching(edge)).map(({ edge }) => edge));
+    else if (pathFocus) litEdges = new Set(edgeElements.filter(({ edge }) => pathFocus?.has(edgeKey(edge))).map(({ edge }) => edge));
     else if (vlanFocus !== undefined && layer === "l2")
         litEdges = new Set(edgeElements.filter(({ edge }) => carries(edge)).map(({ edge }) => edge));
     else if (selectedEdge) litEdges = new Set([selectedEdge]);
@@ -500,6 +508,7 @@ byId("save-png").addEventListener("click", async () => {
 /** @param {Selection} next */
 function select(next) {
     selection = next;
+    pathFocus = undefined;
     emphasize();
     showPanel();
 }
@@ -758,11 +767,17 @@ export function showLayer(next) {
     if (next !== layer) {
         if (selection && "edge" in selection) selection = undefined;
         vlanFocus = undefined;
+        pathFocus = undefined;
     }
 
     if (pendingVlan !== undefined) {
         vlanFocus = pendingVlan;
         pendingVlan = undefined;
+    }
+
+    if (pendingPath) {
+        pathFocus = new Set(pendingPath.map(edgeKey));
+        pendingPath = undefined;
     }
 
     layer = next;
@@ -783,6 +798,16 @@ export function showLayer(next) {
  */
 export function selectDevice(name) {
     selection = { node: `device:${name}` };
+}
+
+/**
+ * Light up these cables as one path, for when their layer is shown next.
+ *
+ * @param {GraphEdge[]} path
+ */
+export function lightPath(path) {
+    pendingPath = path;
+    selection = undefined;
 }
 
 /**
