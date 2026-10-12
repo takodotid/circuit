@@ -3,7 +3,7 @@
 // Studio's tables, for reading the config without reading TypeScript: every device and everything it holds, and the network's VLANs, addresses, BGP sessions and cables.
 
 import { go, h, link } from "./dom.js";
-import { currentLayer, lightVlan, selectDevice } from "./graph.js";
+import { currentLayer, LAYER_NAMES, lightVlan, selectDevice } from "./graph.js";
 
 /** @typedef {import("../../schema").Device} Device */
 /** @typedef {import("../data").StudioData} StudioData */
@@ -76,9 +76,15 @@ function compact(value) {
     return String(value);
 }
 
-/** @param {Table} table */
+/**
+ * @param {Table} table
+ * @returns {Node}
+ */
 function table({ head, rows }) {
-    return h(
+    /** @param {Table["rows"][number]} row */
+    const attributesOf = (row) => ({ ...(row.muted ? { class: "muted" } : {}) });
+
+    const element = h(
         "table",
         { class: "data" },
         h(
@@ -92,8 +98,10 @@ function table({ head, rows }) {
                 )
             )
         ),
-        h("tbody", {}, ...rows.map((row) => h("tr", row.muted ? { class: "muted" } : {}, ...row.cells.map((cell) => h("td", {}, cell)))))
+        h("tbody", {}, ...rows.map((row) => h("tr", attributesOf(row), ...row.cells.map((cell) => h("td", {}, cell)))))
     );
+
+    return element;
 }
 
 /**
@@ -796,6 +804,119 @@ function cablesView(container) {
     );
 }
 
+/**
+ * Everything that needs a look, in one place: what validate found, what only one end declares, and devices unlike their snapshot.
+ *
+ * @param {HTMLElement} container
+ */
+function problemsView(container) {
+    const { graph } = data;
+    const nameOf = (/** @type {string} */ id) => graph.nodes.find((node) => node.id === id)?.label ?? id;
+
+    const errors = graph.findings.filter((finding) => finding.level === "error");
+    const warnings = graph.findings.filter((finding) => finding.level === "warning");
+    const oneSided = graph.edges.filter((edge) => edge.oneSided);
+    const drifted = data.devices.filter((device) => graph.drift[device.name]?.status === "differs");
+    const unplanned = data.devices.filter((device) => graph.drift[device.name]?.status === "cannot plan");
+    const unsnapped = data.devices.filter((device) => graph.drift[device.name]?.status === "no snapshot");
+
+    container.append(
+        heading("Problems", "h2"),
+        empty("Everything that needs a look. Studio finds these from the files and the last snapshots alone.")
+    );
+
+    if (!errors.length && !warnings.length && !oneSided.length && !drifted.length && !unplanned.length) {
+        container.append(empty("Nothing: every check passes, both ends declare everything, and every device with a snapshot matches it."));
+    }
+
+    /**
+     * @param {string} title
+     * @param {import("../../core/define").Finding[]} findings
+     */
+    const findingTable = (title, findings) => {
+        if (!findings.length) return;
+
+        container.append(
+            h("h3", {}, title, " found by ", h("code", {}, "circuit validate")),
+            table({
+                head: ["Device", "Message"].map((label) => ({ label })),
+                rows: findings.map((finding) => ({
+                    cells: [finding.device ? deviceLink(finding.device) : "the network", finding.message],
+                })),
+            })
+        );
+    };
+
+    findingTable("Errors", errors);
+    findingTable("Warnings", warnings);
+
+    if (oneSided.length) {
+        container.append(
+            heading("Declared by one end only"),
+            table({
+                head: ["Layer", "What", "From", "To", ""].map((label) => ({ label })),
+                rows: oneSided.map((edge) => ({
+                    cells: [
+                        LAYER_NAMES[edge.layer],
+                        edge.label,
+                        nameOf(edge.from),
+                        nameOf(edge.to),
+                        link("in the graph", () => go(`graph/${edge.layer}`)),
+                    ],
+                })),
+            })
+        );
+    }
+
+    /**
+     * @param {string} title
+     * @param {Device[]} devices
+     * @param {string} section
+     * @param {string} action
+     */
+    const deviceList = (title, devices, section, action) => {
+        if (!devices.length) return;
+
+        container.append(
+            heading(title),
+            h(
+                "ul",
+                { class: "findings" },
+                ...devices.map((device) =>
+                    h(
+                        "li",
+                        {},
+                        deviceLink(device.name),
+                        " · ",
+                        link(action, () => go(`${deviceRoute(device.name)}/${section}`))
+                    )
+                )
+            )
+        );
+    };
+
+    deviceList("Unlike their last snapshot", drifted, "plan", "see the plan");
+    deviceList("Could not be planned against their snapshot", unplanned, "plan", "see why");
+
+    if (unsnapped.length) {
+        container.append(
+            heading("No snapshot yet"),
+            prose(
+                unsnapped.map((device) => device.name).join(", "),
+                ". Run ",
+                h("code", {}, "circuit snapshot"),
+                " to compare them with what they run."
+            )
+        );
+    }
+}
+
+/** How many problems there are, for the top bar. */
+export function problemCount(/** @type {StudioData} */ next) {
+    const drifted = Object.values(next.graph.drift).filter((drift) => drift.status === "differs" || drift.status === "cannot plan").length;
+    return next.graph.findings.length + next.graph.edges.filter((edge) => edge.oneSided).length + drifted;
+}
+
 /** Which section shows each part of a device, for search results. @type {Record<string, string>} */
 const SECTION_OF = {
     ports: "ports",
@@ -898,5 +1019,6 @@ export function showTables(route, container, next) {
     else if (view === "addresses") addressesView(container);
     else if (view === "sessions") sessionsView(container);
     else if (view === "cables") cablesView(container);
+    else if (view === "problems") problemsView(container);
     else if (view === "search") searchView(first ?? "", container);
 }

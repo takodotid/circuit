@@ -26,5 +26,6 @@ Studio answers only on your own machine: nobody else on the network can open it.
 | [Addresses](/studio/tables) | Every address in use, and what is free.                                                                |
 | [BGP](/studio/tables)       | Every BGP session, and what is at its far end.                                                         |
 | [Cables](/studio/tables)    | Every cable, with the VLANs it carries.                                                                |
+| [Problems](/studio/tables)  | Everything that needs a look, counted in the top bar.                                                  |
 
 Each page has its own address, such as `http://127.0.0.1:4600/#devices/edge-01/ports`, so the browser's back button works and a bookmark opens the same page. `npx circuit studio --json` prints everything studio shows as JSON, for a script.
