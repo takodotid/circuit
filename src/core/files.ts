@@ -16,12 +16,14 @@ export function projectSources(root: string, directory = root): string[] {
     });
 }
 
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** The first name written out after a call to defineDevice: the device's own, not that of another device a link, a peer or a tunnel names further on. */
+const FIRST_NAME = /^[\s\S]*?\bname\s*:\s*(["'`])(.*?)\1/;
 
 /** Whether a file's text declares the device: it calls defineDevice and gives it the name, written out whole. */
 export function declaresDevice(text: string, name: string): boolean {
-    const declares = new RegExp(`\\bname\\s*:\\s*(["'\`])${escape(name)}\\1`);
-    return text.includes("defineDevice") && declares.test(text);
+    return [...text.matchAll(/\bdefineDevice\s*\(/g)].some(
+        (call) => FIRST_NAME.exec(text.slice(call.index + call[0].length))?.[2] === name
+    );
 }
 
 /** The project files that declare the device, relative to the root. */
