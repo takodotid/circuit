@@ -293,6 +293,11 @@
                 "purpose": "Studio presenting: the view glides over 1.1s (ease in and out, zoom evenly) to frame each device with its neighbours."
             },
             {
+                "name": "layer-regroup",
+                "value": "0.7s ease-in-out cubic",
+                "purpose": "Studio graph: each layer has a layout of its own; on a new layer the devices glide to their places on it over 0.7s while its lines draw in."
+            },
+            {
                 "name": "title-write",
                 "value": "cubic-bezier(0.65, 0, 0.35, 1)",
                 "purpose": "Docs home opening: the title line is wiped on left to right with a yellow caret that blinks three times and leaves."
