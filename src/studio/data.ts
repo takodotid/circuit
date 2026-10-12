@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { portsOf } from "../adapters/devices/catalog";
-import { host } from "../core/addr";
+import { familyOf, host } from "../core/addr";
 import { type AddressReport, addressesOf } from "../core/addresses";
 import { type Annotated, type Holder, holdersOf, keyOf } from "../core/graph";
 import { SCHEMA_FILES, schemaTypes } from "../core/schema-docs";
@@ -95,7 +95,13 @@ function sessionsOf(devices: readonly Device[], owners: Map<string, Holder>): Se
         const far = ownerOf(session.address);
 
         if (far && far !== deviceObject) {
-            const back = all.some((other) => other.deviceObject === far && ownerOf(other.address) === deviceObject);
+            // The session back is one of the same family: a v4 session back does not answer a v6 session.
+            const back = all.some(
+                (other) =>
+                    other.deviceObject === far &&
+                    ownerOf(other.address) === deviceObject &&
+                    familyOf(other.address) === familyOf(session.address)
+            );
             return { ...session, far: far.name, ...(back ? {} : { oneSided: true as const }) };
         }
 
