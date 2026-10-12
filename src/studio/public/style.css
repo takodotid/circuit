@@ -78,11 +78,28 @@ header {
     background: var(--surface);
     border-bottom: 1px solid var(--line);
 }
+/* The wordmark is Circuit's own; studio is set apart from it, as the part of Circuit this is. */
 header .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+header .wordmark {
     font-family: var(--serif);
-    font-size: 21px;
+    font-size: 22px;
     font-weight: 400;
     letter-spacing: -0.01em;
+}
+header .product {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    padding-left: 8px;
+    border-left: 1px solid var(--line);
+}
+code {
+    font-family: var(--mono);
+    font-size: 0.92em;
 }
 nav,
 .actions {
@@ -309,9 +326,8 @@ aside h2 {
     overflow-wrap: anywhere;
 }
 aside h3 {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: 13px;
+    font-weight: 600;
     color: var(--muted);
     margin: 18px 0 6px;
 }
