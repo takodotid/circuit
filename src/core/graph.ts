@@ -1,6 +1,7 @@
 // The network as a graph, read from the config alone: cables, the VLANs they carry, shared segments, BGP sessions, OSPF adjacencies and tunnels. `circuit graph` prints it and `circuit studio` draws it.
 
 import type { Device, Gre, Routed, Switched, Vxlan, WireGuardPeer } from "../schema";
+import type { Finding } from "./define";
 import { contains, familyOf, host, isAddress, isCidr, network as prefixOf, parse, split } from "./addr";
 
 /** One view of the network. Every edge belongs to one. */
@@ -45,6 +46,20 @@ export type GraphEdge = {
 export type Graph = {
     nodes: GraphNode[];
     edges: GraphEdge[];
+};
+
+/** How a device compares with its last snapshot, found offline as `diff` finds it. */
+export type Drift = {
+    status: "matches" | "differs" | "no snapshot" | "cannot plan";
+    /** The plan `diff` would show, when it differs. */
+    lines: string[];
+};
+
+/** The graph with what `validate` found and how each device drawn compares with its snapshot. */
+export type Annotated = Graph & {
+    findings: Finding[];
+    /** By device name. */
+    drift: Record<string, Drift>;
 };
 
 /** An address one of the devices holds on a port or interface. */

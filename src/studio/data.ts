@@ -3,13 +3,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { portsOf } from "../../adapters/devices/catalog";
-import { host } from "../../core/addr";
-import { type AddressReport, addressesOf } from "../../core/addresses";
-import { type Holder, holdersOf, keyOf } from "../../core/graph";
-import { SCHEMA_FILES, schemaTypes } from "../../core/schema-docs";
-import type { Device } from "../../schema";
-import type { Annotated } from "../graph";
+import { portsOf } from "../adapters/devices/catalog";
+import { host } from "../core/addr";
+import { type AddressReport, addressesOf } from "../core/addresses";
+import { type Annotated, type Holder, holdersOf, keyOf } from "../core/graph";
+import { SCHEMA_FILES, schemaTypes } from "../core/schema-docs";
+import type { Device } from "../schema";
 
 /** One BGP session, with its group's settings filled in, and what is at its far end. */
 export type Session = {

@@ -9,5 +9,5 @@
         "paths": {}
     },
     "include": ["src/**/*.ts"],
-    "exclude": ["src/cli/**"]
+    "exclude": ["src/cli/**", "src/studio/**"]
 }

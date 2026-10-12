@@ -13,13 +13,13 @@ import { prometheusTargets, snmpExporterAuths } from "../adapters/registries/pro
 import { isCidr, network as prefixOf } from "../core/addr";
 import { addressesOf, freeOfLength, type Segment } from "../core/addresses";
 import type { Network } from "../core/define";
-import { graphOf, LAYERS, only, type Layer } from "../core/graph";
+import { type Annotated, type Drift, graphOf, LAYERS, only, type Layer } from "../core/graph";
 import { isSecret, referenceOf, resolve as reveal, sourceOf, useRoot } from "../core/secrets";
 import { validate } from "../core/validate";
 import type { Device } from "../schema";
-import { type Annotated, dot, type Drift, mermaid } from "./graph";
+import { dot, mermaid } from "./graph";
 import { applyRename, planRename, type RenamePlan } from "./rename";
-import { studioData } from "./studio/data";
+import { studioData } from "../studio/data";
 
 const HELP = `usage: circuit <command> [device...] [options]
 
@@ -569,7 +569,7 @@ async function studioCommand(): Promise<void> {
     const port = Number(flagValue("port") ?? 4600);
     if (!Number.isInteger(port) || port < 1 || port > 65535) fail("--port takes a number from 1 to 65535");
 
-    const { studio } = await import("./studio/server");
+    const { studio } = await import("../studio/server");
     await studio({ configPath, root, port, open: !flags.includes("--no-open") });
 }
 

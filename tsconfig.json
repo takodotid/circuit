@@ -20,6 +20,6 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true
     },
-    "include": ["src/**/*.ts", "src/cli/studio/public/*.js", "examples/**/*.ts", "templates/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
+    "include": ["src/**/*.ts", "src/studio/public/*.js", "examples/**/*.ts", "templates/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
     "exclude": ["node_modules"]
 }
