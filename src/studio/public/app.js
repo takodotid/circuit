@@ -42,12 +42,21 @@ function showSummary() {
     const count = problemCount(studio);
     problems.textContent = count ? String(count) : "";
 
-    summary.textContent = [
-        `${devices} ${devices === 1 ? "device" : "devices"}`,
-        `${errors} ${errors === 1 ? "error" : "errors"}`,
-        `${warnings} ${warnings === 1 ? "warning" : "warnings"}`,
-        `${drifted} unlike the snapshot`,
-    ].join(" · ");
+    const items = [
+        { value: devices, label: devices === 1 ? "device" : "devices", state: "neutral" },
+        { value: errors, label: errors === 1 ? "error" : "errors", state: errors ? "error" : "quiet" },
+        { value: warnings, label: warnings === 1 ? "warning" : "warnings", state: warnings ? "warning" : "quiet" },
+        { value: drifted, label: "unlike the snapshot", state: drifted ? "changed" : "quiet" },
+    ];
+
+    summary.replaceChildren(
+        ...items.map(({ value, label, state }) => {
+            const item = document.createElement("span");
+            item.className = `summary-item ${state}`;
+            item.append(String(value), ` ${label}`);
+            return item;
+        })
+    );
 }
 
 /** Show the place the address names, such as `#graph/bgp` or `#devices/edge-01/ports`. */
@@ -93,6 +102,15 @@ function route() {
 }
 
 window.addEventListener("hashchange", route);
+
+// A menu closes once one of its items is chosen, or when the reader clicks anywhere else.
+document.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : undefined;
+
+    for (const menu of document.querySelectorAll("details.menu[open]")) {
+        if (!target || !menu.contains(target) || target.closest(".menu-items button")) menu.removeAttribute("open");
+    }
+});
 
 /** @type {ReturnType<typeof setTimeout> | undefined} */
 let searching;
