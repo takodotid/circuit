@@ -392,8 +392,8 @@ function draw() {
         nodeLayer.append(group);
 
         // Each box fits its text, so it is measured once drawn.
-        const width = Math.max(...texts.map((text) => text.getComputedTextLength()), node.kind === "device" ? 110 : 0) + 32;
-        const height = node.kind === "device" ? 104 : 34;
+        const width = Math.max(...texts.map((text) => text.getComputedTextLength()), node.kind === "device" ? 150 : 0) + 32;
+        const height = node.kind === "device" ? 126 : 34;
         rect.setAttribute("x", String(-width / 2));
         rect.setAttribute("y", String(-height / 2));
         rect.setAttribute("width", String(width));
@@ -402,10 +402,10 @@ function draw() {
         if (node.kind === "device") {
             const image = s("image", {
                 href: "device-switch.png",
-                x: -width / 2 + 14,
-                y: -43,
-                width: width - 28,
-                height: 42,
+                x: -width / 2 + 16,
+                y: -54,
+                width: width - 32,
+                height: 56,
                 preserveAspectRatio: "xMidYMid meet",
                 "aria-hidden": "true",
             });
@@ -551,9 +551,9 @@ function fit() {
     const box = svg.getBoundingClientRect();
     const xs = points.map((point) => point.x);
     const ys = points.map((point) => point.y);
-    const width = Math.max(...xs) - Math.min(...xs) + 240;
-    const height = Math.max(...ys) - Math.min(...ys) + 160;
-    const k = Math.min(Math.max(Math.min(box.width / width, box.height / height), 0.15), 1.5);
+    const width = Math.max(...xs) - Math.min(...xs) + 190;
+    const height = Math.max(...ys) - Math.min(...ys) + 130;
+    const k = Math.min(Math.max(Math.min(box.width / width, box.height / height), 0.15), 1.8);
 
     const centre = { x: (Math.max(...xs) + Math.min(...xs)) / 2, y: (Math.max(...ys) + Math.min(...ys)) / 2 };
     view = { k, x: box.width / 2 - centre.x * k, y: box.height / 2 - centre.y * k };
