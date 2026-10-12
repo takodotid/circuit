@@ -1,7 +1,90 @@
-import { defineConfig } from "vitepress";
+import { defineConfig, type DefaultTheme } from "vitepress";
 import circuit from "../../package.json";
+import { describe, seoHead } from "./seo";
 
 const repository = circuit.repository.url.replace(/^git\+/, "").replace(/\.git$/, "");
+
+const sidebar: DefaultTheme.SidebarItem[] = [
+    {
+        text: "Guide",
+        items: [
+            { text: "Introduction", link: "/guide/introduction" },
+            { text: "Getting started", link: "/guide/getting-started" },
+            { text: "Devices", link: "/guide/devices" },
+            { text: "The network", link: "/guide/network" },
+            { text: "Secrets", link: "/guide/secrets" },
+            { text: "CLI commands", link: "/guide/cli" },
+            { text: "Printing the graph", link: "/guide/graph" },
+            { text: "Finding a free address", link: "/guide/addresses" },
+            { text: "Scheduled refresh", link: "/guide/scheduled-refresh" },
+            { text: "How a change is applied", link: "/guide/convergence" },
+            { text: "BGP communities", link: "/guide/communities" },
+            { text: "Publishing the network", link: "/guide/publishing" },
+            { text: "Presets", link: "/guide/presets" },
+            { text: "FAQ", link: "/guide/faq" },
+            { text: "Glossary", link: "/guide/glossary" },
+        ],
+    },
+    {
+        text: "Circuit Studio",
+        items: [
+            { text: "Overview", link: "/studio/" },
+            { text: "The graph", link: "/studio/graph" },
+            { text: "Looking things up", link: "/studio/tables" },
+            { text: "Tools", link: "/studio/tools" },
+            { text: "Reviewing changes", link: "/studio/changes" },
+            { text: "Hosting", link: "/studio/hosting" },
+        ],
+    },
+    {
+        text: "Working with others",
+        items: [
+            { text: "AI agents", link: "/integrations/ai-agents" },
+            { text: "1Password", link: "/integrations/1password" },
+            { text: "Prometheus", link: "/integrations/prometheus" },
+            { text: "LibreNMS", link: "/integrations/librenms" },
+        ],
+    },
+    {
+        text: "Patterns",
+        items: [
+            { text: "Overview", link: "/patterns/" },
+            { text: "A single site", link: "/patterns/single-site" },
+            { text: "An edge router", link: "/patterns/edge-router" },
+            { text: "Colocation with tenants", link: "/patterns/colocation" },
+        ],
+    },
+    {
+        text: "Use cases",
+        items: [
+            { text: "Overview", link: "/use-cases/" },
+            { text: "Selling IP transit", link: "/use-cases/ip-transit" },
+            { text: "Selling IX-only transit", link: "/use-cases/ix-transit" },
+            { text: "Running an internet exchange", link: "/use-cases/internet-exchange" },
+        ],
+    },
+    {
+        text: "Platforms",
+        items: [
+            { text: "Support", link: "/platforms/" },
+            { text: "RouterOS", link: "/platforms/routeros" },
+            { text: "VRP", link: "/platforms/vrp" },
+            { text: "Raisecom ROS", link: "/platforms/raisecom-ros" },
+        ],
+    },
+    {
+        text: "Reference",
+        items: [{ text: "Schema", link: "/reference/schema" }],
+    },
+    {
+        text: "Project",
+        items: [
+            { text: "Contributing", link: "/contributing" },
+            { text: "Credits", link: "/credits" },
+            { text: "License", link: "/license" },
+        ],
+    },
+];
 
 export default defineConfig({
     title: "Circuit",
@@ -16,10 +99,30 @@ export default defineConfig({
 
     head: [
         ["meta", { name: "author", content: circuit.author.name }],
+        ["meta", { name: "robots", content: "index, follow, max-image-preview:large, max-snippet:-1" }],
+        ["meta", { name: "theme-color", content: "#0a47b8" }],
         ["link", { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
         // Special Gothic is shared by the documentation site and Circuit Studio, and served from the site itself.
         ["link", { rel: "preload", href: "/fonts/special-gothic-latin.woff2", as: "font", type: "font/woff2", crossorigin: "" }],
     ],
+
+    // A page without a description of its own is described by its first paragraph, so each page shows its own words in search results.
+    transformPageData(pageData, { siteConfig }) {
+        if (pageData.frontmatter.description || pageData.isNotFound) return;
+
+        const description = describe(`${siteConfig.srcDir}/${pageData.relativePath}`);
+        if (description) pageData.description = description;
+    },
+
+    transformHead: ({ pageData }) =>
+        seoHead(pageData, {
+            hostname: circuit.homepage,
+            name: "Circuit",
+            description: circuit.description,
+            repository,
+            version: circuit.version,
+            sidebar,
+        }),
 
     // Code is set on a navy ground in both themes, like the editor in the home page's drawing.
     markdown: {
@@ -36,87 +139,7 @@ export default defineConfig({
             { text: "Releases", link: `${repository}/releases` },
         ],
 
-        sidebar: [
-            {
-                text: "Guide",
-                items: [
-                    { text: "Introduction", link: "/guide/introduction" },
-                    { text: "Getting started", link: "/guide/getting-started" },
-                    { text: "Devices", link: "/guide/devices" },
-                    { text: "The network", link: "/guide/network" },
-                    { text: "Secrets", link: "/guide/secrets" },
-                    { text: "CLI commands", link: "/guide/cli" },
-                    { text: "Printing the graph", link: "/guide/graph" },
-                    { text: "Finding a free address", link: "/guide/addresses" },
-                    { text: "Scheduled refresh", link: "/guide/scheduled-refresh" },
-                    { text: "How a change is applied", link: "/guide/convergence" },
-                    { text: "BGP communities", link: "/guide/communities" },
-                    { text: "Publishing the network", link: "/guide/publishing" },
-                    { text: "Presets", link: "/guide/presets" },
-                    { text: "FAQ", link: "/guide/faq" },
-                    { text: "Glossary", link: "/guide/glossary" },
-                ],
-            },
-            {
-                text: "Circuit Studio",
-                items: [
-                    { text: "Overview", link: "/studio/" },
-                    { text: "The graph", link: "/studio/graph" },
-                    { text: "Looking things up", link: "/studio/tables" },
-                    { text: "Tools", link: "/studio/tools" },
-                    { text: "Reviewing changes", link: "/studio/changes" },
-                    { text: "Hosting", link: "/studio/hosting" },
-                ],
-            },
-            {
-                text: "Working with others",
-                items: [
-                    { text: "AI agents", link: "/integrations/ai-agents" },
-                    { text: "1Password", link: "/integrations/1password" },
-                    { text: "Prometheus", link: "/integrations/prometheus" },
-                    { text: "LibreNMS", link: "/integrations/librenms" },
-                ],
-            },
-            {
-                text: "Patterns",
-                items: [
-                    { text: "Overview", link: "/patterns/" },
-                    { text: "A single site", link: "/patterns/single-site" },
-                    { text: "An edge router", link: "/patterns/edge-router" },
-                    { text: "Colocation with tenants", link: "/patterns/colocation" },
-                ],
-            },
-            {
-                text: "Use cases",
-                items: [
-                    { text: "Overview", link: "/use-cases/" },
-                    { text: "Selling IP transit", link: "/use-cases/ip-transit" },
-                    { text: "Selling IX-only transit", link: "/use-cases/ix-transit" },
-                    { text: "Running an internet exchange", link: "/use-cases/internet-exchange" },
-                ],
-            },
-            {
-                text: "Platforms",
-                items: [
-                    { text: "Support", link: "/platforms/" },
-                    { text: "RouterOS", link: "/platforms/routeros" },
-                    { text: "VRP", link: "/platforms/vrp" },
-                    { text: "Raisecom ROS", link: "/platforms/raisecom-ros" },
-                ],
-            },
-            {
-                text: "Reference",
-                items: [{ text: "Schema", link: "/reference/schema" }],
-            },
-            {
-                text: "Project",
-                items: [
-                    { text: "Contributing", link: "/contributing" },
-                    { text: "Credits", link: "/credits" },
-                    { text: "License", link: "/license" },
-                ],
-            },
-        ],
+        sidebar,
 
         socialLinks: [
             { icon: "npm", link: `https://www.npmjs.com/package/${circuit.name}` },

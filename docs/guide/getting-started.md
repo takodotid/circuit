@@ -1,3 +1,7 @@
+---
+description: What you need to run Circuit, how to start a project with circuit new, and the first run against a real device.
+---
+
 # Getting started
 
 ## What you need
