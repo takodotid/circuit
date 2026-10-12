@@ -22,7 +22,7 @@ Documentation: [circuit.tako.id](https://circuit.tako.id)
 
 <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/public/screenshots/studio-dark.png">
-    <img src="docs/public/screenshots/studio-light.png" alt="Studio's graph showing the cables between five devices. One device is outlined in amber because it differs from its last snapshot.">
+    <img src="docs/public/screenshots/studio-light.png" alt="Studio's VLAN graph with devices that differ from their snapshots marked by amber dashed borders, beside the layer details and legend.">
 </picture>
 
 ## Start

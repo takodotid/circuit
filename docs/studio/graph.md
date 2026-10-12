@@ -2,8 +2,8 @@
 
 The graph draws your network from your files, one layer at a time: which cable goes where, which VLANs each one carries, which devices share an address range, and every BGP session, OSPF neighbor and tunnel.
 
-<img class="screenshot light" src="/screenshots/studio-light.png" alt="Studio's graph showing the cables between five devices. One device is outlined in amber because it differs from its last snapshot.">
-<img class="screenshot dark" src="/screenshots/studio-dark.png" alt="Studio's graph showing the cables between five devices. One device is outlined in amber because it differs from its last snapshot.">
+<img class="screenshot light" src="/screenshots/studio-light.png" alt="Studio's VLAN graph with devices that differ from their snapshots marked by amber dashed borders, beside the layer details and legend.">
+<img class="screenshot dark" src="/screenshots/studio-dark.png" alt="Studio's VLAN graph with devices that differ from their snapshots marked by amber dashed borders, beside the layer details and legend.">
 
 1. Pick a layer below the top bar. The keys 1 to 6 do the same.
 2. Click a device or a line to see everything about it on the right. **Everything it holds** opens the device's page.
