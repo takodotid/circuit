@@ -15,7 +15,30 @@ export type StudioOptions = {
     port: number;
     /** Open the browser once the server listens. */
     open: boolean;
+    /** The address to listen on: 127.0.0.1 on a machine of one's own, or a server's address. */
+    host: string;
+    /** Names besides this machine's own that requests may be addressed to, such as `studio.example.com` behind a proxy. */
+    allowHosts: string[];
 };
+
+/** Whether an address to listen on is this machine's own, which nothing else on the network can reach. */
+export const isLoopback = (host: string) => host === "localhost" || host === "::1" || /^127\.\d+\.\d+\.\d+$/.test(host);
+
+/**
+ * Whether a request's Host header names studio, so a web page elsewhere cannot read the network through a name it points here.
+ *
+ * Studio answers to this machine's own names at its port, and to each name it was told to, with or without a port.
+ */
+export function hostAllowed(header: string | undefined, port: number, allowHosts: readonly string[]): boolean {
+    if (!header) return false;
+    if (header === `127.0.0.1:${port}` || header === `localhost:${port}` || header === `[::1]:${port}`) return true;
+
+    const name = header.replace(/:\d+$/, "").toLowerCase();
+    return allowHosts.some((allowed) => {
+        const wanted = allowed.toLowerCase();
+        return wanted === header.toLowerCase() || wanted === name;
+    });
+}
 
 /** Directories whose changes never change what studio shows. */
 const IGNORED = /(^|[\\/])(node_modules|\.git|\.circuit[\\/]cache)([\\/]|$)/;
@@ -84,11 +107,8 @@ export async function studio(options: StudioOptions): Promise<void> {
         for (const listener of listeners) listener.write(`data: ${message}\n\n`);
     };
 
-    // Only this machine's own names are answered, so a web page elsewhere cannot read the network through a name it points here.
-    const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
-
     const server = createServer((request, response) => {
-        if (!allowedHosts.has(request.headers.host ?? "")) {
+        if (!hostAllowed(request.headers.host, port, options.allowHosts)) {
             response.writeHead(403).end();
             return;
         }
@@ -137,8 +157,14 @@ export async function studio(options: StudioOptions): Promise<void> {
             return;
         }
 
+        // Changes are told as they happen; a proxy such as nginx is asked not to hold them back.
         if (path === "/events") {
-            response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
+            response.writeHead(200, {
+                "content-type": "text/event-stream",
+                "cache-control": "no-store",
+                connection: "keep-alive",
+                "x-accel-buffering": "no",
+            });
             response.write(": connected\n\n");
 
             listeners.add(response);
@@ -182,9 +208,10 @@ export async function studio(options: StudioOptions): Promise<void> {
         process.exit(1);
     });
 
-    server.listen(port, "127.0.0.1", () => {
-        const url = `http://127.0.0.1:${port}`;
-        console.log(`Studio at ${url}, watching ${root}. Stop it with Ctrl+C.`);
-        if (options.open) openBrowser(url);
+    server.listen(port, options.host, () => {
+        const local = isLoopback(options.host);
+        const url = local ? `http://127.0.0.1:${port}` : `http://${options.allowHosts[0] ?? options.host}`;
+        console.log(`Studio at ${url}, listening on ${options.host}:${port}, watching ${root}. Stop it with Ctrl+C.`);
+        if (options.open && local) openBrowser(url);
     });
 }

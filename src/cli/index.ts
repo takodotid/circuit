@@ -53,6 +53,9 @@ const HELP = `usage: circuit <command> [device...] [options]
   studio                the graph in the browser, drawn again whenever the config changes
                           --port=4600    the port it listens on, on this machine only
                           --no-open      do not open the browser
+                          --host=0.0.0.0 listen on a server's address instead, with --allow-host
+                          --allow-host=studio.example.com
+                                         the names it is reached by, several with commas
                           --json         print what studio shows, as JSON, instead
 
   --config <path>       the network's config file, circuit.config.ts in the working directory by default`;
@@ -579,8 +582,16 @@ async function studioCommand(): Promise<void> {
     const port = Number(flagValue("port") ?? 4600);
     if (!Number.isInteger(port) || port < 1 || port > 65535) fail("--port takes a number from 1 to 65535");
 
-    const { studio } = await import("../studio/server");
-    await studio({ configPath, root, port, open: !flags.includes("--no-open") });
+    const { isLoopback, studio } = await import("../studio/server");
+    const host = flagValue("host") ?? "127.0.0.1";
+    const allowHosts = (flagValue("allow-host") ?? "").split(",").filter(Boolean);
+
+    // Off this machine, studio must be told the names it is reached by: every other name is refused.
+    if (!isLoopback(host) && !allowHosts.length) {
+        fail(`studio on ${host} needs --allow-host=<name>, the name people reach it by, such as studio.example.com`);
+    }
+
+    await studio({ configPath, root, port, open: !flags.includes("--no-open"), host, allowHosts });
 }
 
 const commands: Record<string, () => void | Promise<void>> = {
