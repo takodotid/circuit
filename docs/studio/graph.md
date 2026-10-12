@@ -11,7 +11,11 @@ The graph draws your network from your files, one layer at a time: which cable g
 
 More than three lines between the same two devices are drawn as one, such as **18 shared prefixes**. Click it to list them all.
 
-Drag a device to move it, drag the empty space to move the whole drawing, and scroll to zoom. A network too large to read whole opens on its busiest device; **Fit** shows all of it. Your browser remembers where you put each device. **Lay out again** forgets that and starts over. **Save image** saves the layer shown, as it looks, as an SVG or a PNG. The Circuit Studio name at the top left always brings you back to the graph.
+Drag a device to move it, drag the empty space to move the whole drawing, and scroll to zoom. A network too large to read whole opens on its busiest device; **Fit** shows all of it.
+
+Each layer is laid out for its own lines, so the BGP layer is arranged around the sessions and the cables layer around the cables. A layer starts from where its devices are on the cables layer, so it still looks like the same network, and when you change layer each device glides to its place on the new one. A device with no line on a layer waits in a row under the drawing. Your browser remembers where you put each device on each layer, and moving one on a layer leaves the others as they are. **Lay out again** forgets the layer shown and lays it out afresh.
+
+**Save image** saves the layer shown, as it looks, as an SVG or a PNG. The Circuit Studio name at the top left always brings you back to the graph.
 
 ## The layers
 

@@ -85,10 +85,28 @@ let tour;
 /** @param {GraphEdge} edge */
 const edgeKey = (edge) => `${edge.layer} ${edge.from} ${edge.to} ${edge.label}`;
 let view = { x: 0, y: 0, k: 1 };
+/** Where the reader left each layer's view, as each layer is a drawing of its own. @type {Map<Layer, typeof view>} */
+const views = new Map();
 
-const saved = /** @type {Record<string, [number, number]>} */ (store.get("positions") ?? {});
-/** @type {Map<string, Point>} */
-const positions = new Map(Object.entries(saved).map(([id, [x, y]]) => [id, { x, y }]));
+/** @typedef {Record<string, [number, number]>} SavedPlaces */
+
+const saved = /** @type {Partial<Record<Layer, SavedPlaces>>} */ (store.get("layouts") ?? {});
+// The one layout an earlier Studio kept for every layer carries on as the cables layer's.
+const earlier = /** @type {SavedPlaces | undefined} */ (store.get("positions"));
+
+/** Where each node is on each layer: every layer is laid out for its own lines, and keeps where its devices were moved. @type {Map<Layer, Map<string, Point>>} */
+const layouts = new Map(
+    LAYERS.map((name) => {
+        const places = saved[name] ?? (name === "l1" ? earlier : undefined) ?? {};
+        return [name, new Map(Object.entries(places).map(([id, [x, y]]) => [id, { x, y }]))];
+    })
+);
+
+/** @param {Layer} name */
+const layoutOf = (name) => /** @type {Map<string, Point>} */ (layouts.get(name));
+
+/** Where nodes are drawn now: the layer's own places, or, while the layer changes, the places on the way there. */
+let positions = layoutOf(layer);
 
 /** @type {Map<string, SVGGElement>} */
 const nodeElements = new Map();
@@ -96,7 +114,9 @@ const nodeElements = new Map();
 const edgeElements = [];
 
 function savePositions() {
-    store.set("positions", Object.fromEntries([...positions].map(([id, point]) => [id, [Math.round(point.x), Math.round(point.y)]])));
+    /** @param {Map<string, Point>} places */
+    const rounded = (places) => Object.fromEntries([...places].map(([id, point]) => [id, [Math.round(point.x), Math.round(point.y)]]));
+    store.set("layouts", Object.fromEntries([...layouts].map(([name, places]) => [name, rounded(places)])));
 }
 
 /**
@@ -111,17 +131,23 @@ function hash(text) {
 }
 
 /**
- * Place nodes with a force layout: every node pushes every other away, and each edge pulls its ends together. A node placed before keeps its place unless `fresh`, so the drawing does not jump when the config changes.
- * Every layer is laid out together, so a device stays where it is when the layer changes.
+ * Place one layer's nodes with a force layout: every node pushes every other away, and each of the layer's edges pulls its ends together. A node placed before keeps its place unless `fresh`, so the drawing does not jump when the config changes.
+ * A node new to a layer starts where it is on the cables layer, so each layer is laid out for its own lines yet still looks like the same network.
  *
  * @param {GraphNode[]} nodes
  * @param {GraphEdge[]} edges
  * @param {boolean} fresh
+ * @param {Map<string, Point>} places the layer's places, filled in
+ * @param {Map<string, Point>} [seed] places to start new nodes from
  */
-function layout(nodes, edges, fresh) {
-    if (fresh) positions.clear();
+function layout(nodes, edges, fresh, places, seed) {
+    if (fresh) places.clear();
 
-    const fixed = new Set(nodes.filter((node) => positions.has(node.id)).map((node) => node.id));
+    /** @param {GraphNode} node */
+    const halfWidth = (node) =>
+        node.kind === "device" ? Math.max(node.label.length * 10, (node.detail[0] ?? "").length * 7) / 2 + 60 : node.label.length * 4 + 30;
+
+    const fixed = new Set(nodes.filter((node) => places.has(node.id)).map((node) => node.id));
     /** @type {Map<string, Set<string>>} */
     const neighbors = new Map();
 
@@ -133,29 +159,64 @@ function layout(nodes, edges, fresh) {
         neighbors.get(edge.to)?.add(edge.from);
     }
 
+    // A device with no line on this layer is set in a row under the drawing, rather than pushed out to its edges by the rest.
+    const loose = edges.length ? nodes.filter((node) => !neighbors.has(node.id) && !places.has(node.id)) : [];
+    const linked = nodes.filter((node) => !loose.includes(node));
+
+    function park() {
+        if (!loose.length) return;
+
+        const placed = linked.flatMap((node) => places.get(node.id) ?? []);
+        const left = placed.length ? Math.min(...placed.map((point) => point.x)) : 0;
+        const right = left + Math.max(placed.length ? Math.max(...placed.map((point) => point.x)) - left : 0, 900);
+        let x = left;
+        let y = (placed.length ? Math.max(...placed.map((point) => point.y)) : 0) + 130;
+
+        for (const node of [...loose].sort((a, b) => a.label.localeCompare(b.label))) {
+            const half = halfWidth(node);
+            if (x > left && x + half * 2 > right) {
+                x = left;
+                y += 96;
+            }
+
+            places.set(node.id, { x: x + half, y });
+            x += half * 2 + 24;
+        }
+
+        savePositions();
+    }
+
+    nodes = linked;
+
     // A new node starts beside a neighbor already placed, or on a circle.
     const radius = 60 * Math.sqrt(nodes.length + 1);
 
     for (const node of nodes) {
-        if (positions.has(node.id)) continue;
+        if (places.has(node.id)) continue;
+
+        const start = seed?.get(node.id);
+        if (start) {
+            places.set(node.id, { ...start });
+            continue;
+        }
 
         const angle = hash(node.id) * Math.PI * 2;
-        const placed = [...(neighbors.get(node.id) ?? [])].map((id) => positions.get(id)).find(Boolean);
+        const placed = [...(neighbors.get(node.id) ?? [])].map((id) => places.get(id)).find(Boolean);
         const distance = placed ? 90 : radius;
         const origin = placed ?? { x: 0, y: 0 };
 
-        positions.set(node.id, { x: origin.x + Math.cos(angle) * distance, y: origin.y + Math.sin(angle) * distance });
+        places.set(node.id, { x: origin.x + Math.cos(angle) * distance, y: origin.y + Math.sin(angle) * distance });
     }
 
     const moving = nodes.filter((node) => !fixed.has(node.id));
-    if (!moving.length) return;
+    if (!moving.length) return park();
 
     const pairs = [...neighbors].flatMap(([from, tos]) => [...tos].filter((to) => from < to).map((to) => [from, to]));
     const ideal = 170;
     const rounds = fixed.size ? 200 : 500;
 
     /** @param {string} id */
-    const at = (id) => /** @type {Point} */ (positions.get(id));
+    const at = (id) => /** @type {Point} */ (places.get(id));
 
     for (let round = 0; round < rounds; round++) {
         const heat = 40 * (1 - round / rounds) + 1;
@@ -187,7 +248,7 @@ function layout(nodes, edges, fresh) {
         }
 
         for (const [from, to] of pairs) {
-            if (!from || !to || !positions.has(from) || !positions.has(to)) continue;
+            if (!from || !to || !places.has(from) || !places.has(to)) continue;
 
             const dx = at(from).x - at(to).x;
             const dy = at(from).y - at(to).y;
@@ -215,9 +276,6 @@ function layout(nodes, edges, fresh) {
     }
 
     // No box may cover another: two that overlap are pushed apart the shorter way out, with room for the label of the line between them.
-    /** @param {GraphNode} node */
-    const halfWidth = (node) =>
-        node.kind === "device" ? Math.max(node.label.length * 10, (node.detail[0] ?? "").length * 7) / 2 + 60 : node.label.length * 4 + 30;
 
     for (let round = 0; round < 80; round++) {
         let overlapping = false;
@@ -248,25 +306,97 @@ function layout(nodes, edges, fresh) {
         if (!overlapping) break;
     }
 
+    park();
     savePositions();
 }
 
 // What is drawn.
-/** @returns {DrawnEdge[]} */
-const visibleEdges = () => {
-    const current = data?.edges.filter((edge) => edge.layer === layer) ?? [];
+
+/**
+ * A layer's edges, with those a comparison says are gone.
+ *
+ * @param {Layer} name
+ * @returns {DrawnEdge[]}
+ */
+const edgesOn = (name) => {
+    const current = data?.edges.filter((edge) => edge.layer === name) ?? [];
     if (!comparison) return current;
 
     // An edge the comparison says is gone is drawn when both its ends are still drawn.
     const nodes = new Set(data?.nodes.map((node) => node.id));
-    const gone = comparison.removed.filter((edge) => edge.layer === layer && nodes.has(edge.from) && nodes.has(edge.to));
+    const gone = comparison.removed.filter((edge) => edge.layer === name && nodes.has(edge.from) && nodes.has(edge.to));
     return [...current, ...gone.map((edge) => ({ ...edge, gone: /** @type {const} */ (true) }))];
 };
 
-/** @returns {GraphNode[]} */
-function visibleNodes() {
-    const ends = new Set(visibleEdges().flatMap((edge) => [edge.from, edge.to]));
+/**
+ * A layer's nodes: every device, and whatever else its edges end at.
+ *
+ * @param {Layer} name
+ * @returns {GraphNode[]}
+ */
+function nodesOn(name) {
+    const ends = new Set(edgesOn(name).flatMap((edge) => [edge.from, edge.to]));
     return data?.nodes.filter((node) => node.kind === "device" || ends.has(node.id)) ?? [];
+}
+
+const visibleEdges = () => edgesOn(layer);
+const visibleNodes = () => nodesOn(layer);
+
+/**
+ * Lay out a layer for its own lines. The cables layer comes first, as every other layer's new nodes start from it.
+ *
+ * @param {Layer} name
+ * @param {boolean} fresh forget where the layer's nodes were, and lay it out again
+ */
+function layOut(name, fresh) {
+    if (!data) return;
+    if (name !== "l1") layOut("l1", false);
+
+    layout(nodesOn(name), edgesOn(name), fresh, layoutOf(name), name === "l1" ? undefined : layoutOf("l1"));
+}
+
+/** The node glide between two layers' places, which a press stops. @type {number | undefined} */
+let regrouping;
+
+/** Put the nodes at their own layer's places now, ending a glide between layers. */
+function settle() {
+    if (regrouping !== undefined) cancelAnimationFrame(regrouping);
+    regrouping = undefined;
+    positions = layoutOf(layer);
+}
+
+/**
+ * Move the nodes from where they are drawn to their places on the layer shown, so the eye can follow each device to where it is on this layer.
+ *
+ * @param {Map<string, Point>} from
+ */
+function glideNodes(from) {
+    settle();
+
+    const to = layoutOf(layer);
+    if (still.matches || from === to) return;
+
+    /** @type {Map<string, Point>} */
+    const shown = new Map();
+    const began = performance.now();
+
+    /** @param {number} now */
+    const step = (now) => {
+        const t = Math.min((now - began) / 700, 1);
+        const eased = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+
+        for (const [id, end] of to) {
+            const start = from.get(id) ?? end;
+            shown.set(id, { x: start.x + (end.x - start.x) * eased, y: start.y + (end.y - start.y) * eased });
+        }
+
+        positions = t < 1 ? shown : to;
+        place();
+        regrouping = t < 1 ? requestAnimationFrame(step) : undefined;
+    };
+
+    positions = shown;
+    step(began);
 }
 
 /** @param {string} id */
@@ -449,10 +579,13 @@ function arrive(fresh) {
         if (edge.oneSided || edge.gone) {
             path.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 420, delay, easing: EASE, fill: "backwards" });
         } else {
-            const length = path.getTotalLength();
-            const start = { strokeDasharray: `${length} ${length}`, strokeDashoffset: forward ? length : -length };
-            const end = { strokeDasharray: `${length} ${length}`, strokeDashoffset: 0 };
-            path.animate([start, end], { duration: 560, delay, easing: EASE, fill: "backwards" });
+            // Measured as one whole length, so the line draws in right even while its ends glide to a new layer's places.
+            path.setAttribute("pathLength", "1");
+            const start = { strokeDasharray: "1 1", strokeDashoffset: forward ? 1 : -1 };
+            const end = { strokeDasharray: "1 1", strokeDashoffset: 0 };
+            const drawing = path.animate([start, end], { duration: 560, delay, easing: EASE, fill: "backwards" });
+            drawing.addEventListener("finish", () => path.removeAttribute("pathLength"));
+            drawing.addEventListener("cancel", () => path.removeAttribute("pathLength"));
         }
 
         for (const part of [label, ...group.querySelectorAll(".signal")]) {
@@ -634,6 +767,12 @@ function startDrag(event, id) {
     if (event.button !== 0) return;
     if (gliding !== undefined) cancelAnimationFrame(gliding);
     gliding = undefined;
+
+    // A press ends a glide between layers, so a device is moved from its own place on this layer.
+    if (regrouping !== undefined) {
+        settle();
+        place();
+    }
     event.stopPropagation();
 
     svg.setPointerCapture(event.pointerId);
@@ -757,8 +896,10 @@ function fit(readable = false, glide = false) {
  * @returns {typeof view | undefined}
  */
 function framing(nodes, readable) {
+    // Framed where the nodes are going, not where a glide between layers has them now.
+    const places = layoutOf(layer);
     const points = nodes.flatMap((node) => {
-        const point = positions.get(node.id);
+        const point = places.get(node.id);
         return point ? [point] : [];
     });
     if (!points.length) return undefined;
@@ -776,8 +917,8 @@ function framing(nodes, readable) {
     const degree = (/** @type {string} */ id) => edges.filter((edge) => edge.from === id || edge.to === id).length;
     const hub = [...nodes].sort((a, b) => degree(b.id) - degree(a.id))[0];
     const centre =
-        k > whole && hub && positions.has(hub.id)
-            ? /** @type {Point} */ (positions.get(hub.id))
+        k > whole && hub && places.has(hub.id)
+            ? /** @type {Point} */ (places.get(hub.id))
             : { x: (Math.max(...xs) + Math.min(...xs)) / 2, y: (Math.max(...ys) + Math.min(...ys)) / 2 };
 
     // Presenting leaves room for the slow drift and the caption, so nothing framed is cut at the screen's edge.
@@ -807,7 +948,8 @@ byId("fit").addEventListener("click", () => fit());
 
 byId("lay-out").addEventListener("click", () => {
     if (!data) return;
-    layout(data.nodes, data.edges, true);
+    layOut(layer, true);
+    settle();
     draw();
     fit();
 });
@@ -1200,7 +1342,7 @@ export function setGraph(next) {
         selection = same ? { edge: same } : undefined;
     }
 
-    layout(data.nodes, data.edges, false);
+    layOut(layer, false);
 }
 
 /**
@@ -1227,20 +1369,32 @@ export function showLayer(next) {
         pendingPath = undefined;
     }
 
-    // The first view draws the whole network in; a new layer draws in its own lines.
+    // The first view draws the whole network in; a new layer draws in its own lines while its devices glide to their places on it.
     const arrival = !drawn && data ? "network" : next !== layer ? "cables" : undefined;
+    const from = positions;
+    if (drawn) views.set(layer, { ...view });
 
     layer = next;
     store.set("layer", layer);
+    layOut(layer, false);
+
+    if (arrival === "cables") glideNodes(from);
+    else settle();
 
     showLayerButtons();
     draw(arrival);
     showPanel();
     showCaption();
 
-    // Presenting shows the whole layer as it comes in; a first view on a laptop starts where names can be read.
+    // Presenting shows the whole layer as it comes in; a first view on a laptop starts where names can be read. A layer shown before
+    // comes back as the reader left it, and one shown for the first time glides into view.
     if (presenting && arrival) fit();
     else if (!drawn && data) fit(true);
+    else if (arrival === "cables") {
+        const left = views.get(layer);
+        if (left) glideTo(left);
+        else fit(true, true);
+    }
     drawn = data !== undefined;
 }
 
