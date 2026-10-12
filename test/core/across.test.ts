@@ -1,9 +1,9 @@
 // Rules across devices: each mistake that spans two devices is found on the device that makes it, and a network where both ends agree passes.
 
 import { expect, test } from "bun:test";
-import { defineDevice, defineNetwork, secret } from "../src/core/define";
-import { validate } from "../src/core/validate";
-import type { Device } from "../src/schema";
+import { defineDevice, defineNetwork, secret } from "../../src/core/define";
+import { validate } from "../../src/core/validate";
+import type { Device } from "../../src/schema";
 
 const findings = (...devices: Device[]) =>
     validate(defineNetwork({ devices })).map((finding) => `${finding.level} ${finding.device}: ${finding.message}`);

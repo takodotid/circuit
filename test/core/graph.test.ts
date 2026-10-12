@@ -1,9 +1,9 @@
 // The graph is read from the config alone: each layer finds what the fields say, matches the far end where it is one of our devices, and marks what only one end declares.
 
 import { expect, test } from "bun:test";
-import { dot, mermaid } from "../src/cli/graph";
-import { defineDevice, secret } from "../src/core/define";
-import { graphOf, only, type GraphEdge } from "../src/core/graph";
+import { dot, mermaid } from "../../src/cli/graph";
+import { defineDevice, secret } from "../../src/core/define";
+import { graphOf, only, type GraphEdge } from "../../src/core/graph";
 
 const r1 = defineDevice({
     name: "r1",
