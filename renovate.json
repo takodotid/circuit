@@ -1,4 +1,11 @@
 {
     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-    "extends": ["local>takodotid/renovate-config"]
+    "extends": ["local>takodotid/renovate-config"],
+    "packageRules": [
+        {
+            "description": "engines is the oldest Node.js and Bun Circuit runs on, which the documentation promises; it is raised by hand, never to the latest.",
+            "matchDepTypes": ["engines"],
+            "enabled": false
+        }
+    ]
 }
