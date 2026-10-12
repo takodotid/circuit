@@ -44,6 +44,7 @@
     --circuit-ink: #11141b;
     --circuit-soft: #49536a;
     --circuit-line: #d3d9e7;
+    --circuit-head: #e4e9f4;
     --circuit-link: #0a47b8;
     --circuit-added: #11733b;
     --circuit-removed: #c0262c;
@@ -93,6 +94,7 @@
     --circuit-ink: #f1f4fb;
     --circuit-soft: #a9b4cc;
     --circuit-line: #26314d;
+    --circuit-head: #18223d;
     --circuit-link: #9cb9ff;
     --circuit-added: #5fd38f;
     --circuit-removed: #ff8086;
@@ -276,15 +278,19 @@ body {
     border-top: 1px solid var(--circuit-line);
 }
 
+/* The head is a tinted band rather than a rule, so it is never read as a divider between rows. */
+.vp-doc thead tr {
+    border-top: 0;
+}
+
 .vp-doc th,
 .vp-doc td {
     border: 0;
-    padding: 10px 14px 10px 0;
+    padding: 10px 14px;
 }
 
 .vp-doc th {
-    border-bottom: 2px solid var(--circuit-ink);
-    background: transparent;
+    background: var(--circuit-head);
     color: var(--circuit-ink);
     font-size: 12px;
     font-weight: 700;
