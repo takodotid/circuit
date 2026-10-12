@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { withBase } from "vitepress";
+import { useData, withBase } from "vitepress";
 import circuit from "../../../package.json";
 import { catalog } from "../../../src/adapters/devices/catalog";
 
 const install = "npx @takodotid/circuit new";
 const copied = ref(false);
+const { isDark } = useData();
 
 async function copy() {
     await navigator.clipboard.writeText(install);
@@ -44,15 +45,12 @@ const users = [{ name: "Tako", logo: "/users/tako.png", link: "https://tako.id",
             </div>
 
             <figure class="section-model" aria-labelledby="figure-caption">
-                <picture>
-                    <source media="(prefers-color-scheme: dark)" :srcset="withBase('/illustrations/circuit-section-dark.png')" />
-                    <img
-                        :src="withBase('/illustrations/circuit-section-light.png')"
-                        alt="A section through three Circuit configuration files, a visible change plan and the network devices they define."
-                        width="1536"
-                        height="1024"
-                    />
-                </picture>
+                <img
+                    :src="withBase(isDark ? '/illustrations/circuit-section-dark.png' : '/illustrations/circuit-section-light.png')"
+                    alt="A section through three Circuit configuration files, a visible change plan and the network devices they define."
+                    width="1536"
+                    height="1024"
+                />
                 <figcaption id="figure-caption">One file for each device. What the file says is what the device runs.</figcaption>
             </figure>
         </header>
@@ -784,7 +782,9 @@ h1 span {
     bottom: 8px;
     max-width: 58%;
     margin: 0;
-    color: #c9cecf;
+    padding: 5px 8px;
+    background: rgb(20 24 25 / 88%);
+    color: #f4f0e5;
     font: 12px/1.4 var(--circuit-font);
 }
 
@@ -871,7 +871,11 @@ h2 {
     }
 
     .section-model figcaption {
-        max-width: 75%;
+        position: static;
+        max-width: none;
+        padding: 10px 12px;
+        background: var(--circuit-poche);
+        color: var(--circuit-limewash);
     }
 }
 
