@@ -164,9 +164,31 @@ const users = [{ name: "Tako", logo: "/users/tako.png", link: "https://tako.id",
     --mark: var(--vp-c-brand-1);
 
     position: relative;
+    display: flex;
+    flex-direction: column;
     max-width: 1040px;
     margin: 0 auto;
     padding: 56px 16px 120px;
+}
+
+.opening {
+    order: 0;
+}
+
+.chapter:nth-of-type(2) {
+    order: 1;
+}
+
+.users {
+    order: 2;
+}
+
+.chapter:nth-of-type(1) {
+    order: 3;
+}
+
+.chapter:nth-of-type(n + 3) {
+    order: 4;
 }
 
 @media (min-width: 768px) {
