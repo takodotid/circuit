@@ -2,6 +2,7 @@
 /// <reference lib="dom" />
 // Studio's tables, for reading the config without reading TypeScript: every device and everything it holds, and the network's VLANs, addresses, BGP sessions and cables.
 
+import { diffLines } from "./diff.js";
 import { go, h, link } from "./dom.js";
 import { currentLayer, LAYER_NAMES, lightVlan, selectDevice } from "./graph.js";
 
@@ -245,6 +246,48 @@ const SNAPSHOT_TEXT = {
     "no snapshot": "no snapshot yet",
     "cannot plan": "cannot be planned",
 };
+
+/**
+ * Two texts compared line by line: what is the same is folded away, except a few lines around each change.
+ *
+ * @param {string} before
+ * @param {string} after
+ * @returns {Child}
+ */
+function lineDiff(before, after) {
+    const lines = diffLines(before.trimEnd().split("\n"), after.trimEnd().split("\n"));
+    if (!lines) return empty("They differ in too many lines to compare one by one. The plan shows what would be sent.");
+
+    const changed = lines.filter((line) => line.kind !== "same").length;
+    if (!changed) return empty("They are the same, line for line.");
+
+    const context = 3;
+    const near = lines.map((_, index) =>
+        lines.slice(Math.max(0, index - context), index + context + 1).some((line) => line.kind !== "same")
+    );
+
+    const code = h("pre", { class: "code diff" });
+    let folded = 0;
+
+    const fold = () => {
+        if (folded) code.append(h("span", { class: "fold" }, `${folded} ${folded === 1 ? "line" : "lines"} the same\n`));
+        folded = 0;
+    };
+
+    for (const [index, line] of lines.entries()) {
+        if (!near[index]) {
+            folded++;
+            continue;
+        }
+
+        fold();
+        const mark = line.kind === "added" ? "+ " : line.kind === "removed" ? "- " : "  ";
+        code.append(h("span", { class: line.kind }, `${mark}${line.text}\n`));
+    }
+
+    fold();
+    return h("div", {}, empty(`${changed} ${changed === 1 ? "line differs" : "lines differ"}.`), code);
+}
 
 /** The fields the Ports table has columns of its own for. */
 const PORT_FIELDS = ["description", "access_vlan", "trunk_vlans", "native_vlan", "addresses", "lag", "link"];
@@ -549,6 +592,27 @@ const SECTIONS = [
             ),
             h("pre", { class: "code" }, data.rendered[device.name] ?? ""),
         ],
+    },
+    {
+        id: "running",
+        title: "Running",
+        has: () => true,
+        render(device) {
+            const snapshot = data.snapshots[device.name];
+            if (snapshot === undefined)
+                return [prose("No snapshot yet, so nothing to compare with: run ", h("code", {}, "circuit snapshot"), ".")];
+
+            return [
+                prose(
+                    "What the device ran when Circuit last read it, ",
+                    h("span", { class: "removed" }, "marked -"),
+                    ", beside what the config would have it run, ",
+                    h("span", { class: "added" }, "marked +"),
+                    ". Lines can differ only in order or form; the plan shows what would be sent."
+                ),
+                lineDiff(snapshot, data.rendered[device.name] ?? ""),
+            ];
+        },
     },
     {
         id: "plan",
