@@ -9,7 +9,7 @@ import { currentLayer, LAYER_NAMES, lightVlan, selectDevice } from "./graph.js";
 /** @typedef {import("../../schema").Device} Device */
 /** @typedef {import("../data").StudioData} StudioData */
 /** @typedef {import("./dom.js").Child} Child */
-/** A column named after a field shows the name as code. @typedef {{ head: { label: string, title?: string, field?: boolean }[], rows: { cells: Child[], muted?: boolean }[] }} Table */
+/** A column named after a field shows the name as code. @typedef {{ head: { label: string, title?: string, field?: boolean }[], rows: { cells: Child[], muted?: boolean, id?: string }[] }} Table */
 /** @typedef {{ id: string, title: string, has: (device: Device) => boolean, render: (device: Device) => Child[] }} Section */
 
 /** What the tables show, set each time they are drawn. @type {StudioData} */
@@ -83,7 +83,7 @@ function compact(value) {
  */
 function table({ head, rows }) {
     /** @param {Table["rows"][number]} row */
-    const attributesOf = (row) => ({ ...(row.muted ? { class: "muted" } : {}) });
+    const attributesOf = (row) => ({ ...(row.muted ? { class: "muted" } : {}), ...(row.id ? { id: row.id } : {}) });
 
     const element = h(
         "table",
@@ -248,6 +248,86 @@ const SNAPSHOT_TEXT = {
 };
 
 /**
+ * How a port is used, for its square on the faceplate.
+ *
+ * @param {Record<string, unknown> | undefined} port
+ * @returns {"shut" | "lag" | "access" | "trunk" | "routed" | "plain"}
+ */
+function portUse(port) {
+    if (!port) return "shut";
+    if (port.lag) return "lag";
+    if (port.access_vlan) return "access";
+    if (port.trunk_vlans) return "trunk";
+    if (port.addresses) return "routed";
+    return "plain";
+}
+
+/** @type {Record<ReturnType<typeof portUse>, string>} */
+const PORT_USES = {
+    shut: "shut down",
+    lag: "in a LAG",
+    access: "access",
+    trunk: "trunk",
+    routed: "routed",
+    plain: "up, nothing on it",
+};
+
+/**
+ * The device's ports as its front panel: one square per port, by speed, colored by how the port is used. A square points to its row.
+ *
+ * @param {Device} device
+ * @param {string[]} ports
+ * @param {Record<string, Record<string, unknown> | undefined>} declared
+ */
+function faceplate(device, ports, declared) {
+    /** @type {Map<string, string[]>} */
+    const bySpeed = new Map();
+    for (const name of ports) {
+        const speed = name.split("-")[0] ?? name;
+        bySpeed.set(speed, [...(bySpeed.get(speed) ?? []), name]);
+    }
+
+    const panel = h("div", { class: "faceplate", role: "group", "aria-label": `${device.name}'s ports` });
+
+    for (const [speed, names] of bySpeed) {
+        const squares = h("div", { class: "ports" });
+
+        for (const name of names) {
+            const port = declared[name];
+            const use = portUse(port);
+            const far = /** @type {{ device: string, port: string } | undefined} */ (port?.link);
+            const label = [name, PORT_USES[use], compact(port?.description), far ? `to ${far.device} ${far.port}` : ""]
+                .filter(Boolean)
+                .join(", ");
+
+            const square = h(
+                "button",
+                { class: `port ${use}${far ? " linked" : ""}`, title: label, "aria-label": label },
+                name.split("-")[1] ?? name
+            );
+            square.addEventListener("click", () => {
+                const row = document.getElementById(`port-${name}`);
+                row?.scrollIntoView({ block: "center", behavior: "smooth" });
+                row?.classList.add("flash");
+                setTimeout(() => row?.classList.remove("flash"), 1600);
+            });
+            squares.append(square);
+        }
+
+        panel.append(h("div", { class: "speed" }, h("span", { class: "speed-name" }, speed), squares));
+    }
+
+    const legend = h(
+        "ul",
+        { class: "faceplate-legend" },
+        ...Object.entries(PORT_USES).map(([use, text]) => h("li", {}, h("span", { class: `port ${use}` }), text)),
+        h("li", {}, h("span", { class: "port plain linked" }), "linked to another device")
+    );
+
+    return h("div", {}, panel, legend);
+}
+
+/**
  * Two texts compared line by line: what is the same is folded away, except a few lines around each change.
  *
  * @param {string} before
@@ -362,12 +442,14 @@ const SECTIONS = [
 
             const rows = all.map((name) => {
                 const port = declared[name];
-                if (!port) return { cells: [name, "not declared, so shut down", "", "", "", "", ""], muted: true };
+                const id = `port-${name}`;
+                if (!port) return { id, cells: [name, "not declared, so shut down", "", "", "", "", ""], muted: true };
 
                 const far = /** @type {{ device: string, port: string } | undefined} */ (port.link);
                 const other = Object.fromEntries(Object.entries(port).filter(([key]) => !PORT_FIELDS.includes(key)));
 
                 return {
+                    id,
                     cells: [
                         h("strong", {}, name),
                         compact(port.description),
@@ -389,6 +471,7 @@ const SECTIONS = [
 
             return [
                 h("p", { class: "muted" }, `${used} of ${all.length} ports declared. A port the config does not declare is shut down.`),
+                faceplate(device, all, declared),
                 table({
                     head: [
                         column("Port"),

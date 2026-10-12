@@ -487,6 +487,102 @@ svg.far .edge text {
     }
 }
 
+/* The row a port's square points to. */
+tr.flash td {
+    background: var(--segment);
+    transition: background 0.4s;
+}
+
+/* A device's front panel: a square per port, by speed. */
+.faceplate {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    padding: 12px;
+    margin: 8px 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+.faceplate .speed {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.faceplate .speed-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    min-width: 36px;
+}
+.faceplate .ports {
+    display: grid;
+    grid-template-rows: repeat(2, auto);
+    grid-auto-flow: column;
+    gap: 4px;
+}
+.port {
+    position: relative;
+    display: inline-block;
+    width: 28px;
+    height: 24px;
+    padding: 0;
+    font: 500 11px var(--font);
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--text);
+}
+.port.shut {
+    border-style: dashed;
+    color: var(--muted);
+    background: var(--bg);
+}
+.port.access {
+    background: var(--segment);
+    border-color: var(--accent);
+}
+.port.trunk {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+    color: var(--on-accent);
+}
+.port.routed {
+    border: 2px solid var(--text);
+}
+.port.lag {
+    border: 2px solid var(--accent);
+}
+.port.linked::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ok);
+}
+.faceplate-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px;
+    font-size: 12px;
+    color: var(--muted);
+}
+.faceplate-legend li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.faceplate-legend .port {
+    width: 18px;
+    height: 14px;
+}
+
 /* A line diff: removed lines, added lines, and runs of the same folded away. */
 pre.diff .removed,
 p .removed {
