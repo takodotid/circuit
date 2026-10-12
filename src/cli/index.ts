@@ -3,7 +3,7 @@
 
 import { createPrivateKey, createPublicKey } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { adapters } from "../adapters/devices";
 import type { ApplyOptions, DeviceAdapter, Plan } from "../adapters/devices/types";
 import { registries } from "../adapters/registries";
@@ -19,6 +19,7 @@ import { validate } from "../core/validate";
 import type { Device } from "../schema";
 import { dot, mermaid } from "./graph";
 import { applyRename, planRename, type RenamePlan } from "./rename";
+import { deviceFiles, projectSources } from "../core/files";
 import { studioData } from "../studio/data";
 
 const HELP = `usage: circuit <command> [device...] [options]
@@ -561,9 +562,15 @@ function renameCommand(): void {
 
 async function studioCommand(): Promise<void> {
     if (flags.includes("--json")) {
+        const sources = projectSources(root);
         const data = studioData(network.devices, annotatedGraph(LAYERS, []), {
             render: (device) => adapterOf(device).render(device),
             snapshot: (device) => (existsSync(statePath(device)) ? readFileSync(statePath(device), "utf8") : undefined),
+            files: (device) => ({
+                // Written with forward slashes on every system, as git and the page take them.
+                source: deviceFiles(root, device.name, sources)[0]?.split(sep).join("/"),
+                snapshot: existsSync(statePath(device)) ? relative(root, statePath(device)).split(sep).join("/") : undefined,
+            }),
         });
         console.log(JSON.stringify(data));
         return;

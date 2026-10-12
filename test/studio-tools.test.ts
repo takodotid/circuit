@@ -14,6 +14,7 @@ const data = studioData(
     {
         render: (device) => adapters[device.platform]!.render(device),
         snapshot: () => undefined,
+        files: () => ({}),
     }
 );
 
