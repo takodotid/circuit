@@ -2,7 +2,7 @@
 /// <reference lib="dom" />
 // The graph view: a force layout of every node, drawn one layer at a time, with panning, zooming, dragging, and a side panel for what is selected.
 
-import { byId, go, h, link, s, store, svgById } from "./dom.js";
+import { byId, enter, go, h, link, s, still, store, svgById } from "./dom.js";
 import { changeKey } from "./evaluate.js";
 import { pngOf, save, svgOf } from "./export.js";
 
@@ -51,6 +51,8 @@ const viewport = svgById("viewport");
 const edgeLayer = svgById("edges");
 const nodeLayer = svgById("nodes");
 const panel = byId("panel");
+const presentButton = byId("present");
+const caption = byId("present-caption");
 
 // State.
 /** @type {Annotated | undefined} */
@@ -73,6 +75,12 @@ let pendingPath;
 let pathFocus;
 /** A comparison with another commit: its name, the edges it adds, and those gone. @type {{ name: string, added: Set<string>, removed: GraphEdge[] } | undefined} */
 let comparison;
+/** Presenting: the network on a big screen, going through every layer and lighting its busiest devices in turn. Kept, so a screen that reloads stays on it. */
+let presenting = store.get("present") === true;
+/** The device lit while presenting; none while the whole layer is shown. @type {string | undefined} */
+let touring;
+/** @type {ReturnType<typeof setInterval> | undefined} */
+let tour;
 
 /** @param {GraphEdge} edge */
 const edgeKey = (edge) => `${edge.layer} ${edge.from} ${edge.to} ${edge.label}`;
@@ -325,6 +333,9 @@ const MOST_APART = 3;
 /** @type {Record<Layer, string>} */
 const MANY = { l1: "cables", l2: "cables", l3: "shared prefixes", bgp: "sessions", ospf: "adjacencies", tunnels: "tunnels" };
 
+/** @type {Record<Layer, string>} */
+const ONE = { l1: "cable", l2: "cable", l3: "shared prefix", bgp: "session", ospf: "adjacency", tunnels: "tunnel" };
+
 /**
  * The edges to draw: each on its own, or, past a few between the same two nodes, one for all of them.
  *
@@ -363,7 +374,101 @@ function bundled(edges) {
     });
 }
 
-function draw() {
+/**
+ * Dots that travel a cable both ends declare, so a link that works reads as one that carries traffic: one dot, or one each way while presenting. A cable only one end declares, or one a comparison shows is gone, carries none.
+ *
+ * @param {DrawnEdge} edge
+ * @param {string} id the id of the cable's drawn path, which the dots follow as it moves
+ */
+function signals(edge, id) {
+    if (still.matches || edge.oneSided || edge.gone) return [];
+
+    const a = positions.get(edge.from) ?? { x: 0, y: 0 };
+    const b = positions.get(edge.to) ?? { x: 0, y: 0 };
+    const seconds = Math.min(Math.max(Math.hypot(b.x - a.x, b.y - a.y) / (presenting ? 110 : 45), 1.6), 12);
+    const phase = hash(`${edge.from}${edge.to}${edge.label}`) * seconds;
+    const backwards = presenting ? [false, true] : [hash(edge.label) < 0.5];
+
+    return backwards.map((back, index) => {
+        const dot = s("circle", { class: "signal", r: 3.5 });
+        const motion = s("animateMotion", {
+            dur: `${seconds.toFixed(2)}s`,
+            begin: `-${(phase + (index * seconds) / 2).toFixed(2)}s`,
+            repeatCount: "indefinite",
+            ...(back ? { keyPoints: "1;0", keyTimes: "0;1", calcMode: "linear" } : {}),
+        });
+
+        motion.append(s("mpath", { href: `#${id}` }));
+        dot.append(motion);
+        return dot;
+    });
+}
+
+/** A confident arrival: fast at first, settling at the end. */
+const EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
+
+/**
+ * Draw the network in from its busiest device outward, a ring of neighbours at a time, each cable drawn from its nearer end.
+ *
+ * @param {Set<string>} fresh the nodes this drawing adds, which fade in; the others are already on screen
+ */
+function arrive(fresh) {
+    if (still.matches || !edgeElements.length) return;
+
+    /** @param {string} id */
+    const degree = (id) => edgeElements.filter(({ edge }) => edge.from === id || edge.to === id).length;
+    const hub = [...nodeElements.keys()].sort((a, b) => degree(b) - degree(a))[0];
+
+    /** @type {Map<string, number>} */
+    const ring = new Map(hub ? [[hub, 0]] : []);
+    for (let queue = hub ? [hub] : []; queue.length;) {
+        const id = /** @type {string} */ (queue.shift());
+        for (const { edge } of edgeElements) {
+            const other = edge.from === id ? edge.to : edge.to === id ? edge.from : undefined;
+            if (other === undefined || ring.has(other)) continue;
+            ring.set(other, (ring.get(id) ?? 0) + 1);
+            queue.push(other);
+        }
+    }
+
+    // The whole drawing arrives within about a second, however many rings it has.
+    const farthest = Math.max(0, ...ring.values()) + 1;
+    const step = Math.min(110, 800 / farthest);
+    /** @param {string} id */
+    const ringOf = (id) => ring.get(id) ?? farthest;
+
+    for (const [id, group] of nodeElements) {
+        if (!fresh.has(id)) continue;
+        group.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, delay: ringOf(id) * step, easing: EASE, fill: "backwards" });
+    }
+
+    for (const { edge, group, path, label } of edgeElements) {
+        const forward = ringOf(edge.from) <= ringOf(edge.to);
+        const delay = (Math.min(ringOf(edge.from), ringOf(edge.to)) + 0.5) * step;
+
+        if (edge.oneSided || edge.gone) {
+            path.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 420, delay, easing: EASE, fill: "backwards" });
+        } else {
+            const length = path.getTotalLength();
+            const start = { strokeDasharray: `${length} ${length}`, strokeDashoffset: forward ? length : -length };
+            const end = { strokeDasharray: `${length} ${length}`, strokeDashoffset: 0 };
+            path.animate([start, end], { duration: 560, delay, easing: EASE, fill: "backwards" });
+        }
+
+        for (const part of [label, ...group.querySelectorAll(".signal")]) {
+            part.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: delay + 420, fill: "backwards" });
+        }
+    }
+}
+
+/**
+ * Draw the layer. `arrival` says what is new to the eye: the whole network the first time it is shown, its cables when the layer changes, and nothing when the config is read again.
+ *
+ * @param {"network" | "cables"} [arrival]
+ */
+function draw(arrival) {
+    const before = new Set(nodeElements.keys());
+
     edgeLayer.replaceChildren();
     nodeLayer.replaceChildren();
     nodeElements.clear();
@@ -380,7 +485,7 @@ function draw() {
     /** @type {Map<string, number>} */
     const seen = new Map();
 
-    for (const edge of edges) {
+    for (const [number, edge] of edges.entries()) {
         const pair = pairOf(edge);
         const index = seen.get(pair) ?? 0;
         seen.set(pair, index + 1);
@@ -393,11 +498,11 @@ function draw() {
         const change = edge.gone ? " gone" : added ? " added" : "";
         const group = s("g", { class: `edge${edge.oneSided ? " one-sided" : ""}${change}` });
         const hit = s("path", { class: "hit" });
-        const path = s("path");
+        const path = s("path", { id: `cable-${number}` });
         const label = s("text", { "text-anchor": "middle", "dominant-baseline": "central" });
         label.textContent = edge.label;
 
-        group.append(path, hit, label);
+        group.append(path, hit, ...signals(edge, `cable-${number}`), label);
 
         // Selected on press: the canvas captures the pointer for panning, so no click would reach the edge.
         group.addEventListener("pointerdown", (event) => {
@@ -466,11 +571,13 @@ function draw() {
 
     place();
     emphasize();
+
+    if (arrival) arrive(new Set([...nodeElements.keys()].filter((id) => arrival === "network" || !before.has(id))));
 }
 
-/** Light up what the pointer is on, or what is selected, and dim the rest. */
+/** Light up what the pointer is on, the device lit while presenting, or what is selected, and dim the rest. */
 function emphasize() {
-    const focus = hovered ?? (selection && "node" in selection ? selection.node : undefined);
+    const focus = hovered ?? touring ?? (selection && "node" in selection ? selection.node : undefined);
     const selectedEdge = selection && "edge" in selection ? selection.edge : undefined;
 
     /** @param {GraphEdge} edge */
@@ -525,6 +632,8 @@ const toWorld = (event) => {
  */
 function startDrag(event, id) {
     if (event.button !== 0) return;
+    if (gliding !== undefined) cancelAnimationFrame(gliding);
+    gliding = undefined;
     event.stopPropagation();
 
     svg.setPointerCapture(event.pointerId);
@@ -568,6 +677,8 @@ svg.addEventListener(
     "wheel",
     (event) => {
         event.preventDefault();
+        if (gliding !== undefined) cancelAnimationFrame(gliding);
+        gliding = undefined;
 
         const point = toWorld(event);
         const k = Math.min(Math.max(view.k * Math.exp(-event.deltaY * 0.0015), 0.15), 4);
@@ -582,17 +693,75 @@ svg.addEventListener(
 /** The scale below which a device's name is too small to read: a first view stops there, and the reader pans for the rest. */
 const READABLE = 0.6;
 
+/** The view moving to a new place, which a press or a scroll stops. @type {number | undefined} */
+let gliding;
+
 /**
- * Show the whole drawing, or, when that would make it unreadable and `readable` is asked, as much of it as stays readable.
+ * Move the view to a new place over a second, zooming evenly and keeping the eye on the point between them. At once when the reader asked for less motion.
+ *
+ * @param {typeof view} target
+ */
+function glideTo(target) {
+    if (gliding !== undefined) cancelAnimationFrame(gliding);
+    gliding = undefined;
+
+    if (still.matches) {
+        view = target;
+        place();
+        return;
+    }
+
+    const box = svg.getBoundingClientRect();
+    const from = { ...view };
+    /** @param {typeof view} one */
+    const centreOf = (one) => ({ x: (box.width / 2 - one.x) / one.k, y: (box.height / 2 - one.y) / one.k });
+    const start = centreOf(from);
+    const end = centreOf(target);
+    const began = performance.now();
+
+    /** @param {number} now */
+    const step = (now) => {
+        const t = Math.min((now - began) / 1100, 1);
+        const eased = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+        const k = from.k * (target.k / from.k) ** eased;
+        const centre = { x: start.x + (end.x - start.x) * eased, y: start.y + (end.y - start.y) * eased };
+
+        view = { k, x: box.width / 2 - centre.x * k, y: box.height / 2 - centre.y * k };
+        place();
+        gliding = t < 1 ? requestAnimationFrame(step) : undefined;
+    };
+
+    gliding = requestAnimationFrame(step);
+}
+
+/**
+ * Show the whole drawing, or, when that would make it unreadable and `readable` is asked, as much of it as stays readable. `glide` moves there instead of jumping.
  *
  * @param {boolean} [readable]
+ * @param {boolean} [glide]
  */
-function fit(readable = false) {
-    const points = visibleNodes().flatMap((node) => {
+function fit(readable = false, glide = false) {
+    const target = framing(visibleNodes(), readable);
+    if (!target) return;
+
+    if (glide) return glideTo(target);
+    view = target;
+    place();
+}
+
+/**
+ * The view that frames these nodes.
+ *
+ * @param {GraphNode[]} nodes
+ * @param {boolean} readable
+ * @returns {typeof view | undefined}
+ */
+function framing(nodes, readable) {
+    const points = nodes.flatMap((node) => {
         const point = positions.get(node.id);
         return point ? [point] : [];
     });
-    if (!points.length) return;
+    if (!points.length) return undefined;
 
     const box = svg.getBoundingClientRect();
     const xs = points.map((point) => point.x);
@@ -605,13 +774,32 @@ function fit(readable = false) {
     // When the whole drawing does not fit readably, the view starts on the device with the most lines, the heart of the network.
     const edges = visibleEdges();
     const degree = (/** @type {string} */ id) => edges.filter((edge) => edge.from === id || edge.to === id).length;
-    const hub = [...visibleNodes()].sort((a, b) => degree(b.id) - degree(a.id))[0];
+    const hub = [...nodes].sort((a, b) => degree(b.id) - degree(a.id))[0];
     const centre =
         k > whole && hub && positions.has(hub.id)
             ? /** @type {Point} */ (positions.get(hub.id))
             : { x: (Math.max(...xs) + Math.min(...xs)) / 2, y: (Math.max(...ys) + Math.min(...ys)) / 2 };
 
-    view = { k, x: box.width / 2 - centre.x * k, y: box.height / 2 - centre.y * k };
+    // Presenting leaves room for the slow drift and the caption, so nothing framed is cut at the screen's edge.
+    const shown = presenting ? k * 0.86 : k;
+
+    return { k: shown, x: box.width / 2 - centre.x * shown, y: box.height / 2 - centre.y * shown };
+}
+
+/** While presenting, frame what is shown: the lit device with everything it has a line to, or the whole layer. */
+function frameTour(glide = true) {
+    const lit = touring;
+    if (!lit) return fit(false, glide);
+
+    const near = new Set([lit, ...visibleEdges().flatMap((edge) => (edge.from === lit ? [edge.to] : edge.to === lit ? [edge.from] : []))]);
+    const target = framing(
+        visibleNodes().filter((node) => near.has(node.id)),
+        false
+    );
+    if (!target) return;
+
+    if (glide) return glideTo(target);
+    view = target;
     place();
 }
 
@@ -624,7 +812,101 @@ byId("lay-out").addEventListener("click", () => {
     fit();
 });
 
-window.addEventListener("resize", () => place());
+// Presenting keeps the whole network in view as the screen changes size.
+window.addEventListener("resize", () => (presenting ? frameTour(false) : place()));
+
+// Presenting.
+
+/** Say what is shown while presenting: the device lit, or the whole layer. */
+function showCaption() {
+    caption.hidden = !presenting;
+    if (!presenting) return;
+
+    const node = touring ? nodeById(touring) : undefined;
+    const edges = visibleEdges().filter((edge) => !node || edge.from === node.id || edge.to === node.id);
+    const count = `${edges.length} ${edges.length === 1 ? ONE[layer] : MANY[layer]}`;
+
+    if (node) caption.replaceChildren(h("strong", {}, node.label), h("span", {}, [node.detail[0], count].filter(Boolean).join(", ")));
+    else
+        caption.replaceChildren(
+            h("strong", {}, LAYER_NAMES[layer]),
+            h("span", {}, `${visibleNodes().filter((one) => one.kind === "device").length} devices, ${count}`)
+        );
+
+    enter(caption);
+}
+
+/** How many devices are lit on each layer while presenting, busiest first, before it moves on to the next layer. */
+const LIT_PER_LAYER = 4;
+
+/** How far presenting has gone on this layer: 0 while the whole layer is shown, then each lit device in turn. */
+let tourStep = 0;
+
+/** The next layer that has lines to show, after this one; this one when no other has any. */
+function nextLayer() {
+    const after = [...LAYERS.slice(LAYERS.indexOf(layer) + 1), ...LAYERS.slice(0, LAYERS.indexOf(layer) + 1)];
+    return after.find((name) => data?.edges.some((edge) => edge.layer === name)) ?? layer;
+}
+
+/** While presenting: show the whole layer, light its busiest devices one at a time, then move on to the next layer. */
+function tourNext() {
+    if (graphView.hidden || document.hidden || hovered || drag) return;
+
+    const edges = visibleEdges();
+    const degree = (/** @type {string} */ id) => edges.filter((edge) => edge.from === id || edge.to === id).length;
+    const devices = visibleNodes()
+        .filter((node) => node.kind === "device" && degree(node.id))
+        .sort((a, b) => degree(b.id) - degree(a.id) || a.label.localeCompare(b.label))
+        .slice(0, LIT_PER_LAYER);
+
+    tourStep += 1;
+    touring = devices[tourStep - 1]?.id;
+
+    if (touring || nextLayer() === layer) {
+        if (!touring) tourStep = 0;
+        emphasize();
+        showCaption();
+        frameTour();
+        return;
+    }
+
+    // Every lit device has had its turn. Moving on replaces the address rather than adding to the history, so Back still leaves Studio's last place.
+    location.replace(`#graph/${nextLayer()}`);
+}
+
+/** @param {boolean} on */
+function setPresenting(on) {
+    presenting = on;
+    store.set("present", on);
+
+    document.body.classList.toggle("presenting", on);
+    presentButton.setAttribute("aria-pressed", String(on));
+
+    clearInterval(tour);
+    touring = undefined;
+    if (on) {
+        selection = undefined;
+        tour = setInterval(tourNext, 6000);
+    }
+
+    if (graphView.hidden || !data) return;
+
+    // The panel hides or returns, so the drawing is fitted once the page has its new size.
+    draw();
+    showPanel();
+    showCaption();
+    requestAnimationFrame(() => (presenting ? frameTour(false) : fit()));
+}
+
+presentButton.addEventListener("click", () => setPresenting(!presenting));
+setPresenting(presenting);
+
+// A hidden page's dots stop moving.
+document.addEventListener("visibilitychange", () => {
+    if (!(svg instanceof SVGSVGElement)) return;
+    if (document.hidden) svg.pauseAnimations();
+    else svg.unpauseAnimations();
+});
 
 // Saving the layer shown, as it looks.
 byId("save-svg").addEventListener("click", () => {
@@ -640,10 +922,16 @@ byId("save-png").addEventListener("click", async () => {
 // The side panel.
 /** @param {Selection} next */
 function select(next) {
+    /** @param {Selection} one */
+    const keyOf = (one) => (one && "node" in one ? one.node : one ? edgeKey(one.edge) : "");
+    const changed = keyOf(next) !== keyOf(selection);
+
     selection = next;
     pathFocus = undefined;
     emphasize();
     showPanel();
+
+    if (changed) enter(panel);
 }
 
 /**
@@ -882,7 +1170,12 @@ function showLayerButtons() {
 document.addEventListener("keydown", (event) => {
     if (event.target instanceof HTMLInputElement || graphView.hidden) return;
 
-    if (event.key === "Escape") select(undefined);
+    if (event.key === "Escape") {
+        if (presenting) setPresenting(false);
+        select(undefined);
+    }
+
+    if (event.key === "p" && !event.ctrlKey && !event.metaKey && !event.altKey) setPresenting(!presenting);
 
     // Keys 1 to 6 pick a layer.
     const chosen = LAYERS[Number(event.key) - 1];
@@ -920,6 +1213,8 @@ export function showLayer(next) {
         if (selection && "edge" in selection) selection = undefined;
         vlanFocus = undefined;
         pathFocus = undefined;
+        touring = undefined;
+        tourStep = 0;
     }
 
     if (pendingVlan !== undefined) {
@@ -932,14 +1227,20 @@ export function showLayer(next) {
         pendingPath = undefined;
     }
 
+    // The first view draws the whole network in; a new layer draws in its own lines.
+    const arrival = !drawn && data ? "network" : next !== layer ? "cables" : undefined;
+
     layer = next;
     store.set("layer", layer);
 
     showLayerButtons();
-    draw();
+    draw(arrival);
     showPanel();
+    showCaption();
 
-    if (!drawn && data) fit(true);
+    // Presenting shows the whole layer as it comes in; a first view on a laptop starts where names can be read.
+    if (presenting && arrival) fit();
+    else if (!drawn && data) fit(true);
     drawn = data !== undefined;
 }
 

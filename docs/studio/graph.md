@@ -31,7 +31,20 @@ Drag a device to move it, drag the empty space to move the whole drawing, and sc
 - **An orange dashed line** is declared by one end only: a cable whose far port does not name it back, a BGP session the other device does not have, or a tunnel with no tunnel back.
 - **A device filled yellow** is the one you selected.
 - **A dashed box** is outside the network: another AS, a tunnel's far end, or a device a `link` names that is not in `circuit.config.ts`.
+- **Dots moving along a line** mark a line both ends declare. A line only one end declares has none.
 
-The drawing shows what your files say, not what is plugged in. A cable in the wrong port looks right here.
+The drawing shows what your files say, not what is plugged in. A cable in the wrong port looks right here, and its moving dots are not real traffic.
+
+## On a big screen
+
+**Present**, or the P key, shows the network on a screen on a wall. The side panel steps aside and lines are heavier. Every 6 seconds the drawing moves on:
+
+1. It shows the whole layer.
+2. It lights the busiest devices one at a time, up to four, and zooms in on each with everything it has a line to. Its name is at the bottom left.
+3. It moves on to the next layer that has lines, and starts again.
+
+Your browser remembers it, so a screen that reloads keeps presenting. Pointing at a device holds the drawing on it until the pointer leaves. Press **Present** again, or Escape, to stop.
+
+If your system is set to reduce motion, the dots, the slow drift and the zooming are left out: the view jumps instead, and the devices and layers still take their turns.
 
 To print a layer as text instead, for a pull request or an image, see [Printing the graph](/guide/graph).

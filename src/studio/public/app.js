@@ -2,7 +2,7 @@
 /// <reference lib="dom" />
 // Studio's page: loads what the server gathered from the config, shows the place the address names, and loads again whenever the server says the config changed.
 
-import { byId, go } from "./dom.js";
+import { byId, enter, go } from "./dom.js";
 import { currentLayer, isLayer, setGraph, showLayer } from "./graph.js";
 import { problemCount, showTables } from "./tables.js";
 import { showTools } from "./tools.js";
@@ -99,6 +99,9 @@ function route() {
     else if (view === "compare") showCompare(parts, tables, studio);
     else showTables(parts, tables, studio);
     tables.scrollTop = moved ? 0 : scrolled;
+
+    // A new place comes in; the same place drawn again, because the config changed, stays still.
+    if (moved) enter(tables);
 }
 
 window.addEventListener("hashchange", route);
@@ -159,7 +162,14 @@ events.addEventListener("error", () => {
     live.classList.remove("on");
 });
 
-// The config changed: load it again. The page itself changed, while working on Circuit: load the page again.
-events.addEventListener("message", (event) => (event.data === "page" ? location.reload() : void load()));
+// The config changed: load it again, and the live mark beats once to say so. The page itself changed, while working on Circuit: load the page again.
+events.addEventListener("message", (event) => {
+    if (event.data === "page") return location.reload();
+
+    live.classList.remove("beat");
+    void live.offsetWidth;
+    live.classList.add("beat");
+    void load();
+});
 
 void load();
