@@ -132,7 +132,7 @@ Controls are square or have a 2px practical radius. Tables, code blocks, panels 
 
 ### Navigation
 
-The Circuit Studio wordmark sits on a sunlight block. Views use quiet text and a 4px sunlight underline for the active item. On narrow screens the row scrolls rather than wrapping into an ambiguous grid.
+The Circuit Studio wordmark sits on a sunlight block. Views use quiet text and a 4px sunlight underline for the active item. A full-width status rail separates network health from navigation, with outlined quiet counts, filled semantic counts and Live at the far edge. On narrow screens the navigation row scrolls and the status counts wrap.
 
 ### Buttons and Fields
 
@@ -145,6 +145,10 @@ Nodes pair a device illustration with a name and supporting data on a calm groun
 ### Side Panel
 
 The panel is a solid sheet separated by a 2px charcoal boundary and a sunlight edge. Its title ends in a 4px sunlight rule. Small uppercase labels divide dense working information.
+
+### Identity Marks
+
+The docs favicon is a configuration sheet crossed by sunlight. The Studio favicon is a front-facing network device with an up light. They share the charcoal, limewash and sunlight palette but identify reading and operating at a glance.
 
 ### Tables and Faceplate
 
