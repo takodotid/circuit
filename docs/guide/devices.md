@@ -116,7 +116,7 @@ A device's name is written in more places than its own file: the `link` at the f
 
 Every string that is exactly the old name changes, in every file of the project outside `node_modules` and `.circuit/`. That includes a BGP neighbor named after the device, which renames its session on the device that has it. `circuit diff` shows that before anything is sent.
 
-The device's file keeps its name, since a file's name need not match the hostname. Add `--file` to rename it to `rack-a-01.ts` as well; every import of it follows.
+The device's file keeps its name, since a file's name need not match the hostname. Add `--file` to rename it to `rack-a-01.ts` as well; every import of it follows. The device's file is the one whose `defineDevice` gives it its name as the first `name` after the call, so a file that only links to the device, or names it as a peer, is not mistaken for it. Circuit Studio finds a device's history the same way.
 
 A name built from parts, such as `` `tor-0${n}` ``, cannot be found this way. Circuit stops and says so, and you rename it by hand.
 
