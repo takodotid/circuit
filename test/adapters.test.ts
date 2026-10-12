@@ -206,11 +206,12 @@ test("merge refuses a name two records hold", async () => {
     expect(() => merge({ a: 1 }, { a: 2 })).toThrow("merge: a is declared twice");
 });
 
-// Templates are what `circuit new` copies and what the pattern pages show; use cases are what the use case pages show. Each validates, with its own checks, and plans nothing against its own render.
+// Templates are what `circuit new` copies and what the pattern pages show; use cases are what the use case pages show; the full setup is one network with all of it at once. Each validates, with its own checks, and plans nothing against its own render.
 describe("templates and use cases", () => {
     const configs = [
         ...["single-site", "edge-router", "colocation"].map((pattern) => `../templates/${pattern}`),
         ...["ip-transit", "ix-transit", "internet-exchange", "virtual-exchange"].map((useCase) => `../examples/use-cases/${useCase}`),
+        "../examples/full-setup",
     ];
 
     for (const directory of configs) {

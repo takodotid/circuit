@@ -1,0 +1,228 @@
+create vlan 99,1001-1008,2005 active
+!
+interface port-channel 1
+description core-a1
+switchport trunk allowed vlan 99,1001-1008
+switchport mode trunk
+!
+interface port-channel 2
+description core-a2
+switchport trunk allowed vlan 99,1001-1008
+switchport mode trunk
+!
+access-list 1000
+  description management
+  rule 10 permit 10.0.99.0 255.255.255.0
+  rule 20 permit 10.1.99.0 255.255.255.0
+  rule 30 permit 10.254.2.0 255.255.255.0
+  rule 100 deny any
+!
+user name operator password <secret:SWITCH_OPERATOR_PASSWORD>
+enable password <secret:SWITCH_ENABLE_PASSWORD>
+clock timezone + 7 0 0
+!
+interface hundredgige 1/1/1
+shutdown
+!
+interface hundredgige 1/1/2
+shutdown
+!
+interface hundredgige 1/1/3
+shutdown
+!
+interface hundredgige 1/1/4
+shutdown
+!
+interface hundredgige 1/1/5
+shutdown
+!
+interface hundredgige 1/1/6
+shutdown
+!
+interface twenty-fivegige 1/2/1
+description globex web 2
+switchport access vlan 1002
+storm-control mode pps
+storm-control broadcast pps 2000
+!
+interface twenty-fivegige 1/2/2
+description vandelay backup
+switchport access vlan 1004
+storm-control mode pps
+storm-control broadcast pps 2000
+!
+interface twenty-fivegige 1/2/3
+description soylent matchmaking
+switchport trunk allowed vlan 1005,2005
+switchport mode trunk
+storm-control mode pps
+storm-control broadcast pps 2000
+!
+interface twenty-fivegige 1/2/4
+description soylent database
+switchport trunk allowed vlan 1005,2005
+switchport mode trunk
+storm-control mode pps
+storm-control broadcast pps 2000
+!
+interface twenty-fivegige 1/2/5
+description cyberdyne router
+switchport access vlan 1006
+storm-control mode pps
+storm-control broadcast pps 2000
+!
+interface twenty-fivegige 1/2/6
+shutdown
+!
+interface twenty-fivegige 1/2/7
+shutdown
+!
+interface twenty-fivegige 1/2/8
+shutdown
+!
+interface twenty-fivegige 1/2/9
+shutdown
+!
+interface twenty-fivegige 1/2/10
+shutdown
+!
+interface twenty-fivegige 1/2/11
+shutdown
+!
+interface twenty-fivegige 1/2/12
+shutdown
+!
+interface twenty-fivegige 1/2/13
+shutdown
+!
+interface twenty-fivegige 1/2/14
+shutdown
+!
+interface twenty-fivegige 1/2/15
+shutdown
+!
+interface twenty-fivegige 1/2/16
+shutdown
+!
+interface twenty-fivegige 1/2/17
+shutdown
+!
+interface twenty-fivegige 1/2/18
+shutdown
+!
+interface twenty-fivegige 1/2/19
+shutdown
+!
+interface twenty-fivegige 1/2/20
+shutdown
+!
+interface twenty-fivegige 1/2/21
+shutdown
+!
+interface twenty-fivegige 1/2/22
+shutdown
+!
+interface twenty-fivegige 1/2/23
+shutdown
+!
+interface twenty-fivegige 1/2/24
+shutdown
+!
+interface tengigabitethernet 1/3/1
+shutdown
+!
+interface tengigabitethernet 1/3/2
+shutdown
+!
+interface tengigabitethernet 1/3/3
+shutdown
+!
+interface tengigabitethernet 1/3/4
+shutdown
+!
+interface tengigabitethernet 1/3/5
+shutdown
+!
+interface tengigabitethernet 1/3/6
+shutdown
+!
+interface tengigabitethernet 1/3/7
+shutdown
+!
+interface tengigabitethernet 1/3/8
+shutdown
+!
+interface tengigabitethernet 1/3/9
+shutdown
+!
+interface tengigabitethernet 1/3/10
+shutdown
+!
+interface tengigabitethernet 1/3/11
+shutdown
+!
+interface tengigabitethernet 1/3/12
+shutdown
+!
+interface tengigabitethernet 1/3/13
+shutdown
+!
+interface tengigabitethernet 1/3/14
+shutdown
+!
+interface tengigabitethernet 1/3/15
+shutdown
+!
+interface tengigabitethernet 1/3/16
+shutdown
+!
+interface tengigabitethernet 1/3/17
+shutdown
+!
+interface tengigabitethernet 1/3/18
+shutdown
+!
+interface tengigabitethernet 1/3/19
+shutdown
+!
+interface tengigabitethernet 1/3/20
+shutdown
+!
+interface tengigabitethernet 1/3/21
+description core-a2, first cable
+port-channel 2
+!
+interface tengigabitethernet 1/3/22
+description core-a2, second cable
+port-channel 2
+!
+interface tengigabitethernet 1/3/23
+description core-a1, first cable
+port-channel 1
+!
+interface tengigabitethernet 1/3/24
+description core-a1, second cable
+port-channel 1
+!
+interface vlan 99
+ip address 10.0.99.8 255.255.255.0
+!
+storm-control detection enable
+transceiver ddm enable
+lldp enable
+spanning-tree enable
+spanning-tree priority 32768
+no snmp-server community public
+no snmp-server community private
+snmp-server access circuit read internet usm authpriv
+snmp-server user monitor authentication sha <secret:SWITCH_SNMP_AUTH> privacy aes128 <secret:SWITCH_SNMP_PRIVACY>
+snmp-server group circuit user monitor usm
+snmp-server access-list 1000
+ip route 0.0.0.0 0.0.0.0 10.0.99.1
+telnet-server disable
+ssh2 server authentication-timeout 60
+ssh2 server authentication-retries 3
+ssh2 access-list 1000
+ntp enable
+ntp server 10.0.20.123
+ntp server 10.0.20.124
