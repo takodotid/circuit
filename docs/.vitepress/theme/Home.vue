@@ -44,30 +44,24 @@ const users = [{ name: "Tako", logo: "/users/tako.png", link: "https://tako.id",
             </div>
 
             <figure class="section-model" aria-labelledby="figure-caption">
-                <div class="stratum files-stratum">
-                    <span class="stratum-name">Configuration files</span>
-                    <pre><code>devices/<br />├─ edge-01.ts<br />├─ core-01.ts<br />└─ tor-01.ts</code></pre>
-                    <pre><code>name: "edge-01",<br />ports: {<br />  "25g-1": { link: "core-01" }<br />}</code></pre>
-                </div>
-
-                <div class="stratum plan-stratum">
-                    <span class="stratum-name">Change plan</span>
-                    <div class="plan-lines" aria-label="The change Circuit shows before applying it">
-                        <span class="removed">- mtu 1500</span>
-                        <span class="added">+ mtu 9000</span>
-                        <span class="added">+ description Uplink to core</span>
-                    </div>
-                    <strong>See exactly what will change</strong>
-                </div>
-
-                <div class="stratum devices-stratum">
-                    <span class="stratum-name">Running devices</span>
-                    <div class="device-row">
-                        <span class="device"><i /><b>edge-01</b><small>router</small></span>
-                        <span class="device"><i /><b>core-01</b><small>core switch</small></span>
-                        <span class="device"><i /><b>tor-01</b><small>top-of-rack switch</small></span>
-                    </div>
-                </div>
+                <picture>
+                    <source media="(prefers-color-scheme: dark)" :srcset="withBase('/illustrations/circuit-section-dark.png')" />
+                    <img
+                        :src="withBase('/illustrations/circuit-section-light.png')"
+                        alt="Three configuration files above a visible change plane, each connected to the network device it defines."
+                        width="1536"
+                        height="1024"
+                    />
+                </picture>
+                <picture class="sample-files">
+                    <source media="(prefers-color-scheme: dark)" :srcset="withBase('/illustrations/circuit-code-dark.png')" />
+                    <img
+                        :src="withBase('/illustrations/circuit-code-light.png')"
+                        alt="Circuit TypeScript samples that define a RouterOS router, a VRP switch and a trunk port."
+                        width="1228"
+                        height="472"
+                    />
+                </picture>
 
                 <figcaption id="figure-caption">One file for each device. What the file says is what the device runs.</figcaption>
             </figure>
@@ -636,8 +630,7 @@ h1 {
 
 .section-model {
     position: relative;
-    display: grid;
-    grid-template-rows: 1fr auto 0.82fr;
+    display: block;
     min-width: 0;
     margin: 0;
     overflow: hidden;
@@ -646,14 +639,31 @@ h1 {
 }
 
 .section-model::before {
-    content: "";
+    content: none;
+}
+
+.section-model picture,
+.section-model img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.section-model img {
+    object-fit: cover;
+    object-position: center;
+}
+
+.sample-files {
     position: absolute;
-    z-index: 2;
-    inset: 27% -16% auto 4%;
-    height: 27%;
-    background: linear-gradient(110deg, transparent 0 8%, var(--circuit-sun-soft) 8% 25%, var(--circuit-sun-fill) 25% 86%, transparent 86%);
-    transform: skewY(-5deg);
-    pointer-events: none;
+    inset: 21% 18% auto;
+    display: block;
+}
+
+.sample-files img {
+    display: block;
+    width: 100%;
+    height: auto;
 }
 
 .stratum {
@@ -848,39 +858,15 @@ h2 {
     }
 
     .section-model {
-        grid-template-rows: auto auto auto;
         min-height: 650px;
     }
 
-    .section-model::before {
-        inset: 38% -20% auto -20%;
-        height: 20%;
+    .section-model img {
+        object-position: 51% center;
     }
 
-    .stratum {
-        padding: 24px 18px;
-    }
-
-    .files-stratum {
-        grid-template-columns: 1fr;
-        padding-bottom: 62px;
-    }
-
-    .files-stratum pre:first-of-type {
-        display: none;
-    }
-
-    .plan-stratum {
-        grid-template-columns: 1fr;
-        margin: -18px 14px;
-    }
-
-    .device-row {
-        grid-template-columns: 1fr;
-    }
-
-    .device:not(:first-child) {
-        display: none;
+    .sample-files {
+        inset: 23% 12% auto;
     }
 
     .section-model figcaption {
