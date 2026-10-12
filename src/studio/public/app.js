@@ -4,7 +4,7 @@
 
 import { byId, go } from "./dom.js";
 import { currentLayer, isLayer, setGraph, showLayer } from "./graph.js";
-import { showTables } from "./tables.js";
+import { problemCount, showTables } from "./tables.js";
 
 /** @typedef {import("../data").StudioData} StudioData */
 
@@ -16,6 +16,7 @@ const banner = byId("banner");
 const graphView = byId("graph-view");
 const tablesView = byId("tables-view");
 const tables = byId("tables");
+const problems = byId("problem-count");
 
 /** What the server gathered last. @type {StudioData | undefined} */
 let studio;
@@ -35,6 +36,9 @@ function showSummary() {
     const errors = graph.findings.filter((finding) => finding.level === "error").length;
     const warnings = graph.findings.length - errors;
     const drifted = Object.values(graph.drift).filter((drift) => drift.status === "differs").length;
+
+    const count = problemCount(studio);
+    problems.textContent = count ? String(count) : "";
 
     summary.textContent = [
         `${devices} ${devices === 1 ? "device" : "devices"}`,
@@ -122,12 +126,14 @@ async function load() {
 const events = new EventSource("events");
 
 events.addEventListener("open", () => {
-    live.textContent = "watching the config";
+    live.textContent = "live";
+    live.title = "Watching the config: a saved change shows here at once.";
     live.classList.add("on");
 });
 
 events.addEventListener("error", () => {
-    live.textContent = "not connected: is circuit studio still running?";
+    live.textContent = "not connected";
+    live.title = "Studio is not answering. Is circuit studio still running?";
     live.classList.remove("on");
 });
 

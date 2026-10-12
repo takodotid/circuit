@@ -9,6 +9,7 @@ Next to the graph, the top bar has tables of everything your files hold. You can
 | Addresses | Every address in use and what is free, as [`circuit addresses`](/guide/addresses) prints it.                                                                                                                                                                               |
 | BGP       | Every session, with its group's settings filled in, and what is at the far end.                                                                                                                                                                                            |
 | Cables    | Every cable, with the VLANs it carries.                                                                                                                                                                                                                                    |
+| Problems  | Everything that needs a look: what `circuit validate` found, what only one end declares, and devices unlike their last snapshot. The top bar counts them.                                                                                                                  |
 
 **Search** in the top bar finds a name, an address or any other value in any device, and opens the page that shows it.
 
