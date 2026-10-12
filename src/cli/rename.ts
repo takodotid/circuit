@@ -1,7 +1,8 @@
 // `circuit rename`: a device's new name everywhere the project's files name it, its snapshot renamed to match, and with `--file` its file too. It plans first and writes only with --confirm.
 
-import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { basename, dirname, extname, join, relative, resolve } from "node:path";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { basename, dirname, extname, join, resolve } from "node:path";
+import { declaresDevice, projectSources } from "../core/files";
 
 /** One line that changes. */
 export type LineChange = { file: string; line: number; before: string; after: string };
@@ -13,19 +14,6 @@ export type RenamePlan = {
     /** Lines that still name the device inside a longer text, such as a description or a comment, which the rename leaves alone. */
     mentions: { file: string; line: number; text: string }[];
 };
-
-/** Directories that hold no config of the project's own. */
-const SKIPPED = new Set(["node_modules", ".git", ".circuit", "dist"]);
-
-/** Every TypeScript file of the project, relative to its root, in name order. */
-function sourcesOf(root: string, directory = root): string[] {
-    const entries = readdirSync(directory, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-
-    return entries.flatMap((entry) => {
-        if (entry.isDirectory()) return SKIPPED.has(entry.name) ? [] : sourcesOf(root, join(directory, entry.name));
-        return /\.(ts|mts|cts)$/.test(entry.name) ? [relative(root, join(directory, entry.name))] : [];
-    });
-}
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -40,9 +28,8 @@ export function planRename(root: string, from: string, to: string, options: { fi
 
     const exact = new RegExp(`(["'\`])${escape(from)}\\1`, "g");
     const anywhere = new RegExp(`(^|[^A-Za-z0-9_.-])${escape(from)}(?![A-Za-z0-9_-])`);
-    const declares = new RegExp(`\\bname\\s*:\\s*(["'\`])${escape(from)}\\1`);
 
-    const sources = sourcesOf(root);
+    const sources = projectSources(root);
     const declaring = new Set<string>();
 
     for (const file of sources) {
@@ -50,7 +37,7 @@ export function planRename(root: string, from: string, to: string, options: { fi
         const lines = text.split("\n");
 
         // The device's own file calls defineDevice and gives it the name.
-        if (text.includes("defineDevice") && declares.test(text)) declaring.add(file);
+        if (declaresDevice(text, from)) declaring.add(file);
 
         for (const [index, before] of lines.entries()) {
             const after = before.replace(exact, (_match, quote: string) => `${quote}${to}${quote}`);
