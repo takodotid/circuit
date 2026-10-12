@@ -1,51 +1,573 @@
-/* The whole site in the home page's voice: Newsreader for headings, terracotta for the brand. */
+/* Cobalt, white and highlighter yellow, set in Special Gothic. Shared with Circuit Studio. */
+
+@font-face {
+    font-family: "Special Gothic";
+    font-style: normal;
+    font-weight: 400 700;
+    font-stretch: 75% 125%;
+    font-display: swap;
+    src: url("/fonts/special-gothic-latin-ext.woff2") format("woff2");
+    unicode-range:
+        U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+        U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: "Special Gothic";
+    font-style: normal;
+    font-weight: 400 700;
+    font-stretch: 75% 125%;
+    font-display: swap;
+    src: url("/fonts/special-gothic-latin.woff2") format("woff2");
+    unicode-range:
+        U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+        U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 :root {
-    --circuit-serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --circuit-font: "Special Gothic", "Segoe UI", system-ui, sans-serif;
+    --circuit-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
 
-    --vp-c-brand-1: #a8432b;
-    --vp-c-brand-2: #b4492f;
-    --vp-c-brand-3: #b4492f;
-    --vp-c-brand-soft: rgba(180, 73, 47, 0.14);
+    /* The fields: these stay the same in both themes. */
+    --circuit-cobalt: #0a47b8;
+    --circuit-cobalt-deep: #08337f;
+    --circuit-navy: #0a1a36;
+    --circuit-yellow: #f8e347;
+    --circuit-yellow-deep: #e8cd1c;
+    --circuit-red: #d42a2f;
+    --circuit-on-cobalt: #ffffff;
+    --circuit-on-cobalt-soft: #c9d7f5;
+
+    /* The page: these change with the theme. */
+    --circuit-paper: #ffffff;
+    --circuit-mist: #eff2f9;
+    --circuit-ink: #11141b;
+    --circuit-soft: #49536a;
+    --circuit-line: #d3d9e7;
+    --circuit-link: #0a47b8;
+    --circuit-added: #11733b;
+    --circuit-removed: #c0262c;
+    --circuit-warning: #b35a00;
+
+    --vp-font-family-base: var(--circuit-font);
+    --vp-font-family-mono: var(--circuit-mono);
+    --vp-c-bg: var(--circuit-paper);
+    --vp-c-bg-alt: #f6f8fc;
+    --vp-c-bg-soft: var(--circuit-mist);
+    --vp-c-text-1: var(--circuit-ink);
+    --vp-c-text-2: var(--circuit-soft);
+    --vp-c-divider: var(--circuit-line);
+    --vp-c-gutter: var(--circuit-line);
+    --vp-c-brand-1: var(--circuit-link);
+    --vp-c-brand-2: var(--circuit-cobalt-deep);
+    --vp-c-brand-3: var(--circuit-cobalt);
+    --vp-c-brand-soft: rgba(10, 71, 184, 0.1);
+    --vp-code-block-bg: var(--circuit-navy);
+    --vp-code-block-color: #e6ecfa;
+    --vp-code-line-highlight-color: rgba(248, 227, 71, 0.12);
+    --vp-code-copy-code-bg: #13284f;
+    --vp-code-copy-code-hover-bg: #1b3566;
+    --vp-code-lang-color: #9db3e0;
+    --vp-code-tab-bg: var(--circuit-navy);
+    --vp-code-tab-divider: #1f3561;
+    --vp-code-tab-text-color: #9db3e0;
+    --vp-code-tab-hover-text-color: #ffffff;
+    --vp-code-tab-active-text-color: #ffffff;
+    --vp-code-tab-active-bar-color: var(--circuit-yellow);
+    --vp-code-bg: rgba(10, 71, 184, 0.08);
+    --vp-code-color: #08337f;
+    --vp-button-brand-bg: var(--circuit-yellow);
+    --vp-button-brand-text: var(--circuit-ink);
+    --vp-button-brand-hover-bg: var(--circuit-yellow-deep);
+    --vp-button-brand-hover-text: var(--circuit-ink);
+    --vp-button-brand-active-bg: var(--circuit-yellow-deep);
+    --vp-button-brand-active-text: var(--circuit-ink);
+    --vp-nav-height: 72px;
+    --vp-local-search-highlight-bg: var(--circuit-yellow);
+    --vp-local-search-highlight-text: var(--circuit-ink);
 }
 
 .dark {
-    --vp-c-brand-1: #e8866b;
-    --vp-c-brand-2: #d9735a;
-    --vp-c-brand-3: #b4492f;
-    --vp-c-brand-soft: rgba(232, 134, 107, 0.16);
+    --circuit-paper: #0b1122;
+    --circuit-mist: #121a30;
+    --circuit-ink: #f1f4fb;
+    --circuit-soft: #a9b4cc;
+    --circuit-line: #26314d;
+    --circuit-link: #9cb9ff;
+    --circuit-added: #5fd38f;
+    --circuit-removed: #ff8086;
+    --circuit-warning: #b35a00;
+
+    --vp-c-bg-alt: #080d1a;
+    --vp-c-brand-soft: rgba(156, 185, 255, 0.14);
+    --vp-code-block-bg: #060c1a;
+    --vp-code-bg: rgba(156, 185, 255, 0.12);
+    --vp-code-color: #c7d7ff;
 }
 
+::selection {
+    color: var(--circuit-ink);
+    background: var(--circuit-yellow);
+}
+
+.dark ::selection {
+    color: #11141b;
+}
+
+:focus-visible {
+    outline: 3px solid var(--circuit-link);
+    outline-offset: 3px;
+}
+
+/* On the cobalt fields a cobalt ring would vanish, so it is yellow there. */
+.circuit-home .VPNav :focus-visible {
+    outline-color: var(--circuit-yellow);
+}
+
+html {
+    scrollbar-color: var(--circuit-soft) transparent;
+    font-synthesis: none;
+}
+
+body {
+    font-feature-settings: "tnum" 0;
+}
+
+/* The navigation bar: the wordmark wide, the links in small extended capitals. */
+
+.VPNavBarTitle .title {
+    font-family: var(--circuit-font);
+    font-size: 24px;
+    font-weight: 700;
+    font-stretch: 125%;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.VPNavBar {
+    border-bottom: 0;
+}
+
+.VPNavBar .divider-line {
+    background-color: var(--circuit-line) !important;
+}
+
+.VPNavBarMenuLink {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    font-stretch: 112%;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.VPNavBarMenuLink.active {
+    color: var(--circuit-link) !important;
+    text-decoration: underline dotted 2px;
+    text-underline-offset: 7px;
+}
+
+.VPNavBarMenuLink:hover {
+    color: var(--circuit-link) !important;
+}
+
+.VPNavBarSearch .DocSearch-Button {
+    border: 1px solid var(--circuit-line);
+    border-radius: 2px;
+    background: transparent;
+}
+
+.VPNavBarSearch .DocSearch-Button:hover {
+    border-color: var(--circuit-link);
+    background: transparent;
+}
+
+.VPNavBarSearch .DocSearch-Button-Key {
+    border-radius: 2px;
+}
+
+/* The sidebar: groups in extended capitals, the current page marked like a highlighter. */
+
+.VPSidebar {
+    border-right: 1px solid var(--circuit-line);
+}
+
+.VPSidebarItem.level-0 > .item .text {
+    font-size: 12px;
+    font-weight: 700;
+    font-stretch: 115%;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.VPSidebarItem.is-active > .item .link > .text {
+    flex: none;
+    width: fit-content;
+    color: #11141b !important;
+    font-weight: 600;
+    background: linear-gradient(transparent 12%, var(--circuit-yellow) 12%, var(--circuit-yellow) 88%, transparent 88%);
+    box-decoration-break: clone;
+    padding-inline: 4px;
+    margin-inline: -4px;
+}
+
+/* Reading pages. */
+
 .vp-doc h1,
-.vp-doc h2 {
-    font-family: var(--circuit-serif);
-    font-weight: 400;
-    letter-spacing: -0.01em;
+.vp-doc h2,
+.vp-doc h3 {
+    font-family: var(--circuit-font);
+    font-weight: 700;
+    letter-spacing: -0.015em;
 }
 
 .vp-doc h1 {
-    font-size: 44px;
-    line-height: 1.1;
+    font-size: 46px;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
 }
 
 .vp-doc h2 {
+    margin-top: 56px;
+    padding-top: 22px;
+    border-top: 3px solid var(--circuit-ink);
     font-size: 30px;
-    line-height: 1.25;
+    line-height: 1.15;
 }
 
-.VPNavBarTitle .title {
-    font-family: var(--circuit-serif);
-    font-size: 22px;
-    font-weight: 400;
+.vp-doc h3 {
+    font-size: 21px;
+}
+
+.vp-doc p,
+.vp-doc li {
+    font-size: 16.5px;
+    line-height: 1.75;
+}
+
+.vp-doc a {
+    color: var(--circuit-link);
+    font-weight: 500;
+    text-decoration: underline dotted 2px;
+    text-underline-offset: 4px;
+    transition: text-decoration-style 0.15s;
+}
+
+.vp-doc a:hover {
+    text-decoration-style: solid;
+}
+
+.vp-doc :not(pre) > code {
+    border-radius: 2px;
+}
+
+.vp-doc div[class*="language-"] {
+    border-radius: 0;
+}
+
+.vp-doc table {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.vp-doc tr,
+.vp-doc tr:nth-child(2n) {
+    background: transparent;
+    border-top: 1px solid var(--circuit-line);
+}
+
+.vp-doc th,
+.vp-doc td {
+    border: 0;
+    padding: 10px 14px 10px 0;
+}
+
+.vp-doc th {
+    border-bottom: 2px solid var(--circuit-ink);
+    background: transparent;
+    color: var(--circuit-ink);
+    font-size: 12px;
+    font-weight: 700;
+    font-stretch: 112%;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.vp-doc blockquote {
+    border-left: 1px solid var(--circuit-line);
+    padding: 2px 0 2px 18px;
+}
+
+/* Notes and cautions: a square frame with its kind on a tab, the way a manual marks them. */
+.vp-doc .custom-block {
+    border: 2px solid var(--circuit-ink);
+    border-radius: 0;
+    background: var(--circuit-paper);
+    color: var(--circuit-ink);
+    padding: 18px 22px 8px;
+}
+
+.vp-doc .custom-block p.custom-block-title {
+    display: inline-block;
+    margin-bottom: 6px;
+    padding: 2px 8px;
+    background: var(--circuit-ink);
+    color: var(--circuit-paper);
+    font-size: 12px;
+    font-weight: 700;
+    font-stretch: 120%;
+    letter-spacing: 0.1em;
+    line-height: 20px;
+    text-transform: uppercase;
+}
+
+.vp-doc .custom-block.tip p.custom-block-title,
+.vp-doc .custom-block.info p.custom-block-title {
+    background: var(--circuit-cobalt);
+    color: #ffffff;
+}
+
+.vp-doc .custom-block.warning {
+    border-color: var(--circuit-warning);
+}
+
+.vp-doc .custom-block.warning p.custom-block-title {
+    background: var(--circuit-warning);
+    color: #ffffff;
+}
+
+.vp-doc .custom-block.danger {
+    border-color: var(--circuit-red);
+}
+
+.vp-doc .custom-block.danger p.custom-block-title {
+    background: var(--circuit-red);
+    color: #ffffff;
+}
+
+.vp-doc .custom-block a {
+    color: inherit;
 }
 
 /* A screenshot taken in each theme: only the one matching the site's is shown. */
 .vp-doc .screenshot {
-    border: 1px solid var(--vp-c-divider);
-    border-radius: 8px;
+    border: 2px solid var(--circuit-ink);
+    border-radius: 0;
 }
 
 html:not(.dark) .vp-doc .screenshot.dark,
 .dark .vp-doc .screenshot.light {
     display: none;
+}
+
+.VPFooter {
+    border-top: 0 !important;
+    background: var(--circuit-navy) !important;
+    color: var(--circuit-on-cobalt-soft);
+}
+
+.VPFooter .message,
+.VPFooter .copyright {
+    color: var(--circuit-on-cobalt-soft);
+}
+
+.VPDocFooter .pager-link {
+    border-radius: 0;
+    border: 2px solid var(--circuit-line);
+}
+
+.VPDocFooter .pager-link:hover {
+    border-color: var(--circuit-link);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+
+/* On the home page the navigation sits on the same cobalt field as the opening, sized with it. */
+
+.circuit-home {
+    --vp-nav-height: clamp(64px, 5.08vw, 84px);
+    --vp-nav-bg-color: var(--circuit-cobalt);
+}
+
+.circuit-home .VPNavBar,
+.circuit-home .VPNavBar .content-body,
+.circuit-home .VPNavBar .title {
+    background-color: var(--circuit-cobalt) !important;
+}
+
+.circuit-home .VPNavBar .divider-line {
+    background-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+@media (min-width: 960px) {
+    .circuit-home .VPNavBar .wrapper {
+        padding: 0 3.65vw;
+    }
+
+    .circuit-home .VPNavBar .container {
+        max-width: none;
+    }
+
+    .circuit-home .VPNavBar .content-body {
+        gap: 0;
+    }
+
+    .circuit-home .VPNavBar .menu {
+        order: 1;
+        margin-right: auto;
+        padding-left: 2.8vw;
+    }
+
+    .circuit-home .VPNavBar .appearance {
+        order: 2;
+        margin-right: 1.6vw;
+    }
+
+    .circuit-home .VPNavBar .search {
+        order: 3;
+        flex-grow: 0;
+        padding-left: 0;
+        margin-right: 2.2vw;
+    }
+
+    .circuit-home .VPNavBar .social-links {
+        order: 4;
+    }
+
+    .circuit-home .VPNavBar .social-links::before,
+    .circuit-home .VPNavBar .appearance::before {
+        display: none;
+    }
+
+    /* The package on npm is linked from the page's closing chapter instead. */
+    .circuit-home .VPNavBarSocialLinks a[aria-label="npm"] {
+        display: none;
+    }
+
+    .circuit-home .VPNavBarMenuLink {
+        padding: 0 1vw !important;
+        font-size: max(13px, 0.98vw) !important;
+    }
+
+    .circuit-home .VPNavBarSearch .DocSearch-Button {
+        width: 21vw;
+        max-width: 340px;
+        height: max(40px, 3.125vw);
+        padding-inline: 1vw;
+        justify-content: flex-start;
+    }
+
+    .circuit-home .VPNavBarSearch .DocSearch-Button-Keys {
+        margin-left: auto;
+    }
+
+    .circuit-home .VPNavBarSocialLinks {
+        margin-right: 0;
+    }
+
+    .circuit-home .VPNavBarSocialLinks .VPSocialLink {
+        width: max(36px, 2.9vw);
+        height: max(36px, 2.9vw);
+    }
+
+    .circuit-home .VPNavBarSocialLinks .VPSocialLink > svg,
+    .circuit-home .VPNavBarSocialLinks .VPSocialLink > .vpi-social-github,
+    .circuit-home .VPNavBarSocialLinks .VPSocialLink > [class^="vpi-social"] {
+        width: max(20px, 2.2vw);
+        height: max(20px, 2.2vw);
+    }
+}
+
+.circuit-home .VPNavBarTitle .title,
+.circuit-home .VPNavBarMenuLink,
+.circuit-home .VPNavBarMenuLink.active,
+.circuit-home .VPNavBarSocialLinks .VPSocialLink,
+.circuit-home .VPNavBarHamburger,
+.circuit-home .VPNavBarExtra .button {
+    color: #ffffff !important;
+}
+
+@media (min-width: 960px) {
+    .circuit-home .VPNavBarTitle .title {
+        font-size: max(24px, 2.2vw);
+        letter-spacing: 0.05em;
+    }
+}
+
+.circuit-home .VPNavBarHamburger .top,
+.circuit-home .VPNavBarHamburger .middle,
+.circuit-home .VPNavBarHamburger .bottom {
+    background-color: #ffffff;
+}
+
+.circuit-home .VPNavBarMenuLink:hover {
+    color: var(--circuit-yellow) !important;
+}
+
+.circuit-home .VPNavBarSearch .DocSearch-Button {
+    border-color: rgba(201, 215, 245, 0.7);
+    color: var(--circuit-on-cobalt-soft);
+}
+
+.circuit-home .VPNavBarSearch .DocSearch-Button:hover {
+    border-color: #ffffff;
+}
+
+.circuit-home .VPNavBarSearch .DocSearch-Button .DocSearch-Search-Icon,
+.circuit-home .VPNavBarSearch .DocSearch-Button-Placeholder {
+    color: #ffffff;
+    font-weight: 400;
+}
+
+@media (min-width: 960px) {
+    .circuit-home .VPNavBarSearch .DocSearch-Button-Placeholder {
+        font-size: max(14px, 1.15vw);
+    }
+
+    .circuit-home .VPNavBarSearch .DocSearch-Search-Icon {
+        width: max(16px, 1.4vw);
+        height: max(16px, 1.4vw);
+    }
+}
+
+.circuit-home .VPNavBarSearch .DocSearch-Button-Key {
+    border-color: rgba(201, 215, 245, 0.6);
+    color: #ffffff;
+}
+
+.circuit-home .VPNavBar .content-body > *::before {
+    background-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+.circuit-home .VPSwitchAppearance {
+    border-color: rgba(201, 215, 245, 0.6);
+    background-color: rgba(8, 28, 64, 0.35);
+}
+
+@media (min-width: 960px) and (max-width: 1279px) {
+    .circuit-home .VPNavBar .menu {
+        padding-left: 1.6vw;
+    }
+
+    .circuit-home .VPNavBarMenuLink {
+        padding: 0 0.75vw !important;
+        font-size: 12px !important;
+    }
+
+    .circuit-home .VPNavBarSearch .DocSearch-Button {
+        width: 13vw;
+    }
+
+    .circuit-home .VPNavBarSearch .DocSearch-Button-Keys {
+        display: none;
+    }
 }

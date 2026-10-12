@@ -17,17 +17,14 @@ export default defineConfig({
     head: [
         ["meta", { name: "author", content: circuit.author.name }],
         ["link", { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
-        // Newsreader, for the headings of the home page.
-        ["link", { rel: "preconnect", href: "https://fonts.googleapis.com" }],
-        ["link", { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" }],
-        [
-            "link",
-            {
-                rel: "stylesheet",
-                href: "https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap",
-            },
-        ],
+        // Special Gothic is shared by the documentation site and Circuit Studio, and served from the site itself.
+        ["link", { rel: "preload", href: "/fonts/special-gothic-latin.woff2", as: "font", type: "font/woff2", crossorigin: "" }],
     ],
+
+    // Code is set on a navy ground in both themes, like the editor in the home page's drawing.
+    markdown: {
+        theme: { light: "github-dark", dark: "github-dark" },
+    },
 
     themeConfig: {
         nav: [
@@ -122,8 +119,8 @@ export default defineConfig({
         ],
 
         socialLinks: [
-            { icon: "github", link: repository },
             { icon: "npm", link: `https://www.npmjs.com/package/${circuit.name}` },
+            { icon: "github", link: repository },
         ],
 
         editLink: {
@@ -135,6 +132,9 @@ export default defineConfig({
 
         search: {
             provider: "local",
+            options: {
+                translations: { button: { buttonText: "Search docs" } },
+            },
         },
 
         footer: {
