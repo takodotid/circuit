@@ -79,7 +79,7 @@ The documentation and Studio share their color and type families. They differ by
 - Strong horizontal and vertical section lines.
 - One sunlight accent over limewash and charcoal.
 - Bold sans-serif names with compact labels and monospace data.
-- Square controls and structural offset shadows.
+- Square controls and structural frames without decorative elevation.
 - Redundant state cues that do not depend on color alone.
 - Designed light and dark themes with the same hierarchy.
 
@@ -92,7 +92,7 @@ The palette is architectural and warm. Most of a surface is limewash or charcoal
 - **Charcoal** (`#181a1e`): light-theme ink and the dark-theme ground.
 - **Soft Ink** (`#59646c`): supporting text and secondary data.
 - **Rule** (`#c7c6bb`): dividers and quiet boundaries.
-- **Sunlight** (`#e3ad32`): brand rail, active underline and selected-plane shadow.
+- **Sunlight** (`#e3ad32`): brand rail, active underline and selected-plane emphasis.
 - **Sunlight Ink** (`#805300`): readable links and small accents on light backgrounds.
 - **Error, Warning and Up**: semantic colors only. Dark mode uses `#ff7180`, `#ffad42` and `#45cf82`.
 
@@ -116,13 +116,13 @@ Carlito is direct and familiar without borrowing a vendor voice. Heavy headings 
 
 ## Layout
 
-The home page is a sequence of full-width chapters separated by long rules. Its first screen is a two-column section at desktop width and a single column on a phone. Studio uses a fixed header rail, a compact action band, a flexible graph stage and a 360px side panel. Below 760px, the panel moves below the graph, view navigation scrolls horizontally and wide device elements scroll inside their own frame.
+The home page is a sequence of full-width chapters separated by long rules. Its first screen is a two-column section at desktop width and a single column on a phone. Studio uses a fixed header rail, a compact action band, a flexible graph stage and a 390px side panel. Below 760px, the panel moves below the graph, view navigation scrolls horizontally and wide device elements scroll inside their own frame.
 
 Docs pages retain VitePress structure, but the shared tokens, square code blocks, active rules and sidebar treatment prevent them from becoming a separate visual world.
 
 ## Elevation & Depth
 
-Most surfaces are flat. Depth comes from planes, thick boundaries and a hard offset sunlight shadow. The selected graph node uses an unblurred 5px offset. The faceplate uses a 7px offset. Do not use soft ambient shadows, glow, blur or glass.
+Surfaces are flat. Depth comes from overlapping planes, thick boundaries, scale and contrast. Selected nodes and faceplates stay in the same plane as the working surface. Do not use decorative shadows, glow, blur or glass.
 
 ## Shapes
 
@@ -136,11 +136,11 @@ The Circuit Studio wordmark sits on a sunlight block. Views use quiet text and a
 
 ### Buttons and Fields
 
-Buttons are compact, square and bordered. Active layer buttons fill with sunlight. Primary actions add a hard charcoal offset. Every interactive element uses a 3px visible focus outline. Fields use the sheet color and an edge-color border.
+Buttons are compact, square and bordered. Active layer buttons fill with sunlight. Every interactive element uses a 3px visible focus outline. Fields use the sheet color and an edge-color border.
 
 ### Graph
 
-Nodes are sheet rectangles on a calm ground. A warning or snapshot difference uses a thick orange dashed border. An error uses a thick red border. Outside nodes use a fine dotted border. Selection uses a charcoal border plus a hard sunlight offset. Added and removed edges use color plus weight or dashes.
+Nodes pair a device illustration with a name and supporting data on a calm ground. A warning or snapshot difference uses a thick orange dashed border. An error uses a thick red border. Outside nodes use a fine dotted border. Selection uses a thick sunlight outline. Added and removed edges use color plus weight or dashes.
 
 ### Side Panel
 
@@ -148,7 +148,7 @@ The panel is a solid sheet separated by a 2px charcoal boundary and a sunlight e
 
 ### Tables and Faceplate
 
-Tables have square frames, strong header rules and subtle alternate rows. The faceplate has a 2px frame and a hard sunlight offset. Port state combines fill, line style, border weight, hatching and a link dot so no state relies on color alone.
+Tables have square frames, strong header rules and subtle alternate rows. The faceplate has a 2px structural frame. Port state combines fill, line style, border weight, hatching and a link dot so no state relies on color alone.
 
 ## Do's and Don'ts
 

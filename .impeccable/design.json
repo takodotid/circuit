@@ -18,10 +18,7 @@
       "label": { "displayName": "Label", "purpose": "Table headings and compact panel groups." },
       "mono": { "displayName": "Mono", "purpose": "Config, identifiers, plans and device output." }
     },
-    "shadows": [
-      { "name": "selected-plane", "value": "5px 5px 0 var(--accent-strong)", "purpose": "Selected graph nodes." },
-      { "name": "working-plane", "value": "7px 7px 0 var(--accent-strong)", "purpose": "Device faceplates and structural working objects." }
-    ],
+    "shadows": [],
     "motion": [
       { "name": "row-flash", "value": "background 0.4s", "purpose": "Connects a selected faceplate port to its table row." },
       { "name": "reduced", "value": "0.01ms", "purpose": "Removes nonessential transitions when reduced motion is requested." }
@@ -68,14 +65,14 @@
       "kind": "custom",
       "description": "A framed device plane with pattern and border based port states.",
       "html": "<div class=\"ds-face\"><button class=\"ds-port ds-trunk\">1</button><button class=\"ds-port ds-shut\">2</button><button class=\"ds-port ds-lag\">3</button></div>",
-      "css": ".ds-face { display: flex; gap: 4px; padding: 18px; background: #ffffff; border: 2px solid #181a1e; box-shadow: 7px 7px 0 #e3ad32; } .ds-port { width: 28px; height: 24px; padding: 0; color: #181a1e; background: #ffffff; border: 1px solid #6d767b; border-radius: 0; } .ds-trunk { background: #e3ad32; border: 2px solid #181a1e; } .ds-shut { background: repeating-linear-gradient(135deg, #f6f5ea 0 3px, #c7c6bb 3px 5px); } .ds-lag { border: 2px dashed #805300; } .ds-port:focus-visible { outline: 3px solid #805300; outline-offset: 2px; }"
+      "css": ".ds-face { display: flex; gap: 4px; padding: 18px; background: #ffffff; border: 2px solid #181a1e; } .ds-port { width: 28px; height: 24px; padding: 0; color: #181a1e; background: #ffffff; border: 1px solid #6d767b; border-radius: 0; } .ds-trunk { background: #e3ad32; border: 2px solid #181a1e; } .ds-shut { background: repeating-linear-gradient(135deg, #f6f5ea 0 3px, #c7c6bb 3px 5px); } .ds-lag { border: 2px dashed #805300; } .ds-port:focus-visible { outline: 3px solid #805300; outline-offset: 2px; }"
     },
     {
       "name": "Graph States",
       "kind": "custom",
-      "description": "Network nodes whose selection, warning and outside states remain distinct without color.",
+      "description": "Illustrated network devices whose selection, warning and outside states remain distinct without color.",
       "html": "<svg class=\"ds-graph\" viewBox=\"0 0 360 80\"><rect class=\"selected\" x=\"10\" y=\"20\" width=\"90\" height=\"36\"/><rect class=\"warning\" x=\"135\" y=\"20\" width=\"90\" height=\"36\"/><rect class=\"outside\" x=\"260\" y=\"20\" width=\"90\" height=\"36\"/></svg>",
-      "css": ".ds-graph { width: 360px; background: #f6f5ea; } .ds-graph rect { fill: #ffffff; } .ds-graph .selected { stroke: #181a1e; stroke-width: 3; filter: drop-shadow(5px 5px 0 #e3ad32); } .ds-graph .warning { stroke: #9a5700; stroke-width: 4; stroke-dasharray: 10 3; } .ds-graph .outside { stroke: #6d767b; stroke-width: 2; stroke-dasharray: 2 4; }"
+      "css": ".ds-graph { width: 360px; background: #f6f5ea; } .ds-graph rect { fill: #ffffff; } .ds-graph .selected { stroke: #e3ad32; stroke-width: 5; } .ds-graph .warning { stroke: #9a5700; stroke-width: 4; stroke-dasharray: 10 3; } .ds-graph .outside { stroke: #6d767b; stroke-width: 2; stroke-dasharray: 2 4; }"
     }
   ],
   "narrative": {
@@ -85,7 +82,7 @@
     "rules": [
       { "name": "The Daylight Rule", "body": "Sunlight marks the active plane or one structural emphasis, never unrelated categories.", "section": "colors" },
       { "name": "The Meaning Rule", "body": "Error, warning and up colors are semantic only and always have a second cue.", "section": "colors" },
-      { "name": "The Hard Shadow Rule", "body": "Depth is a crisp offset plane. Soft shadow, glow, blur and glass do not belong.", "section": "elevation" }
+      { "name": "The Flat Plane Rule", "body": "Depth comes from scale, overlap and structural borders. Decorative shadow, glow, blur and glass do not belong.", "section": "elevation" }
     ],
     "dos": ["Keep docs and Studio on shared tokens.", "Design every semantic color for light and dark.", "Pair status color with dashes, hatching, weight or text.", "Keep keyboard focus visible.", "Respect reduced motion."],
     "donts": ["Do not restore terracotta, serif headings, pills or trace decoration.", "Do not use neon terminal or monitoring dashboard styling.", "Do not borrow a vendor palette.", "Do not use soft shadows, blur or glass."]
