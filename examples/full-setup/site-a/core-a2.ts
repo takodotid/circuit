@@ -1,10 +1,10 @@
 // The second core switch at site A: edge-a2's way down over two bundled cables, the second resolver and time server, and the other uplink of every top-of-rack switch.
 
 import { defineDevice, merge } from "@takodotid/circuit";
-import { AT } from "./customers";
-import { INFRA_VLANS, SERVICES } from "./network";
-import * as switches from "./switches";
-import { customerVlans } from "./tenancy";
+import { AT } from "../customers";
+import { INFRA_VLANS, SERVICES } from "../network";
+import * as switches from "../switches";
+import { customerVlans } from "../tenancy";
 
 /** A server on the services VLAN. */
 const server = (description: string) => ({

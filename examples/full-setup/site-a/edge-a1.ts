@@ -1,10 +1,10 @@
 // The first edge router at site A: transit A, the exchange, the gateway of every site A customer beside edge-a2, and two tunnels to site B over the internet. The NOC dials in here.
 
 import { defineDevice, merge, secret } from "@takodotid/circuit";
-import { AT } from "./customers";
-import * as edge from "./edge";
-import { ASN, INFRA_VLANS, IX, OURS, SERVICES } from "./network";
-import { customerSessions, customerVlanNames, customerVlans, gateways, routedBlocks } from "./tenancy";
+import { AT } from "../customers";
+import * as edge from "../edge";
+import { ASN, INFRA_VLANS, IX, OURS, SERVICES } from "../network";
+import { customerSessions, customerVlanNames, customerVlans, gateways, routedBlocks } from "../tenancy";
 
 const neighbors = merge(
     {

@@ -1,10 +1,10 @@
 // The second edge router at site A: transit B, the exchange, the gateway of every site A customer beside edge-a1, and the leased wave to site B. A WireGuard tunnel to edge-b1 keeps site B's management in reach when the wave and the GRE tunnel are both down.
 
 import { defineDevice, merge, secret } from "@takodotid/circuit";
-import { AT } from "./customers";
-import * as edge from "./edge";
-import { ASN, INFRA_VLANS, IX, OURS, SERVICES } from "./network";
-import { customerSessions, customerVlanNames, customerVlans, gateways, routedBlocks } from "./tenancy";
+import { AT } from "../customers";
+import * as edge from "../edge";
+import { ASN, INFRA_VLANS, IX, OURS, SERVICES } from "../network";
+import { customerSessions, customerVlanNames, customerVlans, gateways, routedBlocks } from "../tenancy";
 
 const neighbors = merge(
     {

@@ -1,10 +1,10 @@
 // The first core switch at site A: the root of the site's spanning tree, edge-a1's way down, the servers on the services VLAN, and an uplink to every top-of-rack switch.
 
 import { defineDevice, merge } from "@takodotid/circuit";
-import { AT } from "./customers";
-import { INFRA_VLANS, SERVICES } from "./network";
-import * as switches from "./switches";
-import { customerVlans } from "./tenancy";
+import { AT } from "../customers";
+import { INFRA_VLANS, SERVICES } from "../network";
+import * as switches from "../switches";
+import { customerVlans } from "../tenancy";
 
 /** A server on the services VLAN. */
 const server = (description: string) => ({

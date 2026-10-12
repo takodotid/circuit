@@ -1,10 +1,10 @@
 // The edge router at site B: transit C, the gateway of every site B customer and of the office, and three ways to site A: the leased wave, a GRE tunnel over the internet, and a WireGuard tunnel for management. Staff dial in here.
 
 import { defineDevice, merge, secret } from "@takodotid/circuit";
-import { AT } from "./customers";
-import * as edge from "./edge";
-import { ASN, INFRA_VLANS, OURS, SERVICES } from "./network";
-import { customerSessions, customerVlanNames, customerVlans, gateways, routedBlocks } from "./tenancy";
+import { AT } from "../customers";
+import * as edge from "../edge";
+import { ASN, INFRA_VLANS, OURS, SERVICES } from "../network";
+import { customerSessions, customerVlanNames, customerVlans, gateways, routedBlocks } from "../tenancy";
 
 const neighbors = merge(
     {
