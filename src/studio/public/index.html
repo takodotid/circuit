@@ -6,19 +6,16 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Circuit Studio</title>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <!-- The documentation site's fonts. Offline, the page falls back to the system's. -->
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap"
-        />
+        <!-- Special Gothic is shared with the documentation site, and served from beside this page so Studio works offline. -->
+        <link rel="preload" href="special-gothic-latin.woff2" as="font" type="font/woff2" crossorigin />
         <link rel="stylesheet" href="style.css" />
         <script type="module" src="app.js"></script>
     </head>
     <body>
         <header>
-            <span class="brand" aria-label="Circuit Studio"><span class="wordmark">Circuit</span><span class="product">Studio</span></span>
+            <a class="brand" href="#graph" aria-label="Circuit Studio, back to the graph"
+                ><span class="wordmark">Circuit</span><span class="product">Studio</span></a
+            >
             <nav id="views" aria-label="Views">
                 <button data-view="graph">Graph</button>
                 <button data-view="devices">Devices</button>
@@ -31,8 +28,10 @@
                 <button data-view="problems">Problems<span id="problem-count" class="count"></span></button>
             </nav>
             <input id="search" type="search" placeholder="Search the config" aria-label="Search the config" />
-            <span id="summary" class="summary"></span>
-            <span id="live" class="live">connecting</span>
+            <div class="status-rail" aria-label="Network status">
+                <span id="summary" class="summary"></span>
+                <span id="live" class="live">connecting</span>
+            </div>
         </header>
 
         <pre id="banner" class="banner" hidden></pre>
@@ -44,8 +43,13 @@
                     <div class="actions">
                         <button id="fit" title="Fit the drawing to the window">Fit</button>
                         <button id="lay-out" title="Forget where nodes were moved, and lay them out again">Lay out again</button>
-                        <button id="save-svg" title="Save this layer as an SVG image">Save SVG</button>
-                        <button id="save-png" title="Save this layer as a PNG image">Save PNG</button>
+                        <details class="menu">
+                            <summary>Save image</summary>
+                            <div class="menu-items">
+                                <button id="save-svg" title="Save this layer as an SVG image">SVG</button>
+                                <button id="save-png" title="Save this layer as a PNG image">PNG</button>
+                            </div>
+                        </details>
                     </div>
                 </div>
                 <div class="stage">
