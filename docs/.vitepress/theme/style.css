@@ -125,9 +125,10 @@
 }
 
 .vp-doc blockquote {
-    border-left: 4px solid var(--circuit-sun-fill);
+    border: 0;
+    border-block: 2px solid var(--circuit-sun-fill);
     background: var(--vp-c-bg-soft);
-    padding-block: 10px;
+    padding: 10px 16px;
 }
 
 /* A screenshot taken in each theme: only the one matching the site's is shown. */
