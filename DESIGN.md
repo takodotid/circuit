@@ -15,6 +15,7 @@ colors:
     ink: "#11141b"
     soft-ink: "#49536a"
     line: "#d3d9e7"
+    head: "#e4e9f4"
     edge: "#7b86a0"
     code-text: "#e6ecfa"
     removed: "#c0262c"
@@ -27,6 +28,7 @@ colors:
     night-ink: "#f1f4fb"
     night-soft-ink: "#a9b4cc"
     night-line: "#26314d"
+    night-head: "#18223d"
     night-link: "#9cb9ff"
     night-removed: "#ff8086"
     night-added: "#5fd38f"
@@ -165,7 +167,7 @@ components:
 
 Circuit is drawn the way a service manual draws a carburetor: a cobalt field, a flat illustration of the workflow, white numbered callouts with thin leader lines, and a legend underneath that names each part in Circuit's own terms. The two references that pinned the world are a cobalt exploded-parts plate (numbered callouts paired with a parts list) and a yellow storybook page (dotted underlines under words that can be looked up, labels pinned to a drawing). The docs site and Circuit Studio share one palette, one variable typeface and one signature, the dotted cobalt underline.
 
-The page alternates cobalt fields with clean white and mist planes. Near-black ink frames carry structure: 2px rules under table heads, 2px frames around notes, tools and screenshots. Yellow is a highlighter, not a decoration: it marks the one action to take, the current thing, and selected text. Red is held back for removal, errors and the alpha caution; Studio adds orange for warnings and green for added. Code sits on navy in both themes, like the editor drawn in the home plate. The density is calm on the docs and working-tight in Studio, but both read as the same manual.
+The page alternates cobalt fields with clean white and mist planes. Near-black ink frames carry structure: 2px frames around notes, tools and screenshots. Table heads sit on a tinted band, never on a rule that could be read as a divider. Yellow is a highlighter, not a decoration: it marks the one action to take, the current thing, and selected text. Red is held back for removal, errors and the alpha caution; Studio adds orange for warnings and green for added. Code sits on navy in both themes, like the editor drawn in the home plate. The density is calm on the docs and working-tight in Studio, but both read as the same manual.
 
 Both surfaces have a dark theme. The cobalt field, the navy code ground and the yellow highlighter stay the same in both; only the paper, ink, lines and link colour change.
 
@@ -207,6 +209,7 @@ A two-field palette: saturated cobalt and white, with a yellow highlighter and a
 - **Ink** (ink / night-ink): text and every structural frame and rule.
 - **Soft Ink** (soft-ink / night-soft-ink): secondary text, file chips, captions.
 - **Line** (line / night-line): hairline row dividers and quiet borders.
+- **Head** (head / night-head): the band behind a table's head row, on the docs and in Studio. Studio's heads are a step stronger, #e1e7f3 light and #26325a dark, to stay well apart from its row hover and from the raised night surface its tables sit on. A hovered Studio row takes a faint link-coloured wash (hover: 4.5% cobalt, 5% night link), only on the innermost row under the pointer, so it never reads as a head.
 - **Edge** (edge): graph cable strokes and default control borders in Studio.
 - **On-Cobalt Soft** (on-cobalt-soft): inactive tabs, placeholder text and thin rules on cobalt.
 - **Selected Wash** (selected / night-selected): the fill of a selected graph node and a row that just flashed into view.
@@ -253,7 +256,7 @@ Studio is a full-height column: the cobalt rail (52px tabs), a 38px white status
 
 ## Elevation & Depth
 
-Flat. Depth comes from planes (cobalt against paper against mist) and from ink frames: 2px around note blocks, tool forms, faceplates, the proved-models table and screenshots; 2px under table heads; 1px hairlines between rows. The single shadow in the system is the dropdown under Studio's Save image menu.
+Flat. Depth comes from planes (cobalt against paper against mist) and from ink frames: 2px around note blocks, tool forms, faceplates, the proved-models table and screenshots; 1px hairlines between rows. A table's head is a tinted band (head), not a rule. The single shadow in the system is the dropdown under Studio's Save image menu.
 
 ### Shadow Vocabulary
 
@@ -262,6 +265,17 @@ Flat. Depth comes from planes (cobalt against paper against mist) and from ink f
 ### Named Rules
 
 **The Ink Frame Rule.** A container that needs separation gets a 2px ink frame or a plane change, not a shadow.
+
+## Motion
+
+Motion shows a change travelling, the way the plate does: written, planned, applied, drawn. Arrivals ease out on cubic-bezier(0.16, 1, 0.3, 1); routine state changes take 0.2s to 0.3s. Every animation has a reduced-motion path: nothing moves for show, and state changes happen at once.
+
+- **Docs home opening:** the title line is wiped on left to right with a yellow caret that blinks three times and leaves; the plates rise in the order a change travels; the editor's code and the plan sheet print line by line; the commits appear left to right; then the callouts draw in. Every 7.5 seconds the drawing goes through another change to edge-b1: the editor writes it, the plan prints what the RouterOS adapter sends for it (changed lines on the selected wash), Apply is pressed, and its commit joins the history as the oldest leaves. The editor's caret keeps blinking and a white ring keeps leaving the changed device. All of it pauses when the opening is out of view; reduced motion keeps the first change.
+- **Docs home chapters:** each part arrives once as it scrolls into view, in a way that shows what it holds: headings surface from below a line, the ledger shows each cause and then its effect, steps and patterns arrive in order, the Studio screenshot slides in from the edge it runs off. A part already in view when the page opens does not move.
+- **Docs reading pages:** a page reached from another fades in and rises 8px.
+- **Studio graph:** the first view draws the network in from its busiest device, a ring of neighbours at a time, each cable from its nearer end; a new layer draws in its own lines. Dots travel every cable both ends declare, in the link colour, turning yellow on a lit cable; a one-sided or removed cable carries none. Lighting a part dims the rest over 0.25s.
+- **Studio presenting (Present, key P):** the panel steps aside, lines and dots are heavier, and the drawing drifts slowly (paused under the pointer). Every 6 seconds it moves on: the whole layer, then its four busiest devices one at a time, the view gliding over 1.1s (ease in and out, zoom evenly) to frame each with its neighbours, then the next layer with lines, which draws in. A caption with a 2px ink frame names what is shown.
+- **Studio feedback:** the bar under a chosen view or tab grows from its middle; a new view and a new selection in the panel fade in and rise 6px; the live mark beats once in yellow when a changed config arrives. Nothing in the rails loops.
 
 ## Shapes
 
@@ -317,7 +331,7 @@ A row of round cobalt dots under a heading, drawn as a repeating radial gradient
 
 ### Numbered callouts and legend (signature)
 
-White circle dots with cobalt numerals sit over the illustration plate, each joined by a thin white leader line ending in a small white dot at its part. A legend below a thin soft-blue rule repeats the same numbers as white dots beside the part names. Hovering or focusing either side lights both: the dot turns yellow and grows to 1.12, the legend entry gets a dotted underline, and the callout shows a white tag with a navy frame. On arrival, leaders draw in and dots pop in legend order (0.09s apart, cubic-bezier(0.16, 1, 0.3, 1)); reduced motion turns this off. Steps lists reuse the dot as a cobalt circle with a white numeral.
+White circle dots with cobalt numerals sit over the illustration plate, each joined by a thin white leader line ending in a small white dot at its part. A legend below a thin soft-blue rule repeats the same numbers as white dots beside the part names. Hovering or focusing either side lights both: the dot turns yellow and grows to 1.12, the legend entry gets a dotted underline, and the callout shows a white tag with a navy frame. On arrival, once the drawing is in, leaders draw in and dots pop in legend order (0.09s apart, cubic-bezier(0.16, 1, 0.3, 1)); reduced motion turns this off. Steps lists reuse the dot as a cobalt circle with a white numeral.
 
 ### Status rail (Studio)
 
@@ -325,7 +339,7 @@ A white bar of counts, each with a small dot: hollow for quiet counts, filled fo
 
 ### Graph nodes (Studio)
 
-Flat paper tags with a 2px ink frame, a drawn chassis mark and name over platform and model. Error frames are 4px red; warning frames 4px orange dashed; selected nodes take the selected wash with a 4px cobalt frame; VLAN segments are yellow-tinted with a yellow-deep outline and mono labels; outside nodes are dotted. Cables are 2px edge strokes, lit cables 4px in the link colour, added cables green, removed cables red and dashed.
+Flat paper tags with a 2px ink frame, a drawn chassis mark and name over platform and model. Error frames are 4px red; warning frames 4px orange dashed; selected nodes take the selected wash with a 4px cobalt frame; VLAN segments are yellow-tinted with a yellow-deep outline and mono labels; outside nodes are dotted. Cables are 2px edge strokes, lit cables 4px in the link colour, added cables green, removed cables red and dashed. Dots travel the cables both ends declare (see Motion).
 
 ### Identity marks
 

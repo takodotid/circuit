@@ -1,6 +1,6 @@
 {
     "schemaVersion": 2,
-    "generatedAt": "2026-10-12T00:00:00+07:00",
+    "generatedAt": "2026-10-12T23:24:24+07:00",
     "title": "Design System: Circuit",
     "extensions": {
         "colorMeta": {
@@ -82,6 +82,12 @@
                 "canonical": "#d3d9e7",
                 "tonalRamp": ["#080b14", "#21252f", "#3d424d", "#5c616d", "#7d828f", "#9fa5b2", "#c3c9d7", "#e8eefd"]
             },
+            "head": {
+                "role": "neutral",
+                "displayName": "Head",
+                "canonical": "#e4e9f4",
+                "tonalRamp": ["#080b12", "#21252d", "#3e424b", "#5d616b", "#7e828c", "#a0a5af", "#c4c9d4", "#e9eefa"]
+            },
             "edge": {
                 "role": "neutral",
                 "displayName": "Edge",
@@ -153,6 +159,12 @@
                 "displayName": "Night Line",
                 "canonical": "#26314d",
                 "tonalRamp": ["#030921", "#19243f", "#35415e", "#546180", "#7482a3", "#96a5c7", "#bac9ec", "#e8eefe"]
+            },
+            "night-head": {
+                "role": "neutral",
+                "displayName": "Night Head",
+                "canonical": "#18223d",
+                "tonalRamp": ["#030921", "#1a243f", "#35415e", "#546180", "#7482a3", "#96a5c7", "#bac9ed", "#e7eeff"]
             },
             "night-link": {
                 "role": "primary",
@@ -256,14 +268,14 @@
         ],
         "motion": [
             {
-                "name": "ease-out-expo",
+                "name": "arrival-ease",
                 "value": "cubic-bezier(0.16, 1, 0.3, 1)",
-                "purpose": "Callout leaders drawing in (0.6s) and dots popping in (0.5s), staggered 0.09s in legend order; lit dot scale to 1.12."
+                "purpose": "Arrivals ease out: callout leaders drawing in and dots popping in legend order (0.09s apart) once the drawing is in; lit dot scale to 1.12."
             },
             {
-                "name": "state-fade",
-                "value": "0.2s",
-                "purpose": "Background and border colour changes on buttons, command copy and dots."
+                "name": "state-change",
+                "value": "0.2s to 0.3s",
+                "purpose": "Routine state changes; lighting a part of the Studio graph dims the rest over 0.25s."
             },
             {
                 "name": "underline-solidify",
@@ -276,9 +288,19 @@
                 "purpose": "Callout tags appearing when lit."
             },
             {
+                "name": "view-glide",
+                "value": "1.1s ease-in-out cubic",
+                "purpose": "Studio presenting: the view glides over 1.1s (ease in and out, zoom evenly) to frame each device with its neighbours."
+            },
+            {
+                "name": "title-write",
+                "value": "cubic-bezier(0.65, 0, 0.35, 1)",
+                "purpose": "Docs home opening: the title line is wiped on left to right with a yellow caret that blinks three times and leaves."
+            },
+            {
                 "name": "reduced-motion",
                 "value": "prefers-reduced-motion: reduce",
-                "purpose": "All transitions and animations cut to 0.01ms on both surfaces."
+                "purpose": "Every animation has a reduced-motion path: nothing moves for show, and state changes happen at once."
             }
         ],
         "breakpoints": [
@@ -390,7 +412,7 @@
     ],
     "narrative": {
         "northStar": "The Numbered Parts Plate",
-        "overview": "Circuit is drawn the way a service manual draws a carburetor: a cobalt field, a flat illustration of the workflow, white numbered callouts with thin leader lines, and a legend underneath that names each part in Circuit's own terms. The two references that pinned the world are a cobalt exploded-parts plate (numbered callouts paired with a parts list) and a yellow storybook page (dotted underlines under words that can be looked up, labels pinned to a drawing). The docs site and Circuit Studio share one palette, one variable typeface and one signature, the dotted cobalt underline.\n\nThe page alternates cobalt fields with clean white and mist planes. Near-black ink frames carry structure: 2px rules under table heads, 2px frames around notes, tools and screenshots. Yellow is a highlighter, not a decoration: it marks the one action to take, the current thing, and selected text. Red is held back for removal, errors and the alpha caution; Studio adds orange for warnings and green for added. Code sits on navy in both themes, like the editor drawn in the home plate. The density is calm on the docs and working-tight in Studio, but both read as the same manual.\n\nBoth surfaces have a dark theme. The cobalt field, the navy code ground and the yellow highlighter stay the same in both; only the paper, ink, lines and link colour change.",
+        "overview": "Circuit is drawn the way a service manual draws a carburetor: a cobalt field, a flat illustration of the workflow, white numbered callouts with thin leader lines, and a legend underneath that names each part in Circuit's own terms. The two references that pinned the world are a cobalt exploded-parts plate (numbered callouts paired with a parts list) and a yellow storybook page (dotted underlines under words that can be looked up, labels pinned to a drawing). The docs site and Circuit Studio share one palette, one variable typeface and one signature, the dotted cobalt underline.\n\nThe page alternates cobalt fields with clean white and mist planes. Near-black ink frames carry structure: 2px frames around notes, tools and screenshots. Table heads sit on a tinted band, never on a rule that could be read as a divider. Yellow is a highlighter, not a decoration: it marks the one action to take, the current thing, and selected text. Red is held back for removal, errors and the alpha caution; Studio adds orange for warnings and green for added. Code sits on navy in both themes, like the editor drawn in the home plate. The density is calm on the docs and working-tight in Studio, but both read as the same manual.\n\nBoth surfaces have a dark theme. The cobalt field, the navy code ground and the yellow highlighter stay the same in both; only the paper, ink, lines and link colour change.",
         "keyCharacteristics": [
             "Cobalt fields and white or mist planes, never a grey dashboard.",
             "One typeface, Special Gothic, used across its width axis: wide caps for the wordmark and labels, normal width for reading, slightly condensed for the hero line. Monospace only for config and commands.",
