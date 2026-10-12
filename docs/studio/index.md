@@ -1,16 +1,16 @@
-# Studio
+# Circuit Studio
 
-Studio is Circuit in your browser: a drawing of your network, and tables of everything your files hold. Use it to learn how a network is laid out, to look something up without reading TypeScript, or to find out why something does not reach where it should.
+Circuit Studio is Circuit in your browser: a drawing of your network, and tables of everything your files hold. Use it to learn how a network is laid out, to look something up without reading TypeScript, or to find out why something does not reach where it should.
 
 It reads only your files and the last [snapshot](/guide/glossary#circuit), and never logs in to a device, so it is safe to run at any time.
 
-<img class="screenshot light" src="/screenshots/studio-device-light.png" alt="A device's page in studio, listing every port of its model: the ones the config declares with their VLANs, addresses, LAG and the device at the other end, and the rest as shut down.">
-<img class="screenshot dark" src="/screenshots/studio-device-dark.png" alt="A device's page in studio, listing every port of its model: the ones the config declares with their VLANs, addresses, LAG and the device at the other end, and the rest as shut down.">
+<img class="screenshot light" src="/screenshots/studio-device-light.png" alt="A device's page in Studio, listing every port of its model: the ones the config declares with their VLANs, addresses, LAG and the device at the other end, and the rest as shut down.">
+<img class="screenshot dark" src="/screenshots/studio-device-dark.png" alt="A device's page in Studio, listing every port of its model: the ones the config declares with their VLANs, addresses, LAG and the device at the other end, and the rest as shut down.">
 
 ## Starting it
 
 1. Run `npx circuit studio` in your project.
-2. Your browser opens studio, at `http://127.0.0.1:4600`.
+2. Your browser opens Studio, at `http://127.0.0.1:4600`.
 3. Pick a view in the top bar, or search for anything in your files.
 4. Edit a device's file and save it. Studio shows the change within a second.
 
@@ -30,4 +30,4 @@ Studio answers only on your own machine: nobody else on the network can open it.
 | [Tools](/studio/tools)      | Trace an address, find a VLAN's path, and test a packet against a firewall or a route against a route policy.                    |
 | [Compare](/studio/changes)  | Your files now beside another branch, tag or commit: what each device would run differently, and what the graph gains and loses. |
 
-Each page has its own address, such as `http://127.0.0.1:4600/#devices/edge-01/ports`, so the browser's back button works and a bookmark opens the same page. `npx circuit studio --json` prints everything studio shows as JSON, for a script.
+Each page has its own address, such as `http://127.0.0.1:4600/#devices/edge-01/ports`, so the browser's back button works and a bookmark opens the same page. `npx circuit studio --json` prints everything Studio shows as JSON, for a script.

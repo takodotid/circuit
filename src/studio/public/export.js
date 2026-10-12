@@ -1,6 +1,6 @@
 // @ts-check
 /// <reference lib="dom" />
-// Saving what studio shows: a table as CSV, and the graph as SVG or PNG, drawn the way it looks on screen.
+// Saving what Studio shows: a table as CSV, and the graph as SVG or PNG, drawn the way it looks on screen.
 
 /** The properties that make the drawing look as it does, copied onto each element, since a saved SVG has no stylesheet. */
 const DRAWN = [

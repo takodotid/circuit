@@ -1,4 +1,4 @@
-// The schema's own comments, read as data: each type, what it is, and each field with its type and description. The schema reference page and studio both show them.
+// The schema's own comments, read as data: each type, what it is, and each field with its type and description. The schema reference page and Studio both show them.
 
 /** The schema files in reading order, with the title each gets. */
 export const SCHEMA_FILES = [

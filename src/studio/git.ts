@@ -1,10 +1,10 @@
-// Git, for studio's history and comparisons: the commits that changed a device, and the network as it was at another commit or branch.
+// Git, for Studio's history and comparisons: the commits that changed a device, and the network as it was at another commit or branch.
 
 import { execFile } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
-/** One commit, as studio lists it. */
+/** One commit, as Studio lists it. */
 export type Commit = {
     commit: string;
     short: string;
@@ -101,7 +101,7 @@ export async function networkAt(
 
     const cache = join(configDirectory, ".circuit", "cache");
     mkdirSync(cache, { recursive: true });
-    writeFileSync(join(cache, ".gitignore"), "# Written by Circuit studio: checkouts of other commits, removed once read.\n*\n");
+    writeFileSync(join(cache, ".gitignore"), "# Written by Circuit Studio: checkouts of other commits, removed once read.\n*\n");
 
     // A checkout left behind by a run that stopped is forgotten first.
     await git(top, ["worktree", "prune"]);

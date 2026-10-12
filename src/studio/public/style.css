@@ -1,4 +1,4 @@
-/* Circuit studio's look, the documentation site's own: Inter for text, Newsreader for headings, terracotta for the brand, and VitePress's neutrals. Colors are tokens, redefined for a dark screen; then the page, the tables and the graph. */
+/* Circuit Studio's look, the documentation site's own: Inter for text, Newsreader for headings, terracotta for the brand, and VitePress's neutrals. Colors are tokens, redefined for a dark screen; then the page, the tables and the graph. */
 :root {
     --bg: #f6f6f7;
     --surface: #ffffff;
@@ -78,7 +78,7 @@ header {
     background: var(--surface);
     border-bottom: 1px solid var(--line);
 }
-/* The wordmark is Circuit's own; studio is set apart from it, as the part of Circuit this is. */
+/* The wordmark is Circuit's own; Studio is set apart from it, as the part of Circuit this is. */
 header .brand {
     display: flex;
     align-items: baseline;

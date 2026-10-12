@@ -104,7 +104,7 @@ search.addEventListener("input", () => {
     searching = setTimeout(() => go(query ? `search/${encodeURIComponent(query)}` : "devices"), 200);
 });
 
-/** Load what studio shows, at the start and whenever the server says the config changed. */
+/** Load what Studio shows, at the start and whenever the server says the config changed. */
 async function load() {
     /** @type {(StudioData & { error?: undefined }) | { error: string }} */
     let next;
@@ -137,7 +137,7 @@ events.addEventListener("open", () => {
 
 events.addEventListener("error", () => {
     live.textContent = "not connected";
-    live.title = "Studio is not answering. Is circuit studio still running?";
+    live.title = "Circuit Studio is not answering. Is circuit studio still running?";
     live.classList.remove("on");
 });
 

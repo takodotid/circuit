@@ -22,7 +22,7 @@ Run every command from your project as `npx circuit <command>`, or `pnpm circuit
 | `prometheus`                     | Prints every device with SNMP as a target for Prometheus. See [Prometheus](/integrations/prometheus).                                          | no               |
 | `addresses [prefix]`             | Lists every address the files use, by prefix, and what is still free. See [Finding a free address](/guide/addresses).                          | no               |
 | `graph [device...]`              | Prints the network as a graph: cables, VLANs, addresses, BGP, OSPF or tunnels. See [Printing the graph](/guide/graph).                         | no               |
-| `studio`                         | Opens studio: the network in your browser, drawn and in tables, again each time a file changes. See [Studio](/studio/).                        | no               |
+| `studio`                         | Opens Circuit Studio: the network in your browser, drawn and in tables, again each time a file changes. See [Studio](/studio/).                | no               |
 
 `diff` and `snapshot` take device names, or work on every device when you give none.
 
@@ -48,11 +48,11 @@ These four are easy to mix up:
 | `--length=N`        | `addresses`                                           | List the free prefixes of this length, instead of the fewest that cover the free space.                                                    |
 | `--layer=L`         | `graph`                                               | Which layer to print: `l1`, `l2`, `l3`, `bgp`, `ospf` or `tunnels`, several with commas, or `all`. `l1` by default.                        |
 | `--format=F`        | `graph`, `addresses`                                  | For `graph`, `mermaid`, `dot` or `json`, `mermaid` by default. For `addresses`, `json`.                                                    |
-| `--port=N`          | `studio`                                              | The port studio listens on. 4600 by default.                                                                                               |
+| `--port=N`          | `studio`                                              | The port Studio listens on. 4600 by default.                                                                                               |
 | `--no-open`         | `studio`                                              | Do not open the browser.                                                                                                                   |
 | `--host=ADDRESS`    | `studio`                                              | Listen on this address, such as `0.0.0.0` on a server, instead of this machine only. Needs `--allow-host`. See [Hosting](/studio/hosting). |
-| `--allow-host=NAME` | `studio`                                              | The names studio is reached by, several with commas. It refuses any other.                                                                 |
-| `--json`            | `studio`                                              | Print everything studio shows, as JSON, instead of starting it.                                                                            |
+| `--allow-host=NAME` | `studio`                                              | The names Studio is reached by, several with commas. It refuses any other.                                                                 |
+| `--json`            | `studio`                                              | Print everything Studio shows, as JSON, instead of starting it.                                                                            |
 
 ## Making a change, step by step
 

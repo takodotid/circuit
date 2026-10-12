@@ -15,7 +15,7 @@ Next to the graph, the top bar has tables of everything your files hold. You can
 
 A column named after a field, such as `remote_as`, is written as the field is. Point at it to see what the field means: it is the same text your editor shows.
 
-A secret shows as the name its value is read from, such as `secret("EDGE_01_PASSWORD")`, never as the value. Studio only reads. To change something, edit the device's file, and studio shows the change when you save it.
+A secret shows as the name its value is read from, such as `secret("EDGE_01_PASSWORD")`, never as the value. Studio only reads. To change something, edit the device's file, and Studio shows the change when you save it.
 
 ## What a device runs
 

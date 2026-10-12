@@ -1,11 +1,11 @@
-// What studio shows is gathered from the config alone: each device as written, every port its model has, what it would run, its BGP sessions and cables, and the schema's description of each field.
+// What Studio shows is gathered from the config alone: each device as written, every port its model has, what it would run, its BGP sessions and cables, and the schema's description of each field.
 
 import { expect, test } from "bun:test";
 import { adapters } from "../src/adapters/devices";
 import { graphOf } from "../src/core/graph";
 import { studioData } from "../src/studio/data";
 
-test("studio gathers the colocation pattern's devices, sessions, cables and field descriptions", async () => {
+test("Studio gathers the colocation pattern's devices, sessions, cables and field descriptions", async () => {
     const network = (await import("../templates/colocation/circuit.config.ts")).default;
     const devices = network.devices;
     const data = studioData(
@@ -94,7 +94,7 @@ test("a session back must be of the same family: a v4 session back does not answ
     expect(data.sessions.filter((session) => session.oneSided).map((session) => `${session.device} ${session.name}`)).toEqual(["r1 r2-v6"]);
 });
 
-test("studio answers only the names it is reached by: this machine's own, and those it is told", async () => {
+test("Studio answers only the names it is reached by: this machine's own, and those it is told", async () => {
     const { hostAllowed, isLoopback } = await import("../src/studio/server");
 
     expect(hostAllowed("127.0.0.1:4600", 4600, [])).toBe(true);

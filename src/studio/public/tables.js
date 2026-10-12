@@ -1200,7 +1200,7 @@ function searchView(query, container) {
 }
 
 /**
- * Draw a place in studio's tables, such as `["devices", "edge-01", "ports"]`, into a container.
+ * Draw a place in Studio's tables, such as `["devices", "edge-01", "ports"]`, into a container.
  *
  * @param {string[]} route
  * @param {HTMLElement} container
