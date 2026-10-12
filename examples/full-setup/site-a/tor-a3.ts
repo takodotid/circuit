@@ -1,10 +1,10 @@
 // The third top-of-rack switch at site A, on another platform: customers' servers on 25G, and two cables bundled to each core switch.
 
 import { defineDevice, merge } from "@takodotid/circuit";
-import { AT } from "./customers";
-import { INFRA_VLANS } from "./network";
-import * as switches from "./switches";
-import { customerPorts, customerVlans, privateVlans } from "./tenancy";
+import { AT } from "../customers";
+import { INFRA_VLANS } from "../network";
+import * as switches from "../switches";
+import { customerPorts, customerVlans, privateVlans } from "../tenancy";
 
 // The platform limits flooding in packets per second, and only broadcast.
 const HOST = { storm_control: { broadcast: { pps: 2000 } } };

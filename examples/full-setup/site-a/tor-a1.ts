@@ -1,10 +1,10 @@
 // The first top-of-rack switch at site A: customers' servers, with an uplink to each core switch. Spanning tree blocks one of the two.
 
 import { defineDevice, merge } from "@takodotid/circuit";
-import { AT } from "./customers";
-import { INFRA_VLANS } from "./network";
-import * as switches from "./switches";
-import { customerPorts, customerVlans, privateVlans } from "./tenancy";
+import { AT } from "../customers";
+import { INFRA_VLANS } from "../network";
+import * as switches from "../switches";
+import { customerPorts, customerVlans, privateVlans } from "../tenancy";
 
 const HOST = { stp: { edge: true }, storm_control: { broadcast: { percent: 1 }, unknown_unicast: { percent: 5 } } };
 

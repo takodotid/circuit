@@ -1,10 +1,10 @@
 // The top-of-rack switch at site B, below agg-b1: customers' servers and the office's desks.
 
 import { defineDevice, merge } from "@takodotid/circuit";
-import { AT } from "./customers";
-import { INFRA_VLANS, SERVICES } from "./network";
-import * as switches from "./switches";
-import { customerPorts, customerVlans, privateVlans } from "./tenancy";
+import { AT } from "../customers";
+import { INFRA_VLANS, SERVICES } from "../network";
+import * as switches from "../switches";
+import { customerPorts, customerVlans, privateVlans } from "../tenancy";
 
 const HOST = { stp: { edge: true }, storm_control: { broadcast: { percent: 1 } } };
 

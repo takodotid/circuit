@@ -1,10 +1,10 @@
 // The aggregation switch at site B: edge-b1's way down, the office, customers' servers, and tor-b1 below it.
 
 import { defineDevice, merge } from "@takodotid/circuit";
-import { AT } from "./customers";
-import { INFRA_VLANS } from "./network";
-import * as switches from "./switches";
-import { customerPorts, customerVlans, privateVlans } from "./tenancy";
+import { AT } from "../customers";
+import { INFRA_VLANS } from "../network";
+import * as switches from "../switches";
+import { customerPorts, customerVlans, privateVlans } from "../tenancy";
 
 const HOST = { storm_control: { broadcast: { pps: 2000 } } };
 

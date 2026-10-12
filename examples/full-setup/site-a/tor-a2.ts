@@ -1,10 +1,10 @@
 // The second top-of-rack switch at site A: customers' servers, some with a private network between them, and an uplink to each core switch.
 
 import { defineDevice, merge } from "@takodotid/circuit";
-import { AT } from "./customers";
-import { INFRA_VLANS } from "./network";
-import * as switches from "./switches";
-import { customerPorts, customerVlans, privateVlans } from "./tenancy";
+import { AT } from "../customers";
+import { INFRA_VLANS } from "../network";
+import * as switches from "../switches";
+import { customerPorts, customerVlans, privateVlans } from "../tenancy";
 
 const HOST = { stp: { edge: true }, storm_control: { broadcast: { percent: 1 } } };
 
