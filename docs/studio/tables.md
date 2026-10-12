@@ -31,4 +31,4 @@ A device's **Ports** page starts with its front panel: a square for each port of
 
 ## Saving
 
-Each list can be saved for a spreadsheet with **Save as CSV** above it. On the graph, **Save SVG** and **Save PNG** save the layer shown, as it looks.
+Each list can be saved for a spreadsheet with **Save as CSV** above it. On the graph, **Save image** saves the layer shown, as it looks, as an SVG or a PNG.
