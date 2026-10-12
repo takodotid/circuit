@@ -1,0 +1,452 @@
+{
+    "schemaVersion": 2,
+    "generatedAt": "2026-10-12T00:00:00+07:00",
+    "title": "Design System: Circuit",
+    "extensions": {
+        "colorMeta": {
+            "cobalt": {
+                "role": "primary",
+                "displayName": "Plate Cobalt",
+                "canonical": "#0a47b8",
+                "tonalRamp": ["#000038", "#001d5f", "#023799", "#1c57c9", "#3e7cf1", "#74a4fa", "#accaff", "#e6effe"]
+            },
+            "cobalt-deep": {
+                "role": "primary",
+                "displayName": "Deep Cobalt",
+                "canonical": "#08337f",
+                "tonalRamp": ["#000038", "#001d5f", "#123c89", "#325eae", "#5280d3", "#73a4fa", "#accafe", "#e6effe"]
+            },
+            "navy": {
+                "role": "neutral",
+                "displayName": "Navy",
+                "canonical": "#0a1a36",
+                "tonalRamp": ["#010923", "#142441", "#304261", "#4e6283", "#6e83a6", "#90a6cb", "#b4caf0", "#e6effe"]
+            },
+            "yellow": {
+                "role": "secondary",
+                "displayName": "Highlighter Yellow",
+                "canonical": "#f8e347",
+                "tonalRamp": ["#0f0b00", "#2b2500", "#4b4300", "#6d620b", "#928411", "#b9a700", "#e1cb22", "#fef199"]
+            },
+            "yellow-deep": {
+                "role": "secondary",
+                "displayName": "Pressed Yellow",
+                "canonical": "#e8cd1c",
+                "tonalRamp": ["#100b00", "#2c2501", "#4c4208", "#6f6204", "#958306", "#bba628", "#e5ca13", "#fff0a0"]
+            },
+            "signal-red": {
+                "role": "tertiary",
+                "displayName": "Signal Red",
+                "canonical": "#d42a2f",
+                "tonalRamp": ["#210000", "#4d0005", "#7f0611", "#b21b22", "#e33b3c", "#fc766d", "#feb3ac", "#ffe9e6"]
+            },
+            "on-cobalt": {
+                "role": "neutral",
+                "displayName": "On-Cobalt White",
+                "canonical": "#ffffff",
+                "tonalRamp": ["#0b0b0b", "#252525", "#424242", "#616161", "#828282", "#a5a5a5", "#c9c9c9", "#eeeeee"]
+            },
+            "on-cobalt-soft": {
+                "role": "neutral",
+                "displayName": "On-Cobalt Soft",
+                "canonical": "#c9d7f5",
+                "tonalRamp": ["#040a1e", "#1b243b", "#37425a", "#55617b", "#76829e", "#98a5c2", "#bbc9e7", "#e7efff"]
+            },
+            "paper": {
+                "role": "neutral",
+                "displayName": "Paper",
+                "canonical": "#ffffff",
+                "tonalRamp": ["#0b0b0b", "#252525", "#424242", "#616161", "#828282", "#a5a5a5", "#c9c9c9", "#eeeeee"]
+            },
+            "mist": {
+                "role": "neutral",
+                "displayName": "Mist",
+                "canonical": "#eff2f9",
+                "tonalRamp": ["#090b0f", "#23252a", "#404247", "#5f6167", "#808288", "#a2a5ab", "#c6c9d0", "#ebeef5"]
+            },
+            "ink": {
+                "role": "neutral",
+                "displayName": "Ink",
+                "canonical": "#11141b",
+                "tonalRamp": ["#080b12", "#22252d", "#3e424a", "#5d616a", "#7e828c", "#a1a5af", "#c5c9d3", "#eaeef9"]
+            },
+            "soft-ink": {
+                "role": "neutral",
+                "displayName": "Soft Ink",
+                "canonical": "#49536a",
+                "tonalRamp": ["#050a1c", "#1c2439", "#384258", "#576179", "#77829b", "#99a5bf", "#bdc9e4", "#e7efff"]
+            },
+            "line": {
+                "role": "neutral",
+                "displayName": "Line",
+                "canonical": "#d3d9e7",
+                "tonalRamp": ["#080b14", "#21252f", "#3d424d", "#5c616d", "#7d828f", "#9fa5b2", "#c3c9d7", "#e8eefd"]
+            },
+            "edge": {
+                "role": "neutral",
+                "displayName": "Edge",
+                "canonical": "#7b86a0",
+                "tonalRamp": ["#050a1c", "#1c2439", "#384158", "#576179", "#77829c", "#99a5c0", "#bdc9e5", "#e8eefe"]
+            },
+            "code-text": {
+                "role": "neutral",
+                "displayName": "Code Text",
+                "canonical": "#e6ecfa",
+                "tonalRamp": ["#080b14", "#21252f", "#3d424d", "#5c616d", "#7d828f", "#9fa5b2", "#c3c9d7", "#e8eefc"]
+            },
+            "removed": {
+                "role": "tertiary",
+                "displayName": "Removal Red",
+                "canonical": "#c0262c",
+                "tonalRamp": ["#220000", "#4e0004", "#800010", "#b41522", "#dd4544", "#fe746d", "#ffb3ab", "#fee9e7"]
+            },
+            "added": {
+                "role": "tertiary",
+                "displayName": "Added Green",
+                "canonical": "#11733b",
+                "tonalRamp": ["#001003", "#002e12", "#015025", "#13743c", "#3f975c", "#64bb7e", "#89e0a1", "#c7ffd4"]
+            },
+            "warning": {
+                "role": "tertiary",
+                "displayName": "Warning Orange",
+                "canonical": "#b35a00",
+                "tonalRamp": ["#1b0300", "#3d1a00", "#663203", "#924c12", "#c1671b", "#e88a46", "#feb788", "#ffeadd"]
+            },
+            "warning-strong": {
+                "role": "tertiary",
+                "displayName": "Warning Orange Strong",
+                "canonical": "#f0a030",
+                "tonalRamp": ["#170600", "#371f00", "#5d3903", "#855612", "#b0731b", "#e09117", "#fcbb6c", "#feebd6"]
+            },
+            "selected": {
+                "role": "neutral",
+                "displayName": "Selected Wash",
+                "canonical": "#fff7c2",
+                "tonalRamp": ["#100b00", "#2b2500", "#4a4310", "#6a6232", "#8b8453", "#aea774", "#d3cb97", "#f8f0bc"]
+            },
+            "night-paper": {
+                "role": "neutral",
+                "displayName": "Night Paper",
+                "canonical": "#0b1122",
+                "tonalRamp": ["#050a1a", "#1d2437", "#3a4256", "#586176", "#798299", "#9ba5bd", "#bfc9e2", "#e8eefd"]
+            },
+            "night-mist": {
+                "role": "neutral",
+                "displayName": "Night Mist",
+                "canonical": "#121a30",
+                "tonalRamp": ["#04091e", "#1b243b", "#37415a", "#56617b", "#76829e", "#99a5c2", "#bcc9e7", "#e8eefd"]
+            },
+            "night-ink": {
+                "role": "neutral",
+                "displayName": "Night Ink",
+                "canonical": "#f1f4fb",
+                "tonalRamp": ["#090b0f", "#23252a", "#404247", "#5f6167", "#808288", "#a2a5ab", "#c6c9d0", "#ebeef5"]
+            },
+            "night-soft-ink": {
+                "role": "neutral",
+                "displayName": "Night Soft Ink",
+                "canonical": "#a9b4cc",
+                "tonalRamp": ["#050a1a", "#1d2537", "#394256", "#576177", "#788299", "#9aa5bd", "#bec9e2", "#e8effe"]
+            },
+            "night-line": {
+                "role": "neutral",
+                "displayName": "Night Line",
+                "canonical": "#26314d",
+                "tonalRamp": ["#030921", "#19243f", "#35415e", "#546180", "#7482a3", "#96a5c7", "#bac9ec", "#e8eefe"]
+            },
+            "night-link": {
+                "role": "primary",
+                "displayName": "Night Link",
+                "canonical": "#9cb9ff",
+                "tonalRamp": ["#020036", "#0e1e57", "#283d79", "#465e9d", "#6580c2", "#87a3e8", "#b2c9fc", "#e8eefe"]
+            },
+            "night-removed": {
+                "role": "tertiary",
+                "displayName": "Night Removal Red",
+                "canonical": "#ff8086",
+                "tonalRamp": ["#220002", "#4b0310", "#7b1023", "#a7303d", "#ce545d", "#f6787f", "#fab4b4", "#fee9e8"]
+            },
+            "night-added": {
+                "role": "tertiary",
+                "displayName": "Night Added Green",
+                "canonical": "#5fd38f",
+                "tonalRamp": ["#001004", "#032e17", "#00502b", "#0d7443", "#149b5b", "#49bf7c", "#72e5a0", "#c6ffd8"]
+            },
+            "night-warning": {
+                "role": "tertiary",
+                "displayName": "Night Warning Orange",
+                "canonical": "#ffad4f",
+                "tonalRamp": ["#180600", "#391e00", "#603700", "#88530a", "#b57010", "#e1912d", "#fdba73", "#feebd8"]
+            },
+            "night-selected": {
+                "role": "neutral",
+                "displayName": "Night Selected Wash",
+                "canonical": "#3a3510",
+                "tonalRamp": ["#0f0b00", "#2b2600", "#48431f", "#67623d", "#89845e", "#aca77f", "#d0cba2", "#f6f0c7"]
+            }
+        },
+        "typographyMeta": {
+            "display": {
+                "displayName": "Display",
+                "purpose": "The docs home title line only; scales with the window from a 1536px drawing (124px there), clamp(44px, 13.6vw, 72px) under 760px."
+            },
+            "headline": {
+                "displayName": "Headline",
+                "purpose": "Docs home chapter headings with the dotted underline; 96px at 1536 wide, 52px narrow."
+            },
+            "title": {
+                "displayName": "Title",
+                "purpose": "Studio table titles (dotted underline); docs page h1 46px, h2 30px, Studio panel title 26px."
+            },
+            "body": {
+                "displayName": "Body",
+                "purpose": "Docs reading pages; the home uses 17px to 19px at 1.6."
+            },
+            "body-studio": {
+                "displayName": "Body (Studio)",
+                "purpose": "Studio's working text."
+            },
+            "label": {
+                "displayName": "Label",
+                "purpose": "Uppercase, wide and tracked: nav links, view tabs, table heads, note chips, badges, panel section heads. 11px to 13px, width 112% to 120%, 0.06em to 0.1em."
+            },
+            "wordmark": {
+                "displayName": "Wordmark",
+                "purpose": "CIRCUIT in the docs nav and Studio rail, width 125%, uppercase."
+            },
+            "mono": {
+                "displayName": "Mono",
+                "purpose": "Config, commands, file names, VLAN segment labels and model numbers only."
+            }
+        },
+        "fonts": [
+            {
+                "family": "Special Gothic",
+                "axes": {
+                    "wght": "400 700",
+                    "wdth": "75% 125%"
+                },
+                "files": [
+                    "docs/public/fonts/special-gothic-latin.woff2",
+                    "docs/public/fonts/special-gothic-latin-ext.woff2",
+                    "src/studio/public/special-gothic-latin.woff2",
+                    "src/studio/public/special-gothic-latin-ext.woff2"
+                ],
+                "fallback": "Segoe UI, system-ui, sans-serif"
+            }
+        ],
+        "shadows": [
+            {
+                "name": "menu-lift",
+                "value": "0 8px 20px rgba(10, 26, 54, 0.18)",
+                "purpose": "Studio dropdown menus only; everything else is flat."
+            }
+        ],
+        "focus": [
+            {
+                "name": "focus-ring",
+                "value": "outline: 3px solid #0a47b8 (#9cb9ff in dark themes); yellow #f8e347 on the cobalt nav and Studio rail; white inside the cobalt opening; outline-offset 2px to 3px",
+                "purpose": "Keyboard focus on both surfaces, coloured to stay visible against the ground it sits on."
+            },
+            {
+                "name": "search-focus-on-cobalt",
+                "value": "border-color: #ffffff; outline: 3px solid #f8e347; outline-offset: 1px",
+                "purpose": "Studio search field on the cobalt rail."
+            }
+        ],
+        "motion": [
+            {
+                "name": "ease-out-expo",
+                "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+                "purpose": "Callout leaders drawing in (0.6s) and dots popping in (0.5s), staggered 0.09s in legend order; lit dot scale to 1.12."
+            },
+            {
+                "name": "state-fade",
+                "value": "0.2s",
+                "purpose": "Background and border colour changes on buttons, command copy and dots."
+            },
+            {
+                "name": "underline-solidify",
+                "value": "text-decoration-style 0.15s",
+                "purpose": "Dotted link underline turning solid on hover."
+            },
+            {
+                "name": "tag-reveal",
+                "value": "opacity, transform, visibility 0.18s",
+                "purpose": "Callout tags appearing when lit."
+            },
+            {
+                "name": "reduced-motion",
+                "value": "prefers-reduced-motion: reduce",
+                "purpose": "All transitions and animations cut to 0.01ms on both surfaces."
+            }
+        ],
+        "breakpoints": [
+            {
+                "name": "narrow",
+                "value": "760px",
+                "purpose": "Docs home stacks to one column, plate scrolls sideways at 900px; Studio panel moves under the graph."
+            },
+            {
+                "name": "home-legend",
+                "value": "1100px",
+                "purpose": "Docs home legend wraps to three columns."
+            },
+            {
+                "name": "home-nav-compact",
+                "value": "960px to 1279px",
+                "purpose": "Docs home nav tightens and hides search keys."
+            },
+            {
+                "name": "studio-search",
+                "value": "1180px",
+                "purpose": "Studio search drops under the view tabs."
+            }
+        ],
+        "themes": {
+            "docs": "VitePress .dark class. Cobalt, navy and yellow stay fixed; paper, ink, line, link, added and removed switch to the night tokens; dark code blocks use #060c1a.",
+            "studio": "prefers-color-scheme: dark. Same fixed shell; page tokens switch to the night tokens, with night-mist (#121a30) surfaces on night-paper (#0b1122)."
+        }
+    },
+    "components": [
+        {
+            "name": "Primary Button",
+            "kind": "button",
+            "refersTo": "button-primary",
+            "description": "The one action per view: highlighter yellow, navy text, square corners, drawn arrow.",
+            "html": "<a class=\"ds-btn-primary\" href=\"#\">Get started <svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 12h15m-6-6 6 6-6 6\"/></svg></a>",
+            "css": ":host{--cobalt:#0a47b8;--navy:#0a1a36;--yellow:#f8e347;--yellow-deep:#e8cd1c;--ink:#11141b;--paper:#ffffff;--mist:#eff2f9;--line:#d3d9e7;--edge:#7b86a0;--soft:#49536a;--red:#d42a2f;--font:\"Special Gothic\",\"Segoe UI\",system-ui,sans-serif;--mono:ui-monospace,\"Cascadia Code\",\"SFMono-Regular\",Menlo,Consolas,monospace;font-family:var(--font);} .ds-btn-primary{display:inline-flex;align-items:center;gap:12px;height:50px;padding:0 28px;border:2px solid var(--yellow);border-radius:2px;background:var(--yellow);color:var(--navy);font:700 18px/1 var(--font);text-decoration:none;transition:background-color .2s,border-color .2s;} .ds-btn-primary svg{transition:transform .2s;} .ds-btn-primary:hover{background:var(--yellow-deep);border-color:var(--yellow-deep);} .ds-btn-primary:hover svg{transform:translateX(3px);} .ds-btn-primary:focus-visible{outline:3px solid var(--cobalt);outline-offset:3px;}"
+        },
+        {
+            "name": "Default Button",
+            "kind": "button",
+            "refersTo": "button-default",
+            "description": "Studio's working button: paper, 1.5px edge border, cobalt on hover, cobalt fill when pressed.",
+            "html": "<button class=\"ds-btn\">Fit</button> <button class=\"ds-btn\" aria-pressed=\"true\">VLANs</button>",
+            "css": ":host{--cobalt:#0a47b8;--navy:#0a1a36;--yellow:#f8e347;--yellow-deep:#e8cd1c;--ink:#11141b;--paper:#ffffff;--mist:#eff2f9;--line:#d3d9e7;--edge:#7b86a0;--soft:#49536a;--red:#d42a2f;--font:\"Special Gothic\",\"Segoe UI\",system-ui,sans-serif;--mono:ui-monospace,\"Cascadia Code\",\"SFMono-Regular\",Menlo,Consolas,monospace;font-family:var(--font);} .ds-btn{min-height:36px;padding:6px 12px;border:1.5px solid var(--edge);border-radius:2px;background:var(--paper);color:var(--ink);font:600 15px/1.5 var(--font);cursor:pointer;} .ds-btn:hover{border-color:var(--cobalt);color:var(--cobalt);} .ds-btn[aria-pressed=true]{border-color:var(--cobalt);background:var(--cobalt);color:#fff;} .ds-btn:focus-visible{outline:3px solid var(--cobalt);outline-offset:2px;}"
+        },
+        {
+            "name": "Command Copy",
+            "kind": "custom",
+            "refersTo": "command-copy",
+            "description": "A copyable install command on navy, mono text, drawn copy icon.",
+            "html": "<button class=\"ds-command\"><code>npx @takodotid/circuit new</code><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"8\" y=\"8\" width=\"12\" height=\"12\" rx=\"1\"/><path d=\"M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3\"/></svg></button>",
+            "css": ":host{--cobalt:#0a47b8;--navy:#0a1a36;--yellow:#f8e347;--yellow-deep:#e8cd1c;--ink:#11141b;--paper:#ffffff;--mist:#eff2f9;--line:#d3d9e7;--edge:#7b86a0;--soft:#49536a;--red:#d42a2f;--font:\"Special Gothic\",\"Segoe UI\",system-ui,sans-serif;--mono:ui-monospace,\"Cascadia Code\",\"SFMono-Regular\",Menlo,Consolas,monospace;font-family:var(--font);} .ds-command{display:inline-flex;align-items:center;justify-content:space-between;gap:16px;min-height:56px;padding:0 24px;border:2px solid var(--navy);border-radius:2px;background:var(--navy);color:#fff;cursor:copy;transition:border-color .2s;} .ds-command code{font:16px/1 var(--mono);} .ds-command:hover{border-color:#c9d7f5;} .ds-command:focus-visible{outline:3px solid var(--cobalt);outline-offset:3px;}"
+        },
+        {
+            "name": "Field Input",
+            "kind": "input",
+            "refersTo": "input-field",
+            "description": "Studio tool field: label above, mist ground, 1.5px edge border, cobalt on focus.",
+            "html": "<label class=\"ds-field\">Address<input type=\"text\" placeholder=\"198.51.100.169\"></label>",
+            "css": ":host{--cobalt:#0a47b8;--navy:#0a1a36;--yellow:#f8e347;--yellow-deep:#e8cd1c;--ink:#11141b;--paper:#ffffff;--mist:#eff2f9;--line:#d3d9e7;--edge:#7b86a0;--soft:#49536a;--red:#d42a2f;--font:\"Special Gothic\",\"Segoe UI\",system-ui,sans-serif;--mono:ui-monospace,\"Cascadia Code\",\"SFMono-Regular\",Menlo,Consolas,monospace;font-family:var(--font);} .ds-field{display:inline-flex;flex-direction:column;gap:4px;color:var(--soft);font:600 13px/1.4 var(--font);} .ds-field input{min-width:150px;min-height:36px;padding:5px 9px;border:1.5px solid var(--edge);border-radius:2px;background:var(--mist);color:var(--ink);font:400 15px var(--font);} .ds-field input:focus{border-color:var(--cobalt);} .ds-field input:focus-visible{outline:3px solid var(--cobalt);outline-offset:2px;}"
+        },
+        {
+            "name": "Studio Rail",
+            "kind": "nav",
+            "refersTo": "studio-tag",
+            "description": "Cobalt rail with the wide caps wordmark, yellow Studio tag and caps view tabs with a yellow active bar.",
+            "html": "<header class=\"ds-rail\"><span class=\"ds-mark\">Circuit</span><span class=\"ds-tag\">Studio</span><nav><button aria-pressed=\"true\">Graph</button><button>Devices</button><button>VLANs</button></nav></header>",
+            "css": ":host{--cobalt:#0a47b8;--navy:#0a1a36;--yellow:#f8e347;--yellow-deep:#e8cd1c;--ink:#11141b;--paper:#ffffff;--mist:#eff2f9;--line:#d3d9e7;--edge:#7b86a0;--soft:#49536a;--red:#d42a2f;--font:\"Special Gothic\",\"Segoe UI\",system-ui,sans-serif;--mono:ui-monospace,\"Cascadia Code\",\"SFMono-Regular\",Menlo,Consolas,monospace;font-family:var(--font);} .ds-rail{display:flex;align-items:stretch;background:var(--cobalt);color:#fff;padding-left:18px;} .ds-mark{align-self:center;font:700 21px/1 var(--font);font-stretch:125%;letter-spacing:.04em;text-transform:uppercase;} .ds-tag{align-self:center;margin:0 12px 0 10px;padding:2px 7px;border-radius:2px;background:var(--yellow);color:var(--navy);font:700 11px/1.4 var(--font);font-stretch:118%;letter-spacing:.1em;text-transform:uppercase;} .ds-rail nav{display:flex;} .ds-rail button{position:relative;min-height:52px;padding:0 11px;border:0;background:transparent;color:#c9d7f5;font:700 12.5px var(--font);font-stretch:112%;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;} .ds-rail button:hover{color:#fff;background:rgba(255,255,255,.08);} .ds-rail button[aria-pressed=true]{color:#fff;} .ds-rail button[aria-pressed=true]::after{content:\"\";position:absolute;left:9px;right:9px;bottom:0;height:4px;background:var(--yellow);} .ds-rail button:focus-visible{outline:3px solid var(--yellow);outline-offset:-3px;}"
+        },
+        {
+            "name": "Dotted Heading",
+            "kind": "custom",
+            "description": "The signature: a heading with a row of cobalt dots under it, and a link that is dotted at rest and solid on hover.",
+            "html": "<h2 class=\"ds-dotted\"><span>Where to begin</span></h2><p class=\"ds-p\">Read <a class=\"ds-link\" href=\"#\">getting started</a> first.</p>",
+            "css": ":host{--cobalt:#0a47b8;--navy:#0a1a36;--yellow:#f8e347;--yellow-deep:#e8cd1c;--ink:#11141b;--paper:#ffffff;--mist:#eff2f9;--line:#d3d9e7;--edge:#7b86a0;--soft:#49536a;--red:#d42a2f;--font:\"Special Gothic\",\"Segoe UI\",system-ui,sans-serif;--mono:ui-monospace,\"Cascadia Code\",\"SFMono-Regular\",Menlo,Consolas,monospace;font-family:var(--font);} .ds-dotted{margin:0 0 16px;font:700 44px/1.08 var(--font);letter-spacing:-.04em;color:var(--ink);} .ds-dotted span{padding-bottom:10px;background:radial-gradient(circle,var(--cobalt) 48%,transparent 52%) left bottom/18px 9px space no-repeat;-webkit-box-decoration-break:clone;box-decoration-break:clone;} .ds-p{font:400 17px/1.6 var(--font);color:var(--ink);} .ds-link{color:var(--cobalt);font-weight:600;text-decoration:underline dotted 2px;text-underline-offset:5px;transition:text-decoration-style .15s;} .ds-link:hover{text-decoration-style:solid;} .ds-link:focus-visible{outline:3px solid var(--cobalt);outline-offset:3px;}"
+        },
+        {
+            "name": "Numbered Callout and Legend",
+            "kind": "custom",
+            "refersTo": "callout-dot",
+            "description": "White numbered dot with a leader line on cobalt, paired with a legend entry; both light yellow together.",
+            "html": "<div class=\"ds-plate\"><a class=\"ds-callout\" href=\"#\" aria-label=\"3, Plan\"><span class=\"ds-leader\"></span><span class=\"ds-dot\">3</span></a><ol class=\"ds-legend\"><li><a href=\"#\"><span class=\"ds-dot\">3</span>Plan</a></li></ol></div>",
+            "css": ":host{--cobalt:#0a47b8;--navy:#0a1a36;--yellow:#f8e347;--yellow-deep:#e8cd1c;--ink:#11141b;--paper:#ffffff;--mist:#eff2f9;--line:#d3d9e7;--edge:#7b86a0;--soft:#49536a;--red:#d42a2f;--font:\"Special Gothic\",\"Segoe UI\",system-ui,sans-serif;--mono:ui-monospace,\"Cascadia Code\",\"SFMono-Regular\",Menlo,Consolas,monospace;font-family:var(--font);} .ds-plate{position:relative;padding:72px 24px 20px;background:var(--cobalt);} .ds-callout{position:absolute;left:40px;top:36px;text-decoration:none;color:var(--cobalt);} .ds-leader{position:absolute;left:0;top:-1.5px;width:120px;height:3px;background:#fff;transform:rotate(12deg);transform-origin:0 50%;} .ds-dot{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#fff;color:var(--cobalt);font:700 15px/1 var(--font);transition:background-color .2s,transform .2s cubic-bezier(.16,1,.3,1);} .ds-callout .ds-dot{position:absolute;left:-16px;top:-16px;} .ds-callout:hover .ds-dot,.ds-callout:focus-visible .ds-dot{background:var(--yellow);color:var(--navy);transform:scale(1.12);} .ds-legend{margin:0;padding:16px 0 0;border-top:1px solid rgba(201,215,245,.7);list-style:none;} .ds-legend a{display:inline-flex;align-items:center;gap:14px;color:#fff;font:600 15px/32px var(--font);text-decoration:none;} .ds-legend .ds-dot{width:26px;height:26px;font-size:13px;} .ds-legend a:hover,.ds-legend a:focus-visible{text-decoration:underline dotted 2px;text-underline-offset:6px;} .ds-legend a:hover .ds-dot,.ds-legend a:focus-visible .ds-dot{background:var(--yellow);color:var(--navy);}"
+        },
+        {
+            "name": "Note and Caution",
+            "kind": "card",
+            "refersTo": "label-chip",
+            "description": "Square 2px frame with its kind on a caps chip; the caution turns the frame and chip signal red.",
+            "html": "<div class=\"ds-note\"><p class=\"ds-chip\">Note</p><p>Off is the absence of a field.</p></div><div class=\"ds-note ds-caution\"><p class=\"ds-chip\">Alpha</p><p>Install an exact version.</p></div>",
+            "css": ":host{--cobalt:#0a47b8;--navy:#0a1a36;--yellow:#f8e347;--yellow-deep:#e8cd1c;--ink:#11141b;--paper:#ffffff;--mist:#eff2f9;--line:#d3d9e7;--edge:#7b86a0;--soft:#49536a;--red:#d42a2f;--font:\"Special Gothic\",\"Segoe UI\",system-ui,sans-serif;--mono:ui-monospace,\"Cascadia Code\",\"SFMono-Regular\",Menlo,Consolas,monospace;font-family:var(--font);} .ds-note{margin:0 0 16px;padding:18px 22px 8px;border:2px solid var(--ink);background:var(--paper);color:var(--ink);font:400 16px/1.6 var(--font);} .ds-chip{display:inline-block;margin:0 0 6px;padding:2px 8px;background:var(--ink);color:var(--paper);font:700 12px/20px var(--font);font-stretch:120%;letter-spacing:.1em;text-transform:uppercase;} .ds-caution{border-color:var(--red);} .ds-caution .ds-chip{background:var(--red);color:#fff;}"
+        },
+        {
+            "name": "File Chip",
+            "kind": "chip",
+            "refersTo": "file-chip",
+            "description": "A mono file name in a hairline box; lists files, not actions.",
+            "html": "<ul class=\"ds-files\"><li>circuit.config.ts</li><li>edge-b1.ts</li><li>checks.ts</li></ul>",
+            "css": ":host{--cobalt:#0a47b8;--navy:#0a1a36;--yellow:#f8e347;--yellow-deep:#e8cd1c;--ink:#11141b;--paper:#ffffff;--mist:#eff2f9;--line:#d3d9e7;--edge:#7b86a0;--soft:#49536a;--red:#d42a2f;--font:\"Special Gothic\",\"Segoe UI\",system-ui,sans-serif;--mono:ui-monospace,\"Cascadia Code\",\"SFMono-Regular\",Menlo,Consolas,monospace;font-family:var(--font);} .ds-files{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none;} .ds-files li{padding:2px 8px;border:1px solid var(--line);border-radius:2px;color:var(--soft);font:13.5px/1.5 var(--mono);}"
+        },
+        {
+            "name": "Graph Device Tag",
+            "kind": "custom",
+            "description": "Studio graph node: paper tag, 2px ink frame, 8px radius, drawn chassis mark, name over model.",
+            "html": "<svg class=\"ds-node\" viewBox=\"0 0 230 66\" width=\"230\" height=\"66\" role=\"img\" aria-label=\"edge-b1\" tabindex=\"0\"><rect x=\"2\" y=\"2\" width=\"226\" height=\"62\" rx=\"8\" class=\"frame\"/><g transform=\"translate(18,33)\"><rect x=\"0\" y=\"-15\" width=\"34\" height=\"30\" rx=\"4\" class=\"chassis\"/><rect x=\"6\" y=\"-8\" width=\"6\" height=\"6\" rx=\"1\" class=\"socket\"/><rect x=\"14\" y=\"-8\" width=\"6\" height=\"6\" rx=\"1\" class=\"socket\"/><rect x=\"22\" y=\"-8\" width=\"6\" height=\"6\" rx=\"1\" class=\"socket\"/><rect x=\"6\" y=\"1\" width=\"6\" height=\"6\" rx=\"1\" class=\"socket\"/><rect x=\"14\" y=\"1\" width=\"6\" height=\"6\" rx=\"1\" class=\"socket\"/><rect x=\"22\" y=\"1\" width=\"6\" height=\"6\" rx=\"1\" class=\"socket\"/></g><text x=\"64\" y=\"26\" class=\"name\">edge-b1</text><text x=\"64\" y=\"48\" class=\"sub\">routeros CCR2216</text></svg>",
+            "css": ":host{--cobalt:#0a47b8;--navy:#0a1a36;--yellow:#f8e347;--yellow-deep:#e8cd1c;--ink:#11141b;--paper:#ffffff;--mist:#eff2f9;--line:#d3d9e7;--edge:#7b86a0;--soft:#49536a;--red:#d42a2f;--font:\"Special Gothic\",\"Segoe UI\",system-ui,sans-serif;--mono:ui-monospace,\"Cascadia Code\",\"SFMono-Regular\",Menlo,Consolas,monospace;font-family:var(--font);} .ds-node .frame{fill:var(--paper);stroke:var(--ink);stroke-width:2;} .ds-node .chassis{fill:var(--cobalt);} .ds-node .socket{fill:#fff;} .ds-node .name{fill:var(--ink);font:700 18px var(--font);} .ds-node .sub{fill:var(--soft);font:13px var(--font);} .ds-node:hover .frame,.ds-node:focus-visible .frame{fill:#fff7c2;stroke:var(--cobalt);stroke-width:4;} .ds-node:hover .socket,.ds-node:focus-visible .socket{fill:var(--yellow);} .ds-node:focus-visible{outline:3px solid var(--cobalt);outline-offset:2px;}"
+        }
+    ],
+    "narrative": {
+        "northStar": "The Numbered Parts Plate",
+        "overview": "Circuit is drawn the way a service manual draws a carburetor: a cobalt field, a flat illustration of the workflow, white numbered callouts with thin leader lines, and a legend underneath that names each part in Circuit's own terms. The two references that pinned the world are a cobalt exploded-parts plate (numbered callouts paired with a parts list) and a yellow storybook page (dotted underlines under words that can be looked up, labels pinned to a drawing). The docs site and Circuit Studio share one palette, one variable typeface and one signature, the dotted cobalt underline.\n\nThe page alternates cobalt fields with clean white and mist planes. Near-black ink frames carry structure: 2px rules under table heads, 2px frames around notes, tools and screenshots. Yellow is a highlighter, not a decoration: it marks the one action to take, the current thing, and selected text. Red is held back for removal, errors and the alpha caution; Studio adds orange for warnings and green for added. Code sits on navy in both themes, like the editor drawn in the home plate. The density is calm on the docs and working-tight in Studio, but both read as the same manual.\n\nBoth surfaces have a dark theme. The cobalt field, the navy code ground and the yellow highlighter stay the same in both; only the paper, ink, lines and link colour change.",
+        "keyCharacteristics": [
+            "Cobalt fields and white or mist planes, never a grey dashboard.",
+            "One typeface, Special Gothic, used across its width axis: wide caps for the wordmark and labels, normal width for reading, slightly condensed for the hero line. Monospace only for config and commands.",
+            "The dotted cobalt underline marks headings you can read further under, and links (dotted at rest, solid on hover).",
+            "Numbered white circle callouts with leader lines, paired one to one with a legend.",
+            "Square controls (2px radius), square note frames (0 radius), flat surfaces.",
+            "Yellow for action and selection, red for removal and caution, each paired with a second cue such as a word, a mark or a dash pattern."
+        ],
+        "rules": [
+            {
+                "name": "The Highlighter Rule",
+                "body": "Yellow marks what to do or what is chosen: one primary action per view, the current item, the selection. It never fills a decorative panel except the single close chapter on the docs home, and text on it is always navy or ink.",
+                "section": "colors"
+            },
+            {
+                "name": "The Red Means Gone Rule",
+                "body": "Red appears only for something removed, broken, or the alpha caution. Warnings in Studio are orange, never red, and every colour state carries a second cue (a word, a filled or hollow dot, a dash pattern).",
+                "section": "colors"
+            },
+            {
+                "name": "The Navy Code Rule",
+                "body": "Code blocks and commands sit on navy (#0a1a36, or #060c1a in dark docs) in both themes, with light text and a yellow `$` prompt.",
+                "section": "colors"
+            },
+            {
+                "name": "The One Family Rule",
+                "body": "Every non-code word is Special Gothic. Change width and weight, not family.",
+                "section": "typography"
+            },
+            {
+                "name": "The Wide Caps Label Rule",
+                "body": "Uppercase is reserved for short labels set wide (width 112% or more) and tracked (0.06em or more). Headings and reading text stay in sentence case.",
+                "section": "typography"
+            },
+            {
+                "name": "The Ink Frame Rule",
+                "body": "A container that needs separation gets a 2px ink frame or a plane change, not a shadow.",
+                "section": "elevation"
+            }
+        ],
+        "dos": [
+            "**Do** put the opening of a marketing surface on a cobalt field with white type, and alternate paper and mist planes below it.",
+            "**Do** use yellow for the single primary action and for selection, with navy or ink text on it.",
+            "**Do** pair every numbered callout with a legend entry that has the same number, and light both together.",
+            "**Do** mark headings you can read further under with the dotted cobalt underline, and set links as dotted underlines that go solid on hover.",
+            "**Do** set code and commands on navy in both themes, with a yellow `$` prompt.",
+            "**Do** frame notes and cautions as square 2px boxes with a caps label chip.",
+            "**Do** keep controls square at 2px radius and give state a second cue beyond colour (a word, a dot shape, a dash pattern).",
+            "**Do** keep Special Gothic self-hosted beside each surface so Studio works offline."
+        ],
+        "donts": [
+            "**Don't** use red for anything but removal, errors and the alpha caution; Studio warnings are orange.",
+            "**Don't** add shadows to cards or panels; separate with a plane or a 2px ink frame.",
+            "**Don't** introduce a second display or body family; vary Special Gothic's width and weight instead.",
+            "**Don't** use a product photograph or hardware picture for a device; draw the chassis mark.",
+            "**Don't** use em-dashes in any copy."
+        ]
+    }
+}
