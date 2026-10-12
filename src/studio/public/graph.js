@@ -3,6 +3,7 @@
 // The graph view: a force layout of every node, drawn one layer at a time, with panning, zooming, dragging, and a side panel for what is selected.
 
 import { byId, go, h, link, s, store, svgById } from "./dom.js";
+import { pngOf, save, svgOf } from "./export.js";
 
 /** @typedef {import("../../core/graph").GraphNode} GraphNode */
 /** @typedef {import("../../core/graph").GraphEdge} GraphEdge */
@@ -483,6 +484,17 @@ byId("lay-out").addEventListener("click", () => {
 });
 
 window.addEventListener("resize", () => place());
+
+// Saving the layer shown, as it looks.
+byId("save-svg").addEventListener("click", () => {
+    if (!(viewport instanceof SVGGraphicsElement)) return;
+    save(`circuit-${layer}.svg`, new Blob([svgOf(svg, viewport).text], { type: "image/svg+xml" }));
+});
+
+byId("save-png").addEventListener("click", async () => {
+    if (!(viewport instanceof SVGGraphicsElement)) return;
+    save(`circuit-${layer}.png`, await pngOf(svgOf(svg, viewport)));
+});
 
 // The side panel.
 /** @param {Selection} next */

@@ -4,12 +4,13 @@
 
 import { diffLines } from "./diff.js";
 import { go, h, link } from "./dom.js";
+import { csvOf, save } from "./export.js";
 import { currentLayer, LAYER_NAMES, lightVlan, selectDevice } from "./graph.js";
 
 /** @typedef {import("../../schema").Device} Device */
 /** @typedef {import("../data").StudioData} StudioData */
 /** @typedef {import("./dom.js").Child} Child */
-/** A column named after a field shows the name as code. @typedef {{ head: { label: string, title?: string, field?: boolean }[], rows: { cells: Child[], muted?: boolean, id?: string }[] }} Table */
+/** A column named after a field shows the name as code. A table with `csv` can be saved under that name. @typedef {{ head: { label: string, title?: string, field?: boolean }[], rows: { cells: Child[], muted?: boolean, id?: string }[], csv?: string }} Table */
 /** @typedef {{ id: string, title: string, has: (device: Device) => boolean, render: (device: Device) => Child[] }} Section */
 
 /** What the tables show, set each time they are drawn. @type {StudioData} */
@@ -81,7 +82,7 @@ function compact(value) {
  * @param {Table} table
  * @returns {Node}
  */
-function table({ head, rows }) {
+function table({ head, rows, csv }) {
     /** @param {Table["rows"][number]} row */
     const attributesOf = (row) => ({ ...(row.muted ? { class: "muted" } : {}), ...(row.id ? { id: row.id } : {}) });
 
@@ -102,7 +103,10 @@ function table({ head, rows }) {
         h("tbody", {}, ...rows.map((row) => h("tr", attributesOf(row), ...row.cells.map((cell) => h("td", {}, cell)))))
     );
 
-    return element;
+    if (!csv) return element;
+
+    const download = link("Save as CSV", () => save(`${csv}.csv`, new Blob([csvOf(element)], { type: "text/csv" })));
+    return h("div", { class: "table-block" }, h("p", { class: "table-actions" }, download), element);
 }
 
 /**
@@ -473,6 +477,7 @@ const SECTIONS = [
                 h("p", { class: "muted" }, `${used} of ${all.length} ports declared. A port the config does not declare is shut down.`),
                 faceplate(device, all, declared),
                 table({
+                    csv: `${device.name}-ports`,
                     head: [
                         column("Port"),
                         column("Description", "description"),
@@ -723,6 +728,7 @@ function devicesView(container) {
     container.append(
         heading("Devices", "h2"),
         table({
+            csv: "devices",
             head: ["Name", "Platform", "Model", "Reached at", "Ports declared", "Snapshot", "Found"].map((label) => ({ label })),
             rows: data.devices.map((device) => {
                 const badges = findingBadges(device.name);
@@ -828,6 +834,7 @@ function vlansView(container) {
         empty("Every VLAN any device declares. One id under two names is worth a look."),
         rows.length
             ? table({
+                  csv: "vlans",
                   head: ["VLAN", "Name", "Declared on", "Gateway", "Ports", ""].map((label) => ({ label })),
                   rows: rows.map(([id, row]) => ({
                       cells: [
@@ -905,6 +912,7 @@ function sessionsView(container) {
         empty("Every BGP neighbor, with its group's settings filled in. A far end that is one of our devices links to it."),
         data.sessions.length
             ? table({
+                  csv: "bgp-sessions",
                   head: ["Device", "Neighbor", "Address", "Remote AS", "Role", "Import", "Export", "Far end", ""].map((label) => ({
                       label,
                   })),
@@ -933,6 +941,7 @@ function cablesView(container) {
         empty("Every cable a port's link names, once, from the end that names it first."),
         data.cables.length
             ? table({
+                  csv: "cables",
                   head: ["Device", "Port", "Far device", "Far port", "LAG", "VLANs", "Description", ""].map((label) => ({ label })),
                   rows: data.cables.map((cable) => ({
                       cells: [
@@ -986,6 +995,7 @@ function problemsView(container) {
         container.append(
             h("h3", {}, title, " found by ", h("code", {}, "circuit validate")),
             table({
+                csv: title.toLowerCase(),
                 head: ["Device", "Message"].map((label) => ({ label })),
                 rows: findings.map((finding) => ({
                     cells: [finding.device ? deviceLink(finding.device) : "the network", finding.message],
@@ -1001,6 +1011,7 @@ function problemsView(container) {
         container.append(
             heading("Declared by one end only"),
             table({
+                csv: "one-sided",
                 head: ["Layer", "What", "From", "To", ""].map((label) => ({ label })),
                 rows: oneSided.map((edge) => ({
                     cells: [
@@ -1135,6 +1146,7 @@ function searchView(query, container) {
     container.append(
         empty(results.length >= 200 ? "The first 200 matches." : `${results.length} ${results.length === 1 ? "match" : "matches"}.`),
         table({
+            csv: "search",
             head: ["Device", "Where", "Value"].map((label) => ({ label })),
             rows: results.map((result) => ({
                 cells: [
