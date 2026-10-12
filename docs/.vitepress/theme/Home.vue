@@ -1078,8 +1078,8 @@ h1 {
 }
 
 .ledger thead th {
-    padding: 0 0 calc(10 * var(--px));
-    border-bottom: 2px solid var(--circuit-ink);
+    padding: calc(10 * var(--px)) calc(16 * var(--px));
+    background: var(--circuit-head);
     font-size: max(11px, calc(12 * var(--px)));
     font-weight: 700;
     font-stretch: 115%;
@@ -1090,7 +1090,7 @@ h1 {
 
 .ledger tbody th,
 .ledger td {
-    padding: calc(14 * var(--px)) 0;
+    padding: calc(14 * var(--px)) calc(16 * var(--px));
     border-bottom: 1px solid var(--circuit-line);
     text-align: left;
 }
