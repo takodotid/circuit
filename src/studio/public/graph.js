@@ -3,6 +3,7 @@
 // The graph view: a force layout of every node, drawn one layer at a time, with panning, zooming, dragging, and a side panel for what is selected.
 
 import { byId, go, h, link, s, store, svgById } from "./dom.js";
+import { changeKey } from "./evaluate.js";
 import { pngOf, save, svgOf } from "./export.js";
 
 /** @typedef {import("../../core/graph").GraphNode} GraphNode */
@@ -11,7 +12,7 @@ import { pngOf, save, svgOf } from "./export.js";
 /** @typedef {import("../../core/graph").CarriedVlan} CarriedVlan */
 /** @typedef {import("../../core/graph").Annotated} Annotated */
 /** @typedef {{ x: number, y: number }} Point */
-/** An edge as drawn: one of the graph's, or several between the same two nodes drawn as one. @typedef {GraphEdge & { members?: GraphEdge[] }} DrawnEdge */
+/** An edge as drawn: one of the graph's, or several between the same two nodes drawn as one, or one a comparison shows is gone. @typedef {GraphEdge & { members?: DrawnEdge[], gone?: true }} DrawnEdge */
 /** @typedef {{ node: string } | { edge: DrawnEdge } | undefined} Selection */
 
 /** @type {Record<Layer, string>} */
@@ -70,6 +71,8 @@ let pendingVlan;
 let pendingPath;
 /** @type {Set<string> | undefined} */
 let pathFocus;
+/** A comparison with another commit: its name, the edges it adds, and those gone. @type {{ name: string, added: Set<string>, removed: GraphEdge[] } | undefined} */
+let comparison;
 
 /** @param {GraphEdge} edge */
 const edgeKey = (edge) => `${edge.layer} ${edge.from} ${edge.to} ${edge.label}`;
@@ -207,7 +210,16 @@ function layout(nodes, edges, fresh) {
 }
 
 // What is drawn.
-const visibleEdges = () => data?.edges.filter((edge) => edge.layer === layer) ?? [];
+/** @returns {DrawnEdge[]} */
+const visibleEdges = () => {
+    const current = data?.edges.filter((edge) => edge.layer === layer) ?? [];
+    if (!comparison) return current;
+
+    // An edge the comparison says is gone is drawn when both its ends are still drawn.
+    const nodes = new Set(data?.nodes.map((node) => node.id));
+    const gone = comparison.removed.filter((edge) => edge.layer === layer && nodes.has(edge.from) && nodes.has(edge.to));
+    return [...current, ...gone.map((edge) => ({ ...edge, gone: /** @type {const} */ (true) }))];
+};
 
 /** @returns {GraphNode[]} */
 function visibleNodes() {
@@ -282,14 +294,14 @@ const MANY = { l1: "cables", l2: "cables", l3: "shared prefixes", bgp: "sessions
 /**
  * The edges to draw: each on its own, or, past a few between the same two nodes, one for all of them.
  *
- * @param {GraphEdge[]} edges
+ * @param {DrawnEdge[]} edges
  * @returns {DrawnEdge[]}
  */
 function bundled(edges) {
-    /** @type {Map<string, GraphEdge[]>} */
+    /** @type {Map<string, DrawnEdge[]>} */
     const byPair = new Map();
     for (const edge of edges) {
-        const pair = [edge.from, edge.to].sort().join("|");
+        const pair = `${[edge.from, edge.to].sort().join("|")}${edge.gone ? " gone" : ""}`;
         byPair.set(pair, [...(byPair.get(pair) ?? []), edge]);
     }
 
@@ -310,6 +322,7 @@ function bundled(edges) {
                 detail: members.flatMap((member) => [member.label, ...member.detail.map((line) => `  ${line}`)]),
                 ...(members.some((member) => member.oneSided) ? { oneSided: /** @type {const} */ (true) } : {}),
                 ...(vlans.size ? { vlans: [...vlans.values()].sort((a, b) => a.id - b.id) } : {}),
+                ...(first.gone ? { gone: /** @type {const} */ (true) } : {}),
                 members,
             },
         ];
@@ -342,7 +355,9 @@ function draw() {
         const sign = edge.from < edge.to ? 1 : -1;
         const offset = (index - ((between.get(pair) ?? 1) - 1) / 2) * 34 * sign;
 
-        const group = s("g", { class: `edge${edge.oneSided ? " one-sided" : ""}` });
+        const added = comparison && [edge, ...(edge.members ?? [])].some((one) => !one.gone && comparison?.added.has(changeKey(one)));
+        const change = edge.gone ? " gone" : added ? " added" : "";
+        const group = s("g", { class: `edge${edge.oneSided ? " one-sided" : ""}${change}` });
         const hit = s("path", { class: "hit" });
         const path = s("path");
         const label = s("text", { "text-anchor": "middle", "dominant-baseline": "central" });
@@ -648,6 +663,25 @@ function showPanel() {
 
     panel.append(h("h2", {}, LAYER_NAMES[layer]), h("p", { class: "muted" }, LAYER_HELP[layer]));
 
+    if (comparison) {
+        panel.append(
+            h("h3", {}, "Compared with ", comparison.name),
+            h(
+                "p",
+                {},
+                h("span", { class: "added" }, "Green lines"),
+                " are new, ",
+                h("span", { class: "removed" }, "red dashed lines"),
+                " are gone. ",
+                link("Stop comparing", () => {
+                    comparison = undefined;
+                    draw();
+                    showPanel();
+                })
+            )
+        );
+    }
+
     if (layer === "l2") {
         /** @type {Map<number, CarriedVlan>} */
         const vlans = new Map();
@@ -847,6 +881,16 @@ export function showLayer(next) {
  */
 export function selectDevice(name) {
     selection = { node: `device:${name}` };
+}
+
+/**
+ * Show a comparison with another commit on the graph: new edges lit, edges gone drawn dashed.
+ *
+ * @param {{ name: string, added: GraphEdge[], removed: GraphEdge[] }} next
+ */
+export function setComparison(next) {
+    comparison = { name: next.name, added: new Set(next.added.map(changeKey)), removed: next.removed };
+    selection = undefined;
 }
 
 /**

@@ -21,6 +21,10 @@ A secret shows as the name its value is read from, such as `secret("EDGE_01_PASS
 
 A device's **Running** page sets its last snapshot, what it ran when Circuit last read it, beside what your files would have it run, line by line. Lines can differ only in order or form, so the **Plan** page, what `circuit diff` would send, is the one that says what would change.
 
+## A device's history
+
+A device's **History** page lists the commits that changed it. See [Reviewing changes](/studio/changes).
+
 ## A device's ports
 
 A device's **Ports** page starts with its front panel: a square for each port of its model, by speed, colored by how the port is used. A dot marks a port linked to another of your devices. Click a square to find its row in the table below.

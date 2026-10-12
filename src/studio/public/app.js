@@ -6,6 +6,7 @@ import { byId, go } from "./dom.js";
 import { currentLayer, isLayer, setGraph, showLayer } from "./graph.js";
 import { problemCount, showTables } from "./tables.js";
 import { showTools } from "./tools.js";
+import { showCompare } from "./compare.js";
 
 /** @typedef {import("../data").StudioData} StudioData */
 
@@ -86,6 +87,7 @@ function route() {
 
     const scrolled = tables.scrollTop;
     if (view === "tools") showTools(parts, tables, studio);
+    else if (view === "compare") showCompare(parts, tables, studio);
     else showTables(parts, tables, studio);
     tables.scrollTop = moved ? 0 : scrolled;
 }

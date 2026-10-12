@@ -2,6 +2,7 @@
 /// <reference lib="dom" />
 // Studio's tables, for reading the config without reading TypeScript: every device and everything it holds, and the network's VLANs, addresses, BGP sessions and cables.
 
+import { fetchJson } from "./compare.js";
 import { diffLines } from "./diff.js";
 import { go, h, link } from "./dom.js";
 import { csvOf, save } from "./export.js";
@@ -338,7 +339,7 @@ function faceplate(device, ports, declared) {
  * @param {string} after
  * @returns {Child}
  */
-function lineDiff(before, after) {
+export function lineDiff(before, after) {
     const lines = diffLines(before.trimEnd().split("\n"), after.trimEnd().split("\n"));
     if (!lines) return empty("They differ in too many lines to compare one by one. The plan shows what would be sent.");
 
@@ -700,6 +701,45 @@ const SECTIONS = [
                 ),
                 lineDiff(snapshot, data.rendered[device.name] ?? ""),
             ];
+        },
+    },
+    {
+        id: "history",
+        title: "History",
+        has: () => true,
+        render(device) {
+            const area = h("div", {}, empty("Reading the history…"));
+            const files = data.files[device.name] ?? {};
+
+            void fetchJson(`history?device=${encodeURIComponent(device.name)}`).then((found) => {
+                area.replaceChildren();
+                if (!Array.isArray(found)) return area.append(empty(`No history: ${"error" in found ? found.error : "git has none"}.`));
+                if (!found.length) return area.append(empty("No commit has changed it yet."));
+
+                area.append(
+                    prose(
+                        "The commits that changed ",
+                        files.source ? h("code", {}, files.source) : "its file",
+                        files.snapshot ? h("span", {}, " or its snapshot, ", h("code", {}, files.snapshot)) : "",
+                        ", newest first."
+                    ),
+                    table({
+                        csv: `${device.name}-history`,
+                        head: ["When", "Who", "What", "Commit", ""].map((label) => ({ label })),
+                        rows: /** @type {import("../git").Commit[]} */ (found).map((commit) => ({
+                            cells: [
+                                new Date(commit.date).toLocaleString(),
+                                commit.author,
+                                commit.subject,
+                                h("code", {}, commit.short),
+                                link("compare with now", () => go(`compare/${commit.commit}`)),
+                            ],
+                        })),
+                    })
+                );
+            });
+
+            return [area];
         },
     },
     {
