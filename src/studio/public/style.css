@@ -794,6 +794,11 @@ header .live {
     border-radius: 0;
     background: var(--bg);
 }
+.toolbar button[aria-pressed="true"] {
+    color: var(--on-accent);
+    background: var(--accent-strong);
+    border-color: var(--text);
+}
 .stage {
     background-color: var(--bg);
 }
@@ -922,6 +927,8 @@ table.data tbody tr:nth-child(even) > th {
 .faceplate {
     gap: 16px 28px;
     padding: 18px;
+    max-width: 100%;
+    overflow-x: auto;
     border: 2px solid var(--text);
     border-radius: 0;
     box-shadow: 7px 7px 0 var(--accent-strong);
@@ -929,6 +936,9 @@ table.data tbody tr:nth-child(even) > th {
 .port {
     border-radius: 0;
     border-color: var(--edge);
+}
+.faceplate .speed {
+    min-width: max-content;
 }
 .port.shut {
     border-style: solid;
