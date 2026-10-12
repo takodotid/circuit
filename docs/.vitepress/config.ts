@@ -17,14 +17,14 @@ export default defineConfig({
     head: [
         ["meta", { name: "author", content: circuit.author.name }],
         ["link", { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
-        // Newsreader, for the headings of the home page.
+        // Carlito is shared by the documentation site and Circuit Studio.
         ["link", { rel: "preconnect", href: "https://fonts.googleapis.com" }],
         ["link", { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" }],
         [
             "link",
             {
                 rel: "stylesheet",
-                href: "https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap",
+                href: "https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400&display=swap",
             },
         ],
     ],

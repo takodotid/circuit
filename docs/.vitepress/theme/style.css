@@ -1,26 +1,71 @@
-/* The whole site in the home page's voice: Newsreader for headings, terracotta for the brand. */
+/* Daylight Section: limewash, charcoal and sunlight shared with Circuit Studio. */
 
 :root {
-    --circuit-serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --circuit-font: "Carlito", "Aptos", "Segoe UI", sans-serif;
+    --circuit-serif: var(--circuit-font);
+    --circuit-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
+    --circuit-limewash: #f6f5ea;
+    --circuit-surface: #ffffff;
+    --circuit-poche: #181a1e;
+    --circuit-shadow: #59646c;
+    --circuit-line: #c7c6bb;
+    --circuit-sun: #b37700;
+    --circuit-sun-fill: #e3ad32;
+    --circuit-sun-soft: rgba(227, 173, 50, 0.18);
+    --circuit-error: #b4232c;
+    --circuit-warning: #9a5700;
+    --circuit-ok: #167a45;
 
-    --vp-c-brand-1: #a8432b;
-    --vp-c-brand-2: #b4492f;
-    --vp-c-brand-3: #b4492f;
-    --vp-c-brand-soft: rgba(180, 73, 47, 0.14);
+    --vp-font-family-base: var(--circuit-font);
+    --vp-font-family-mono: var(--circuit-mono);
+    --vp-c-bg: var(--circuit-limewash);
+    --vp-c-bg-alt: #eeede2;
+    --vp-c-bg-soft: #e8e7dc;
+    --vp-c-divider: var(--circuit-line);
+    --vp-c-brand-1: #805300;
+    --vp-c-brand-2: var(--circuit-sun);
+    --vp-c-brand-3: #704900;
+    --vp-c-brand-soft: var(--circuit-sun-soft);
 }
 
 .dark {
-    --vp-c-brand-1: #e8866b;
-    --vp-c-brand-2: #d9735a;
-    --vp-c-brand-3: #b4492f;
-    --vp-c-brand-soft: rgba(232, 134, 107, 0.16);
+    --circuit-limewash: #15181a;
+    --circuit-surface: #1d2225;
+    --circuit-poche: #0f1214;
+    --circuit-shadow: #9aa5aa;
+    --circuit-line: #42494c;
+    --circuit-sun: #efbd47;
+    --circuit-sun-fill: #d7a22b;
+    --circuit-sun-soft: rgba(239, 189, 71, 0.16);
+    --circuit-error: #ff7180;
+    --circuit-warning: #ffad42;
+    --circuit-ok: #45cf82;
+
+    --vp-c-bg: var(--circuit-limewash);
+    --vp-c-bg-alt: #101315;
+    --vp-c-bg-soft: #202528;
+    --vp-c-divider: var(--circuit-line);
+    --vp-c-brand-1: var(--circuit-sun);
+    --vp-c-brand-2: #ffd16b;
+    --vp-c-brand-3: var(--circuit-sun-fill);
+    --vp-c-brand-soft: var(--circuit-sun-soft);
+}
+
+::selection {
+    color: var(--circuit-poche);
+    background: var(--circuit-sun-fill);
+}
+
+:focus-visible {
+    outline: 3px solid var(--vp-c-brand-1);
+    outline-offset: 3px;
 }
 
 .vp-doc h1,
 .vp-doc h2 {
-    font-family: var(--circuit-serif);
-    font-weight: 400;
-    letter-spacing: -0.01em;
+    font-family: var(--circuit-font);
+    font-weight: 700;
+    letter-spacing: 0.015em;
 }
 
 .vp-doc h1 {
@@ -34,15 +79,17 @@
 }
 
 .VPNavBarTitle .title {
-    font-family: var(--circuit-serif);
+    font-family: var(--circuit-font);
     font-size: 22px;
-    font-weight: 400;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
 }
 
 /* A screenshot taken in each theme: only the one matching the site's is shown. */
 .vp-doc .screenshot {
     border: 1px solid var(--vp-c-divider);
-    border-radius: 8px;
+    border-radius: 0;
 }
 
 html:not(.dark) .vp-doc .screenshot.dark,
