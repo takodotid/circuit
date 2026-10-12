@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-12T00:00:00+07:00",
+  "title": "Design System: Circuit",
+  "extensions": {
+    "colorMeta": {
+      "limewash": { "role": "neutral", "displayName": "Limewash", "canonical": "#f6f5ea", "tonalRamp": ["#ffffff", "#f6f5ea", "#eeede2", "#e8e7dc"] },
+      "charcoal": { "role": "neutral", "displayName": "Charcoal", "canonical": "#181a1e", "tonalRamp": ["#42494c", "#252b2f", "#1d2225", "#15181a"] },
+      "sunlight": { "role": "primary", "displayName": "Sunlight", "canonical": "#e3ad32", "tonalRamp": ["#ffd16b", "#efbd47", "#e3ad32", "#805300"] },
+      "error": { "role": "semantic", "displayName": "Error Red", "canonical": "#b4232c", "tonalRamp": ["#ff7180", "#b4232c"] },
+      "warning": { "role": "semantic", "displayName": "Warning Orange", "canonical": "#9a5700", "tonalRamp": ["#ffad42", "#9a5700"] },
+      "up": { "role": "semantic", "displayName": "Up Green", "canonical": "#167a45", "tonalRamp": ["#45cf82", "#167a45"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Home statement and major product moments." },
+      "headline": { "displayName": "Headline", "purpose": "Page, device and chapter names." },
+      "body": { "displayName": "Body", "purpose": "Documentation and operating explanations." },
+      "label": { "displayName": "Label", "purpose": "Table headings and compact panel groups." },
+      "mono": { "displayName": "Mono", "purpose": "Config, identifiers, plans and device output." }
+    },
+    "shadows": [
+      { "name": "selected-plane", "value": "5px 5px 0 var(--accent-strong)", "purpose": "Selected graph nodes." },
+      { "name": "working-plane", "value": "7px 7px 0 var(--accent-strong)", "purpose": "Device faceplates and structural working objects." }
+    ],
+    "motion": [
+      { "name": "row-flash", "value": "background 0.4s", "purpose": "Connects a selected faceplate port to its table row." },
+      { "name": "reduced", "value": "0.01ms", "purpose": "Removes nonessential transitions when reduced motion is requested." }
+    ],
+    "breakpoints": [
+      { "name": "studio-stack", "value": "760px", "purpose": "Moves the graph panel below the canvas and makes navigation scroll." },
+      { "name": "studio-wrap", "value": "1120px", "purpose": "Moves search and summary to a second header line." },
+      { "name": "home-stack", "value": "768px", "purpose": "Stacks the home opening and chapters." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Active Button",
+      "kind": "button",
+      "refersTo": "button-active",
+      "description": "A compact square layer button filled with sunlight.",
+      "html": "<button class=\"ds-active\" aria-pressed=\"true\">VLANs 11</button>",
+      "css": ".ds-active { padding: 4px 10px; color: #181a1e; background: #e3ad32; border: 1px solid #181a1e; border-radius: 0; font: 14px/1.45 Carlito, Aptos, Segoe UI, sans-serif; } .ds-active:focus-visible { outline: 3px solid #805300; outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "A square sheet field with a strong keyboard focus.",
+      "html": "<input class=\"ds-field\" type=\"search\" placeholder=\"Search the config\">",
+      "css": ".ds-field { width: 220px; padding: 5px 8px; color: #181a1e; background: #ffffff; border: 1px solid #6d767b; border-radius: 0; font: 14px/1.45 Carlito, Aptos, Segoe UI, sans-serif; } .ds-field:focus-visible { outline: 3px solid #805300; outline-offset: 2px; }"
+    },
+    {
+      "name": "Section Navigation",
+      "kind": "nav",
+      "description": "Quiet view names with a thick sunlight active rule.",
+      "html": "<nav class=\"ds-nav\"><button aria-pressed=\"true\">Graph</button><button>Devices</button><button>VLANs</button></nav>",
+      "css": ".ds-nav { display: flex; gap: 0; border-bottom: 2px solid #181a1e; font: 14px/1.45 Carlito, Aptos, Segoe UI, sans-serif; } .ds-nav button { position: relative; min-height: 48px; padding: 0 10px; color: #59646c; background: transparent; border: 0; } .ds-nav button[aria-pressed=true] { color: #181a1e; box-shadow: inset 0 -4px #e3ad32; } .ds-nav button:focus-visible { outline: 3px solid #805300; outline-offset: -3px; }"
+    },
+    {
+      "name": "Data Table",
+      "kind": "card",
+      "description": "A square table with a raised header plane and alternating quiet rows.",
+      "html": "<table class=\"ds-table\"><thead><tr><th>Port</th><th>Description</th></tr></thead><tbody><tr><td>10g-1</td><td>Resolver 1</td></tr><tr><td>10g-2</td><td>Time server 1</td></tr></tbody></table>",
+      "css": ".ds-table { width: 100%; border-collapse: collapse; color: #181a1e; background: #ffffff; border: 1px solid #6d767b; font: 13px/1.45 Carlito, Aptos, Segoe UI, sans-serif; } .ds-table th, .ds-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #c7c6bb; } .ds-table th { background: #eeede2; border-bottom: 2px solid #181a1e; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; } .ds-table tr:nth-child(even) td { background: #f6f5ea; }"
+    },
+    {
+      "name": "Port Faceplate",
+      "kind": "custom",
+      "description": "A framed device plane with pattern and border based port states.",
+      "html": "<div class=\"ds-face\"><button class=\"ds-port ds-trunk\">1</button><button class=\"ds-port ds-shut\">2</button><button class=\"ds-port ds-lag\">3</button></div>",
+      "css": ".ds-face { display: flex; gap: 4px; padding: 18px; background: #ffffff; border: 2px solid #181a1e; box-shadow: 7px 7px 0 #e3ad32; } .ds-port { width: 28px; height: 24px; padding: 0; color: #181a1e; background: #ffffff; border: 1px solid #6d767b; border-radius: 0; } .ds-trunk { background: #e3ad32; border: 2px solid #181a1e; } .ds-shut { background: repeating-linear-gradient(135deg, #f6f5ea 0 3px, #c7c6bb 3px 5px); } .ds-lag { border: 2px dashed #805300; } .ds-port:focus-visible { outline: 3px solid #805300; outline-offset: 2px; }"
+    },
+    {
+      "name": "Graph States",
+      "kind": "custom",
+      "description": "Network nodes whose selection, warning and outside states remain distinct without color.",
+      "html": "<svg class=\"ds-graph\" viewBox=\"0 0 360 80\"><rect class=\"selected\" x=\"10\" y=\"20\" width=\"90\" height=\"36\"/><rect class=\"warning\" x=\"135\" y=\"20\" width=\"90\" height=\"36\"/><rect class=\"outside\" x=\"260\" y=\"20\" width=\"90\" height=\"36\"/></svg>",
+      "css": ".ds-graph { width: 360px; background: #f6f5ea; } .ds-graph rect { fill: #ffffff; } .ds-graph .selected { stroke: #181a1e; stroke-width: 3; filter: drop-shadow(5px 5px 0 #e3ad32); } .ds-graph .warning { stroke: #9a5700; stroke-width: 4; stroke-dasharray: 10 3; } .ds-graph .outside { stroke: #6d767b; stroke-width: 2; stroke-dasharray: 2 4; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Daylight Section",
+    "overview": "Circuit uses large architectural planes, charcoal structure, limewash ground and a rare sunlight accent. Documentation gives the system room to persuade and explain. Studio compresses the same materials into a dense operating tool without changing identity.",
+    "keyCharacteristics": ["Section lines and full planes", "One sunlight accent", "Bold sans-serif hierarchy", "Square controls", "Redundant operational states", "Designed light and dark themes"],
+    "rules": [
+      { "name": "The Daylight Rule", "body": "Sunlight marks the active plane or one structural emphasis, never unrelated categories.", "section": "colors" },
+      { "name": "The Meaning Rule", "body": "Error, warning and up colors are semantic only and always have a second cue.", "section": "colors" },
+      { "name": "The Hard Shadow Rule", "body": "Depth is a crisp offset plane. Soft shadow, glow, blur and glass do not belong.", "section": "elevation" }
+    ],
+    "dos": ["Keep docs and Studio on shared tokens.", "Design every semantic color for light and dark.", "Pair status color with dashes, hatching, weight or text.", "Keep keyboard focus visible.", "Respect reduced motion."],
+    "donts": ["Do not restore terracotta, serif headings, pills or trace decoration.", "Do not use neon terminal or monitoring dashboard styling.", "Do not borrow a vendor palette.", "Do not use soft shadows, blur or glass."]
+  }
+}
