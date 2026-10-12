@@ -9,7 +9,7 @@ import { offset } from "../../../core/time";
 import type { Device, Interface, Port, Vrrp } from "../../../schema";
 import { connect, readUntil, send, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
-import { ipv4Networks, lagIds } from "../derive";
+import { ipv4Networks, lagIds, switchUnsupported } from "../derive";
 import { compare, type Dialect, scrub, steps, vlanListChange } from "../lines";
 import type { DeviceAdapter, Plan } from "../types";
 
@@ -608,7 +608,12 @@ export function unsupported(device: Device): string[] {
     for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
         if (iface.type !== "vlan" && iface.type !== "lag") found.push(`interfaces.${name}, a ${iface.type}`);
         if (iface.type === "lag" && iface.addresses?.length) found.push(`interfaces.${name}.addresses, LAGs are switched`);
+        if (iface.mtu !== undefined) found.push(`interfaces.${name}.mtu`);
         for (const group of iface.vrrp ?? []) if (familyOf(group.address) === "ipv6") found.push(`interfaces.${name}.vrrp for IPv6`);
+    }
+
+    for (const [name, vrf] of Object.entries(device.vrfs ?? {})) {
+        if (vrf.description) found.push(`vrfs.${name}.description`);
     }
 
     const routing = device.routing;
@@ -643,6 +648,10 @@ export function unsupported(device: Device): string[] {
     if (system.dns || system.logging || system.release_channel || system.banner) {
         found.push("system.dns, logging, release_channel and banner");
     }
+
+    if (system.transceiver_monitoring !== undefined) found.push("system.transceiver_monitoring");
+
+    found.push(...switchUnsupported(device));
 
     const flow = device.flow_export;
     if (flow && flow.protocol !== "sflow") found.push(`flow_export.protocol ${flow.protocol}, the platform exports sFlow`);

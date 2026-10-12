@@ -99,6 +99,14 @@ export function unsupported(device: Device): string[] {
         }
     }
 
+    for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
+        if (iface.type !== "lag") continue;
+
+        for (const field of ["storm_control", "stp"] as const) {
+            if (iface[field] !== undefined) found.push(`interfaces.${name}.${field}, on a LAG`);
+        }
+    }
+
     const bgp = device.routing?.bgp;
 
     for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
@@ -112,6 +120,8 @@ export function unsupported(device: Device): string[] {
 
     if (management?.console) found.push("management.console, the console uses the device's users");
     if (management?.privilege_password) found.push("management.privilege_password, the platform has no privileged mode");
+
+    if (management?.snmp?.port) found.push("management.snmp.port");
 
     if (management?.ssh?.auth_timeout || management?.ssh?.auth_retries) {
         found.push("management.ssh.auth_timeout and auth_retries");
