@@ -11,7 +11,8 @@ import { pngOf, save, svgOf } from "./export.js";
 /** @typedef {import("../../core/graph").CarriedVlan} CarriedVlan */
 /** @typedef {import("../../core/graph").Annotated} Annotated */
 /** @typedef {{ x: number, y: number }} Point */
-/** @typedef {{ node: string } | { edge: GraphEdge } | undefined} Selection */
+/** An edge as drawn: one of the graph's, or several between the same two nodes drawn as one. @typedef {GraphEdge & { members?: GraphEdge[] }} DrawnEdge */
+/** @typedef {{ node: string } | { edge: DrawnEdge } | undefined} Selection */
 
 /** @type {Record<Layer, string>} */
 export const LAYER_NAMES = {
@@ -80,7 +81,7 @@ const positions = new Map(Object.entries(saved).map(([id, [x, y]]) => [id, { x, 
 
 /** @type {Map<string, SVGGElement>} */
 const nodeElements = new Map();
-/** @type {{ edge: GraphEdge, group: SVGGElement, path: SVGPathElement, hit: SVGPathElement, label: SVGTextElement, offset: number }[]} */
+/** @type {{ edge: DrawnEdge, group: SVGGElement, path: SVGPathElement, hit: SVGPathElement, label: SVGTextElement, offset: number }[]} */
 const edgeElements = [];
 
 function savePositions() {
@@ -272,18 +273,61 @@ function place() {
     }
 }
 
+/** Past this many edges between the same two nodes, they are drawn as one, which lists them all when selected. */
+const MOST_APART = 3;
+
+/** @type {Record<Layer, string>} */
+const MANY = { l1: "cables", l2: "cables", l3: "shared prefixes", bgp: "sessions", ospf: "adjacencies", tunnels: "tunnels" };
+
+/**
+ * The edges to draw: each on its own, or, past a few between the same two nodes, one for all of them.
+ *
+ * @param {GraphEdge[]} edges
+ * @returns {DrawnEdge[]}
+ */
+function bundled(edges) {
+    /** @type {Map<string, GraphEdge[]>} */
+    const byPair = new Map();
+    for (const edge of edges) {
+        const pair = [edge.from, edge.to].sort().join("|");
+        byPair.set(pair, [...(byPair.get(pair) ?? []), edge]);
+    }
+
+    return [...byPair.values()].flatMap((members) => {
+        const [first] = members;
+        if (!first || members.length <= MOST_APART) return members;
+
+        /** @type {Map<number, import("../../core/graph").CarriedVlan>} */
+        const vlans = new Map();
+        for (const member of members) for (const vlan of member.vlans ?? []) vlans.set(vlan.id, vlan);
+
+        return [
+            {
+                layer: first.layer,
+                from: first.from,
+                to: first.to,
+                label: `${members.length} ${MANY[first.layer]}`,
+                detail: members.flatMap((member) => [member.label, ...member.detail.map((line) => `  ${line}`)]),
+                ...(members.some((member) => member.oneSided) ? { oneSided: /** @type {const} */ (true) } : {}),
+                ...(vlans.size ? { vlans: [...vlans.values()].sort((a, b) => a.id - b.id) } : {}),
+                members,
+            },
+        ];
+    });
+}
+
 function draw() {
     edgeLayer.replaceChildren();
     nodeLayer.replaceChildren();
     nodeElements.clear();
     edgeElements.length = 0;
 
-    const edges = visibleEdges();
+    const edges = bundled(visibleEdges());
 
     // Edges between the same two nodes bend apart, so each stays readable.
     /** @type {Map<string, number>} */
     const between = new Map();
-    /** @param {GraphEdge} edge */
+    /** @param {DrawnEdge} edge */
     const pairOf = (edge) => [edge.from, edge.to].sort().join("|");
     for (const edge of edges) between.set(pairOf(edge), (between.get(pairOf(edge)) ?? 0) + 1);
     /** @type {Map<string, number>} */
@@ -370,7 +414,12 @@ function emphasize() {
     /** @type {Set<GraphEdge> | undefined} */
     let litEdges;
     if (focus) litEdges = new Set(edgeElements.filter(({ edge }) => touching(edge)).map(({ edge }) => edge));
-    else if (pathFocus) litEdges = new Set(edgeElements.filter(({ edge }) => pathFocus?.has(edgeKey(edge))).map(({ edge }) => edge));
+    else if (pathFocus)
+        litEdges = new Set(
+            edgeElements
+                .filter(({ edge }) => [edge, ...(edge.members ?? [])].some((one) => pathFocus?.has(edgeKey(one))))
+                .map(({ edge }) => edge)
+        );
     else if (vlanFocus !== undefined && layer === "l2")
         litEdges = new Set(edgeElements.filter(({ edge }) => carries(edge)).map(({ edge }) => edge));
     else if (selectedEdge) litEdges = new Set([selectedEdge]);
