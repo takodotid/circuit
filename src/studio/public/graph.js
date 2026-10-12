@@ -587,7 +587,7 @@ function showPanel() {
         if (sorted.length) panel.append(h("h3", {}, "VLANs"), vlanChips(sorted));
     }
 
-    if (data.findings.length) panel.append(h("h3", {}, "Found by validate"), findingList(data.findings, true));
+    if (data.findings.length) panel.append(h("h3", {}, "Found by ", h("code", {}, "circuit validate")), findingList(data.findings, true));
 
     if (drifted.length) {
         panel.append(
@@ -630,18 +630,18 @@ function showNode(node) {
 
     if (node.kind === "device" && data) {
         const findings = data.findings.filter((finding) => finding.device === node.label);
-        if (findings.length) panel.append(h("h3", {}, "Found by validate"), findingList(findings, false));
+        if (findings.length) panel.append(h("h3", {}, "Found by ", h("code", {}, "circuit validate")), findingList(findings, false));
 
         const drift = data.drift[node.label];
         if (drift) {
             const notes = {
-                matches: "Matches its last snapshot.",
-                differs: "Differs from its last snapshot. This is what diff would send:",
-                "no snapshot": "No snapshot yet: run circuit snapshot.",
-                "cannot plan": "Could not be planned against its snapshot:",
+                matches: ["Matches its last snapshot."],
+                differs: ["Differs from its last snapshot. This is what ", h("code", {}, "circuit diff"), " would send:"],
+                "no snapshot": ["No snapshot yet: run ", h("code", {}, "circuit snapshot"), "."],
+                "cannot plan": ["Could not be planned against its snapshot:"],
             };
 
-            panel.append(h("h3", {}, "Against its snapshot"), h("p", {}, notes[drift.status]));
+            panel.append(h("h3", {}, "Against its snapshot"), h("p", {}, ...notes[drift.status]));
             if (drift.lines.length) panel.append(h("pre", {}, drift.lines.join("\n")));
         }
     }

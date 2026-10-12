@@ -131,7 +131,7 @@ export async function studio(options: StudioOptions): Promise<void> {
 
     server.listen(port, "127.0.0.1", () => {
         const url = `http://127.0.0.1:${port}`;
-        console.log(`Circuit studio at ${url}, watching ${root}. Stop it with Ctrl+C.`);
+        console.log(`Studio at ${url}, watching ${root}. Stop it with Ctrl+C.`);
         if (options.open) openBrowser(url);
     });
 }

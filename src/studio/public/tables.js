@@ -8,7 +8,7 @@ import { currentLayer, lightVlan, selectDevice } from "./graph.js";
 /** @typedef {import("../../schema").Device} Device */
 /** @typedef {import("../data").StudioData} StudioData */
 /** @typedef {import("./dom.js").Child} Child */
-/** @typedef {{ head: { label: string, title?: string }[], rows: { cells: Child[], muted?: boolean }[] }} Table */
+/** A column named after a field shows the name as code. @typedef {{ head: { label: string, title?: string, field?: boolean }[], rows: { cells: Child[], muted?: boolean }[] }} Table */
 /** @typedef {{ id: string, title: string, has: (device: Device) => boolean, render: (device: Device) => Child[] }} Section */
 
 /** What the tables show, set each time they are drawn. @type {StudioData} */
@@ -81,7 +81,17 @@ function table({ head, rows }) {
     return h(
         "table",
         { class: "data" },
-        h("thead", {}, h("tr", {}, ...head.map((column) => h("th", column.title ? { title: column.title } : {}, column.label)))),
+        h(
+            "thead",
+            {},
+            h(
+                "tr",
+                {},
+                ...head.map((column) =>
+                    h("th", column.title ? { title: column.title } : {}, column.field ? h("code", {}, column.label) : column.label)
+                )
+            )
+        ),
         h("tbody", {}, ...rows.map((row) => h("tr", row.muted ? { class: "muted" } : {}, ...row.cells.map((cell) => h("td", {}, cell)))))
     );
 }
@@ -116,7 +126,7 @@ function recordTable(record, types, nameLabel = "Name", first = []) {
     const columns = columnsOf(items, first);
 
     return table({
-        head: [{ label: nameLabel }, ...columns.map((column) => ({ label: column, title: describe(types, column) }))],
+        head: [{ label: nameLabel }, ...columns.map((column) => ({ label: column, title: describe(types, column), field: true }))],
         rows: entries.map(([name], index) => ({
             cells: [h("strong", {}, name), ...columns.map((column) => compact(items[index]?.[column]))],
         })),
@@ -138,7 +148,7 @@ function listTable(list, types, first = []) {
     const columns = columnsOf(items, first);
 
     return table({
-        head: [{ label: "#" }, ...columns.map((column) => ({ label: column, title: describe(types, column) }))],
+        head: [{ label: "#" }, ...columns.map((column) => ({ label: column, title: describe(types, column), field: true }))],
         rows: items.map((item, index) => ({ cells: [String(index + 1), ...columns.map((column) => compact(item[column]))] })),
     });
 }
@@ -177,7 +187,7 @@ function settings(object, types) {
             {},
             ...entries.map(([key, value]) => {
                 const title = describe(types, key);
-                return h("tr", {}, h("th", title ? { title } : {}, key), h("td", {}, valueOf(value)));
+                return h("tr", {}, h("th", title ? { title } : {}, h("code", {}, key)), h("td", {}, valueOf(value)));
             })
         )
     );
@@ -191,6 +201,13 @@ const heading = (text, level = "h3") => h(level, {}, text);
 
 /** @param {string} text */
 const empty = (text) => h("p", { class: "muted" }, text);
+
+/**
+ * A muted paragraph of several parts, such as text with a command in it.
+ *
+ * @param {...import("./dom.js").Child} parts
+ */
+const prose = (...parts) => h("p", { class: "muted" }, ...parts);
 
 /** @param {string} name */
 const deviceLink = (name) => link(name, () => go(`devices/${encodeURIComponent(name)}`));
@@ -260,7 +277,7 @@ const SECTIONS = [
             const differs = drift?.status === "differs";
 
             return [
-                findings.length ? heading("Found by validate") : undefined,
+                findings.length ? h("h3", {}, "Found by ", h("code", {}, "circuit validate")) : undefined,
                 findings.length
                     ? h(
                           "ul",
@@ -517,7 +534,11 @@ const SECTIONS = [
         title: "Config",
         has: () => true,
         render: (device) => [
-            empty("What the device should run, in its vendor's commands, as circuit build prints it. Secrets are markers, never values."),
+            prose(
+                "What the device should run, in its vendor's commands, as ",
+                h("code", {}, "circuit build"),
+                " prints it. Secrets are markers, never values."
+            ),
             h("pre", { class: "code" }, data.rendered[device.name] ?? ""),
         ],
     },
@@ -528,11 +549,14 @@ const SECTIONS = [
         render(device) {
             const drift = data.graph.drift[device.name];
             if (!drift || drift.status === "no snapshot")
-                return [empty("No snapshot yet, so nothing to compare with: run circuit snapshot.")];
-            if (drift.status === "matches") return [empty("The device matches its last snapshot: circuit diff would send nothing.")];
+                return [prose("No snapshot yet, so nothing to compare with: run ", h("code", {}, "circuit snapshot"), ".")];
+            if (drift.status === "matches")
+                return [prose("The device matches its last snapshot: ", h("code", {}, "circuit diff"), " would send nothing.")];
 
             return [
-                empty(drift.status === "differs" ? "What circuit diff would send, against the last snapshot:" : "It could not be planned:"),
+                drift.status === "differs"
+                    ? prose("What ", h("code", {}, "circuit diff"), " would send, against the last snapshot:")
+                    : empty("It could not be planned:"),
                 h("pre", { class: "code" }, drift.lines.join("\n")),
             ];
         },
