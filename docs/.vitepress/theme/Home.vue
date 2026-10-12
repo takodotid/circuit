@@ -221,13 +221,59 @@ function fitWindow() {
 
 let watcher: ResizeObserver | undefined;
 
+const page = ref<HTMLElement>();
+const hero = ref<HTMLElement>();
+
+// The opening's looping marks rest while it is out of sight.
+const idle = ref(false);
+let sight: IntersectionObserver | undefined;
+
+// Below the opening, each part arrives as it scrolls into view. One already in view when the page opens is left as it is.
+let revealer: IntersectionObserver | undefined;
+
+function revealOnScroll() {
+    if (!page.value || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    revealer = new IntersectionObserver(
+        (entries) => {
+            for (const entry of entries) {
+                if (!entry.isIntersecting) continue;
+
+                entry.target.classList.replace("waiting", "shown");
+                revealer?.unobserve(entry.target);
+            }
+        },
+        { rootMargin: "0px 0px -12% 0px" }
+    );
+
+    for (const part of page.value.querySelectorAll("[data-reveal]")) {
+        if (part.getBoundingClientRect().top < window.innerHeight) continue;
+
+        part.classList.add("waiting");
+        revealer.observe(part);
+    }
+}
+
 onMounted(() => {
     fitWindow();
     watcher = new ResizeObserver(fitWindow);
     if (stage.value) watcher.observe(stage.value);
+
+    sight = new IntersectionObserver(([entry]) => (idle.value = !entry?.isIntersecting));
+    if (hero.value) sight.observe(hero.value);
+
+    revealOnScroll();
+
+    // A new change is written every few seconds, as if the network were being worked on. Reduced motion keeps the first.
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) cycle = setInterval(nextChange, 7500);
 });
 
-onBeforeUnmount(() => watcher?.disconnect());
+onBeforeUnmount(() => {
+    watcher?.disconnect();
+    sight?.disconnect();
+    revealer?.disconnect();
+    clearInterval(cycle);
+});
 
 const nodes = [
     { name: "core-a1", x: 710, y: 240 },
@@ -238,18 +284,176 @@ const nodes = [
 ];
 
 // The git history under the drawing: a commit at each station, the newest the change in the plan.
-const commits = [
-    { hash: "4f2c1a0", message: "add tor-b1", x: 155 },
-    { hash: "9be71d3", message: "fix mtu", x: 432 },
-    { hash: "e05b6c8", message: "tor-a2 ports", x: 708 },
-    { hash: "c03a8e5", message: "add sirius", x: 957 },
+const stations = [155, 432, 708, 957];
+
+/**
+ * The changes the drawing goes through, one after another: what is written in the editor, the plan Circuit makes of it against
+ * the snapshot, and the commit it ends in. Each plan is what the RouterOS adapter prints for that change, its long lines wrapped.
+ */
+const changes = [
+    {
+        code: [
+            "export default defineDevice({",
+            '  name: "edge-b1",',
+            '  platform: "routeros",',
+            "  vlans: { sirius: { id: 1012 } },",
+            "  interfaces: {",
+            "    sirius: {",
+            '      type: "vlan",',
+            '      vlan: "sirius",',
+            '      addresses: ["198.51.100.169/29"],',
+            "    },",
+            "  },",
+            "});",
+        ],
+        plan: "edge-b1: 3 commands in 3 steps",
+        lines: [
+            "/interface vlan",
+            "+ add interface=bridge",
+            "+   name=sirius vlan-id=1012",
+            "/interface bridge vlan",
+            "+ add bridge=bridge",
+            "+   tagged=bridge vlan-ids=1012",
+            "/ip address",
+            "+ add address=198.51.100.169/29",
+            "+   interface=sirius",
+        ],
+        commit: { hash: "c03a8e5", message: "add sirius" },
+    },
+    {
+        code: [
+            "export default defineDevice({",
+            '  name: "edge-b1",',
+            '  platform: "routeros",',
+            "  ports: {",
+            '    "25g-12": {',
+            '      description: "edge-a2",',
+            "      mtu: 9000,",
+            '      addresses: ["10.254.0.3/31"],',
+            "    },",
+            "  },",
+            "});",
+        ],
+        plan: "edge-b1: 2 commands in 2 steps",
+        lines: [
+            "/interface ethernet",
+            "~ set [ find",
+            "~     default-name=sfp28-12 ]",
+            "~   comment=edge-a2 mtu=9000",
+            "~   disabled=no",
+            "/ip address",
+            "+ add address=10.254.0.3/31",
+            "+   comment=edge-a2",
+            "+   interface=sfp28-12",
+        ],
+        commit: { hash: "7d19b42", message: "wave to edge-a2" },
+    },
+    {
+        code: [
+            "export default defineDevice({",
+            '  name: "edge-b1",',
+            '  platform: "routeros",',
+            "  routing: {",
+            "    static: [",
+            "      {",
+            '        prefix: "0.0.0.0/0",',
+            '        via: "203.0.113.9",',
+            "      },",
+            "    ],",
+            "  },",
+            "});",
+        ],
+        plan: "edge-b1: 1 command in 1 step",
+        lines: ["/ip route", "- add comment=Lab", "-   dst-address=10.9.0.0/16", "-   gateway=10.1.50.254"],
+        commit: { hash: "2ea06f1", message: "drop lab route" },
+    },
+    {
+        code: [
+            "export default defineDevice({",
+            '  name: "edge-b1",',
+            '  platform: "routeros",',
+            "  system: {",
+            "    dns: {",
+            "      servers: [",
+            '        "10.0.20.53",',
+            '        "10.0.20.54",',
+            "      ],",
+            "    },",
+            '    ntp: { servers: ["10.0.20.123"] },',
+            "  },",
+            "});",
+        ],
+        plan: "edge-b1: 3 commands in 3 steps",
+        lines: [
+            "/ip dns",
+            "~ set servers=10.0.20.53,",
+            "~   10.0.20.54",
+            "/system ntp client",
+            "~ set enabled=yes",
+            "/system ntp client servers",
+            "+ add address=10.0.20.123",
+        ],
+        commit: { hash: "b58c3d9", message: "dns and ntp" },
+    },
 ];
+
+/** A line of the editor's code, split into the parts its colours mark. */
+function tokens(line: string) {
+    return line
+        .split(/("[^"]*"|export default|defineDevice|\b\d+\b)/)
+        .filter(Boolean)
+        .map((text) => ({
+            text,
+            kind: text.startsWith('"')
+                ? "s"
+                : text === "export default"
+                  ? "k"
+                  : text === "defineDevice"
+                    ? "f"
+                    : /^\d+$/.test(text)
+                      ? "n"
+                      : "",
+        }));
+}
+
+/** A line of the plan, marked by what it does: added, removed, changed, or the section it is in. */
+function planLine(line: string) {
+    const kind = { "+": "added", "-": "removed", "~": "changed" }[line[0] ?? ""];
+    const text = kind && line[1] === " " && line[2] === " " ? `  ${line.slice(3)}` : line;
+    return { text, kind };
+}
+
+// The change shown now, and whether the drawing has moved on from the first, so its parts come in without the opening's delays.
+const step = ref(0);
+const again = ref(false);
+const change = computed(() => changes[step.value % changes.length]!);
+
+// The git history under the drawing: each change shown is committed, and the oldest commit moves out of view.
+const history = ref([
+    { hash: "4f2c1a0", message: "add tor-b1" },
+    { hash: "9be71d3", message: "fix mtu" },
+    { hash: "e05b6c8", message: "tor-a2 ports" },
+    changes[0]!.commit,
+]);
+
+const commits = computed(() => history.value.map((commit, index) => ({ ...commit, x: stations[index]! })));
+
+let cycle: ReturnType<typeof setInterval> | undefined;
+
+/** Move on to the next change, unless the opening is out of sight or the page is hidden. */
+function nextChange() {
+    if (idle.value || document.hidden) return;
+
+    step.value += 1;
+    again.value = true;
+    history.value = [...history.value.slice(1), change.value.commit];
+}
 </script>
 
 <template>
-    <article class="home">
-        <header class="hero">
-            <h1>Your network, written down.</h1>
+    <article ref="page" class="home">
+        <header ref="hero" class="hero" :class="{ idle }">
+            <h1><span class="written">Your network, written down.</span></h1>
 
             <figure class="plate" aria-labelledby="plate-caption">
                 <div ref="stage" class="stage" @mouseleave="active = 0">
@@ -257,7 +461,7 @@ const commits = [
                         v-for="(art, index) in arts"
                         :key="art.plate"
                         class="art"
-                        :style="box(art.plate)"
+                        :style="{ ...box(art.plate), '--i': index }"
                         :src="withBase(art.src)"
                         alt=""
                         width="1152"
@@ -266,37 +470,29 @@ const commits = [
                     />
 
                     <div class="set" aria-hidden="true">
-                        <div class="window" :style="windowStyle">
+                        <div class="window" :class="{ again }" :style="windowStyle">
                             <span class="tab">edge-b1.ts</span>
-                            <pre class="code"><span class="k">export default</span> <span class="f">defineDevice</span>({
-  name: <span class="s">"edge-b1"</span>,
-  platform: <span class="s">"routeros"</span>,
-  vlans: { sirius: { id: <span class="n">1012</span> } },
-  interfaces: {
-    sirius: {
-      type: <span class="s">"vlan"</span>,
-      vlan: <span class="s">"sirius"</span>,
-      addresses: [<span class="s">"198.51.100.169/29"</span>],
-    },
-  },
-});</pre>
+                            <pre
+                                :key="step"
+                                class="code"
+                                :style="{ '--lines': change.code.length }"
+                            ><template v-for="(line, row) in change.code" :key="row"><span v-for="(part, index) in tokens(line)" :key="index" :class="part.kind">{{ part.text }}</span>{{ row < change.code.length - 1 ? "\n" : "" }}</template><span class="caret" /></pre>
                         </div>
 
-                        <div class="sheet" :style="on('plan', 306, 108)">
-                            <b>edge-b1: 4 commands in 3 steps</b>
-                            <span>/interface vlan</span>
-                            <span class="removed">- add name=test vlan-id=999</span>
-                            <span class="added">+ add name=sirius vlan-id=1012</span>
-                            <span>/interface bridge vlan</span>
-                            <span class="added">+ add bridge=bridge vlan-ids=1012</span>
-                            <span>/ip address</span>
-                            <span class="added">+ add address=198.51.100.169/29</span>
-                            <span class="added">&nbsp; interface=sirius</span>
+                        <div
+                            :key="step"
+                            class="sheet"
+                            :class="{ again }"
+                            :style="{ ...on('plan', 306, 108), '--lines': change.lines.length + 1 }"
+                        >
+                            <b>{{ change.plan }}</b>
+                            <span v-for="(line, row) in change.lines.map(planLine)" :key="row" :class="line.kind">{{ line.text }}</span>
                         </div>
 
-                        <span class="apply" :style="on('plan', 1300, 282)">Apply</span>
+                        <span :key="step" class="apply" :class="{ again }" :style="on('plan', 1300, 282)">Apply</span>
 
                         <span class="board-title" :style="on('network', 349, 112)">Network</span>
+                        <span class="ping" :style="on('network', 455, 408)" />
                         <span
                             v-for="node in nodes"
                             :key="node.name"
@@ -311,7 +507,13 @@ const commits = [
                         <span class="card-name" :style="on('network', 1181, 420)">edge-b1</span>
                         <span class="card-date" :style="on('network', 1181, 462)">2026-10-12</span>
 
-                        <span v-for="commit in commits" :key="commit.hash" class="commit" :style="on('network', commit.x, 772)">
+                        <span
+                            v-for="(commit, index) in commits"
+                            :key="commit.hash"
+                            class="commit"
+                            :class="{ again }"
+                            :style="{ ...on('network', commit.x, 772), '--i': index }"
+                        >
                             <code>{{ commit.hash }}</code>
                             {{ commit.message }}
                         </span>
@@ -347,7 +549,7 @@ const commits = [
             </figure>
 
             <ol class="legend" @mouseleave="active = 0">
-                <li v-for="part in parts" :key="part.number">
+                <li v-for="part in parts" :key="part.number" :style="{ '--i': part.number - 1 }">
                     <a
                         :href="withBase(part.link)"
                         :class="{ lit: active === part.number }"
@@ -380,7 +582,7 @@ const commits = [
         </header>
 
         <section class="chapter why" aria-labelledby="why">
-            <h2 id="why"><span>Why</span></h2>
+            <h2 id="why" data-reveal><span>Why</span></h2>
             <div class="body">
                 <p>
                     A network configured by hand drifts. Someone adds a VLAN during an outage, someone else tests a firewall rule and
@@ -388,7 +590,7 @@ const commits = [
                     changed what, or why.
                 </p>
                 <p>With Circuit the record is the file. Whatever the file leaves out does not stay on the device:</p>
-                <table class="ledger">
+                <table class="ledger" data-reveal>
                     <thead>
                         <tr>
                             <th scope="col">Not in the file</th>
@@ -415,10 +617,10 @@ const commits = [
         </section>
 
         <section class="chapter how" aria-labelledby="how">
-            <h2 id="how"><span>How</span></h2>
+            <h2 id="how" data-reveal><span>How</span></h2>
             <div class="body">
-                <ol class="steps">
-                    <li v-for="(step, index) in steps" :key="step.title">
+                <ol class="steps" data-reveal>
+                    <li v-for="(step, index) in steps" :key="step.title" :style="{ '--i': index }">
                         <span class="dot" aria-hidden="true">{{ index + 1 }}</span>
                         <p>
                             <strong>{{ step.title }}</strong> {{ step.text }}
@@ -431,15 +633,15 @@ const commits = [
         </section>
 
         <section class="chapter begin" aria-labelledby="begin">
-            <h2 id="begin"><span>Where to begin</span></h2>
+            <h2 id="begin" data-reveal><span>Where to begin</span></h2>
             <div class="body">
                 <p>Pick the layout closest to your network. Each one is a working project you change to your own.</p>
-                <ol class="patterns">
-                    <li v-for="pattern in patterns" :key="pattern.id">
+                <ol class="patterns" data-reveal>
+                    <li v-for="(pattern, index) in patterns" :key="pattern.id" :style="{ '--i': index }">
                         <a :href="withBase(`/patterns/${pattern.id}`)">{{ pattern.name }}</a>
                         <p>{{ pattern.text }}</p>
                         <ul class="files" :aria-label="`Files in ${pattern.name}`">
-                            <li v-for="file in pattern.files" :key="file">{{ file }}</li>
+                            <li v-for="(file, place) in pattern.files" :key="file" :style="{ '--j': place }">{{ file }}</li>
                         </ul>
                     </li>
                 </ol>
@@ -447,7 +649,7 @@ const commits = [
         </section>
 
         <section class="studio" aria-labelledby="studio">
-            <div class="studio-copy">
+            <div class="studio-copy" data-reveal>
                 <h2 id="studio">The whole network, drawn</h2>
                 <p>
                     <code>circuit studio</code> draws the network and lists everything your files hold, so the whole team can look things
@@ -458,6 +660,7 @@ const commits = [
             </div>
             <img
                 class="shot"
+                data-reveal
                 :src="studioShot"
                 alt="Circuit Studio's graph of an example network, with the devices that differ from their snapshots marked, beside the layer's details."
                 width="1440"
@@ -467,9 +670,9 @@ const commits = [
         </section>
 
         <section class="chapter runs" aria-labelledby="runs">
-            <h2 id="runs"><span>What it runs on</span></h2>
+            <h2 id="runs" data-reveal><span>What it runs on</span></h2>
             <div class="body">
-                <table class="proved">
+                <table class="proved" data-reveal>
                     <caption>
                         Proved on production devices before release
                     </caption>
@@ -480,7 +683,7 @@ const commits = [
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="entry in platforms" :key="entry.platform">
+                        <tr v-for="(entry, index) in platforms" :key="entry.platform" :style="{ '--i': index }">
                             <th scope="row">
                                 <a :href="withBase(`/platforms/${entry.platform}`)">{{ entry.name }}</a>
                             </th>
@@ -491,7 +694,7 @@ const commits = [
                     </tbody>
                 </table>
 
-                <aside class="caution">
+                <aside class="caution" data-reveal>
                     <strong>Alpha</strong>
                     <p>
                         Circuit is young. It runs a production network, but the way you write config can still change between releases, so
@@ -521,12 +724,12 @@ const commits = [
         </section>
 
         <section class="close" aria-labelledby="close">
-            <h2 id="close">Write down your first device.</h2>
+            <h2 id="close" data-reveal>Write down your first device.</h2>
             <p>
                 Circuit asks a few questions, then writes a working project and installs itself with the package manager you started it
                 with.
             </p>
-            <div class="starter">
+            <div class="starter" data-reveal>
                 <div class="managers" role="tablist" aria-label="Package manager">
                     <button
                         v-for="(entry, index) in starters"
@@ -566,6 +769,7 @@ const commits = [
 .home {
     --gutter: 3.65vw;
     --px: 0.0651vw;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hero :focus-visible,
@@ -589,6 +793,22 @@ h1 {
     line-height: 0.94;
     letter-spacing: -0.035em;
     white-space: nowrap;
+}
+
+.written {
+    display: inline-block;
+}
+
+/* The caret the title is written with: it blinks a few times once the line is down, then leaves. */
+.written::after {
+    content: "";
+    display: inline-block;
+    width: 0.07em;
+    height: 0.78em;
+    margin-left: 0.05em;
+    vertical-align: -0.04em;
+    background: var(--circuit-yellow);
+    opacity: 0;
 }
 
 /* The drawing: three plates on the cobalt, the words set into them, and the numbered callouts over them. */
@@ -665,6 +885,26 @@ h1 {
     color: #ffb36b;
 }
 
+/* The editor's caret, still blinking after the file is written. */
+.caret {
+    display: inline-block;
+    width: 14px;
+    height: 34px;
+    margin-left: 6px;
+    vertical-align: -7px;
+    background: var(--circuit-yellow);
+}
+
+/* The changed device keeps sending out a ring, the way the network drawing marks what a plan would touch. */
+.ping {
+    width: 5.2cqw;
+    height: 2.8cqw;
+    margin: -1.4cqw 0 0 -2.6cqw;
+    border: 0.2cqw solid #ffffff;
+    border-radius: 50%;
+    opacity: 0;
+}
+
 .sheet {
     display: grid;
     width: 16.2cqw;
@@ -690,6 +930,16 @@ h1 {
 .sheet .added {
     color: #0d5b2f;
     background: #d4f0dc;
+}
+
+.sheet .changed {
+    color: #0a1a36;
+    background: #fff7c2;
+}
+
+/* A commit moves along the history as newer ones arrive. */
+.commit {
+    transition: left 0.6s var(--ease);
 }
 
 .apply {
@@ -809,13 +1059,13 @@ h1 {
 /* On arrival the callouts are drawn in, one after another, in the order the legend reads. */
 @media (prefers-reduced-motion: no-preference) {
     .callout .leader {
-        animation: draw 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-        animation-delay: calc(0.3s + var(--order) * 0.09s);
+        animation: draw 0.6s var(--ease) backwards;
+        animation-delay: calc(1.25s + var(--order) * 0.09s);
     }
 
     .callout .dot {
-        animation: pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-        animation-delay: calc(0.42s + var(--order) * 0.09s);
+        animation: pop 0.5s var(--ease) backwards;
+        animation-delay: calc(1.37s + var(--order) * 0.09s);
     }
 }
 
@@ -1464,6 +1714,241 @@ h1 {
 .close .more {
     margin: 0;
     font-size: max(16px, calc(18 * var(--px)));
+}
+
+/* The opening is written as the visitor arrives: the title line, then the change travelling through the drawing, left to right. */
+@media (prefers-reduced-motion: no-preference) {
+    .written {
+        animation: write 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.1s backwards;
+    }
+
+    .written::after {
+        animation: blink 1s steps(1) 0.95s 3;
+    }
+
+    .art {
+        animation: rise 0.8s var(--ease) backwards;
+        animation-delay: calc(0.3s + var(--i) * 0.16s);
+    }
+
+    .window {
+        animation: fade 0.5s var(--ease) 0.45s backwards;
+    }
+
+    .code {
+        animation: type calc(var(--lines) * 0.09s) steps(var(--lines), end) 0.55s backwards;
+    }
+
+    .sheet {
+        animation: type calc(var(--lines) * 0.09s) steps(var(--lines), end) 0.85s backwards;
+    }
+
+    /* Each change after the first: the code is written, the plan printed from it, Apply pressed, and the commit lands. */
+    .again .code {
+        animation-delay: 0.1s;
+    }
+
+    .sheet.again {
+        animation-delay: 1.4s;
+    }
+
+    .apply.again {
+        animation: press 0.5s var(--ease) 2.4s;
+    }
+
+    .commit.again:last-child {
+        animation: rise 0.6s var(--ease) 2.8s backwards;
+    }
+
+    .apply,
+    .board-title,
+    .node,
+    .card-title,
+    .card-name,
+    .card-date {
+        animation: fade 0.5s var(--ease) 1s backwards;
+    }
+
+    .commit {
+        animation: fade 0.45s var(--ease) backwards;
+        animation-delay: calc(1.05s + var(--i) * 0.1s);
+    }
+
+    .caret {
+        animation: blink 1.1s steps(1) 1.7s infinite;
+    }
+
+    .ping {
+        animation: ping 2.6s var(--ease) 1.5s infinite;
+    }
+
+    .legend li {
+        animation: rise 0.6s var(--ease) backwards;
+        animation-delay: calc(1.3s + var(--i) * 0.09s);
+    }
+
+    .start > * {
+        animation: rise 0.7s var(--ease) backwards;
+    }
+
+    .start > :nth-child(2) {
+        animation-delay: 0.12s;
+    }
+
+    .start > :nth-child(3) {
+        animation-delay: 0.2s;
+    }
+
+    .idle .caret,
+    .idle .ping {
+        animation-play-state: paused;
+    }
+
+    /* Below the opening, each part comes in as it is reached, in a way that shows what it holds. */
+    .waiting {
+        opacity: 0;
+    }
+
+    h2.shown,
+    .studio-copy.shown {
+        animation: surface 0.9s var(--ease) backwards;
+    }
+
+    /* A cause, then its effect: what the file leaves out, then what happens to it on the device. */
+    .ledger tbody tr:nth-child(2) {
+        --i: 1;
+    }
+
+    .ledger tbody tr:nth-child(3) {
+        --i: 2;
+    }
+
+    .ledger.shown tbody th {
+        animation: fade 0.5s var(--ease) backwards;
+        animation-delay: calc(0.15s + var(--i, 0) * 0.18s);
+    }
+
+    .ledger.shown td {
+        animation: follow 0.6s var(--ease) backwards;
+        animation-delay: calc(0.45s + var(--i, 0) * 0.18s);
+    }
+
+    /* Lists arrive in their order; a step's number comes first. */
+    .steps.shown li,
+    .patterns.shown > li,
+    .proved.shown tbody tr {
+        animation: rise 0.65s var(--ease) backwards;
+        animation-delay: calc(var(--i) * 0.12s);
+    }
+
+    .steps.shown .dot {
+        animation: pop 0.5s var(--ease) backwards;
+        animation-delay: calc(0.1s + var(--i) * 0.12s);
+    }
+
+    /* A pattern's files are laid out after it, one after another. */
+    .patterns.shown .files li {
+        animation: pop 0.4s var(--ease) backwards;
+        animation-delay: calc(0.3s + var(--i) * 0.12s + var(--j) * 0.05s);
+    }
+
+    /* The screen slides into the cobalt from the edge it runs off. */
+    .shot.shown {
+        animation: slide 1s var(--ease) 0.1s backwards;
+    }
+
+    .caution.shown,
+    .starter.shown {
+        animation: rise 0.7s var(--ease) 0.15s backwards;
+    }
+}
+
+@keyframes press {
+    40% {
+        transform: scale(0.88);
+    }
+}
+
+@keyframes write {
+    from {
+        clip-path: inset(-10% 100% -25% 0);
+    }
+
+    to {
+        clip-path: inset(-10% -5% -25% 0);
+    }
+}
+
+@keyframes blink {
+    0%,
+    49% {
+        opacity: 1;
+    }
+
+    50%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+}
+
+@keyframes fade {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes type {
+    from {
+        clip-path: inset(0 0 100% 0);
+    }
+
+    to {
+        clip-path: inset(0 0 0 0);
+    }
+}
+
+@keyframes ping {
+    from {
+        opacity: 0.95;
+        transform: scale(0.6);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(1.6);
+    }
+}
+
+@keyframes surface {
+    from {
+        clip-path: inset(0 0 100% 0);
+        transform: translateY(0.35em);
+    }
+
+    to {
+        clip-path: inset(-10% -10% -40% -10%);
+    }
+}
+
+@keyframes follow {
+    from {
+        opacity: 0;
+        transform: translateX(-14px);
+    }
+}
+
+@keyframes slide {
+    from {
+        opacity: 0;
+        transform: translateX(10%);
+    }
 }
 
 /* Narrow windows: the opening stacks, and the drawing keeps its scale and scrolls sideways in its own frame. */
