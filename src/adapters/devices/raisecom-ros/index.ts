@@ -9,7 +9,7 @@ import { offset } from "../../../core/time";
 import type { Device, Port, SnmpUser, Switched, Vrrp } from "../../../schema";
 import { connect, readUntil, send, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
-import { ipv4Networks, lagIds } from "../derive";
+import { ipv4Networks, lagIds, switchUnsupported } from "../derive";
 import { compare, type Dialect, entries, type Group, scrub, steps, vlanListChange } from "../lines";
 import type { DeviceAdapter, Plan, Step } from "../types";
 
@@ -387,7 +387,14 @@ export function unsupported(device: Device): string[] {
             continue;
         }
 
-        if (iface.vrf) found.push(`interfaces.${name}.vrf`);
+        for (const field of ["vrf", "description", "mtu", "ipv6_ra"] as const) {
+            if (iface[field] !== undefined) found.push(`interfaces.${name}.${field}`);
+        }
+
+        for (const entry of iface.addresses ?? []) {
+            const address = typeof entry === "string" ? entry : entry.address;
+            if (familyOf(address) === "ipv6") found.push(`interfaces.${name}.addresses ${address}, only IPv4 here`);
+        }
 
         for (const group of iface.vrrp ?? []) {
             if (familyOf(group.address) === "ipv6") found.push(`interfaces.${name}.vrrp for IPv6`);
@@ -412,7 +419,15 @@ export function unsupported(device: Device): string[] {
     }
 
     for (const route of routing?.static ?? []) {
-        if (!route.via || route.vrf) found.push(`routing.static ${route.prefix}, only an IPv4 next hop in the default table`);
+        if (!route.via || route.vrf || familyOf(route.prefix) === "ipv6") {
+            found.push(`routing.static ${route.prefix}, only an IPv4 next hop in the default table`);
+        }
+
+        if (route.description || route.distance) found.push(`routing.static ${route.prefix} description and distance`);
+    }
+
+    for (const [name, vlan] of Object.entries(device.vlans ?? {})) {
+        if (vlan.description) found.push(`vlans.${name}.description`);
     }
 
     const UNSUPPORTED_SECTIONS = [
@@ -443,6 +458,9 @@ export function unsupported(device: Device): string[] {
             found.push(`management.snmp.users.${name}.auth ${user.auth}, the platform authenticates with SHA1 or MD5`);
     }
 
+    if (management.snmp?.contact || management.snmp?.location) found.push("management.snmp.contact and location");
+    if (management.ssh?.weak_crypto) found.push("management.ssh.weak_crypto");
+
     if (device.lldp && device.lldp !== true) found.push("lldp.interfaces, LLDP is per device");
     if (device.stp?.mode && device.stp.mode !== "mstp") found.push("stp.mode other than mstp");
 
@@ -455,6 +473,8 @@ export function unsupported(device: Device): string[] {
     if (system.dns || system.logging || system.release_channel || system.banner || system.ntp?.serve) {
         found.push("system.dns, logging, release_channel, banner and ntp.serve");
     }
+
+    found.push(...switchUnsupported(device));
 
     return found;
 }

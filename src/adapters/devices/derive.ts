@@ -25,3 +25,35 @@ export function ipv4Networks(device: Device, iface: string): string[] {
 
     return addresses.filter((address) => familyOf(address) === "ipv4").map((address) => network(address));
 }
+
+/** Services the switch platforms run. Each takes its sources from `management.allow`, on the protocol's own port. */
+const SWITCH_SERVICES = ["ssh", "telnet", "snmp"] as const;
+
+/** Fields neither switch platform, VRP nor Raisecom ROS, expresses: a service's own sources or port, a user's description or keys, the IP stack's host settings, a point-to-point address, and offload per interface. */
+export function switchUnsupported(device: Device): string[] {
+    const found: string[] = [];
+
+    for (const service of SWITCH_SERVICES) {
+        const settings = device.management?.[service];
+        if (settings?.allow) found.push(`management.${service}.allow, every service takes management.allow`);
+        if (settings?.port) found.push(`management.${service}.port`);
+    }
+
+    for (const [name, user] of Object.entries(device.users ?? {})) {
+        if (user.description) found.push(`users.${name}.description`);
+        if (user.ssh_keys?.length) found.push(`users.${name}.ssh_keys`);
+    }
+
+    if (device.system?.ip) found.push("system.ip");
+
+    for (const [name, port] of Object.entries(device.ports ?? {})) {
+        if (port?.hardware_offload !== undefined) found.push(`ports.${name}.hardware_offload`);
+    }
+
+    for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
+        if (iface.addresses?.some((entry) => typeof entry !== "string")) found.push(`interfaces.${name}.addresses with a peer`);
+        if (iface.hardware_offload !== undefined) found.push(`interfaces.${name}.hardware_offload`);
+    }
+
+    return found;
+}
