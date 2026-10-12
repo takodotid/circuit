@@ -6,6 +6,8 @@ Circuit Studio can run on a server, so your whole team opens one address and see
 Studio has no login of its own. It shows your network's whole design: devices, addresses, firewall rules, policies and the names of users and secrets. It never shows a secret's value. Never put it on the internet as it is: reach it only through something that asks who people are, such as a reverse proxy with a login, or only over your VPN.
 :::
 
+Studio asks search engines to leave it out: every answer it sends carries `X-Robots-Tag: noindex`, and its `/robots.txt` turns every crawler away. That keeps it out of search results, but it is not a lock, so the login is still needed.
+
 ## The command
 
 ```bash

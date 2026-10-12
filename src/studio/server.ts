@@ -110,6 +110,9 @@ export async function studio(options: StudioOptions): Promise<void> {
     };
 
     const server = createServer((request, response) => {
+        // Studio shows one team's network: every answer asks search engines to leave it out, and robots.txt says so for the whole site.
+        response.setHeader("x-robots-tag", "noindex, nofollow, noarchive");
+
         if (!hostAllowed(request.headers.host, port, options.allowHosts)) {
             response.writeHead(403).end();
             return;
@@ -151,6 +154,11 @@ export async function studio(options: StudioOptions): Promise<void> {
 
                 return `{"commit":${JSON.stringify(commit)},"network":${network}}`;
             });
+            return;
+        }
+
+        if (path === "/robots.txt") {
+            response.writeHead(200, { "content-type": "text/plain; charset=utf-8" }).end("User-agent: *\nDisallow: /\n");
             return;
         }
 
