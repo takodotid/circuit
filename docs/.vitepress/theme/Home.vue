@@ -577,7 +577,7 @@ h2 {
     grid-template-columns: minmax(430px, 0.92fr) minmax(540px, 1.35fr);
     align-items: stretch;
     max-width: none;
-    min-height: 570px;
+    min-height: 520px;
     border-block: 1px solid var(--rule);
 }
 
@@ -644,7 +644,7 @@ h1 span {
 }
 
 .section-model img {
-    object-fit: cover;
+    object-fit: contain;
     object-position: center;
 }
 
@@ -804,7 +804,8 @@ h2 {
     }
 
     .section-model {
-        min-height: 520px;
+        min-height: 0;
+        aspect-ratio: 3 / 2;
         border-top: 1px solid var(--rule);
         border-left: 0;
     }
@@ -840,7 +841,7 @@ h2 {
     }
 
     .section-model {
-        min-height: 650px;
+        min-height: 0;
     }
 
     .section-model img {
