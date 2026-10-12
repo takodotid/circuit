@@ -4,25 +4,25 @@ Run every command from your project as `npx circuit <command>`, or `pnpm circuit
 
 ## Every command
 
-| Command                          | What it does                                                                                                                                         | Touches a device |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| `new [directory]`                | Starts a new project from a pattern. See [Getting started](/guide/getting-started).                                                                  | no               |
-| `validate`                       | Checks every file and runs your checks                                                                                                               | no               |
-| `secrets`                        | Lists every secret the files use, and whether each one can be read                                                                                   | no               |
-| `build <device>`                 | Prints the whole configuration the device should run, in its vendor's commands                                                                       | no               |
-| `diff [device...]`               | Shows what would change, compared with the last snapshot                                                                                             | no               |
-| `snapshot [device...]`           | Reads what each device runs now, into `.circuit/state/`                                                                                              | reads only       |
-| `apply <device>`                 | Reads the device, then shows the plan; with `--confirm`, sends it                                                                                    | with `--confirm` |
-| `refresh <device>`               | Fetches prefix lists from a registry; with `--confirm`, puts them on the device                                                                      | with `--confirm` |
-| `rename <device> <new-name>`     | Gives a device a new name in every file that names it; with `--confirm`, writes it. See [Renaming a device](/guide/devices#renaming-a-device).       | no               |
-| `wireguard <device> <if> <peer>` | Prints a WireGuard client config for one peer                                                                                                        | no               |
-| `communities`                    | Prints your BGP communities, for a looking glass or bgp.tools                                                                                        | no               |
-| `peeringdb`                      | Updates your PeeringDB record to match the config; with `--confirm`, sends it                                                                        | PeeringDB only   |
-| `librenms`                       | Adds every device LibreNMS does not monitor yet; with `--confirm`, sends it. See [LibreNMS](/integrations/librenms).                                 | LibreNMS only    |
-| `prometheus`                     | Prints every device with SNMP as a target for Prometheus. See [Prometheus](/integrations/prometheus).                                                | no               |
-| `addresses [prefix]`             | Lists every address the files use, by prefix, and what is still free. See [Finding a free address](/guide/addresses).                                | no               |
-| `graph [device...]`              | Prints the network as a graph: cables, VLANs, addresses, BGP, OSPF or tunnels. See [Seeing the network](/guide/graph).                               | no               |
-| `studio`                         | Draws the network in your browser, with tables of everything the files hold, again each time a file changes. See [Seeing the network](/guide/graph). | no               |
+| Command                          | What it does                                                                                                                                   | Touches a device |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `new [directory]`                | Starts a new project from a pattern. See [Getting started](/guide/getting-started).                                                            | no               |
+| `validate`                       | Checks every file and runs your checks                                                                                                         | no               |
+| `secrets`                        | Lists every secret the files use, and whether each one can be read                                                                             | no               |
+| `build <device>`                 | Prints the whole configuration the device should run, in its vendor's commands                                                                 | no               |
+| `diff [device...]`               | Shows what would change, compared with the last snapshot                                                                                       | no               |
+| `snapshot [device...]`           | Reads what each device runs now, into `.circuit/state/`                                                                                        | reads only       |
+| `apply <device>`                 | Reads the device, then shows the plan; with `--confirm`, sends it                                                                              | with `--confirm` |
+| `refresh <device>`               | Fetches prefix lists from a registry; with `--confirm`, puts them on the device                                                                | with `--confirm` |
+| `rename <device> <new-name>`     | Gives a device a new name in every file that names it; with `--confirm`, writes it. See [Renaming a device](/guide/devices#renaming-a-device). | no               |
+| `wireguard <device> <if> <peer>` | Prints a WireGuard client config for one peer                                                                                                  | no               |
+| `communities`                    | Prints your BGP communities, for a looking glass or bgp.tools                                                                                  | no               |
+| `peeringdb`                      | Updates your PeeringDB record to match the config; with `--confirm`, sends it                                                                  | PeeringDB only   |
+| `librenms`                       | Adds every device LibreNMS does not monitor yet; with `--confirm`, sends it. See [LibreNMS](/integrations/librenms).                           | LibreNMS only    |
+| `prometheus`                     | Prints every device with SNMP as a target for Prometheus. See [Prometheus](/integrations/prometheus).                                          | no               |
+| `addresses [prefix]`             | Lists every address the files use, by prefix, and what is still free. See [Finding a free address](/guide/addresses).                          | no               |
+| `graph [device...]`              | Prints the network as a graph: cables, VLANs, addresses, BGP, OSPF or tunnels. See [Printing the graph](/guide/graph).                         | no               |
+| `studio`                         | Opens studio: the network in your browser, drawn and in tables, again each time a file changes. See [Studio](/studio/).                        | no               |
 
 `diff` and `snapshot` take device names, or work on every device when you give none.
 

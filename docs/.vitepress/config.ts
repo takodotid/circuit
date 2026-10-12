@@ -49,7 +49,7 @@ export default defineConfig({
                     { text: "The network", link: "/guide/network" },
                     { text: "Secrets", link: "/guide/secrets" },
                     { text: "CLI commands", link: "/guide/cli" },
-                    { text: "Seeing the network", link: "/guide/graph" },
+                    { text: "Printing the graph", link: "/guide/graph" },
                     { text: "Finding a free address", link: "/guide/addresses" },
                     { text: "Scheduled refresh", link: "/guide/scheduled-refresh" },
                     { text: "How a change is applied", link: "/guide/convergence" },
@@ -58,6 +58,14 @@ export default defineConfig({
                     { text: "Presets", link: "/guide/presets" },
                     { text: "FAQ", link: "/guide/faq" },
                     { text: "Glossary", link: "/guide/glossary" },
+                ],
+            },
+            {
+                text: "Studio",
+                items: [
+                    { text: "Overview", link: "/studio/" },
+                    { text: "The graph", link: "/studio/graph" },
+                    { text: "Looking things up", link: "/studio/tables" },
                 ],
             },
             {
