@@ -73,6 +73,11 @@ button {
     padding: 6px 12px;
     cursor: pointer;
 }
+input,
+select,
+button {
+    box-sizing: border-box;
+}
 button:hover {
     border-color: var(--accent);
 }
@@ -766,6 +771,7 @@ header > nav button[aria-pressed="true"]::after,
 }
 header input[type="search"] {
     width: 190px;
+    min-height: 36px;
     margin: 8px 10px 8px auto;
     border-color: var(--edge);
     border-radius: 0;
@@ -779,6 +785,67 @@ header .live {
     margin: 0;
     padding: 0 16px 0 10px;
     white-space: nowrap;
+}
+.status-rail {
+    order: 10;
+    display: flex;
+    flex: 1 0 100%;
+    align-items: center;
+    min-height: 38px;
+    padding: 0 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+}
+.status-rail .summary {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0;
+}
+.summary-item {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 10px;
+    color: var(--text);
+    border-left: 1px solid var(--line);
+    font-size: 13px;
+    font-weight: 700;
+}
+.summary-item:first-child {
+    padding-left: 0;
+    border-left: 0;
+}
+.summary-item::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin-right: 7px;
+    border: 1px solid currentColor;
+    background: transparent;
+}
+.summary-item.error {
+    color: var(--error);
+}
+.summary-item.warning,
+.summary-item.changed {
+    color: var(--warning);
+}
+.summary-item.error::before,
+.summary-item.warning::before,
+.summary-item.changed::before {
+    background: currentColor;
+}
+.summary-item.quiet {
+    color: var(--muted);
+}
+.status-rail .live {
+    margin-left: auto;
+    padding: 0;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: capitalize;
 }
 .toolbar {
     min-height: 48px;
@@ -968,6 +1035,7 @@ table.data tbody tr:nth-child(even) > th {
 }
 .field input[type="text"],
 .field select {
+    min-height: 36px;
     border-radius: 0;
     border-color: var(--edge);
 }
@@ -1025,6 +1093,17 @@ button.primary {
     header .summary,
     header .live {
         padding-block: 8px;
+    }
+    .status-rail {
+        align-items: flex-start;
+        gap: 8px;
+        padding-block: 8px;
+    }
+    .status-rail .summary {
+        flex-wrap: wrap;
+    }
+    .summary-item {
+        min-height: 28px;
     }
     aside {
         width: auto;
