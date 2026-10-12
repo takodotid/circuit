@@ -64,14 +64,20 @@ export function svgOf(svg, viewport) {
     const originals = [svg, ...svg.querySelectorAll("*")];
     const copies = [copy, ...copy.querySelectorAll("*")];
 
+    // The dots travelling the cables are left out: a still image would show each one stopped at the drawing's corner.
+    const moving = [];
+
     for (const [index, original] of originals.entries()) {
         const target = copies[index];
         if (!(target instanceof SVGElement)) continue;
+        if (original.classList.contains("signal")) moving.push(target);
 
         const look = getComputedStyle(original);
         target.setAttribute("style", DRAWN.map((name) => `${name}:${look.getPropertyValue(name)}`).join(";"));
         target.removeAttribute("class");
     }
+
+    for (const dot of moving) dot.remove();
 
     // The drawing's own place on screen is left out: the file is framed around what is drawn.
     copy.querySelector("#viewport")?.removeAttribute("transform");

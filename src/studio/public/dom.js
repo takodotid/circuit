@@ -71,6 +71,26 @@ export function svgById(id) {
     return element;
 }
 
+/** The reader's system asks for less motion: nothing moves for show, and changes happen at once. */
+export const still = matchMedia("(prefers-reduced-motion: reduce)");
+
+/**
+ * Bring a part of the page in as it changes: it fades in and rises a little.
+ *
+ * @param {Element} element
+ */
+export function enter(element) {
+    if (still.matches) return;
+
+    element.animate(
+        [
+            { opacity: 0, transform: "translateY(6px)" },
+            { opacity: 1, transform: "none" },
+        ],
+        { duration: 240, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
+    );
+}
+
 /** Browser storage can be missing or refuse, in a private window for example. The page works without it. */
 export const store = {
     /**

@@ -45,6 +45,13 @@
                     <div class="actions">
                         <button id="fit" title="Fit the drawing to the window">Fit</button>
                         <button id="lay-out" title="Forget where nodes were moved, and lay them out again">Lay out again</button>
+                        <button
+                            id="present"
+                            aria-pressed="false"
+                            title="Show the network on a big screen: the panel hides, and the drawing goes through every layer, lighting its busiest devices in turn. Key P."
+                        >
+                            Present
+                        </button>
                         <details class="menu">
                             <summary>Save image</summary>
                             <div class="menu-items">
@@ -61,6 +68,7 @@
                             <g id="nodes"></g>
                         </g>
                     </svg>
+                    <p id="present-caption" class="present-caption" aria-live="polite" hidden></p>
                     <aside id="panel"></aside>
                 </div>
             </section>

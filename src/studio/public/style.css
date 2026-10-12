@@ -262,6 +262,14 @@ header > nav button[aria-pressed="true"]::after {
     left: 9px;
     height: 4px;
     background: var(--yellow);
+    animation: bar 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The bar under the view or tab just chosen grows out from its middle. */
+@keyframes bar {
+    from {
+        transform: scaleX(0);
+    }
 }
 
 .count {
@@ -395,6 +403,18 @@ header input[type="search"]:focus {
 
 .status-rail .live.on::before {
     background: var(--ok);
+}
+
+/* When a changed config arrives, the live mark beats once in yellow. */
+.status-rail .live.beat::before {
+    animation: beat 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes beat {
+    30% {
+        background: var(--yellow);
+        transform: scale(1.9);
+    }
 }
 
 .banner {
@@ -541,9 +561,11 @@ main {
 /* The drawing board. */
 
 .stage {
+    position: relative;
     flex: 1;
     display: flex;
     min-height: 0;
+    overflow: hidden;
     background-color: var(--bg);
     background-image: radial-gradient(circle, var(--dots) 1.2px, transparent 1.6px);
     background-size: 24px 24px;
@@ -566,6 +588,33 @@ svg.canvas.panning {
     fill: none;
     stroke: var(--edge);
     stroke-width: 2;
+    transition:
+        stroke 0.2s,
+        stroke-width 0.2s;
+}
+
+/* Lighting one part dims the rest gently, so the eye follows what changed. */
+.edge,
+.node {
+    transition: opacity 0.25s ease-out;
+}
+
+/* Dots travelling a cable both ends declare: traffic where the link works. On a lit cable they turn to the highlighter. */
+.edge .signal {
+    fill: var(--accent);
+    pointer-events: none;
+}
+
+.edge.lit .signal,
+.edge.selected .signal {
+    r: 4.5px;
+    fill: var(--yellow);
+    stroke: var(--navy);
+    stroke-width: 1.5;
+}
+
+.edge.added .signal {
+    fill: var(--ok);
 }
 
 .edge text {
@@ -697,6 +746,78 @@ svg.canvas.panning {
 
 svg.far .edge text {
     display: none;
+}
+
+/* Presenting: the network for a big screen. The panel steps aside, lines and dots are heavier, and the drawing drifts slowly. */
+
+.presenting #panel {
+    display: none;
+}
+
+.presenting .edge path:not(.hit) {
+    stroke-width: 3;
+}
+
+.presenting .edge.lit path:not(.hit) {
+    stroke-width: 5;
+}
+
+.presenting .edge .signal {
+    r: 4.5px;
+}
+
+.presenting .edge.lit .signal {
+    r: 6px;
+}
+
+.present-caption {
+    position: absolute;
+    bottom: 22px;
+    left: 22px;
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 12px 18px 14px;
+    border: 2px solid var(--text);
+    border-radius: 2px;
+    background: var(--surface);
+    pointer-events: none;
+}
+
+.present-caption[hidden] {
+    display: none;
+}
+
+.present-caption strong {
+    font-size: 26px;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+}
+
+.present-caption span {
+    color: var(--muted);
+    font-size: 14px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .presenting svg.canvas {
+        animation: drift 48s ease-in-out infinite alternate;
+    }
+
+    .presenting svg.canvas:hover,
+    .presenting svg.canvas.panning {
+        animation-play-state: paused;
+    }
+}
+
+@keyframes drift {
+    from {
+        transform: scale(1) translate(-1%, -0.6%);
+    }
+
+    to {
+        transform: scale(1.05) translate(1%, 0.6%);
+    }
 }
 
 /* The side panel: what is selected, or the layer's legend. */
@@ -902,6 +1023,7 @@ aside pre {
     left: 8px;
     height: 4px;
     background: var(--cobalt);
+    animation: bar 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .table-block {
