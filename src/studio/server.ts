@@ -4,7 +4,8 @@ import { execFile, spawn } from "node:child_process";
 import { existsSync, readFileSync, watch } from "node:fs";
 import { createServer, type ServerResponse } from "node:http";
 import { extname, join } from "node:path";
-import { packageRoot } from "./data";
+import { packageRoot, type StudioData } from "./data";
+import { commitOf, history, networkAt, references } from "./git";
 
 export type StudioOptions = {
     /** The config file. */
@@ -17,7 +18,7 @@ export type StudioOptions = {
 };
 
 /** Directories whose changes never change what studio shows. */
-const IGNORED = /(^|[\\/])(node_modules|\.git)([\\/]|$)/;
+const IGNORED = /(^|[\\/])(node_modules|\.git|\.circuit[\\/]cache)([\\/]|$)/;
 
 const CONTENT_TYPES: Record<string, string> = {
     ".html": "text/html; charset=utf-8",
@@ -63,6 +64,21 @@ export async function studio(options: StudioOptions): Promise<void> {
     const pages = join(installed, "src", "studio", "public");
 
     let data = await gather(configPath);
+
+    // Another commit's network is read once: a commit does not change. Each is kept as it is being read, so two asks share one read.
+    const past = new Map<string, Promise<string>>();
+
+    /** Answer with JSON, or with an error the page shows. */
+    const answer = async (response: ServerResponse, work: () => Promise<unknown>) => {
+        let body: string;
+        try {
+            const result = await work();
+            body = typeof result === "string" ? result : JSON.stringify(result);
+        } catch (error) {
+            body = JSON.stringify({ error: (error as Error).message });
+        }
+        response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(body);
+    };
     const listeners = new Set<ServerResponse>();
     const tell = (message: string) => {
         for (const listener of listeners) listener.write(`data: ${message}\n\n`);
@@ -77,7 +93,44 @@ export async function studio(options: StudioOptions): Promise<void> {
             return;
         }
 
-        const path = (request.url ?? "/").split("?")[0]!;
+        const url = new URL(request.url ?? "/", "http://studio");
+        const path = url.pathname;
+
+        // The commits that changed a device: its file and its snapshot.
+        if (path === "/history") {
+            void answer(response, async () => {
+                const name = url.searchParams.get("device") ?? "";
+                const files = (JSON.parse(data) as StudioData).files?.[name];
+                if (!files) throw new Error(`no device ${name}`);
+                return history(
+                    root,
+                    [files.source, files.snapshot].filter((file): file is string => Boolean(file))
+                );
+            });
+            return;
+        }
+
+        // What studio can compare with: branches, tags and the latest commits.
+        if (path === "/refs") {
+            void answer(response, () => references(root));
+            return;
+        }
+
+        // The network as it was at a branch, tag or commit.
+        if (path === "/compare") {
+            void answer(response, async () => {
+                const asked = url.searchParams.get("ref") ?? "";
+                const commit = await commitOf(root, asked);
+                if (!commit) throw new Error(`${asked} names no commit here`);
+
+                if (!past.has(commit.commit)) past.set(commit.commit, networkAt(root, configPath, commit.commit, gather));
+                const network = await past.get(commit.commit)!;
+                if (network.startsWith('{"error"')) past.delete(commit.commit);
+
+                return `{"commit":${JSON.stringify(commit)},"network":${network}}`;
+            });
+            return;
+        }
 
         if (path === "/data") {
             response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(data);

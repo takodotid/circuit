@@ -14,6 +14,7 @@ test("studio gathers the colocation pattern's devices, sessions, cables and fiel
         {
             render: (device) => adapters[device.platform]!.render(device),
             snapshot: (device) => (device.name === "tor-01" ? "sysname tor-01\n" : undefined),
+            files: (device) => ({ source: `${device.name}.ts` }),
         }
     );
 
@@ -21,6 +22,7 @@ test("studio gathers the colocation pattern's devices, sessions, cables and fiel
     expect(data.ports["tor-01"]).toHaveLength(54);
     expect(data.rendered["tor-01"]).toContain("sysname tor-01");
     expect(data.snapshots).toEqual({ "tor-01": "sysname tor-01\n" });
+    expect(data.files["edge-01"]).toEqual({ source: "edge-01.ts" });
 
     expect(data.sessions.find((session) => session.name === "hurricane-electric")).toMatchObject({
         device: "edge-01",
@@ -55,7 +57,11 @@ test("a session to another of our devices names it, and says when that device ha
     });
 
     const devices = [device("r1", "10.255.0.1", "10.255.0.2", true), device("r2", "10.255.0.2", "10.255.0.1", false)];
-    const data = studioData(devices, { ...graphOf(devices), findings: [], drift: {} }, { render: () => "", snapshot: () => undefined });
+    const data = studioData(
+        devices,
+        { ...graphOf(devices), findings: [], drift: {} },
+        { render: () => "", snapshot: () => undefined, files: () => ({}) }
+    );
 
     expect(data.sessions).toEqual([
         { device: "r1", name: "10.255.0.2", address: "10.255.0.2", remoteAs: 64500, far: "r2", oneSided: true },
@@ -79,7 +85,11 @@ test("a session back must be of the same family: a v4 session back does not answ
         }),
         device("r2", "10.255.0.2", "2001:db8::2", { "r1-v4": { address: "10.255.0.1", remote_as: 64500 } }),
     ];
-    const data = studioData(devices, { ...graphOf(devices), findings: [], drift: {} }, { render: () => "", snapshot: () => undefined });
+    const data = studioData(
+        devices,
+        { ...graphOf(devices), findings: [], drift: {} },
+        { render: () => "", snapshot: () => undefined, files: () => ({}) }
+    );
 
     expect(data.sessions.filter((session) => session.oneSided).map((session) => `${session.device} ${session.name}`)).toEqual(["r1 r2-v6"]);
 });

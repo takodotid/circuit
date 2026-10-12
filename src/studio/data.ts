@@ -59,6 +59,8 @@ export type StudioData = {
     rendered: Record<string, string>;
     /** What each device ran when Circuit last read it, secrets removed, for the devices with a snapshot. */
     snapshots: Record<string, string>;
+    /** Each device's file and snapshot, relative to the config, for its history. */
+    files: Record<string, DeviceFiles>;
     addresses: AddressReport;
     sessions: Session[];
     cables: Cable[];
@@ -188,12 +190,17 @@ function schemaDocs(): Record<string, TypeDocs> {
     return docs;
 }
 
+/** Where a device is kept, relative to the config: the file that declares it, and its snapshot. Either is absent when it cannot be found. */
+export type DeviceFiles = { source?: string; snapshot?: string };
+
 /** How studio learns what a device would run and what it ran, from the caller, which knows the adapters and the state directory. */
 export type DeviceTexts = {
     /** What the device would run, as `circuit build` prints it. */
     render: (device: Device) => string;
     /** Its last snapshot, or undefined when it has none. */
     snapshot: (device: Device) => string | undefined;
+    /** Its file and its snapshot's file. */
+    files: (device: Device) => DeviceFiles;
 };
 
 /** Everything studio shows. `graph` comes ready from the caller, with each device compared with its snapshot. */
@@ -239,6 +246,7 @@ export function studioData(devices: readonly Device[], graph: Annotated, texts: 
                 return text === undefined ? [] : [[device.name, text]];
             })
         ),
+        files: Object.fromEntries(devices.map((device) => [device.name, texts.files(device)])),
         addresses: addressesOf(devices),
         sessions: sessionsOf(devices, owners),
         cables: cablesOf(devices),
