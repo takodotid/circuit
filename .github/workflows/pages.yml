@@ -21,7 +21,10 @@ jobs:
     build:
         runs-on: ubuntu-latest
         steps:
+            # The whole history, so each page's last-updated date, and the sitemap's, is the last commit that changed it.
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
             - uses: oven-sh/setup-bun@v2
               with:
                   bun-version: 1.4.3
