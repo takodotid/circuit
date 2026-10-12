@@ -24,3 +24,7 @@ A device's **Running** page sets its last snapshot, what it ran when Circuit las
 ## A device's ports
 
 A device's **Ports** page starts with its front panel: a square for each port of its model, by speed, colored by how the port is used. A dot marks a port linked to another of your devices. Click a square to find its row in the table below.
+
+## Saving
+
+Each list can be saved for a spreadsheet with **Save as CSV** above it. On the graph, **Save SVG** and **Save PNG** save the layer shown, as it looks.

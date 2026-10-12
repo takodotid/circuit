@@ -487,6 +487,13 @@ svg.far .edge text {
     }
 }
 
+/* A table that can be saved, with its action above it. */
+.table-actions {
+    margin: 0 0 6px;
+    font-size: 13px;
+    text-align: right;
+}
+
 /* The row a port's square points to. */
 tr.flash td {
     background: var(--segment);
