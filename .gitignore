@@ -19,3 +19,12 @@ docs/reference/
 
 # Built for Node by scripts/build.ts: published, never committed.
 /dist/
+
+# Skills, agents and product notes for AI tools, installed on a machine and not part of the repository.
+/.agents/
+/.claude/skills/
+/.claude/agents/
+/.github/agents/
+/.github/skills/
+/skills-lock.json
+/PRODUCT.md
