@@ -712,6 +712,66 @@ svg.canvas.panning {
     fill: var(--yellow);
 }
 
+/* The device presenting lights now: a highlighter fill, lit sockets, and a ring around it that keeps leaving it, the way the docs drawing marks the changed device. A warning or error keeps its own frame. */
+.node .beacon {
+    display: none;
+}
+
+.node.touring .beacon {
+    display: inline;
+}
+
+.node .beacon rect {
+    fill: none;
+    stroke: var(--yellow-deep);
+    stroke-width: 3;
+}
+
+.node.touring > rect {
+    fill: var(--yellow);
+}
+
+.node.touring:not(.error):not(.warning) > rect {
+    stroke: #0a1a36;
+    stroke-width: 4;
+}
+
+.node.touring text.name {
+    fill: #11141b;
+}
+
+.node.touring text.sub {
+    fill: #2a3550;
+}
+
+.node.touring .chassis > rect:first-child {
+    fill: #0a1a36;
+}
+
+.node.touring .chassis .socket {
+    fill: var(--yellow);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .node.touring .beacon rect {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: beacon 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    }
+}
+
+@keyframes beacon {
+    from {
+        opacity: 1;
+        transform: scale(0.96);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(1.18);
+    }
+}
+
 .node text {
     fill: var(--text);
     font-size: 14px;

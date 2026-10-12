@@ -673,6 +673,11 @@ function draw(arrival) {
         rect.setAttribute("width", String(width));
         rect.setAttribute("height", String(height));
 
+        // The mark of the device presenting lights now: a ring around its frame, shown only then.
+        const beacon = s("g", { class: "beacon", "aria-hidden": "true" });
+        beacon.append(s("rect", { x: -width / 2 - 10, y: -height / 2 - 10, width: width + 20, height: height + 20, rx: 16 }));
+        group.insertBefore(beacon, rect);
+
         if (device) {
             for (const text of texts) text.setAttribute("x", String(-width / 2 + 16 + mark));
 
@@ -742,6 +747,7 @@ function emphasize() {
 
     for (const [id, group] of nodeElements) {
         group.classList.toggle("selected", Boolean(selection && "node" in selection && selection.node === id));
+        group.classList.toggle("touring", presenting && id === touring && !hovered);
         group.classList.toggle("dim", litNodes !== undefined && !litNodes.has(id));
     }
 }
