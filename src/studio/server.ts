@@ -47,6 +47,7 @@ const CONTENT_TYPES: Record<string, string> = {
     ".html": "text/html; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
+    ".svg": "image/svg+xml",
 };
 
 /** What Studio shows, as JSON, from `circuit studio --json` run as a new process, or what stopped it. */
