@@ -352,8 +352,14 @@ function sessions(devices: readonly Device[], owners: Map<string, Holder>, graph
         const far = ownerOf(session);
 
         if (far && far !== session.device) {
-            // The far device's session back: one that names an address this device holds.
-            const back = all.find((other) => other.device === far && !paired.has(other) && ownerOf(other) === session.device);
+            // The far device's session back: one of the same family that names an address this device holds.
+            const back = all.find(
+                (other) =>
+                    other.device === far &&
+                    !paired.has(other) &&
+                    ownerOf(other) === session.device &&
+                    familyOf(other.address) === familyOf(session.address)
+            );
             if (back) paired.add(back);
 
             graph.edge({

@@ -129,6 +129,36 @@ test("a BGP session to another device needs its session back, in the AS it expec
     expect(wrongSource).toContain("error r1: neighbor r2: starts from 10.0.0.1, and r2's session r1 expects 10.255.0.1");
 });
 
+test("a session per family is matched to the session back of its own family", () => {
+    const dualStack = (n: 1 | 2): Device => {
+        const [own, far] = [n, 3 - n];
+        const router = routers()[n - 1];
+
+        return {
+            ...router,
+            interfaces: { ...router.interfaces, lo: { type: "loopback", addresses: [`10.255.0.${own}/32`, `2001:db8::${own}/128`] } },
+            routing: {
+                bgp: {
+                    asn: 64500,
+                    neighbors: {
+                        [`r${far}-v4`]: { address: `10.255.0.${far}`, remote_as: 64500, local_address: `10.255.0.${own}` },
+                        [`r${far}-v6`]: { address: `2001:db8::${far}`, remote_as: 64500, local_address: `2001:db8::${own}` },
+                    },
+                },
+            },
+        };
+    };
+
+    expect(findings(dualStack(1), dualStack(2))).toEqual([]);
+
+    // A session of the other family does not answer one.
+    const onlyV4 = dualStack(2);
+    const neighbors = { r1: { address: "10.255.0.1", remote_as: 64500, local_address: "10.255.0.2" } };
+    expect(findings(dualStack(1), { ...onlyV4, routing: { bgp: { asn: 64500, neighbors } } })).toEqual([
+        "error r1: neighbor r2-v6: r2 has no session back to r1",
+    ]);
+});
+
 test("on one segment, a VRRP id has one address and an address one id", () => {
     const [r1, r2] = routers();
     const mgmt = (vrrp: { id: number; address: string }) => ({
