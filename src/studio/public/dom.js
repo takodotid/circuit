@@ -1,6 +1,6 @@
 // @ts-check
 /// <reference lib="dom" />
-// Small helpers every part of studio's page uses: making elements, links that act, and browser storage that may be missing.
+// Small helpers every part of Studio's page uses: making elements, links that act, and browser storage that may be missing.
 
 const SVG = "http://www.w3.org/2000/svg";
 
@@ -99,7 +99,7 @@ export const store = {
 };
 
 /**
- * Go to a place in studio, such as `graph/bgp` or `devices/edge-01/ports`. The place is the address's fragment, so the back button and a bookmark work.
+ * Go to a place in Studio, such as `graph/bgp` or `devices/edge-01/ports`. The place is the address's fragment, so the back button and a bookmark work.
  *
  * @param {string} route
  */

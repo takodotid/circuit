@@ -1,4 +1,4 @@
-// What studio shows, gathered from the config in one pass: the graph with its findings and drift, each device as the config holds it, what each would run, the address plan, every BGP session and cable, and the schema's descriptions of each field.
+// What Studio shows, gathered from the config in one pass: the graph with its findings and drift, each device as the config holds it, what each would run, the address plan, every BGP session and cable, and the schema's descriptions of each field.
 
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -53,7 +53,7 @@ export type TypeDocs = {
 export type StudioData = {
     graph: Annotated;
     devices: readonly Device[];
-    /** Every port each device's model has, in order, so studio can show the ones the config leaves shut. */
+    /** Every port each device's model has, in order, so Studio can show the ones the config leaves shut. */
     ports: Record<string, string[]>;
     /** What each device would run, as `circuit build` prints it, or why it cannot be rendered. */
     rendered: Record<string, string>;
@@ -155,7 +155,7 @@ function cablesOf(devices: readonly Device[]): Cable[] {
     return cables;
 }
 
-/** The directory Circuit is installed in: the nearest one up with its package.json. Its sources ship with it, in src: the schema, and the files of studio's page. */
+/** The directory Circuit is installed in: the nearest one up with its package.json. Its sources ship with it, in src: the schema, and the files of Studio's page. */
 export function packageRoot(): string | undefined {
     let directory = dirname(fileURLToPath(import.meta.url));
 
@@ -193,7 +193,7 @@ function schemaDocs(): Record<string, TypeDocs> {
 /** Where a device is kept, relative to the config: the file that declares it, and its snapshot. Either is absent when it cannot be found. */
 export type DeviceFiles = { source?: string; snapshot?: string };
 
-/** How studio learns what a device would run and what it ran, from the caller, which knows the adapters and the state directory. */
+/** How Studio learns what a device would run and what it ran, from the caller, which knows the adapters and the state directory. */
 export type DeviceTexts = {
     /** What the device would run, as `circuit build` prints it. */
     render: (device: Device) => string;
@@ -203,7 +203,7 @@ export type DeviceTexts = {
     files: (device: Device) => DeviceFiles;
 };
 
-/** Everything studio shows. `graph` comes ready from the caller, with each device compared with its snapshot. */
+/** Everything Studio shows. `graph` comes ready from the caller, with each device compared with its snapshot. */
 export function studioData(devices: readonly Device[], graph: Annotated, texts: DeviceTexts): StudioData {
     const owners = new Map<string, Holder>();
     for (const holder of holdersOf(devices)) {

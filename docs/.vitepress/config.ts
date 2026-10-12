@@ -61,7 +61,7 @@ export default defineConfig({
                 ],
             },
             {
-                text: "Studio",
+                text: "Circuit Studio",
                 items: [
                     { text: "Overview", link: "/studio/" },
                     { text: "The graph", link: "/studio/graph" },

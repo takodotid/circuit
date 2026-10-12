@@ -20,4 +20,4 @@ Studio reads the other commit in a checkout under `.circuit/cache/`, which git i
 
 A device's **History** page lists the commits that changed its file or its snapshot, newest first, with who made them and when. **compare with now** opens Compare at that commit.
 
-A device whose name is built from parts, such as `` `edge-0${n}` ``, has no file studio can find, so its history comes from its snapshot alone.
+A device whose name is built from parts, such as `` `edge-0${n}` ``, has no file Studio can find, so its history comes from its snapshot alone.

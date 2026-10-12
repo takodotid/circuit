@@ -4,7 +4,7 @@ Studio's **Tools** answer the questions that come up when something does not rea
 
 ## Trace an address
 
-Give an address, such as `10.0.10.5`, and studio shows:
+Give an address, such as `10.0.10.5`, and Studio shows:
 
 - which device and interface hold it, the segment it is in, and what else uses that segment;
 - how each device would reach it: its own address, an address in the same prefix, or a static route, picked by the longest prefix in each routing table;
@@ -14,13 +14,13 @@ Routes a device learns from BGP or OSPF are not in your files, so a device with 
 
 ## VLAN path
 
-Pick a VLAN and two devices, and studio finds the fewest cables that carry the VLAN from one to the other, from the ports' VLANs and links. **Show in the graph** lights them up on the VLANs layer.
+Pick a VLAN and two devices, and Studio finds the fewest cables that carry the VLAN from one to the other, from the ports' VLANs and links. **Show in the graph** lights them up on the VLANs layer.
 
 ## Test a firewall
 
 Describe a packet: the device and its filter chain, protocol, source and destination, ports, the interfaces it arrives on and leaves through, its connection state and TCP flags. Studio goes through the chain's rules in order and shows, for each one, whether the packet matches and why not. The first rule that matches decides; when none does, the chain's default does, and a chain with no default accepts.
 
-When a rule depends on something you left empty, such as the source port, studio stops there and says what it needs.
+When a rule depends on something you left empty, such as the source port, Studio stops there and says what it needs.
 
 ## Test a route policy
 

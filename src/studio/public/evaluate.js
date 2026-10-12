@@ -1,5 +1,5 @@
 // @ts-check
-// What studio's tools work out from the config: where an address is and how each device would reach it, the VLAN path between two devices, which firewall rule a packet meets, and what a route policy does to a route.
+// What Studio's tools work out from the config: where an address is and how each device would reach it, the VLAN path between two devices, which firewall rule a packet meets, and what a route policy does to a route.
 // They follow the schema's own description of each field, read from the files: a device can still behave otherwise, so they say what the config means, not what the device did.
 
 import { covers, familyOf, networkOf, parseRange, samePrefix } from "./net.js";

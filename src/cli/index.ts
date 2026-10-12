@@ -50,13 +50,13 @@ const HELP = `usage: circuit <command> [device...] [options]
   graph [device...]     the network as a graph, from the config alone, without contacting a device
                           --layer=l1     l1, l2, l3, bgp, ospf or tunnels, several with commas, or all
                           --format=mermaid  mermaid, dot or json
-  studio                the graph in the browser, drawn again whenever the config changes
-                          --port=4600    the port it listens on, on this machine only
+  studio                Circuit Studio: the network in the browser, drawn again whenever the config changes
+                          --port=4600    the port it listens on
                           --no-open      do not open the browser
                           --host=0.0.0.0 listen on a server's address instead, with --allow-host
                           --allow-host=studio.example.com
                                          the names it is reached by, several with commas
-                          --json         print what studio shows, as JSON, instead
+                          --json         print what Studio shows, as JSON, instead
 
   --config <path>       the network's config file, circuit.config.ts in the working directory by default`;
 
@@ -586,9 +586,9 @@ async function studioCommand(): Promise<void> {
     const host = flagValue("host") ?? "127.0.0.1";
     const allowHosts = (flagValue("allow-host") ?? "").split(",").filter(Boolean);
 
-    // Off this machine, studio must be told the names it is reached by: every other name is refused.
+    // Off this machine, Studio must be told the names it is reached by: every other name is refused.
     if (!isLoopback(host) && !allowHosts.length) {
-        fail(`studio on ${host} needs --allow-host=<name>, the name people reach it by, such as studio.example.com`);
+        fail(`Studio on ${host} needs --allow-host=<name>, the name people reach it by, such as studio.example.com`);
     }
 
     await studio({ configPath, root, port, open: !flags.includes("--no-open"), host, allowHosts });

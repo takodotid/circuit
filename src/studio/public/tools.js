@@ -12,7 +12,7 @@ import { deviceLink, empty, heading, prose, table } from "./tables.js";
 /** @typedef {import("./dom.js").Child} Child */
 /** @typedef {import("./evaluate.js").Check} Check */
 
-/** What studio shows, set each time a tool is drawn. @type {StudioData} */
+/** What Studio shows, set each time a tool is drawn. @type {StudioData} */
 let data;
 
 /** What was typed into each tool, kept while the page is open, so a tool drawn again shows its last answer. */

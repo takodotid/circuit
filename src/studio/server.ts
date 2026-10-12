@@ -1,4 +1,4 @@
-// `circuit studio`: the network in the browser, on this machine only. The page is the files in public/, served as they are. What it shows comes from /data: gathered by `circuit studio --json` in a new process, so the config is always read fresh, and gathered again each time a file beside the config changes.
+// `circuit studio`: the network in the browser, on this machine or on a server for a team. The page is the files in public/, served as they are. What it shows comes from /data: gathered by `circuit studio --json` in a new process, so the config is always read fresh, and gathered again each time a file beside the config changes.
 
 import { execFile, spawn } from "node:child_process";
 import { existsSync, readFileSync, watch } from "node:fs";
@@ -25,7 +25,7 @@ export type StudioOptions = {
 export const isLoopback = (host: string) => host === "localhost" || host === "::1" || /^127\.\d+\.\d+\.\d+$/.test(host);
 
 /**
- * Whether a request's Host header names studio, so a web page elsewhere cannot read the network through a name it points here.
+ * Whether a request's Host header names Studio, so a web page elsewhere cannot read the network through a name it points here.
  *
  * Studio answers to this machine's own names at its port, and to each name it was told to, with or without a port.
  */
@@ -40,7 +40,7 @@ export function hostAllowed(header: string | undefined, port: number, allowHosts
     });
 }
 
-/** Directories whose changes never change what studio shows. */
+/** Directories whose changes never change what Studio shows. */
 const IGNORED = /(^|[\\/])(node_modules|\.git|\.circuit[\\/]cache)([\\/]|$)/;
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -49,7 +49,7 @@ const CONTENT_TYPES: Record<string, string> = {
     ".js": "text/javascript; charset=utf-8",
 };
 
-/** What studio shows, as JSON, from `circuit studio --json` run as a new process, or what stopped it. */
+/** What Studio shows, as JSON, from `circuit studio --json` run as a new process, or what stopped it. */
 function gather(configPath: string): Promise<string> {
     const cli = process.argv[1]!;
     const args = [...process.execArgv, cli, "studio", "--json", `--config=${configPath}`];
@@ -83,7 +83,7 @@ export async function studio(options: StudioOptions): Promise<void> {
 
     // The page's files ship in the package's sources, which Bun runs as they are and Node's build leaves in place.
     const installed = packageRoot();
-    if (!installed) throw new Error("cannot find where Circuit is installed, so studio has no page to serve");
+    if (!installed) throw new Error("cannot find where Circuit is installed, so Studio has no page to serve");
     const pages = join(installed, "src", "studio", "public");
 
     let data = await gather(configPath);
@@ -130,7 +130,7 @@ export async function studio(options: StudioOptions): Promise<void> {
             return;
         }
 
-        // What studio can compare with: branches, tags and the latest commits.
+        // What Studio can compare with: branches, tags and the latest commits.
         if (path === "/refs") {
             void answer(response, () => references(root));
             return;
@@ -211,7 +211,7 @@ export async function studio(options: StudioOptions): Promise<void> {
     server.listen(port, options.host, () => {
         const local = isLoopback(options.host);
         const url = local ? `http://127.0.0.1:${port}` : `http://${options.allowHosts[0] ?? options.host}`;
-        console.log(`Studio at ${url}, listening on ${options.host}:${port}, watching ${root}. Stop it with Ctrl+C.`);
+        console.log(`Circuit Studio at ${url}, listening on ${options.host}:${port}, watching ${root}. Stop it with Ctrl+C.`);
         if (options.open && local) openBrowser(url);
     });
 }
