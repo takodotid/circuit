@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { compareNetworks } from "../src/studio/public/evaluate.js";
 import { commitOf, history, networkAt, references } from "../src/studio/git";
 
 const root = mkdtempSync(join(tmpdir(), "circuit-studio-git-"));
@@ -56,4 +57,28 @@ test("networkAt reads the config as it was at a commit, from a checkout git igno
     expect(seen.replaceAll("\\", "/")).toContain("/.circuit/cache/");
     expect(existsSync(seen)).toBe(false);
     expect(git("status", "--porcelain")).toBe("");
+});
+
+test("compareNetworks finds devices changed, added and removed, the graph's new and gone lines, and new and resolved findings", () => {
+    const network = (devices: string[], rendered: Record<string, string>, edges: string[], findings: string[]) =>
+        ({
+            devices: devices.map((name) => ({ name })),
+            rendered,
+            graph: {
+                nodes: [],
+                edges: edges.map((label) => ({ layer: "l1", from: "device:a", to: "device:b", label, detail: [] })),
+                findings: findings.map((message) => ({ level: "error", device: "a", message })),
+                drift: {},
+            },
+        }) as never;
+
+    const before = network(["a", "b", "gone"], { a: "x", b: "y", gone: "z" }, ["one", "two"], ["old problem"]);
+    const after = network(["a", "b", "new"], { a: "x", b: "y2", new: "w" }, ["two", "three"], ["new problem"]);
+    const found = compareNetworks(before, after);
+
+    expect(found.devices).toEqual({ added: ["new"], removed: ["gone"], changed: ["b"] });
+    expect(found.edges.added.map((edge) => edge.label)).toEqual(["three"]);
+    expect(found.edges.removed.map((edge) => edge.label)).toEqual(["one"]);
+    expect(found.findings.added.map((one) => one.message)).toEqual(["new problem"]);
+    expect(found.findings.resolved.map((one) => one.message)).toEqual(["old problem"]);
 });

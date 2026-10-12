@@ -601,3 +601,48 @@ export function routeThrough(device, policy, route) {
     const decided = run(policy, 0);
     return { steps, decision: decided ?? "reject", byDefault: decided === undefined, attributes };
 }
+
+// What changed between two networks.
+
+/**
+ * An edge's place in the graph, the same whichever way round it was written, to match it across two networks.
+ *
+ * @param {GraphEdge} edge
+ */
+export const changeKey = (edge) => `${edge.layer} ${[edge.from, edge.to].sort().join(" ")} ${edge.label}`;
+
+/**
+ * What differs between the network before and after: devices added, removed or rendered differently; lines of the graph added or gone; and what validate finds newly or no longer.
+ *
+ * @param {StudioData} before
+ * @param {StudioData} after
+ */
+export function compareNetworks(before, after) {
+    const names = (/** @type {StudioData} */ network) => new Set(network.devices.map((device) => device.name));
+    const was = names(before);
+    const is = names(after);
+
+    const added = [...is].filter((name) => !was.has(name));
+    const removed = [...was].filter((name) => !is.has(name));
+    const changed = [...is].filter((name) => was.has(name) && before.rendered[name] !== after.rendered[name]);
+
+    const keys = (/** @type {StudioData} */ network) => new Set(network.graph.edges.map(changeKey));
+    const edgesBefore = keys(before);
+    const edgesAfter = keys(after);
+
+    const finding = (/** @type {import("../../core/define").Finding} */ one) => `${one.level} ${one.device ?? ""} ${one.message}`;
+    const findingsBefore = new Set(before.graph.findings.map(finding));
+    const findingsAfter = new Set(after.graph.findings.map(finding));
+
+    return {
+        devices: { added, removed, changed },
+        edges: {
+            added: after.graph.edges.filter((edge) => !edgesBefore.has(changeKey(edge))),
+            removed: before.graph.edges.filter((edge) => !edgesAfter.has(changeKey(edge))),
+        },
+        findings: {
+            added: after.graph.findings.filter((one) => !findingsBefore.has(finding(one))),
+            resolved: before.graph.findings.filter((one) => !findingsAfter.has(finding(one))),
+        },
+    };
+}

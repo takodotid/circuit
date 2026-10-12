@@ -667,3 +667,27 @@ button.primary {
 .verdict.unknown {
     color: var(--warning);
 }
+
+/* A comparison on the graph: what is new, and what is gone. */
+.edge.added path:not(.hit) {
+    stroke: var(--ok);
+    stroke-width: 2.6;
+}
+.edge.gone path:not(.hit) {
+    stroke: var(--error);
+    stroke-dasharray: 6 4;
+}
+.added {
+    color: var(--ok);
+}
+.removed {
+    color: var(--error);
+}
+details.change {
+    margin: 6px 0;
+}
+details.change summary {
+    cursor: pointer;
+    font-weight: 600;
+    padding: 4px 0;
+}
