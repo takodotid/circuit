@@ -39,6 +39,8 @@
     --surface: #ffffff;
     --surface-raised: #f4f6fb;
     --line: #d3d9e7;
+    --head: #e1e7f3;
+    --hover: rgba(10, 71, 184, 0.045);
     --text: #11141b;
     --muted: #49536a;
     --edge: #7b86a0;
@@ -67,6 +69,8 @@
         --surface: #121a30;
         --surface-raised: #182241;
         --line: #26314d;
+        --head: #26325a;
+        --hover: rgba(156, 185, 255, 0.05);
         --text: #f1f4fb;
         --muted: #a9b4cc;
         --edge: #7c89a8;
@@ -934,9 +938,10 @@ table.data td {
     vertical-align: top;
 }
 
+/* The head is a tinted band rather than a rule, so it is never read as a divider between rows. */
 table.data thead th {
-    border-bottom: 2px solid var(--text);
-    background: var(--surface);
+    border-bottom: 0;
+    background: var(--head);
     color: var(--text);
     font-size: 11px;
     font-weight: 700;
@@ -952,9 +957,10 @@ table.data th[title] {
     text-underline-offset: 3px;
 }
 
-table.data tbody tr:hover > td,
-table.data tbody tr:hover > th {
-    background: var(--surface-raised);
+/* Only the row under the pointer is washed, not every row that holds it, and the wash is a faint link tint well apart from the head's band. */
+table.data tbody tr:hover:not(:has(tr:hover)) > td,
+table.data tbody tr:hover:not(:has(tr:hover)) > th {
+    background: var(--hover);
 }
 
 table.data tr.muted td {
