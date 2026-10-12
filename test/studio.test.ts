@@ -61,3 +61,25 @@ test("a session to another of our devices names it, and says when that device ha
         { device: "r1", name: "10.255.0.2", address: "10.255.0.2", remoteAs: 64500, far: "r2", oneSided: true },
     ]);
 });
+
+test("a session back must be of the same family: a v4 session back does not answer a v6 session", () => {
+    const device = (name: string, v4: string, v6: string, neighbors: Record<string, { address: string; remote_as: number }>) => ({
+        name,
+        platform: "routeros",
+        model: "CCR2216-1G-12XS-2XQ",
+        connection: { host: v4, user: "admin" },
+        interfaces: { lo: { type: "loopback" as const, addresses: [`${v4}/32`, `${v6}/128`] } },
+        routing: { bgp: { asn: 64500, neighbors } },
+    });
+
+    const devices = [
+        device("r1", "10.255.0.1", "2001:db8::1", {
+            "r2-v4": { address: "10.255.0.2", remote_as: 64500 },
+            "r2-v6": { address: "2001:db8::2", remote_as: 64500 },
+        }),
+        device("r2", "10.255.0.2", "2001:db8::2", { "r1-v4": { address: "10.255.0.1", remote_as: 64500 } }),
+    ];
+    const data = studioData(devices, { ...graphOf(devices), findings: [], drift: {} }, { render: () => "", snapshot: () => undefined });
+
+    expect(data.sessions.filter((session) => session.oneSided).map((session) => `${session.device} ${session.name}`)).toEqual(["r1 r2-v6"]);
+});
