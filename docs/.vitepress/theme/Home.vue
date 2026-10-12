@@ -874,4 +874,119 @@ h2 {
         max-width: 75%;
     }
 }
+
+/* The first screen is one product explanation: promise, mechanism and sequence. */
+@media (min-width: 901px) {
+    .home {
+        max-width: 1380px;
+        padding: 28px 28px 128px;
+    }
+
+    .opening {
+        grid-template-columns: minmax(390px, 0.78fr) minmax(650px, 1.42fr);
+        min-height: 500px;
+    }
+
+    .opening-copy {
+        padding: 40px 48px 40px 12px;
+    }
+
+    h1 {
+        max-width: 500px;
+        font-size: clamp(58px, 4.6vw, 72px);
+        line-height: 0.9;
+    }
+
+    .lead {
+        max-width: 500px;
+        margin-top: 26px;
+        font-size: 17px;
+        line-height: 1.5;
+    }
+
+    .start {
+        max-width: 510px;
+        margin-top: 24px;
+        font-size: 14px;
+        line-height: 1.65;
+    }
+
+    .command {
+        display: inline-block;
+        margin-block: 4px;
+        padding: 8px 12px;
+    }
+
+    .chapter:nth-of-type(2) {
+        grid-template-columns: 128px minmax(0, 1fr);
+        gap: 24px;
+        margin-top: 0;
+        padding: 22px 0 24px;
+        border-top: 0;
+        border-bottom: 2px solid var(--rule);
+    }
+
+    .chapter:nth-of-type(2) h2 {
+        padding: 5px 0 0 12px;
+        font-size: 13px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .chapter:nth-of-type(2) .text {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 14px 24px;
+    }
+
+    .chapter:nth-of-type(2) .steps {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin: 0;
+    }
+
+    .chapter:nth-of-type(2) .steps li {
+        min-height: 78px;
+        margin: 0;
+        padding: 4px 18px 0 54px;
+        border-left: 1px solid var(--rule);
+        font-size: 14px;
+        line-height: 1.45;
+    }
+
+    .chapter:nth-of-type(2) .steps li::before {
+        left: 16px;
+        top: -2px;
+        font-size: 28px;
+        line-height: 1;
+    }
+
+    .chapter:nth-of-type(2) .text p {
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    .users {
+        margin-top: 46px;
+    }
+}
+
+@media (min-width: 901px) and (max-width: 1160px) {
+    .opening {
+        grid-template-columns: minmax(350px, 0.9fr) minmax(520px, 1.1fr);
+    }
+
+    .chapter:nth-of-type(2) {
+        grid-template-columns: 1fr;
+    }
+
+    .chapter:nth-of-type(2) h2 {
+        padding-left: 0;
+    }
+
+    .chapter:nth-of-type(2) .text {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
