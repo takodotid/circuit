@@ -212,7 +212,11 @@ function checkSessions(devices: readonly Device[], owners: Map<string, Holder>):
                 report(`expects AS${session.remoteAs}, and ${far.name} is AS${farBgp.asn}`);
             }
 
-            const back = sessionsOf(far).find((other) => owners.get(keyOf(other.address) ?? "")?.device === device);
+            // Two routers often hold one session per family, and a session of the other family does not answer this one.
+            const back = sessionsOf(far).find(
+                (other) =>
+                    owners.get(keyOf(other.address) ?? "")?.device === device && familyOf(other.address) === familyOf(session.address)
+            );
             if (!back) {
                 report(`${far.name} has no session back to ${device.name}`);
                 continue;
