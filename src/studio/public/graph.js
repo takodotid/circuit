@@ -984,6 +984,9 @@ const LIT_PER_LAYER = 4;
 /** How far presenting has gone on this layer: 0 while the whole layer is shown, then each lit device in turn. */
 let tourStep = 0;
 
+/** The move to the next layer, waiting while the view zooms out to the whole of this one. @type {ReturnType<typeof setTimeout> | undefined} */
+let leaving;
+
 /** The next layer that has lines to show, after this one; this one when no other has any. */
 function nextLayer() {
     const after = [...LAYERS.slice(LAYERS.indexOf(layer) + 1), ...LAYERS.slice(0, LAYERS.indexOf(layer) + 1)];
@@ -992,7 +995,7 @@ function nextLayer() {
 
 /** While presenting: show the whole layer, light its busiest devices one at a time, then move on to the next layer. */
 function tourNext() {
-    if (graphView.hidden || document.hidden || hovered || drag) return;
+    if (graphView.hidden || document.hidden || hovered || drag || leaving) return;
 
     const edges = visibleEdges();
     const degree = (/** @type {string} */ id) => edges.filter((edge) => edge.from === id || edge.to === id).length;
@@ -1012,8 +1015,27 @@ function tourNext() {
         return;
     }
 
-    // Every lit device has had its turn. Moving on replaces the address rather than adding to the history, so Back still leaves Studio's last place.
-    location.replace(`#graph/${nextLayer()}`);
+    // Every lit device has had its turn: the view zooms out to the whole layer first, so the next layer is reached from the whole drawing.
+    tourStep = 0;
+    emphasize();
+    showCaption();
+    frameTour();
+
+    const next = nextLayer();
+    leaving = setTimeout(() => {
+        leaving = undefined;
+
+        // Moving on replaces the address rather than adding to the history, so Back still leaves Studio's last place.
+        if (presenting && !graphView.hidden) location.replace(`#graph/${next}`);
+    }, 2600);
+}
+
+/** Start the turns over, so the layer shown now has its full time. */
+function restartTour() {
+    clearInterval(tour);
+    clearTimeout(leaving);
+    leaving = undefined;
+    if (presenting) tour = setInterval(tourNext, 6000);
 }
 
 /** @param {boolean} on */
@@ -1024,12 +1046,9 @@ function setPresenting(on) {
     document.body.classList.toggle("presenting", on);
     presentButton.setAttribute("aria-pressed", String(on));
 
-    clearInterval(tour);
     touring = undefined;
-    if (on) {
-        selection = undefined;
-        tour = setInterval(tourNext, 6000);
-    }
+    if (on) selection = undefined;
+    restartTour();
 
     if (graphView.hidden || !data) return;
 
@@ -1357,6 +1376,7 @@ export function showLayer(next) {
         pathFocus = undefined;
         touring = undefined;
         tourStep = 0;
+        restartTour();
     }
 
     if (pendingVlan !== undefined) {

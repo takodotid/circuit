@@ -45,7 +45,7 @@ The drawing shows what your files say, not what is plugged in. A cable in the wr
 
 1. It shows the whole layer.
 2. It lights the busiest devices one at a time, up to four, and zooms in on each with everything it has a line to. Its name is at the bottom left.
-3. It moves on to the next layer that has lines, and starts again.
+3. It zooms back out to the whole layer, and a moment later moves on to the next layer that has lines and starts again.
 
 Your browser remembers it, so a screen that reloads keeps presenting. Pointing at a device holds the drawing on it until the pointer leaves. Press **Present** again, or Escape, to stop.
 
