@@ -49,7 +49,7 @@ body {
     height: 100%;
     background: var(--bg);
     color: var(--text);
-    font: 14px/1.45 var(--font);
+    font: 15px/1.5 var(--font);
 }
 body {
     display: flex;
@@ -69,7 +69,8 @@ button {
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 2px;
-    padding: 4px 10px;
+    min-height: 36px;
+    padding: 6px 12px;
     cursor: pointer;
 }
 button:hover {
@@ -803,10 +804,9 @@ header .live {
     background-color: var(--bg);
 }
 aside {
-    width: 360px;
+    width: 390px;
     padding: 18px 20px 32px;
     border-left: 2px solid var(--text);
-    box-shadow: -8px 0 0 var(--accent-strong);
 }
 aside h2 {
     padding-bottom: 10px;
@@ -861,11 +861,11 @@ pre.code {
     stroke-dasharray: 10 3;
 }
 .node.selected {
-    filter: drop-shadow(5px 5px 0 var(--accent-strong));
+    filter: none;
 }
 .node.selected rect {
-    stroke: var(--text);
-    stroke-width: 3;
+    stroke: var(--accent);
+    stroke-width: 5;
 }
 .edge.selected path:not(.hit),
 .edge.lit path:not(.hit) {
@@ -931,11 +931,13 @@ table.data tbody tr:nth-child(even) > th {
     overflow-x: auto;
     border: 2px solid var(--text);
     border-radius: 0;
-    box-shadow: 7px 7px 0 var(--accent-strong);
 }
 .port {
     border-radius: 0;
     border-color: var(--edge);
+}
+.node image {
+    pointer-events: none;
 }
 .faceplate .speed {
     min-width: max-content;
@@ -971,7 +973,30 @@ table.data tbody tr:nth-child(even) > th {
 }
 button.primary {
     border-color: var(--text);
-    box-shadow: 3px 3px 0 var(--text);
+}
+
+.tool-form {
+    align-items: flex-start;
+}
+
+.tool-form > button {
+    margin-top: 24px;
+}
+
+.edge text {
+    font-size: 13px;
+}
+
+.node text {
+    font-size: 15px;
+}
+
+.node text.name {
+    font-size: 16px;
+}
+
+.node text.sub {
+    font-size: 12px;
 }
 @media (max-width: 1120px) {
     header input[type="search"] {
@@ -1004,7 +1029,26 @@ button.primary {
         height: 42%;
         border-top: 2px solid var(--text);
         border-left: 0;
-        box-shadow: 0 -7px 0 var(--accent-strong);
+    }
+
+    .port {
+        width: 44px;
+        height: 40px;
+        font-size: 13px;
+    }
+
+    .faceplate-legend .port {
+        width: 24px;
+        height: 18px;
+    }
+
+    svg.canvas {
+        flex: 0 0 720px;
+        min-width: 720px;
+    }
+
+    .stage {
+        overflow-x: auto;
     }
 }
 @media (prefers-reduced-motion: reduce) {

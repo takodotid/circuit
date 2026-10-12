@@ -143,7 +143,7 @@ function layout(nodes, edges, fresh) {
     if (!moving.length) return;
 
     const pairs = [...neighbors].flatMap(([from, tos]) => [...tos].filter((to) => from < to).map((to) => [from, to]));
-    const ideal = 230;
+    const ideal = 170;
     const rounds = fixed.size ? 200 : 500;
 
     /** @param {string} id */
@@ -382,7 +382,8 @@ function draw() {
 
         const lines = node.kind === "device" ? [node.label, node.detail[0] ?? ""] : [node.label];
         const texts = lines.map((line, index) => {
-            const text = s("text", { class: index === 0 ? "name" : "sub", y: lines.length === 1 ? 0 : index === 0 ? -8 : 9 });
+            const y = node.kind === "device" ? (index === 0 ? 17 : 35) : 0;
+            const text = s("text", { class: index === 0 ? "name" : "sub", y });
             text.textContent = line;
             group.append(text);
             return text;
@@ -391,12 +392,25 @@ function draw() {
         nodeLayer.append(group);
 
         // Each box fits its text, so it is measured once drawn.
-        const width = Math.max(...texts.map((text) => text.getComputedTextLength())) + 24;
-        const height = lines.length === 1 ? 28 : 44;
+        const width = Math.max(...texts.map((text) => text.getComputedTextLength()), node.kind === "device" ? 110 : 0) + 32;
+        const height = node.kind === "device" ? 104 : 34;
         rect.setAttribute("x", String(-width / 2));
         rect.setAttribute("y", String(-height / 2));
         rect.setAttribute("width", String(width));
         rect.setAttribute("height", String(height));
+
+        if (node.kind === "device") {
+            const image = s("image", {
+                href: "device-switch.png",
+                x: -width / 2 + 14,
+                y: -43,
+                width: width - 28,
+                height: 42,
+                preserveAspectRatio: "xMidYMid meet",
+                "aria-hidden": "true",
+            });
+            group.insertBefore(image, texts[0] ?? null);
+        }
 
         group.addEventListener("pointerdown", (event) => startDrag(event, node.id));
         group.addEventListener("pointerenter", () => {
