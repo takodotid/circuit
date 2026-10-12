@@ -48,6 +48,7 @@ const CONTENT_TYPES: Record<string, string> = {
     ".css": "text/css; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".svg": "image/svg+xml",
+    ".woff2": "font/woff2",
 };
 
 /** What Studio shows, as JSON, from `circuit studio --json` run as a new process, or what stopped it. */
@@ -178,7 +179,7 @@ export async function studio(options: StudioOptions): Promise<void> {
         const type = CONTENT_TYPES[extname(name)];
         const file = join(pages, name);
 
-        if (!/^[a-z-]+\.[a-z]+$/.test(name) || !type || !existsSync(file)) {
+        if (!/^[a-z-]+\.[a-z0-9]+$/.test(name) || !type || !existsSync(file)) {
             response.writeHead(404).end();
             return;
         }
