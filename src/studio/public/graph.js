@@ -4,11 +4,11 @@
 
 import { byId, go, h, link, s, store, svgById } from "./dom.js";
 
-/** @typedef {import("../../../core/graph").GraphNode} GraphNode */
-/** @typedef {import("../../../core/graph").GraphEdge} GraphEdge */
-/** @typedef {import("../../../core/graph").Layer} Layer */
-/** @typedef {import("../../../core/graph").CarriedVlan} CarriedVlan */
-/** @typedef {import("../../graph").Annotated} Annotated */
+/** @typedef {import("../../core/graph").GraphNode} GraphNode */
+/** @typedef {import("../../core/graph").GraphEdge} GraphEdge */
+/** @typedef {import("../../core/graph").Layer} Layer */
+/** @typedef {import("../../core/graph").CarriedVlan} CarriedVlan */
+/** @typedef {import("../../core/graph").Annotated} Annotated */
 /** @typedef {{ x: number, y: number }} Point */
 /** @typedef {{ node: string } | { edge: GraphEdge } | undefined} Selection */
 

@@ -5,7 +5,7 @@
 import { go, h, link } from "./dom.js";
 import { currentLayer, lightVlan, selectDevice } from "./graph.js";
 
-/** @typedef {import("../../../schema").Device} Device */
+/** @typedef {import("../../schema").Device} Device */
 /** @typedef {import("../data").StudioData} StudioData */
 /** @typedef {import("./dom.js").Child} Child */
 /** @typedef {{ head: { label: string, title?: string }[], rows: { cells: Child[], muted?: boolean }[] }} Table */

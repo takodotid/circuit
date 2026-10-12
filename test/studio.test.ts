@@ -3,7 +3,7 @@
 import { expect, test } from "bun:test";
 import { adapters } from "../src/adapters/devices";
 import { graphOf } from "../src/core/graph";
-import { studioData } from "../src/cli/studio/data";
+import { studioData } from "../src/studio/data";
 
 test("studio gathers the colocation pattern's devices, sessions, cables and field descriptions", async () => {
     const network = (await import("../templates/colocation/circuit.config.ts")).default;

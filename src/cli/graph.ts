@@ -1,20 +1,6 @@
 // What `circuit graph` prints: the graph of the network with what `validate` found and how each device compares with its last snapshot, as Mermaid, DOT or JSON.
 
-import type { Finding } from "../core/define";
-import { deviceId, type Graph, type GraphNode } from "../core/graph";
-
-/** How a device compares with its last snapshot, found offline as `diff` finds it. */
-export type Drift = {
-    status: "matches" | "differs" | "no snapshot" | "cannot plan";
-    /** The plan `diff` would show, when it differs. */
-    lines: string[];
-};
-
-export type Annotated = Graph & {
-    findings: Finding[];
-    /** By device name. */
-    drift: Record<string, Drift>;
-};
+import { type Annotated, deviceId, type GraphNode } from "../core/graph";
 
 /** `error` when validate found an error on the device, `warning` for a warning or a difference from its snapshot. */
 export function markOf(graph: Annotated, node: GraphNode): "error" | "warning" | undefined {

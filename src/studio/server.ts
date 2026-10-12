@@ -60,7 +60,7 @@ export async function studio(options: StudioOptions): Promise<void> {
     // The page's files ship in the package's sources, which Bun runs as they are and Node's build leaves in place.
     const installed = packageRoot();
     if (!installed) throw new Error("cannot find where Circuit is installed, so studio has no page to serve");
-    const pages = join(installed, "src", "cli", "studio", "public");
+    const pages = join(installed, "src", "studio", "public");
 
     let data = await gather(configPath);
     const listeners = new Set<ServerResponse>();
