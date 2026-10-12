@@ -57,6 +57,8 @@ export type StudioData = {
     ports: Record<string, string[]>;
     /** What each device would run, as `circuit build` prints it, or why it cannot be rendered. */
     rendered: Record<string, string>;
+    /** What each device ran when Circuit last read it, secrets removed, for the devices with a snapshot. */
+    snapshots: Record<string, string>;
     addresses: AddressReport;
     sessions: Session[];
     cables: Cable[];
@@ -180,8 +182,16 @@ function schemaDocs(): Record<string, TypeDocs> {
     return docs;
 }
 
-/** Everything studio shows. `graph` comes ready from the caller, which also knows each device's snapshot; `render` gives what a device would run. */
-export function studioData(devices: readonly Device[], graph: Annotated, render: (device: Device) => string): StudioData {
+/** How studio learns what a device would run and what it ran, from the caller, which knows the adapters and the state directory. */
+export type DeviceTexts = {
+    /** What the device would run, as `circuit build` prints it. */
+    render: (device: Device) => string;
+    /** Its last snapshot, or undefined when it has none. */
+    snapshot: (device: Device) => string | undefined;
+};
+
+/** Everything studio shows. `graph` comes ready from the caller, with each device compared with its snapshot. */
+export function studioData(devices: readonly Device[], graph: Annotated, texts: DeviceTexts): StudioData {
     const owners = new Map<string, Holder>();
     for (const holder of holdersOf(devices)) {
         const key = keyOf(host(holder.address))!;
@@ -212,10 +222,16 @@ export function studioData(devices: readonly Device[], graph: Annotated, render:
             devices.map((device) => [
                 device.name,
                 attempt(
-                    () => render(device),
+                    () => texts.render(device),
                     (error) => `Cannot be rendered: ${error.message}`
                 ),
             ])
+        ),
+        snapshots: Object.fromEntries(
+            devices.flatMap((device) => {
+                const text = texts.snapshot(device);
+                return text === undefined ? [] : [[device.name, text]];
+            })
         ),
         addresses: addressesOf(devices),
         sessions: sessionsOf(devices, owners),

@@ -561,7 +561,10 @@ function renameCommand(): void {
 
 async function studioCommand(): Promise<void> {
     if (flags.includes("--json")) {
-        const data = studioData(network.devices, annotatedGraph(LAYERS, []), (device) => adapterOf(device).render(device));
+        const data = studioData(network.devices, annotatedGraph(LAYERS, []), {
+            render: (device) => adapterOf(device).render(device),
+            snapshot: (device) => (existsSync(statePath(device)) ? readFileSync(statePath(device), "utf8") : undefined),
+        });
         console.log(JSON.stringify(data));
         return;
     }

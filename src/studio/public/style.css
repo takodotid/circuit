@@ -486,3 +486,19 @@ svg.far .edge text {
         width: 100%;
     }
 }
+
+/* A line diff: removed lines, added lines, and runs of the same folded away. */
+pre.diff .removed,
+p .removed {
+    color: var(--error);
+}
+pre.diff .added,
+p .added {
+    color: var(--ok);
+}
+pre.diff .fold {
+    display: block;
+    color: var(--muted);
+    font-style: italic;
+    margin: 4px 0;
+}

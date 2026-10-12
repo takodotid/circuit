@@ -8,13 +8,19 @@ import { studioData } from "../src/studio/data";
 test("studio gathers the colocation pattern's devices, sessions, cables and field descriptions", async () => {
     const network = (await import("../templates/colocation/circuit.config.ts")).default;
     const devices = network.devices;
-    const data = studioData(devices, { ...graphOf(devices), findings: [], drift: {} }, (device) =>
-        adapters[device.platform]!.render(device)
+    const data = studioData(
+        devices,
+        { ...graphOf(devices), findings: [], drift: {} },
+        {
+            render: (device) => adapters[device.platform]!.render(device),
+            snapshot: (device) => (device.name === "tor-01" ? "sysname tor-01\n" : undefined),
+        }
     );
 
     expect(data.devices.map((device) => device.name)).toEqual(["edge-01", "tor-01"]);
     expect(data.ports["tor-01"]).toHaveLength(54);
     expect(data.rendered["tor-01"]).toContain("sysname tor-01");
+    expect(data.snapshots).toEqual({ "tor-01": "sysname tor-01\n" });
 
     expect(data.sessions.find((session) => session.name === "hurricane-electric")).toMatchObject({
         device: "edge-01",
@@ -49,7 +55,7 @@ test("a session to another of our devices names it, and says when that device ha
     });
 
     const devices = [device("r1", "10.255.0.1", "10.255.0.2", true), device("r2", "10.255.0.2", "10.255.0.1", false)];
-    const data = studioData(devices, { ...graphOf(devices), findings: [], drift: {} }, () => "");
+    const data = studioData(devices, { ...graphOf(devices), findings: [], drift: {} }, { render: () => "", snapshot: () => undefined });
 
     expect(data.sessions).toEqual([
         { device: "r1", name: "10.255.0.2", address: "10.255.0.2", remoteAs: 64500, far: "r2", oneSided: true },
