@@ -68,6 +68,7 @@ export default defineConfig({
                     { text: "Looking things up", link: "/studio/tables" },
                     { text: "Tools", link: "/studio/tools" },
                     { text: "Reviewing changes", link: "/studio/changes" },
+                    { text: "Hosting", link: "/studio/hosting" },
                 ],
             },
             {

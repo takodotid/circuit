@@ -14,7 +14,7 @@ It reads only your files and the last [snapshot](/guide/glossary#circuit), and n
 3. Pick a view in the top bar, or search for anything in your files.
 4. Edit a device's file and save it. Studio shows the change within a second.
 
-Studio answers only on your own machine: nobody else on the network can open it. Stop it with Ctrl+C. To use another port, run `npx circuit studio --port=5000`. To stop it opening the browser, add `--no-open`.
+Studio answers only on your own machine: nobody else on the network can open it. Stop it with Ctrl+C. To use another port, run `npx circuit studio --port=5000`. To stop it opening the browser, add `--no-open`. To run it on a server for your whole team, see [Hosting](/studio/hosting).
 
 ## What it has
 
