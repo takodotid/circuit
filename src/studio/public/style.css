@@ -703,3 +703,307 @@ details.change summary {
     font-weight: 600;
     padding: 4px 0;
 }
+
+/* Daylight Section turns Studio into a set of clear working planes. */
+header {
+    gap: 0;
+    padding: 0;
+    background: var(--bg);
+    border-bottom: 2px solid var(--text);
+}
+header .brand {
+    align-self: stretch;
+    gap: 10px;
+    padding: 14px 18px 12px;
+    background: var(--accent-strong);
+    color: var(--on-accent);
+}
+header .wordmark {
+    font-size: 18px;
+    letter-spacing: 0.08em;
+}
+header .product {
+    color: inherit;
+    border-color: currentColor;
+}
+header > nav {
+    align-self: stretch;
+    gap: 0;
+    padding-inline: 10px;
+}
+header > nav button,
+.tabs button {
+    position: relative;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+header > nav button {
+    min-height: 48px;
+    padding: 0 9px;
+    color: var(--muted);
+}
+header > nav button:hover,
+.tabs button:hover {
+    color: var(--text);
+    background: var(--surface-raised);
+}
+header > nav button[aria-pressed="true"],
+.tabs button[aria-pressed="true"] {
+    color: var(--text);
+    background: transparent;
+}
+header > nav button[aria-pressed="true"]::after,
+.tabs button[aria-pressed="true"]::after {
+    content: "";
+    position: absolute;
+    right: 8px;
+    bottom: 0;
+    left: 8px;
+    height: 4px;
+    background: var(--accent-strong);
+}
+header input[type="search"] {
+    width: 190px;
+    margin: 8px 10px 8px auto;
+    border-color: var(--edge);
+    border-radius: 0;
+    background: var(--surface);
+}
+header .summary {
+    padding-right: 10px;
+    white-space: nowrap;
+}
+header .live {
+    margin: 0;
+    padding: 0 16px 0 10px;
+    white-space: nowrap;
+}
+.toolbar {
+    min-height: 48px;
+    justify-content: space-between;
+    padding: 7px 14px;
+    background: var(--surface);
+    border-bottom-color: var(--edge);
+}
+.toolbar nav,
+.toolbar .actions {
+    gap: 4px;
+}
+.toolbar button {
+    border-radius: 0;
+    background: var(--bg);
+}
+.stage {
+    background-color: var(--bg);
+}
+aside {
+    width: 360px;
+    padding: 18px 20px 32px;
+    border-left: 2px solid var(--text);
+    box-shadow: -8px 0 0 var(--accent-strong);
+}
+aside h2 {
+    padding-bottom: 10px;
+    border-bottom: 4px solid var(--accent-strong);
+    font-size: 23px;
+    font-weight: 700;
+}
+aside h3 {
+    margin-top: 24px;
+    color: var(--text);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+aside pre,
+pre.code {
+    border-radius: 0;
+    background: var(--bg);
+    border-left: 4px solid var(--accent-strong);
+}
+.badge {
+    border-radius: 0;
+    padding: 1px 6px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.badge.error {
+    color: #fff;
+}
+.badge.warning {
+    color: #181a1e;
+}
+.node rect {
+    stroke: var(--edge);
+    stroke-width: 2;
+}
+.node.segment rect {
+    fill: var(--segment);
+    stroke: var(--accent);
+}
+.node.outside rect {
+    fill: var(--bg);
+    stroke-dasharray: 2 4;
+}
+.node.error rect {
+    stroke: var(--error);
+    stroke-width: 4;
+}
+.node.warning rect {
+    stroke: var(--warning);
+    stroke-width: 4;
+    stroke-dasharray: 10 3;
+}
+.node.selected {
+    filter: drop-shadow(5px 5px 0 var(--accent-strong));
+}
+.node.selected rect {
+    stroke: var(--text);
+    stroke-width: 3;
+}
+.edge.selected path:not(.hit),
+.edge.lit path:not(.hit) {
+    stroke: var(--accent);
+    stroke-width: 4;
+}
+.edge.one-sided path:not(.hit) {
+    stroke-width: 3;
+    stroke-dasharray: 3 4;
+}
+.edge.added path:not(.hit) {
+    stroke-width: 4;
+}
+.edge.gone path:not(.hit) {
+    stroke-width: 4;
+    stroke-dasharray: 10 5;
+}
+.tables {
+    padding: 24px clamp(16px, 4vw, 56px) 56px;
+}
+.tables h2 {
+    margin-top: 8px;
+    padding-bottom: 12px;
+    border-bottom: 5px solid var(--accent-strong);
+    font-size: clamp(28px, 3vw, 42px);
+    font-weight: 700;
+}
+.tables h3 {
+    margin-top: 32px;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+.tables .tabs {
+    display: flex;
+    gap: 4px;
+    margin: 18px 0 12px;
+    border-bottom: 1px solid var(--edge);
+}
+.tabs button {
+    padding: 8px 12px 10px;
+}
+table.data {
+    border-color: var(--edge);
+    border-radius: 0;
+}
+table.data thead th {
+    color: var(--text);
+    background: var(--surface-raised);
+    border-bottom: 2px solid var(--text);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+table.data tbody tr:nth-child(even) > td,
+table.data tbody tr:nth-child(even) > th {
+    background: color-mix(in srgb, var(--surface-raised) 48%, transparent);
+}
+.faceplate {
+    gap: 16px 28px;
+    padding: 18px;
+    border: 2px solid var(--text);
+    border-radius: 0;
+    box-shadow: 7px 7px 0 var(--accent-strong);
+}
+.port {
+    border-radius: 0;
+    border-color: var(--edge);
+}
+.port.shut {
+    border-style: solid;
+    background: repeating-linear-gradient(135deg, var(--bg) 0 3px, var(--line) 3px 5px);
+}
+.port.access {
+    background: var(--segment);
+    border: 2px solid var(--accent);
+}
+.port.trunk {
+    background: var(--accent-strong);
+    border: 2px solid var(--text);
+}
+.port.routed {
+    background: var(--surface);
+    border: 3px double var(--text);
+}
+.port.lag {
+    border: 2px dashed var(--accent);
+}
+.tool-form {
+    border-radius: 0;
+    border-color: var(--edge);
+    border-left: 5px solid var(--accent-strong);
+}
+.field input[type="text"],
+.field select {
+    border-radius: 0;
+    border-color: var(--edge);
+}
+button.primary {
+    border-color: var(--text);
+    box-shadow: 3px 3px 0 var(--text);
+}
+@media (max-width: 1120px) {
+    header input[type="search"] {
+        order: 4;
+        width: min(360px, calc(100% - 20px));
+        margin-left: 10px;
+    }
+    header .summary {
+        margin-left: auto;
+    }
+}
+@media (max-width: 760px) {
+    header .brand {
+        width: 100%;
+    }
+    header > nav {
+        width: 100%;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+    }
+    header > nav button {
+        flex: none;
+    }
+    header .summary,
+    header .live {
+        padding-block: 8px;
+    }
+    aside {
+        width: auto;
+        height: 42%;
+        border-top: 2px solid var(--text);
+        border-left: 0;
+        box-shadow: 0 -7px 0 var(--accent-strong);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
