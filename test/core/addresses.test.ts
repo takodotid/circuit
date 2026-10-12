@@ -1,9 +1,9 @@
 // Every address the config uses, by prefix, and what is free: each kind of use is found, owned space is split into what is used and what is not, and the arithmetic holds at the edges.
 
 import { expect, test } from "bun:test";
-import { formatAddress, prefixesBetween, rangeOf } from "../src/core/addr";
-import { addressesOf, freeOfLength } from "../src/core/addresses";
-import { defineDevice, secret } from "../src/core/define";
+import { formatAddress, prefixesBetween, rangeOf } from "../../src/core/addr";
+import { addressesOf, freeOfLength } from "../../src/core/addresses";
+import { defineDevice, secret } from "../../src/core/define";
 
 test("rangeOf and prefixesBetween cover exactly what they are given", () => {
     const { first, last } = rangeOf("198.51.100.77/24");

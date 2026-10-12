@@ -4,7 +4,7 @@ import { afterEach, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applyRename, planRename } from "../src/cli/rename";
+import { applyRename, planRename } from "../../src/cli/rename";
 
 let root = "";
 
