@@ -87,11 +87,11 @@
 }
 
 .VPNavBar {
-    border-bottom: 2px solid var(--circuit-poche);
+    border-bottom: 0;
 }
 
-.dark .VPNavBar {
-    border-bottom-color: #f4f4ee;
+.VPNavBar .divider-line {
+    background-color: var(--circuit-line) !important;
 }
 
 .VPNavBarMenuLink.active,

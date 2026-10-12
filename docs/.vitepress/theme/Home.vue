@@ -29,7 +29,7 @@ const users = [{ name: "Tako", logo: "/users/tako.png", link: "https://tako.id",
     <article class="home">
         <header class="opening">
             <div class="opening-copy">
-                <h1>Your network, written down.</h1>
+                <h1><span>Your network,</span><span>written down.</span></h1>
                 <p class="lead">
                     Circuit keeps the configuration of every router and switch in plain files, in git. Before anything reaches a device,
                     it shows you exactly what would change. Then it makes the device match the file, and nothing else.
@@ -48,21 +48,11 @@ const users = [{ name: "Tako", logo: "/users/tako.png", link: "https://tako.id",
                     <source media="(prefers-color-scheme: dark)" :srcset="withBase('/illustrations/circuit-section-dark.png')" />
                     <img
                         :src="withBase('/illustrations/circuit-section-light.png')"
-                        alt="Three configuration files above a visible change plane, each connected to the network device it defines."
+                        alt="A section through three Circuit configuration files, a visible change plan and the network devices they define."
                         width="1536"
                         height="1024"
                     />
                 </picture>
-                <picture class="sample-files">
-                    <source media="(prefers-color-scheme: dark)" :srcset="withBase('/illustrations/circuit-code-dark.png')" />
-                    <img
-                        :src="withBase('/illustrations/circuit-code-light.png')"
-                        alt="Circuit TypeScript samples that define a RouterOS router, a VRP switch and a trunk port."
-                        width="1228"
-                        height="472"
-                    />
-                </picture>
-
                 <figcaption id="figure-caption">One file for each device. What the file says is what the device runs.</figcaption>
             </figure>
         </header>
@@ -584,7 +574,7 @@ h2 {
 
 .opening {
     display: grid;
-    grid-template-columns: minmax(280px, 0.78fr) minmax(520px, 1.35fr);
+    grid-template-columns: minmax(430px, 0.92fr) minmax(540px, 1.35fr);
     align-items: stretch;
     max-width: none;
     min-height: 570px;
@@ -601,10 +591,14 @@ h2 {
 h1 {
     max-width: 560px;
     font-family: var(--circuit-font);
-    font-size: clamp(54px, 6.4vw, 92px);
+    font-size: clamp(54px, 4.7vw, 68px);
     font-weight: 700;
     line-height: 0.92;
     letter-spacing: -0.03em;
+}
+
+h1 span {
+    display: block;
 }
 
 .lead {
@@ -652,18 +646,6 @@ h1 {
 .section-model img {
     object-fit: cover;
     object-position: center;
-}
-
-.sample-files {
-    position: absolute;
-    inset: 21% 18% auto;
-    display: block;
-}
-
-.sample-files img {
-    display: block;
-    width: 100%;
-    height: auto;
 }
 
 .stratum {
@@ -863,10 +845,6 @@ h2 {
 
     .section-model img {
         object-position: 51% center;
-    }
-
-    .sample-files {
-        inset: 23% 12% auto;
     }
 
     .section-model figcaption {
