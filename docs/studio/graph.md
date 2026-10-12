@@ -9,6 +9,8 @@ The graph draws your network from your files, one layer at a time: which cable g
 2. Click a device or a line to see everything about it on the right. **Everything it holds** opens the device's page.
 3. On the VLANs layer, pick a VLAN on the right to light up every cable that carries it.
 
+More than three lines between the same two devices are drawn as one, such as **18 shared prefixes**. Click it to list them all.
+
 Drag a device to move it, drag the empty space to move the whole drawing, and scroll to zoom. Your browser remembers where you put each device. **Lay out again** forgets that and starts over. **Save SVG** and **Save PNG** save the layer shown, as it looks.
 
 ## The layers
