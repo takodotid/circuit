@@ -102,6 +102,17 @@ defineProps<{
     stroke-linejoin: round;
 }
 
+/* On the night ground a navy outline disappears, so devices are outlined in the night link colour. */
+.dark .body,
+.dark .halo,
+.dark .screen {
+    stroke: var(--circuit-link);
+}
+
+.dark .lit .halo {
+    stroke: #0a1a36;
+}
+
 .body.flat {
     stroke: none;
 }
