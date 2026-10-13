@@ -85,6 +85,41 @@ test("the two ends of a cable agree on prefix, MTU and speed", () => {
     expect(speeds).toContain("error r1: port 100g-1 link: speed 100g, and r2 100g-1 is 40g");
 });
 
+test("the two ends of a cable carry the same VLANs, and a LAG is compared by what the LAG carries", () => {
+    const [r1, r2] = routers();
+    const vlans = { mgmt: { id: 10 }, office: { id: 20 } };
+
+    const trunks = findings(
+        { ...r1, vlans, ports: { ...r1.ports, "25g-1": { trunk_vlans: ["mgmt", "office"], link: { device: "r2", port: "25g-1" } } } },
+        r2
+    );
+    expect(trunks).toContain("error r1: port 25g-1 link: 25g-1 carries VLANs 10, 20 tagged, and r2 25g-1 carries VLAN 10 tagged");
+
+    /** A router whose two ports to the other are one LAG carrying these VLANs. */
+    const bonded = (router: Device, other: string, carried: ("mgmt" | "office")[]): Device => ({
+        ...router,
+        vlans,
+        ports: {
+            ...router.ports,
+            "25g-1": { lag: "bond", link: { device: other, port: "25g-1" } },
+            "25g-2": { lag: "bond", link: { device: other, port: "25g-2" } },
+        },
+        interfaces: { ...router.interfaces, bond: { type: "lag", trunk_vlans: carried } },
+    });
+
+    expect(findings(bonded(r1, "r2", ["mgmt"]), bonded(r2, "r1", ["mgmt"]))).toEqual([]);
+
+    const lags = findings(bonded(r1, "r2", ["mgmt", "office"]), bonded(r2, "r1", ["mgmt"]));
+    expect(lags).toContain("error r1: port 25g-1 link: bond carries VLANs 10, 20 tagged, and r2 bond carries VLAN 10 tagged");
+
+    const oneSided = findings(bonded(r1, "r2", ["mgmt"]), {
+        ...r2,
+        ports: { ...r2.ports, "25g-2": { trunk_vlans: ["mgmt"], link: { device: "r1", port: "25g-2" } } },
+    });
+    expect(oneSided).toContain("error r1: port 25g-1 link: 25g-1 is in bond, and r2 25g-1 is in no LAG");
+    expect(oneSided).toContain("error r2: port 25g-1 link: 25g-1 is in no LAG, and r1 25g-1 is in bond");
+});
+
 test("one VLAN under two names across a cable is a warning", () => {
     const [r1, r2] = routers();
 
