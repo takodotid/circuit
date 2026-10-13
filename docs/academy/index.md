@@ -16,5 +16,6 @@ The levels build on each other:
 1. **Beginner** explains how computers talk at all: packets, addresses, switches, routers and names.
 2. **Elementary** builds a small home or office network, and writes it down in Circuit as you go.
 3. **Intermediate** connects networks to each other and to the internet, up to running your own edge router.
+4. **Professional** runs a provider network: what is sold, the hardware, routing at scale, the security of routing, and day-to-day operations.
 
 <AcademyHome />

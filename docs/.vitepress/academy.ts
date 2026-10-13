@@ -137,6 +137,82 @@ export const levels: Level[] = [
             },
         ],
     },
+    {
+        slug: "professional",
+        name: "Professional",
+        title: "Running a provider network",
+        audience:
+            "For readers who can run an edge router. You learn what providers sell, the hardware, routing at scale, the security of routing, and how a network is run day to day.",
+        illustration: "/illustrations/academy/level-4.webp",
+        lessons: [
+            {
+                slug: "last-mile",
+                title: "Reaching the customer",
+                outcome: "Say how a customer is connected, over fibre, copper, radio or satellite, and what each does to speed and delay.",
+            },
+            {
+                slug: "internet-products",
+                title: "What an ISP sells",
+                outcome: "Tell broadband from DIA, and DIA from IP transit and IX transit, and read how each is billed.",
+            },
+            {
+                slug: "private-circuits",
+                title: "Carrying your own traffic",
+                outcome: "Choose between Metro-E, L2 transport, IP VPN, IPLC, IEPL, dark fibre and a wavelength for a need.",
+            },
+            {
+                slug: "who-is-who",
+                title: "Who runs the internet",
+                outcome: "Name the kinds of networks a packet crosses, and where addresses and AS numbers come from.",
+            },
+            {
+                slug: "device-roles",
+                title: "Roles in a network",
+                outcome: "Lay a network out by role, from core to access, and name devices so the name says the role.",
+            },
+            {
+                slug: "choosing-hardware",
+                title: "Choosing a device",
+                outcome: "Pick a device and the optics for a role, from what it must forward and how many routes it must hold.",
+            },
+            {
+                slug: "ibgp-at-scale",
+                title: "BGP inside a network",
+                outcome: "Run iBGP between loopbacks with route reflectors, and keep it fast with ECMP and BFD.",
+            },
+            {
+                slug: "vrfs-and-overlays",
+                title: "Separate networks on one",
+                outcome: "Keep customers apart with VRFs, and say what MPLS and VXLAN with EVPN solve.",
+            },
+            {
+                slug: "routing-security",
+                title: "Hijacks and leaks",
+                outcome: "Tell a hijack from a leak, and stop both with RPKI, IRR filters and MANRS.",
+            },
+            {
+                slug: "ddos-and-spoofing",
+                title: "Attacks on the network",
+                outcome: "Stop spoofed traffic, shed a flood with blackholing, and protect the router itself.",
+            },
+            { slug: "monitoring", title: "Watching the network", outcome: "Graph traffic, see who sends what, and alert on what matters." },
+            {
+                slug: "operations",
+                title: "Running it day to day",
+                outcome: "Change the network through review, handle an incident, and keep the plant written down.",
+            },
+            {
+                slug: "project-colocation",
+                title: "Project: a colocation",
+                outcome: "Host tenants with their own VLANs, addresses and ports, written in Circuit.",
+            },
+            {
+                slug: "project-internet-exchange",
+                title: "Project: an internet exchange",
+                outcome: "Run an exchange's peering LAN and route servers, written in Circuit.",
+            },
+        ],
+    },
 ];
 
 /** A lesson's address on the site. */
@@ -155,6 +231,7 @@ export const academySidebar: DefaultTheme.SidebarItem[] = [
             { text: "Start here", link: "/academy/" },
             { text: "Certification", link: "/academy/certification" },
             { text: "Graduates", link: "/academy/graduates" },
+            { text: "Glossary", link: "/academy/glossary" },
         ],
     },
     ...levels.map((level, place) => ({
