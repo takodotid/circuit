@@ -313,6 +313,14 @@ Square by default. Controls (buttons, inputs, menus, segmented controls, chips, 
 
 A square 2px ink frame with its kind on a caps label chip at the top (ink chip with paper text for NOTE, cobalt for TIP and INFO, orange with white text for WARNING, signal red for DANGER and the alpha caution; WARNING and DANGER frames take their chip's colour).
 
+### Academy lessons
+
+- **Try it frame:** a square 2px ink frame with a cobalt TRY IT chip and the task in bold, around a widget. Widgets draw devices with the same flat cobalt shapes on a paper ground (`SvgDevice`), cables in edge grey that turn link-coloured when lit, and packets as yellow dots with a navy outline.
+- **Check:** a quiz in a 2px ink frame with an ink CHECK chip. Choices are 44px rows with a lettered dot; a right pick turns green with a tick, a wrong one red and dashed with a cross, and a line under them says why in words.
+- **Looked-up word:** a word with the dotted link-coloured underline, the storybook reference made literal; hovering, focusing or tapping it opens its meaning in a small paper note with a 2px navy frame.
+- **Lesson end:** a 2px ink frame with the lesson's outcome and the one yellow action ("mark it done"); once done the frame and its chip turn green. Finished lessons carry a green tick in the sidebar and on the Academy page.
+- **Feedback line:** what a widget just did, in words, after a small caps chip: green DELIVERED, red DROPPED, orange CAREFUL, or a word of the widget's own.
+
 ### Inputs / Fields
 
 - **Style:** 36px tall, 1.5px edge border, 2px radius, mist ground, label above in 13px 600 soft ink.
