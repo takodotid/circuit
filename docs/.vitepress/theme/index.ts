@@ -7,6 +7,7 @@ import AcademyHome from "./academy/AcademyHome.vue";
 import AcademyLayout from "./academy/AcademyLayout.vue";
 import CodeView from "./academy/CodeView.vue";
 import Graduates from "./academy/Graduates.vue";
+import LevelCheck from "./academy/LevelCheck.vue";
 import Quiz from "./academy/Quiz.vue";
 import StepThrough from "./academy/StepThrough.vue";
 import SvgDevice from "./academy/SvgDevice.vue";
@@ -41,7 +42,17 @@ export default {
     enhanceApp({ app, router }) {
         app.component("Home", Home);
 
-        for (const [name, component] of Object.entries({ AcademyHome, CodeView, Graduates, Quiz, StepThrough, SvgDevice, Term, TryIt })) {
+        for (const [name, component] of Object.entries({
+            AcademyHome,
+            CodeView,
+            Graduates,
+            LevelCheck,
+            Quiz,
+            StepThrough,
+            SvgDevice,
+            Term,
+            TryIt,
+        })) {
             app.component(name, component);
         }
 

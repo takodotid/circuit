@@ -1,6 +1,7 @@
 import { defineConfig, type DefaultTheme } from "vitepress";
 import circuit from "../../package.json";
 import { academySidebar } from "./academy";
+import { LOCK_SCRIPT } from "./theme/academy/progress";
 import { describe, seoHead } from "./seo";
 
 const repository = circuit.repository.url.replace(/^git\+/, "").replace(/\.git$/, "");
@@ -105,6 +106,8 @@ export default defineConfig({
         ["link", { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
         // Special Gothic is shared by the documentation site and Circuit Studio, and served from the site itself.
         ["link", { rel: "preload", href: "/fonts/special-gothic-latin.woff2", as: "font", type: "font/woff2", crossorigin: "" }],
+        // An Academy lesson whose level is still closed is hidden behind its gate before the page is drawn.
+        ["script", {}, LOCK_SCRIPT],
     ],
 
     // A page without a description of its own is described by its first paragraph, so each page shows its own words in search results.

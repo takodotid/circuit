@@ -157,9 +157,13 @@ export const academySidebar: DefaultTheme.SidebarItem[] = [
             { text: "Graduates", link: "/academy/graduates" },
         ],
     },
-    ...levels.map((level) => ({
+    ...levels.map((level, place) => ({
         text: `${level.name}: ${level.title}`,
         collapsed: false,
-        items: level.lessons.map((lesson, index) => ({ text: `${index + 1}. ${lesson.title}`, link: lessonLink(level, lesson) })),
+        items: [
+            // Every level after the first opens with an entry check about the one before it.
+            ...(place > 0 ? [{ text: "Entry check", link: `/academy/checks/${level.slug}` }] : []),
+            ...level.lessons.map((lesson, index) => ({ text: `${index + 1}. ${lesson.title}`, link: lessonLink(level, lesson) })),
+        ],
     })),
 ];
