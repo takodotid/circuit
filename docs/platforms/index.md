@@ -14,19 +14,20 @@ Each platform supports one hardware model so far, the one it was proved on. Anot
 
 A field a platform cannot do is an error, never skipped; see [Devices](/guide/devices#when-a-device-cannot-do-what-you-wrote).
 
-| Feature                                   | routeros              | vrp                   | raisecom-ros            |
-| ----------------------------------------- | --------------------- | --------------------- | ----------------------- |
-| VLANs, access and trunk ports, links      | yes                   | yes                   | yes                     |
-| Per-port STP, storm control, LLDP         | yes, storm in percent | yes, storm in percent | off only, broadcast pps |
-| LAGs                                      | yes                   | yes                   | yes                     |
-| Routed ports, loopbacks, tunnels          | yes                   | VLAN interfaces only  | VLAN interfaces only    |
-| VRRP, VRFs, DHCP relay                    | yes                   | IPv4                  | VRRP, IPv4              |
-| Static routes                             | yes                   | yes                   | IPv4 next hop           |
-| OSPF and BFD                              | yes                   | IPv4                  | OSPF, IPv4              |
-| BGP, policies, prefix sets, RPKI          | yes                   | no                    | no                      |
-| Firewall, NAT, hardware ACLs, DHCP server | yes                   | no                    | no                      |
-| Flow export                               | NetFlow 9, IPFIX      | sFlow                 | no                      |
-| SNMP                                      | v2c, v3 with SHA1     | v2c, v3               | v2c, v3 with SHA1       |
-| Certificates, web and API                 | yes                   | no                    | no                      |
+| Feature                                   | routeros              | vrp                      | raisecom-ros            |
+| ----------------------------------------- | --------------------- | ------------------------ | ----------------------- |
+| VLANs, access and trunk ports, links      | yes                   | yes                      | yes                     |
+| Per-port STP, storm control, LLDP         | yes, storm in percent | yes, storm in percent    | off only, broadcast pps |
+| LAGs                                      | yes                   | yes                      | yes                     |
+| Routed ports, loopbacks, tunnels          | yes                   | VLAN interfaces only     | VLAN interfaces only    |
+| VRRP, VRFs, DHCP relay                    | yes                   | IPv4                     | VRRP, IPv4              |
+| Static routes                             | yes                   | IPv6 without description | IPv4 next hop           |
+| IPv6 router advertisements                | yes                   | no                       | no                      |
+| OSPF and BFD                              | yes                   | IPv4                     | OSPF, IPv4              |
+| BGP, policies, prefix sets, RPKI          | yes                   | no                       | no                      |
+| Firewall, NAT, hardware ACLs, DHCP server | yes                   | no                       | no                      |
+| Flow export                               | NetFlow 9, IPFIX      | sFlow                    | no                      |
+| SNMP                                      | v2c, v3 with SHA1     | v2c, v3                  | v2c, v3 with SHA1       |
+| Certificates, web and API                 | yes                   | no                       | no                      |
 
 Each platform's own page lists the device's surprises that Circuit works around, so you do not have to. Every one of them was found on a real device.

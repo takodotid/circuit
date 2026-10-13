@@ -609,6 +609,7 @@ export function unsupported(device: Device): string[] {
         if (iface.type !== "vlan" && iface.type !== "lag") found.push(`interfaces.${name}, a ${iface.type}`);
         if (iface.type === "lag" && iface.addresses?.length) found.push(`interfaces.${name}.addresses, LAGs are switched`);
         if (iface.mtu !== undefined) found.push(`interfaces.${name}.mtu`);
+        if (iface.ipv6_ra) found.push(`interfaces.${name}.ipv6_ra`);
         for (const group of iface.vrrp ?? []) if (familyOf(group.address) === "ipv6") found.push(`interfaces.${name}.vrrp for IPv6`);
     }
 
@@ -620,6 +621,10 @@ export function unsupported(device: Device): string[] {
     if (routing?.bgp) found.push("routing.bgp");
     if (routing?.rpki) found.push("routing.rpki");
     if (routing?.ospf?.families?.includes("ipv6")) found.push("routing.ospf for IPv6");
+
+    for (const [index, route] of (routing?.static ?? []).entries()) {
+        if (route.description && familyOf(split(route.prefix).addr) === "ipv6") found.push(`routing.static[${index}].description for IPv6`);
+    }
 
     for (const field of ["firewall", "dhcp", "acls", "policies", "prefix_sets", "hardware_offload", "certificates"] as const) {
         if (device[field] !== undefined) found.push(field);
