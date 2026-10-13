@@ -1,0 +1,257 @@
+/* Circuit Academy: the controls every lesson's widgets share, so a button or a field looks the same in every lesson. */
+
+.ac-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 6px 14px;
+    border: 1.5px solid var(--circuit-ink);
+    border-radius: 2px;
+    background: var(--circuit-paper);
+    color: var(--circuit-ink);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition:
+        border-color 0.2s,
+        background-color 0.2s,
+        color 0.2s;
+}
+
+.ac-button:hover:not(:disabled) {
+    border-color: var(--circuit-link);
+    color: var(--circuit-link);
+}
+
+.ac-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* The one thing to do next. */
+.ac-button.primary {
+    border-color: var(--circuit-yellow);
+    background: var(--circuit-yellow);
+    color: #0a1a36;
+}
+
+.ac-button.primary:hover:not(:disabled) {
+    border-color: var(--circuit-yellow-deep);
+    background: var(--circuit-yellow-deep);
+    color: #0a1a36;
+}
+
+/* A choice that is on, in a group of choices. */
+.ac-button[aria-pressed="true"],
+.ac-button.on {
+    border-color: var(--circuit-cobalt);
+    background: var(--circuit-cobalt);
+    color: #ffffff;
+}
+
+.ac-button[aria-pressed="true"]:hover,
+.ac-button.on:hover {
+    color: #ffffff !important;
+}
+
+.ac-button.small {
+    min-height: 32px;
+    padding: 3px 10px;
+    font-size: 14px;
+}
+
+.ac-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.ac-field {
+    display: grid;
+    grid-template-columns: minmax(0, auto);
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.ac-field > span {
+    color: var(--circuit-soft);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.ac-input,
+.ac-select {
+    min-width: 0;
+    max-width: 100%;
+    text-overflow: ellipsis;
+    min-height: 40px;
+    padding: 5px 10px;
+    border: 1.5px solid var(--circuit-edge, #7b86a0);
+    border-radius: 2px;
+    background: var(--circuit-mist);
+    color: var(--circuit-ink);
+    font-size: 15px;
+}
+
+.ac-input.mono {
+    font-family: var(--circuit-mono);
+}
+
+.ac-input:focus,
+.ac-select:focus {
+    border-color: var(--circuit-link);
+}
+
+.ac-input[aria-invalid="true"] {
+    border-color: var(--circuit-removed);
+    border-style: dashed;
+}
+
+/* A short line that says what just happened, with a word for its kind beside the colour. */
+.ac-say {
+    margin: 12px 0 0;
+    overflow-wrap: anywhere;
+    font-size: 15.5px;
+    line-height: 1.55;
+}
+
+.ac-say.good::before,
+.ac-say.bad::before,
+.ac-say.warn::before {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 0 6px;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    font-stretch: 115%;
+    letter-spacing: 0.08em;
+    line-height: 20px;
+    text-transform: uppercase;
+    vertical-align: 1px;
+}
+
+.ac-say.good::before {
+    content: "Delivered";
+    background: var(--circuit-added);
+}
+
+.ac-say.bad::before {
+    content: "Dropped";
+    background: var(--circuit-removed);
+}
+
+.ac-say.warn::before {
+    content: "Careful";
+    background: var(--circuit-warning);
+}
+
+/* The night greens and reds are light, so their chips take dark text. */
+.dark .ac-say.good::before,
+.dark .ac-say.bad::before {
+    color: #0b1122;
+}
+
+.ac-say[data-word]::before {
+    content: attr(data-word);
+}
+
+/* A drawing inside a widget: it scales to the column, and keeps its words readable. */
+.ac-drawing {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    font-family: var(--circuit-font);
+}
+
+.ac-drawing text {
+    fill: var(--circuit-ink);
+    font-size: 13px;
+}
+
+.ac-drawing .cable {
+    stroke: var(--circuit-edge, #7b86a0);
+    stroke-width: 2.5;
+    fill: none;
+}
+
+.ac-drawing .cable.lit {
+    stroke: var(--circuit-link);
+    stroke-width: 4;
+}
+
+.ac-drawing .packet {
+    fill: var(--circuit-yellow);
+    stroke: #0a1a36;
+    stroke-width: 1.5;
+}
+
+/* A small table inside a widget, such as a switch's address table or a routing table. */
+.ac-table {
+    width: 100%;
+    margin: 12px 0 0 !important;
+    border-collapse: collapse;
+    font-size: 14.5px;
+}
+
+.ac-table th {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+}
+
+.ac-table td {
+    padding: 6px 10px !important;
+}
+
+.ac-table tr.lit td {
+    background: var(--circuit-selected, #fff7c2);
+    color: #11141b;
+}
+
+.dark .ac-table tr.lit td {
+    background: #3a3510;
+    color: var(--circuit-ink);
+}
+
+.ac-mono {
+    font-family: var(--circuit-mono);
+    font-size: 0.92em;
+}
+
+:root {
+    --circuit-edge: #7b86a0;
+    --circuit-selected: #fff7c2;
+}
+
+.dark {
+    --circuit-edge: #6f7b96;
+    --circuit-selected: #3a3510;
+}
+
+@media (max-width: 640px) {
+    .ac-button {
+        min-height: 44px;
+    }
+
+    .ac-button.small {
+        min-height: 40px;
+    }
+}
+
+/* Words for a screen reader that are not shown. */
+.ac-hidden {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}

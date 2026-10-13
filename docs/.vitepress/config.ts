@@ -1,5 +1,6 @@
 import { defineConfig, type DefaultTheme } from "vitepress";
 import circuit from "../../package.json";
+import { academySidebar } from "./academy";
 import { describe, seoHead } from "./seo";
 
 const repository = circuit.repository.url.replace(/^git\+/, "").replace(/\.git$/, "");
@@ -121,7 +122,7 @@ export default defineConfig({
             description: circuit.description,
             repository,
             version: circuit.version,
-            sidebar,
+            sidebar: [...sidebar, ...academySidebar],
         }),
 
     // Code is set on a navy ground in both themes, like the editor in the home page's drawing.
@@ -132,6 +133,7 @@ export default defineConfig({
     themeConfig: {
         nav: [
             { text: "Guide", link: "/guide/introduction" },
+            { text: "Academy", link: "/academy/", activeMatch: "^/academy/" },
             { text: "Patterns", link: "/patterns/" },
             { text: "Use cases", link: "/use-cases/" },
             { text: "Platforms", link: "/platforms/" },
@@ -139,7 +141,8 @@ export default defineConfig({
             { text: "Releases", link: `${repository}/releases` },
         ],
 
-        sidebar,
+        // The Academy keeps a sidebar of its own, so its lessons are never mixed in with the documentation.
+        sidebar: { "/academy/": academySidebar, "/": sidebar },
 
         socialLinks: [
             { icon: "npm", link: `https://www.npmjs.com/package/${circuit.name}` },
