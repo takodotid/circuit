@@ -4,6 +4,7 @@ import { useData, withBase } from "vitepress";
 import circuit from "../../../package.json";
 import { catalog } from "../../../src/adapters/devices/catalog";
 import { data as templateFiles } from "./templates.data";
+import { levels as academyLevels } from "../academy";
 
 const { isDark } = useData();
 
@@ -65,6 +66,16 @@ const platforms = [
     { name: "Huawei VRP", platform: "vrp" },
     { name: "Raisecom ROS", platform: "raisecom-ros" },
 ].map((entry) => ({ ...entry, models: Object.keys(catalog[entry.platform as keyof typeof catalog]) }));
+
+// Circuit Academy's levels, each with the first lessons it teaches.
+const levels = academyLevels.map((level) => ({
+    ...level,
+    link: `/academy/#${level.slug}`,
+    first: level.lessons.slice(0, 4).map((lesson) => lesson.title),
+    more: Math.max(0, level.lessons.length - 4),
+}));
+
+const firstLesson = `/academy/${academyLevels[0]!.slug}/${academyLevels[0]!.lessons[0]!.slug}`;
 
 // Networks that run on Circuit in production. Each logo uses the page's ink, so one image works in light and dark.
 const users = [{ name: "Tako", logo: "/users/tako.png", link: "https://tako.id", width: 1292, height: 602 }];
@@ -667,6 +678,43 @@ function nextChange() {
                 height="900"
                 loading="lazy"
             />
+        </section>
+
+        <section class="chapter learn" aria-labelledby="learn">
+            <div class="learn-head">
+                <h2 id="learn" data-reveal><span>New to networking?</span></h2>
+                <img
+                    class="desk"
+                    data-reveal
+                    :src="withBase('/illustrations/academy/academy-desk.webp')"
+                    alt=""
+                    width="1100"
+                    height="732"
+                    loading="lazy"
+                />
+            </div>
+            <div class="body">
+                <p>
+                    Circuit writes a network down, so it helps to know what a network is made of first. Circuit Academy starts from nothing
+                    and gets you to running your own edge router, with something to try in your browser in every lesson.
+                </p>
+                <ol class="levels" data-reveal>
+                    <li v-for="(level, index) in levels" :key="level.slug" :style="{ '--i': index }">
+                        <a :href="withBase(level.link)">{{ level.name }}: {{ level.title }}</a>
+                        <p>{{ level.audience }}</p>
+                        <ul class="files" :aria-label="`First lessons of ${level.name}`">
+                            <li v-for="(title, place) in level.first" :key="title" :style="{ '--j': place }">{{ title }}</li>
+                            <li v-if="level.more" class="more-lessons" :style="{ '--j': level.first.length }">and {{ level.more }} more</li>
+                        </ul>
+                    </li>
+                </ol>
+                <p class="certify">
+                    <strong>Certification is coming.</strong> You will be given a network to build in Circuit, and once it passes review,
+                    you are listed among the <a :href="withBase('/academy/graduates')">graduates</a>.
+                    <a :href="withBase('/academy/certification')">How it will work</a>
+                </p>
+                <a class="onward" :href="withBase(firstLesson)">Take the first lesson</a>
+            </div>
         </section>
 
         <section class="chapter runs" aria-labelledby="runs">
@@ -1491,6 +1539,65 @@ h1 {
     font: max(12px, calc(13.5 * var(--px))) / 1.5 var(--circuit-mono);
 }
 
+/* New to networking: the Academy's levels as a parts list, with the first lessons of each. */
+
+.learn {
+    background: var(--circuit-mist);
+}
+
+.learn-head {
+    align-self: start;
+    min-width: 0;
+}
+
+.learn .desk {
+    display: block;
+    width: min(100%, calc(520 * var(--px)));
+    height: auto;
+    margin-top: calc(40 * var(--px));
+}
+
+.levels {
+    margin: calc(10 * var(--px)) 0 calc(28 * var(--px));
+    padding: 0;
+    list-style: none;
+    border-top: 2px solid var(--circuit-ink);
+}
+
+.levels > li {
+    padding: calc(22 * var(--px)) 0;
+    border-bottom: 1px solid var(--circuit-line);
+}
+
+.levels > li > a {
+    font-size: max(21px, calc(28 * var(--px)));
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    text-decoration-thickness: 2px;
+}
+
+.levels > li > p {
+    margin: calc(6 * var(--px)) 0 calc(12 * var(--px));
+}
+
+.levels .files li {
+    font-family: var(--circuit-font);
+}
+
+.levels .more-lessons {
+    border-style: dashed;
+}
+
+.certify {
+    padding: calc(16 * var(--px)) calc(20 * var(--px));
+    border: 2px solid var(--circuit-ink);
+    background: var(--circuit-paper);
+}
+
+.certify a:last-child {
+    margin-left: 0.3em;
+}
+
 /* Studio: a cobalt chapter with the real screen in it. */
 
 .studio {
@@ -1836,6 +1943,7 @@ h1 {
     /* Lists arrive in their order; a step's number comes first. */
     .steps.shown li,
     .patterns.shown > li,
+    .levels.shown > li,
     .proved.shown tbody tr {
         animation: rise 0.65s var(--ease) backwards;
         animation-delay: calc(var(--i) * 0.12s);
@@ -1847,7 +1955,8 @@ h1 {
     }
 
     /* A pattern's files are laid out after it, one after another. */
-    .patterns.shown .files li {
+    .patterns.shown .files li,
+    .levels.shown .files li {
         animation: pop 0.4s var(--ease) backwards;
         animation-delay: calc(0.3s + var(--i) * 0.12s + var(--j) * 0.05s);
     }
@@ -1857,6 +1966,7 @@ h1 {
         animation: slide 1s var(--ease) 0.1s backwards;
     }
 
+    .desk.shown,
     .caution.shown,
     .starter.shown {
         animation: rise 0.7s var(--ease) 0.15s backwards;
@@ -2036,6 +2146,11 @@ h1 {
 
     .chapter h2 {
         font-size: 52px;
+    }
+
+    .learn .desk {
+        width: min(100%, 360px);
+        margin-top: 20px;
     }
 
     .chapter h2 span {
