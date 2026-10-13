@@ -278,6 +278,14 @@ body {
     border-top: 1px solid var(--circuit-line);
 }
 
+/* On a phone a table wider than the column scrolls in its own frame instead of the page. */
+@media (max-width: 640px) {
+    .vp-doc table {
+        display: block;
+        overflow-x: auto;
+    }
+}
+
 /* The head is a tinted band rather than a rule, so it is never read as a divider between rows. */
 .vp-doc thead tr {
     border-top: 0;
@@ -460,12 +468,12 @@ html:not(.dark) .vp-doc .screenshot.dark,
     }
 
     .circuit-home .VPNavBarMenuLink {
-        padding: 0 1vw !important;
+        padding: 0 0.85vw !important;
         font-size: max(13px, 0.98vw) !important;
     }
 
     .circuit-home .VPNavBarSearch .DocSearch-Button {
-        width: 21vw;
+        width: 16vw;
         max-width: 340px;
         height: max(40px, 3.125vw);
         padding-inline: 1vw;
@@ -565,7 +573,7 @@ html:not(.dark) .vp-doc .screenshot.dark,
     }
 
     .circuit-home .VPNavBarMenuLink {
-        padding: 0 0.75vw !important;
+        padding: 0 0.6vw !important;
         font-size: 12px !important;
     }
 
@@ -575,5 +583,59 @@ html:not(.dark) .vp-doc .screenshot.dark,
 
     .circuit-home .VPNavBarSearch .DocSearch-Button-Keys {
         display: none;
+    }
+}
+
+/* Circuit Academy: a lesson the reader finished is ticked in the sidebar. */
+
+.VPSidebar a.link.academy-done .text::after {
+    content: "✓";
+    margin-left: 8px;
+    color: var(--circuit-added);
+    font-weight: 700;
+}
+
+/* An illustration set into an Academy page, on the page's own ground. */
+.vp-doc .academy-art {
+    display: block;
+    width: min(100%, 440px);
+    height: auto;
+    margin: 24px 0;
+}
+
+/* Reading pages: the links, the search and the sidebar share one row from 960 pixels, so the links and the search close up until it fits. */
+@media (min-width: 960px) and (max-width: 1439px) {
+    .Layout:not(.circuit-home) .VPNavBarMenuLink {
+        padding: 0 7px !important;
+        font-size: 12px !important;
+        letter-spacing: 0.04em;
+    }
+}
+
+@media (min-width: 960px) and (max-width: 1279px) {
+    .Layout:not(.circuit-home) .VPNavBarMenuLink {
+        padding: 0 6px !important;
+        font-size: 11.5px !important;
+        font-stretch: 100%;
+    }
+
+    .Layout:not(.circuit-home) .VPNavBarSearch .DocSearch-Button-Placeholder,
+    .Layout:not(.circuit-home) .VPNavBarSearch .DocSearch-Button-Keys {
+        display: none;
+    }
+}
+
+/* Between a phone and a laptop the links do not fit beside the title and the search, so the menu button stays, as on a phone. */
+@media (min-width: 768px) and (max-width: 959px) {
+    .VPNavBarMenu {
+        display: none !important;
+    }
+
+    .VPNavBarHamburger {
+        display: flex !important;
+    }
+
+    .VPNavScreen {
+        display: block !important;
     }
 }
