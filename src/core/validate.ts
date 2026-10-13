@@ -101,7 +101,7 @@ function checkVlans(device: Device, report: Report): void {
     }
 }
 
-/** Every address is valid, and no address sits on two interfaces. */
+/** Every address is valid, and no address sits on two interfaces of one routing table. Two VRFs may hold the same address. */
 function checkAddresses(device: Device, report: Report, cidr: Checker, ip: Checker): void {
     const holderOf = new Map<string, string>();
     const holders = [
@@ -116,8 +116,9 @@ function checkAddresses(device: Device, report: Report, cidr: Checker, ip: Check
             if (typeof entry !== "string") ip(where, entry.peer);
 
             const bare = address.split("/")[0]!;
-            if (holderOf.has(bare)) report(`${bare} is on both ${holderOf.get(bare)} and ${where}`);
-            holderOf.set(bare, where);
+            const key = `${settings?.vrf ?? ""} ${bare}`;
+            if (holderOf.has(key)) report(`${bare} is on both ${holderOf.get(key)} and ${where}`);
+            holderOf.set(key, where);
         }
 
         for (const group of settings?.vrrp ?? []) {

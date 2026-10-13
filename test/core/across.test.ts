@@ -120,6 +120,40 @@ test("the two ends of a cable carry the same VLANs, and a LAG is compared by wha
     expect(oneSided).toContain("error r2: port 25g-1 link: 25g-1 is in no LAG, and r1 25g-1 is in bond");
 });
 
+test("one address in two VRFs, on one device or two, is no clash, and two routers may run a VXLAN tunnel per VNI", () => {
+    const [r1, r2] = routers();
+
+    /** Two customers on one router, both given 10.9.0.1 in a VRF of their own. */
+    const customers = (router: Device): Device => ({
+        ...router,
+        vrfs: { a: {}, b: {} },
+        ports: {
+            ...router.ports,
+            "25g-2": { addresses: ["10.9.0.1/30"], vrf: "a" },
+            "25g-3": { addresses: ["10.9.0.1/30"], vrf: "b" },
+        },
+    });
+
+    expect(findings(customers(r1), r2)).toEqual([]);
+
+    const sameVrf = findings(
+        { ...customers(r1), ports: { ...customers(r1).ports, "25g-3": { addresses: ["10.9.0.1/30"], vrf: "a" } } },
+        r2
+    );
+    expect(sameVrf).toContain("error r1: 10.9.0.1 is on both port 25g-2 and port 25g-3");
+
+    /** A second tunnel between the two routers, for another customer. */
+    const second = (router: Device, n: 1 | 2): Device => ({
+        ...router,
+        interfaces: {
+            ...router.interfaces,
+            "vxlan-b": { type: "vxlan", vni: 101, local: `10.255.0.${n}`, remote: `10.255.0.${3 - n}` },
+        },
+    });
+
+    expect(findings(second(r1, 1), second(r2, 2))).toEqual([]);
+});
+
 test("one VLAN under two names across a cable is a warning", () => {
     const [r1, r2] = routers();
 

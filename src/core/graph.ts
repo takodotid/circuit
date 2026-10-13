@@ -72,6 +72,8 @@ export type Holder = {
     /** The far end of a point-to-point address. */
     peer?: string;
     vrrp: NonNullable<Routed<string>["vrrp"]>;
+    /** The VRF the address is in. The default table when absent. */
+    vrf?: string;
 };
 
 export const deviceId = (name: string) => `device:${name}`;
@@ -124,7 +126,7 @@ export function holdersOf(devices: readonly Device[]): Holder[] {
                 if (!isCidr(address)) return [];
 
                 const peer = typeof entry === "string" ? undefined : entry.peer;
-                return [{ device, name, address, peer, vrrp: settings.vrrp ?? [] }];
+                return [{ device, name, address, peer, vrrp: settings.vrrp ?? [], vrf: settings.vrf }];
             })
         )
     );

@@ -169,7 +169,7 @@ function checkLinks(devices: readonly Device[]): Finding[] {
     return findings;
 }
 
-/** No address is held by two devices. Two loopbacks may hold one on purpose, for anycast, so that is a warning. */
+/** No address is held by two devices in one VRF. Two loopbacks may hold one on purpose, for anycast, so that is a warning. */
 function checkAddresses(holders: Holder[]): Finding[] {
     const findings: Finding[] = [];
     const first = new Map<string, Holder>();
@@ -177,7 +177,7 @@ function checkAddresses(holders: Holder[]): Finding[] {
     const isLoopback = (holder: Holder) => holder.device.interfaces?.[holder.name]?.type === "loopback";
 
     for (const holder of holders) {
-        const key = keyOf(host(holder.address))!;
+        const key = `${holder.vrf ?? ""} ${keyOf(host(holder.address))!}`;
         const earlier = first.get(key);
 
         if (!earlier) {
@@ -321,13 +321,16 @@ function checkTunnels(devices: readonly Device[], owners: Map<string, Holder>): 
             findings.push({ level: "error", device: end.device.name, message: `interface ${end.name}: ${message}` });
         const kind = end.iface.type === "gre" ? "GRE" : "VXLAN";
 
-        const mirror = ends.find(
+        // Two routers may run several VXLAN tunnels between them, one for each VNI, so a tunnel pairs with the one of its own VNI first.
+        const back = ends.filter(
             (other) =>
                 other.device === far &&
                 other.iface.type === end.iface.type &&
                 same(other.iface.local, end.iface.remote) &&
                 same(other.iface.remote, end.iface.local)
         );
+        const vniOf = (iface: Gre<string> | Vxlan<string>) => (iface.type === "vxlan" ? iface.vni : undefined);
+        const mirror = back.find((other) => vniOf(other.iface) === vniOf(end.iface)) ?? back[0];
 
         if (!mirror) {
             report(`${end.iface.remote} is ${far.name}'s, which has no ${kind} tunnel from there back to ${end.iface.local}`);
