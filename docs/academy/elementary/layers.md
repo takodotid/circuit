@@ -13,13 +13,13 @@ A switch only reads the bottom two layers, and a router the bottom three. Only t
 
 Here is a simple model with five layers, from the bottom up:
 
-| Layer         | Its job                                                          | What it uses                         | Where you met it                                          |
-| ------------- | ---------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------- |
-| 1 Physical    | Carry bits as signals                                            | Cables, light, radio waves           | [What is a network?](/academy/beginner/what-is-a-network) |
-| 2 Link        | Reach the next device on the same local network                  | Frames, hardware addresses, switches | [Switches](/academy/beginner/switches)                    |
-| 3 Network     | Reach a device on any network, one hop at a time                 | Packets, IP addresses, routers       | [Routers](/academy/beginner/routers)                      |
-| 4 Transport   | Reach the right program, and with TCP, check every piece arrived | Ports, TCP and UDP                   | [Ports](/academy/beginner/ports)                          |
-| 5 Application | Say what the program wants                                       | Web pages, DNS questions             | [DNS](/academy/beginner/dns)                              |
+| Layer         | Its job                                                          | What it uses                                        | Where you met it                                          |
+| ------------- | ---------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------- |
+| 1 Physical    | Carry bits as signals                                            | Cables, light, radio waves                          | [What is a network?](/academy/beginner/what-is-a-network) |
+| 2 Link        | Reach the next device on the same local network                  | Frames, hardware addresses, switches, Ethernet, ARP | [Switches](/academy/beginner/switches)                    |
+| 3 Network     | Reach a device on any network, one hop at a time                 | Packets, IP addresses, routers, ICMP                | [Routers](/academy/beginner/routers)                      |
+| 4 Transport   | Reach the right program, and with TCP, check every piece arrived | Ports, TCP and UDP                                  | [Ports](/academy/beginner/ports)                          |
+| 5 Application | Say what the program wants                                       | Web pages, DNS questions                            | [DNS](/academy/beginner/dns)                              |
 
 Each layer relies only on the one below it and does not care how that one works. A web browser does not know if the page came over a cable or over Wi-Fi, and a switch does not know if the frame holds a web page or a DNS question. That is what makes layers useful: you can change one without touching the others, and you can look for a problem one layer at a time.
 

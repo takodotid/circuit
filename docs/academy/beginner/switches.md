@@ -24,6 +24,8 @@ Inside one local network, messages travel in <Term means="A message on the local
 
 A switch reads only these two addresses. It does not look at the IP addresses inside, and it does not change the frame.
 
+Frames on a cable follow a standard called <Term means="The standard for frames on a cable: how they are laid out, with their hardware addresses, and how they are sent as signals. Almost every wired network uses it.">Ethernet</Term>, the one almost every wired network uses, which is why the socket on a laptop is often called its Ethernet port. Wi-Fi sends the same kind of frame over radio instead.
+
 ## How a switch learns
 
 When a switch is turned on, it knows nothing about the devices plugged into it. Its <Term means="The list a switch keeps of which hardware address is behind which of its ports. It is also called the MAC address table.">address table</Term>, the list of which device is behind which port, is empty. Send a few frames and see what it does with them.
@@ -67,7 +69,7 @@ Sometimes a device needs to ask every device on the network at once, because it 
 
 A switch sends a broadcast out of every port except the one it came in on, as it does when it floods. The difference is at the other end: every device keeps a broadcast and reads it, because it is addressed to all of them. Choose **Everyone (broadcast)** in the widget above to see it.
 
-A common broadcast is a question such as "which of you has the IP address 192.168.1.30?". The device with that address answers with its hardware address, and from then on the two can send each other frames. You will see why a device needs this in the next lesson.
+A common broadcast is a question such as "which of you has the IP address 192.168.1.30?". The device with that address answers with its hardware address, and from then on the two can send each other frames. This question and answer has a name, <Term means="Address resolution protocol: how a device finds the hardware address that belongs to an IP address on its own network, by asking everyone with a broadcast.">ARP</Term>, and you will try it in the next lesson.
 
 <Quiz
   question="Which frames does a switch send out of every port except the one they came in on?"
