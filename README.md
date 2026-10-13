@@ -27,7 +27,7 @@ Documentation: [circuit.tako.id](https://circuit.tako.id)
 
 ## Circuit Academy
 
-New to networking? [Circuit Academy](https://circuit.tako.id/academy/) teaches it from the very start, in lessons you try in the browser rather than only read: packets, addresses, switches and routers first, then VLANs, DHCP, NAT and firewalls written down in Circuit, up to BGP and an edge router of your own. A certification is coming.
+New to networking? [Circuit Academy](https://circuit.tako.id/academy/) teaches it from the very start, in lessons you try in the browser rather than only read: packets, addresses, switches and routers first, then VLANs, DHCP, NAT and firewalls written down in Circuit, BGP and an edge router of your own, and on to running a provider network. A certification is coming.
 
 <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/public/screenshots/academy-dark.png">
