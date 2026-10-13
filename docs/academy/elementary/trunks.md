@@ -105,8 +105,8 @@ export default defineDevice({
 The `link` says what is at the other end of the cable: `switch-b`, port `40g-1`. `switch-b` has the same port with a `link` back to `switch-a`. With a link on both ends, `circuit validate` checks that the two ports really are the two ends of one cable, and that they carry the same VLANs in the same way. When they do not, it stops before anything is sent:
 
 ```text
-  error  switch-a: port 40g-1 link: carries {"trunk":[20,30,40]}, and switch-b 40g-1 carries {"trunk":[20,40]}
-  error  switch-b: port 40g-1 link: carries {"trunk":[20,40]}, and switch-a 40g-1 carries {"trunk":[20,30,40]}
+  error  switch-a: port 40g-1 link: 40g-1 carries VLANs 20, 30, 40 tagged, and switch-b 40g-1 carries VLANs 20, 40 tagged
+  error  switch-b: port 40g-1 link: 40g-1 carries VLANs 20, 40 tagged, and switch-a 40g-1 carries VLANs 20, 30, 40 tagged
 
 2 error(s).
 ```

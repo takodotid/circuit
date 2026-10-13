@@ -129,43 +129,25 @@ firewall: {
                 { description: "DNS from guests", match: { in_interface: "guests", protocol: "udp", dst_port: 53 }, action: "accept" },
             ],
         },
-        // Traffic passing through the router.
+        // Traffic passing through the router: home and guests reach the internet, and nothing else gets through.
         forward: {
+            default: "drop",
             rules: [
                 { description: "Replies", match: { state: ["established", "related"] }, action: "accept", offload: true },
-                {
-                    description: "Guests stay off the home network",
-                    match: { in_interface: "guests", out_interface: "home" },
-                    action: "drop",
-                },
-                { description: "Guests stay off management", match: { in_interface: "guests", out_interface: "mgmt" }, action: "drop" },
+                { description: "Home to the internet", match: { in_interface: "home", out_interface: "1g-1" }, action: "accept" },
+                { description: "Guests to the internet", match: { in_interface: "guests", out_interface: "1g-1" }, action: "accept" },
             ],
         },
     },
 },
 ```
 
-- `default` is what a packet no rule matched gets. Left out, it is accept: the forward chain above only names what guests may not reach, and lets everything else through.
+- `default` is what a packet no rule matched gets. Left out, it is accept, so both chains here write `drop`. There is no rule that keeps guests off the home network: nothing lets them there, so the default drops them.
 - `action` is `accept`, `drop`, or `reject`, which drops the packet but answers the sender that it was refused.
 - `offload: true` on a rule that accepts hands the rest of the connection to a faster path inside the router, past the rules below. It belongs on the rule for replies, which carries most of the traffic.
 - `MANAGEMENT` is a constant both devices of the site share, holding `"192.168.10.0/24"`, the management network. The next lesson is about why only it may log in.
 
-A stricter forward chain is default drop, and says what may pass:
-
-```ts
-forward: {
-    default: "drop",
-    rules: [
-        { description: "Replies", match: { state: ["established", "related"] }, action: "accept", offload: true },
-        { description: "Guests stay off the home network", match: { in_interface: "guests", out_interface: "home" }, action: "drop" },
-        { description: "Guests stay off management", match: { in_interface: "guests", out_interface: "mgmt" }, action: "drop" },
-        { description: "Home to the internet", match: { in_interface: "home", out_interface: "1g-1" }, action: "accept" },
-        { description: "Guests to the internet", match: { in_interface: "guests", out_interface: "1g-1" }, action: "accept" },
-    ],
-},
-```
-
-A chain is an ordered list, so when it changes Circuit replaces it as a whole: the new rules go in first, and only then are the old ones removed, so the router is never without rules ([How a change is applied](/guide/convergence)). On a RouterOS router, `npx circuit diff` for the change above ends like this, with the default written as a last rule:
+A chain is an ordered list, so when it changes Circuit replaces it as a whole: the new rules go in first, and only then are the old ones removed, so the router is never without rules ([How a change is applied](/guide/convergence)). An earlier version of this router had no default in its forward chain, and two rules keeping guests out. On a RouterOS router, `npx circuit diff` for the change to the one above ends like this, with the default written as a last rule:
 
 ```text
     + add action=accept chain=forward comment=Home to the internet in-interface=home out-interface=ether1

@@ -43,8 +43,8 @@ const mistakes: Mistake[] = [
         line: 4,
         output: [
             "$ npx circuit validate",
-            '  error  router: port 25g-1 link: carries {"trunk":[10,20,30]}, and switch 10g-1 carries {"trunk":[10,20]}',
-            '  error  switch: port 10g-1 link: carries {"trunk":[10,20]}, and router 25g-1 carries {"trunk":[10,20,30]}',
+            "  error  router: port 25g-1 link: 25g-1 carries VLANs 10, 20, 30 tagged, and switch 10g-1 carries VLANs 10, 20 tagged",
+            "  error  switch: port 10g-1 link: 10g-1 carries VLANs 10, 20 tagged, and router 25g-1 carries VLANs 10, 20, 30 tagged",
             "",
             "2 error(s).",
         ].join("\n"),

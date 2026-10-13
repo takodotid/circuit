@@ -76,7 +76,7 @@ Because nobody can start a connection in, NAT is often said to protect a home. O
 - It does not stop a packet sent straight to a private address. A computer in your provider's network can send a packet for 192.168.20.10 to your router's outside port. NAT has no row for it, and needs none: the router knows the way to 192.168.20.0/24, so it simply routes the packet in.
 - It does nothing for the router itself. A login attempt to 203.0.113.2, port 22, is for the router, and NAT never touches it.
 
-Deciding what may pass is the job of a firewall, and that is the next lesson.
+Deciding what may pass is the job of a firewall, and that is the next lesson. In the single-site router, its forward chain is what drops that packet for 192.168.20.10.
 
 <Quiz
   question="Which of these does NAT stop on its own?"
@@ -103,7 +103,7 @@ firewall: {
 - `match: { out_interface: "1g-1" }` limits the rule to packets leaving through `1g-1`, the port to the provider. Traffic between the VLANs at home keeps its own addresses.
 - `action: "masquerade"` means: use the address of the port the packet leaves through, whatever it is now. If your provider changes your public address, the rule still works. With a fixed address, `action: "snat"` and `to: "203.0.113.2"` write it out instead.
 
-A port forward goes in `destination`, with `action: "dnat"`, the address to send it `to`, and `to_port`. Turn on the port forward in the widget to see it written. Every field is in the [schema reference](/reference/schema).
+A port forward goes in `destination`, with `action: "dnat"`, the address to send it `to`, and `to_port`. On a router whose forward chain drops by default, as the single-site router's does, the forwarded connection also needs a rule there that accepts it: the next lesson is about those rules. Turn on the port forward in the widget to see it written. Every field is in the [schema reference](/reference/schema).
 
 Circuit turns the rule into each vendor's own command. For the router in the template, a RouterOS router, `npx circuit build router` prints this line for it:
 
