@@ -69,16 +69,13 @@ export default defineDevice({
                     { description: "DNS from guests", match: { in_interface: "guests", protocol: "udp", dst_port: 53 }, action: "accept" },
                 ],
             },
-            // Traffic passing through the router.
+            // Traffic passing through the router: home and guests reach the internet, and nothing else gets through.
             forward: {
+                default: "drop",
                 rules: [
                     { description: "Replies", match: { state: ["established", "related"] }, action: "accept", offload: true },
-                    {
-                        description: "Guests stay off the home network",
-                        match: { in_interface: "guests", out_interface: "home" },
-                        action: "drop",
-                    },
-                    { description: "Guests stay off management", match: { in_interface: "guests", out_interface: "mgmt" }, action: "drop" },
+                    { description: "Home to the internet", match: { in_interface: "home", out_interface: "1g-1" }, action: "accept" },
+                    { description: "Guests to the internet", match: { in_interface: "guests", out_interface: "1g-1" }, action: "accept" },
                 ],
             },
         },
