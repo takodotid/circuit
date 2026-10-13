@@ -25,6 +25,15 @@ Documentation: [circuit.tako.id](https://circuit.tako.id)
     <img src="docs/public/screenshots/studio-light.png" alt="Studio's VLAN graph with devices that differ from their snapshots marked by orange dashed borders, beside the layer details and legend.">
 </picture>
 
+## Circuit Academy
+
+New to networking? [Circuit Academy](https://circuit.tako.id/academy/) teaches it from the very start, in lessons you try in the browser rather than only read: packets, addresses, switches and routers first, then VLANs, DHCP, NAT and firewalls written down in Circuit, up to BGP and an edge router of your own. A certification is coming.
+
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/public/screenshots/academy-dark.png">
+    <img src="docs/public/screenshots/academy-light.png" alt="A Circuit Academy lesson on switches: a frame from a laptop to a printer has just been flooded out of every port, and the switch has learned which port the laptop is behind.">
+</picture>
+
 ## Start
 
 You need [Node.js](https://nodejs.org) 20.12 or newer, or [Bun](https://bun.sh). Then:
