@@ -32,6 +32,17 @@ bun run docs:dev    # this site, locally
 
 Write for someone who may be new to networking. Say what a thing does before how, explain a word the first time it matters or link the [Glossary](/guide/glossary), and break a process into numbered steps. A longer sentence that is easy to follow beats a short one that has to be read twice.
 
+## Writing an Academy lesson
+
+[Circuit Academy](/academy/) teaches networking from the start, then Circuit. Its levels and lessons are listed in `docs/.vitepress/academy.ts`, which the Academy's sidebar, its own page and the home page read; a lesson is a page in `docs/academy/<level>/`.
+
+1. A lesson uses only words that lessons before it taught, and explains each new one where it first appears, with `<Term means="...">word</Term>` for a word a reader may want to look up.
+2. Every lesson has something to try: a widget in `docs/.vitepress/theme/academy/widgets/`, used in the page by its file name inside `<TryIt>`, and a few `<Quiz>` questions placed right after the idea they check.
+3. Widgets draw devices with `<SvgDevice>`, move packets with `useTravel()`, and use the shared controls in `academy.css`, so every lesson looks and behaves alike.
+4. From the Elementary level on, a lesson shows its idea in Circuit, with fields that exist in the [schema](/reference/schema).
+
+A lesson's place in its level, its "mark it done" box and its discussion are added by the layout; the page holds only the lesson.
+
 ## Adding a platform
 
 1. `src/adapters/devices/<platform>/models.ts`: each model's ports per speed class and the platform's spelling of them.
