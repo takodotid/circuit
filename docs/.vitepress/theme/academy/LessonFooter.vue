@@ -4,12 +4,20 @@
 import { computed } from "vue";
 import { withBase } from "vitepress";
 import { lessons } from "../../academy";
-import { isDone, setDone } from "./progress";
+import { isDone, isOpen, setDone } from "./progress";
 
 const props = defineProps<{ lesson: (typeof lessons)[number] }>();
 
 const finished = computed(() => isDone(props.lesson.link));
 const next = computed(() => lessons[lessons.findIndex((entry) => entry.link === props.lesson.link) + 1]);
+
+// The next lesson may start a level that is still closed: then the way on is its entry check.
+const nextLink = computed(() =>
+    next.value && !isOpen(next.value.level.slug) ? `/academy/checks/${next.value.level.slug}` : next.value?.link
+);
+const nextText = computed(() =>
+    next.value && !isOpen(next.value.level.slug) ? `Next: the ${next.value.level.name} entry check` : `Next: ${next.value?.title}`
+);
 </script>
 
 <template>
@@ -23,7 +31,7 @@ const next = computed(() => lessons[lessons.findIndex((entry) => entry.link === 
                 I can do this, mark it done
             </button>
             <template v-else>
-                <a v-if="next" class="ac-button primary" :href="withBase(next.link)">Next: {{ next.title }}</a>
+                <a v-if="next" class="ac-button primary" :href="withBase(nextLink)">{{ nextText }}</a>
                 <a v-else class="ac-button primary" :href="withBase('/academy/certification')">See the certification</a>
                 <button type="button" class="ac-button" @click="setDone(lesson.link, false)">Not yet, unmark it</button>
             </template>

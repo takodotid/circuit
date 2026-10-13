@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// The default layout, with the Academy's parts around a lesson: its place in the level above the title, the end of lesson and the discussion under it.
+// The default layout, with the Academy's parts around a lesson: its place in the level above the title, the end of lesson and the discussion under it,
+// and in place of a lesson whose level is still closed, the gate to its entry check.
 
 import { computed, nextTick, onMounted, watch } from "vue";
 import DefaultTheme from "vitepress/theme";
@@ -8,7 +9,8 @@ import { lessons } from "../../academy";
 import Discussion from "./Discussion.vue";
 import LessonFooter from "./LessonFooter.vue";
 import LessonHeader from "./LessonHeader.vue";
-import { done, loadProgress, normalize } from "./progress";
+import LevelGate from "./LevelGate.vue";
+import { done, gated, isOpen, loadProgress, normalize, passed } from "./progress";
 
 const { Layout } = DefaultTheme;
 const route = useRoute();
@@ -28,18 +30,27 @@ async function markSidebar() {
     }
 }
 
+/** Hide a closed level's lesson behind its gate. The page's head does the same before anything is drawn; this keeps it right as the reader moves between pages or passes a check. */
+function lock() {
+    const level = lesson.value?.level.slug;
+    document.documentElement.classList.toggle("academy-locked", Boolean(level && !isOpen(level)));
+}
+
 onMounted(() => {
     loadProgress();
     markSidebar();
+    lock();
 });
 
 watch([done, () => route.path], markSidebar);
+watch([passed, () => route.path], lock);
 </script>
 
 <template>
     <Layout>
         <template #doc-before>
             <LessonHeader v-if="lesson" :lesson="lesson" />
+            <LevelGate v-if="lesson && gated.includes(lesson.level.slug)" :lesson="lesson" />
         </template>
         <template #doc-footer-before>
             <LessonFooter v-if="lesson" :lesson="lesson" />

@@ -1,5 +1,21 @@
 /* Circuit Academy: the controls every lesson's widgets share, so a button or a field looks the same in every lesson. */
 
+/* A lesson of a closed level shows its gate instead of itself. The class is set on the page before it is drawn. */
+.level-gate {
+    display: none;
+}
+
+html.academy-locked .level-gate {
+    display: block;
+}
+
+html.academy-locked .VPDoc .main,
+html.academy-locked .VPDoc .aside,
+html.academy-locked .lesson-end,
+html.academy-locked .discussion {
+    display: none;
+}
+
 .ac-button {
     display: inline-flex;
     align-items: center;

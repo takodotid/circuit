@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { DefaultTheme, HeadConfig, PageData } from "vitepress";
+import { levels } from "./academy";
 
 /** The longest description search results show in full. */
 const LONGEST = 160;
@@ -83,6 +84,15 @@ function groupOf(sidebar: DefaultTheme.SidebarItem[], path: string): { name: str
     return group?.text && first && first !== path ? { name: group.text, link: first } : undefined;
 }
 
+/** An Academy lesson of a level that opens with an entry check: its text is in the page, hidden until the reader passes the check. */
+const gated = (page: PageData) => levels.slice(1).some((level) => page.relativePath.startsWith(`academy/${level.slug}/`));
+
+/** How search engines are told that a lesson's text is behind a check, so hiding it is not read as hiding it from them alone. */
+const behindCheck = {
+    isAccessibleForFree: false,
+    hasPart: { "@type": "WebPageElement", isAccessibleForFree: false, cssSelector: ".vp-doc" },
+};
+
 type Site = {
     hostname: string;
     name: string;
@@ -137,6 +147,7 @@ export function seoHead(page: PageData, site: Site): HeadConfig[] {
                   inLanguage: "en",
                   isPartOf: { "@id": `${site.hostname}/#website` },
                   ...(modified ? { dateModified: modified } : {}),
+                  ...(gated(page) ? behindCheck : {}),
               },
               {
                   "@type": "BreadcrumbList",

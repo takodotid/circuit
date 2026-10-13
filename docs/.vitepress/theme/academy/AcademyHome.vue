@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// The Academy's map: each level with its lessons, the ones this reader finished ticked, and the next one to take.
+// The Academy's map: each level with its lessons, the ones this reader finished ticked, whether each level is open, and the next step.
 
 import { computed, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
 import { lessons, levels } from "../../academy";
-import { done, isDone, loadProgress, resetProgress } from "./progress";
+import { done, gated, isDone, isOpen, loadProgress, passed, resetProgress } from "./progress";
 
 // What this browser remembers is only known once the page is in it, so the first paint shows a fresh start.
 const ready = ref(false);
@@ -17,11 +17,24 @@ onMounted(() => {
 const finished = computed(() => (ready.value ? lessons.filter((lesson) => done.value[lesson.link]).length : 0));
 const next = computed(() => (ready.value ? lessons.find((lesson) => !done.value[lesson.link]) : lessons[0]));
 
+// The way on: the next lesson, or the entry check of its level while that level is closed.
+const nextStep = computed(() => {
+    const lesson = next.value;
+    if (!lesson) return undefined;
+    if (ready.value && !isOpen(lesson.level.slug, passed.value)) {
+        return { link: `/academy/checks/${lesson.level.slug}`, text: `Next: the ${lesson.level.name} entry check` };
+    }
+    return { link: lesson.link, text: finished.value === 0 ? "Start lesson 1" : `Continue: ${lesson.title}` };
+});
+
+/** Whether a level is shown as closed. Before the browser is read, every gated level is. */
+const closed = (slug: string) => gated.includes(slug) && (!ready.value || !isOpen(slug, passed.value));
+
 const levelDone = (slug: string) =>
     ready.value ? lessons.filter((lesson) => lesson.level.slug === slug && isDone(lesson.link)).length : 0;
 
 function clear() {
-    if (confirm("Clear every lesson you marked done in this browser?")) resetProgress();
+    if (confirm("Clear every lesson you marked done, and every entry check you passed, in this browser?")) resetProgress();
 }
 </script>
 
@@ -38,11 +51,11 @@ function clear() {
             <p v-else><strong>Every lesson done.</strong> The certification is the next step.</p>
 
             <div class="actions">
-                <a v-if="next" class="ac-button primary" :href="withBase(next.link)">
-                    {{ finished === 0 ? "Start lesson 1" : `Continue: ${next.title}` }}
-                </a>
+                <a v-if="nextStep" class="ac-button primary" :href="withBase(nextStep.link)">{{ nextStep.text }}</a>
                 <a v-else class="ac-button primary" :href="withBase('/academy/certification')">See the certification</a>
-                <button v-if="finished > 0" type="button" class="ac-button" @click="clear">Clear my progress</button>
+                <button v-if="finished > 0 || Object.keys(passed).length" type="button" class="ac-button" @click="clear">
+                    Clear my progress
+                </button>
             </div>
         </div>
 
@@ -57,6 +70,17 @@ function clear() {
                 </p>
                 <h2 :id="`${level.slug}-title`">{{ level.title }}</h2>
                 <p class="audience">{{ level.audience }}</p>
+                <p v-if="gated.includes(level.slug)" class="gate" :class="{ closed: closed(level.slug) }">
+                    <template v-if="closed(level.slug)">
+                        <span class="lock">Locked</span>
+                        Opens with its <a :href="withBase(`/academy/checks/${level.slug}`)">entry check</a>: ten questions about
+                        {{ levels[index - 1]?.name }}.
+                    </template>
+                    <template v-else>
+                        <span class="lock open">Open</span>
+                        You passed its entry check in this browser.
+                    </template>
+                </p>
             </div>
             <ol class="lessons">
                 <li
@@ -181,6 +205,35 @@ h2 {
 .audience {
     margin: 0 !important;
     color: var(--circuit-soft);
+}
+
+.gate {
+    margin: 8px 0 0 !important;
+    font-size: 15.5px !important;
+}
+
+.lock {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 0 7px;
+    background: var(--circuit-ink);
+    color: var(--circuit-paper);
+    font-size: 11px;
+    font-weight: 700;
+    font-stretch: 115%;
+    letter-spacing: 0.08em;
+    line-height: 20px;
+    text-transform: uppercase;
+    vertical-align: 1px;
+}
+
+.lock.open {
+    background: var(--circuit-added);
+    color: #ffffff;
+}
+
+.dark .lock.open {
+    color: #0b1122;
 }
 
 .lessons {
