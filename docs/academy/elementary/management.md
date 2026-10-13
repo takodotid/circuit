@@ -12,7 +12,7 @@ Whoever can log in to a router or a switch controls your network: they can read 
 The management network is a VLAN that only the people who run the network use. In the single-site network it is `mgmt`, VLAN 10, `192.168.10.0/24`, and it travels only on the trunk between the switch and the router. The three locks are all written in the device's file:
 
 1. **Where from.** `management.allow` lists the addresses that may reach the device's services. A computer outside it does not even get a login prompt.
-2. **How.** Each way in is a service, and a service is on only when it is written: `ssh: {}` turns SSH on. Telnet, plain web (`http`) and the rest stay off unless you write them. <Term means="Secure shell: a way to log in to a device over the network, with everything encrypted, the password included.">SSH</Term> is encrypted. Telnet and plain web send your password across the network as readable text, so anyone on the path can read it.
+2. **How.** Each way in is a service, and a service is on only when it is written: `ssh: {}` turns SSH on. Telnet, plain web (`http`), FTP and the rest stay off unless you write them. <Term means="Secure shell: a way to log in to a device over the network, with everything encrypted, the password included.">SSH</Term> is encrypted. Telnet, FTP and plain web send your password across the network as readable text, so anyone on the path can read it.
 3. **Who.** `users` lists every login, each with a role. `admin` may do everything, `read-only` may look but change nothing, and `operator` sits between the two; exactly what it may do differs by platform. A user the file does not list is removed from the device.
 
 ```ts

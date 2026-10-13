@@ -21,7 +21,8 @@ The picture stops being true here: a port is not a place inside the device. It i
 | 443  | Web pages, locked so nobody on the way can read them (HTTPS)           |
 | 53   | DNS, the answers you met in [Names and numbers](/academy/beginner/dns) |
 | 22   | SSH: logging in to another computer and typing commands on it          |
-| 25   | Mail passed from one mail server to another                            |
+| 25   | Mail passed from one mail server to another (SMTP)                     |
+| 21   | FTP, an old way of sending files that sends the password as plain text |
 
 A port number is 16 bits, so it goes from 0 to 65535. An address and a port are written together with a colon: `203.0.113.80:443` is the locked web program on the server at `203.0.113.80`.
 
@@ -81,7 +82,7 @@ Neither is better. They are for different jobs.
 | DNS                                 | UDP, mostly | One small question and one small answer. Asking again is quicker than a handshake. Very large answers use TCP. |
 
 ::: info A newer way for the web
-Some websites now send pages over UDP with a newer method called HTTP/3, which does its own checking and resending on top of UDP. The idea is the same: every piece must arrive. These lessons follow the classic way, over TCP.
+Some websites now send pages over UDP with a newer method called HTTP/3. It runs on QUIC, which does its own checking, resending and locking on top of UDP. The idea is the same: every piece must arrive. These lessons follow the classic way, over TCP.
 :::
 
 <Quiz

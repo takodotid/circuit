@@ -50,6 +50,28 @@ The IP addresses on the packet stayed the same the whole way. The frame around i
   explain="The network part of 192.168.2.30 is 192.168.2, and the laptop is on 192.168.1. A different network means: send it to the gateway."
 />
 
+## Asking for a hardware address: ARP
+
+A frame needs the receiver's hardware address, but a device usually knows only its IP address. To find the hardware address it uses <Term means="Address resolution protocol: how a device finds the hardware address that belongs to an IP address on its own network, by asking everyone with a broadcast.">ARP</Term>, the broadcast question from [Switches](/academy/beginner/switches): "who has 192.168.1.30?". Only the device with that address answers, and the asker keeps the answer in its <Term means="The list a device keeps of the hardware address behind each IP address on its own network, so it does not have to ask every time. Old lines are forgotten after a while.">ARP table</Term> for a while, so the next frame goes out at once.
+
+The question is only ever asked on the device's own network. For a far address, the device does not ask for the far device at all: it asks for its gateway's hardware address, and sends the frame there.
+
+<TryIt title="Find a hardware address">
+
+Send from the laptop to the printer twice, then to the far server, and watch what the laptop asks and what it writes down.
+
+<ArpLookup />
+
+</TryIt>
+
+<Quiz
+  question="Your laptop, 192.168.1.20/24, sends its first packet to a server at 203.0.113.80. Whose hardware address does it ask for?"
+  :choices="['The server at 203.0.113.80', 'Its gateway, 192.168.1.1', 'Nobody, it already knows every hardware address']"
+  :answer="1"
+  :why="['The server is on another network. A broadcast never leaves the local network, so the server would never hear the question.', '', 'A device learns hardware addresses as it needs them, by asking. Until it asks, its ARP table is empty.']"
+  explain="The server is on another network, so the frame goes to the gateway. The laptop asks for the gateway's hardware address, and the router takes it from there."
+/>
+
 ## The routing table
 
 A router's <Term means="The list a router keeps of networks it can reach, and where to send a packet for each of them.">routing table</Term> is a list of networks, and for each one, where to send a packet for it. There are two kinds of answer:
@@ -91,9 +113,14 @@ Send a packet to the old reading room, and watch the TTL on the packet. Then sen
 
 The TTL did not fix the mistake. The packet was still lost, and the forgotten row is still in the table until someone removes it. What the TTL does is limit the damage: a lost packet disappears after a few dozen hops, instead of going round forever.
 
-::: tip How traceroute works
-A router that drops a packet because its TTL reached 0 usually sends a short note back to the sender, saying who it is. The `traceroute` tool (`tracert` on Windows) uses this to list the routers on the way to an address: it sends packets with a TTL of 1, then 2, then 3, and each router in turn drops one and says who it is.
-:::
+## Notes from the network: ICMP
+
+A router that drops a packet usually sends a short note back to the sender, saying why. These notes have a name of their own, <Term means="Internet control message protocol: short messages devices send each other about delivery itself, such as 'the TTL ran out here', 'I cannot reach that network', or a ping and its reply.">ICMP</Term>. They carry no data of their own; they report on the delivery of other packets. Two tools you will use every week are built on it:
+
+- **ping** sends an ICMP echo request, and the device answers with an echo reply. If the reply comes back, the device is up and the way to it works, and ping tells you how long the round trip took.
+- **traceroute** (`tracert` on Windows) lists the routers on the way to an address. It sends packets with a TTL of 1, then 2, then 3, and each router in turn drops one and sends back an ICMP note saying the TTL ran out, and who it is.
+
+Firewalls often let ICMP through on purpose, as you will see in the Elementary level: a network that drops every ICMP note is harder to fix when something breaks.
 
 <Quiz
   question="A packet leaves your laptop with a TTL of 64 and passes through 5 routers before it arrives. What is its TTL when it arrives?"
@@ -109,4 +136,6 @@ A router that drops a packet because its TTL reached 0 usually sends a short not
 - A router has an address on each network it joins.
 - A router looks up each packet's destination in its routing table and passes it one hop closer: directly, to another router, or by the row for anything else.
 - The IP addresses on a packet stay the same the whole way; the frame around it is new at every hop.
+- A device finds the hardware address for an IP address on its own network with ARP: for a far address, it asks for its gateway's.
 - Every router lowers the packet's TTL by one, so a packet caught in a loop is dropped instead of circling forever.
+- ICMP carries the network's notes about delivery; ping and traceroute are built on it.
