@@ -38,10 +38,12 @@ const { position, travelling, travel } = useTravel();
 const route = computed(() => {
     const missing = [from.value, to.value === "website" ? "internet" : to.value].filter((id) => !plugged.value.includes(id));
     if (from.value === to.value) return { error: "A device does not need the network to talk to itself. Pick another one." };
-    if (missing.length)
-        return {
-            error: `${missing.map((id) => (id === "internet" ? "The home" : at(id).label)).join(" and ")} ${missing.length > 1 ? "are" : "is"} not connected yet, so there is no way through.`,
-        };
+    if (missing.length) {
+        const names = missing.map((id) => (id === "internet" ? "the home" : `the ${at(id).label.toLowerCase()}`)).join(" and ");
+        const verb = missing.length > 1 ? "are" : "is";
+
+        return { error: `${names.replace(/^./, (letter) => letter.toUpperCase())} ${verb} not connected yet, so there is no way through.` };
+    }
 
     return { path: to.value === "website" ? [from.value, "router", "internet", "website"] : [from.value, "router", to.value] };
 });
