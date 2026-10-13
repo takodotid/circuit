@@ -9,28 +9,43 @@ Computers count with only two digits, 0 and 1. Each of these digits is called a 
 
 That is why each of the four numbers in an IP address such as `192.168.1.23` is somewhere between 0 and 255: each one is a byte.
 
-## Counting with ten digits
+## Counting the way you already do
 
-You already know one way of counting so well that you never think about it. It uses ten digits, 0 to 9. When you count past 9, you run out of digits, so you write a 1 in the next place to the left and start again from 0: that is 10, one ten and no ones.
+Think of the distance counter in a car, or the counter on a water meter: a row of little wheels, each printed with the digits 0 to 9.
 
-Each place is worth ten times the place to its right:
+1. Each time the counter goes up by one, the wheel on the right turns to its next digit.
+2. When a wheel is at 9 and has to turn once more, it goes back to 0, and on its way round it pushes the wheel on its left one step.
+3. That is how 9 becomes 10, 19 becomes 20, and 99 becomes 100: the right wheel goes round, and pushes the next one.
 
-| Hundreds | Tens | Ones | The number         |
-| :------: | :--: | :--: | ------------------ |
-|    2     |  5   |  5   | 200 + 50 + 5 = 255 |
-|    0     |  1   |  0   | 10 + 0 = 10        |
-
-Counting like a computer is the same idea, with fewer digits.
+Nothing else is going on. You do not need the words "tens" or "hundreds" to count; you only need wheels that go round and push their neighbour.
 
 ## Counting with two digits
 
-Inside a computer, everything is kept in tiny switches that are either on or off, and everything sent over a cable or through the air is, in the end, a long row of offs and ons. So computers count with two digits only: 0 for off and 1 for on. A digit that can only be 0 or 1 is a <Term means="Short for binary digit: one digit that is either 0 or 1, like one switch that is either off or on. The smallest piece of data there is.">bit</Term>, and counting with two digits is called **binary**.
+Now picture a counter whose wheels have only two digits on them, 0 and 1. It counts in exactly the same way. The only difference is that a wheel goes all the way round after just two steps, so the push to the next wheel happens much more often.
 
-The trick is the same as with ten digits: when you run out of digits, you carry one to the next place. With only 0 and 1, you run out after every second step. And each place is worth twice the place to its right, not ten times.
+<TryIt title="Two counters">
+
+Both counters start at 0 and count up together. Press Add one, and watch which wheels turn on each.
+
+<Odometer />
+
+</TryIt>
+
+On the ten-digit counter, a push only happens every tenth step. On the two-digit counter the right wheel pushes every second step, and pushes often run on: going from 3 to 4, the right wheel pushes the second, which goes round and pushes the third.
+
+This is how computers count. Inside a computer, everything is kept in tiny switches that are either on or off, and everything sent over a cable or through the air is, in the end, a long row of offs and ons. So computers count with the two-digit counter: 0 for off and 1 for on. A digit that can only be 0 or 1 is a <Term means="Short for binary digit: one digit that is either 0 or 1, like one switch that is either off or on. The smallest piece of data there is.">bit</Term>, and counting with two digits is called **binary**.
+
+### What each wheel is worth
+
+On the ten-digit counter, the second wheel moves once every 10 steps, so a 1 on it means 10. The third moves once every 100 steps, so a 1 on it means 100. That is why `255` means 2 hundreds, 5 tens and 5 ones.
+
+The two-digit counter works the same way, with smaller steps. Its right wheel is worth 1. The second wheel moves once every 2 steps, so it is worth 2. The third moves once every 4 steps, so it is worth 4, and each wheel to the left is worth twice the one before: 1, 2, 4, 8, 16, 32, 64 and 128. To read a number, add up the worth of every wheel that shows 1.
+
+The next widget turns the two-digit counter into eight switches, each marked with what it is worth.
 
 <TryIt title="Eight switches">
 
-Each switch is worth the number above it when it is on. Flip some on and see what they add up to. Then press Count up on its own and watch which switches move.
+Each switch is one wheel of the two-digit counter, worth the number above it when it is on. Flip some on and see what they add up to. Then press Count up on its own and watch which switches move.
 
 <BitSwitches tools />
 
@@ -70,14 +85,26 @@ For 192: you need 192, which is at least 128, so turn on 128 and 64 is left. 64 
 
 Eight bits together are called a <Term means="Eight bits together. One byte holds a whole number from 0 to 255, or one letter of plain English text.">byte</Term>. With all eight switches off, a byte is 0. With all of them on, it is 128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 255. So a byte can hold 256 different numbers, from 0 to 255.
 
-Every bit you add doubles how many numbers you can write:
+Why 256, and why does it stop at 255? Count the patterns the switches can make, starting small.
 
-| Bits | Different numbers | From 0 to |
-| :--: | :---------------: | :-------: |
-|  1   |         2         |     1     |
-|  2   |         4         |     3     |
-|  4   |        16         |    15     |
-|  8   |        256        |    255    |
+<TryIt title="Add a switch">
+
+Start with one switch, then add more, and look at the two groups each time.
+
+<BitPatterns />
+
+</TryIt>
+
+One switch makes two patterns, off and on. A second switch can be off or on for each of those, so there are 2 × 2 = 4 patterns. A third switch does the same again: every pattern of two switches appears twice, once with the new switch off and once with it on, so 4 becomes 8. Each switch you add doubles the number of patterns. It also explains what the new switch is worth: it only comes on once every pattern of the switches to its right has been used, so with three switches on its right, the fourth comes on at 8.
+
+Keep going to eight switches and you get 2 × 2 × 2 × 2 × 2 × 2 × 2 × 2 = 256 patterns. The first pattern, all off, stands for 0, so the last one stands for 255. A car counter with three wheels is the same: it has 1,000 readings, but they run from 000 to 999.
+
+| Switches | Patterns              | Numbers  |
+| :------: | --------------------- | -------- |
+|    1     | 2                     | 0 to 1   |
+|    2     | 2 × 2 = 4             | 0 to 3   |
+|    3     | 2 × 2 × 2 = 8         | 0 to 7   |
+|    8     | 2 × 2 × ... × 2 = 256 | 0 to 255 |
 
 <TryIt title="Nine challenges">
 
@@ -117,8 +144,8 @@ So people write each byte as an ordinary number and put dots between them: 192, 
 
 ## In short
 
-- Computers count with two digits, 0 and 1. One such digit is a bit.
-- Each place in binary is worth twice the one to its right: 128, 64, 32, 16, 8, 4, 2, 1.
+- Computers count like a counter whose wheels have only 0 and 1. One such digit is a bit.
+- Each wheel is worth twice the one to its right: 128, 64, 32, 16, 8, 4, 2, 1.
 - To read bits, add the values of the ones that are 1. To write a number, take the biggest values that fit, from the left.
-- Eight bits are a byte, which holds a number from 0 to 255.
+- Each bit you add doubles the patterns. Eight bits are a byte: 256 patterns, for the numbers 0 to 255.
 - An IP address is four bytes, so each of its four numbers is between 0 and 255.
