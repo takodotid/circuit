@@ -52,13 +52,35 @@ In the widget above, the cable from the home to the internet is the one that mak
   explain="The message from the laptop to the printer stays inside your home network, so it does not need the internet at all."
 />
 
-## Who passes messages on
+## One box, many jobs
 
-The box in the middle of a home does several jobs at once. In bigger networks, each job gets a device of its own, and you meet each of them in the coming lessons:
+The box in the middle of a home is called a router, but it is really several devices in one case. Networking books, and the rest of these lessons, talk about each job as a device of its own, which is confusing when the only network you have seen is the one at home. Here is how the two fit together.
 
-- A **switch** joins the devices in one place, such as the computers on one floor, and passes messages between them.
+<TryIt title="Open up the home router">
+
+Pick each job and see which part of the box does it. Then look at the same jobs in an office.
+
+<HomeRouterParts />
+
+</TryIt>
+
+At home, one box is enough: a few devices, one line to the internet, and nobody to look after it. An office has many more devices, more than four sockets can hold and more than one Wi-Fi radio can reach, so each job gets a box of its own, and each box can be bigger, doubled up for when one fails, or replaced without touching the others.
+
+The names for those jobs are the ones you meet in the coming lessons:
+
+- A **switch** joins the devices in one place, such as the computers on one floor, and passes messages between them. The sockets on the back of a home router are a small one.
 - A **router** joins one network to another, such as your home to your internet provider.
 - An **access point** is how devices without a cable, such as phones, join the network over Wi-Fi.
+
+So when a lesson says "the switch" or "the router", and you are thinking of your home, it means that part of your home router.
+
+<Quiz
+  question="You plug a desktop computer into one of the four sockets on the back of your home router. Which part of the box joins it to the rest of your home network?"
+  :choices="['The router', 'The switch', 'The Wi-Fi access point']"
+  :answer="1"
+  :why="['The router joins your home to the internet. Between two devices at home, the switch does the work.', '', 'The access point is for devices without a cable. The desktop has one.']"
+  explain="The sockets on the back are a small switch built into the box. It joins every device with a cable to the others."
+/>
 
 Circuit, the tool these lessons build up to, writes down how switches and routers like these should be set up, one file per device. To write one down, you first need to know what it does, and that is what the Beginner level is for.
 
@@ -66,4 +88,5 @@ Circuit, the tool these lessons build up to, writes down how switches and router
 
 - A network is devices joined by links so they can send each other messages.
 - Devices are joined to a box in the middle, which passes each message on.
+- A home router is several devices in one box: a router, a small switch, a Wi-Fi access point, and usually the part that talks to the provider's line.
 - The internet is many networks joined together, and nobody owns all of it.
