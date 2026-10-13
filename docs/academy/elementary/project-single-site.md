@@ -99,10 +99,10 @@ An error stops `diff` and `apply`, so none of these can reach a device. A warnin
 
 <Quiz
   question="Which part of the files keeps a guest phone from reaching the printer on the home VLAN?"
-  :choices="['The access ports in switch.ts, which put them in different VLANs', 'The forward chain in router.ts, which drops guests going to home', 'The DHCP pool for guests in router.ts']"
+  :choices="['The access ports in switch.ts, which put them in different VLANs', 'The forward chain in router.ts, which drops whatever no rule lets through', 'The DHCP pool for guests in router.ts']"
   :answer="1"
   :why="['Different VLANs keep them apart on the switch, but the router joins the VLANs. Without a rule, it would pass the packet from one to the other.', '', 'DHCP hands out addresses. It decides nothing about where a device may go.']"
-  explain="The VLANs send every packet between guests and home through the router, and its forward chain drops it there."
+  explain="The VLANs send every packet between guests and home through the router. Its forward chain only lets home and guests out to the internet, so the default drops a guest going to home."
 />
 
 ## From the files to the devices

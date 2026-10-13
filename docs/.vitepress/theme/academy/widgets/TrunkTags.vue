@@ -93,10 +93,13 @@ function trunkPort(end: SwitchId) {
 const validation = computed(() => {
     if (matched.value) return "$ npx circuit validate\n2 device(s), no errors.";
 
-    const json = (end: SwitchId) => `{"trunk":[${carried.value[end].join(",")}]}`;
+    const words = (end: SwitchId) => {
+        const ids = carried.value[end];
+        return ids.length ? `${ids.length === 1 ? "VLAN" : "VLANs"} ${ids.join(", ")} tagged` : "no VLANs";
+    };
     const line = (end: SwitchId) => {
         const far = switches[end].far;
-        return `  error  ${end}: port 40g-1 link: carries ${json(end)}, and ${far} 40g-1 carries ${json(far)}`;
+        return `  error  ${end}: port 40g-1 link: 40g-1 carries ${words(end)}, and ${far} 40g-1 carries ${words(far)}`;
     };
 
     return `$ npx circuit validate\n${line("switch-a")}\n${line("switch-b")}\n\n2 error(s).`;
