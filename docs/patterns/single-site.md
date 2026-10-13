@@ -27,7 +27,7 @@ Values both devices use. Change them first: your management network, the router'
 
 ## router.ts
 
-The router has the internet connection on its `1g-1` port, and a trunk with all three VLANs to the switch. For each VLAN it is the gateway and the DHCP server. The firewall lets replies back in, keeps guests away from the other VLANs, and only lets the management network log in. NAT shares the public address.
+The router has the internet connection on its `1g-1` port, and a trunk with all three VLANs to the switch. For each VLAN it is the gateway and the DHCP server. The firewall lets home and guests out to the internet and their replies back in, and drops anything else passing through, so guests never reach the other VLANs. Only the management network may log in. NAT shares the public address.
 
 <<< @/../templates/single-site/router.ts
 
