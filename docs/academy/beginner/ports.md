@@ -82,7 +82,7 @@ Neither is better. They are for different jobs.
 | DNS                                 | UDP, mostly | One small question and one small answer. Asking again is quicker than a handshake. Very large answers use TCP. |
 
 ::: info A newer way for the web
-Some websites now send pages over UDP with a newer method called HTTP/3. It runs on QUIC, which does its own checking, resending and locking on top of UDP. The idea is the same: every piece must arrive. These lessons follow the classic way, over TCP.
+Some websites now send pages over UDP with a newer method called <Term means="The newest version of the rules browsers and web servers use to ask for and send pages. It runs on QUIC, over UDP, instead of over TCP.">HTTP/3</Term>. It runs on <Term means="A way of sending data over UDP that adds what UDP leaves out: it checks every piece arrived, sends lost ones again, and locks the data so nobody on the way can read it. Web browsers use it for HTTP/3.">QUIC</Term>, which adds its own checking, resending and locking on top of UDP, the jobs TCP and HTTPS do in the classic way. The idea is the same: every piece must arrive. These lessons follow the classic way, over TCP.
 :::
 
 <Quiz
