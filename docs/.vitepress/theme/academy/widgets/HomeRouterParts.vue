@@ -51,33 +51,33 @@ const lit = (id: Job) => chosen.value === id;
         <svg
             v-if="view === 'home'"
             class="ac-drawing"
-            viewBox="0 0 640 230"
+            viewBox="0 0 620 232"
             role="img"
             aria-label="A home router: one box with antennas on top, and on its back a socket for the provider's line and four sockets for cables."
         >
-            <line class="cable" :class="{ lit: lit('line') }" x1="40" y1="150" x2="150" y2="150" />
-            <text x="40" y="138" class="small">line from your provider</text>
+            <line class="cable" :class="{ lit: lit('line') }" x1="20" y1="150" x2="200" y2="150" />
+            <text x="16" y="136" class="small">From your provider</text>
 
             <g :class="['part', { lit: lit('wifi') }]">
-                <rect x="250" y="28" width="12" height="70" rx="5" />
-                <rect x="440" y="28" width="12" height="70" rx="5" />
+                <rect x="300" y="28" width="12" height="70" rx="5" />
+                <rect x="490" y="28" width="12" height="70" rx="5" />
             </g>
 
-            <rect class="box" :class="{ lit: lit('router') }" x="150" y="90" width="400" height="110" rx="10" />
-            <circle class="lamp" cx="520" cy="112" r="6" />
+            <rect class="box" :class="{ lit: lit('router') }" x="200" y="90" width="400" height="110" rx="10" />
+            <circle class="lamp" cx="572" cy="110" r="6" />
 
             <g :class="['part', { lit: lit('line') }]">
-                <rect x="172" y="132" width="44" height="36" rx="3" />
-                <text x="194" y="190" text-anchor="middle" class="tag">LINE</text>
+                <rect x="222" y="132" width="44" height="36" rx="3" />
+                <text x="244" y="124" text-anchor="middle" class="tag">LINE</text>
             </g>
 
             <g :class="['part', { lit: lit('switch') }]">
-                <rect v-for="port in 4" :key="port" :x="272 + (port - 1) * 56" y="132" width="42" height="36" rx="3" />
-                <text x="377" y="190" text-anchor="middle" class="tag">LAN 1 TO 4</text>
+                <rect v-for="port in 4" :key="port" :x="322 + (port - 1) * 56" y="132" width="42" height="36" rx="3" />
+                <text x="427" y="124" text-anchor="middle" class="tag">LAN 1 TO 4</text>
             </g>
 
-            <line class="cable" :class="{ lit: lit('switch') }" x1="293" y1="168" x2="293" y2="222" />
-            <line class="cable" :class="{ lit: lit('switch') }" x1="349" y1="168" x2="349" y2="222" />
+            <line class="cable" :class="{ lit: lit('switch') }" x1="343" y1="168" x2="343" y2="226" />
+            <line class="cable" :class="{ lit: lit('switch') }" x1="399" y1="168" x2="399" y2="226" />
         </svg>
 
         <svg
@@ -158,7 +158,7 @@ const lit = (id: Job) => chosen.value === id;
 
 .ac-drawing .tag {
     fill: #ffffff;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.08em;
 }
@@ -170,7 +170,7 @@ const lit = (id: Job) => chosen.value === id;
 
 .ac-drawing .small {
     fill: var(--circuit-soft);
-    font-size: 12px;
+    font-size: 16px;
 }
 
 .modem rect {
@@ -190,7 +190,7 @@ const lit = (id: Job) => chosen.value === id;
 }
 
 .modem text {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
 }
 
