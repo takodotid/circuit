@@ -496,7 +496,7 @@ export type InternetExchange<V extends string> = {
  * Member ports and a check for an internet exchange's fabric.
  *
  * - `ports(device)`: every member's port on one switch. A member port is in the peering VLAN and nothing else, takes no part in spanning tree or LLDP, and lets only a trickle of broadcast, multicast and unknown unicast through.
- * - `check`: members never share a name, an AS or an address; every address is inside the peering LAN and not reserved; every member port carries the peering VLAN alone.
+ * - `check`: members never share a name, an AS, an address or a port; every address is inside the peering LAN and not reserved; every member port carries the peering VLAN alone.
  */
 export function internetExchange<const V extends string>(exchange: InternetExchange<V>, members: readonly ExchangeMember[]) {
     const percent = exchange.storm_percent ?? 1;
@@ -524,6 +524,8 @@ export function internetExchange<const V extends string>(exchange: InternetExcha
         const findings: Finding[] = [];
         const error = (message: string, device?: string) => findings.push({ level: "error", ...(device ? { device } : {}), message });
         const taken = new Map<string, string>((exchange.reserved ?? []).map((address) => [address, "reserved"]));
+        // `ports()` writes one port per name, so a second member on a port would silently replace the first.
+        const portHolders = new Map<string, string>();
 
         members.forEach((member, index) => {
             for (const other of members.slice(index + 1)) {
@@ -544,6 +546,10 @@ export function internetExchange<const V extends string>(exchange: InternetExcha
             }
 
             for (const [deviceName, portName] of Object.entries(member.ports)) {
+                const holder = portHolders.get(`${deviceName} ${portName}`);
+                if (holder) error(`port ${portName} is given to both ${holder} and ${member.name}`, deviceName);
+                portHolders.set(`${deviceName} ${portName}`, member.name);
+
                 const device = devices.find((candidate) => candidate.name === deviceName);
                 const port = device?.ports?.[portName as keyof typeof device.ports];
                 const carried = port ? vlansOf(port) : [];
