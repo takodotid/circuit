@@ -25,14 +25,26 @@ export function checkAcross(devices: readonly Device[]): Finding[] {
     ];
 }
 
-/** The VLAN ids a port carries, by how it carries them, so two ends can be compared across devices. */
-function carried(device: Device, port: Port<string, string, string, string>) {
+/** The VLAN ids a port or LAG carries, by how it carries them, so two ends can be compared across devices. */
+function carried(device: Device, settings: Switched<string>) {
     const id = (vlan: string | undefined) => (vlan ? device.vlans?.[vlan]?.id : undefined);
     return {
-        access: id(port.access_vlan),
-        native: id(port.native_vlan),
-        trunk: (port.trunk_vlans ?? []).map(id).sort((a, b) => (a ?? 0) - (b ?? 0)),
+        access: id(settings.access_vlan),
+        native: id(settings.native_vlan),
+        trunk: (settings.trunk_vlans ?? []).map(id).sort((a, b) => (a ?? 0) - (b ?? 0)),
     };
+}
+
+/** How a port carries its VLANs, in words: "VLANs 10, 20 tagged and VLAN 30 untagged as native". */
+function describeCarried({ access, native, trunk }: ReturnType<typeof carried>): string {
+    const parts: string[] = [];
+    const tagged = trunk.filter((id) => id !== undefined);
+
+    if (access !== undefined) parts.push(`VLAN ${access} untagged`);
+    if (tagged.length) parts.push(`${tagged.length === 1 ? "VLAN" : "VLANs"} ${tagged.join(", ")} tagged`);
+    if (native !== undefined) parts.push(`VLAN ${native} untagged as native`);
+
+    return parts.length ? parts.join(" and ") : "no VLANs";
 }
 
 /** VLAN names by id, for the VLANs a port or LAG carries. */
@@ -114,16 +126,29 @@ function checkLinks(devices: readonly Device[]): Finding[] {
                 continue;
             }
 
-            const here = JSON.stringify(carried(device, port));
-            const there = JSON.stringify(carried(far, farPort));
-            if (here !== there) report(`carries ${here}, and ${link.device} ${link.port} carries ${there}`);
+            const near = carrierOf(device, portName, port);
+            const away = carrierOf(far, link.port, farPort);
+
+            // A LAG's VLANs are on the LAG, so its member ports are compared by what their LAGs carry.
+            const inLag = near.name !== portName;
+            const farInLag = away.name !== link.port;
+            if (inLag !== farInLag) {
+                report(
+                    inLag
+                        ? `${portName} is in ${near.name}, and ${link.device} ${link.port} is in no LAG`
+                        : `${portName} is in no LAG, and ${link.device} ${link.port} is in ${away.name}`
+                );
+            }
+
+            const here = carried(device, near.settings);
+            const there = carried(far, away.settings);
+            if (JSON.stringify(here) !== JSON.stringify(there)) {
+                report(`${near.name} carries ${describeCarried(here)}, and ${link.device} ${away.name} carries ${describeCarried(there)}`);
+            }
 
             if (port.speed && farPort.speed && port.speed !== farPort.speed) {
                 report(`speed ${port.speed}, and ${link.device} ${link.port} is ${farPort.speed}`);
             }
-
-            const near = carrierOf(device, portName, port);
-            const away = carrierOf(far, link.port, farPort);
 
             const mtu = near.settings.mtu ?? 1500;
             const farMtu = away.settings.mtu ?? 1500;
