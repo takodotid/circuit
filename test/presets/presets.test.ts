@@ -126,6 +126,14 @@ test("exportsEndInReject leaves out an export to a customer", async () => {
     expect(aboutUpstream([{ ...router, policies, routing: { ...router.routing, bgp: asCustomer } }])).toEqual([]);
 });
 
+test("internetExchange gives a port to one member only", async () => {
+    const { internetExchange } = await import("../../src/presets");
+    const member = { name: "a", asn: 64510, ports: { "ix-sw-01": "10g-1" } };
+    const exchange = internetExchange({ vlan: "peering", lan: { ipv4: "203.0.113.0/24" } }, [member, { ...member, name: "b", asn: 64511 }]);
+
+    expect(exchange.check([]).map((finding) => finding.message)).toContain("port 10g-1 is given to both a and b");
+});
+
 test("internetExchange keeps members apart", async () => {
     const { internetExchange } = await import("../../src/presets");
     const member = { name: "a", asn: 64510, ports: {}, ipv4: "203.0.113.1" };

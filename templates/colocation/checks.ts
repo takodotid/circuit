@@ -12,7 +12,7 @@ export default [
     // Traffic from the transit and the exchange reaches the tenants only through the router, which filters it.
     trustBoundary({ untrusted: ["transit", "ix"], routers: ["edge-01"] }),
 
-    // Tenants never share a name, a number or an address.
+    // Tenants never share a name, a number, an address or a port. A port given twice would go to the last tenant alone.
     () => {
         const findings: Finding[] = [];
         const error = (message: string) => findings.push({ level: "error", message });
@@ -25,6 +25,13 @@ export default [
                 for (const block of t.blocks) {
                     const clash = other.blocks.find(({ prefix }) => contains(prefix, block.prefix) || contains(block.prefix, prefix));
                     if (clash) error(`${block.prefix} of ${t.name} overlaps ${clash.prefix} of ${other.name}`);
+                }
+            }
+
+            for (const [device, ports] of Object.entries(t.ports)) {
+                for (const port of Object.keys(ports)) {
+                    const sharer = TENANTS.slice(index + 1).find((other) => other.ports[device]?.[port]);
+                    if (sharer) error(`port ${port} on ${device} is given to both ${t.name} and ${sharer.name}`);
                 }
             }
 
