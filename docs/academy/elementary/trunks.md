@@ -22,6 +22,33 @@ A <Term means="A switch port that carries several VLANs at once, with a tag on e
 
 The devices at the ends never see a tag. Only the trunk does.
 
+## Tagged and untagged
+
+Network people describe a frame by whether it carries that tag:
+
+- An <Term means="A plain frame, with no VLAN tag in it. What devices such as laptops and printers send and receive, and what an access port sends out.">untagged</Term> frame is a plain one, with no tag. Laptops, printers and cameras send and receive only these, and an access port sends only these out.
+- A <Term means="A frame with an 802.1Q tag in it that says which VLAN it belongs to. What a trunk carries, so the far end knows each frame's VLAN.">tagged</Term> frame carries a tag with its VLAN number. A trunk carries these, so the far end can tell the VLANs apart.
+
+So the same two kinds of port are often described by what goes over them:
+
+| Port         | Also called                                  | What goes over it                           | In Circuit                      |
+| ------------ | -------------------------------------------- | ------------------------------------------- | ------------------------------- |
+| Access port  | An untagged port                             | Frames of one VLAN, untagged                | `access_vlan: "cameras"`        |
+| Trunk port   | A tagged port                                | Frames of several VLANs, each tagged        | `trunk_vlans: [...]`            |
+| Both at once | A trunk with a native VLAN, or a hybrid port | Several VLANs tagged, and one VLAN untagged | `trunk_vlans` and `native_vlan` |
+
+Vendors use both ways of speaking. Some ask you whether a port is access or trunk; others, such as a MikroTik router's bridge, ask you for each VLAN which ports carry it tagged and which untagged. They describe the same thing, and Circuit writes it in the form each device expects.
+
+The last row is for devices that send some frames untagged on a trunk, such as a wireless access point that takes its own management untagged while the networks it offers arrive tagged. The <Term means="On a trunk, the one VLAN whose frames cross it untagged. Every other VLAN on the trunk is tagged.">native VLAN</Term> is the VLAN those untagged frames belong to. Leave it out unless the other end needs it, and when you use it, both ends must agree on it.
+
+<Quiz
+  question="A trunk carries VLANs 20 and 30 tagged, with VLAN 10 as its native VLAN. A frame arrives on it with no tag. Which VLAN is it in?"
+  :choices="['VLAN 10', 'VLAN 20', 'None, frames on a trunk must be tagged']"
+  :answer="0"
+  :why="['', 'A frame for VLAN 20 would carry a tag saying 20. This one has no tag at all.', 'A trunk with a native VLAN takes untagged frames too, and puts them in that VLAN.']"
+  explain="Untagged frames on a trunk belong to its native VLAN. Every other VLAN on it is told apart by its tag."
+/>
+
 All the VLANs on a trunk share its speed. If the guests on one floor are downloading a large file, there is that much less room on the trunk for everyone else. That is why a trunk is usually the fastest port a switch has: in this lesson, the switches are joined by their 40G ports, while each device is on a 10G port.
 
 <TryIt title="Send frames over a trunk">
@@ -115,8 +142,8 @@ This is the most common trunk mistake there is. Someone adds a VLAN for a new te
 
 Without `link`, Circuit cannot know which ports face each other, so it cannot check them. Write it on both ends of every cable between two of your devices. [Circuit Studio](/studio/graph) draws your cables from the same links.
 
-::: tip Untagged frames on a trunk
-Some devices send frames without a tag on a trunk, often for their own management. `native_vlan` says which VLAN those untagged frames belong to: `{ trunk_vlans: ["mgmt", "home"], native_vlan: "mgmt" }`. Both ends must agree on it too, and `link` checks that as well. Leave it out unless the other end needs it.
+::: tip A native VLAN in Circuit
+`native_vlan` says which VLAN the untagged frames on a trunk belong to: `{ trunk_vlans: ["guests", "home"], native_vlan: "mgmt" }`. `link` checks that both ends agree on it, as it does for the tagged VLANs.
 :::
 
 ## A trunk to the router

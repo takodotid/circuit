@@ -118,7 +118,7 @@ async function send() {
     said.value = undefined;
     const vlan = source.vlan;
 
-    tag.value = "no tag";
+    tag.value = "untagged";
     await travel([hostPoint(source), switchPoint(source.on)]);
 
     if (target.vlan.id !== vlan.id) {
@@ -138,7 +138,7 @@ async function send() {
             text: `${source.on} does not carry VLAN ${vlan.id} on its trunk port, so it has no way to send the frame on. It stays on ${source.on}.`,
         };
     } else {
-        tag.value = `tag: VLAN ${vlan.id}`;
+        tag.value = `tagged: VLAN ${vlan.id}`;
         await travel([switchPoint(source.on), switchPoint(target.on)]);
 
         if (!carried.value[target.on].includes(vlan.id)) {
@@ -147,7 +147,7 @@ async function send() {
                 text: `${source.on} sent the frame tagged ${vlan.id}, but ${target.on} does not carry VLAN ${vlan.id} on its trunk port, so it drops every frame with that tag. The two ends do not agree.`,
             };
         } else {
-            tag.value = "no tag";
+            tag.value = "untagged";
             await travel([switchPoint(target.on), hostPoint(target)]);
             said.value = {
                 kind: "good",
@@ -203,7 +203,7 @@ async function send() {
 
             <template v-if="travelling">
                 <circle class="packet" :cx="position[0]" :cy="position[1]" r="9" />
-                <text class="tag-label" :class="{ tagged: tag !== 'no tag' }" :x="position[0]" :y="position[1] - 16" text-anchor="middle">
+                <text class="tag-label" :class="{ tagged: tag !== 'untagged' }" :x="position[0]" :y="position[1] - 16" text-anchor="middle">
                     {{ tag }}
                 </text>
             </template>
