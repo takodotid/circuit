@@ -96,7 +96,7 @@ async function send() {
     said.value = {
         kind: "bad",
         word: "Wrong customer",
-        text: `The table holds two routes to 10.1.2.0/24 and cannot tell whose ${DESTINATION} the packet means. It used the route via ${row.via} on port ${row.office.port}, so the packet from ${sender.label} was delivered to ${row.office.label}: another company's network.`,
+        text: `The table has two routes to 10.1.2.0/24 and cannot tell whose ${DESTINATION} the packet means. It used the route via ${row.via} on port ${row.office.port}, so the packet from ${sender.label} was delivered to ${row.office.label}: another company's network.`,
     };
 }
 

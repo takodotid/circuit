@@ -24,7 +24,7 @@ const steps: Step[] = [
     },
     {
         title: "Fill in the passwords",
-        text: "Put each device’s password in .env, which git never sees. circuit secrets checks that every secret the files name can be read, without printing any of them.",
+        text: "Put each device’s password in .env, which git never sees. circuit secrets checks that every secret the files use can be read, without printing any of them.",
         lang: "shell",
         code: [
             "$ npx circuit secrets",

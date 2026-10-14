@@ -32,7 +32,7 @@ const ACCESS: Hop = {
     label: "OLT, BNG",
     network: "provider",
     title: "Your provider's access network",
-    text: "The OLT at the other end of the fibre gathers the splitters. Behind it, the BNG holds your PPPoE session, gives you your address, and runs the CGNAT if you share one.",
+    text: "The OLT at the other end of the fibre gathers the splitters. Behind it is the BNG: your PPPoE session ends there, and the BNG gives you your address and runs the CGNAT if you share one.",
 };
 
 const CORE: Hop = {
@@ -90,7 +90,7 @@ const DESTINATIONS: { id: string; name: string; hops: Hop[] }[] = [
                 label: "Cache",
                 network: "content",
                 title: "A cache inside your provider",
-                text: "Some large content networks give providers servers of their own to place inside the provider's network, holding copies of their videos. The video comes from a rack in your provider's PoP, and never crosses another network.",
+                text: "Some large content networks give providers servers of their own to place inside the provider's network, with copies of their videos on them. The video comes from a rack in your provider's PoP, and never crosses another network.",
             },
         ],
     },

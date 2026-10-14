@@ -43,7 +43,7 @@ export const checks: Check[] = [
                 question: "How does a switch learn which device is behind which port?",
                 choices: [
                     "Someone types the list in",
-                    "It reads the sender's hardware address of every frame that comes in",
+                    "It reads the sender's hardware address on every frame that comes in",
                     "It asks every device for its IP address",
                     "It reads the IP address inside each packet",
                 ],
@@ -192,7 +192,7 @@ export const checks: Check[] = [
                 lesson: "/academy/elementary/vlans",
             },
             {
-                question: "What tells the switch at the far end of a trunk which VLAN a frame belongs to?",
+                question: "What tells the switch at the far end of a trunk which VLAN a frame is in?",
                 choices: ["The port it arrives on", "A tag in the frame with the VLAN's number", "The IP address", "The frame's length"],
                 answer: 1,
                 lesson: "/academy/elementary/trunks",
@@ -301,7 +301,7 @@ export const checks: Check[] = [
                     "Two switches are joined by a trunk. One end carries VLANs 10 and 20, the other only 10. What does circuit validate do?",
                 choices: [
                     "Nothing, VLAN 10 works",
-                    "Reports an error naming both ends, before anything is sent",
+                    "Reports an error from both ends, before anything is sent",
                     "Adds VLAN 20 to the other end",
                     "Removes VLAN 20",
                 ],
@@ -324,7 +324,7 @@ export const checks: Check[] = [
                 lesson: "/academy/intermediate/routing-tables",
             },
             {
-                question: "Why does an edge router hold a blackhole route for the block it announces?",
+                question: "Why does an edge router have a blackhole route for the block it announces?",
                 choices: [
                     "To drop every packet for it",
                     "So the block is in its routing table, and announced, even when nothing inside it is up",
@@ -364,7 +364,7 @@ export const checks: Check[] = [
                 lesson: "/academy/intermediate/ospf",
             },
             {
-                question: "What tells IP transit from peering?",
+                question: "What is the difference between IP transit and peering?",
                 choices: [
                     "Transit is faster",
                     "With transit a customer pays a provider to reach the whole internet; with peering two networks exchange their own routes, usually without paying",
@@ -381,7 +381,7 @@ export const checks: Check[] = [
                 lesson: "/academy/intermediate/autonomous-systems",
             },
             {
-                question: "A router gets a BGP announcement whose AS path already holds its own AS number. What does it do?",
+                question: "A router gets a BGP announcement whose AS path already has its own AS number in it. What does it do?",
                 choices: ["Prefers it", "Drops it, so routes cannot loop", "Sends it back", "Lowers its local preference"],
                 answer: 1,
                 lesson: "/academy/intermediate/bgp",

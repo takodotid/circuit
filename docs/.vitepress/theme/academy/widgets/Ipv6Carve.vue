@@ -66,7 +66,7 @@ const said = computed(() => {
     if (!filled) return { kind: "hint", text: "Type a subnet number for each VLAN, in hexadecimal, or number them after the VLANs." };
     if (!ready.value) return { kind: "hint", text: `${filled} of 3 VLANs have a /64. Give the others a number too.` };
 
-    return { kind: "good", word: "Planned", text: `Three /64s used, out of the ${count.value} your /${size.value} holds.` };
+    return { kind: "good", word: "Planned", text: `Three /64s used, out of the ${count.value} in your /${size.value}.` };
 });
 
 const code = computed(() => {

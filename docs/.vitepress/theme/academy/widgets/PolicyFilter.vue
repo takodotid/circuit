@@ -41,7 +41,7 @@ const incoming: Incoming[] = [
         prefix: "192.0.2.0/24",
         path: "64510 64507",
         rpki: "invalid",
-        note: "Its ROA names AS64506, but AS64507 announces it.",
+        note: "Its ROA allows only AS64506, but AS64507 announces it.",
         belongs: false,
     },
     { prefix: "2001:db8:4000::/48", path: "64510 64505", rpki: "valid", note: "An ordinary IPv6 route.", belongs: true },

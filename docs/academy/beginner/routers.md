@@ -20,7 +20,7 @@ Every time a device sends a packet, it first compares the destination's network 
 
 The <Term means="The address of the router on your own network. A device sends every packet for another network to it.">default gateway</Term> is the address of the router on your own network: the one way out. A device is given it together with its own address when it joins the network. At home, the gateway is the home router, often at an address such as `192.168.1.1`.
 
-Think of a building with a mailroom. A note for a colleague on your floor you hand over yourself, but every letter for anywhere else goes to the mailroom. The picture stops being true at the mailroom: it does not carry your letter all the way. It passes it to the next sorting office, which passes it on again, and that is what routers do too.
+Think of a building with a mailroom. You take a note for a colleague on your floor to them yourself, but every letter for anywhere else goes to the mailroom. The picture stops being true at the mailroom: it does not carry your letter all the way. It passes it to the next sorting office, which passes it on again, and that is what routers do too.
 
 A router sits on more than one network, so it has an address on each of them. In the drawing below, the main router is `192.168.1.1` on the office network, `10.0.0.1` on the cable to the library, and `198.51.100.2` on the cable to the internet provider. The laptop only needs to know the first one: that is its gateway.
 
@@ -83,7 +83,7 @@ A router's <Term means="The list a router keeps of networks it can reach, and wh
 
 Most tables end with a row for **anything else**: where to send a packet whose network is on no other row. For the main router, that is the internet provider. It is the router's own default gateway, and it works the same way as the laptop's.
 
-When a packet arrives, the router looks for the row whose network holds the destination address. If no row does, it uses the row for anything else. If it has no such row either, it drops the packet. Try sending to the website in the widget: no row names its network, so it takes the row for anything else, out to the provider.
+When a packet arrives, the router looks for the row whose network has the destination address in it. If no row does, it uses the row for anything else. If it has no such row either, it drops the packet. Try sending to the website in the widget: no row is for its network, so it takes the row for anything else, out to the provider.
 
 Each step from one router to the next is called a <Term means="One step on a packet's way: from a device to a router, or from one router to the next.">hop</Term>. A packet from your home to a website far away may take ten or twenty hops, and every router on the way does the same small thing: read the destination, find a row, pass it on.
 
@@ -115,7 +115,7 @@ The TTL did not fix the mistake. The packet was still lost, and the forgotten ro
 
 ## Notes from the network: ICMP
 
-A router that drops a packet usually sends a short note back to the sender, saying why. These notes have a name of their own, <Term means="Internet control message protocol: short messages devices send each other about delivery itself, such as 'the TTL ran out here', 'I cannot reach that network', or a ping and its reply.">ICMP</Term>. They carry no data of their own; they report on the delivery of other packets. Two tools you will use every week are built on it:
+A router that drops a packet usually sends a short note back to the sender, saying why. These notes have a name of their own, <Term means="Internet control message protocol: short messages devices send each other about delivery itself, such as 'the TTL ran out here', 'I cannot reach that network', or a ping and its reply.">ICMP</Term>. They carry no data of their own; they say what happened to other packets on the way. Two tools you will use every week are built on it:
 
 - **ping** sends an ICMP echo request, and the device answers with an echo reply. If the reply comes back, the device is up and the way to it works, and ping tells you how long the round trip took.
 - **traceroute** (`tracert` on Windows) lists the routers on the way to an address. It sends packets with a TTL of 1, then 2, then 3, and each router in turn drops one and sends back an ICMP note saying the TTL ran out, and who it is.
@@ -138,4 +138,4 @@ Firewalls often let ICMP through on purpose, as you will see in the Elementary l
 - The IP addresses on a packet stay the same the whole way; the frame around it is new at every hop.
 - A device finds the hardware address for an IP address on its own network with ARP: for a far address, it asks for its gateway's.
 - Every router lowers the packet's TTL by one, so a packet caught in a loop is dropped instead of circling forever.
-- ICMP carries the network's notes about delivery; ping and traceroute are built on it.
+- ICMP is how the network sends notes about delivery; ping and traceroute are built on it.

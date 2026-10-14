@@ -60,7 +60,7 @@ Studio helps the reviewer see the change as a network, not as text. Its [Compare
   question="CI passed and the plan for tor-01 shows an interface losing two VLANs that belong to a tenant who did not ask for anything. What do you do?"
   :choices="['Approve: CI passed, so the change is safe', 'Ask for changes, and ask the author which port the request meant', 'Approve, and tell the tenant afterwards']"
   :answer="1"
-  :why="['CI runs the checks someone wrote. A plan can still hold a change that no check was written for.', '', 'The tenant would find out first, when its server drops off the network.']"
+  :why="['CI runs the checks someone wrote. A plan can still have a change that no check was written for.', '', 'The tenant would find out first, when its server drops off the network.']"
   explain="A minus line on something that belongs to someone else is exactly what review is for. The file is valid, but it is not the change the request asked for."
 />
 
@@ -70,9 +70,9 @@ A change that can touch customers goes out in a <Term means="A time agreed in ad
 
 In the window, apply one device at a time, starting where a mistake hurts least, and check each before the next. Circuit protects you while it applies (see [How a change is applied](/guide/convergence)):
 
-1. It dry-runs the plan where the platform allows it: RouterOS compiles every command without running it, and VRP loads every line into a candidate that is thrown away if the device refuses one.
+1. It dry-runs the plan where the platform allows it: RouterOS compiles every command without running it, VRP loads every line into a candidate that is thrown away if the device refuses one, and Junos loads the plan into a candidate and checks it with `commit check` before anything changes. FortiOS and Raisecom ROS run each line as it is sent; if a FortiGate refuses one, Circuit has it reload its saved config, which undoes what was sent.
 2. After the change, it logs in again in a new session. The change is kept only once that login works.
-3. If it cannot log in again, a RouterOS device restores its backup by itself after `--rollback` minutes, 10 by default. A VRP or Raisecom device has not saved the change, so a restart brings back the last saved config.
+3. If it cannot log in again, a RouterOS device restores its backup by itself after `--rollback` minutes, 10 by default. A VRP or Raisecom device has not saved the change, so a restart brings back the last saved config. On Junos and FortiOS, Circuit undoes the change over the session that is still open: Junos goes back to the previous config, and a FortiGate reloads its saved one. If Circuit cannot do that either, the device does it by itself after `--rollback` minutes.
 
 That protects your access, not your customers. The way back for anything else is the way forward: revert the commit, and apply again.
 
@@ -106,7 +106,7 @@ You cannot run what you cannot find. A provider keeps three records besides the 
 - **<Term means="IP address management: the record of which prefixes and addresses are used where, and which are free.">IPAM</Term>**: every prefix and address, who has it, and what is free.
 - **Capacity**: how full each port, link and device is, from the monitoring in [Watching the network](/academy/professional/monitoring), so an upgrade is ordered before a link fills, not after.
 
-Circuit already holds part of this. The files know every device, port, cable (`link`), VLAN and address, and `circuit addresses` lists what is used and free in each block. On the colocation pattern:
+Circuit already has part of this. The files know every device, port, cable (`link`), VLAN and address, and `circuit addresses` lists what is used and free in each block. On the colocation pattern:
 
 ```
 $ npx circuit addresses 198.51.100.0/24
@@ -116,7 +116,7 @@ $ npx circuit addresses 198.51.100.0/24
   free: 198.51.100.0/29, 198.51.100.16/28, 198.51.100.32/27, 198.51.100.64/26, 198.51.100.128/25
 ```
 
-What Circuit does not know is the physical plant: racks, power, serial numbers, which building a device is in. Many networks keep that in [NetBox](https://netboxlabs.com/docs/netbox/), which describes itself as a source of truth that combines IPAM and DCIM. A way to keep NetBox in step with your config, one way, with Circuit writing and NetBox showing, is planned in [issue #24](https://github.com/takodotid/circuit/issues/24) but not built: NetBox needs a site, a role and a type for each device, which Circuit's config does not hold yet.
+What Circuit does not know is the physical plant: racks, power, serial numbers, which building a device is in. Many networks keep that in [NetBox](https://netboxlabs.com/docs/netbox/), which describes itself as a source of truth that combines IPAM and DCIM. A way to keep NetBox in step with your config, one way, with Circuit writing and NetBox showing, is planned in [issue #24](https://github.com/takodotid/circuit/issues/24) but not built: NetBox needs a site, a role and a type for each device, which Circuit's config does not have yet.
 
 Some upkeep runs on a timer instead of a request. Prefix lists built from a registry change every day, and [Scheduled refresh](/guide/scheduled-refresh) puts the current ones on the device every night, with `circuit refresh`.
 
@@ -134,4 +134,4 @@ Some upkeep runs on a timer instead of a request. Prefix lists built from a regi
 - The reviewer reads the plan, above all its `-` lines, and asks who notices and how it is undone. A valid file is not always the change you meant.
 - If `apply` plans more than the reviewed diff, someone changed the device by hand: stop and find out.
 - In an incident, declare early, let one person run it, keep a live document, undo the last change first, and write a postmortem without blame.
-- Circuit's files and `circuit addresses` hold the config side of the plant; racks, power and cables beyond `link` live in a DCIM such as NetBox.
+- Circuit's files and `circuit addresses` have the config side of the plant; racks, power and cables beyond `link` live in a DCIM such as NetBox.

@@ -40,7 +40,7 @@ const decisions: Decision[] = [
         id: "ipv4",
         question: "2. Its IPv4 address on the peering LAN, 203.0.113.0/24",
         choices: [
-            { id: "203.0.113.13", label: "203.0.113.13", verdict: "good", text: "The next address no one holds." },
+            { id: "203.0.113.13", label: "203.0.113.13", verdict: "good", text: "The next address no one has." },
             {
                 id: "203.0.113.12",
                 label: "203.0.113.12",
@@ -65,12 +65,12 @@ const decisions: Decision[] = [
         id: "port",
         question: "3. Its port on ix-sw-02",
         choices: [
-            { id: "10g-2", label: "10g-2", verdict: "good", text: "Free: no member's file and no line in ix-sw-02.ts names it." },
+            { id: "10g-2", label: "10g-2", verdict: "good", text: "Free: no member's file and no line in ix-sw-02.ts uses it." },
             {
                 id: "10g-1",
                 label: "10g-1",
                 verdict: "bad",
-                text: "acme's port. Two members cannot share one port: the newcomer's router would have nowhere to plug in, and acme's port would carry its name.",
+                text: "acme's port. Two members cannot share one port: the newcomer's router would have nowhere to plug in, and acme's port would be described with the newcomer's name.",
             },
             {
                 id: "40g-5",

@@ -11,7 +11,7 @@ export function parseIPv6(text: string): { groups: number[] } | { error: string 
                 error: "This has an IPv4 address written inside it. That form exists, but this widget only takes the eight groups of hexadecimal digits.",
             };
         if (written.includes("/")) return { error: "Leave out the slash and the length: type the address alone." };
-        return { error: "An IPv6 address only holds the digits 0 to 9, the letters a to f, and colons." };
+        return { error: "An IPv6 address only has the digits 0 to 9, the letters a to f, and colons." };
     }
 
     const halves = written.split("::");
@@ -26,7 +26,7 @@ export function parseIPv6(text: string): { groups: number[] } | { error: string 
 
     for (const group of [...head, ...tail]) {
         if (group === "") return { error: "There is an empty group between two single colons. Only :: may stand for zero groups." };
-        if (group.length > 4) return { error: `The group ${group} has more than four digits. Each group holds at most four.` };
+        if (group.length > 4) return { error: `The group ${group} has more than four digits. Each group has at most four.` };
     }
 
     const writtenCount = head.length + tail.length;

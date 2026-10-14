@@ -142,7 +142,7 @@ routing: {
 - Link-local addresses are not written anywhere. The device makes them.
 
 ::: warning raisecom-ros is IPv4 only
-On `raisecom-ros`, interfaces can only hold IPv4 addresses and static routes are IPv4 only, so `circuit validate` reports an IPv6 address there as an error. RouterOS and VRP take IPv6 addresses. See [Platforms](/platforms/).
+On `raisecom-ros`, interfaces can only have IPv4 addresses and static routes are IPv4 only, so `circuit validate` reports an IPv6 address there as an error. RouterOS, VRP, Junos and FortiOS take IPv6 addresses. Of those, VRP sends no router advertisements, so it reports `ipv6_ra` as an error, and it takes no `description` on an IPv6 static route. Junos takes no `description` on any static route. See [Platforms](/platforms/).
 :::
 
 ## In short

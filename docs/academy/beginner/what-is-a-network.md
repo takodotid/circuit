@@ -64,7 +64,7 @@ Pick each job and see which part of the box does it. Then look at the same jobs 
 
 </TryIt>
 
-At home, one box is enough: a few devices, one line to the internet, and nobody to look after it. An office has many more devices, more than four sockets can hold and more than one Wi-Fi radio can reach, so each job gets a box of its own, and each box can be bigger, doubled up for when one fails, or replaced without touching the others.
+At home, one box is enough: a few devices, one line to the internet, and nobody to look after it. An office has many more devices, more than four sockets can hold and more than one Wi-Fi radio can reach. So each job gets a box of its own, and each box can be bigger, doubled up for when one fails, or replaced without touching the others.
 
 The names for those jobs are the ones you meet in the coming lessons:
 

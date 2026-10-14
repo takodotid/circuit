@@ -11,7 +11,7 @@ ASes connect in two ways. With **transit**, a customer pays a provider to reach 
 
 ## AS numbers and address blocks
 
-Every AS has an <Term means="Autonomous system number: the number that names an AS on the internet, such as 64500.">AS number</Term>, an ASN. It is how other networks tell yours apart, and in the next lesson you see it written into every route you announce.
+Every AS has an <Term means="Autonomous system number: the number an AS is known by on the internet, such as 64500.">AS number</Term>, an ASN. It is how other networks tell yours apart, and in the next lesson you see it written into every route you announce.
 
 AS numbers and address blocks are handed out by five regional internet registries, each for a part of the world: AFRINIC for Africa, APNIC for Asia and the Pacific, ARIN for North America, LACNIC for Latin America and the Caribbean, and the RIPE NCC for Europe, the Middle East and part of Central Asia. In some countries a national registry sits between you and the regional one. A network usually gets its own AS number when it has a routing policy of its own, which mostly means it connects to more than one other network.
 
@@ -124,4 +124,4 @@ interfaces: {
 - With transit, a customer pays a provider to reach the whole internet. With peering, two networks swap their own and their customers' traffic, usually for free.
 - A network passes its customers' routes to everyone, and its providers' and peers' routes only to its customers.
 - At an internet exchange, many networks share one network; a route server lets each keep one session instead of hundreds, while traffic still goes directly between members.
-- In Circuit, the AS number is `asn` in `circuit.config.ts`, and an exchange interface carries `exchange` for PeeringDB.
+- In Circuit, the AS number is `asn` in `circuit.config.ts`, and an exchange interface has an `exchange` field for PeeringDB.

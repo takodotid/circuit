@@ -11,7 +11,7 @@ The rule for both is short: never accept everything, and never announce everythi
 
 ## How a policy is read
 
-In a device file, `policies` holds named lists of rules, and each BGP neighbor says, by name, which list it uses for `import` and which for `export`. A rule can have four parts, and Circuit evaluates them in this order:
+In a device file, `policies` has named lists of rules, and each BGP neighbor says, by name, which list it uses for `import` and which for `export`. A rule can have four parts, and Circuit evaluates them in this order:
 
 1. `call`: run another policy first. A route that policy accepts or rejects stops there.
 2. `match`: which routes the rule applies to, such as a `prefix`, a `prefix_set`, a `prefix_length`, an `rpki` state or a `community`. A rule without `match` applies to every route.
@@ -27,7 +27,7 @@ A neighbor can send you routes it should not, by mistake or on purpose. Four kin
 1. **Addresses that are not on the internet**: private ranges such as `10.0.0.0/8`, and <Term means="Addresses that can never be a real destination on the internet, such as 127.0.0.0/8, the device itself, or 169.254.0.0/16, used only on one link.">martians</Term>. Circuit's presets list them as `PRIVATE_RANGES` and `MARTIANS`.
 2. **Prefixes too long or too short**. Most networks accept nothing longer than a /24 for IPv4 or a /48 for IPv6, so a longer one would not travel far, and it only makes every table bigger. Nothing shorter than a /8 or a /16 is a real network either.
 3. **Your own prefixes, coming back**. You already know where your own space is. A neighbor announcing it means someone else claims it, by mistake or to steal its traffic.
-4. **Routes RPKI marks invalid**. With <Term means="Resource Public Key Infrastructure. The holder of a prefix publishes a signed record, a ROA, naming the AS allowed to announce it, and routers check each route against those records.">RPKI</Term>, a validator compares each route with the published records: `valid` if a record allows it, `invalid` if one contradicts it, `not-found` if there is none. Your validators go in `routing.rpki`.
+4. **Routes RPKI marks invalid**. With <Term means="Resource Public Key Infrastructure. The holder of a prefix publishes a signed record, a ROA, that says which AS may announce it, and routers check each route against those records.">RPKI</Term>, a validator compares each route with the published records: `valid` if a record allows it, `invalid` if one contradicts it, `not-found` if there is none. Your validators go in `routing.rpki`.
 
 `bgpSanity()` from the [presets](/guide/presets#bgp-sanity) makes the rules for the second and fourth. The first and third need a `prefix_set` each, a named list of prefixes. A route matches a set when its prefix is one of the set's own, or inside one:
 
@@ -96,7 +96,7 @@ Your own routers never sent the leaked traffic anywhere. The routes you announce
 Three things guard against it, and the template uses all of them:
 
 - **The export ends in a reject.** The template's checks include `exportsEndInReject`, so `circuit validate` fails on an export that does not, as you saw in the terminal, and `diff` and `apply` stop until it is fixed.
-- **`role`** says what each neighbor is to you: `provider`, `customer`, `peer`, or an exchange's route server, `rs`. It turns on RFC 9234, so both sides reject a leaked route on their own.
+- **`role`** says what each neighbor is to you: `provider`, `customer`, `peer`, or an exchange's route server, `rs`. It turns on RFC 9234, so both sides reject a leaked route on their own. Of the platforms Circuit supports, only RouterOS has BGP roles.
 - **`max_prefixes`** is a fuse. When a neighbor sends more prefixes than this, the session closes. It stays closed until it is cleared by hand, on RouterOS with `/routing bgp session clear <session> flag=limit-exceeded`. Set it a little above what each neighbor should send. Your providers set one on their side for you, which is what the limit in the widget showed.
 
 <Quiz

@@ -349,8 +349,8 @@ const slots = computed(() =>
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
         <p v-else-if="running" class="ac-say hint" aria-live="polite">Run {{ run }}: the packets are on their way. Watch the busy way.</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            Press Send. Which way each packet takes, and which ones get lost, is down to luck; each run has a number, and the same run again
-            has the same luck.
+            Press Send the message. Which way each packet takes, and which ones get lost, is chosen at random. Each run has a number, and
+            sending the same run again gives the same result.
         </p>
     </div>
 </template>

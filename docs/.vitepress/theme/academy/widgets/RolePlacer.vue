@@ -195,7 +195,7 @@ function choose(device: Device, role: Role) {
 
     said.value =
         role === device.fits[0]
-            ? { kind: "good", word: "Placed", text: `It takes its place in the drawing and the name ${name}.` }
+            ? { kind: "good", word: "Placed", text: `It goes into its place in the drawing, and gets the name ${name}.` }
             : {
                   kind: "warn",
                   word: "Also fine",
@@ -240,7 +240,7 @@ const summary = computed(() => {
         return "Every device has a role, and every name matches the one the full-setup example uses. The edge is on top, the middle switches below it, and the racks at the bottom.";
 
     const changes = renamed.value.map((device) => `${device.example} is ${nameOf(device)}`).join(", ");
-    return `Every device has a role. Your names differ from the example's in ${renamed.value.length}: ${changes}. Both work; what matters is that one rule names every device.`;
+    return `Every device has a role. Your names differ from the example's in ${renamed.value.length}: ${changes}. Both work; what matters is that every device is named by one rule.`;
 });
 </script>
 

@@ -127,7 +127,7 @@ async function openConnection() {
 
         said.value = {
             kind: "good",
-            text: `The ${remote.label.toLowerCase()} only ever saw ${PUBLIC}. Its reply came to port ${outsidePort}, and row ${row.number} says that port belongs to the ${device.label.toLowerCase()}’s port ${insidePort}.${twinNote}`,
+            text: `The ${remote.label.toLowerCase()} only ever saw ${PUBLIC}. Its reply came to port ${outsidePort}, and row ${row.number} says that port leads to the ${device.label.toLowerCase()}’s port ${insidePort}.${twinNote}`,
         };
     } finally {
         busy.value = false;
@@ -172,7 +172,7 @@ async function connectFromOutside() {
 
             said.value = {
                 kind: "good",
-                text: `The port forward sends port ${FORWARDED_PORT} to the camera’s port 443. Anyone on the internet can now reach the camera this way, not only you. Row ${row.number} carries the camera’s replies back out.`,
+                text: `The port forward sends port ${FORWARDED_PORT} to the camera’s port 443. Anyone on the internet can now reach the camera this way, not only you. Row ${row.number} sends the camera’s replies back out.`,
             };
             return;
         }

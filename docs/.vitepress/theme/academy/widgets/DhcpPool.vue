@@ -37,7 +37,7 @@ const slots = computed(() =>
 
         if (!holder) return { address, state: "free", text: "free" };
         if (holder.here) return { address, state: "here", text: `${holder.name}, here` };
-        return { address, state: "held", text: `${holder.name} left, held until ${when(holder.leaseEnds)}` };
+        return { address, state: "held", text: `${holder.name} left, kept until ${when(holder.leaseEnds)}` };
     })
 );
 

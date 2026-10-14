@@ -118,19 +118,19 @@ const said = computed(() => {
             return {
                 kind: "good",
                 word: "Valid",
-                text: `${route} is valid: the ROA for ${verdict.value.matching[0]!.prefix} names AS${origin.value} and allows up to /${verdict.value.matching[0]!.maxLength}. SANITY lets it on to the rest of the import.`,
+                text: `${route} is valid: the ROA for ${verdict.value.matching[0]!.prefix} has AS${origin.value} as the origin and allows up to /${verdict.value.matching[0]!.maxLength}. SANITY lets it on to the rest of the import.`,
             };
         case "invalid-origin":
             return {
                 kind: "bad",
                 word: "Invalid",
-                text: `${route} is invalid: a ROA covers it, but none names AS${origin.value} as the origin. SANITY rejects it.`,
+                text: `${route} is invalid: a ROA covers it, but none has AS${origin.value} as the origin. SANITY rejects it.`,
             };
         case "invalid-length":
             return {
                 kind: "bad",
                 word: "Invalid",
-                text: `${route} is invalid: the ROA names AS${origin.value}, but allows nothing longer than /${Math.max(...verdict.value.covering.filter((roa) => roa.asn === origin.value).map((roa) => roa.maxLength))}, and this is a /${length.value}. SANITY rejects it.`,
+                text: `${route} is invalid: the ROA has AS${origin.value} as the origin, but allows nothing longer than /${Math.max(...verdict.value.covering.filter((roa) => roa.asn === origin.value).map((roa) => roa.maxLength))}, and this is a /${length.value}. SANITY rejects it.`,
             };
         default:
             return {

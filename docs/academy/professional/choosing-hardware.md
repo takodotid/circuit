@@ -88,13 +88,15 @@ The kind of device follows from two things: whether the work per packet fits in 
 
 ## Ports in Circuit
 
-Circuit names a port by its speed class and its position in that class, the same way on every platform: `25g-1` is the first 25G port, `100g-2` the second 100G port. Each platform's `models.ts` lists how many ports of each speed a model has, and how the platform spells them:
+In Circuit, a port's name is its speed class and its position in that class, the same way on every platform: `25g-1` is the first 25G port, `100g-2` the second 100G port. Each platform's `models.ts` lists how many ports of each speed a model has, and how the platform spells them. On the QFX5100 and the FortiGate, the two 1G ports are the out-of-band management ports:
 
 | Platform       | Model               | Ports                        | `100g-1` on the device       |
 | -------------- | ------------------- | ---------------------------- | ---------------------------- |
 | `routeros`     | CCR2216-1G-12XS-2XQ | 2 x 100G, 12 x 25G, 1 x 1G   | `qsfp28-1-1`                 |
 | `vrp`          | CE6855-48S6Q-HI     | 6 x 40G, 48 x 10G            | none; `40g-1` is `40GE1/0/1` |
 | `raisecom-ros` | RAX721-C-6C48       | 6 x 100G, 24 x 25G, 24 x 10G | `hundredgige 1/1/1`          |
+| `junos`        | QFX5100-48S-6Q      | 6 x 40G, 48 x 10G, 2 x 1G    | none; `40g-1` is `et-0/0/48` |
+| `fortios`      | FG-3700D            | 4 x 40G, 28 x 10G, 2 x 1G    | none; `40g-1` is `port1`     |
 
 A port that does not exist is caught before anything is sent. In the file, the editor marks it; `circuit validate` says:
 
@@ -144,7 +146,7 @@ A link comes up only when four things hold: each optic fits its cage, both ends 
 error  edge-a1: port 100g-1 link: speed 40g, and edge-a2 100g-1 is 100g
 ```
 
-On Raisecom switches, `system.transceiver_monitoring` turns on reading each optic's temperature, power and voltage, so you can watch its light levels; RouterOS always reads them.
+On Raisecom switches, `system.transceiver_monitoring` turns on reading each optic's temperature, power and voltage, so you can watch its light levels; RouterOS, Junos and FortiOS always read them.
 
 <Quiz
   question="Two buildings 2 km apart are joined by single-mode fibre. Both routers have SFP28 cages. Which optic goes in each?"
@@ -172,4 +174,4 @@ On Raisecom switches, `system.transceiver_monitoring` turns on reading each opti
 - The full table was about 1,050,000 IPv4 and 242,000 IPv6 routes at the start of 2026, and grows every year. A router that forwards it in a chip needs a FIB with room to grow; one that does not need it can take a default route.
 - Check forwarding rates in packets a second at small frames, and read what a licence covers.
 - An optic must fit its cage, match the far end, suit the fibre and reach the distance: SR on multimode for short runs, LR and ER on single mode for long ones.
-- In Circuit, ports are named by speed and position from `models.ts`, `speed` marks a slower optic, and `hardware_offload` chooses chip or CPU.
+- In Circuit, a port's name is its speed and position from `models.ts`, `speed` marks a slower optic, and `hardware_offload` chooses chip or CPU.

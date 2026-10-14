@@ -144,7 +144,7 @@ const mistakes: Mistake[] = [
             {
                 label: "Give the router 192.168.10.2 instead",
                 right: false,
-                why: "site.ts names 192.168.10.1 as the router: it is the switch’s gateway and where Circuit logs in to the router. Move the switch, not the router.",
+                why: "site.ts says 192.168.10.1 is the router: it is the switch’s gateway and where Circuit logs in to the router. Move the switch, not the router.",
             },
         ],
     },

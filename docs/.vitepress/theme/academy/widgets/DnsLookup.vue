@@ -115,7 +115,7 @@ const scripts: Record<Mode, Step[]> = {
         },
         {
             title: "Ask the servers for tako.id",
-            text: "The servers for tako.id hold the domain’s own list of names, so they know the answer. They also say how long it may be remembered.",
+            text: "The servers for tako.id have the domain’s own list of names, so they know the answer. They also say how long it may be remembered.",
             legs: [
                 ["resolver", "domain"],
                 ["domain", "resolver"],

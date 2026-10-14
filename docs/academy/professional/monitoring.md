@@ -108,7 +108,7 @@ The pattern's VRP switch takes the same user but not its own `allow`: on that pl
 
 A counter says the transit port is full. It does not say who is filling it. For that, the router describes the traffic itself. A <Term means="A run of packets with the same source and destination addresses, ports and protocol, seen passing a device over some time.">flow</Term> is a run of packets that share their addresses, ports and protocol, and a flow record says how many packets and bytes it had. The router sends its records to a <Term means="A server that receives flow records or packet samples from devices, stores them, and answers questions such as who sent the most.">collector</Term>, which can then answer "who sent the most to this address in the last five minutes".
 
-Three formats do this, each described in an <Term means="Request for Comments: the numbered documents in which internet standards and common practice are published.">RFC</Term>:
+Three formats do this, each described in an <Term means="Request for Comments: the numbered documents that publish internet standards and common practice.">RFC</Term>:
 
 | Format    | From                                                      | What it sends                                                                                                 |
 | --------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -133,7 +133,7 @@ And on the switch:
 flow_export: { protocol: "sflow", collectors: [{ address: "10.0.0.20" }], sampling: 4096 },
 ```
 
-Circuit writes what each platform's adapter supports: NetFlow and IPFIX on RouterOS, and sFlow on VRP, which samples one packet in 4,096 at most. `circuit validate` says so for any other choice. When you give no port, Circuit sends sFlow to 6343 and the other two to 2055. IPFIX's own standard names 4739, so set `port` to whatever your collector listens on.
+Circuit writes what each platform's adapter supports. RouterOS exports NetFlow and IPFIX. VRP exports sFlow, and samples one packet in 4,096 at most. Junos exports sFlow. FortiOS exports sFlow or NetFlow 9, to one collector. Raisecom ROS exports none. `circuit validate` says so for any other choice. When you give no port, Circuit sends sFlow to 6343 and the other two to 2055. IPFIX's own standard uses 4739, so set `port` to whatever your collector listens on.
 
 ## Logs: what the device noticed
 
@@ -157,7 +157,7 @@ Find the moment something went wrong on the transit port, read the flow records 
 
 </TryIt>
 
-The flood was obvious once you saw it, and the flow records named its target at once: UDP from tens of thousands of addresses to one of acme's servers. [Attacks on the network](/academy/professional/ddos-and-spoofing) is about what to do next.
+The flood was obvious once you saw it, and the flow records showed its target at once: UDP from tens of thousands of addresses to one of acme's servers. [Attacks on the network](/academy/professional/ddos-and-spoofing) is about what to do next.
 
 The alert is where judgement comes in. A line at 8 Gbit/s is crossed every evening by ordinary traffic, and on a wobbly line it is crossed several times, so it pages again and again for nothing. Google's book on running large systems puts the rules plainly: every page must be something a person can act on, and needs a person's thinking to answer. Pages that come too often get skimmed, then ignored, and one day the real one is ignored too.
 
@@ -175,7 +175,7 @@ Everything else, such as a port in a quiet hour or a single failed login, belong
   :choices="['The SNMP counter of the port', 'The flow records from the router', 'The syslog messages from the router']"
   :answer="1"
   :why="['The counter only says how many bytes passed. It knows nothing about addresses.', '', 'Logs say what the device noticed about itself, such as a port going down. They do not describe traffic.']"
-  explain="Flow records carry the addresses, ports and protocol of the traffic. The collector can then list the top destinations at the moment the port filled."
+  explain="Flow records have the addresses, ports and protocol of the traffic. The collector can then list the top destinations at the moment the port filled."
 />
 
 <Quiz

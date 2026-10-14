@@ -88,7 +88,7 @@ async function attack() {
     said.value = {
         kind: "bad",
         word: "Flooded",
-        text: `${chosen.value.label} answered ${VICTIM}, the source the requests carried. ${REQUESTS} Mbit/s of requests became ${amplified()} of replies from UDP port ${chosen.value.port}, and the attacker's address appears nowhere in them.`,
+        text: `${chosen.value.label} answered ${VICTIM}, the source written on the requests. ${REQUESTS} Mbit/s of requests became ${amplified()} of replies from UDP port ${chosen.value.port}, and the attacker's address appears nowhere in them.`,
     };
 }
 

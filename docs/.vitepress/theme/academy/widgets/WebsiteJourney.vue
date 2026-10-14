@@ -112,7 +112,7 @@ const steps: Step[] = [
     },
     {
         title: "Ask the resolver",
-        text: "198.51.100.53 is not on the home network, so the DNS question goes to the gateway, and from there to the provider. On the way out, the home router puts the home’s one public address, the one the internet knows it by, on it as the sender, and remembers to pass the reply back to your laptop. The Elementary level shows how.",
+        text: "198.51.100.53 is not on the home network, so the DNS question goes to the gateway, and from there to the provider. On the way out, the home router writes the home’s one public address on it as the sender: the address the internet knows your home by. The router remembers to pass the reply back to your laptop. The Elementary level shows how.",
         legs: [["laptop", "home", "provider", "resolver"]],
         card: {
             label: "The question, as it leaves the laptop",
@@ -188,13 +188,13 @@ const steps: Step[] = [
             label: "The request, as the server reads it",
             rows: [
                 ["Asks for", "the page at circuit.tako.id/"],
-                ["Says also", "which browser this is, and which languages you read"],
+                ["Also says", "which browser this is, and which languages you read"],
             ],
         },
     },
     {
         title: "The page comes back in packets",
-        text: "The page is too big for one packet, so it is cut into numbered pieces. They cross the same hops back, and TCP on the laptop puts them in order and has any lost piece sent again.",
+        text: "The page is too big for one packet, so it is cut into numbered pieces. They cross the same hops back, and TCP on the laptop puts them in order and makes sure any lost piece is sent again.",
         legs: [back],
         burst: 3,
         card: {
@@ -208,7 +208,7 @@ const steps: Step[] = [
     },
     {
         title: "The browser draws the page",
-        text: "The browser reads the page. It names more things to fetch, such as pictures and styles, which the browser asks for in the same way, often over the same conversation. Then it draws the page. The lock beside the name says the conversation is locked and the server proved its name.",
+        text: "The browser reads the page. It lists more things to fetch, such as pictures and styles, and the browser asks for them in the same way, often over the same conversation. Then it draws the page. The lock beside the name says the conversation is locked and the server proved its name.",
         legs: [],
         lit: ["laptop"],
         browser: true,

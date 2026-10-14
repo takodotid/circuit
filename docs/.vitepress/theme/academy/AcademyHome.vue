@@ -106,8 +106,8 @@ function clear() {
                 <p class="soon">Coming soon</p>
                 <h2 id="certify-title">Certification</h2>
                 <p>
-                    Once you finish the levels, ask for a case: a network someone needs, to provision in Circuit. When your work passes
-                    review, you get a certificate anyone can check, and a place among the graduates.
+                    Once you finish the levels, ask for a case: a network someone needs, which you provision in Circuit. When your work
+                    passes review, you get a certificate anyone can check, and a place among the graduates.
                 </p>
                 <div class="actions">
                     <a class="ac-button" :href="withBase('/academy/certification')">How it will work</a>

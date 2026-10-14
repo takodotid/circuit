@@ -11,7 +11,7 @@ BGP believes what neighbors tell it, so neither is stopped by BGP itself. Three 
 
 ## Two incidents
 
-**A hijack, 24 February 2008.** At 18:47 UTC, Pakistan Telecom, AS17557, began announcing `208.65.153.0/24`. YouTube, AS36561, announced `208.65.152.0/22`, which holds that /24. Pakistan Telecom's upstream, PCCW Global, AS3491, passed the /24 on, and since a /24 is a longer match than a /22, routers that heard it sent YouTube's traffic for those addresses to Pakistan. At 20:07 YouTube announced the same /24, which won back only part of the internet, because two routes of equal length compete on path. At 20:18 it announced two /25s inside it, longer than anything else, and traffic came back. At 21:01 PCCW withdrew the routes. The RIPE NCC's case study follows it minute by minute.
+**A hijack, 24 February 2008.** At 18:47 UTC, Pakistan Telecom, AS17557, began announcing `208.65.153.0/24`. YouTube, AS36561, announced `208.65.152.0/22`, which includes that /24. Pakistan Telecom's upstream, PCCW Global, AS3491, passed the /24 on, and since a /24 is a longer match than a /22, routers that heard it sent YouTube's traffic for those addresses to Pakistan. At 20:07 YouTube announced the same /24, which won back only part of the internet, because two routes of equal length compete on path. At 20:18 it announced two /25s inside it, longer than anything else, and traffic came back. At 21:01 PCCW withdrew the routes. The RIPE NCC's case study follows it minute by minute.
 
 **A leak, 24 June 2019.** At 10:30 UTC, DQE Communications, AS33154, was running a <Term means="Software that splits a network's routes into smaller, more specific ones to steer its own traffic. The more specific routes are meant to stay inside that network.">BGP optimizer</Term>, which had split routes it learned into more specific ones for use inside its own network. They reached its customer Allegheny Technologies, AS396531, which passed them to its other provider, Verizon, AS701, which passed them on to the internet. Because the routes were more specific, much of the internet sent traffic for the affected networks through DQE, Allegheny and Verizon, which were not built for it. Cloudflare saw about 15% of its global traffic lost at the worst point, and many sites were unreachable from large parts of the internet. Cloudflare's ROAs allowed nothing longer than /20, so the more specific routes made from its space were RPKI invalid: a network that dropped invalid routes would have refused them.
 
@@ -34,12 +34,12 @@ BGP believes what neighbors tell it, so neither is stopped by BGP itself. Three 
 
 [Route policies](/academy/intermediate/route-policy) met RPKI, the Resource Public Key Infrastructure, and its three answers. Here is where they come from.
 
-1. **You publish a ROA.** A <Term means="Route Origin Authorization: a signed record that names one AS allowed to originate a prefix, and the longest prefix length it may announce inside it.">ROA</Term> says: this prefix, up to this length, may be originated by this AS. You create it with your <Term means="Regional Internet Registry: the body that gives out addresses and AS numbers in a region, such as APNIC in Asia Pacific. Its members create ROAs for that space in its systems.">RIR</Term>, the registry that gave you the space; at APNIC, in the MyAPNIC portal.
+1. **You publish a ROA.** A <Term means="Route Origin Authorization: a signed record that says which AS may originate a prefix, and the longest prefix length it may announce inside it.">ROA</Term> says: this prefix, up to this length, may be originated by this AS. You create it with your <Term means="Regional Internet Registry: the body that gives out addresses and AS numbers in a region, such as APNIC in Asia Pacific. Its members create ROAs for that space in its systems.">RIR</Term>, the registry that gave you the space; at APNIC, in the MyAPNIC portal.
 2. **Validators collect them.** A <Term means="A program that downloads every ROA from the registries, checks each signature, and hands routers the list of valid ones.">validator</Term>, a program such as Routinator, downloads every ROA, checks its signature, and serves the result to routers over the RPKI to Router protocol, RTR.
 3. **Routers check every route.** For each route, the router compares the prefix and the <Term means="The AS that first announced a route: the last AS in its AS path.">origin AS</Term>, the last AS of the path, with the ROAs, and marks the route valid, invalid or not found.
 4. **Your policy acts on it.** `bgpSanity()` rejects invalid routes; valid and not found ones go on through the rest of the import.
 
-RFC 6811 defines the check in two words. A ROA **covers** a route when the route's prefix is the ROA's prefix or inside it. A ROA **matches** a route when it covers it, names its origin AS, and allows its length. Then:
+RFC 6811 defines the check in two words. A ROA **covers** a route when the route's prefix is the ROA's prefix or inside it. A ROA **matches** a route when it covers it, has the same origin AS, and allows its length. Then:
 
 - **Not found**: no ROA covers the route.
 - **Valid**: at least one ROA matches it.
@@ -57,15 +57,15 @@ Two things are easy to miss. A route can be invalid for its length alone: the "A
 
 <Quiz
   question="Your ROA is 2001:db8:a00::/40, maxLength 40, AS64500. A route for 2001:db8:a00::/44 arrives from AS64500. What is it?"
-  :choices="['Valid, since the origin is right', 'Invalid, since it is longer than the ROA allows', 'Not found, since no ROA names a /44']"
+  :choices="['Valid, since the origin is right', 'Invalid, since it is longer than the ROA allows', 'Not found, since no ROA is for a /44']"
   :answer="1"
   :why="['The origin matches, but a match also needs the length to be within maxLength, and /44 is longer than /40.', '', 'A ROA covers every prefix inside its own, so the /40 covers the /44. Not found is only for routes no ROA covers.']"
-  explain="The /40 ROA covers the /44 and names AS64500, but allows nothing longer than /40. A covering ROA with no match makes the route invalid."
+  explain="The /40 ROA covers the /44 and has AS64500 as the origin, but allows nothing longer than /40. A covering ROA with no match makes the route invalid."
 />
 
 ## Watching a hijack die out
 
-Below, your network, AS64500, holds `2001:db8:a00::/40`. AS64510 is another customer of your provider, and also of Transit 2. In the widget, each network prefers routes from its customers, then from its peers, then from its providers, then the shorter path; on a tie, the route from the lower AS number.
+Below, your network, AS64500, has `2001:db8:a00::/40`. AS64510 is another customer of your provider, and also of Transit 2. In the widget, each network prefers routes from its customers, then from its peers, then from its providers, then the shorter path; on a tie, the route from the lower AS number.
 
 <TryIt title="Hijack your block, then stop it">
 
@@ -93,11 +93,11 @@ What you just saw is how the internet behaves:
 
 ## Registry filters
 
-An <Term means="Internet Routing Registry: databases where networks publish route objects, which prefix each AS originates, and AS-SETs, which ASes a network announces.">IRR</Term> holds two kinds of record that matter here. A <Term means="An IRR record pairing a prefix with the AS that originates it.">route object</Term> pairs a prefix with its origin AS. An <Term means="A named list of AS numbers in an IRR: a network and its customers, such as AS64500:AS-CUSTOMERS.">AS-SET</Term> lists the ASes a network announces: itself and its customers.
+An <Term means="Internet Routing Registry: databases where networks publish route objects, which prefix each AS originates, and AS-SETs, which ASes a network announces.">IRR</Term> has two kinds of record that matter here. A <Term means="An IRR record pairing a prefix with the AS that originates it.">route object</Term> pairs a prefix with its origin AS. An <Term means="A named list of AS numbers in an IRR: a network and its customers, such as AS64500:AS-CUSTOMERS.">AS-SET</Term> lists the ASes a network announces: itself and its customers.
 
 A provider builds each customer's import filter from them: it expands the customer's AS-SET into every route object behind it, with a tool such as bgpq4, and accepts only those prefixes. A leak or a hijack from a filtered customer then stops at the first provider. That is why [Selling IP transit](/use-cases/ip-transit#tell-your-upstreams) asks you to register your customers before you announce them: your upstreams filter you the same way.
 
-Two more guards stop leaks, both from [Route policies](/academy/intermediate/route-policy): `role` on each neighbor turns on RFC 9234, so both sides refuse a route that should only flow toward customers, and `max_prefixes` closes a session that suddenly sends far more routes than it should, as in 2019.
+Two more guards stop leaks, both from [Route policies](/academy/intermediate/route-policy): `role` on each neighbor turns on RFC 9234, so both sides refuse a route that should only flow toward customers (of the platforms with BGP, only `routeros` has roles), and `max_prefixes` closes a session that suddenly sends far more routes than it should, as in 2019.
 
 ## In Circuit
 
@@ -135,7 +135,7 @@ Three things Circuit does not do, and you should know:
 
 - **It does not publish your ROAs.** You create them at your RIR, as above.
 - **It does not read the IRR.** A prefix set can be fetched with `source: { registry: "ripe-stat", query: "AS65550", family: "ipv6" }`, and `circuit refresh` keeps it current. That list is every prefix RIPEstat sees the AS announcing today, not what it registered. It saves typing for a customer whose own customers change every day, but it accepts whatever that customer announces, a hijack included, so it is no substitute for checking its route objects and ROAs.
-- **It runs RPKI only on `routeros`**, the one platform with BGP; see [Platforms](/platforms/).
+- **It runs RPKI on `routeros` and `junos` only.** `fortios` runs BGP without RPKI, so it refuses `routing.rpki` and any rule that matches `rpki`, the last rule of `bgpSanity()` included. `vrp` and `raisecom-ros` run no BGP. See [Platforms](/platforms/).
 
 ## MANRS
 
