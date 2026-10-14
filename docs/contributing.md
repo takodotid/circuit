@@ -32,6 +32,8 @@ bun run docs:dev    # this site, locally
 
 Write for someone who may be new to networking. Say what a thing does before how, explain a word the first time it matters or link the [Glossary](/guide/glossary), and break a process into numbered steps. A longer sentence that is easy to follow beats a short one that has to be read twice.
 
+Many readers have English as a second language, so say what a thing does with everyday verbs: "`access_vlan` says which VLAN the port is in", not "`access_vlan` names the VLAN the port belongs to" or "indicates the VLAN to which the port belongs". Words such as names (as a verb), denotes, specifies, designates and to which are correct but must be decoded; says which, is for, is in and points to are not.
+
 ## Writing an Academy lesson
 
 [Circuit Academy](/academy/) teaches networking from the start, then Circuit. Its levels and lessons are listed in `docs/.vitepress/academy.ts`, which the Academy's sidebar, its own page and the home page read; a lesson is a page in `docs/academy/<level>/`.
