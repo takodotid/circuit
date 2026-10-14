@@ -64,7 +64,7 @@ acls: {
 },
 ```
 
-Write the IPv6 rules the same way, and keep accepting link-local sources, `fe80::/10`, which IPv6 neighbor discovery uses on the link, as RFC 4861 says.
+A FortiGate's ACLs can only drop, so on a FortiGate the same check goes in its firewall instead, as rules that accept the customer's sources on that port and drop the rest. Write the IPv6 rules the same way, and keep accepting link-local sources, `fe80::/10`, which IPv6 neighbor discovery uses on the link, as RFC 4861 says.
 
 The other direction is the `antiSpoofing` preset from [Presets](/guide/presets#edge-filters), on the ports toward your transits and exchanges: traffic arriving from the internet that claims to come from your own space, a private range or a martian is dropped. The [edge router template](/patterns/edge-router) has both of its outside ports filtered this way.
 
