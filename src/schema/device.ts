@@ -43,7 +43,7 @@ export type Device<
 > = {
     /** Hostname. */
     name: string;
-    /** Operating system, which decides the adapter that renders and applies the device. */
+    /** Operating system. It decides which adapter renders and applies the device. */
     platform: Pl;
     /** Hardware model. Decides which port names exist. */
     model: M;

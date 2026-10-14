@@ -1,6 +1,6 @@
 import type { Family, IP, Prefix, Secret } from "./common";
 
-/** A route the device carries without learning it. */
+/** A route the device has without learning it. */
 export type StaticRoute<I extends string, F extends string> = {
     /** Destination. */
     prefix: Prefix;
@@ -12,7 +12,7 @@ export type StaticRoute<I extends string, F extends string> = {
     blackhole?: true;
     /** Preference against other routes to the same prefix. Lower wins. 1 when absent. */
     distance?: number;
-    /** The VRF the route belongs to. The default table when absent. */
+    /** The VRF the route is in. The default table when absent. */
     vrf?: F;
     /** Why the route exists. */
     description?: string;
@@ -23,7 +23,7 @@ export type StaticRoute<I extends string, F extends string> = {
  */
 export type BgpRole = "provider" | "customer" | "peer" | "rs" | "rs-client";
 
-/** Settings a BGP neighbor can state itself or take from its group. */
+/** Settings a BGP neighbor can set itself or take from its group. */
 export type NeighborSettings<P extends string> = {
     /** The neighbor's AS. Our own AS makes the session internal. */
     remote_as?: number;
@@ -35,7 +35,7 @@ export type NeighborSettings<P extends string> = {
     import?: P;
     /** Policy for routes announced. Nothing is announced when absent. */
     export?: P;
-    /** What the neighbor is to us, such as `provider` for a transit. Both sides then reject a route leak, after RFC 9234. */
+    /** What the neighbor is to us, such as `provider` for a transit. Both sides then reject a route leak, as RFC 9234 describes. */
     role?: BgpRole;
     /** The neighbor is more than one hop away. */
     multihop?: boolean;
@@ -55,11 +55,11 @@ export type NeighborSettings<P extends string> = {
     bfd?: boolean;
 };
 
-/** One BGP session. Settings it does not state come from its group. */
+/** One BGP session. Settings it does not set come from its group. */
 export type Neighbor<P extends string, G extends string> = NeighborSettings<P> & {
     /** The neighbor's address. */
     address: IP;
-    /** Group whose settings this neighbor takes where it states none. */
+    /** The group this neighbor takes a setting from when it does not set that setting itself. */
     group?: NoInfer<G>;
 };
 
@@ -111,7 +111,7 @@ export type Ospf<I extends string> = {
 export type Routing<P extends string, G extends string, I extends string, F extends string> = {
     /** Identifies this router to its neighbors. */
     router_id?: IP;
-    /** Routes the device carries without learning them. */
+    /** Routes the device has without learning them. */
     static?: readonly StaticRoute<I, F>[];
     /** BGP sessions and what they exchange. */
     bgp?: Bgp<P, G>;

@@ -9,7 +9,7 @@ export type Secret =
           readonly secret: string;
       }
     | {
-          /** Path of a file holding the value, relative to the config file. */
+          /** Path of the file with the value, relative to the config file. */
           readonly secret_file: string;
       };
 

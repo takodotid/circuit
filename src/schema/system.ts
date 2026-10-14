@@ -13,7 +13,7 @@ export type System = {
         /** Answer queries from others. Off when absent. */
         serve?: boolean;
     };
-    /** Time the device keeps. */
+    /** How the device keeps time. */
     ntp?: {
         /** Time sources, by address or name. */
         servers: readonly string[];
@@ -87,7 +87,7 @@ export type SnmpUser = {
 
 /** How the device is reached and managed. */
 export type Management<I extends string, C extends string> = {
-    /** Sources allowed to every service that does not state its own. */
+    /** Sources allowed to every service that does not set its own. */
     allow?: readonly Prefix[];
     /** Secure shell. */
     ssh?: Service & {
@@ -141,11 +141,11 @@ export type DhcpServer<I extends string> = {
     interface: I;
     /** The network it serves. */
     network: Prefix;
-    /** Default gateway handed out. */
+    /** Default gateway given to clients. */
     gateway: IP;
-    /** Resolvers handed out. */
+    /** Resolvers given to clients. */
     dns?: readonly IP[];
-    /** First and last address handed out. */
+    /** First and last address given to clients. */
     pool: readonly [IP, IP];
     /** Seconds a lease lasts. */
     lease_time?: number;
@@ -168,9 +168,9 @@ export type DhcpRelay<I extends string> = {
 
 /** A certificate the device presents or trusts. */
 export type Certificate = {
-    /** The certificate, PEM. Public, so it lives in the repository. */
+    /** The certificate, PEM. Public, so it is kept in the repository. */
     certificate: string;
-    /** Its private key: a PEM file through `secretFile`, or PEM base64-encoded as one line through `secret`. A certificate only trusted, such as a CA, has none. */
+    /** Its private key: a PEM file through `secretFile`, or PEM base64-encoded as one line through `secret`. A certificate the device only trusts, such as a CA, has none. */
     private_key?: Secret;
 };
 
