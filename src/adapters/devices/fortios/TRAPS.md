@@ -20,7 +20,7 @@ Behaviour that looks like something else. Each one has been hit on a FortiGate 3
 - `log memory setting` prints its `status` whether on or off, and `unset status` turns memory logging on.
 - Two interfaces that are up cannot have overlapping subnets, `Subnets overlap between ...`, so an address moving from one to another must leave the first before it joins the second.
 - A static route identical to another is refused, `Duplicated entry`. An IPv4 route's destination is not printed when it is the default route; neither is IPv6's.
-- A deny policy is given `logtraffic disable`, and its action is not printed, since deny is the default. `send-deny-packet` exists only while a policy denies: set before `action deny` or unset after `action accept`, it is `command parse error`. The render writes `action deny`, and the plan undoes what goes before it sets what comes.
+- A deny policy is given `logtraffic disable`, and its action is not printed, since deny is the default. `send-deny-packet` exists only while a policy denies: set before `action deny` or unset after `action accept`, it is `command parse error`. So the render writes `action deny` before `send-deny-packet`, and a plan removes the settings that go before it sets the ones that come: `send-deny-packet` is unset while the policy still denies, and set only once it does.
 - `show` prints `unset` in two places: an ICMP service's `unset icmptype`, and a prefix list rule's `unset ge` and `unset le` for a bound it does not have.
 - An SNMPv3 user authenticates with MD5 or SHA1 only, and has no list of sources: only a community has hosts. Circuit decides who reaches every service with local-in policies instead.
 - The console ignores a user's trusted hosts.
