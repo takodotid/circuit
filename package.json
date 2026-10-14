@@ -15,7 +15,10 @@
         "huawei",
         "raisecom",
         "junos",
-        "juniper"
+        "juniper",
+        "fortios",
+        "fortinet",
+        "fortigate"
     ],
     "homepage": "https://circuit.tako.id",
     "bugs": {
