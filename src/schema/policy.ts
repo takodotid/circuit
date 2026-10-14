@@ -20,7 +20,7 @@ export type PrefixSet =
           };
       };
 
-/** Conditions on a route. All must hold. An empty match holds for every route. */
+/** Conditions on a route. All must be true. An empty match is true for every route. */
 export type Match<S extends string> = {
     /** Only routes of this family. */
     family?: Family;
@@ -34,9 +34,9 @@ export type Match<S extends string> = {
     as_path_length?: { min?: number; max?: number };
     /** The route's origin validation state. */
     rpki?: "valid" | "invalid" | "not-found";
-    /** Carries this standard community, `asn:value`. */
+    /** Has this standard community, `asn:value`. */
     community?: string;
-    /** Carries this large community, `asn:function:parameter`. */
+    /** Has this large community, `asn:function:parameter`. */
     large_community?: string;
 };
 

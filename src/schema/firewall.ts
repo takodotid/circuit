@@ -15,7 +15,7 @@ export type Ports = number | PortRange | readonly (number | PortRange)[];
 /** A TCP header flag. */
 export type TcpFlag = "fin" | "syn" | "rst" | "psh" | "ack" | "urg";
 
-/** Conditions on a packet. All must hold. A rule with addresses of one family applies to that family only. */
+/** Conditions on a packet. All must be true. A rule with addresses of one family applies to that family only. */
 export type FilterMatch<I extends string, AS extends string> = {
     /** Only packets of this family. */
     family?: Family;
@@ -51,7 +51,7 @@ export type FilterRule<I extends string, AS extends string> = {
     match?: FilterMatch<I, AS>;
     /** What happens to a matching packet. `reject` answers the sender, `drop` does not. */
     action: "accept" | "drop" | "reject";
-    /** Hand the rest of an accepted flow to the fast path, past the remaining rules. */
+    /** Send the rest of an accepted flow through the fast path, skipping the remaining rules. */
     offload?: true;
 };
 
@@ -126,7 +126,7 @@ export type AclRule<V extends string> = {
         src_port?: Ports;
         /** Destination port, or any of several. */
         dst_port?: Ports;
-        /** Carried in this VLAN. */
+        /** In this VLAN. */
         vlan?: V;
     };
     /** What happens to a matching packet. */

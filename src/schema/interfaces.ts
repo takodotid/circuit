@@ -1,8 +1,8 @@
 import type { Address, IP, Prefix, Secret } from "./common";
 
-/** A VLAN. The key it is declared under is its name. */
+/** A VLAN. Its key in `vlans` is its name. */
 export type Vlan = {
-    /** The number carried on the wire, 1 to 4094. */
+    /** The VLAN's number on the wire, 1 to 4094. */
     id: number;
     /** What the VLAN is for. */
     description?: string;
@@ -25,7 +25,7 @@ export type Vrrp = {
     interval?: number;
 };
 
-/** Layer 3 settings shared by every interface that can hold an address. */
+/** Layer 3 settings shared by every interface that can have an address. */
 export type Routed<F extends string> = {
     /** Addresses with their length. Use `{ address, peer }` for a point-to-point address whose far end is outside its own prefix. */
     addresses?: readonly (Address | { address: Address; peer: IP })[];
@@ -33,7 +33,7 @@ export type Routed<F extends string> = {
     ipv6_ra?: boolean;
     /** Overrides the device's `hardware_offload` for traffic routed through this interface. Software forwarding is what makes the firewall apply. */
     hardware_offload?: boolean;
-    /** Virtual router addresses held on this interface. */
+    /** Virtual router addresses on this interface. */
     vrrp?: readonly Vrrp[];
     /** The VRF this interface routes in. The default table when absent. */
     vrf?: F;
@@ -63,11 +63,11 @@ export type PortStp = {
 
 /** Layer 2 membership. A port or LAG with none of these is routed. */
 export type Switched<V extends string> = {
-    /** Untagged member of one VLAN. */
+    /** The one VLAN this port or LAG is in, untagged. */
     access_vlan?: V;
-    /** Tagged member of these VLANs. */
+    /** The VLANs this port or LAG carries, tagged. */
     trunk_vlans?: readonly V[];
-    /** Untagged frames on a trunk belong to this VLAN. Only with `trunk_vlans`. */
+    /** Untagged frames on a trunk are in this VLAN. Only with `trunk_vlans`. */
     native_vlan?: V;
     /** Overrides the device's `stp` for this port. `false` stops it sending or acting on BPDUs. */
     stp?: boolean | PortStp;
@@ -100,7 +100,7 @@ export type Port<V extends string, A extends string, L extends string, F extends
         lldp?: boolean;
         /** Hardware ACL applied to traffic arriving on this port. */
         acl?: A;
-        /** Member of this LAG. The LAG holds every other setting. */
+        /** The LAG this port is in. Every other setting goes on the LAG. */
         lag?: L;
         /** Another of our devices at the other end of the cable. */
         link?: Link;
@@ -117,20 +117,20 @@ type Base<F extends string> = Routed<F> & {
 /** A layer 3 interface on a VLAN. */
 export type VlanInterface<V extends string, F extends string> = Base<F> & {
     type: "vlan";
-    /** The VLAN it sits on. */
+    /** The VLAN it is on. */
     vlan: V;
 };
 
-/** An interface that is always up and belongs to no link, for addresses that must not depend on one. */
+/** An interface that is always up and is on no link, for addresses that must not depend on one. */
 export type Loopback<F extends string> = Base<F> & { type: "loopback" };
 
-/** A link aggregation. Member ports name it with `lag`. */
+/** A link aggregation. Each member port points to it with `lag`. */
 export type Lag<V extends string, F extends string> = Base<F> &
     Switched<V> & {
         type: "lag";
-        /** LACP negotiates membership with the far end; static bundles without asking. LACP when absent. */
+        /** LACP negotiates membership with the far end; `static` joins the ports without asking. LACP when absent. */
         mode?: "lacp" | "static";
-        /** Number on platforms that name a LAG by number. Its position among the device's LAGs when absent. */
+        /** Number, on platforms where a LAG has a number instead of a name. Its position among the device's LAGs when absent. */
         id?: number;
     };
 
