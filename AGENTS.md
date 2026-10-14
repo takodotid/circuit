@@ -23,7 +23,7 @@ Code is written to be read: names that say what a value is, one step per line, a
 
 ## Changing an adapter
 
-Read the platform's `TRAPS.md` first, and add to it what the change taught. New syntax is proved on a device without applying it: on RouterOS, `:put [:parse "..."]` compiles a command without running it; on VRP, lines go into the candidate and `clear configuration candidate` discards them; Raisecom applies at once, so only a spare port is safe.
+Read the platform's `TRAPS.md` first, and add to it what the change taught. New syntax is proved on a device without applying it: on RouterOS, `:put [:parse "..."]` compiles a command without running it; on VRP, lines go into the candidate and `clear configuration candidate` discards them; on Junos, `load set terminal` fills the candidate, `commit check` checks it and `rollback 0` discards it; Raisecom applies at once, so only a spare port is safe.
 
 `examples/` uses every field each adapter supports, and `test/` checks each example plans nothing against its own render. A reader and renderer that disagree on a form show up there before they show up as a change on every apply.
 

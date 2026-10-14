@@ -2,6 +2,7 @@
 
 import { expect, test } from "bun:test";
 import { adapters } from "../../src/adapters/devices";
+import aggregationSwitch from "../../examples/aggregation-switch";
 import coreSwitch from "../../examples/core-switch";
 import router from "../../examples/router";
 
@@ -108,4 +109,86 @@ test("a change to a bridge VLAN selects only its static entry", () => {
     const sent = adapter.plan(entry("bridge,ether1"), entry("ether1"), { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
 
     expect(sent).toEqual(["/interface bridge vlan set [ find vlan-ids=325 and !dynamic ] tagged=bridge,ether1"]);
+});
+
+// The forms a Junos switch prints, seen on a QFX5100 running 21.4: secrets hashed or encrypted, values quoted where the render does not quote them, the release and each user's number.
+test("example-aggregation-switch plans nothing against how the device prints it", () => {
+    const adapter = adapters["junos"]!;
+    const rendered = adapter.render(aggregationSwitch);
+    const printed = [
+        "set version 21.4R3-S8.5",
+        "set system login user netops uid 2001",
+        ...rendered
+            .trim()
+            .split("\n")
+            .map((line) =>
+                line
+                    .replace(/plain-text-password-value \S+/, "encrypted-password <redacted>")
+                    .replace(/authentication-password \S+/, "authentication-key <redacted>")
+                    .replace(/privacy-password \S+/, "privacy-key <redacted>")
+                    .replace(/^set snmp community \S+/, "set snmp community <redacted>")
+                    .replace(/^set snmp contact (\S+)$/, 'set snmp contact "$1"')
+            ),
+    ].join("\n");
+
+    expect(printed).not.toEqual(rendered);
+
+    const plan = adapter.plan(rendered, printed, { secrets: false, rollback: 10 });
+    expect(plan.steps.flatMap((step) => step.show)).toEqual([]);
+});
+
+// The device refuses `delete interfaces xe-0/0/1 unit`: a named list goes entry by entry, while a block the render does not hold goes whole.
+test("a Junos removal stops at an entry of a named list, never at the list", () => {
+    const adapter = adapters["junos"]!;
+    const desired = "set interfaces xe-0/0/1 description Host\n";
+    const current = [
+        "set interfaces xe-0/0/1 description Host",
+        "set interfaces xe-0/0/1 unit 0 family ethernet-switching vlan members default",
+        "set vlans default vlan-id 1",
+        "set protocols lldp-med interface all",
+    ].join("\n");
+
+    const sent = adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+    expect(sent).toEqual(["delete interfaces xe-0/0/1 unit 0", "delete vlans", "delete protocols"]);
+});
+
+// A community is named by its value, which the read redacts: a new one is sent after the device's are deleted, each named in the session.
+test("a rotated Junos community clears the device's communities first", () => {
+    const adapter = adapters["junos"]!;
+    const desired = "set snmp community <secret:COMMUNITY> authorization read-only\n";
+    const current = "set snmp community <redacted> authorization read-only\n";
+
+    expect(adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps).toEqual([]);
+
+    const sent = adapter.plan(desired, current, { secrets: true, rollback: 10 }).steps.flatMap((step) => step.send);
+    expect(sent).toEqual(["delete snmp community <redacted>", "set snmp community <secret:COMMUNITY> authorization read-only"]);
+});
+
+test("a deactivated Junos statement the render wants is activated", () => {
+    const adapter = adapters["junos"]!;
+    const desired = "set protocols lldp interface all\n";
+    const current = "set protocols lldp interface all\ndeactivate protocols lldp\n";
+
+    const sent = adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+    expect(sent).toEqual(["activate protocols lldp"]);
+});
+
+// Junos keeps a policy's terms in order and adds a new one at the end, so a rule inserted in the middle rewrites the policy whole.
+test("a Junos policy that changes is deleted and set again in order", () => {
+    const adapter = adapters["junos"]!;
+    const term = (name: string, action: string) => `set policy-options policy-statement in term ${name} then ${action}`;
+    const current = [term("1", "reject"), term("2", "accept")].join("\n");
+    const desired = [term("1", "reject"), term('"2 New"', "reject"), term("3", "accept")].join("\n");
+
+    const sent = adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+    expect(sent).toEqual(["delete policy-options policy-statement in", ...desired.split("\n")]);
+});
+
+// A prefix list `refresh` fills keeps what the device holds, and the device prints an empty list only while it has no entries.
+test("a Junos prefix list a registry fills keeps its entries", () => {
+    const adapter = adapters["junos"]!;
+    const desired = "set policy-options prefix-list customer\n# generated policy-options prefix-list customer\n";
+    const current = "set policy-options prefix-list customer 198.18.0.0/16\nset policy-options prefix-list customer 198.19.0.0/16\n";
+
+    expect(adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps).toEqual([]);
 });
