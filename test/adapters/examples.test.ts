@@ -7,10 +7,11 @@ import { validate } from "../../src/core/validate";
 import type { Device } from "../../src/schema";
 import aggregationSwitch from "../../examples/aggregation-switch";
 import coreSwitch from "../../examples/core-switch";
+import firewall from "../../examples/firewall";
 import router from "../../examples/router";
 import switchDevice from "../../examples/switch";
 
-const examples = [router, switchDevice, coreSwitch, aggregationSwitch];
+const examples = [router, switchDevice, coreSwitch, aggregationSwitch, firewall];
 
 describe("examples", () => {
     test("validate", () => {
@@ -128,4 +129,74 @@ test("a field a platform renders nothing for is unsupported", () => {
 
     const bonded: Device = { ...router, interfaces: { ...router.interfaces, uplink: { type: "lag", stp: { cost: 10 } } } };
     expect(unsupported(bonded)).toContain("interfaces.uplink.stp, on a LAG");
+
+    const fortios: Device = {
+        ...firewall,
+        ports: { ...firewall.ports, "10g-3": { access_vlan: "guests" }, "10g-4": { trunk_vlans: ["servers"] } },
+        interfaces: {
+            ...firewall.interfaces,
+            tunnel: { type: "gre", local: "203.0.113.10", remote: "203.0.113.20", addresses: ["10.0.0.1/30"] },
+            peers: { type: "wireguard", listen_port: 51820, private_key: { secret: "EXAMPLE_WIREGUARD_KEY" } },
+        },
+        management: { ...firewall.management, console: { password: { secret: "EXAMPLE_CONSOLE_PASSWORD" } } },
+        firewall: {
+            ...firewall.firewall,
+            filter: { ...firewall.firewall!.filter, output: { default: "drop" } },
+            untracked: ["198.51.100.0/24"],
+        },
+    };
+    expect(unsupported(fortios)).toEqual(
+        expect.arrayContaining([
+            "ports.10g-3.access_vlan, ports are routed",
+            "ports.10g-4.trunk_vlans servers, which another port or LAG also carries",
+            "interfaces.servers, VLAN servers must be carried tagged by exactly one port or LAG",
+            "interfaces.tunnel.addresses, an IPv4 address on a tunnel takes its peer",
+            "interfaces.peers, a wireguard: the platform has no WireGuard",
+            "management.console, the console logs in with the device's users",
+            "firewall.filter.output, the platform filters no traffic it sends itself",
+            "firewall.untracked, every session is tracked",
+        ])
+    );
+
+    const fw = firewall.firewall!;
+    const narrow: Device = {
+        ...firewall,
+        interfaces: {
+            ...firewall.interfaces,
+            partner: { ...firewall.interfaces!.partner!, addresses: [{ address: "2001:db8:ffee::1/127", peer: "2001:db8:ffee::" }] },
+            bare: { type: "loopback" },
+        },
+        management: { ...firewall.management, native: { port: 8013 } },
+        flow_export: { ...firewall.flow_export!, sampling: undefined, interfaces: ["uplink", "partner"] },
+        routing: {
+            ...firewall.routing,
+            ospf: { ...firewall.routing!.ospf!, areas: { "0.0.0.0": { interfaces: { bare: {} } } } },
+        },
+        policies: { ...firewall.policies, MIXED: [{ match: { prefix: "192.0.2.0/24", prefix_set: "ours" }, action: "accept" }] },
+        firewall: {
+            ...fw,
+            filter: {
+                ...fw.filter,
+                forward: { default: "drop", rules: [{ match: { src: "192.0.2.0/24", src_set: "management" }, action: "accept" }] },
+            },
+            nat: {
+                ...fw.nat,
+                source: [
+                    { match: { src: "198.51.100.32/27", out_interface: "uplink" }, action: "snat", to: "203.0.113.11", to_port: 2000 },
+                ],
+            },
+        },
+    };
+    expect(unsupported(narrow)).toEqual(
+        expect.arrayContaining([
+            "interfaces.partner.addresses, a peer on an IPv6 address",
+            "management.native.port, FortiManager access listens on 541",
+            "flow_export.sampling, required and from 10 to 99999: the platform samples",
+            "flow_export.interfaces partner, a tunnel: the platform samples the interface it leaves through",
+            "routing.ospf on bare, which has no IPv4 address for OSPF to run on",
+            "policies.MIXED[0].match.prefix with prefix_set",
+            "firewall.filter.forward[0].match, a prefix and a set on one side",
+            "firewall.nat.source[0].to_port, without match.src_port",
+        ])
+    );
 });
