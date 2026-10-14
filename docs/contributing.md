@@ -46,14 +46,14 @@ A lesson's place in its level, its "mark it done" box and its discussion are add
 ## Adding a platform
 
 1. `src/adapters/devices/<platform>/models.ts`: each model's ports per speed class and the platform's spelling of them.
-2. An adapter implementing `DeviceAdapter` in `src/adapters/devices/types.ts`. `lines.ts` converges block-structured configurations; `routeros/` shows a command-structured one.
+2. An adapter implementing `DeviceAdapter` in `src/adapters/devices/types.ts`. `lines.ts` converges block-structured configurations; `routeros/` shows a command-structured one, and `junos/` one written as `set` statements.
 3. Register it in `src/adapters/devices/index.ts` and the catalog in `src/adapters/devices/catalog.ts`.
 4. `unsupported()` lists every field it cannot express. Silence is not an option.
 5. An example in `examples/` using every field it supports, and a `TRAPS.md` with what the platform taught.
 
 Another model of an existing platform only needs its ports in that platform's `models.ts`: how many of each speed, and how the platform spells them.
 
-New syntax is proved on a device without applying it: RouterOS compiles a command with `:put [:parse "..."]`, VRP discards a candidate with `clear configuration candidate`. A platform that applies at once is tried on a spare port.
+New syntax is proved on a device without applying it: RouterOS compiles a command with `:put [:parse "..."]`, VRP discards a candidate with `clear configuration candidate`, Junos checks one with `commit check` and discards it with `rollback 0`, and FortiOS stages one in `execute config-transaction start` and discards it with `execute config-transaction abort`, though a plain apply under `cfg-save revert`, undone with `execute cfg reload`, is what proves a FortiOS change. A platform that applies at once is tried on a spare port.
 
 ## Releases
 

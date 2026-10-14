@@ -24,16 +24,20 @@ Each platform gets a dry run where it allows one:
 - **RouterOS** compiles every command on the device without running it. A typo or an unknown setting fails here, before anything changes.
 - **VRP** puts every line into a candidate configuration, which is not active yet. If the device refuses any line, the whole candidate is thrown away.
 - **Raisecom ROS** has neither, so it runs each command as it is sent and stops at the first one it refuses.
+- **Junos** loads the whole plan into a locked candidate configuration and checks it with `commit check`. If the device refuses any line, or the check fails, the candidate is thrown away.
+- **FortiOS** runs each line as it is sent. If the device refuses one, Circuit stops and has the device reload its saved configuration, which undoes what was sent.
 
 ## Protecting your access
 
 The most dangerous change is one that cuts off the management access Circuit itself uses. So after every change, Circuit logs in again, in a new session. A change is only kept for good once that login works.
 
-| Platform       | How the change becomes active | If Circuit cannot log in again                                                                       |
-| -------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `routeros`     | each command, as it is sent   | A backup is made first. The device restores it on its own after `--rollback` minutes, 10 by default. |
-| `vrp`          | all at once, with `commit`    | The change is not saved. Restarting the device brings back the last saved configuration.             |
-| `raisecom-ros` | each command, as it is sent   | The change is not saved. Restarting the device brings back the last saved configuration.             |
+| Platform       | How the change becomes active        | If Circuit cannot log in again                                                                                                                                                                            |
+| -------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `routeros`     | each command, as it is sent          | A backup is made first. The device restores it on its own after `--rollback` minutes, 10 by default.                                                                                                      |
+| `vrp`          | all at once, with `commit`           | The change is not saved. Restarting the device brings back the last saved configuration.                                                                                                                  |
+| `raisecom-ros` | each command, as it is sent          | The change is not saved. Restarting the device brings back the last saved configuration.                                                                                                                  |
+| `junos`        | all at once, with `commit confirmed` | Circuit restores the previous configuration over the session still open. If it cannot, the device rolls back on its own after `--rollback` minutes, 10 by default.                                        |
+| `fortios`      | each line, as it is sent             | The change is not saved yet. Circuit has the device reload its saved configuration over the session still open. If it cannot, the device reloads it on its own after `--rollback` minutes, 10 by default. |
 
 ## Versions of a platform
 

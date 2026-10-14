@@ -154,7 +154,7 @@ Step through how Circuit applies a change to a RouterOS router. Then pick the ch
 
 </TryIt>
 
-What happens when the new login fails depends on the platform, as [How a change is applied](/guide/convergence) explains. A RouterOS router loads its backup on its own after 10 minutes, or the minutes you give `--rollback`. Huawei VRP and Raisecom do not save the change until the login works, so restarting the device brings back the configuration it had before.
+What happens when the new login fails depends on the platform, as [How a change is applied](/guide/convergence) explains. A RouterOS router loads its backup on its own after 10 minutes, or the minutes you give `--rollback`. A Junos switch, and a FortiGate, do the same on their own, after the same minutes. Huawei VRP and Raisecom do not save the change until the login works, so restarting the device brings back the configuration it had before.
 
 <Quiz
   question="You apply a change to a RouterOS router that narrows management.allow, and your computer is no longer in it. What happens?"
