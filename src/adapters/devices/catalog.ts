@@ -1,10 +1,11 @@
 // Every model each platform supports. Types read from here, so a model or port name that does not exist fails to compile.
 
+import { models as junos } from "./junos/models";
 import { models as raisecom } from "./raisecom-ros/models";
 import { models as routeros } from "./routeros/models";
 import { models as vrp } from "./vrp/models";
 
-export const catalog = { routeros, vrp, "raisecom-ros": raisecom } as const;
+export const catalog = { routeros, vrp, "raisecom-ros": raisecom, junos } as const;
 
 export type Catalog = typeof catalog;
 export type PlatformName = keyof Catalog;
@@ -34,5 +35,6 @@ export function spell(platform: string, model: string, port: string): string {
     const template = parts && spec?.spelling[parts[1]!];
     if (!template) throw new Error(`${model} has no port ${port}`);
 
-    return template.replace("{n}", parts[2]!);
+    // A platform that counts from 0, or numbers one class after another, shifts the position: `{n-1}`, `{n+47}`.
+    return template.replace(/\{n([+-]\d+)?\}/, (_, shift?: string) => String(Number(parts[2]) + Number(shift ?? 0)));
 }
