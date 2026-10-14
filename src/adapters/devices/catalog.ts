@@ -1,11 +1,12 @@
 // Every model each platform supports. Types read from here, so a model or port name that does not exist fails to compile.
 
+import { models as fortios } from "./fortios/models";
 import { models as junos } from "./junos/models";
 import { models as raisecom } from "./raisecom-ros/models";
 import { models as routeros } from "./routeros/models";
 import { models as vrp } from "./vrp/models";
 
-export const catalog = { routeros, vrp, "raisecom-ros": raisecom, junos } as const;
+export const catalog = { routeros, vrp, "raisecom-ros": raisecom, junos, fortios } as const;
 
 export type Catalog = typeof catalog;
 export type PlatformName = keyof Catalog;
