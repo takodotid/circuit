@@ -41,8 +41,9 @@ A VRF is `vrfs` in the device file, and each port, interface or static route say
 
 ```ts
 vrfs: {
-    "cust-a": { description: "Customer A" },
-    "cust-b": { description: "Customer B" },
+    // One routing table for each customer.
+    "cust-a": {},
+    "cust-b": {},
 },
 
 ports: {
@@ -54,19 +55,20 @@ ports: {
 
 routing: {
     static: [
-        { prefix: "10.1.1.0/24", via: "172.16.0.2", vrf: "cust-a", description: "Customer A, office 1" },
-        { prefix: "10.1.2.0/24", via: "172.16.0.6", vrf: "cust-a", description: "Customer A, office 2" },
-        { prefix: "10.1.1.0/24", via: "172.16.0.2", vrf: "cust-b", description: "Customer B, office 1" },
-        { prefix: "10.1.2.0/24", via: "172.16.0.6", vrf: "cust-b", description: "Customer B, office 2" },
+        // Customer A's offices, then Customer B's: the same prefixes, in different tables.
+        { prefix: "10.1.1.0/24", via: "172.16.0.2", vrf: "cust-a" },
+        { prefix: "10.1.2.0/24", via: "172.16.0.6", vrf: "cust-a" },
+        { prefix: "10.1.1.0/24", via: "172.16.0.2", vrf: "cust-b" },
+        { prefix: "10.1.2.0/24", via: "172.16.0.6", vrf: "cust-b" },
     ],
 },
 ```
 
-| Field            | What it does                                                                        |
-| ---------------- | ----------------------------------------------------------------------------------- |
-| `vrfs`           | The device's VRFs, each under a name, with an optional `description`.               |
-| `vrf` on a port  | The table this port routes in. A port without `vrf` routes in the default table.    |
-| `vrf` on a route | The table a static route belongs to. Without it, the route is in the default table. |
+| Field            | What it does                                                                     |
+| ---------------- | -------------------------------------------------------------------------------- |
+| `vrfs`           | The device's VRFs, each under a name, with an optional `description`.            |
+| `vrf` on a port  | The table this port routes in. A port without `vrf` routes in the default table. |
+| `vrf` on a route | The table a static route is in. Without it, the route is in the default table.   |
 
 A name that is not in `vrfs` is an error before anything reaches the router: `static route 10.1.2.0/24 VRF 'cust-c' is not declared`.
 

@@ -106,8 +106,8 @@ The validators go in `routing.rpki`, and `bgpSanity()` rejects what they mark in
 ```ts
 routing: {
     rpki: [
-        { address: "10.0.0.80", port: 323, description: "Validator 1" },
-        { address: "10.0.0.81", port: 8282, description: "Validator 2" },
+        { address: "10.0.0.80", port: 323 },
+        { address: "10.0.0.81", port: 8282 },
     ],
     // bgp: as before, with role and max_prefixes on every neighbor
 },

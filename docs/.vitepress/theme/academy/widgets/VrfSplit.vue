@@ -105,9 +105,7 @@ const isLit = (id: string) => lastPath.value.includes(id);
 const code = computed(() => {
     const vrf = (customer: Customer) => (mode.value === "vrfs" ? `, vrf: "${vrfOf(customer)}"` : "");
     const lines = [
-        ...(mode.value === "vrfs"
-            ? ["vrfs: {", '    "cust-a": { description: "Customer A" },', '    "cust-b": { description: "Customer B" },', "},", ""]
-            : []),
+        ...(mode.value === "vrfs" ? ["vrfs: {", '    "cust-a": {},', '    "cust-b": {},', "},", ""] : []),
         "ports: {",
         ...offices.map((office) => {
             const address = office.next.replace(/\d+$/, (last) => String(Number(last) - 1));
@@ -117,9 +115,7 @@ const code = computed(() => {
         "",
         "routing: {",
         "    static: [",
-        ...offices.map(
-            (office) => `        { prefix: "${office.lan}", via: "${office.next}"${vrf(office.customer)}, description: "${office.label}" },`
-        ),
+        ...offices.map((office) => `        { prefix: "${office.lan}", via: "${office.next}"${vrf(office.customer)} },`),
         "    ],",
         "},",
     ];
