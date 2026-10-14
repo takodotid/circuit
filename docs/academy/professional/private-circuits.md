@@ -11,6 +11,8 @@ They differ in what the provider carries for you. With dark fibre and wavelength
 
 ## Choose by what you want to run
 
+The older, general word for all of these is a <Term means="A private circuit rented from a provider between two or more places, always on and kept for one customer alone. Metro-E lines, IEPLs and IPLCs are all kinds of leased line.">leased line</Term>: a private circuit between your places, rented from a provider, always on and kept for you alone. Quotes still use it, sometimes for a line to the internet as well, so ask what exactly is carried and between which two points.
+
 The lower the layer you buy, the more capacity you get and the more you run yourself:
 
 | You buy                     | The provider carries                | You run                              | Reach                               |
@@ -65,7 +67,12 @@ An <Term means="International Ethernet private line: a dedicated point-to-point 
 
 <Term means="A fibre already in the ground or on poles, rented with no equipment at either end. The customer lights it with its own optics.">Dark fibre</Term> is a fibre already in the ground, rented with nothing on it. You put your own optics at both ends and run it at whatever speed they support, and change them when you need more. It is rented where spare fibre already runs, mostly in and around cities and between data centres, and often for a long term, under a contract called an <Term means="Indefeasible right of use: a long contract, often 20 to 30 years, that gives the right to use a fibre or capacity and cannot be taken back.">IRU</Term>. The fibre is the provider's; everything that lights it is yours, faults included.
 
-<Term means="Dense wavelength division multiplexing: many wavelengths of light, each a separate link, sent down one fibre.">DWDM</Term> sends many wavelengths, many colours of light, down one fibre, each a separate link: 40 channels 100 GHz apart, or 80 channels 50 GHz apart, on the ITU-T grid. A provider with DWDM on its fibre can sell one **wavelength**: a link at a fixed rate, such as 10 or 100 Gbit/s, that carries whatever you send on it. You get a whole link's capacity without lighting the fibre yourself, and other customers ride other colours on the same fibre.
+One fibre can carry many links at once, each on its own wavelength, its own colour of light. This is <Term means="Wavelength division multiplexing: sending several links down one fibre at once, each on its own wavelength of light, and separating them again at the far end.">WDM</Term>, wavelength division multiplexing, and it comes in two common kinds:
+
+- <Term means="Coarse wavelength division multiplexing: up to 18 wavelengths 20 nm apart on one fibre, with cheap optics, over city distances, and no amplifiers.">CWDM</Term>, coarse WDM, spaces its colours widely: up to 18 channels, 20 nm apart, from 1270 to 1610 nm (ITU-T G.694.2). The wide gaps let the optics be simple and cheap, but the light cannot be amplified on the way, so it suits distances across a city, a few tens of kilometres.
+- <Term means="Dense wavelength division multiplexing: many wavelengths packed closely on one fibre, such as 40 channels 100 GHz apart, which amplifiers can carry over long distances.">DWDM</Term>, dense WDM, packs its colours tightly: 40 channels 100 GHz apart, or 80 channels 50 GHz apart, on the ITU-T G.694.1 grid. They sit in the band optical amplifiers work in, so a DWDM line can run between cities and across countries, with an amplifier every 80 to 100 km.
+
+So CWDM is how you get more out of your own dark fibre across a city, and DWDM is what long fibre routes run on. A provider with DWDM on its fibre can sell one **wavelength**: a link at a fixed rate, such as 10 or 100 Gbit/s, that carries whatever you send on it. You get a whole link's capacity without lighting the fibre yourself, and other customers ride other colours on the same fibre.
 
 ## Over the internet: SD-WAN
 
@@ -108,7 +115,8 @@ Most needs have more than one answer, and the choice is a trade: the lower the l
 - [What is IPLC](https://www.iptp.net/what-is-iplc/), IPTP Networks: a dedicated circuit between countries, against MPLS VPNs.
 - [What are the differences between IEPL and IPLC](https://www.simcentric.com/hong-kong-dedicated-server/what-are-the-differences-between-iepl-and-iplc/), Simcentric: Ethernet against circuit switching.
 - [Dark fibre](https://en.wikipedia.org/wiki/Dark_fibre), [Dark fibre](https://www.lexisnexis.com/en-gb/legal/glossary/dark-fibre) in the LexisNexis glossary, and [Indefeasible rights of use](https://en.wikipedia.org/wiki/Indefeasible_rights_of_use).
-- [Wavelength-division multiplexing](https://en.wikipedia.org/wiki/Wavelength-division_multiplexing): DWDM channels and the ITU-T grid; and [Wavelengths](https://arelion.com/products-and-services/networking/wavelengths), Arelion: a wavelength service as a transit provider sells it.
+- [Leased line](https://en.wikipedia.org/wiki/Leased_line): a private circuit between two or more places, dedicated to one customer.
+- [Wavelength-division multiplexing](https://en.wikipedia.org/wiki/Wavelength-division_multiplexing): CWDM on the ITU-T G.694.2 grid, DWDM channels on the G.694.1 grid, and why only DWDM is amplified; and [Wavelengths](https://arelion.com/products-and-services/networking/wavelengths), Arelion: a wavelength service as a transit provider sells it.
 - [MEF 70 SD-WAN Service Attributes and Services](https://www.lightwaveonline.com/network-automation/article/14038725/mef-releases-mef-70-sd-wan-service-attributes-and-services-standard), Lightwave, and the MEF's [MEF 3.0 SD-WAN Services](https://www.mplify.net/wp-content/uploads/2019/11/MEF-Presentation-WS-Vid-MEF-3-0-SD-WAN-Services.pdf) presentation: application flows, policies, encryption between edges, and the links underneath.
 
 ## In short
@@ -116,5 +124,6 @@ Most needs have more than one answer, and the choice is a trade: the lower the l
 - Private circuits carry a company's traffic between its own sites, off the internet.
 - Metro-E is Ethernet across a city: an EPL takes the whole port to one place, EVPLs share a port, one VLAN each. Between cities it is L2 transport, and between countries IEPL.
 - An IP VPN routes between all your sites for you; an IPLC is a fixed circuit between two countries.
-- Dark fibre is a bare fibre you light yourself; a wavelength is one colour on the provider's DWDM.
+- Leased line is the general word for a private circuit rented between your places.
+- Dark fibre is a bare fibre you light yourself; WDM puts many links on one fibre, CWDM cheaply across a city, DWDM over long distances, and a wavelength is one colour on the provider's DWDM.
 - SD-WAN builds encrypted tunnels over the links you already have, cheaply, but with nothing committed below it.
