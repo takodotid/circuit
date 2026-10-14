@@ -53,7 +53,7 @@ A lesson's place in its level, its "mark it done" box and its discussion are add
 
 Another model of an existing platform only needs its ports in that platform's `models.ts`: how many of each speed, and how the platform spells them.
 
-New syntax is proved on a device without applying it: RouterOS compiles a command with `:put [:parse "..."]`, VRP discards a candidate with `clear configuration candidate`, and Junos checks one with `commit check` and discards it with `rollback 0`. A platform that applies at once is tried on a spare port.
+New syntax is proved on a device without applying it: RouterOS compiles a command with `:put [:parse "..."]`, VRP discards a candidate with `clear configuration candidate`, Junos checks one with `commit check` and discards it with `rollback 0`, and FortiOS stages one in `execute config-transaction start` and discards it with `execute config-transaction abort`, though a plain apply under `cfg-save revert`, undone with `execute cfg reload`, is what proves a FortiOS change. A platform that applies at once is tried on a spare port.
 
 ## Releases
 
