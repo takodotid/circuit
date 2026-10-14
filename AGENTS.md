@@ -19,6 +19,8 @@ English only. No em-dashes, no decorative comments, no manual line wrapping. Nam
 
 Code comments are short and neutral. The documentation is written for every reader, including someone new to networking, after https://raflymaulana.com/blog/how-to-write-english.md: plain words over correct but dense ones, the direct answer first, a process as numbered steps, a niche word explained or linked to the glossary. A longer sentence that is easy to follow beats a short one that must be read twice. Never repeat what another file holds: the pattern pages include `templates/`, the credits read `package.json`.
 
+Many readers have English as a second language, so say what a thing does with everyday verbs, in the order a reader thinks: the thing first, then what it does. Write "`access_vlan` says which VLAN the port is in", not "`access_vlan` names the VLAN the port belongs to" or "indicates the VLAN to which the port belongs". Words such as names (as a verb), denotes, specifies, designates, to which, whereby and wherein are correct but must be decoded; use says which, is for, is in, points to, or a sentence of their own.
+
 Code is written to be read: names that say what a value is, one step per line, a blank line between steps, and an object with more than a few fields spread over lines. Readability never means splitting a file; a platform's adapter stays in its own few files. Prettier keeps an object expanded when its source has a newline after `{`.
 
 ## Changing an adapter
