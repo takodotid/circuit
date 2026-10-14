@@ -10,9 +10,9 @@ Documentation: [circuit.tako.id](https://circuit.tako.id)
 ## What it does
 
 - **One file per device.** VLANs, ports, addresses, routing, firewall, users and services, written in TypeScript. Your editor checks every name you refer to as you type.
-- **The same words for every vendor.** MikroTik RouterOS 7, Huawei VRP and Raisecom ROS each get their own commands. What a device cannot do is an error before anything is sent.
+- **The same words for every vendor.** MikroTik RouterOS 7, Huawei VRP, Raisecom ROS and Juniper Junos each get their own commands. What a device cannot do is an error before anything is sent.
 - **The file is the whole truth.** A port, user or service the file does not mention is removed or turned off, so nothing set by hand lingers.
-- **See every change first.** `diff` shows it offline, `apply` plans it against the live device, and nothing is sent without `--confirm`. On RouterOS, a change undoes itself if Circuit cannot log in again afterwards.
+- **See every change first.** `diff` shows it offline, `apply` plans it against the live device, and nothing is sent without `--confirm`. On RouterOS and Junos, a change undoes itself if Circuit cannot log in again afterwards.
 - **History in git.** Each device's last snapshot is kept in `.circuit/state/`, so the repository's history is the network's history.
 - **Rules of your own.** Checks run on every change, and presets give ready-made filters, BGP policies and checks.
 - **Secrets stay out of the repository.** They come from `.env` or 1Password, and never appear in a plan or a snapshot.
@@ -44,7 +44,7 @@ npx @takodotid/circuit new        # or: pnpm dlx @takodotid/circuit new, bunx @t
 
 It asks which kind of network you have, creates a project with example devices, and installs Circuit. [Getting started](https://circuit.tako.id/guide/getting-started) walks through the first run.
 
-Circuit supports MikroTik RouterOS 7, Huawei VRP and Raisecom ROS. Releases are on the [releases page](https://github.com/takodotid/circuit/releases), on npm and on GitHub Packages.
+Circuit supports MikroTik RouterOS 7, Huawei VRP, Raisecom ROS and Juniper Junos. Releases are on the [releases page](https://github.com/takodotid/circuit/releases), on npm and on GitHub Packages.
 
 ## Working on Circuit
 

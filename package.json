@@ -13,7 +13,9 @@
         "mikrotik",
         "vrp",
         "huawei",
-        "raisecom"
+        "raisecom",
+        "junos",
+        "juniper"
     ],
     "homepage": "https://circuit.tako.id",
     "bugs": {
