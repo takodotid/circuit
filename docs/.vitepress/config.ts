@@ -72,6 +72,7 @@ const sidebar: DefaultTheme.SidebarItem[] = [
             { text: "RouterOS", link: "/platforms/routeros" },
             { text: "VRP", link: "/platforms/vrp" },
             { text: "Raisecom ROS", link: "/platforms/raisecom-ros" },
+            { text: "Junos", link: "/platforms/junos" },
         ],
     },
     {

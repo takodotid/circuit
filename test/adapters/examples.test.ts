@@ -5,11 +5,12 @@ import { adapters } from "../../src/adapters/devices";
 import { defineNetwork } from "../../src/core/define";
 import { validate } from "../../src/core/validate";
 import type { Device } from "../../src/schema";
+import aggregationSwitch from "../../examples/aggregation-switch";
 import coreSwitch from "../../examples/core-switch";
 import router from "../../examples/router";
 import switchDevice from "../../examples/switch";
 
-const examples = [router, switchDevice, coreSwitch];
+const examples = [router, switchDevice, coreSwitch, aggregationSwitch];
 
 describe("examples", () => {
     test("validate", () => {
@@ -92,6 +93,36 @@ test("a field a platform renders nothing for is unsupported", () => {
             "interfaces.management.addresses 2001:db8::3/64, only IPv4 here",
             "routing.static 2001:db8:1::/48, only an IPv4 next hop in the default table",
             "routing.static 2001:db8:1::/48 description and distance",
+        ])
+    );
+
+    const bgp = aggregationSwitch.routing!.bgp!;
+    const junos: Device = {
+        ...aggregationSwitch,
+        users: { ...aggregationSwitch.users, operator: { role: "operator", password: { secret: "EXAMPLE_OPERATOR_PASSWORD" } } },
+        ports: {
+            ...aggregationSwitch.ports,
+            "10g-4": { access_vlan: "servers", acl: "by-vlan", storm_control: { broadcast: { pps: 1000 } } },
+        },
+        acls: { "by-vlan": [{ match: { vlan: "servers" }, action: "drop" }] },
+        dhcp_relay: { ...aggregationSwitch.dhcp_relay, management: { interface: "management", servers: ["192.0.2.67"] } },
+        routing: {
+            static: [{ prefix: "192.0.2.128/25", via: "192.0.2.1", description: "Away" }],
+            bgp: {
+                ...bgp,
+                neighbors: { ...bgp.neighbors, "transit-1": { ...bgp.neighbors!["transit-1"]!, role: "provider", keepalive: 30 } },
+            },
+        },
+    };
+    expect(unsupported(junos)).toEqual(
+        expect.arrayContaining([
+            "users.operator, a name the platform keeps for a system account",
+            "acls.by-vlan matching a VLAN, on port 10g-4",
+            "ports.10g-4.storm_control in pps, the platform takes percent",
+            "dhcp.management.interface, which a DHCP relay also uses",
+            "routing.static 192.0.2.128/25 description",
+            "routing.bgp.neighbors.transit-1.role, Junos 21 has no BGP roles",
+            "routing.bgp.neighbors.transit-1.keepalive, the platform keeps it at a third of hold_time",
         ])
     );
 
