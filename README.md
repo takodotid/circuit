@@ -11,13 +11,13 @@ Documentation: [circuit.tako.id](https://circuit.tako.id)
 
 - **One file per device.** VLANs, ports, addresses, routing, firewall, users and services, written in TypeScript. Your editor checks every name you refer to as you type.
 - **The same words for every vendor.** MikroTik RouterOS 7, Huawei VRP, Raisecom ROS, Juniper Junos and Fortinet FortiOS each get their own commands. What a device cannot do is an error before anything is sent.
-- **The file is the whole truth.** A port, user or service the file does not mention is removed or turned off, so nothing set by hand lingers.
+- **The file is the whole truth.** A port, user or service the file does not mention is removed or turned off, so nothing set by hand stays behind.
 - **See every change first.** `diff` shows it offline, `apply` plans it against the live device, and nothing is sent without `--confirm`. On RouterOS, Junos and FortiOS, a change undoes itself if Circuit cannot log in again afterwards.
 - **History in git.** Each device's last snapshot is kept in `.circuit/state/`, so the repository's history is the network's history.
 - **Rules of your own.** Checks run on every change, and presets give ready-made filters, BGP policies and checks.
 - **Secrets stay out of the repository.** They come from `.env` or 1Password, and never appear in a plan or a snapshot.
-- **See the network.** Circuit Studio, started with `circuit studio`, draws the cables, VLANs, addresses, BGP sessions, OSPF neighbors and tunnels in your browser, and marks what is broken or differs from the device. Its tables list everything each device holds, for anyone who does not read TypeScript, and it can run on a server for the whole team. `circuit graph` prints the drawing as Mermaid, DOT or JSON.
-- **Keeps the rest in step.** Prefix lists fetched from a registry, your PeeringDB record, devices in LibreNMS, targets for Prometheus, WireGuard client configs, and your BGP communities for a looking glass.
+- **See the network.** Circuit Studio, started with `circuit studio`, draws the cables, VLANs, addresses, BGP sessions, OSPF neighbors and tunnels in your browser, and marks what is broken or differs from the device. Its tables list everything each device has, for anyone who does not read TypeScript, and it can run on a server for the whole team. `circuit graph` prints the drawing as Mermaid, DOT or JSON.
+- **Keeps the rest up to date.** Prefix lists fetched from a registry, your PeeringDB record, devices in LibreNMS, targets for Prometheus, WireGuard client configs, and your BGP communities for a looking glass.
 - **Safe with AI agents.** Every project gets an `AGENTS.md` that tells an agent what it may run, and the last step stays yours.
 
 <picture>

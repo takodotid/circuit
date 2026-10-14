@@ -1,14 +1,14 @@
 # Tools
 
-Studio's **Tools** answer the questions that come up when something does not reach where it should. They read your files as the schema describes each field. A device can still behave otherwise, so they say what your config means, not what a device did.
+Studio's **Tools** answer the questions that come up when something does not reach where it should. They read each field of your files the way the schema describes it. A device can still behave otherwise, so they say what your config means, not what a device did.
 
 ## Trace an address
 
 Give an address, such as `10.0.10.5`, and Studio shows:
 
-- which device and interface hold it, the segment it is in, and what else uses that segment;
+- which device and interface have it, the segment it is in, and what else uses that segment;
 - how each device would reach it: its own address, an address in the same prefix, or a static route, picked by the longest prefix in each routing table;
-- every firewall rule and ACL that names it, by address, prefix or address set.
+- every firewall rule and ACL that uses it, by address, prefix or address set.
 
 Routes a device learns from BGP or OSPF are not in your files, so a device with no route here may still reach the address. A trace has its own address, such as `#tools/trace/10.0.10.5`, to bookmark or send.
 
@@ -29,4 +29,4 @@ Describe a route: the device and the policy, picked by the BGP sessions that use
 Two things the files cannot tell:
 
 - **Prefix sets from a registry** are filled by [`circuit refresh`](/guide/scheduled-refresh), so tick the ones the route is in.
-- **A prefix set** holds a route whose prefix is one of the set's own, or inside one.
+- **A prefix set** contains a route when the route's prefix is one of the set's prefixes, or is inside one.

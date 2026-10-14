@@ -9,10 +9,10 @@ npx circuit graph --layer=l2,l3 edge-01     # VLANs and addresses, only around e
 npx circuit graph --layer=all --format=json # everything, for a script or an AI agent
 ```
 
-| Format    | For                                                                                                                                                       |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mermaid` | Pasting into a pull request, an issue or a README on GitHub, in a code block marked `mermaid`. GitHub draws it.                                           |
-| `dot`     | An image, with [Graphviz](https://graphviz.org): `npx circuit graph --format=dot \| dot -Tsvg > network.svg`.                                             |
-| `json`    | Scripts and AI agents. It holds every node and line with its details, what `circuit validate` found, and how each device compares with its last snapshot. |
+| Format    | For                                                                                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mermaid` | Pasting into a pull request, an issue or a README on GitHub, in a code block marked `mermaid`. GitHub draws it.                                         |
+| `dot`     | An image, with [Graphviz](https://graphviz.org): `npx circuit graph --format=dot \| dot -Tsvg > network.svg`.                                           |
+| `json`    | Scripts and AI agents. It has every node and line with its details, what `circuit validate` found, and how each device compares with its last snapshot. |
 
-Name devices after the command to draw only what touches them. The marks are the [same as in Studio](/studio/graph#what-is-marked).
+Put device names after the command to draw only what touches them. The marks are the [same as in Studio](/studio/graph#what-is-marked).

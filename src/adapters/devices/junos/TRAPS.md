@@ -17,10 +17,10 @@ Behaviour that looks like something else. Each one has been hit on a QFX5100-48S
 - An SNMP community prints in clear, and its value is also its name, so a new value is a second community. A new value is sent after the old communities are deleted, each by its name, which Circuit looks up during the apply and never prints.
 - A firewall filter name is unique across families. The filter guarding the device's services is `circuit-services` for IPv4 and `circuit-services-v6` for IPv6.
 - A VLAN interface's MTU above what its ports carry commits with only a warning, `mtu 9000 is bigger than member link`.
-- There is no `protocols stp`. Plain STP is RSTP held back with `force-version stp`.
+- There is no `protocols stp`. Plain STP is RSTP limited with `force-version stp`.
 - sFlow interfaces print with their unit, `xe-0/0/0.0`.
 - The factory VLAN `default` can be deleted.
-- BGP without a licence commits with only a warning, `requires 'bgp' license`, and sessions establish. The same holds for the other licensed features.
+- BGP without a licence commits with only a warning, `requires 'bgp' license`, and sessions establish. The same is true for the other licensed features.
 - Junos accepts and announces every route over eBGP unless a policy says otherwise: `Default eBGP mode: advertise - accept, receive - accept`. A session without a policy is given `circuit-reject-all`.
 - An export policy sees every active route, not only BGP's. Every export starts with `circuit-bgp-origin`, which passes on BGP's routes and the prefixes in `routing.bgp.networks` and rejects the rest.
 - A policy's or a filter's terms are kept in order, and `set` adds a new term at the end. A change to one rewrites it whole.

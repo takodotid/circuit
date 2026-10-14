@@ -14,7 +14,7 @@ The router tags every route it learns with where it came from, using [`communiti
 | `64500:1:2` | an exchange           |
 | `64500:1:3` | one of your customers |
 
-So what you send the customer only has to look at the tag.
+So the policy for what you send the customer only has to look at the tag.
 
 ## What changes
 

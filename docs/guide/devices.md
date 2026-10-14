@@ -25,7 +25,7 @@ export default defineDevice({
 
 Hover any field in your editor to see what it does. The [schema reference](/reference/schema) lists every field.
 
-## What a device can hold
+## What a device can have
 
 | Field                | What it is                                                                                                              |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -58,7 +58,7 @@ The model decides which ports exist. A port the model does not have is an error 
 
 ## Names are checked
 
-A device can only refer to names it declares itself:
+A device can only use names that it defines itself:
 
 ```ts
 vlans: { mgmt: { id: 99 } },
@@ -114,9 +114,9 @@ A device's name is written in more places than its own file: the `link` at the f
 3. Run `npx circuit rename tor-01 rack-a-01 --confirm` to write the change.
 4. Run `npx circuit validate`, then `npx circuit apply rack-a-01`. Only then does the device take its new hostname.
 
-Every string that is exactly the old name changes, in every file of the project outside `node_modules` and `.circuit/`. That includes a BGP neighbor named after the device, which renames its session on the device that has it. `circuit diff` shows that before anything is sent.
+Every string that is exactly the old name changes, in every file of the project outside `node_modules` and `.circuit/`. That includes a BGP neighbor with the device's name, so the BGP session is renamed on the router that has that neighbor. `circuit diff` shows that before anything is sent.
 
-The device's file keeps its name, since a file's name need not match the hostname. Add `--file` to rename it to `rack-a-01.ts` as well; every import of it follows. The device's file is the one whose `defineDevice` gives it its name as the first `name` after the call, so a file that only links to the device, or names it as a peer, is not mistaken for it. Circuit Studio finds a device's history the same way.
+The device's file keeps its name, since a file's name need not match the hostname. Add `--file` to rename it to `rack-a-01.ts` as well; every import of it follows. Circuit finds the device's file by its `defineDevice` call: the first `name` after the call is the device's name. So a file that only links to the device, or uses its name for a peer, is not mistaken for it. Circuit Studio finds a device's history the same way.
 
 A name built from parts, such as `` `tor-0${n}` ``, cannot be found this way. Circuit stops and says so, and you rename it by hand.
 
@@ -124,6 +124,6 @@ A name built from parts, such as `` `tor-0${n}` ``, cannot be found this way. Ci
 
 Circuit uses the same field names for every vendor, but not every device can do everything. For example, a Huawei switch has no firewall, and a Raisecom switch has no BGP.
 
-If you write a field that the device's platform cannot do, `circuit validate` reports it as an error, names the field and gives the reason. `diff` and `apply` refuse to run for that device until you remove the field. Circuit never skips a field quietly, so what you read in the file is always what the device runs.
+If you write a field that the device's platform cannot do, `circuit validate` reports it as an error, with the field and the reason. `diff` and `apply` refuse to run for that device until you remove the field. Circuit never skips a field quietly, so what you read in the file is always what the device runs.
 
 [Platforms](/platforms/) has a table of what each platform can do.

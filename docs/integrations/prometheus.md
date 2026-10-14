@@ -33,7 +33,7 @@ auths:
         priv_password: ${EDGE_01_SNMP_PRIVACY}
 ```
 
-The file holds no password. `${EDGE_01_SNMP_AUTH}` is the name of the secret, the same name as in your `.env`. The SNMP exporter fills it in from its environment when it starts.
+The file has no password in it. `${EDGE_01_SNMP_AUTH}` is the name of the secret, the same name as in your `.env`. The SNMP exporter fills it in from its environment when it starts.
 
 So start the SNMP exporter with three things:
 
@@ -53,7 +53,7 @@ ExecStart=/usr/local/bin/snmp_exporter \
     --config.expand-environment-variables
 ```
 
-If your secrets are in [1Password](/integrations/1password), `.env` holds references, not values. Start it through 1Password instead, which fills them in:
+If your secrets are in [1Password](/integrations/1password), `.env` has references, not values. Start it through 1Password instead, which fills them in:
 
 ```bash
 op run --env-file=/opt/network/.env -- snmp_exporter --config.file=... --config.expand-environment-variables
@@ -104,7 +104,7 @@ scrape_configs:
             replacement: 127.0.0.1:9116
 ```
 
-`module` is what to read from each device; `if_mib` is every port's traffic and status.
+`module` says what to read from each device; `if_mib` is every port's traffic and status.
 
 ## Keeping it current
 

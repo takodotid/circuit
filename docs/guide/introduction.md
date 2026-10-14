@@ -20,7 +20,7 @@ If you have used Terraform or Ansible for servers, this is the same idea for net
 2. **Leave a field out to turn it off.** You only write what is on. There is no `enabled: false`.
 3. **The same words for every vendor.** You write `access_vlan`, `ssh` or `hardware_offload`, and each device gets its own vendor's commands. When a device cannot do something you wrote, `circuit validate` says so, with the reason, and nothing is sent.
 4. **Names are checked as you type.** Every VLAN, interface, policy and port you refer to must exist on that device. A typo is an error in your editor, before it is ever sent.
-5. **Secrets stay out of the files.** A password is written as `secret("NAME")`, and its value comes from `.env` or 1Password only when a command is sent. Plans and snapshots never hold a secret.
+5. **Secrets stay out of the files.** A password is written as `secret("NAME")`, and its value comes from `.env` or 1Password only when a command is sent. Plans and snapshots never contain a secret.
 
 ## Which devices
 

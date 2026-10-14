@@ -1,6 +1,6 @@
 # Secrets
 
-Passwords, keys and tokens never go in your device files. A file only names the secret, and Circuit looks up its value at the moment it sends a command. Plans, `build` output and `.circuit/state/` never contain a secret's value.
+Passwords, keys and tokens never go in your device files. A file only gives the secret's name, and Circuit looks up its value at the moment it sends a command. Plans, `build` output and `.circuit/state/` never contain a secret's value.
 
 ## A secret by name
 
@@ -24,7 +24,7 @@ SWITCH_PASSWORD=correct-horse-battery-staple
 
 ## A secret kept in 1Password
 
-A value in `.env` can point at 1Password instead of holding the secret:
+A value in `.env` can point to 1Password instead of being the secret itself:
 
 ```bash
 # .env
@@ -49,7 +49,7 @@ certificates: {
 },
 ```
 
-The path is relative to `circuit.config.ts`. The certificate itself is public and belongs in the repository; its private key does not. `circuit new` ignores `*.key.pem` in `.gitignore`.
+The path is relative to `circuit.config.ts`. The certificate itself is public and belongs in the repository; its private key does not. `circuit new` adds `*.key.pem` to `.gitignore`.
 
 ## Check every secret
 
@@ -61,9 +61,9 @@ lists every secret your files use, where each one comes from, and whether it can
 
 ## Changing a secret
 
-A device never shows its passwords back, so Circuit cannot tell whether one changed. It sends a secret only when the thing holding it is new, such as a new user.
+A device never shows its passwords back, so Circuit cannot tell whether one changed. It sends a secret only when the thing that has it is new, such as a new user.
 
 To change a password that already exists:
 
 1. Change the value in `.env` or in 1Password.
-2. Run `npx circuit apply <device> --secrets --confirm`. `--secrets` sends every secret the device holds, including the new one.
+2. Run `npx circuit apply <device> --secrets --confirm`. `--secrets` sends every secret the device has, including the new one.

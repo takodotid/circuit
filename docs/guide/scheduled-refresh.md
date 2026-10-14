@@ -2,7 +2,7 @@
 
 A prefix set fetched from a registry, such as every prefix a customer's AS announces, changes on its own, often every day. `circuit refresh <device> --confirm` puts the current list on the device. Run it on a schedule, so nobody has to remember.
 
-`refresh` only replaces those lists. It never changes the rest of the device's config. It refuses a list that is empty or holds more than 100,000 prefixes, because that is a broken feed, not a real change.
+`refresh` only replaces those lists. It never changes the rest of the device's config. It refuses a list that is empty or has more than 100,000 prefixes, because that is a broken feed, not a real change.
 
 ## Where to run it
 

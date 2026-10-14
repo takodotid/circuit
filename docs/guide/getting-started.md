@@ -48,7 +48,7 @@ Then it creates the files and installs Circuit with the package manager you star
 npx @takodotid/circuit new my-network --pattern edge-router --asn 64500 --1password
 ```
 
-`--use npm`, `--use pnpm` or `--use bun` picks the package manager yourself.
+With `--use npm`, `--use pnpm` or `--use bun`, you pick the package manager yourself.
 
 ## What you get
 
@@ -92,7 +92,7 @@ The example devices have example addresses. Change them to your own first: the n
     ```
 
 ::: danger The first plan is long
-A device that was configured by hand runs many things your files do not describe yet. The first plan removes all of them, because the file is the whole truth. Read it line by line, and add to the file whatever must stay, until the plan only holds changes you want.
+A device that was configured by hand runs many things your files do not describe yet. The first plan removes all of them, because the file is the whole truth. Read it line by line, and add to the file whatever must stay, until the plan has only the changes you want.
 :::
 
 ## Adding Circuit to an existing project
