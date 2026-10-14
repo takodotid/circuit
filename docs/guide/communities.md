@@ -17,7 +17,7 @@ For this to work, three things must agree: the tags your routers add, the tags y
 | `function`  | What the community means. You choose a number for each meaning. | `100`, "do not announce to" |
 | `parameter` | What it applies to, such as an AS number or a site.             | `6939`                      |
 
-So `64500:100:6939` reads "AS64500's function 100, toward AS6939": do not announce to AS6939.
+So `64500:100:6939` means "AS64500's function 100, toward AS6939": do not announce to AS6939.
 
 ## Defining the scheme
 
@@ -66,7 +66,7 @@ A neighbor adds these to the routes it sends you, to ask you for something. Only
 | ------------------------------------ | ------------------------------------------------------- | -------------------------------------------- |
 | `tag(class, asn, { site, trusted })` | One rule that tags a route as it comes in               | Each neighbor's import policy                |
 | `actions(asn)`                       | Rules that do what neighbors asked, toward one neighbor | Each neighbor's export policy                |
-| `blackhole(prefixSets)`              | Rules that take a blackhole request                     | The import of each neighbor you allow, first |
+| `blackhole(prefixSets)`              | Rules that accept a blackhole request                   | The import of each neighbor you allow, first |
 | `catalogue`                          | Every community with its meaning                        | `communities` in `defineNetwork`             |
 | `community(function, parameter)`     | One community, written out                              | A rule of your own                           |
 
@@ -112,7 +112,7 @@ communities.actions(6939);
 `asn` is the AS of the neighbor this export goes to. For that neighbor, it makes these rules, in this order:
 
 1. Reject a route tagged `64500:100:0`, "do not announce to anyone", and one tagged `64500:100:6939`, "do not announce to AS6939".
-2. A blackholed route, tagged `64500:666:0`: passed on to this neighbor with its own blackhole community if it is in `blackhole.upstreams`, and rejected otherwise. See [Blackhole](#blackhole).
+2. Pass on a blackholed route, tagged `64500:666:0`, to this neighbor with the neighbor's own blackhole community if the neighbor is in `blackhole.upstreams`, and reject it otherwise. See [Blackhole](#blackhole).
 3. Prepend once, twice or three times for a route tagged `64500:101:6939`, `64500:102:6939` or `64500:103:6939`.
 4. Remove every community of yours, so your tags stay inside your network.
 
@@ -211,4 +211,4 @@ blackhole: { function: 666, upstreams: { 6939: "65535:666" } },
 - It only takes an address inside the prefix sets you give it, `acme-v4` and `acme-v6`, the customer's own space, so a customer can never blackhole someone else's address. One call covers every set: it makes one rule for each.
 - Leave it out for a neighbor you do not allow to blackhole.
 
-The exports need nothing extra: `actions` already passes the route on to the upstreams in `upstreams`, and holds it back from everyone else.
+The exports need nothing extra: `actions` already passes the route on to the upstreams in `upstreams`, and does not send it to anyone else.

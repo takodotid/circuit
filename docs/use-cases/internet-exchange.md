@@ -24,17 +24,17 @@ The switches have no address on the peering LAN. They only carry it.
 
 The `internetExchange` preset builds member ports and a check from a list of members:
 
-| Field           | What it is                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------- |
-| `vlan`          | The name of the peering VLAN on the fabric switches                                         |
-| `lan`           | The peering LAN's subnets, `ipv4` and `ipv6`                                                |
-| `reserved`      | Addresses no member may take, such as the route servers'                                    |
-| `storm_percent` | How much broadcast, multicast and unknown unicast a member port lets through. 1 when absent |
+| Field           | What it is                                                                                          |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| `vlan`          | The name of the peering VLAN on the fabric switches                                                 |
+| `lan`           | The peering LAN's subnets, `ipv4` and `ipv6`                                                        |
+| `reserved`      | Addresses no member may take, such as the route servers'                                            |
+| `storm_percent` | How much broadcast, multicast and unknown unicast a member port lets through. 1 if you leave it out |
 
 It returns two things:
 
 - **`exchange.ports(device)`:** every member's port on that switch, set up as above. Put it in the switch's `ports`.
-- **`exchange.check`:** a check that no two members share a name, an AS or an address, that every address is inside the peering LAN and not reserved, and that every member port carries the peering VLAN alone. Put it in `checks`.
+- **`exchange.check`:** a check that no two members share a name, an AS or an address, that every address is inside the peering LAN and not reserved, and that every member port carries only the peering VLAN. Put it in `checks`.
 
 <<< @/../examples/use-cases/internet-exchange/exchange.ts
 
@@ -60,7 +60,7 @@ A member joins by being added to `members/index.ts`, and leaves by being removed
 
 <<< @/../examples/use-cases/internet-exchange/ix-sw-02.ts
 
-1. **Each member's file names the switch it plugs into.** `exchange.ports("ix-sw-02")` only returns the ports on `ix-sw-02`.
+1. **Each member's file says which switch it plugs into.** `exchange.ports("ix-sw-02")` only returns the ports on `ix-sw-02`.
 2. **`link` on both ends of the trunk** tells Circuit the two ports are connected. `circuit validate` then checks that both ends carry the same VLANs.
 3. **Management goes over the same trunk,** and stays off every member port: `exchange.check` makes sure of that.
 
@@ -70,7 +70,7 @@ A member joins by being added to `members/index.ts`, and leaves by being removed
 
 A virtual exchange, such as BGP.Exchange, has no shared switch. Each member reaches it over a tunnel from anywhere, and peers with the route servers through that tunnel.
 
-In the example, a hub router ends one GRE tunnel per member. Each tunnel has a `/31`: the hub takes the even address, the member the odd one. The route servers sit on a LAN behind the hub. Members peer with the route servers through their tunnel, and traffic between two members goes through the hub.
+In the example, a hub router is the far end of one GRE tunnel per member. Each tunnel has a `/31`: the hub takes the even address, the member the odd one. The route servers sit on a LAN behind the hub. Members peer with the route servers through their tunnel, and traffic between two members goes through the hub.
 
 A member's file:
 
@@ -88,7 +88,7 @@ The hub. Its firewall accepts GRE only from members' addresses, and lets traffic
 
 ## Not in Circuit yet
 
-- **Route servers.** The member list holds what they need, each member's AS and addresses, but turning it into BIRD config is up to you for now.
+- **Route servers.** The member list has what they need, each member's AS and addresses, but turning it into BIRD config is up to you for now.
 - **A MAC address limit per member port,** which stops a member from sending from more than one MAC address.
 - **An ethertype filter per member port,** which lets only IPv4, IPv6 and ARP through.
 

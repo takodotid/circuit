@@ -1,6 +1,6 @@
 # Circuit Studio
 
-Circuit Studio is Circuit in your browser: a drawing of your network, and tables of everything your files hold. Use it to learn how a network is laid out, to look something up without reading TypeScript, or to find out why something does not reach where it should.
+Circuit Studio is Circuit in your browser: a drawing of your network, and tables of everything in your files. Use it to learn how a network is laid out, to look something up without reading TypeScript, or to find out why something does not reach where it should.
 
 It reads only your files and the last [snapshot](/guide/glossary#circuit), and never logs in to a device, so it is safe to run at any time.
 

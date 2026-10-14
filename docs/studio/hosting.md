@@ -6,7 +6,7 @@ Circuit Studio can run on a server, so your whole team opens one address and see
 Studio has no login of its own. It shows your network's whole design: devices, addresses, firewall rules, policies and the names of users and secrets. It never shows a secret's value. Never put it on the internet as it is: reach it only through something that asks who people are, such as a reverse proxy with a login, or only over your VPN.
 :::
 
-Studio asks search engines to leave it out: every answer it sends carries `X-Robots-Tag: noindex`, and its `/robots.txt` turns every crawler away. That keeps it out of search results, but it is not a lock, so the login is still needed.
+Studio asks search engines to leave it out: every answer it sends has `X-Robots-Tag: noindex`, and its `/robots.txt` turns every crawler away. That keeps it out of search results, but it is not a lock, so the login is still needed.
 
 ## The command
 
@@ -14,11 +14,11 @@ Studio asks search engines to leave it out: every answer it sends carries `X-Rob
 npx circuit studio --host=0.0.0.0 --allow-host=studio.example.com --no-open
 ```
 
-| Option         | What it does                                                                                                                                                                                                                 |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--host`       | The address Studio listens on. `0.0.0.0` is every address the server has. `127.0.0.1` by default, this machine only.                                                                                                         |
-| `--allow-host` | The names people reach Studio by, several with commas. Studio refuses a request addressed to any other name, so a web page elsewhere cannot read your network through a name it points at your server. Needed with `--host`. |
-| `--port`       | The port. `4600` by default.                                                                                                                                                                                                 |
+| Option         | What it does                                                                                                                                                                                                                                  |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--host`       | The address Studio listens on. `0.0.0.0` is every address the server has. `127.0.0.1` by default, this machine only.                                                                                                                          |
+| `--allow-host` | The names people reach Studio by, several with commas. Studio refuses a request for any other name. This stops a web page elsewhere from pointing a name of its own at your server and reading your network through it. Needed with `--host`. |
+| `--port`       | The port. `4600` by default.                                                                                                                                                                                                                  |
 
 Compare and a device's history need `git` on the server, and the copy of your repository needs its history: clone it, do not copy only its files.
 

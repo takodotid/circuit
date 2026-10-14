@@ -42,9 +42,9 @@ A check is a function. It gets every device and returns what it found. Each find
 
 `circuit validate` runs your checks next to Circuit's own. Circuit's own checks catch names that do not exist, addresses that are not addresses, and anything a device cannot do. They also compare what your devices say about each other:
 
-- **Both ends of a cable** name each other, and carry the same VLANs with the same MTU, speed and address prefix. One VLAN under two names is a warning.
+- **Both ends of a cable** point to each other, and carry the same VLANs with the same MTU, speed and address prefix. One VLAN under two names is a warning.
 - **An address** is on one device only. On two loopbacks it is a warning, since that is how anycast works.
-- **A BGP session to another of your devices** has a session back there, in the AS this end expects, to the address this end starts from.
+- **A BGP session to another of your devices** has a session back from that device. That device is in the AS this end expects, and its session goes to the address this end starts from.
 - **VRRP on one segment** gives each id one address, and each address one id, on every device.
 - **A GRE or VXLAN tunnel to another of your devices** has a tunnel back, with the same VNI and port.
 

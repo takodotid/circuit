@@ -13,7 +13,7 @@ More than three lines between the same two devices are drawn as one, such as **1
 
 Drag a device to move it, drag the empty space to move the whole drawing, and scroll to zoom. A network too large to read whole opens on its busiest device; **Fit** shows all of it.
 
-Each layer is laid out for its own lines, so the BGP layer is arranged around the sessions and the cables layer around the cables. A layer starts from where its devices are on the cables layer, so it still looks like the same network, and when you change layer each device glides to its place on the new one. A device with no line on a layer waits in a row under the drawing. Your browser remembers where you put each device on each layer, and moving one on a layer leaves the others as they are. **Lay out again** forgets the layer shown and lays it out afresh.
+Each layer is laid out for its own lines, so the BGP layer is arranged around the sessions and the cables layer around the cables. A layer starts from where its devices are on the cables layer, so it still looks like the same network, and when you change layer each device glides to its place on the new one. A device with no line on a layer waits in a row under the drawing. Your browser remembers where you put each device on each layer, and moving one on a layer leaves the others as they are. **Lay out again** forgets where you put the devices on the layer shown, and lays it out again.
 
 **Save image** saves the layer shown, as it looks, as an SVG or a PNG. The Circuit Studio name at the top left always brings you back to the graph.
 
@@ -21,10 +21,10 @@ Each layer is laid out for its own lines, so the BGP layer is arranged around th
 
 | Layer     | Button    | What it draws                                                                                                                                            |
 | --------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `l1`      | Cables    | Each cable a port's `link` names. The cables of one [LAG](/guide/glossary#networking) are one line.                                                      |
+| `l1`      | Cables    | Each cable that a port's `link` describes. The cables of one [LAG](/guide/glossary#networking) are one line.                                             |
 | `l2`      | VLANs     | The VLANs each cable carries.                                                                                                                            |
 | `l3`      | Addresses | Address ranges that two or more devices have an address in, and point-to-point addresses. A range only one device uses, such as a loopback, is left out. |
-| `bgp`     | BGP       | Sessions between your devices, matched by the address each one names, and sessions to every network outside, one box per AS.                             |
+| `bgp`     | BGP       | Sessions between your devices, matched by the neighbor address in each one, and sessions to every network outside, one box per AS.                       |
 | `ospf`    | OSPF      | Two devices with OSPF in the same area on the same address range, where neither side is passive.                                                         |
 | `tunnels` | Tunnels   | GRE and VXLAN tunnels, matched by their endpoints, and WireGuard peers. Peers that dial in to a device are one box.                                      |
 
@@ -32,22 +32,22 @@ Each layer is laid out for its own lines, so the BGP layer is arranged around th
 
 - **A device with a thick red border** has an error that `circuit validate` would print.
 - **A device with an orange dashed border** has a warning, or differs from its last snapshot. Click it to see what `circuit diff` would send.
-- **An orange dashed line** is declared by one end only: a cable whose far port does not name it back, a BGP session the other device does not have, or a tunnel with no tunnel back.
+- **An orange dashed line** is declared by one end only: a cable whose far port does not link back to it, a BGP session the other device does not have, or a tunnel with no tunnel back.
 - **A device filled yellow** is the one you selected.
-- **A dashed box** is outside the network: another AS, a tunnel's far end, or a device a `link` names that is not in `circuit.config.ts`.
+- **A dashed box** is outside the network: another AS, a tunnel's far end, or a device that a `link` points to but that is not in `circuit.config.ts`.
 - **Dots moving along a line** mark a line both ends declare. A line only one end declares has none.
 
 The drawing shows what your files say, not what is plugged in. A cable in the wrong port looks right here, and its moving dots are not real traffic.
 
 ## On a big screen
 
-**Present**, or the P key, shows the network on a screen on a wall. The side panel steps aside and lines are heavier. Every 6 seconds the drawing moves on:
+**Present**, or the P key, shows the network on a screen on a wall. The side panel is hidden and lines are heavier. Every 6 seconds the drawing moves on:
 
 1. It shows the whole layer.
 2. It lights the busiest devices one at a time, up to four, and zooms in on each with everything it has a line to. The lit device turns yellow with a ring around it, and its name is at the bottom left.
 3. It zooms back out to the whole layer, and a moment later moves on to the next layer that has lines and starts again.
 
-Your browser remembers it, so a screen that reloads keeps presenting. Pointing at a device holds the drawing on it until the pointer leaves. Press **Present** again, or Escape, to stop.
+Your browser remembers it, so a screen that reloads keeps presenting. When you point at a device, the drawing stays on it until the pointer leaves. Press **Present** again, or Escape, to stop.
 
 If your system is set to reduce motion, the dots, the slow drift and the zooming are left out: the view jumps instead, and the devices and layers still take their turns.
 

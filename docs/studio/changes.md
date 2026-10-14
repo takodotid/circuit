@@ -1,6 +1,6 @@
 # Reviewing changes
 
-Studio can set your files now beside an earlier state of them: another branch, a tag, or any commit. It needs your project in git, which it is if you commit `.circuit/` as [the network page](/guide/network#the-circuit-directory) asks.
+Studio can show your files now next to an earlier state of them: another branch, a tag, or any commit. It needs your project in git, which it is if you commit `.circuit/` as [the network page](/guide/network#the-circuit-directory) asks.
 
 ## Compare
 
@@ -9,12 +9,12 @@ Studio can set your files now beside an earlier state of them: another branch, a
 3. Studio reads the network as it was there and shows what differs:
     - devices added, removed, and those whose config changes, each with what it would run then and now, line by line;
     - lines of the graph added and gone, layer by layer;
-    - what `circuit validate` finds newly, and what it no longer finds.
+    - what `circuit validate` finds that it did not find before, and what it no longer finds.
 4. **Show the changes in the graph** draws new lines in green and lines that are gone in red, dashed. **Stop comparing**, on the right, puts the graph back.
 
 Before you merge a pull request, compare its branch with `main` to see what it changes in the network, not only in the files.
 
-Studio reads the other commit in a checkout under `.circuit/cache/`, which git ignores, and removes it once read. It reads that commit with the Circuit installed now, so the comparison shows changes to your files, not changes to Circuit.
+Studio checks out the other commit under `.circuit/cache/`, which git ignores, reads it, and then removes it. It reads that commit with the Circuit installed now, so the comparison shows changes to your files, not changes to Circuit.
 
 ## A device's history
 

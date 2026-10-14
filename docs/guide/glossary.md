@@ -18,7 +18,7 @@ Short explanations of the networking and Circuit words these pages use.
 
 | Word                  | Meaning                                                                                                                       |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| VLAN                  | A separate network on the same cables, told apart by a number from 1 to 4094.                                                 |
+| VLAN                  | A separate network on the same cables, with its own number from 1 to 4094.                                                    |
 | Access port           | A port in one VLAN, for a device that knows nothing about VLANs, such as a PC.                                                |
 | Trunk port            | A port that carries several VLANs, each frame tagged with its VLAN number. Used between switches and routers.                 |
 | LAG                   | Several ports joined into one link, for more speed or for a spare. Also called a bond or a port channel.                      |

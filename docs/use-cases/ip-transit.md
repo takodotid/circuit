@@ -9,7 +9,7 @@ In the example, your router buys transit from Hurricane Electric, AS6939, peers 
 You need from the customer:
 
 1. **Its AS number and its prefixes**, the address blocks it will announce.
-2. **Proof that the prefixes are its own.** Check the registry records, and that its ROAs name its AS. Never take a prefix you have not checked, or you help someone hijack it.
+2. **Proof that the prefixes are its own.** Check the registry records, and that its ROAs say its AS may announce them. Never take a prefix you have not checked, or you help someone hijack it.
 
 You give the customer a link: a port, a VLAN, and a small subnet from your own space for the BGP session. In the example, `198.51.100.252/30`.
 
@@ -23,7 +23,7 @@ Your transit and the exchange's route servers do not take every route you send t
 
 ## What the router does
 
-1. **Two BGP sessions with the customer**, one for IPv4 and one for IPv6, with `role: "customer"`. Both routers then reject a route leak on their own, after RFC 9234.
+1. **Two BGP sessions with the customer**, one for IPv4 and one for IPv6, with `role: "customer"`. Both routers then reject a route leak on their own, as RFC 9234 describes.
 2. **`max_prefixes: 10`.** A customer announces a few prefixes. If it suddenly sends thousands, something went wrong on its side, and the session closes before your router takes them.
 3. **What it takes from the customer, `ACME-IN`**, in this order:
     1. A blackhole request, but only for an address inside the customer's own space. See [blackhole](/guide/communities#blackhole).

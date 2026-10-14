@@ -1,12 +1,12 @@
 # 1Password
 
-Your devices' passwords can stay in 1Password instead of in a file on your computer. `.env` then only holds references to them, and Circuit reads each value from 1Password when it sends a command.
+Your devices' passwords can stay in 1Password instead of in a file on your computer. `.env` then only has references to them, and Circuit reads each value from 1Password when it sends a command.
 
 This means:
 
 - a new laptop, or a new person on the team, needs no copy of the secrets, only access to the vault;
 - a changed password is changed once, in 1Password;
-- an AI agent working in the project finds no password in `.env`, because it holds none.
+- an AI agent working in the project finds no password in `.env`, because it has none.
 
 ## Set it up
 
@@ -16,7 +16,7 @@ This means:
     ```
 2. **Sign it in.** The easiest way is to turn on "Integrate with 1Password CLI" in the 1Password desktop app, under Settings, Developer. Then `op` asks the app, and you approve with your fingerprint or password.
 3. **Store each secret in 1Password.** For example, make a vault called `Network`, and an item for each device with its password.
-4. **Point `.env` at them.** Each line is the secret's name, then a reference to where it is in 1Password: `op://<vault>/<item>/<field>`.
+4. **Point `.env` to them.** Each line is the secret's name, then a reference to where it is in 1Password: `op://<vault>/<item>/<field>`.
     ```bash
     # .env
     ROUTER_PASSWORD=op://Network/router/password

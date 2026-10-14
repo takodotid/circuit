@@ -663,8 +663,8 @@ function nextChange() {
             <div class="studio-copy" data-reveal>
                 <h2 id="studio">The whole network, drawn</h2>
                 <p>
-                    <code>circuit studio</code> draws the network and lists everything your files hold, so the whole team can look things
-                    up, including people who do not read TypeScript. It reads only the files and the last snapshot, and never logs in to a
+                    <code>circuit studio</code> draws the network and lists everything in your files, so the whole team can look things up,
+                    including people who do not read TypeScript. It reads only the files and the last snapshot, and never logs in to a
                     device.
                 </p>
                 <a class="onward" :href="withBase('/studio/')">Circuit Studio</a>

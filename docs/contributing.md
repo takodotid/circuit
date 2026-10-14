@@ -13,7 +13,7 @@ cd circuit && bun link
 cd ../my-network && bun link @takodotid/circuit
 ```
 
-The `circuit` command runs from `dist/`, so run `bun run build` in Circuit after a change. `bun install` in the network's project returns it to the release it pins.
+The `circuit` command runs from `dist/`, so run `bun run build` in Circuit after a change. `bun install` in the network's project puts it back on the exact version in that project's `package.json`.
 
 ## Checks
 
@@ -26,7 +26,7 @@ bun run docs:dev    # this site, locally
 
 ## Templates
 
-`templates/` holds what `circuit new` copies: one directory per pattern, and `project/` with what every project gets. The pattern pages on this site show those same files, so a change to a template is a change to its page. `bun run test` validates every template with its own checks.
+`templates/` has what `circuit new` copies: one directory per pattern, and `project/` with what every project gets. The pattern pages on this site show those same files, so a change to a template is a change to its page. `bun run test` validates every template with its own checks.
 
 ## Writing the documentation
 
@@ -43,19 +43,19 @@ Many readers have English as a second language, so say what a thing does with ev
 3. Widgets draw devices with `<SvgDevice>`, move packets with `useTravel()`, and use the shared controls in `academy.css`, so every lesson looks and behaves alike.
 4. From the Elementary level on, a lesson shows its idea in Circuit, with fields that exist in the [schema](/reference/schema).
 
-A lesson's place in its level, its "mark it done" box and its discussion are added by the layout; the page holds only the lesson.
+A lesson's place in its level, its "mark it done" box and its discussion are added by the layout; the page has only the lesson.
 
 ## Adding a platform
 
 1. `src/adapters/devices/<platform>/models.ts`: each model's ports per speed class and the platform's spelling of them.
-2. An adapter implementing `DeviceAdapter` in `src/adapters/devices/types.ts`. `lines.ts` converges block-structured configurations; `routeros/` shows a command-structured one, and `junos/` one written as `set` statements.
+2. An adapter implementing `DeviceAdapter` in `src/adapters/devices/types.ts`. `lines.ts` plans the changes for a configuration written in blocks; `routeros/` shows one written as commands, and `junos/` one written as `set` statements.
 3. Register it in `src/adapters/devices/index.ts` and the catalog in `src/adapters/devices/catalog.ts`.
 4. `unsupported()` lists every field it cannot express. Silence is not an option.
 5. An example in `examples/` using every field it supports, and a `TRAPS.md` with what the platform taught.
 
 Another model of an existing platform only needs its ports in that platform's `models.ts`: how many of each speed, and how the platform spells them.
 
-New syntax is proved on a device without applying it: RouterOS compiles a command with `:put [:parse "..."]`, VRP discards a candidate with `clear configuration candidate`, Junos checks one with `commit check` and discards it with `rollback 0`, and FortiOS stages one in `execute config-transaction start` and discards it with `execute config-transaction abort`, though a plain apply under `cfg-save revert`, undone with `execute cfg reload`, is what proves a FortiOS change. A platform that applies at once is tried on a spare port.
+New syntax is proved on a device without applying it: RouterOS compiles a command with `:put [:parse "..."]`, VRP discards a candidate with `clear configuration candidate`, Junos checks one with `commit check` and discards it with `rollback 0`, and FortiOS opens one with `execute config-transaction start` and discards it with `execute config-transaction abort`. A transaction behaves differently from a plain apply, though, so a FortiOS change is proved with a plain apply under `cfg-save revert`, undone with `execute cfg reload`. A platform that applies at once is tried on a spare port.
 
 ## Releases
 

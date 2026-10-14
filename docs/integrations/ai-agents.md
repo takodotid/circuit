@@ -6,7 +6,7 @@ Circuit is built to make that safe. The agent can see exactly what a change does
 
 ## What the agent needs to know
 
-`circuit new` puts an `AGENTS.md` in every project. Agents read it before they start, and it tells them how Circuit works, which commands are safe, and what they must never do without asking you. `CLAUDE.md` points Claude Code at the same file.
+`circuit new` puts an `AGENTS.md` in every project. Agents read it before they start, and it tells them how Circuit works, which commands are safe, and what they must never do without asking you. `CLAUDE.md` points Claude Code to the same file.
 
 If your project was not made with `circuit new`, copy this into `AGENTS.md`:
 
@@ -49,4 +49,4 @@ Most agents let you require approval for a command. In Claude Code, for example,
 
 The agent never needs a password to edit files or to plan. Only `snapshot` and `apply` log in to a device.
 
-If your secrets are in [1Password](/integrations/1password), `.env` only holds references, so opening it shows the agent no password. Reading a value goes through 1Password, which asks you to approve access first. Otherwise, deny the agent access to `.env` as above.
+If your secrets are in [1Password](/integrations/1password), `.env` only has references, so opening it shows the agent no password. Reading a value goes through 1Password, which asks you to approve access first. Otherwise, deny the agent access to `.env` as above.

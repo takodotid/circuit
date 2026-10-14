@@ -35,7 +35,7 @@ Change the address of `1g-1` and the default route to what your provider gave yo
 
 ## switch.ts
 
-The switch has a port for each device on the site, in the VLAN it belongs to. `stp: { edge: true }` marks a port with a single device on it, so it comes up at once instead of waiting for spanning tree.
+The switch has a port for each device on the site, each in that device's VLAN. `stp: { edge: true }` marks a port with a single device on it, so it comes up at once instead of waiting for spanning tree.
 
 <<< @/../templates/single-site/switch.ts
 

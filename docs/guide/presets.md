@@ -19,7 +19,7 @@ import { antiAmplification, antiSpoofing, badTcpFlags, bgpSanity, MARTIANS } fro
 | `bgpSanity(lengths?)`                | Route policy rules that refuse routes no neighbor should send             | `policies`                       |
 | `communityScheme({ … })`             | Your BGP communities: rules for your routers and the list you publish     | `policies`, `communities`        |
 | `exportsEndInReject`                 | A check: every BGP export ends by rejecting what it did not accept        | `checks`                         |
-| `tunnelsOutsideOffered`              | A check: a tunnel never starts from an address it carries routes for      | `checks`                         |
+| `tunnelsOutsideOffered`              | A check: a tunnel never starts from an address you announce through it    | `checks`                         |
 | `trustBoundary({ … })`               | A check: traffic from outside reaches your VLANs only through a router    | `checks`                         |
 | `internetExchange({ … }, members)`   | An internet exchange's member ports, and a check that keeps members apart | `ports`, `checks`                |
 
@@ -27,7 +27,7 @@ The descriptions on the rules a preset makes are fixed, because a device stores 
 
 ## Edge filters
 
-Traffic from the internet sometimes carries a forged source address: your own address space, a private address, or one that cannot exist on the internet at all. It is always an attack or a mistake. `antiSpoofing` drops it in the router's switch chip, before it costs any CPU:
+Traffic from the internet sometimes has a forged source address: your own address space, a private address, or one that cannot exist on the internet at all. It is always an attack or a mistake. `antiSpoofing` drops it in the router's switch chip, before it costs any CPU:
 
 ```ts
 acls: {
@@ -46,11 +46,11 @@ acls: {
 },
 ```
 
-The list is what to protect: your own address space. What happens to UDP toward it:
+The list says what to protect: your own address space. What happens to UDP toward it:
 
-1. A reply from memcached, SSDP, chargen and the other services in `AMPLIFIERS` that nobody asks across the internet is dropped.
+1. `AMPLIFIERS` lists memcached, SSDP, chargen and other services that nobody asks across the internet. A reply from any of them is dropped.
 2. A reply from DNS, NTP or SNMP is dropped only when it goes to a port below 1024 that is not the service's own. A real answer goes back to the port that asked, 1024 or above, so a host running its own resolver, time server or monitoring still gets it.
-3. A reply too large for one packet arrives in fragments, and only the first carries a port. The rest are dropped as well, so they never reach the CPU. A host that receives large UDP on purpose, such as SIP or some VPNs, keeps its fragments with `keep_fragments`:
+3. A reply too large for one packet arrives in fragments, and only the first has a port. The rest are dropped as well, so they never reach the CPU. A host that receives large UDP on purpose, such as SIP or some VPNs, keeps its fragments with `keep_fragments`:
 
 ```ts
 ...antiAmplification(["198.51.100.0/24"], { keep_fragments: ["198.51.100.64/27"] }),
@@ -108,7 +108,7 @@ export default defineNetwork({
 });
 ```
 
-**`exportsEndInReject`** makes sure every BGP export policy ends with a rule that rejects everything. Without it, a route you never meant to announce could leak out. An export to a neighbor whose `role` is `customer` is left out, because sending a customer every route you know is what it pays for.
+**`exportsEndInReject`** makes sure every BGP export policy ends with a rule that rejects everything. Without it, a route you never meant to announce could leak out. The check skips an export to a neighbor whose `role` is `customer`, because sending a customer every route you know is what it pays for.
 
 **`tunnelsOutsideOffered`** makes sure a GRE or VXLAN tunnel does not start from an address inside a prefix you announce to the neighbor on the other side. If it did, the neighbor's replies would be routed back into the tunnel itself.
 
@@ -130,7 +130,7 @@ These help when you write your own checks. Each example is a complete check.
 
 ### vlansOf
 
-`vlansOf(port)` is every VLAN a port or LAG carries, untagged and tagged together.
+`vlansOf(port)` returns every VLAN a port or LAG carries, untagged and tagged together.
 
 ```ts
 import type { Check } from "@takodotid/circuit";
@@ -147,7 +147,7 @@ const fewVlansPerPort: Check = (devices) =>
 
 ### neighborPolicies
 
-`neighborPolicies(device)` is each BGP neighbor with its `role`, its `import` and its `export`, taken from the neighbor itself or from its group.
+`neighborPolicies(device)` returns each BGP neighbor with its `role`, its `import` and its `export`, taken from the neighbor itself or from its group.
 
 ```ts
 import type { Check } from "@takodotid/circuit";
@@ -164,7 +164,7 @@ const everyImportFiltered: Check = (devices) =>
 
 ### offered
 
-`offered(device, policy)` is the prefixes an export policy accepts by name.
+`offered(device, policy)` returns every prefix that an export policy accepts with `match.prefix`.
 
 ```ts
 import type { Check } from "@takodotid/circuit";

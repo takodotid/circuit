@@ -6,7 +6,7 @@ Behaviour that looks like something else. Each one has been hit on a RAX721 runn
 - The SSH server offers only an `ssh-rsa` host key. The adapter allows it for this platform alone; key exchange, cipher and MAC still negotiate modern ones.
 - `show running-config` stops about halfway with no error unless `terminal page-break disable` is sent first and the read waits several seconds of silence.
 - A `?` sent by a script is executed. Once it applied an address with a /8 mask.
-- An access-list cannot change while any service holds it: `ACL 1000 is in use`. Every holder is released first and bound again after. `no ssh2 access-list` needs the list number.
+- An access-list cannot change while any service uses it: `ACL 1000 is in use`. Every service that uses it is unbound first and bound again after. `no ssh2 access-list` needs the list number.
 - `portswitch`, `switchport trunk allowed vlan` and `switchport mode` ask for `y` and do nothing without it, except when they need no confirming: `switchport mode trunk` on a port leaving access mode answers `Set successfully` at once, and a `y` sent after it is refused, `Error input`.
 - A VLAN is removed with `no vlan <id>`, not `no create vlan`.
 - The factory account `raisecom` cannot be removed and its service type cannot change. Only its password is ours.
@@ -18,5 +18,5 @@ Behaviour that looks like something else. Each one has been hit on a RAX721 runn
 - An SNMPv3 user prints as localized keys, `authkey sha <hex> privkey  aes128 <hex>`, which authenticate as well as the passphrase. The read redacts them. An access group prints a `notify internet` it was not given. A user's group is removed with `no snmp-server group user <user> usm`.
 - A VRRP group is enabled once it has an address and preempts unless `no vrrp N preempt`. `no vrrp N ip <address>` removes the whole group.
 - OSPF settings for an interface sit on the interface, `ip ospf cost`, `ip ospf network ptp`, `ip ospf passive-interface enable`; passive is undone with `... disable`, not `no`.
-- `create vlan <list> active` holds every VLAN on one line. A change creates only the new VLANs and removes each gone one with `no vlan <id>`.
+- `create vlan <list> active` has every VLAN on one line. A change creates only the new VLANs and removes each one that is gone with `no vlan <id>`.
 - An access-list rule is not replaced by one with the same number: the device answers `Set unsuccessfully.` and keeps the old rule. The old one is removed first. `no rule N` answers slowly, after a second or more.
