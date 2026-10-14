@@ -45,7 +45,7 @@ The VLANs are written once, by name, and both devices use the same list, so the 
 
 <<< @/../templates/single-site/switch.ts
 
-- `10g-1` is the trunk to the router. It carries all three VLANs, and `link` names the port at the other end, so `validate` can check that both ends carry the same ones ([Trunks](/academy/elementary/trunks)).
+- `10g-1` is the trunk to the router. It carries all three VLANs, and `link` says which port is at the other end of the cable, so `validate` can check that both ends carry the same ones ([Trunks](/academy/elementary/trunks)).
 - `10g-2` to `10g-4` are access ports, each in one VLAN. A device plugged into one of them does not know VLANs exist.
 - The switch has one address of its own, on `mgmt`, so you can log in to it, and a default route to the router, its gateway.
 - `lldp: true` lets the switch tell its neighbors who it is. `stp: { edge: true }` marks a port with a single device on it, so the port comes up at once instead of waiting; the Intermediate level explains why a switch waits.

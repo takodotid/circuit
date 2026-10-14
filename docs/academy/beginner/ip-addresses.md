@@ -5,7 +5,7 @@ description: An IP address is 32 bits, split into a network part and a host part
 
 # Reading an IP address
 
-An IP address such as `192.168.1.37` is 32 bits, written as four numbers from 0 to 255. The first bits name the network the device is on, and the rest name the device inside that network. The **prefix length**, written after the address as in `192.168.1.37/24`, says how many of the bits name the network.
+An IP address such as `192.168.1.37` is 32 bits, written as four numbers from 0 to 255. The first bits say which network the device is on, and the rest say which device it is inside that network. The **prefix length**, written after the address as in `192.168.1.37/24`, says how many of the bits are for the network.
 
 ## Four bytes, 32 bits
 
@@ -64,7 +64,7 @@ Every host bit can be 0 or 1, so each one doubles the number of addresses. With 
 
 Two of the addresses in every block are not given to a device:
 
-- The **first** address, with every host bit 0, is the **network address**. It names the network itself, as in "the network `192.168.1.0/24`".
+- The **first** address, with every host bit 0, is the **network address**. It stands for the network as a whole, as in "the network `192.168.1.0/24`".
 - The **last** address, with every host bit 1, is the <Term means="The last address of a network. A packet sent to it goes to every device on that network at once.">broadcast address</Term>. A packet sent to it goes to every device on the network at once.
 
 So a `/24` such as `192.168.1.0/24` has room for 254 devices, from `192.168.1.1` to `192.168.1.254`. A `/30` holds only four addresses, two of them for devices, which is just right for a cable between two routers.
@@ -124,5 +124,5 @@ Anyone may use these **private addresses** inside their own network, so millions
 - An IPv4 address is 32 bits, written as four numbers from 0 to 255.
 - The first bits are the network part, the same for every device on the network; the rest are the host part, different for each device.
 - The prefix length, such as `/24`, says how many bits are the network part. The mask, such as `255.255.255.0`, says the same thing another way.
-- Each host bit doubles the size of a block: 8 host bits make 256 addresses. The first names the network and the last is the broadcast address, so neither goes to a device.
+- Each host bit doubles the size of a block: 8 host bits make 256 addresses. The first stands for the network and the last is the broadcast address, so neither goes to a device.
 - Two devices are on the same network when their network parts match. `10.0.0.0/8`, `172.16.0.0/12` and `192.168.0.0/16` are private, for use inside homes and offices.

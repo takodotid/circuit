@@ -11,7 +11,7 @@ The rule for both is short: never accept everything, and never announce everythi
 
 ## How a policy is read
 
-In a device file, `policies` holds named lists of rules, and each BGP neighbor names the one it uses for `import` and for `export`. A rule can have four parts, and Circuit evaluates them in this order:
+In a device file, `policies` holds named lists of rules, and each BGP neighbor says, by name, which list it uses for `import` and which for `export`. A rule can have four parts, and Circuit evaluates them in this order:
 
 1. `call`: run another policy first. A route that policy accepts or rejects stops there.
 2. `match`: which routes the rule applies to, such as a `prefix`, a `prefix_set`, a `prefix_length`, an `rpki` state or a `community`. A rule without `match` applies to every route.

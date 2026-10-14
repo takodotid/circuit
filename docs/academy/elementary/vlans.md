@@ -40,7 +40,7 @@ A broadcast reached every port in the sender's VLAN, and no port outside it. Tha
 Look at the file the widget wrote. Two fields do all the work:
 
 - `vlans` lists the VLANs the switch has. Each one is written under its name, with its `id` and a `description` for people.
-- Each port's `access_vlan` names the VLAN the port belongs to. It names the VLAN, not its number, so you write `access_vlan: "guests"`, never `30`.
+- `access_vlan` on each port says which VLAN that port is in. You write the VLAN's name, not its number: `access_vlan: "guests"`, never `30`.
 
 A port you set to "not in the file" vanished from `ports`, and its device went dark. That is the rule from [the last lesson](/academy/elementary/writing-it-down): a port the file does not list is shut down. A spare wall socket is safe until someone writes it down.
 

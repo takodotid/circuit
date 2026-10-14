@@ -37,7 +37,7 @@ With a VRF each, the port says which table to use. A packet from Customer B's of
 
 ## VRFs in Circuit
 
-A VRF is `vrfs` in the device file, and each port, interface or static route names the one it belongs to with `vrf`. This is `pe-01` from the widget, with a VRF for each customer. Both customers' links use the same addresses, just as their offices do, and that is fine: each `172.16.0.1` is in a different table.
+A VRF is `vrfs` in the device file, and each port, interface or static route says which VRF it is in with `vrf`. This is `pe-01` from the widget, with a VRF for each customer. Both customers' links use the same addresses, just as their offices do, and that is fine: each `172.16.0.1` is in a different table.
 
 ```ts
 vrfs: {

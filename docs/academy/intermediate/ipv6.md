@@ -60,7 +60,7 @@ To expand an address, work backwards: pad each group to four digits, then count 
 
 ## A /64 for each network
 
-IPv6 prefixes work like IPv4 ones: `/64` means the first 64 bits name the network. The block `2001:db8::/32` is set aside for documentation, the way `192.0.2.0/24` is for IPv4, so every example here uses it.
+IPv6 prefixes work like IPv4 ones: `/64` means the first 64 bits are for the network. The block `2001:db8::/32` is set aside for documentation, the way `192.0.2.0/24` is for IPv4, so every example here uses it.
 
 Three sizes cover almost every plan:
 

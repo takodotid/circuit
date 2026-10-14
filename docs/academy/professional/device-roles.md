@@ -136,7 +136,7 @@ examples/full-setup/
     tor-b1.ts
 ```
 
-Each device file states the device's name, and every cable names the device at its far end by that name:
+Each device file gives the device its name, and every cable uses that name to say which device is at its far end:
 
 ```ts
 export default defineDevice({
