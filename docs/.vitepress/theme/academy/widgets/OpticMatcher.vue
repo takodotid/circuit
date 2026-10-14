@@ -174,8 +174,8 @@ const result = computed<Result | undefined>(() => {
     for (const end of slower) {
         notes.push(
             end.port
-                ? `${end.device}'s ${end.cage} cage holds a slower ${a.form} optic. Say so in its file with speed: "${a.gigabits}g".`
-                : `${end.device}'s ${end.cage} cage holds a slower ${a.form} optic, so it must be set to ${a.gigabits}G too.`
+                ? `${end.device}'s ${end.cage} cage has a slower ${a.form} optic in it. Say so in its file with speed: "${a.gigabits}g".`
+                : `${end.device}'s ${end.cage} cage has a slower ${a.form} optic in it, so it must be set to ${a.gigabits}G too.`
         );
     }
 

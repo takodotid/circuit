@@ -39,7 +39,7 @@ Between your device and the one you are talking to, there is often more than one
 
 The packets of one message usually follow the same way, but they do not have to. If a link breaks or gets crowded, later packets may be sent another way, and arrive before earlier ones.
 
-The receiver does not mind. It does not care in which order the packets come, because each one carries its number. It puts each packet in its place by number, and when it has them all, the message is whole again.
+The receiver does not mind. It does not care what order the packets come in, because each one carries its number. It puts each packet in its place by number, and when it has them all, the message is whole again.
 
 <Quiz
   question="A message is cut into four packets. They arrive at the phone in the order 2, 1, 4, 3. What does the phone show?"
@@ -103,7 +103,7 @@ There is a cost too: every packet carries its own label, so smaller packets mean
 ## In short
 
 - Data travels across a network cut into small pieces called packets.
-- Each packet carries where it comes from, where it goes, and its number in the message.
+- Each packet has a label that says where it comes from, where it goes, and its number in the message.
 - Packets may take different ways and arrive out of order; the receiver puts them back in order by number.
 - A lost packet is noticed from the gap in the numbers and sent again, on its own.
 - Packets let many devices share one link, and turn a loss into a small one.

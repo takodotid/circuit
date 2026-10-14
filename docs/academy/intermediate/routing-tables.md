@@ -87,7 +87,7 @@ Send a packet to the unused address and watch the TTL fall on each trip. Then tu
 
 </TryIt>
 
-The packet only stops when its <Term means="Time to live: a counter in every packet that each router lowers by one. At zero the packet is dropped, so it cannot circle forever.">TTL</Term> runs out, and every trip uses your link to the provider, which you pay for. With the blackhole route, your router drops it on the first arrival. The office server still gets its packets, because `198.51.100.0/26` is longer than `198.51.100.0/24`: the blackhole only catches addresses that nothing more specific holds. That is the longest match working for you.
+The packet only stops when its <Term means="Time to live: a counter in every packet that each router lowers by one. At zero the packet is dropped, so it cannot circle forever.">TTL</Term> runs out, and every trip uses your link to the provider, which you pay for. With the blackhole route, your router drops it on the first arrival. The office server still gets its packets, because `198.51.100.0/26` is longer than `198.51.100.0/24`: the blackhole only catches addresses that no more specific route holds. That is the longest match working for you.
 
 A blackhole route has one more use, which you meet in the [BGP](/academy/intermediate/bgp) lesson: it keeps your whole block in the routing table even when nothing inside it is up, so the router keeps announcing it to the internet.
 
@@ -134,7 +134,14 @@ routing: {
 As with everything in Circuit, the list is the whole truth: a static route on the device that is not in the file is removed when you apply it.
 
 ::: warning Not every platform takes every field
-On `raisecom-ros`, a static route must be IPv4 with a `via`, in the default table, and without `description` or `distance`, so a blackhole route cannot be written there. `circuit validate` reports anything else as an error. RouterOS and VRP take every field above. See [Platforms](/platforms/).
+RouterOS takes every field above. The other platforms each refuse some:
+
+- On `raisecom-ros`, a static route must be IPv4 with a `via`, in the default table, and without `description` or `distance`, so a blackhole route cannot be written there.
+- On `vrp`, an IPv6 static route takes no `description`.
+- On `junos`, no static route takes a `description`, and a blackhole route cannot have the same prefix as another route in its table.
+- On `fortios`, a blackhole route cannot be in a VRF, and a `via` must be on one of the router's own networks unless the route also has an `interface`.
+
+`circuit validate` reports anything a platform refuses as an error. See [Platforms](/platforms/).
 :::
 
 ## In short

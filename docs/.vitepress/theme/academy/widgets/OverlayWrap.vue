@@ -65,14 +65,14 @@ const steps = computed(() => {
         {
             title: "A core router passes it on",
             text: vxlan
-                ? "The core router reads only the outer IP header: a packet from pe-01 to pe-02, the same for both customers. It holds no customer routes, and cannot confuse the two customers' 10.1.2.0/24."
-                : "The core router reads only the outer label, the same for both customers, and swaps it for the next one toward pe-02. It holds no customer routes, and cannot confuse the two customers' 10.1.2.0/24.",
+                ? "The core router reads only the outer IP header: a packet from pe-01 to pe-02, the same for both customers. It has no customer routes, and cannot confuse the two customers' 10.1.2.0/24."
+                : "The core router reads only the outer label, the same for both customers, and swaps it for the next one toward pe-02. It has no customer routes, and cannot confuse the two customers' 10.1.2.0/24.",
         },
         {
             title: "pe-02 unwraps it",
             text: vxlan
                 ? `pe-02 removes the outer headers. VNI ${vni} says the packet is ${name}'s, so it looks up 10.1.2.20 in VRF ${vrf} and sends it to ${name}'s office 2.`
-                : `pe-02 reads the inner label, which says ${name}'s VPN, so it looks up 10.1.2.20 in VRF ${vrf} and sends it to ${name}'s office 2.`,
+                : `pe-02 reads the inner label, which says the packet is for ${name}'s VPN, so it looks up 10.1.2.20 in VRF ${vrf} and sends it to ${name}'s office 2.`,
         },
     ];
 });

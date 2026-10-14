@@ -7,7 +7,7 @@ description: DNS turns a name like circuit.tako.id into an IP address. Step thro
 
 People use names, such as `circuit.tako.id`. Networks deliver packets only to IP addresses, such as `203.0.113.80`. <Term means="Domain Name System: the system that turns a name like circuit.tako.id into the IP address it stands for.">DNS</Term>, the Domain Name System, is what turns the name into the address.
 
-Your device asks one helper, its resolver. The resolver finds the answer by asking a chain of servers, from the top of the name down, and both of them remember the answer for a while, so the next time is instant.
+Your device asks one helper, its resolver. The resolver finds the answer by asking a chain of servers, from the top of the name down. Your device and the resolver both remember the answer for a while, so the next time is instant.
 
 ::: info The addresses in this lesson
 `203.0.113.80` and the other addresses here are example addresses, kept for teaching. The real address of a name can be different.
@@ -17,7 +17,7 @@ Your device asks one helper, its resolver. The resolver finds the answer by aski
 
 A name is easier to remember than four numbers, but that is not the only reason. A website can move to another server with another address. If everyone used the address, everyone would have to learn the new one. With a name, the owner changes what the name points to, and nobody else notices.
 
-It works like the contacts on your phone: you tap a name, and the phone dials the number behind it. The picture stops being true in one place. Your contacts are yours alone, kept on your phone. DNS is one book shared by the whole internet, and no single computer holds all of it: it is split over many servers, each holding its own part.
+It works like the contacts on your phone: you tap a name, and the phone dials the number behind it. The picture stops being true in one place. Your contacts are yours alone, kept on your phone. DNS is one book shared by the whole internet, and no single computer has all of it: it is split over many servers, and each has its own part.
 
 ## Reading a name
 
@@ -54,11 +54,11 @@ When nobody remembers the name, the lookup goes like this:
 Each server knows only its own part and where to go next, much like each router knows only the next hop. That is how the work is shared out: no server has to know every name in the world.
 
 <Quiz
-  question="Which server holds the address of circuit.tako.id itself?"
+  question="Which server has the address of circuit.tako.id itself?"
   :choices="['A root server', 'A server for .id', 'A server for tako.id', 'Your laptop']"
   :answer="2"
   :why="['The root only knows who looks after each ending, such as .id. It points the resolver onwards.', 'The .id servers only know who looks after each domain under .id, such as tako.id.', '', 'Your laptop only remembers an answer after it has asked for it.']"
-  explain="The servers for tako.id hold the domain’s own list of names. The root and the .id servers only point the resolver closer to them."
+  explain="The servers for tako.id have the domain’s own list of names. The root and the .id servers only point the resolver closer to them."
 />
 
 ## Remembering answers

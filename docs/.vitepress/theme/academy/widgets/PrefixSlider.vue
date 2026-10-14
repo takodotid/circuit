@@ -165,7 +165,7 @@ const splitText = computed(() => {
                         <th scope="row">First address</th>
                         <td>
                             <span class="ac-mono">{{ formatAddress(network) }}</span
-                            >: the network address, names the network itself
+                            >: the network address, stands for the network itself
                         </td>
                     </tr>
                     <tr>

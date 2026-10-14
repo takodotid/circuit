@@ -17,7 +17,7 @@ A switch has a row of sockets called <Term means="A socket on a switch or router
 "Port" is also the name of something quite different: a number that picks one program on a computer. You meet that kind in [Ports and protocols](/academy/beginner/ports). In this lesson, a port is always a socket.
 :::
 
-Inside one local network, messages travel in <Term means="A message on the local network: a packet wrapped with the hardware address of the device it is for and the one that sent it.">frames</Term>. A frame is a packet in an outer envelope, and the envelope carries two of the hardware addresses you met in [Addresses](/academy/beginner/addresses):
+Inside one local network, messages travel in <Term means="A message on the local network: a packet wrapped with the hardware address of the device it is for and the one that sent it.">frames</Term>. A frame is a packet in an outer envelope, and the envelope has two of the hardware addresses you met in [Addresses](/academy/beginner/addresses):
 
 - **To**: the hardware address of the device the frame is for.
 - **From**: the hardware address of the device that sent it.
@@ -65,7 +65,7 @@ Forgetting is useful. Unplug the laptop and plug it into another port, or carry 
 
 ## Broadcasts: a frame for everyone
 
-Sometimes a device needs to ask every device on the network at once, because it does not know which one to ask. For that it sends a <Term means="A frame for every device on the local network. Its To address is ff:ff:ff:ff:ff:ff.">broadcast</Term>: a frame whose **To** address is `ff:ff:ff:ff:ff:ff`, the hardware address in which every bit is 1. It means "everyone".
+Sometimes a device needs to ask every device on the network at once, because it does not know which one to ask. For that it sends a <Term means="A frame for every device on the local network. Its To address is ff:ff:ff:ff:ff:ff.">broadcast</Term>: a frame whose **To** address is `ff:ff:ff:ff:ff:ff`, the hardware address where every bit is 1. It means "everyone".
 
 A switch sends a broadcast out of every port except the one it came in on, as it does when it floods. The difference is at the other end: every device keeps a broadcast and reads it, because it is addressed to all of them. Choose **Everyone (broadcast)** in the widget above to see it.
 
@@ -95,7 +95,7 @@ Read the frame's To address, then look for it in the table.
 
 Everything a broadcast can reach is one <Term means="Local area network: the devices in one place, joined by switches, which can reach each other directly with frames.">local network</Term>, also called a LAN, short for local area network. The devices in your home are one LAN. So are the computers on one floor of an office.
 
-A LAN can be bigger than one switch. Plug one switch into a port of another, and frames pass between them: each switch writes every device on the other one behind the single port that joins them. Both switches and every device on them are still one LAN, and a broadcast from any device reaches all of it.
+A LAN can be bigger than one switch. Plug one switch into a port of another, and frames pass between them: each switch writes in its table that every device on the other switch is behind the one port that joins them. Both switches and every device on them are still one LAN, and a broadcast from any device reaches all of it.
 
 What a switch cannot do is send a frame to a different network, such as your internet provider's. A hardware address only means something inside its own local network, and hardware addresses are all a switch reads. Joining one network to another is the job of a router, in the next lesson.
 

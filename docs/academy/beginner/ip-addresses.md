@@ -22,7 +22,7 @@ An IP address has the same two parts:
 - The **network part**, the first bits, says which network the device is on. Every device on one network has the same network part.
 - The **host part**, the rest of the bits, says which device in that network it is. Each device on the network has its own. In networking, a device with an address is often called a <Term means="Any device that has an IP address on a network: a laptop, a phone, a printer, a server.">host</Term>.
 
-Here the phone number stops being a good comparison. In a phone number, everyone knows how long the area code is. In an IP address, you cannot tell where the network part ends by looking at the address alone. The network decides, and the prefix length says it: `/24` means the first 24 bits are the network part, and the other 8 are the host part.
+Here the phone number stops being a good comparison. In a phone number, everyone knows how long the area code is. In an IP address, you cannot tell where the network part ends by looking at the address alone. The network decides, and the prefix length tells you: `/24` means the first 24 bits are the network part, and the other 8 are the host part.
 
 <TryIt title="Slide the split">
 

@@ -18,12 +18,12 @@ npx @takodotid/circuit new my-network --pattern edge-router --asn 64500
 It writes four files: `routing.ts` with your AS number and communities, `edge-01.ts` with the router, `checks.ts` with rules of your own, and `circuit.config.ts`, which joins them into one network.
 
 ::: info The names in this lesson
-The template's files name a well-known transit and exchange as stand-ins for your own. This lesson calls them simply the transit, AS64510, and the exchange, whose route servers are AS64511, and uses the neighbor names `transit`, `ix-rs-v4` and `ix-rs-v6`. Replace the addresses, AS numbers and port names with the ones your providers give you.
+The template's files use a well-known transit and exchange as stand-ins for your own. This lesson calls them simply the transit, AS64510, and the exchange, whose route servers are AS64511, and uses the neighbor names `transit`, `ix-rs-v4` and `ix-rs-v6`. Replace the addresses, AS numbers and port names with the ones your providers give you.
 :::
 
 ## Your AS and its communities
 
-`routing.ts` holds what your network is on the internet: the AS number from [Networks of networks](/academy/intermediate/autonomous-systems), and the meaning of your communities from [Route policies](/academy/intermediate/route-policy).
+`routing.ts` says what your network is on the internet: the AS number from [Networks of networks](/academy/intermediate/autonomous-systems), and the meaning of your communities from [Route policies](/academy/intermediate/route-policy).
 
 ```ts
 /** Your AS number. */
@@ -108,7 +108,7 @@ routing: {
 There are three sessions, as in [BGP](/academy/intermediate/bgp): one with the transit, and one per address family with the exchange's route server, which passes on the routes of every member that peers with it. `role` tells each side what the other is, and `max_prefixes` is the fuse from [Route policies](/academy/intermediate/route-policy).
 
 <Quiz
-  question="Why does the router carry a blackhole route for 198.51.100.0/24, its own block?"
+  question="Why does the router have a blackhole route for 198.51.100.0/24, its own block?"
   :choices="['To drop all traffic to the block', 'So the block is always in the routing table, and BGP always announces it', 'Because BGP needs a blackhole to start a session']"
   :answer="1"
   :why="['Traffic to the parts of the block in use follows their longer prefixes. Only unused addresses fall through to the blackhole.', '', 'Sessions start without it. The route is about what BGP may announce.']"
@@ -189,7 +189,7 @@ Two of the bad choices fail validation, because the template's checks were writt
 2. Run `npx circuit validate`. On the template it prints `1 device(s), no errors.`
 3. Run `npx circuit snapshot`. It logs in to the router and saves what it runs now in `.circuit/state/`, changing nothing.
 4. Run `npx circuit diff`. It compares your files with that snapshot, offline.
-5. Run `npx circuit apply edge-01`. It reads the router again and shows the plan against what it runs right now. Read every line, then run it again with `--confirm` to send it. On RouterOS, the router undoes the change by itself if Circuit cannot log in again within 10 minutes, unless you choose another time with `--rollback`.
+5. Run `npx circuit apply edge-01`. It reads the router again and shows the plan against what it runs right now. Read every line, then run it again with `--confirm` to send it. On RouterOS, Junos and FortiOS, the router undoes the change by itself if Circuit cannot log in again within 10 minutes, unless you choose another time with `--rollback`.
 6. Commit the files together with the new snapshot.
 
 Once the router runs the template, a later change shows as a short plan. Here the limit for the exchange's IPv4 route server goes from 100,000 to 150,000:
@@ -214,7 +214,7 @@ Before your routes travel far, your transit and the exchange's route servers mus
 
 ## Where to go from here
 
-The template is one router with one transit. The rest of this level shows how it grows: a second transit, with [prepending](/academy/intermediate/best-path) to steer traffic coming in; a LAG to each provider, so one cable can fail, from [Staying up](/academy/intermediate/redundancy); a second edge router that shares routes with this one over iBGP, with OSPF from [Routers that talk](/academy/intermediate/ospf) carrying the way between them. To sell transit to customers of your own, see [Selling IP transit](/use-cases/ip-transit).
+The template is one router with one transit. The rest of this level shows how it grows: a second transit, with [prepending](/academy/intermediate/best-path) to steer traffic coming in; a LAG to each provider, so one cable can fail, from [Staying up](/academy/intermediate/redundancy); a second edge router that shares routes with this one over iBGP, with OSPF from [Routers that talk](/academy/intermediate/ospf) finding the way between them. To sell transit to customers of your own, see [Selling IP transit](/use-cases/ip-transit).
 
 ## In short
 

@@ -13,9 +13,9 @@ That is the whole mechanism. Getting it right comes down to three things: the or
 
 A rule has two parts. Its match says which packets it is about, and its action says what to do with them: accept lets the packet pass, drop throws it away without a word.
 
-A match can name any of these, and every one it names must hold:
+A match can use any of these fields, and every field it uses must be true for the packet:
 
-| In a match      | Holds when                                                                    |
+| In a match      | True when                                                                     |
 | --------------- | ----------------------------------------------------------------------------- |
 | `in_interface`  | the packet came in on this interface, such as the guests VLAN                 |
 | `out_interface` | the packet would leave through this interface                                 |
@@ -24,7 +24,7 @@ A match can name any of these, and every one it names must hold:
 | `dst_port`      | the packet is for this port, as in [Ports](/academy/beginner/ports)           |
 | `state`         | the packet starts a new connection, or is a reply to one (more on this below) |
 
-A rule that names nothing matches every packet.
+A rule that uses none of them matches every packet.
 
 For each packet, the router:
 
@@ -89,7 +89,7 @@ A router does not check every packet against one list. It has separate lists, ca
 - **input**: packets for the router itself, such as an SSH login to it, or a DNS question it answers.
 - **forward**: packets passing through it, from one network to another, such as the laptop's request to a website.
 
-A third chain, output, holds the packets the router sends itself, such as its own DNS questions. It is usually left open.
+A third chain, output, is for the packets the router sends itself, such as its own DNS questions. It is usually left open.
 
 A packet is checked against one chain only. A rule in forward never sees a login to the router, and a rule in input never sees the laptop's request to a website. That is why the input chain needs its own default, and its own rule for replies.
 
@@ -142,12 +142,12 @@ firewall: {
 },
 ```
 
-- `default` is what a packet no rule matched gets. Left out, it is accept, so both chains here write `drop`. There is no rule that keeps guests off the home network: nothing lets them there, so the default drops them.
-- `action` is `accept`, `drop`, or `reject`, which drops the packet but answers the sender that it was refused.
-- `offload: true` on a rule that accepts hands the rest of the connection to a faster path inside the router, past the rules below. It belongs on the rule for replies, which carries most of the traffic.
-- `MANAGEMENT` is a constant both devices of the site share, holding `"192.168.10.0/24"`, the management network. The next lesson is about why only it may log in.
+- `default` says what happens to a packet that no rule matched. If you leave it out, it is accept, so both chains here write `drop`. There is no rule that keeps guests off the home network: nothing lets them there, so the default drops them.
+- `action` is `accept`, `drop`, or `reject`, which drops the packet but tells the sender it was refused.
+- `offload: true` on a rule that accepts sends the rest of the connection down a faster path inside the router, which skips the rules below. Put it on the rule for replies, which matches most of the traffic.
+- `MANAGEMENT` is a constant that both devices of the site share. Its value is `"192.168.10.0/24"`, the management network. The next lesson is about why only it may log in.
 
-A chain is an ordered list, so when it changes Circuit replaces it as a whole: the new rules go in first, and only then are the old ones removed, so the router is never without rules ([How a change is applied](/guide/convergence)). An earlier version of this router had no default in its forward chain, and two rules keeping guests out. On a RouterOS router, `npx circuit diff` for the change to the one above ends like this, with the default written as a last rule:
+A chain is an ordered list, so when it changes Circuit replaces it as a whole: the new rules go in first, and only then are the old ones removed, so the router is never without rules ([How a change is applied](/guide/convergence)). An earlier version of this router had no default in its forward chain, and two rules keeping guests out. On a RouterOS router, `npx circuit diff` for the change to the rules above ends like this, with the default written as a last rule:
 
 ```text
     + add action=accept chain=forward comment=Home to the internet in-interface=home out-interface=ether1
@@ -161,4 +161,4 @@ A chain is an ordered list, so when it changes Circuit replaces it as a whole: t
 - The order of the rules is part of their meaning: a broad accept above a narrow drop hides the drop.
 - Connection tracking marks answers as established or related; one rule near the top lets them back in.
 - Default drop with rules that accept what you want fails safe; default accept fails open.
-- Packets for the router are checked against `input`, packets through it against `forward`. In Circuit both live in `firewall.filter`, each with `default` and `rules`.
+- Packets for the router are checked against `input`, packets through it against `forward`. In Circuit both are in `firewall.filter`, each with `default` and `rules`.

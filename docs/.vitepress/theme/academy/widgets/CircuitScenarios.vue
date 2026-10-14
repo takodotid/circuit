@@ -38,7 +38,7 @@ const SCENARIOS: { id: string; name: string; need: string; fits: Record<ProductI
             iepl: ["no", ACROSS_BORDERS],
             dark: [
                 "works",
-                "If a spare fibre runs between them, you light it with your own optics at any speed you like. More than 1 Gbit/s needs, and a break in it is yours to chase with the provider.",
+                "If a spare fibre runs between them, you light it with your own optics at any speed you like. It is more than 1 Gbit/s needs, and a break in it is yours to chase with the provider.",
             ],
             wave: ["works", "It would carry it, but a whole wavelength for 1 Gbit/s between two offices is more than the need."],
             sdwan: [

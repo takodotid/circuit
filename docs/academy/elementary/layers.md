@@ -21,7 +21,7 @@ Here is a simple model with five layers, from the bottom up:
 | 4 Transport   | Reach the right program, and with TCP, check every piece arrived | Ports, TCP and UDP                                  | [Ports](/academy/beginner/ports)                          |
 | 5 Application | Say what the program wants                                       | Web pages, DNS questions                            | [DNS](/academy/beginner/dns)                              |
 
-Each layer relies only on the one below it and does not care how that one works. A web browser does not know if the page came over a cable or over Wi-Fi, and a switch does not know if the frame holds a web page or a DNS question. That is what makes layers useful: you can change one without touching the others, and you can look for a problem one layer at a time.
+Each layer relies only on the one below it and does not care how that one works. A web browser does not know if the page came over a cable or over Wi-Fi, and a switch does not know if the frame has a web page or a DNS question inside. That is what makes layers useful: you can change one without touching the others, and you can look for a problem one layer at a time.
 
 ## Wrapping on the way down
 

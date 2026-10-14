@@ -184,7 +184,7 @@ const isLit = (from: string, to: string) => {
         <div class="table-frame">
             <table class="ac-table">
                 <caption>
-                    The routes AS64520 holds for your 198.51.100.0/24
+                    The routes AS64520 has for your 198.51.100.0/24
                 </caption>
                 <thead>
                     <tr>

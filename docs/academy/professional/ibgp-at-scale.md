@@ -11,7 +11,7 @@ Around that core, four things keep it working at scale: a next hop every router 
 
 ## Why iBGP needs a full mesh
 
-Between ASes, the AS path stops loops: a router drops a route that already holds its own AS number. Inside one AS, the path does not grow, since the route never leaves the AS, so it cannot show a loop. BGP's standard settles it with a rule instead: a router that receives a route from an internal neighbor does not pass it on to other internal neighbors.
+Between ASes, the AS path stops loops: a router drops a route that already has its own AS number in it. Inside one AS, the path does not grow, since the route never leaves the AS, so it cannot show a loop. BGP's standard settles it with a rule instead: a router that receives a route from an internal neighbor does not pass it on to other internal neighbors.
 
 That rule means a route learned at one edge router reaches only the routers with a session to that edge router. For every router to learn every route, every router needs a session with every other. That is a <Term means="A design in which every router has a session with every other router. With n routers, that is n(n-1)/2 sessions.">full mesh</Term>, and it grows fast: with n routers, it takes n(n-1)/2 sessions.
 
@@ -42,7 +42,7 @@ A <Term means="A router that passes routes learned over iBGP on to other iBGP ne
 
 A reflector and its clients form a <Term means="A route reflector, or a pair of them, and the clients they serve. Each cluster has an ID that reflected routes carry.">cluster</Term>. With clients that have sessions only with their reflectors, the count drops from n(n-1)/2 to roughly two per router: each client has a session with each of its reflectors, and the reflectors have a full mesh among themselves.
 
-Two attributes stop reflected routes from looping. A reflector writes the <Term means="A BGP attribute a route reflector adds: the router ID of the router inside the AS that first announced the route. That router drops the route if it comes back.">ORIGINATOR_ID</Term>, and the router named there drops the route if it ever comes back to it. Each reflector also adds its cluster's ID to the <Term means="A BGP attribute listing the clusters a route was reflected through. A reflector that finds its own cluster ID in it drops the route.">CLUSTER_LIST</Term>, and a reflector that finds its own ID there drops the route.
+Two attributes stop reflected routes from looping. A reflector writes the <Term means="A BGP attribute a route reflector adds: the router ID of the router inside the AS that first announced the route. That router drops the route if it comes back.">ORIGINATOR_ID</Term>, and the router with that ID drops the route if it ever comes back to it. Each reflector also adds its cluster's ID to the <Term means="A BGP attribute listing the clusters a route was reflected through. A reflector that finds its own cluster ID in it drops the route.">CLUSTER_LIST</Term>, and a reflector that finds its own ID there drops the route.
 
 A single reflector is a single point of failure, as the widget showed: when it fails, its clients hear nothing from each other. So reflectors come in pairs, both with the same cluster ID, and every client has a session with both.
 
@@ -99,7 +99,7 @@ routing: {
 },
 ```
 
-The group holds what every iBGP session shares: the AS, which makes the session internal, the loopback to start from, and the policies. Each neighbor is then one line. The full-setup example does the same, with `local_address` on each neighbor and one session per address family.
+The group has what every iBGP session shares: the AS, which makes the session internal, the loopback to start from, and the policies. Each neighbor is then one line. The full-setup example does the same, with `local_address` on each neighbor and one session per address family.
 
 `circuit validate` checks the mesh across devices. A missing session on one side, or a session that starts from an address the far end does not expect, is an error before anything reaches a router:
 
@@ -145,7 +145,7 @@ R1 and R2 run iBGP. Make the switch between them fail with BFD off, then on. The
 
 With loopbacks, the session never went down: OSPF found the way through R3 long before BGP's hold time, 90 seconds by the standard's suggestion, ran out. All BFD changed was how long traffic was lost. With the link's own addresses, the session died with the link, and every route learned through it was withdrawn and had to be sent again.
 
-That is also why BFD belongs on the OSPF interfaces between your routers, and on eBGP sessions to other networks, but not on iBGP sessions between loopbacks. The standard for using BFD with routing protocols says so: when iBGP depends on OSPF, OSPF should hear about the failure and heal the path, and iBGP gains nothing from tearing down a session that OSPF is about to save. The full-setup example follows it: `bfd: true` on its OSPF links and on its session with transit A, none on its iBGP sessions. In Circuit, `bfd: true` turns BFD on; its timers are the platform's own defaults.
+That is also why BFD belongs on the OSPF interfaces between your routers, and on eBGP sessions to other networks, but not on iBGP sessions between loopbacks. The standard for using BFD with routing protocols says so: when iBGP depends on OSPF, OSPF should hear about the failure and heal the path, and iBGP gains nothing from tearing down a session that OSPF is about to save. The full-setup example follows it: `bfd: true` on its OSPF links and on its session with transit A, none on its iBGP sessions. In Circuit, `bfd: true` turns BFD on, with the platform's own timers. Junos has no default, so there Circuit sends a BFD packet every 300 ms and declares the path dead after three are missed.
 
 <Quiz
   question="Your routers run iBGP between loopbacks, with OSPF and BFD on every link between them. A link fails. What happens to the iBGP sessions that were using it?"
@@ -164,7 +164,7 @@ The <Term means="Maximum transmission unit: the largest packet, in bytes, an int
 
 Raising the MTU on the links between your own routers to around 9000 bytes, a <Term means="A frame larger than the usual 1500 bytes, often around 9000, used on links between a network's own devices.">jumbo frame</Term>, leaves room for a tunnel added later to still carry a full 1500-byte packet. The full-setup example sets `mtu: 9000` on the link between its two site A edge routers, and a lower MTU on each of its tunnels to site B, by as much as the tunnel's own headers take: 1476 on one, 1450 on the other.
 
-`circuit validate` compares the MTU at both ends of every cable that `link` names, and refuses a mismatch:
+`circuit validate` compares the MTU at both ends of every cable written with `link`, and refuses a mismatch:
 
 ```text
 error  edge-a1: port 100g-2 link: MTU 9000 on 100g-2, and edge-b1 100g-1 has 1500

@@ -36,7 +36,7 @@ const layers: Layer[] = [
         adds: "IP header",
         fields: "from 192.168.20.10 to 192.168.30.53, TTL 64",
         size: "20 bytes",
-        added: "The network layer adds the IP addresses of the laptop and of the DNS server. This header crosses every router on the way, ports and all.",
+        added: "The network layer adds the IP addresses of the laptop and of the DNS server. This header goes through every router on the way, with the ports still inside it.",
     },
     {
         id: "link",

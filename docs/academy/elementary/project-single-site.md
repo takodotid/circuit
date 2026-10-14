@@ -13,7 +13,7 @@ In this project you put the whole level together: a router and a switch for a ho
 - **The switch** has a port for each device on the site, each in its VLAN, and a trunk to the router that carries all three.
 - **The router** has the internet connection on its port `1g-1`. For each VLAN it is the gateway and the DHCP server, its firewall keeps guests in their place, and NAT shares its one public address.
 
-The switch only moves frames inside each VLAN. Everything that crosses from one VLAN to another, or to the internet, goes through the router, which is why the router holds the addresses, the firewall and NAT. That is [Layers](/academy/elementary/layers) at work: the switch works at layer 2, the router at layer 3.
+The switch only moves frames inside each VLAN. Everything that crosses from one VLAN to another, or to the internet, goes through the router, which is why the addresses, the firewall and NAT are on the router. That is [Layers](/academy/elementary/layers) at work: the switch works at layer 2, the router at layer 3.
 
 ## Start the project
 
@@ -58,7 +58,7 @@ Each part of it is a lesson of this level:
 
 - **`25g-1`** is the other end of the trunk, with the same three VLANs and a `link` back ([Trunks](/academy/elementary/trunks)).
 - **`interfaces`** gives the router an address on each VLAN, the gateway for that VLAN, and **`dhcp`** hands out addresses, the gateway and the DNS server to every device that joins ([DHCP](/academy/elementary/dhcp)).
-- **`1g-1`** holds the public address from your provider, and the static route sends everything that is not at home to the provider. Change both to what your provider gave you.
+- **`1g-1`** has the public address from your provider, and the static route sends everything that is not at home to the provider. Change both to what your provider gave you.
 - **`system.dns`** with `serve: true` lets the router answer DNS questions, which is why the input firewall accepts DNS from home and guests.
 - **`firewall.filter`** decides what may pass, to the router and through it ([Firewalls](/academy/elementary/firewall)), and **`firewall.nat`** shares the public address ([NAT](/academy/elementary/nat)).
 - **`users`**, **`management`** and **`secret`** keep the keys ([Keeping the keys](/academy/elementary/management)).
@@ -85,7 +85,7 @@ Each mistake below was made in the single-site template, one at a time, and `cir
 
 </TryIt>
 
-Look at how each message points at its cause. A trunk that carries different VLANs at its two ends is reported from both ends, with the VLAN numbers. The rule from `checks.ts` speaks in your own words, because you wrote it. And an address used twice names both devices that hold it.
+Look at how each message points at its cause. A trunk that carries different VLANs at its two ends is reported from both ends, with the VLAN numbers. The rule from `checks.ts` speaks in your own words, because you wrote it. And for an address used twice, the message gives both devices that have it.
 
 An error stops `diff` and `apply`, so none of these can reach a device. A warning, like the port without a description, is printed and stops nothing.
 
@@ -115,7 +115,7 @@ With the files right, the rest is a handful of commands. Step through them: the 
 
 </TryIt>
 
-1. **`secrets`** checks that every password the files name can be read, before anything logs in.
+1. **`secrets`** checks that Circuit can read every password the files ask for, before anything logs in.
 2. **`validate`** checks the files.
 3. **`snapshot`** reads what each device runs now into `.circuit/state/`. It changes nothing.
 4. **`diff`** compares your files with that snapshot, offline. It is fast and safe, but it does not know about anything changed on a device after the snapshot.
@@ -124,7 +124,7 @@ With the files right, the rest is a handful of commands. Step through them: the 
 Apply the switch first, then the router, as the [pattern's page](/patterns/single-site) suggests.
 
 ::: danger The first plan is long
-A device that was set up by hand runs many things your files do not describe yet. The first plan removes all of them, because the file is the whole truth. Read it line by line, and add to the file whatever must stay, until the plan only holds changes you want.
+A device that was set up by hand runs many things your files do not describe yet. The first plan removes all of them, because the file is the whole truth. Read it line by line, and add to the file whatever must stay, until the plan has only changes you want.
 :::
 
 <Quiz
@@ -135,7 +135,7 @@ A device that was set up by hand runs many things your files do not describe yet
   explain="diff compares with the last snapshot and never logs in. apply always reads the device again first, so its plan includes the colleague’s change."
 />
 
-Commit the device files together with `.circuit/` after every apply. Git then holds the history of your network: what each device was told to run, and what it ran afterwards.
+Commit the device files together with `.circuit/` after every apply. Git then keeps the history of your network: what each device was told to run, and what it ran afterwards.
 
 ## In short
 
@@ -145,7 +145,7 @@ Commit the device files together with `.circuit/` after every apply. Git then ho
 | [Writing a network down](/academy/elementary/writing-it-down) | one file per device, `validate`, `diff`, `apply`, and git for history |
 | [VLANs](/academy/elementary/vlans)                            | `vlans` in `site.ts`, `access_vlan` on the switch's ports             |
 | [Trunks](/academy/elementary/trunks)                          | `trunk_vlans` and `link` on `10g-1` and `25g-1`                       |
-| [DHCP](/academy/elementary/dhcp)                              | the router's `interfaces` of type `vlan`, and `dhcp`                  |
+| [DHCP](/academy/elementary/dhcp)                              | the router's `interfaces` with type `vlan`, and `dhcp`                |
 | [NAT](/academy/elementary/nat)                                | `firewall.nat.source`                                                 |
 | [Firewalls](/academy/elementary/firewall)                     | `firewall.filter.input` and `forward`                                 |
 | [Keeping the keys](/academy/elementary/management)            | `users`, `management`, `secret()`, and the check in `checks.ts`       |

@@ -17,11 +17,11 @@ That is a lot of writing, and it is easy to forget one. Worse, a static route us
 
 ## How OSPF works
 
-OSPF is a <Term means="A kind of routing protocol in which every router learns every link in the network, then computes its own paths from that map.">link-state</Term> protocol. That means every router holds the same map, and each works out its own routes from it:
+OSPF is a <Term means="A kind of routing protocol in which every router learns every link in the network, then computes its own paths from that map.">link-state</Term> protocol. That means every router has the same map, and each works out its own routes from it:
 
 1. **Neighbors.** Each router sends hello messages out of every interface OSPF runs on. Two routers that hear each other become neighbors.
 2. **Descriptions.** Each router describes its own links and their costs in a <Term means="A message in which one OSPF router describes its own links and their costs. LSA for short.">link-state advertisement</Term>.
-3. **Flooding.** Each router passes every description it receives on to its other neighbors, until every router holds every description: the same map, called the link-state database.
+3. **Flooding.** Each router passes every description it receives on to its other neighbors, until every router has every description: the same map, called the link-state database.
 4. **Shortest paths.** Each router runs the shortest path first calculation over the map, with itself at the start, and puts the results in its routing table.
 5. **Changes.** When a link comes or goes, the routers at its ends send new descriptions, these are flooded the same way, and every router computes again.
 
@@ -71,7 +71,7 @@ Each end of a link sets its own cost, for traffic leaving through it. In the wid
 
 ## Areas
 
-Every router in the same area holds the same map, and every change makes all of them compute again. In a large network that map gets big. OSPF lets you split the network into **areas**: the routers in an area hold the full map of their own area only, and a router that sits in two areas passes on a summary of what each can reach.
+Every router in the same area has the same map, and every change makes all of them compute again. In a large network that map gets big. OSPF lets you split the network into **areas**: the routers in an area have the full map of their own area only, and a router that sits in two areas passes on a summary of what each can reach.
 
 Area 0 is the <Term means="Area 0, the area every other OSPF area must connect to. Traffic between two other areas crosses it.">backbone</Term>. Every other area connects to it, and traffic between two areas crosses it. Area numbers are written like IPv4 addresses, so area 0 is `0.0.0.0`. A network of a few dozen routers is usually happy in area 0 alone.
 
@@ -102,15 +102,15 @@ routing: {
 },
 ```
 
-| Field                       | What it does                                                                                                                                     |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `router_id`                 | Names the router to its neighbors. The address of a loopback, an interface that belongs to no cable, is a good choice, since it never goes down. |
-| `cost`                      | The cost of sending out of this interface.                                                                                                       |
-| `network: "point-to-point"` | For a cable with one router at each end. It skips the election OSPF otherwise holds on a shared network, so neighbors come up sooner.            |
-| `passive: true`             | Announce the interface's network, but never form a neighbor on it. Use it on every VLAN where users are, since no router lives there.            |
-| `bfd: true`                 | Notice a dead link in under a second, instead of after many seconds without hellos.                                                              |
-| `redistribute`              | Also announce routes from elsewhere, such as `["static"]`.                                                                                       |
-| `families`                  | `["ipv4", "ipv6"]` runs OSPF for IPv6 too.                                                                                                       |
+| Field                       | What it does                                                                                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `router_id`                 | How the router is known to its neighbors. The address of a loopback, an interface that is on no cable, is a good choice, since it never goes down. |
+| `cost`                      | The cost of sending out of this interface.                                                                                                         |
+| `network: "point-to-point"` | For a cable with one router at each end. It skips the election OSPF otherwise holds on a shared network, so neighbors come up sooner.              |
+| `passive: true`             | Announce the interface's network, but never form a neighbor on it. Use it on every VLAN where users are, since no router lives there.              |
+| `bfd: true`                 | Notice a dead link in under a second, instead of after many seconds without hellos.                                                                |
+| `redistribute`              | Also announce routes from elsewhere, such as `["static"]`.                                                                                         |
+| `families`                  | `["ipv4", "ipv6"]` runs OSPF for IPv6 too.                                                                                                         |
 
 <Quiz
   question="Your router runs OSPF on its cable to another router. You add a guests VLAN, where only phones and laptops are. How should it appear in the OSPF area?"
@@ -129,7 +129,7 @@ OSPF talks directly over IP, not over TCP or UDP. If the router's input firewall
 To check who will become neighbors before you apply anything, open the OSPF layer of `npx circuit studio`, or run `npx circuit graph --layer=ospf`.
 
 ::: warning Not every platform runs every part
-On `vrp`, OSPF runs for IPv4 only. On `raisecom-ros`, it runs for IPv4 only, on VLAN interfaces only, and without `bfd`. `circuit validate` reports anything a platform cannot do. See [Platforms](/platforms/).
+On `vrp`, OSPF runs for IPv4 only. On `raisecom-ros`, it runs for IPv4 only, on VLAN interfaces only, and without `bfd`. On `junos` and `fortios`, it runs only in the default table, so not on an interface in a VRF. `circuit validate` reports anything a platform cannot do. See [Platforms](/platforms/).
 :::
 
 ## In short

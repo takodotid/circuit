@@ -73,7 +73,7 @@ Each function answers one question a device asks:
 | `internetVlanNames` | both trunk ends   | their names, so the trunk carries them all                                       |
 | `privateVlans`      | each switch       | the private VLANs of tenants with a port on that switch in their private network |
 | `portsOn`           | each switch       | the tenants' ports on that switch                                                |
-| `gateways`          | router            | an interface on each public VLAN, holding the tenant's gateway addresses         |
+| `gateways`          | router            | an interface on each public VLAN, with the tenant's gateway addresses            |
 | `edgeRules`         | router            | each tenant's `acl` rules, once per outside VLAN and IPv4 block                  |
 
 To change how every tenant is numbered or named, you change it here, once.
@@ -131,7 +131,7 @@ $ npx circuit addresses 198.51.100.0/24
   free: 198.51.100.0/29, 198.51.100.16/28, 198.51.100.32/27, 198.51.100.64/26, 198.51.100.128/25
 ```
 
-`198.51.100.16/28` is free, and its first /29, `198.51.100.16/29`, is 8 addresses: `.16` names the network, `.17` is the gateway on the router, `.18` to `.22` are five for globex's servers, and `.23` is the broadcast address. IPv4 is scarce, so give a tenant the smallest block that fits.
+`198.51.100.16/28` is free, and its first /29, `198.51.100.16/29`, is 8 addresses: `.16` is the address of the network itself, `.17` is the gateway on the router, `.18` to `.22` are five for globex's servers, and `.23` is the broadcast address. IPv4 is scarce, so give a tenant the smallest block that fits.
 
 <TryIt title="Write globex's file">
 
@@ -143,7 +143,7 @@ Make each decision, then run validate and diff. Every output is what Circuit pri
 
 When every choice is sound, the plan is exactly what the tenant's file promised: on the router, a VLAN interface and the two gateway addresses; on the switch, the VLAN, the port and the VLAN added to the uplink. acme's lines do not move.
 
-Every clash stops `validate`, each named in the words of the check that found it: two tenants with one number, overlapping blocks, a gateway outside its block, and a port given to two tenants. That last one matters most. `portsOn` writes each tenant's ports in turn, so without the check the second tenant to name `10g-1` would silently take it, and `10GE1/0/1` would lose acme's VLANs. The check in `checks.ts` says instead: `port 10g-1 on tor-01 is given to both acme and globex`.
+Every clash stops `validate`, and each is described in the words of the check that found it: two tenants with one number, overlapping blocks, a gateway outside its block, and a port given to two tenants. That last one matters most. `portsOn` writes each tenant's ports in turn, so without the check the second tenant to list `10g-1` would silently take it, and `10GE1/0/1` would lose acme's VLANs. The check in `checks.ts` says instead: `port 10g-1 on tor-01 is given to both acme and globex`.
 
 <Quiz
   question="globex is given 10g-1, which acme already uses. Which step of the workflow catches it?"
@@ -196,6 +196,6 @@ The [pattern's page](/patterns/colocation#growing) shows how it grows: more swit
 
 - A colocation hosts tenants' servers and gives each tenant a public VLAN, a block of addresses with the router as gateway, ports, and optionally a private VLAN that stays on the switch.
 - Each tenant is one file; `tenancy.ts` turns the list into VLANs, gateways, ports and edge rules for every device.
-- `circuit addresses` finds a free block; a /29 holds five servers besides the network, gateway and broadcast addresses.
+- `circuit addresses` finds a free block; a /29 has room for five servers besides the network, gateway and broadcast addresses.
 - The checks stop clashing numbers, overlapping blocks, stray gateways and a port given to two tenants; the plan shows the rest, so read it.
 - Removing a tenant from the list removes everything it had and shuts its ports.

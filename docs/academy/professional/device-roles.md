@@ -22,12 +22,12 @@ Roles fix that, because each layer has one job:
 
 ## The roles, from the outside in
 
-| Role        | Also called                   | What it does                                                          | What plugs into it                                      |
-| ----------- | ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------- |
-| Edge        | border                        | Joins your network to others, holds the BGP sessions and the policies | Transit providers, exchanges, links to your other sites |
-| Core        | backbone                      | Carries traffic between the parts of the network as fast as it can    | The edge above, aggregation or access below             |
-| Aggregation | distribution                  | Gathers many access switches, and often routes between their VLANs    | The core above, access switches below                   |
-| Access      | top of rack, in a data centre | Where hosts plug in                                                   | Servers, desks, access points                           |
+| Role        | Also called                   | What it does                                                         | What plugs into it                                      |
+| ----------- | ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------- |
+| Edge        | border                        | Joins your network to others, runs the BGP sessions and the policies | Transit providers, exchanges, links to your other sites |
+| Core        | backbone                      | Carries traffic between the parts of the network as fast as it can   | The edge above, aggregation or access below             |
+| Aggregation | distribution                  | Gathers many access switches, and often routes between their VLANs   | The core above, access switches below                   |
+| Access      | top of rack, in a data centre | Where hosts plug in                                                  | Servers, desks, access points                           |
 
 The <Term means="The router where your network meets other networks: transit providers, exchanges and peers. Also called a border router.">edge router</Term> is the one that faces outward, and every lesson of Intermediate was about it. Whether a network calls it edge or border, it keeps the word for that one role.
 
@@ -47,7 +47,7 @@ These are the ten devices of Circuit's full-setup example, a small provider with
 
 The roles came from what was plugged in, not from the device's model or how big it is. The two edge routers at site A are the same model as the one at site B, and so are several of the switches. A device's role is the job it does in your drawing.
 
-You may also have found that the middle switches of both sites accept two answers. Site A has a pair in the middle, every rack switch hangs from both, and they sit in OSPF's backbone area with the edge routers; the example calls them `core-a1` and `core-a2`. Site B has one switch that gathers an office and one rack, in an OSPF area of its own; the example calls it `agg-b1`. Both are collapsed cores, and either name works if one rule names every site.
+You may also have found that the middle switches of both sites accept two answers. Site A has a pair in the middle, every rack switch hangs from both, and they sit in OSPF's backbone area with the edge routers; the example calls them `core-a1` and `core-a2`. Site B has one switch that gathers an office and one rack, in an OSPF area of its own; the example calls it `agg-b1`. Both are collapsed cores, and either name works if every site is named by one rule.
 
 <Quiz
   question="A switch at a site has a trunk up to the edge router, the office printers and phones, and a cable down to the one rack switch at the site. Which role is it?"
@@ -71,7 +71,7 @@ The full-setup example uses one rule for all ten devices: **role, a hyphen, the 
 
 A few rules keep a naming scheme working for years:
 
-1. **Use only lowercase letters, digits and hyphens.** Those are the characters a hostname may hold, and names compare without regard to case, so lowercase avoids two spellings of one name.
+1. **Use only lowercase letters, digits and hyphens.** Those are the characters a hostname may use, and names compare without regard to case, so lowercase avoids two spellings of one name.
 2. **Name the role and the place, nothing that changes.** A device's model, its owner's name or the customer it serves change over its life; its role and site rarely do. A name written into fifty files and every log should not need to change when a customer leaves.
 3. **Number within the role and the site.** The pair is `edge-a1` and `edge-a2`, so the twin of a device is easy to guess, and a third one is `edge-a3`.
 4. **Keep it short.** You type it in commands and read it in narrow columns.
@@ -81,7 +81,7 @@ A few rules keep a naming scheme working for years:
   question="A new rack switch at site A will serve one big customer, Example Corp. Which name follows the rules above best?"
   :choices="['tor-a4', 'ExampleCorp-Switch', 'tor-a4-examplecorp']"
   :answer="0"
-  :why="['', 'It names the customer, who may leave, and not the role or the site. The capital letters also make two spellings possible.', 'The customer may leave while the switch stays. Write the customer in the port descriptions instead.']"
+  :why="['', 'It has the customer in it, who may leave, but not the role or the site. The capital letters also make two spellings possible.', 'The customer may leave while the switch stays. Write the customer in the port descriptions instead.']"
   explain="tor-a4 says the role and the place, and nothing that will change. The customer goes in the description of the ports it uses, where it can change without renaming the device."
 />
 
@@ -157,14 +157,14 @@ export default defineDevice({
 });
 ```
 
-The rack switch takes its logins and services from `switches.ts`, as every switch does, and its two uplinks go to the core pair. `circuit validate` checks that each `link` names a device in the network, that the far end links back, and that both ends carry the same VLANs. `npx circuit studio` draws its cables layer from these links.
+The rack switch takes its logins and services from `switches.ts`, as every switch does, and its two uplinks go to the core pair. `circuit validate` checks that each `link` points to a device in the network, that the far end links back, and that both ends carry the same VLANs. `npx circuit studio` draws its cables layer from these links.
 
 ## Further reading
 
 - [RFC 7938: Use of BGP for Routing in Large-Scale Data Centers](https://www.rfc-editor.org/rfc/rfc7938.html), which compares tree designs with Clos (leaf-spine) designs, and describes ECMP across the spines and what a failed spine does.
 - [Hierarchical internetworking model](https://en.wikipedia.org/wiki/Hierarchical_internetworking_model), on Wikipedia: the core, distribution and access layers.
 - [RFC 4364, section 1.2](https://www.rfc-editor.org/rfc/rfc4364.html#section-1.2), where P, PE and CE routers are defined.
-- [RFC 952](https://www.rfc-editor.org/rfc/rfc952.html) and [RFC 1123, section 2.1](https://www.rfc-editor.org/rfc/rfc1123.html#section-2.1): which characters a hostname may hold.
+- [RFC 952](https://www.rfc-editor.org/rfc/rfc952.html) and [RFC 1123, section 2.1](https://www.rfc-editor.org/rfc/rfc1123.html#section-2.1): which characters a hostname may use.
 - [Link Layer Discovery Protocol](https://en.wikipedia.org/wiki/Link_Layer_Discovery_Protocol), on Wikipedia: what a device tells its neighbours, its system name included.
 - [RFC 2992: Analysis of an Equal-Cost Multi-Path Algorithm](https://www.rfc-editor.org/rfc/rfc2992.html), on choosing the path by hashing the fields of a flow.
 - [The full-setup example](https://github.com/takodotid/circuit/tree/main/examples/full-setup), the network this lesson lays out.
@@ -175,4 +175,4 @@ The rack switch takes its logins and services from `switches.ts`, as every switc
 - A device's role comes from what plugs into it, not from its model.
 - Name devices by role, site and number, as `edge-a1` and `tor-a3`, with lowercase letters, digits and hyphens, and nothing in the name that will change.
 - In a leaf-spine fabric every leaf has a link to every spine: any two racks are three switches apart, over as many equal paths as there are spines.
-- Circuit has no role field: the role lives in the name, the directory and the shared files, and links between devices name each other.
+- Circuit has no role field: the role lives in the name, the directory and the shared files, and each link says which device is at its far end.

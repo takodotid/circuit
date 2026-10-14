@@ -36,8 +36,8 @@ Here is the same journey in words, with the lesson each step comes from:
 3. **Out of the home.** Each packet leaves in a frame for the home router's hardware address. The home router, and then every router after it, looks up the destination in its routing table, lowers the TTL and passes the packet one hop on, in a new frame each time. ([Addresses](/academy/beginner/addresses), [Switches](/academy/beginner/switches), [Routers](/academy/beginner/routers))
 4. **The handshake.** The browser opens a TCP conversation with port 443 on the server: hello?, hello!, ok. ([Ports and protocols](/academy/beginner/ports))
 5. **The lock.** The browser and the server agree on a secret key, and the server proves it is `circuit.tako.id`. This is the new part, below.
-6. **The request and the reply.** The browser asks for the page. The page comes back cut into numbered packets, possibly by different ways, and TCP puts them back in order and has lost ones sent again. ([Messages in pieces](/academy/beginner/packets))
-7. **The page.** The browser reads the page, fetches the pictures and styles it names in the same way, and draws it.
+6. **The request and the reply.** The browser asks for the page. The page comes back cut into numbered packets, possibly by different ways, and TCP puts them back in order and makes sure lost ones are sent again. ([Messages in pieces](/academy/beginner/packets))
+7. **The page.** The browser reads the page, which lists the pictures and styles it needs. The browser fetches those in the same way, and draws the page.
 
 Even the DNS question in step 1 crossed the gateway: the resolver is not on the home network either. Every message, of every kind, makes the same near-or-far decision first.
 
@@ -103,7 +103,7 @@ With these ten ideas you can follow any message across any network. The Elementa
 
 ## In short
 
-- Opening a page starts with DNS: the name becomes an address, asked of the resolver through the gateway.
+- Opening a page starts with DNS: the laptop asks the resolver, through the gateway, to turn the name into an address.
 - The laptop sends everything for another network to its gateway, and routers pass it on hop by hop.
 - The browser opens a TCP conversation with port 443, then locks it: a secret key only the two sides know, and a certificate that proves the server's name.
 - The page comes back in numbered packets, is put back in order, and is drawn; the lock means nobody on the way can read it.

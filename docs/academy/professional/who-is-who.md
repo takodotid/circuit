@@ -16,7 +16,7 @@ Nobody runs the internet as a whole. A single page load crosses several networks
 - **Content networks** serve what people watch and read: video, software, cloud services. Some of them give access providers servers to put inside their own networks, so the most watched content is served from close by.
 - **Hosting companies** run the servers that websites live on, in data centres.
 
-Each network calls the one it buys transit from its <Term means="The network you buy transit from: your way to the rest of the internet.">upstream</Term>, and the networks that buy transit from it its downstreams.
+The network you buy transit from is your <Term means="The network you buy transit from: your way to the rest of the internet.">upstream</Term>, and the networks that buy transit from you are your downstreams.
 
 A small group of very large networks reach every other network without buying transit from anyone, by peering with each other. They are called Tier 1 networks, but no authority defines the term, and lists of who counts differ. Hurricane Electric, for example, is very large and peers widely, but buys transit to reach a few networks, so it is usually not counted.
 
@@ -58,12 +58,12 @@ Two networks in the same data centre still need a cable between them, and they c
 
 ## Where addresses and AS numbers come from
 
-Every address and AS number must belong to one network at a time, and be recorded, so that routes can be trusted and the internet's routing tables stay small. A chain of registries keeps this so:
+Every address and AS number must belong to one network at a time, and be recorded, so that routes can be trusted and the internet's routing tables stay small. A chain of registries makes sure of this:
 
-1. **IANA**, the Internet Assigned Numbers Authority, holds the whole pool, and gives large blocks to five regional registries.
+1. **IANA**, the Internet Assigned Numbers Authority, keeps the whole pool, and gives large blocks to five regional registries.
 2. **Five regional registries**, the <Term means="Regional internet registry: one of five organisations that hand out addresses and AS numbers for a part of the world. APNIC is the one for Asia and the Pacific.">RIRs</Term>, each serve a part of the world: AFRINIC for Africa, APNIC for Asia and the Pacific, ARIN for North America, LACNIC for Latin America and the Caribbean, and the RIPE NCC for Europe, the Middle East and Central Asia.
 3. **National registries**, the <Term means="National internet registry: an organisation that hands out addresses and AS numbers in one country, under its regional registry's policies, such as IDNIC in Indonesia.">NIRs</Term>, exist in a few countries. In APNIC's region there are seven: in Indonesia, China, India, Japan, South Korea, Taiwan and Vietnam. Indonesia's is IDNIC, run by APJII.
-4. **Providers** that hold blocks hand smaller pieces to their customers.
+4. **Providers** that have blocks hand smaller pieces to their customers.
 
 A network in Indonesia can get its own AS number and addresses from IDNIC or from APNIC. In most cases it chooses one of the two, and cannot get number resources from both. A network in Singapore, which has no national registry, goes to APNIC.
 
@@ -90,7 +90,7 @@ interfaces: {
 },
 ```
 
-With your AS number and a PeeringDB key in `circuit.config.ts`, `npx circuit peeringdb` compares each such interface with your record and prints what differs, and `npx circuit peeringdb --confirm` sends the changes. An exchange PeeringDB lists and your files do not is reported, never deleted. [Publishing the network](/guide/publishing) shows the whole setup.
+With your AS number and a PeeringDB key in `circuit.config.ts`, `npx circuit peeringdb` compares each such interface with your record and prints what differs, and `npx circuit peeringdb --confirm` sends the changes. If PeeringDB lists an exchange that your files do not, Circuit reports it and never deletes it. [Publishing the network](/guide/publishing) shows the whole setup.
 
 ## Further reading
 

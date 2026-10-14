@@ -28,7 +28,7 @@ const steps: Step[] = [
         file: "tenants/acme.ts",
         lang: "ts",
         highlight: [4],
-        text: "One line in the tenant's own file. Port 10g-3 on tor-01 is free: no tenant's file names it.",
+        text: "One line in the tenant's own file. Port 10g-3 on tor-01 is free: no tenant's file lists it.",
         code: [
             "ports: {",
             '    "tor-01": {',
@@ -95,7 +95,7 @@ const steps: Step[] = [
         title: "Check, and commit the snapshot",
         file: "Terminal",
         lang: "shell",
-        text: "Watch the port come up in your monitoring, and ask acme to confirm the server answers. Then commit the new snapshot, so git holds what the switch runs now.",
+        text: "Watch the port come up in your monitoring, and ask acme to confirm the server answers. Then commit the new snapshot, so git has a record of what the switch runs now.",
         code: ["$ git add .circuit", '$ git commit -m "Snapshot after acme server 3"', "$ git push"].join("\n"),
     },
 ];

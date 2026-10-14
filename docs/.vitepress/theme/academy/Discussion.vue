@@ -72,8 +72,8 @@ watch(isDark, () => {
         </p>
         <p v-else class="lead">
             Stuck, or found a mistake? Ask on
-            <a :href="`${repository}/issues/new?title=${encodeURIComponent(`Academy: ${route.path}`)}`">GitHub</a>, and name the lesson. A
-            discussion under each lesson is on its way.
+            <a :href="`${repository}/issues/new?title=${encodeURIComponent(`Academy: ${route.path}`)}`">GitHub</a>, and say which lesson it
+            is about. A discussion under each lesson is on its way.
         </p>
         <div ref="frame" class="giscus" />
     </section>

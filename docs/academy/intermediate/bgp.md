@@ -67,7 +67,7 @@ The AS path does three jobs at once:
   question="Your router in AS64500 receives 198.51.100.0/24 with the AS path 64502 64501 64500. What does it do with it?"
   :choices="['Keeps it, since it is a route to its own block', 'Drops it, since its own number is in the path', 'Passes it on to its other neighbors']"
   :answer="1"
-  :why="['Your own block is already yours. A route to it from outside would send your own traffic out and back in.', '', 'It never gets that far. A route that holds your own AS number is dropped as it arrives.']"
+  :why="['Your own block is already yours. A route to it from outside would send your own traffic out and back in.', '', 'It never gets that far. A route with your own AS number in its path is dropped as it arrives.']"
   explain="64500 is in the path, so the announcement has already passed through your AS once. Taking it would make a loop, so BGP drops it."
 />
 
@@ -136,8 +136,8 @@ policies: {
 { description: "BGP", match: { protocol: "tcp", dst_port: 179, src: "203.0.113.1/32" }, action: "accept" },
 ```
 
-::: warning BGP needs RouterOS
-Of the platforms Circuit supports, only `routeros` runs BGP; `vrp` and `raisecom-ros` report `routing.bgp` as an error. On RouterOS one session carries one address family, so an IPv4 and an IPv6 neighbor are two sessions, as in the [edge router](/patterns/edge-router) pattern. See [Platforms](/platforms/).
+::: warning Not every platform runs BGP
+Of the platforms Circuit supports, `routeros`, `junos` and `fortios` run BGP; `vrp` and `raisecom-ros` report `routing.bgp` as an error. On RouterOS one session carries one address family, so an IPv4 and an IPv6 neighbor are two sessions, as in the [edge router](/patterns/edge-router) pattern. Junos and FortiOS have no BGP roles, so they report `role` as an error. FortiOS has no RPKI either, so it refuses the RPKI rule in `bgpSanity()`. See [Platforms](/platforms/).
 :::
 
 ## In short

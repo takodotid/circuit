@@ -27,7 +27,7 @@ Six laptops on sw-01 talk to a server on sw-02. Try separate links first, then o
 
 With separate links, only one cable ever carried traffic: spanning tree blocked the others, for reasons the next section shows. With a LAG, every working cable carried some of the conversations, and cutting one only moved its conversations elsewhere.
 
-In Circuit, a LAG is an entry in `interfaces` with `type: "lag"`, and each member port names it with `lag`. The LAG holds every other setting, such as the VLANs. `mode` is LACP when absent; write `mode: "static"` only for a device that cannot speak LACP.
+In Circuit, a LAG is an entry in `interfaces` with `type: "lag"`, and each member port says which LAG it is in with `lag`. Every other setting, such as the VLANs, goes on the LAG. `mode` is LACP when absent; write `mode: "static"` only for a device that cannot speak LACP.
 
 ```ts
 ports: {

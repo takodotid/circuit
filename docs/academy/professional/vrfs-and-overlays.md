@@ -11,7 +11,7 @@ Across a whole network, the provider also has to carry each customer's packets b
 
 ## Two customers, the same addresses
 
-A provider router facing customers is a <Term means="Provider edge: a router of the provider that customers connect to. It holds each customer's routes in that customer's VRF.">PE</Term>, provider edge. The customer's own router on the other end of the link is the <Term means="Customer edge: the customer's router on its side of the link to the provider.">CE</Term>, customer edge. In the [IP VPN](/academy/professional/private-circuits) product, the provider joins a customer's offices into one private network: office 1 reaches office 2 through the provider, by the private addresses the customer chose.
+A provider router facing customers is a <Term means="Provider edge: a router of the provider that customers connect to. It keeps each customer's routes in that customer's VRF.">PE</Term>, provider edge. The customer's own router on the other end of the link is the <Term means="Customer edge: the customer's router on its side of the link to the provider.">CE</Term>, customer edge. In the [IP VPN](/academy/professional/private-circuits) product, the provider joins a customer's offices into one private network: office 1 reaches office 2 through the provider, by the private addresses the customer chose.
 
 Below, one PE, `pe-01`, has two such customers. Each has two offices, and both numbered them the same way, because both started from the same private ranges you met in [NAT](/academy/elementary/nat).
 
@@ -23,7 +23,7 @@ Send a packet to 10.1.2.20 from each customer while pe-01 has one routing table.
 
 </TryIt>
 
-With one table, the router holds two routes to `10.1.2.0/24`, one for each customer. They have the same prefix and the same length, so the longest match cannot choose between them. A router uses one of them, or shares traffic between both, depending on the router; either way, some of one customer's traffic is delivered into the other customer's network. Here `circuit validate` stops the file before it reaches the router, but only because the two customers' links also share addresses: `172.16.0.1 is on both port 25g-1 and port 25g-3`. Two routes to one prefix alone are a normal thing to write, as a backup for each other, and Circuit cannot know they belong to two customers.
+With one table, the router has two routes to `10.1.2.0/24`, one for each customer. They have the same prefix and the same length, so the longest match cannot choose between them. A router uses one of them, or shares traffic between both, depending on the router; either way, some of one customer's traffic is delivered into the other customer's network. Here `circuit validate` stops the file before it reaches the router, but only because the two customers' links also share addresses: `172.16.0.1 is on both port 25g-1 and port 25g-3`. Two routes to one prefix alone are a normal thing to write, as a backup for each other, and Circuit cannot know they belong to two customers.
 
 With a VRF each, the port says which table to use. A packet from Customer B's office arrives on a port in VRF `cust-b`, and Customer A's `10.1.2.0/24` is in a table that packet never sees. The customers are kept apart by the router itself, not by a filter someone could forget.
 
@@ -72,11 +72,11 @@ A name that is not in `vrfs` is an error before anything reaches the router: `st
 
 The same idea keeps a network's own management apart. In [`examples/full-setup/`](https://github.com/takodotid/circuit/tree/main/examples/full-setup), each edge router has a VRF called `oob` for its out-of-band port, with a default route of its own, so the operators' way in never mixes with customer or internet traffic.
 
-Of the platforms Circuit supports, `routeros` runs VRFs, `vrp` runs them for IPv4, and `raisecom-ros` reports `vrfs` as an error; see [Platforms](/platforms/). Circuit has no field for running BGP inside a VRF, or for passing routes from one VRF to another, so routes in a VRF are static ones you write.
+Of the platforms Circuit supports, `routeros` and `junos` run VRFs, `vrp` runs them for IPv4, `fortios` runs up to 31 of them without a `description`, and `raisecom-ros` reports `vrfs` as an error; see [Platforms](/platforms/). Circuit has no field for running BGP inside a VRF, or for passing routes from one VRF to another, so routes in a VRF are static ones you write.
 
 ## Carrying a customer across the core
 
-One PE is the easy case. A provider has PEs in many places, and between them the core: routers that join PEs to each other and face no customer, called <Term means="Provider routers: the provider's core routers between PEs. They face no customer and hold none of the customers' routes.">P routers</Term>. If every P router held every customer's VRF, the core would need thousands of tables, and would have to change whenever a customer did.
+One PE is the easy case. A provider has PEs in many places, and between them the core: routers that join PEs to each other and face no customer, called <Term means="Provider routers: the provider's core routers between PEs. They face no customer and have none of the customers' routes.">P routers</Term>. If every P router had every customer's VRF, the core would need thousands of tables, and would have to change whenever a customer did.
 
 So the PE wraps the customer's packet. The core reads only the wrapping, which says "from this PE to that PE". The network the core routes is called the <Term means="The provider's own network that the wrapped packets cross: its links, its routers and the addresses of its PEs.">underlay</Term>; the customers' networks carried across it are the <Term means="A network carried inside another: the customers' separate networks, wrapped and sent across the provider's underlay.">overlay</Term>. Two ways of wrapping are in wide use.
 
@@ -93,16 +93,16 @@ Step through Customer A's packet with VXLAN, then with MPLS labels. At each rout
 
 </TryIt>
 
-The core router in the middle read only the outer IP header, or the outer label, the same for both customers. Only the VNI, or the inner label, told the two packets apart, and only pe-02 read it. The core does not know Customer A exists, which is the whole point: the core stays the same size however many customers there are, and only the PEs hold VRFs.
+The core router in the middle read only the outer IP header, or the outer label, the same for both customers. Only the VNI, or the inner label, told the two packets apart, and only pe-02 read it. The core does not know Customer A exists, which is the whole point: the core stays the same size however many customers there are, and only the PEs have VRFs.
 
-The wrapping has a cost in bytes. VXLAN adds 50: an inner Ethernet header of 14, then 8 for VXLAN, 8 for UDP and 20 for the outer IPv4 header. Each MPLS label adds 4. A customer sending full 1500-byte packets therefore needs core links whose <Term means="Maximum transmission unit: the largest packet a link carries in one piece. A Circuit port without `mtu` takes 1500 bytes.">MTU</Term>, maximum transmission unit, is at least 1550 bytes for VXLAN, and RFC 7348 says a tunnel end must not split a VXLAN packet into pieces. The fix is to raise the MTU of the core links well above 1500, to a <Term means="A frame larger than the usual 1500 bytes of IP, such as 9000. The links inside a core are set to it so wrapped packets still fit.">jumbo frame</Term> size, as the core link in the next section does with `mtu: 9000`. Where a tunnel crosses the internet, whose links you do not control, the tunnel's own MTU is lowered instead, as the `vxlan-b1` tunnel in `examples/full-setup/` does with `mtu: 1450`.
+The wrapping has a cost in bytes. VXLAN adds 50: an inner Ethernet header of 14, then 8 for VXLAN, 8 for UDP and 20 for the outer IPv4 header. Each MPLS label adds 4. So for a customer sending full 1500-byte packets, the <Term means="Maximum transmission unit: the largest packet a link carries in one piece. A Circuit port without `mtu` takes 1500 bytes.">MTU</Term>, maximum transmission unit, of the core links must be at least 1550 bytes for VXLAN, and RFC 7348 says a tunnel end must not split a VXLAN packet into pieces. The fix is to raise the MTU of the core links well above 1500, to a <Term means="A frame larger than the usual 1500 bytes of IP, such as 9000. The links inside a core are set to it so wrapped packets still fit.">jumbo frame</Term> size, as the core link in the next section does with `mtu: 9000`. Where a tunnel crosses the internet, whose links you do not control, the tunnel's own MTU is lowered instead, as the `vxlan-b1` tunnel in `examples/full-setup/` does with `mtu: 1450`.
 
 <Quiz
   question="A P router in the middle of an MPLS core forwards a Customer A packet from pe-01 to pe-02. What does it need to know?"
   :choices="['Customer A routes, in a VRF of its own', 'Only the outer label, which leads to pe-02', 'The customer packet destination address']"
   :answer="1"
-  :why="['That is the job of the PEs. A P router holds no VRF and no customer route.', '', 'It never looks that deep. Only pe-01 and pe-02 read the customer packet itself.']"
-  explain="The outer label leads to pe-02, so that is all a P router reads. Only the PEs at each end hold VRFs and read the customer's own addresses."
+  :why="['That is the job of the PEs. A P router has no VRF and no customer route.', '', 'It never looks that deep. Only pe-01 and pe-02 read the customer packet itself.']"
+  explain="The outer label leads to pe-02, so that is all a P router reads. Only the PEs at each end have VRFs and read the customer's own addresses."
 />
 
 <Quiz
@@ -115,7 +115,7 @@ The wrapping has a cost in bytes. VXLAN adds 50: an inner Ethernet header of 14,
 
 ## Overlays in Circuit
 
-Circuit writes a VXLAN tunnel as an interface of `type: "vxlan"`: its two ends, `local` and `remote`, its `vni`, and optionally its UDP `port`, 4789 when absent. Like any interface, it can hold addresses and sit in a VRF. Each customer gets a tunnel of its own from `pe-01` to `pe-02`, between the same two loopbacks, told apart by its VNI:
+Circuit writes a VXLAN tunnel as an interface of `type: "vxlan"`: its two ends, `local` and `remote`, its `vni`, and optionally its UDP `port`, 4789 when absent. Like any interface, it can have addresses and be in a VRF. Each customer gets a tunnel of its own from `pe-01` to `pe-02`, between the same two loopbacks, told apart by its VNI:
 
 ```ts
 ports: {
@@ -153,7 +153,7 @@ routing: {
 },
 ```
 
-`pe-02` holds the same two tunnels the other way round. When both routers are in your network, `circuit validate` checks that each tunnel has one back at the far end, with the ends swapped and the same VNI and port.
+`pe-02` has the same two tunnels the other way round. When both routers are in your network, `circuit validate` checks that each tunnel has one back at the far end, with the ends swapped and the same VNI and port.
 
 Circuit does not do the rest of this lesson, and it is better to know that now:
 

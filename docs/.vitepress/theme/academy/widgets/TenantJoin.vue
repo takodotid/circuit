@@ -74,7 +74,7 @@ const decisions: Decision[] = [
         id: "port",
         question: "4. Its port on tor-01",
         choices: [
-            { id: "10g-3", label: "10g-3", verdict: "good", text: "No tenant's file names 10g-3, so it is free." },
+            { id: "10g-3", label: "10g-3", verdict: "good", text: "No tenant's file lists 10g-3, so it is free." },
             {
                 id: "10g-1",
                 label: "10g-1",
@@ -174,7 +174,7 @@ const outcome = computed(() => {
         return {
             kind: "bad",
             word: "Stopped",
-            text: "validate found errors, so diff and apply stop here. Each line names what clashes, in the words of the check that found it: change that choice and run again.",
+            text: "validate found errors, so diff and apply stop here. Each line says what clashes, in the words of the check that found it: change that choice and run again.",
         };
     }
     return {

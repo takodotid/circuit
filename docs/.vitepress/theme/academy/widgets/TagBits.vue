@@ -51,13 +51,13 @@ const verdict = computed<{ kind: "good" | "bad" | "warn"; word: string; text: st
         return {
             kind: "warn",
             word: "Kept back",
-            text: "0 fits in twelve bits, but on the wire it means a frame with a priority and no VLAN. It cannot name a VLAN.",
+            text: "0 fits in twelve bits, but on the wire it means a frame with a priority and no VLAN. It cannot be a VLAN ID.",
         };
     if (value === 4095)
         return {
             kind: "warn",
             word: "Kept back",
-            text: "4095 is all twelve bits on. The standard keeps it back, so it cannot name a VLAN either.",
+            text: "4095 is all twelve bits on. The standard keeps it back, so it cannot be a VLAN ID either.",
         };
 
     return {

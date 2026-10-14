@@ -13,7 +13,7 @@ The list the router keeps is the whole trick. It is also why nobody outside can 
 
 An IPv4 address is 32 bits, so there are about 4.3 billion of them. There are more devices in the world than that, and many addresses are set aside for other uses, so not every device can have one of its own.
 
-The private ranges from [Reading an IP address](/academy/beginner/ip-addresses) are the way out: 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16. Any home or office may use them, so millions of homes use 192.168.1.0/24 at the same time. That is exactly why they cannot be used on the internet: a reply to 192.168.20.10 could be meant for any of those homes, so routers on the internet carry no routes to private addresses at all.
+The private ranges from [Reading an IP address](/academy/beginner/ip-addresses) are the way out: 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16. Any home or office may use them, so millions of homes use 192.168.1.0/24 at the same time. That is exactly why they cannot be used on the internet: a reply to 192.168.20.10 could be meant for any of those homes, so routers on the internet have no routes to private addresses at all.
 
 Your internet provider gives your router one <Term means="An address that belongs to one place on the whole internet, so a reply to it can find its way back. Your internet provider gives you one.">public address</Term>. In the single-site network you will build in this level, it is 203.0.113.2, on the router's port to the provider. Every device at home shares it.
 
@@ -44,17 +44,17 @@ The table does not grow forever. A row is removed when its connection ends, or a
   question="An answer arrives at 203.0.113.2, port 40002. How does the router know which device at home it is for?"
   :choices="['It reads the private address inside the answer', 'It looks up port 40002 in its translation table', 'It sends the answer to every device at home']"
   :answer="1"
-  :why="['The website only ever saw 203.0.113.2, so the answer holds no private address to read.', '', 'A router passes a packet on to one place. It does not need to guess: its table says where port 40002 goes.']"
+  :why="['The website only ever saw 203.0.113.2, so the answer has no private address in it to read.', '', 'A router passes a packet on to one place. It does not need to guess: its table says where port 40002 goes.']"
   explain="Port 40002 is in the table, next to the private address and port that opened the connection. The router puts those back and passes the answer in."
 />
 
 ## Nobody can start a connection in
 
-Every row in the table is written by a packet going out. A packet that arrives from the internet for a port no row names has nowhere to go: the router cannot know which of the devices at home it is meant for, so it stops there.
+Every row in the table is written by a packet going out. A packet that arrives from the internet for a port that is in no row has nowhere to go: the router cannot know which of the devices at home it is meant for, so it stops there.
 
 A port that is in the table does not help a stranger either. The row also remembers who is at the other end, and the stranger is not the website the laptop talked to. Some home routers are looser and let anyone use a row once it exists, but the idea is the same: the row was opened from inside.
 
-To let a connection in on purpose, you add a <Term means="A rule that sends everything arriving at one port of the public address to one device inside. Also called destination NAT.">port forward</Term>: "whatever arrives at 203.0.113.2, port 8443, goes to the camera at 192.168.20.50, port 443". It is also called destination NAT, because it rewrites the receiver of a packet, where the rewriting so far changed the sender. With it turned on, the stranger in the widget reached the camera, and the router wrote a row for that connection too, so the camera's answers go back out the same way.
+To let a connection in on purpose, you add a <Term means="A rule that sends everything arriving at one port of the public address to one device inside. Also called destination NAT.">port forward</Term>: "whatever arrives at 203.0.113.2, port 8443, goes to the camera at 192.168.20.50, port 443". It is also called destination NAT, because it rewrites the receiver of a packet. The rewriting so far changed the sender. With it turned on, the stranger in the widget reached the camera, and the router wrote a row for that connection too, so the camera's answers go back out the same way.
 
 ::: warning A port forward is open to everyone
 Anyone on the internet who tries port 8443 reaches the camera, not only you. Forward only what must be reachable from outside, and remove a forward you no longer need.
@@ -80,7 +80,7 @@ Deciding what may pass is the job of a firewall, and that is the next lesson. In
 
 <Quiz
   question="Which of these does NAT stop on its own?"
-  :choices="['A device at home opening any website', 'A connection from the internet to a port that no row names', 'A packet for 192.168.20.10 sent to your router by a computer in your provider’s network']"
+  :choices="['A device at home opening any website', 'A connection from the internet to a port that is in no row', 'A packet for 192.168.20.10 sent to your router by a computer in your provider’s network']"
   :answer="1"
   :why="['NAT rewrites connections going out. It lets every one of them out.', '', 'NAT has no row for that packet and needs none. The router knows the way to 192.168.20.0/24 and routes it in. Only a firewall rule stops it.']"
   explain="A connection starting from outside has no row and no forward, so it has nowhere to go. That is the only thing NAT stops, and only as a side effect."
@@ -99,7 +99,7 @@ firewall: {
 },
 ```
 
-- `source` holds the rules that rewrite the sender, on the way out.
+- `source` lists the rules that rewrite the sender, on the way out.
 - `match: { out_interface: "1g-1" }` limits the rule to packets leaving through `1g-1`, the port to the provider. Traffic between the VLANs at home keeps its own addresses.
 - `action: "masquerade"` means: use the address of the port the packet leaves through, whatever it is now. If your provider changes your public address, the rule still works. With a fixed address, `action: "snat"` and `to: "203.0.113.2"` write it out instead.
 

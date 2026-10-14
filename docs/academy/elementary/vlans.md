@@ -15,7 +15,7 @@ Think of an office with one switch. Staff laptops, a printer, a Wi-Fi access poi
 
 You could buy a switch for each group, but VLANs do the same with one. A <Term means="Virtual LAN: a separate local network inside a switch. Ports in one VLAN cannot reach ports in another through the switch.">VLAN</Term> has a number from 1 to 4094, called its ID, and people usually give it a name too, such as "guests". The [Trunks](/academy/elementary/trunks) lesson shows where that number comes from.
 
-The simplest way to use a VLAN is an <Term means="A switch port that belongs to exactly one VLAN. The device plugged into it sends and receives ordinary frames, and does not know the VLAN exists.">access port</Term>: a port that belongs to one VLAN. The device plugged into it does not know VLANs exist. It sends and receives ordinary frames, exactly as before. Only the switch knows which VLAN each port is in, and it keeps a separate address table for each VLAN.
+The simplest way to use a VLAN is an <Term means="A switch port that is in exactly one VLAN. The device plugged into it sends and receives ordinary frames, and does not know the VLAN exists.">access port</Term>: a port that is in one VLAN. The device plugged into it does not know VLANs exist. It sends and receives ordinary frames, exactly as before. Only the switch knows which VLAN each port is in, and it keeps a separate address table for each VLAN.
 
 Try it on a switch with six devices. Every port starts in the same VLAN, so the switch behaves like a plain switch.
 
@@ -60,7 +60,7 @@ interface 10GE1/0/5
 
 ## Choosing your VLANs
 
-Split by who should be able to reach whom, not by floor or by room. A small site usually needs only a few VLANs. Circuit's [single-site pattern](/patterns/single-site), which the last lesson of this level builds, uses three:
+Split by who needs to reach what, not by floor or by room. A small site usually needs only a few VLANs. Circuit's [single-site pattern](/patterns/single-site), which the last lesson of this level builds, uses three:
 
 | VLAN     | ID  | For                                                                |
 | -------- | --- | ------------------------------------------------------------------ |
@@ -110,12 +110,12 @@ ports: {
 },
 ```
 
-This works, but it takes one cable and one router port for every VLAN. With ten VLANs, that is ten cables. The next lesson carries them all on one.
+This works, but it takes one cable and one router port for every VLAN. With ten VLANs, that is ten cables. The next lesson puts them all on one cable.
 
 ## In short
 
 - A VLAN is a separate network inside a switch, with an ID from 1 to 4094 and usually a name.
-- An access port belongs to one VLAN, and the device on it does not know VLANs exist.
+- An access port is in one VLAN, and the device on it does not know VLANs exist.
 - A broadcast stays inside its VLAN, and the switch never passes a frame from one VLAN to another.
 - To cross between VLANs you need a router with an address in each, which is the gateway of that VLAN.
-- In Circuit, `vlans` declares each VLAN by name, and a port joins one with `access_vlan`.
+- In Circuit, `vlans` lists each VLAN by name, and `access_vlan` says which one a port is in.

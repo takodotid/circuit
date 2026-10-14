@@ -20,7 +20,7 @@ On a small network, the DHCP server is usually the router, with one server for e
 
 You could type these into every laptop, phone and printer by hand, and some devices, such as servers, are still set up that way. But a phone that visits ten networks a week cannot be, and two people who type the same address by hand break each other's connection. So almost every network uses <Term means="Dynamic Host Configuration Protocol: the way a device joining a network asks for an address, a gateway and DNS servers, and gets them from a server.">DHCP</Term> instead.
 
-Your home router has done this for you all along. When your phone joins the Wi-Fi at home, it gets all four from the home router in under a second, which is why [Opening a website](/academy/beginner/opening-a-website) could take them as given.
+Your home router has done this for you all along. When your phone joins the Wi-Fi at home, it gets all four from the home router in under a second, which is why [Opening a website](/academy/beginner/opening-a-website) could start with them already in place.
 
 ## Four messages
 
@@ -58,14 +58,14 @@ Try a guest Wi-Fi with a small pool. Here, as in real life, guests arrive and le
 
 </TryIt>
 
-With day-long leases, the pool filled with addresses held for guests who had already gone home, and the next guest got nothing. A shorter lease frees an address soon after its guest leaves, and costs nothing for the guests who stay, because they renew. That is why guest networks use short leases, an hour or so, and an office where the same laptops come every day can use long ones.
+With day-long leases, the pool filled with addresses kept for guests who had already gone home, and the next guest got nothing. A shorter lease frees an address soon after its guest leaves, and costs nothing for the guests who stay, because they renew. That is why guest networks use short leases, an hour or so, and an office where the same laptops come every day can use long ones.
 
 <Quiz
   question="A café’s guest Wi-Fi has 50 addresses and day-long leases. About 200 guests pass through each day, each staying an hour. What goes wrong?"
-  :choices="['Nothing: only a few guests are there at any one time', 'Within a few hours, the pool is full of addresses held for guests who left', 'The guests who stay lose their addresses after an hour']"
+  :choices="['Nothing: only a few guests are there at any one time', 'Within a few hours, the pool is full of addresses kept for guests who left', 'The guests who stay lose their addresses after an hour']"
   :answer="1"
   :why="['The server cannot know a guest left. It keeps each address for the whole lease, a full day.', '', 'Guests who stay renew their lease halfway through, so they keep their address.']"
-  explain="Every guest holds an address for a day, even after leaving, so 50 guests fill the pool. Lease times of an hour, or a bigger pool, fix it."
+  explain="Every guest keeps an address for a day, even after leaving, so 50 guests fill the pool. Lease times of an hour, or a bigger pool, fix it."
 />
 
 ## The gateway, on a VLAN interface
@@ -110,7 +110,7 @@ dhcp: {
 },
 ```
 
-Each entry in `interfaces` of `type: "vlan"` sits on the VLAN it names, and its `addresses` give the router its address there. Each DHCP server then says:
+Each entry in `interfaces` with `type: "vlan"` sits on the VLAN in its `vlan` field, and its `addresses` give the router its address in that VLAN. Each DHCP server then says:
 
 | Field        | What it says                                                                |
 | ------------ | --------------------------------------------------------------------------- |
@@ -134,7 +134,7 @@ reservations: [{ address: "192.168.20.20", mac: "00:00:5e:00:53:20", description
 ```
 
 ::: tip A DHCP server elsewhere
-A bigger network may run one DHCP server for every VLAN on a server of its own. A broadcast cannot reach it across a router, so the router passes the requests on, with `dhcp_relay`. See the [schema reference](/reference/schema).
+A bigger network may run one DHCP server for every VLAN, on a server of its own. A broadcast cannot reach it across a router, so the router passes the requests on, with `dhcp_relay`. See the [schema reference](/reference/schema).
 :::
 
 ## In short
@@ -142,5 +142,5 @@ A bigger network may run one DHCP server for every VLAN on a server of its own. 
 - A device needs an address, a mask, a gateway and DNS servers, and DHCP hands them out automatically.
 - It takes four messages, discover, offer, request and acknowledge, and the device broadcasts because it has no address yet.
 - Addresses are lent from a pool for a lease time. Devices that stay renew halfway; addresses of devices that left are freed when the lease ends.
-- The gateway of a VLAN is the router's address on a VLAN interface, written in Circuit as `interfaces` of `type: "vlan"`.
+- The gateway of a VLAN is the router's address on a VLAN interface, written in Circuit as `interfaces` with `type: "vlan"`.
 - Each VLAN gets a DHCP server under `dhcp`, with its `interface`, `network`, `gateway`, `dns`, `pool` and `lease_time`.

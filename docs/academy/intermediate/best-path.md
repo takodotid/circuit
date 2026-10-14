@@ -16,7 +16,7 @@ Every route BGP carries has a few attributes besides its prefix. These are the o
 - **Local preference**: a number your own routers give a route as it comes in. Higher is better. You set it, and it stays inside your AS.
 - **AS path**: the list of ASes the announcement passed through, which you followed in [BGP](/academy/intermediate/bgp). Shorter is better.
 - **Origin**: how the route first entered BGP. <Term means="The network that owns the prefix announced it into BGP itself. The usual case.">IGP</Term>, <Term means="It came from EGP, the protocol BGP replaced. You will almost never see it.">EGP</Term>, or <Term means="It was copied into BGP from another source, such as static routes, so BGP cannot say where it began.">incomplete</Term>. IGP is best, then EGP, then incomplete.
-- **MED**, the <Term means="A number a neighboring AS puts on the routes it sends you, to say which of its several links into it you should use. Lower is better.">multi-exit discriminator</Term>. Lower is better.
+- **MED**, the <Term means="A number a neighboring AS puts on the routes it sends you, to say which of the links between you and it you should use. Lower is better.">multi-exit discriminator</Term>. Lower is better.
 
 Only routes your import policy accepted take part. A route it rejected never reaches the comparison. Of the rest, the router keeps those that are best on the first attribute, then compares only those on the next, and so on, until one route is left:
 
@@ -25,7 +25,7 @@ Only routes your import policy accepted take part. A route it rejected never rea
 3. Lowest origin: IGP, then EGP, then incomplete.
 4. Lowest MED.
 5. A route learned over eBGP, from another AS, before one learned over iBGP, from your own router.
-6. A tie-break: the lowest <Term means="A number written like an IPv4 address that names a router to its BGP neighbors, set with router_id in Circuit.">router ID</Term> of the neighbor that sent the route.
+6. A tie-break: the lowest <Term means="A number, written like an IPv4 address, that a router is known by to its BGP neighbors. In Circuit it is router_id.">router ID</Term> of the neighbor that sent the route.
 
 ::: warning This order is simplified
 Real routers follow a longer list, and platforms differ in the details. Some check a weight of their own before local preference. Most compare MED only between routes from the same neighboring AS, where this lesson compares it between all routes. Between steps 5 and 6, many prefer the route whose next hop is closest inside your network, and some prefer the route they have held longest. Read your platform's documentation before you rely on anything below the AS path.
@@ -100,7 +100,7 @@ Prepending once was enough to move the traffic, because the far network compared
 
 That is the limit of prepending. It is a hint, and it only works on networks that reach the AS path step. Many transit providers prefer routes from their own customers by local preference, so prepending toward a transit often moves less traffic than you hoped. Some providers let you ask them for a lower preference with a community, a tag you meet in the next lesson.
 
-In Circuit, prepending is `set: { prepend: 2 }` on the export rule that announces your prefix, as in the widget's file. The number is how many more times your AS is added, so the far network sees your AS three times in all. The same `set` can carry `med`, the number you offer a neighbor you reach over several links, to say which of them it should send through.
+In Circuit, prepending is `set: { prepend: 2 }` on the export rule that announces your prefix, as in the widget's file. The number is how many more times your AS is added, so the far network sees your AS three times in all. The same `set` can also have `med`: a number you give a neighbor you reach over several links, to say which link it should send through.
 
 <Quiz
   question="You prepend three times toward Transit A, but a far network still sends all its traffic to you through Transit A. How can that be?"

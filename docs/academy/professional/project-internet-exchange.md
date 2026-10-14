@@ -84,7 +84,7 @@ The management VLAN, 10, and the peering VLAN, 100, are declared once and used b
 
 <<< @/../examples/use-cases/internet-exchange/members/index.ts
 
-A member's file holds what the exchange needs to know about it: its name, its AS, its port on the switch it plugs into, and its addresses on the peering LAN. The route servers need the same facts, which is why they live in one list.
+A member's file has what the exchange needs to know about it: its name, its AS, its port on the switch it plugs into, and its addresses on the peering LAN. The route servers need the same facts, which is why they live in one list.
 
 ## The switches
 
@@ -118,7 +118,7 @@ With every choice sound, the plan is one port, and each line is one of the prote
 | `+ description example, AS64501`  | The member's name and AS, written by the preset, so anyone tracing a cable knows |
 | `+ port default vlan 100`         | An access port in the peering VLAN, and nothing else                             |
 | `+ stp disable`                   | No spanning tree on this port                                                    |
-| `+ storm control ...` (six lines) | Broadcast, multicast and unknown unicast held to 1%, the rest dropped and logged |
+| `+ storm control ...` (six lines) | Broadcast, multicast and unknown unicast kept to 1%, the rest dropped and logged |
 | `+ lldp disable`                  | The port tells the member nothing about the switch                               |
 
 `exchange.check` stops every mistake in this widget but one: an address already taken, reserved, or outside the peering LAN, an AS that another member has, and a port that another member already has, which it reports as `ix-sw-02: port 10g-1 is given to both acme and example`. The one left, a port that the switch's own file already uses, such as the trunk, stops Circuit even earlier, while it reads the files, because `merge` refuses a port declared twice. Either way, nothing reaches a switch until the member's file is right.
@@ -176,7 +176,7 @@ The port is shut, so whatever is still plugged into it reaches nothing. Its addr
 ## In short
 
 - An exchange is a fabric of switches carrying one peering LAN, and route servers that pass routes between members; Circuit runs the fabric.
-- Every member port carries the peering VLAN alone, takes no part in spanning tree or LLDP, and holds flooded traffic to 1%; `internetExchange` writes all four.
+- Every member port carries the peering VLAN alone, takes no part in spanning tree or LLDP, and keeps flooded traffic to 1%; `internetExchange` writes all four.
 - One MAC address per port and an ethertype filter are not in Circuit yet, so an exchange that needs them cannot use it for its fabric today.
 - A member is one file; `exchange.check` catches shared ASes, ports that are taken, and addresses that are taken, reserved or outside the LAN.
 - Route servers carry no traffic, keep the next hop, come in pairs, and filter what each member announces.

@@ -5,13 +5,13 @@ description: Whoever can log in to a router controls the network. Decide who may
 
 # Keeping the keys
 
-Whoever can log in to a router or a switch controls your network: they can read what passes through it, open its firewall, or turn it off. So a device should answer logins only from the management network, only over SSH, and only for the users its file lists. Its passwords live outside the files, in `.env` or a password manager, and the files only name them.
+Whoever can log in to a router or a switch controls your network: they can read what passes through it, open its firewall, or turn it off. So a device should answer logins only from the management network, only over SSH, and only for the users its file lists. Its passwords are kept outside the files, in `.env` or a password manager, and the files only give their names.
 
 ## Three locks on the door
 
 The management network is a VLAN that only the people who run the network use. In the single-site network it is `mgmt`, VLAN 10, `192.168.10.0/24`, and it travels only on the trunk between the switch and the router. The three locks are all written in the device's file:
 
-1. **Where from.** `management.allow` lists the addresses that may reach the device's services. A computer outside it does not even get a login prompt.
+1. **Where from.** `management.allow` lists the addresses that may reach the device's services. A computer that is not on the list does not even get a login prompt.
 2. **How.** Each way in is a service, and a service is on only when it is written: `ssh: {}` turns SSH on. Telnet, plain web (`http`), FTP and the rest stay off unless you write them. <Term means="Secure shell: a way to log in to a device over the network, with everything encrypted, the password included.">SSH</Term> is encrypted. Telnet, FTP and plain web send your password across the network as readable text, so anyone on the path can read it.
 3. **Who.** `users` lists every login, each with a role. `admin` may do everything, `read-only` may look but change nothing, and `operator` sits between the two; exactly what it may do differs by platform. A user the file does not list is removed from the device.
 
@@ -21,7 +21,7 @@ users: { operator: { role: "admin", password: secret("ROUTER_PASSWORD") } },
 management: { allow: [MANAGEMENT], ssh: {} },
 ```
 
-`connection` is how Circuit itself logs in: the address, and which of `users` it logs in as. Circuit is just another SSH login, held to the same locks.
+`connection` is how Circuit itself logs in: the address, and which of `users` it logs in as. Circuit logs in over SSH like anyone else, and the same locks apply to it.
 
 <TryIt title="Who gets in?">
 
@@ -33,7 +33,7 @@ Seven attempts to log in to the router, and what happens to each with the settin
 
 Each lock stopped someone different. The allowed sources stopped the guest phone, the stranger and the visitor on the guest network, whatever password they tried. Turning telnet off stopped the old script, which was sending your password in plain text. Only removing the intern's user stopped the intern, who was sitting on the management network with a password that still worked.
 
-On a real router, the input firewall from [Firewalls](/academy/elementary/firewall) is a fourth lock on the same door: the single-site router's "Management" rule accepts only `192.168.10.0/24` too. Two locks that say the same thing are not wasted. If one of them is ever changed by mistake, the other still holds.
+On a real router, the input firewall from [Firewalls](/academy/elementary/firewall) is a fourth lock on the same door: the single-site router's "Management" rule accepts only `192.168.10.0/24` too. Two locks that say the same thing are not wasted. If one of them is ever changed by mistake, the other still keeps people out.
 
 Removing a user is a change like any other, so Circuit shows it in the plan. Here someone had added a user called `intern` to the router by hand, and the file does not list it:
 
@@ -63,9 +63,9 @@ The device files go into git, and git keeps every version forever, for everyone 
 ROUTER_PASSWORD=correct-horse-battery-staple
 ```
 
-A line in `.env` can also point at a password manager instead of holding the password, such as `ROUTER_PASSWORD=op://Network/router/password` for 1Password. See [Secrets](/guide/secrets).
+A line in `.env` can also point to a password manager instead of having the password in it, such as `ROUTER_PASSWORD=op://Network/router/password` for 1Password. See [Secrets](/guide/secrets).
 
-Plans, `build` output and snapshots never hold the value. Where the password goes, `npx circuit build router` prints only its name:
+The value is never in plans, `build` output or snapshots. Where the password goes, `npx circuit build router` prints only its name:
 
 ```text
 add group=full name=operator password="<secret:ROUTER_PASSWORD>"
@@ -77,7 +77,7 @@ And a password typed into the file as plain text is an error in your editor, bef
 Type 'string' is not assignable to type 'Secret'.
 ```
 
-`npx circuit secrets` lists every secret the files name, and whether each can be read, without printing any of them. With `ROUTER_PASSWORD` in `.env` and `SWITCH_PASSWORD` forgotten:
+`npx circuit secrets` lists every secret the files use, and whether each can be read, without printing any of them. With `ROUTER_PASSWORD` in `.env` and `SWITCH_PASSWORD` forgotten:
 
 ```text
   ok       ROUTER_PASSWORD, from .env
@@ -90,10 +90,10 @@ A device never shows its passwords back, so Circuit cannot see that one changed.
 
 <Quiz
   question="Where does the router’s password belong?"
-  :choices="['In router.ts, next to the user it belongs to', 'In .env or a password manager, with router.ts naming it through secret', 'In the snapshot in .circuit/state/, which Circuit writes']"
+  :choices="['In router.ts, next to the user it belongs to', 'In .env or a password manager, and router.ts gives only its name, with secret', 'In the snapshot in .circuit/state/, which Circuit writes']"
   :answer="1"
-  :why="['router.ts goes into git, and git keeps it forever for everyone who can read the repository. Your editor also marks a plain password as an error.', '', 'Snapshots never hold a secret. Circuit removes them before it writes one.']"
-  explain="The file names the secret, and its value lives in .env or a password manager, outside git. Circuit reads it only when it sends a command."
+  :why="['router.ts goes into git, and git keeps it forever for everyone who can read the repository. Your editor also marks a plain password as an error.', '', 'Snapshots never have a secret in them. Circuit removes secrets before it writes one.']"
+  explain="The file gives only the name of the secret, and its value is kept in .env or a password manager, outside git. Circuit reads it only when it sends a command."
 />
 
 ## Keep management off the wall sockets
@@ -154,7 +154,12 @@ Step through how Circuit applies a change to a RouterOS router. Then pick the ch
 
 </TryIt>
 
-What happens when the new login fails depends on the platform, as [How a change is applied](/guide/convergence) explains. A RouterOS router loads its backup on its own after 10 minutes, or the minutes you give `--rollback`. A Junos switch, and a FortiGate, do the same on their own, after the same minutes. Huawei VRP and Raisecom do not save the change until the login works, so restarting the device brings back the configuration it had before.
+What happens when the new login fails depends on the platform, as [How a change is applied](/guide/convergence) explains:
+
+- A RouterOS router makes a backup before the change, and loads it on its own after 10 minutes, or the minutes you give `--rollback`.
+- A Junos switch applies the change with `commit confirmed`, which the switch undoes on its own unless Circuit confirms it. Circuit confirms only after the new login works. When the login fails, Circuit puts the old configuration back over the session that is still open. If it cannot, the switch goes back to the old configuration on its own after the same minutes.
+- A FortiGate does not save the change until the new login works. When the login fails, Circuit has it reload its saved configuration over the session that is still open. If it cannot, the FortiGate reloads it on its own after the same minutes.
+- Huawei VRP and Raisecom do not save the change until the new login works, so restarting the device brings back the configuration it had before.
 
 <Quiz
   question="You apply a change to a RouterOS router that narrows management.allow, and your computer is no longer in it. What happens?"

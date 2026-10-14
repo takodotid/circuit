@@ -37,7 +37,7 @@ const steps = computed(() => [
           }
         : {
               title: "Keep the change",
-              text: "Circuit removes the timer, and the backup too, since it holds every password. It saves a new snapshot of what the router runs, and the change is kept for good.",
+              text: "Circuit removes the timer, and the backup too, since every password is in it. It saves a new snapshot of what the router runs, and the change is kept for good.",
           },
 ]);
 

@@ -7,7 +7,7 @@ description: Write a router's whole configuration in one Circuit file, change it
 
 A device's configuration is everything it is set to do: its name, who may log in, what each port is for, its addresses and its routes. With Circuit, you write each device's configuration in one file, and Circuit makes the device match it.
 
-Circuit checks the file, shows you a plan of exactly what would change on the device, and sends the change only when you confirm it. The files live in git, so every change is recorded with who made it, when, and why.
+Circuit checks the file, shows you a plan of exactly what would change on the device, and sends the change only when you confirm it. The files are kept in git, so every change is recorded with who made it, when, and why.
 
 ## The old way: log in and type
 
@@ -76,7 +76,7 @@ Try it. Each button changes the file, and the second box is the plan Circuit mak
 
 </TryIt>
 
-Look at the last button. Nobody touched the file, yet the plan changed: someone turned on a port by hand, the file does not list that port, so Circuit turns it off again. Drift is undone the next time the file is applied, and you see it in the plan before it happens.
+Look at the last button. Nobody touched the file, yet the plan changed: someone turned on a port by hand. The file does not list that port, so Circuit turns it off again. Drift is undone the next time the file is applied, and you see it in the plan before it happens.
 
 ::: tip The plans are real
 Every plan in this widget is what `circuit diff` printed for that exact file. The `/interface ethernet` and `/user` lines are the parts of the router each command goes to. A line starting with `-` takes a line of the router's configuration away, so `- add group=read name=intern` takes away the line that added the intern's login.

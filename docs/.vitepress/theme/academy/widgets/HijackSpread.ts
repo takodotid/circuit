@@ -84,7 +84,7 @@ function refusal(as: number, route: Route, defences: Defences): string | undefin
     if (defences.rov.includes(as)) {
         const origin = route.path[route.path.length - 1]!;
         const state = validate(roasOf(defences.roa), route.prefix, origin).state;
-        if (state === "invalid-origin") return "RPKI invalid: the ROA names another origin";
+        if (state === "invalid-origin") return "RPKI invalid: the ROA allows another origin";
         if (state === "invalid-length") return "RPKI invalid: longer than the ROA allows";
     }
 

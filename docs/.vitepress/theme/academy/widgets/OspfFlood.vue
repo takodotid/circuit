@@ -33,7 +33,7 @@ const steps = [
     },
     {
         title: "They flood what they learn",
-        text: "Each router sends its description to its neighbors, and passes on every description it receives. Soon every router holds the same map of every link: the link-state database.",
+        text: "Each router sends its description to its neighbors, and passes on every description it receives. Soon every router has the same map of every link: the link-state database.",
     },
     {
         title: "Each router computes its paths",

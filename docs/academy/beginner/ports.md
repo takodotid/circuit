@@ -5,9 +5,9 @@ description: One device runs many programs, told apart by port numbers. Knock on
 
 # Ports and protocols
 
-One device can run many programs that use the network at the same time: a website, a mail server, a way to log in. Every packet carries a port number that says which program it is for, so an IP address and a port together name one program on one device.
+One device can run many programs that use the network at the same time: a website, a mail server, a way to log in. Every packet carries a port number that says which program it is for, so an IP address and a port together point to one program on one device.
 
-Programs also choose how they send. TCP holds a conversation that checks every piece arrived, in order. UDP just sends, which is faster but checks nothing.
+Programs also choose how they send. TCP sets up a conversation and checks that every piece arrives, in order. UDP just sends, which is faster but checks nothing.
 
 ## One address, many programs
 
@@ -52,7 +52,7 @@ Look at the line under the buttons after each request. The laptop's side has a p
 
 In [Messages in pieces](/academy/beginner/packets) you saw that packets can be lost, or arrive in a different order than they were sent. Some programs must get every piece; others would rather skip a piece than wait for it. So there are two common <Term means="A set of rules two programs agree on for how they talk to each other.">protocols</Term>, sets of rules for sending, and every packet uses one of them. Both carry port numbers.
 
-**TCP** (Transmission Control Protocol) holds a conversation:
+**TCP** (Transmission Control Protocol) sets up a conversation:
 
 1. Before any data, the two sides exchange three short messages, the **handshake**: "hello?", "hello!", "ok". Now each knows the other is there and ready.
 2. Every piece of data is numbered, and the receiver answers each with "got it".
@@ -82,7 +82,7 @@ Neither is better. They are for different jobs.
 | DNS                                 | UDP, mostly | One small question and one small answer. Asking again is quicker than a handshake. Very large answers use TCP. |
 
 ::: info A newer way for the web
-Some websites now send pages over UDP with a newer method called <Term means="The newest version of the rules browsers and web servers use to ask for and send pages. It runs on QUIC, over UDP, instead of over TCP.">HTTP/3</Term>. It runs on <Term means="A way of sending data over UDP that adds what UDP leaves out: it checks every piece arrived, sends lost ones again, and locks the data so nobody on the way can read it. Web browsers use it for HTTP/3.">QUIC</Term>, which adds its own checking, resending and locking on top of UDP, the jobs TCP and HTTPS do in the classic way. The idea is the same: every piece must arrive. These lessons follow the classic way, over TCP.
+Some websites now send pages over UDP with a newer method called <Term means="The newest version of the rules browsers and web servers use to ask for and send pages. It runs on QUIC, over UDP, instead of over TCP.">HTTP/3</Term>. It runs on <Term means="A way of sending data over UDP that adds what UDP leaves out: it checks every piece arrived, sends lost ones again, and locks the data so nobody on the way can read it. Web browsers use it for HTTP/3.">QUIC</Term>, which adds its own checking, resending and locking on top of UDP. In the classic way, TCP and HTTPS do those jobs. The idea is the same: every piece must arrive. These lessons follow the classic way, over TCP.
 :::
 
 <Quiz
@@ -104,7 +104,7 @@ Some websites now send pages over UDP with a newer method called <Term means="Th
 ## In short
 
 - One device runs many programs; the port number on a packet says which program it is for.
-- An address and a port together, such as `203.0.113.80:443`, name one program on one device. Your side of a conversation has a port too.
+- An address and a port together, such as `203.0.113.80:443`, point to one program on one device. Your side of a conversation has a port too.
 - Well-known ports: 80 and 443 for the web, 53 for DNS, 22 for SSH, 25 for mail between servers.
 - TCP opens with a handshake, checks every piece arrived, sends lost ones again and keeps them in order.
 - UDP just sends: faster, with no checking. It suits calls, games and DNS.

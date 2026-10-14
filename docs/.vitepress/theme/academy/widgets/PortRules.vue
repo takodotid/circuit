@@ -28,7 +28,7 @@ const HAPPENINGS: { id: Happening; label: string; outcome: Outcome }[] = [
     },
     {
         id: "bpdu",
-        label: "C's switch speaks spanning tree",
+        label: "C's switch runs spanning tree",
         outcome: {
             rule: "stp",
             safe: "The port takes no part in spanning tree, so nothing C's switch says can change which of the exchange's own ports are blocked.",
