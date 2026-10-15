@@ -115,10 +115,35 @@ The TTL did not fix the mistake. The packet was still lost, and the forgotten ro
 
 ## Notes from the network: ICMP
 
-A router that drops a packet usually sends a short note back to the sender, saying why. These notes have a name of their own, <Term means="Internet control message protocol: short messages devices send each other about delivery itself, such as 'the TTL ran out here', 'I cannot reach that network', or a ping and its reply.">ICMP</Term>. They carry no data of their own; they say what happened to other packets on the way. Two tools you will use every week are built on it:
+A router that drops a packet usually sends a short note back to the sender, saying why. These notes have a name of their own, <Term means="Internet control message protocol: short messages devices send each other about delivery itself, such as 'the TTL ran out here', 'I cannot reach that network', or a ping and its reply.">ICMP</Term>. They carry no data of their own; they say what happened to other packets on the way. Two tools you will use every week are built on it: **ping**, and **traceroute** (`tracert` on Windows). Try both from the laptop.
 
-- **ping** sends an ICMP echo request, and the device answers with an echo reply. If the reply comes back, the device is up and the way to it works, and ping tells you how long the round trip took.
-- **traceroute** (`tracert` on Windows) lists the routers on the way to an address. It sends packets with a TTL of 1, then 2, then 3, and each router in turn drops one and sends back an ICMP note saying the TTL ran out, and who it is.
+<TryIt title="Ping, then trace the way">
+
+Ping the gateway and the far server, then the two addresses that stay silent. Then run tracert and watch the TTL on each packet, and what each router sends back.
+
+<PingTraceroute />
+
+</TryIt>
+
+**ping** sends an ICMP echo request, and the device answers with an echo reply. Each reply line says how long the round trip took, in ms (thousandths of a second), and the TTL the reply had left when it arrived: 64 from the gateway, because no router stood between, and 60 from the far server, because four routers each lowered it by one on the way back.
+
+No reply says less than it seems. The address nobody has and the shop server both printed `Request timed out.`, but the shop server is on: a <Term means="A filter that decides by its rules which packets may pass, and throws the rest away.">firewall</Term> on it throws away echo requests. A timeout only means that no answer came back.
+
+**traceroute** finds the routers on the way by letting the TTL run out on purpose:
+
+1. It sends packets with a TTL of 1. The first router lowers the TTL to 0, drops them, and sends back an ICMP "time exceeded" note from its own address. That address and the time the note took are hop 1.
+2. It sends packets with a TTL of 2. The first router lowers it to 1 and passes them on; the second lowers it to 0 and sends the notes. That is hop 2.
+3. It goes on, one more each time, until a packet has enough TTL to reach the destination itself, which answers it directly. That is the last row.
+
+It sends three packets for each TTL, so each row has three times. Row 3 was `* * *`: the middle router dropped its packets like the others, but sent no note. Many routers are set to send no ICMP notes, or only a few a second, to save their own work, and some networks filter the notes out. That row does not mean the way is broken: the packets with a TTL of 4 and 5 went through the middle router and got answers. Stars point at a real problem only when they never stop and the destination never answers, and even then a firewall at the end, like the shop server's, may be the reason.
+
+<Quiz
+  question="A traceroute shows hop 4 as * * *, and hops 5 to 8 answer, the last one being the server. What does row 4 tell you?"
+  :choices="['The way is broken at hop 4, so the server cannot be reached', 'The router at hop 4 passes packets on, but sends no ICMP notes of its own', 'There is no router at hop 4', 'The answers from hop 4 came back too fast to measure']"
+  :answer="1"
+  :why="['Hops 5 to 8 answered, and their packets went through hop 4. The way works.', '', 'Some router lowered the TTL to 0 there and dropped the packet. It was there; it only stayed quiet.', 'A star means no answer came at all, not a fast one.']"
+  explain="The packets with a TTL of 5 and more went through hop 4 and got answers, so the router there passes packets on. It only sends no time exceeded notes, so tracert has nothing to print for its row."
+/>
 
 Firewalls often let ICMP through on purpose, as you will see in the Elementary level: a network that drops every ICMP note is harder to fix when something breaks.
 
