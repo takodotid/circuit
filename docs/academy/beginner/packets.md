@@ -11,7 +11,7 @@ A short chat message may fit in one packet. A photo becomes a few thousand. Each
 
 ## Cutting a message into packets
 
-Everything a device sends is <Term means="Anything a device stores or sends: the letters of a message, the dots of a photo, the sound of a call. To a network it is all the same: something to carry.">data</Term>. Before data leaves your device, it is cut into pieces of a set size, and each piece is put into a <Term means="A small piece of data with a label on it that says where it comes from, where it goes and which piece it is. Everything on a network travels in packets.">packet</Term>. On most networks, one packet holds at most about 1,500 letters of plain text.
+Everything a device sends is <Term means="Anything a device stores or sends: the letters of a message, the dots of a photo, the sound of a call. To a network it is all the same: something to carry.">data</Term>. Before data leaves your device, it is cut into pieces of a set size, and each piece is put into a <Term means="A small piece of data with a label on it that says where it comes from, where it goes and which piece it is. Everything on a network travels in packets.">packet</Term>. On most networks, one packet holds at most about 1,500 letters of plain text. That limit is the MTU from [Cables, light and radio](/academy/beginner/cables).
 
 Every packet gets a label with three things on it:
 

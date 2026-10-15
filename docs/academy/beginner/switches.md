@@ -24,7 +24,7 @@ Inside one local network, messages travel in <Term means="A message on the local
 
 A switch reads only these two addresses. It does not look at the IP addresses inside, and it does not change the frame.
 
-Frames on a cable follow a standard called <Term means="The standard for frames on a cable: how they are laid out, with their hardware addresses, and how they are sent as signals. Almost every wired network uses it.">Ethernet</Term>, the one almost every wired network uses, which is why the socket on a laptop is often called its Ethernet port. Wi-Fi sends the same kind of frame over radio instead.
+Frames on a cable are laid out the way Ethernet says, the standard you met in [Cables, light and radio](/academy/beginner/cables). Wi-Fi sends the same kind of frame over radio instead.
 
 ## How a switch learns
 

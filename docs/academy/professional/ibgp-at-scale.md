@@ -7,7 +7,7 @@ description: Run iBGP between loopbacks over OSPF, count the sessions a full mes
 
 Every router in your AS that must know the routes from outside runs iBGP with the others. The sessions run between loopback addresses, and OSPF carries the way to those loopbacks, so a session survives the loss of any one link. Because a router never passes on a route it learned over iBGP to another iBGP neighbor, every router needs a session with every other, a **full mesh**, or **route reflectors** that pass routes on for the rest.
 
-Around that core, four things keep it working at scale: a next hop every router can reach, equal paths shared with ECMP, failures noticed in under a second with BFD, and the same MTU at both ends of every link.
+Around that core, four things keep it working at scale: a next hop every router can reach, equal paths shared with ECMP, failures noticed in under a second with BFD, and the same <Term means="Maximum transmission unit: the largest packet, in bytes, an interface sends without splitting it. In Circuit, 1500 when not set.">MTU</Term> at both ends of every link.
 
 ## Why iBGP needs a full mesh
 
@@ -157,7 +157,7 @@ That is also why BFD belongs on the OSPF interfaces between your routers, and on
 
 ## An MTU that fits
 
-The <Term means="Maximum transmission unit: the largest packet, in bytes, an interface sends without splitting it. In Circuit, 1500 when not set.">MTU</Term> of a link must be the same at both ends. When it is not, the trouble hides until there is a lot to send:
+The MTU of a link must be the same at both ends. When it is not, the trouble hides until there is a lot to send:
 
 - **OSPF** neighbors describe their maps to each other in large packets, and the standard has a router reject one whose MTU is larger than its own interface takes. The neighbors see each other's hellos and then stop short of exchanging their maps.
 - **BGP** sessions come up, since the first messages are small, and then fail when the routers start sending each other the full table in large packets. The small keepalives get through, the large updates do not, nothing useful arrives, and the session is torn down when the hold time runs out, only to come up and fail the same way again.
