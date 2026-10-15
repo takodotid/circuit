@@ -106,7 +106,7 @@ error  edge-b1: port 25g-13 does not exist on CCR2216-1G-12XS-2XQ
 
 ## Optics: the plug and the fibre
 
-A fast port on a switch or router is usually an empty cage. Into it goes an <Term means="A small module that plugs into a port and turns its electrical signal into light on a fibre, and back. Also called a transceiver.">optic</Term>, and the optic sets the kind of fibre and the distance. The cage's shape sets which optics fit:
+A fast port on a switch or router is usually an empty cage. Into it goes an <Term means="A small module that plugs into a port and turns its electrical signal into light on a fibre, and back. Also called a transceiver.">optic</Term>, and the optic sets the kind of fibre and the distance. The cage's shape sets which optics fit, in two families: <Term means="Small form-factor pluggable: the family of small cages and modules for 1G, 10G and 25G, named SFP, SFP+ and SFP28. All are one size.">SFP</Term>, and the wider <Term means="Quad small form-factor pluggable: the wider family of cages and modules, with four lanes, for 40G (QSFP+) and 100G (QSFP28).">QSFP</Term>:
 
 | Cage   | Speed | Lanes | Also takes |
 | ------ | ----- | ----- | ---------- |

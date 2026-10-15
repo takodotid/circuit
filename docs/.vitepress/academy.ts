@@ -31,6 +31,11 @@ export const levels: Level[] = [
         lessons: [
             { slug: "what-is-a-network", title: "What is a network?", outcome: "Say what a network is, and what the internet is made of." },
             {
+                slug: "cables",
+                title: "Cables, light and radio",
+                outcome: "Tell a LAN cable from a fibre and an optic module, and say how far and how fast each one goes.",
+            },
+            {
                 slug: "packets",
                 title: "Messages in pieces",
                 outcome: "Explain why data travels in small packets, and how they are put back together.",

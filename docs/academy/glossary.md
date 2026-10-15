@@ -8,6 +8,20 @@ discussion: false
 
 Short meanings of the words the Academy uses, from the first lesson to the last, and of the words you meet in a provider's quote or contract. Where a lesson explains a word properly, it is linked. Words about Circuit itself are in the [documentation's glossary](/guide/glossary).
 
+## Cables and links
+
+| Word               | Meaning                                                                                                                                                      | Learn it in                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| Twisted pair, UTP  | A copper LAN cable with four pairs of wires twisted together; UTP, unshielded twisted pair, is the common kind with no metal shield. It reaches up to 100 m. | [Cables, light and radio](/academy/beginner/cables) |
+| RJ45               | The plug with eight contacts at each end of a LAN cable, and the square socket it clicks into.                                                               | [Cables, light and radio](/academy/beginner/cables) |
+| Fibre              | A cable with a thread of glass that carries light. Multimode fibre reaches hundreds of metres, single-mode fibre kilometres.                                 | [Cables, light and radio](/academy/beginner/cables) |
+| Optic, transceiver | A module that slides into a cage on a switch or router and turns its signal into light on a fibre, and back.                                                 | [Cables, light and radio](/academy/beginner/cables) |
+| SFP, QSFP          | The families of modules and the cages they fit: SFP 1G, SFP+ 10G and SFP28 25G are one size; QSFP+ 40G and QSFP28 100G are wider.                            | [Cables, light and radio](/academy/beginner/cables) |
+| DAC                | Direct attach cable: a short copper cable with a module built onto each end, for a link inside one rack.                                                     | [Cables, light and radio](/academy/beginner/cables) |
+| Ethernet           | The standard for wired networks: the cables, plugs and signals, and how each frame is laid out. Wi-Fi carries the same frames over radio.                    | [Cables, light and radio](/academy/beginner/cables) |
+| MTU                | Maximum transmission unit: the largest packet a link carries in one piece, 1,500 bytes on ordinary Ethernet.                                                 | [Cables, light and radio](/academy/beginner/cables) |
+| Jumbo frame        | A frame larger than the usual 1,500 bytes, often about 9,000, used on links inside a data centre.                                                            | [Cables, light and radio](/academy/beginner/cables) |
+
 ## Networks and addresses
 
 | Word                  | Meaning                                                                                                                                                      | Learn it in                                             |
@@ -17,7 +31,6 @@ Short meanings of the words the Academy uses, from the first lesson to the last,
 | IP address            | The address a network gives a device, used to reach it from anywhere.                                                                                        | [Addresses](/academy/beginner/addresses)                |
 | Bit, byte             | A digit that is 0 or 1; a byte is eight of them, a number from 0 to 255.                                                                                     | [Counting like a computer](/academy/beginner/binary)    |
 | Prefix                | A block of addresses, such as `192.168.1.0/24`: the number after the slash is how many bits are for the network.                                             | [Reading an IP address](/academy/beginner/ip-addresses) |
-| Ethernet              | The standard for frames on a cable, used by almost every wired network; Wi-Fi carries the same frames over radio.                                            | [Switches](/academy/beginner/switches)                  |
 | ARP                   | How a device finds the hardware address behind an IP address on its own network, by asking everyone with a broadcast.                                        | [Routers and the gateway](/academy/beginner/routers)    |
 | LAN                   | The local network of one place, joined by switches.                                                                                                          | [Switches](/academy/beginner/switches)                  |
 | Default gateway       | The router a device sends everything for other networks to.                                                                                                  | [Routers and the gateway](/academy/beginner/routers)    |
