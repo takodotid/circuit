@@ -27,6 +27,9 @@ const DEVICE_FACTS = [
     "exit",
     // Implied by any layer 2 setting on a port; the plan sends it where needed.
     "portswitch",
+    // A port's speed or duplex set back to auto prints as the default it is, and `no duplex` is refused.
+    "speed auto",
+    "duplex auto",
 ];
 
 /** Lines whose opposite is not `no` and the line. */

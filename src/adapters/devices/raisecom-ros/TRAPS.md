@@ -10,6 +10,8 @@ Behaviour that looks like something else. Each one has been hit on a RAX721 runn
 - `portswitch`, `switchport trunk allowed vlan` and `switchport mode` ask for `y` and do nothing without it, except when they need no confirming: `switchport mode trunk` on a port leaving access mode answers `Set successfully` at once, and a `y` sent after it is refused, `Error input`.
 - A VLAN is removed with `no vlan <id>`, not `no create vlan`.
 - `no storm-control mode` is refused with `Error input`. The modes are `kbps`, the default, which prints nothing, and `pps`; leaving `pps` is setting `kbps`.
+- A port's speed or duplex set to something else and back to auto prints `speed auto` and `duplex auto` from then on, though auto is the default. `no duplex auto` is refused with `Error input`.
+- Tab after a word the CLI does not know answers `Error input`, as if the line were sent. Like `?`, it is not a safe way to explore.
 - The factory account `raisecom` cannot be removed and its service type cannot change. Only its password is ours.
 - Factory SNMP communities survive hardening, and `private` can write. The render removes both.
 - Several commands are not the usual spelling: `terminal page-break disable`, `telnet-server disable`, `ip rarp server disable`.
