@@ -144,9 +144,12 @@ async function openOnJump(console: Console, jump: Jump): Promise<ConsoleSession>
 
         return {
             channel: asTerminal(channel),
+            // What was written last, such as a logout, is still on its way to the device; the relay ends once the console goes quiet.
             close: () => {
-                channel.end();
-                client.end();
+                void quiet(channel, 1_000).then(() => {
+                    channel.end();
+                    client.end();
+                });
             },
         };
     } catch (error) {
@@ -186,8 +189,10 @@ async function openHere(console: Console): Promise<ConsoleSession> {
     return {
         channel: asTerminal(asChannel),
         close: () => {
-            channel.end();
-            setTimeout(() => child.kill(), 2_000).unref();
+            void quiet(asChannel, 1_000).then(() => {
+                channel.end();
+                setTimeout(() => child.kill(), 2_000).unref();
+            });
         },
     };
 }
@@ -301,11 +306,17 @@ export async function consoleLogin(channel: Channel, dialect: ConsoleDialect, us
         return `${dialect.logout}\n`;
     };
 
+    // What the last session printed as it left, such as a login prompt after its logout, arrives late; it must not be taken for an answer.
+    await quiet(channel, 1_000);
+
     let state = (await expect(channel, "\n", states)).index;
     for (let step = 0; state !== 0; step++) {
         if (step >= 10) throw new Error("the console never reached a login prompt");
         state = (await expect(channel, toward(state), states)).index;
     }
+
+    // A console can print the login prompt more than once; a name typed while it does is lost.
+    await quiet(channel, 1_000);
 
     const name = dialect.user ? dialect.user(user) : user;
     if ((await expect(channel, `${name}\n`, [dialect.password, dialect.login, dialect.prompt])).index !== 0) {

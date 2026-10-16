@@ -99,13 +99,13 @@ The jump host runs Linux or macOS with Python 3, and its user must be allowed to
 
 Circuit logs in with the device's own login, whatever state the last session left the console in, and logs out when it is done, so no session stays open. Only one session can hold a console at a time; a second waits a little, then stops. After a change, Circuit logs out and in again on the same console before it keeps the change: that proves the logins still work, but not the management network. A console is slow: at 9600 bits per second, reading a FortiGate takes about two minutes, so give an apply a longer `--rollback`.
 
-| Platform | Through a console                                                                                                                            |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| FortiOS  | Proved on a FortiGate 3700D through a jump host.                                                                                             |
-| RouterOS | Proved on a CCR2216 through a jump host. A certificate is installed from a file, which only SSH can write, so apply one without `--console`. |
-| Junos    | Written, not yet proved on a device.                                                                                                         |
-| Raisecom | Written, not yet proved on a device.                                                                                                         |
-| VRP      | Written, not yet proved on a device.                                                                                                         |
+| Platform | Through a console                                                                                                                                                |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FortiOS  | Proved on a FortiGate 3700D through a jump host.                                                                                                                 |
+| RouterOS | Proved on a CCR2216 through a jump host. A certificate is installed from a file, which only SSH can write, so apply one without `--console`.                     |
+| Junos    | Proved on a QFX5100 through a jump host, from a factory default with only its logins set: a snapshot, and an apply of 390 lines committed, proved and confirmed. |
+| Raisecom | Written, not yet proved on a device.                                                                                                                             |
+| VRP      | Written, not yet proved on a device.                                                                                                                             |
 
 A console on this computer under Windows has been tried only as far as opening a COM port.
 

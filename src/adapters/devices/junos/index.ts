@@ -360,7 +360,8 @@ async function edit(channel: ClientChannel, line: string, timeout = 60_000): Pro
 
 /** How the console asks for a login. Root lands in a shell, `%`, every other user in the CLI, `>`; a session left in configuration mode, `#`, leaves it first. Not yet proved on a device. */
 export const JUNOS_CONSOLE: ConsoleDialect = {
-    login: /login: $/,
+    // On a line of its own: the banner after a login says `Last login: ...`, and a chunk can end right after it.
+    login: /(?:^|\n)login: $/,
     password: /Password:\s*$/,
     prompt: /[>%] $/,
     logout: "exit",
@@ -434,7 +435,7 @@ export type Guard = { minutes: number; prove: () => Promise<void> };
  *
  * Deletions go before the statements that are set, so a path deleted and set again in one plan ends up set.
  */
-export async function configure(channel: ClientChannel, plan: Plan, guard?: Guard): Promise<void> {
+export async function configure(channel: ClientChannel, plan: Plan, guard?: Guard, paced = false): Promise<void> {
     const sent = plan.steps.flatMap((step) => step.send);
 
     const entered = await run(channel, "configure exclusive");
@@ -460,7 +461,12 @@ export async function configure(channel: ClientChannel, plan: Plan, guard?: Guar
     channel.write("load set terminal\n");
     await readUntil(channel, (text) => text.includes("[Type ^D at a new line to end input]"), 20_000, 300);
 
-    for (const line of ordered) channel.write(`${substitute(line)}\n`);
+    // A serial console has no flow control: statements sent at once overrun it and arrive garbled. There, each waits for the echo of the one before.
+    for (const line of ordered) {
+        const statement = substitute(line);
+        channel.write(`${statement}\n`);
+        if (paced) await readUntil(channel, (text) => text.replace(/\r/g, "").includes(statement.slice(-24)), 20_000, 50);
+    }
 
     const loaded = await edit(channel, "\u0004", 300_000);
     const refused = loaded.split("\n").filter((line) => REFUSED.test(line));
@@ -518,14 +524,19 @@ export async function apply(device: Device, _network: readonly Device[], plan: P
             await checkVersion((command) => run(channel, command), device);
 
             // A fresh login on the console ends the session that holds the candidate, so the proof logs in again and takes the candidate back to confirm the commit.
-            await configure(channel, plan, {
-                minutes: options.rollback,
-                prove: async () => {
-                    await run(channel, "exit configuration-mode");
-                    await relogin();
-                    await run(channel, "configure exclusive");
+            await configure(
+                channel,
+                plan,
+                {
+                    minutes: options.rollback,
+                    prove: async () => {
+                        await run(channel, "exit configuration-mode");
+                        await relogin();
+                        await run(channel, "configure exclusive");
+                    },
                 },
-            });
+                true
+            );
         });
         return;
     }
