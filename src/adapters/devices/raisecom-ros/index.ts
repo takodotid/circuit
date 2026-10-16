@@ -7,11 +7,12 @@ import { familyOf, host, netmask, split, wildcard } from "../../../core/addr";
 import { marker, resolve, substitute } from "../../../core/secrets";
 import { offset } from "../../../core/time";
 import type { Device, Port, SnmpUser, Switched, Vrrp } from "../../../schema";
+import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../../transport/console";
 import { connect, readUntil, send, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import { ipv4Networks, lagIds, switchUnsupported } from "../derive";
 import { compare, type Dialect, entries, type Group, scrub, steps, vlanListChange } from "../lines";
-import type { DeviceAdapter, Plan, Step } from "../types";
+import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions, Step } from "../types";
 
 /** Lines the device prints whatever is configured, or that are part of moving around the CLI. */
 const DEVICE_FACTS = [
@@ -306,10 +307,33 @@ function physicalPort(settings: AnyPort | undefined, vlanId: (name: string) => n
 /** The firmware offers only an `ssh-rsa` host key, so that one is allowed for this platform alone. Key exchange, cipher and MAC still negotiate modern ones. */
 const HOST_KEYS = ["ssh-rsa"];
 
-export type Session = { channel: ClientChannel; close: () => void };
+/** A session, and how to prove access in a fresh login: a new SSH session, or logging out and in again on the console. */
+export type Session = { channel: ClientChannel; close: () => void; fresh: () => Promise<Session> };
 
-/** An interactive shell, paging off. A session that does not answer as ROS is refused, so nothing meant for it can reach another shell. */
-export async function open(device: Device): Promise<Session> {
+/** How the console asks for a login. Not yet proved on a device: the RAX721's console was never cabled to a jump host. */
+export const RAISECOM_CONSOLE: ConsoleDialect = {
+    login: /login:\s*$/i,
+    password: /password:\s*$/i,
+    prompt: /[#>]\s*$/,
+    logout: "exit",
+    others: [[/\(config[^)\n]*\)#\s*$/, "end\n"]],
+};
+
+/** An interactive shell, paging off, over SSH or on the console. A session that does not answer as ROS is refused, so nothing meant for it can reach another shell. */
+export async function open(device: Device, options: ReadOptions = {}): Promise<Session> {
+    const session = options.console ? await consoleShell(device) : await sshShell(device);
+
+    const version = await send(session.channel, "show version", 15_000, 1500);
+    if (!version.includes("ROS")) {
+        session.close();
+        throw new Error(`${device.name} did not answer as ROS`);
+    }
+
+    await send(session.channel, "terminal page-break disable", 15_000, 1000);
+    return session;
+}
+
+async function sshShell(device: Device): Promise<Session> {
     const user = device.users?.[device.connection.user];
     if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
 
@@ -327,19 +351,51 @@ export async function open(device: Device): Promise<Session> {
     };
 
     const banner = await readUntil(channel, (text) => /[#>]\s*$/.test(text.trimEnd()), 30_000);
-    const version = await send(channel, "show version", 15_000, 1500);
-    if (!/[#>]\s*$/.test(banner.trimEnd()) || !version.includes("ROS")) {
+    if (!/[#>]\s*$/.test(banner.trimEnd())) {
         close();
         throw new Error(`${device.name} did not answer as ROS`);
     }
 
-    await send(channel, "terminal page-break disable", 15_000, 1000);
-    return { channel, close };
+    return {
+        channel,
+        close,
+        fresh: async () => {
+            close();
+            return open(device);
+        },
+    };
+}
+
+async function consoleShell(device: Device): Promise<Session> {
+    const { console, user, password } = consoleOf(device);
+    const opened = await openConsole(console);
+
+    try {
+        await consoleLogin(opened.channel, RAISECOM_CONSOLE, user, password);
+    } catch (error) {
+        opened.close();
+        throw error;
+    }
+
+    const session: Session = {
+        channel: opened.channel,
+        close: () => {
+            opened.channel.write(`${RAISECOM_CONSOLE.logout}\n`);
+            opened.close();
+        },
+        fresh: async () => {
+            await consoleLogin(opened.channel, RAISECOM_CONSOLE, user, password);
+            await send(opened.channel, "terminal page-break disable", 15_000, 1000);
+            return session;
+        },
+    };
+
+    return session;
 }
 
 /** What the device runs, credentials scrubbed. */
-export async function read(device: Device): Promise<string> {
-    const { channel, close } = await open(device);
+export async function read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
+    const { channel, close } = await open(device, options);
 
     try {
         // Without paging off and a long wait for silence, the dump stops halfway with no error.
@@ -493,8 +549,9 @@ const CONFIRM = /^(portswitch|switchport trunk allowed vlan|switchport mode)/;
 /** A service letting go of an access-list, so the list can change. */
 const RELEASE = /^no (\S+ access-list \d+)$/;
 
-export async function apply(device: Device, _network: readonly Device[], plan: Plan): Promise<void> {
-    const { channel, close } = await open(device);
+export async function apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
+    const session = await open(device, options);
+    const { channel } = session;
     // Bindings released for an access-list edit. A failure binds them again before anything else, so the list keeps guarding management.
     const released: string[] = [];
 
@@ -521,12 +578,11 @@ export async function apply(device: Device, _network: readonly Device[], plan: P
         await send(channel, "config", 10_000).catch(() => undefined);
         for (const binding of released) await send(channel, binding, 10_000).catch(() => undefined);
         if (released.length) console.log(`  bound again: ${released.join(", ")}`);
+        session.close();
         throw error;
-    } finally {
-        close();
     }
 
-    const proof = await open(device).catch(() => undefined);
+    const proof = await session.fresh().catch(() => undefined);
     if (!proof)
         throw new Error(
             "applied, but a fresh login failed. Not written: a reboot restores the previous configuration. Recover from the console."
@@ -627,4 +683,4 @@ function plan(desired: string, current: string): ReturnType<DeviceAdapter["plan"
     return { steps: planned, problems: [] };
 }
 
-export const raisecom: DeviceAdapter = { extension: ".txt", unsupported, render, read, plan, apply };
+export const raisecom: DeviceAdapter = { extension: ".txt", console: true, unsupported, render, read, plan, apply };

@@ -37,23 +37,23 @@ These four are easy to mix up:
 
 ## Options
 
-| Option              | For                                                   | What it does                                                                                                                                     |
-| ------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--config <path>`   | every command                                         | Read the network from this file instead of `circuit.config.ts`                                                                                   |
-| `--confirm`         | `apply`, `refresh`, `peeringdb`, `librenms`, `rename` | Actually send, or for `rename`, write the files. Without it, nothing is sent or written.                                                         |
-| `--secrets`         | `apply`                                               | Send every secret again, when you change a password. See [Secrets](/guide/secrets#changing-a-secret).                                            |
-| `--auths`           | `prometheus`                                          | Print the SNMP exporter's credentials instead of the devices. See [Prometheus](/integrations/prometheus#the-credentials).                        |
-| `--rollback=N`      | `apply`                                               | On RouterOS, Junos and FortiOS, how many minutes the device waits before undoing the change if Circuit cannot log in again. 10 by default.       |
-| `--console`         | `snapshot`, `apply`                                   | Reach the device through its serial console on a jump host, instead of SSH. See [Devices](/guide/devices#reaching-a-device-through-its-console). |
-| `--file`            | `rename`                                              | Also rename the file that declares the device, to `<new-name>.ts`.                                                                               |
-| `--length=N`        | `addresses`                                           | List the free prefixes of this length, instead of the fewest that cover the free space.                                                          |
-| `--layer=L`         | `graph`                                               | Which layer to print: `l1`, `l2`, `l3`, `bgp`, `ospf` or `tunnels`, several with commas, or `all`. `l1` by default.                              |
-| `--format=F`        | `graph`, `addresses`                                  | For `graph`, `mermaid`, `dot` or `json`, `mermaid` by default. For `addresses`, `json`.                                                          |
-| `--port=N`          | `studio`                                              | The port Studio listens on. 4600 by default.                                                                                                     |
-| `--no-open`         | `studio`                                              | Do not open the browser.                                                                                                                         |
-| `--host=ADDRESS`    | `studio`                                              | Listen on this address, such as `0.0.0.0` on a server, instead of this machine only. Needs `--allow-host`. See [Hosting](/studio/hosting).       |
-| `--allow-host=NAME` | `studio`                                              | The names Studio is reached by, several with commas. It refuses any other.                                                                       |
-| `--json`            | `studio`                                              | Print everything Studio shows, as JSON, instead of starting it.                                                                                  |
+| Option              | For                                                   | What it does                                                                                                                                                       |
+| ------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--config <path>`   | every command                                         | Read the network from this file instead of `circuit.config.ts`                                                                                                     |
+| `--confirm`         | `apply`, `refresh`, `peeringdb`, `librenms`, `rename` | Actually send, or for `rename`, write the files. Without it, nothing is sent or written.                                                                           |
+| `--secrets`         | `apply`                                               | Send every secret again, when you change a password. See [Secrets](/guide/secrets#changing-a-secret).                                                              |
+| `--auths`           | `prometheus`                                          | Print the SNMP exporter's credentials instead of the devices. See [Prometheus](/integrations/prometheus#the-credentials).                                          |
+| `--rollback=N`      | `apply`                                               | On RouterOS, Junos and FortiOS, how many minutes the device waits before undoing the change if Circuit cannot log in again. 10 by default.                         |
+| `--console`         | `snapshot`, `apply`                                   | Reach the device through its serial console, on this computer or a jump host, instead of SSH. See [Devices](/guide/devices#reaching-a-device-through-its-console). |
+| `--file`            | `rename`                                              | Also rename the file that declares the device, to `<new-name>.ts`.                                                                                                 |
+| `--length=N`        | `addresses`                                           | List the free prefixes of this length, instead of the fewest that cover the free space.                                                                            |
+| `--layer=L`         | `graph`                                               | Which layer to print: `l1`, `l2`, `l3`, `bgp`, `ospf` or `tunnels`, several with commas, or `all`. `l1` by default.                                                |
+| `--format=F`        | `graph`, `addresses`                                  | For `graph`, `mermaid`, `dot` or `json`, `mermaid` by default. For `addresses`, `json`.                                                                            |
+| `--port=N`          | `studio`                                              | The port Studio listens on. 4600 by default.                                                                                                                       |
+| `--no-open`         | `studio`                                              | Do not open the browser.                                                                                                                                           |
+| `--host=ADDRESS`    | `studio`                                              | Listen on this address, such as `0.0.0.0` on a server, instead of this machine only. Needs `--allow-host`. See [Hosting](/studio/hosting).                         |
+| `--allow-host=NAME` | `studio`                                              | The names Studio is reached by, several with commas. It refuses any other.                                                                                         |
+| `--json`            | `studio`                                              | Print everything Studio shows, as JSON, instead of starting it.                                                                                                    |
 
 ## Making a change, step by step
 

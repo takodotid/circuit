@@ -1,11 +1,13 @@
-// Logging in on a serial console, against a FortiGate console played back from what a FortiGate 3700D printed on 6.2.2.
+// Logging in on a serial console and running commands there, against consoles played back from what each device printed.
 
 import { EventEmitter } from "node:events";
 import { expect, test } from "bun:test";
-import { consoleLogin } from "../../src/adapters/devices/fortios/index";
+import { FORTIOS_CONSOLE } from "../../src/adapters/devices/fortios/index";
+import { ROUTEROS_CONSOLE } from "../../src/adapters/devices/routeros/index";
+import { afterEcho, consoleLogin, ConsoleShell } from "../../src/transport/console";
 
 /** A console that answers each line it receives from a script, and records what was written. */
-function fakeConsole(answers: Record<string, string>) {
+function fakeConsole(answers: Record<string, string | string[]>) {
     const emitter = new EventEmitter();
     const written: string[] = [];
 
@@ -13,7 +15,8 @@ function fakeConsole(answers: Record<string, string>) {
         write(data: string) {
             written.push(data);
             const answer = answers[data];
-            if (answer !== undefined) setTimeout(() => emitter.emit("data", Buffer.from(answer)), 5);
+            const chunks = answer === undefined ? [] : Array.isArray(answer) ? answer : [answer];
+            chunks.forEach((chunk, index) => setTimeout(() => emitter.emit("data", Buffer.from(chunk)), 5 * (index + 1)));
             return true;
         },
         on: (event: string, listener: (chunk: Buffer) => void) => emitter.on(event, listener),
@@ -23,37 +26,66 @@ function fakeConsole(answers: Record<string, string>) {
     return { channel, written };
 }
 
-test("a console left inside a config level is left, logged out, and logged in again", async () => {
+test("a FortiOS console left inside a config level is left, logged out, and logged in again", async () => {
     const { channel, written } = fakeConsole({
-        "\r": "\r\nFortiGate-3700D (mgmt1) # ",
-        "end\r": "end\r\nFortiGate-3700D # ",
-        "exit\r": "exit\r\n\r\nFortiGate-3700D login: ",
-        "supertako\r": "supertako\r\nPassword: ",
-        "secret\r": "*******\r\nWelcome !\r\n\r\nFortiGate-3700D # ",
+        "\n": "\r\nFortiGate-3700D (mgmt1) # ",
+        "end\n": "end\r\nFortiGate-3700D # ",
+        "exit\n": "exit\r\n\r\nFortiGate-3700D login: ",
+        "supertako\n": "supertako\r\nPassword: ",
+        "secret\n": "*******\r\nWelcome !\r\n\r\nFortiGate-3700D # ",
     });
 
-    await consoleLogin(channel, "supertako", "secret");
-    expect(written).toEqual(["\r", "end\r", "exit\r", "supertako\r", "secret\r"]);
+    await consoleLogin(channel, FORTIOS_CONSOLE, "supertako", "secret");
+    expect(written).toEqual(["\n", "end\n", "exit\n", "supertako\n", "secret\n"]);
 });
 
-test("a console showing the pre-login banner is accepted before the login", async () => {
+test("a FortiOS console showing the pre-login banner is accepted before the login", async () => {
     const { channel, written } = fakeConsole({
-        "\r": "\r\nAuthorised access only.\r\n(Press 'a' to accept):",
+        "\n": "\r\nAuthorised access only.\r\n(Press 'a' to accept):",
         a: "\r\nFortiGate-3700D login: ",
-        "supertako\r": "supertako\r\nPassword: ",
-        "secret\r": "*******\r\nFortiGate-3700D # ",
+        "supertako\n": "supertako\r\nPassword: ",
+        "secret\n": "*******\r\nFortiGate-3700D # ",
     });
 
-    await consoleLogin(channel, "supertako", "secret");
-    expect(written).toEqual(["\r", "a", "supertako\r", "secret\r"]);
+    await consoleLogin(channel, FORTIOS_CONSOLE, "supertako", "secret");
+    expect(written).toEqual(["\n", "a", "supertako\n", "secret\n"]);
 });
 
 test("a refused console login fails", async () => {
     const { channel } = fakeConsole({
-        "\r": "\r\nFortiGate-3700D login: ",
-        "supertako\r": "supertako\r\nPassword: ",
-        "wrong\r": "*****\r\nLogin incorrect\r\nFortiGate-3700D login: ",
+        "\n": "\r\nFortiGate-3700D login: ",
+        "supertako\n": "supertako\r\nPassword: ",
+        "wrong\n": "*****\r\nLogin incorrect\r\nFortiGate-3700D login: ",
     });
 
-    await expect(consoleLogin(channel, "supertako", "wrong")).rejects.toThrow("refused the login");
+    await expect(consoleLogin(channel, FORTIOS_CONSOLE, "supertako", "wrong")).rejects.toThrow("refused the login");
+});
+
+test("a RouterOS console logs in with its flags after the user", async () => {
+    const { channel, written } = fakeConsole({
+        "\n": "\r\n\r\nMikroTik 7.23.5 (long-term)\r\ntako-bdr-01 Login: ",
+        "supertako+cwt\n": "supertako+cwt\r\nPassword: ",
+        "secret\n": "\r\n  MikroTik RouterOS 7.23.5\r\n\r\n[supertako@tako-bdr-01] > ",
+    });
+
+    await consoleLogin(channel, ROUTEROS_CONSOLE, "supertako", "secret");
+    expect(written).toEqual(["\n", "supertako+cwt\n", "secret\n"]);
+});
+
+test("a console command returns what it printed, without its wrapped echo or the prompt", async () => {
+    const command = '/interface ethernet print without-paging where name~"sfp28-1|ether1"';
+    const { channel } = fakeConsole({
+        [`${command}\n`]: [
+            '/interface ethernet print without-paging where name~"s\r\nfp28-1|ether1"\r\n',
+            "Flags: X - DISABLED\r\n 0 X ether1\r\n",
+            "[supertako@tako-bdr-01] > ",
+        ],
+    });
+
+    const shell = new ConsoleShell(channel, ROUTEROS_CONSOLE);
+    expect(await shell.run(command)).toBe("Flags: X - DISABLED\n 0 X ether1");
+});
+
+test("an echo that does not match leaves the text as it is", () => {
+    expect(afterEcho("something else\nout", "/system print")).toBe("something else\nout");
 });

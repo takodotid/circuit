@@ -1,10 +1,11 @@
-// Serial consoles on a jump host. Circuit logs in to the jump host over SSH and starts a small relay there, which joins the serial port to the session. The device's CLI then streams through it as through an SSH shell.
+// Serial consoles, on a jump host or on this computer. A small relay joins the serial port to a stream: started over SSH on the jump host, or here as a child process. The device's CLI then streams through it as through an SSH shell.
 
 import { spawn } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { Duplex } from "node:stream";
 import { Client, type ClientChannel } from "ssh2";
 import { resolve } from "../core/secrets";
-import type { Console, Jump } from "../schema";
+import type { Console, Device, Jump } from "../schema";
 import { exec } from "./ssh";
 
 /** The relay, in Python's standard library only: the serial port in raw mode, locked against a second session, joined to standard input and output. */
@@ -53,8 +54,37 @@ while True:
 
 const RELAY_PATH = "/tmp/circuit-console.py";
 
-/** A serial port path the relay is started with, which reaches the jump host's shell. */
+/** A serial port the relay is started with: a path under /dev, which reaches a shell, or a Windows COM port. */
 const PORT = /^\/dev\/[\w./:+-]+$/;
+const WINDOWS_PORT = /^COM\d+$/i;
+
+/** The relay for a console on this computer under Windows, in PowerShell, which has no termios but has .NET's serial port. */
+const WINDOWS_RELAY = `
+$port = New-Object System.IO.Ports.SerialPort $env:CIRCUIT_PORT, ([int]$env:CIRCUIT_BAUD), 'None', 8, 'One'
+try { $port.Open() } catch [System.UnauthorizedAccessException] { [Console]::Error.WriteLine("busy: another program holds " + $env:CIRCUIT_PORT); exit 3 } catch { [Console]::Error.WriteLine("cannot open " + $env:CIRCUIT_PORT + ": " + $_.Exception.Message); exit 2 }
+[Console]::Error.WriteLine("ready")
+$in = [Console]::OpenStandardInput()
+$out = [Console]::OpenStandardOutput()
+$buffer = New-Object byte[] 4096
+$reading = $in.ReadAsync($buffer, 0, $buffer.Length)
+while ($true) {
+    if ($reading.IsCompleted) {
+        if ($reading.Result -le 0) { break }
+        $port.Write($buffer, 0, $reading.Result)
+        $reading = $in.ReadAsync($buffer, 0, $buffer.Length)
+    }
+    $waiting = $port.BytesToRead
+    if ($waiting -gt 0) {
+        $data = New-Object byte[] $waiting
+        $got = $port.Read($data, 0, $waiting)
+        $out.Write($data, 0, $got)
+        $out.Flush()
+    } else {
+        Start-Sleep -Milliseconds 10
+    }
+}
+$port.Close()
+`;
 
 /** A session to a jump host, through `cloudflared access ssh` when it sits behind a Cloudflare Tunnel. */
 function connectJump(jump: Jump): Promise<Client> {
@@ -80,12 +110,27 @@ function connectJump(jump: Jump): Promise<Client> {
 /** An open console: the stream to the device's CLI, and how to let it go. */
 export type ConsoleSession = { channel: ClientChannel; close: () => void };
 
-/** Open a device's serial console through its jump host. Fails when another session holds the port. */
+/** Open a device's serial console, through its jump host or on this computer. Fails when another session holds the port. */
 export async function openConsole(console: Console): Promise<ConsoleSession> {
-    if (!PORT.test(console.port)) throw new Error(`console port ${console.port} is not a path under /dev`);
+    const windows = !console.jump && process.platform === "win32";
+    if (windows ? !WINDOWS_PORT.test(console.port) : !PORT.test(console.port)) {
+        throw new Error(`console port ${console.port} is not ${windows ? "a COM port" : "a path under /dev"}`);
+    }
     if (!Number.isInteger(console.baud) || console.baud <= 0) throw new Error(`console baud ${console.baud} is not a line speed`);
 
-    const client = await connectJump(console.jump);
+    // The relay of a session that just ended can hold the port a few seconds more, until its host sees it gone.
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await (console.jump ? openOnJump(console, console.jump) : openHere(console));
+        } catch (error) {
+            if (attempt >= 5 || !/busy:/.test((error as Error).message)) throw error;
+            await new Promise((done) => setTimeout(done, 5_000));
+        }
+    }
+}
+
+async function openOnJump(console: Console, jump: Jump): Promise<ConsoleSession> {
+    const client = await connectJump(jump);
 
     try {
         const encoded = Buffer.from(RELAY).toString("base64");
@@ -95,26 +140,10 @@ export async function openConsole(console: Console): Promise<ConsoleSession> {
             client.exec(`python3 ${RELAY_PATH} ${console.port} ${console.baud}`, (error, stream) => (error ? fail(error) : done(stream)));
         });
 
-        // The relay says it is ready once it holds the port, or why it cannot.
-        await new Promise<void>((done, fail) => {
-            let said = "";
-            const limit = setTimeout(() => fail(new Error(`the console relay did not start: ${said.trim()}`)), 30_000);
-
-            channel.stderr.on("data", (chunk: Buffer) => {
-                said += chunk.toString("utf8");
-                if (said.includes("ready\n")) {
-                    clearTimeout(limit);
-                    done();
-                }
-            });
-            channel.on("close", () => {
-                clearTimeout(limit);
-                fail(new Error(`the console relay stopped: ${said.trim() || "no reason given"}`));
-            });
-        });
+        await relayReady(channel);
 
         return {
-            channel,
+            channel: asTerminal(channel),
             close: () => {
                 channel.end();
                 client.end();
@@ -123,5 +152,258 @@ export async function openConsole(console: Console): Promise<ConsoleSession> {
     } catch (error) {
         client.end();
         throw error;
+    }
+}
+
+/** The relay as a child process: Python on Linux and macOS, PowerShell on Windows. */
+async function openHere(console: Console): Promise<ConsoleSession> {
+    const child =
+        process.platform === "win32"
+            ? spawn("powershell", ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_RELAY], {
+                  env: { ...process.env, CIRCUIT_PORT: console.port, CIRCUIT_BAUD: String(console.baud) },
+              })
+            : spawn("python3", ["-c", RELAY, console.port, String(console.baud)]);
+
+    // The child's streams, in the shape an SSH channel has.
+    const channel = Object.assign(new EventEmitter(), {
+        stderr: child.stderr,
+        write: (data: string | Buffer) => child.stdin.write(data),
+        end: () => child.stdin.end(),
+    });
+    child.stdout.on("data", (chunk: Buffer) => channel.emit("data", chunk));
+    child.on("close", () => channel.emit("close"));
+    child.on("error", (error) => channel.emit("close", error));
+
+    const asChannel = channel as unknown as ClientChannel;
+
+    try {
+        await relayReady(asChannel);
+    } catch (error) {
+        child.kill();
+        throw error;
+    }
+
+    return {
+        channel: asTerminal(asChannel),
+        close: () => {
+            channel.end();
+            setTimeout(() => child.kill(), 2_000).unref();
+        },
+    };
+}
+
+/** Wait until the relay says it holds the port, or why it cannot. */
+function relayReady(channel: ClientChannel): Promise<void> {
+    return new Promise((done, fail) => {
+        let said = "";
+        const limit = setTimeout(() => fail(new Error(`the console relay did not start: ${said.trim()}`)), 30_000);
+
+        channel.stderr.on("data", (chunk: Buffer) => {
+            said += chunk.toString("utf8");
+            if (said.includes("ready")) {
+                clearTimeout(limit);
+                done();
+            }
+        });
+        channel.on("close", () => {
+            clearTimeout(limit);
+            fail(new Error(`the console relay stopped: ${said.trim() || "no reason given"}`));
+        });
+    });
+}
+
+/** A terminal ends a line with a carriage return. Adapters write lines as they do over SSH, and the console gets what a keyboard would send. */
+function asTerminal(channel: ClientChannel): ClientChannel {
+    const write = channel.write.bind(channel);
+    channel.write = ((data: unknown, ...rest: unknown[]) =>
+        write(typeof data === "string" ? data.replace(/\r?\n/g, "\r") : data, ...(rest as []))) as typeof channel.write;
+    return channel;
+}
+
+/** A device's console and its login, for `--console`. */
+export function consoleOf(device: Device) {
+    const console = device.connection.console;
+    if (!console) throw new Error(`${device.name}: no connection.console`);
+
+    const user = device.users?.[device.connection.user];
+    if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
+
+    return { console, user: device.connection.user as string, password: resolve(user.password) };
+}
+
+/** How a platform's console asks for a login and shows its prompt, and what moves it on from anywhere else. */
+export type ConsoleDialect = {
+    /** The login prompt. */
+    login: RegExp;
+    /** The password prompt. */
+    password: RegExp;
+    /** The CLI's prompt once logged in. */
+    prompt: RegExp;
+    /** What logs out from the prompt. */
+    logout: string;
+    /** Other places a console can be left, each with what moves it toward a login prompt: a pager, a config level, a question. Checked before the prompt. */
+    others?: readonly (readonly [RegExp, string])[];
+    /** The name typed at the login prompt, when the platform adds to it. */
+    user?: (user: string) => string;
+};
+
+/** Terminal escape sequences: cursor moves, screen clears, character sets and modes. */
+const ESCAPES = /\u001b(?:\[[0-9;?]*[A-Za-z]|[()][A-Z0-9]|[=>78c])/g;
+
+/** The channel a console speaks on: an SSH stream from the relay, or anything shaped like one. */
+type Channel = Pick<ClientChannel, "write"> & {
+    on(event: "data", listener: (chunk: Buffer) => void): unknown;
+    removeListener(event: "data", listener: (chunk: Buffer) => void): unknown;
+};
+
+/** Write, then wait until what the console printed since ends with one of the patterns. Returns which, and what was printed. */
+export function expect(channel: Channel, write: string, patterns: readonly RegExp[], timeout = 30_000) {
+    return new Promise<{ index: number; text: string }>((done, fail) => {
+        let text = "";
+
+        const stop = () => {
+            clearTimeout(limit);
+            channel.removeListener("data", onData);
+        };
+
+        const onData = (chunk: Buffer) => {
+            // A terminal's escape sequences, which clear the screen or move the cursor, say nothing a reader needs.
+            text += chunk.toString("utf8").replace(/\r/g, "").replace(ESCAPES, "");
+
+            const index = patterns.findIndex((pattern) => pattern.test(text));
+            if (index < 0) return;
+
+            stop();
+            done({ index, text });
+        };
+
+        const limit = setTimeout(() => {
+            stop();
+            fail(new Error(`the console did not answer: ${text.slice(-200)}`));
+        }, timeout);
+
+        channel.on("data", onData);
+        if (write) channel.write(write);
+    });
+}
+
+/**
+ * Log in on a console, whatever state the last session left it in: what `others` names is moved on, a session left open is logged out, so every session starts from a fresh login. Returns once the CLI's prompt shows.
+ */
+export async function consoleLogin(channel: Channel, dialect: ConsoleDialect, user: string, password: string): Promise<void> {
+    const others = dialect.others ?? [];
+    const states = [dialect.login, dialect.password, ...others.map(([pattern]) => pattern), dialect.prompt];
+
+    // What to send in each state to get closer to a login prompt: Enter at a password prompt fails the login and asks again.
+    const toward = (index: number) => {
+        if (index === 1) return "\n";
+        if (index < 2 + others.length) return others[index - 2]![1];
+        return `${dialect.logout}\n`;
+    };
+
+    let state = (await expect(channel, "\n", states)).index;
+    for (let step = 0; state !== 0; step++) {
+        if (step >= 10) throw new Error("the console never reached a login prompt");
+        state = (await expect(channel, toward(state), states)).index;
+    }
+
+    const name = dialect.user ? dialect.user(user) : user;
+    if ((await expect(channel, `${name}\n`, [dialect.password, dialect.login, dialect.prompt])).index !== 0) {
+        throw new Error("the console did not ask for a password");
+    }
+
+    // A platform may ask something once logged in, such as whether to read a licence; `others` answers it.
+    let answer = await expect(channel, `${password}\n`, [dialect.prompt, dialect.login, ...others.map(([pattern]) => pattern)], 60_000);
+    for (let step = 0; answer.index >= 2; step++) {
+        if (step >= 5) throw new Error("the console kept asking after the login");
+        answer = await expect(channel, others[answer.index - 2]![1], [
+            dialect.prompt,
+            dialect.login,
+            ...others.map(([pattern]) => pattern),
+        ]);
+    }
+
+    if (answer.index === 1) throw new Error(`the console refused the login of ${user}`);
+
+    // Some consoles print the prompt twice after a login; what arrives late must not reach the first command.
+    await quiet(channel, 800);
+}
+
+/** Wait until the console has printed nothing for `silence` milliseconds, dropping what it printed, at most five seconds. */
+function quiet(channel: Channel, silence: number): Promise<void> {
+    return new Promise((done) => {
+        let timer = setTimeout(finish, silence);
+        const limit = setTimeout(finish, 5_000);
+
+        function finish() {
+            clearTimeout(timer);
+            clearTimeout(limit);
+            channel.removeListener("data", onData);
+            done();
+        }
+
+        function onData() {
+            clearTimeout(timer);
+            timer = setTimeout(finish, silence);
+        }
+
+        channel.on("data", onData);
+    });
+}
+
+/** The text after a command's echo. A terminal wraps a long echo where it likes, so the echo is matched character by character, line breaks it added skipped. */
+export function afterEcho(text: string, command: string): string {
+    // The echo can follow a prompt that arrived late, so it is looked for wherever the command's first character is.
+    for (let start = text.indexOf(command[0] ?? ""); start >= 0; start = text.indexOf(command[0]!, start + 1)) {
+        const end = echoEnd(text, command, start);
+        if (end !== undefined) return text.slice(end).replace(/^\r?\n/, "");
+    }
+
+    return text;
+}
+
+/** Where the echo of a command that starts at `start` ends, or undefined when the text there is not its echo. */
+function echoEnd(text: string, command: string, start: number): number | undefined {
+    let at = start;
+
+    for (const character of command) {
+        while (at < text.length && text[at] !== character && /[\r\n]/.test(text[at]!)) at++;
+        if (text[at] !== character) return undefined;
+        at++;
+    }
+
+    return at;
+}
+
+/** A CLI on a console that runs one command at a time and returns what it printed, as an SSH exec would: no echo, no prompt. */
+export class ConsoleShell {
+    constructor(
+        private readonly channel: Channel,
+        private readonly dialect: ConsoleDialect
+    ) {}
+
+    /** Run a command and wait for the prompt. A pager in `others` is answered as it shows. */
+    async run(command: string, timeout = 120_000): Promise<string> {
+        const pagers = (this.dialect.others ?? []).filter(([, reply]) => !reply.endsWith("\n"));
+        const patterns = [this.dialect.prompt, ...pagers.map(([pattern]) => pattern)];
+
+        let { index, text } = await expect(this.channel, `${command}\n`, patterns, timeout);
+        let output = "";
+
+        // A pager stops the output; its answer goes on without a new line, and the pager's own text is dropped.
+        while (index > 0) {
+            const [pattern, reply] = pagers[index - 1]!;
+            output += text.replace(pattern, "");
+            ({ index, text } = await expect(this.channel, reply, patterns, timeout));
+        }
+        output += text;
+
+        const lines = afterEcho(output, command).split("\n");
+        return lines.slice(0, -1).join("\n");
+    }
+
+    /** Log out, so no session is left open on the console. */
+    logout(): void {
+        this.channel.write(`${this.dialect.logout}\n`);
     }
 }

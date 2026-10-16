@@ -52,10 +52,32 @@ Hover any field in your editor to see what it does. The [schema reference](/refe
 
 ## Reaching a device through its console
 
-A serial console is the cable into a device's console port. It works when the device has no management address yet, such as a new device, and when the management network is down. Circuit reaches a console through a **jump host**: a computer beside the rack, with the console cable plugged into it and SSH running on it.
+A serial console is the cable into a device's console port. It works when the device has no management address yet, such as a new device, and when the management network is down. The cable is plugged into one of two places:
 
-1. Plug the console cable into the jump host. Find the port's path under `/dev/serial/by-path/` there. That path stays the same when a second adapter is plugged in, while names such as `/dev/ttyUSB0` can swap.
-2. Write the console into the device's `connection`:
+- **This computer**, the one Circuit runs on, such as a laptop you carry to the rack.
+- **A jump host**: a computer that stays beside the rack, with the console cable plugged into it and SSH running on it, so you can reach the console from anywhere.
+
+### On this computer
+
+1. Plug the console cable in and find its port. On Linux it is a path under `/dev/serial/by-path/`, which stays the same when a second adapter is plugged in, while names such as `/dev/ttyUSB0` can swap. On macOS it is a path such as `/dev/cu.usbserial-1410`. On Windows it is a COM port: Device Manager lists it under Ports, such as `COM3`.
+2. Write the console into the device's `connection`, without a jump host:
+
+    ```ts
+    connection: {
+        host: "192.0.2.4",
+        user: "netops",
+        console: { port: "COM3", baud: 9600 },
+    },
+    ```
+
+3. Run `circuit snapshot <device> --console` or `circuit apply <device> --console`.
+
+On Linux and macOS, Circuit needs Python 3, and your user must be allowed to open the port, such as by being in the `dialout` or `uucp` group. On Windows it uses PowerShell, which every Windows has.
+
+### On a jump host
+
+1. Plug the console cable into the jump host, and find the port's path under `/dev/serial/by-path/` there.
+2. Write the jump host and the console into the device's `connection`:
 
     ```ts
     const jump = { host: "jump.example.com", user: "netops", password: secret("JUMP_PASSWORD") };
@@ -71,9 +93,21 @@ A serial console is the cable into a device's console port. It works when the de
 
 3. Run `circuit snapshot <device> --console` or `circuit apply <device> --console`.
 
-The jump host needs Python 3, and its user must be allowed to open the serial port, such as by being in the `uucp` or `dialout` group. Circuit logs in on the console with the device's own login, logs out when it is done, and leaves no session open. Only one session can hold a console at a time. A console is slow: at 9600 bits per second, reading a FortiGate takes about two minutes, so give an apply a longer `--rollback`.
+The jump host runs Linux or macOS with Python 3, and its user must be allowed to open the serial port.
 
-Consoles work on FortiOS. The other platforms are reached over SSH only, for now.
+### What happens on the console
+
+Circuit logs in with the device's own login, whatever state the last session left the console in, and logs out when it is done, so no session stays open. Only one session can hold a console at a time; a second waits a little, then stops. After a change, Circuit logs out and in again on the same console before it keeps the change: that proves the logins still work, but not the management network. A console is slow: at 9600 bits per second, reading a FortiGate takes about two minutes, so give an apply a longer `--rollback`.
+
+| Platform | Through a console                                                                                                                            |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| FortiOS  | Proved on a FortiGate 3700D through a jump host.                                                                                             |
+| RouterOS | Proved on a CCR2216 through a jump host. A certificate is installed from a file, which only SSH can write, so apply one without `--console`. |
+| Junos    | Written, not yet proved on a device.                                                                                                         |
+| Raisecom | Written, not yet proved on a device.                                                                                                         |
+| VRP      | Written, not yet proved on a device.                                                                                                         |
+
+A console on this computer under Windows has been tried only as far as opening a COM port.
 
 ## Port names
 
