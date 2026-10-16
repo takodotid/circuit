@@ -675,7 +675,7 @@ function sflow(out: Statements, device: Device, names: Names): void {
     const flow = device.flow_export;
     if (flow?.protocol !== "sflow") return;
 
-    out.set("protocols sflow agent-id", device.connection.host);
+    if (device.connection.host) out.set("protocols sflow agent-id", device.connection.host);
     if (flow.sampling !== undefined) out.set("protocols sflow sample-rate ingress", flow.sampling);
 
     for (const collector of flow.collectors) {

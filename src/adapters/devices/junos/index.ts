@@ -7,7 +7,7 @@ import { familyOf, host, isAddress, split } from "../../../core/addr";
 import { resolve, substitute } from "../../../core/secrets";
 import type { Device, Family } from "../../../schema";
 import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../../transport/console";
-import { connect, exec, readUntil, shell } from "../../../transport/ssh";
+import { connect, exec, managementHost, readUntil, shell } from "../../../transport/ssh";
 import { lagIds } from "../derive";
 import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions, Step } from "../types";
 import { GENERATED, settingsOf } from "./bgp";
@@ -296,7 +296,7 @@ export async function login(device: Device): Promise<Client> {
     if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
 
     return connect({
-        host: device.connection.host,
+        host: managementHost(device),
         port: device.connection.port,
         user: device.connection.user,
         password: resolve(user.password),

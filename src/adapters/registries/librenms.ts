@@ -57,8 +57,10 @@ export async function planLibreNms(network: Network): Promise<LibreNmsPlan> {
     if (!response.ok) throw new Error(`LibreNMS answered ${response.status} to the device list`);
 
     const monitored = new Set(((await response.json()) as { devices: { hostname: string }[] }).devices.map((device) => device.hostname));
-    const ours = new Set(network.devices.map((device) => device.connection.host));
-    const missing = network.devices.filter((device) => !monitored.has(device.connection.host));
+    // A device reached only through its console has no address to poll.
+    const polled = network.devices.filter((device) => device.connection.host);
+    const ours = new Set(polled.map((device) => device.connection.host));
+    const missing = polled.filter((device) => !monitored.has(device.connection.host!));
 
     return {
         additions: missing.filter((device) => device.management?.snmp),

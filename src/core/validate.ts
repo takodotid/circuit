@@ -79,6 +79,8 @@ function checkDevice(device: Device, report: Report): void {
     };
 
     if (!device.users?.[device.connection.user]) report(`connection user '${device.connection.user}' is not one of its users`);
+    if (!device.connection.host && !device.connection.console)
+        report("connection has neither a host nor a console to reach the device through");
 
     checkVlans(device, report);
     checkAddresses(device, report, cidr, ip);

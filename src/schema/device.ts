@@ -7,8 +7,8 @@ import type { Certificate, DhcpRelay, DhcpServer, FlowExport, Management, System
 
 /** How the framework reaches the device. */
 export type Connection<U extends string> = {
-    /** Management address. */
-    host: IP;
+    /** Management address. Absent for a device reached only through its console, `console`. */
+    host?: IP;
     /** One of the device's `users`. Its password is the login. */
     user: U;
     /** SSH port. 22 when absent. */

@@ -143,7 +143,11 @@ function describeDevice(device: Device): string[] {
             return `${name}: ${list.join(", ")}${vrf}`;
         });
 
-    return [`${device.platform} ${device.model}`, `reached at ${device.connection.host}`, ...addresses];
+    return [
+        `${device.platform} ${device.model}`,
+        device.connection.host ? `reached at ${device.connection.host}` : "reached through its console",
+        ...addresses,
+    ];
 }
 
 /** The VLANs a port or LAG carries, by id. */

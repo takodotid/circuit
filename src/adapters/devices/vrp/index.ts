@@ -8,7 +8,7 @@ import { marker, resolve, substitute, valueOfReference } from "../../../core/sec
 import { offset } from "../../../core/time";
 import type { Device, Interface, Port, Vrrp } from "../../../schema";
 import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../../transport/console";
-import { connect, readUntil, send, shell } from "../../../transport/ssh";
+import { connect, managementHost, readUntil, send, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import { ipv4Networks, lagIds, switchUnsupported } from "../derive";
 import { compare, type Dialect, scrub, steps, vlanListChange } from "../lines";
@@ -465,7 +465,7 @@ function flowExport(config: Config, device: Device): void {
     const flow = device.flow_export;
     if (flow?.protocol !== "sflow") return;
 
-    config.line(`sflow agent ip ${device.connection.host}`);
+    if (device.connection.host) config.line(`sflow agent ip ${device.connection.host}`);
 
     flow.collectors.forEach((collector, index) => {
         const number = FIRST_COLLECTOR + index;
@@ -550,7 +550,7 @@ export async function login(device: Device): Promise<Client> {
     const user = device.users?.[device.connection.user];
     if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
     return connect({
-        host: device.connection.host,
+        host: managementHost(device),
         port: device.connection.port,
         user: device.connection.user,
         password: resolve(user.password),
