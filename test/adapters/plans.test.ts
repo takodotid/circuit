@@ -141,6 +141,16 @@ test("example-aggregation-switch plans nothing against how the device prints it"
     expect(plan.steps.flatMap((step) => step.show)).toEqual([]);
 });
 
+// A service allowed only from IPv4 is refused over IPv6, not opened to every IPv6 source.
+test("a Junos service allowed from one family is discarded in the other", () => {
+    const adapter = adapters["junos"]!;
+    const rendered = adapter.render({ ...aggregationSwitch, management: { allow: ["192.0.2.0/24"], ssh: {} } });
+    const v6 = rendered.split("\n").filter((line) => line.includes("circuit-services-v6 term ssh"));
+
+    expect(v6.length).toBeGreaterThan(0);
+    expect(v6.every((line) => line.includes("term ssh-others"))).toBe(true);
+});
+
 // The device refuses `delete interfaces xe-0/0/1 unit`: a named list goes entry by entry, while a block the render does not hold goes whole.
 test("a Junos removal stops at an entry of a named list, never at the list", () => {
     const adapter = adapters["junos"]!;
