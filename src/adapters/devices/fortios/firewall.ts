@@ -2,7 +2,7 @@
 
 import { host } from "../../../core/addr";
 import type { AclRule, Device, Family, FilterMatch, FilterRule, NatRule, Ports, Protocol } from "../../../schema";
-import { familyOfPrefix, nameOf, network, subnet, withLength } from "./names";
+import { familyOfPrefix, isTransparent, nameOf, network, subnet, withLength } from "./names";
 import { Block, quote, quoteAll, UNSET } from "./tree";
 
 /** IP protocol numbers, for a protocol the platform names only by number. */
@@ -50,6 +50,9 @@ export function portList(ports: Ports | undefined): string[] {
     const list = Array.isArray(ports) ? ports : [ports as number | { min: number; max: number }];
     return list.map((port) => (typeof port === "number" ? String(port) : `${port.min}-${port.max}`));
 }
+
+/** Every protocol, as a service of Circuit's own, for a device in transparent mode. */
+export const ALL_IN_TRANSPARENT = "circuit-all";
 
 /** The service a rule matches, by name, with what it holds. `ALL` when the rule names no protocol and no port; ports without a protocol are TCP's and UDP's. */
 export function serviceOf(match: FilterMatch<string, string> | undefined, family: Family): { name: string; block?: Block } {
@@ -134,6 +137,13 @@ class Objects {
 
     service(match: FilterMatch<string, string> | undefined, family: Family): string {
         const { name, block } = serviceOf(match, family);
+
+        // Transparent mode deletes the factory's services, `ALL` with them, so every protocol is a service of Circuit's own there.
+        if (name === "ALL" && isTransparent(this.device)) {
+            this.root.block("firewall service custom").entry(ALL_IN_TRANSPARENT).set("protocol", "IP");
+            return ALL_IN_TRANSPARENT;
+        }
+
         if (!block) return name;
 
         const entry = this.root.block("firewall service custom").entry(name);

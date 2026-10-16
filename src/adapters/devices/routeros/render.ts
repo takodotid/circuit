@@ -344,10 +344,19 @@ function lags(out: Output, ctx: Context): void {
     }
 }
 
-/** A VLAN interface sits on the bridge. When the device offloads, one that opts out is routed in software so the firewall applies. */
+/** The name of the VLAN interface under one with a MAC of its own, which takes the configured name itself. */
+export const underMacvlan = (name: string) => `${name}-vlan`;
+
+/**
+ * A VLAN interface sits on the bridge. When the device offloads, one that opts out is routed in software so the firewall applies.
+ *
+ * Every VLAN interface on the bridge has the bridge's MAC. One with a MAC of its own is a MACVLAN on top of the VLAN interface: the MACVLAN takes the configured name, so its addresses and every rule naming it land on it.
+ */
 function vlanInterfaces(out: Output, ctx: Context): void {
     for (const [name, iface] of ctx.vlanInterfaces()) {
         const softwareOnly = ctx.device.hardware_offload && iface.hardware_offload === false;
+        const vlanName = iface.mac ? underMacvlan(name) : name;
+
         out.add(
             "/interface vlan",
             command("add", {
@@ -355,10 +364,23 @@ function vlanInterfaces(out: Output, ctx: Context): void {
                 interface: BRIDGE,
                 "l3-hw-offloading": softwareOnly ? "no" : undefined,
                 mtu: iface.mtu,
-                name,
+                name: vlanName,
                 "vlan-id": ctx.vlanId(iface.vlan),
             })
         );
+
+        if (iface.mac) {
+            out.add(
+                "/interface macvlan",
+                command("add", {
+                    comment: iface.description,
+                    interface: vlanName,
+                    "mac-address": iface.mac.toUpperCase(),
+                    mtu: iface.mtu,
+                    name,
+                })
+            );
+        }
     }
 }
 

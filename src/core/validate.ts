@@ -175,6 +175,21 @@ function checkInterfaces(device: Device, names: Names, report: Report, ip: Check
             if (!members.length) report(`LAG ${name} has no member ports`);
         }
 
+        if (iface.type === "bridge") {
+            if (iface.members.length < 2) report(`bridge ${name} joins fewer than two interfaces`);
+
+            for (const member of iface.members) {
+                const joined = device.interfaces?.[member];
+                if (joined?.type !== "vlan") report(`bridge ${name}: member ${member} is not a VLAN interface`);
+                else if (joined.addresses?.length) report(`bridge ${name}: member ${member} has an address of its own`);
+
+                const others = Object.entries(device.interfaces ?? {}).filter(
+                    ([other, settings]) => other !== name && settings.type === "bridge" && settings.members.includes(member)
+                );
+                if (others.length) report(`bridge ${name}: member ${member} is also in bridge ${others[0]![0]}`);
+            }
+        }
+
         if (iface.type === "wireguard") {
             for (const peer of iface.peers ?? []) {
                 for (const address of peer.allowed_addresses) {

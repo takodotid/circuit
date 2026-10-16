@@ -10,8 +10,9 @@ import coreSwitch from "../../examples/core-switch";
 import firewall from "../../examples/firewall";
 import router from "../../examples/router";
 import switchDevice from "../../examples/switch";
+import transparentFirewall from "../../examples/transparent-firewall";
 
-const examples = [router, switchDevice, coreSwitch, aggregationSwitch, firewall];
+const examples = [router, switchDevice, coreSwitch, aggregationSwitch, firewall, transparentFirewall];
 
 describe("examples", () => {
     test("validate", () => {

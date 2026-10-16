@@ -131,6 +131,7 @@ export const DEFAULTS: Record<string, Record<string, string>> = {
         "limit-unknown-unicasts": "no",
     },
     "/interface vlan": { "l3-hw-offloading": "yes", mtu: "1500" },
+    "/interface macvlan": { mode: "bridge", mtu: "1500" },
     "/interface vrrp": { priority: "100", "preemption-mode": "yes", interval: "1s", version: "3", "v3-protocol": "ipv4" },
     "/interface vxlan": { port: "4789" },
     "/interface wireguard peers": {
@@ -259,6 +260,8 @@ const IDENTITY: Record<string, string[]> = {
     "/ipv6 firewall address-list": ["list", "address"],
     "/interface bridge port": ["interface"],
     "/interface bridge vlan": ["vlan-ids"],
+    // One VLAN ID per interface: the device refuses a second, so a rename, such as one a MAC of its own brings, is a rename.
+    "/interface vlan": ["interface", "vlan-id"],
     "/interface vxlan vteps": ["interface", "remote-ip"],
     "/routing bgp connection": ["remote.address"],
     "/routing rpki": ["address"],

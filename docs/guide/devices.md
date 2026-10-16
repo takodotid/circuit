@@ -38,7 +38,7 @@ Hover any field in your editor to see what it does. The [schema reference](/refe
 | `certificates`       | Certificates the device shows to clients or trusts.                                                                     |
 | `vlans`              | The VLANs the device has, by name.                                                                                      |
 | `ports`              | The physical ports. A port not listed here is shut down.                                                                |
-| `interfaces`         | VLAN interfaces, loopbacks, LAGs, and GRE, VXLAN and WireGuard tunnels.                                                 |
+| `interfaces`         | VLAN interfaces, loopbacks, LAGs, bridges, and GRE, VXLAN and WireGuard tunnels.                                        |
 | `vrfs`               | Separate routing tables.                                                                                                |
 | `routing`            | Static routes, BGP, OSPF and RPKI.                                                                                      |
 | `policies`           | Route policies: ordered rules that decide which routes are accepted, and change them.                                   |

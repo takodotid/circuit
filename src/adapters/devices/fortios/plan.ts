@@ -805,7 +805,16 @@ export function plan(desired: string, current: string, options: Pick<ApplyOption
         }
     }
 
-    return { steps: [...first, ...steps, ...removals, ...late], problems: [] };
+    // Leaving transparent mode needs an address and an interface for it, which the config of a device without a bridge does not say.
+    const opmode = (root: Block) => root.blocks.get("system settings")?.settings.get("opmode");
+    const problems =
+        opmode(have) === "transparent" && opmode(want) !== "transparent"
+            ? [
+                  "the device runs in transparent mode and the config has no bridge; leave transparent mode by hand, `set opmode nat` with an address and an interface under `config system settings`, then plan again",
+              ]
+            : [];
+
+    return { steps: [...first, ...steps, ...removals, ...late], problems };
 }
 
 /** The interfaces of tunnels, which their own tables create, compared after those tables as a section of their own. */

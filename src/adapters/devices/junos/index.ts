@@ -565,6 +565,11 @@ export async function apply(device: Device, _network: readonly Device[], plan: P
 
 export function unsupported(device: Device): string[] {
     const found: string[] = [];
+
+    for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
+        if (iface.type === "bridge") found.push(`interfaces.${name}, a bridge, which only FortiOS builds for now`);
+        if (iface.type === "vlan" && iface.mac) found.push(`interfaces.${name}.mac, which only RouterOS sets for now`);
+    }
     const names = new Names(device);
     const users = device.users ?? {};
 
