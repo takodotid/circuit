@@ -7,7 +7,7 @@ import { familyOf } from "../../../core/addr";
 import { resolve, substitute } from "../../../core/secrets";
 import type { Device, Family } from "../../../schema";
 import { type ConsoleDialect, consoleLogin, consoleOf, ConsoleShell, openConsole } from "../../../transport/console";
-import { connect, exec, upload } from "../../../transport/ssh";
+import { connect, exec, managementHost, upload } from "../../../transport/ssh";
 import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions } from "../types";
 import { INSTALL_CERTIFICATE, plan } from "./plan";
 import { spell } from "../catalog";
@@ -21,7 +21,7 @@ export async function login(device: Device): Promise<Client> {
     if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
 
     return connect({
-        host: device.connection.host,
+        host: managementHost(device),
         port: device.connection.port,
         user: device.connection.user,
         password: resolve(user.password),

@@ -1,6 +1,7 @@
 // SSH sessions to devices. Adapters choose how to talk to their platform; this holds what they share.
 
 import { Client, type ClientChannel } from "ssh2";
+import type { Device } from "../schema";
 
 export type Login = {
     host: string;
@@ -10,6 +11,12 @@ export type Login = {
     /** Host key algorithms to accept, for a device that negotiates one it then signs wrongly. */
     hostKeys?: string[];
 };
+
+/** The address SSH reaches a device at. A device without one is reached only through its console. */
+export function managementHost(device: Device): string {
+    if (!device.connection.host) throw new Error(`${device.name} has no management address; it is reached through its console`);
+    return device.connection.host;
+}
 
 /** Open a session. */
 export function connect(login: Login): Promise<Client> {

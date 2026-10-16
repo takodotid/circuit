@@ -89,3 +89,14 @@ test("a console command returns what it printed, without its wrapped echo or the
 test("an echo that does not match leaves the text as it is", () => {
     expect(afterEcho("something else\nout", "/system print")).toBe("something else\nout");
 });
+
+test("a device needs a management address or a console", async () => {
+    const { validate } = await import("../../src/core/validate");
+    const { default: firewall } = await import("../../examples/firewall");
+    const reach = (connection: object) =>
+        validate({ devices: [{ ...firewall, connection: { user: firewall.connection.user, ...connection } }] });
+    const message = "connection has neither a host nor a console to reach the device through";
+
+    expect(reach({}).map((finding) => finding.message)).toContain(message);
+    expect(reach({ console: { port: "COM3", baud: 9600 } }).map((finding) => finding.message)).not.toContain(message);
+});

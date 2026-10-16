@@ -95,6 +95,10 @@ On Linux and macOS, Circuit needs Python 3, and your user must be allowed to ope
 
 The jump host runs Linux or macOS with Python 3, and its user must be allowed to open the serial port.
 
+### A device reached only through its console
+
+A device with no management address, such as a firewall whose management port has no cable, leaves `host` out of its `connection` and gives only its `console`. Circuit then reads and applies it through the console without `--console`, and `librenms` and `prometheus` leave it out, since there is no address to poll.
+
 ### What happens on the console
 
 Circuit logs in with the device's own login, whatever state the last session left the console in, and logs out when it is done, so no session stays open. Only one session can hold a console at a time; a second waits a little, then stops. After a change, Circuit logs out and in again on the same console before it keeps the change: that proves the logins still work, but not the management network. A console is slow: at 9600 bits per second, reading a FortiGate takes about two minutes, so give an apply a longer `--rollback`.

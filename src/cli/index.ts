@@ -133,10 +133,15 @@ function one(): Device {
     return device ?? fail("name a device");
 }
 
-/** The adapter of a device, which must be able to use its console when `--console` asks for it. */
+/** How a device is reached: through its console when `--console` asks, or when it has no management address. */
+function optionsFor(device: Device): ApplyOptions {
+    return options.console || !device.connection.host ? { ...options, console: true } : options;
+}
+
+/** The adapter of a device, which must be able to use its console when the device is reached through it. */
 function adapterOf(device: Device): DeviceAdapter {
     const adapter = adapters[device.platform] ?? fail(`no adapter for ${device.platform}`);
-    if (!options.console) return adapter;
+    if (!optionsFor(device).console) return adapter;
 
     if (!adapter.console) fail(`${device.name}: ${device.platform} cannot be reached through a console yet`);
     if (!device.connection.console) fail(`${device.name}: --console needs connection.console`);
@@ -225,7 +230,7 @@ function diffCommand(): void {
 
 async function snapshotCommand(): Promise<void> {
     for (const device of selected(true)) {
-        const text = await adapterOf(device).read(device, network.devices, options);
+        const text = await adapterOf(device).read(device, network.devices, optionsFor(device));
         writeState(device, text);
         console.log(`${device.name}: ${text.split("\n").length} lines`);
     }
@@ -248,7 +253,7 @@ async function applyCommand(): Promise<void> {
     const adapter = adapterOf(device);
 
     // The plan is made against what the device runs now, never against an old snapshot.
-    const live = await adapter.read(device, network.devices, options);
+    const live = await adapter.read(device, network.devices, optionsFor(device));
     writeState(device, live);
 
     const plan = adapter.plan(adapter.render(device), live, options);
@@ -261,9 +266,9 @@ async function applyCommand(): Promise<void> {
         return;
     }
 
-    await adapter.apply(device, network.devices, plan, options);
+    await adapter.apply(device, network.devices, plan, optionsFor(device));
 
-    writeState(device, await adapter.read(device, network.devices, options));
+    writeState(device, await adapter.read(device, network.devices, optionsFor(device)));
     console.log("snapshot updated");
 }
 

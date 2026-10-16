@@ -15,9 +15,9 @@ const PRIVACY = { aes128: "AES", des: "DES" } as const;
 export function prometheusTargets(network: Network): { targets: PrometheusTarget[]; withoutSnmp: Device[] } {
     return {
         targets: network.devices
-            .filter((device) => device.management?.snmp)
+            .filter((device) => device.management?.snmp && device.connection.host)
             .map((device) => ({
-                targets: [device.connection.host],
+                targets: [device.connection.host!],
                 // `__param_auth` picks the device's own auth in snmp_exporter.
                 labels: { device: device.name, platform: device.platform, model: device.model, __param_auth: device.name },
             })),

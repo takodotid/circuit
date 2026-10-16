@@ -8,7 +8,7 @@ import { marker, resolve, substitute } from "../../../core/secrets";
 import { offset } from "../../../core/time";
 import type { Device, Port, SnmpUser, Switched, Vrrp } from "../../../schema";
 import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../../transport/console";
-import { connect, readUntil, send, shell } from "../../../transport/ssh";
+import { connect, managementHost, readUntil, send, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import { ipv4Networks, lagIds, switchUnsupported } from "../derive";
 import { compare, type Dialect, entries, type Group, scrub, steps, vlanListChange } from "../lines";
@@ -338,7 +338,7 @@ async function sshShell(device: Device): Promise<Session> {
     if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
 
     const client = await connect({
-        host: device.connection.host,
+        host: managementHost(device),
         port: device.connection.port,
         user: device.connection.user,
         password: resolve(user.password),
