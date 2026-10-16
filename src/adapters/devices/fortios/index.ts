@@ -11,7 +11,7 @@ import { connect, managementHost, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions } from "../types";
 import { acceptsBeforeDrop, familiesOf, isImplied, serviceOf } from "./firewall";
-import { holderOf, interfaceFor, network, settingsOf, subnet } from "./names";
+import { holderOf, interfaceFor, isTransparent, network, settingsOf, subnet } from "./names";
 import { clean, plan } from "./plan";
 import { COLLECTORS, FULL, HELPERS, RESOLVERS, render, SECTIONS, SPEEDS, SSH_KEYS, vlanParent, VRFS, zoneOf } from "./render";
 import { BITS, PREFIX_LIST, routingGaps } from "./routing";
@@ -376,7 +376,21 @@ async function settle(device: Device, options: ReadOptions): Promise<string> {
     return "the device did not come back in time and still reverts every change; set `cfg-save automatic` under `config system global`";
 }
 
-export async function apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
+export async function apply(device: Device, network: readonly Device[], changes: Plan, options: ApplyOptions): Promise<void> {
+    await applyOnce(device, changes, options);
+
+    // Switching the operation mode makes changes of its own, such as a static route in each family and memory logging on, which a plan made before it could not see. One more pass, planned against what the device now runs, takes them back.
+    const switched = changes.steps.some((step) => step.send.some((line) => line.startsWith("set opmode ")));
+    if (!switched) return;
+
+    const again = plan(render(device), await read(device, network, options), options);
+    if (!again.steps.length) return;
+
+    console.log("  the operation mode changed; applying what it added on its own");
+    await applyOnce(device, again, options);
+}
+
+async function applyOnce(device: Device, plan: Plan, options: ApplyOptions): Promise<void> {
     const seconds = options.rollback * 60;
 
     try {
@@ -454,10 +468,44 @@ export function unsupported(device: Device): string[] {
     found.push(...serviceGaps(device));
 
     if (device.stp) found.push("stp, ports are routed");
+    found.push(...transparentGaps(device));
+
+    for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
+        if (iface.type === "vlan" && iface.mac) found.push(`interfaces.${name}.mac, which only RouterOS sets for now`);
+    }
     if (Object.keys(device.vrfs ?? {}).length > VRFS) found.push(`vrfs, at most ${VRFS}`);
 
     for (const [name, vrf] of Object.entries(device.vrfs ?? {})) {
         if (vrf.description) found.push(`vrfs.${name}.description, the platform numbers a VRF and keeps no description`);
+    }
+
+    return found;
+}
+
+/** What transparent mode, which a bridge needs, leaves out: every address, routing, NAT and the services that answer on an address. The device is reached through its console. */
+function transparentGaps(device: Device): string[] {
+    if (!isTransparent(device)) return [];
+
+    const found: string[] = [];
+    const where = "in transparent mode, which a bridge needs";
+
+    if (device.connection.host) found.push(`connection.host, ${where}: the device is reached through its console`);
+
+    for (const [name, port] of Object.entries(device.ports ?? {})) {
+        if (port?.addresses?.length) found.push(`ports.${name}.addresses, ${where}`);
+    }
+    for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
+        if (iface.addresses?.length) found.push(`interfaces.${name}.addresses, ${where}`);
+    }
+
+    const routing = device.routing;
+    if (routing?.static?.length || routing?.bgp || routing?.ospf) found.push(`routing, ${where}`);
+    if (device.firewall?.nat) found.push(`firewall.nat, ${where}`);
+    if (device.dhcp && Object.keys(device.dhcp).length) found.push(`dhcp, ${where}`);
+
+    const management = device.management ?? {};
+    for (const service of ["ssh", "telnet", "http", "https", "api", "api_tls", "snmp", "native"] as const) {
+        if (management[service]) found.push(`management.${service}, ${where}: the device has no address to answer on`);
     }
 
     return found;

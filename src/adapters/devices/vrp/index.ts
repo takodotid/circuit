@@ -637,6 +637,11 @@ function configurationOf(device: Device, dump: string): string {
 export function unsupported(device: Device): string[] {
     const found: string[] = [];
 
+    for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
+        if (iface.type === "bridge") found.push(`interfaces.${name}, a bridge, which only FortiOS builds for now`);
+        if (iface.type === "vlan" && iface.mac) found.push(`interfaces.${name}.mac, which only RouterOS sets for now`);
+    }
+
     for (const [name, port] of Object.entries(device.ports ?? {})) {
         if (!port) continue;
 

@@ -16,6 +16,7 @@ const ORDER = [
     "/interface ethernet",
     "/interface bonding",
     "/interface vlan",
+    "/interface macvlan",
     "/interface gre",
     "/interface vxlan",
     "/interface wireguard",

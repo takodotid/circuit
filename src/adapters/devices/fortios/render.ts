@@ -5,7 +5,18 @@ import { marker } from "../../../core/secrets";
 import type { Device, Helper, Severity } from "../../../schema";
 import { portsOf, spell } from "../catalog";
 import { firewall, natRules } from "./firewall";
-import { addressed, addressesOf, holderOf, interfaceFor, nameOf, network, subnet, vrfNumber } from "./names";
+import {
+    addressed,
+    addressesOf,
+    forwardDomainOf,
+    holderOf,
+    interfaceFor,
+    isTransparent,
+    nameOf,
+    network,
+    subnet,
+    vrfNumber,
+} from "./names";
 import { routing, usesBfd } from "./routing";
 import { Block, print, quote, quoteAll } from "./tree";
 
@@ -246,6 +257,9 @@ function allowAccess(device: Device): string {
     return services.join(" ");
 }
 
+/** The management address of a device in transparent mode, which is reached only through its console: link-local, on no network it can reach. */
+export const TRANSPARENT_MANAGEIP = "169.254.0.1/255.255.255.255";
+
 export function render(device: Device): string {
     const root = new Block();
     for (const section of SECTIONS) root.block(section);
@@ -255,6 +269,8 @@ export function render(device: Device): string {
     certificates(section("vpn certificate local"), section("vpn certificate ca"), device);
     global(section("system global"), device);
     if (device.system?.banner) section(BANNER).set("buffer", quote(device.system.banner));
+    // A bridge needs transparent mode, and transparent mode a management address. One on no network the device can reach keeps it reached only through its console.
+    if (isTransparent(device)) section("system settings").set("opmode", "transparent").set("manageip", TRANSPARENT_MANAGEIP);
     if (natRules(device).length) section("system settings").set("central-nat", "enable");
     // SIP is otherwise rewritten by its proxy whatever the helpers say; this way only the `sip` helper does.
     section("system settings").set("default-voip-alg-mode", "kernel-helper-based");
@@ -391,6 +407,8 @@ function interfaces(root: Block, device: Device): void {
         entry.set("vdom", quote("root"));
         if (parent) entry.set("interface", quote(nameOf(device, parent)));
         entry.set("vlanid", device.vlans?.[iface.vlan]?.id ?? 0);
+        const domain = forwardDomainOf(device, name);
+        if (domain) entry.set("forward-domain", domain);
         if (iface.description) entry.set("description", quote(iface.description));
         if (iface.mtu) entry.set("mtu-override", "enable").set("mtu", iface.mtu);
         redirects(entry, device);

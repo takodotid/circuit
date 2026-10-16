@@ -119,6 +119,10 @@ export type VlanInterface<V extends string, F extends string> = Base<F> & {
     type: "vlan";
     /** The VLAN it is on. */
     vlan: V;
+    /**
+     * A MAC address of its own, instead of the one it shares with the device's other VLAN interfaces. A gateway in front of a transparent firewall needs one: frames to it come back on another VLAN, where the bridge would otherwise take a shared MAC for its own and keep them.
+     */
+    mac?: string;
 };
 
 /** An interface that is always up and is on no link, for addresses that must not depend on one. */
@@ -187,6 +191,15 @@ export type WireGuard<F extends string> = Base<F> & {
     peers?: readonly WireGuardPeer[];
 };
 
+/**
+ * A layer 2 bridge between VLAN interfaces, each keeping its own VLAN: a frame that comes in on one member leaves another with that member's tag. A firewall filters what crosses it, by the rules of its forward chain between the members, without routing it.
+ */
+export type Bridge<F extends string> = Base<F> & {
+    type: "bridge";
+    /** The VLAN interfaces it joins, by name. Each has no address of its own. */
+    members: readonly string[];
+};
+
 /** Any interface that is not a physical port. */
 export type Interface<V extends string, F extends string> =
-    VlanInterface<V, F> | Loopback<F> | Lag<V, F> | Gre<F> | Vxlan<F> | WireGuard<F>;
+    VlanInterface<V, F> | Loopback<F> | Lag<V, F> | Gre<F> | Vxlan<F> | WireGuard<F> | Bridge<F>;

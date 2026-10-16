@@ -151,6 +151,10 @@ export async function read(device: Device, _network: readonly Device[] = [], opt
 export function unsupported(device: Device): string[] {
     const found: string[] = [];
 
+    for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
+        if (iface.type === "bridge") found.push(`interfaces.${name}, a bridge, which only FortiOS builds for now`);
+    }
+
     for (const [name, port] of Object.entries(device.ports ?? {})) {
         if (!port) continue;
 

@@ -6,6 +6,22 @@ import { spell } from "../catalog";
 
 type Addressed = { addresses?: readonly (string | { address: string; peer?: string })[]; vrf?: string; lag?: string };
 
+/** The bridges a device has, in the config's order. A device with any runs in transparent mode, each bridge a forward domain numbered by its place. */
+export function bridgesOf(device: Device): { name: string; members: readonly string[] }[] {
+    return Object.entries(device.interfaces ?? {}).flatMap(([name, iface]) =>
+        iface.type === "bridge" ? [{ name, members: iface.members }] : []
+    );
+}
+
+/** Whether the device runs in transparent mode: it has a bridge. */
+export const isTransparent = (device: Device) => bridgesOf(device).length > 0;
+
+/** The forward domain of a VLAN interface in a bridge, or undefined. */
+export function forwardDomainOf(device: Device, name: string): number | undefined {
+    const index = bridgesOf(device).findIndex((bridge) => bridge.members.includes(name));
+    return index < 0 ? undefined : index + 1;
+}
+
 /** The name the platform gives a port or an interface: a port by its spelling, any other interface by its key. */
 export function nameOf(device: Device, name: string): string {
     if (device.interfaces && name in device.interfaces) return name;

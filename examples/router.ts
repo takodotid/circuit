@@ -97,7 +97,7 @@ export default defineDevice({
             ipv6_ra: true,
             hardware_offload: false,
         },
-        guests: { type: "vlan", vlan: "guests", addresses: ["198.51.100.129/26"], vrf: "guests" },
+        guests: { type: "vlan", vlan: "guests", addresses: ["198.51.100.129/26"], vrf: "guests", mac: "02:00:00:00:00:30" },
     },
 
     routing: {

@@ -629,3 +629,10 @@ test("FortiOS lets go of an interface named by NTP or by a DNS server entry befo
     ]);
     expect(sent).toContain("set server-mode enable");
 });
+
+// Leaving transparent mode needs an address and an interface the config does not give, so the plan stops and says so.
+test("a FortiOS device leaving transparent mode is a problem, not a plan", () => {
+    const transparent = ["config system settings", "    set opmode transparent", "    set manageip 169.254.0.1/255.255.255.255", "end"];
+    const plan = fortiosPlan(["config system settings", "end"], transparent);
+    expect(plan.problems.length).toBe(1);
+});
