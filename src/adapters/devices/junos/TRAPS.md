@@ -29,3 +29,6 @@ Behaviour that looks like something else. Each one has been hit on a QFX5100-48S
 - IPv4 routes over an IPv6 session need a local IPv4 address under the family: `Local IPv4 address must be configured`.
 - A DHCP server and a DHCP relay cannot share an interface: `Interface irb.10 already configured`.
 - A port's MTU counts the Ethernet header. `mtu 9018` carries 9000-byte packets with a VLAN tag, and a VLAN interface's 9000 then commits without a warning.
+- The serial console has no flow control. Statements pasted into `load set terminal` at once overrun it: some arrive garbled, the load reports syntax errors, and the `^D` that ends it can be lost, leaving the console in the load. Circuit sends each statement after the echo of the one before.
+- After a login the console prints `Last login: ...`, which ends in `login: ` like the login prompt; only a `login: ` on a line of its own is the prompt.
+- A factory-default switch runs Auto Image Upgrade, which prints on the console every few seconds until `delete chassis auto-image-upgrade` is committed.
