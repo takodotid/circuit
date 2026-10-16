@@ -42,6 +42,15 @@ test("a Raisecom port leaving storm control in pps returns to kbps", () => {
     expect(sent).not.toContain("no storm-control mode");
 });
 
+// A port set back to auto prints it, though auto is the default, and the device refuses `no duplex auto`.
+test("a Raisecom port's speed and duplex at auto plan nothing", () => {
+    const adapter = adapters["raisecom-ros"]!;
+    const desired = ["interface tengigabitethernet 1/3/12", "shutdown"].join("\n");
+    const current = ["interface tengigabitethernet 1/3/12", "duplex auto", "speed auto", "shutdown"].join("\n");
+
+    expect(adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps).toEqual([]);
+});
+
 // Undoing a whole VLAN list line deletes VLANs still in use, which a switch refuses; only the change is sent.
 test("a VLAN list change sends only the VLANs added and removed", () => {
     const options = { secrets: false, rollback: 10 };
