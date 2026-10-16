@@ -38,11 +38,13 @@ const OPPOSITES: [RegExp, string][] = [
     [/^switchport mode trunk$/, "switchport mode access"],
     [/^telnet-server disable$/, "telnet-server enable"],
     [/^shutdown$/, "no shutdown"],
+    // The device refuses `no storm-control mode`; kbps is its default and prints nothing.
+    [/^storm-control mode pps$/, "storm-control mode kbps"],
 ];
 
 /** Lines whose removal takes only their keyword, not their value. */
 const UNDO_BY_KEYWORD =
-    /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control mode|ip address|port-channel|ip ospf cost|ip ospf network)\b/;
+    /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|ip address|port-channel|ip ospf cost|ip ospf network)\b/;
 
 function undo(line: string): string {
     for (const [pattern, opposite] of OPPOSITES) if (pattern.test(line)) return opposite;

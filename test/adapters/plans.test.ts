@@ -31,6 +31,17 @@ test("example-core-switch plans nothing against how the device prints it", () =>
     expect(plan.steps.flatMap((step) => step.show)).toEqual([]);
 });
 
+// The device refuses `no storm-control mode`, so a port leaving pps goes back to kbps, its default.
+test("a Raisecom port leaving storm control in pps returns to kbps", () => {
+    const adapter = adapters["raisecom-ros"]!;
+    const current = ["interface tengigabitethernet 1/3/12", "storm-control mode pps", "storm-control broadcast pps 1000"].join("\n");
+    const desired = ["interface tengigabitethernet 1/3/12", "shutdown"].join("\n");
+
+    const sent = adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+    expect(sent).toContain("storm-control mode kbps");
+    expect(sent).not.toContain("no storm-control mode");
+});
+
 // Undoing a whole VLAN list line deletes VLANs still in use, which a switch refuses; only the change is sent.
 test("a VLAN list change sends only the VLANs added and removed", () => {
     const options = { secrets: false, rollback: 10 };
