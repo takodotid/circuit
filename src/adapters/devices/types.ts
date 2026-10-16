@@ -11,17 +11,24 @@ export type ApplyOptions = {
     secrets: boolean;
     /** Minutes before a platform that can restore itself does so, if the run does not prove access survived. */
     rollback: number;
+    /** Reach the device through its serial console, `connection.console`, instead of SSH to its management address. */
+    console?: boolean;
 };
+
+/** How a device is read. */
+export type ReadOptions = Pick<ApplyOptions, "console">;
 
 export type DeviceAdapter = {
     /** File extension of a saved snapshot, for syntax highlighting. */
     extension: string;
     /** Fields this platform cannot express. Validation fails on any of them, so nothing is skipped silently. */
     unsupported(device: Device): string[];
+    /** The platform can be read and applied through a serial console, `--console`. */
+    console?: true;
     /** The whole configuration the device should run. Secrets appear as markers, never values. */
     render(device: Device): string;
     /** What the device runs now, secrets removed, in the form `render` produces where the platform allows. */
-    read(device: Device, network: readonly Device[]): Promise<string>;
+    read(device: Device, network: readonly Device[], options?: ReadOptions): Promise<string>;
     /** What it takes to go from `current` to `desired`. */
     plan(desired: string, current: string, options: ApplyOptions): Plan;
     /** Replace the contents of a prefix set fetched from a registry. Absent on a platform that cannot hold one. */

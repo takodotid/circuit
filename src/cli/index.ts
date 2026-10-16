@@ -32,6 +32,7 @@ const HELP = `usage: circuit <command> [device...] [options]
   apply <device>        read the device, plan against what it runs, and send with --confirm
                           --secrets      also send every secret, to rotate one
                           --rollback=N   minutes before a device that can restore itself does, default 10
+                          --console      through the device's serial console on its jump host, instead of SSH; also for snapshot
   refresh <device>      fetch prefix sets that come from a registry onto the device, with --confirm
   wireguard <device> <interface> <peer>
                         a client config for one peer, its private key left for the peer to fill
@@ -109,6 +110,7 @@ const confirmed = flags.includes("--confirm");
 const options: ApplyOptions = {
     secrets: flags.includes("--secrets"),
     rollback: Number(flags.find((flag) => flag.startsWith("--rollback="))?.split("=")[1] ?? 10),
+    ...(flags.includes("--console") ? { console: true } : {}),
 };
 
 function fail(message: string): never {
@@ -131,7 +133,15 @@ function one(): Device {
     return device ?? fail("name a device");
 }
 
-const adapterOf = (device: Device): DeviceAdapter => adapters[device.platform] ?? fail(`no adapter for ${device.platform}`);
+/** The adapter of a device, which must be able to use its console when `--console` asks for it. */
+function adapterOf(device: Device): DeviceAdapter {
+    const adapter = adapters[device.platform] ?? fail(`no adapter for ${device.platform}`);
+    if (!options.console) return adapter;
+
+    if (!adapter.console) fail(`${device.name}: ${device.platform} cannot be reached through a console yet`);
+    if (!device.connection.console) fail(`${device.name}: --console needs connection.console`);
+    return adapter;
+}
 /** What Circuit writes, beside the config. */
 const generated = join(root, ".circuit");
 const stateDirectory = join(generated, "state");
@@ -215,7 +225,7 @@ function diffCommand(): void {
 
 async function snapshotCommand(): Promise<void> {
     for (const device of selected(true)) {
-        const text = await adapterOf(device).read(device, network.devices);
+        const text = await adapterOf(device).read(device, network.devices, options);
         writeState(device, text);
         console.log(`${device.name}: ${text.split("\n").length} lines`);
     }
@@ -238,7 +248,7 @@ async function applyCommand(): Promise<void> {
     const adapter = adapterOf(device);
 
     // The plan is made against what the device runs now, never against an old snapshot.
-    const live = await adapter.read(device, network.devices);
+    const live = await adapter.read(device, network.devices, options);
     writeState(device, live);
 
     const plan = adapter.plan(adapter.render(device), live, options);
@@ -253,7 +263,7 @@ async function applyCommand(): Promise<void> {
 
     await adapter.apply(device, network.devices, plan, options);
 
-    writeState(device, await adapter.read(device, network.devices));
+    writeState(device, await adapter.read(device, network.devices, options));
     console.log("snapshot updated");
 }
 

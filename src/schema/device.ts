@@ -1,4 +1,4 @@
-import type { IP } from "./common";
+import type { IP, Secret } from "./common";
 import type { AclRule, Firewall } from "./firewall";
 import type { Interface, Port, Vlan } from "./interfaces";
 import type { PrefixSet, RoutePolicy } from "./policy";
@@ -13,6 +13,32 @@ export type Connection<U extends string> = {
     user: U;
     /** SSH port. 22 when absent. */
     port?: number;
+    /** The device's serial console, for `--console`: the way in before the device has a management address, or when its management network is down. */
+    console?: Console;
+};
+
+/** A computer with SSH that holds the serial consoles of devices, such as a laptop beside the rack. It runs Python 3. */
+export type Jump = {
+    /** Its address or name. */
+    host: string;
+    /** The user Circuit logs in as. It must be allowed to open the serial ports. */
+    user: string;
+    /** The user's password. */
+    password: Secret;
+    /** SSH port. 22 when absent. */
+    port?: number;
+    /** The jump host is reached through a Cloudflare Tunnel, so Circuit connects with `cloudflared access ssh`, which must be installed. */
+    cloudflared?: true;
+};
+
+/** A serial console, reached through a jump host. */
+export type Console = {
+    /** The jump host the console cable is plugged into. */
+    jump: Jump;
+    /** The serial port on the jump host. A path under `/dev/serial/by-path/` stays the same when two adapters swap names. */
+    port: string;
+    /** Line speed in bits per second, such as 9600 or 115200. */
+    baud: number;
 };
 
 /** A separate routing table, with the interfaces that route in it. */
