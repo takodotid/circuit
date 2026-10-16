@@ -497,11 +497,15 @@ function servicesFilter(out: Statements, device: Device, names: Names): void {
             const [protocol, standardPort] = SERVICE_PORTS[service];
             const port = management[service]?.port ?? standardPort;
             const term = `${filter} term ${service}`;
+            const allowed = sources.filter(ofFamily);
 
-            for (const source of sources.filter(ofFamily)) out.set(term, "from source-address", source);
-            out.set(term, "from", protocolWord, protocol);
-            out.set(term, "from destination-port", port);
-            out.set(term, "then accept");
+            // A term without a source would accept every source, so a family no source is in gets only the discard.
+            if (allowed.length) {
+                for (const source of allowed) out.set(term, "from source-address", source);
+                out.set(term, "from", protocolWord, protocol);
+                out.set(term, "from destination-port", port);
+                out.set(term, "then accept");
+            }
 
             const others = `${filter} term ${service}-others`;
             out.set(others, "from", protocolWord, protocol);
