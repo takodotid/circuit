@@ -62,7 +62,7 @@ jobs:
                   fi
 
             # The repository variable NPM_TRUSTED_PUBLISHING is true once npm trusts this workflow.
-            - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               if: vars.NPM_TRUSTED_PUBLISHING == 'true'
               with:
                   node-version: 24.21.0
