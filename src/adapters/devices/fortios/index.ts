@@ -6,9 +6,10 @@ import type { Client } from "ssh2";
 import { familyOf, host, split } from "../../../core/addr";
 import { MARKER, resolve, valueOfReference } from "../../../core/secrets";
 import type { AclRule, Device, Family, FilterRule } from "../../../schema";
+import { openConsole } from "../../../transport/console";
 import { connect, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
-import type { ApplyOptions, DeviceAdapter, Plan } from "../types";
+import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions } from "../types";
 import { acceptsBeforeDrop, familiesOf, isImplied, serviceOf } from "./firewall";
 import { holderOf, interfaceFor, network, settingsOf, subnet } from "./names";
 import { clean, plan } from "./plan";
@@ -147,8 +148,115 @@ export async function login(device: Device): Promise<Client> {
     });
 }
 
-/** Log in, open the CLI, and run `work` in it. */
-async function session<T>(device: Device, work: (cli: Cli) => Promise<T>): Promise<T> {
+/** What a console shows when it waits for something, in the order they are checked. */
+const CONSOLE_STATES = [
+    ["login", /login: $/],
+    ["password", /Password: $/],
+    ["banner", BANNER],
+    ["pager", /--More-- $/],
+    ["context", /\([^)\n]*\) [#$] $/],
+    ["prompt", /[#$] $/],
+] as const;
+
+type ConsoleState = (typeof CONSOLE_STATES)[number][0];
+
+/** Write to a console, then wait until it shows one of its states. */
+function prompted(channel: Channel, write: string, timeout = 30_000): Promise<ConsoleState> {
+    return new Promise((done, fail) => {
+        let text = "";
+
+        const stop = () => {
+            clearTimeout(limit);
+            channel.removeListener("data", onData);
+        };
+
+        const onData = (chunk: Buffer) => {
+            text += chunk.toString("utf8").replace(/\r/g, "");
+
+            const state = CONSOLE_STATES.find(([, pattern]) => pattern.test(text));
+            if (!state) return;
+
+            stop();
+            done(state[0]);
+        };
+
+        const limit = setTimeout(() => {
+            stop();
+            fail(new Error(`the console did not answer: ${text.slice(-200)}`));
+        }, timeout);
+
+        channel.on("data", onData);
+        channel.write(write);
+    });
+}
+
+/**
+ * Log in on a serial console, whatever state the last session left it in: a pager is quit, a `config` level left, a session someone left open logged out, so every session starts from a fresh login. The CLI ends a line at a carriage return.
+ */
+export async function consoleLogin(channel: Channel, user: string, password: string): Promise<Cli> {
+    // What to send in each state to get closer to a login prompt.
+    const toward: Record<Exclude<ConsoleState, "login">, string> = {
+        password: "\r",
+        banner: "a",
+        pager: "q",
+        context: "end\r",
+        prompt: "exit\r",
+    };
+
+    let state = await prompted(channel, "\r");
+    for (let step = 0; state !== "login"; step++) {
+        if (step >= 10) throw new Error(`the console never reached a login prompt; it is at ${state}`);
+        state = await prompted(channel, toward[state]);
+    }
+
+    if ((await prompted(channel, `${user}\r`)) !== "password") throw new Error("the console did not ask for a password");
+
+    const answer = await prompted(channel, `${password}\r`, 60_000);
+    if (answer !== "prompt") throw new Error(`the console refused the login of ${user}`);
+
+    return new Cli(channel, "\r");
+}
+
+/** Log out of a console, so no session is left open on it. */
+async function consoleLogout(cli: Cli): Promise<void> {
+    await leave(cli).catch(() => undefined);
+    await cli.run("exit", 10_000).catch(() => undefined);
+}
+
+/** The device's console and its login. */
+function consoleOf(device: Device) {
+    const console = device.connection.console;
+    if (!console) throw new Error(`${device.name}: no connection.console`);
+
+    const user = device.users?.[device.connection.user];
+    if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
+
+    return { console, user: device.connection.user as string, password: resolve(user.password) };
+}
+
+/** Log in on the console, open the CLI, and run `work` in it. `work` is also given a way to log in afresh on the same console. */
+async function consoleSession<T>(device: Device, work: (cli: Cli, relogin: () => Promise<void>) => Promise<T>): Promise<T> {
+    const { console, user, password } = consoleOf(device);
+    const opened = await openConsole(console);
+
+    try {
+        const cli = await consoleLogin(opened.channel, user, password);
+        const relogin = async () => {
+            await consoleLogin(opened.channel, user, password);
+        };
+
+        const result = await work(cli, relogin);
+        await consoleLogout(cli);
+        return result;
+    } finally {
+        opened.close();
+    }
+}
+
+/** Log in, open the CLI, and run `work` in it: through the console when asked, else over SSH. */
+async function session<T>(device: Device, work: (cli: Cli) => Promise<T>, options: ReadOptions = {}): Promise<T> {
+    if (options.console) return consoleSession(device, (cli) => work(cli));
+
     const client = await login(device);
 
     try {
@@ -216,8 +324,8 @@ export async function readConfig(cli: Cli, device: Device): Promise<string> {
     return scrub(clean(text));
 }
 
-export function read(device: Device): Promise<string> {
-    return session(device, (cli) => readConfig(cli, device));
+export function read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
+    return session(device, (cli) => readConfig(cli, device), options);
 }
 
 /**
@@ -317,15 +425,19 @@ const RELOAD = { attempts: 20, interval: 15_000 } as const;
 /**
  * Once the device is back from a reload, set it to save changes on its own again: the saved configuration still says to revert. Setting it saves what runs, so it is set only once the device says nothing is left to reload; until then the reload is asked for again.
  */
-async function settle(device: Device): Promise<string> {
+async function settle(device: Device, options: ReadOptions): Promise<string> {
     for (let attempt = 0; attempt < RELOAD.attempts; attempt++) {
         await new Promise((done) => setTimeout(done, RELOAD.interval));
 
-        const settled = await session(device, async (cli) => {
-            if (!/no config to be reloaded/.test(await cli.run("execute cfg reload"))) return false;
-            await saving(cli, "automatic");
-            return true;
-        }).catch(() => false);
+        const settled = await session(
+            device,
+            async (cli) => {
+                if (!/no config to be reloaded/.test(await cli.run("execute cfg reload"))) return false;
+                await saving(cli, "automatic");
+                return true;
+            },
+            options
+        ).catch(() => false);
         if (settled) return "the device is back and saves changes on its own again";
     }
 
@@ -333,12 +445,23 @@ async function settle(device: Device): Promise<string> {
 }
 
 export async function apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
+    const seconds = options.rollback * 60;
+
     try {
+        // Through the console, a fresh login on the same console proves the change left the device's logins working; over SSH, a fresh SSH session proves the management path too.
+        if (options.console) {
+            await consoleSession(device, async (cli, relogin) => {
+                await checkVersion(cli, device);
+                await configure(cli, plan, { seconds, prove: relogin });
+            });
+            return;
+        }
+
         await session(device, async (cli) => {
             await checkVersion(cli, device);
 
             await configure(cli, plan, {
-                seconds: options.rollback * 60,
+                seconds,
                 prove: async () => {
                     const proof = await login(device);
                     proof.end();
@@ -347,7 +470,7 @@ export async function apply(device: Device, _network: readonly Device[], plan: P
         });
     } catch (error) {
         if (!(error instanceof Reloaded)) throw error;
-        throw new Error(`${error.message}\n    ${await settle(device)}`);
+        throw new Error(`${error.message}\n    ${await settle(device, options)}`);
     }
 }
 
@@ -791,6 +914,7 @@ function serviceGaps(device: Device): string[] {
 
 export const fortios: DeviceAdapter = {
     extension: ".conf",
+    console: true,
     unsupported,
     render,
     read,

@@ -19,7 +19,7 @@ Behaviour that looks like something else. Each one has been hit on a FortiGate 3
 - Global `alias` is set again at every start, whatever was saved.
 - `log memory setting` prints its `status` whether on or off, and `unset status` turns memory logging on.
 - Two interfaces that are up cannot have overlapping subnets, `Subnets overlap between ...`, so an address moving from one to another must leave the first before it joins the second.
-- A static route identical to another is refused, `Duplicated entry`. An IPv4 route's destination is not printed when it is the default route; neither is IPv6's.
+- A static route identical to another is refused, `Duplicated entry`, even for a moment: editing route 1 into what route 2 holds fails before route 2 is changed. A plan deletes every route that changes or goes before it creates any. An IPv4 route's destination is not printed when it is the default route; neither is IPv6's.
 - A deny policy is given `logtraffic disable`, and its action is not printed, since deny is the default. `send-deny-packet` exists only while a policy denies: set before `action deny` or unset after `action accept`, it is `command parse error`. So the render writes `action deny` before `send-deny-packet`, and a plan removes the settings that go before it sets the ones that come: `send-deny-packet` is unset while the policy still denies, and set only once it does.
 - `show` prints `unset` in two places: an ICMP service's `unset icmptype`, and a prefix list rule's `unset ge` and `unset le` for a bound it does not have.
 - An SNMPv3 user authenticates with MD5 or SHA1 only, and has no list of sources: only a community has hosts. Circuit decides who reaches every service with local-in policies instead.
@@ -38,3 +38,4 @@ Behaviour that looks like something else. Each one has been hit on a FortiGate 3
 - There is no WireGuard and no RPKI, `command parse error`. A route map has no large community and a BGP neighbor no role: neither is among their settings. SNMPv3 offers no SHA256.
 - `execute backup config flash <comment>` keeps a revision on the device, and `execute restore config flash <id>` restores one.
 - The ports are `port1` to `port4` at 40G and `port5` to `port32` at 10G, then `mgmt1` and `mgmt2`. The factory dedicates both management ports to management and gives them addresses `192.168.1.99` and `192.168.2.99`.
+- On the serial console a line ends at a carriage return. A session left open stays logged in, and one left inside `config` stays there, so the next login must first leave and log out. The console takes 9600 bits per second: reading the sections Circuit manages takes about two minutes.

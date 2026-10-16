@@ -31,7 +31,7 @@ Hover any field in your editor to see what it does. The [schema reference](/refe
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `name`               | The device's name. Circuit sets it as the hostname.                                                                     |
 | `platform`, `model`  | The operating system, such as `routeros`, and the hardware model. Together they decide the commands and the port names. |
-| `connection`         | How Circuit logs in: the management address, the SSH port, and which of `users` it logs in as.                          |
+| `connection`         | How Circuit logs in: the management address, the SSH port, which of `users` it logs in as, and the serial console.      |
 | `system`             | Timezone, login banner, DNS, NTP, logging and IP settings.                                                              |
 | `users`              | Who can log in. A user not listed here is removed.                                                                      |
 | `management`         | Which services are on (SSH, web, API, SNMP) and which addresses may use them.                                           |
@@ -49,6 +49,31 @@ Hover any field in your editor to see what it does. The [schema reference](/refe
 | `flow_export`        | NetFlow, IPFIX or sFlow, to see what traffic goes where.                                                                |
 | `lldp`, `stp`        | Neighbor discovery and spanning tree, for the whole device. A port can override either.                                 |
 | `hardware_offload`   | Forward in hardware where the device can. An interface can override it.                                                 |
+
+## Reaching a device through its console
+
+A serial console is the cable into a device's console port. It works when the device has no management address yet, such as a new device, and when the management network is down. Circuit reaches a console through a **jump host**: a computer beside the rack, with the console cable plugged into it and SSH running on it.
+
+1. Plug the console cable into the jump host. Find the port's path under `/dev/serial/by-path/` there. That path stays the same when a second adapter is plugged in, while names such as `/dev/ttyUSB0` can swap.
+2. Write the console into the device's `connection`:
+
+    ```ts
+    const jump = { host: "jump.example.com", user: "netops", password: secret("JUMP_PASSWORD") };
+
+    connection: {
+        host: "192.0.2.4",
+        user: "netops",
+        console: { jump, port: "/dev/serial/by-path/pci-0000:00:14.0-usb-0:2.4:1.0-port0", baud: 9600 },
+    },
+    ```
+
+    Add `cloudflared: true` to the jump host when it is reached through a Cloudflare Tunnel; Circuit then connects with `cloudflared access ssh`.
+
+3. Run `circuit snapshot <device> --console` or `circuit apply <device> --console`.
+
+The jump host needs Python 3, and its user must be allowed to open the serial port, such as by being in the `uucp` or `dialout` group. Circuit logs in on the console with the device's own login, logs out when it is done, and leaves no session open. Only one session can hold a console at a time. A console is slow: at 9600 bits per second, reading a FortiGate takes about two minutes, so give an apply a longer `--rollback`.
+
+Consoles work on FortiOS. The other platforms are reached over SSH only, for now.
 
 ## Port names
 
