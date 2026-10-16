@@ -18,6 +18,8 @@ type Table = {
     created?: (entry: Block) => readonly string[];
     /** Settings an entry keeps for life. A change deletes the entry and creates it again. */
     fixed?: readonly string[];
+    /** The device refuses an entry that holds the same as another, `Duplicated entry`, even for a moment while entries are renumbered. */
+    distinct?: true;
 };
 
 /** Objects every FortiGate running 6.2 is shipped with, which policies and profiles of the factory name. */
@@ -168,6 +170,8 @@ export const TABLES: Record<string, Table> = {
     "firewall local-in-policy": ORDERED,
     "firewall local-in-policy6": ORDERED,
     "firewall central-snat-map": ORDERED,
+    "router static": { distinct: true },
+    "router static6": { distinct: true },
 };
 
 /** Settings the device keeps for itself: an object's UUID and an interface's SNMP index. */
@@ -346,7 +350,11 @@ function compare(path: string[], want: Block, have: Block, table: Table | undefi
 
     for (const [header, child] of want.blocks) nested(header, child, have.blocks.get(header) ?? new Block());
 
-    const entries = table?.byContent ? byContent(path, want, have) : byId(path, want, have, table, context);
+    const entries = table?.byContent
+        ? byContent(path, want, have)
+        : table?.distinct
+          ? distinctById(path, want, have, table, context)
+          : byId(path, want, have, table, context);
     send.push(...entries.send);
     show.push(...entries.show);
 
@@ -408,6 +416,37 @@ function byId(path: string[], want: Block, have: Block, table: Table | undefined
     }
 
     return { send, show, removals, removed };
+}
+
+/** Entries matched by name in a table that refuses two alike: every entry that changes or goes is deleted before any is created, so none is ever briefly the same as another. */
+function distinctById(path: string[], want: Block, have: Block, table: Table, context: Context): Diff {
+    const deletes: string[] = [];
+    const creates: string[] = [];
+    const show: string[] = [];
+
+    for (const [key, entry] of want.entries) {
+        const old = have.entries.get(key);
+        const where = [...path, bare(entry.id)];
+
+        if (old) {
+            if (!compare(where, entry.block, old.block, undefined, false, context).send.length) continue;
+
+            deletes.push(`delete ${old.id}`);
+            show.push(...shown("-", where, old.block));
+        }
+
+        creates.push(...creation(entry, table));
+        show.push(...shown("+", where, entry.block));
+    }
+
+    for (const [key, entry] of have.entries) {
+        if (want.entries.has(key) || isFactory(table, entry)) continue;
+
+        deletes.push(`delete ${entry.id}`);
+        show.push(...shown("-", [...path, bare(entry.id)], entry.block));
+    }
+
+    return { send: [...deletes, ...creates], show, removals: [], removed: [] };
 }
 
 /** The `move` commands that put a table's entries in the render's order. Kept entries hold their place on the device and new ones are added at the end. */

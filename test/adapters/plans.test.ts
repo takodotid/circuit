@@ -293,6 +293,40 @@ test("a FortiOS port joining a LAG is first freed of what names it", () => {
     expect(sent.indexOf('set member "port1"')).toBeLessThan(sent.indexOf('set device "uplink"'));
 });
 
+// The device refuses a static route the same as another, `Duplicated entry`, so editing route 1 into what route 2 holds fails before route 2 moves on.
+test("FortiOS deletes changing static routes before it creates any", () => {
+    const route = (id: number, dst: string, gateway: string, device: string) => [
+        `    edit ${id}`,
+        `        set dst ${dst}`,
+        `        set gateway ${gateway}`,
+        `        set device "${device}"`,
+        "    next",
+    ];
+
+    const current = [
+        "config router static",
+        "    edit 1",
+        "        set gateway 192.168.100.1",
+        '        set device "port1"',
+        "    next",
+        ...route(2, "10.0.0.0 255.255.255.0", "192.0.2.1", "mgmt1"),
+        ...route(3, "10.0.1.0 255.255.255.0", "192.0.2.1", "mgmt1"),
+        "end",
+    ];
+    const desired = [
+        "config router static",
+        ...route(1, "10.0.0.0 255.255.255.0", "192.0.2.1", "mgmt1"),
+        ...route(2, "10.0.1.0 255.255.255.0", "192.0.2.1", "mgmt1"),
+        "end",
+    ];
+
+    const sent = fortiosPlan(desired, current).steps.flatMap((step) => step.send);
+    const firstCreate = sent.indexOf("edit 1");
+
+    expect(sent.slice(0, 4)).toEqual(["config router static", "delete 1", "delete 2", "delete 3"]);
+    expect(firstCreate).toBeGreaterThan(sent.indexOf("delete 3"));
+});
+
 // NTP refuses to delete its last server while it synchronises, and `unset type` hides the servers without deleting them.
 test("FortiOS stops NTP before deleting its servers, and hides them last", () => {
     const current = [
