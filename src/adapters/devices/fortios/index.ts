@@ -6,7 +6,7 @@ import type { Client } from "ssh2";
 import { familyOf, host, split } from "../../../core/addr";
 import { MARKER, resolve, valueOfReference } from "../../../core/secrets";
 import type { AclRule, Device, Family, FilterRule } from "../../../schema";
-import { openConsole } from "../../../transport/console";
+import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../../transport/console";
 import { connect, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions } from "../types";
@@ -148,90 +148,23 @@ export async function login(device: Device): Promise<Client> {
     });
 }
 
-/** What a console shows when it waits for something, in the order they are checked. */
-const CONSOLE_STATES = [
-    ["login", /login: $/],
-    ["password", /Password: $/],
-    ["banner", BANNER],
-    ["pager", /--More-- $/],
-    ["context", /\([^)\n]*\) [#$] $/],
-    ["prompt", /[#$] $/],
-] as const;
-
-type ConsoleState = (typeof CONSOLE_STATES)[number][0];
-
-/** Write to a console, then wait until it shows one of its states. */
-function prompted(channel: Channel, write: string, timeout = 30_000): Promise<ConsoleState> {
-    return new Promise((done, fail) => {
-        let text = "";
-
-        const stop = () => {
-            clearTimeout(limit);
-            channel.removeListener("data", onData);
-        };
-
-        const onData = (chunk: Buffer) => {
-            text += chunk.toString("utf8").replace(/\r/g, "");
-
-            const state = CONSOLE_STATES.find(([, pattern]) => pattern.test(text));
-            if (!state) return;
-
-            stop();
-            done(state[0]);
-        };
-
-        const limit = setTimeout(() => {
-            stop();
-            fail(new Error(`the console did not answer: ${text.slice(-200)}`));
-        }, timeout);
-
-        channel.on("data", onData);
-        channel.write(write);
-    });
-}
-
-/**
- * Log in on a serial console, whatever state the last session left it in: a pager is quit, a `config` level left, a session someone left open logged out, so every session starts from a fresh login. The CLI ends a line at a carriage return.
- */
-export async function consoleLogin(channel: Channel, user: string, password: string): Promise<Cli> {
-    // What to send in each state to get closer to a login prompt.
-    const toward: Record<Exclude<ConsoleState, "login">, string> = {
-        password: "\r",
-        banner: "a",
-        pager: "q",
-        context: "end\r",
-        prompt: "exit\r",
-    };
-
-    let state = await prompted(channel, "\r");
-    for (let step = 0; state !== "login"; step++) {
-        if (step >= 10) throw new Error(`the console never reached a login prompt; it is at ${state}`);
-        state = await prompted(channel, toward[state]);
-    }
-
-    if ((await prompted(channel, `${user}\r`)) !== "password") throw new Error("the console did not ask for a password");
-
-    const answer = await prompted(channel, `${password}\r`, 60_000);
-    if (answer !== "prompt") throw new Error(`the console refused the login of ${user}`);
-
-    return new Cli(channel, "\r");
-}
+/** How the FortiOS console asks for a login, and what moves it on from where the last session left it. */
+export const FORTIOS_CONSOLE: ConsoleDialect = {
+    login: /login: $/,
+    password: /Password: $/,
+    prompt: /[#$] $/,
+    logout: "exit",
+    others: [
+        [BANNER, "a"],
+        [/--More-- $/, "q"],
+        [/\([^)\n]*\) [#$] $/, "end\n"],
+    ],
+};
 
 /** Log out of a console, so no session is left open on it. */
 async function consoleLogout(cli: Cli): Promise<void> {
     await leave(cli).catch(() => undefined);
     await cli.run("exit", 10_000).catch(() => undefined);
-}
-
-/** The device's console and its login. */
-function consoleOf(device: Device) {
-    const console = device.connection.console;
-    if (!console) throw new Error(`${device.name}: no connection.console`);
-
-    const user = device.users?.[device.connection.user];
-    if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
-
-    return { console, user: device.connection.user as string, password: resolve(user.password) };
 }
 
 /** Log in on the console, open the CLI, and run `work` in it. `work` is also given a way to log in afresh on the same console. */
@@ -240,10 +173,9 @@ async function consoleSession<T>(device: Device, work: (cli: Cli, relogin: () =>
     const opened = await openConsole(console);
 
     try {
-        const cli = await consoleLogin(opened.channel, user, password);
-        const relogin = async () => {
-            await consoleLogin(opened.channel, user, password);
-        };
+        await consoleLogin(opened.channel, FORTIOS_CONSOLE, user, password);
+        const cli = new Cli(opened.channel);
+        const relogin = () => consoleLogin(opened.channel, FORTIOS_CONSOLE, user, password);
 
         const result = await work(cli, relogin);
         await consoleLogout(cli);

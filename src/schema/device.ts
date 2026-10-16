@@ -31,11 +31,11 @@ export type Jump = {
     cloudflared?: true;
 };
 
-/** A serial console, reached through a jump host. */
+/** A serial console, on a jump host or on the computer Circuit runs on. */
 export type Console = {
-    /** The jump host the console cable is plugged into. */
-    jump: Jump;
-    /** The serial port on the jump host. A path under `/dev/serial/by-path/` stays the same when two adapters swap names. */
+    /** The jump host the console cable is plugged into. When absent, the cable is plugged into the computer Circuit runs on. */
+    jump?: Jump;
+    /** The serial port: on Linux or macOS a path under `/dev`, where a path under `/dev/serial/by-path/` stays the same when two adapters swap names; on Windows a COM port, such as `COM3`. */
     port: string;
     /** Line speed in bits per second, such as 9600 or 115200. */
     baud: number;

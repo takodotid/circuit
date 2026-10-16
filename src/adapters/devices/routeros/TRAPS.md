@@ -41,3 +41,4 @@ Behaviour that looks like something else. Each one has been hit on a real device
 - `bgp-path-len` counts every AS in the path, prepends included, and takes the same strict comparisons as `dst-len`.
 - `:parse` checks the command, not the text inside `rule=`. A routing filter rule is only checked when it is added.
 - `/routing/filter/filter-wizard` adds the rule it builds; it is not a dry run. `set blackhole yes` was proved this way on 7.23, in an unused chain removed right after.
+- On the serial console, the prompt can come twice after a login. The console echoes a long command wrapped at 80 columns, and a `print` that fills the screen stops at `-- [Q quit|D dump|down]`, where `D` prints the rest.

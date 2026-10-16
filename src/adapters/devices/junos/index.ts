@@ -6,9 +6,10 @@ import type { Client, ClientChannel } from "ssh2";
 import { familyOf, host, isAddress, split } from "../../../core/addr";
 import { resolve, substitute } from "../../../core/secrets";
 import type { Device, Family } from "../../../schema";
+import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../../transport/console";
 import { connect, exec, readUntil, shell } from "../../../transport/ssh";
 import { lagIds } from "../derive";
-import type { ApplyOptions, DeviceAdapter, Plan, Step } from "../types";
+import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions, Step } from "../types";
 import { GENERATED, settingsOf } from "./bgp";
 import { KEY_STATEMENT, Names, render, stormProfile, vrrpAddress } from "./render";
 
@@ -303,8 +304,8 @@ export async function login(device: Device): Promise<Client> {
 }
 
 /** Refuse a device on a release this adapter was not proved on, before anything is read or sent. */
-async function checkVersion(client: Client, device: Device): Promise<void> {
-    const version = await exec(client, "show version | match Junos:");
+async function checkVersion(ask: (command: string) => Promise<string>, device: Device): Promise<void> {
+    const version = await ask("show version | match Junos:");
     const release = /Junos: (\d+)\.(\S+)/.exec(version);
 
     if (!release) throw new Error(`${device.name} did not say which Junos it runs: ${version.slice(0, 200)}`);
@@ -313,11 +314,21 @@ async function checkVersion(client: Client, device: Device): Promise<void> {
     }
 }
 
-export async function read(device: Device): Promise<string> {
+export async function read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
+    if (options.console) {
+        return onConsole(device, async (channel) => {
+            await checkVersion((command) => run(channel, command), device);
+            const output = await run(channel, "show configuration | display set | no-more", 180_000);
+            if (!/^set /m.test(output)) throw new Error(`${device.name} returned no configuration`);
+
+            return clean(output);
+        });
+    }
+
     const client = await login(device);
 
     try {
-        await checkVersion(client, device);
+        await checkVersion((command) => exec(client, command), device);
         const output = await exec(client, "show configuration | display set | no-more", 180_000);
         if (!/^set /m.test(output)) throw new Error(`${device.name} returned no configuration`);
 
@@ -345,6 +356,38 @@ async function edit(channel: ClientChannel, line: string, timeout = 60_000): Pro
     channel.write(`${line}\n`);
     const output = await readUntil(channel, (text) => EDIT_PROMPT.test(text.replace(/\r/g, "")), timeout, 300);
     return output.replace(/\r/g, "");
+}
+
+/** How the console asks for a login. Root lands in a shell, `%`, every other user in the CLI, `>`; a session left in configuration mode, `#`, leaves it first. Not yet proved on a device. */
+export const JUNOS_CONSOLE: ConsoleDialect = {
+    login: /login: $/,
+    password: /Password:\s*$/,
+    prompt: /[>%] $/,
+    logout: "exit",
+    others: [[/# $/, "exit configuration-mode\n"]],
+};
+
+/** Log in on the console, open the CLI, and run `work` in it with a way to log in afresh. Logs out after. */
+async function onConsole<T>(device: Device, work: (channel: ClientChannel, relogin: () => Promise<void>) => Promise<T>): Promise<T> {
+    const { console, user, password } = consoleOf(device);
+    const opened = await openConsole(console);
+
+    // The CLI is opened on a prompt asked for after the login, since the login's own prompt is already read.
+    const login = async () => {
+        await consoleLogin(opened.channel, JUNOS_CONSOLE, user, password);
+        const ready = openCli(opened.channel);
+        opened.channel.write("\n");
+        await ready;
+    };
+
+    try {
+        await login();
+        const result = await work(opened.channel, login);
+        opened.channel.write(`${JUNOS_CONSOLE.logout}\n`);
+        return result;
+    } finally {
+        opened.close();
+    }
 }
 
 /** An interactive CLI with paging off. Root lands in a shell and starts the CLI from there. */
@@ -470,10 +513,27 @@ export async function configure(channel: ClientChannel, plan: Plan, guard?: Guar
 }
 
 export async function apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
+    if (options.console) {
+        await onConsole(device, async (channel, relogin) => {
+            await checkVersion((command) => run(channel, command), device);
+
+            // A fresh login on the console ends the session that holds the candidate, so the proof logs in again and takes the candidate back to confirm the commit.
+            await configure(channel, plan, {
+                minutes: options.rollback,
+                prove: async () => {
+                    await run(channel, "exit configuration-mode");
+                    await relogin();
+                    await run(channel, "configure exclusive");
+                },
+            });
+        });
+        return;
+    }
+
     const client = await login(device);
 
     try {
-        await checkVersion(client, device);
+        await checkVersion((command) => exec(client, command), device);
 
         const channel = await shell(client);
         await openCli(channel);
@@ -760,7 +820,7 @@ export async function fill(device: Device, _network: readonly Device[], set: str
     const client = await login(device);
 
     try {
-        await checkVersion(client, device);
+        await checkVersion((command) => exec(client, command), device);
 
         const channel = await shell(client);
         await openCli(channel);
@@ -775,6 +835,7 @@ export async function fill(device: Device, _network: readonly Device[], set: str
 
 export const junos: DeviceAdapter = {
     extension: ".conf",
+    console: true,
     unsupported,
     render,
     read,

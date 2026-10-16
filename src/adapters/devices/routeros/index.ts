@@ -6,8 +6,9 @@ import type { Client } from "ssh2";
 import { familyOf } from "../../../core/addr";
 import { resolve, substitute } from "../../../core/secrets";
 import type { Device, Family } from "../../../schema";
+import { type ConsoleDialect, consoleLogin, consoleOf, ConsoleShell, openConsole } from "../../../transport/console";
 import { connect, exec, upload } from "../../../transport/ssh";
-import type { ApplyOptions, DeviceAdapter, Plan } from "../types";
+import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions } from "../types";
 import { INSTALL_CERTIFICATE, plan } from "./plan";
 import { spell } from "../catalog";
 import { mediumOf, render } from "./render";
@@ -27,9 +28,77 @@ export async function login(device: Device): Promise<Client> {
     });
 }
 
+/** How the RouterOS console asks for a login. The flags after the user turn off colours and terminal detection, without which the console redraws every line. */
+export const ROUTEROS_CONSOLE: ConsoleDialect = {
+    login: /Login: $/,
+    password: /Password: $/,
+    prompt: /\] > $/,
+    logout: "/quit",
+    others: [
+        [/-- \[Q quit\|D dump\|(?:C-z pause\|)?down\]$/, "D"],
+        [/\[Y\/n\]:? ?$/, "n"],
+    ],
+    user: (user) => `${user}+cwt`,
+};
+
+/** Where commands run, one at a time, each returning what it printed: an SSH session, or the console. */
+type Session = {
+    run(command: string, timeout?: number): Promise<string>;
+    /** Write a file to the device. Only SSH can. */
+    upload?(path: string, content: string): Promise<void>;
+    /** A fresh login, which proves access survived: this session ends and a new SSH session opens, or the console logs out and in again. */
+    fresh(): Promise<Session>;
+    end(): void;
+};
+
+function sshSession(client: Client, device: Device): Session {
+    return {
+        run: (command, timeout) => exec(client, command, timeout),
+        upload: (path, content) => upload(client, path, content),
+        fresh: async () => {
+            client.end();
+            return sshSession(await login(device), device);
+        },
+        end: () => client.end(),
+    };
+}
+
+async function consoleSession(device: Device): Promise<Session> {
+    const { console, user, password } = consoleOf(device);
+    const opened = await openConsole(console);
+
+    try {
+        await consoleLogin(opened.channel, ROUTEROS_CONSOLE, user, password);
+    } catch (error) {
+        opened.close();
+        throw error;
+    }
+
+    const shell = new ConsoleShell(opened.channel, ROUTEROS_CONSOLE);
+
+    const session: Session = {
+        run: (command, timeout) => shell.run(command, timeout),
+        fresh: async () => {
+            await consoleLogin(opened.channel, ROUTEROS_CONSOLE, user, password);
+            return session;
+        },
+        end: () => {
+            shell.logout();
+            opened.close();
+        },
+    };
+
+    return session;
+}
+
+/** Log in over SSH, or on the console when asked. */
+async function open(device: Device, options: ReadOptions = {}): Promise<Session> {
+    return options.console ? consoleSession(device) : sshSession(await login(device), device);
+}
+
 /** Refuse a device on a version this adapter does not render for, before anything is read or sent. */
-export async function checkVersion(client: Client, device: Device): Promise<void> {
-    const version = (await exec(client, ":put [/system resource get version]")).trim();
+export async function checkVersion(session: Session, device: Device): Promise<void> {
+    const version = (await session.run(":put [/system resource get version]")).trim();
     const major = Number(version.split(".")[0]);
 
     if (major !== SUPPORTED_MAJOR) {
@@ -54,15 +123,15 @@ const LIST_CERTIFICATES = [
 /**
  * What the device runs: its export, its users, and its certificates. Secrets are not part of an export.
  */
-export async function read(device: Device): Promise<string> {
-    const client = await login(device);
+export async function read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
+    const session = await open(device, options);
 
     try {
-        await checkVersion(client, device);
+        await checkVersion(session, device);
 
-        const config = await exec(client, "/export", 300_000);
-        const users = await exec(client, "/user export");
-        const certificates = (await exec(client, LIST_CERTIFICATES)).trim();
+        const config = await session.run("/export", 300_000);
+        const users = await session.run("/user export");
+        const certificates = (await session.run(LIST_CERTIFICATES)).trim();
 
         const listed = certificates.split("\n").every((line) => line.trim().startsWith("add fingerprint="));
         if (certificates && !listed) {
@@ -75,7 +144,7 @@ export async function read(device: Device): Promise<string> {
         const text = [config.trim(), userMenu, certificateMenu].filter(Boolean).join("\n");
         return withoutTimestamp(text) + "\n";
     } finally {
-        client.end();
+        session.end();
     }
 }
 
@@ -145,44 +214,46 @@ const ROLLBACK_SCHEDULER = "apply-rollback";
 const escapeForString = (text: string) => text.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$");
 
 /** Compile a command on the device without running it. Returns why it was refused, or undefined. */
-async function refusal(client: Client, command: string): Promise<string | undefined> {
-    const compiled = (await exec(client, `:put [:parse "${escapeForString(command)}"]`)).trim();
+async function refusal(session: Session, command: string): Promise<string | undefined> {
+    const compiled = (await session.run(`:put [:parse "${escapeForString(command)}"]`)).trim();
     const refused = !compiled.startsWith("(") || /syntax error|bad parameter|no such|expected/.test(compiled);
     return refused ? compiled.slice(0, 200) : undefined;
 }
 
 /** Upload a certificate and its key, import both under one name, and delete the files. */
-async function installCertificate(client: Client, device: Device, name: string): Promise<void> {
+async function installCertificate(session: Session, device: Device, name: string): Promise<void> {
     const certificate = device.certificates?.[name];
     if (!certificate) throw new Error(`certificate ${name} is not declared`);
+    if (!session.upload)
+        throw new Error(`certificate ${name} is installed from a file, which only SSH can write; apply it without --console`);
 
-    await upload(client, `${name}.crt`, certificate.certificate);
-    await exec(client, `/certificate import file-name=${name}.crt name=${name} passphrase=""`);
+    await session.upload(`${name}.crt`, certificate.certificate);
+    await session.run(`/certificate import file-name=${name}.crt name=${name} passphrase=""`);
 
     if (certificate.private_key) {
         // A key from a file is PEM as it is; one from a variable is PEM encoded as one line of base64.
         const value = resolve(certificate.private_key);
         const privateKey = value.includes("-----BEGIN") ? `${value}\n` : Buffer.from(value, "base64").toString("utf8");
 
-        await upload(client, `${name}.key`, privateKey);
-        await exec(client, `/certificate import file-name=${name}.key name=${name} passphrase=""`);
+        await session.upload(`${name}.key`, privateKey);
+        await session.run(`/certificate import file-name=${name}.key name=${name} passphrase=""`);
     }
 
-    await exec(client, `/file remove [find name="${name}.crt" or name="${name}.key"]`);
+    await session.run(`/file remove [find name="${name}.crt" or name="${name}.key"]`);
 }
 
 export async function apply(device: Device, _network: readonly Device[], changes: Plan, options: ApplyOptions): Promise<void> {
-    const client = await login(device);
-    await checkVersion(client, device);
+    const session = await open(device, options);
+    await checkVersion(session, device);
 
     const commands = changes.steps.flatMap((step) => step.send.map((command) => ({ title: step.title, command })));
 
     for (const { title, command } of commands) {
         if (command.startsWith(INSTALL_CERTIFICATE)) continue;
 
-        const reason = await refusal(client, substitute(command));
+        const reason = await refusal(session, substitute(command));
         if (reason) {
-            client.end();
+            session.end();
             throw new Error(`${title}: the device will not parse ${command.slice(0, 200)}\n    ${reason}`);
         }
     }
@@ -201,38 +272,36 @@ export async function apply(device: Device, _network: readonly Device[], changes
     try {
         console.log(`  saving ${backup}, arming a ${options.rollback} minute rollback`);
 
-        await exec(client, `/system backup save name=${backup} dont-encrypt=yes`, 120_000);
-        await exec(client, `/system scheduler remove [find name="${ROLLBACK_SCHEDULER}"]`);
-        await exec(client, armRollback);
+        await session.run(`/system backup save name=${backup} dont-encrypt=yes`, 120_000);
+        await session.run(`/system scheduler remove [find name="${ROLLBACK_SCHEDULER}"]`);
+        await session.run(armRollback);
 
         for (const { title, command } of commands) {
             if (command.startsWith(INSTALL_CERTIFICATE)) {
                 const certificateName = command.slice(INSTALL_CERTIFICATE.length).trim();
-                await installCertificate(client, device, certificateName);
+                await installCertificate(session, device, certificateName);
                 continue;
             }
 
-            const answer = (await exec(client, substitute(command), 120_000)).trim();
+            const answer = (await session.run(substitute(command), 120_000)).trim();
             if (answer) throw new Error(`${title}: ${command.slice(0, 160)}\n    device said: ${answer.slice(0, 300)}`);
         }
     } catch (error) {
         console.log(`  FAILED: ${(error as Error).message}`);
         console.log(`  restoring ${backup} now; the rollback stays armed in case this does not get through`);
 
-        await exec(client, `/system backup load name=${backup} password=""`, 30_000).catch(() => undefined);
-        client.end();
+        await session.run(`/system backup load name=${backup} password=""`, 30_000).catch(() => undefined);
+        session.end();
 
         throw new Error("apply failed and the backup is being restored");
     }
 
-    client.end();
-
-    // A fresh session is the proof that access survived. Only then is the rollback removed, with the backup, which holds every credential.
-    const proof = await login(device).catch(() => undefined);
+    // A fresh login is the proof that access survived. Only then is the rollback removed, with the backup, which holds every credential.
+    const proof = await session.fresh().catch(() => undefined);
     if (!proof) throw new Error(`could not log in again; the device restores ${backup} within ${options.rollback} minutes`);
 
-    await exec(proof, `/system scheduler remove [find name="${ROLLBACK_SCHEDULER}"]`);
-    await exec(proof, `/file remove [find name="${backup}.backup"]`);
+    await proof.run(`/system scheduler remove [find name="${ROLLBACK_SCHEDULER}"]`);
+    await proof.run(`/file remove [find name="${backup}.backup"]`);
     proof.end();
     console.log("  logged in again, rollback disarmed");
 }
@@ -262,6 +331,7 @@ export async function fill(device: Device, _network: readonly Device[], set: str
 
 export const routeros: DeviceAdapter = {
     extension: ".rsc",
+    console: true,
     unsupported,
     render,
     read,

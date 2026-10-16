@@ -7,11 +7,12 @@ import { familyOf, host, netmask, split, wildcard } from "../../../core/addr";
 import { marker, resolve, substitute, valueOfReference } from "../../../core/secrets";
 import { offset } from "../../../core/time";
 import type { Device, Interface, Port, Vrrp } from "../../../schema";
+import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../../transport/console";
 import { connect, readUntil, send, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import { ipv4Networks, lagIds, switchUnsupported } from "../derive";
 import { compare, type Dialect, scrub, steps, vlanListChange } from "../lines";
-import type { DeviceAdapter, Plan } from "../types";
+import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions } from "../types";
 
 /** Lines the device prints whatever is configured, or that describe the hardware rather than its configuration. */
 const DEVICE_FACTS = [
@@ -570,8 +571,46 @@ export async function openShell(client: Client): Promise<ClientChannel> {
     return channel;
 }
 
+/** How the console asks for a login: the same question to change the password, always answered no, and a system view left with `return`. Not yet proved on a device. */
+export const VRP_CONSOLE: ConsoleDialect = {
+    login: /Username:\s*$/i,
+    password: /Password:\s*$/i,
+    prompt: /<[^>\n]+>\s*$/,
+    logout: "quit",
+    others: [
+        [/Change now\? ?\[Y\/N\]:?\s*$/i, "N\n"],
+        [/\[~?\*?[^\]\n]+\]\s*$/, "return\n"],
+    ],
+};
+
+/** Log in on the console with paging off, run `work` with a way to log in afresh, and log out. */
+async function onConsole<T>(device: Device, work: (channel: ClientChannel, relogin: () => Promise<void>) => Promise<T>): Promise<T> {
+    const { console, user, password } = consoleOf(device);
+    const opened = await openConsole(console);
+
+    const login = async () => {
+        await consoleLogin(opened.channel, VRP_CONSOLE, user, password);
+        await send(opened.channel, "screen-length 0 temporary", 10_000, 1500);
+    };
+
+    try {
+        await login();
+        const result = await work(opened.channel, login);
+        opened.channel.write(`${VRP_CONSOLE.logout}\n`);
+        return result;
+    } finally {
+        opened.close();
+    }
+}
+
 /** What the device runs, credentials scrubbed. */
-export async function read(device: Device): Promise<string> {
+export async function read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
+    if (options.console) {
+        return onConsole(device, async (channel) =>
+            configurationOf(device, await send(channel, "display current-configuration", 120_000, 3000))
+        );
+    }
+
     const client = await login(device);
 
     try {
@@ -579,15 +618,20 @@ export async function read(device: Device): Promise<string> {
         const dump = await send(channel, "display current-configuration", 120_000, 3000);
         channel.end();
 
-        const lines = dump.replace(/\r/g, "").split("\n");
-        const start = lines.findIndex((line) => line.startsWith("!Software Version"));
-        if (start < 0) throw new Error(`${device.name} returned no configuration`);
-        // The prompt, and the stamp of the last change, are not configuration.
-        const body = lines.slice(start).filter((line) => !/^<.*>$/.test(line.trim()) && !line.startsWith("!Last configuration"));
-        return scrub(body.join("\n").trim() + "\n");
+        return configurationOf(device, dump);
     } finally {
         client.end();
     }
+}
+
+/** The configuration in a dump, without the prompt or the stamp of the last change. */
+function configurationOf(device: Device, dump: string): string {
+    const lines = dump.replace(/\r/g, "").split("\n");
+    const start = lines.findIndex((line) => line.startsWith("!Software Version"));
+    if (start < 0) throw new Error(`${device.name} returned no configuration`);
+
+    const body = lines.slice(start).filter((line) => !/^<.*>$/.test(line.trim()) && !line.startsWith("!Last configuration"));
+    return scrub(body.join("\n").trim() + "\n");
 }
 
 export function unsupported(device: Device): string[] {
@@ -693,10 +737,8 @@ async function sendLine(channel: ClientChannel, line: string): Promise<string> {
     return answer;
 }
 
-export async function apply(device: Device, _network: readonly Device[], plan: Plan): Promise<void> {
-    const client = await login(device);
-    const channel = await openShell(client);
-
+/** Send a plan into the candidate and commit it. A refused line clears the candidate, which leaves the device as it was. */
+async function commitPlan(channel: ClientChannel, plan: Plan): Promise<void> {
     try {
         await send(channel, "system-view", 10_000, 1500);
 
@@ -711,28 +753,50 @@ export async function apply(device: Device, _network: readonly Device[], plan: P
         if (REFUSED.test(committed)) throw new Error(`commit refused: ${committed.trim().slice(0, 300)}`);
         await send(channel, "quit", 10_000);
     } catch (error) {
-        // Nothing is committed yet. Clearing the candidate leaves the device as it was.
         await send(channel, "clear configuration candidate", 10_000).catch(() => undefined);
-        channel.end();
-        client.end();
         throw error;
     }
+}
 
-    const proof = await login(device).catch(() => undefined);
-    if (!proof) {
-        channel.end();
-        client.end();
-        throw new Error(
-            "committed, but a fresh login failed. Not saved: a reboot restores the previous configuration. Recover over the open session or the console."
-        );
-    }
-
-    proof.end();
-
+/** Save what runs, so a reboot keeps it. */
+async function save(channel: ClientChannel): Promise<void> {
     const saving = await send(channel, "save", 20_000, 2000);
     if (/\[Y\/N\]/i.test(saving)) await send(channel, "Y", 60_000, 5000);
-    channel.end();
-    client.end();
+}
+
+const NOT_SAVED = "Not saved: a reboot restores the previous configuration.";
+
+export async function apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
+    // On the console, a fresh login on the same console is the proof, and the save is sent in it.
+    if (options.console) {
+        await onConsole(device, async (channel, relogin) => {
+            await commitPlan(channel, plan);
+            await relogin().catch((error: Error) => {
+                throw new Error(`committed, but a fresh login on the console failed: ${error.message}. ${NOT_SAVED}`);
+            });
+            await save(channel);
+        });
+
+        console.log("  committed, login proved, saved");
+        return;
+    }
+
+    const client = await login(device);
+    const channel = await openShell(client);
+
+    try {
+        await commitPlan(channel, plan);
+
+        const proof = await login(device).catch(() => undefined);
+        if (!proof) throw new Error(`committed, but a fresh login failed. ${NOT_SAVED} Recover over the open session or the console.`);
+        proof.end();
+
+        await save(channel);
+    } finally {
+        channel.end();
+        client.end();
+    }
+
     console.log("  committed, login proved, saved");
 }
 
@@ -779,6 +843,7 @@ function plan(desired: string, current: string): Plan {
 
 export const vrp: DeviceAdapter = {
     extension: ".cfg",
+    console: true,
     unsupported,
     render,
     read,
