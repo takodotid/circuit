@@ -636,3 +636,12 @@ test("a FortiOS device leaving transparent mode is a problem, not a plan", () =>
     const plan = fortiosPlan(["config system settings", "end"], transparent);
     expect(plan.problems.length).toBe(1);
 });
+
+// CloudEngine refuses `undo ssh server key-exchange` with the algorithms after it.
+test("removing an SSH algorithm list on VRP sends the undo without the algorithms", () => {
+    const options = { secrets: false, rollback: 10 };
+    const current = "ssh server hmac sha2_256 sha1\nssh server key-exchange dh_group_exchange_sha1 ecdh_sha2_nistp256\n";
+
+    const sent = adapters["vrp"]!.plan("", current, options).steps.flatMap((step) => step.send);
+    expect(sent).toEqual(expect.arrayContaining(["undo ssh server hmac", "undo ssh server key-exchange"]));
+});

@@ -37,7 +37,7 @@ const DEVICE_FACTS = [
 
 /** Lines whose removal takes only their keyword, not their value. */
 const UNDO_BY_KEYWORD =
-    /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance)\b/;
+    /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange)\b/;
 
 function undo(line: string): string {
     // A negated line is undone by stating it.

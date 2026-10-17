@@ -21,3 +21,5 @@ Behaviour that looks like something else. Each one has been hit on a CE6855 runn
 - sFlow samples per port, `sflow sampling rate N`, N from 4096; the default is 8192 and an explicit 8192 is kept as written. A port can point to a collector only once the collector exists globally; until then it is refused with "collector does not exist".
 - `vlan batch` has every VLAN on one line, and undoing a list that includes a VLAN with an L3 interface is refused. A change sends only the VLANs added and `undo vlan batch` for the ones removed.
 - A VLAN name is unique across VLANs: a new VLAN cannot take a name another still has. VLANs no longer used, and their VLAN interfaces, are removed first, in the same candidate.
+- `undo ssh server key-exchange <algorithms>` is refused with "Too many parameters"; `undo ssh server key-exchange` takes none. `hmac` was proved the same way. `cipher` is undone the same way but was not proved on its own.
+- A console on a password only (`passwordOnly`) shows `Please Press ENTER.` after a logout or a refused password, and `Error: The password is invalid.` for a wrong one.
