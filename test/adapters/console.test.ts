@@ -3,18 +3,20 @@
 import { EventEmitter } from "node:events";
 import { expect, test } from "bun:test";
 import { FORTIOS_CONSOLE } from "../../src/adapters/devices/fortios/index";
+import { VRP_CONSOLE } from "../../src/adapters/devices/vrp/index";
 import { ROUTEROS_CONSOLE } from "../../src/adapters/devices/routeros/index";
 import { afterEcho, consoleLogin, ConsoleShell } from "../../src/transport/console";
 
 /** A console that answers each line it receives from a script, and records what was written. */
-function fakeConsole(answers: Record<string, string | string[]>) {
+function fakeConsole(answers: Record<string, string | string[] | (() => string | string[])>) {
     const emitter = new EventEmitter();
     const written: string[] = [];
 
     const channel = {
         write(data: string) {
             written.push(data);
-            const answer = answers[data];
+            const given = answers[data];
+            const answer = typeof given === "function" ? given() : given;
             const chunks = answer === undefined ? [] : Array.isArray(answer) ? answer : [answer];
             chunks.forEach((chunk, index) => setTimeout(() => emitter.emit("data", Buffer.from(chunk)), 5 * (index + 1)));
             return true;
@@ -99,4 +101,53 @@ test("a device needs a management address or a console", async () => {
 
     expect(reach({}).map((finding) => finding.message)).toContain(message);
     expect(reach({ console: { port: "COM3", baud: 9600 } }).map((finding) => finding.message)).not.toContain(message);
+});
+
+test("a VRP console that asks for a username and a password logs in", async () => {
+    const { channel, written } = fakeConsole({
+        "\n": "\r\nUsername:",
+        "netops\n": "netops\r\nPassword:",
+        "secret\n": "\r\nInfo: Current time.\r\n<tako-sw-01>",
+    });
+
+    await consoleLogin(channel, VRP_CONSOLE, "netops", "secret");
+    expect(written).toEqual(["\n", "netops\n", "secret\n"]);
+});
+
+test("a VRP console that asks only for a password gets the password and no name", async () => {
+    const { channel, written } = fakeConsole({
+        "\n": "\r\nPassword:",
+        "secret\n": "\r\n<tako-sw-01>",
+    });
+
+    await consoleLogin(channel, VRP_CONSOLE, "netops", "secret", true);
+    expect(written).toEqual(["\n", "secret\n"]);
+});
+
+test("a VRP console left logged in is logged out and brought back to its password prompt", async () => {
+    const screens = ["\r\n<tako-sw-01>", "\r\nUser interface con0 is available\r\n\r\nPlease Press ENTER.", "\r\nPassword:"];
+    const { channel, written } = fakeConsole({
+        "\n": () => screens.shift()!,
+        "quit\n": "quit\r\nUser interface con0 is available\r\n\r\nPlease Press ENTER.",
+        "secret\n": "\r\n<tako-sw-01>",
+    });
+    screens.splice(1, 1);
+
+    await consoleLogin(channel, VRP_CONSOLE, "netops", "secret", true);
+    expect(written).toEqual(["\n", "quit\n", "\n", "secret\n"]);
+});
+
+test("a VRP console that refuses the password says so", async () => {
+    const { channel } = fakeConsole({
+        "\n": "\r\nPassword:",
+        "wrong\n": "\r\nError: The password is invalid.\r\n\r\nUser interface con0 is available\r\n\r\nPlease Press ENTER.",
+    });
+
+    await expect(consoleLogin(channel, VRP_CONSOLE, "netops", "wrong", true)).rejects.toThrow("refused the password");
+});
+
+test("a console set to ask only for a password fails when it asks for a name", async () => {
+    const { channel } = fakeConsole({ "\n": "\r\nUsername:" });
+
+    await expect(consoleLogin(channel, VRP_CONSOLE, "netops", "secret", true)).rejects.toThrow("asks for a name");
 });

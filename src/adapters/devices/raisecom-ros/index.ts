@@ -371,7 +371,7 @@ async function consoleShell(device: Device): Promise<Session> {
     const opened = await openConsole(console);
 
     try {
-        await consoleLogin(opened.channel, RAISECOM_CONSOLE, user, password);
+        await consoleLogin(opened.channel, RAISECOM_CONSOLE, user, password, console.passwordOnly);
     } catch (error) {
         opened.close();
         throw error;
@@ -384,7 +384,7 @@ async function consoleShell(device: Device): Promise<Session> {
             opened.close();
         },
         fresh: async () => {
-            await consoleLogin(opened.channel, RAISECOM_CONSOLE, user, password);
+            await consoleLogin(opened.channel, RAISECOM_CONSOLE, user, password, console.passwordOnly);
             await send(opened.channel, "terminal page-break disable", 15_000, 1000);
             return session;
         },

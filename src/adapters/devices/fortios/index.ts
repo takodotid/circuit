@@ -173,9 +173,9 @@ async function consoleSession<T>(device: Device, work: (cli: Cli, relogin: () =>
     const opened = await openConsole(console);
 
     try {
-        await consoleLogin(opened.channel, FORTIOS_CONSOLE, user, password);
+        await consoleLogin(opened.channel, FORTIOS_CONSOLE, user, password, console.passwordOnly);
         const cli = new Cli(opened.channel);
-        const relogin = () => consoleLogin(opened.channel, FORTIOS_CONSOLE, user, password);
+        const relogin = () => consoleLogin(opened.channel, FORTIOS_CONSOLE, user, password, console.passwordOnly);
 
         const result = await work(cli, relogin);
         await consoleLogout(cli);

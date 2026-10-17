@@ -113,6 +113,16 @@ Circuit logs in with the device's own login, whatever state the last session lef
 
 A console on this computer under Windows has been tried only as far as opening a COM port.
 
+### A console that asks only for a password
+
+Some consoles show `Password:` straight after Enter, with no `Username:` first. Add `passwordOnly: true` to the console, and Circuit types no name:
+
+```ts
+console: { port: "COM3", baud: 9600, passwordOnly: true },
+```
+
+`connection.user` still says whose password Circuit types. If the console asks for a name anyway, `--console` stops and says so.
+
 ## Port names
 
 Ports are named by speed and position: `10g-1` is the first 10G port, `100g-2` the second 100G port. Circuit knows what each vendor calls them, so `10g-1` becomes `10GE1/0/1` on a Huawei switch and `sfp28-1` on a MikroTik router.

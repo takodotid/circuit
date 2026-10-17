@@ -571,13 +571,15 @@ export async function openShell(client: Client): Promise<ClientChannel> {
     return channel;
 }
 
-/** How the console asks for a login: the same question to change the password, always answered no, and a system view left with `return`. Not yet proved on a device. */
+/** How the console asks for a login: the same question to change the password, always answered no, a system view left with `return`, and the line's banner after a logout or a refused password answered with Enter. Not yet proved on a device. */
 export const VRP_CONSOLE: ConsoleDialect = {
     login: /Username:\s*$/i,
     password: /Password:\s*$/i,
     prompt: /<[^>\n]+>\s*$/,
     logout: "quit",
+    refused: /The password is invalid/i,
     others: [
+        [/Please Press ENTER\.?\s*$/i, "\n"],
         [/Change now\? ?\[Y\/N\]:?\s*$/i, "N\n"],
         [/\[~?\*?[^\]\n]+\]\s*$/, "return\n"],
     ],
@@ -589,7 +591,7 @@ async function onConsole<T>(device: Device, work: (channel: ClientChannel, relog
     const opened = await openConsole(console);
 
     const login = async () => {
-        await consoleLogin(opened.channel, VRP_CONSOLE, user, password);
+        await consoleLogin(opened.channel, VRP_CONSOLE, user, password, console.passwordOnly);
         await send(opened.channel, "screen-length 0 temporary", 10_000, 1500);
     };
 
