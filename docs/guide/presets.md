@@ -124,6 +124,8 @@ Every other VLAN counts as yours, so a VLAN you add later is protected without b
 
 A switch may carry the transit and your own VLANs on the trunk to the router, because the router filters between them. The same mix on a port to a server is an error.
 
+A site can reach into a second building through a switch there, such as for an internet exchange whose port is in that building, with the exchange's VLAN and the switch's own management on one cable. List that link in `extended`, by the names of its two switches: `extended: [["switch-a", "switch-b"]]`. The mix is then allowed on that link only, and neither switch may give the untrusted VLAN an address.
+
 ## Helpers for checks of your own
 
 These help when you write your own checks. Each example is a complete check.

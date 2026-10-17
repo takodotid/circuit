@@ -186,6 +186,10 @@ export type TrustBoundary = {
     untrusted: readonly string[];
     /** The devices that filter: the only ones that may give an untrusted VLAN an address, and the only ones a port carrying both kinds may face. */
     routers: readonly string[];
+    /**
+     * Links between two switches that may carry both kinds, each named by its two devices: a site's switch extended to another building, with an exchange's VLAN and its own management on one cable. Neither end gives an untrusted VLAN an address.
+     */
+    extended?: readonly (readonly [string, string])[];
 };
 
 /** A check: traffic from outside reaches your own VLANs only through a router. A port or LAG carrying an untrusted VLAN beside any other is on a router or faces one, and only a router gives an untrusted VLAN an address. */
@@ -194,6 +198,7 @@ export const trustBoundary =
     (devices) => {
         const untrusted = new Set(boundary.untrusted);
         const routers = new Set(boundary.routers);
+        const extended = (a: string, b: string) => (boundary.extended ?? []).some(([x, y]) => (x === a && y === b) || (x === b && y === a));
         const findings: Finding[] = [];
 
         for (const device of devices) {
@@ -225,8 +230,9 @@ export const trustBoundary =
             for (const { what, carried, faces } of carriers) {
                 const mixes = carried.some((vlan) => untrusted.has(vlan)) && carried.some((vlan) => !untrusted.has(vlan));
                 const facesRouter = isRouter || faces.some((name) => routers.has(name));
+                const isExtension = faces.length > 0 && faces.every((name) => extended(device.name, name));
 
-                if (mixes && !facesRouter) {
+                if (mixes && !facesRouter && !isExtension) {
                     findings.push({
                         level: "error",
                         device: device.name,
