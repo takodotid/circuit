@@ -73,6 +73,21 @@ test("trustBoundary finds an untrusted VLAN beside a trusted one away from a rou
     ]);
 });
 
+test("trustBoundary lets a named link between two switches extend a site", async () => {
+    const { trustBoundary } = await import("../../src/presets");
+    const extension = (name: string, far: string) =>
+        ({
+            ...switchDevice,
+            name,
+            interfaces: {},
+            ports: { "10g-1": { trunk_vlans: ["guests", "management"], link: { device: far, port: "10g-1" } } },
+        }) as typeof switchDevice;
+    const devices = [extension("near", "far"), extension("far", "near")];
+
+    expect(trustBoundary({ untrusted: ["guests"], routers: [] })(devices)).toHaveLength(2);
+    expect(trustBoundary({ untrusted: ["guests"], routers: [], extended: [["near", "far"]] })(devices)).toEqual([]);
+});
+
 test("communityScheme blackholes only inside the customer's space, and never announces it", async () => {
     const { communityScheme } = await import("../../src/presets");
     const communities = communityScheme({
