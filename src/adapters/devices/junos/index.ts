@@ -375,7 +375,7 @@ async function onConsole<T>(device: Device, work: (channel: ClientChannel, relog
 
     // The CLI is opened on a prompt asked for after the login, since the login's own prompt is already read.
     const login = async () => {
-        await consoleLogin(opened.channel, JUNOS_CONSOLE, user, password);
+        await consoleLogin(opened.channel, JUNOS_CONSOLE, user, password, console.passwordOnly);
         const ready = openCli(opened.channel);
         opened.channel.write("\n");
         await ready;

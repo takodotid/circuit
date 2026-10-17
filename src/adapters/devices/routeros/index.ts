@@ -68,7 +68,7 @@ async function consoleSession(device: Device): Promise<Session> {
     const opened = await openConsole(console);
 
     try {
-        await consoleLogin(opened.channel, ROUTEROS_CONSOLE, user, password);
+        await consoleLogin(opened.channel, ROUTEROS_CONSOLE, user, password, console.passwordOnly);
     } catch (error) {
         opened.close();
         throw error;
@@ -79,7 +79,7 @@ async function consoleSession(device: Device): Promise<Session> {
     const session: Session = {
         run: (command, timeout) => shell.run(command, timeout),
         fresh: async () => {
-            await consoleLogin(opened.channel, ROUTEROS_CONSOLE, user, password);
+            await consoleLogin(opened.channel, ROUTEROS_CONSOLE, user, password, console.passwordOnly);
             return session;
         },
         end: () => {

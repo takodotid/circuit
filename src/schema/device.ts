@@ -39,6 +39,8 @@ export type Console = {
     port: string;
     /** Line speed in bits per second, such as 9600 or 115200. */
     baud: number;
+    /** The console asks only for a password, with no name first. Circuit then types no name; `connection.user` still picks the password. */
+    passwordOnly?: true;
 };
 
 /** A separate routing table, with the interfaces that route in it. */

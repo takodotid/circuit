@@ -250,6 +250,8 @@ export type ConsoleDialect = {
     others?: readonly (readonly [RegExp, string])[];
     /** The name typed at the login prompt, when the platform adds to it. */
     user?: (user: string) => string;
+    /** What the console prints when it refuses a password, for a console that then shows no login prompt. */
+    refused?: RegExp;
 };
 
 /** Terminal escape sequences: cursor moves, screen clears, character sets and modes. */
@@ -293,9 +295,15 @@ export function expect(channel: Channel, write: string, patterns: readonly RegEx
 }
 
 /**
- * Log in on a console, whatever state the last session left it in: what `others` names is moved on, a session left open is logged out, so every session starts from a fresh login. Returns once the CLI's prompt shows.
+ * Log in on a console, whatever state the last session left it in: what `others` names is moved on, a session left open is logged out, so every session starts from a fresh login. Returns once the CLI's prompt shows. A console that asks only for a password (`passwordOnly`) is logged in at its password prompt, with no name typed.
  */
-export async function consoleLogin(channel: Channel, dialect: ConsoleDialect, user: string, password: string): Promise<void> {
+export async function consoleLogin(
+    channel: Channel,
+    dialect: ConsoleDialect,
+    user: string,
+    password: string,
+    passwordOnly = false
+): Promise<void> {
     const others = dialect.others ?? [];
     const states = [dialect.login, dialect.password, ...others.map(([pattern]) => pattern), dialect.prompt];
 
@@ -309,32 +317,39 @@ export async function consoleLogin(channel: Channel, dialect: ConsoleDialect, us
     // What the last session printed as it left, such as a login prompt after its logout, arrives late; it must not be taken for an answer.
     await quiet(channel, 1_000);
 
+    // The prompt a fresh login starts at: the login prompt, or the password prompt when there is no name to type.
+    const start = passwordOnly ? 1 : 0;
+
     let state = (await expect(channel, "\n", states)).index;
-    for (let step = 0; state !== 0; step++) {
-        if (step >= 10) throw new Error("the console never reached a login prompt");
+    for (let step = 0; state !== start; step++) {
+        if (passwordOnly && state === 0) throw new Error("the console asks for a name, but its console is set to ask only for a password");
+        if (step >= 10) throw new Error(`the console never reached a ${passwordOnly ? "password" : "login"} prompt`);
         state = (await expect(channel, toward(state), states)).index;
     }
 
     // A console can print the login prompt more than once; a name typed while it does is lost.
     await quiet(channel, 1_000);
 
-    const name = dialect.user ? dialect.user(user) : user;
-    if ((await expect(channel, `${name}\n`, [dialect.password, dialect.login, dialect.prompt])).index !== 0) {
-        throw new Error("the console did not ask for a password");
+    if (!passwordOnly) {
+        const name = dialect.user ? dialect.user(user) : user;
+        if ((await expect(channel, `${name}\n`, [dialect.password, dialect.login, dialect.prompt])).index !== 0) {
+            throw new Error("the console did not ask for a password");
+        }
     }
 
-    // A platform may ask something once logged in, such as whether to read a licence; `others` answers it.
-    let answer = await expect(channel, `${password}\n`, [dialect.prompt, dialect.login, ...others.map(([pattern]) => pattern)], 60_000);
-    for (let step = 0; answer.index >= 2; step++) {
+    // A platform may ask something once logged in, such as whether to read a licence; `others` answers it. A refusal is checked before `others`, since the banner that follows it matches one of them.
+    const refusal = dialect.refused ? [dialect.refused] : [];
+    const first = 2 + refusal.length;
+    const answers = [dialect.prompt, dialect.login, ...refusal, ...others.map(([pattern]) => pattern)];
+
+    let answer = await expect(channel, `${password}\n`, answers, 60_000);
+    for (let step = 0; answer.index >= first; step++) {
         if (step >= 5) throw new Error("the console kept asking after the login");
-        answer = await expect(channel, others[answer.index - 2]![1], [
-            dialect.prompt,
-            dialect.login,
-            ...others.map(([pattern]) => pattern),
-        ]);
+        answer = await expect(channel, others[answer.index - first]![1], answers);
     }
 
     if (answer.index === 1) throw new Error(`the console refused the login of ${user}`);
+    if (answer.index === 2 && dialect.refused) throw new Error("the console refused the password");
 
     // Some consoles print the prompt twice after a login; what arrives late must not reach the first command.
     await quiet(channel, 800);
