@@ -121,7 +121,7 @@ Some consoles show `Password:` straight after Enter, with no `Username:` first. 
 console: { port: "COM3", baud: 9600, passwordOnly: true },
 ```
 
-`connection.user` still says whose password Circuit types. If the console asks for a name anyway, `--console` stops and says so.
+`connection.user` still says whose password Circuit types: it is that user's `password`, not `management.console.password`. When a device also sets `management.console`, give both the same secret. If the console asks for a name anyway, `--console` stops and says so.
 
 ## Port names
 
