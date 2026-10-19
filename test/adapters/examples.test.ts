@@ -218,3 +218,37 @@ test("a route through an AS is matched anywhere in its path", () => {
     expect(junos).toContain(`set policy-options as-path circuit-through-64496 ".* 64496 .*"`);
     expect(junos).toContain("as-path circuit-through-64496");
 });
+
+test("a transparent FortiGate takes one management address outside its bridges", () => {
+    const managed: Device = {
+        ...transparentFirewall,
+        connection: { ...transparentFirewall.connection, host: "192.0.2.70" },
+        management: { allow: ["192.0.2.0/24"], https: {}, ssh: {} },
+        vlans: { ...transparentFirewall.vlans, management: { id: 99 } },
+        interfaces: {
+            ...transparentFirewall.interfaces,
+            router: { type: "lag", mode: "lacp", trunk_vlans: ["outside", "inside", "management"] },
+            management: { type: "vlan", vlan: "management", addresses: ["192.0.2.70/24"] },
+        },
+        routing: { static: [{ prefix: "0.0.0.0/0", via: "192.0.2.1" }] },
+    };
+    const adapter = adapters["fortios"]!;
+
+    expect(adapter.unsupported!(managed)).toEqual([]);
+    const rendered = adapter.render(managed);
+    expect(rendered).toContain("set manageip 192.0.2.70/255.255.255.0");
+    expect(rendered).toMatch(/edit "management"[^]*?set allowaccess ping https ssh/);
+    expect(rendered).not.toMatch(/edit "management"[^]*?set ip /);
+    expect(rendered).toMatch(/config router static\n {4}edit 1\n {8}set gateway 192\.0\.2\.1\n {4}next/);
+
+    const plan = adapter.plan(rendered, rendered, { secrets: false, rollback: 10 });
+    expect(plan.steps.flatMap((step) => step.show)).toEqual([]);
+
+    const twice = {
+        ...managed,
+        interfaces: { ...managed.interfaces, outside: { ...managed.interfaces!.outside!, addresses: ["198.51.100.1/24"] } },
+    } as Device;
+    expect(adapter.unsupported!(twice)).toContain(
+        "interfaces.outside.addresses, in transparent mode, which a bridge needs: one IPv4 address in all, outside the bridges, for management"
+    );
+});

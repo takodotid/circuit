@@ -11,7 +11,7 @@ import { connect, managementHost, shell } from "../../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions } from "../types";
 import { acceptsBeforeDrop, familiesOf, isImplied, serviceOf } from "./firewall";
-import { holderOf, interfaceFor, isTransparent, network, settingsOf, subnet } from "./names";
+import { holderOf, interfaceFor, isTransparent, network, settingsOf, subnet, transparentManagement } from "./names";
 import { clean, plan } from "./plan";
 import { COLLECTORS, FULL, HELPERS, RESOLVERS, render, SECTIONS, SPEEDS, SSH_KEYS, vlanParent, VRFS, zoneOf } from "./render";
 import { BITS, PREFIX_LIST, routingGaps } from "./routing";
@@ -482,30 +482,49 @@ export function unsupported(device: Device): string[] {
     return found;
 }
 
-/** What transparent mode, which a bridge needs, leaves out: every address, routing, NAT and the services that answer on an address. The device is reached through its console. */
+/**
+ * What transparent mode, which a bridge needs, leaves out: every address but one IPv4 management address outside the bridges, routing beyond static routes for it, NAT and DHCP. Without a management address the device is reached through its console and answers no service.
+ */
 function transparentGaps(device: Device): string[] {
     if (!isTransparent(device)) return [];
 
     const found: string[] = [];
     const where = "in transparent mode, which a bridge needs";
+    const management = transparentManagement(device);
 
-    if (device.connection.host) found.push(`connection.host, ${where}: the device is reached through its console`);
+    if (device.connection.host && device.connection.host !== (management && host(management.address)))
+        found.push(`connection.host, ${where}: only the management address, one IPv4 address outside the bridges`);
 
-    for (const [name, port] of Object.entries(device.ports ?? {})) {
-        if (port?.addresses?.length) found.push(`ports.${name}.addresses, ${where}`);
-    }
-    for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
-        if (iface.addresses?.length) found.push(`interfaces.${name}.addresses, ${where}`);
+    const holders = [
+        ...Object.entries(device.ports ?? {}).map(([name, port]) => [`ports.${name}`, name, port?.addresses] as const),
+        ...Object.entries(device.interfaces ?? {}).map(([name, iface]) => [`interfaces.${name}`, name, iface.addresses] as const),
+    ];
+
+    for (const [path, name, addresses] of holders) {
+        const extra = (addresses ?? []).filter(
+            (entry) => !(typeof entry === "string" && management && name === management.name && entry === management.address)
+        );
+        if (extra.length) found.push(`${path}.addresses, ${where}: one IPv4 address in all, outside the bridges, for management`);
     }
 
     const routing = device.routing;
-    if (routing?.static?.length || routing?.bgp || routing?.ospf) found.push(`routing, ${where}`);
+    if (routing?.bgp || routing?.ospf) found.push(`routing, ${where}: static routes only`);
+
+    for (const [index, route] of (routing?.static ?? []).entries()) {
+        const at = `routing.static[${index}]`;
+        if (!management) found.push(`${at}, ${where}: a route needs the management address`);
+        if (!route.via || familyOf(route.via) !== "ipv4" || route.interface || route.blackhole || route.vrf)
+            found.push(`${at}, ${where}: only an IPv4 next hop, for the management address`);
+    }
+
     if (device.firewall?.nat) found.push(`firewall.nat, ${where}`);
     if (device.dhcp && Object.keys(device.dhcp).length) found.push(`dhcp, ${where}`);
 
-    const management = device.management ?? {};
-    for (const service of ["ssh", "telnet", "http", "https", "api", "api_tls", "snmp", "native"] as const) {
-        if (management[service]) found.push(`management.${service}, ${where}: the device has no address to answer on`);
+    if (!management) {
+        const services = device.management ?? {};
+        for (const service of ["ssh", "telnet", "http", "https", "api", "api_tls", "snmp", "native"] as const) {
+            if (services[service]) found.push(`management.${service}, ${where}: the device has no management address to answer on`);
+        }
     }
 
     return found;

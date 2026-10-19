@@ -15,6 +15,7 @@ import {
     nameOf,
     network,
     subnet,
+    transparentManagement,
     vrfNumber,
 } from "./names";
 import { routing, usesBfd } from "./routing";
@@ -269,8 +270,12 @@ export function render(device: Device): string {
     certificates(section("vpn certificate local"), section("vpn certificate ca"), device);
     global(section("system global"), device);
     if (device.system?.banner) section(BANNER).set("buffer", quote(device.system.banner));
-    // A bridge needs transparent mode, and transparent mode a management address. One on no network the device can reach keeps it reached only through its console.
-    if (isTransparent(device)) section("system settings").set("opmode", "transparent").set("manageip", TRANSPARENT_MANAGEIP);
+    // A bridge needs transparent mode, and transparent mode a management address: the config's, or one on no network the device can reach, which keeps it reached only through its console.
+    if (isTransparent(device)) {
+        const management = transparentManagement(device);
+        const manageip = management ? `${host(management.address)}/${netmask(split(management.address).len)}` : TRANSPARENT_MANAGEIP;
+        section("system settings").set("opmode", "transparent").set("manageip", manageip);
+    }
     if (natRules(device).length) section("system settings").set("central-nat", "enable");
     // SIP is otherwise rewritten by its proxy whatever the helpers say; this way only the `sip` helper does.
     section("system settings").set("default-voip-alg-mode", "kernel-helper-based");
@@ -484,6 +489,12 @@ type RoutedSettings = {
 
 /** Addresses and their routing table, the services answered on them, VRRP, DHCP relay, router advertisements, LLDP and flow sampling of a port or an interface. */
 function routed(entry: Block, device: Device, name: string, settings: RoutedSettings, access: string): void {
+    // In transparent mode no interface holds an address: the management address is the device's, and answers on its interface alone.
+    if (isTransparent(device)) {
+        if (transparentManagement(device)?.name === name) entry.set("allowaccess", access);
+        return;
+    }
+
     const addresses = addressesOf(settings);
     const ipv4 = addresses.filter((address) => familyOf(host(address)) === "ipv4");
     const ipv6 = addresses.filter((address) => familyOf(host(address)) === "ipv6");
@@ -732,8 +743,9 @@ function staticRoutes(ipv4: Block, ipv6: Block, device: Device): void {
 
         if (route.via) entry.set("gateway", route.via);
 
+        // In transparent mode a route names no interface: it carries only the management address's own traffic.
         const outgoing = route.interface ?? (route.via ? interfaceFor(device, route.via, route.vrf) : undefined);
-        if (outgoing && !route.blackhole) entry.set("device", quote(nameOf(device, outgoing)));
+        if (outgoing && !route.blackhole && !isTransparent(device)) entry.set("device", quote(nameOf(device, outgoing)));
 
         if (route.distance !== undefined && route.distance !== 10) entry.set("distance", route.distance);
         if (route.description) entry.set("comment", quote(route.description));
