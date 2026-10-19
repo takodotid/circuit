@@ -16,6 +16,8 @@ const git = (...args: string[]) =>
     execFileSync("git", ["-c", "user.name=Studio", "-c", "user.email=studio@example.com", ...args], { cwd: root, encoding: "utf8", env });
 
 git("init", "-q", "-b", "main");
+// On a machine with core.autocrlf, a checkout would turn the files' line endings into CRLF.
+git("config", "core.autocrlf", "false");
 mkdirSync(join(root, "network"));
 writeFileSync(join(root, "network", "circuit.config.ts"), "first\n");
 writeFileSync(join(root, "network", "edge-01.ts"), "edge\n");
