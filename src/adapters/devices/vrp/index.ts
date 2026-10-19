@@ -33,6 +33,8 @@ const DEVICE_FACTS = [
     "accounting-scheme default",
     "domain default",
     "Info:",
+    // Derived from the switch's MAC once SNMP is on.
+    "snmp-agent local-engineid",
 ];
 
 /** Lines whose removal takes only their keyword, not their value. */
@@ -493,6 +495,8 @@ function snmp(config: Config, device: Device): void {
         config.line(`snmp-agent group v3 ${SNMP_GROUP} privacy read-view all${guarded ? ` acl ${MANAGEMENT_ACL}` : ""}`);
 
         for (const [name, user] of Object.entries(snmp.users)) {
+            // The switch prints a user's own line before its settings.
+            config.line(`snmp-agent usm-user v3 ${name}`);
             config.line(`snmp-agent usm-user v3 ${name} group ${SNMP_GROUP}`);
             config.line(`snmp-agent usm-user v3 ${name} authentication-mode ${SNMP_AUTH[user.auth]} cipher ${marker(user.auth_password)}`);
             config.line(
