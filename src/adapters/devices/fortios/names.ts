@@ -16,6 +16,27 @@ export function bridgesOf(device: Device): { name: string; members: readonly str
 /** Whether the device runs in transparent mode: it has a bridge. */
 export const isTransparent = (device: Device) => bridgesOf(device).length > 0;
 
+/**
+ * The management address of a device in transparent mode: the one IPv4 address on a port or an interface outside every bridge. The device answers on it, the platform's `manageip`, through that interface alone. Undefined when there is none, and the device is reached only through its console.
+ */
+export function transparentManagement(device: Device): { name: string; address: string } | undefined {
+    if (!isTransparent(device)) return undefined;
+
+    const members = new Set(bridgesOf(device).flatMap((bridge) => bridge.members));
+    const holders = [...Object.entries(device.ports ?? {}), ...Object.entries(device.interfaces ?? {})] as [
+        string,
+        Addressed | undefined,
+    ][];
+
+    for (const [name, settings] of holders) {
+        if (members.has(name)) continue;
+        const address = addressesOf(settings).find((each) => familyOf(host(each)) === "ipv4");
+        if (address) return { name, address };
+    }
+
+    return undefined;
+}
+
 /** The forward domain of a VLAN interface in a bridge, or undefined. */
 export function forwardDomainOf(device: Device, name: string): number | undefined {
     const index = bridgesOf(device).findIndex((bridge) => bridge.members.includes(name));
