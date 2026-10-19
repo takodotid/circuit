@@ -1033,6 +1033,8 @@ function conditions(rule: AnyRule): string[] {
     if (match.prefix_length?.max !== undefined) tests.push(`dst-len<${match.prefix_length.max + 1}`);
     if (match.as_path_length?.min !== undefined) tests.push(`bgp-path-len>${match.as_path_length.min - 1}`);
     if (match.as_path_length?.max !== undefined) tests.push(`bgp-path-len<${match.as_path_length.max + 1}`);
+    // The platform's AS path regexp matches each AS as a whole number, so a bare number is that AS anywhere in the path.
+    if (match.through_as !== undefined) tests.push(`bgp-as-path ${match.through_as}`);
     if (match.rpki) tests.push(`rpki ${match.rpki}`);
     if (match.community) tests.push(`bgp-communities includes ${match.community}`);
     if (match.large_community) tests.push(`bgp-large-communities includes ${match.large_community}`);

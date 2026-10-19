@@ -418,7 +418,7 @@ function ruleGaps(device: Device, where: string, rule: AnyRule): string[] {
     if ((rule.match || rule.set) && !rule.action)
         found.push(`${where}, a rule without action: the platform stops at the first rule that matches`);
 
-    for (const field of ["as_path_length", "rpki", "large_community"] as const) {
+    for (const field of ["as_path_length", "through_as", "rpki", "large_community"] as const) {
         if (match[field] !== undefined) found.push(`${where}.match.${field}`);
     }
 

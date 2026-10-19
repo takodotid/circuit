@@ -32,6 +32,8 @@ export type Match<S extends string> = {
     prefix_length?: { min?: number; max?: number };
     /** AS path length within this range, inclusive. Every AS counts, prepends included. */
     as_path_length?: { min?: number; max?: number };
+    /** The AS path holds this AS anywhere: the route came from it or through it. */
+    through_as?: number;
     /** The route's origin validation state. */
     rpki?: "valid" | "invalid" | "not-found";
     /** Has this standard community, `asn:value`. */
