@@ -252,3 +252,14 @@ test("a transparent FortiGate takes one management address outside its bridges",
         "interfaces.outside.addresses, in transparent mode, which a bridge needs: one IPv4 address in all, outside the bridges, for management"
     );
 });
+
+test("management services answer only on the interfaces listed", () => {
+    const listed = { ...firewall, management: { ...firewall.management, interfaces: ["management"] } } as Device;
+    const rendered = adapters["fortios"]!.render(listed);
+
+    expect(rendered).toMatch(/edit "uplink"[^]*?set allowaccess ping\n/);
+    expect(rendered).toMatch(/edit "management"[^]*?set allowaccess ping https ssh/);
+    expect(
+        adapters["routeros"]!.unsupported!({ ...router, management: { ...router.management, interfaces: ["management"] } } as Device)
+    ).toContain("management.interfaces, which only FortiOS builds for now");
+});

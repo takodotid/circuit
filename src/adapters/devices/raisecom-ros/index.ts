@@ -420,6 +420,8 @@ export async function read(device: Device, _network: readonly Device[] = [], opt
 export function unsupported(device: Device): string[] {
     const found: string[] = [];
 
+    if (device.management?.interfaces) found.push("management.interfaces, which only FortiOS builds for now");
+
     for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
         if (iface.type === "bridge") found.push(`interfaces.${name}, a bridge, which only FortiOS builds for now`);
         if (iface.type === "vlan" && iface.mac) found.push(`interfaces.${name}.mac, which only RouterOS sets for now`);

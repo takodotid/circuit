@@ -495,6 +495,10 @@ function routed(entry: Block, device: Device, name: string, settings: RoutedSett
         return;
     }
 
+    // Services answer only where the config says, when it says; ping everywhere.
+    const answering = device.management?.interfaces;
+    if (answering && !answering.includes(name)) access = "ping";
+
     const addresses = addressesOf(settings);
     const ipv4 = addresses.filter((address) => familyOf(host(address)) === "ipv4");
     const ipv6 = addresses.filter((address) => familyOf(host(address)) === "ipv6");

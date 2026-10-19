@@ -595,6 +595,7 @@ export function unsupported(device: Device): string[] {
     }
 
     if (management.console) found.push("management.console, the console uses the device's users");
+    if (management.interfaces) found.push("management.interfaces, which only FortiOS builds for now");
     if (management.native?.interfaces?.length) found.push("management.native.interfaces, NETCONF runs over IP only");
     if (management.ssh?.auth_timeout || management.ssh?.auth_retries) found.push("management.ssh.auth_timeout and auth_retries");
 
