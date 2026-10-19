@@ -51,6 +51,17 @@ An EPL hands you one link, so in Circuit the port itself is the link and gets th
   explain="EVPLs are chosen by VLAN, so one port carries both: one VLAN to the branch, another to the data centre."
 />
 
+### Your VLANs inside theirs: QinQ
+
+An EPL carries your frames as they are, tags and all, and a provider carries many customers' EPLs across the same switches. Two customers may both use VLAN 20, so the provider cannot use your tag to keep you apart. Instead, as your frame enters its network, it adds a tag of its own outside yours, and takes it off again at the far end. A frame with two tags, one inside the other, is called <Term means="Two VLAN tags on one frame, one inside the other: the provider's outer tag keeps customers apart, and the customer's own tag rides inside it untouched. The standard is IEEE 802.1ad.">QinQ</Term>, after 802.1Q in 802.1Q; its standard is IEEE 802.1ad.
+
+- The **outer tag**, the service tag or S-tag, is the provider's. It says which customer, or which circuit, the frame is for.
+- The **inner tag**, the customer tag or C-tag, is yours: the ordinary 802.1Q tag from [Trunks](/academy/elementary/trunks), carried across untouched.
+
+So you keep your own VLAN numbers end to end, and they never clash with another customer's. The cost is size: each tag adds 4 bytes to the frame, so the provider's links must carry frames a little larger than yours, as with the [MTU](/academy/beginner/cables) of any tunnel.
+
+You do not write QinQ in your own files. At your port you send and receive ordinary frames, tagged or not, and the provider adds and removes its outer tag. Circuit has no field for an outer tag today, so it can write your side of such a circuit but not the provider's.
+
 ## Routed for you: IP VPN
 
 With an <Term means="A provider joining a customer's sites into one private routed network: the customer's routers tell the provider their routes, and the provider routes between the sites.">IP VPN</Term>, the provider does the routing. Your router at each site, which the standard calls the customer edge, tells the provider's router, the provider edge, which addresses are behind it, over BGP, OSPF or static routes. The provider then carries packets between all your sites, any site to any other, and keeps your routes apart from every other customer's, even if you both use the same private addresses. The standard for it is RFC 4364, often called MPLS L3VPN after the technology providers build it with, and [Separate networks on one](/academy/professional/vrfs-and-overlays) shows how a provider keeps customers apart inside.
@@ -110,6 +121,7 @@ Most needs have more than one answer, and the choice is a trade: the lower the l
 
 - [Carrier Ethernet](https://en.wikipedia.org/wiki/Carrier_Ethernet): E-Line, EPL and EVPL as the MEF defines them.
 - [RFC 6004](https://www.rfc-editor.org/rfc/rfc6004.html): EPL as port-based, EVPL as several circuits per port chosen by VLAN.
+- [IEEE 802.1ad](https://en.wikipedia.org/wiki/IEEE_802.1ad): QinQ, the provider's service tag outside the customer's tag, each tag 4 bytes.
 - [Metro Ethernet](https://en.wikipedia.org/wiki/Metro_Ethernet): Ethernet services across a city; and [From MEF to Mplify](https://www.mplify.net/edge-view-blog/from-mef-to-mplify-a-new-name-for-a-new-era/), the MEF's new name.
 - [RFC 4364](https://www.rfc-editor.org/rfc/rfc4364): BGP/MPLS IP VPNs, customer edge and provider edge.
 - [What is IPLC](https://www.iptp.net/what-is-iplc/), IPTP Networks: a dedicated circuit between countries, against MPLS VPNs.
@@ -122,7 +134,7 @@ Most needs have more than one answer, and the choice is a trade: the lower the l
 ## In short
 
 - Private circuits carry a company's traffic between its own sites, off the internet.
-- Metro-E is Ethernet across a city: an EPL takes the whole port to one place, EVPLs share a port, one VLAN each. Between cities it is L2 transport, and between countries IEPL.
+- Metro-E is Ethernet across a city: an EPL takes the whole port to one place, EVPLs share a port, one VLAN each. Inside its network, a provider keeps customers apart by adding its own outer tag around theirs: QinQ. Between cities it is L2 transport, and between countries IEPL.
 - An IP VPN routes between all your sites for you; an IPLC is a fixed circuit between two countries.
 - Leased line is the general word for a private circuit rented between your places.
 - Dark fibre is a bare fibre you light yourself; WDM puts many links on one fibre, CWDM cheaply across a city, DWDM over long distances, and a wavelength is one colour on the provider's DWDM.
