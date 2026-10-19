@@ -23,3 +23,4 @@ Behaviour that looks like something else. Each one has been hit on a CE6855 runn
 - A VLAN name is unique across VLANs: a new VLAN cannot take a name another still has. VLANs no longer used, and their VLAN interfaces, are removed first, in the same candidate.
 - `undo ssh server key-exchange <algorithms>` is refused with "Too many parameters"; `undo ssh server key-exchange` takes none. `hmac` was proved the same way. `cipher` is undone the same way but was not proved on its own.
 - A console on a password only (`passwordOnly`) shows `Please Press ENTER.` after a logout or a refused password, and `Error: The password is invalid.` for a wrong one.
+- Once SNMP is on, the switch prints an engine ID of its own, `snmp-agent local-engineid`, derived from its MAC, and prints each SNMPv3 user as a bare `snmp-agent usm-user v3 <name>` line before its settings. Planning against either as unrendered would undo the user; seen on a CE6855 on V200R005C00SPC800.

@@ -148,6 +148,16 @@ test("a new remote logging action is added before the rules that use it", () => 
     expect(rule).toBeGreaterThan(action);
 });
 
+// Seen on a CE6855 on V200R005 after its first SNMPv3 user: an engine ID of its own, and the user's own line before its settings.
+test("a VRP SNMPv3 user plans nothing against how the switch prints it", () => {
+    const adapter = adapters["vrp"]!;
+    const wanted = "snmp-agent\nsnmp-agent usm-user v3 monitoring\nsnmp-agent usm-user v3 monitoring group circuit\n";
+    const printed =
+        "snmp-agent\nsnmp-agent local-engineid 800007DB03E8ABF39705B1\nsnmp-agent usm-user v3 monitoring\nsnmp-agent usm-user v3 monitoring group circuit\n";
+
+    expect(adapter.plan(wanted, printed, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.show)).toEqual([]);
+});
+
 // The forms a Junos switch prints, seen on a QFX5100 running 21.4: secrets hashed or encrypted, values quoted where the render does not quote them, the release and each user's number.
 test("example-aggregation-switch plans nothing against how the device prints it", () => {
     const adapter = adapters["junos"]!;
