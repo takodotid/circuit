@@ -192,6 +192,7 @@ export function unsupported(device: Device): string[] {
     const management = device.management;
 
     if (management?.console) found.push("management.console, the console uses the device's users");
+    if (management?.interfaces) found.push("management.interfaces, which only FortiOS builds for now");
     if (management?.privilege_password) found.push("management.privilege_password, the platform has no privileged mode");
 
     if (management?.snmp?.port) found.push("management.snmp.port");

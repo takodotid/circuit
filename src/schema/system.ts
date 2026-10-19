@@ -89,6 +89,8 @@ export type SnmpUser = {
 export type Management<I extends string, C extends string> = {
     /** Sources allowed to every service that does not set its own. */
     allow?: readonly Prefix[];
+    /** The ports and interfaces the services answer on; every other one answers ping alone. Every one with an address when absent. */
+    interfaces?: readonly I[];
     /** Secure shell. */
     ssh?: Service & {
         /** Also offer legacy ciphers, MACs and key exchanges. Off when absent. */
