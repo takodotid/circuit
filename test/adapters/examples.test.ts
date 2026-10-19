@@ -201,3 +201,20 @@ test("a field a platform renders nothing for is unsupported", () => {
         ])
     );
 });
+
+test("a route through an AS is matched anywhere in its path", () => {
+    const rule = { description: "Not through AS64496", match: { through_as: 64496 }, action: "reject" as const };
+
+    const routeros = adapters["routeros"]!.render({
+        ...router,
+        policies: { ...router.policies, "UPSTREAM-IN": [rule, ...router.policies!["UPSTREAM-IN"]!] },
+    });
+    expect(routeros).toContain(`rule="if (bgp-as-path 64496) { reject }"`);
+
+    const junos = adapters["junos"]!.render({
+        ...aggregationSwitch,
+        policies: { ...aggregationSwitch.policies, "transit-in": [rule, ...aggregationSwitch.policies!["transit-in"]!] },
+    });
+    expect(junos).toContain(`set policy-options as-path circuit-through-64496 ".* 64496 .*"`);
+    expect(junos).toContain("as-path circuit-through-64496");
+});

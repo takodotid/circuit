@@ -210,6 +210,12 @@ function term(out: Statements, device: Device, term: string, rule: AnyRule, fami
         from.push(["as-path", name]);
     }
 
+    if (match.through_as !== undefined) {
+        const name = `circuit-through-${match.through_as}`;
+        out.set(`policy-options as-path ${name}`, quote(`.* ${match.through_as} .*`));
+        from.push(["as-path", name]);
+    }
+
     if (match.rpki) from.push(["validation-database", VALIDATION[match.rpki]]);
 
     // Members of one named community must all be present, so a rule matching both kinds names them together.
