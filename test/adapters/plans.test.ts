@@ -135,6 +135,19 @@ test("a change to a bridge VLAN selects only its static entry", () => {
     expect(sent).toEqual(["/interface bridge vlan set [ find vlan-ids=325 and !dynamic ] tagged=bridge,ether1"]);
 });
 
+// RouterOS refuses a logging rule whose action does not exist yet: "input does not match any value of action".
+test("a new remote logging action is added before the rules that use it", () => {
+    const adapter = adapters["routeros"]!;
+    const wanted =
+        "/system logging action\nadd name=remote1 remote=10.0.0.1 target=remote\n/system logging\nadd action=remote1 topics=critical\n";
+    const sent = adapter.plan(wanted, "", { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+
+    const action = sent.findIndex((line) => line.startsWith("/system logging action add"));
+    const rule = sent.findIndex((line) => line.startsWith("/system logging add"));
+    expect(action).toBeGreaterThanOrEqual(0);
+    expect(rule).toBeGreaterThan(action);
+});
+
 // The forms a Junos switch prints, seen on a QFX5100 running 21.4: secrets hashed or encrypted, values quoted where the render does not quote them, the release and each user's number.
 test("example-aggregation-switch plans nothing against how the device prints it", () => {
     const adapter = adapters["junos"]!;

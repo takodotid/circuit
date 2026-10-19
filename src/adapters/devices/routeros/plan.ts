@@ -48,6 +48,8 @@ const ORDER = [
     "/snmp",
     "/tool",
     "/user",
+    // A logging rule names its action, so the action exists first.
+    "/system logging action",
     "/system",
 ];
 
