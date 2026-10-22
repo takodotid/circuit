@@ -54,15 +54,10 @@ export type AntiAmplificationOptions = {
  * Hardware ACL rules dropping reflected UDP floods toward `destinations`, in the switch chip, without limiting anything else.
  *
  * - Replies from an amplifier no host asks across the internet are dropped.
- * - Replies from DNS, NTP and SNMP are dropped only toward a port below 1024 that is not the service's own. A host that runs its own resolver, time server or monitoring keeps its answers.
+ * - Replies from DNS, NTP and SNMP are dropped only toward a port below 1024 that is not the service's own. A host that runs its own resolver, time server or monitoring keeps its answers. The service's own port passes first, so every drop takes the one range 0 to 1023: a switch chip has few port-range checkers, and on RouterOS a rule past them is invalid with every rule after it.
  * - The fragments after the first carry no port, and a switch chip reads them as port 0. They are dropped, but toward `keep_fragments`.
  */
 export function antiAmplification(destinations: readonly Prefix[], options: AntiAmplificationOptions = {}): AclRule<never>[] {
-    const below1024Except = (port: number) => [
-        { min: 0, max: port - 1 },
-        { min: port + 1, max: 1023 },
-    ];
-
     return destinations.flatMap((dst) => [
         ...(options.keep_fragments ?? [])
             .filter((prefix) => contains(dst, prefix))
@@ -72,11 +67,22 @@ export function antiAmplification(destinations: readonly Prefix[], options: Anti
                 action: "accept",
             })),
         { description: `UDP fragments to ${dst}`, match: { protocol: "udp", dst, src_port: 0 }, action: "drop" },
-        ...Object.entries(AMPLIFIERS).map(([name, port]): AclRule<never> => ({
-            description: ASKED.has(port) ? `UDP to ${dst} from ${name}, to a port below 1024` : `UDP to ${dst} from ${name}`,
-            match: { protocol: "udp", dst, src_port: port, ...(ASKED.has(port) ? { dst_port: below1024Except(port) } : {}) },
-            action: "drop",
-        })),
+        ...Object.entries(AMPLIFIERS).flatMap(([name, port]): AclRule<never>[] =>
+            ASKED.has(port)
+                ? [
+                      {
+                          description: `UDP to ${dst} from ${name}, between two servers`,
+                          match: { protocol: "udp", dst, src_port: port, dst_port: port },
+                          action: "accept",
+                      },
+                      {
+                          description: `UDP to ${dst} from ${name}, to a port below 1024`,
+                          match: { protocol: "udp", dst, src_port: port, dst_port: { min: 0, max: 1023 } },
+                          action: "drop",
+                      },
+                  ]
+                : [{ description: `UDP to ${dst} from ${name}`, match: { protocol: "udp", dst, src_port: port }, action: "drop" }]
+        ),
     ]);
 }
 

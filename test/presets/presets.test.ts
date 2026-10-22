@@ -38,17 +38,20 @@ test("antiAmplification drops fragments and amplifiers, keeps asked services' an
             action: "drop",
         },
     ]);
-    expect(rules.slice(2).map((rule) => rule.match?.src_port)).toEqual(Object.values(AMPLIFIERS));
-    expect(rules.find((rule) => rule.match?.src_port === 53)?.match?.dst_port).toEqual([
-        { min: 0, max: 52 },
-        { min: 54, max: 1023 },
+    expect([...new Set(rules.slice(2).map((rule) => rule.match?.src_port))]).toEqual(Object.values(AMPLIFIERS));
+    // A server's own port passes first, so every drop takes the one range: a switch chip has few range checkers.
+    expect(rules.filter((rule) => rule.match?.src_port === 53).map((rule) => [rule.action, rule.match?.dst_port])).toEqual([
+        ["accept", 53],
+        ["drop", { min: 0, max: 1023 }],
     ]);
     expect(rules.find((rule) => rule.match?.src_port === 11211)?.match?.dst_port).toBeUndefined();
+    const ranges = rules.flatMap((rule) => [rule.match?.dst_port].flat()).filter((port) => typeof port === "object");
+    expect(new Set(ranges.map((range) => JSON.stringify(range))).size).toBe(1);
 
     const dns = adapters["routeros"]!.render({ ...router, acls: { edge: rules } });
     expect(
         dns.match(/comment="UDP to 198.51.100.0\/24 from dns, to a port below 1024".*/g)?.map((line) => line.match(/dst-port=\S+/)?.[0])
-    ).toEqual(["dst-port=0-52", "dst-port=54-1023"]);
+    ).toEqual(["dst-port=0-1023"]);
 
     const listed = {
         ...router,
