@@ -72,3 +72,33 @@ To change a password that already exists:
 2. Run `npx circuit apply <device> --secrets --confirm`. `--secrets` sends every secret the device has, including the new one.
 
 On VRP, a password the switch had among its last ten is refused, so send `--secrets` only when a password really changed.
+
+## In a tool of your own
+
+A script of your own, such as one that reads counters from a device, can handle secrets the way Circuit does. `Secrets` has what it needs:
+
+```ts
+import { Secrets } from "@takodotid/circuit";
+import network from "./circuit.config";
+
+const device = network.devices.find((candidate) => candidate.name === "edge-01")!;
+
+// How Circuit logs in: { host, port, user, password, console }. The password is the real value.
+const login = Secrets.loginOf(device);
+
+// The value of any secret in the config, from the environment, .env, 1Password or a file.
+const token = Secrets.reveal(network.librenms!.api_token);
+
+// Before you print what a device answered: every secret Circuit knows becomes <redacted>.
+console.log(Secrets.scrub(output, { network }));
+```
+
+| Method                                    | What it gives                                                                                                                                                                                                                                 |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Secrets.reveal(secret)`                  | The value of a `secret(...)` or `secretFile(...)`, or of a variable named directly.                                                                                                                                                           |
+| `Secrets.loginOf(device)`                 | The device's management address, SSH port (22 by default), connection user, that user's password, and its console.                                                                                                                            |
+| `Secrets.scrub(text, { network, extra })` | The text with every secret replaced by `<redacted>`: each value in `.env` of six characters or more, each value read in this run, each secret `network` uses, and the values in `extra`. It never asks 1Password for a value just to hide it. |
+
+Devices repeat what they are sent, passwords too, so scrub everything a device answered before you print it or save it.
+
+Run the script from the project's directory, where `.env` is. From somewhere else, call `Secrets.useRoot("<the project's directory>")` first.

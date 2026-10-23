@@ -342,13 +342,13 @@ export class Vrp extends Platform {
     }
 
     private static async login(device: Device): Promise<Client> {
-        const user = device.users?.[device.connection.user];
-        if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
+        const { port, user, password } = Secrets.loginOf(device);
+
         return Ssh.connect({
             host: Ssh.hostOf(device),
-            port: device.connection.port,
-            user: device.connection.user,
-            password: Secrets.resolve(user.password),
+            port,
+            user,
+            password,
             hostKeys: Vrp.HOST_KEYS,
         });
     }

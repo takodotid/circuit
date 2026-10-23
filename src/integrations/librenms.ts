@@ -69,7 +69,7 @@ export class LibreNms {
         return {
             base: `${network.librenms.url.replace(/\/+$/, "")}/api/v0`,
             // The header every version of API v0 accepts.
-            headers: { "X-Auth-Token": Secrets.resolve(network.librenms.api_token), "Content-Type": "application/json" },
+            headers: { "X-Auth-Token": Secrets.reveal(network.librenms.api_token), "Content-Type": "application/json" },
         };
     }
 
@@ -83,14 +83,14 @@ export class LibreNms {
                 snmpver: "v3",
                 authlevel: "authPriv",
                 authname: name,
-                authpass: Secrets.resolve(user.auth_password),
+                authpass: Secrets.reveal(user.auth_password),
                 authalgo: LibreNms.AUTH[user.auth],
-                cryptopass: Secrets.resolve(user.privacy_password),
+                cryptopass: Secrets.reveal(user.privacy_password),
                 cryptoalgo: LibreNms.PRIVACY[user.privacy],
             };
         }
 
-        if (snmp?.community) return { snmpver: "v2c", community: Secrets.resolve(snmp.community) };
+        if (snmp?.community) return { snmpver: "v2c", community: Secrets.reveal(snmp.community) };
         return undefined;
     }
 }
