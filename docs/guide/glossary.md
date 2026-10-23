@@ -22,6 +22,7 @@ Short explanations of the networking and Circuit words these pages use.
 | Access port           | A port in one VLAN, for a device that knows nothing about VLANs, such as a PC.                                                |
 | Trunk port            | A port that carries several VLANs, each frame tagged with its VLAN number. Used between switches and routers.                 |
 | LAG                   | Several ports joined into one link, for more speed or for a spare. Also called a bond or a port channel.                      |
+| LLDP                  | A protocol devices use to tell the device at the far end of each cable their name and the port it is plugged into.            |
 | Management network    | The network you log in to the devices from. Lose it, and you lose access.                                                     |
 | NAT                   | Rewriting addresses as traffic passes, for example so a whole home shares one public address.                                 |
 | ACL                   | A list of rules in a switch chip that drops or limits traffic before it reaches the CPU.                                      |

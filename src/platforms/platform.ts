@@ -1,3 +1,4 @@
+import type { Neighbor } from "../core/cabling";
 import type { Device, Family } from "../schema";
 import type { ConsoleDialect } from "../transport/console";
 import type { WaitLimits } from "./bgp-wait";
@@ -98,6 +99,8 @@ export abstract class Platform {
     abstract render(device: Device): string;
     /** What the device runs now, secrets removed, in the form `render` produces where the platform allows. */
     abstract read(device: Device, network: readonly Device[], options?: ReadOptions): Promise<string>;
+    /** The LLDP neighbors the device sees, by Circuit's port names, for `snapshot` to save. Absent on a platform whose LLDP command and its output are not proved on a device yet. */
+    neighbors?(device: Device, network: readonly Device[], options?: ReadOptions): Promise<Neighbor[]>;
     /** What it takes to go from `current` to `desired`. */
     abstract plan(desired: string, current: string, options: ApplyOptions): Plan;
     /** Replace the contents of a prefix set fetched from a registry. Absent on a platform that cannot hold one. */

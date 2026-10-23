@@ -37,7 +37,7 @@ Each layer is laid out for its own lines, so the BGP layer is arranged around th
 - **A dashed box** is outside the network: another AS, a tunnel's far end, or a device that a `link` points to but that is not in `circuit.config.ts`.
 - **Dots moving along a line** mark a line both ends declare. A line only one end declares has none.
 
-The drawing shows what your files say, not what is plugged in. A cable in the wrong port looks right here, and its moving dots are not real traffic.
+The drawing shows what your files say, not what is plugged in. A cable in the wrong port looks right here, and its moving dots are not real traffic. Where LLDP at the last snapshot disagrees with a cable, the device at that end has a warning, as `circuit validate` prints it; the line itself is not marked. See [Checking the cabling](/guide/network#checking-the-cabling).
 
 ## On a big screen
 
