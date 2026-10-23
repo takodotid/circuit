@@ -28,3 +28,4 @@ docs/reference/
 /.github/skills/
 /skills-lock.json
 /PRODUCT.md
+/.golden/
