@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Port, Prefix, Severity, SnmpUser, Switched, Vrrp } from "../../schema";
+import type { Device, Ethertype, Port, Prefix, Severity, SnmpUser, Switched, Vrrp } from "../../schema";
 import { Catalog } from "../catalog";
 import { Derive } from "../derive";
 
@@ -26,6 +26,12 @@ export class RaisecomRosRender {
         info: 6,
         debug: 7,
     };
+
+    /** The most MAC addresses port security takes on a port, and its default. */
+    static readonly MAC_LIMIT_MAX = 1024;
+
+    /** A kind of frame as a MAC access-list rule matches it, in the form the device prints. It takes a type as hex without `0x`, and names IPv4 and ARP. */
+    private static readonly ETHERTYPES: Record<Ethertype, string> = { ipv4: "ip", arp: "arp", ipv6: "86dd ffff" };
 
     /** The log level and UDP port a log host has unless told otherwise. Neither prints. */
     private static readonly LOG_DEFAULTS = { level: 6, port: 514 };
@@ -80,6 +86,20 @@ export class RaisecomRosRender {
         const snmpSources = management.snmp?.allow;
         if (snmpSources) lines.push(...RaisecomRosRender.accessList(RaisecomRosRender.SNMP_ACL, "snmp", snmpSources));
 
+        const ports = Catalog.ports(device.platform, device.model);
+
+        // Each port that takes only some kinds of frame has a MAC access-list of its own, so changing one releases only that port.
+        ports.forEach((port, index) => {
+            const ethertypes = device.ports?.[port as keyof typeof device.ports]?.ethertypes;
+            if (!ethertypes) return;
+
+            lines.push(`access-list ${RaisecomRosRender.ethertypeAcl(index)}`);
+            ethertypes.forEach((type, rule) =>
+                lines.push(`  rule ${(rule + 1) * 10} permit any any ethertype ${RaisecomRosRender.ETHERTYPES[type]}`)
+            );
+            lines.push("  rule 100 deny any any", "!");
+        });
+
         for (const [name, user] of Object.entries(device.users ?? {}))
             lines.push(`user name ${name} password ${Secrets.marker(user.password)}`);
         if (management.privilege_password) lines.push(`enable password ${Secrets.marker(management.privilege_password)}`);
@@ -93,14 +113,15 @@ export class RaisecomRosRender {
 
         lines.push("!");
 
-        for (const port of Catalog.ports(device.platform, device.model)) {
+        ports.forEach((port, index) => {
             const settings = device.ports?.[port as keyof typeof device.ports];
             lines.push(
                 `interface ${Catalog.spell(device.platform, device.model, port)}`,
                 ...RaisecomRosRender.physicalPort(settings, vlanId, lagNumbers),
+                ...(settings?.ethertypes ? [`filter ingress access-list ${RaisecomRosRender.ethertypeAcl(index)}`] : []),
                 "!"
             );
-        }
+        });
 
         const ospf = device.routing?.ospf;
 
@@ -255,6 +276,19 @@ export class RaisecomRosRender {
         if (settings.stp === false) lines.push("spanning-tree disable");
         const broadcast = settings.storm_control?.broadcast;
         if (broadcast && "pps" in broadcast) lines.push("storm-control mode pps", `storm-control broadcast pps ${broadcast.pps}`);
+
+        // Port security drops frames from any source past the limit (its `protect` action, the default). The most it takes, 1024, is its default and prints nothing.
+        if (settings.mac_limit !== undefined) {
+            lines.push("switchport port-security");
+            if (settings.mac_limit !== RaisecomRosRender.MAC_LIMIT_MAX)
+                lines.push(`switchport port-security maximum ${settings.mac_limit}`);
+        }
+
         return lines;
+    }
+
+    /** The MAC access-list of the port at `index` in the catalog, for its `ethertypes`. MAC access-lists are 3000 and up. */
+    static ethertypeAcl(index: number): number {
+        return 3001 + index;
     }
 }

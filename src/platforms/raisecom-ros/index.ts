@@ -62,7 +62,7 @@ export class RaisecomRos extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|ip address|port-channel|ip ospf cost|ip ospf network)\b/;
+        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|ip address|port-channel|ip ospf cost|ip ospf network|switchport port-security maximum)\b/;
 
     private static readonly DIALECT: Dialect = {
         block: /^(interface |access-list |router ospf )/,
@@ -148,6 +148,10 @@ export class RaisecomRos extends Platform {
             }
 
             if (port.lldp === true) found.push(`ports.${name}.lldp true, LLDP is turned on per device`);
+            if (port.lag && (port.mac_limit !== undefined || port.ethertypes))
+                found.push(`ports.${name}.mac_limit and ethertypes on a LAG member, proved on a port alone`);
+            if (port.mac_limit !== undefined && (port.mac_limit < 1 || port.mac_limit > RaisecomRosRender.MAC_LIMIT_MAX))
+                found.push(`ports.${name}.mac_limit ${port.mac_limit}, port security takes 1 to ${RaisecomRosRender.MAC_LIMIT_MAX}`);
             if (typeof port.stp === "object" || port.stp === true) found.push(`ports.${name}.stp other than false`);
             const storm = port.storm_control;
             if (storm && (storm.multicast || storm.unknown_unicast || (storm.broadcast && "percent" in storm.broadcast))) {
@@ -159,6 +163,9 @@ export class RaisecomRos extends Platform {
             if (iface.type === "lag") {
                 for (const field of ["addresses", "vrrp", "vrf", "mtu", "storm_control", "stp"] as const) {
                     if (iface[field] !== undefined) found.push(`interfaces.${name}.${field}, a LAG here only switches`);
+                }
+                for (const field of ["mac_limit", "ethertypes"] as const) {
+                    if (iface[field] !== undefined) found.push(`interfaces.${name}.${field}, proved on a port alone`);
                 }
                 continue;
             }
@@ -257,7 +264,7 @@ export class RaisecomRos extends Platform {
 
         // SNMP takes its own access-list; SSH and telnet share the management one.
         found.push(...Derive.switchUnsupported(device, ["snmp"]));
-        found.push(...Derive.unproved(device));
+        found.push(...Derive.unproved(device, ["mac-limit", "ethertype-filter"]));
 
         return found;
     }
@@ -468,9 +475,20 @@ export class RaisecomRos extends Platform {
             const acl = /^access-list (\d+)/.exec(group.path[0] ?? "")?.[1];
             if (!acl) return { before: [], after: [] };
 
+            // A port's filter is bound again only where it stays; a port that newly takes it binds it in its own step.
+            const filter = `filter ingress access-list ${acl}`;
+            const ports = RaisecomRos.filteredPorts(current, filter);
+            const kept = ports.filter((port) => RaisecomRos.filteredPorts(desired, filter).includes(port));
+
             return {
-                before: RaisecomRos.holders(current, acl).map((service) => `no ${service} access-list ${acl}`),
-                after: RaisecomRos.holders(desired, acl).map((service) => `${service} access-list ${acl}`),
+                before: [
+                    ...RaisecomRos.holders(current, acl).map((service) => `no ${service} access-list ${acl}`),
+                    ...ports.flatMap((port) => [port, `no ${filter}`, RaisecomRos.DIALECT.leave]),
+                ],
+                after: [
+                    ...RaisecomRos.holders(desired, acl).map((service) => `${service} access-list ${acl}`),
+                    ...kept.flatMap((port) => [port, filter, RaisecomRos.DIALECT.leave]),
+                ],
             };
         };
 
@@ -659,6 +677,13 @@ export class RaisecomRos extends Platform {
         };
 
         return session;
+    }
+
+    /** The ports, by their `interface` line, that filter what they take in with an access-list. */
+    private static filteredPorts(config: string, filter: string): string[] {
+        return LineDiff.entries(config, RaisecomRos.DIALECT)
+            .filter((entry) => entry.line === filter && entry.path[0]?.startsWith("interface "))
+            .map((entry) => entry.path[0]!);
     }
 
     /** Services holding an access-list. It cannot change while any of them does. */

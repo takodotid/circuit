@@ -141,3 +141,80 @@ test("a changed SNMP access-list is let go first, as it cannot change while in u
     expect(back.indexOf("no snmp-server access-list 1001")).toBeGreaterThan(0);
     expect(back.at(-1)).toBe("no access-list 1001");
 });
+
+/** A spare port with port security and a MAC access-list, as the device printed it after an apply. */
+const PORT_PRINTED = `access-list 3007 
+  rule 10 permit any any ethertype ip 
+  rule 20 permit any any ethertype 86dd ffff 
+  rule 30 permit any any ethertype arp 
+  rule 100 deny any any 
+!
+interface twenty-fivegige 1/2/1
+portswitch
+description proof
+filter ingress access-list 3007 
+switchport port-security
+switchport port-security maximum 1
+!
+`;
+
+const portDevice = (settings: NonNullable<Device["ports"]>[string]): Device => ({ ...plain, ports: { "25g-1": settings } });
+const portBlocks = (config: string) =>
+    config
+        .split("!\n")
+        .filter((block) => /^(access-list 3007|interface twenty-fivegige 1\/2\/1)\n/.test(block.trimStart()))
+        .map((block) => block.trimStart() + "!\n")
+        .join("");
+
+test("a MAC limit is port security with a maximum, and an ethertype filter a MAC access-list of the port's own", () => {
+    const device = portDevice({ description: "proof", mac_limit: 1, ethertypes: ["ipv4", "ipv6", "arp"] });
+    const rendered = platform.render(device);
+
+    expect(platform.unsupported(device)).toEqual([]);
+    // The same lines; the device prints the filter before port security, and `portswitch` is the plan's.
+    const lines = (config: string) => config.replace(/ \n/g, "\n").replace("portswitch\n", "").split("\n").sort();
+    expect(lines(portBlocks(rendered))).toEqual(lines(PORT_PRINTED));
+    expect(sent(portBlocks(rendered), PORT_PRINTED)).toEqual([]);
+});
+
+test("a changed ethertype filter lets the port go first, as the list cannot change while a port uses it", () => {
+    const device = portDevice({ description: "proof", mac_limit: 2, ethertypes: ["ipv4", "arp"] });
+
+    expect(sent(portBlocks(platform.render(device)), PORT_PRINTED)).toEqual([
+        "interface twenty-fivegige 1/2/1",
+        "no filter ingress access-list 3007",
+        "exit",
+        "access-list 3007",
+        "no rule 30",
+        "no rule 20",
+        "rule 20 permit any any ethertype arp",
+        "exit",
+        "interface twenty-fivegige 1/2/1",
+        "filter ingress access-list 3007",
+        "exit",
+        "interface twenty-fivegige 1/2/1",
+        "portswitch",
+        "switchport port-security maximum 2",
+        "exit",
+    ]);
+});
+
+test("a port without them drops port security and its filter, and the list goes last", () => {
+    const steps = sent("interface twenty-fivegige 1/2/1\nshutdown\n!\n", PORT_PRINTED);
+
+    expect(steps).toEqual([
+        "interface twenty-fivegige 1/2/1",
+        "no switchport port-security maximum",
+        "no switchport port-security",
+        "no filter ingress access-list 3007",
+        "no description",
+        "shutdown",
+        "exit",
+        "no access-list 3007",
+    ]);
+});
+
+test("port security takes 1 to 1024, and 1024, its default, prints nothing", () => {
+    expect(platform.render(portDevice({ mac_limit: 1024 }))).toContain("switchport port-security\n!\n");
+    expect(platform.unsupported(portDevice({ mac_limit: 1025 }))).toEqual(["ports.25g-1.mac_limit 1025, port security takes 1 to 1024"]);
+});
