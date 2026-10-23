@@ -771,11 +771,11 @@ export class FortiOs extends Platform {
             found.push(...FortiOs.routedGaps(where, iface, iface.type === "gre"));
         }
 
+        // LLDP runs on ports and aggregates; a VLAN interface has no LLDP settings.
         if (device.lldp && typeof device.lldp === "object") {
             for (const name of device.lldp.interfaces) {
                 const settings = device.interfaces?.[name];
-                if (settings && settings.type !== "lag" && settings.type !== "vlan")
-                    found.push(`lldp.interfaces ${name}, a ${settings.type}`);
+                if (settings && settings.type !== "lag") found.push(`lldp.interfaces ${name}, a ${settings.type}`);
             }
         }
 
