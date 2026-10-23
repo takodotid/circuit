@@ -212,8 +212,9 @@ export class Vrp extends Platform {
      *
      * A VLAN list changes by ID. VLANs no longer used go first, with their VLAN interfaces, so their names and numbers are free before a new VLAN takes them: a VLAN name is unique, and a VLAN with an interface cannot be removed. The whole plan is one candidate, so going first leaves nothing half done.
      */
-    plan(desired: string, current: string, _options: ApplyOptions): Plan {
-        const groups = LineDiff.compare(desired, current, Vrp.DIALECT);
+    plan(desired: string, current: string, options: ApplyOptions): Plan {
+        const compared = LineDiff.compare(desired, current, Vrp.DIALECT);
+        const groups = options.secrets ? LineDiff.withSecrets(compared, desired, Vrp.DIALECT) : compared;
         LineDiff.vlanListChange(
             groups,
             "vlan batch ",

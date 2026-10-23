@@ -152,6 +152,28 @@ export class LineDiff {
     }
 
     /**
+     * Send every line that holds a secret again, for `apply --secrets`. A device prints a secret as a cipher, so a line whose secret changed compares equal and is otherwise never sent.
+     */
+    static withSecrets(groups: Group[], desired: string, dialect: Dialect): Group[] {
+        const pathKey = (path: string[]) => path.join("\u0000");
+        const result = groups.map((group) => ({ ...group, add: [...group.add] }));
+
+        for (const entry of LineDiff.entries(desired, dialect)) {
+            if (!entry.line.includes("<secret:")) continue;
+
+            let group = result.find((candidate) => pathKey(candidate.path) === pathKey(entry.path));
+            if (!group) {
+                group = { path: entry.path, remove: [], add: [] };
+                result.push(group);
+            }
+
+            if (!group.add.includes(entry.line)) group.add.push(entry.line);
+        }
+
+        return result;
+    }
+
+    /**
      * Replace a changed VLAN list line with only what changed.
      *
      * A platform keeps its VLANs as one line, such as `vlan batch 10 20 to 30`. Undoing the old line would delete VLANs still in use, so the plan adds the new IDs and removes the gone ones instead.

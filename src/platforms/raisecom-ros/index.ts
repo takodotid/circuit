@@ -281,8 +281,9 @@ export class RaisecomRos extends Platform {
         }
     }
 
-    plan(desired: string, current: string, _options: ApplyOptions): Plan {
-        const groups = LineDiff.compare(desired, current, RaisecomRos.DIALECT);
+    plan(desired: string, current: string, options: ApplyOptions): Plan {
+        const compared = LineDiff.compare(desired, current, RaisecomRos.DIALECT);
+        const groups = options.secrets ? LineDiff.withSecrets(compared, desired, RaisecomRos.DIALECT) : compared;
 
         // An access-list rule is not overwritten by one with the same number; the old one is removed first.
         const existing = LineDiff.entries(current, RaisecomRos.DIALECT);

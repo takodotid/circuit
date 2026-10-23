@@ -70,3 +70,5 @@ To change a password that already exists:
 
 1. Change the value in `.env` or in 1Password.
 2. Run `npx circuit apply <device> --secrets --confirm`. `--secrets` sends every secret the device has, including the new one.
+
+On VRP, a password the switch had among its last ten is refused, so send `--secrets` only when a password really changed.
