@@ -5,7 +5,8 @@ import { expect, test } from "bun:test";
 import { FortiOs } from "../../src/platforms/fortios/index";
 import { Vrp } from "../../src/platforms/vrp/index";
 import { RouterOs } from "../../src/platforms/routeros/index";
-import { SerialConsole, ConsoleShell } from "../../src/transport/console";
+import { ConsoleScript, SerialConsole, ConsoleShell } from "../../src/transport/console";
+import { Platforms } from "../../src/platforms";
 
 /** A console that answers each line it receives from a script, and records what was written. */
 function fakeConsole(answers: Record<string, string | string[] | (() => string | string[])>) {
@@ -150,4 +151,35 @@ test("a console set to ask only for a password fails when it asks for a name", a
     const { channel } = fakeConsole({ "\n": "\r\nUsername:" });
 
     await expect(SerialConsole.login(channel, Vrp.CONSOLE, "netops", "secret", true)).rejects.toThrow("asks for a name");
+});
+
+test("a console line may wait longer for a slow command, or be sent only after a prompt", () => {
+    expect(ConsoleScript.parse("/system resource print")).toEqual({ text: "/system resource print", quiet: 1500 });
+    expect(ConsoleScript.parse("@wait=4:secret")).toEqual({ text: "secret", quiet: 4000 });
+    expect(ConsoleScript.parse("@if=(Press 'a' to accept):=>a")).toEqual({ text: "a", quiet: 1500, onlyAfter: "(Press 'a' to accept):" });
+    expect(ConsoleScript.parse("@if=Login: =>@wait=0.5:admin")).toEqual({ text: "admin", quiet: 500, onlyAfter: "Login: " });
+    expect(ConsoleScript.parse("@wait=x:y")).toEqual({ text: "@wait=x:y", quiet: 1500 });
+});
+
+test("console lines are sent one at a time; a line with @if is skipped unless the last answer ends with its text", async () => {
+    const { channel, written } = fakeConsole({
+        "\n": "\r\nFortiGate-3700D login: ",
+        "admin\n": "admin\r\nPassword: ",
+        "secret\n": ["*******\r\n", "Welcome !\r\n\r\nFortiGate-3700D # "],
+    });
+    const answers: string[] = [];
+
+    await ConsoleScript.run(
+        channel,
+        ["", "@if=(Press 'a' to accept):=>a", "@if=login:=>admin", "@wait=0.2:secret"],
+        (answer) => answers.push(answer),
+        100
+    );
+
+    expect(written).toEqual(["\n", "admin\n", "secret\n"]);
+    expect(answers).toEqual(["\nFortiGate-3700D login: ", "admin\nPassword: ", "*******\nWelcome !\n\nFortiGate-3700D # "]);
+});
+
+test("every platform knows how its console asks for a login", () => {
+    expect(Platforms.all().filter((platform) => !platform.console)).toEqual([]);
 });

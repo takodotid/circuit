@@ -94,7 +94,7 @@ export class Vrp extends Platform {
 
     readonly extension = ".cfg";
 
-    override readonly console = true;
+    override readonly console = Vrp.CONSOLE;
 
     unsupported(device: Device): string[] {
         const found: string[] = [];

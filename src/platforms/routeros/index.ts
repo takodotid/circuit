@@ -76,7 +76,7 @@ export class RouterOs extends Platform {
 
     readonly extension = ".rsc";
 
-    override readonly console = true;
+    override readonly console = RouterOs.CONSOLE;
 
     unsupported(device: Device): string[] {
         const found: string[] = [];

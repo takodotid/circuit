@@ -113,6 +113,10 @@ Circuit logs in with the device's own login, whatever state the last session lef
 
 A console on this computer under Windows has been tried only as far as opening a COM port.
 
+### Opening the console yourself
+
+`circuit console <device>` opens the same console for you, logged in with the device's own login, so you never need its password. What you type goes to the device, Ctrl-C too, to stop a command such as a ping. Press Ctrl-] to leave: Circuit logs out and lets the port go. See [console](/guide/cli#console-a-device-s-serial-console) for sending lines without typing them.
+
 ### A console that asks only for a password
 
 Some consoles show `Password:` straight after Enter, with no `Username:` first. Add `passwordOnly: true` to the console, and Circuit types no name:

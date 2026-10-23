@@ -80,8 +80,8 @@ while ($true) {
 $port.Close()
 `;
 
-/** An open console: the stream to the device's CLI, and how to let it go. */
-export type ConsoleSession = { channel: ClientChannel; close: () => void };
+/** An open console: the stream to the device's CLI, and how to let it go. `close` waits for the console to go quiet, then lets the port go. */
+export type ConsoleSession = { channel: ClientChannel; close: () => Promise<void> };
 
 /** How a platform's console asks for a login and shows its prompt, and what moves it on from anywhere else. */
 export type ConsoleDialect = {
@@ -138,8 +138,12 @@ export class SerialConsole {
         });
     }
 
-    /** Open a device's serial console, through its jump host or on this computer. Fails when another session holds the port. */
-    static async open(console: Console): Promise<ConsoleSession> {
+    /**
+     * Open a device's serial console, through its jump host or on this computer.
+     *
+     * A port another program holds is tried again every five seconds, `attempts` times in all, then fails with a message that starts with `busy:`.
+     */
+    static async open(console: Console, attempts = 5): Promise<ConsoleSession> {
         const windows = !console.jump && process.platform === "win32";
         if (windows ? !SerialConsole.WINDOWS_PORT.test(console.port) : !SerialConsole.PORT.test(console.port)) {
             throw new Error(`console port ${console.port} is not ${windows ? "a COM port" : "a path under /dev"}`);
@@ -151,7 +155,9 @@ export class SerialConsole {
             try {
                 return await (console.jump ? SerialConsole.openOnJump(console, console.jump) : SerialConsole.openHere(console));
             } catch (error) {
-                if (attempt >= 5 || !/busy:/.test((error as Error).message)) throw error;
+                const busy = /busy: .*/.exec((error as Error).message);
+                if (busy && attempt >= attempts) throw new Error(busy[0]);
+                if (!busy) throw error;
                 await new Promise((done) => setTimeout(done, 5_000));
             }
         }
@@ -175,12 +181,11 @@ export class SerialConsole {
             return {
                 channel: SerialConsole.asTerminal(channel),
                 // What was written last, such as a logout, is still on its way to the device; the relay ends once the console goes quiet.
-                close: () => {
-                    void SerialConsole.quiet(channel, 1_000).then(() => {
+                close: () =>
+                    SerialConsole.quiet(channel, 1_000).then(() => {
                         channel.end();
                         client.end();
-                    });
-                },
+                    }),
             };
         } catch (error) {
             client.end();
@@ -218,12 +223,11 @@ export class SerialConsole {
 
         return {
             channel: SerialConsole.asTerminal(asChannel),
-            close: () => {
-                void SerialConsole.quiet(asChannel, 1_000).then(() => {
+            close: () =>
+                SerialConsole.quiet(asChannel, 1_000).then(() => {
                     channel.end();
                     setTimeout(() => child.kill(), 2_000).unref();
-                });
-            },
+                }),
         };
     }
 
@@ -384,6 +388,31 @@ export class SerialConsole {
         });
     }
 
+    /** Write, then collect what the console prints until it is quiet for `silence` milliseconds, or for `limit` in all. Carriage returns and escape sequences are dropped. */
+    static listen(channel: Channel, write: string, silence: number, limit = 300_000): Promise<string> {
+        return new Promise((done) => {
+            let text = "";
+            let timer = setTimeout(finish, silence);
+            const cap = setTimeout(finish, limit);
+
+            function finish() {
+                clearTimeout(timer);
+                clearTimeout(cap);
+                channel.removeListener("data", onData);
+                done(text);
+            }
+
+            function onData(chunk: Buffer) {
+                text += chunk.toString("utf8").replace(/\r/g, "").replace(SerialConsole.ESCAPES, "");
+                clearTimeout(timer);
+                timer = setTimeout(finish, silence);
+            }
+
+            channel.on("data", onData);
+            if (write) channel.write(write);
+        });
+    }
+
     /** The text after a command's echo. A terminal wraps a long echo where it likes, so the echo is matched character by character, line breaks it added skipped. */
     static afterEcho(text: string, command: string): string {
         // The echo can follow a prompt that arrived late, so it is looked for wherever the command's first character is.
@@ -444,5 +473,55 @@ export class ConsoleShell {
     /** Log out, so no session is left open on the console. */
     logout(): void {
         this.channel.write(`${this.dialect.logout}\n`);
+    }
+}
+
+/** One line for `circuit console`: what to send, the quiet that ends its answer, and the text the last answer must end with for the line to be sent. */
+export type ScriptLine = { text: string; quiet: number; onlyAfter?: string };
+
+/**
+ * Lines sent to a console one at a time, each answer read until the console goes quiet, as a person would type them.
+ *
+ * A line may start with `@if=TEXT=>`: it is sent only when the last answer ends with TEXT, for a prompt that may or may not come. Then, or alone, `@wait=N:` waits for N seconds of quiet instead of the usual 1.5, for a slow command.
+ */
+export class ConsoleScript {
+    /** The quiet that ends an answer, in milliseconds. */
+    static readonly QUIET = 1_500;
+
+    /** A line as written, with `quiet` for a line that has no `@wait=`. */
+    static parse(line: string, quiet = ConsoleScript.QUIET): ScriptLine {
+        let text = line;
+        let onlyAfter: string | undefined;
+
+        const condition = /^@if=(.*?)=>/s.exec(text);
+        if (condition) {
+            onlyAfter = condition[1]!;
+            text = text.slice(condition[0].length);
+        }
+
+        const wait = /^@wait=(\d+(?:\.\d+)?):/.exec(text);
+        if (wait) {
+            text = text.slice(wait[0].length);
+        }
+
+        const silence = wait ? Number(wait[1]) * 1000 : quiet;
+        return { text, quiet: silence, ...(onlyAfter === undefined ? {} : { onlyAfter }) };
+    }
+
+    /** Send each line and hand each answer to `answered` as it comes. A line whose condition does not hold is skipped. */
+    static async run(
+        channel: Channel,
+        lines: readonly string[],
+        answered: (answer: string) => void,
+        quiet = ConsoleScript.QUIET
+    ): Promise<void> {
+        let last = "";
+
+        for (const line of lines.map((written) => ConsoleScript.parse(written, quiet))) {
+            if (line.onlyAfter !== undefined && !last.trimEnd().endsWith(line.onlyAfter.trimEnd())) continue;
+
+            last = await SerialConsole.listen(channel, `${line.text}\n`, line.quiet);
+            answered(last);
+        }
     }
 }

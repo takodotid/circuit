@@ -51,3 +51,7 @@ test("show refuses a command not known to only read, before it connects", () => 
     });
     expect(circuit("show", "edge-01", `--config=${config}`)).toMatchObject({ status: 1, stderr: "give a command to run, or --file\n" });
 });
+
+test("console stops at once on a device without a console", () => {
+    expect(circuit("console", "edge-01", `--config=${config}`)).toMatchObject({ status: 1, stderr: "edge-01 has no connection.console\n" });
+});

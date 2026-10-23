@@ -109,7 +109,7 @@ export class Junos extends Platform {
 
     readonly extension = ".conf";
 
-    override readonly console = true;
+    override readonly console = Junos.CONSOLE;
 
     unsupported(device: Device): string[] {
         const found: string[] = [];

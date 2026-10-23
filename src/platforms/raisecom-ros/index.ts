@@ -121,7 +121,7 @@ export class RaisecomRos extends Platform {
 
     readonly extension = ".txt";
 
-    override readonly console = true;
+    override readonly console = RaisecomRos.CONSOLE;
 
     unsupported(device: Device): string[] {
         const found: string[] = [];
