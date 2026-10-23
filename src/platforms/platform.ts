@@ -1,5 +1,6 @@
 import type { Device, Family } from "../schema";
 import type { ConsoleDialect } from "../transport/console";
+import type { WaitLimits } from "./bgp-wait";
 import type { PlatformName } from "./catalog";
 
 /** One part of a plan: what a reviewer reads, and what is sent. */
@@ -30,6 +31,18 @@ export type ReadSession = {
     run(command: string, timeout?: number): Promise<string>;
     /** Log out. */
     close(): void;
+};
+
+/** How the checks after an apply reach the device, and how long they wait. */
+export type HealthOptions = ReadOptions & {
+    /** How long BGP sessions established before the apply have to be established again. `BgpWait.AFTER_APPLY` when absent. */
+    bgp?: WaitLimits;
+};
+
+/** The checks after an apply, holding what they compare against, which was read before the plan was sent. */
+export type HealthCheck = {
+    /** Run the checks. Gives one line per problem, each saying what to do; none when the device is healthy. */
+    run(): Promise<string[]>;
 };
 
 /** A BGP neighbor in the config and its live session, as `circuit bgp` shows it. A neighbor with no session is not established. */
@@ -89,4 +102,8 @@ export abstract class Platform {
     bgpSessions?(device: Device, session: ReadSession): Promise<BgpSession[]>;
     /** The device's BGP log lines from the last `minutes`, by the device's own clock, read over a `session()`. */
     bgpLog?(session: ReadSession, minutes: number): Promise<BgpLogLine[]>;
+    /**
+     * Checks that the device is healthy after an apply, not only that it took the commands. Called before the plan is sent, to read what the checks compare against; the CLI runs them after the apply and the snapshot. Absent on a platform with no checks yet.
+     */
+    health?(device: Device, plan: Plan, options?: HealthOptions): Promise<HealthCheck>;
 }

@@ -1,4 +1,4 @@
-// Waiting for BGP sessions to be established, for `circuit bgp --wait`.
+// Waiting for BGP sessions to be established: `circuit bgp --wait`, and the check after an apply.
 
 import { setTimeout as sleep } from "node:timers/promises";
 import type { BgpSession } from "./platform";
@@ -9,6 +9,11 @@ export type WaitLimits = { seconds: number; every: number };
 export class BgpWait {
     /** `circuit bgp --wait` reads the sessions again every 15 seconds, for at most 600 seconds unless `--max` says otherwise. */
     static readonly COMMAND: WaitLimits = { seconds: 600, every: 15 };
+
+    /**
+     * After an apply, the sessions established before have 180 seconds to be established again, read every 10 seconds. A session reset by a change opens again when one side retries; three minutes leaves room for a slow peer without holding the apply up for long. A session that never went down is seen at the first read, so a healthy apply does not wait.
+     */
+    static readonly AFTER_APPLY: WaitLimits = { seconds: 180, every: 10 };
 
     /** Read the sessions until `enough` holds or time runs out, and give the last read. `waiting` is told of each read that fell short, before the pause. */
     static async until(
