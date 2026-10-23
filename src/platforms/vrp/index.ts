@@ -9,7 +9,7 @@ import type { Device } from "../../schema";
 import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Derive } from "../derive";
-import { LineDiff, type Dialect } from "../line-diff";
+import { LineDiff, type Dialect, type Group } from "../line-diff";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
 import { VrpRender } from "./render";
 
@@ -53,7 +53,7 @@ export class Vrp extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange)\b/;
+        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+)\b/;
 
     private static readonly DIALECT: Dialect = {
         block: /^(interface |vlan \d+$|acl number |aaa$|user-interface |ospf |ip vpn-instance |bfd$)/,
@@ -165,13 +165,26 @@ export class Vrp extends Platform {
 
         const system = device.system ?? {};
 
-        if (system.dns || system.logging || system.release_channel || system.banner) {
-            found.push("system.dns, logging, release_channel and banner");
+        if (system.dns || system.release_channel || system.banner) found.push("system.dns, release_channel and banner");
+
+        const local = system.logging?.local;
+        if (local?.lines_per_file !== undefined)
+            found.push("system.logging.local.lines_per_file, the platform sizes a log file in megabytes");
+        if (local?.files !== undefined && !(Number.isInteger(local.files) && local.files >= 3 && local.files <= 500))
+            found.push("system.logging.local.files, between 3 and 500 on the platform");
+
+        for (const collector of system.logging?.remote ?? []) {
+            if (Address.family(collector.address) === "ipv6") found.push(`system.logging.remote ${collector.address}, IPv6 is not proved`);
+        }
+
+        for (const source of management.snmp?.allow ?? []) {
+            if (Address.family(Address.split(source).addr) === "ipv6") found.push(`management.snmp.allow ${source}, IPv6 is not proved`);
         }
 
         if (system.transceiver_monitoring !== undefined) found.push("system.transceiver_monitoring");
 
-        found.push(...Derive.switchUnsupported(device));
+        // SNMP takes sources of its own here, in an ACL of its own.
+        found.push(...Derive.switchUnsupported(device).filter((field) => !field.startsWith("management.snmp.allow")));
         found.push(...Derive.unproved(device));
 
         const flow = device.flow_export;
@@ -227,6 +240,9 @@ export class Vrp extends Platform {
             (ids) => [`vlan batch ${VrpRender.vlanBatch(ids)}`]
         );
 
+        Vrp.removeLoghosts(groups, desired, current);
+        Vrp.replaceRules(groups, current);
+
         const top = groups.find((group) => group.path.length === 0);
         const removedBatch = top?.remove.find((line) => line.startsWith("vlan batch ")) ?? "";
         const removedIds = removedBatch ? Vrp.batchIds(removedBatch) : [];
@@ -237,7 +253,10 @@ export class Vrp extends Platform {
             ...(removedBatch ? [removedBatch] : []),
         ];
 
-        if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line));
+        // An ACL still bound to a service cannot be removed, so ACLs go after every binding has moved.
+        const lastRemovals = top?.remove.filter((line) => /^acl number \d+$/.test(line)) ?? [];
+
+        if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line) && !lastRemovals.includes(line));
 
         const planned = LineDiff.steps(
             groups.filter((group) => group.add.length || group.remove.length),
@@ -248,6 +267,10 @@ export class Vrp extends Platform {
             // `undo vlan batch` removes a VLAN's own settings with it, so only the interfaces and the list are sent.
             const sent = firstRemovals.filter((line) => !/^vlan \d+$/.test(line)).map(Vrp.undo);
             planned.unshift({ title: "VLANs no longer used", show: firstRemovals.map((line) => `- ${line}`), send: sent });
+        }
+
+        if (lastRemovals.length) {
+            planned.push({ title: "ACLs no longer used", show: lastRemovals.map((line) => `- ${line}`), send: lastRemovals.map(Vrp.undo) });
         }
 
         return { steps: planned, problems: [] };
@@ -358,6 +381,42 @@ export class Vrp extends Platform {
         if (header.startsWith("ospf ")) return 5;
 
         return 6;
+    }
+
+    /**
+     * A log host the config no longer has is removed. One at the default level prints as `info-center loghost <address>`, whose head is the bare command, so a new log host would otherwise seem to replace it.
+     */
+    private static removeLoghosts(groups: Group[], desired: string, current: string): void {
+        const loghosts = (text: string) => text.split("\n").filter((line) => line.startsWith("info-center loghost "));
+        const addressOf = (line: string) => line.split(" ")[2];
+        const wanted = new Set(loghosts(desired).map(addressOf));
+
+        let top = groups.find((group) => group.path.length === 0);
+        if (!top) {
+            top = { path: [], remove: [], add: [] };
+            groups.push(top);
+        }
+
+        for (const line of loghosts(current)) {
+            if (!wanted.has(addressOf(line)) && !top.remove.includes(line)) top.remove.push(line);
+        }
+    }
+
+    /** An ACL rule sent over a rule of the same number merges into it: `rule 10 deny` over `rule 10 permit source A` leaves `rule 10 deny source A`. A changed rule is undone first. */
+    private static replaceRules(groups: Group[], current: string): void {
+        const existing = LineDiff.entries(current, Vrp.DIALECT);
+
+        for (const group of groups) {
+            if (!group.path[0]?.startsWith("acl number ")) continue;
+
+            for (const line of group.add) {
+                const rule = /^rule \d+ /.exec(line)?.[0];
+                if (!rule) continue;
+
+                const old = existing.find((entry) => entry.path.join("\n") === group.path.join("\n") && entry.line.startsWith(rule));
+                if (old && !group.remove.includes(old.line)) group.remove.push(old.line);
+            }
+        }
     }
 
     /** The VLAN IDs of a `vlan batch` line: `vlan batch 10 20 to 30`. */

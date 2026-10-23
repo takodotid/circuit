@@ -16,6 +16,30 @@ export class VrpRender {
     /** The ACL that guards every management service. */
     private static readonly MANAGEMENT_ACL = 2000;
 
+    /** The ACL that guards SNMP when it has sources of its own. */
+    private static readonly SNMP_ACL = 2001;
+
+    /** The channel that writes the log files on the device's own storage. */
+    private static readonly LOGFILE_CHANNEL = 9;
+
+    /** How many log files the device keeps when the config sets none. It is not printed. */
+    private static readonly LOGFILES_DEFAULT = 200;
+
+    /** The syslog port the device uses when the config sets none. It is not printed. */
+    private static readonly SYSLOG_PORT = 514;
+
+    /** A severity as the platform spells it. `debugging` is the default for a log host and for the log files, and is not printed. */
+    private static readonly LOG_LEVEL = {
+        emergency: "emergencies",
+        alert: "alert",
+        critical: "critical",
+        error: "error",
+        warning: "warning",
+        notice: "notification",
+        info: "informational",
+        debug: "debugging",
+    } as const;
+
     /** The OSPF process number. One process per device. */
     private static readonly OSPF_PROCESS = 1;
 
@@ -66,6 +90,7 @@ export class VrpRender {
         this.system();
         this.vlanBlocks();
         this.managementAcl();
+        this.snmpAcl();
         this.users();
         this.vrfs();
 
@@ -91,6 +116,7 @@ export class VrpRender {
         }
 
         this.flowExport();
+        this.logging();
         this.snmp();
         this.ssh();
         this.userInterfaces();
@@ -189,14 +215,26 @@ export class VrpRender {
         const allow = this.device.management?.allow ?? [];
         if (!allow.length) return;
 
-        const rules = allow.map(
-            (cidr, index) => `rule ${(index + 1) * 5} permit source ${Address.host(cidr)} ${Address.wildcard(Address.split(cidr).len)}`
-        );
-        this.block(`acl number ${VrpRender.MANAGEMENT_ACL}`, [
-            "description Management access",
-            ...rules,
-            `rule ${(allow.length + 1) * 5} deny`,
-        ]);
+        this.block(`acl number ${VrpRender.MANAGEMENT_ACL}`, ["description Management access", ...VrpRender.aclRules(allow)]);
+    }
+
+    /** SNMP with sources of its own gets an ACL of its own, built the same way. */
+    private snmpAcl(): void {
+        const allow = this.device.management?.snmp?.allow ?? [];
+        if (!allow.length) return;
+
+        this.block(`acl number ${VrpRender.SNMP_ACL}`, ["description SNMP access", ...VrpRender.aclRules(allow)]);
+    }
+
+    /** A permit per source, then an explicit deny. The platform prints the wildcard of a single address as `0`. */
+    private static aclRules(allow: readonly string[]): string[] {
+        const rules = allow.map((cidr, index) => {
+            const length = Address.split(cidr).len;
+            const wildcard = length === 32 ? "0" : Address.wildcard(length);
+            return `rule ${(index + 1) * 5} permit source ${Address.host(cidr)} ${wildcard}`;
+        });
+
+        return [...rules, `rule ${(allow.length + 1) * 5} deny`];
     }
 
     private users(): void {
@@ -397,6 +435,28 @@ export class VrpRender {
         this.separator();
     }
 
+    /** The log files' level and count, then each syslog collector. A default the device does not print is not written: level `debugging`, 200 files, port 514. */
+    private logging(): void {
+        const logging = this.device.system?.logging;
+        if (!logging) return;
+
+        const local = logging.local;
+        if (local && local.level !== "debug") {
+            this.line(`info-center source default channel ${VrpRender.LOGFILE_CHANNEL} log level ${VrpRender.LOG_LEVEL[local.level]}`);
+        }
+
+        if (local?.files !== undefined && local.files !== VrpRender.LOGFILES_DEFAULT)
+            this.line(`info-center max-logfile-number ${local.files}`);
+
+        for (const collector of logging.remote ?? []) {
+            const level = collector.level === "debug" ? "" : ` level ${VrpRender.LOG_LEVEL[collector.level]}`;
+            const port = collector.port !== undefined && collector.port !== VrpRender.SYSLOG_PORT ? ` port ${collector.port}` : "";
+            this.line(`info-center loghost ${collector.address}${level}${port}`);
+        }
+
+        this.separator();
+    }
+
     /** SNMP version 2c with one read community, version 3 with users in one read-only group, or both. */
     private snmp(): void {
         const device = this.device;
@@ -404,8 +464,9 @@ export class VrpRender {
         if (!snmp) return;
 
         const versions = [snmp.community ? "v2c" : "", snmp.users ? "v3" : ""].filter(Boolean).join(" ");
+        const own = (snmp.allow?.length ?? 0) > 0;
         const guarded = (device.management?.allow?.length ?? 0) > 0;
-        const acl = guarded ? ` acl ${VrpRender.MANAGEMENT_ACL}` : "";
+        const acl = own ? ` acl ${VrpRender.SNMP_ACL}` : guarded ? ` acl ${VrpRender.MANAGEMENT_ACL}` : "";
 
         this.line("snmp-agent");
         this.line(`snmp-agent sys-info version ${versions}`);

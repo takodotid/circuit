@@ -26,3 +26,11 @@ Behaviour that looks like something else. Each one has been hit on a CE6855 runn
 - Once SNMP is on, the switch prints an engine ID of its own, `snmp-agent local-engineid`, derived from its MAC, and prints each SNMPv3 user as a bare `snmp-agent usm-user v3 <name>` line before its settings. Planning against either as unrendered would undo the user; seen on a CE6855 on V200R005C00SPC800.
 - `apply --secrets` sends every line holding a secret again, the local users' passwords included, and a password among the user's last ten is refused, which discards the whole candidate. Send it only when a password changed.
 - An SNMPv3 key prints as `cipher %^%#...%^%#`, which can be turned back into the key. The read redacts every value after `cipher`, as it does a password.
+- `display configuration candidate` shows the uncommitted lines as they were sent, not as the switch will print them. Commit to see the printed form.
+- An ACL bound to a service cannot be removed: `undo acl number N` is refused at once with "This ACL is being used.", even when the same candidate already moved the binding. ACLs no longer used are removed last.
+- An ACL rule sent over a rule of the same number merges into it: `rule 10 deny` over `rule 10 permit source A` leaves `rule 10 deny source A`. A changed rule is undone first.
+- A single source address prints its wildcard as `0`: `rule 5 permit source 192.0.2.1 0`.
+- `snmp-agent group v3 <group> ... acl N` sent again with another ACL replaces the binding in place.
+- A log host line sent again changes only the options it names: `info-center loghost A port 514` over `level informational` keeps the level. A log host that loses an option is undone first. Its undo takes the address alone, `undo info-center loghost A`; `level ...` after it is refused with "Too many parameters".
+- Defaults are not printed: a log host's `level debugging` and `port 514`, the log files' level `debugging` (channel 9) and `info-center max-logfile-number 200`. The file count is 3 to 500. Every log host line warns "non secure syslog protocol" and is still taken.
+- `undo info-center source default channel 9` turns the log files' default source off and prints as that line; `info-center source default channel 9` puts it back. Circuit undoes the level alone: `undo info-center source default channel 9 log level`.
