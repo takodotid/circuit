@@ -2,8 +2,8 @@
 //
 // The auths hold no secret. A password is written as `${NAME}`, the name of its secret, and snmp_exporter reads it from its environment when started with `--config.expand-environment-variables`.
 
-import type { Network } from "../../core/define";
-import type { Device, Secret } from "../../schema";
+import type { Network } from "../core/define";
+import type { Device, Secret } from "../schema";
 
 export type PrometheusTarget = { targets: string[]; labels: Record<string, string> };
 

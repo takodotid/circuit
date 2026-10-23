@@ -1,7 +1,7 @@
 // Packet filtering as policies through the device and local-in policies to it, who reaches the device's own services, NAT as central source NAT and virtual IPs, and stateless ACLs on ports.
 
-import { host } from "../../../core/addr";
-import type { AclRule, Device, Family, FilterMatch, FilterRule, NatRule, Ports, Protocol } from "../../../schema";
+import { host } from "../../core/addr";
+import type { AclRule, Device, Family, FilterMatch, FilterRule, NatRule, Ports, Protocol } from "../../schema";
 import { familyOfPrefix, isTransparent, nameOf, network, subnet, withLength } from "./names";
 import { Block, quote, quoteAll, UNSET } from "./tree";
 

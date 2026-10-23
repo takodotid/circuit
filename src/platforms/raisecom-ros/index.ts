@@ -3,12 +3,12 @@
 // An interface, an access-list or an OSPF process opens a block, `!` closes it, and `no` removes a line. Commands apply as they arrive and persist only on `write`. There is no rollback, so management is proved reachable in a fresh session before anything is written: a reboot then restores what was there before.
 
 import type { ClientChannel } from "ssh2";
-import { familyOf, host, netmask, split, wildcard } from "../../../core/addr";
-import { marker, resolve, substitute } from "../../../core/secrets";
-import { offset } from "../../../core/time";
-import type { Device, Port, SnmpUser, Switched, Vrrp } from "../../../schema";
-import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../../transport/console";
-import { connect, managementHost, readUntil, send, shell } from "../../../transport/ssh";
+import { familyOf, host, netmask, split, wildcard } from "../../core/addr";
+import { marker, resolve, substitute } from "../../core/secrets";
+import { offset } from "../../core/time";
+import type { Device, Port, SnmpUser, Switched, Vrrp } from "../../schema";
+import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../transport/console";
+import { connect, managementHost, readUntil, send, shell } from "../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import { ipv4Networks, lagIds, switchUnsupported } from "../derive";
 import { compare, type Dialect, entries, type Group, scrub, steps, vlanListChange } from "../lines";

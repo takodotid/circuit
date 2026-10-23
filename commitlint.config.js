@@ -12,7 +12,8 @@ export default {
                 "docs", // the documentation site, README, AGENTS.md, TRAPS.md
                 "schema", // src/schema, the neutral model
                 "core", // src/core, definition, validation, secrets, addresses
-                "adapters", // src/adapters, platforms and registries
+                "platforms", // src/platforms, one adapter per device operating system
+                "integrations", // src/integrations, registries and services such as PeeringDB and LibreNMS
                 "transport", // src/transport, sessions to devices
                 "cli", // src/cli
                 "studio", // src/studio, circuit studio's server and page

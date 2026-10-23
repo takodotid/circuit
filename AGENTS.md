@@ -5,7 +5,7 @@ Circuit is a declarative, vendor-neutral network configuration framework. It kno
 ## Rules
 
 1. The config is the whole truth. A device runs exactly its config; anything else is removed or returned to its default.
-2. No particular network's names, addresses or policies in this repository. Vendor syntax lives only in `src/adapters/devices/<platform>/`.
+2. No particular network's names, addresses or policies in this repository. Vendor syntax lives only in `src/platforms/<platform>/`.
 3. A field is written when it has a value. No `enabled: false`, no `admin_state`, no placeholders, nothing marked reserved or spare. Off is the absence of the field.
 4. Every schema field has a comment, shown on hover in the editor.
 5. A field a platform cannot express is listed in that adapter's `unsupported()`. Never skip one silently.

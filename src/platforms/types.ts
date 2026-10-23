@@ -1,4 +1,4 @@
-import type { Device, Family } from "../../schema";
+import type { Device, Family } from "../schema";
 
 /** One part of a plan: what a reviewer reads, and what is sent. */
 export type Step = { title: string; show: string[]; send: string[] };

@@ -47,9 +47,9 @@ A lesson's place in its level, its "mark it done" box and its discussion are add
 
 ## Adding a platform
 
-1. `src/adapters/devices/<platform>/models.ts`: each model's ports per speed class and the platform's spelling of them.
-2. An adapter implementing `DeviceAdapter` in `src/adapters/devices/types.ts`. `lines.ts` plans the changes for a configuration written in blocks; `routeros/` shows one written as commands, and `junos/` one written as `set` statements.
-3. Register it in `src/adapters/devices/index.ts` and the catalog in `src/adapters/devices/catalog.ts`.
+1. `src/platforms/<platform>/models.ts`: each model's ports per speed class and the platform's spelling of them.
+2. An adapter implementing `DeviceAdapter` in `src/platforms/types.ts`. `lines.ts` plans the changes for a configuration written in blocks; `routeros/` shows one written as commands, and `junos/` one written as `set` statements.
+3. Register it in `src/platforms/index.ts` and the catalog in `src/platforms/catalog.ts`.
 4. `unsupported()` lists every field it cannot express. Silence is not an option.
 5. An example in `examples/` using every field it supports, and a `TRAPS.md` with what the platform taught.
 

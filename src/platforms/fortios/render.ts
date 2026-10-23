@@ -1,8 +1,8 @@
 // The neutral model as FortiOS configuration, in the form `show` prints, so the plan can compare the two section by section.
 
-import { familyOf, host, netmask, split } from "../../../core/addr";
-import { marker } from "../../../core/secrets";
-import type { Device, Helper, Severity } from "../../../schema";
+import { familyOf, host, netmask, split } from "../../core/addr";
+import { marker } from "../../core/secrets";
+import type { Device, Helper, Severity } from "../../schema";
 import { portsOf, spell } from "../catalog";
 import { firewall, natRules } from "./firewall";
 import {

@@ -1,7 +1,7 @@
 // Registries the framework reads prefix sets from. PeeringDB, which it publishes to, is in ./peeringdb.ts.
 
-import type { Family } from "../../schema";
-import type { Registry } from "../../schema/policy";
+import type { Family } from "../schema";
+import type { Registry } from "../schema/policy";
 
 /** Prefixes an origin AS announces, from RIPEstat. */
 async function ripeStat(query: string, family: Family): Promise<string[]> {

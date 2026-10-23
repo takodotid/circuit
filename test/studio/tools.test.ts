@@ -1,7 +1,7 @@
 // Studio's tools read the config as the schema describes it: where an address is, the VLAN path between two devices, which firewall rule a packet meets, and what a route policy does to a route.
 
 import { expect, test } from "bun:test";
-import { adapters } from "../../src/adapters/devices";
+import { adapters } from "../../src/platforms";
 import { graphOf } from "../../src/core/graph";
 import { studioData } from "../../src/studio/data";
 import { filterPacket, routeThrough, trace, vlanPath } from "../../src/studio/public/evaluate.js";

@@ -3,7 +3,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { portsOf } from "../adapters/devices/catalog";
+import { portsOf } from "../platforms/catalog";
 import { familyOf, host } from "../core/addr";
 import { type AddressReport, addressesOf } from "../core/addresses";
 import { type Annotated, type Holder, holdersOf, keyOf } from "../core/graph";

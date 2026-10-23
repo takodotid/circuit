@@ -3,11 +3,11 @@
 // The platform applies every command the moment it arrives and has no candidate configuration, so a run is guarded three ways. Every command is first compiled on the device without running, so a syntax error or an unknown property costs nothing. A backup is saved and a scheduler armed to restore it, and the run must log in again in a fresh session before the scheduler is removed. A command the device refuses restores the backup at once, rather than leaving the device half applied.
 
 import type { Client } from "ssh2";
-import { familyOf } from "../../../core/addr";
-import { resolve, substitute } from "../../../core/secrets";
-import type { Device, Family } from "../../../schema";
-import { type ConsoleDialect, consoleLogin, consoleOf, ConsoleShell, openConsole } from "../../../transport/console";
-import { connect, exec, managementHost, upload } from "../../../transport/ssh";
+import { familyOf } from "../../core/addr";
+import { resolve, substitute } from "../../core/secrets";
+import type { Device, Family } from "../../schema";
+import { type ConsoleDialect, consoleLogin, consoleOf, ConsoleShell, openConsole } from "../../transport/console";
+import { connect, exec, managementHost, upload } from "../../transport/ssh";
 import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions } from "../types";
 import { INSTALL_CERTIFICATE, plan } from "./plan";
 import { spell } from "../catalog";

@@ -3,11 +3,11 @@
 // The configuration is read and written as `set` statements, one per line, the form `show configuration | display set` prints. A statement the render does not hold is deleted, at the shortest path that holds nothing the render wants. Changes stage in a candidate and take effect only at `commit`. `commit confirmed` rolls itself back unless confirmed, so access is proved by a fresh login before the commit is confirmed.
 
 import type { Client, ClientChannel } from "ssh2";
-import { familyOf, host, isAddress, split } from "../../../core/addr";
-import { resolve, substitute } from "../../../core/secrets";
-import type { Device, Family } from "../../../schema";
-import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../../transport/console";
-import { connect, exec, managementHost, readUntil, shell } from "../../../transport/ssh";
+import { familyOf, host, isAddress, split } from "../../core/addr";
+import { resolve, substitute } from "../../core/secrets";
+import type { Device, Family } from "../../schema";
+import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../transport/console";
+import { connect, exec, managementHost, readUntil, shell } from "../../transport/ssh";
 import { lagIds } from "../derive";
 import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions, Step } from "../types";
 import { GENERATED, settingsOf } from "./bgp";

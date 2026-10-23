@@ -4,12 +4,12 @@
 import { createPrivateKey, createPublicKey } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
-import { adapters } from "../adapters/devices";
-import type { ApplyOptions, DeviceAdapter, Plan } from "../adapters/devices/types";
-import { registries } from "../adapters/registries";
-import { planLibreNms, sendLibreNms } from "../adapters/registries/librenms";
-import { planPeeringDb, sendPeeringDb } from "../adapters/registries/peeringdb";
-import { prometheusTargets, snmpExporterAuths } from "../adapters/registries/prometheus";
+import { adapters } from "../platforms";
+import type { ApplyOptions, DeviceAdapter, Plan } from "../platforms/types";
+import { registries } from "../integrations";
+import { planLibreNms, sendLibreNms } from "../integrations/librenms";
+import { planPeeringDb, sendPeeringDb } from "../integrations/peeringdb";
+import { prometheusTargets, snmpExporterAuths } from "../integrations/prometheus";
 import { isCidr, network as prefixOf } from "../core/addr";
 import { addressesOf, freeOfLength, type Segment } from "../core/addresses";
 import type { Network } from "../core/define";

@@ -1,10 +1,10 @@
 // A plan sends only what changed, in the form each device accepts: what it prints differently is no change, and what it keeps for itself is never touched.
 
 import { expect, test } from "bun:test";
-import { adapters } from "../../src/adapters/devices";
-import { serviceOf } from "../../src/adapters/devices/fortios/firewall";
-import { fillLines, withSecrets } from "../../src/adapters/devices/fortios/index";
-import { parse, print, UNSET } from "../../src/adapters/devices/fortios/tree";
+import { adapters } from "../../src/platforms";
+import { serviceOf } from "../../src/platforms/fortios/firewall";
+import { fillLines, withSecrets } from "../../src/platforms/fortios/index";
+import { parse, print, UNSET } from "../../src/platforms/fortios/tree";
 import aggregationSwitch from "../../examples/aggregation-switch";
 import coreSwitch from "../../examples/core-switch";
 import firewall from "../../examples/firewall";

@@ -2,7 +2,7 @@
 description: How Circuit works with Juniper Junos, and the Junos behaviour that looks like something else. Each one has been hit on a QFX5100-48S-6Q running Junos 21.4R3.
 ---
 
-<!--@include: ../../src/adapters/devices/junos/TRAPS.md-->
+<!--@include: ../../src/platforms/junos/TRAPS.md-->
 
 ## How Circuit writes a Junos device
 

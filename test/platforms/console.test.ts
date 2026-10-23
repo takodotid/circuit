@@ -2,9 +2,9 @@
 
 import { EventEmitter } from "node:events";
 import { expect, test } from "bun:test";
-import { FORTIOS_CONSOLE } from "../../src/adapters/devices/fortios/index";
-import { VRP_CONSOLE } from "../../src/adapters/devices/vrp/index";
-import { ROUTEROS_CONSOLE } from "../../src/adapters/devices/routeros/index";
+import { FORTIOS_CONSOLE } from "../../src/platforms/fortios/index";
+import { VRP_CONSOLE } from "../../src/platforms/vrp/index";
+import { ROUTEROS_CONSOLE } from "../../src/platforms/routeros/index";
 import { afterEcho, consoleLogin, ConsoleShell } from "../../src/transport/console";
 
 /** A console that answers each line it receives from a script, and records what was written. */

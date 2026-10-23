@@ -3,12 +3,12 @@
 // Configuration reads as blocks indented under their header, `#` between blocks, and `undo` to remove a line. Changes stage in a candidate and take effect only at `commit`, so a refused line leaves nothing applied: the candidate is cleared. `commit` does not write to flash; `save` does, and without it a reboot brings the old configuration back. There is no scheduler to restore from, so access is proved by a fresh login before saving.
 
 import type { Client, ClientChannel } from "ssh2";
-import { familyOf, host, netmask, split, wildcard } from "../../../core/addr";
-import { marker, resolve, substitute, valueOfReference } from "../../../core/secrets";
-import { offset } from "../../../core/time";
-import type { Device, Interface, Port, Vrrp } from "../../../schema";
-import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../../transport/console";
-import { connect, managementHost, readUntil, send, shell } from "../../../transport/ssh";
+import { familyOf, host, netmask, split, wildcard } from "../../core/addr";
+import { marker, resolve, substitute, valueOfReference } from "../../core/secrets";
+import { offset } from "../../core/time";
+import type { Device, Interface, Port, Vrrp } from "../../schema";
+import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../transport/console";
+import { connect, managementHost, readUntil, send, shell } from "../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import { ipv4Networks, lagIds, switchUnsupported } from "../derive";
 import { compare, type Dialect, scrub, steps, vlanListChange } from "../lines";

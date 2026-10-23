@@ -1,7 +1,7 @@
 // Values more than one adapter derives from a device in the same way.
 
-import { familyOf, network } from "../../core/addr";
-import type { Device } from "../../schema";
+import { familyOf, network } from "../core/addr";
+import type { Device } from "../schema";
 
 /** Each LAG's number: its own `id`, or its position among the device's LAGs. */
 export function lagIds(device: Device): Map<string, number> {
