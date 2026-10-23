@@ -36,8 +36,20 @@ These four are easy to mix up:
 
 - **`snapshot`** only reads. It logs in to each device and saves what the device runs in `.circuit/state/`. It changes nothing on any device.
 - **`diff`** never logs in. It compares your files with the last snapshot, so it is fast, works offline, and is safe in CI. If someone changed a device by hand after the last snapshot, `diff` does not know.
-- **`apply`** always reads the device again first, so its plan is made against what the device runs right now. Without `--confirm` it stops after showing the plan. With `--confirm` it sends the plan, then reads the device once more and saves the new snapshot.
+- **`apply`** always reads the device again first, so its plan is made against what the device runs right now. Without `--confirm` it stops after showing the plan. With `--confirm` it first checks the path to the device (see below), then sends the plan, reads the device once more and saves the new snapshot.
 - **`refresh`** is only for prefix lists that come from a registry, such as every prefix a customer's AS announces. Those lists change on their own, every day, so they are not part of your files or of `apply`. `refresh` fetches the current list and, with `--confirm`, puts it on the device. Run it on a schedule: see [Scheduled refresh](/guide/scheduled-refresh).
+
+### The path check before apply --confirm
+
+A change sent over a path that drops packets can cut the device off halfway, and a lossy path also cuts the read of the device short. So before `apply --confirm` reads or sends anything, Circuit pings the device's management address 20 times, with your system's `ping`, which takes about five seconds:
+
+```
+path: 10.0.0.1: 0 of 20 pings lost (0%), 12 ms on average
+```
+
+It stops, and sends nothing, when more than 5% of the pings are lost (two of 20) or the average round trip is over 300 ms. Fix the path first: the problem is often on your own side, such as your internet provider or a VPN. To send anyway, add `--force`.
+
+A device that answers no ping at all, because a firewall drops pings, is not stopped for that alone: Circuit says the path was not measured and goes on. With `--console`, or for a device reached only through its console, there is no path to measure and the check is skipped.
 
 ## show: commands that only read
 
@@ -109,6 +121,7 @@ Only one program can hold a console port. If another one does, `console` says th
 | `--secrets`         | `apply`, `diff`                                       | Send every secret again, when you change a password. With `diff`, plan as `apply --secrets` would. See [Secrets](/guide/secrets#changing-a-secret).                |
 | `--auths`           | `prometheus`                                          | Print the SNMP exporter's credentials instead of the devices. See [Prometheus](/integrations/prometheus#the-credentials).                                          |
 | `--rollback=N`      | `apply`                                               | On RouterOS, Junos and FortiOS, how many whole minutes the device waits before undoing the change if Circuit cannot log in again. 10 by default.                   |
+| `--force`           | `apply`                                               | Send even when the [path check](#the-path-check-before-apply-confirm) finds too much loss or too slow a path.                                                      |
 | `--console`         | `snapshot`, `apply`, `show`                           | Reach the device through its serial console, on this computer or a jump host, instead of SSH. See [Devices](/guide/devices#reaching-a-device-through-its-console). |
 | `--file`            | `rename`, `show`                                      | For `rename`, also rename the file that declares the device, to `<new-name>.ts`. For `show`, also run each line of this file.                                      |
 | `--timeout=N`       | `show`                                                | How many whole seconds each command may take. 90 by default.                                                                                                       |
