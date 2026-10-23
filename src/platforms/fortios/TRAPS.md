@@ -35,6 +35,7 @@ Behaviour that looks like something else. Each one has been hit on a FortiGate 3
 - A port in an aggregate has no `icmp-send-redirect`, `command parse error`, and loses it when it joins one.
 - `purge` empties a table after asking `(y/n)`.
 - A VLAN interface has no LLDP settings: `set lldp-transmission` on one is `command parse error`. An aggregate's LLDP sends and receives on each of its ports.
+- `diagnose lldprx neighbor summary` names our port by an index of its own, `port 23` for `port5`. `diagnose lldprx neighbor details` names it in `port.txt`, and Circuit reads that. Both print nothing at all when no neighbor was received.
 - A loopback has no MTU of its own and runs no VRRP. An interface's name has at most 15 characters.
 - There is no WireGuard and no RPKI, `command parse error`. A route map has no large community and a BGP neighbor no role: neither is among their settings. SNMPv3 offers no SHA256.
 - `execute backup config flash <comment>` keeps a revision on the device, and `execute restore config flash <id>` restores one.

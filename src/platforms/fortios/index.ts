@@ -4,6 +4,7 @@
 
 import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
+import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
 import type { AclRule, Device, Family, FilterRule } from "../../schema";
 import { SerialConsole, type ConsoleDialect } from "../../transport/console";
@@ -214,6 +215,46 @@ export class FortiOs extends Platform {
 
     read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
         return FortiOs.withCli(device, (cli) => FortiOs.readConfig(cli, device), options);
+    }
+
+    /** The LLDP neighbors the device received, read with `diagnose lldprx neighbor details`. A port hears LLDP only while it, or the aggregate it is in, has `lldp-reception` on. */
+    neighbors(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<Neighbor[]> {
+        return FortiOs.withCli(
+            device,
+            async (cli) => {
+                await FortiOs.checkVersion(cli, device);
+                return FortiOs.neighborsOf(await cli.run("diagnose lldprx neighbor details"), device);
+            },
+            options
+        );
+    }
+
+    /**
+     * The neighbors in what `diagnose lldprx neighbor details` prints, one `lldprx.neighbor.<n>.<field>: <value>` line per field: `port.txt` is our port, `port.id.data` the far port and `system.name.data` the far device. Our port is given Circuit's name. A neighbor that sent no system name or port is left out.
+     */
+    static neighborsOf(text: string, device: Device): Neighbor[] {
+        const fields = new Map<string, Map<string, string>>();
+
+        for (const [, number, field, value] of text.matchAll(/^lldprx\.neighbor\.(\d+)\.([\w.]+): ?(.*)$/gm)) {
+            if (!fields.has(number!)) fields.set(number!, new Map());
+            fields.get(number!)!.set(field!, value!.trim());
+        }
+
+        const circuitName = new Map(
+            Catalog.ports(device.platform, device.model).map((port) => [Catalog.spell(device.platform, device.model, port), port])
+        );
+        const found: Neighbor[] = [];
+
+        for (const neighbor of fields.values()) {
+            const port = neighbor.get("port.txt");
+            const system = neighbor.get("system.name.data");
+            const remote = neighbor.get("port.id.data");
+            if (!port || !system || !remote) continue;
+
+            found.push({ port: circuitName.get(port) ?? port, system, remote_port: remote });
+        }
+
+        return found;
     }
 
     plan(desired: string, current: string, options: ApplyOptions): Plan {
