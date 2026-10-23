@@ -30,6 +30,8 @@ The `Exchange.build` helper makes member ports and a check from a list of member
 | `lan`           | The peering LAN's subnets, `ipv4` and `ipv6`                                                        |
 | `reserved`      | Addresses no member may take, such as the route servers'                                            |
 | `storm_percent` | How much broadcast, multicast and unknown unicast a member port lets through. 1 if you leave it out |
+| `mac_limit`     | The most MAC addresses a member port learns, usually 1. Not on any platform yet, see below          |
+| `ethertypes`    | The only kinds of frame a member port takes in, usually `ipv4`, `ipv6` and `arp`. Not yet either    |
 
 It returns two things:
 
@@ -86,10 +88,13 @@ The hub. Its firewall accepts GRE only from members' addresses, and lets traffic
 
 <<< @/../examples/use-cases/virtual-exchange/circuit.config.ts
 
-## Not in Circuit yet
+## MAC limits and ethertype filters
 
-- **Route servers.** The member list has what they need, each member's AS and addresses, but turning it into BIRD config is up to you for now.
-- **A MAC address limit per member port,** which stops a member from sending from more than one MAC address.
-- **An ethertype filter per member port,** which lets only IPv4, IPv6 and ARP through.
+Two more settings keep members apart:
 
-All three are on Circuit's list, in [issue #16](https://github.com/takodotid/circuit/issues/16). Until they are in, anything set by hand on the switch is removed by the next apply, because the file is the whole truth. So an exchange that needs MAC limits or ethertype filters today cannot manage its fabric with Circuit yet. A small or test exchange can.
+- **`mac_limit`** is the most MAC addresses a port learns. With 1, a member sends from one router only, so a member's switch cannot leak other devices onto the peering LAN.
+- **`ethertypes`** is the kinds of frame a port takes in. With `["ipv4", "ipv6", "arp"]`, anything else, such as spanning tree from a member's switch, is dropped.
+
+Both are fields of a port or a LAG, and `Exchange.build` puts them on every member port when you set them. But no platform can do them yet: the commands for them have not been proved on a real device, so `circuit validate` refuses both, on every platform. Each is added once its commands are proved, in [issue #16](https://github.com/takodotid/circuit/issues/16).
+
+Until then, anything set by hand on a switch is removed by the next apply, because the file is the whole truth. So an exchange that needs MAC limits or ethertype filters today cannot manage its fabric with Circuit yet. A small or test exchange can.

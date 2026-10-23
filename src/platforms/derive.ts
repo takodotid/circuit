@@ -27,6 +27,9 @@ export class Derive {
         return addresses.filter((address) => Address.family(address) === "ipv4").map((address) => Address.prefixOf(address));
     }
 
+    /** Port settings a member port of an internet exchange needs, which no platform renders yet. */
+    private static readonly UNPROVED_PORT_FIELDS = ["mac_limit", "ethertypes"] as const;
+
     /** Fields no platform has proved on a device yet. Every platform refuses them until it has. */
     static unproved(device: Device): string[] {
         const found: string[] = [];
@@ -51,6 +54,20 @@ export class Derive {
 
         for (const name of Object.keys(device.system?.alarms ?? {})) {
             found.push(`system.alarms.${name}, an alarm's severity is ${unproved}`);
+        }
+
+        const holders = [
+            ...Object.entries(device.ports ?? {}).map(([name, settings]) => ({ where: `ports.${name}`, settings })),
+            ...Object.entries(device.interfaces ?? {}).map(([name, settings]) => ({
+                where: `interfaces.${name}`,
+                settings: settings.type === "lag" ? settings : undefined,
+            })),
+        ];
+
+        for (const { where, settings } of holders) {
+            for (const field of Derive.UNPROVED_PORT_FIELDS) {
+                if (settings?.[field] !== undefined) found.push(`${where}.${field}, ${unproved}`);
+            }
         }
 
         return found;

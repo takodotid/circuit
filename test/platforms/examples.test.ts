@@ -208,6 +208,45 @@ test("a field a platform renders nothing for is unsupported", () => {
     );
 });
 
+// No platform's commands for a MAC limit or an ethertype filter are proved on a device yet, so each refuses both rather than guess.
+test("every platform refuses a MAC limit and an ethertype filter", () => {
+    for (const device of examples) {
+        const [port, settings] = Object.entries(device.ports ?? {})[0]!;
+        const filtered: Device = {
+            ...device,
+            ports: { ...device.ports, [port]: { ...settings, mac_limit: 1, ethertypes: ["ipv4", "ipv6", "arp"] } },
+            interfaces: { ...device.interfaces, members: { type: "lag", mac_limit: 1 } },
+        };
+
+        expect(Platforms.get(device.platform).unsupported(filtered)).toEqual(
+            expect.arrayContaining([
+                `ports.${port}.mac_limit, not proved on a device yet`,
+                `ports.${port}.ethertypes, not proved on a device yet`,
+                "interfaces.members.mac_limit, not proved on a device yet",
+            ])
+        );
+    }
+});
+
+test("a MAC limit is a whole number above 0, and an ethertype filter lets each kind in once", () => {
+    const [port, settings] = Object.entries(router.ports ?? {})[0]!;
+    const device: Device = {
+        ...router,
+        ports: { ...router.ports, [port]: { ...settings, mac_limit: 0, ethertypes: ["ipv4", "ipv4"] } },
+        interfaces: { ...router.interfaces, members: { type: "lag", mac_limit: 1.5, ethertypes: [] } },
+    };
+    const messages = Validator.run(defineNetwork({ devices: [device] })).map((finding) => finding.message);
+
+    expect(messages).toEqual(
+        expect.arrayContaining([
+            `port ${port} mac_limit 0 is not a whole number above 0`,
+            `port ${port} ethertypes names a kind twice`,
+            "LAG members mac_limit 1.5 is not a whole number above 0",
+            "LAG members ethertypes is empty, so it would drop every frame",
+        ])
+    );
+});
+
 test("a route through an AS is matched anywhere in its path", () => {
     const rule = { description: "Not through AS64496", match: { through_as: 64496 }, action: "reject" as const };
 

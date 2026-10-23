@@ -193,7 +193,6 @@ export class FortiOs extends Platform {
 
         if (device.stp) found.push("stp, ports are routed");
         found.push(...FortiOs.transparentGaps(device));
-        found.push(...Derive.unproved(device));
 
         for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
             if (iface.type === "vlan" && iface.mac) found.push(`interfaces.${name}.mac, which only RouterOS sets for now`);
@@ -203,6 +202,8 @@ export class FortiOs extends Platform {
         for (const [name, vrf] of Object.entries(device.vrfs ?? {})) {
             if (vrf.description) found.push(`vrfs.${name}.description, the platform numbers a VRF and keeps no description`);
         }
+
+        found.push(...Derive.unproved(device));
 
         return found;
     }
