@@ -3,6 +3,9 @@
 import { Address } from "../core/address";
 import type { Device } from "../schema";
 
+/** A feature a platform renders once proved on one of its devices. */
+export type ProvedFeature = "bfd-timers" | "static-route-bfd" | "multihop-bfd" | "alarm-severity" | "mac-limit" | "ethertype-filter";
+
 export class Derive {
     /** Each LAG's number: its own `id`, or its position among the device's LAGs. */
     static lagIds(device: Device): Map<string, number> {
@@ -27,19 +30,21 @@ export class Derive {
         return addresses.filter((address) => Address.family(address) === "ipv4").map((address) => Address.prefixOf(address));
     }
 
-    /** Port settings a member port of an internet exchange needs, which no platform renders yet. */
+    /** Fields a platform renders only once they are proved on one of its devices. */
     private static readonly UNPROVED_PORT_FIELDS = ["mac_limit", "ethertypes"] as const;
 
-    /** Fields no platform has proved on a device yet. Every platform refuses them until it has. */
-    static unproved(device: Device): string[] {
+    /** Fields a platform refuses until it has proved them on a device. A platform names the ones it has proved, and the rest are refused. */
+    static unproved(device: Device, proved: readonly ProvedFeature[] = []): string[] {
         const found: string[] = [];
         const routing = device.routing;
         const unproved = "not proved on a device yet";
+        const has = (feature: ProvedFeature) => proved.includes(feature);
 
-        if (routing?.bfd) found.push(`routing.bfd, BFD timers are ${unproved}`);
+        if (routing?.bfd && !has("bfd-timers")) found.push(`routing.bfd, BFD timers are ${unproved}`);
 
         for (const route of routing?.static ?? []) {
-            if (route.bfd) found.push(`routing.static ${route.prefix} bfd, BFD on a static route is ${unproved}`);
+            if (route.bfd && !has("static-route-bfd"))
+                found.push(`routing.static ${route.prefix} bfd, BFD on a static route is ${unproved}`);
         }
 
         const bgp = routing?.bgp;
@@ -49,11 +54,14 @@ export class Derive {
             const bfd = neighbor.bfd ?? group?.bfd;
             const multihop = neighbor.multihop ?? group?.multihop;
 
-            if (bfd && multihop) found.push(`routing.bgp.neighbors.${name}.bfd, BFD on a multihop session is ${unproved}`);
+            if (bfd && multihop && !has("multihop-bfd"))
+                found.push(`routing.bgp.neighbors.${name}.bfd, BFD on a multihop session is ${unproved}`);
         }
 
-        for (const name of Object.keys(device.system?.alarms ?? {})) {
-            found.push(`system.alarms.${name}, an alarm's severity is ${unproved}`);
+        if (!has("alarm-severity")) {
+            for (const name of Object.keys(device.system?.alarms ?? {})) {
+                found.push(`system.alarms.${name}, an alarm's severity is ${unproved}`);
+            }
         }
 
         const holders = [
@@ -66,7 +74,8 @@ export class Derive {
 
         for (const { where, settings } of holders) {
             for (const field of Derive.UNPROVED_PORT_FIELDS) {
-                if (settings?.[field] !== undefined) found.push(`${where}.${field}, ${unproved}`);
+                const feature = field === "mac_limit" ? "mac-limit" : "ethertype-filter";
+                if (settings?.[field] !== undefined && !has(feature)) found.push(`${where}.${field}, ${unproved}`);
             }
         }
 
