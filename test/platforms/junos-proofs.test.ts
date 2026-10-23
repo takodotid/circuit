@@ -170,3 +170,22 @@ test("a MAC limit or an ethertype filter is refused where the switching family c
         ])
     );
 });
+
+// The device sends a port's SNMP index, `520`, as its LLDP port ID until told otherwise; after this line a Raisecom neighbor read `PortIdSubtype: ifName` and `PortId: et-0/0/52`.
+const PORT_ID_BY_NAME = "set protocols lldp port-id-subtype interface-name";
+
+test("a device running LLDP sends each port's name as its port ID, and one without LLDP drops it with the rest", () => {
+    const { lldp: _lldp, ...withoutLldp } = aggregationSwitch;
+    const onOnePort: Device = { ...withoutLldp, ports: { ...withoutLldp.ports, "10g-3": { ...withoutLldp.ports!["10g-3"], lldp: true } } };
+
+    expect(platform.render(aggregationSwitch).split("\n")).toContain(PORT_ID_BY_NAME);
+    expect(platform.render(onOnePort).split("\n")).toContain(PORT_ID_BY_NAME);
+    expect(platform.render(withoutLldp)).not.toContain("port-id-subtype");
+
+    const removal = platform.plan(platform.render(withoutLldp), platform.render(aggregationSwitch), { secrets: false, rollback: 10 });
+    // The example keeps LLDP off on one port, so the plan deletes only what goes.
+    expect(removal.steps.flatMap((step) => step.send)).toEqual([
+        "delete protocols lldp port-id-subtype",
+        "delete protocols lldp interface all",
+    ]);
+});

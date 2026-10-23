@@ -1,6 +1,7 @@
 // The neutral model as Junos `set` statements, in the form `show configuration | display set` prints, so the two compare statement by statement.
 
 import { Address } from "../../core/address";
+import { Cabling } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
 import type { AclRule, Device, Ethertype, Family, Interface, Port, Ports, Rate, Severity, Vrrp } from "../../schema";
 import { Catalog } from "../catalog";
@@ -722,9 +723,15 @@ export class JunosRender {
         }
     }
 
-    /** LLDP on every port or on those listed, a port's own setting over the device's. LLDP runs on a LAG's member ports. */
+    /**
+     * LLDP on every port or on those listed, a port's own setting over the device's. LLDP runs on a LAG's member ports.
+     *
+     * The device sends a port's SNMP index as its port ID unless told to send its name, so a neighbor sees `et-0/0/52` rather than `520`.
+     */
     private lldp(): void {
         const lldp = this.device.lldp;
+
+        if (Cabling.runsAnywhere(this.device)) this.out.set("protocols lldp port-id-subtype interface-name");
 
         if (lldp === true) this.out.set("protocols lldp interface all");
         else if (lldp)

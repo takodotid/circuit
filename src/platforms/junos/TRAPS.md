@@ -39,3 +39,4 @@ Behaviour that looks like something else. Each one has been hit on a QFX5100-48S
 - `bfd-liveness-detection` on a static route also watches a `qualified-next-hop`: a session to that address starts.
 - `set switch-options interface xe-0/0/1 interface-mac-limit 1 packet-action drop` is stored on the logical interface and in two statements: `... interface xe-0/0/1.0 interface-mac-limit 1` and `... interface-mac-limit packet-action drop`. The render writes those two.
 - An `ethernet-switching` filter takes `from ether-type ipv4`, `ipv6` and `arp` by name. Ethertypes and an `acl` would both be the port's `filter input`, so Circuit refuses the two on one port rather than merge them.
+- LLDP sends a port's SNMP index as its port ID, `PortIdSubtype: local`, `PortId: 520`, so a neighbor cannot tell which port it is. `set protocols lldp port-id-subtype interface-name` makes it send `et-0/0/52`, and the render sets it wherever LLDP runs.
