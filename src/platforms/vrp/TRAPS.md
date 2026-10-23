@@ -25,3 +25,4 @@ Behaviour that looks like something else. Each one has been hit on a CE6855 runn
 - A console on a password only (`passwordOnly`) shows `Please Press ENTER.` after a logout or a refused password, and `Error: The password is invalid.` for a wrong one.
 - Once SNMP is on, the switch prints an engine ID of its own, `snmp-agent local-engineid`, derived from its MAC, and prints each SNMPv3 user as a bare `snmp-agent usm-user v3 <name>` line before its settings. Planning against either as unrendered would undo the user; seen on a CE6855 on V200R005C00SPC800.
 - `apply --secrets` sends every line holding a secret again, the local users' passwords included, and a password among the user's last ten is refused, which discards the whole candidate. Send it only when a password changed.
+- An SNMPv3 key prints as `cipher %^%#...%^%#`, which can be turned back into the key. The read redacts every value after `cipher`, as it does a password.
