@@ -45,7 +45,7 @@ The tool that made this common was <Term means="Multi Router Traffic Grapher: a 
 
 Today two kinds of tool do the same job with more around it:
 
-- **[LibreNMS](https://www.librenms.org)** monitors devices over SNMP, every five minutes by default: traffic graphs, port status, and alerts when something goes down. `circuit librenms` adds every device in your config that LibreNMS does not monitor yet. See [LibreNMS](/integrations/librenms).
+- **[LibreNMS](https://www.librenms.org)** monitors devices over SNMP, every five minutes by default: traffic graphs, port status, and alerts when something goes down. `circuit librenms` adds every device in your config that LibreNMS does not monitor yet, and keeps each one's name, credentials and location in step. See [LibreNMS](/integrations/librenms).
 - **[Prometheus](https://prometheus.io)** collects numbers of every kind, once a minute by default, and a tool such as Grafana draws them as graphs. It reads network devices through its SNMP exporter. `circuit prometheus` writes the list of devices it should read. See [Prometheus](/integrations/prometheus).
 
 The interval is the detail you get. A five-minute point is an average: a flood that lasts thirty seconds shows as a small bump, not as the full port it caused.
