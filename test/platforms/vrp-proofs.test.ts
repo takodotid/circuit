@@ -3,6 +3,7 @@
 import { expect, test } from "bun:test";
 import switchDevice from "../../examples/platforms/vrp";
 import { Platforms } from "../../src/platforms";
+import { Vrp } from "../../src/platforms/vrp/index";
 import type { Device } from "../../src/schema";
 
 const vrp = Platforms.get("vrp");
@@ -240,4 +241,32 @@ test("a MAC limit is undone without its value, and a filter on a LAG or a LAG me
         "ports.40g-1.mac_limit on a LAG member, set it on the LAG",
         "interfaces.uplink.ethertypes, on a LAG is not proved",
     ]);
+});
+
+// `display lldp neighbor` as the switch printed it, with the far switch's name, address and description changed.
+test("LLDP neighbors are read by Circuit's port names", () => {
+    const output = [
+        "10GE1/0/2 has 1 neighbor(s):",
+        "",
+        "Neighbor index                     :1",
+        "Chassis type                       :MAC Address",
+        "Chassis ID                         :0000-5e00-5301",
+        "Port ID subtype                    :Interface Name",
+        "Port ID                            :XGigabitEthernet0/0/36",
+        "Port description                   :Uplink   ",
+        "System name                        :far-switch      ",
+        "System description                 :Huawei Switch S6730-H48X6C",
+        "Huawei Versatile Routing Platform Software",
+        "Management address                 :192.0.2.29",
+        "",
+        "10GE1/0/3 has 0 neighbor(s)",
+        "",
+        "MEth0/0/0 has 1 neighbor(s):",
+        "Port ID                            :ether1",
+        "System name                        :lab-router",
+        "",
+        "40GE1/0/6 has 0 neighbor(s)",
+    ].join("\r\n");
+
+    expect(Vrp.neighborsOf(switchDevice, output)).toEqual([{ port: "10g-2", system: "far-switch", remote_port: "XGigabitEthernet0/0/36" }]);
 });

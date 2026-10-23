@@ -4,10 +4,12 @@
 
 import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
+import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
 import type { Device } from "../../schema";
 import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
+import { Catalog } from "../catalog";
 import { Derive } from "../derive";
 import { LineDiff, type Dialect, type Group } from "../line-diff";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
@@ -336,6 +338,45 @@ export class Vrp extends Platform {
         }
 
         console.log("  committed, login proved, saved");
+    }
+
+    async neighbors(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<Neighbor[]> {
+        const session = await this.session(device, options);
+
+        try {
+            return Vrp.neighborsOf(device, await session.run("display lldp neighbor", 60_000));
+        } finally {
+            session.close();
+        }
+    }
+
+    /**
+     * The neighbors in `display lldp neighbor`: a header per port, `10GE1/0/2 has 1 neighbor(s):`, then a block per neighbor where `Port ID` comes before `System name`. A port Circuit does not know, such as the management port, is left out.
+     */
+    static neighborsOf(device: Device, output: string): Neighbor[] {
+        const ports = Catalog.ports(device.platform, device.model);
+        const byName = new Map(ports.map((port) => [Catalog.spell(device.platform, device.model, port), port]));
+
+        const neighbors: Neighbor[] = [];
+        let port: string | undefined;
+        let remotePort: string | undefined;
+
+        for (const line of output.replace(/\r/g, "").split("\n")) {
+            const header = /^(\S+) has \d+ neighbor\(s\)/.exec(line);
+            if (header) {
+                port = byName.get(header[1]!);
+                remotePort = undefined;
+                continue;
+            }
+
+            const remote = /^Port ID\s*:(.*)$/.exec(line);
+            if (remote) remotePort = remote[1]!.trim();
+
+            const system = /^System name\s*:(.*)$/.exec(line)?.[1]?.trim();
+            if (port && remotePort && system) neighbors.push({ port, system, remote_port: remotePort });
+        }
+
+        return neighbors;
     }
 
     readOnly(command: string): boolean {
