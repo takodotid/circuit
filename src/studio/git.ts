@@ -110,14 +110,15 @@ export class Git {
         await Git.run(top, ["worktree", "prune"]);
 
         const checkout = join(cache, commit.slice(0, 12));
-        await Git.run(top, ["worktree", "add", "--detach", "--force", checkout, commit]);
+        // The checkout sits deep inside the project, so a long path in the repository passes the 260 characters Windows allows unless git is told otherwise.
+        await Git.run(top, ["-c", "core.longpaths=true", "worktree", "add", "--detach", "--force", checkout, commit]);
 
         try {
             // Where the config sits inside the repository, as git says: comparing paths would trip on two spellings of one directory, such as Windows' short names.
             const prefix = (await Git.run(configDirectory, ["rev-parse", "--show-prefix"])).trim();
             return await gather(join(checkout, prefix, basename(configPath)));
         } finally {
-            await Git.run(top, ["worktree", "remove", "--force", checkout]).catch(() => {});
+            await Git.run(top, ["-c", "core.longpaths=true", "worktree", "remove", "--force", checkout]).catch(() => {});
         }
     }
 }

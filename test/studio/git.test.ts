@@ -61,6 +61,36 @@ test("networkAt reads the config as it was at a commit, from a checkout git igno
     expect(git("status", "--porcelain")).toBe("");
 });
 
+test("networkAt checks out a repository whose paths are longer than Windows allows by default", async () => {
+    // 260 characters is the Windows limit unless git is told to go past it.
+    const deep = mkdtempSync(join(tmpdir(), `circuit-studio-long-${"a".repeat(60)}-`));
+    const run = (...args: string[]) =>
+        execFileSync("git", ["-c", "user.name=Studio", "-c", "user.email=studio@example.com", "-c", "core.longpaths=true", ...args], {
+            cwd: deep,
+            encoding: "utf8",
+            env,
+        });
+
+    try {
+        run("init", "-q", "-b", "main");
+        const nested = join(deep, "b".repeat(60), "c".repeat(60));
+        mkdirSync(nested, { recursive: true });
+        writeFileSync(join(nested, `${"d".repeat(60)}.ts`), "long\n");
+        mkdirSync(join(deep, "network"));
+        writeFileSync(join(deep, "network", "circuit.config.ts"), "config\n");
+        run("add", "-A");
+        run("commit", "-q", "-m", "Long");
+
+        const network = join(deep, "network");
+        const read = await Git.networkAt(network, join(network, "circuit.config.ts"), "HEAD", async (configPath) =>
+            readFileSync(configPath, "utf8")
+        );
+        expect(read).toBe("config\n");
+    } finally {
+        rmSync(deep, { recursive: true, force: true });
+    }
+});
+
 test("compareNetworks finds devices changed, added and removed, the graph's new and gone lines, and new and resolved findings", () => {
     const network = (devices: string[], rendered: Record<string, string>, edges: string[], findings: string[]) =>
         ({
