@@ -5,7 +5,7 @@ An internet exchange, IX, is a shared network where networks connect to each oth
 An exchange has two parts:
 
 1. **The fabric**: the switches that carry the peering LAN to every member port. Circuit configures it.
-2. **The route servers**: servers running BGP software such as BIRD, which pass every member's routes to every other member. Circuit does not configure these yet.
+2. **The route servers**: servers running BGP software such as BIRD, which pass every member's routes to every other member. Circuit writes their config from the member list, and you copy it to them.
 
 The example is an exchange of two switches, with Cloudflare, Akamai and a small network, Acme, as members.
 
@@ -33,10 +33,11 @@ The `Exchange.build` helper makes member ports and a check from a list of member
 | `mac_limit`     | The most MAC addresses a member port learns, usually 1. Not on any platform yet, see below          |
 | `ethertypes`    | The only kinds of frame a member port takes in, usually `ipv4`, `ipv6` and `arp`. Not yet either    |
 
-It returns two things:
+It returns three things:
 
 - **`exchange.ports(device)`:** every member's port on that switch, set up as above. Put it in the switch's `ports`.
 - **`exchange.check`:** a check that no two members share a name, an AS or an address, that every address is inside the peering LAN and not reserved, and that every member port carries only the peering VLAN. Put it in `checks`.
+- **`exchange.bird(server)`:** a route server's config, for BIRD 2. See [The route servers](#the-route-servers).
 
 <<< @/../examples/use-cases/internet-exchange/exchange.ts
 
@@ -67,6 +68,59 @@ A member joins by being added to `members/index.ts`, and leaves by being removed
 3. **Management goes over the same trunk,** and stays off every member port: `exchange.check` makes sure of that.
 
 <<< @/../examples/use-cases/internet-exchange/circuit.config.ts
+
+## The route servers
+
+A route server peers with every member, takes each member's routes, and passes them on to all the others. A member then needs one or two sessions, to the route servers, instead of one to every other member.
+
+Circuit never logs in to a route server. It writes the server's BIRD config from the member list, and you copy the file to the server. BIRD 2 is the routing software; Circuit writes nothing for OpenBGPD or other software yet.
+
+Each route server is a few lines in `exchange.ts`. Their addresses are also the exchange's `reserved` addresses, so no member can take one:
+
+| Field       | What it is                                                                     |
+| ----------- | ------------------------------------------------------------------------------ |
+| `name`      | Its name, such as `rs1`, written at the top of its config                      |
+| `asn`       | Its own AS. It never adds this AS to a path, so members see each other's paths |
+| `router_id` | BIRD's router ID, an IPv4 address of the server, usually its `ipv4`            |
+| `ipv4`      | Its IPv4 address on the peering LAN. Members with an IPv4 address peer with it |
+| `ipv6`      | Its IPv6 address on the peering LAN. Members with an IPv6 address peer with it |
+
+`route-servers.ts` writes each one's config beside it. Run it with `bun route-servers.ts`, or with `npx tsx route-servers.ts` on Node:
+
+<<< @/../examples/use-cases/internet-exchange/route-servers.ts
+
+The config has one BGP session per member and family. Each session keeps a route the member sends only when:
+
+1. the first AS in its path is the member's own,
+2. its next hop is the member's own address on the peering LAN, so a member cannot send traffic toward another member's router,
+3. it is not the peering LAN itself, or a part of it,
+4. it is /8 to /24 long for IPv4, or /12 to /48 for IPv6.
+
+A route that fails stays on the server, hidden: `birdc show route filtered` lists it. Here is the session for one member:
+
+```
+protocol bgp cloudflare_ipv4 {
+    description "cloudflare, AS13335";
+    local 203.0.113.1 as 64500;
+    neighbor 203.0.113.10 as 13335;
+    rs client;
+    ipv4 {
+        import keep filtered on;
+        import filter {
+            if bgp_path.first != 13335 then reject;
+            if bgp_next_hop != 203.0.113.10 then reject;
+            if net ~ [ 203.0.113.0/24+ ] then reject;
+            if net.len < 8 || net.len > 24 then reject;
+            accept;
+        };
+        export all;
+    };
+}
+```
+
+When a member joins or leaves, run the script again, copy the files, and run `birdc configure` on each server. BIRD starts the new sessions, stops the old ones, and keeps the sessions it did not change up.
+
+The config does not check routes against IRR or RPKI, and has no prefix limit per member. A large exchange wants both: add them in your own script after `exchange.bird` writes the rest, or use a route server tool built for them. A change by hand in the written file is lost the next time the script runs.
 
 ## A virtual exchange
 

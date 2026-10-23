@@ -206,3 +206,65 @@ test("Exchange.build puts a MAC limit and an ethertype filter on every member po
     expect(plain.ports("ix-sw-01")["10g-1"]).not.toHaveProperty("ethertypes");
     expect(filtered.ports("ix-sw-01")["10g-1"]).toMatchObject({ mac_limit: 1, ethertypes: ["ipv4", "ipv6", "arp"] });
 });
+
+// The output was parse-checked with `bird -p -c` on BIRD 2.0.12 and 2.15.1; these keep its shape.
+test("exchange.bird writes one BIRD session per member and family, each taking only the member's own routes", async () => {
+    const { exchange, ROUTE_SERVERS } = await import("../../examples/use-cases/internet-exchange/exchange");
+    const config = exchange.bird(ROUTE_SERVERS[0]);
+
+    expect(config).toContain("router id 203.0.113.1;");
+    expect(config.match(/^protocol bgp /gm)).toHaveLength(6);
+    expect(config).toContain(
+        [
+            "protocol bgp cloudflare_ipv6 {",
+            '    description "cloudflare, AS13335";',
+            "    local 2001:db8:ffff::1 as 64500;",
+            "    neighbor 2001:db8:ffff::10 as 13335;",
+            "    rs client;",
+            "    ipv6 {",
+            "        import keep filtered on;",
+            "        import filter {",
+            "            if bgp_path.first != 13335 then reject;",
+            "            if bgp_next_hop != 2001:db8:ffff::10 then reject;",
+            "            if net ~ [ 2001:db8:ffff::/64+ ] then reject;",
+            "            if net.len < 12 || net.len > 48 then reject;",
+            "            accept;",
+            "        };",
+            "        export all;",
+            "    };",
+            "}",
+        ].join("\n")
+    );
+});
+
+test("exchange.bird gives a session only in the families both ends have, and refuses what BIRD would", async () => {
+    const { Exchange } = await import("../../src/helpers");
+    const lan = { ipv4: "203.0.113.0/24", ipv6: "2001:db8:ffff::/64" } as const;
+    const members = [
+        { name: "big-net", asn: 64510, ports: {}, ipv4: "203.0.113.10", ipv6: "2001:db8:ffff::10" },
+        { name: "small", asn: 64511, ports: {}, ipv4: "203.0.113.11" },
+    ] as const;
+    const exchange = Exchange.build({ vlan: "peering", lan }, members);
+
+    const onlyIpv4 = exchange.bird({ name: "rs1", asn: 64500, router_id: "203.0.113.1", ipv4: "203.0.113.1" });
+    expect(onlyIpv4.match(/^protocol bgp \S+/gm)).toEqual(["protocol bgp big_net_ipv4", "protocol bgp small_ipv4"]);
+
+    const both = exchange.bird({ name: "rs1", asn: 64500, router_id: "203.0.113.1", ipv4: "203.0.113.1", ipv6: "2001:db8:ffff::1" });
+    expect(both.match(/^protocol bgp \S+/gm)).toEqual([
+        "protocol bgp big_net_ipv4",
+        "protocol bgp big_net_ipv6",
+        "protocol bgp small_ipv4",
+    ]);
+
+    expect(() => exchange.bird({ name: "rs1", asn: 64500, router_id: "203.0.113.1" })).toThrow(
+        "route server rs1 has no address on the peering LAN"
+    );
+    expect(() => exchange.bird({ name: "rs1", asn: 64500, router_id: "198.51.100.1", ipv4: "198.51.100.1" })).toThrow(
+        "198.51.100.1 of route server rs1 is outside the peering LAN"
+    );
+
+    const clashing = Exchange.build({ vlan: "peering", lan }, [members[0], { ...members[1], name: "big_net" }]);
+    expect(() => clashing.bird({ name: "rs1", asn: 64500, router_id: "203.0.113.1", ipv4: "203.0.113.1" })).toThrow(
+        "members big-net and big_net would both have session big_net_ipv4"
+    );
+});
