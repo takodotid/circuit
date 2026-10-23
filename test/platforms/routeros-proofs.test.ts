@@ -20,7 +20,11 @@ const SESSIONS = [
 const LOG_LINE =
     "2026-10-24 04:50:03 route,bgp,warning sgix-rs-v6-1 {l_addr: 2001:db8:ffff::10, r_addr: 2001:db8:ffff::1} Starter {openOk: false} Received Notification [ code: (6,5), msg: (cease: connection rejected)] ";
 
+/** The LLDP neighbors script, as the router printed it: a switch that sends its vendor as its system name, and a firewall port in a LAG. The far port is its description. */
+const NEIGHBORS = ["qsfp28-1-1;bridge|Vendor|edge-01 uplink", "sfp28-1;lag-fw;bridge|fw-01|edge-01 sfp28-1"].join("\n");
+
 const fake = new FakeSshDevice("operator+ct300w", (command) => {
+    if (command.startsWith(':foreach n in=[/ip neighbor find where discovered-by~"lldp"]')) return NEIGHBORS + "\n";
     if (command.startsWith(":foreach s in=[/routing bgp session find]")) return SESSIONS + "\n";
     if (command === ':put ([/system clock get date] . " " . [/system clock get time])') return "2026-10-24 04:53:08\n";
     if (command === '/log print where topics~"bgp" and !(message~"^connection ")') return LOG_LINE + "\n";
@@ -74,5 +78,14 @@ test("a VLAN interface that keeps its name and takes a new VLAN ID is changed wi
         "/interface vlan set [ find interface=bridge and vlan-id=3990 ] vlan-id=3991",
         "/interface bridge vlan add bridge=bridge tagged=bridge vlan-ids=3991",
         "/interface bridge vlan remove [ find vlan-ids=3990 and !dynamic ]",
+    ]);
+});
+
+test("LLDP neighbors: our port by Circuit's name, and the far port by the description it reports", async () => {
+    const firewall: Device = { ...edge, name: "fw-01", ports: { "25g-3": { description: "edge-01 sfp28-1" } } };
+
+    expect(await platform.neighbors!(device, [device, firewall])).toEqual([
+        { port: "100g-1", system: "Vendor", remote_port: "edge-01 uplink" },
+        { port: "25g-1", system: "fw-01", remote_port: "25g-3" },
     ]);
 });
