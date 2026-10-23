@@ -49,6 +49,9 @@ export class RouterOsExport {
             "persistent-keepalive": "0s",
         },
         "/ipv6 address": { advertise: "yes" },
+        "/routing bgp connection": { "use-bfd": "no" },
+        // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
+        "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
         "/ip dhcp-server": { "lease-time": "30m" },
         "/ip dns": { servers: "", "allow-remote-requests": "no" },
         "/ip service": { address: "", certificate: "none" },
@@ -311,6 +314,10 @@ export class RouterOsExport {
     static identity(command: Command): Record<string, string> {
         // The switching bridge is the one that filters VLANs, whatever it is called, so a rename is a rename and not a rebuild of every port.
         if (command.menu === "/interface bridge" && command.attrs["vlan-filtering"] === "yes") return { "vlan-filtering": "yes" };
+
+        // A BFD configuration covers interfaces, or the addresses of multihop sessions, never both. A selector on a property that is not set matches nothing, so only the one that is set identifies it.
+        const addresses = command.attrs.addresses;
+        if (command.menu === "/routing bfd configuration" && addresses !== undefined) return { addresses };
 
         const normalized = RouterOsExport.normal(command);
         const properties = RouterOsExport.IDENTITY[command.menu] ?? ["name"];

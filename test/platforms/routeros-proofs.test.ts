@@ -66,9 +66,7 @@ test("a VLAN interface that keeps its name and takes a new VLAN ID is changed wi
     });
 
     // The export as the router printed it, wrapped, after the interface was added on VLAN 3990.
-    const running = platform
-        .render(withVlan(3990))
-        .replace("name=test-vlan01 vlan-id=3990", "name=test-vlan01 vlan-id=\\\n    3990");
+    const running = platform.render(withVlan(3990)).replace("name=test-vlan01 vlan-id=3990", "name=test-vlan01 vlan-id=\\\n    3990");
 
     const plan = platform.plan(platform.render(withVlan(3991)), running, options);
     const sent = plan.steps.flatMap((step) => step.send);
@@ -87,5 +85,69 @@ test("LLDP neighbors: our port by Circuit's name, and the far port by the descri
     expect(await platform.neighbors!(device, [device, firewall])).toEqual([
         { port: "100g-1", system: "Vendor", remote_port: "edge-01 uplink" },
         { port: "25g-1", system: "fw-01", remote_port: "25g-3" },
+    ]);
+});
+
+/** The edge router with a multihop session to a controller, with BFD, and BFD timers when given. */
+function withMultihopBfd(bfd?: { interval: number; multiplier: number }, sessionBfd = true): Device {
+    const routing = edge.routing!;
+    const controller = { address: "198.51.100.7", remote_as: 64512, multihop: true, bfd: sessionBfd || undefined } as const;
+
+    return {
+        ...edge,
+        routing: { ...routing, bfd, bgp: { ...routing.bgp!, neighbors: { ...routing.bgp!.neighbors, controller } } },
+    };
+}
+
+test("BFD timers and a multihop session: the configuration names the session's address, and its timers read back as the router printed them", () => {
+    const desired = platform.render(withMultihopBfd({ interval: 300, multiplier: 3 }));
+
+    // As the router printed it. Without a configuration naming the address, its BFD session was `BFD forbidden for destination address`.
+    expect(desired).toContain("/routing bfd configuration\nadd addresses=198.51.100.7/32 min-rx=300ms min-tx=300ms multiplier=3\n");
+    expect(desired).not.toContain("interfaces=all");
+
+    const timersOnly: Device = { ...edge, routing: { ...edge.routing!, bfd: { interval: 300, multiplier: 3 } } };
+    expect(platform.render(timersOnly)).toContain(
+        "/routing bfd configuration\nadd interfaces=all min-rx=300ms min-tx=300ms multiplier=3\n"
+    );
+});
+
+test("timers the config no longer states are set back to the router's own, which it then prints", () => {
+    const running = platform.render(withMultihopBfd({ interval: 300, multiplier: 3 }));
+    const plan = platform.plan(platform.render(withMultihopBfd()), running, options);
+
+    expect(plan.problems).toEqual([]);
+    expect(plan.steps.flatMap((step) => step.send)).toEqual([
+        '/routing bfd configuration set [ find addresses="198.51.100.7/32" ] min-rx=200ms min-tx=200ms multiplier=5',
+    ]);
+
+    const printed = running.replace("min-rx=300ms min-tx=300ms multiplier=3", "min-rx=200ms min-tx=200ms multiplier=5");
+    expect(platform.plan(platform.render(withMultihopBfd()), printed, options).steps).toEqual([]);
+});
+
+test("BFD taken off a session sets use-bfd=no, which the router then prints", () => {
+    const running = platform.render(withMultihopBfd());
+    const sent = platform.plan(platform.render(withMultihopBfd(undefined, false)), running, options).steps.flatMap((step) => step.send);
+
+    expect(sent).toEqual([
+        '/routing bgp connection set [ find remote.address="198.51.100.7/32" ] use-bfd=no',
+        '/routing bfd configuration remove [ find addresses="198.51.100.7/32" ]',
+    ]);
+
+    const desired = platform.render(withMultihopBfd(undefined, false));
+    const printed = desired.replace("remote.as=64512", "remote.as=64512 use-bfd=no");
+    expect(printed).toContain("use-bfd=no");
+    expect(platform.plan(desired, printed, options).steps).toEqual([]);
+});
+
+test("BFD timers and multihop BFD are no longer refused; BFD on a static route is, for the reason the router gave", () => {
+    const route = { prefix: "192.0.2.0/24", via: "203.0.113.1", bfd: true } as const;
+    const device: Device = {
+        ...withMultihopBfd({ interval: 300, multiplier: 3 }),
+        routing: { ...withMultihopBfd().routing, static: [route] },
+    };
+
+    expect(platform.unsupported(device)).toEqual([
+        "routing.static 192.0.2.0/24 bfd, a static route's check-gateway takes arp, none or ping on 7.23",
     ]);
 });

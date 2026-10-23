@@ -145,7 +145,7 @@ export class RouterOsPlan {
         return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$")}"`;
     }
 
-    /** A value as a command takes it: bare when plain, quoted otherwise. */
+    /** A value as a command takes it: bare when plain, quoted otherwise. A bare value is checked by `:parse` against the values the property takes; a quoted one is not (TRAPS.md). */
     private static value(raw: string): string {
         return /^[\w.:/@,!-]+$/.test(raw) ? raw : RouterOsPlan.quote(raw);
     }

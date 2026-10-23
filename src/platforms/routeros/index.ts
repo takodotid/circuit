@@ -184,7 +184,12 @@ export class RouterOs extends Platform {
         if (device.system?.transceiver_monitoring === false) found.push("system.transceiver_monitoring false, it is always on");
         if (device.flow_export?.protocol === "sflow") found.push("flow_export.protocol sflow, the platform exports NetFlow and IPFIX");
 
-        found.push(...Derive.unproved(device));
+        for (const route of device.routing?.static ?? []) {
+            if (route.bfd) found.push(`routing.static ${route.prefix} bfd, a static route's check-gateway takes arp, none or ping on 7.23`);
+        }
+
+        // BFD on a static route is refused above, for the reason the device gave, rather than as unproved.
+        found.push(...Derive.unproved(device, ["bfd-timers", "multihop-bfd", "static-route-bfd"]));
 
         return found;
     }
@@ -408,7 +413,9 @@ export class RouterOs extends Platform {
         const [interfaces = "", system = "", ...rest] = line.split("|");
         const reported = rest.join("|");
         const own = interfaces.split(";")[0] ?? "";
-        const port = Catalog.ports(device.platform, device.model).find((name) => Catalog.spell(device.platform, device.model, name) === own);
+        const port = Catalog.ports(device.platform, device.model).find(
+            (name) => Catalog.spell(device.platform, device.model, name) === own
+        );
 
         return { port: port ?? own, system, remote_port: RouterOs.farPort(network, system, reported) };
     }
