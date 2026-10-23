@@ -49,6 +49,10 @@ export class Derive {
             if (bfd && multihop) found.push(`routing.bgp.neighbors.${name}.bfd, BFD on a multihop session is ${unproved}`);
         }
 
+        for (const name of Object.keys(device.system?.alarms ?? {})) {
+            found.push(`system.alarms.${name}, an alarm's severity is ${unproved}`);
+        }
+
         return found;
     }
 

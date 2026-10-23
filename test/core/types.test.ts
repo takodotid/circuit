@@ -3,6 +3,7 @@
 import { expect, test } from "bun:test";
 import { Bgp } from "../../src/helpers";
 import type {
+    AlarmSeverity,
     Endpoint,
     IP,
     LargeCommunity,
@@ -73,13 +74,14 @@ test("Bgp.communityScheme gives back the communities it makes", () => {
 });
 
 test("other fixed values are suggested and checked", () => {
-    const right: [TimeZone, TimeZone, MacAddress, Endpoint, OspfAreaId, ReleaseChannel] = [
+    const right: [TimeZone, TimeZone, MacAddress, Endpoint, OspfAreaId, ReleaseChannel, AlarmSeverity] = [
         "Asia/Jakarta",
         "UTC",
         "02:00:00:00:00:01",
         "vpn.example.net:51820",
         "0.0.0.0",
         "long-term",
+        "warning",
     ];
 
     // @ts-expect-error Not an IANA zone.
@@ -92,6 +94,8 @@ test("other fixed values are suggested and checked", () => {
     const area: OspfAreaId = "0";
     // @ts-expect-error Not a release channel.
     const channel: ReleaseChannel = "lts";
+    // @ts-expect-error A log severity, not an alarm's.
+    const severity: AlarmSeverity = "error";
 
-    expect([right, zone, mac, endpoint, area, channel]).toHaveLength(6);
+    expect([right, zone, mac, endpoint, area, channel, severity]).toHaveLength(7);
 });
