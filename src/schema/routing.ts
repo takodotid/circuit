@@ -10,6 +10,8 @@ export type StaticRoute<I extends string, F extends string> = {
     interface?: I;
     /** Discard matching traffic. The usual way to originate an aggregate. */
     blackhole?: true;
+    /** Withdraw the route while BFD finds `via` dead, and put it back once `via` answers again. Needs `via`. */
+    bfd?: true;
     /** Preference against other routes to the same prefix. Lower wins. 1 when absent. */
     distance?: number;
     /** The VRF the route is in. The default table when absent. */
@@ -75,6 +77,14 @@ export type Bgp<P extends string, G extends string> = {
     neighbors?: Record<string, Neighbor<P, G>>;
 };
 
+/** How fast BFD notices a dead neighbor: after `multiplier` packets in a row are missed, so in `interval` times `multiplier` milliseconds. */
+export type Bfd = {
+    /** Milliseconds between the packets this device sends, and the shortest gap it asks of the neighbor. */
+    interval: number;
+    /** How many packets in a row may be missed before the neighbor is declared down. */
+    multiplier: number;
+};
+
 /** A route origin validation server, RFC 8210. */
 export type RpkiServer = {
     /** Where the validator listens. */
@@ -122,4 +132,6 @@ export type Routing<P extends string, G extends string, I extends string, F exte
     ospf?: Ospf<I>;
     /** Validators answering route origin validation. */
     rpki?: readonly RpkiServer[];
+    /** BFD timers for every BFD session on the device: BGP, OSPF and static routes. The platform's own when absent; Junos has none, so Circuit sends every 300 ms there. Both ends of a link should agree. */
+    bfd?: Bfd;
 };

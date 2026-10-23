@@ -269,3 +269,38 @@ test("management services answer only on the interfaces listed", () => {
         Platforms.get("routeros").unsupported({ ...router, management: { ...router.management, interfaces: ["management"] } } as Device)
     ).toContain("management.interfaces, which only FortiOS builds for now");
 });
+
+// Nothing in these was proved on a device yet, so every platform refuses them rather than guess (#27).
+test("BFD timers, BFD on a static route and BFD on a multihop session are refused until proved", () => {
+    for (const device of examples) {
+        const bgp = device.routing?.bgp;
+        const withBfd: Device = {
+            ...device,
+            routing: {
+                ...device.routing,
+                bfd: { interval: 300, multiplier: 3 },
+                static: [...(device.routing?.static ?? []), { prefix: "198.51.100.128/25", via: "192.0.2.1", bfd: true }],
+                bgp: {
+                    asn: bgp?.asn ?? 64500,
+                    ...bgp,
+                    neighbors: { ...bgp?.neighbors, loopback: { address: "192.0.2.200", remote_as: 64500, multihop: true, bfd: true } },
+                },
+            },
+        };
+
+        expect(Platforms.get(device.platform).unsupported(withBfd)).toEqual(
+            expect.arrayContaining([
+                "routing.bfd, BFD timers are not proved on a device yet",
+                "routing.static 198.51.100.128/25 bfd, BFD on a static route is not proved on a device yet",
+                "routing.bgp.neighbors.loopback.bfd, BFD on a multihop session is not proved on a device yet",
+            ])
+        );
+    }
+
+    const viaInterface: Device = {
+        ...router,
+        routing: { ...router.routing, static: [{ prefix: "198.51.100.128/25", interface: "uplink", bfd: true }] },
+    };
+    const findings = Validator.run(defineNetwork({ devices: [viaInterface] })).map((finding) => finding.message);
+    expect(findings).toContain("static route 198.51.100.128/25 has bfd without via, the address BFD watches");
+});

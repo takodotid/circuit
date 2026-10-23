@@ -289,6 +289,8 @@ export class Junos extends Platform {
             if (names.members(name).some((port) => port.startsWith("em"))) found.push(`flow_export.interfaces ${name}, a management port`);
         }
 
+        found.push(...Derive.unproved(device));
+
         return found;
     }
 

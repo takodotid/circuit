@@ -24,6 +24,7 @@ import {
 import { BgpWait, type WaitLimits } from "../bgp-wait";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../catalog";
+import { Derive } from "../derive";
 import { RouterOsRender } from "./render";
 
 /** Where commands run, one at a time, each returning what it printed: an SSH session, or the console. */
@@ -171,6 +172,8 @@ export class RouterOs extends Platform {
 
         if (device.system?.transceiver_monitoring === false) found.push("system.transceiver_monitoring false, it is always on");
         if (device.flow_export?.protocol === "sflow") found.push("flow_export.protocol sflow, the platform exports NetFlow and IPFIX");
+
+        found.push(...Derive.unproved(device));
 
         return found;
     }
