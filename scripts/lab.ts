@@ -5,6 +5,7 @@
 //   bun scripts/lab.ts <device.ts> apply --confirm      # send it, then read and plan again
 //   bun scripts/lab.ts <device.ts> run -- "line" ...    # send raw lines and print what comes back
 //   bun scripts/lab.ts <device.ts> run --file=lines.txt
+//   bun scripts/lab.ts <device.ts> run --session -- "line" ...   # each line through the platform's read session, as `circuit show` logs in, so the output is plain
 //
 // Options: --console (through connection.console instead of SSH), --secrets (also send every secret), --rollback=N (minutes, default 10), --host-key=ssh-rsa (for `run` over SSH, on a device that signs other host keys wrongly). Secrets come from the environment or a .env beside the device file.
 
@@ -139,8 +140,29 @@ class Lab {
     async run(lines: string[]): Promise<void> {
         if (!lines.length) throw new Error("no lines to send: give them after -- or with --file=");
 
-        const output = this.flags.has("console") ? await this.runOnConsole(lines) : await this.runOverSsh(lines);
+        let output: string;
+        if (this.flags.has("session")) output = await this.runInSession(lines);
+        else if (this.flags.has("console")) output = await this.runOnConsole(lines);
+        else output = await this.runOverSsh(lines);
         this.save("run.txt", output);
+    }
+
+    /** Each line through the platform's own read session. It sends whatever it is given; `circuit show` is what refuses a write. */
+    private async runInSession(lines: string[]): Promise<string> {
+        const session = await this.platform.session(this.device, this.options);
+        let output = "";
+
+        try {
+            for (const line of lines) {
+                const answer = `>>> ${line}\n${await session.run(line, 120_000)}\n`;
+                output += answer;
+                process.stdout.write(answer);
+            }
+
+            return output;
+        } finally {
+            session.close();
+        }
     }
 
     private async runOverSsh(lines: string[]): Promise<string> {
