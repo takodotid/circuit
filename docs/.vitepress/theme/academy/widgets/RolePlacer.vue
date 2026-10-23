@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: roles in a network. The reader gives each device of the full-setup example a role from what is plugged into it, sees it take its place in the drawing, and sees the name and file that follow.
+// Lesson: roles in a network. The reader gives each device of the regional provider example a role from what is plugged into it, sees it take its place in the drawing, and sees the name and file that follow.
 
 import { computed, ref } from "vue";
 
@@ -7,7 +7,7 @@ type Role = "edge" | "core" | "aggregation" | "access";
 type Kind = "border" | "middle" | "rack";
 
 type Device = {
-    /** The name the full-setup example gives it. */
+    /** The name the regional provider example gives it. */
     example: string;
     site: "a" | "b";
     /** Its number among devices of the same role at its site, in the example. */
@@ -237,7 +237,7 @@ const summary = computed(() => {
     if (!done.value) return undefined;
 
     if (!renamed.value.length)
-        return "Every device has a role, and every name matches the one the full-setup example uses. The edge is on top, the middle switches below it, and the racks at the bottom.";
+        return "Every device has a role, and every name matches the one the regional provider example uses. The edge is on top, the middle switches below it, and the racks at the bottom.";
 
     const changes = renamed.value.map((device) => `${device.example} is ${nameOf(device)}`).join(", ");
     return `Every device has a role. Your names differ from the example's in ${renamed.value.length}: ${changes}. Both work; what matters is that every device is named by one rule.`;

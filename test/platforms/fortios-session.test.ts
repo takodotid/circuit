@@ -1,7 +1,7 @@
 // FortiOS read over a real SSH shell, against a fake device that answers like a FortiGate 3700D: the version check, then `show` for each section Circuit manages.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import firewall from "../../examples/firewall";
+import firewall from "../../examples/platforms/fortios";
 import { Platforms } from "../../src/platforms";
 import { FortiOsRender } from "../../src/platforms/fortios/render";
 import type { Device } from "../../src/schema";

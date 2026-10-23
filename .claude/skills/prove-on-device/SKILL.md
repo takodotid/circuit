@@ -28,11 +28,11 @@ Never send `?` or Tab to explore on VRP or Raisecom: a script's `?` runs the lin
 `scripts/lab.ts` runs one device file against the device, without a project. It saves everything to `.lab/<device>/` (gitignored).
 
 ```bash
-bun scripts/lab.ts examples/router.ts read                  # what it runs now
-bun scripts/lab.ts examples/router.ts plan                  # what an apply would send
-bun scripts/lab.ts examples/router.ts apply --confirm       # send it, read again, plan again
-bun scripts/lab.ts examples/router.ts run -- ':put [:parse "/ip address add address=10.0.0.1/24 interface=ether1"]'
-bun scripts/lab.ts examples/switch.ts run --file=lines.txt --host-key=ssh-rsa
+bun scripts/lab.ts examples/platforms/routeros.ts read                  # what it runs now
+bun scripts/lab.ts examples/platforms/routeros.ts plan                  # what an apply would send
+bun scripts/lab.ts examples/platforms/routeros.ts apply --confirm       # send it, read again, plan again
+bun scripts/lab.ts examples/platforms/routeros.ts run -- ':put [:parse "/ip address add address=10.0.0.1/24 interface=ether1"]'
+bun scripts/lab.ts examples/platforms/vrp.ts run --file=lines.txt --host-key=ssh-rsa
 ```
 
 Add `--console` to go through `connection.console` instead of SSH. For a lab device, copy the example and point its `connection` at the lab, outside the repo or in `.lab/`.

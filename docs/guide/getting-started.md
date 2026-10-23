@@ -35,7 +35,7 @@ bunx @takodotid/circuit new
 It asks a few questions:
 
 1. **The directory** for the project, `my-network` by default.
-2. **Which pattern is closest to your network.** A pattern is a ready-made layout with example devices:
+2. **Which pattern is closest to your network.** Pick one with the arrow keys and Enter. A pattern is a ready-made layout with example devices:
     - [A single site](/patterns/single-site): a home, an office or an internal network, with a router and a switch.
     - [An edge router](/patterns/edge-router): your own AS number, with an IP transit and an internet exchange.
     - [Colocation with tenants](/patterns/colocation): you host customers who each get their own VLANs, addresses and ports.
@@ -48,7 +48,7 @@ Then it creates the files and installs Circuit with the package manager you star
 npx @takodotid/circuit new my-network --pattern edge-router --asn 64500 --1password
 ```
 
-With `--use npm`, `--use pnpm` or `--use bun`, you pick the package manager yourself.
+With `--use npm`, `--use pnpm` or `--use bun`, you pick the package manager yourself. `--no-install` creates the files without installing anything. `new --help` lists every option.
 
 ## What you get
 

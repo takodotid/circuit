@@ -1,12 +1,12 @@
 // The edge router at site B: transit C, the gateway of every site B customer and of the office, and three ways to site A: the leased wave, a GRE tunnel over the internet, and a WireGuard tunnel for management. Staff dial in here.
 
-import { defineDevice, merge, secret } from "@takodotid/circuit";
+import { defineDevice, secret, Utils } from "@takodotid/circuit";
 import { AT } from "../customers";
 import * as edge from "../edge";
 import { ASN, INFRA_VLANS, OURS, SERVICES } from "../network";
 import { customerSessions, customerVlanNames, customerVlans, gateways, routedBlocks } from "../tenancy";
 
-const neighbors = merge(
+const neighbors = Utils.merge(
     {
         "transit-c-v4": {
             address: "203.0.113.9",
@@ -56,7 +56,7 @@ export default defineDevice({
     stp: { mode: "rstp", priority: 4096 },
     lldp: true,
 
-    vlans: merge(
+    vlans: Utils.merge(
         INFRA_VLANS,
         {
             "transit-c": { id: 302, description: "Transit C, AS64503" },
@@ -82,7 +82,7 @@ export default defineDevice({
         },
     },
 
-    interfaces: merge(
+    interfaces: Utils.merge(
         {
             loopback: {
                 type: "loopback",

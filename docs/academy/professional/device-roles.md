@@ -15,7 +15,7 @@ A network that grew one device at a time, each plugged in where there was a free
 
 Roles fix that, because each layer has one job:
 
-1. **Devices of one role look alike.** Every rack switch has the same uplinks, VLANs and logins, so in Circuit they share one file of settings and differ only in their ports. In the full-setup example that file is `switches.ts`, and the edge routers share `edge.ts`.
+1. **Devices of one role look alike.** Every rack switch has the same uplinks, VLANs and logins, so in Circuit they share one file of settings and differ only in their ports. In the regional provider example that file is `switches.ts`, and the edge routers share `edge.ts`.
 2. **Each layer grows on its own.** A new rack gets a new access switch and two cables up. Nothing above it changes beyond two ports.
 3. **A failure stays inside its layer.** With devices in pairs at every layer above the racks, one can fail without cutting anything off.
 4. **Traffic takes known paths.** Up from the access layer, across the middle, and back down, or out through the edge.
@@ -39,7 +39,7 @@ The **aggregation** layer exists because a core switch has only so many ports. W
 
 <TryIt title="Give each device of a provider its role">
 
-These are the ten devices of Circuit's full-setup example, a small provider with two sites. Read what is plugged into each one, then give it a role. Watch the drawing fill in, and the name and file each device gets.
+These are the ten devices of Circuit's regional provider example, a small provider with two sites. Read what is plugged into each one, then give it a role. Watch the drawing fill in, and the name and file each device gets.
 
 <RolePlacer />
 
@@ -61,7 +61,7 @@ You may also have found that the middle switches of both sites accept two answer
 
 A device's name shows up everywhere: in the prompt when you log in, in every log line it sends, in the graphs of your monitoring, and in the neighbour lists of the devices around it, since <Term means="Link Layer Discovery Protocol: each device tells the devices on its cables its own name and the port the cable is on.">LLDP</Term> tells each neighbour the device's name. A name that says the role and the place answers the first question of every incident, where is this, before anyone opens a drawing.
 
-The full-setup example uses one rule for all ten devices: **role, a hyphen, the site's letter, and a number**.
+The regional provider example uses one rule for all ten devices: **role, a hyphen, the site's letter, and a number**.
 
 | Part   | In `tor-a3` | Says                                |
 | ------ | ----------- | ----------------------------------- |
@@ -114,14 +114,14 @@ What you saw follows from the cabling:
   explain="Each leaf has 4 equal paths to every other rack, one per spine. Losing a spine removes one of them, so flows spread over the other 3, and 3 of 4 is three quarters of the capacity."
 />
 
-The full-setup example is a small provider, not a data centre, so its sites are trees: an edge pair, a core pair, and rack switches below with an uplink to each core switch. That is the right shape at that size. A leaf-spine fabric starts to pay off when there are more racks than a core pair has ports for, or when most traffic goes from rack to rack rather than out to the internet.
+The regional provider example is a small provider, not a data centre, so its sites are trees: an edge pair, a core pair, and rack switches below with an uplink to each core switch. That is the right shape at that size. A leaf-spine fabric starts to pay off when there are more racks than a core pair has ports for, or when most traffic goes from rack to rack rather than out to the internet.
 
 ## Roles in a Circuit project
 
-Circuit has no field for a role: a device's role is in its name, in where its file lives, and in the shared files it takes its settings from. The full-setup example keeps each site's devices in a directory of their own, and what devices of one role share in a file beside them:
+Circuit has no field for a role: a device's role is in its name, in where its file lives, and in the shared files it takes its settings from. The regional provider example keeps each site's devices in a directory of their own, and what devices of one role share in a file beside them:
 
 ```text
-examples/full-setup/
+examples/use-cases/regional-provider/
   circuit.config.ts    every device of the network
   network.ts           the AS, address space, sites and exchange
   edge.ts              what the edge routers share: policies, firewall, logins
@@ -150,7 +150,7 @@ export default defineDevice({
 
     // ...
 
-    ports: merge(customerPorts(AT.a, "tor-a1", HOST), {
+    ports: Utils.merge(customerPorts(AT.a, "tor-a1", HOST), {
         "40g-1": { description: "core-a1", trunk_vlans: switches.SITE_A_TOR, link: { device: "core-a1", port: "40g-2" } },
         "40g-2": { description: "core-a2", trunk_vlans: switches.SITE_A_TOR, link: { device: "core-a2", port: "40g-2" } },
     }),
@@ -167,7 +167,7 @@ The rack switch takes its logins and services from `switches.ts`, as every switc
 - [RFC 952](https://www.rfc-editor.org/rfc/rfc952.html) and [RFC 1123, section 2.1](https://www.rfc-editor.org/rfc/rfc1123.html#section-2.1): which characters a hostname may use.
 - [Link Layer Discovery Protocol](https://en.wikipedia.org/wiki/Link_Layer_Discovery_Protocol), on Wikipedia: what a device tells its neighbours, its system name included.
 - [RFC 2992: Analysis of an Equal-Cost Multi-Path Algorithm](https://www.rfc-editor.org/rfc/rfc2992.html), on choosing the path by hashing the fields of a flow.
-- [The full-setup example](https://github.com/takodotid/circuit/tree/main/examples/full-setup), the network this lesson lays out.
+- [The regional provider example](https://github.com/takodotid/circuit/tree/main/examples/use-cases/regional-provider), the network this lesson lays out.
 
 ## In short
 

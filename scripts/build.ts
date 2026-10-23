@@ -1,19 +1,19 @@
 // Builds dist/ for Node, npm and pnpm: one JavaScript file per entry point, and type declarations. Bun runs src/ as it is.
 
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 
 class Build {
     static async main(): Promise<void> {
         rmSync("dist", { recursive: true, force: true });
 
         const result = await Bun.build({
-            entrypoints: ["src/index.ts", "src/presets/index.ts", "src/cli/index.ts"],
+            entrypoints: ["src/index.ts", "src/helpers/index.ts", "src/cli/index.ts"],
             outdir: "dist",
             target: "node",
             format: "esm",
             splitting: true,
-            // Installed beside Circuit, not copied into it.
-            external: ["ssh2", "jiti"],
+            // Every runtime dependency is installed beside Circuit, not copied into it.
+            external: Object.keys(JSON.parse(readFileSync("package.json", "utf8")).dependencies),
             naming: { entry: "[dir]/[name].js", chunk: "chunks/[name]-[hash].js" },
         });
 

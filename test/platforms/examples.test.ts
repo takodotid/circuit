@@ -5,12 +5,12 @@ import { Platforms } from "../../src/platforms";
 import { defineNetwork } from "../../src/core/define";
 import { Validator } from "../../src/core/validator";
 import type { Device } from "../../src/schema";
-import aggregationSwitch from "../../examples/aggregation-switch";
-import coreSwitch from "../../examples/core-switch";
-import firewall from "../../examples/firewall";
-import router from "../../examples/router";
-import switchDevice from "../../examples/switch";
-import transparentFirewall from "../../examples/transparent-firewall";
+import aggregationSwitch from "../../examples/platforms/junos";
+import coreSwitch from "../../examples/platforms/raisecom-ros";
+import firewall from "../../examples/platforms/fortios";
+import router from "../../examples/platforms/routeros";
+import switchDevice from "../../examples/platforms/vrp";
+import transparentFirewall from "../../examples/platforms/fortios-transparent";
 
 const examples = [router, switchDevice, coreSwitch, aggregationSwitch, firewall, transparentFirewall];
 
@@ -31,12 +31,13 @@ describe("examples", () => {
     }
 });
 
-// Templates are what `circuit new` copies and what the pattern pages show; use cases are what the use case pages show; the full setup is one network with all of it at once. Each validates, with its own checks, and plans nothing against its own render.
+// Templates are what `circuit new` copies and what the pattern pages show; use cases are what the use case pages show; the regional provider is one network with all of it at once. Each validates, with its own checks, and plans nothing against its own render.
 describe("templates and use cases", () => {
     const configs = [
         ...["single-site", "edge-router", "colocation"].map((pattern) => `templates/${pattern}`),
-        ...["ip-transit", "ix-transit", "internet-exchange", "virtual-exchange"].map((useCase) => `examples/use-cases/${useCase}`),
-        "examples/full-setup",
+        ...["ip-transit", "ix-transit", "internet-exchange", "virtual-exchange", "regional-provider"].map(
+            (useCase) => `examples/use-cases/${useCase}`
+        ),
     ];
 
     for (const directory of configs) {

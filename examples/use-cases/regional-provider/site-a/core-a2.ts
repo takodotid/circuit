@@ -1,6 +1,6 @@
 // The second core switch at site A: edge-a2's way down over two bundled cables, the second resolver and time server, and the other uplink of every top-of-rack switch.
 
-import { defineDevice, merge } from "@takodotid/circuit";
+import { defineDevice, Utils } from "@takodotid/circuit";
 import { AT } from "../customers";
 import { INFRA_VLANS, SERVICES } from "../network";
 import * as switches from "../switches";
@@ -26,7 +26,7 @@ export default defineDevice({
     stp: { mode: "rstp", priority: 8192 },
     lldp: true,
 
-    vlans: merge(INFRA_VLANS, { services: { id: 20, description: "Resolvers, time, logs, flows and DHCP" } }, customerVlans(AT.a)),
+    vlans: Utils.merge(INFRA_VLANS, { services: { id: 20, description: "Resolvers, time, logs, flows and DHCP" } }, customerVlans(AT.a)),
 
     ports: {
         "10g-1": { description: "edge-a2, first cable", lag: "edge-a2", link: { device: "edge-a2", port: "25g-3" } },

@@ -23,7 +23,7 @@ Members share one LAN and do not have to trust each other. A mistake at one memb
 
 MANRS, the routing security effort from [Hijacks and leaks](/academy/professional/routing-security), asks the same of an exchange in its own words: publish a policy on the traffic not allowed on the fabric, and filter it.
 
-Circuit's `Exchange.build` preset writes four of these protections onto every member port: the peering VLAN alone, no spanning tree, no LLDP, and <Term means="A switch feature that drops broadcast, multicast and unknown unicast above a set share of the port's speed, so a storm cannot flood everyone else.">storm control</Term> at 1% of the port's speed.
+Circuit's `Exchange.build` helper writes four of these protections onto every member port: the peering VLAN alone, no spanning tree, no LLDP, and <Term means="A switch feature that drops broadcast, multicast and unknown unicast above a set share of the port's speed, so a storm cannot flood everyone else.">storm control</Term> at 1% of the port's speed.
 
 <TryIt title="Make a member misbehave">
 
@@ -53,7 +53,7 @@ The exchange is one of Circuit's use cases, not a pattern of `circuit new`. Copy
 
 ```text
 circuit.config.ts    the two switches and the exchange's check
-exchange.ts          the peering LAN, the preset, the VLANs both switches share
+exchange.ts          the peering LAN, the helper, the VLANs both switches share
 ix-sw-01.ts          the first switch, with the route servers
 ix-sw-02.ts          the second switch
 members/
@@ -115,13 +115,13 @@ With every choice sound, the plan is one port, and each line is one of the prote
 | Line                              | What it does                                                                     |
 | --------------------------------- | -------------------------------------------------------------------------------- |
 | `- shutdown`                      | The port was shut while nobody had it; now it comes up                           |
-| `+ description example, AS64501`  | The member's name and AS, written by the preset, so anyone tracing a cable knows |
+| `+ description example, AS64501`  | The member's name and AS, written by the helper, so anyone tracing a cable knows |
 | `+ port default vlan 100`         | An access port in the peering VLAN, and nothing else                             |
 | `+ stp disable`                   | No spanning tree on this port                                                    |
 | `+ storm control ...` (six lines) | Broadcast, multicast and unknown unicast kept to 1%, the rest dropped and logged |
 | `+ lldp disable`                  | The port tells the member nothing about the switch                               |
 
-`exchange.check` stops every mistake in this widget but one: an address already taken, reserved, or outside the peering LAN, an AS that another member has, and a port that another member already has, which it reports as `ix-sw-02: port 10g-1 is given to both acme and example`. The one left, a port that the switch's own file already uses, such as the trunk, stops Circuit even earlier, while it reads the files, because `merge` refuses a port declared twice. Either way, nothing reaches a switch until the member's file is right.
+`exchange.check` stops every mistake in this widget but one: an address already taken, reserved, or outside the peering LAN, an AS that another member has, and a port that another member already has, which it reports as `ix-sw-02: port 10g-1 is given to both acme and example`. The one left, a port that the switch's own file already uses, such as the trunk, stops Circuit even earlier, while it reads the files, because `Utils.merge` refuses a port declared twice. Either way, nothing reaches a switch until the member's file is right.
 
 <Quiz
   question="The new member is given 203.0.113.1. What does circuit validate say, and why?"

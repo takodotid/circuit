@@ -11,7 +11,7 @@ Short explanations of the networking and Circuit words these pages use.
 | Plan     | The list of commands that would make a device match its file. `diff` and `apply` print it.                  |
 | Snapshot | What a device ran when Circuit last read it, saved in `.circuit/state/`.                                    |
 | Check    | A rule about your network that every change must pass. See [Checks](/guide/network#checks).                 |
-| Preset   | A ready-made building block, such as a filter or a check. See [Presets](/guide/presets).                    |
+| Helper   | A ready-made building block, such as a filter or a check. See [Helpers](/guide/helpers).                    |
 | Pattern  | A ready-made layout for a kind of network, with example devices. See [Patterns](/patterns/).                |
 
 ## Networking

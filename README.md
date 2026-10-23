@@ -14,7 +14,7 @@ Documentation: [circuit.tako.id](https://circuit.tako.id)
 - **The file is the whole truth.** A port, user or service the file doesn't mention is removed or turned off, so nothing set by hand stays behind.
 - **See every change first.** `diff` shows it offline, `apply` plans it against the live device, and nothing is sent without `--confirm`. On RouterOS, Junos and FortiOS a change undoes itself if Circuit can't log in again afterwards.
 - **History in git.** Each device's last snapshot lives in `.circuit/state/`, so the repo's history is the network's history.
-- **Your own rules.** Checks run on every change; presets give ready-made filters, BGP policies and checks.
+- **Your own rules.** Checks run on every change; helpers give ready-made filters, BGP policies and checks.
 - **Secrets stay out of the repo.** They come from `.env` or 1Password and never show up in a plan or a snapshot.
 - **See the network.** `circuit studio` draws cables, VLANs, addresses, BGP, OSPF and tunnels in your browser, marks what's broken or differs from the device, and lists everything in tables for people who don't read TypeScript. It can run on a server for the whole team. `circuit graph` prints the drawing as Mermaid, DOT or JSON.
 - **Keeps the rest in step.** Prefix lists from a registry, your PeeringDB record, LibreNMS, Prometheus targets, WireGuard client configs, and your BGP communities for a looking glass.

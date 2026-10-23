@@ -5,7 +5,7 @@
 import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family } from "../../schema";
+import type { Device, Family, IP } from "../../schema";
 import { SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Derive } from "../derive";
@@ -849,7 +849,7 @@ export class Junos extends Platform {
     /** Layer 3 settings the platform cannot express on a port or an interface. */
     private static routedGaps(
         where: string,
-        settings: { addresses?: readonly (string | { address: string; peer: string })[]; vrrp?: readonly { id: number; address: string }[] }
+        settings: { addresses?: readonly (string | { address: string; peer: string })[]; vrrp?: readonly { id: number; address: IP }[] }
     ): string[] {
         const found: string[] = [];
         const addresses = (settings.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));

@@ -1,6 +1,6 @@
 // Rules that span devices: what one device declares about another has to agree with what the other declares.
 
-import type { Device, Gre, Port, Routed, Switched, Vxlan } from "../schema";
+import type { Device, Gre, Port, Prefix, Routed, Switched, Vxlan } from "../schema";
 import { Address } from "./address";
 import type { Finding } from "./define";
 import { type Holder, Topology } from "./topology";
@@ -66,7 +66,7 @@ export class CrossChecks {
     /** The plain addresses of one family on an interface, leaving out point-to-point ones. */
     private static plainAddresses(settings: Routed<string>, family: string): string[] {
         return (settings.addresses ?? []).filter(
-            (entry): entry is string => typeof entry === "string" && Address.isCidr(entry) && Address.family(entry) === family
+            (entry): entry is Prefix => typeof entry === "string" && Address.isCidr(entry) && Address.family(entry) === family
         );
     }
 

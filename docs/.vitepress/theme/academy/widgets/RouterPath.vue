@@ -180,7 +180,7 @@ function wayBetween(start: NodeId, end: NodeId): NodeId[] {
     return way;
 }
 
-const presets = computed(() => [
+const shortcuts = computed(() => [
     { label: "Printer", address: "192.168.1.30" },
     { label: "Library desktop", address: "172.16.8.25" },
     { label: "A website", address: "203.0.113.80" },
@@ -461,16 +461,16 @@ async function finishDirect(from: NodeId, address: number, network: string, pref
             </label>
             <button type="button" class="ac-button primary" :disabled="busy" @click="send">Send</button>
         </div>
-        <div class="ac-row presets">
+        <div class="ac-row shortcuts">
             <button
-                v-for="preset in presets"
-                :key="preset.address"
+                v-for="shortcut in shortcuts"
+                :key="shortcut.address"
                 type="button"
                 class="ac-button small"
                 :disabled="busy"
-                @click="choose(preset.address)"
+                @click="choose(shortcut.address)"
             >
-                {{ preset.label }} <span class="ac-mono">{{ preset.address }}</span>
+                {{ shortcut.label }} <span class="ac-mono">{{ shortcut.address }}</span>
             </button>
         </div>
 
@@ -565,11 +565,11 @@ async function finishDirect(from: NodeId, address: number, network: string, pref
     width: 13em;
 }
 
-.presets {
+.shortcuts {
     margin-top: 8px;
 }
 
-.presets .ac-mono {
+.shortcuts .ac-mono {
     font-weight: 400;
 }
 

@@ -1,6 +1,18 @@
 // What a customer is, and what each device carries for it. A customer's entry in customers.ts says what is the customer's own; its VLANs, addresses, sessions and policies follow from its name, number and site.
 
-import type { Interface, IP, Neighbor, Port, PolicyRule, Prefix, PrefixSet, RoutePolicy, StaticRoute, Vlan } from "@takodotid/circuit";
+import type {
+    Interface,
+    IP,
+    IPv4,
+    Neighbor,
+    Port,
+    PolicyRule,
+    Prefix,
+    PrefixSet,
+    RoutePolicy,
+    StaticRoute,
+    Vlan,
+} from "@takodotid/circuit";
 import { Address } from "@takodotid/circuit";
 import { communities, SITE, type Site } from "./network";
 
@@ -29,16 +41,16 @@ export type Customer = {
 export const customer = (spec: Customer): Customer => spec;
 
 /** The address `n` after the start of an IPv4 prefix. */
-export function nth(prefix: Prefix, n: number): IP {
+export function nth(prefix: Prefix, n: number): IPv4 {
     const start = prefix
         .split("/")[0]!
         .split(".")
         .reduce((value, octet) => value * 256 + Number(octet), 0);
 
-    return [24, 16, 8, 0].map((shift) => Math.floor((start + n) / 2 ** shift) % 256).join(".");
+    return [24, 16, 8, 0].map((shift) => Math.floor((start + n) / 2 ** shift) % 256).join(".") as IPv4;
 }
 
-const lengthOf = (prefix: Prefix) => prefix.split("/")[1]!;
+const lengthOf = (prefix: Prefix) => Address.split(prefix).len;
 
 /** The customer's IPv6 /64. */
 export const ipv6Of = (c: Customer): Prefix => `2001:db8:100:${c.number.toString(16)}::/64`;
@@ -96,7 +108,7 @@ export function gateways(customers: readonly Customer[], own: number, vrrp?: { p
             type: "vlan",
             vlan: c.name,
             description: `Customer ${c.name}`,
-            addresses: [`${nth(c.ipv4, own)}/${lengthOf(c.ipv4)}`, ...(c.ipv6 ? [`${ipv6Host(c, own)}/64`] : [])],
+            addresses: [`${nth(c.ipv4, own)}/${lengthOf(c.ipv4)}`, ...(c.ipv6 ? [`${ipv6Host(c, own)}/64` as const] : [])],
             ...(c.ipv6 ? { ipv6_ra: true } : {}),
             ...(vrrp ? { vrrp: [{ id: 100 + c.number, address: nth(c.ipv4, 1), priority: vrrp.priority, preempt: true }] } : {}),
         };

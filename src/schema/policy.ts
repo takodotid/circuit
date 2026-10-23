@@ -1,5 +1,17 @@
 import type { Family, IP, Prefix } from "./common";
 
+/** A standard BGP community, `asn:value`, for example `64500:100`. Each part is 0 to 65535. */
+export type StandardCommunity = `${number}:${number}`;
+
+/** A large BGP community, `asn:function:parameter`, for example `64500:1:6939`. Each part is 0 to 4294967295. */
+export type LargeCommunity = `${number}:${number}:${number}`;
+
+/** A standard community to remove. `*` stands for any value of a part, as in `64500:*`. */
+export type StandardCommunityPattern = `${number | "*"}:${number | "*"}`;
+
+/** A large community to remove. `*` stands for any value of a part, as in `64500:*:*`. */
+export type LargeCommunityPattern = `${number | "*"}:${number | "*"}:${number | "*"}`;
+
 /** Registries a prefix set can be fetched from. */
 export type Registry = "ripe-stat";
 
@@ -37,9 +49,9 @@ export type Match<S extends string> = {
     /** The route's origin validation state. */
     rpki?: "valid" | "invalid" | "not-found";
     /** Has this standard community, `asn:value`. */
-    community?: string;
+    community?: StandardCommunity;
     /** Has this large community, `asn:function:parameter`. */
-    large_community?: string;
+    large_community?: LargeCommunity;
 };
 
 /** Changes to a route. In community lists to remove, `*` stands for any value of a field, as in `64500:*:*`. */
@@ -51,17 +63,17 @@ export type Sets = {
     /** Prepend our own AS this many times, to make the path look longer. */
     prepend?: number;
     /** Replace the route's standard communities with these. */
-    communities?: readonly string[];
+    communities?: readonly StandardCommunity[];
     /** Add these standard communities. */
-    add_communities?: readonly string[];
-    /** Remove standard communities matching these. */
-    remove_communities?: readonly string[];
+    add_communities?: readonly StandardCommunity[];
+    /** Remove standard communities matching these. A part may be `*`. */
+    remove_communities?: readonly StandardCommunityPattern[];
     /** Replace the route's large communities with these. */
-    large_communities?: readonly string[];
+    large_communities?: readonly LargeCommunity[];
     /** Add these large communities. */
-    add_large_communities?: readonly string[];
-    /** Remove large communities matching these. */
-    remove_large_communities?: readonly string[];
+    add_large_communities?: readonly LargeCommunity[];
+    /** Remove large communities matching these. A part may be `*`. */
+    remove_large_communities?: readonly LargeCommunityPattern[];
     /** Next hop for the route. */
     next_hop?: IP;
     /** Source address for traffic the device itself sends to the route. Applies to routes of the same family as the address. */

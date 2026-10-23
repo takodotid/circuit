@@ -1,7 +1,7 @@
 // Rules of your own. `circuit validate` runs them beside Circuit's own, and an error stops `diff` and `apply`.
 
 import type { Check } from "@takodotid/circuit";
-import { Bgp, Checks } from "@takodotid/circuit/presets";
+import { Bgp, Checks } from "@takodotid/circuit/helpers";
 
 export default [
     // Nothing leaves by accident: every export ends by rejecting what it did not accept.

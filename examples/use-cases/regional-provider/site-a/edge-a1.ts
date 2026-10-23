@@ -1,12 +1,12 @@
 // The first edge router at site A: transit A, the exchange, the gateway of every site A customer beside edge-a2, and two tunnels to site B over the internet. The NOC dials in here.
 
-import { defineDevice, merge, secret } from "@takodotid/circuit";
+import { defineDevice, secret, Utils } from "@takodotid/circuit";
 import { AT } from "../customers";
 import * as edge from "../edge";
 import { ASN, INFRA_VLANS, IX, OURS, SERVICES } from "../network";
 import { customerSessions, customerVlanNames, customerVlans, gateways, routedBlocks } from "../tenancy";
 
-const neighbors = merge(
+const neighbors = Utils.merge(
     {
         "transit-a-v4": {
             address: "203.0.113.1",
@@ -56,7 +56,7 @@ export default defineDevice({
     stp: { mode: "rstp", priority: 16384 },
     lldp: { interfaces: ["100g-1", "100g-2", "mgmt"] },
 
-    vlans: merge(
+    vlans: Utils.merge(
         INFRA_VLANS,
         {
             "transit-a": { id: 300, description: "Transit A, AS64501" },
@@ -85,7 +85,7 @@ export default defineDevice({
         "25g-2": { description: IX.name, access_vlan: "ix", acl: "edge", lldp: false, stp: false },
     },
 
-    interfaces: merge(
+    interfaces: Utils.merge(
         {
             loopback: {
                 type: "loopback",

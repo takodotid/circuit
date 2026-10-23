@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: choosing a device. For a link from the full-setup example, the reader picks an optic for each end and the fibre between them, and the link comes up or is refused with the reason.
+// Lesson: choosing a device. For a link from the regional provider example, the reader picks an optic for each end and the fibre between them, and the link comes up or is refused with the reason.
 
 import { computed, ref, watch } from "vue";
 

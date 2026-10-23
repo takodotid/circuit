@@ -2,7 +2,7 @@
 
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
-import { TimeZone } from "../../core/time-zone";
+import { Utils } from "../../core/utils";
 import type { Device, Interface, Port, Vrrp } from "../../schema";
 import { Catalog } from "../catalog";
 import { Derive } from "../derive";
@@ -136,7 +136,7 @@ export class VrpRender {
 
         const timezone = device.system?.timezone;
         if (timezone) {
-            const minutes = TimeZone.offset(timezone);
+            const minutes = Utils.timeZoneOffset(timezone);
             const absolute = Math.abs(minutes);
             const hours = String(Math.floor(absolute / 60)).padStart(2, "0");
             const remainder = String(absolute % 60).padStart(2, "0");

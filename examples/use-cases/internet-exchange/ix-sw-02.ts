@@ -1,6 +1,6 @@
 // The second fabric switch: more members, reached through ix-sw-01. Management comes over the same trunk as the peering LAN.
 
-import { defineDevice, merge, secret } from "@takodotid/circuit";
+import { defineDevice, secret, Utils } from "@takodotid/circuit";
 import { exchange, MANAGEMENT, vlans } from "./exchange";
 
 export default defineDevice({
@@ -17,7 +17,7 @@ export default defineDevice({
     stp: {},
     vlans,
 
-    ports: merge(exchange.ports("ix-sw-02"), {
+    ports: Utils.merge(exchange.ports("ix-sw-02"), {
         "40g-5": {
             description: "ix-sw-01",
             trunk_vlans: ["peering", "mgmt"],

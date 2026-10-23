@@ -3,6 +3,7 @@
 import { expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
 import { Topology } from "../../src/core/topology";
+import type { IP } from "../../src/schema";
 import { StudioModel } from "../../src/studio/data";
 
 test("Studio gathers the colocation pattern's devices, sessions, cables and field descriptions", async () => {
@@ -47,12 +48,12 @@ test("Studio gathers the colocation pattern's devices, sessions, cables and fiel
 });
 
 test("a session to another of our devices names it, and says when that device has no session back", () => {
-    const device = (name: string, own: string, peer: string, neighbors: boolean) => ({
+    const device = (name: string, own: IP, peer: IP, neighbors: boolean) => ({
         name,
         platform: "routeros",
         model: "CCR2216-1G-12XS-2XQ",
         connection: { host: own, user: "admin" },
-        interfaces: { lo: { type: "loopback" as const, addresses: [`${own}/32`] } },
+        interfaces: { lo: { type: "loopback" as const, addresses: [`${own}/32` as const] } },
         routing: { bgp: { asn: 64500, neighbors: neighbors ? { [peer]: { address: peer, remote_as: 64500 } } : {} } },
     });
 
@@ -69,12 +70,12 @@ test("a session to another of our devices names it, and says when that device ha
 });
 
 test("a session back must be of the same family: a v4 session back does not answer a v6 session", () => {
-    const device = (name: string, v4: string, v6: string, neighbors: Record<string, { address: string; remote_as: number }>) => ({
+    const device = (name: string, v4: IP, v6: IP, neighbors: Record<string, { address: IP; remote_as: number }>) => ({
         name,
         platform: "routeros",
         model: "CCR2216-1G-12XS-2XQ",
         connection: { host: v4, user: "admin" },
-        interfaces: { lo: { type: "loopback" as const, addresses: [`${v4}/32`, `${v6}/128`] } },
+        interfaces: { lo: { type: "loopback" as const, addresses: [`${v4}/32` as const, `${v6}/128` as const] } },
         routing: { bgp: { asn: 64500, neighbors } },
     });
 

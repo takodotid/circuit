@@ -94,7 +94,7 @@ test("an echo that does not match leaves the text as it is", () => {
 
 test("a device needs a management address or a console", async () => {
     const { Validator } = await import("../../src/core/validator");
-    const { default: firewall } = await import("../../examples/firewall");
+    const { default: firewall } = await import("../../examples/platforms/fortios");
     const reach = (connection: object) =>
         Validator.run({ devices: [{ ...firewall, connection: { user: firewall.connection.user, ...connection } }] });
     const message = "connection has neither a host nor a console to reach the device through";

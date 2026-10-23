@@ -1,6 +1,6 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
-import { TimeZone } from "../../core/time-zone";
+import { Utils } from "../../core/utils";
 import type { Device, Port, SnmpUser, Switched, Vrrp } from "../../schema";
 import { Catalog } from "../catalog";
 import { Derive } from "../derive";
@@ -74,7 +74,7 @@ export class RaisecomRosRender {
 
         const timezone = device.system?.timezone;
         if (timezone) {
-            const minutes = TimeZone.offset(timezone);
+            const minutes = Utils.timeZoneOffset(timezone);
             const absolute = Math.abs(minutes);
             lines.push(`clock timezone ${minutes < 0 ? "-" : "+"} ${Math.floor(absolute / 60)} ${absolute % 60} 0`);
         }

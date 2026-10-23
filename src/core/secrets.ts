@@ -3,6 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { parseEnv } from "node:util";
 import type { Secret } from "../schema";
 
 export class Secrets {
@@ -21,29 +22,26 @@ export class Secrets {
         Secrets.envFile = undefined;
     }
 
-    /** `.env` beside the config, read once. */
+    /** `.env` beside the config, read once. Node and Bun read it the same way they load `.env` themselves: a `#` starts a comment unless the value is quoted. */
     private static dotenv(): Record<string, string> {
         if (Secrets.envFile) return Secrets.envFile;
 
-        const envFile: Record<string, string> = {};
-        Secrets.envFile = envFile;
-
         const path = join(Secrets.root, ".env");
-        if (!existsSync(path)) return envFile;
+        const text = existsSync(path) ? readFileSync(path, "utf8") : "";
 
-        for (const line of readFileSync(path, "utf8").split("\n")) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith("#")) continue;
+        Secrets.refuseCutValues(text);
+        Secrets.envFile = parseEnv(text) as Record<string, string>;
+        return Secrets.envFile;
+    }
 
-            const separator = trimmed.indexOf("=");
-            if (separator <= 0) continue;
+    /** An unquoted value is cut at a `#`. A `#` after a space is a comment, but one inside the value, as in `abc#def`, would cut a password short and send that to a device, so it stops the run and asks for quotes. */
+    private static refuseCutValues(text: string): void {
+        for (const line of text.split(/\r?\n/)) {
+            const [, name, value] = /^\s*(?:export\s+)?([\w.-]+)\s*=\s*(.*)$/.exec(line) ?? [];
+            if (!name || !value || /^['"`]/.test(value) || !/\S#/.test(value)) continue;
 
-            const value = trimmed.slice(separator + 1).trim();
-            const unquoted = /^(["']).*\1$/.test(value) ? value.slice(1, -1) : value;
-            envFile[trimmed.slice(0, separator).trim()] = unquoted;
+            throw new Error(`.env: the value of ${name} has a # in it, which starts a comment there; put the value in quotes`);
         }
-
-        return envFile;
     }
 
     /** Read a 1Password reference with the 1Password CLI, `op`, once per run. */
@@ -78,11 +76,12 @@ export class Secrets {
     static sourceOf(reference: string): string | undefined {
         if (reference.startsWith("file:")) return existsSync(join(Secrets.root, reference.slice("file:".length))) ? "a file" : undefined;
 
-        const value = process.env[reference] || Secrets.dotenv()[reference];
+        const fromFile = Secrets.dotenv()[reference];
+        const value = process.env[reference] || fromFile;
         if (!value) return undefined;
 
         // Bun loads `.env` into the environment when it starts in the same directory, so the same value in both came from `.env`.
-        const where = process.env[reference] && process.env[reference] !== Secrets.dotenv()[reference] ? "the environment" : ".env";
+        const where = process.env[reference] && process.env[reference] !== fromFile ? "the environment" : ".env";
 
         return value.startsWith("op://") ? `1Password, through ${where}` : where;
     }
@@ -100,7 +99,9 @@ export class Secrets {
             return value;
         }
 
-        const value = process.env[reference] || Secrets.dotenv()[reference];
+        // `.env` is read first even when the environment has the value, so a value cut at a `#` is caught under Bun too, which loads `.env` itself.
+        const fromFile = Secrets.dotenv()[reference];
+        const value = process.env[reference] || fromFile;
         if (!value) throw new Error(`secret ${reference} is not set in the environment or in .env`);
 
         return value.startsWith("op://") ? Secrets.readOnePassword(reference, value) : value;

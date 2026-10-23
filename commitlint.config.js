@@ -17,7 +17,7 @@ export default {
                 "transport", // src/transport, sessions to devices
                 "cli", // src/cli
                 "studio", // src/studio, circuit studio's server and page
-                "presets", // src/presets, building blocks most networks write the same way
+                "helpers", // src/helpers, building blocks most networks write the same way
                 "examples", // examples and tests
                 "release", // version bumps
             ],

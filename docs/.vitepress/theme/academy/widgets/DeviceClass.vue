@@ -57,7 +57,7 @@ const verdict = computed<Verdict | undefined>(() => {
                 reasons: [
                     tracking,
                     `${gigabits.value} Gbit/s is ${rate}, all of it through a CPU. Forward in a chip where most traffic passes, and track connections only for the traffic that needs it, on a CPU router or a firewall of its own.`,
-                    "The full-setup example does a small version of this: its edge routers forward in the chip, but keep the exchange interface on the CPU with hardware_offload: false, which is what makes the firewall apply to it.",
+                    "The regional provider example does a small version of this: its edge routers forward in the chip, but keep the exchange interface on the CPU with hardware_offload: false, which is what makes the firewall apply to it.",
                 ],
             };
 

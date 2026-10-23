@@ -1,6 +1,6 @@
 // The third top-of-rack switch at site A, on another platform: customers' servers on 25G, and two cables bundled to each core switch.
 
-import { defineDevice, merge } from "@takodotid/circuit";
+import { defineDevice, Utils } from "@takodotid/circuit";
 import { AT } from "../customers";
 import { INFRA_VLANS } from "../network";
 import * as switches from "../switches";
@@ -21,9 +21,9 @@ export default defineDevice({
     stp: { mode: "mstp", priority: 32768 },
     lldp: true,
 
-    vlans: switches.undescribed(merge({ mgmt: INFRA_VLANS.mgmt }, customerVlans(AT.a), privateVlans(AT.a, "tor-a3"))),
+    vlans: switches.undescribed(Utils.merge({ mgmt: INFRA_VLANS.mgmt }, customerVlans(AT.a), privateVlans(AT.a, "tor-a3"))),
 
-    ports: merge(customerPorts(AT.a, "tor-a3", HOST), {
+    ports: Utils.merge(customerPorts(AT.a, "tor-a3", HOST), {
         "10g-21": { description: "core-a2, first cable", lag: "core-a2", link: { device: "core-a2", port: "10g-47" } },
         "10g-22": { description: "core-a2, second cable", lag: "core-a2", link: { device: "core-a2", port: "10g-48" } },
         "10g-23": { description: "core-a1, first cable", lag: "core-a1", link: { device: "core-a1", port: "10g-47" } },

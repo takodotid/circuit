@@ -48,11 +48,11 @@ A check is a function. It gets every device and returns what it found. Each find
 - **VRRP on one segment** gives each id one address, and each address one id, on every device.
 - **A GRE or VXLAN tunnel to another of your devices** has a tunnel back, with the same VNI and port.
 
-Here is a `checks.ts` with two rules of its own and two from the [presets](/guide/presets):
+Here is a `checks.ts` with two rules of its own and two from the [helpers](/guide/helpers):
 
 ```ts
 import type { Check } from "@takodotid/circuit";
-import { Checks } from "@takodotid/circuit/presets";
+import { Checks } from "@takodotid/circuit/helpers";
 
 export default [
     // A ready-made check: every BGP export ends by rejecting what it did not accept.

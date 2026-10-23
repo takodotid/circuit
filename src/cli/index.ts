@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The command line. `new` starts a project; every other command loads the network from `circuit.config.ts` in the working directory, or the file `--config` names.
 
+import { Command, InvalidArgumentError, Option } from "@commander-js/extra-typings";
 import { createPrivateKey, createPublicKey } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
@@ -21,45 +22,7 @@ import { GraphFormat } from "./graph-format";
 import { Rename, type RenamePlan } from "./rename";
 import { ProjectFiles } from "../core/project-files";
 import { StudioModel } from "../studio/data";
-
-const HELP = `usage: circuit <command> [device...] [options]
-
-  new [directory]       start a project from a pattern, asking what it needs
-  validate              check the config, then every rule in checks
-  build <device>        print the configuration the device should run, without contacting it
-  diff [device...]      what apply would send, planned against the last snapshot, offline
-  snapshot [device...]  read what each device runs into the state directory
-  apply <device>        read the device, plan against what it runs, and send with --confirm
-                          --secrets      also send every secret, to rotate one
-                          --rollback=N   minutes before a device that can restore itself does, default 10
-                          --console      through the device's serial console on its jump host, instead of SSH; also for snapshot
-  refresh <device>      fetch prefix sets that come from a registry onto the device, with --confirm
-  wireguard <device> <interface> <peer>
-                        a client config for one peer, its private key left for the peer to fill
-  communities           the network's BGP communities, one per line, for a looking glass or bgp.tools
-  peeringdb             bring PeeringDB's exchange records in line with the config, with --confirm
-  librenms              add every device LibreNMS does not monitor yet, with --confirm
-  prometheus            every device with SNMP, as Prometheus targets for snmp_exporter
-                          --auths        snmp_exporter's auths for them instead, with secrets as \${NAME}
-  secrets               every secret the config uses, and whether each can be read
-  rename <device> <new-name>
-                        give a device a new name in every file that names it, with --confirm
-                          --file         also rename the file that declares it, to <new-name>.ts
-  addresses [prefix]    every address the config uses, by prefix, and what is still free
-                          --length=N     free prefixes of this length, instead of the fewest that cover the free space
-                          --format=json  as JSON
-  graph [device...]     the network as a graph, from the config alone, without contacting a device
-                          --layer=l1     l1, l2, l3, bgp, ospf or tunnels, several with commas, or all
-                          --format=mermaid  mermaid, dot or json
-  studio                Circuit Studio: the network in the browser, drawn again whenever the config changes
-                          --port=4600    the port it listens on
-                          --no-open      do not open the browser
-                          --host=0.0.0.0 listen on a server's address instead, with --allow-host
-                          --allow-host=studio.example.com
-                                         the names it is reached by, several with commas
-                          --json         print what Studio shows, as JSON, instead
-
-  --config <path>       the network's config file, circuit.config.ts in the working directory by default`;
+import type { ScaffoldOptions } from "./new";
 
 const GENERATED_README = `# Written by Circuit
 
@@ -68,76 +31,66 @@ Do not edit anything here: an edit changes nothing on a device, and Circuit over
 \`state/\` holds what each device ran when Circuit last read it, with secrets removed. \`circuit snapshot\` and \`circuit apply\` write it, and \`circuit diff\` plans against it. Commit it, so the history of this directory is the history of the network.
 `;
 
-/** One run of the command line: the network it loaded, and the device names and flags it was given. */
+/** One run of the command line: the network it loaded, and how it reaches devices. */
 class Cli {
     static readonly DEFAULT_CONFIG = "circuit.config.ts";
 
+    /** `--config`, which every command but `new` takes. */
+    private static readonly CONFIG_FLAGS = "--config <path>";
+    private static readonly CONFIG_HELP = `the network's config file, ${Cli.DEFAULT_CONFIG} in the working directory by default`;
+
     /** The directory of the config file. `.circuit/`, `.env` and secret files are found from here. */
     private readonly root: string;
-    private readonly flags: string[];
-    private readonly names: string[];
-    private readonly confirmed: boolean;
-    private readonly options: ApplyOptions;
     /** What Circuit writes, beside the config. */
     private readonly generated: string;
     private readonly stateDirectory: string;
 
-    constructor(
+    private constructor(
         private readonly configPath: string,
         private readonly network: Network,
-        rest: string[]
+        /** How a device is reached and what a plan sends: `apply`'s flags, the defaults for every other command. */
+        private readonly options: ApplyOptions
     ) {
         this.root = dirname(configPath);
-        this.flags = rest.filter((arg) => arg.startsWith("--"));
-        this.names = rest.filter((arg) => !arg.startsWith("--"));
-        this.confirmed = this.flags.includes("--confirm");
-        this.options = {
-            secrets: this.flags.includes("--secrets"),
-            rollback: Number(this.flags.find((flag) => flag.startsWith("--rollback="))?.split("=")[1] ?? 10),
-            ...(this.flags.includes("--console") ? { console: true } : {}),
-        };
         this.generated = join(this.root, ".circuit");
         this.stateDirectory = join(this.generated, "state");
     }
 
-    /** Read the arguments, load the network, and run the command they name. */
+    /** Read the arguments and run the command they name. */
     static async main(argv: string[]): Promise<void> {
-        const [command, ...args] = argv;
+        const program = Cli.program();
 
-        if (command === "new") {
-            const { Scaffold } = await import("./new");
-            await Scaffold.create(args);
-            process.exit(0);
+        // With no command, the help, as `circuit help` prints it.
+        if (!argv.length) {
+            program.outputHelp();
+            return;
         }
 
-        if (!command || command === "help" || command === "--help" || command === "-h") {
-            console.log(HELP);
-            process.exit(0);
-        }
+        await program.parseAsync(argv, { from: "user" });
+    }
 
-        // `--config <path>` and `--config=<path>` both name the config file; neither is a device name.
-        const configAt = args.indexOf("--config");
-        const configArgument =
-            configAt >= 0 ? args[configAt + 1] : args.find((arg) => arg.startsWith("--config="))?.slice("--config=".length);
-        const rest = args.filter(
-            (arg, index) => index !== configAt && (configAt < 0 || index !== configAt + 1) && !arg.startsWith("--config=")
-        );
-
+    /** Load the network from the config file `--config` names, or the one in the working directory. */
+    private static async open(configArgument: string | undefined, flags: Partial<ApplyOptions> = {}): Promise<Cli> {
         const configPath = resolve(process.cwd(), configArgument ?? Cli.DEFAULT_CONFIG);
 
         if (!existsSync(configPath)) {
-            console.error(
+            Cli.fail(
                 configArgument
                     ? `no config at ${configPath}`
                     : `no ${Cli.DEFAULT_CONFIG} in ${process.cwd()}; name another with --config <path>`
             );
-            process.exit(1);
         }
 
         Secrets.useRoot(dirname(configPath));
 
         const network = await Cli.load(configPath);
-        await new Cli(configPath, network, rest).run(command);
+        const options: ApplyOptions = {
+            secrets: flags.secrets ?? false,
+            rollback: flags.rollback ?? 10,
+            ...(flags.console ? { console: true } : {}),
+        };
+
+        return new Cli(configPath, network, options);
     }
 
     /** The config, a TypeScript file. Bun imports it as it is; Node needs jiti, which also resolves imports written without an extension. */
@@ -153,45 +106,191 @@ class Cli {
         process.exit(1);
     }
 
-    /** Run one command, or say there is no such command. */
-    async run(command: string): Promise<void> {
-        const commands: Record<string, () => void | Promise<void>> = {
-            validate: () => this.validate(),
-            build: () => this.build(),
-            diff: () => this.diff(),
-            snapshot: () => this.snapshot(),
-            apply: () => this.apply(),
-            refresh: () => this.refresh(),
-            wireguard: () => this.wireguard(),
-            communities: () => this.communities(),
-            peeringdb: () => this.peeringdb(),
-            librenms: () => this.librenms(),
-            prometheus: () => this.prometheus(),
-            secrets: () => this.secrets(),
-            rename: () => this.rename(),
-            addresses: () => this.addresses(),
-            graph: () => this.graph(),
-            studio: () => this.studio(),
-        };
+    /** `--rollback`'s value: a whole number of minutes. */
+    private static minutes(value: string): number {
+        const minutes = Number(value);
+        if (!Number.isInteger(minutes) || minutes < 1) throw new InvalidArgumentError("Give a whole number of minutes, such as 10.");
 
-        const run = commands[command];
-        if (run) await run();
-        else Cli.fail(`no command ${command}\n\n${HELP}`);
+        return minutes;
     }
 
-    /** The devices named on the command line, or every device when none is and `allByDefault`. */
-    private selected(allByDefault: boolean): Device[] {
-        if (!this.names.length && allByDefault) return [...this.network.devices];
+    /** Every command, with its arguments and options. `circuit --help` and `circuit <command> --help` are written from these. */
+    private static program() {
+        const program = new Command("circuit")
+            .description("Describe each network device in TypeScript, see what would change, then make the device match.")
+            .usage("<command> [device...] [options]")
+            .showHelpAfterError("(add --help to see what it takes)");
+
+        program
+            .command("new")
+            .description("start a project from a pattern, asking what it needs")
+            .argument("[directory]", "where to create it")
+            .option("--pattern <name>", "single-site, edge-router or colocation")
+            .option("--asn <number>", "your AS number, for edge-router and colocation")
+            .option("--1password", "write .env with 1Password references instead of empty values")
+            .option("--use <manager>", "npm, pnpm or bun; the one that ran this by default")
+            .option("--no-install", "do not install the dependencies")
+            .action(async (directory, flags) => {
+                const { Scaffold } = await import("./new");
+                const options: ScaffoldOptions = {
+                    pattern: flags.pattern,
+                    asn: flags.asn,
+                    onePassword: flags["1password"],
+                    use: flags.use,
+                    install: flags.install,
+                };
+
+                await Scaffold.create(directory, options);
+                process.exit(0);
+            });
+
+        program
+            .command("validate")
+            .description("check the config, then every rule in checks")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (flags) => (await Cli.open(flags.config)).validate());
+
+        program
+            .command("build")
+            .description("print the configuration the device should run, without contacting it")
+            .argument("<device>")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (device, flags) => (await Cli.open(flags.config)).build(device));
+
+        program
+            .command("diff")
+            .description("what apply would send, planned against the last snapshot, offline")
+            .argument("[device...]", "every device when none is named")
+            .option("--secrets", "plan as apply --secrets would, sending every secret again")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (devices, flags) => (await Cli.open(flags.config, flags)).diff(devices));
+
+        program
+            .command("snapshot")
+            .description("read what each device runs into the state directory")
+            .argument("[device...]", "every device when none is named")
+            .option("--console", "through the device's serial console on its jump host, instead of SSH")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (devices, flags) => (await Cli.open(flags.config, flags)).snapshot(devices));
+
+        program
+            .command("apply")
+            .description("read the device, plan against what it runs, and send with --confirm")
+            .argument("<device>")
+            .option("--confirm", "send the plan; without it, nothing is sent")
+            .option("--secrets", "also send every secret, to rotate one")
+            .option("--rollback <minutes>", "minutes before a device that can restore itself does", Cli.minutes, 10)
+            .option("--console", "through the device's serial console on its jump host, instead of SSH")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (device, flags) => (await Cli.open(flags.config, flags)).apply(device, flags.confirm ?? false));
+
+        program
+            .command("refresh")
+            .description("fetch prefix sets that come from a registry onto the device, with --confirm")
+            .argument("<device>")
+            .option("--confirm", "put them on the device; without it, nothing is sent")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (device, flags) => (await Cli.open(flags.config)).refresh(device, flags.confirm ?? false));
+
+        program
+            .command("wireguard")
+            .description("a client config for one peer, its private key left for the peer to fill")
+            .argument("<device>")
+            .argument("<interface>")
+            .argument("<peer>")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (device, iface, peer, flags) => (await Cli.open(flags.config)).wireguard(device, iface, peer));
+
+        program
+            .command("communities")
+            .description("the network's BGP communities, one per line, for a looking glass or bgp.tools")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (flags) => (await Cli.open(flags.config)).communities());
+
+        program
+            .command("peeringdb")
+            .description("bring PeeringDB's exchange records in line with the config, with --confirm")
+            .option("--confirm", "send the changes; without it, nothing is sent")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (flags) => (await Cli.open(flags.config)).peeringdb(flags.confirm ?? false));
+
+        program
+            .command("librenms")
+            .description("add every device LibreNMS does not monitor yet, with --confirm")
+            .option("--confirm", "add them; without it, nothing is sent")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (flags) => (await Cli.open(flags.config)).librenms(flags.confirm ?? false));
+
+        program
+            .command("prometheus")
+            .description("every device with SNMP, as Prometheus targets for snmp_exporter")
+            .option("--auths", "snmp_exporter's auths for them instead, with secrets as ${NAME}")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (flags) => (await Cli.open(flags.config)).prometheus(flags.auths ?? false));
+
+        program
+            .command("secrets")
+            .description("every secret the config uses, and whether each can be read")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (flags) => (await Cli.open(flags.config)).secrets());
+
+        program
+            .command("rename")
+            .description("give a device a new name in every file that names it, with --confirm")
+            .argument("<device>")
+            .argument("<new-name>")
+            .option("--file", "also rename the file that declares it, to <new-name>.ts")
+            .option("--confirm", "write the files; without it, nothing is written")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (from, to, flags) =>
+                (await Cli.open(flags.config)).rename(from, to, flags.file ?? false, flags.confirm ?? false)
+            );
+
+        program
+            .command("addresses")
+            .description("every address the config uses, by prefix, and what is still free")
+            .argument("[prefix]", "only the addresses in this prefix, such as 10.0.0.0/16")
+            .option("--length <n>", "free prefixes of this length, instead of the fewest that cover the free space")
+            .option("--format <format>", "json, to print JSON")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (within, flags) => (await Cli.open(flags.config)).addresses(within, flags.length, flags.format));
+
+        program
+            .command("graph")
+            .description("the network as a graph, from the config alone, without contacting a device")
+            .argument("[device...]", "only these devices and what they connect to")
+            .option("--layer <layers>", `${Topology.LAYERS.join(", ")}, several with commas, or all`, "l1")
+            .addOption(new Option("--format <format>", "how to print it").choices(["mermaid", "dot", "json"] as const).default("mermaid"))
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (devices, flags) => (await Cli.open(flags.config)).graph(devices, flags.layer, flags.format));
+
+        program
+            .command("studio")
+            .description("Circuit Studio: the network in the browser, drawn again whenever the config changes")
+            .option("--port <number>", "the port it listens on", "4600")
+            .option("--no-open", "do not open the browser")
+            .option("--host <address>", "listen on a server's address, such as 0.0.0.0, instead; needs --allow-host", "127.0.0.1")
+            .option("--allow-host <names>", "the names it is reached by, such as studio.example.com, several with commas")
+            .option("--json", "print what Studio shows, as JSON, instead")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (flags) => (await Cli.open(flags.config)).studio(flags));
+
+        return program;
+    }
+
+    /** The devices with these names, or every device when none is named and `allByDefault`. */
+    private selected(names: readonly string[], allByDefault: boolean): Device[] {
+        if (!names.length && allByDefault) return [...this.network.devices];
 
         const known = this.network.devices.map((device) => device.name).join(", ");
         const byName = (name: string) => this.network.devices.find((device) => device.name === name);
 
-        return this.names.map((name) => byName(name) ?? Cli.fail(`no device ${name}; known: ${known}`));
+        return names.map((name) => byName(name) ?? Cli.fail(`no device ${name}; known: ${known}`));
     }
 
-    private one(): Device {
-        const [device] = this.selected(false);
-        return device ?? Cli.fail("name a device");
+    /** The device with this name. */
+    private one(name: string): Device {
+        return this.selected([name], false)[0]!;
     }
 
     /** How a device is reached: through its console when `--console` asks, or when it has no management address. */
@@ -256,13 +355,13 @@ class Cli {
         console.log(`${this.network.devices.length} device(s), no errors.`);
     }
 
-    private build(): void {
-        const device = this.one();
+    private build(name: string): void {
+        const device = this.one(name);
         process.stdout.write(this.adapterOf(device).render(device));
     }
 
-    private diff(): void {
-        const devices = this.selected(true);
+    private diff(names: string[]): void {
+        const devices = this.selected(names, true);
         this.guard(devices);
 
         let differences = 0;
@@ -282,15 +381,15 @@ class Cli {
         process.exit(differences ? 1 : 0);
     }
 
-    private async snapshot(): Promise<void> {
-        for (const device of this.selected(true)) {
+    private async snapshot(names: string[]): Promise<void> {
+        for (const device of this.selected(names, true)) {
             const text = await this.adapterOf(device).read(device, this.network.devices, this.optionsFor(device));
             this.writeState(device, text);
             console.log(`${device.name}: ${text.split("\n").length} lines`);
         }
 
         // With every device read, a snapshot of a device the config no longer has, such as one renamed, is removed.
-        if (this.names.length || !existsSync(this.stateDirectory)) return;
+        if (names.length || !existsSync(this.stateDirectory)) return;
 
         const current = new Set(this.network.devices.map((device) => basename(this.statePath(device))));
         for (const file of readdirSync(this.stateDirectory)) {
@@ -301,8 +400,8 @@ class Cli {
         }
     }
 
-    private async apply(): Promise<void> {
-        const device = this.one();
+    private async apply(name: string, confirmed: boolean): Promise<void> {
+        const device = this.one(name);
         this.guard([device]);
         const adapter = this.adapterOf(device);
 
@@ -315,7 +414,7 @@ class Cli {
 
         if (plan.problems.length) Cli.fail("\nNot sent: resolve the problems first.");
 
-        if (!this.confirmed) {
+        if (!confirmed) {
             console.log("\nNothing sent. Re-run with --confirm.");
             return;
         }
@@ -326,8 +425,8 @@ class Cli {
         console.log("snapshot updated");
     }
 
-    private async refresh(): Promise<void> {
-        const device = this.one();
+    private async refresh(name: string, confirmed: boolean): Promise<void> {
+        const device = this.one(name);
         const adapter = this.adapterOf(device);
         const fill = adapter.fill?.bind(adapter) ?? Cli.fail(`${device.platform} cannot hold a fetched prefix set`);
 
@@ -343,10 +442,10 @@ class Cli {
             }
 
             console.log(`${name}: ${prefixes.length} prefixes from ${registry} ${query}`);
-            if (this.confirmed) await fill(device, this.network.devices, name, family, prefixes);
+            if (confirmed) await fill(device, this.network.devices, name, family, prefixes);
         }
 
-        if (!this.confirmed) console.log("\nNothing sent. Re-run with --confirm.");
+        if (!confirmed) console.log("\nNothing sent. Re-run with --confirm.");
     }
 
     /** A WireGuard public key from its private key, so the device's never has to be read off the box. */
@@ -361,11 +460,10 @@ class Cli {
         return publicDer.subarray(-32).toString("base64");
     }
 
-    private wireguard(): void {
-        const [deviceName, interfaceName, peerName] = this.names;
-        const device = this.network.devices.find((candidate) => candidate.name === deviceName) ?? Cli.fail(HELP);
+    private wireguard(deviceName: string, interfaceName: string, peerName: string): void {
+        const device = this.one(deviceName);
 
-        const iface = device.interfaces?.[interfaceName ?? ""];
+        const iface = device.interfaces?.[interfaceName];
         if (iface?.type !== "wireguard") Cli.fail(`${deviceName} has no WireGuard interface ${interfaceName}`);
 
         const peers = iface.peers ?? [];
@@ -401,7 +499,7 @@ class Cli {
         }
     }
 
-    private async peeringdb(): Promise<void> {
+    private async peeringdb(confirmed: boolean): Promise<void> {
         const plan = await PeeringDb.plan(this.network);
 
         for (const name of plan.unknown) {
@@ -415,7 +513,7 @@ class Cli {
             return;
         }
 
-        if (!this.confirmed) {
+        if (!confirmed) {
             console.log("\nNothing sent. Re-run with --confirm.");
             return;
         }
@@ -423,7 +521,7 @@ class Cli {
         await PeeringDb.send(this.network, plan.changes);
     }
 
-    private async librenms(): Promise<void> {
+    private async librenms(confirmed: boolean): Promise<void> {
         const plan = await LibreNms.plan(this.network);
 
         for (const hostname of plan.unknown)
@@ -437,7 +535,7 @@ class Cli {
             return;
         }
 
-        if (!this.confirmed) {
+        if (!confirmed) {
             console.log("\nNothing sent. Re-run with --confirm.");
             return;
         }
@@ -445,8 +543,8 @@ class Cli {
         await LibreNms.send(this.network, plan.additions);
     }
 
-    private prometheus(): void {
-        if (this.flags.includes("--auths")) {
+    private prometheus(auths: boolean): void {
+        if (auths) {
             const { yaml, notes } = Prometheus.snmpExporterAuths(this.network);
             for (const note of notes) console.error(note);
             process.stdout.write(yaml);
@@ -487,11 +585,6 @@ class Cli {
         process.exit(missing ? 1 : 0);
     }
 
-    /** The value of `--name=value`, or undefined when it is not given. */
-    private flagValue(name: string): string | undefined {
-        return this.flags.find((flag) => flag.startsWith(`--${name}=`))?.slice(name.length + 3);
-    }
-
     /** How a device compares with its last snapshot, offline, as `diff` plans it. */
     private driftOf(device: Device): Drift {
         const path = this.statePath(device);
@@ -526,16 +619,15 @@ class Cli {
         };
     }
 
-    private graph(): void {
-        const requested = (this.flagValue("layer") ?? "l1").split(",");
+    private graph(names: string[], layer: string, format: string): void {
+        const requested = layer.split(",");
         const layers = requested.includes("all") ? [...Topology.LAYERS] : (requested as Layer[]);
 
         const unknown = layers.filter((layer) => !Topology.LAYERS.includes(layer));
         if (unknown.length) Cli.fail(`no layer ${unknown.join(", ")}; known: ${Topology.LAYERS.join(", ")}, all`);
 
-        const format = this.flagValue("format") ?? "mermaid";
-        const devices = this.selected(true);
-        const annotated = this.annotatedGraph(layers, this.names.length ? devices.map((device) => device.name) : []);
+        const devices = this.selected(names, true);
+        const annotated = this.annotatedGraph(layers, names.length ? devices.map((device) => device.name) : []);
 
         if (format === "mermaid") process.stdout.write(GraphFormat.mermaid(annotated));
         else if (format === "dot") process.stdout.write(GraphFormat.dot(annotated));
@@ -552,18 +644,16 @@ class Cli {
         for (const use of segment.uses) console.log(`${indent}    ${use.address.padEnd(width)}${use.what}`);
     }
 
-    private addresses(): void {
-        const [within] = this.names;
+    private addresses(within: string | undefined, lengthText: string | undefined, format: string | undefined): void {
         if (within && !Address.isCidr(within)) Cli.fail(`${within} is not a prefix, such as 10.0.0.0/16`);
 
-        const lengthText = this.flagValue("length");
         const length = lengthText === undefined ? undefined : Number(lengthText);
         if (length !== undefined && !(Number.isInteger(length) && length >= 0 && length <= 128))
             Cli.fail("--length takes a prefix length, such as 24");
 
         const report = AddressSpace.report(this.network.devices, within);
 
-        if (this.flagValue("format") === "json") {
+        if (format === "json") {
             console.log(JSON.stringify(report, null, 4));
             return;
         }
@@ -594,10 +684,7 @@ class Cli {
         if (!report.spaces.length && !segments.length && !blocks.length) console.log("The config holds no addresses.");
     }
 
-    private rename(): void {
-        const [from, to] = this.names;
-        if (!from || !to) Cli.fail("usage: circuit rename <device> <new-name> [--file] [--confirm]");
-
+    private rename(from: string, to: string, file: boolean, confirmed: boolean): void {
         const device = this.network.devices.find((candidate) => candidate.name === from);
         if (!device) Cli.fail(`no device ${from}; known: ${this.network.devices.map((candidate) => candidate.name).join(", ")}`);
         if (this.network.devices.some((candidate) => candidate.name === to)) Cli.fail(`${to} is already a device`);
@@ -608,7 +695,7 @@ class Cli {
 
         let plan: RenamePlan;
         try {
-            plan = Rename.plan(this.root, from, to, { file: this.flags.includes("--file"), snapshots });
+            plan = Rename.plan(this.root, from, to, { file, snapshots });
         } catch (error) {
             Cli.fail((error as Error).message);
         }
@@ -626,7 +713,7 @@ class Cli {
             for (const mention of plan.mentions) console.log(`  ${mention.file}:${mention.line}  ${mention.text.slice(0, 160)}`);
         }
 
-        if (!this.confirmed) {
+        if (!confirmed) {
             console.log("\nNothing written. Re-run with --confirm.");
             return;
         }
@@ -635,8 +722,8 @@ class Cli {
         console.log(`\nRenamed. Run circuit validate, then circuit apply ${to}: the device keeps its old hostname until then.`);
     }
 
-    private async studio(): Promise<void> {
-        if (this.flags.includes("--json")) {
+    private async studio(flags: { port: string; open: boolean; host: string; allowHost?: string; json?: true }): Promise<void> {
+        if (flags.json) {
             const sources = ProjectFiles.sources(this.root);
             const data = StudioModel.build(this.network.devices, this.annotatedGraph(Topology.LAYERS, []), {
                 render: (device) => this.adapterOf(device).render(device),
@@ -653,12 +740,12 @@ class Cli {
             return;
         }
 
-        const port = Number(this.flagValue("port") ?? 4600);
+        const port = Number(flags.port);
         if (!Number.isInteger(port) || port < 1 || port > 65535) Cli.fail("--port takes a number from 1 to 65535");
 
         const { StudioServer } = await import("../studio/server");
-        const host = this.flagValue("host") ?? "127.0.0.1";
-        const allowHosts = (this.flagValue("allow-host") ?? "").split(",").filter(Boolean);
+        const host = flags.host;
+        const allowHosts = (flags.allowHost ?? "").split(",").filter(Boolean);
 
         // Off this machine, Studio must be told the names it is reached by: every other name is refused.
         if (!StudioServer.isLoopback(host) && !allowHosts.length) {
@@ -669,7 +756,7 @@ class Cli {
             configPath: this.configPath,
             root: this.root,
             port,
-            open: !this.flags.includes("--no-open"),
+            open: flags.open,
             host,
             allowHosts,
         });

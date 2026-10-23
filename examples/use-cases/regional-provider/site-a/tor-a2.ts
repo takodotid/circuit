@@ -1,6 +1,6 @@
 // The second top-of-rack switch at site A: customers' servers, some with a private network between them, and an uplink to each core switch.
 
-import { defineDevice, merge } from "@takodotid/circuit";
+import { defineDevice, Utils } from "@takodotid/circuit";
 import { AT } from "../customers";
 import { INFRA_VLANS } from "../network";
 import * as switches from "../switches";
@@ -20,9 +20,9 @@ export default defineDevice({
     stp: {},
     lldp: true,
 
-    vlans: merge({ mgmt: INFRA_VLANS.mgmt }, customerVlans(AT.a), privateVlans(AT.a, "tor-a2")),
+    vlans: Utils.merge({ mgmt: INFRA_VLANS.mgmt }, customerVlans(AT.a), privateVlans(AT.a, "tor-a2")),
 
-    ports: merge(customerPorts(AT.a, "tor-a2", HOST), {
+    ports: Utils.merge(customerPorts(AT.a, "tor-a2", HOST), {
         "40g-1": { description: "core-a1", trunk_vlans: switches.SITE_A_TOR, link: { device: "core-a1", port: "40g-3" } },
         "40g-2": { description: "core-a2", trunk_vlans: switches.SITE_A_TOR, link: { device: "core-a2", port: "40g-3" } },
     }),

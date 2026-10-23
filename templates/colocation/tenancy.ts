@@ -75,7 +75,7 @@ export function gateways<N extends string>(tenants: readonly Tenant<N>[]) {
             type: "vlan",
             vlan: internetVlan(t),
             description: `Tenant ${t.name}`,
-            addresses: t.blocks.map(({ prefix, gateway }) => `${gateway}/${prefix.split("/")[1]}`),
+            addresses: t.blocks.map(({ prefix, gateway }): Prefix => `${gateway}/${Address.split(prefix).len}`),
         };
     }
 

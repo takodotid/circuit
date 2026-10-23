@@ -84,7 +84,7 @@ To change how every tenant is numbered or named, you change it here, once.
 
 Most of this is the edge router from the last level. What the tenants add is in four places:
 
-1. **`vlans`** and **`interfaces`** each `merge` the router's own with the tenants'. If a tenant were ever named like one of the router's own VLANs, `merge` stops with an error instead of letting one replace the other.
+1. **`vlans`** and **`interfaces`** each use `Utils.merge` to combine the router's own with the tenants'. If a tenant were ever named like one of the router's own VLANs, `Utils.merge` stops with an error instead of letting one replace the other.
 2. **`100g-1`** is the trunk to the switch, carrying management and every tenant's public VLAN. `link` says which port is at the other end of the cable, so `validate` checks that both ends carry the same VLANs.
 3. **`acls.edge`** adds each tenant's rules after the anti-spoofing ones.
 4. Nothing in **`routing`** changes. The tenants' blocks are inside `198.51.100.0/24` and `2001:db8:100::/48`, which the router already announces, and each tenant's block is connected to the router, so it routes there by the longest match.

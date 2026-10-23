@@ -3,20 +3,21 @@
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
+import * as prompts from "@clack/prompts";
 
 type Manager = keyof typeof Scaffold.MANAGERS;
 
 type Pattern = keyof typeof Scaffold.PATTERNS;
 
-const USAGE = `usage: circuit new [directory] [options]
-
-  --pattern <name>   single-site, edge-router or colocation
-  --asn <number>     your AS number, for edge-router and colocation
-  --1password        write .env with 1Password references instead of empty values
-  --use <manager>    npm, pnpm or bun; the one that ran this by default
-  --no-install       do not install the dependencies`;
+/** The answers given as options. A question is asked only for an answer missing here. */
+export type ScaffoldOptions = {
+    pattern?: string;
+    asn?: string;
+    onePassword?: boolean;
+    use?: string;
+    install: boolean;
+};
 
 export class Scaffold {
     private static readonly ROOT = Scaffold.packageRoot();
@@ -73,13 +74,6 @@ export class Scaffold {
         process.exit(1);
     }
 
-    /** The value of `--name value` or `--name=value`. */
-    private static option(args: string[], name: string): string | undefined {
-        const at = args.indexOf(`--${name}`);
-        if (at >= 0) return args[at + 1];
-        return args.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
-    }
-
     /** Every file under a directory, relative to it. */
     private static filesIn(directory: string): string[] {
         return readdirSync(directory, { recursive: true, withFileTypes: true })
@@ -87,59 +81,85 @@ export class Scaffold {
             .map((entry) => relative(directory, join(entry.parentPath, entry.name)));
     }
 
-    static async create(args: string[]): Promise<void> {
-        if (args.includes("--help") || args.includes("-h")) {
-            console.log(USAGE);
-            return;
-        }
-
-        const valued = new Set(["--pattern", "--asn", "--use"]);
-        const positional = args.filter((arg, index) => !arg.startsWith("--") && !valued.has(args[index - 1] ?? ""));
-
-        const interactive = process.stdin.isTTY === true;
-        const terminal = interactive ? createInterface({ input: process.stdin, output: process.stdout }) : undefined;
-
-        // The answer typed, or the fallback when nothing is typed or nobody is there to type.
-        const ask = async (question: string, fallback: string) => {
-            if (!terminal) return fallback;
-            const answer = (await terminal.question(`${question} (${fallback}): `)).trim();
-            return answer || fallback;
-        };
-
-        const directory = positional[0] ?? (await ask("Directory for the project", "my-network"));
+    /** Why a project cannot be created in this directory, or undefined when it can. */
+    private static notEmpty(directory: string): string | undefined {
         const target = resolve(process.cwd(), directory);
-        if (existsSync(target) && readdirSync(target).length) Scaffold.fail(`${target} is not empty`);
+        return existsSync(target) && readdirSync(target).length ? `${target} is not empty` : undefined;
+    }
 
-        let pattern = Scaffold.option(args, "pattern") as Pattern | undefined;
-        if (!pattern) {
-            const names = Object.keys(Scaffold.PATTERNS) as Pattern[];
-            if (terminal) {
-                console.log("\nWhich is closest to your network?");
-                names.forEach((name, index) =>
-                    console.log(`  ${index + 1}. ${Scaffold.PATTERNS[name].title}: ${Scaffold.PATTERNS[name].fits}`)
-                );
-            }
-            pattern = names[Number(await ask("Number", "1")) - 1];
-        }
-        if (!pattern || !(pattern in Scaffold.PATTERNS)) {
-            Scaffold.fail(`no pattern ${pattern}; there are ${Object.keys(Scaffold.PATTERNS).join(", ")}`);
+    /** The answer to a question in a terminal, or the fallback when nobody is there to answer. Cancelling a question ends the run. */
+    private static async ask<T>(question: () => Promise<NoInfer<T> | symbol>, fallback: T): Promise<T> {
+        if (process.stdin.isTTY !== true) return fallback;
+
+        const answer = await question();
+        if (prompts.isCancel(answer)) {
+            prompts.cancel("Nothing created.");
+            process.exit(1);
         }
 
-        let asn = Scaffold.option(args, "asn");
-        if (!asn && Scaffold.PATTERNS[pattern].asn) {
-            asn = await ask("Your AS number, or press enter to keep the documentation example", Scaffold.EXAMPLE_ASN);
+        return answer as T;
+    }
+
+    static async create(directoryArgument: string | undefined, options: ScaffoldOptions): Promise<void> {
+        const directory =
+            directoryArgument ??
+            (await Scaffold.ask(
+                () =>
+                    prompts.text({
+                        message: "Directory for the project",
+                        placeholder: "my-network",
+                        defaultValue: "my-network",
+                        validate: (value) => Scaffold.notEmpty(value || "my-network"),
+                    }),
+                "my-network"
+            ));
+
+        const notEmpty = Scaffold.notEmpty(directory);
+        if (notEmpty) Scaffold.fail(notEmpty);
+        const target = resolve(process.cwd(), directory);
+
+        const names = Object.keys(Scaffold.PATTERNS) as Pattern[];
+        const pattern =
+            options.pattern ??
+            (await Scaffold.ask(
+                () =>
+                    prompts.select({
+                        message: "Which is closest to your network?",
+                        options: names.map((name) => ({
+                            value: name,
+                            label: Scaffold.PATTERNS[name].title,
+                            hint: Scaffold.PATTERNS[name].fits,
+                        })),
+                    }),
+                names[0]!
+            ));
+        if (!Object.hasOwn(Scaffold.PATTERNS, pattern)) Scaffold.fail(`no pattern ${pattern}; there are ${names.join(", ")}`);
+        const chosen = Scaffold.PATTERNS[pattern as Pattern];
+
+        let asn = options.asn;
+        if (!asn && chosen.asn) {
+            asn = await Scaffold.ask(
+                () =>
+                    prompts.text({
+                        message: "Your AS number, or press enter to keep the documentation example",
+                        placeholder: Scaffold.EXAMPLE_ASN,
+                        defaultValue: Scaffold.EXAMPLE_ASN,
+                        validate: (value) => (!value || /^\d+$/.test(value) ? undefined : `${value} is not an AS number`),
+                    }),
+                Scaffold.EXAMPLE_ASN
+            );
         }
         if (asn && !/^\d+$/.test(asn)) Scaffold.fail(`${asn} is not an AS number`);
 
-        const manager = (Scaffold.option(args, "use") ?? Scaffold.detectManager()) as Manager;
-        if (!(manager in Scaffold.MANAGERS)) {
+        const manager = options.use ?? Scaffold.detectManager();
+        if (!Object.hasOwn(Scaffold.MANAGERS, manager)) {
             Scaffold.fail(`no package manager ${manager}; there are ${Object.keys(Scaffold.MANAGERS).join(", ")}`);
         }
-        const { install, run, types } = Scaffold.MANAGERS[manager];
+        const { install, run, types } = Scaffold.MANAGERS[manager as Manager];
 
         const onePassword =
-            args.includes("--1password") || (await ask("Keep the secrets in 1Password? y or n", "n")).toLowerCase().startsWith("y");
-        terminal?.close();
+            options.onePassword ||
+            (await Scaffold.ask(() => prompts.confirm({ message: "Keep the secrets in 1Password?", initialValue: false }), false));
 
         // The pattern's files, then what every project has. npm leaves out a file named .gitignore, so it travels without the dot.
         cpSync(join(Scaffold.TEMPLATES, pattern), target, { recursive: true });
@@ -172,6 +192,7 @@ export class Scaffold {
         const env = [
             "# Secrets for Circuit. Never commit this file.",
             "# A value is the secret itself, or a 1Password reference, op://vault/item/field, read with the 1Password CLI.",
+            "# Put quotes around a value that has a # in it: without them, # starts a comment.",
             ...[...secrets].sort().map((name) => (onePassword ? `${name}=op://Network/${name}/password` : `${name}=`)),
             "",
         ];
@@ -189,7 +210,7 @@ export class Scaffold {
         };
         writeFileSync(join(target, "package.json"), JSON.stringify(packageJson, null, 4) + "\n");
 
-        if (!args.includes("--no-install")) {
+        if (options.install) {
             // npm and pnpm are scripts on Windows, which only a shell runs.
             const result = spawnSync(install, { cwd: target, stdio: "inherit", shell: true });
             if (result.status !== 0) console.log(`${install} failed; run it again in the project.`);
@@ -201,12 +222,12 @@ export class Scaffold {
                 ? `Point each line of .env at the item that holds it in 1Password, then run: ${run} secrets`
                 : `Fill in each password in .env, then run: ${run} secrets`,
             "Change the names, addresses and ports in the device files to your own.",
-            ...(Scaffold.PATTERNS[pattern].asn && (!asn || asn === Scaffold.EXAMPLE_ASN) ? ["Put your own AS number in routing.ts."] : []),
+            ...(chosen.asn && (!asn || asn === Scaffold.EXAMPLE_ASN) ? ["Put your own AS number in routing.ts."] : []),
             `${run} validate`,
             `${run} snapshot, then ${run} diff, to see what would change on each device`,
         ];
 
-        console.log(`\nCreated ${directory} from the pattern "${Scaffold.PATTERNS[pattern].title}".\n\nNext:`);
+        console.log(`\nCreated ${directory} from the pattern "${chosen.title}".\n\nNext:`);
         steps.forEach((step, index) => console.log(`  ${index + 1}. ${step}`));
         console.log(`\nWhat each file does: https://circuit.tako.id/patterns/${pattern}`);
     }

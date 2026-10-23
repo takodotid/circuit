@@ -22,7 +22,7 @@ The switches have no address on the peering LAN. They only carry it.
 
 ## Exchange.build
 
-The `Exchange.build` preset makes member ports and a check from a list of members:
+The `Exchange.build` helper makes member ports and a check from a list of members:
 
 | Field           | What it is                                                                                          |
 | --------------- | --------------------------------------------------------------------------------------------------- |

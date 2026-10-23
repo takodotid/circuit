@@ -1,7 +1,7 @@
 // Rules of your own. `circuit validate` runs them beside Circuit's own, and an error stops `diff` and `apply`.
 
 import type { Check } from "@takodotid/circuit";
-import { Checks } from "@takodotid/circuit/presets";
+import { Checks } from "@takodotid/circuit/helpers";
 
 export default [
     // A port without a description is hard to trace later. A warning, so it does not block anything.

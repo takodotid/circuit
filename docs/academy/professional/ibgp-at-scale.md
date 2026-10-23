@@ -49,7 +49,7 @@ A single reflector is a single point of failure, as the widget showed: when it f
 A reflector also changes what its clients see. It picks its own best route to each prefix and reflects only that one, so a client chooses its way out from the reflector's point of view, not its own. A client far from the reflector may then leave the network through an exit that is near the reflector but far from itself. The usual answer is to place reflectors so they see what their clients see: a pair in each point of presence for the routers there, with every reflector in a full mesh with the others.
 
 ::: warning Circuit has no route reflector setting
-Circuit's schema has no field to make a router a route reflector, to mark a neighbor as its client, or to set a cluster ID. A network written in Circuit today runs iBGP as a full mesh, as the full-setup example does between its three edge routers. That is fine at a handful of routers, which is the size of network the example is.
+Circuit's schema has no field to make a router a route reflector, to mark a neighbor as its client, or to set a cluster ID. A network written in Circuit today runs iBGP as a full mesh, as the regional provider example does between its three edge routers. That is fine at a handful of routers, which is the size of network the example is.
 :::
 
 <Quiz
@@ -99,7 +99,7 @@ routing: {
 },
 ```
 
-The group has what every iBGP session shares: the AS, which makes the session internal, the loopback to start from, and the policies. Each neighbor is then one line. The full-setup example does the same, with `local_address` on each neighbor and one session per address family.
+The group has what every iBGP session shares: the AS, which makes the session internal, the loopback to start from, and the policies. Each neighbor is then one line. The regional provider example does the same, with `local_address` on each neighbor and one session per address family.
 
 `circuit validate` checks the mesh across devices. A missing session on one side, or a session that starts from an address the far end does not expect, is an error before anything reaches a router:
 
@@ -108,13 +108,13 @@ error  edge-a1: neighbor edge-b1: edge-b1 has no session back to edge-a1
 error  edge-a2: neighbor edge-a1: starts from 10.254.0.1, and edge-a1's session edge-a2 expects 10.255.0.2
 ```
 
-The input firewall must let TCP port 179 in from the other loopbacks too. The full-setup example builds its `bgp-neighbors` address set from every neighbor of the router, the internal ones included.
+The input firewall must let TCP port 179 in from the other loopbacks too. The regional provider example builds its `bgp-neighbors` address set from every neighbor of the router, the internal ones included.
 
 ## The next hop must be reachable
 
 When an edge router passes a route from its transit provider to its iBGP neighbors, it leaves the next hop as it was: the transit provider's address, on the link between them. Every other router must have a route to that address, or it cannot use the route at all. There are two ways to give it one:
 
-1. **Carry the outside links in the IGP.** The edge router announces its link to the transit into OSPF, so every router knows the way to the transit's address. The full-setup example does this with `redistribute: ["connected", "static"]` on its edge routers.
+1. **Carry the outside links in the IGP.** The edge router announces its link to the transit into OSPF, so every router knows the way to the transit's address. The regional provider example does this with `redistribute: ["connected", "static"]` on its edge routers.
 2. **Next-hop-self.** The edge router replaces the next hop with its own loopback as it passes the route on, so every route points at a loopback that OSPF already carries. This is called <Term means="An edge router replacing the next hop of the routes it passes on over iBGP with its own loopback address.">next-hop-self</Term>.
 
 Circuit has no next-hop-self setting, so in Circuit the first way is the one to write.
@@ -145,7 +145,7 @@ R1 and R2 run iBGP. Make the switch between them fail with BFD off, then on. The
 
 With loopbacks, the session never went down: OSPF found the way through R3 long before BGP's hold time, 90 seconds by the standard's suggestion, ran out. All BFD changed was how long traffic was lost. With the link's own addresses, the session died with the link, and every route learned through it was withdrawn and had to be sent again.
 
-That is also why BFD belongs on the OSPF interfaces between your routers, and on eBGP sessions to other networks, but not on iBGP sessions between loopbacks. The standard for using BFD with routing protocols says so: when iBGP depends on OSPF, OSPF should hear about the failure and heal the path, and iBGP gains nothing from tearing down a session that OSPF is about to save. The full-setup example follows it: `bfd: true` on its OSPF links and on its session with transit A, none on its iBGP sessions. In Circuit, `bfd: true` turns BFD on, with the platform's own timers. Junos has no default, so there Circuit sends a BFD packet every 300 ms and declares the path dead after three are missed.
+That is also why BFD belongs on the OSPF interfaces between your routers, and on eBGP sessions to other networks, but not on iBGP sessions between loopbacks. The standard for using BFD with routing protocols says so: when iBGP depends on OSPF, OSPF should hear about the failure and heal the path, and iBGP gains nothing from tearing down a session that OSPF is about to save. The regional provider example follows it: `bfd: true` on its OSPF links and on its session with transit A, none on its iBGP sessions. In Circuit, `bfd: true` turns BFD on, with the platform's own timers. Junos has no default, so there Circuit sends a BFD packet every 300 ms and declares the path dead after three are missed.
 
 <Quiz
   question="Your routers run iBGP between loopbacks, with OSPF and BFD on every link between them. A link fails. What happens to the iBGP sessions that were using it?"
@@ -162,7 +162,7 @@ The MTU of a link must be the same at both ends. When it is not, the trouble hid
 - **OSPF** neighbors describe their maps to each other in large packets, and the standard has a router reject one whose MTU is larger than its own interface takes. The neighbors see each other's hellos and then stop short of exchanging their maps.
 - **BGP** sessions come up, since the first messages are small, and then fail when the routers start sending each other the full table in large packets. The small keepalives get through, the large updates do not, nothing useful arrives, and the session is torn down when the hold time runs out, only to come up and fail the same way again.
 
-Raising the MTU on the links between your own routers to around 9000 bytes, a <Term means="A frame larger than the usual 1500 bytes, often around 9000, used on links between a network's own devices.">jumbo frame</Term>, leaves room for a tunnel added later to still carry a full 1500-byte packet. The full-setup example sets `mtu: 9000` on the link between its two site A edge routers, and a lower MTU on each of its tunnels to site B, by as much as the tunnel's own headers take: 1476 on one, 1450 on the other.
+Raising the MTU on the links between your own routers to around 9000 bytes, a <Term means="A frame larger than the usual 1500 bytes, often around 9000, used on links between a network's own devices.">jumbo frame</Term>, leaves room for a tunnel added later to still carry a full 1500-byte packet. The regional provider example sets `mtu: 9000` on the link between its two site A edge routers, and a lower MTU on each of its tunnels to site B, by as much as the tunnel's own headers take: 1476 on one, 1450 on the other.
 
 `circuit validate` compares the MTU at both ends of every cable written with `link`, and refuses a mismatch:
 
@@ -178,7 +178,7 @@ error  edge-a1: port 100g-2 link: MTU 9000 on 100g-2, and edge-b1 100g-1 has 150
 - [RFC 5882: Generic Application of BFD](https://www.rfc-editor.org/rfc/rfc5882.html), section 4.4 and 10.2, on using BFD with OSPF and eBGP rather than iBGP.
 - [RFC 2328: OSPF Version 2](https://www.rfc-editor.org/rfc/rfc2328.html), section 10.6 on the MTU check, and appendix C on hello and dead intervals.
 - [BGP flapping: why a peer keeps resetting](https://www.netdata.cloud/guides/network/network-bgp-flapping/), Netdata's guide, on sessions that come up and then fail when large updates are dropped.
-- [The full-setup example](https://github.com/takodotid/circuit/tree/main/examples/full-setup), whose three edge routers run iBGP in a full mesh between loopbacks.
+- [The regional provider example](https://github.com/takodotid/circuit/tree/main/examples/use-cases/regional-provider), whose three edge routers run iBGP in a full mesh between loopbacks.
 
 ## In short
 
