@@ -12,12 +12,15 @@ import {
     type ApplyOptions,
     type BgpLogLine,
     type BgpSession,
+    type HealthCheck,
+    type HealthOptions,
     type OsSupport,
     type Plan,
     type ReadOptions,
     type ReadSession,
     Platform,
 } from "../platform";
+import { BgpWait, type WaitLimits } from "../bgp-wait";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../catalog";
 import { RouterOsRender } from "./render";
@@ -74,6 +77,11 @@ export class RouterOs extends Platform {
 
     /** The device's date and time, in the form its log prints: `2026-10-24 03:12:44`. */
     private static readonly CLOCK = ':put ([/system clock get date] . " " . [/system clock get time])';
+
+    /** The switch chip's rules. A rule it cannot hold is invalid, and so is every rule after it, with no log line (TRAPS.md). */
+    private static readonly SWITCH_RULES = "/interface ethernet switch rule";
+
+    private static readonly COUNT_INVALID_SWITCH_RULES = `${RouterOs.SWITCH_RULES} print count-only where invalid`;
 
     private static readonly ROLLBACK_SCHEDULER = "apply-rollback";
 
@@ -327,6 +335,35 @@ export class RouterOs extends Platform {
             });
     }
 
+    /**
+     * Two checks after an apply. When the plan touched switch rules, none may be invalid. BGP sessions established before the apply must be established again, within `BgpWait.AFTER_APPLY`.
+     */
+    async health(device: Device, plan: Plan, options: HealthOptions = {}): Promise<HealthCheck> {
+        const switchRules = plan.steps.some((step) => step.send.some((command) => command.startsWith(RouterOs.SWITCH_RULES)));
+        const limits = options.bgp ?? BgpWait.AFTER_APPLY;
+
+        const establishedBefore = await this.establishedSessions(device, options);
+
+        return {
+            run: async () => {
+                if (!switchRules && !establishedBefore.length) {
+                    console.log("  nothing to check: the plan changed no switch rule, and no BGP session was established before");
+                    return [];
+                }
+
+                const session = await this.session(device, options);
+
+                try {
+                    const switchProblems = switchRules ? await RouterOs.invalidSwitchRules(session, device) : [];
+                    const bgpProblems = await this.bgpBack(device, session, establishedBefore, limits);
+                    return [...switchProblems, ...bgpProblems];
+                } finally {
+                    session.close();
+                }
+            },
+        };
+    }
+
     /** Replace a list's entries in batches, so each command stays a sane length. */
     async fill(device: Device, _network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void> {
         const menu = family === "ipv4" ? "/ip firewall address-list" : "/ipv6 firewall address-list";
@@ -348,6 +385,65 @@ export class RouterOs extends Platform {
         } finally {
             client.end();
         }
+    }
+
+    /** The names of the configured neighbors whose session is established now. None, without logging in, on a device without BGP neighbors. */
+    private async establishedSessions(device: Device, options: ReadOptions): Promise<string[]> {
+        if (!Object.keys(device.routing?.bgp?.neighbors ?? {}).length) return [];
+
+        const session = await this.session(device, options);
+
+        try {
+            const sessions = await this.bgpSessions(device, session);
+            return sessions.filter((bgp) => bgp.established).map((bgp) => bgp.neighbor);
+        } finally {
+            session.close();
+        }
+    }
+
+    /** Wait until every one of these neighbors is established again, and give a problem for each that is not when time runs out. */
+    private async bgpBack(device: Device, session: ReadSession, neighbors: readonly string[], limits: WaitLimits): Promise<string[]> {
+        if (!neighbors.length) return [];
+
+        console.log(`  BGP: ${neighbors.length} session(s) were established before; waiting up to ${limits.seconds} s for them`);
+
+        const read = async () => (await this.bgpSessions(device, session)).filter((bgp) => neighbors.includes(bgp.neighbor));
+        const after = await BgpWait.until(
+            read,
+            (sessions) => BgpWait.upCount(sessions) === neighbors.length,
+            limits,
+            (sessions) =>
+                console.log(
+                    `  BGP: ${BgpWait.upCount(sessions)}/${neighbors.length} established again, checking again in ${limits.every} s`
+                )
+        );
+
+        const down = after.filter((bgp) => !bgp.established);
+        if (!down.length) {
+            console.log(`  BGP: all ${neighbors.length} established again`);
+            return [];
+        }
+
+        return down.map(
+            (bgp) =>
+                `BGP session ${bgp.neighbor} was established before the apply and is not ${limits.seconds} s after it (${bgp.uptime === "no session" ? "no session" : "not established"}). Look with: circuit bgp ${device.name} --log`
+        );
+    }
+
+    /** A problem when any switch rule is invalid, saying what to do. */
+    private static async invalidSwitchRules(session: ReadSession, device: Device): Promise<string[]> {
+        const answer = (await session.run(RouterOs.COUNT_INVALID_SWITCH_RULES)).trim();
+        if (!/^\d+$/.test(answer)) return [`could not count invalid switch rules: ${answer.slice(0, 200)}`];
+
+        const invalid = Number(answer);
+        if (!invalid) {
+            console.log("  switch rules: none invalid");
+            return [];
+        }
+
+        return [
+            `${invalid} switch rule(s) are invalid: the switch chip cannot hold them, and every rule after the first invalid one is invalid too, so those rules do nothing. Use fewer distinct port ranges in this device's ACLs, then apply again. See them with: circuit show ${device.name} '${RouterOs.SWITCH_RULES} print where invalid'`,
+        ];
     }
 
     /** Log in over SSH. `flags` go after the user, as RouterOS reads them: `+ct300w`. */

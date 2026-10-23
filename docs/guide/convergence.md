@@ -39,6 +39,17 @@ The most dangerous change is one that cuts off the management access Circuit its
 | `junos`        | all at once, with `commit confirmed` | Circuit restores the previous configuration over the session still open. If it cannot, the device rolls back on its own after `--rollback` minutes, 10 by default.                                        |
 | `fortios`      | each line, as it is sent             | The change is not saved yet. Circuit has the device reload its saved configuration over the session still open. If it cannot, the device reloads it on its own after `--rollback` minutes, 10 by default. |
 
+## Checking the device afterwards
+
+A device can take every command and still not work as it should. So after the apply and the new snapshot, Circuit checks the device on platforms that have checks, and `apply` fails when one finds a problem. The change stays on the device: read what the problem says, fix it, and apply again.
+
+On RouterOS, `apply` checks two things:
+
+1. **Switch rules.** When the plan changed a switch rule, no switch rule may be invalid. A switch chip can hold far fewer rules than MikroTik lists: a CCR2216 stopped at 66 rules, at its sixth distinct port range. When one rule does not fit, it and every rule after it are marked invalid and do nothing, with no log line. A port ACL is made of switch rules, so its drops silently stop. The fix is fewer distinct port ranges in the device's ACLs.
+2. **BGP sessions.** Before sending anything, Circuit notes which BGP sessions are established. After the apply, each of them must be established again within 180 seconds; Circuit reads them every 10 seconds, so an apply that left them up does not wait. A session still down at the end is named, and `circuit bgp <device> --log` shows why. A session that was down before the apply is not waited for.
+
+The other platforms have no checks yet.
+
 ## Versions of a platform
 
 Each platform is written for one major version of its operating system, and Circuit refuses a device that runs another. `routeros` is RouterOS 7. RouterOS 6 writes BGP and firewall rules differently, so it would need its own platform.

@@ -37,7 +37,7 @@ These four are easy to mix up:
 
 - **`snapshot`** only reads. It logs in to each device and saves what the device runs in `.circuit/state/`. It changes nothing on any device.
 - **`diff`** never logs in. It compares your files with the last snapshot, so it is fast, works offline, and is safe in CI. If someone changed a device by hand after the last snapshot, `diff` does not know.
-- **`apply`** always reads the device again first, so its plan is made against what the device runs right now. Without `--confirm` it stops after showing the plan. With `--confirm` it first checks the path to the device (see below), then sends the plan, reads the device once more and saves the new snapshot.
+- **`apply`** always reads the device again first, so its plan is made against what the device runs right now. Without `--confirm` it stops after showing the plan. With `--confirm` it first checks the path to the device (see below), then sends the plan, reads the device once more and saves the new snapshot. Last, it checks the device is healthy, such as that the BGP sessions up before are up again, and fails if not. See [Checking the device afterwards](/guide/convergence#checking-the-device-afterwards).
 - **`refresh`** is only for prefix lists that come from a registry, such as every prefix a customer's AS announces. Those lists change on their own, every day, so they are not part of your files or of `apply`. `refresh` fetches the current list and, with `--confirm`, puts it on the device. Run it on a schedule: see [Scheduled refresh](/guide/scheduled-refresh).
 
 ### The path check before apply --confirm
@@ -106,7 +106,7 @@ sgix-rs-v6          DOWN        -  no session    -
 
 1. The device can be left out when only one device in the network has BGP neighbors: `npx circuit bgp sgix`.
 2. The second argument is a regular expression. Only the neighbors whose name matches are shown.
-3. `--wait` reads again every 15 seconds until every neighbor shown is up, or with `--wait=N`, at least N of them. It gives up after `--max` seconds, 600 by default, and then exits with code 1. Use it right after an apply or a provider cutover.
+3. `--wait` reads again every 15 seconds until every neighbor shown is up, or with `--wait=N`, at least N of them. It gives up after `--max` seconds, 600 by default, and then exits with code 1. Use it after a provider cutover. `apply --confirm` already waits for the sessions that were up before it.
 4. `--log` adds the device's BGP log lines of the last few minutes, 5 by default. A message that repeats is folded into one line with its first and last time and a count, such as `2026-10-24 03:01:00..03:04:50 x24`. It shows every BGP line, not only those of the neighbors shown.
 
 `bgp` only reads, and works on RouterOS so far. On another platform it says it does not support it yet and stops before it connects.

@@ -484,10 +484,24 @@ class Cli {
             return;
         }
 
+        // What the checks after the apply compare against, such as the BGP sessions up now, is read before anything is sent.
+        const health = await adapter.health?.(device, plan, this.optionsFor(device));
+
         await adapter.apply(device, this.network.devices, plan, this.optionsFor(device));
 
         this.writeState(device, await adapter.read(device, this.network.devices, this.optionsFor(device)));
         console.log("snapshot updated");
+
+        if (!health) return;
+
+        console.log("checking the device after the apply");
+        const problems = await health.run();
+
+        if (problems.length) {
+            Cli.fail(`\nApplied, but the device is not healthy:\n${problems.map((problem) => `  ${problem}`).join("\n")}`);
+        }
+
+        console.log("no problems found");
     }
 
     /** Run commands that only read, each under a header with how long it took. Every command is checked before anything connects. */

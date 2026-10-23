@@ -1,4 +1,4 @@
-// A fake device over SSH, for tests of a platform's read and apply. It takes one user with one password. Each exec command, and each line typed into its shell, is answered with what `answer` returns, and kept in `commands`. The shell starts with `banner` and ends each answer with `prompt`.
+// A fake device over SSH, for tests of a platform's read and apply. It takes one password, for one user or for each of a list, such as a user with and without RouterOS's flags. Each exec command, and each line typed into its shell, is answered with what `answer` returns, and kept in `commands`. The shell starts with `banner` and ends each answer with `prompt`.
 
 import { generateKeyPairSync } from "node:crypto";
 import type { AddressInfo } from "node:net";
@@ -23,7 +23,7 @@ export class FakeSshDevice {
     private readonly server: Server;
 
     constructor(
-        private readonly user: string,
+        private readonly user: string | readonly string[],
         private readonly answer: (command: string) => string | FakeParts,
         private readonly shell?: FakeShell
     ) {
@@ -36,7 +36,9 @@ export class FakeSshDevice {
         this.server = new Server({ hostKeys: [privateKey] }, (client) => {
             client.on("authentication", (context) => {
                 const allowed =
-                    context.method === "password" && context.username === this.user && context.password === FakeSshDevice.PASSWORD;
+                    context.method === "password" &&
+                    [this.user].flat().includes(context.username) &&
+                    context.password === FakeSshDevice.PASSWORD;
 
                 if (allowed) context.accept();
                 else context.reject(["password"]);
