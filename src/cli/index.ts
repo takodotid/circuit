@@ -279,8 +279,8 @@ class Cli {
 
         program
             .command("librenms")
-            .description("add every device LibreNMS does not monitor yet, with --confirm")
-            .option("--confirm", "add them; without it, nothing is sent")
+            .description("bring LibreNMS in line with the config, with --confirm")
+            .option("--confirm", "send the changes; without it, nothing is sent")
             .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
             .action(async (flags) => (await Cli.open(flags.config)).librenms(flags.confirm ?? false));
 
@@ -892,10 +892,22 @@ class Cli {
             console.log(`  LibreNMS monitors ${hostname}, which the config does not. Remove it by hand if it is gone.`);
         for (const device of plan.withoutSnmp)
             console.log(`  ${device.name} has no SNMP in its config, so LibreNMS cannot poll it. Add management.snmp first.`);
-        for (const device of plan.additions) console.log(`  add ${device.name}, ${device.connection.host}`);
+        for (const name of plan.dynamicGroups)
+            console.log(`  LibreNMS's group ${name} is dynamic, so Circuit cannot fill it. Make it static, or rename it.`);
 
-        if (!plan.additions.length) {
-            console.log("LibreNMS monitors every device it can.");
+        for (const device of plan.additions) console.log(`  + ${device.name}, ${device.connection.host}`);
+        for (const change of plan.changes) console.log(`  ~ ${change.device.name}: ${change.what.join(", ")}`);
+
+        for (const group of plan.groups) {
+            const names = (devices: readonly Device[]) => devices.map((device) => device.name).join(", ");
+
+            if (group.create) console.log(`  + group ${group.name}: ${names(group.add)}`);
+            if (!group.create && group.add.length) console.log(`  ~ group ${group.name}: add ${names(group.add)}`);
+            if (!group.create && group.remove.length) console.log(`  ~ group ${group.name}: remove ${names(group.remove)}`);
+        }
+
+        if (!LibreNms.count(plan)) {
+            console.log("LibreNMS matches the config.");
             return;
         }
 
@@ -904,7 +916,7 @@ class Cli {
             return;
         }
 
-        await LibreNms.send(this.network, plan.additions);
+        await LibreNms.send(this.network, plan);
     }
 
     private async netbox(confirmed: boolean): Promise<void> {

@@ -58,7 +58,7 @@ export default defineNetwork({
 });
 ```
 
-`site` and `device` are functions, so they can follow whatever naming your network uses. Circuit makes a site or a role when NetBox has none of that name, with the tag.
+`site` and `device` are functions, so they can follow whatever naming your network uses. Circuit makes a site or a role when NetBox has none of that name, with the tag. [LibreNMS](/integrations/librenms#a-group-per-site) uses the same `site` for its device groups.
 
 `device` can also give a `device_type`, the model name NetBox should use, when it differs from the device's `model`.
 

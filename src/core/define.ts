@@ -81,18 +81,22 @@ export type Network = {
     asn?: number;
     /** The BGP communities the network defines, printed by `circuit communities` for a looking glass or bgp.tools. */
     communities?: readonly Community[];
-    /** The site each device is at, such as a data centre or an office, by name. Devices ignore it; `circuit netbox` puts the device on the NetBox site of that name. */
+    /**
+     * The site each device is at, such as a data centre or an office, by name. Devices ignore it.
+     *
+     * `circuit netbox` puts the device on the NetBox site of that name, and `circuit librenms` puts it in a LibreNMS device group of that name.
+     */
     site?: (device: Device) => string;
     /** Keeps the network's PeeringDB record in step with the config: `circuit peeringdb`. Needs `asn`. */
     peeringdb?: {
         /** An API key with write access to the network's record. */
         api_key: Secret;
     };
-    /** Keeps LibreNMS monitoring every device: `circuit librenms`. */
+    /** Keeps LibreNMS monitoring every device, under its name, with its SNMP credentials and location, and in a group for its `site`: `circuit librenms`. */
     librenms?: {
         /** Where LibreNMS is, such as `https://librenms.example.com`. */
         url: string;
-        /** An API token that can add devices. */
+        /** An API token that can add and change devices and device groups. */
         api_token: Secret;
     };
     /** Keeps NetBox in step with the config: `circuit netbox`. Needs `site`. */
