@@ -70,6 +70,39 @@ export class Checks {
         return findings;
     };
 
+    /**
+     * A native VLAN is a dead end: native on one trunk (a port or a LAG) of a device at most, and never an access VLAN or a tagged VLAN anywhere on that device. On a switch, a native VLAN is an untagged member of every trunk it is native on, so one native VLAN shared by two trunks joins them: every untagged frame from one leaves on the other.
+     */
+    static readonly nativeVlansAreDeadEnds: Check = (devices) => {
+        const findings: Finding[] = [];
+
+        for (const device of devices) {
+            const carriers = [
+                ...Object.entries(device.ports ?? {}).flatMap(([name, port]) => (port ? [{ what: `port ${name}`, settings: port }] : [])),
+                ...Object.entries(device.interfaces ?? {}).flatMap(([name, iface]) =>
+                    iface.type === "lag" ? [{ what: `LAG ${name}`, settings: iface }] : []
+                ),
+            ];
+
+            const nativeOn = new Map<string, string[]>();
+            for (const { what, settings } of carriers) {
+                if (settings.native_vlan) nativeOn.set(settings.native_vlan, [...(nativeOn.get(settings.native_vlan) ?? []), what]);
+            }
+
+            for (const [vlan, trunks] of nativeOn) {
+                const report = (message: string) =>
+                    findings.push({ level: "error", device: device.name, message: `native VLAN ${vlan} ${message}` });
+
+                if (trunks.length > 1) report(`is native on ${trunks.join(", ")}: give each trunk its own`);
+
+                const members = carriers.filter(({ settings }) => Checks.vlansOf(settings).includes(vlan));
+                for (const { what } of members) report(`is also an access or tagged VLAN on ${what}`);
+            }
+        }
+
+        return findings;
+    };
+
     /** The VLANs a port carries, untagged or tagged. */
     static vlansOf(port: { access_vlan?: string; trunk_vlans?: readonly string[] }): string[] {
         return [port.access_vlan, ...(port.trunk_vlans ?? [])].filter((vlan): vlan is string => vlan !== undefined);

@@ -12,6 +12,9 @@ export default [
     // Traffic from the transit and the exchange reaches the tenants only through the router, which filters it.
     Checks.trustBoundary({ untrusted: ["transit", "ix"], routers: ["edge-01"] }),
 
+    // A native VLAN stays on one trunk and nowhere else, or it joins every trunk it is native on.
+    Checks.nativeVlansAreDeadEnds,
+
     // Tenants never share a name, a number, an address or a port. A port given twice would go to the last tenant alone.
     () => {
         const findings: Finding[] = [];

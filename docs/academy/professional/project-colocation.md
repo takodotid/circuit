@@ -115,7 +115,7 @@ Two tenants are as far apart as any two networks on the internet: traffic betwee
 
 <<< @/../templates/colocation/checks.ts
 
-Two of the edge router's checks are here, and one of the pattern's own: tenants never share a name, a number or a port, their blocks never overlap, and each gateway is inside its block. `Checks.trustBoundary` makes sure traffic from the transit and the exchange reaches tenants only through the router, which filters it.
+Two of the edge router's checks are here, and one of the pattern's own: tenants never share a name, a number or a port, their blocks never overlap, and each gateway is inside its block. `Checks.trustBoundary` makes sure traffic from the transit and the exchange reaches tenants only through the router, which filters it. `Checks.nativeVlansAreDeadEnds` keeps a native VLAN to one trunk, so it never joins two trunks into one.
 
 <<< @/../templates/colocation/circuit.config.ts
 
