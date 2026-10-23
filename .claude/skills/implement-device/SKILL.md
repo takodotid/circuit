@@ -47,6 +47,7 @@ Then build it in this order. Each step ends with `bun run typecheck` and `bun ru
 8. **`fill()`**, only if the OS can hold prefix sets filled from a registry.
 9. **Example.** A device file in `examples/` using every field the platform supports. Add it to `test/platforms/examples.test.ts` and to `examples/golden.config.ts`. It must validate and plan nothing against its own render.
 10. **Plan tests** in `test/platforms/plans.test.ts` for each change the plan orders in a special way.
+    A session test reads (and, where it can, applies) through `test/platforms/fake-ssh.ts`, a fake device over SSH, like `routeros-session.test.ts` and `junos-session.test.ts`: the login, the version check and the read run in every test run, not only in the lab.
 11. **Prove it on the device** (skill `prove-on-device`): read, plan, apply the example, read again, and plan again. The second plan must be empty. Write each surprise into `src/platforms/<name>/TRAPS.md`, one line each: what happens, and on which device and version.
 12. **Docs.** `docs/platforms/<name>.md` (copy another platform's page, it includes `TRAPS.md`), a row in both tables of `docs/platforms/index.md`, the sidebar in `docs/.vitepress/config.ts`, how it applies in `docs/guide/convergence.md`, the platform list in `README.md`, `docs/guide/introduction.md` and `PRODUCT.md`, and a keyword in `package.json`.
 

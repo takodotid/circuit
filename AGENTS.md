@@ -46,7 +46,7 @@ Docs, comments, commit messages and replies to the owner:
 ## Checks and tools
 
 - `bun run check` runs what CI runs. The pre-commit hook runs `bun run typecheck` and `bun run test`.
-- Each example and template plans nothing against its own render (`test/platforms/examples.test.ts`), which catches a reader and a renderer that disagree.
+- Each example and template plans nothing against its own render (`test/platforms/examples.test.ts`), which catches a reader and a renderer that disagree. `test/platforms/fake-ssh.ts` is a fake device over SSH, so a platform's login, read and apply run in the tests too.
 - Refactor: `bun scripts/golden.ts save` before, `check` after. Every CLI output on every example must match.
 - Skills in `.claude/skills/`: `implement-device`, `fix-device`, `prove-on-device`, `release`.
 - `bun scripts/lab.ts` reads, plans, applies one device file on a real device, or sends it raw lines. `bun scripts/shots.ts` screenshots the docs site or Studio and reports console errors.
