@@ -311,7 +311,7 @@ test("management services answer only on the interfaces listed", () => {
     ).toContain("management.interfaces, which only FortiOS builds for now");
 });
 
-// Nothing in these was proved on a device yet, so every platform refuses them rather than guess (#27).
+// Until proved on a device, a platform refuses these rather than guess (#27).
 test("BFD timers, BFD on a static route and BFD on a multihop session are refused until proved", () => {
     // RouterOS proved them, or refuses them for another reason: routeros-proofs.test.ts.
     for (const device of examples.filter((example) => example.platform !== "routeros")) {
@@ -330,20 +330,22 @@ test("BFD timers, BFD on a static route and BFD on a multihop session are refuse
             },
         };
 
-        // FortiOS proved timers and static routes (test/platforms/fortios-proofs.test.ts).
-        const proved = device.platform === "fortios";
+        // What each platform proved on a device has its own proofs test, such as test/platforms/vrp-proofs.test.ts.
+        const proved: Record<string, readonly string[]> = {
+            fortios: ["timers", "static"],
+            vrp: ["timers", "static"],
+            junos: ["timers", "static", "multihop"],
+        };
+        const findings = {
+            timers: "routing.bfd, BFD timers are not proved on a device yet",
+            static: "routing.static 198.51.100.128/25 bfd, BFD on a static route is not proved on a device yet",
+            multihop: "routing.bgp.neighbors.loopback.bfd, BFD on a multihop session is not proved on a device yet",
+        };
+        const unproved = Object.entries(findings)
+            .filter(([feature]) => !(proved[device.platform] ?? []).includes(feature))
+            .map(([, finding]) => finding);
 
-        expect(Platforms.get(device.platform).unsupported(withBfd)).toEqual(
-            expect.arrayContaining([
-                ...(proved
-                    ? []
-                    : [
-                          "routing.bfd, BFD timers are not proved on a device yet",
-                          "routing.static 198.51.100.128/25 bfd, BFD on a static route is not proved on a device yet",
-                      ]),
-                "routing.bgp.neighbors.loopback.bfd, BFD on a multihop session is not proved on a device yet",
-            ])
-        );
+        expect(Platforms.get(device.platform).unsupported(withBfd)).toEqual(expect.arrayContaining(unproved));
     }
 
     const viaInterface: Device = {

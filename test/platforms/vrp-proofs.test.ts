@@ -128,3 +128,70 @@ test("an alarm's severity changes in place, and the alarm view goes by undoing i
     ]);
     expect(sent("", printed)).toEqual(["alarm", "undo alarm hwOpticalUnAuthorized severity", "quit"]);
 });
+
+// A watched route, and OSPF with BFD on a VLAN interface.
+const watched: Device = {
+    ...switchDevice,
+    routing: {
+        ...switchDevice.routing,
+        bfd: { interval: 300, multiplier: 3 },
+        static: [{ prefix: "198.51.100.0/24", via: "192.0.2.1", bfd: true, distance: 70, description: "proof" }],
+    },
+};
+
+test("BFD timers and a watched static route render as the switch prints them", () => {
+    const rendered = vrp.render(watched);
+
+    expect(rendered).toContain("ip route-static bfd 192.0.2.1 local-address 192.0.2.2 min-tx-interval 300 min-rx-interval 300\n");
+    expect(rendered).toContain("ip route-static 198.51.100.0 255.255.255.0 192.0.2.1 preference 70 description proof bfd enable\n");
+    expect(rendered).toContain(" ospf bfd enable\n ospf bfd min-tx-interval 300 min-rx-interval 300\n");
+    expect(rendered).toContain("\nbfd\n#");
+    expect(vrp.unsupported(watched)).toEqual([]);
+
+    const five: Device = { ...watched, routing: { ...watched.routing, bfd: { interval: 500, multiplier: 5 } } };
+    expect(vrp.render(five)).toContain(" ospf bfd min-tx-interval 500 min-rx-interval 500 detect-multiplier 5\n");
+});
+
+test("BFD timers the switch refuses, and a watched route it cannot build, are refused", () => {
+    const refused: Device = {
+        ...switchDevice,
+        routing: {
+            bfd: { interval: 10, multiplier: 2 },
+            static: [{ prefix: "198.51.100.0/24", via: "203.0.113.1", bfd: true }],
+        },
+    };
+
+    expect(vrp.unsupported(refused)).toEqual([
+        "routing.bfd.interval, between 50 and 1000 ms on the platform",
+        "routing.bfd.multiplier, between 3 and 50 on the platform",
+        "routing.static 198.51.100.0/24 bfd, the device has no address on the network of 203.0.113.1",
+    ]);
+});
+
+test("OSPF BFD timers are undone before they change, a route's BFD template is replaced in place, and a route is undone by its next hop", () => {
+    const current = [
+        "interface Vlanif10",
+        " ospf bfd enable",
+        " ospf bfd min-tx-interval 300 min-rx-interval 300 detect-multiplier 50",
+        "#",
+        "ip route-static bfd 192.0.2.1 local-address 192.0.2.2 min-tx-interval 50 min-rx-interval 50 detect-multiplier 50",
+        "ip route-static 198.51.100.0 255.255.255.0 192.0.2.1 preference 70 description proof bfd enable",
+    ].join("\n");
+    const desired = [
+        "interface Vlanif10",
+        " ospf bfd enable",
+        " ospf bfd min-tx-interval 300 min-rx-interval 300",
+        "#",
+        "ip route-static bfd 192.0.2.1 local-address 192.0.2.2 min-tx-interval 300 min-rx-interval 300",
+    ].join("\n");
+
+    expect(sent(desired, current)).toEqual([
+        "undo ip route-static 198.51.100.0 255.255.255.0 192.0.2.1",
+        "ip route-static bfd 192.0.2.1 local-address 192.0.2.2 min-tx-interval 300 min-rx-interval 300",
+        "interface Vlanif10",
+        "undo ospf bfd min-tx-interval 300 min-rx-interval 300 detect-multiplier 50",
+        "ospf bfd min-tx-interval 300 min-rx-interval 300",
+        "quit",
+    ]);
+    expect(sent("", "ip route-static bfd 192.0.2.1 local-address 192.0.2.2\n")).toEqual(["undo ip route-static bfd 192.0.2.1"]);
+});

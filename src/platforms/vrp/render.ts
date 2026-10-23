@@ -25,6 +25,9 @@ export class VrpRender {
     /** How many log files the device keeps when the config sets none. It is not printed. */
     private static readonly LOGFILES_DEFAULT = 200;
 
+    /** The BFD multiplier the device uses when the config sets none. It is not printed. */
+    private static readonly BFD_MULTIPLIER = 3;
+
     /** The syslog port the device uses when the config sets none. It is not printed. */
     private static readonly SYSLOG_PORT = 514;
 
@@ -343,7 +346,7 @@ export class VrpRender {
 
             if (settings.cost !== undefined) lines.push(`ospf cost ${settings.cost}`);
             if (settings.network === "point-to-point") lines.push("ospf network-type p2p");
-            if (settings.bfd) lines.push("ospf bfd enable");
+            if (settings.bfd) lines.push("ospf bfd enable", ...this.bfdTimers("ospf bfd"));
         }
 
         return lines;
@@ -376,19 +379,53 @@ export class VrpRender {
         return lines;
     }
 
+    /**
+     * Static routes. A route watched by BFD needs a BFD template for its next hop first, from the device's own address on that network, with the device's timers.
+     */
     private staticRoutes(): void {
-        for (const route of this.device.routing?.static ?? []) {
+        const routes = this.device.routing?.static ?? [];
+        const watched = [...new Set(routes.filter((route) => route.bfd && route.via).map((route) => route.via!))];
+
+        for (const nextHop of watched) {
+            const local = VrpRender.localAddressTo(this.device, nextHop);
+            const timers = this.bfdTimers("").map((line) => line.trim());
+            this.line([`ip route-static bfd ${nextHop} local-address ${local}`, ...timers].join(" "));
+        }
+
+        for (const route of routes) {
             const { addr, len } = Address.split(route.prefix);
             const nextHop = route.blackhole ? "NULL0" : (route.via ?? this.nameOf(route.interface!));
             const vrf = route.vrf ? ` vpn-instance ${route.vrf}` : "";
             const preference = route.distance ? ` preference ${route.distance}` : "";
             const description = route.description ? ` description ${route.description}` : "";
+            const bfd = route.bfd ? " bfd enable" : "";
             if (Address.family(addr) === "ipv4")
-                this.line(`ip route-static${vrf} ${addr} ${Address.netmask(len)} ${nextHop}${preference}${description}`);
+                this.line(`ip route-static${vrf} ${addr} ${Address.netmask(len)} ${nextHop}${preference}${description}${bfd}`);
             else this.line(`ipv6 route-static${vrf} ${addr} ${len} ${nextHop}${preference}`);
         }
 
         this.separator();
+    }
+
+    /** The device's own IPv4 address on the network that holds `nextHop`. `unsupported()` refuses a watched route without one. */
+    static localAddressTo(device: Device, nextHop: string): string | undefined {
+        for (const iface of Object.values(device.interfaces ?? {})) {
+            for (const entry of iface.addresses ?? []) {
+                const address = typeof entry === "string" ? entry : entry.address;
+                if (Address.contains(Address.prefixOf(address), nextHop)) return Address.host(address);
+            }
+        }
+
+        return undefined;
+    }
+
+    /** The BFD timers of `routing.bfd`, after `prefix`, or nothing for the platform's own. The platform does not print its default multiplier, 3. */
+    private bfdTimers(prefix: string): string[] {
+        const bfd = this.device.routing?.bfd;
+        if (!bfd) return [];
+
+        const multiplier = bfd.multiplier === VrpRender.BFD_MULTIPLIER ? "" : ` detect-multiplier ${bfd.multiplier}`;
+        return [`${prefix} min-tx-interval ${bfd.interval} min-rx-interval ${bfd.interval}${multiplier}`.trim()];
     }
 
     /**
@@ -420,7 +457,10 @@ export class VrpRender {
 
     private wantsBfd(): boolean {
         const areas = Object.values(this.device.routing?.ospf?.areas ?? {});
-        return areas.some((area) => Object.values(area.interfaces).some((settings) => settings?.bfd));
+        const onOspf = areas.some((area) => Object.values(area.interfaces).some((settings) => settings?.bfd));
+        const onStatic = (this.device.routing?.static ?? []).some((route) => route.bfd);
+
+        return onOspf || onStatic;
     }
 
     /** sFlow from the management address, to each collector in order. */
