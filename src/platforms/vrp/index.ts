@@ -339,7 +339,7 @@ export class Vrp extends Platform {
 
     /** Secrets the device prints as ciphers and the render writes as markers compare equal. */
     private static canon(line: string): string {
-        return line.replace(/(irreversible-cipher|cipher) \S+/g, "cipher <secret>").replace(/<secret:\w+>/g, "<secret>");
+        return line.replace(/((?:password|community read|-mode \S+) )(?:irreversible-)?cipher \S+/g, "$1cipher <secret>");
     }
 
     /** Blocks other blocks refer to come first: VRFs, VLANs, the ACL and users, then device-wide lines, then LAGs, ports, VLAN interfaces, OSPF and logins. */

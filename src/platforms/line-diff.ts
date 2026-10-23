@@ -33,8 +33,9 @@ export type Group = { path: string[]; remove: string[]; add: string[] };
 export type Around = (group: Group) => { before: string[]; after: string[] };
 
 export class LineDiff {
-    /** What a switch prints in place of a secret: any value after `cipher` or `irreversible-cipher` (a password, a community, an SNMPv3 key), and a Raisecom community in clear. */
-    private static readonly STORED_CREDENTIAL = /((?:irreversible-)?cipher|^snmp-server community)( +)\S+/gm;
+    /** What a switch prints in place of a secret: the cipher of a password, a community or an SNMPv3 key, and a Raisecom community in clear. Never an algorithm list such as `ssh server cipher`. */
+    private static readonly STORED_CREDENTIAL =
+        /((?:password|community read|-mode \S+) (?:irreversible-)?cipher|^snmp-server community)( +)\S+/gm;
 
     /** How deep a line is indented. */
     private static indentOf(raw: string): number {
