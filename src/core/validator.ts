@@ -59,6 +59,7 @@ export class Validator {
         for (const device of network.devices) {
             const report: Report = (message) => findings.push({ level: "error", device: device.name, message });
             Validator.checkDevice(device, report);
+            findings.push(...Validator.checkLimits(device));
 
             const adapter = Platforms.find(device.platform);
             if (!adapter) report(`no adapter for platform ${device.platform}`);
@@ -92,6 +93,44 @@ export class Validator {
         Validator.checkFirewall(device, names, cidr);
         Validator.checkServices(device, names, report, cidr);
         Validator.checkCertificates(device, names, report);
+    }
+
+    /** What the model's hardware holds, from the catalog. A LAG with too many members is an error; too many switch rules is a warning, since the limit is only roughly known. */
+    private static checkLimits(device: Device): Finding[] {
+        const limits = Catalog.limits(device.platform, device.model);
+        const findings: Finding[] = [];
+        const report = (level: Finding["level"], message: string) => findings.push({ level, device: device.name, message });
+
+        if (limits.lag_members !== undefined) {
+            for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
+                if (iface.type !== "lag") continue;
+
+                const members = Object.values(device.ports ?? {}).filter((port) => port?.lag === name).length;
+                if (members > limits.lag_members) {
+                    report("error", `LAG ${name} has ${members} members; ${device.model} holds at most ${limits.lag_members}`);
+                }
+            }
+        }
+
+        if (limits.switch_rules === undefined && limits.switch_port_ranges === undefined) return findings;
+
+        const rules = Platforms.find(device.platform)?.switchRules?.(device);
+        if (!rules) return findings;
+
+        const after = "A rule it cannot hold is invalid, and so is every rule after it";
+
+        if (limits.switch_rules !== undefined && rules.count > limits.switch_rules) {
+            report("warning", `ACLs make ${rules.count} switch rules; a ${device.model} held about ${limits.switch_rules}. ${after}`);
+        }
+
+        if (limits.switch_port_ranges !== undefined && rules.ranges > limits.switch_port_ranges) {
+            report(
+                "warning",
+                `ACLs use ${rules.ranges} distinct port ranges; a ${device.model} held ${limits.switch_port_ranges}. ${after}`
+            );
+        }
+
+        return findings;
     }
 
     private static checkVlans(device: Device, report: Report): void {

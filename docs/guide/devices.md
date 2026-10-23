@@ -204,3 +204,5 @@ Circuit uses the same field names for every vendor, but not every device can do 
 If you write a field that the device's platform cannot do, `circuit validate` reports it as an error, with the field and the reason. `diff` and `apply` refuse to run for that device until you remove the field. Circuit never skips a field quietly, so what you read in the file is always what the device runs.
 
 [Platforms](/platforms/) has a table of what each platform can do.
+
+Some hardware also holds less than its datasheet says, such as fewer members in a LAG. `circuit validate` checks a device against its model's limits too; see [Model limits](/platforms/#model-limits).

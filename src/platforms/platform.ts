@@ -74,6 +74,14 @@ export type OsSupport = {
     checked: boolean;
 };
 
+/** The switch rules a render makes from a device's hardware ACLs, counted. */
+export type SwitchRules = {
+    /** How many rules there are. */
+    count: number;
+    /** How many distinct port ranges they use, such as `0-1023`. */
+    ranges: number;
+};
+
 export abstract class Platform {
     /** The name a device's `platform` field takes. */
     abstract readonly name: PlatformName;
@@ -84,6 +92,8 @@ export abstract class Platform {
     readonly console: ConsoleDialect | undefined = undefined;
     /** Fields this platform cannot express. Validation fails on any of them, so nothing is skipped silently. */
     abstract unsupported(device: Device): string[];
+    /** The switch rules the render makes from the device's hardware ACLs, so `validate` can hold them to the model's limits. Absent on a platform whose rules are not counted. */
+    switchRules?(device: Device): SwitchRules;
     /** The whole configuration the device should run. Secrets appear as markers, never values. */
     abstract render(device: Device): string;
     /** What the device runs now, secrets removed, in the form `render` produces where the platform allows. */
