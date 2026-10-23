@@ -103,6 +103,7 @@ export class RaisecomRosRender {
         for (const [name, user] of Object.entries(device.users ?? {}))
             lines.push(`user name ${name} password ${Secrets.marker(user.password)}`);
         if (management.privilege_password) lines.push(`enable password ${Secrets.marker(management.privilege_password)}`);
+        lines.push(`hostname ${device.name}`);
 
         const timezone = device.system?.timezone;
         if (timezone) {

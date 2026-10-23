@@ -492,11 +492,22 @@ export class RaisecomRos extends Platform {
             };
         };
 
+        // The hostname is set outside configuration mode, where `hostname` is refused.
+        const hostnames: string[] = [];
+
+        for (const group of groups) {
+            if (group.path.length) continue;
+            hostnames.push(...group.add.filter((line) => line.startsWith("hostname ")));
+            group.add = group.add.filter((line) => !line.startsWith("hostname "));
+        }
+
         const planned = LineDiff.steps(
             groups.filter((group) => group.add.length || group.remove.length),
             RaisecomRos.DIALECT,
             releaseAndBind
         );
+
+        for (const line of hostnames) planned.unshift({ title: "hostname", show: [`+ ${line}`], send: ["exit", line, "config"] });
 
         if (aclRemovals.length) {
             planned.push({
