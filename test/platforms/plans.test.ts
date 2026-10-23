@@ -126,6 +126,29 @@ test("a new WireGuard key for a peer is set on it", () => {
     );
 });
 
+// Seen on 2026-10-23: a transit moved to a new VLAN and a new peer address, keeping its names. The device refuses a second entry of a name, and the refusal restored the backup and restarted the router (#92).
+test("a VLAN interface that keeps its name on a new VLAN ID is changed in place", () => {
+    const adapter = Platforms.get("routeros");
+    const vlan = (id: number) => `/interface vlan\nadd interface=bridge name=transit vlan-id=${id}\n`;
+    const sent = adapter.plan(vlan(3845), vlan(325), { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+
+    expect(sent).toEqual(["/interface vlan set [ find interface=bridge and vlan-id=325 ] vlan-id=3845"]);
+});
+
+test("a BGP connection that keeps its name on a new peer address is removed before it is added again", () => {
+    const adapter = Platforms.get("routeros");
+    const connection = (address: string) =>
+        `/routing bgp connection\nadd instance=default local.role=ebgp name=transit-v4 remote.address=${address} remote.as=64501\n`;
+    const sent = adapter
+        .plan(connection("198.51.100.9"), connection("198.51.100.1"), { secrets: false, rollback: 10 })
+        .steps.flatMap((step) => step.send);
+
+    expect(sent).toEqual([
+        "/routing bgp connection remove [ find remote.address=198.51.100.1 ]",
+        "/routing bgp connection add instance=default local.role=ebgp name=transit-v4 remote.address=198.51.100.9 remote.as=64501",
+    ]);
+});
+
 // A VLAN interface on the bridge adds a dynamic bridge VLAN entry beside the static one, which a set must not select.
 test("a change to a bridge VLAN selects only its static entry", () => {
     const adapter = Platforms.get("routeros");

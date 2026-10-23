@@ -77,6 +77,9 @@ export class RouterOsPlan {
         "/interface bridge vlan",
     ]);
 
+    /** Menus where an entry that keeps its name but changes what it is known by is changed with a `set`, so what points at it by name, such as an address on a VLAN interface, stays attached. In every other menu it is removed and added again. */
+    private static readonly CHANGED_IN_PLACE = new Set(["/interface vlan"]);
+
     /** The variable holding the old rules of an ordered menu while the new ones are added. Removed when the rewrite ends. */
     private static readonly OLD_RULES = "frameworkOldRules";
 
@@ -263,10 +266,32 @@ export class RouterOsPlan {
 
         const kept = new Set<string>();
 
+        // An entry known by something other than its name keeps its name when that something changes, and the device refuses a second entry of that name. The old entry of the same name is changed in place, or removed before the new one is added.
+        const wantedKeys = new Set(wantedEntries.map(key));
+        const sameName = new Map(
+            existingEntries
+                .filter((entry) => entry.attrs.name !== undefined && !wantedKeys.has(key(entry)))
+                .map((entry) => [entry.attrs.name!, entry])
+        );
+
         for (const entry of wantedEntries) {
             const entryKey = key(entry);
             kept.add(entryKey);
-            const current = existingByKey.get(entryKey);
+            let current = existingByKey.get(entryKey);
+
+            const namesake = !current && entry.attrs.name !== undefined ? sameName.get(entry.attrs.name) : undefined;
+            if (namesake) {
+                kept.add(key(namesake));
+
+                if (RouterOsPlan.CHANGED_IN_PLACE.has(menu)) {
+                    current = namesake;
+                } else {
+                    changeStep.show.push(`~ replace ${RouterOsExport.canonical(entry)}`);
+                    changeStep.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.identity(namesake))}`);
+                    changeStep.send.push(RouterOsPlan.line(menu, "add", "", entry.flags, entry.attrs));
+                    continue;
+                }
+            }
 
             if (!current) {
                 changeStep.show.push(`+ ${RouterOsExport.canonical(entry)}`);
