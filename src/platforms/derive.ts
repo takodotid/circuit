@@ -85,13 +85,14 @@ export class Derive {
     /** Services the switch platforms run. Each takes its sources from `management.allow`, on the protocol's own port. */
     private static readonly SWITCH_SERVICES = ["ssh", "telnet", "snmp"] as const;
 
-    /** Fields neither switch platform, VRP nor Raisecom ROS, expresses: a service's own sources or port, a user's description or keys, the IP stack's host settings, a point-to-point address, and offload per interface. */
-    static switchUnsupported(device: Device): string[] {
+    /** Fields neither switch platform, VRP nor Raisecom ROS, expresses: a service's own sources or port, a user's description or keys, the IP stack's host settings, a point-to-point address, and offload per interface. `ownSources` names the services a platform gives their own sources. */
+    static switchUnsupported(device: Device, ownSources: readonly ("ssh" | "telnet" | "snmp")[] = []): string[] {
         const found: string[] = [];
 
         for (const service of Derive.SWITCH_SERVICES) {
             const settings = device.management?.[service];
-            if (settings?.allow) found.push(`management.${service}.allow, every service takes management.allow`);
+            if (settings?.allow && !ownSources.includes(service))
+                found.push(`management.${service}.allow, every service takes management.allow`);
             if (settings?.port) found.push(`management.${service}.port`);
         }
 

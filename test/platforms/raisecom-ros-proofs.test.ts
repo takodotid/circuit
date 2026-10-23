@@ -2,7 +2,9 @@
 
 import { expect, test } from "bun:test";
 import coreSwitch from "../../examples/platforms/raisecom-ros";
+import { Platforms } from "../../src/platforms";
 import { RaisecomRos } from "../../src/platforms/raisecom-ros";
+import type { Device } from "../../src/schema";
 
 /** `show lldp remote detail`, cut to a few ports: a Junos neighbor that sends its port as a number, and a ROS neighbor that sends the port's name. */
 const LLDP_REMOTE_DETAIL = `hundredgige1/1/3 has  0 remotes:
@@ -65,4 +67,77 @@ test("LLDP neighbors come from the detail form, by Circuit's port names, with th
 
 test("a port with no remotes gives no neighbor", () => {
     expect(RaisecomRos.lldpRemotes("hundredgige1/1/1 has  0 remotes:\n", coreSwitch)).toEqual([]);
+});
+
+const platform = Platforms.get("raisecom-ros");
+const example: Device = coreSwitch;
+const snmpUsers = example.management?.snmp?.users;
+const plain: Device = { ...example, management: { ...example.management, snmp: { users: snmpUsers } } };
+const noLogs: Device = { ...plain, system: { ...plain.system, logging: undefined } };
+const withLogs: Device = {
+    ...example,
+    system: {
+        ...example.system,
+        logging: {
+            remote: [
+                { address: "192.0.2.50", level: "info" },
+                { address: "192.0.2.51", level: "warning", port: 5140 },
+            ],
+        },
+    },
+};
+const sent = (desired: string, current: string) =>
+    platform.plan(desired, current, { secrets: false, rollback: 0 }).steps.flatMap((step) => step.send);
+
+test("a log host prints its level as a number and its UDP port as `udpport`, and neither when it is the default", () => {
+    const rendered = platform.render(withLogs);
+
+    expect(rendered).toContain("logging host 192.0.2.50\n");
+    expect(rendered).toContain("logging host 192.0.2.51 4 udpport 5140\n");
+    expect(sent(rendered, rendered)).toEqual([]);
+});
+
+test("a log host that is gone is removed by its address, even when another one takes its place", () => {
+    // As the device printed them: `logging host 10.99.0.81` at the defaults, `... 7 udpport 515` otherwise.
+    const current = platform.render(noLogs) + "logging host 192.0.2.60\nlogging host 192.0.2.61 7 udpport 515\n";
+
+    expect(sent(platform.render(withLogs), current).filter((line) => line.includes("logging"))).toEqual([
+        "no logging host 192.0.2.61",
+        "no logging host 192.0.2.60",
+        "logging host 192.0.2.50",
+        "logging host 192.0.2.51 4 udpport 5140",
+    ]);
+});
+
+test("SNMP with its own sources takes access-list 1001, bound before the old one is let go, since SNMP holds both", () => {
+    const desired = platform.render(example);
+
+    expect(desired).toContain("access-list 1001\n  description snmp\n  rule 10 permit 192.0.2.10 255.255.255.255\n  rule 100 deny any\n");
+    expect(desired).toContain("snmp-server access-list 1001\n");
+    expect(desired).not.toContain("snmp-server access-list 1000\n");
+    expect(platform.unsupported(example)).toEqual([]);
+
+    const steps = sent(desired, platform.render(plain));
+    const created = steps.indexOf("exit", steps.indexOf("access-list 1001"));
+    expect(steps.indexOf("snmp-server access-list 1001")).toBeGreaterThan(created);
+    expect(steps.indexOf("no snmp-server access-list 1000")).toBeGreaterThan(steps.indexOf("snmp-server access-list 1001"));
+});
+
+test("a changed SNMP access-list is let go first, as it cannot change while in use, and a gone one is removed last", () => {
+    const current = platform.render(example);
+    const moved: Device = { ...example, management: { ...example.management, snmp: { users: snmpUsers, allow: ["198.51.100.0/24"] } } };
+
+    expect(sent(platform.render(moved), current)).toEqual([
+        "no snmp-server access-list 1001",
+        "access-list 1001",
+        "no rule 10",
+        "rule 10 permit 198.51.100.0 255.255.255.0",
+        "exit",
+        "snmp-server access-list 1001",
+    ]);
+
+    const back = sent(platform.render(plain), current);
+    expect(back[0]).toBe("snmp-server access-list 1000");
+    expect(back.indexOf("no snmp-server access-list 1001")).toBeGreaterThan(0);
+    expect(back.at(-1)).toBe("no access-list 1001");
 });

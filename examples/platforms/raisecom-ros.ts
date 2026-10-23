@@ -9,12 +9,18 @@ export default defineDevice({
     connection: { host: "192.0.2.3", user: "operator" },
     users: { operator: { role: "admin", password: secret("EXAMPLE_OPERATOR_PASSWORD") } },
 
-    system: { timezone: "Asia/Jakarta", ntp: { servers: ["192.0.2.1"] }, transceiver_monitoring: true },
+    system: {
+        timezone: "Asia/Jakarta",
+        ntp: { servers: ["192.0.2.1"] },
+        transceiver_monitoring: true,
+        logging: { remote: [{ address: "192.0.2.50", level: "info" }] },
+    },
     management: {
         allow: ["192.0.2.0/24"],
         ssh: { auth_timeout: 100, auth_retries: 3 },
         privilege_password: secret("EXAMPLE_ENABLE"),
         snmp: {
+            allow: ["192.0.2.10/32"],
             users: {
                 monitor: {
                     auth: "sha1",

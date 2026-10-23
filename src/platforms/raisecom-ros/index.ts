@@ -71,6 +71,8 @@ export class RaisecomRos extends Platform {
         ignore: (line) => line.startsWith("!") || RaisecomRos.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
         undo: RaisecomRos.undo,
         leave: "exit",
+        // SNMP takes the new access-list before it lets go of the old one, so it is never left without one.
+        first: /^snmp-server access-list /,
         // A password prints as a cipher and renders as a marker; both are a secret.
         canon: (line) =>
             line
@@ -108,6 +110,9 @@ export class RaisecomRos extends Platform {
 
     /** A service letting go of an access-list, so the list can change. */
     private static readonly RELEASE = /^no (\S+ access-list \d+)$/;
+
+    /** Lines that each add one more of a kind rather than set a value: `snmp-server access-list 1001` beside `1000` binds both. */
+    private static readonly STANDALONE = /^(logging host|snmp-server access-list) /;
 
     /** Commands that only read. A `?` sent by a script is run, so a line with one is refused. */
     private static readonly READS = /^show\s[^?]*$/;
@@ -246,11 +251,12 @@ export class RaisecomRos extends Platform {
 
         const system = device.system ?? {};
 
-        if (system.dns || system.logging || system.release_channel || system.banner || system.ntp?.serve) {
-            found.push("system.dns, logging, release_channel, banner and ntp.serve");
+        if (system.dns || system.logging?.local || system.release_channel || system.banner || system.ntp?.serve) {
+            found.push("system.dns, logging.local, release_channel, banner and ntp.serve");
         }
 
-        found.push(...Derive.switchUnsupported(device));
+        // SNMP takes its own access-list; SSH and telnet share the management one.
+        found.push(...Derive.switchUnsupported(device, ["snmp"]));
         found.push(...Derive.unproved(device));
 
         return found;
@@ -411,6 +417,18 @@ export class RaisecomRos extends Platform {
             }
         }
 
+        // A log host, and an access-list SNMP takes, each stand alone: one that is gone is removed even when another is added beside it.
+        const wantedLines = new Set(LineDiff.entries(desired, RaisecomRos.DIALECT).map((entry) => entry.line));
+        const gone = existing.filter(
+            (entry) => !entry.path.length && RaisecomRos.STANDALONE.test(entry.line) && !wantedLines.has(entry.line)
+        );
+
+        if (gone.length) {
+            let top = groups.find((group) => !group.path.length);
+            if (!top) groups.push((top = { path: [], remove: [], add: [] }));
+            for (const entry of gone) if (!top.remove.includes(entry.line)) top.remove.push(entry.line);
+        }
+
         // A VLAN is created in a list and removed one at a time, with `no vlan <id>`.
         LineDiff.vlanListChange(
             groups,
@@ -436,14 +454,23 @@ export class RaisecomRos extends Platform {
             group.remove = group.remove.filter((line) => !line.startsWith("interface port-channel"));
         }
 
-        // Editing the access-list means releasing every service holding it first, and binding the wanted ones after.
-        const managementAcl = RaisecomRosRender.MANAGEMENT_ACL;
+        // An access-list is removed only once no service holds it, so its removal goes after the top level lets go of it.
+        const aclRemovals: string[] = [];
+
+        for (const group of groups) {
+            if (group.path.length) continue;
+            aclRemovals.push(...group.remove.filter((line) => /^access-list \d+/.test(line)));
+            group.remove = group.remove.filter((line) => !/^access-list \d+/.test(line));
+        }
+
+        // Editing an access-list means releasing every service holding it first, and binding the wanted ones after.
         const releaseAndBind = (group: Group) => {
-            if (group.path[0] !== `access-list ${managementAcl}`) return { before: [], after: [] };
+            const acl = /^access-list (\d+)/.exec(group.path[0] ?? "")?.[1];
+            if (!acl) return { before: [], after: [] };
 
             return {
-                before: RaisecomRos.holders(current).map((service) => `no ${service} access-list ${managementAcl}`),
-                after: RaisecomRos.holders(desired).map((service) => `${service} access-list ${managementAcl}`),
+                before: RaisecomRos.holders(current, acl).map((service) => `no ${service} access-list ${acl}`),
+                after: RaisecomRos.holders(desired, acl).map((service) => `${service} access-list ${acl}`),
             };
         };
 
@@ -452,6 +479,14 @@ export class RaisecomRos extends Platform {
             RaisecomRos.DIALECT,
             releaseAndBind
         );
+
+        if (aclRemovals.length) {
+            planned.push({
+                title: "access-lists no longer used",
+                show: aclRemovals.map((line) => `- ${line}`),
+                send: aclRemovals.map(RaisecomRos.undo),
+            });
+        }
 
         if (lagRemovals.length) {
             const removeLags: Step = {
@@ -543,6 +578,10 @@ export class RaisecomRos extends Platform {
         const snmpAccess = /^snmp-server access (\S+) .* usm (\S+)$/.exec(line);
         if (snmpAccess) return `no snmp-server access ${snmpAccess[1]} usm ${snmpAccess[2]}`;
 
+        // A log host goes by its address, whatever its level and port.
+        const logHost = /^logging host (\S+)/.exec(line);
+        if (logHost) return `no logging host ${logHost[1]}`;
+
         const keyword = RaisecomRos.UNDO_BY_KEYWORD.exec(line);
         if (keyword) return `no ${keyword[1]}`;
 
@@ -622,11 +661,9 @@ export class RaisecomRos extends Platform {
         return session;
     }
 
-    /** Services holding the management access-list. It cannot change while any of them does. */
-    private static holders(config: string): string[] {
-        return [...config.matchAll(new RegExp(`^([a-z0-9-]+) access-list ${RaisecomRosRender.MANAGEMENT_ACL}$`, "gm"))].map(
-            (match) => match[1]!
-        );
+    /** Services holding an access-list. It cannot change while any of them does. */
+    private static holders(config: string, acl: string): string[] {
+        return [...config.matchAll(new RegExp(`^([a-z0-9-]+) access-list ${acl}$`, "gm"))].map((match) => match[1]!);
     }
 
     /** The VLAN IDs of a `create vlan 10,20-30 active` line. */
