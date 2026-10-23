@@ -2,6 +2,7 @@
 
 import { expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
+import { LineDiff } from "../../src/platforms/line-diff";
 import { FortiOsFirewall } from "../../src/platforms/fortios/firewall";
 import { FortiOs } from "../../src/platforms/fortios/index";
 import { FortiOsTree } from "../../src/platforms/fortios/tree";
@@ -180,6 +181,26 @@ test("a VRP SNMPv3 user plans nothing against how the switch prints it", () => {
         "snmp-agent\nsnmp-agent local-engineid 800007DB03E8ABF39705B1\nsnmp-agent usm-user v3 monitoring\nsnmp-agent usm-user v3 monitoring group circuit\n";
 
     expect(adapter.plan(wanted, printed, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.show)).toEqual([]);
+});
+
+// A CE6855 prints each SNMPv3 key as `cipher %^%#...%^%#`, which can be turned back into the key: the read must never keep it.
+test("a VRP read redacts SNMPv3 keys and plans nothing against the render for them", () => {
+    const adapter = Platforms.get("vrp");
+    const printed = LineDiff.scrub(
+        [
+            "snmp-agent usm-user v3 monitoring authentication-mode sha cipher %^%#Ab1:Cd2-Ef3%^%#",
+            "snmp-agent usm-user v3 monitoring privacy-mode aes128 cipher %^%#Gh4:Ij5-Kl6%^%#",
+        ].join("\n")
+    );
+
+    expect(printed).not.toContain("%^%#");
+    expect(printed).toContain("authentication-mode sha cipher <redacted>");
+
+    const wanted = [
+        "snmp-agent usm-user v3 monitoring authentication-mode sha cipher <secret:EXAMPLE_SNMP_AUTH>",
+        "snmp-agent usm-user v3 monitoring privacy-mode aes128 cipher <secret:EXAMPLE_SNMP_PRIVACY>",
+    ].join("\n");
+    expect(adapter.plan(wanted, printed, { secrets: false, rollback: 10 }).steps).toEqual([]);
 });
 
 // The forms a Junos switch prints, seen on a QFX5100 running 21.4: secrets hashed or encrypted, values quoted where the render does not quote them, the release and each user's number.
