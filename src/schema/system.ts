@@ -4,6 +4,9 @@ import type { TimeZone } from "./time-zones";
 /** A software release track, as RouterOS names them. `long-term` changes least; `development` is the newest and least tested. */
 export type ReleaseChannel = "long-term" | "stable" | "testing" | "development";
 
+/** How bad an alarm is, most severe first, as ITU-T X.733 ranks them. */
+export type AlarmSeverity = "critical" | "major" | "minor" | "warning";
+
 /** Device-wide settings. */
 export type System = {
     /** IANA zone, for example `Asia/Jakarta`. The editor suggests every name. UTC when absent. */
@@ -46,6 +49,8 @@ export type System = {
     };
     /** Software release track the device updates from. `stable` when absent. */
     release_channel?: ReleaseChannel;
+    /** Alarms raised at another severity than the platform's own, keyed by the alarm's name as the platform spells it, such as `hwOpticalUnAuthorized` on VRP. */
+    alarms?: Record<string, { severity: AlarmSeverity }>;
     /** Read optic temperature, power and voltage. */
     transceiver_monitoring?: boolean;
     /** Host behaviour of the IP stack. */

@@ -48,5 +48,6 @@ A field a platform cannot do is an error, never skipped; see [Devices](/guide/de
 | Flow export                                   | NetFlow 9, IPFIX      | sFlow                    | no                      | sFlow                             | sFlow, NetFlow 9, one collector               |
 | SNMP                                          | v2c, v3 with SHA1     | v2c, v3                  | v2c, v3 with SHA1       | v2c, v3                           | v2c, v3 with SHA1                             |
 | Certificates, web and API                     | yes                   | no                       | no                      | web, API and NETCONF, without TLS | certificates and web                          |
+| An alarm's severity, by name                  | not yet               | not yet                  | not yet                 | not yet                           | not yet                                       |
 
 Each platform's own page lists the device's surprises that Circuit works around, so you do not have to. Every one of them was found on a real device.

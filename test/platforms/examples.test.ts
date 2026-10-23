@@ -304,3 +304,14 @@ test("BFD timers, BFD on a static route and BFD on a multihop session are refuse
     const findings = Validator.run(defineNetwork({ devices: [viaInterface] })).map((finding) => finding.message);
     expect(findings).toContain("static route 198.51.100.128/25 has bfd without via, the address BFD watches");
 });
+
+// The CE6855 takes `alarm <name> severity <level>` in its `alarm` view, but how it prints that back is not seen yet (#75).
+test("an alarm's severity is refused until proved", () => {
+    for (const device of examples) {
+        const withAlarm: Device = { ...device, system: { ...device.system, alarms: { hwOpticalUnAuthorized: { severity: "warning" } } } };
+
+        expect(Platforms.get(device.platform).unsupported(withAlarm)).toContain(
+            "system.alarms.hwOpticalUnAuthorized, an alarm's severity is not proved on a device yet"
+        );
+    }
+});

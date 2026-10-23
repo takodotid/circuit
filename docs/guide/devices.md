@@ -32,7 +32,7 @@ Hover any field in your editor to see what it does. The [schema reference](/refe
 | `name`               | The device's name. Circuit sets it as the hostname.                                                                     |
 | `platform`, `model`  | The operating system, such as `routeros`, and the hardware model. Together they decide the commands and the port names. |
 | `connection`         | How Circuit logs in: the management address, the SSH port, which of `users` it logs in as, and the serial console.      |
-| `system`             | Timezone, login banner, DNS, NTP, logging and IP settings.                                                              |
+| `system`             | Timezone, login banner, DNS, NTP, logging, alarms and IP settings.                                                      |
 | `users`              | Who can log in. A user not listed here is removed.                                                                      |
 | `management`         | Which services are on (SSH, web, API, SNMP) and which addresses may use them.                                           |
 | `certificates`       | Certificates the device shows to clients or trusts.                                                                     |
