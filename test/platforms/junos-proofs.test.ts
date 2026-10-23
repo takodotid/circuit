@@ -2,7 +2,11 @@
 
 import { expect, test } from "bun:test";
 import aggregationSwitch from "../../examples/platforms/junos";
+import { Platforms } from "../../src/platforms";
 import { Junos } from "../../src/platforms/junos";
+import type { Device } from "../../src/schema";
+
+const platform = Platforms.get("junos");
 
 // `show lldp neighbors detail | display xml`, trimmed of the TLVs Circuit does not read. 40G port 5 is `et-0/0/52`: the device counts from 0, after the 48 10G ports.
 const LLDP_DETAIL = `<rpc-reply xmlns:junos="http://xml.juniper.net/junos/21.4R0/junos">
@@ -44,4 +48,60 @@ test("a neighbor on a 10G cage holding a 1G optic is on that cage's port, and on
     expect(Junos.neighborsOf(aggregationSwitch, xml)).toEqual([
         { port: "10g-2", system: "02:00:00:00:00:01", remote_port: "hundredgige1/1/4" },
     ]);
+});
+
+// What the device printed after a commit of BFD on a static route, a multihop session and an OSPF interface: first with no timers, then with timers. Each plan after the apply was empty.
+const BFD_DEFAULT = [
+    "set routing-options static route 198.51.100.0/24 next-hop 192.0.2.1",
+    "set routing-options static route 198.51.100.0/24 bfd-liveness-detection minimum-interval 300",
+    "set protocols bgp group multihop-1 multihop",
+    "set protocols bgp group multihop-1 bfd-liveness-detection minimum-interval 300",
+    "set protocols ospf area 0.0.0.0 interface lo0.0 bfd-liveness-detection minimum-interval 300",
+];
+
+const BFD_TIMERS = [
+    "set routing-options static route 198.51.100.0/24 bfd-liveness-detection minimum-interval 500",
+    "set routing-options static route 198.51.100.0/24 bfd-liveness-detection multiplier 4",
+    "set protocols bgp group multihop-1 bfd-liveness-detection minimum-interval 500",
+    "set protocols bgp group multihop-1 bfd-liveness-detection multiplier 4",
+    "set protocols ospf area 0.0.0.0 interface lo0.0 bfd-liveness-detection minimum-interval 500",
+    "set protocols ospf area 0.0.0.0 interface lo0.0 bfd-liveness-detection multiplier 4",
+];
+
+const withBfd: Device = {
+    ...aggregationSwitch,
+    routing: {
+        ...aggregationSwitch.routing,
+        static: [...aggregationSwitch.routing!.static!, { prefix: "198.51.100.0/24", via: "192.0.2.1", bfd: true }],
+        ospf: { areas: { "0.0.0.0": { interfaces: { loopback: { passive: true, bfd: true } } } } },
+        bgp: {
+            ...aggregationSwitch.routing!.bgp!,
+            neighbors: {
+                ...aggregationSwitch.routing!.bgp!.neighbors,
+                "multihop-1": { address: "192.0.2.99", remote_as: 64512, multihop: true, bfd: true },
+            },
+        },
+    },
+};
+
+test("BFD without timers renders every 300 ms, as the device printed it", () => {
+    const rendered = platform.render(withBfd).split("\n");
+
+    expect(rendered).toEqual(expect.arrayContaining(BFD_DEFAULT));
+    expect(rendered.filter((line) => line.includes("bfd-liveness-detection multiplier"))).toEqual([]);
+    expect(platform.unsupported(withBfd)).toEqual([]);
+});
+
+test("BFD timers render as the device printed them, and the plan from no timers changes only the timers", () => {
+    const timed: Device = { ...withBfd, routing: { ...withBfd.routing, bfd: { interval: 500, multiplier: 4 } } };
+    const rendered = platform.render(timed);
+
+    expect(rendered.split("\n")).toEqual(expect.arrayContaining(BFD_TIMERS));
+    expect(platform.unsupported(timed)).toEqual([]);
+
+    const plan = platform.plan(rendered, platform.render(withBfd), { secrets: false, rollback: 10 });
+    const sent = plan.steps.flatMap((step) => step.send);
+
+    expect(sent.filter((line) => line.startsWith("set "))).toEqual(expect.arrayContaining(BFD_TIMERS));
+    expect(sent.every((line) => line.includes("bfd-liveness-detection"))).toBe(true);
 });
