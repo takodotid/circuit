@@ -6,11 +6,11 @@ import type { ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import type { Device } from "../../schema";
-import { SerialConsole, type ConsoleDialect } from "../../transport/console";
+import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Derive } from "../derive";
 import { LineDiff, type Dialect, type Group } from "../line-diff";
-import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type Step, Platform } from "../platform";
+import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
 import { RaisecomRosRender } from "./render";
 
 /** A session, and how to prove access in a fresh login: a new SSH session, or logging out and in again on the console. */
@@ -106,6 +106,9 @@ export class RaisecomRos extends Platform {
 
     /** A service letting go of an access-list, so the list can change. */
     private static readonly RELEASE = /^no (\S+ access-list \d+)$/;
+
+    /** Commands that only read. A `?` sent by a script is run, so a line with one is refused. */
+    private static readonly READS = /^show\s[^?]*$/;
 
     readonly name = "raisecom-ros";
 
@@ -439,6 +442,18 @@ export class RaisecomRos extends Platform {
         await Ssh.send(proof.channel, "write", 60_000, 3000);
         proof.close();
         console.log("  applied, login proved, written");
+    }
+
+    readOnly(command: string): boolean {
+        return RaisecomRos.READS.test(command);
+    }
+
+    /** One shell for every command, as the platform takes commands only there. */
+    async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
+        const session = await RaisecomRos.open(device, options);
+        const shell = new ConsoleShell(session.channel, RaisecomRos.CONSOLE, ConsoleShell.SETTLE);
+
+        return { run: (command, timeout) => shell.run(command, timeout), close: session.close };
     }
 
     private static undo(line: string): string {

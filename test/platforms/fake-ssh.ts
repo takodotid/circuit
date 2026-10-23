@@ -18,6 +18,8 @@ export class FakeSshDevice {
     static readonly PASSWORD = "lab-pass";
 
     readonly commands: string[] = [];
+    /** The lines typed into a shell, which `commands` holds too. */
+    readonly shellLines: string[] = [];
     private readonly server: Server;
 
     constructor(
@@ -68,6 +70,7 @@ export class FakeSshDevice {
                             for (let end = typed.search(/\r?\n|\r/); end >= 0; end = typed.search(/\r?\n|\r/)) {
                                 const line = typed.slice(0, end);
                                 typed = typed.slice(end).replace(/^\r?\n|^\r/, "");
+                                this.shellLines.push(line);
                                 const answer = this.run(line);
 
                                 if (typeof answer === "string") {

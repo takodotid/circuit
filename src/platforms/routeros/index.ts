@@ -8,7 +8,7 @@ import { Secrets } from "../../core/secrets";
 import type { Device, Family } from "../../schema";
 import { SerialConsole, type ConsoleDialect, ConsoleShell } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
-import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, Platform } from "../platform";
+import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../catalog";
 import { RouterOsRender } from "./render";
@@ -53,6 +53,17 @@ export class RouterOs extends Platform {
     ].join(" ");
 
     private static readonly ROLLBACK_SCHEDULER = "apply-rollback";
+
+    /** Commands that only read: print, monitor, ping, traceroute, torch, profile, sniffer quick, an AS-path regex test, export, and `:put`, `:foreach` or `:delay` scripts. */
+    private static readonly READS =
+        /\b(print|monitor|monitor-traffic|ping|traceroute|torch|profile|test-as-path-regexp|export|get|find)\b|\bsniffer quick\b|^:(put|foreach|delay)\b/;
+
+    /** Words that change something, or print secrets. A command with any of them is refused, whatever else it holds. */
+    private static readonly WRITES =
+        /\b(set|add|remove|reset|reset-counters|enable|disable|unset|move|edit|import|reboot|shutdown|clear|run|upgrade|fetch|save|show-sensitive)\b|\bfile=/;
+
+    /** Flags after the user over SSH: no colours, no terminal detection, 300 columns, so output is plain and lines are not cut. */
+    private static readonly PLAIN_OUTPUT = "+ct300w";
 
     readonly name = "routeros";
 
@@ -232,6 +243,19 @@ export class RouterOs extends Platform {
         console.log("  logged in again, rollback disarmed");
     }
 
+    readOnly(command: string): boolean {
+        return RouterOs.READS.test(command) && !RouterOs.WRITES.test(command);
+    }
+
+    /** Over SSH, each command runs on its own. */
+    async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
+        const session = options.console
+            ? await RouterOs.consoleSession(device, ConsoleShell.SETTLE)
+            : RouterOs.sshSession(await RouterOs.login(device, RouterOs.PLAIN_OUTPUT), device);
+
+        return { run: (command, timeout) => session.run(command, timeout), close: () => session.end() };
+    }
+
     /** Replace a list's entries in batches, so each command stays a sane length. */
     async fill(device: Device, _network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void> {
         const menu = family === "ipv4" ? "/ip firewall address-list" : "/ipv6 firewall address-list";
@@ -255,13 +279,14 @@ export class RouterOs extends Platform {
         }
     }
 
-    private static async login(device: Device): Promise<Client> {
+    /** Log in over SSH. `flags` go after the user, as RouterOS reads them: `+ct300w`. */
+    private static async login(device: Device, flags = ""): Promise<Client> {
         const { port, user, password } = Secrets.loginOf(device);
 
         return Ssh.connect({
             host: Ssh.hostOf(device),
             port,
-            user,
+            user: `${user}${flags}`,
             password,
         });
     }
@@ -278,7 +303,8 @@ export class RouterOs extends Platform {
         };
     }
 
-    private static async consoleSession(device: Device): Promise<Session> {
+    /** Log in on the console. `settle` is the quiet after the prompt a command waits for, as `ConsoleShell` takes it. */
+    private static async consoleSession(device: Device, settle = 0): Promise<Session> {
         const { console, user, password } = SerialConsole.of(device);
         const opened = await SerialConsole.open(console);
 
@@ -289,7 +315,7 @@ export class RouterOs extends Platform {
             throw error;
         }
 
-        const shell = new ConsoleShell(opened.channel, RouterOs.CONSOLE);
+        const shell = new ConsoleShell(opened.channel, RouterOs.CONSOLE, settle);
 
         const session: Session = {
             run: (command, timeout) => shell.run(command, timeout),

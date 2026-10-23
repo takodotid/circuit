@@ -263,25 +263,37 @@ export class SerialConsole {
         return { console, user, password };
     }
 
-    /** Write, then wait until what the console printed since ends with one of the patterns. Returns which, and what was printed. */
-    static expect(channel: Channel, write: string, patterns: readonly RegExp[], timeout = 30_000) {
+    /**
+     * Write, then wait until what the console printed since ends with one of the patterns. Returns which, and what was printed.
+     *
+     * With `settle`, a match counts only once nothing more arrives for that many milliseconds, so a line in the middle of the output that looks like a prompt does not end it.
+     */
+    static expect(channel: Channel, write: string, patterns: readonly RegExp[], timeout = 30_000, settle = 0) {
         return new Promise<{ index: number; text: string }>((done, fail) => {
             let text = "";
+            let settled: ReturnType<typeof setTimeout> | undefined;
 
             const stop = () => {
                 clearTimeout(limit);
+                clearTimeout(settled);
                 channel.removeListener("data", onData);
             };
 
             const onData = (chunk: Buffer) => {
                 // A terminal's escape sequences, which clear the screen or move the cursor, say nothing a reader needs.
                 text += chunk.toString("utf8").replace(/\r/g, "").replace(SerialConsole.ESCAPES, "");
+                clearTimeout(settled);
 
                 const index = patterns.findIndex((pattern) => pattern.test(text));
                 if (index < 0) return;
 
-                stop();
-                done({ index, text });
+                const finish = () => {
+                    stop();
+                    done({ index, text });
+                };
+
+                if (settle) settled = setTimeout(finish, settle);
+                else finish();
             };
 
             const limit = setTimeout(() => {
@@ -397,11 +409,16 @@ export class SerialConsole {
     }
 }
 
-/** A CLI on a console that runs one command at a time and returns what it printed, as an SSH exec would: no echo, no prompt. */
+/** A CLI on a console or in an SSH shell that runs one command at a time and returns what it printed, as an SSH exec would: no echo, no prompt. */
 export class ConsoleShell {
+    /** The quiet to wait for after the prompt when output can hold a line that looks like it, as `circuit show` prints whatever the device has. */
+    static readonly SETTLE = 1_000;
+
     constructor(
         private readonly channel: Channel,
-        private readonly dialect: ConsoleDialect
+        private readonly dialect: ConsoleDialect,
+        /** Milliseconds of quiet after the prompt shows before a command counts as done. */
+        private readonly settle = 0
     ) {}
 
     /** Run a command and wait for the prompt. A pager in `others` is answered as it shows. */
@@ -409,14 +426,14 @@ export class ConsoleShell {
         const pagers = (this.dialect.others ?? []).filter(([, reply]) => !reply.endsWith("\n"));
         const patterns = [this.dialect.prompt, ...pagers.map(([pattern]) => pattern)];
 
-        let { index, text } = await SerialConsole.expect(this.channel, `${command}\n`, patterns, timeout);
+        let { index, text } = await SerialConsole.expect(this.channel, `${command}\n`, patterns, timeout, this.settle);
         let output = "";
 
         // A pager stops the output; its answer goes on without a new line, and the pager's own text is dropped.
         while (index > 0) {
             const [pattern, reply] = pagers[index - 1]!;
             output += text.replace(pattern, "");
-            ({ index, text } = await SerialConsole.expect(this.channel, reply, patterns, timeout));
+            ({ index, text } = await SerialConsole.expect(this.channel, reply, patterns, timeout, this.settle));
         }
         output += text;
 

@@ -39,3 +39,15 @@ test("an unknown option or a missing device stops with an error", () => {
     expect(circuit("build", `--config=${config}`).status).toBe(1);
     expect(circuit("build", "nope", `--config=${config}`)).toMatchObject({ status: 1, stderr: "no device nope; known: edge-01\n" });
 });
+
+test("show refuses a command not known to only read, before it connects", () => {
+    const write = "/ip address add address=192.0.2.1/24 interface=ether1";
+    const result = circuit("show", "edge-01", "/ip route print", write, `--config=${config}`);
+
+    expect(result).toMatchObject({
+        status: 1,
+        stdout: "",
+        stderr: `not known to only read on routeros, so nothing was sent:\n  ${write}\n`,
+    });
+    expect(circuit("show", "edge-01", `--config=${config}`)).toMatchObject({ status: 1, stderr: "give a command to run, or --file\n" });
+});

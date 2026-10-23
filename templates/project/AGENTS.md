@@ -22,6 +22,7 @@ What each field means is written as a comment on the field, in `node_modules/@ta
 | `npx circuit diff [device]`                   | Shows what would change, compared with the last snapshot                      | no               |
 | `npx circuit build <device>`                  | Prints the full configuration the device should run                           | no               |
 | `npx circuit snapshot [device]`               | Reads what each device runs now into `.circuit/state/`                        | no, only reads   |
+| `npx circuit show <device> '<command>'`       | Runs commands that only read on the device, secrets hidden                    | no, only reads   |
 | `npx circuit apply <device>`                  | Reads the device, then shows what would change on it                          | no               |
 | `npx circuit apply <device> --confirm`        | Sends the change to the device                                                | **yes**          |
 | `npx circuit secrets`                         | Lists every secret the config uses, and whether each one can be read          | no               |

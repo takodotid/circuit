@@ -6,10 +6,10 @@ import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, IP } from "../../schema";
-import { SerialConsole, type ConsoleDialect } from "../../transport/console";
+import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Derive } from "../derive";
-import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type Step, Platform } from "../platform";
+import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
 import { JunosBgp } from "./bgp";
 import { JunosNames, JunosRender } from "./render";
 
@@ -94,6 +94,9 @@ export class Junos extends Platform {
 
     /** What the device says when it refuses a statement in a load: `terminal:3:(14) syntax error: ...`. A warning, such as a statement not found, is not a refusal. */
     private static readonly REFUSED = /^terminal:\d+:\(\d+\) (?!warning)|^error: /m;
+
+    /** Commands that only read. */
+    private static readonly READS = /^show\s/;
 
     readonly name = "junos";
 
@@ -530,6 +533,29 @@ export class Junos extends Platform {
         }
     }
 
+    readOnly(command: string): boolean {
+        return Junos.READS.test(command);
+    }
+
+    /** Over SSH, each command runs on its own, as the read does. */
+    async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
+        if (options.console) {
+            const opened = await Junos.openConsole(device);
+            const shell = new ConsoleShell(opened.channel, Junos.CONSOLE, ConsoleShell.SETTLE);
+
+            return {
+                run: (command, timeout) => shell.run(command, timeout),
+                close: () => {
+                    shell.logout();
+                    opened.close();
+                },
+            };
+        }
+
+        const client = await Junos.login(device);
+        return { run: (command, timeout) => Ssh.exec(client, command, timeout), close: () => client.end() };
+    }
+
     /** A statement's words; a quoted value is one word with its quotes. */
     private static wordsOf(statement: string): string[] {
         return statement.match(/"(?:[^"\\]|\\.)*"|\S+/g) ?? [];
@@ -644,11 +670,8 @@ export class Junos extends Platform {
         return output.replace(/\r/g, "");
     }
 
-    /** Log in on the console, open the CLI, and run `work` in it with a way to log in afresh. Logs out after. */
-    private static async onConsole<T>(
-        device: Device,
-        work: (channel: ClientChannel, relogin: () => Promise<void>) => Promise<T>
-    ): Promise<T> {
+    /** Log in on the console and open the CLI. Returns the console, a way to log in afresh, and how to let the console go. */
+    private static async openConsole(device: Device) {
         const { console, user, password } = SerialConsole.of(device);
         const opened = await SerialConsole.open(console);
 
@@ -662,7 +685,23 @@ export class Junos extends Platform {
 
         try {
             await login();
-            const result = await work(opened.channel, login);
+        } catch (error) {
+            opened.close();
+            throw error;
+        }
+
+        return { channel: opened.channel, login, close: opened.close };
+    }
+
+    /** Log in on the console, open the CLI, and run `work` in it with a way to log in afresh. Logs out after. */
+    private static async onConsole<T>(
+        device: Device,
+        work: (channel: ClientChannel, relogin: () => Promise<void>) => Promise<T>
+    ): Promise<T> {
+        const opened = await Junos.openConsole(device);
+
+        try {
+            const result = await work(opened.channel, opened.login);
             opened.channel.write(`${Junos.CONSOLE.logout}\n`);
             return result;
         } finally {

@@ -19,6 +19,18 @@ export type ApplyOptions = {
 /** How a device is read. */
 export type ReadOptions = Pick<ApplyOptions, "console">;
 
+/** A login on a device for commands that only read, as `circuit show` runs them. */
+export type ReadSession = {
+    /**
+     * Run one command and return what it printed, without its echo or the prompt.
+     *
+     * At `timeout` milliseconds, a command run on its own over SSH is left, and what it printed so far is returned. In a shell or on a console, where it would hold up every command after it, the run fails instead.
+     */
+    run(command: string, timeout?: number): Promise<string>;
+    /** Log out. */
+    close(): void;
+};
+
 /** The operating system a platform runs, and the versions it is proved on. */
 export type OsSupport = {
     /** Its name in full, such as `MikroTik RouterOS`. */
@@ -51,4 +63,8 @@ export abstract class Platform {
     fill?(device: Device, network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void>;
     /** Send a plan, keeping the device reachable or restoring it. */
     abstract apply(device: Device, network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void>;
+    /** Whether a command only reads on this platform, so `circuit show` may send it. Anything not known to only read is refused. */
+    abstract readOnly(command: string): boolean;
+    /** Log in for commands that only read, over SSH or on the console, the way the platform's read logs in. */
+    abstract session(device: Device, options?: ReadOptions): Promise<ReadSession>;
 }
