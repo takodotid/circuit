@@ -24,14 +24,14 @@ The switches have no address on the peering LAN. They only carry it.
 
 The `Exchange.build` helper makes member ports and a check from a list of members:
 
-| Field           | What it is                                                                                          |
-| --------------- | --------------------------------------------------------------------------------------------------- |
-| `vlan`          | The name of the peering VLAN on the fabric switches                                                 |
-| `lan`           | The peering LAN's subnets, `ipv4` and `ipv6`                                                        |
-| `reserved`      | Addresses no member may take, such as the route servers'                                            |
-| `storm_percent` | How much broadcast, multicast and unknown unicast a member port lets through. 1 if you leave it out |
-| `mac_limit`     | The most MAC addresses a member port learns, usually 1. Not on any platform yet, see below          |
-| `ethertypes`    | The only kinds of frame a member port takes in, usually `ipv4`, `ipv6` and `arp`. Not yet either    |
+| Field           | What it is                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------- |
+| `vlan`          | The name of the peering VLAN on the fabric switches                                                  |
+| `lan`           | The peering LAN's subnets, `ipv4` and `ipv6`                                                         |
+| `reserved`      | Addresses no member may take, such as the route servers'                                             |
+| `storm_percent` | How much broadcast, multicast and unknown unicast a member port lets through. 1 if you leave it out  |
+| `mac_limit`     | The most MAC addresses a member port learns, usually 1. Junos only for now, see below                |
+| `ethertypes`    | The only kinds of frame a member port takes in, usually `ipv4`, `ipv6` and `arp`. Junos only for now |
 
 It returns three things:
 
@@ -149,6 +149,6 @@ Two more settings keep members apart:
 - **`mac_limit`** is the most MAC addresses a port learns. With 1, a member sends from one router only, so a member's switch cannot leak other devices onto the peering LAN.
 - **`ethertypes`** is the kinds of frame a port takes in. With `["ipv4", "ipv6", "arp"]`, anything else, such as spanning tree from a member's switch, is dropped.
 
-Both are fields of a port or a LAG, and `Exchange.build` puts them on every member port when you set them. But no platform can do them yet: the commands for them have not been proved on a real device, so `circuit validate` refuses both, on every platform. Each is added once its commands are proved, in [issue #16](https://github.com/takodotid/circuit/issues/16).
+Both are fields of a port or a LAG, and `Exchange.build` puts them on every member port when you set them. Only Junos does them so far: on the other platforms the commands have not been proved on a real device, so `circuit validate` refuses both there. Each is added once its commands are proved, in [issue #16](https://github.com/takodotid/circuit/issues/16).
 
-Until then, anything set by hand on a switch is removed by the next apply, because the file is the whole truth. So an exchange that needs MAC limits or ethertype filters today cannot manage its fabric with Circuit yet. A small or test exchange can.
+On another platform, anything set by hand on a switch is removed by the next apply, because the file is the whole truth. So an exchange that needs MAC limits or ethertype filters on a fabric that is not Junos cannot manage it with Circuit yet. A small or test exchange can.

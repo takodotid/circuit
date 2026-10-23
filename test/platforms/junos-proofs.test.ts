@@ -105,3 +105,68 @@ test("BFD timers render as the device printed them, and the plan from no timers 
     expect(sent.filter((line) => line.startsWith("set "))).toEqual(expect.arrayContaining(BFD_TIMERS));
     expect(sent.every((line) => line.includes("bfd-liveness-detection"))).toBe(true);
 });
+
+// What the device printed after a commit of a MAC limit and an ethertype filter on a switched port and on a LAG. The limit moves to the logical interface and splits in two.
+const MAC_AND_ETHERTYPES = [
+    "set interfaces xe-0/0/2 unit 0 family ethernet-switching filter input circuit-ethertypes-ipv4-ipv6-arp",
+    "set interfaces ae1 unit 0 family ethernet-switching filter input circuit-ethertypes-ipv4-ipv6-arp",
+    "set firewall family ethernet-switching filter circuit-ethertypes-ipv4-ipv6-arp term allowed from ether-type ipv4",
+    "set firewall family ethernet-switching filter circuit-ethertypes-ipv4-ipv6-arp term allowed from ether-type ipv6",
+    "set firewall family ethernet-switching filter circuit-ethertypes-ipv4-ipv6-arp term allowed from ether-type arp",
+    "set firewall family ethernet-switching filter circuit-ethertypes-ipv4-ipv6-arp term allowed then accept",
+    "set firewall family ethernet-switching filter circuit-ethertypes-ipv4-ipv6-arp term others then discard",
+    "set switch-options interface xe-0/0/2.0 interface-mac-limit 1",
+    "set switch-options interface xe-0/0/2.0 interface-mac-limit packet-action drop",
+    "set switch-options interface ae1.0 interface-mac-limit 1",
+    "set switch-options interface ae1.0 interface-mac-limit packet-action drop",
+];
+
+const filtered = { mac_limit: 1, ethertypes: ["arp", "ipv6", "ipv4"] } as const;
+
+const withFilters: Device = {
+    ...aggregationSwitch,
+    ports: { ...aggregationSwitch.ports, "10g-3": { ...aggregationSwitch.ports!["10g-3"], ...filtered } },
+    interfaces: {
+        ...aggregationSwitch.interfaces,
+        uplink: { ...aggregationSwitch.interfaces!.uplink!, ...filtered },
+    } as Device["interfaces"],
+};
+
+test("a MAC limit and an ethertype filter render as the device printed them, and taking them away deletes them", () => {
+    const rendered = platform.render(withFilters);
+
+    expect(rendered.split("\n")).toEqual(expect.arrayContaining(MAC_AND_ETHERTYPES));
+    expect(platform.unsupported(withFilters)).toEqual([]);
+
+    const removal = platform.plan(platform.render(aggregationSwitch), rendered, { secrets: false, rollback: 10 });
+    const sent = removal.steps.flatMap((step) => step.send);
+
+    expect(sent).toEqual(
+        expect.arrayContaining([
+            "delete switch-options",
+            "delete firewall family ethernet-switching filter circuit-ethertypes-ipv4-ipv6-arp",
+            "delete interfaces xe-0/0/2 unit 0 family ethernet-switching filter input",
+            "delete interfaces ae1 unit 0 family ethernet-switching filter input",
+        ])
+    );
+});
+
+test("a MAC limit or an ethertype filter is refused where the switching family cannot hold it", () => {
+    const device: Device = {
+        ...aggregationSwitch,
+        ports: {
+            ...aggregationSwitch.ports,
+            "10g-1": { ...aggregationSwitch.ports!["10g-1"], ethertypes: ["ipv4"] },
+            "10g-48": { ...aggregationSwitch.ports!["10g-48"], mac_limit: 1 },
+            "40g-1": { ...aggregationSwitch.ports!["40g-1"], mac_limit: 1 },
+        },
+    };
+
+    expect(platform.unsupported(device)).toEqual(
+        expect.arrayContaining([
+            "ports.10g-1.ethertypes with an acl, the port takes one filter",
+            "ports.10g-48.mac_limit, on a port or LAG that switches no VLAN",
+            "ports.40g-1.mac_limit, on a LAG member: set it on the LAG",
+        ])
+    );
+});

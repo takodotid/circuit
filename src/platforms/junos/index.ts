@@ -104,7 +104,13 @@ export class Junos extends Platform {
     private static readonly READS = /^show\s/;
 
     /** Features `Derive.unproved` refuses until a platform proves them, proved here on a QFX5100-48S-6Q running Junos 21.4R3. */
-    private static readonly PROVED: readonly ProvedFeature[] = ["bfd-timers", "static-route-bfd", "multihop-bfd"];
+    private static readonly PROVED: readonly ProvedFeature[] = [
+        "bfd-timers",
+        "static-route-bfd",
+        "multihop-bfd",
+        "mac-limit",
+        "ethertype-filter",
+    ];
 
     readonly name = "junos";
 
@@ -980,6 +986,20 @@ export class Junos extends Platform {
         }
 
         if (typeof settings.stp === "object" && !device.stp) found.push(`${where}.stp while spanning tree is off on the device`);
+
+        // The limit and the filter sit on the switching family. The filter and an acl would both be its input filter.
+        const switched = settings.access_vlan || settings.trunk_vlans;
+        const inLag = "lag" in settings && settings.lag;
+
+        for (const field of ["mac_limit", "ethertypes"] as const) {
+            if (settings[field] === undefined) continue;
+
+            if (inLag) found.push(`${where}.${field}, on a LAG member: set it on the LAG`);
+            else if (!switched) found.push(`${where}.${field}, on a port or LAG that switches no VLAN`);
+        }
+
+        if (settings.ethertypes && "acl" in settings && settings.acl)
+            found.push(`${where}.ethertypes with an acl, the port takes one filter`);
 
         return found;
     }
