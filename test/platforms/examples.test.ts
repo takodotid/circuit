@@ -64,7 +64,11 @@ test("a field a platform renders nothing for is unsupported", () => {
     const switchGaps = (device: Device): Device => ({
         ...device,
         users: { ...device.users, operator: { ...device.users!.operator!, description: "Someone", ssh_keys: ["ssh-ed25519 AAAA key"] } },
-        management: { ...device.management, ssh: { allow: ["198.51.100.0/24"], port: 2222 } },
+        management: {
+            ...device.management,
+            ssh: { allow: ["198.51.100.0/24"], port: 2222 },
+            snmp: { ...device.management!.snmp!, allow: ["198.51.100.0/24"] },
+        },
         system: { ...device.system, ip: { syn_cookies: true } },
     });
 
@@ -72,6 +76,7 @@ test("a field a platform renders nothing for is unsupported", () => {
         expect(unsupported(switchGaps(device))).toEqual(
             expect.arrayContaining([
                 "management.ssh.allow, every service takes management.allow",
+                "management.snmp.allow, every service takes management.allow",
                 "management.ssh.port",
                 "users.operator.description",
                 "users.operator.ssh_keys",
