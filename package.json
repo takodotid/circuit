@@ -98,12 +98,12 @@
     "devDependencies": {
         "@commitlint/cli": "^19.8.1",
         "@commitlint/config-conventional": "^19.8.1",
-        "@types/bun": "^1.4.2",
+        "@types/bun": "^1.4.4",
         "@types/node": "^24.19.2",
         "husky": "^9.1.7",
         "prettier": "^3.9.10",
         "typescript": "^7.0.2",
         "vitepress": "^1.6.4"
     },
-    "packageManager": "bun@1.4.3"
+    "packageManager": "bun@1.4.4"
 }
