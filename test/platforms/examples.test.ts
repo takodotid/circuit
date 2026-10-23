@@ -76,8 +76,7 @@ test("a field a platform renders nothing for is unsupported", () => {
         expect(unsupported(switchGaps(device))).toEqual(
             expect.arrayContaining([
                 "management.ssh.allow, every service takes management.allow",
-                // Raisecom ROS gives SNMP an access-list of its own.
-                ...(device === coreSwitch ? [] : ["management.snmp.allow, every service takes management.allow"]),
+                // VRP and Raisecom ROS both give SNMP sources of their own, so neither refuses management.snmp.allow.
                 "management.ssh.port",
                 "users.operator.description",
                 "users.operator.ssh_keys",
