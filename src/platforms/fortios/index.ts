@@ -2,14 +2,14 @@
 //
 // The configuration is read and written as `config` blocks, the form `show` prints. A change applies as it is sent. Before a plan is sent the device is set to revert: a change not saved within the rollback time is undone by reloading the saved configuration, and Circuit reloads it at once when a line is refused. A fresh login proves access before the change is saved. Configuration transactions are not used: on 6.2 one keeps references its own deletions dropped, and one whose session is cut off keeps what it touched locked.
 
-import type { Client } from "ssh2";
+import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import type { AclRule, Device, Family, FilterRule } from "../../schema";
 import { SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../catalog";
-import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, Platform } from "../platform";
+import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
 import { FortiOsFirewall } from "./firewall";
 import { FortiOsNames } from "./names";
 import { FortiOsPlan } from "./plan";
@@ -159,6 +159,13 @@ export class FortiOs extends Platform {
     /** How long a device may take to come back from a reload of its configuration, and how often to try it. */
     private static readonly RELOAD = { attempts: 20, interval: 15_000 } as const;
 
+    /** Commands that only read: `show`, `get`, a set of `diagnose` and `execute` commands. `diagnose sys session filter` sets only this session's filter; `diagnose sys session clear`, which ends sessions, is not here. */
+    private static readonly READS =
+        /^(?:(?:show|get)\s|diagnose (?:sys session (?:filter|list|stat|full-stat)|sys top|hardware deviceinfo nic|npu np6 (?:dce|synproxy-stats|port-list|sse-stats)|netlink aggregate|debug crashlog read)\b|execute (?:ping|ping6|traceroute|sensor list)\b)/;
+
+    /** A session filter, which holds only in the shell that set it. */
+    private static readonly SESSION_FILTER = /^diagnose sys session filter\b/;
+
     readonly name = "fortios";
 
     readonly os: OsSupport = {
@@ -203,7 +210,7 @@ export class FortiOs extends Platform {
     }
 
     read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
-        return FortiOs.session(device, (cli) => FortiOs.readConfig(cli, device), options);
+        return FortiOs.withCli(device, (cli) => FortiOs.readConfig(cli, device), options);
     }
 
     plan(desired: string, current: string, options: ApplyOptions): Plan {
@@ -226,7 +233,7 @@ export class FortiOs extends Platform {
 
     /** Replace a prefix list `refresh` fetched. It cannot cut access, so it is sent without a guard, and saved as it goes. `purge` asks to confirm, and is answered yes. */
     async fill(device: Device, _network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void> {
-        await FortiOs.session(device, async (cli) => {
+        await FortiOs.withCli(device, async (cli) => {
             await FortiOs.checkVersion(cli, device);
 
             for (const line of FortiOs.fillLines(set, family, prefixes)) {
@@ -237,6 +244,43 @@ export class FortiOs extends Platform {
 
             console.log(`  ${set}: ${prefixes.length} prefixes on the device`);
         });
+    }
+
+    readOnly(command: string): boolean {
+        return FortiOs.READS.test(command);
+    }
+
+    /** Over SSH, each command runs on its own until a session filter is set. The filter holds only in the shell that set it, so it and every command after it run in one shell. */
+    async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
+        if (options.console) {
+            const opened = await FortiOs.openConsole(device);
+
+            return {
+                run: (command, timeout) => opened.cli.run(command, timeout),
+                close: () => void FortiOs.consoleLogout(opened.cli).finally(opened.close),
+            };
+        }
+
+        const client = await FortiOs.login(device);
+        let shell: { channel: ClientChannel; cli: FortiOsCli } | undefined;
+
+        return {
+            run: async (command, timeout) => {
+                if (!shell && !FortiOs.SESSION_FILTER.test(command)) return Ssh.exec(client, command, timeout);
+
+                if (!shell) {
+                    const channel = await Ssh.shell(client, 4000);
+                    shell = { channel, cli: new FortiOsCli(channel) };
+                    await shell.cli.ready();
+                }
+
+                return shell.cli.run(command, timeout);
+            },
+            close: () => {
+                shell?.channel.end();
+                client.end();
+            },
+        };
     }
 
     /** The lines that replace a prefix list's entries with what a registry returned: every entry is purged, then each prefix added, matching it and anything more specific. */
@@ -293,21 +337,32 @@ export class FortiOs extends Platform {
         await cli.run("exit", 10_000).catch(() => undefined);
     }
 
+    /** Log in on the console and open the CLI. Returns the CLI, a way to log in afresh on the same console, and how to let the console go. */
+    private static async openConsole(device: Device) {
+        const { console, user, password } = SerialConsole.of(device);
+        const opened = await SerialConsole.open(console);
+        const login = () => SerialConsole.login(opened.channel, FortiOs.CONSOLE, user, password, console.passwordOnly);
+
+        try {
+            await login();
+        } catch (error) {
+            opened.close();
+            throw error;
+        }
+
+        return { cli: new FortiOsCli(opened.channel), relogin: login, close: opened.close };
+    }
+
     /** Log in on the console, open the CLI, and run `work` in it. `work` is also given a way to log in afresh on the same console. */
     private static async consoleSession<T>(
         device: Device,
         work: (cli: FortiOsCli, relogin: () => Promise<void>) => Promise<T>
     ): Promise<T> {
-        const { console, user, password } = SerialConsole.of(device);
-        const opened = await SerialConsole.open(console);
+        const opened = await FortiOs.openConsole(device);
 
         try {
-            await SerialConsole.login(opened.channel, FortiOs.CONSOLE, user, password, console.passwordOnly);
-            const cli = new FortiOsCli(opened.channel);
-            const relogin = () => SerialConsole.login(opened.channel, FortiOs.CONSOLE, user, password, console.passwordOnly);
-
-            const result = await work(cli, relogin);
-            await FortiOs.consoleLogout(cli);
+            const result = await work(opened.cli, opened.relogin);
+            await FortiOs.consoleLogout(opened.cli);
             return result;
         } finally {
             opened.close();
@@ -315,7 +370,7 @@ export class FortiOs extends Platform {
     }
 
     /** Log in, open the CLI, and run `work` in it: through the console when asked, else over SSH. */
-    private static async session<T>(device: Device, work: (cli: FortiOsCli) => Promise<T>, options: ReadOptions = {}): Promise<T> {
+    private static async withCli<T>(device: Device, work: (cli: FortiOsCli) => Promise<T>, options: ReadOptions = {}): Promise<T> {
         if (options.console) return FortiOs.consoleSession(device, (cli) => work(cli));
 
         const client = await FortiOs.login(device);
@@ -463,7 +518,7 @@ export class FortiOs extends Platform {
         for (let attempt = 0; attempt < FortiOs.RELOAD.attempts; attempt++) {
             await new Promise((done) => setTimeout(done, FortiOs.RELOAD.interval));
 
-            const settled = await FortiOs.session(
+            const settled = await FortiOs.withCli(
                 device,
                 async (cli) => {
                     if (!/no config to be reloaded/.test(await cli.run("execute cfg reload"))) return false;
@@ -491,7 +546,7 @@ export class FortiOs extends Platform {
                 return;
             }
 
-            await FortiOs.session(device, async (cli) => {
+            await FortiOs.withCli(device, async (cli) => {
                 await FortiOs.checkVersion(cli, device);
 
                 await FortiOs.configure(cli, plan, {

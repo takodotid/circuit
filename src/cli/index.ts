@@ -114,6 +114,14 @@ class Cli {
         return minutes;
     }
 
+    /** `--timeout`'s value: a whole number of seconds. */
+    private static seconds(value: string): number {
+        const seconds = Number(value);
+        if (!Number.isInteger(seconds) || seconds < 1) throw new InvalidArgumentError("Give a whole number of seconds, such as 90.");
+
+        return seconds;
+    }
+
     /** Every command, with its arguments and options. `circuit --help` and `circuit <command> --help` are written from these. */
     private static program() {
         const program = new Command("circuit")
@@ -183,6 +191,19 @@ class Cli {
             .option("--console", "through the device's serial console on its jump host, instead of SSH")
             .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
             .action(async (device, flags) => (await Cli.open(flags.config, flags)).apply(device, flags.confirm ?? false));
+
+        program
+            .command("show")
+            .description("run commands that only read on a device and print what it answers, secrets hidden")
+            .argument("<device>")
+            .argument("[command...]", "each command in quotes, such as '/ip route print'")
+            .option("--file <path>", "also each line of this file; blank lines and lines starting with # are skipped")
+            .option("--timeout <seconds>", "how long each command may take", Cli.seconds, 90)
+            .option("--console", "through the device's serial console, instead of SSH")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (device, commands, flags) =>
+                (await Cli.open(flags.config, flags)).show(device, commands, flags.file, flags.timeout)
+            );
 
         program
             .command("refresh")
@@ -335,7 +356,7 @@ class Cli {
     }
 
     /** Print a plan. Returns how many commands and problems it holds. */
-    private static show(device: Device, plan: Plan): number {
+    private static printPlan(device: Device, plan: Plan): number {
         const commands = plan.steps.reduce((count, step) => count + step.send.length, 0);
         const summary = commands ? `${commands} command(s) in ${plan.steps.length} step(s)` : "matches";
         console.log(`${device.name}: ${summary}`);
@@ -375,7 +396,7 @@ class Cli {
 
             const adapter = this.adapterOf(device);
             const plan = adapter.plan(adapter.render(device), readFileSync(path, "utf8"), this.options);
-            differences += Cli.show(device, plan);
+            differences += Cli.printPlan(device, plan);
         }
 
         process.exit(differences ? 1 : 0);
@@ -410,7 +431,7 @@ class Cli {
         this.writeState(device, live);
 
         const plan = adapter.plan(adapter.render(device), live, this.options);
-        if (!Cli.show(device, plan)) return;
+        if (!Cli.printPlan(device, plan)) return;
 
         if (plan.problems.length) Cli.fail("\nNot sent: resolve the problems first.");
 
@@ -423,6 +444,54 @@ class Cli {
 
         this.writeState(device, await adapter.read(device, this.network.devices, this.optionsFor(device)));
         console.log("snapshot updated");
+    }
+
+    /** Run commands that only read, each under a header with how long it took. Every command is checked before anything connects. */
+    private async show(name: string, given: string[], file: string | undefined, timeoutSeconds: number): Promise<void> {
+        const device = this.one(name);
+        const adapter = this.adapterOf(device);
+
+        const fromFile = file ? readFileSync(resolve(process.cwd(), file), "utf8").split(/\r?\n/) : [];
+        const listed = fromFile.map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
+        const commands = [...given, ...listed];
+        if (!commands.length) Cli.fail("give a command to run, or --file");
+
+        const refused = commands.filter((command) => !adapter.readOnly(command));
+        if (refused.length) {
+            Cli.fail(
+                `not known to only read on ${device.platform}, so nothing was sent:\n${refused.map((command) => `  ${command}`).join("\n")}`
+            );
+        }
+
+        const session = await adapter.session(device, this.optionsFor(device));
+        const timeout = timeoutSeconds * 1000;
+        let failed = false;
+
+        try {
+            for (const command of commands) {
+                const started = Date.now();
+                let output: string;
+
+                try {
+                    output = await session.run(command, timeout);
+                } catch (error) {
+                    output = `stopped: ${(error as Error).message}`;
+                    failed = true;
+                }
+
+                const took = Date.now() - started;
+                const stoppedAtLimit = !failed && took >= timeout ? `\n(stopped at the ${timeoutSeconds} second limit)` : "";
+                const block = `>>> ${command}  (${(took / 1000).toFixed(1)}s)\n${output.replace(/\r/g, "").trimEnd()}${stoppedAtLimit}\n\n`;
+                process.stdout.write(Secrets.scrub(block, { network: this.network }));
+
+                // A shell or a console still runs a command that did not finish, so nothing more can be sent.
+                if (failed) break;
+            }
+        } finally {
+            session.close();
+        }
+
+        if (failed) process.exitCode = 1;
     }
 
     private async refresh(name: string, confirmed: boolean): Promise<void> {
