@@ -30,6 +30,9 @@ Circuit turns one TypeScript file per network device into that device's config, 
 - Classes, not loose functions. A file exports one main class named after its job; callers write `Address.contains(...)`. Static methods for helpers without state, an instance when calls share state or the same arguments, constants as `static readonly`. A method name doesn't repeat its class.
 - A class in a platform folder starts with the platform's name (`RouterOsRender`), so no two modules export the same generic name.
 - Exceptions: the config DSL (`defineDevice`, `defineNetwork`, `secret`, `secretFile`) stays as functions; Vue components and composables (`useX`) follow Vue. Types stay plain `export type`.
+- Type values as tightly as is practical, so the editor suggests them and refuses a wrong one: a literal union for a fixed set, a template literal for a shape (`Prefix`, `StandardCommunity`). Plain `string` only for free text and names.
+- Use a well-known, maintained, small library before writing your own (`commander` for the CLI, `yaml`, `@clack/prompts`). Check who maintains it, how widely it's used and what it pulls in, and that it runs on Node 20.12 and Bun.
+- No folder for a single file, and no file for a tiny helper: small stand-alone helpers go on `Utils` in `src/core/utils.ts`.
 - `src/` uses Node's APIs, never Bun's. Bun runs `src/` as it is; `bun run build` bundles `dist/` for Node, npm and pnpm, where the CLI loads the config with jiti.
 - Code is written to be read: names that say what a value is, one step per line, a blank line between steps, an object with several fields spread over lines (Prettier keeps it when there's a newline after `{`). A platform stays in its own few files. Comments are short and plain, never decorative.
 
