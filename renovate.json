@@ -6,6 +6,11 @@
             "description": "engines is the oldest Node.js and Bun Circuit runs on, which the documentation promises; it is raised by hand, never to the latest.",
             "matchDepTypes": ["engines"],
             "enabled": false
+        },
+        {
+            "description": "@types/node follows the Node.js major CI publishes with (release.yml), not the latest: newer types describe APIs Circuit's users may not have, and v26 already rejects Duplex.from with a readable and writable pair.",
+            "matchPackageNames": ["@types/node"],
+            "allowedVersions": "<25"
         }
     ]
 }
