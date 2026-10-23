@@ -96,8 +96,8 @@
         "ssh2": "^1.17.0"
     },
     "devDependencies": {
-        "@commitlint/cli": "^19.8.1",
-        "@commitlint/config-conventional": "^19.8.1",
+        "@commitlint/cli": "^21.2.4",
+        "@commitlint/config-conventional": "^21.2.4",
         "@types/bun": "^1.4.4",
         "@types/node": "^24.19.2",
         "husky": "^9.1.7",
