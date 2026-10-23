@@ -4,10 +4,12 @@
 
 import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
+import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, IP } from "../../schema";
 import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
+import { Catalog } from "../catalog";
 import { Derive } from "../derive";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
 import { JunosBgp } from "./bgp";
@@ -94,6 +96,9 @@ export class Junos extends Platform {
 
     /** What the device says when it refuses a statement in a load: `terminal:3:(14) syntax error: ...`. A warning, such as a statement not found, is not a refusal. */
     private static readonly REFUSED = /^terminal:\d+:\(\d+\) (?!warning)|^error: /m;
+
+    /** Every LLDP neighbor with the far port, which the brief form leaves out. */
+    private static readonly LLDP_NEIGHBORS = "show lldp neighbors detail | display xml | no-more";
 
     /** Commands that only read. */
     private static readonly READS = /^show\s/;
@@ -320,6 +325,62 @@ export class Junos extends Platform {
         } finally {
             client.end();
         }
+    }
+
+    /** The LLDP neighbors from `show lldp neighbors detail` as XML. The brief form leaves out the far port, and its table pads columns that a description can fill. */
+    async neighbors(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<Neighbor[]> {
+        if (options.console) {
+            return Junos.onConsole(device, async (channel) => {
+                await Junos.checkVersion((command) => Junos.run(channel, command), device);
+                return Junos.neighborsOf(device, await Junos.run(channel, Junos.LLDP_NEIGHBORS));
+            });
+        }
+
+        const client = await Junos.login(device);
+
+        try {
+            await Junos.checkVersion((command) => Ssh.exec(client, command), device);
+            return Junos.neighborsOf(device, await Ssh.exec(client, Junos.LLDP_NEIGHBORS));
+        } finally {
+            client.end();
+        }
+    }
+
+    /** Each neighbor in the XML the device printed, on our port by Circuit's name. The far end's system name, or its chassis ID when it sends none. */
+    static neighborsOf(device: Device, xml: string): Neighbor[] {
+        const names = new JunosNames(device);
+        const ports = new Map<string, string>();
+
+        // A 10G cage is `xe-` or `ge-` by its optic, so both spellings lead to the port.
+        for (const port of Catalog.ports(device.platform, device.model)) {
+            const name = names.port(port);
+            ports.set(name, port);
+            ports.set(
+                name.replace(/^(?:xe|ge)-/, (prefix) => (prefix === "xe-" ? "ge-" : "xe-")),
+                port
+            );
+        }
+
+        const field = (block: string, tag: string) => {
+            const value = new RegExp(`<${tag}>([^<]*)</${tag}>`).exec(block)?.[1]?.trim();
+            return value ? Junos.unescapeXml(value) : undefined;
+        };
+
+        const blocks = xml.split("<lldp-neighbor-information>").slice(1);
+
+        return blocks.flatMap((block) => {
+            const local = field(block, "lldp-local-interface") ?? field(block, "lldp-local-port-id");
+            const port = local && ports.get(local);
+            const system = field(block, "lldp-remote-system-name") ?? field(block, "lldp-remote-chassis-id");
+            const remotePort = field(block, "lldp-remote-port-id");
+
+            return port && system && remotePort ? [{ port, system, remote_port: remotePort }] : [];
+        });
+    }
+
+    private static unescapeXml(text: string): string {
+        const entities: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+        return text.replace(/&(amp|lt|gt|quot|apos);/g, (_, name: string) => entities[name]!);
     }
 
     /**
