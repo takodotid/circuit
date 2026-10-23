@@ -1,8 +1,15 @@
-// A fake device over SSH, for tests of a platform's read and apply: it takes one user with one password, and answers each exec command with what `answer` returns, keeping every command it was sent.
+// A fake device over SSH, for tests of a platform's read and apply. It takes one user with one password. Each exec command, and each line typed into its shell, is answered with what `answer` returns, and kept in `commands`. The shell starts with `banner` and ends each answer with `prompt`.
 
 import { generateKeyPairSync } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import { Server } from "ssh2";
+
+export type FakeShell = {
+    /** What the shell prints when it opens, prompt included. */
+    banner: string;
+    /** What it prints after each answer. */
+    prompt: () => string;
+};
 
 export class FakeSshDevice {
     static readonly PASSWORD = "lab-pass";
@@ -12,7 +19,8 @@ export class FakeSshDevice {
 
     constructor(
         private readonly user: string,
-        answer: (command: string) => string
+        private readonly answer: (command: string) => string,
+        private readonly shell?: FakeShell
     ) {
         const { privateKey } = generateKeyPairSync("rsa", {
             modulusLength: 2048,
@@ -31,19 +39,46 @@ export class FakeSshDevice {
 
             client.on("ready", () => {
                 client.on("session", (accept) => {
-                    accept().on("exec", (acceptExec, _reject, info) => {
-                        const stream = acceptExec();
-                        this.commands.push(info.command);
+                    const session = accept();
 
-                        stream.write(answer(info.command));
+                    session.on("exec", (acceptExec, _reject, info) => {
+                        const stream = acceptExec();
+
+                        stream.write(this.run(info.command));
                         stream.exit(0);
                         stream.end();
+                    });
+
+                    session.on("pty", (acceptPty) => acceptPty?.());
+                    session.on("shell", (acceptShell, reject) => {
+                        if (!this.shell) return reject?.();
+
+                        const stream = acceptShell();
+                        const shell = this.shell;
+                        let typed = "";
+
+                        stream.write(shell.banner);
+                        stream.on("data", (chunk: Buffer) => {
+                            typed += chunk.toString("utf8");
+
+                            // A terminal sends each line on its own; answer each one whole, with its echo, as a device does.
+                            for (let end = typed.search(/\r?\n|\r/); end >= 0; end = typed.search(/\r?\n|\r/)) {
+                                const line = typed.slice(0, end);
+                                typed = typed.slice(end).replace(/^\r?\n|^\r/, "");
+                                stream.write(`${line}\r\n${this.run(line)}${shell.prompt()}`);
+                            }
+                        });
                     });
                 });
             });
 
             client.on("error", () => {});
         });
+    }
+
+    private run(command: string): string {
+        this.commands.push(command);
+        return this.answer(command);
     }
 
     /** Start listening on a free port on 127.0.0.1, and give the port. */
