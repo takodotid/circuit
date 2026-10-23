@@ -20,12 +20,19 @@ docs/reference/
 # Built for Node by scripts/build.ts: published, never committed.
 /dist/
 
-# Skills, agents and product notes for AI tools, installed on a machine and not part of the repository.
+# Third-party skills and agents, installed on each machine from skills-lock.json with `bun run agents:setup`. Our own skills are committed.
 /.agents/
-/.claude/skills/
+/.claude/skills/*
+!/.claude/skills/implement-device/
+!/.claude/skills/fix-device/
+!/.claude/skills/prove-on-device/
+!/.claude/skills/release/
 /.claude/agents/
+/.claude/settings.local.json
 /.github/agents/
 /.github/skills/
-/skills-lock.json
-/PRODUCT.md
+
+# What scripts/golden.ts, scripts/lab.ts and scripts/shots.ts write.
 /.golden/
+/.lab/
+/.shots/

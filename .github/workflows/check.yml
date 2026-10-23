@@ -14,9 +14,5 @@ jobs:
               with:
                   bun-version: 1.4.4
             - run: bun install --frozen-lockfile
-            - run: bun run typecheck
-            - run: bun run test
-            - run: bun run format:check
-            - run: bun run docs:build
-            - run: bun run build
-            - run: for pattern in single-site edge-router colocation; do node dist/cli/index.js validate --config "templates/$pattern/circuit.config.ts"; done
+            # The same as `bun run check` locally: typecheck, tests, format, docs build, Node build, templates on Node.
+            - run: bun run check
