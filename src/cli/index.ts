@@ -10,6 +10,7 @@ import type { ApplyOptions, BgpLogLine, BgpSession, Platform, Plan, ReadSession 
 import { BgpWait } from "../platforms/bgp-wait";
 import { Registries } from "../integrations/registries";
 import { LibreNms } from "../integrations/librenms";
+import { NetBox, type NetBoxPlan } from "../integrations/netbox";
 import { PeeringDb } from "../integrations/peeringdb";
 import { Prometheus } from "../integrations/prometheus";
 import { Address } from "../core/address";
@@ -282,6 +283,13 @@ class Cli {
             .option("--confirm", "add them; without it, nothing is sent")
             .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
             .action(async (flags) => (await Cli.open(flags.config)).librenms(flags.confirm ?? false));
+
+        program
+            .command("netbox")
+            .description("bring NetBox in line with the config, with --confirm")
+            .option("--confirm", "send the changes; without it, nothing is sent")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (flags) => (await Cli.open(flags.config)).netbox(flags.confirm ?? false));
 
         program
             .command("prometheus")
@@ -899,6 +907,54 @@ class Cli {
         await LibreNms.send(this.network, plan.additions);
     }
 
+    private async netbox(confirmed: boolean): Promise<void> {
+        const netbox = new NetBox(this.network);
+        const plan = await netbox.plan();
+
+        Cli.showNetBox(plan);
+
+        if (!NetBox.count(plan)) {
+            console.log("NetBox matches the config.");
+            return;
+        }
+
+        if (!confirmed) {
+            console.log("\nNothing sent. Re-run with --confirm.");
+            return;
+        }
+
+        const left = await netbox.send(plan);
+        if (!NetBox.count(left)) return;
+
+        console.log("\nNetBox still differs:");
+        Cli.showNetBox(left);
+        process.exit(1);
+    }
+
+    /** Each change NetBox would get, then how many of each kind. */
+    private static showNetBox(plan: NetBoxPlan): void {
+        for (const item of plan.leftAlone) console.log(`  ${item} exists without the tag ${NetBox.TAG}: left alone`);
+        for (const change of plan.creates) console.log(`  + ${change.path} ${change.key}`);
+
+        for (const change of plan.updates) {
+            console.log(`  ~ ${change.path} ${change.key}`);
+            for (const line of change.diff) console.log(`      ${line}`);
+        }
+
+        for (const change of plan.deletes) console.log(`  - ${change.path} ${change.key}`);
+
+        const paths = [...new Set([...plan.creates, ...plan.updates, ...plan.deletes].map((change) => change.path))];
+        const count = (changes: readonly { path: string }[], path: string) => changes.filter((change) => change.path === path).length;
+
+        if (paths.length) console.log("");
+
+        for (const path of paths) {
+            console.log(
+                `  ${path}: ${count(plan.creates, path)} to create, ${count(plan.updates, path)} to change, ${count(plan.deletes, path)} to delete`
+            );
+        }
+    }
+
     private prometheus(auths: boolean): void {
         if (auths) {
             const { yaml, notes } = Prometheus.snmpExporterAuths(this.network);
@@ -913,7 +969,9 @@ class Cli {
     }
 
     private secrets(): void {
-        const references = [...Secrets.referencesIn([this.network.devices, this.network.peeringdb, this.network.librenms])].sort();
+        const references = [
+            ...Secrets.referencesIn([this.network.devices, this.network.peeringdb, this.network.librenms, this.network.netbox]),
+        ].sort();
         let missing = 0;
 
         for (const reference of references) {

@@ -45,6 +45,7 @@ const sidebar: DefaultTheme.SidebarItem[] = [
             { text: "1Password", link: "/integrations/1password" },
             { text: "Prometheus", link: "/integrations/prometheus" },
             { text: "LibreNMS", link: "/integrations/librenms" },
+            { text: "NetBox", link: "/integrations/netbox" },
         ],
     },
     {
