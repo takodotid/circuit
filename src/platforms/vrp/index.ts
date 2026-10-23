@@ -53,10 +53,13 @@ export class Vrp extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity)\b/;
+        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+)\b/;
+
+    /** Lines a new line of the same kind replaces whole, so the old one is not undone first. */
+    private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl number |aaa$|user-interface |ospf |ip vpn-instance |bfd$|alarm$)/,
+        block: /^(interface |vlan \d+$|acl number |aaa$|user-interface |ospf \d+|ip vpn-instance |bfd$|alarm$)/,
         indented: true,
         terminator: "#",
         ignore: (line) => Vrp.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
@@ -136,6 +139,22 @@ export class Vrp extends Platform {
         if (routing?.rpki) found.push("routing.rpki");
         if (routing?.ospf?.families?.includes("ipv6")) found.push("routing.ospf for IPv6");
 
+        const bfd = routing?.bfd;
+        if (bfd && !(Number.isInteger(bfd.interval) && bfd.interval >= 50 && bfd.interval <= 1000))
+            found.push("routing.bfd.interval, between 50 and 1000 ms on the platform");
+        if (bfd && !(Number.isInteger(bfd.multiplier) && bfd.multiplier >= 3 && bfd.multiplier <= 50))
+            found.push("routing.bfd.multiplier, between 3 and 50 on the platform");
+
+        for (const route of routing?.static ?? []) {
+            if (!route.bfd) continue;
+
+            const where = `routing.static ${route.prefix} bfd`;
+            if (route.vrf) found.push(`${where} in a VRF, not proved`);
+            else if (!route.via || Address.family(route.via) !== "ipv4") found.push(`${where}, needs an IPv4 via`);
+            else if (!VrpRender.localAddressTo(device, route.via))
+                found.push(`${where}, the device has no address on the network of ${route.via}`);
+        }
+
         for (const [index, route] of (routing?.static ?? []).entries()) {
             if (route.description && Address.family(Address.split(route.prefix).addr) === "ipv6")
                 found.push(`routing.static[${index}].description for IPv6`);
@@ -185,7 +204,7 @@ export class Vrp extends Platform {
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device).filter((field) => !field.startsWith("management.snmp.allow")));
-        found.push(...Derive.unproved(device, ["alarm-severity"]));
+        found.push(...Derive.unproved(device, ["alarm-severity", "bfd-timers", "static-route-bfd"]));
 
         const flow = device.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
@@ -243,6 +262,7 @@ export class Vrp extends Platform {
         Vrp.removeLoghosts(groups, desired, current);
         Vrp.replaceRules(groups, current);
         Vrp.emptyAlarmView(groups, current);
+        Vrp.keepReplacedWhole(groups);
 
         const top = groups.find((group) => group.path.length === 0);
         const removedBatch = top?.remove.find((line) => line.startsWith("vlan batch ")) ?? "";
@@ -355,6 +375,8 @@ export class Vrp extends Platform {
 
         const keyword = Vrp.UNDO_BY_KEYWORD.exec(line);
         if (keyword) return `undo ${keyword[1]}`;
+        // A static route is removed by its destination and next hop; its preference, description or BFD after them is refused.
+        if (/^ipv6 route-static |^ip route-static /.test(line)) return `undo ${line.replace(/ (preference|description|bfd) .*$/, "")}`;
         // Storm control is removed per kind, without its rates.
         if (line.startsWith("storm control ")) return `undo ${line.replace(/ (min-rate|max-rate).*$/, "")}`;
 
@@ -417,6 +439,16 @@ export class Vrp extends Platform {
                 const old = existing.find((entry) => entry.path.join("\n") === group.path.join("\n") && entry.line.startsWith(rule));
                 if (old && !group.remove.includes(old.line)) group.remove.push(old.line);
             }
+        }
+    }
+
+    /** A static route's BFD template sent again replaces the old one whole, options left out included, so the old one is not undone: a route still uses it. */
+    private static keepReplacedWhole(groups: Group[]): void {
+        const kind = (line: string) => Vrp.REPLACED_WHOLE.exec(line)?.[1];
+
+        for (const group of groups) {
+            const added = new Set(group.add.map(kind).filter(Boolean));
+            group.remove = group.remove.filter((line) => !added.has(kind(line)));
         }
     }
 
