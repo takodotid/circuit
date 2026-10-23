@@ -16,6 +16,7 @@ Run every command from your project as `npx circuit <command>`, or `pnpm circuit
 | `snapshot [device...]`           | Reads what each device runs now, into `.circuit/state/`                                                                                             | reads only       |
 | `apply <device>`                 | Reads the device, then shows the plan; with `--confirm`, sends it                                                                                   | with `--confirm` |
 | `show <device> [command...]`     | Runs commands that only read, such as `/ip route print`, and prints the answers with secrets hidden. See [show](#show-commands-that-only-read).     | reads only       |
+| `bgp [device] [name-regex]`      | Shows each BGP neighbor in the files next to its live session: up or down, prefixes, uptime. See [bgp](#bgp-neighbors-and-their-sessions).          | reads only       |
 | `console <device> [line...]`     | Opens the device's serial console in your terminal, logged in; or sends it lines. See [console](#console-a-device-s-serial-console).                | what you send    |
 | `refresh <device>`               | Fetches prefix lists from a registry; with `--confirm`, puts them on the device                                                                     | with `--confirm` |
 | `rename <device> <new-name>`     | Gives a device a new name in every file that uses its name; with `--confirm`, writes it. See [Renaming a device](/guide/devices#renaming-a-device). | no               |
@@ -85,6 +86,36 @@ Each command may take `--timeout` seconds, 90 by default:
 
 On Git Bash for Windows, set `MSYS_NO_PATHCONV=1` first. Otherwise a command that starts with `/`, as RouterOS commands do, is turned into a Windows path.
 
+## bgp: neighbors and their sessions
+
+`bgp` shows each BGP neighbor in the device's file next to its live session on the device, one line each: its name, `up` or `DOWN`, how many prefixes it sent us, how long the session has been up, and the neighbor's address. A neighbor with no session at all is shown as down.
+
+```bash
+npx circuit bgp edge-01
+npx circuit bgp edge-01 'sgix' --wait          # until every neighbor whose name has sgix is up
+npx circuit bgp edge-01 'sgix' --wait=4        # until at least 4 of them are up
+npx circuit bgp edge-01 --log=10               # also the BGP log lines of the last 10 minutes
+```
+
+```
+hurricane-electric  up     987654  1w2d03:04:05  203.0.113.1
+sgix-rs-v4          DOWN        -  -             192.0.2.1
+sgix-rs-v6          DOWN        -  no session    -
+1/3 up
+```
+
+1. The device can be left out when only one device in the network has BGP neighbors: `npx circuit bgp sgix`.
+2. The second argument is a regular expression. Only the neighbors whose name matches are shown.
+3. `--wait` reads again every 15 seconds until every neighbor shown is up, or with `--wait=N`, at least N of them. It gives up after `--max` seconds, 600 by default, and then exits with code 1. Use it right after an apply or a provider cutover.
+4. `--log` adds the device's BGP log lines of the last few minutes, 5 by default. A message that repeats is folded into one line with its first and last time and a count, such as `2026-10-24 03:01:00..03:04:50 x24`. It shows every BGP line, not only those of the neighbors shown.
+
+`bgp` only reads, and works on RouterOS so far. On another platform it says it does not support it yet and stops before it connects.
+
+On RouterOS:
+
+- A neighbor is matched with its session by address first, then by name. A connection that was renamed keeps its session's old name until the session restarts.
+- `--log` leaves out the `connection ...` lines a session that cannot connect repeats. The device's own time filter in `/log print` does not filter, so Circuit keeps the lines of the last minutes itself, by the device's clock.
+
 ## console: a device's serial console
 
 `console` opens the device's serial console, `connection.console`, the same one `--console` uses. It is the way in when the management network is down.
@@ -125,6 +156,9 @@ Only one program can hold a console port. If another one does, `console` says th
 | `--console`         | `snapshot`, `apply`, `show`                           | Reach the device through its serial console, on this computer or a jump host, instead of SSH. See [Devices](/guide/devices#reaching-a-device-through-its-console). |
 | `--file`            | `rename`, `show`                                      | For `rename`, also rename the file that declares the device, to `<new-name>.ts`. For `show`, also run each line of this file.                                      |
 | `--timeout=N`       | `show`                                                | How many whole seconds each command may take. 90 by default.                                                                                                       |
+| `--wait[=N]`        | `bgp`                                                 | Read again until every neighbor shown, or N of them, is up.                                                                                                        |
+| `--max=N`           | `bgp`                                                 | How many whole seconds `--wait` waits at most. 600 by default.                                                                                                     |
+| `--log[=N]`         | `bgp`                                                 | Also print the device's BGP log lines of the last N minutes. 5 by default.                                                                                         |
 | `--raw`             | `console`                                             | Do not log in or out. Only join the console, or send the lines.                                                                                                    |
 | `--length=N`        | `addresses`                                           | List the free prefixes of this length, instead of the fewest that cover the free space.                                                                            |
 | `--layer=L`         | `graph`                                               | Which layer to print: `l1`, `l2`, `l3`, `bgp`, `ospf` or `tunnels`, several with commas, or `all`. `l1` by default.                                                |
