@@ -203,6 +203,17 @@ test("a VRP read redacts SNMPv3 keys and plans nothing against the render for th
     expect(adapter.plan(wanted, printed, { secrets: false, rollback: 10 }).steps).toEqual([]);
 });
 
+// `ssh server cipher` lists algorithms, not a secret: a read keeps them, and a change to them is planned (seen on tako-mmr-02, 2026-10-24).
+test("a VRP read keeps the SSH cipher list, and a change to it is planned", () => {
+    const adapter = Platforms.get("vrp");
+    expect(LineDiff.scrub("ssh server cipher aes256_ctr aes128_ctr")).toBe("ssh server cipher aes256_ctr aes128_ctr");
+
+    const sent = adapter
+        .plan("ssh server cipher aes256_ctr aes128_ctr\n", "ssh server cipher aes128_ctr\n", { secrets: false, rollback: 10 })
+        .steps.flatMap((step) => step.send);
+    expect(sent).toContain("ssh server cipher aes256_ctr aes128_ctr");
+});
+
 // The forms a Junos switch prints, seen on a QFX5100 running 21.4: secrets hashed or encrypted, values quoted where the render does not quote them, the release and each user's number.
 test("example-aggregation-switch plans nothing against how the device prints it", () => {
     const adapter = Platforms.get("junos");
