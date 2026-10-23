@@ -4,6 +4,7 @@ import { X509Certificate } from "node:crypto";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import type {
+    AclRule,
     Device,
     Family,
     FilterMatch,
@@ -23,6 +24,9 @@ import { Catalog } from "../catalog";
 export type Value = string | number | undefined | false;
 
 export type AnyPort = Port<string, string, string, string>;
+
+/** One switch rule: the port it is on, the ACL rule it comes from, and the one source and destination port or range it takes. */
+export type SwitchRule = { port: string; rule: AclRule<string>; srcPort?: string; dstPort?: string };
 export type AnyInterface = Interface<string, string>;
 
 type Speed = NonNullable<AnyPort["speed"]>;
@@ -985,37 +989,44 @@ export class RouterOsRender {
      * ACLs run in the switch chip on the port traffic arrives on. The chip matches addresses with a dotted mask on IPv4, drops by forwarding to no port, and limits by rate. A rule takes one port or range, so a list becomes one rule for each.
      */
     private switchAcls(): void {
+        for (const { port, rule, srcPort, dstPort } of RouterOsRender.switchRules(this.device)) {
+            const match = rule.match ?? {};
+            const ipv6 = match.family === "ipv6" || [match.src, match.dst].some((address) => address && Address.family(address) === "ipv6");
+            const address = (prefix: string | undefined) => (prefix && !ipv6 ? RouterOsRender.dottedMask(prefix) : prefix);
+
+            this.add("/interface ethernet switch rule", "add", {
+                comment: rule.description,
+                [ipv6 ? "dst-address6" : "dst-address"]: address(match.dst),
+                "dst-port": dstPort,
+                "mac-protocol": ipv6 ? "ipv6" : "ip",
+                "new-dst-ports": rule.action === "drop" ? "" : undefined,
+                ports: this.name(port),
+                protocol: match.protocol,
+                rate: rule.rate && RouterOsRender.bitrate(rule.rate),
+                [ipv6 ? "src-address6" : "src-address"]: address(match.src),
+                "src-port": srcPort,
+                switch: "switch1",
+                "vlan-id": match.vlan && this.vlanId(match.vlan),
+            });
+        }
+    }
+
+    /** Every switch rule the device's hardware ACLs make, in order: one for each port with an ACL, each rule of it, and each source and destination port or range of the rule. */
+    static switchRules(device: Device): SwitchRule[] {
         const each = (ports: Ports | undefined) => (ports === undefined ? [undefined] : RouterOsRender.eachPort(ports));
+        const rules: SwitchRule[] = [];
 
-        for (const [port, settings] of Object.entries(this.ports)) {
-            if (!settings.acl) continue;
+        for (const [port, settings] of Object.entries(device.ports ?? {})) {
+            if (!settings?.acl) continue;
 
-            for (const rule of this.device.acls?.[settings.acl] ?? []) {
-                const match = rule.match ?? {};
-                const ipv6 =
-                    match.family === "ipv6" || [match.src, match.dst].some((address) => address && Address.family(address) === "ipv6");
-                const address = (prefix: string | undefined) => (prefix && !ipv6 ? RouterOsRender.dottedMask(prefix) : prefix);
-
-                for (const srcPort of each(match.src_port)) {
-                    for (const dstPort of each(match.dst_port)) {
-                        this.add("/interface ethernet switch rule", "add", {
-                            comment: rule.description,
-                            [ipv6 ? "dst-address6" : "dst-address"]: address(match.dst),
-                            "dst-port": dstPort,
-                            "mac-protocol": ipv6 ? "ipv6" : "ip",
-                            "new-dst-ports": rule.action === "drop" ? "" : undefined,
-                            ports: this.name(port),
-                            protocol: match.protocol,
-                            rate: rule.rate && RouterOsRender.bitrate(rule.rate),
-                            [ipv6 ? "src-address6" : "src-address"]: address(match.src),
-                            "src-port": srcPort,
-                            switch: "switch1",
-                            "vlan-id": match.vlan && this.vlanId(match.vlan),
-                        });
-                    }
+            for (const rule of device.acls?.[settings.acl] ?? []) {
+                for (const srcPort of each(rule.match?.src_port)) {
+                    for (const dstPort of each(rule.match?.dst_port)) rules.push({ port, rule, srcPort, dstPort });
                 }
             }
         }
+
+        return rules;
     }
 
     private routing(): void {

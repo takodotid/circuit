@@ -18,6 +18,7 @@ import {
     type Plan,
     type ReadOptions,
     type ReadSession,
+    type SwitchRules,
     Platform,
 } from "../platform";
 import { BgpWait, type WaitLimits } from "../bgp-wait";
@@ -176,6 +177,13 @@ export class RouterOs extends Platform {
 
     render(device: Device): string {
         return RouterOsRender.of(device);
+    }
+
+    override switchRules(device: Device): SwitchRules {
+        const rules = RouterOsRender.switchRules(device);
+        const ranges = new Set(rules.flatMap(({ srcPort, dstPort }) => [srcPort, dstPort]).filter((port) => port?.includes("-")));
+
+        return { count: rules.length, ranges: ranges.size };
     }
 
     /**

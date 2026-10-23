@@ -14,6 +14,18 @@ A platform is one operating system at the versions in the table, not every versi
 
 Each platform supports one hardware model so far, the one it was proved on. Another model of the same platform needs its port layout added to the platform's `models.ts`; see [Contributing](/contributing#adding-a-platform).
 
+## Model limits
+
+Some hardware holds less than its datasheet says. Where a real device showed it, the model lists the limit in its platform's `models.ts`, and `circuit validate` checks every device of that model against it:
+
+| Model                 | Limit                                  | Found by                                     | `validate` gives |
+| --------------------- | -------------------------------------- | -------------------------------------------- | ---------------- |
+| `CCR2216-1G-12XS-2XQ` | At most 8 member ports in a LAG        | 12 active members crash-looped the router    | an error         |
+| `CCR2216-1G-12XS-2XQ` | About 50 switch rules                  | the chip held about 50, not the 1,024 listed | a warning        |
+| `CCR2216-1G-12XS-2XQ` | 5 distinct port ranges in switch rules | the sixth distinct range was invalid         | a warning        |
+
+A switch rule is one entry in the switch chip's hardware ACL. RouterOS makes one for each ACL rule on each port that has the ACL, and one for each port or range in a rule's `src_port` or `dst_port` list, so 20 ACL rules on three ports are 60 switch rules. Circuit counts a range such as `{ min: 0, max: 1023 }` once, however many rules use it, in `src_port` or `dst_port` alike. When the chip cannot hold a rule, that rule and every rule after it stop working, without a log line. The switch rule limits are a warning because the count is rough: after an apply, check that no rule is invalid with `/interface ethernet switch rule print count-only where invalid`.
+
 ## What each platform can do
 
 A field a platform cannot do is an error, never skipped; see [Devices](/guide/devices#when-a-device-cannot-do-what-you-wrote).

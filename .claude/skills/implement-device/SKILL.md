@@ -22,7 +22,7 @@ Don't start until you know all of these. Ask for what's missing, in one message:
 
 ## New model
 
-1. Add the model to `src/platforms/<platform>/models.ts`: ports per speed class and the platform's spelling. A spelling can shift the number: `{n-1}` counts from 0, `{n+47}` continues after 47 ports. Copy the shape of the model already there.
+1. Add the model to `src/platforms/<platform>/models.ts`: ports per speed class and the platform's spelling. A spelling can shift the number: `{n-1}` counts from 0, `{n+47}` continues after 47 ports. Copy the shape of the model already there. A limit the hardware showed below its datasheet goes in `limits` (`ModelLimits` in `src/platforms/catalog.ts`), only once a real device hit it.
 2. Run `bun run typecheck`: a device file using the new model and a port name it doesn't have must fail to compile.
 3. Read the device's ports on the real device and compare with the spelling (skill `prove-on-device`).
 4. Add the model to the "Proved on" column in `docs/platforms/index.md` once proved.
