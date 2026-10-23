@@ -16,6 +16,7 @@ Run every command from your project as `npx circuit <command>`, or `pnpm circuit
 | `snapshot [device...]`           | Reads what each device runs now, into `.circuit/state/`                                                                                             | reads only       |
 | `apply <device>`                 | Reads the device, then shows the plan; with `--confirm`, sends it                                                                                   | with `--confirm` |
 | `show <device> [command...]`     | Runs commands that only read, such as `/ip route print`, and prints the answers with secrets hidden. See [show](#show-commands-that-only-read).     | reads only       |
+| `console <device> [line...]`     | Opens the device's serial console in your terminal, logged in; or sends it lines. See [console](#console-a-device-s-serial-console).                | what you send    |
 | `refresh <device>`               | Fetches prefix lists from a registry; with `--confirm`, puts them on the device                                                                     | with `--confirm` |
 | `rename <device> <new-name>`     | Gives a device a new name in every file that uses its name; with `--confirm`, writes it. See [Renaming a device](/guide/devices#renaming-a-device). | no               |
 | `wireguard <device> <if> <peer>` | Prints a WireGuard client config for one peer                                                                                                       | no               |
@@ -72,6 +73,33 @@ Each command may take `--timeout` seconds, 90 by default:
 
 On Git Bash for Windows, set `MSYS_NO_PATHCONV=1` first. Otherwise a command that starts with `/`, as RouterOS commands do, is turned into a Windows path.
 
+## console: a device's serial console
+
+`console` opens the device's serial console, `connection.console`, the same one `--console` uses. It is the way in when the management network is down.
+
+```bash
+npx circuit console core-01                                   # in your terminal; Ctrl-] leaves
+npx circuit console core-01 'display interface brief'         # send lines, print what comes back
+npx circuit console fw-01 '@wait=10:execute ping 192.0.2.1'   # wait for 10 quiet seconds after a slow command
+npx circuit console fw-01 --raw '' "@if=(Press 'a' to accept):=>a"
+```
+
+1. Circuit logs in with the device's own login, the way `--console` does, so you never type a password.
+2. With no lines, the console is joined to your terminal. Everything you type goes to the device, Ctrl-C too, to stop a running command. Ctrl-] leaves.
+3. With lines, each one is sent in turn, and what the console printed until it went quiet for 1.5 seconds is shown, with every secret replaced by `<redacted>`.
+4. Circuit logs out at the end, also when you press Ctrl-C while lines are being sent, or close the terminal, and lets the port go.
+
+A line can start with:
+
+- `@wait=N:` to wait for N seconds of quiet instead of 1.5, for a slow command.
+- `@if=TEXT=>` to send the line only when what the console printed last ends with TEXT, for a prompt that may or may not come. Both can be used together, `@if` first.
+
+A console has no exit code. A command it refuses answers with text, so read what it printed: `console` cannot tell whether a line worked. The lines are not checked the way `show` checks commands: a line that changes the device changes it.
+
+`--raw` does not log in or out. Use it to answer a prompt Circuit does not know, such as a boot menu.
+
+Only one program can hold a console port. If another one does, `console` says the port is in use and stops.
+
 ## Options
 
 | Option              | For                                                   | What it does                                                                                                                                                       |
@@ -84,6 +112,7 @@ On Git Bash for Windows, set `MSYS_NO_PATHCONV=1` first. Otherwise a command tha
 | `--console`         | `snapshot`, `apply`, `show`                           | Reach the device through its serial console, on this computer or a jump host, instead of SSH. See [Devices](/guide/devices#reaching-a-device-through-its-console). |
 | `--file`            | `rename`, `show`                                      | For `rename`, also rename the file that declares the device, to `<new-name>.ts`. For `show`, also run each line of this file.                                      |
 | `--timeout=N`       | `show`                                                | How many whole seconds each command may take. 90 by default.                                                                                                       |
+| `--raw`             | `console`                                             | Do not log in or out. Only join the console, or send the lines.                                                                                                    |
 | `--length=N`        | `addresses`                                           | List the free prefixes of this length, instead of the fewest that cover the free space.                                                                            |
 | `--layer=L`         | `graph`                                               | Which layer to print: `l1`, `l2`, `l3`, `bgp`, `ospf` or `tunnels`, several with commas, or `all`. `l1` by default.                                                |
 | `--format=F`        | `graph`, `addresses`                                  | For `graph`, `mermaid`, `dot` or `json`, `mermaid` by default. For `addresses`, `json`.                                                                            |

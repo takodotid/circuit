@@ -1,4 +1,5 @@
 import type { Device, Family } from "../schema";
+import type { ConsoleDialect } from "../transport/console";
 import type { PlatformName } from "./catalog";
 
 /** One part of a plan: what a reviewer reads, and what is sent. */
@@ -49,8 +50,8 @@ export abstract class Platform {
     abstract readonly os: OsSupport;
     /** File extension of a saved snapshot, for syntax highlighting. */
     abstract readonly extension: string;
-    /** The platform can be read and applied through a serial console, `--console`. */
-    readonly console: boolean = false;
+    /** How the platform's serial console asks for a login and shows its prompt. Present when the platform can be read and applied through a console, `--console`, and opened with `circuit console`. */
+    readonly console: ConsoleDialect | undefined = undefined;
     /** Fields this platform cannot express. Validation fails on any of them, so nothing is skipped silently. */
     abstract unsupported(device: Device): string[];
     /** The whole configuration the device should run. Secrets appear as markers, never values. */

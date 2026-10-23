@@ -177,7 +177,7 @@ export class FortiOs extends Platform {
 
     readonly extension = ".conf";
 
-    override readonly console = true;
+    override readonly console = FortiOs.CONSOLE;
 
     unsupported(device: Device): string[] {
         const found: string[] = [];

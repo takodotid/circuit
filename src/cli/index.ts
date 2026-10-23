@@ -21,6 +21,7 @@ import type { Device } from "../schema";
 import { GraphFormat } from "./graph-format";
 import { Rename, type RenamePlan } from "./rename";
 import { ProjectFiles } from "../core/project-files";
+import { ConsoleScript, type ConsoleSession, SerialConsole } from "../transport/console";
 import { StudioModel } from "../studio/data";
 import type { ScaffoldOptions } from "./new";
 
@@ -34,6 +35,9 @@ Do not edit anything here: an edit changes nothing on a device, and Circuit over
 /** One run of the command line: the network it loaded, and how it reaches devices. */
 class Cli {
     static readonly DEFAULT_CONFIG = "circuit.config.ts";
+
+    /** Ctrl-], the key that leaves `circuit console`, as telnet uses it. */
+    private static readonly LEAVE_KEY = 0x1d;
 
     /** `--config`, which every command but `new` takes. */
     private static readonly CONFIG_FLAGS = "--config <path>";
@@ -204,6 +208,15 @@ class Cli {
             .action(async (device, commands, flags) =>
                 (await Cli.open(flags.config, flags)).show(device, commands, flags.file, flags.timeout)
             );
+
+        program
+            .command("console")
+            .description("open a device's serial console here, logged in; or send it lines and print what it answers")
+            .argument("<device>")
+            .argument("[line...]", "lines to send, each in quotes; none joins the console to this terminal, Ctrl-] leaves")
+            .option("--raw", "do not log in or out: only join the console, or send the lines")
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (device, lines, flags) => (await Cli.open(flags.config)).console(device, lines, flags.raw ?? false));
 
         program
             .command("refresh")
@@ -492,6 +505,95 @@ class Cli {
         }
 
         if (failed) process.exitCode = 1;
+    }
+
+    /**
+     * A device's console, for a person: logged in with the platform's own login, then joined to this terminal, or sent each line. Logs out when done, and lets the port go on Ctrl-C or when the terminal closes, so no other program finds it held.
+     */
+    private async console(name: string, lines: string[], raw: boolean): Promise<void> {
+        const device = this.one(name);
+        const dialect = Platforms.find(device.platform)?.console ?? Cli.fail(`${device.platform} cannot be reached through a console yet`);
+        const serial = device.connection.console ?? Cli.fail(`${device.name} has no connection.console`);
+        const login = raw ? undefined : SerialConsole.of(device);
+
+        let opened: ConsoleSession;
+        try {
+            opened = await SerialConsole.open(serial, 1);
+        } catch (error) {
+            const message = (error as Error).message;
+            if (message.startsWith("busy:")) {
+                Cli.fail(
+                    `${device.name}: ${serial.port} is in use. Only one program can hold a console port: close the other one, then try again.`
+                );
+            }
+            Cli.fail(`${device.name}: ${message}`);
+        }
+
+        let loggedIn = false;
+        let leaving = false;
+
+        const leave = async (code: number) => {
+            if (leaving) return;
+            leaving = true;
+
+            if (process.stdin.isTTY) process.stdin.setRawMode(false);
+            if (loggedIn) opened.channel.write(`${dialect.logout}\n`);
+
+            await opened.close();
+            process.exit(code);
+        };
+
+        for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.once(signal, () => void leave(130));
+
+        opened.channel.on("close", () => {
+            if (leaving) return;
+
+            console.error("\nthe console closed");
+            process.exit(1);
+        });
+
+        if (login) {
+            try {
+                await SerialConsole.login(opened.channel, dialect, login.user, login.password, serial.passwordOnly);
+            } catch (error) {
+                console.error(`${device.name}: ${(error as Error).message}`);
+                await leave(1);
+            }
+            loggedIn = true;
+        }
+
+        if (lines.length) {
+            await ConsoleScript.run(opened.channel, lines, (answer) =>
+                process.stdout.write(Secrets.scrub(answer, { network: this.network }))
+            );
+            await leave(0);
+            return;
+        }
+
+        this.join(opened, device, loggedIn ? login?.user : undefined, leave);
+    }
+
+    /** Join the console to this terminal until Ctrl-] or the end of input. Every other key, Ctrl-C too, goes to the device. */
+    private join(opened: ConsoleSession, device: Device, user: string | undefined, leave: (code: number) => Promise<void>): void {
+        const stdin = process.stdin;
+        const as = user ? `, logged in as ${user}` : "";
+        console.error(`${device.name}'s console${as}. Ctrl-] leaves.`);
+
+        opened.channel.on("data", (chunk: Buffer) => process.stdout.write(chunk));
+
+        if (stdin.isTTY) stdin.setRawMode(true);
+
+        stdin.on("data", (data: Buffer) => {
+            const at = data.indexOf(Cli.LEAVE_KEY);
+            const keys = at >= 0 ? data.subarray(0, at) : data;
+
+            // A terminal sends a carriage return for Enter; text piped in ends its lines with a line feed, which the console takes as a keyboard's Enter.
+            if (keys.length) opened.channel.write(stdin.isTTY ? keys : keys.toString("utf8"));
+            if (at >= 0) void leave(0);
+        });
+
+        stdin.on("end", () => void leave(0));
+        stdin.resume();
     }
 
     private async refresh(name: string, confirmed: boolean): Promise<void> {

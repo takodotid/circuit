@@ -23,6 +23,7 @@ What each field means is written as a comment on the field, in `node_modules/@ta
 | `npx circuit build <device>`                  | Prints the full configuration the device should run                           | no               |
 | `npx circuit snapshot [device]`               | Reads what each device runs now into `.circuit/state/`                        | no, only reads   |
 | `npx circuit show <device> '<command>'`       | Runs commands that only read on the device, secrets hidden                    | no, only reads   |
+| `npx circuit console <device> '<line>'`       | Sends lines to the device's serial console, unchecked                         | **can**          |
 | `npx circuit apply <device>`                  | Reads the device, then shows what would change on it                          | no               |
 | `npx circuit apply <device> --confirm`        | Sends the change to the device                                                | **yes**          |
 | `npx circuit secrets`                         | Lists every secret the config uses, and whether each one can be read          | no               |
@@ -42,7 +43,7 @@ What each field means is written as a comment on the field, in `node_modules/@ta
 
 ## Rules
 
-- Never run `apply --confirm`, `refresh --confirm` or `peeringdb --confirm` without the owner's explicit approval for that run.
+- Never run `apply --confirm`, `refresh --confirm` or `peeringdb --confirm`, or `console` with a line that changes something, without the owner's explicit approval for that run.
 - If a plan removes something you did not expect, stop and ask. It usually means the file is missing something the device needs.
 - Be careful with anything that carries your own access to the device: the management address, the management VLAN, the uplink, `management.allow`, and the login user. A mistake there locks everyone out.
 - A platform supports only the OS versions listed at https://circuit.tako.id/platforms/. Before the first apply to a device, check that it runs one of them.
