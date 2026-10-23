@@ -107,3 +107,24 @@ test("a log host is undone by its address, and one at the default level is remov
         "undo info-center source default channel 9 log level",
     ]);
 });
+
+test("an alarm's severity renders as the switch prints it, with a capital", () => {
+    const alarmed: Device = {
+        ...switchDevice,
+        system: { ...switchDevice.system, alarms: { hwOpticalUnAuthorized: { severity: "warning" } } },
+    };
+
+    expect(vrp.render(alarmed)).toContain("alarm\n alarm hwOpticalUnAuthorized severity Warning\n#");
+    expect(vrp.unsupported(alarmed)).toEqual([]);
+});
+
+test("an alarm's severity changes in place, and the alarm view goes by undoing its lines", () => {
+    const printed = "alarm\n alarm hwOpticalUnAuthorized severity Warning\n#\n";
+
+    expect(sent("alarm\n alarm hwOpticalUnAuthorized severity Minor\n#\n", printed)).toEqual([
+        "alarm",
+        "alarm hwOpticalUnAuthorized severity Minor",
+        "quit",
+    ]);
+    expect(sent("", printed)).toEqual(["alarm", "undo alarm hwOpticalUnAuthorized severity", "quit"]);
+});

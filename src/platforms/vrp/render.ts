@@ -49,6 +49,9 @@ export class VrpRender {
     /** The SNMPv3 group every user joins, with read access to everything. */
     private static readonly SNMP_GROUP = "circuit";
 
+    /** An alarm severity as the platform prints it. */
+    private static readonly ALARM_SEVERITY = { critical: "Critical", major: "Major", minor: "Minor", warning: "Warning" } as const;
+
     private static readonly USER_LEVEL = { admin: 3, operator: 2, "read-only": 1 } as const;
     private static readonly SNMP_AUTH = { sha1: "sha", sha256: "sha2-256" } as const;
     private static readonly SNMP_PRIVACY = { aes128: "aes128", des: "des56" } as const;
@@ -117,6 +120,7 @@ export class VrpRender {
 
         this.flowExport();
         this.logging();
+        this.alarms();
         this.snmp();
         this.ssh();
         this.userInterfaces();
@@ -455,6 +459,17 @@ export class VrpRender {
         }
 
         this.separator();
+    }
+
+    /** Alarms raised at another severity than the platform's own, in the `alarm` view. The platform prints a severity with a capital, `Warning`. */
+    private alarms(): void {
+        const alarms = Object.entries(this.device.system?.alarms ?? {});
+        if (!alarms.length) return;
+
+        this.block(
+            "alarm",
+            alarms.map(([name, alarm]) => `alarm ${name} severity ${VrpRender.ALARM_SEVERITY[alarm.severity]}`)
+        );
     }
 
     /** SNMP version 2c with one read community, version 3 with users in one read-only group, or both. */
