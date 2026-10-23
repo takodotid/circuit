@@ -17,7 +17,7 @@ Documentation: [circuit.tako.id](https://circuit.tako.id)
 - **Your own rules.** Checks run on every change; helpers give ready-made filters, BGP policies and checks.
 - **Secrets stay out of the repo.** They come from `.env` or 1Password and never show up in a plan or a snapshot.
 - **See the network.** `circuit studio` draws cables, VLANs, addresses, BGP, OSPF and tunnels in your browser, marks what's broken or differs from the device, and lists everything in tables for people who don't read TypeScript. It can run on a server for the whole team. `circuit graph` prints the drawing as Mermaid, DOT or JSON.
-- **Keeps the rest in step.** Prefix lists from a registry, your PeeringDB record, LibreNMS, Prometheus targets, WireGuard client configs, and your BGP communities for a looking glass.
+- **Keeps the rest in step.** Prefix lists from a registry, your PeeringDB record, LibreNMS, NetBox, Prometheus targets, WireGuard client configs, and your BGP communities for a looking glass.
 - **Safe with AI agents.** Every project gets an `AGENTS.md` that says what an agent may run; the last step stays yours.
 
 <picture>

@@ -1,6 +1,6 @@
 export { defineDevice, defineNetwork, secret, secretFile } from "./core/define";
 export { Utils } from "./core/utils";
-export type { Check, Community, Finding, Network } from "./core/define";
+export type { Check, Community, Finding, NetBoxDevice, Network } from "./core/define";
 export type * from "./schema";
 
 /** Address helpers, for checks of your own. */

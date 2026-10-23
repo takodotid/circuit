@@ -81,6 +81,8 @@ export type Network = {
     asn?: number;
     /** The BGP communities the network defines, printed by `circuit communities` for a looking glass or bgp.tools. */
     communities?: readonly Community[];
+    /** The site each device is at, such as a data centre or an office, by name. Devices ignore it; `circuit netbox` puts the device on the NetBox site of that name. */
+    site?: (device: Device) => string;
     /** Keeps the network's PeeringDB record in step with the config: `circuit peeringdb`. Needs `asn`. */
     peeringdb?: {
         /** An API key with write access to the network's record. */
@@ -93,6 +95,23 @@ export type Network = {
         /** An API token that can add devices. */
         api_token: Secret;
     };
+    /** Keeps NetBox in step with the config: `circuit netbox`. Needs `site`. */
+    netbox?: {
+        /** Where NetBox is, such as `https://netbox.example.com`. */
+        url: string;
+        /** An API token that can write. */
+        api_token: Secret;
+        /** What NetBox needs to know about a device that its config does not say. */
+        device: (device: Device) => NetBoxDevice;
+    };
+};
+
+/** What NetBox needs to know about a device that its config does not say. */
+export type NetBoxDevice = {
+    /** The device role's name in NetBox, such as `Core switch`. Circuit makes the role when NetBox has none of that name. */
+    role: string;
+    /** The device type's model name in NetBox, made by the platform's vendor. The device's `model` when absent. */
+    device_type?: string;
 };
 
 /** Declare the network, in `circuit.config.ts`. */

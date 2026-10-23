@@ -7,7 +7,7 @@ Circuit turns one TypeScript file per network device into that device's config, 
 - `src/schema/`: the vendor-neutral model, types only. A field's doc comment is its documentation.
 - `src/core/`: the config DSL (`define.ts`), validation, address math, secrets, topology.
 - `src/platforms/<name>/`: one adapter per device OS (`routeros`, `vrp`, `junos`, `fortios`, `raisecom-ros`), the only place for vendor syntax. Its `TRAPS.md` lists what the device does that you wouldn't expect.
-- `src/transport/` SSH and serial consoles. `src/integrations/` PeeringDB, LibreNMS, Prometheus, registries. `src/helpers/` ready-made filters, BGP policy and checks (`@takodotid/circuit/helpers`).
+- `src/transport/` SSH and serial consoles. `src/integrations/` PeeringDB, LibreNMS, NetBox, Prometheus, registries. `src/helpers/` ready-made filters, BGP policy and checks (`@takodotid/circuit/helpers`).
 - `src/cli/` the `circuit` command. `src/studio/` Circuit Studio: a server, and `public/`, plain browser JavaScript typed with JSDoc, no build. The server reads `public/` from the package's `src/` under Bun and Node alike; a saved file reloads an open page.
 - `examples/`: `platforms/` has one device per platform using every field its adapter supports, `use-cases/` has whole networks. `templates/` is what `circuit new` copies (a folder per pattern, `project/` for every project). `test/` checks both.
 - `docs/` is circuit.tako.id (VitePress). Pages include `templates/` files and each `TRAPS.md`: never copy them into a page.

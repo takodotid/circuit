@@ -18,16 +18,18 @@ export default defineNetwork({
 });
 ```
 
-| Field         | What it is                                                                           | Needed                |
-| ------------- | ------------------------------------------------------------------------------------ | --------------------- |
-| `devices`     | Every device Circuit manages                                                         | yes                   |
-| `checks`      | Rules of your own that every change must pass                                        | no                    |
-| `asn`         | Your AS number, for what Circuit publishes about the network                         | only with `peeringdb` |
-| `communities` | What your BGP communities mean, printed by `circuit communities`                     | no                    |
-| `peeringdb`   | An API key, so `circuit peeringdb` can keep your PeeringDB record up to date         | no                    |
-| `librenms`    | Where LibreNMS is and an API token, so `circuit librenms` can add your devices to it | no                    |
+| Field         | What it is                                                                                               | Needed                |
+| ------------- | -------------------------------------------------------------------------------------------------------- | --------------------- |
+| `devices`     | Every device Circuit manages                                                                             | yes                   |
+| `checks`      | Rules of your own that every change must pass                                                            | no                    |
+| `asn`         | Your AS number, for what Circuit publishes about the network                                             | only with `peeringdb` |
+| `communities` | What your BGP communities mean, printed by `circuit communities`                                         | no                    |
+| `peeringdb`   | An API key, so `circuit peeringdb` can keep your PeeringDB record up to date                             | no                    |
+| `librenms`    | Where LibreNMS is and an API token, so `circuit librenms` can add your devices to it                     | no                    |
+| `site`        | The site each device is at, a function that gets a device and returns a name                             | only with `netbox`    |
+| `netbox`      | Where NetBox is, an API token and each device's role, so `circuit netbox` can write your network into it | no                    |
 
-A network without BGP, such as a home or an office, only needs `devices`, and usually `checks`. See [Publishing the network](/guide/publishing) for the last three.
+A network without BGP, such as a home or an office, only needs `devices`, and usually `checks`. See [Publishing the network](/guide/publishing) for `communities` and `peeringdb`, [LibreNMS](/integrations/librenms) for `librenms`, and [NetBox](/integrations/netbox) for `site` and `netbox`.
 
 The file can have another name or live somewhere else. Then give its path to every command with `--config <path>`. `.circuit/`, `.env` and secret files are found next to it.
 
