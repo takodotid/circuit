@@ -2,3 +2,5 @@ node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 docs/reference/
+# Written by the skills CLI.
+skills-lock.json

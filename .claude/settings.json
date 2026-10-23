@@ -1,4 +1,27 @@
 {
     "autoMemoryEnabled": false,
-    "includeCoAuthoredBy": false
+    "includeCoAuthoredBy": false,
+    "permissions": {
+        "allow": [
+            "Bash(bun run typecheck)",
+            "Bash(bun run test)",
+            "Bash(bun run check)",
+            "Bash(bun run build)",
+            "Bash(bun run docs:build)",
+            "Bash(bun run format)",
+            "Bash(bun run format:check)",
+            "Bash(bun test:*)",
+            "Bash(bunx tsc --noEmit)",
+            "Bash(bunx prettier:*)",
+            "Bash(bun scripts/golden.ts:*)",
+            "Bash(bun scripts/shots.ts:*)",
+            "Bash(bun src/cli/index.ts validate:*)",
+            "Bash(bun src/cli/index.ts diff:*)",
+            "Bash(bun src/cli/index.ts build:*)",
+            "Bash(bun src/cli/index.ts graph:*)",
+            "Bash(bun src/cli/index.ts addresses:*)"
+        ],
+        "ask": ["Bash(bun scripts/lab.ts:*)", "Bash(bun run release:*)", "Bash(git push:*)", "Bash(gh pr merge:*)", "Bash(gh release:*)"],
+        "deny": ["Read(./.env)", "Read(./**/.env)"]
+    }
 }
