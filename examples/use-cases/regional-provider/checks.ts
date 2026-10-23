@@ -15,6 +15,9 @@ export default [
 
     Checks.tunnelsOutsideOffered,
 
+    // A native VLAN stays on one trunk and nowhere else, or it joins every trunk it is native on.
+    Checks.nativeVlansAreDeadEnds,
+
     // Customers never share a name, a number or an address, take their blocks from our space, and announce only their own.
     (devices) => {
         const findings: Finding[] = [];

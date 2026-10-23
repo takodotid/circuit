@@ -21,6 +21,7 @@ import { Bgp, Checks, Exchange, Filters } from "@takodotid/circuit/helpers";
 | `Checks.exportsEndInReject`                  | A check: every BGP export ends by rejecting what it did not accept        | `checks`                         |
 | `Checks.tunnelsOutsideOffered`               | A check: a tunnel never starts from an address you announce through it    | `checks`                         |
 | `Checks.trustBoundary({ … })`                | A check: traffic from outside reaches your VLANs only through a router    | `checks`                         |
+| `Checks.nativeVlansAreDeadEnds`              | A check: a native VLAN is native on one trunk and carried nowhere else    | `checks`                         |
 | `Exchange.build({ … }, members)`             | An internet exchange's member ports, and a check that keeps members apart | `ports`, `checks`                |
 
 The descriptions on the rules a helper makes are fixed, because a device stores them. A release that changes one is a breaking change.
@@ -108,6 +109,7 @@ export default defineNetwork({
         Checks.exportsEndInReject,
         Checks.tunnelsOutsideOffered,
         Checks.trustBoundary({ untrusted: ["transit", "ix"], routers: ["edge-01"] }),
+        Checks.nativeVlansAreDeadEnds,
     ],
 });
 ```
@@ -129,6 +131,13 @@ Every other VLAN counts as yours, so a VLAN you add later is protected without b
 A switch may carry the transit and your own VLANs on the trunk to the router, because the router filters between them. The same mix on a port to a server is an error.
 
 A site can reach into a second building through a switch there, such as for an internet exchange whose port is in that building, with the exchange's VLAN and the switch's own management on one cable. List that link in `extended`, by the names of its two switches: `extended: [["switch-a", "switch-b"]]`. The mix is then allowed on that link only, and neither switch may give the untrusted VLAN an address.
+
+**`Checks.nativeVlansAreDeadEnds`** keeps each native VLAN to one trunk. A native VLAN (`native_vlan`) is the VLAN that untagged frames on a trunk go into. On a switch, it is an untagged member of every trunk it is native on, so two trunks with the same native VLAN are joined: every untagged frame from one leaves on the other. Two routers of different providers on those trunks then see each other. On each device, the check reports a native VLAN that is:
+
+- native on more than one port or LAG;
+- also the `access_vlan` of a port or LAG, or in its `trunk_vlans`.
+
+Give each trunk a native VLAN of its own, used nowhere else. The check is not built in, because some designs share a native VLAN on purpose. A router on a stick, one router routing between VLANs over a single trunk, can take a VLAN untagged on that trunk while the switch gives the same VLAN to its access ports.
 
 ## Helpers for checks of your own
 

@@ -91,6 +91,32 @@ test("Checks.trustBoundary lets a named link between two switches extend a site"
     expect(Checks.trustBoundary({ untrusted: ["guests"], routers: [], extended: [["near", "far"]] })(devices)).toEqual([]);
 });
 
+test("Checks.nativeVlansAreDeadEnds keeps a native VLAN on one trunk and off every other port", async () => {
+    const { Checks } = await import("../../src/helpers");
+    const withPorts = (ports: Record<string, object>, interfaces: Record<string, object> = {}) =>
+        ({ ...switchDevice, name: "sw", ports, interfaces }) as unknown as typeof switchDevice;
+
+    const alone = withPorts({ "10g-1": { trunk_vlans: ["servers"], native_vlan: "guests" }, "10g-2": { access_vlan: "servers" } });
+    expect(Checks.nativeVlansAreDeadEnds([alone])).toEqual([]);
+
+    const shared = withPorts(
+        { "10g-1": { trunk_vlans: ["servers"], native_vlan: "guests" }, "10g-2": { lag: "uplink" } },
+        { uplink: { type: "lag", mode: "lacp", trunk_vlans: ["servers"], native_vlan: "guests" } }
+    );
+    expect(Checks.nativeVlansAreDeadEnds([shared]).map((finding) => finding.message)).toEqual([
+        "native VLAN guests is native on port 10g-1, LAG uplink: give each trunk its own",
+    ]);
+
+    const member = withPorts({
+        "10g-1": { trunk_vlans: ["servers", "guests"], native_vlan: "guests" },
+        "10g-2": { access_vlan: "guests" },
+    });
+    expect(Checks.nativeVlansAreDeadEnds([member]).map((finding) => finding.message)).toEqual([
+        "native VLAN guests is also an access or tagged VLAN on port 10g-1",
+        "native VLAN guests is also an access or tagged VLAN on port 10g-2",
+    ]);
+});
+
 test("Bgp.communityScheme blackholes only inside the customer's space, and never announces it", async () => {
     const { Bgp } = await import("../../src/helpers");
     const communities = Bgp.communityScheme({
