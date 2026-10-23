@@ -172,6 +172,7 @@ export class Vrp extends Platform {
         if (system.transceiver_monitoring !== undefined) found.push("system.transceiver_monitoring");
 
         found.push(...Derive.switchUnsupported(device));
+        found.push(...Derive.unproved(device));
 
         const flow = device.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`flow_export.protocol ${flow.protocol}, the platform exports sFlow`);

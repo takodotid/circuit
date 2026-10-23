@@ -30,20 +30,23 @@ A switch rule is one entry in the switch chip's hardware ACL. RouterOS makes one
 
 A field a platform cannot do is an error, never skipped; see [Devices](/guide/devices#when-a-device-cannot-do-what-you-wrote).
 
-| Feature                                   | routeros              | vrp                      | raisecom-ros            | junos                             | fortios                                       |
-| ----------------------------------------- | --------------------- | ------------------------ | ----------------------- | --------------------------------- | --------------------------------------------- |
-| VLANs, access and trunk ports, links      | yes                   | yes                      | yes                     | yes                               | VLAN interfaces on a routed port or LAG       |
-| Per-port STP, storm control, LLDP         | yes, storm in percent | yes, storm in percent    | off only, broadcast pps | yes, storm in percent             | LLDP                                          |
-| LAGs                                      | yes                   | yes                      | yes                     | yes                               | yes                                           |
-| Routed ports, loopbacks, tunnels          | yes                   | VLAN interfaces only     | VLAN interfaces only    | yes, GRE tunnels                  | yes, GRE and VXLAN                            |
-| VRRP, VRFs, DHCP relay                    | yes                   | IPv4                     | VRRP, IPv4              | IPv4 VRRP and relay               | IPv4 VRRP, VRFs, relay                        |
-| Static routes                             | yes                   | IPv6 without description | IPv4 next hop           | without description               | yes                                           |
-| IPv6 router advertisements                | yes                   | no                       | no                      | yes                               | yes                                           |
-| OSPF and BFD                              | yes                   | IPv4                     | OSPF, IPv4              | outside VRFs                      | outside VRFs                                  |
-| BGP, policies, prefix sets, RPKI          | yes                   | no                       | no                      | yes, without roles                | yes, without RPKI, roles or large communities |
-| Firewall, NAT, hardware ACLs, DHCP server | yes                   | no                       | no                      | hardware ACLs, DHCP server        | yes, ACLs that drop, NAT for IPv4             |
-| Flow export                               | NetFlow 9, IPFIX      | sFlow                    | no                      | sFlow                             | sFlow, NetFlow 9, one collector               |
-| SNMP                                      | v2c, v3 with SHA1     | v2c, v3                  | v2c, v3 with SHA1       | v2c, v3                           | v2c, v3 with SHA1                             |
-| Certificates, web and API                 | yes                   | no                       | no                      | web, API and NETCONF, without TLS | certificates and web                          |
+"Not yet" means the field exists, but no device has shown yet how it takes and prints the commands, so `validate` refuses it until someone proves it on one.
+
+| Feature                                       | routeros              | vrp                      | raisecom-ros            | junos                             | fortios                                       |
+| --------------------------------------------- | --------------------- | ------------------------ | ----------------------- | --------------------------------- | --------------------------------------------- |
+| VLANs, access and trunk ports, links          | yes                   | yes                      | yes                     | yes                               | VLAN interfaces on a routed port or LAG       |
+| Per-port STP, storm control, LLDP             | yes, storm in percent | yes, storm in percent    | off only, broadcast pps | yes, storm in percent             | LLDP                                          |
+| LAGs                                          | yes                   | yes                      | yes                     | yes                               | yes                                           |
+| Routed ports, loopbacks, tunnels              | yes                   | VLAN interfaces only     | VLAN interfaces only    | yes, GRE tunnels                  | yes, GRE and VXLAN                            |
+| VRRP, VRFs, DHCP relay                        | yes                   | IPv4                     | VRRP, IPv4              | IPv4 VRRP and relay               | IPv4 VRRP, VRFs, relay                        |
+| Static routes                                 | yes                   | IPv6 without description | IPv4 next hop           | without description               | yes                                           |
+| IPv6 router advertisements                    | yes                   | no                       | no                      | yes                               | yes                                           |
+| OSPF and BFD                                  | yes                   | IPv4                     | OSPF, IPv4              | outside VRFs                      | outside VRFs                                  |
+| BFD timers, on static routes and multihop BGP | not yet               | not yet                  | not yet                 | not yet                           | not yet                                       |
+| BGP, policies, prefix sets, RPKI              | yes                   | no                       | no                      | yes, without roles                | yes, without RPKI, roles or large communities |
+| Firewall, NAT, hardware ACLs, DHCP server     | yes                   | no                       | no                      | hardware ACLs, DHCP server        | yes, ACLs that drop, NAT for IPv4             |
+| Flow export                                   | NetFlow 9, IPFIX      | sFlow                    | no                      | sFlow                             | sFlow, NetFlow 9, one collector               |
+| SNMP                                          | v2c, v3 with SHA1     | v2c, v3                  | v2c, v3 with SHA1       | v2c, v3                           | v2c, v3 with SHA1                             |
+| Certificates, web and API                     | yes                   | no                       | no                      | web, API and NETCONF, without TLS | certificates and web                          |
 
 Each platform's own page lists the device's surprises that Circuit works around, so you do not have to. Every one of them was found on a real device.

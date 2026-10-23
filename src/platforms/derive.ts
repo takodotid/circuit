@@ -27,6 +27,31 @@ export class Derive {
         return addresses.filter((address) => Address.family(address) === "ipv4").map((address) => Address.prefixOf(address));
     }
 
+    /** Fields no platform has proved on a device yet. Every platform refuses them until it has. */
+    static unproved(device: Device): string[] {
+        const found: string[] = [];
+        const routing = device.routing;
+        const unproved = "not proved on a device yet";
+
+        if (routing?.bfd) found.push(`routing.bfd, BFD timers are ${unproved}`);
+
+        for (const route of routing?.static ?? []) {
+            if (route.bfd) found.push(`routing.static ${route.prefix} bfd, BFD on a static route is ${unproved}`);
+        }
+
+        const bgp = routing?.bgp;
+
+        for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
+            const group = neighbor.group ? bgp?.groups?.[neighbor.group] : undefined;
+            const bfd = neighbor.bfd ?? group?.bfd;
+            const multihop = neighbor.multihop ?? group?.multihop;
+
+            if (bfd && multihop) found.push(`routing.bgp.neighbors.${name}.bfd, BFD on a multihop session is ${unproved}`);
+        }
+
+        return found;
+    }
+
     /** Services the switch platforms run. Each takes its sources from `management.allow`, on the protocol's own port. */
     private static readonly SWITCH_SERVICES = ["ssh", "telnet", "snmp"] as const;
 

@@ -9,6 +9,7 @@ import type { AclRule, Device, Family, FilterRule } from "../../schema";
 import { SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../catalog";
+import { Derive } from "../derive";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
 import { FortiOsFirewall } from "./firewall";
 import { FortiOsNames } from "./names";
@@ -192,6 +193,7 @@ export class FortiOs extends Platform {
 
         if (device.stp) found.push("stp, ports are routed");
         found.push(...FortiOs.transparentGaps(device));
+        found.push(...Derive.unproved(device));
 
         for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
             if (iface.type === "vlan" && iface.mac) found.push(`interfaces.${name}.mac, which only RouterOS sets for now`);

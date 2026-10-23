@@ -249,6 +249,7 @@ export class RaisecomRos extends Platform {
         }
 
         found.push(...Derive.switchUnsupported(device));
+        found.push(...Derive.unproved(device));
 
         return found;
     }

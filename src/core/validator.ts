@@ -249,6 +249,7 @@ export class Validator {
             cidr("static route", route.prefix);
             if (!route.via && !route.interface && !route.blackhole) report(`static route ${route.prefix} has no next hop`);
             if (route.via) ip(`static route ${route.prefix}`, route.via);
+            if (route.bfd && !route.via) report(`static route ${route.prefix} has bfd without via, the address BFD watches`);
             names.expectInterface(`static route ${route.prefix} interface`, route.interface);
             names.expect(`static route ${route.prefix} VRF`, route.vrf, route.vrf !== undefined && route.vrf in (device.vrfs ?? {}));
         }
