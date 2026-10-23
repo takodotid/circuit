@@ -4,6 +4,7 @@
 
 import type { Client } from "ssh2";
 import { Address } from "../../core/address";
+import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family } from "../../schema";
 import { SerialConsole, type ConsoleDialect, ConsoleShell } from "../../transport/console";
@@ -71,6 +72,16 @@ export class RouterOs extends Platform {
         ":foreach s in=[/routing bgp session find] do={",
         ":local g [/routing bgp session get $s];",
         ':put (($g->"name") . "|" . ($g->"remote.address") . "|" . ($g->"established") . "|" . ($g->"prefix-count") . "|" . ($g->"uptime"))',
+        "}",
+    ].join(" ");
+
+    /**
+     * Every LLDP neighbor, one line each: our interfaces, the port first and then the LAG and bridge it is in, the far system name, and the far port as LLDP reports it. `:tostr` keeps the interface list one value; joined to a string as it is, a list repeats the whole line for each of its items. One line, because a script sent over exec runs as one.
+     */
+    private static readonly LIST_NEIGHBORS = [
+        ':foreach n in=[/ip neighbor find where discovered-by~"lldp"] do={',
+        ":local g [/ip neighbor get $n];",
+        ':put ([:tostr ($g->"interface")] . "|" . ($g->"identity") . "|" . ($g->"interface-name"))',
         "}",
     ].join(" ");
 
@@ -373,6 +384,45 @@ export class RouterOs extends Platform {
                 }
             },
         };
+    }
+
+    /** The LLDP neighbors the device sees, by Circuit's port names. */
+    override async neighbors(device: Device, network: readonly Device[], options: ReadOptions = {}): Promise<Neighbor[]> {
+        const session = await this.session(device, options);
+
+        try {
+            const output = await session.run(RouterOs.LIST_NEIGHBORS, 60_000);
+
+            return output
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.includes("|"))
+                .map((line) => RouterOs.neighbor(device, network, line));
+        } finally {
+            session.close();
+        }
+    }
+
+    /** One line of `LIST_NEIGHBORS` as a neighbor. Our port is the first interface, by Circuit's name when it is a port. */
+    private static neighbor(device: Device, network: readonly Device[], line: string): Neighbor {
+        const [interfaces = "", system = "", ...rest] = line.split("|");
+        const reported = rest.join("|");
+        const own = interfaces.split(";")[0] ?? "";
+        const port = Catalog.ports(device.platform, device.model).find((name) => Catalog.spell(device.platform, device.model, name) === own);
+
+        return { port: port ?? own, system, remote_port: RouterOs.farPort(network, system, reported) };
+    }
+
+    /**
+     * RouterOS reports the far port's description, where it has one, not its name (TRAPS.md). When it is the description of exactly one port of that device in the network, that port is the far port, by Circuit's name; otherwise the report stays as it is.
+     */
+    private static farPort(network: readonly Device[], system: string, reported: string): string {
+        const far = network.find((candidate) => system === candidate.name || system.startsWith(`${candidate.name}.`));
+        const described = Object.entries(far?.ports ?? {})
+            .filter(([, port]) => port?.description === reported)
+            .map(([name]) => name);
+
+        return described.length === 1 ? described[0]! : reported;
     }
 
     /** Replace a list's entries in batches, so each command stays a sane length. */
