@@ -18,11 +18,12 @@ The `circuit` command runs from `dist/`, so run `bun run build` in Circuit after
 ## Checks
 
 ```bash
-bun run typecheck
+bun run check       # everything CI runs: typecheck, tests, format, this site, the Node build
 bun run test        # every example and template validates, and plans nothing against its own render
-bun run build       # dist/, what Node, npm and pnpm run
 bun run docs:dev    # this site, locally
 ```
+
+Before a refactor, `bun scripts/golden.ts save`; after it, `bun scripts/golden.ts check` says whether any command prints something different on any example.
 
 ## Templates
 
@@ -30,9 +31,7 @@ bun run docs:dev    # this site, locally
 
 ## Writing the documentation
 
-Write for someone who may be new to networking. Say what a thing does before how, explain a word the first time it matters or link the [Glossary](/guide/glossary), and break a process into numbered steps. A longer sentence that is easy to follow beats a short one that has to be read twice.
-
-Many readers have English as a second language, so say what a thing does with everyday verbs: "`access_vlan` says which VLAN the port is in", not "`access_vlan` names the VLAN the port belongs to" or "indicates the VLAN to which the port belongs". Words such as names (as a verb), denotes, specifies, designates and to which are correct but must be decoded; says which, is for, is in and points to are not.
+Write for someone who may be new to networking, in everyday words: the answer first, a process as numbered steps, a niche word explained or linked to the [Glossary](/guide/glossary). The full rules are in [AGENTS.md](https://github.com/takodotid/circuit/blob/main/AGENTS.md#writing), for people and AI agents alike.
 
 ## Writing an Academy lesson
 
@@ -47,28 +46,10 @@ A lesson's place in its level, its "mark it done" box and its discussion are add
 
 ## Adding a platform
 
-1. `src/platforms/<platform>/models.ts`: each model's ports per speed class and the platform's spelling of them.
-2. An adapter implementing `DeviceAdapter` in `src/platforms/types.ts`. `lines.ts` plans the changes for a configuration written in blocks; `routeros/` shows one written as commands, and `junos/` one written as `set` statements.
-3. Register it in `src/platforms/index.ts` and the catalog in `src/platforms/catalog.ts`.
-4. `unsupported()` lists every field it cannot express. Silence is not an option.
-5. An example in `examples/` using every field it supports, and a `TRAPS.md` with what the platform taught.
+A platform is one device operating system at the versions it was proved on, in `src/platforms/<name>/`, as a class that extends `Platform` from `src/platforms/platform.ts`. Another model of a platform Circuit has only needs its ports in that platform's `models.ts`.
 
-Another model of an existing platform only needs its ports in that platform's `models.ts`: how many of each speed, and how the platform spells them.
-
-New syntax is proved on a device without applying it: RouterOS compiles a command with `:put [:parse "..."]`, VRP discards a candidate with `clear configuration candidate`, Junos checks one with `commit check` and discards it with `rollback 0`, and FortiOS opens one with `execute config-transaction start` and discards it with `execute config-transaction abort`. A transaction behaves differently from a plain apply, though, so a FortiOS change is proved with a plain apply under `cfg-save revert`, undone with `execute cfg reload`. A platform that applies at once is tried on a spare port.
+The steps, from the model catalog to the docs, are in the [implement-device checklist](https://github.com/takodotid/circuit/blob/main/.claude/skills/implement-device/SKILL.md). Everything a platform sends is proved on a real device first, the safe way for each platform; see [prove-on-device](https://github.com/takodotid/circuit/blob/main/.claude/skills/prove-on-device/SKILL.md). Both are also skills an AI agent working in the repository loads by itself.
 
 ## Releases
 
-Every change is a branch and a pull request; a release is cut from `main` only after the work in it is merged and accepted. [DEPLOYMENT.md](https://github.com/takodotid/circuit/blob/main/DEPLOYMENT.md) has the whole path. Circuit follows semantic versioning:
-
-```bash
-bun run release patch            # 0.2.0 to 0.2.1
-bun run release minor            # 0.2.1 to 0.3.0
-bun run release rc minor         # 0.3.0 to 0.4.0-rc.0
-bun run release rc               # 0.4.0-rc.0 to 0.4.0-rc.1
-bun run release stable           # 0.4.0-rc.1 to 0.4.0
-```
-
-The script commits the version and pushes a tag. The tag publishes the package to npm and GitHub Packages, and a GitHub release with generated notes; a candidate is published under the `rc` dist-tag and marked as a prerelease.
-
-Commits follow Conventional Commits with a scope from `commitlint.config.js`.
+Every change is a branch and a pull request; a release is cut from `main` only after the work in it is merged and accepted, with `bun run release`. [DEPLOYMENT.md](https://github.com/takodotid/circuit/blob/main/DEPLOYMENT.md) has the whole path. Commits follow Conventional Commits with a scope from `commitlint.config.js`.

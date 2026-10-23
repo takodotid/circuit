@@ -1,44 +1,72 @@
 # AGENTS.md
 
-Circuit is a declarative, vendor-neutral network configuration framework. It knows no particular network: a network lives in its own repository and depends on Circuit.
+Circuit turns one TypeScript file per network device into that device's config, shows what would change, then makes the device match. It knows no particular network: each network lives in its own repo and depends on Circuit.
+
+## Where things are
+
+- `src/schema/`: the vendor-neutral model, types only. Each field's doc comment is its documentation.
+- `src/core/`: the config DSL (`define.ts`), validation, address math, secrets, the network topology.
+- `src/platforms/<name>/`: one adapter per device OS: `routeros`, `vrp`, `junos`, `fortios`, `raisecom-ros`. Vendor syntax lives only here. Each has a `TRAPS.md`: what the device does that you wouldn't expect.
+- `src/transport/`: SSH and serial console sessions. `src/integrations/`: PeeringDB, LibreNMS, Prometheus, prefix registries.
+- `src/presets/`: ready-made filters, BGP policy and checks, public as `@takodotid/circuit/presets`.
+- `src/cli/`: the `circuit` command. `src/studio/`: Circuit Studio, a TypeScript server and a page in `public/` that is plain browser JavaScript typed with JSDoc, no build step. The server reads `public/` from the package's `src/` under Bun and Node alike, and a saved file reloads an open page.
+- `examples/`: uses every field each adapter supports. `templates/`: what `circuit new` copies, a folder per pattern plus `project/` for what every project gets. `test/`: checks both.
+- `docs/`: the site at circuit.tako.id (VitePress). Its pages include the `templates/` files and each `TRAPS.md`, so never copy those into a page.
+- `scripts/`: build, release, schema reference, and the agent tools below.
 
 ## Rules
 
-1. The config is the whole truth. A device runs exactly its config; anything else is removed or returned to its default.
-2. No particular network's names, addresses or policies in this repository. Vendor syntax lives only in `src/platforms/<platform>/`.
-3. A field is written when it has a value. No `enabled: false`, no `admin_state`, no placeholders, nothing marked reserved or spare. Off is the absence of the field.
-4. Every schema field has a comment, shown on hover in the editor.
-5. A field a platform cannot express is listed in that adapter's `unsupported()`. Never skip one silently.
+1. The config is the whole truth. A device runs exactly its config; anything else is removed or reset to its default.
+2. No real network's names, addresses or policies in this repo.
+3. A field is written only when it has a value. No `enabled: false`, no placeholders, nothing marked spare. Off means the field isn't there.
+4. Every schema field has a doc comment, shown on hover in the editor.
+5. A field a platform can't express goes in that adapter's `unsupported()`. Never skip one silently.
 6. Secrets are `secret("NAME")` references. Rendered config, plans and snapshots never hold a value.
-7. `bun run typecheck` and `bun run test` must pass. The pre-commit hook runs both.
-8. When unsure, ask. Never guess on anything a device does differently from what its documentation says: prove it on a device.
+7. A platform is one OS at the versions in its `os.versions` (`routeros` is RouterOS 7, not 6). A new version gets a wider `os.versions` once proved on it, or its own platform if it takes other commands.
+8. Never guess what a device does. Prove it on a device (skill `prove-on-device`), then write what you learned in its `TRAPS.md`.
+9. When unsure, ask.
+10. When the owner approves a new rule or decision, write it into this file in the same change.
+
+## Code
+
+- Classes, not loose functions. A file exports one main class named after its job, and callers write `Address.contains(...)`, `Secrets.resolve(...)`. Static methods for helpers without state; an instance when calls share state or keep passing the same arguments. Constants are `static readonly`. A method name doesn't repeat its class.
+- A class inside a platform folder starts with the platform's name (`RouterOsRender`, `FortiOsTree`), so no two modules export the same generic name.
+- Exceptions: the config DSL (`defineDevice`, `defineNetwork`, `secret`, `secretFile`, `merge`) stays as functions; Vue components and composables (`useX`) follow Vue. Types stay plain `export type`.
+- `src/` uses Node's APIs, never Bun's. Bun runs `src/` as it is; `bun run build` bundles `dist/` for Node, npm and pnpm, where the CLI loads the config with jiti.
+- Write code to be read: names that say what a value is, one step per line, a blank line between steps, an object with more than a few fields spread over lines (Prettier keeps it that way when there's a newline after `{`). Keep a platform's adapter in its own few files.
+- Comments are short and plain. No decorative comments.
 
 ## Writing
 
-English only. No em-dashes, no decorative comments, no manual line wrapping. Name no person or vendor unless the sentence needs it. Document only what is needed and delete what is not; git history is the archive.
+For docs, comments, commit messages and replies to the owner.
 
-Code comments are short and neutral. The documentation is written for every reader, including someone new to networking, after https://raflymaulana.com/blog/how-to-write-english.md: plain words over correct but dense ones, the direct answer first, a process as numbered steps, a niche word explained or linked to the glossary. A longer sentence that is easy to follow beats a short one that must be read twice. Never repeat what another file holds: the pattern pages include `templates/`, the credits read `package.json`.
+- Dead simple: everyday words and verbs, the answer first, steps as a numbered list, no filler. Write it the way you'd tell a coworker.
+- Many readers have English as a second language. Say what a thing does, thing first: "`access_vlan` says which VLAN the port is in", not "denotes the VLAN to which the port belongs". Skip words that must be decoded: names (as a verb), denotes, specifies, designates, whereby, wherein.
+- English in the repo. Reply to the owner in the language they write in.
+- No em-dashes. No manual line wrapping. Name no person or vendor unless the sentence needs it.
+- Say each thing once and link to it elsewhere. Delete what isn't needed; git history keeps it.
+- Docs pages are for everyone, including someone new to networking: explain a niche word where it first matters, or link the glossary (`docs/guide/glossary.md`).
+- A change to what Circuit does updates the page that describes it, in the same commit.
 
-Many readers have English as a second language, so say what a thing does with everyday verbs, in the order a reader thinks: the thing first, then what it does. Write "`access_vlan` says which VLAN the port is in", not "`access_vlan` names the VLAN the port belongs to" or "indicates the VLAN to which the port belongs". Words such as names (as a verb), denotes, specifies, designates, to which, whereby and wherein are correct but must be decoded; use says which, is for, is in, points to, or a sentence of their own.
+## Checks
 
-Code is written to be read: names that say what a value is, one step per line, a blank line between steps, and an object with more than a few fields spread over lines. Readability never means splitting a file; a platform's adapter stays in its own few files. Prettier keeps an object expanded when its source has a newline after `{`.
+- `bun run check` runs what CI runs: typecheck, tests, format, docs build, Node build, and the templates under Node. The pre-commit hook runs `bun run typecheck` and `bun run test`.
+- Each example and template must plan nothing against its own render (`test/platforms/examples.test.ts`): that catches a reader and a renderer that disagree.
+- Before a refactor, `bun scripts/golden.ts save`; after it, `bun scripts/golden.ts check`. Every CLI output on every example must still match.
 
-## Changing an adapter
+## Agent tools
 
-Read the platform's `TRAPS.md` first, and add to it what the change taught. New syntax is proved on a device without applying it: on RouterOS, `:put [:parse "..."]` compiles a command without running it; on VRP, lines go into the candidate and `clear configuration candidate` discards them; on Junos, `load set terminal` fills the candidate, `commit check` checks it and `rollback 0` discards it; on FortiOS, `execute config-transaction start` opens a transaction that `execute config-transaction abort` discards, while `abort` inside a table does nothing and every `next` outside a transaction applies and saves, and a transaction behaves differently from a plain apply, so prove the apply itself with `cfg-save revert` and `execute cfg reload`; Raisecom applies at once, so only a spare port is safe.
+- Skills in `.claude/skills/`: `implement-device` (a new OS or model), `fix-device` (a bug seen on a device), `prove-on-device` (try syntax on a device safely), `release`.
+- `bun scripts/lab.ts`: read, plan or apply one device file against a real device, and send raw lines to it. `bun scripts/shots.ts`: screenshots of the docs site or Studio, with the browser's console errors. `bun scripts/golden.ts`: see Checks.
+- Third-party skills (antislop, impeccable) aren't committed: `bun run agents:setup` installs them from `skills-lock.json`. Design work reads `PRODUCT.md` and `DESIGN.md`.
 
-`examples/` uses every field each adapter supports, and `test/` checks each example plans nothing against its own render. A reader and renderer that disagree on a form show up there before they show up as a change on every apply.
+## Git and releases
 
-Circuit is developed with Bun, which runs `src/` as it is. `bun run build` bundles `dist/` for Node, npm and pnpm, with type declarations; the package's exports send Bun to `src/` and everyone else to `dist/`. Code in `src/` uses Node's APIs, never Bun's, so both run it. Under Node, the CLI loads the config with jiti.
+- A change goes on its own branch and pull request, unless it touches only docs or repo meta files. `DEPLOYMENT.md` has the whole path.
+- Conventional Commits with a scope from `commitlint.config.js`. Each commit does one thing, holds its tests and docs, and passes typecheck and tests on its own.
+- Release only from accepted work on `main`, with `bun run release` (skill `release`). Circuit is alpha until 1.0.0: say so wherever it's installed.
+- Use the `gh` CLI for GitHub. Planned work is an issue; a release target is a milestone.
 
-`circuit studio` lives in `src/studio/`, which `src/cli/` calls. Its page is the files in `src/studio/public/`: HTML, CSS, and JavaScript the browser runs as it is, typed with JSDoc that `bun run typecheck` checks. The server reads them from the package's `src/` under Bun and Node alike, and a saved change reloads an open page.
+## License
 
-`templates/` is what `circuit new` copies: a directory per pattern, and `project/` for what every project gets. The tests validate each template with its own checks, and the pattern pages include its files, so a template is always a working example.
-
-`docs/` is the documentation site at circuit.tako.id. A change to what Circuit does changes the page that describes it in the same commit. Platform pages include each adapter's `TRAPS.md`.
-
-A change goes on its own branch and pull request, unless it touches only documentation or repository meta files, and a release is cut only from accepted work on `main`: see `DEPLOYMENT.md`. Commits follow Conventional Commits with a scope from `commitlint.config.js`. Split a change into commits that each do one thing and pass `bun run typecheck` and `bun run test` on their own: the core of a feature, then each command built on it, then the README, for example. A commit holds the tests and documentation for what it changes. Releases are cut with `bun run release`, which tags `vX.Y.Z` or `vX.Y.Z-rc.N`; the tag publishes to npm and GitHub Packages, and a GitHub release. Circuit is alpha until 1.0.0: say so wherever it is installed.
-
-Circuit is licensed by PT Hobimu Jadi Cuan under the Business Source License 1.1 in `LICENSE`. Licensing questions go to legal@tako.id; the maintainers are the Tako Network Engineering Team, noc@tako.id. Attribution stays modest: the license, the copyright line and the credits page, no more.
-
-Use the `gh` CLI for anything on GitHub: issues, pull requests, releases, repository settings. Planned work is a GitHub issue, and a release target is a milestone.
+Business Source License 1.1 by PT Hobimu Jadi Cuan, in `LICENSE`. Licensing questions: legal@tako.id. Maintainers: Tako Network Engineering Team, noc@tako.id. Attribution stays modest: the license, the copyright line and the credits page.

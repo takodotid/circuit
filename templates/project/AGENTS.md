@@ -44,4 +44,5 @@ What each field means is written as a comment on the field, in `node_modules/@ta
 - Never run `apply --confirm`, `refresh --confirm` or `peeringdb --confirm` without the owner's explicit approval for that run.
 - If a plan removes something you did not expect, stop and ask. It usually means the file is missing something the device needs.
 - Be careful with anything that carries your own access to the device: the management address, the management VLAN, the uplink, `management.allow`, and the login user. A mistake there locks everyone out.
+- A platform supports only the OS versions listed at https://circuit.tako.id/platforms/. Before the first apply to a device, check that it runs one of them.
 - When you are not sure what a field does, or what the owner wants, ask instead of guessing.

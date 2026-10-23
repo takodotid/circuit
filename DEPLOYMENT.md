@@ -24,7 +24,7 @@ git push -u origin feat/prometheus-auths
 gh pr create --base main
 ```
 
-Say what changes, why, and anything a reviewer should try. CI, `check.yml`, must pass: the typecheck, the tests, formatting, the documentation build, and every template validated by the Node build.
+Say what changes, why, and anything a reviewer should try. CI, `check.yml`, must pass. It runs `bun run check`: the typecheck, the tests, formatting, the documentation build, and every template validated by the Node build. Run it yourself first.
 
 Keep working on the same branch until the pull request is ready. Several requests that belong together go in one pull request.
 

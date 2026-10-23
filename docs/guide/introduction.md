@@ -24,6 +24,6 @@ If you have used Terraform or Ansible for servers, this is the same idea for net
 
 ## Which devices
 
-Circuit supports MikroTik RouterOS 7, Huawei VRP, Raisecom ROS, Juniper Junos and Fortinet FortiOS. Each was proved on a real device before it was released. See [Platforms](/platforms/) for what each one can do.
+Circuit supports MikroTik RouterOS 7, Huawei VRP V200R005, Raisecom ROS 6.5, Juniper Junos 21 and Fortinet FortiOS 6.2. Each was proved on a real device before it was released. See [Platforms](/platforms/) for what each one can do.
 
 New to some of the words here? See the [Glossary](/guide/glossary).
