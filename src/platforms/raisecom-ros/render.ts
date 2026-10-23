@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Port, SnmpUser, Switched, Vrrp } from "../../schema";
+import type { Device, Port, Prefix, Severity, SnmpUser, Switched, Vrrp } from "../../schema";
 import { Catalog } from "../catalog";
 import { Derive } from "../derive";
 
@@ -11,6 +11,24 @@ type AnyPort = Port<string, string, string, string>;
 export class RaisecomRosRender {
     /** The access-list that guards every management service. */
     static readonly MANAGEMENT_ACL = 1000;
+
+    /** The access-list that guards SNMP when it has sources of its own. */
+    static readonly SNMP_ACL = 1001;
+
+    /** A log level as the platform prints it, a number. It takes the names too (`warnings`), but prints the number. */
+    private static readonly LOG_LEVELS: Record<Severity, number> = {
+        emergency: 0,
+        alert: 1,
+        critical: 2,
+        error: 3,
+        warning: 4,
+        notice: 5,
+        info: 6,
+        debug: 7,
+    };
+
+    /** The log level and UDP port a log host has unless told otherwise. Neither prints. */
+    private static readonly LOG_DEFAULTS = { level: 6, port: 514 };
 
     /** The SNMPv3 authentication each `auth` takes on this platform. One missing here cannot be expressed. */
     static readonly SNMP_AUTH: Partial<Record<SnmpUser["auth"], string>> = { sha1: "sha" };
@@ -58,15 +76,9 @@ export class RaisecomRosRender {
             lines.push(...RaisecomRosRender.switching(lag, vlanId), "!");
         }
 
-        if (allow.length) {
-            // An access-list description takes one word.
-            lines.push(`access-list ${RaisecomRosRender.MANAGEMENT_ACL}`, "  description management");
-            allow.forEach((cidr, index) =>
-                lines.push(`  rule ${(index + 1) * 10} permit ${Address.host(cidr)} ${Address.netmask(Address.split(cidr).len)}`)
-            );
-            // Stated, so the list reads the same without knowing the firmware's implicit end.
-            lines.push("  rule 100 deny any", "!");
-        }
+        if (allow.length) lines.push(...RaisecomRosRender.accessList(RaisecomRosRender.MANAGEMENT_ACL, "management", allow));
+        const snmpSources = management.snmp?.allow;
+        if (snmpSources) lines.push(...RaisecomRosRender.accessList(RaisecomRosRender.SNMP_ACL, "snmp", snmpSources));
 
         for (const [name, user] of Object.entries(device.users ?? {}))
             lines.push(`user name ${name} password ${Secrets.marker(user.password)}`);
@@ -156,8 +168,8 @@ export class RaisecomRosRender {
             );
         }
 
-        if ((snmp?.community || snmpUsers.length) && allow.length)
-            lines.push(`snmp-server access-list ${RaisecomRosRender.MANAGEMENT_ACL}`);
+        const snmpAcl = snmpSources ? RaisecomRosRender.SNMP_ACL : allow.length ? RaisecomRosRender.MANAGEMENT_ACL : undefined;
+        if ((snmp?.community || snmpUsers.length) && snmpAcl) lines.push(`snmp-server access-list ${snmpAcl}`);
 
         for (const route of device.routing?.static ?? []) {
             const { addr, len } = Address.split(route.prefix);
@@ -177,7 +189,26 @@ export class RaisecomRosRender {
         const ntp = device.system?.ntp;
         if (ntp?.servers.length) lines.push("ntp enable", ...ntp.servers.map((server) => `ntp server ${server}`));
 
+        for (const host of device.system?.logging?.remote ?? []) {
+            const level = RaisecomRosRender.LOG_LEVELS[host.level];
+            const port = host.port ?? RaisecomRosRender.LOG_DEFAULTS.port;
+            let line = `logging host ${host.address}`;
+            if (level !== RaisecomRosRender.LOG_DEFAULTS.level) line += ` ${level}`;
+            if (port !== RaisecomRosRender.LOG_DEFAULTS.port) line += ` udpport ${port}`;
+            lines.push(line);
+        }
+
         return lines.join("\n") + "\n";
+    }
+
+    /** An access-list permitting `sources`, then denying the rest. Its description takes one word. */
+    private static accessList(number: number, description: string, sources: readonly Prefix[]): string[] {
+        const rules = sources.map(
+            (cidr, index) => `  rule ${(index + 1) * 10} permit ${Address.host(cidr)} ${Address.netmask(Address.split(cidr).len)}`
+        );
+
+        // Stated, so the list reads the same without knowing the firmware's implicit end.
+        return [`access-list ${number}`, `  description ${description}`, ...rules, "  rule 100 deny any", "!"];
     }
 
     /** Access or trunk membership, for a port or a LAG. */
