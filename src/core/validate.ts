@@ -1,8 +1,8 @@
 // Rules every network has to satisfy, whatever its design. Types catch most of this at compile time; these run again at load, because config is data and may not come from TypeScript.
 
 import { X509Certificate } from "node:crypto";
-import { adapters } from "../adapters/devices";
-import { portsOf } from "../adapters/devices/catalog";
+import { adapters } from "../platforms";
+import { portsOf } from "../platforms/catalog";
 import type { Device } from "../schema";
 import { checkAcross } from "./across";
 import { contains, familyOf, isAddress, isCidr } from "./addr";

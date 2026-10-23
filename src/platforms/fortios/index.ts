@@ -3,11 +3,11 @@
 // The configuration is read and written as `config` blocks, the form `show` prints. A change applies as it is sent. Before a plan is sent the device is set to revert: a change not saved within the rollback time is undone by reloading the saved configuration, and Circuit reloads it at once when a line is refused. A fresh login proves access before the change is saved. Configuration transactions are not used: on 6.2 one keeps references its own deletions dropped, and one whose session is cut off keeps what it touched locked.
 
 import type { Client } from "ssh2";
-import { familyOf, host, split } from "../../../core/addr";
-import { MARKER, resolve, valueOfReference } from "../../../core/secrets";
-import type { AclRule, Device, Family, FilterRule } from "../../../schema";
-import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../../transport/console";
-import { connect, managementHost, shell } from "../../../transport/ssh";
+import { familyOf, host, split } from "../../core/addr";
+import { MARKER, resolve, valueOfReference } from "../../core/secrets";
+import type { AclRule, Device, Family, FilterRule } from "../../schema";
+import { type ConsoleDialect, consoleLogin, consoleOf, openConsole } from "../../transport/console";
+import { connect, managementHost, shell } from "../../transport/ssh";
 import { portsOf, spell } from "../catalog";
 import type { ApplyOptions, DeviceAdapter, Plan, ReadOptions } from "../types";
 import { acceptsBeforeDrop, familiesOf, isImplied, serviceOf } from "./firewall";

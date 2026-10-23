@@ -1,7 +1,7 @@
 // Every example validates, renders, and plans nothing against its own render. A plan that is not empty there means the reader and the renderer disagree on a form, which would show up as a change on every apply.
 
 import { describe, expect, test } from "bun:test";
-import { adapters } from "../../src/adapters/devices";
+import { adapters } from "../../src/platforms";
 import { defineNetwork } from "../../src/core/define";
 import { validate } from "../../src/core/validate";
 import type { Device } from "../../src/schema";

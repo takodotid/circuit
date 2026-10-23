@@ -1,7 +1,7 @@
 // Presets are plain config: what each returns is what a device holds, or a check that finds what it describes.
 
 import { expect, test } from "bun:test";
-import { adapters } from "../../src/adapters/devices";
+import { adapters } from "../../src/platforms";
 import router from "../../examples/router";
 import switchDevice from "../../examples/switch";
 

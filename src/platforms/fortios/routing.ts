@@ -1,8 +1,8 @@
 // OSPF, OSPFv3 and BGP, with the route maps, prefix lists and community lists BGP's policies become.
 
-import { familyOf, host, split } from "../../../core/addr";
-import { marker } from "../../../core/secrets";
-import type { Device, Family, Neighbor, NeighborSettings, PolicyRule } from "../../../schema";
+import { familyOf, host, split } from "../../core/addr";
+import { marker } from "../../core/secrets";
+import type { Device, Family, Neighbor, NeighborSettings, PolicyRule } from "../../schema";
 import { addressesOf, familyOfPrefix, holderOf, nameOf, network, settingsOf, subnet } from "./names";
 import { Block, quote, quoteAll, UNSET } from "./tree";
 

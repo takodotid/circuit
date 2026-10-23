@@ -6,7 +6,7 @@ import router from "../../examples/router";
 import switchDevice from "../../examples/switch";
 
 test("prometheus lists every device with SNMP, each with its own auth, and no secret in the auths", async () => {
-    const { prometheusTargets, snmpExporterAuths } = await import("../../src/adapters/registries/prometheus");
+    const { prometheusTargets, snmpExporterAuths } = await import("../../src/integrations/prometheus");
     const network = defineNetwork({ devices: [router, switchDevice] });
 
     expect(prometheusTargets(network).targets.map((target) => [target.targets, target.labels.__param_auth])).toEqual([
@@ -23,7 +23,7 @@ test("prometheus lists every device with SNMP, each with its own auth, and no se
 });
 
 test("librenms adds what it does not monitor, with the device's SNMP version 3 user", async () => {
-    const { planLibreNms, sendLibreNms } = await import("../../src/adapters/registries/librenms");
+    const { planLibreNms, sendLibreNms } = await import("../../src/integrations/librenms");
     const { secret } = await import("../../src/core/define");
     for (const name of ["LIBRENMS_TOKEN", "EXAMPLE_SNMP_AUTH", "EXAMPLE_SNMP_PRIVACY"]) process.env[name] = `${name}-value`;
 

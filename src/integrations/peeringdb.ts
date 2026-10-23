@@ -2,10 +2,10 @@
 //
 // Only globally reachable addresses are published: an exchange reached over a tunnel often lands on private or shared space, and publishing it would point others at a dead end. A record the config does not hold is reported, never deleted, and `operational` is never changed, since leaving an exchange is a decision made outside the config.
 
-import { contains, familyOf, host, isGlobal } from "../../core/addr";
-import type { Network } from "../../core/define";
-import { resolve } from "../../core/secrets";
-import type { Device, Interface } from "../../schema";
+import { contains, familyOf, host, isGlobal } from "../core/addr";
+import type { Network } from "../core/define";
+import { resolve } from "../core/secrets";
+import type { Device, Interface } from "../schema";
 
 const API = "https://www.peeringdb.com/api";
 

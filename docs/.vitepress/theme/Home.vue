@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useData, withBase } from "vitepress";
 import circuit from "../../../package.json";
-import { catalog } from "../../../src/adapters/devices/catalog";
+import { catalog } from "../../../src/platforms/catalog";
 import { data as templateFiles } from "./templates.data";
 import { levels as academyLevels } from "../academy";
 

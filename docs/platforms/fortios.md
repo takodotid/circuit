@@ -2,7 +2,7 @@
 description: How Circuit works with Fortinet FortiOS, and the FortiOS behaviour that looks like something else. Each one has been hit on a FortiGate 3700D running FortiOS 6.2.2 without a licence.
 ---
 
-<!--@include: ../../src/adapters/devices/fortios/TRAPS.md-->
+<!--@include: ../../src/platforms/fortios/TRAPS.md-->
 
 ## How Circuit writes a FortiGate
 

@@ -1,8 +1,8 @@
 // The neutral model as a RouterOS 7 export, written in the form `/export` prints so the two compare line for line.
 
 import { X509Certificate } from "node:crypto";
-import { familyOf, host, split } from "../../../core/addr";
-import { marker } from "../../../core/secrets";
+import { familyOf, host, split } from "../../core/addr";
+import { marker } from "../../core/secrets";
 import type {
     Device,
     Family,
@@ -16,7 +16,7 @@ import type {
     Ports,
     Service,
     Severity,
-} from "../../../schema";
+} from "../../schema";
 import { portsOf, spell } from "../catalog";
 
 /** A property value as a command takes it. `undefined` and `false` leave the property out. */

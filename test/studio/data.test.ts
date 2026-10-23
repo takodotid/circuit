@@ -1,7 +1,7 @@
 // What Studio shows is gathered from the config alone: each device as written, every port its model has, what it would run, its BGP sessions and cables, and the schema's description of each field.
 
 import { expect, test } from "bun:test";
-import { adapters } from "../../src/adapters/devices";
+import { adapters } from "../../src/platforms";
 import { graphOf } from "../../src/core/graph";
 import { studioData } from "../../src/studio/data";
 

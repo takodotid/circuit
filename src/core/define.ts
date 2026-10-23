@@ -1,4 +1,4 @@
-import type { ModelName, PlatformName, PortName } from "../adapters/devices/catalog";
+import type { ModelName, PlatformName, PortName } from "../platforms/catalog";
 import type { Device, Secret } from "../schema";
 
 /** A value resolved by name when a device is applied, from the environment or `.env` beside the config, and through 1Password when that value is an `op://` reference. Never the value itself. */

@@ -1,6 +1,6 @@
 // Reading an export into commands, and normalising both sides so that only a real difference survives a comparison.
 
-import { network } from "../../../core/addr";
+import { network } from "../../core/addr";
 
 export type Command = {
     /** The menu the command belongs to, such as `/ip address`. */

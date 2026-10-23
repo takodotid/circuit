@@ -1,8 +1,8 @@
 // BGP, route policies, prefix sets and route origin validation, as Junos `set` statements.
 
-import { familyOf, host } from "../../../core/addr";
-import { marker } from "../../../core/secrets";
-import type { Device, Family, Neighbor, NeighborSettings, PolicyRule } from "../../../schema";
+import { familyOf, host } from "../../core/addr";
+import { marker } from "../../core/secrets";
+import type { Device, Family, Neighbor, NeighborSettings, PolicyRule } from "../../schema";
 import { BFD_INTERVAL, quote, type Statements } from "./render";
 
 type AnyRule = PolicyRule<string, string>;

@@ -1,7 +1,7 @@
 // How the platform names what the config names: ports and interfaces, prefixes, and the routing table an interface sits in.
 
-import { contains, familyOf, host, netmask, network as networkOf, split } from "../../../core/addr";
-import type { Device, Family } from "../../../schema";
+import { contains, familyOf, host, netmask, network as networkOf, split } from "../../core/addr";
+import type { Device, Family } from "../../schema";
 import { spell } from "../catalog";
 
 type Addressed = { addresses?: readonly (string | { address: string; peer?: string })[]; vrf?: string; lag?: string };

@@ -1,8 +1,8 @@
 // Keeps LibreNMS in step with the config: every device Circuit manages is monitored there, polled with the SNMP credentials its config gives it. A device LibreNMS holds that the config does not is reported, never deleted.
 
-import type { Network } from "../../core/define";
-import { resolve } from "../../core/secrets";
-import type { Device } from "../../schema";
+import type { Network } from "../core/define";
+import { resolve } from "../core/secrets";
+import type { Device } from "../schema";
 
 /** What `librenms` would do. */
 export type LibreNmsPlan = {

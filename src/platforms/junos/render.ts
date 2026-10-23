@@ -1,8 +1,8 @@
 // The neutral model as Junos `set` statements, in the form `show configuration | display set` prints, so the two compare statement by statement.
 
-import { contains, familyOf, host, network, split } from "../../../core/addr";
-import { marker } from "../../../core/secrets";
-import type { AclRule, Device, Family, Interface, Port, Ports, Rate, Severity, Vrrp } from "../../../schema";
+import { contains, familyOf, host, network, split } from "../../core/addr";
+import { marker } from "../../core/secrets";
+import type { AclRule, Device, Family, Interface, Port, Ports, Rate, Severity, Vrrp } from "../../schema";
 import { portsOf, spell } from "../catalog";
 import { lagIds } from "../derive";
 import { renderBgp } from "./bgp";
