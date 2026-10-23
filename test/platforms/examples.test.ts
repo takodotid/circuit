@@ -354,9 +354,9 @@ test("BFD timers, BFD on a static route and BFD on a multihop session are refuse
     expect(findings).toContain("static route 198.51.100.128/25 has bfd without via, the address BFD watches");
 });
 
-// The CE6855 takes `alarm <name> severity <level>` in its `alarm` view, but how it prints that back is not seen yet (#75).
+// Proved on VRP only, in test/platforms/vrp-proofs.test.ts (#75).
 test("an alarm's severity is refused until proved", () => {
-    for (const device of examples) {
+    for (const device of examples.filter((example) => example.platform !== "vrp")) {
         const withAlarm: Device = { ...device, system: { ...device.system, alarms: { hwOpticalUnAuthorized: { severity: "warning" } } } };
 
         expect(Platforms.get(device.platform).unsupported(withAlarm)).toContain(

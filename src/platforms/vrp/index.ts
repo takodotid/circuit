@@ -53,10 +53,10 @@ export class Vrp extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+)\b/;
+        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity)\b/;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl number |aaa$|user-interface |ospf |ip vpn-instance |bfd$)/,
+        block: /^(interface |vlan \d+$|acl number |aaa$|user-interface |ospf |ip vpn-instance |bfd$|alarm$)/,
         indented: true,
         terminator: "#",
         ignore: (line) => Vrp.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
@@ -185,7 +185,7 @@ export class Vrp extends Platform {
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device).filter((field) => !field.startsWith("management.snmp.allow")));
-        found.push(...Derive.unproved(device));
+        found.push(...Derive.unproved(device, ["alarm-severity"]));
 
         const flow = device.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
@@ -242,6 +242,7 @@ export class Vrp extends Platform {
 
         Vrp.removeLoghosts(groups, desired, current);
         Vrp.replaceRules(groups, current);
+        Vrp.emptyAlarmView(groups, current);
 
         const top = groups.find((group) => group.path.length === 0);
         const removedBatch = top?.remove.find((line) => line.startsWith("vlan batch ")) ?? "";
@@ -417,6 +418,16 @@ export class Vrp extends Platform {
                 if (old && !group.remove.includes(old.line)) group.remove.push(old.line);
             }
         }
+    }
+
+    /** `undo alarm` is not a command: the `alarm` view goes once each line in it is undone. */
+    private static emptyAlarmView(groups: Group[], current: string): void {
+        const top = groups.find((group) => group.path.length === 0);
+        if (!top?.remove.includes("alarm")) return;
+
+        top.remove = top.remove.filter((line) => line !== "alarm");
+        const lines = LineDiff.entries(current, Vrp.DIALECT).filter((entry) => entry.path[0] === "alarm" && entry.path.length === 1);
+        groups.push({ path: ["alarm"], remove: lines.map((entry) => entry.line), add: [] });
     }
 
     /** The VLAN IDs of a `vlan batch` line: `vlan batch 10 20 to 30`. */
