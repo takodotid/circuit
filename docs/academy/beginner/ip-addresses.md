@@ -26,7 +26,7 @@ Here the phone number stops being a good comparison. In a phone number, everyone
 
 <TryIt title="Slide the split">
 
-The address is shown as its 32 bits, with the network part in blue. Move the slider, or pick a preset, and watch the split move. Try your own address too.
+The address is shown as its 32 bits, with the network part in blue. Move the slider, or pick a length, and watch the split move. Try your own address too.
 
 <PrefixSlider />
 

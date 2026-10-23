@@ -43,7 +43,7 @@ One file per device is the whole truth: anything the file does not mention is re
 - The docs site is VitePress with a custom home (`docs/.vitepress/theme/home/`). Pattern and platform pages include files from `templates/` and each adapter's `TRAPS.md` rather than repeating them.
 - `src/` uses Node's APIs, never Bun's, so both runtimes run it.
 - Circuit is alpha until 1.0.0 and must say so wherever it is installed.
-- Terminology: device, config, snapshot, plan, diff, apply, pattern, preset, check, use case. Off is the absence of a field: there is no `enabled: false`. The glossary at `docs/guide/glossary.md` defines niche terms.
+- Terminology: device, config, snapshot, plan, diff, apply, pattern, helper, check, use case. Off is the absence of a field: there is no `enabled: false`. The glossary at `docs/guide/glossary.md` defines niche terms.
 
 ## Brand Commitments
 
@@ -57,7 +57,7 @@ One file per device is the whole truth: anything the file does not mention is re
 
 - Production user: Tako, with its logo at `docs/public/users/tako.png`. No other users are confirmed.
 - Studio screenshots in light and dark: `docs/public/screenshots/`.
-- Working configs: `examples/` (including a full multi-site setup and use-case networks) and `templates/` (single site, edge router, colocation), all validated by the test suite.
+- Working configs: `examples/` (one device per platform, and use-case networks including a full multi-site setup) and `templates/` (single site, edge router, colocation), all validated by the test suite.
 - Academy illustrations in the plate style: `docs/public/illustrations/academy/`. No graduates exist yet; the graduates list is empty until the certification opens.
 - No testimonials, case studies, benchmarks, adoption figures or press exist. Future work must not invent them. Pricing is only what the license states: free in production under US$100,000 yearly revenue and funding, a commercial license above that.
 

@@ -97,12 +97,15 @@ export type OspfInterface = {
     bfd?: boolean;
 };
 
+/** An OSPF area ID, written as four numbers with dots between them, for example `0.0.0.0` for the backbone. */
+export type OspfAreaId = `${number}.${number}.${number}.${number}`;
+
 /** OSPF, version 2 for IPv4 and version 3 for IPv6. */
 export type Ospf<I extends string> = {
     /** Which versions run. IPv4 when absent. */
     families?: readonly Family[];
     /** Areas keyed by area ID, for example `0.0.0.0`, each with the interfaces in it. */
-    areas: Record<string, { interfaces: Partial<Record<I, OspfInterface>> }>;
+    areas: Record<OspfAreaId, { interfaces: Partial<Record<I, OspfInterface>> }>;
     /** Routes from other sources announced into OSPF. */
     redistribute?: readonly ("connected" | "static")[];
 };

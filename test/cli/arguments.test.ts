@@ -1,0 +1,41 @@
+// The command line reads its arguments the same way whichever order or form they are written in.
+
+import { expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { join, resolve } from "node:path";
+
+const root = resolve(import.meta.dirname, "../..");
+const config = "templates/edge-router/circuit.config.ts";
+
+/** Run the CLI from the repository, and keep what it printed and its exit code. */
+function circuit(...args: string[]) {
+    const result = spawnSync("bun", [join(root, "src/cli/index.ts"), ...args], { cwd: root, encoding: "utf8" });
+    return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+}
+
+test("--config takes its path after a space or after =", () => {
+    expect(circuit("validate", "--config", config)).toMatchObject({ status: 0, stdout: "1 device(s), no errors.\n" });
+    expect(circuit("validate", `--config=${config}`)).toMatchObject({ status: 0, stdout: "1 device(s), no errors.\n" });
+});
+
+test("options can come before or after the device names", () => {
+    const after = circuit("build", "edge-01", "--config", config);
+    const before = circuit("build", "--config", config, "edge-01");
+
+    expect(after.status).toBe(0);
+    expect(before.stdout).toBe(after.stdout);
+});
+
+test("with no command, the help lists every command", () => {
+    const { status, stdout } = circuit();
+
+    expect(status).toBe(0);
+    expect(stdout).toContain("validate");
+    expect(stdout).toContain("studio");
+});
+
+test("an unknown option or a missing device stops with an error", () => {
+    expect(circuit("validate", "--confrim", `--config=${config}`).status).toBe(1);
+    expect(circuit("build", `--config=${config}`).status).toBe(1);
+    expect(circuit("build", "nope", `--config=${config}`)).toMatchObject({ status: 1, stderr: "no device nope; known: edge-01\n" });
+});

@@ -24,12 +24,12 @@ A rule without `action` changes the route and moves on to the next rule. The fir
 
 A neighbor can send you routes it should not, by mistake or on purpose. Four kinds should never reach your routing table:
 
-1. **Addresses that are not on the internet**: private ranges such as `10.0.0.0/8`, and <Term means="Addresses that can never be a real destination on the internet, such as 127.0.0.0/8, the device itself, or 169.254.0.0/16, used only on one link.">martians</Term>. Circuit's presets list them as `Filters.PRIVATE_RANGES` and `Filters.MARTIANS`.
+1. **Addresses that are not on the internet**: private ranges such as `10.0.0.0/8`, and <Term means="Addresses that can never be a real destination on the internet, such as 127.0.0.0/8, the device itself, or 169.254.0.0/16, used only on one link.">martians</Term>. Circuit's helpers list them as `Filters.PRIVATE_RANGES` and `Filters.MARTIANS`.
 2. **Prefixes too long or too short**. Most networks accept nothing longer than a /24 for IPv4 or a /48 for IPv6, so a longer one would not travel far, and it only makes every table bigger. Nothing shorter than a /8 or a /16 is a real network either.
 3. **Your own prefixes, coming back**. You already know where your own space is. A neighbor announcing it means someone else claims it, by mistake or to steal its traffic.
 4. **Routes RPKI marks invalid**. With <Term means="Resource Public Key Infrastructure. The holder of a prefix publishes a signed record, a ROA, that says which AS may announce it, and routers check each route against those records.">RPKI</Term>, a validator compares each route with the published records: `valid` if a record allows it, `invalid` if one contradicts it, `not-found` if there is none. Your validators go in `routing.rpki`.
 
-`Bgp.sanity()` from the [presets](/guide/presets#bgp-sanity) makes the rules for the second and fourth. The first and third need a `prefix_set` each, a named list of prefixes. A route matches a set when its prefix is one of the set's own, or inside one:
+`Bgp.sanity()` from the [helpers](/guide/helpers#bgp-sanity) makes the rules for the second and fourth. The first and third need a `prefix_set` each, a named list of prefixes. A route matches a set when its prefix is one of the set's own, or inside one:
 
 ```ts
 prefix_sets: {

@@ -1,6 +1,6 @@
 // Address arithmetic for both families. Addresses are parsed to bigint so v4 and v6 share one code path.
 
-import type { Family } from "../schema";
+import type { Family, IP, IPv4, IPv6, Prefix } from "../schema";
 
 /** Address helpers, for checks of your own. */
 export class Address {
@@ -92,9 +92,9 @@ export class Address {
     }
 
     /** A number back to the address it stands for. */
-    static fromNumber(value: bigint, family: Family): string {
+    static fromNumber(value: bigint, family: Family): IP {
         if (family === "ipv4") {
-            return [24n, 16n, 8n, 0n].map((shift) => String((value >> shift) & 255n)).join(".");
+            return [24n, 16n, 8n, 0n].map((shift) => String((value >> shift) & 255n)).join(".") as IPv4;
         }
 
         const groups = Array.from({ length: 8 }, (_, index) => ((value >> BigInt(112 - index * 16)) & 0xffffn).toString(16));
@@ -116,7 +116,7 @@ export class Address {
             start = end === start ? start + 1 : end;
         }
 
-        if (longestStart < 0) return groups.join(":");
+        if (longestStart < 0) return groups.join(":") as IPv6;
 
         const head = groups.slice(0, longestStart).join(":");
         const tail = groups.slice(longestStart + longestLength).join(":");
@@ -124,7 +124,7 @@ export class Address {
     }
 
     /** `10.0.0.1/24` to `10.0.0.0/24`. */
-    static prefixOf(cidr: string): string {
+    static prefixOf(cidr: string): Prefix {
         const { addr, len, family } = Address.split(cidr);
         return `${Address.fromNumber(Address.toNumber(addr)! & Address.mask(len, family), family)}/${len}`;
     }
@@ -152,9 +152,9 @@ export class Address {
     }
 
     /** The fewest prefixes that cover every address from `first` to `last` and nothing else. */
-    static prefixesBetween(first: bigint, last: bigint, family: Family): string[] {
+    static prefixesBetween(first: bigint, last: bigint, family: Family): Prefix[] {
         const bits = Address.bits(family);
-        const prefixes: string[] = [];
+        const prefixes: Prefix[] = [];
 
         for (let start = first; start <= last;) {
             // The largest block that starts here on its own boundary and does not pass `last`.
@@ -169,18 +169,18 @@ export class Address {
     }
 
     /** `/25` to `255.255.255.128`. */
-    static netmask(length: number): string {
-        return Address.fromNumber(Address.mask(length, "ipv4"), "ipv4");
+    static netmask(length: number): IPv4 {
+        return Address.fromNumber(Address.mask(length, "ipv4"), "ipv4") as IPv4;
     }
 
     /** `/24` to `0.0.0.255`, the inverted mask some ACLs take. */
-    static wildcard(length: number): string {
-        return Address.fromNumber(Address.mask(length, "ipv4") ^ 0xffffffffn, "ipv4");
+    static wildcard(length: number): IPv4 {
+        return Address.fromNumber(Address.mask(length, "ipv4") ^ 0xffffffffn, "ipv4") as IPv4;
     }
 
     /** The address with its length dropped. */
-    static host(cidr: string): string {
-        return cidr.split("/")[0]!;
+    static host(cidr: string): IP {
+        return cidr.split("/")[0]! as IP;
     }
 
     /** Whether another network can reach the address. IPv6 is global only inside 2000::/3, less documentation space. */

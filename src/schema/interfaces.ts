@@ -1,4 +1,4 @@
-import type { Address, IP, Prefix, Secret } from "./common";
+import type { InterfaceAddress, IP, MacAddress, Prefix, Secret } from "./common";
 
 /** A VLAN. Its key in `vlans` is its name. */
 export type Vlan = {
@@ -28,7 +28,7 @@ export type Vrrp = {
 /** Layer 3 settings shared by every interface that can have an address. */
 export type Routed<F extends string> = {
     /** Addresses with their length. Use `{ address, peer }` for a point-to-point address whose far end is outside its own prefix. */
-    addresses?: readonly (Address | { address: Address; peer: IP })[];
+    addresses?: readonly (InterfaceAddress | { address: InterfaceAddress; peer: IP })[];
     /** Send IPv6 router advertisements on this interface. Off when absent. */
     ipv6_ra?: boolean;
     /** Overrides the device's `hardware_offload` for traffic routed through this interface. Software forwarding is what makes the firewall apply. */
@@ -122,7 +122,7 @@ export type VlanInterface<V extends string, F extends string> = Base<F> & {
     /**
      * A MAC address of its own, instead of the one it shares with the device's other VLAN interfaces. A gateway in front of a transparent firewall needs one: frames to it come back on another VLAN, where the bridge would otherwise take a shared MAC for its own and keep them.
      */
-    mac?: string;
+    mac?: MacAddress;
 };
 
 /** An interface that is always up and is on no link, for addresses that must not depend on one. */
@@ -159,8 +159,11 @@ export type Vxlan<F extends string> = Base<F> & {
     /** UDP port. 4789 when absent. */
     port?: number;
     /** Fixed MAC address, so a rebuild keeps the one the far side learned. */
-    mac?: string;
+    mac?: MacAddress;
 };
+
+/** A host and a UDP port, `host:port`, for example `203.0.113.10:51820` or `vpn.example.net:51820`. */
+export type Endpoint = `${string}:${number}`;
 
 /** One peer of a WireGuard interface. */
 export type WireGuardPeer = {
@@ -171,7 +174,7 @@ export type WireGuardPeer = {
     /** Addresses the peer may send from and that are routed to it. */
     allowed_addresses: readonly Prefix[];
     /** `host:port`, for a peer this side dials. The peer dials in when absent. */
-    endpoint?: string;
+    endpoint?: Endpoint;
     /** Seconds between keepalives, for a peer behind NAT. None when absent. */
     keepalive?: number;
     /** What a generated client config routes into the tunnel. Affects no forwarding here. */

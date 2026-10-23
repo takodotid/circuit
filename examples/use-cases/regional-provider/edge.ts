@@ -1,9 +1,9 @@
 // What the three edge routers share: their logins and services, the policies they apply to BGP, the firewall in front of them, and the filter in their switch chip.
 
 import { readFileSync } from "node:fs";
-import type { AclRule, Firewall, IP, Neighbor, NeighborSettings, PolicyRule, RoutePolicy, RpkiServer } from "@takodotid/circuit";
+import type { AclRule, Firewall, IP, Neighbor, Prefix, NeighborSettings, PolicyRule, RoutePolicy, RpkiServer } from "@takodotid/circuit";
 import { secret } from "@takodotid/circuit";
-import { Bgp, Filters } from "@takodotid/circuit/presets";
+import { Bgp, Filters } from "@takodotid/circuit/helpers";
 import { AT, CUSTOMERS } from "./customers";
 import { ADMIN, ASN, communities, IX, OURS, SERVICES, SITE, type Site, SPOOFED } from "./network";
 import { customerPolicies, customerPrefixSets, customerSpace } from "./tenancy";
@@ -38,9 +38,9 @@ export const management = (location: string) =>
         allow: ADMIN,
         ssh: {},
         https: { certificate: "web" },
-        api_tls: { certificate: "web", allow: [SERVICES.monitoring[0] + "/32"] },
+        api_tls: { certificate: "web", allow: [`${SERVICES.monitoring[0]}/32`] },
         snmp: {
-            allow: SERVICES.monitoring.map((address) => `${address}/32`),
+            allow: SERVICES.monitoring.map((address): Prefix => `${address}/32`),
             community: secret("EDGE_SNMP_COMMUNITY"),
             users: {
                 monitor: {
@@ -57,7 +57,7 @@ export const management = (location: string) =>
 
 export const certificates = {
     web: {
-        certificate: readFileSync(new URL("../example.pem", import.meta.url), "utf8"),
+        certificate: readFileSync(new URL("../../platforms/example.pem", import.meta.url), "utf8"),
         private_key: secret("EDGE_WEB_KEY"),
     },
 };
@@ -151,9 +151,9 @@ export function policies(site: Site, transits: Readonly<Record<string, number>>,
         "IBGP-OUT": [
             { description: "Our IPv4", match: { prefix: OURS.v4 }, action: "accept" },
             { description: "Our IPv6", match: { prefix: OURS.v6 }, action: "accept" },
-            ...(["transit", "exchange", "peer", "customer"] as const).map((kind, index) => ({
+            ...(["transit", "exchange", "peer", "customer"] as const).map((kind) => ({
                 description: `Learned from a ${kind}`,
-                match: { large_community: communities.community(1, index + 1) },
+                match: { large_community: communities.learned_from[kind] },
                 action: "accept" as const,
             })),
             { description: "Nothing untagged", action: "reject" },

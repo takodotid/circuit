@@ -37,10 +37,15 @@ export class SchemaDocs {
             result = result.replace(new RegExp(`\\b${name}<[^<>]*(?:<[^<>]*>[^<>]*)*>`, "g"), name);
         }
 
-        return result
-            .replace(/\b(Pl|M|N|V|I|P|S|G|A|AS|U|F|C|L|K)\b/g, (parameter) => SchemaDocs.PARAMETER_MEANING[parameter] ?? "name")
-            .replace(/\bname(?: \| name)+\b/g, "name")
-            .replace(/\(name\)/g, "name");
+        return (
+            result
+                // A quoted value, such as the "M" of a rate, is left as it is.
+                .replace(/"[^"]*"|\b(Pl|M|N|V|I|P|S|G|A|AS|U|F|C|L|K)\b/g, (found, parameter?: string) =>
+                    parameter ? (SchemaDocs.PARAMETER_MEANING[parameter] ?? "name") : found
+                )
+                .replace(/\bname(?: \| name)+\b/g, "name")
+                .replace(/\(name\)/g, "name")
+        );
     }
 
     private static parse(source: string, generics: Set<string>): TypeDoc[] {
@@ -62,7 +67,8 @@ export class SchemaDocs {
             // The part after `=`, with the generic parameter list before it left out.
             const body = text.slice(text.indexOf("> =") >= 0 ? text.indexOf("> =") + 3 : text.indexOf("=") + 1).trim();
 
-            if (!body.includes("{")) {
+            // A template literal type, such as `${number}:${number}`, holds braces but opens no body.
+            if (!body.includes("{") || body.startsWith("`")) {
                 current!.definition = body.replace(/;$/, "").replace(/^\|\s*/, "");
             } else {
                 const before = body.slice(0, body.indexOf("{"));

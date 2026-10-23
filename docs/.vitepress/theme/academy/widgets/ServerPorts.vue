@@ -157,7 +157,7 @@ async function send() {
             </label>
             <button type="button" class="ac-button primary" :disabled="travelling" @click="send">Send</button>
         </div>
-        <div class="ac-row presets">
+        <div class="ac-row shortcuts">
             <button
                 v-for="value in [443, 80, 22, 53, 25, 8080]"
                 :key="value"
@@ -239,7 +239,7 @@ async function send() {
     width: 8em;
 }
 
-.presets {
+.shortcuts {
     margin-top: 8px;
 }
 

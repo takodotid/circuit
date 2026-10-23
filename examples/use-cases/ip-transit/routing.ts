@@ -1,6 +1,6 @@
 // Your AS number, and what your BGP communities mean, for you and for your customers.
 
-import { Bgp } from "@takodotid/circuit/presets";
+import { Bgp } from "@takodotid/circuit/helpers";
 
 export const ASN = 64500;
 

@@ -4,7 +4,7 @@
 
 import type { Prefix } from "@takodotid/circuit";
 import { defineDevice, secret } from "@takodotid/circuit";
-import { Bgp, Filters } from "@takodotid/circuit/presets";
+import { Bgp, Filters } from "@takodotid/circuit/helpers";
 import { ASN, communities } from "./routing";
 
 /** The address space this router announces. */

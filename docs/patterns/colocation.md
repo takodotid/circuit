@@ -48,7 +48,7 @@ The functions that turn tenants into device config. To change how VLANs are numb
 
 ## edge-01.ts
 
-The edge router, with a trunk to the switch. `merge` combines the router's own VLANs and interfaces with the tenants'. If a tenant ever got a name the router already uses, `merge` stops with an error instead of letting one silently replace the other.
+The edge router, with a trunk to the switch. `Utils.merge` combines the router's own VLANs and interfaces with the tenants'. If a tenant ever got a name the router already uses, `Utils.merge` stops with an error instead of letting one silently replace the other.
 
 <<< @/../templates/colocation/edge-01.ts
 

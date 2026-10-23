@@ -1,12 +1,12 @@
-// Presets are plain config: what each returns is what a device holds, or a check that finds what it describes.
+// Helpers are plain config: what each returns is what a device holds, or a check that finds what it describes.
 
 import { expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
-import router from "../../examples/router";
-import switchDevice from "../../examples/switch";
+import router from "../../examples/platforms/routeros";
+import switchDevice from "../../examples/platforms/vrp";
 
-test("presets build the rules they describe", async () => {
-    const { Bgp, Checks, Filters } = await import("../../src/presets");
+test("helpers build the rules they describe", async () => {
+    const { Bgp, Checks, Filters } = await import("../../src/helpers");
 
     expect(Filters.antiSpoofing("ix", Filters.MARTIANS).map((rule) => rule.match?.src)).toEqual([...Filters.MARTIANS]);
     expect(Filters.badTcpFlags()).toHaveLength(6);
@@ -23,7 +23,7 @@ test("presets build the rules they describe", async () => {
 });
 
 test("Filters.antiAmplification drops fragments and amplifiers, keeps asked services' answers, one switch rule per port", async () => {
-    const { Filters } = await import("../../src/presets");
+    const { Filters } = await import("../../src/helpers");
     const rules = Filters.antiAmplification(["198.51.100.0/24"], { keep_fragments: ["198.51.100.64/27", "192.0.2.0/24"] });
 
     expect(rules.slice(0, 2)).toEqual([
@@ -65,7 +65,7 @@ test("Filters.antiAmplification drops fragments and amplifiers, keeps asked serv
 });
 
 test("Checks.trustBoundary finds an untrusted VLAN beside a trusted one away from a router", async () => {
-    const { Checks } = await import("../../src/presets");
+    const { Checks } = await import("../../src/helpers");
 
     expect(Checks.vlansOf({ access_vlan: "a", trunk_vlans: ["b"] })).toEqual(["a", "b"]);
 
@@ -77,7 +77,7 @@ test("Checks.trustBoundary finds an untrusted VLAN beside a trusted one away fro
 });
 
 test("Checks.trustBoundary lets a named link between two switches extend a site", async () => {
-    const { Checks } = await import("../../src/presets");
+    const { Checks } = await import("../../src/helpers");
     const extension = (name: string, far: string) =>
         ({
             ...switchDevice,
@@ -92,7 +92,7 @@ test("Checks.trustBoundary lets a named link between two switches extend a site"
 });
 
 test("Bgp.communityScheme blackholes only inside the customer's space, and never announces it", async () => {
-    const { Bgp } = await import("../../src/presets");
+    const { Bgp } = await import("../../src/helpers");
     const communities = Bgp.communityScheme({
         asn: 64500,
         learned_from: { function: 1, classes: { customer: 3 } },
@@ -119,7 +119,7 @@ test("Bgp.communityScheme blackholes only inside the customer's space, and never
 });
 
 test("a trusted neighbor keeps its requests; anyone else loses every community of ours", async () => {
-    const { Bgp } = await import("../../src/presets");
+    const { Bgp } = await import("../../src/helpers");
     const communities = Bgp.communityScheme({
         asn: 64500,
         learned_from: { function: 1, classes: { transit: 1, customer: 3 } },
@@ -133,7 +133,7 @@ test("a trusted neighbor keeps its requests; anyone else loses every community o
 });
 
 test("Checks.exportsEndInReject leaves out an export to a customer", async () => {
-    const { Checks } = await import("../../src/presets");
+    const { Checks } = await import("../../src/helpers");
     const policies = { ...router.policies, "UPSTREAM-OUT": [{ action: "accept" as const }] };
     const bgp = router.routing!.bgp!;
     const asCustomer = { ...bgp, groups: { upstream: { ...bgp.groups!.upstream!, role: "customer" as const } } };
@@ -145,7 +145,7 @@ test("Checks.exportsEndInReject leaves out an export to a customer", async () =>
 });
 
 test("Exchange.build gives a port to one member only", async () => {
-    const { Exchange } = await import("../../src/presets");
+    const { Exchange } = await import("../../src/helpers");
     const member = { name: "a", asn: 64510, ports: { "ix-sw-01": "10g-1" } };
     const exchange = Exchange.build({ vlan: "peering", lan: { ipv4: "203.0.113.0/24" } }, [member, { ...member, name: "b", asn: 64511 }]);
 
@@ -153,8 +153,8 @@ test("Exchange.build gives a port to one member only", async () => {
 });
 
 test("Exchange.build keeps members apart", async () => {
-    const { Exchange } = await import("../../src/presets");
-    const member = { name: "a", asn: 64510, ports: {}, ipv4: "203.0.113.1" };
+    const { Exchange } = await import("../../src/helpers");
+    const member = { name: "a", asn: 64510, ports: {}, ipv4: "203.0.113.1" } as const;
     const exchange = Exchange.build({ vlan: "peering", lan: { ipv4: "203.0.113.0/24" }, reserved: ["203.0.113.1"] }, [
         member,
         { ...member, name: "b" },

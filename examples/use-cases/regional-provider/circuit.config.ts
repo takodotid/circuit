@@ -1,6 +1,6 @@
-// A full setup: a regional provider with two sites, three platforms, transits, an exchange, customers with and without BGP, OSPF in two areas, and tunnels between the sites. Each site's devices are in its own directory, site-a and site-b; what they share is beside this file. Any command runs on it from the repository, such as:
+// A regional provider with two sites, three platforms, transits, an exchange, customers with and without BGP, OSPF in two areas, and tunnels between the sites. Each site's devices are in its own directory, site-a and site-b; what they share is beside this file. Any command runs on it from the repository, such as:
 //
-//   bun src/cli/index.ts validate --config=examples/full-setup/circuit.config.ts
+//   bun src/cli/index.ts validate --config=examples/use-cases/regional-provider/circuit.config.ts
 //
 // The snapshots in .circuit/state stand in for what the devices last printed: most match the config, edge-b1 does not have sirius yet, tor-a2 has a port described by hand, and agg-b1 and tor-b1 have none.
 

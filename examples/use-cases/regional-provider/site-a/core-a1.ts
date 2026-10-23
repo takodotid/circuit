@@ -1,6 +1,6 @@
 // The first core switch at site A: the root of the site's spanning tree, edge-a1's way down, the servers on the services VLAN, and an uplink to every top-of-rack switch.
 
-import { defineDevice, merge } from "@takodotid/circuit";
+import { defineDevice, Utils } from "@takodotid/circuit";
 import { AT } from "../customers";
 import { INFRA_VLANS, SERVICES } from "../network";
 import * as switches from "../switches";
@@ -26,7 +26,7 @@ export default defineDevice({
     stp: { mode: "rstp", priority: 4096 },
     lldp: true,
 
-    vlans: merge(INFRA_VLANS, { services: { id: 20, description: "Resolvers, time, logs, flows and DHCP" } }, customerVlans(AT.a)),
+    vlans: Utils.merge(INFRA_VLANS, { services: { id: 20, description: "Resolvers, time, logs, flows and DHCP" } }, customerVlans(AT.a)),
 
     ports: {
         "40g-1": { description: "edge-a1", trunk_vlans: switches.SITE_A_EDGE, link: { device: "edge-a1", port: "100g-2" } },

@@ -31,7 +31,7 @@ export class LibreNms {
         );
         // A device reached only through its console has no address to poll.
         const polled = network.devices.filter((device) => device.connection.host);
-        const ours = new Set(polled.map((device) => device.connection.host));
+        const ours = new Set<string | undefined>(polled.map((device) => device.connection.host));
         const missing = polled.filter((device) => !monitored.has(device.connection.host!));
 
         return {

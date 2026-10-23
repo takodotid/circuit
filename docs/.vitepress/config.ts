@@ -22,7 +22,7 @@ const sidebar: DefaultTheme.SidebarItem[] = [
             { text: "How a change is applied", link: "/guide/convergence" },
             { text: "BGP communities", link: "/guide/communities" },
             { text: "Publishing the network", link: "/guide/publishing" },
-            { text: "Presets", link: "/guide/presets" },
+            { text: "Helpers", link: "/guide/helpers" },
             { text: "FAQ", link: "/guide/faq" },
             { text: "Glossary", link: "/guide/glossary" },
         ],

@@ -3,7 +3,7 @@
 // Not a real network. Our addresses are from the documentation ranges, 198.51.100.0/24 and 2001:db8:100::/48, and the links to other networks come from 203.0.113.0/24 and 2001:db8:ffff::/48. Every other network has a documentation AS number.
 
 import type { IP, Prefix, Vlan } from "@takodotid/circuit";
-import { Bgp, Filters } from "@takodotid/circuit/presets";
+import { Bgp, Filters } from "@takodotid/circuit/helpers";
 
 /** Our AS number. */
 export const ASN = 64500;

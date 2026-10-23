@@ -1,7 +1,7 @@
 // VRP read over a real SSH shell, against a fake device that answers like a CE6855: the question about changing the password answered no, paging off, then the configuration.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import switchDevice from "../../examples/switch";
+import switchDevice from "../../examples/platforms/vrp";
 import { Platforms } from "../../src/platforms";
 import type { Device } from "../../src/schema";
 import { FakeSshDevice } from "./fake-ssh";

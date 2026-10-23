@@ -165,14 +165,14 @@ Anything you would otherwise copy and paste can be a function that returns confi
 
 Sometimes a device's ports come partly from its own file and partly from a function, for example one that works out each customer's ports. Spreading both with `...` is risky: if both have a port called `10g-1`, one silently replaces the other.
 
-`merge` combines them and stops with an error when two of them have the same name:
+`Utils.merge` combines them and stops with an error when two of them have the same name:
 
 ```ts
-import { defineDevice, merge } from "@takodotid/circuit";
+import { defineDevice, Utils } from "@takodotid/circuit";
 
 export default defineDevice({
     // ...
-    ports: merge(customerPorts("tor-01"), {
+    ports: Utils.merge(customerPorts("tor-01"), {
         "40g-1": { description: "Uplink", trunk_vlans: ["mgmt", "servers"] },
     }),
 });

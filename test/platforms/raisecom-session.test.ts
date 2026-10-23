@@ -1,7 +1,7 @@
 // Raisecom read over a real SSH shell, against a fake device that answers like a RAX721: the version check, paging off, and a dump that stops short the first time, so it is read again.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import coreSwitch from "../../examples/core-switch";
+import coreSwitch from "../../examples/platforms/raisecom-ros";
 import { Platforms } from "../../src/platforms";
 import type { Device } from "../../src/schema";
 import { FakeSshDevice } from "./fake-ssh";

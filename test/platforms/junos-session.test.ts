@@ -1,7 +1,7 @@
 // Junos read over a real SSH session, against a fake device that answers like Junos 21: the version check, then the configuration as set statements.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import aggregationSwitch from "../../examples/aggregation-switch";
+import aggregationSwitch from "../../examples/platforms/junos";
 import { Platforms } from "../../src/platforms";
 import type { Device } from "../../src/schema";
 import { FakeSshDevice } from "./fake-ssh";

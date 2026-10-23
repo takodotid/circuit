@@ -3,7 +3,7 @@
 // Addresses are from the documentation ranges, in place of the exchange's own.
 
 import type { Prefix, Vlan } from "@takodotid/circuit";
-import { Exchange } from "@takodotid/circuit/presets";
+import { Exchange } from "@takodotid/circuit/helpers";
 import { MEMBERS } from "./members";
 
 export const exchange = Exchange.build(

@@ -1,6 +1,6 @@
 // The aggregation switch at site B: edge-b1's way down, the office, customers' servers, and tor-b1 below it.
 
-import { defineDevice, merge } from "@takodotid/circuit";
+import { defineDevice, Utils } from "@takodotid/circuit";
 import { AT } from "../customers";
 import { INFRA_VLANS } from "../network";
 import * as switches from "../switches";
@@ -24,10 +24,15 @@ export default defineDevice({
     lldp: true,
 
     vlans: switches.undescribed(
-        merge(INFRA_VLANS, { office: { id: 50, description: "The site B office" } }, customerVlans(AT.b), privateVlans(AT.b, "agg-b1"))
+        Utils.merge(
+            INFRA_VLANS,
+            { office: { id: 50, description: "The site B office" } },
+            customerVlans(AT.b),
+            privateVlans(AT.b, "agg-b1")
+        )
     ),
 
-    ports: merge(customerPorts(AT.b, "agg-b1", HOST), {
+    ports: Utils.merge(customerPorts(AT.b, "agg-b1", HOST), {
         "100g-1": { description: "edge-b1", trunk_vlans: switches.SITE_B, link: { device: "edge-b1", port: "100g-1" } },
         "100g-2": { description: "tor-b1", trunk_vlans: switches.SITE_B, link: { device: "tor-b1", port: "40g-1" } },
         "10g-1": desk("Office, printer"),

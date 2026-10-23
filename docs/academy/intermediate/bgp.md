@@ -130,7 +130,7 @@ policies: {
 | `export`       | The policy for routes you announce to the neighbor. Nothing is announced without one.                                                                                                                                                                 |
 | `max_prefixes` | Close the session if the neighbor sends more routes than this, as a fuse against a mistake on their side.                                                                                                                                             |
 
-`Bgp.sanity()` comes from `@takodotid/circuit/presets` and refuses routes that should never be on the internet; [Route policies](/academy/intermediate/route-policy) opens it up. The input firewall must also let BGP in from your neighbors, so their side can open the session too:
+`Bgp.sanity()` comes from `@takodotid/circuit/helpers` and refuses routes that should never be on the internet; [Route policies](/academy/intermediate/route-policy) opens it up. The input firewall must also let BGP in from your neighbors, so their side can open the session too:
 
 ```ts
 { description: "BGP", match: { protocol: "tcp", dst_port: 179, src: "203.0.113.1/32" }, action: "accept" },

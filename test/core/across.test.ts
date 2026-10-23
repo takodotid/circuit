@@ -3,7 +3,7 @@
 import { expect, test } from "bun:test";
 import { defineDevice, defineNetwork, secret } from "../../src/core/define";
 import { Validator } from "../../src/core/validator";
-import type { Device } from "../../src/schema";
+import type { Device, IP } from "../../src/schema";
 
 const findings = (...devices: Device[]) =>
     Validator.run(defineNetwork({ devices })).map((finding) => `${finding.level} ${finding.device}: ${finding.message}`);
@@ -222,7 +222,7 @@ test("a session per family is matched to the session back of its own family", ()
 
     // A session of the other family does not answer one.
     const onlyV4 = dualStack(2);
-    const neighbors = { r1: { address: "10.255.0.1", remote_as: 64500, local_address: "10.255.0.2" } };
+    const neighbors = { r1: { address: "10.255.0.1", remote_as: 64500, local_address: "10.255.0.2" } } as const;
     expect(findings(dualStack(1), { ...onlyV4, routing: { bgp: { asn: 64500, neighbors } } })).toEqual([
         "error r1: neighbor r2-v6: r2 has no session back to r1",
     ]);
@@ -230,9 +230,9 @@ test("a session per family is matched to the session back of its own family", ()
 
 test("on one segment, a VRRP id has one address and an address one id", () => {
     const [r1, r2] = routers();
-    const mgmt = (vrrp: { id: number; address: string }) => ({
+    const mgmt = (vrrp: { id: number; address: IP }) => ({
         ...r2,
-        interfaces: { ...r2.interfaces, mgmt: { type: "vlan" as const, vlan: "mgmt", addresses: ["10.0.10.2/24"], vrrp: [vrrp] } },
+        interfaces: { ...r2.interfaces, mgmt: { type: "vlan" as const, vlan: "mgmt", addresses: ["10.0.10.2/24" as const], vrrp: [vrrp] } },
     });
 
     expect(findings(r1, mgmt({ id: 1, address: "10.0.10.253" }))).toContain(

@@ -1,4 +1,4 @@
-import type { ExchangeMember } from "@takodotid/circuit/presets";
+import type { ExchangeMember } from "@takodotid/circuit/helpers";
 
 export default {
     name: "akamai",

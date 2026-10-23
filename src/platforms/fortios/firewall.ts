@@ -1,7 +1,7 @@
 // Packet filtering as policies through the device and local-in policies to it, who reaches the device's own services, NAT as central source NAT and virtual IPs, and stateless ACLs on ports.
 
 import { Address } from "../../core/address";
-import type { AclRule, Device, Family, FilterMatch, FilterRule, NatRule, Ports, Protocol } from "../../schema";
+import type { AclRule, Device, Family, FilterMatch, FilterRule, NatRule, Ports, Prefix, Protocol } from "../../schema";
 import { FortiOsNames } from "./names";
 import { FortiOsBlock, FortiOsTree } from "./tree";
 
@@ -92,7 +92,7 @@ export class FortiOsFirewall {
     static familiesOf(device: Device, match: FilterMatch<string, string> | undefined): Family[] {
         if (match?.family) return [match.family];
 
-        const prefixes = [match?.src, match?.dst].filter((prefix): prefix is string => prefix !== undefined);
+        const prefixes = [match?.src, match?.dst].filter((prefix): prefix is Prefix => prefix !== undefined);
         if (prefixes.length) return [...new Set(prefixes.map(FortiOsNames.familyOfPrefix))];
 
         let families: Family[] = ["ipv4", "ipv6"];

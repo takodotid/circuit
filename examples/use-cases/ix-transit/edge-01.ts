@@ -4,14 +4,14 @@
 
 import type { Prefix } from "@takodotid/circuit";
 import { defineDevice, secret } from "@takodotid/circuit";
-import { Bgp, Filters } from "@takodotid/circuit/presets";
+import { Bgp, Filters } from "@takodotid/circuit/helpers";
 import { ASN, communities } from "../ip-transit/routing";
 
 /** Our own address space. */
 const OURS = { v4: "198.51.100.0/24", v6: "2001:db8:100::/48" } as const satisfies Record<string, Prefix>;
 
 /** Sources that never arrive from outside: our space, the customer's, and addresses not on the internet at all. */
-const SPOOFED = [OURS.v4, "192.0.2.0/24", ...Filters.MARTIANS, ...Filters.PRIVATE_RANGES];
+const SPOOFED: Prefix[] = [OURS.v4, "192.0.2.0/24", ...Filters.MARTIANS, ...Filters.PRIVATE_RANGES];
 
 export default defineDevice({
     name: "edge-01",
@@ -108,8 +108,8 @@ export default defineDevice({
 
         // What the customer pays for: what we learned at the exchange, our own space, and our other customers. Nothing from the transit.
         "ACME-OUT": [
-            { description: "Learned at an exchange", match: { large_community: communities.community(1, 2) }, action: "accept" },
-            { description: "Our other customers", match: { large_community: communities.community(1, 3) }, action: "accept" },
+            { description: "Learned at an exchange", match: { large_community: communities.learned_from.exchange }, action: "accept" },
+            { description: "Our other customers", match: { large_community: communities.learned_from.customer }, action: "accept" },
             { description: "Our IPv4", match: { prefix: OURS.v4 }, action: "accept" },
             { description: "Our IPv6", match: { prefix: OURS.v6 }, action: "accept" },
             { description: "Nothing from the transit", action: "reject" },

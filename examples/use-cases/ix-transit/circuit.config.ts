@@ -1,5 +1,5 @@
 import { defineNetwork } from "@takodotid/circuit";
-import { Checks } from "@takodotid/circuit/presets";
+import { Checks } from "@takodotid/circuit/helpers";
 import edge from "./edge-01";
 import { ASN, communities } from "../ip-transit/routing";
 

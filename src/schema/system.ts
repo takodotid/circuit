@@ -1,9 +1,13 @@
-import type { IP, Prefix, Secret, Severity } from "./common";
+import type { IP, MacAddress, Prefix, Secret, Severity } from "./common";
+import type { TimeZone } from "./time-zones";
+
+/** A software release track, as RouterOS names them. `long-term` changes least; `development` is the newest and least tested. */
+export type ReleaseChannel = "long-term" | "stable" | "testing" | "development";
 
 /** Device-wide settings. */
 export type System = {
-    /** IANA zone, for example `Asia/Jakarta`. UTC when absent. */
-    timezone?: string;
+    /** IANA zone, for example `Asia/Jakarta`. The editor suggests every name. UTC when absent. */
+    timezone?: TimeZone;
     /** Shown at login. */
     banner?: string;
     /** Resolvers the device uses. */
@@ -40,8 +44,8 @@ export type System = {
             level: Severity;
         }[];
     };
-    /** Software release track the device updates from. */
-    release_channel?: string;
+    /** Software release track the device updates from. `stable` when absent. */
+    release_channel?: ReleaseChannel;
     /** Read optic temperature, power and voltage. */
     transceiver_monitoring?: boolean;
     /** Host behaviour of the IP stack. */
@@ -154,7 +158,8 @@ export type DhcpServer<I extends string> = {
     /** Addresses fixed to a MAC. */
     reservations?: readonly {
         address: IP;
-        mac: string;
+        /** The client's MAC address. */
+        mac: MacAddress;
         /** Whose address it is. */
         description?: string;
     }[];

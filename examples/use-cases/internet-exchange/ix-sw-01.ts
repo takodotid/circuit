@@ -1,6 +1,6 @@
 // The first fabric switch: members, the route servers, and the way in for management. The switches have no address on the peering LAN; they only carry it.
 
-import { defineDevice, merge, secret } from "@takodotid/circuit";
+import { defineDevice, secret, Utils } from "@takodotid/circuit";
 import { exchange, MANAGEMENT, vlans } from "./exchange";
 
 export default defineDevice({
@@ -18,7 +18,7 @@ export default defineDevice({
     vlans,
 
     // Every member's port on this switch, from its file in members/, beside the exchange's own.
-    ports: merge(exchange.ports("ix-sw-01"), {
+    ports: Utils.merge(exchange.ports("ix-sw-01"), {
         "10g-47": { description: "Route server rs1", access_vlan: "peering", stp: false },
         "10g-48": { description: "Route server rs2", access_vlan: "peering", stp: false },
         "40g-5": {

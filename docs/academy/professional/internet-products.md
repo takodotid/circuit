@@ -114,8 +114,8 @@ Selling IX transit, it accepts only routes the router tagged as learned at an ex
 
 ```ts
 "ACME-OUT": [
-    { description: "Learned at an exchange", match: { large_community: communities.community(1, 2) }, action: "accept" },
-    { description: "Our other customers", match: { large_community: communities.community(1, 3) }, action: "accept" },
+    { description: "Learned at an exchange", match: { large_community: communities.learned_from.exchange }, action: "accept" },
+    { description: "Our other customers", match: { large_community: communities.learned_from.customer }, action: "accept" },
     { description: "Our IPv4", match: { prefix: OURS.v4 }, action: "accept" },
     { description: "Our IPv6", match: { prefix: OURS.v6 }, action: "accept" },
     { description: "Nothing from the transit", action: "reject" },

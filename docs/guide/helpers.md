@@ -1,14 +1,14 @@
-# Presets
+# Helpers
 
-Many networks write the same building blocks: the same list of addresses that never come from the internet, the same filter for broken TCP packets, the same rules for which BGP routes to refuse. Presets are those blocks, ready to use.
+Many networks write the same building blocks: the same list of addresses that never come from the internet, the same filter for broken TCP packets, the same rules for which BGP routes to refuse. Helpers are those blocks, ready to use.
 
-A preset only returns plain config, like the config you write yourself. Nothing happens until you put it somewhere in a device or in `circuit.config.ts`.
+A helper only returns plain config, like the config you write yourself. Nothing happens until you put it somewhere in a device or in `circuit.config.ts`.
 
 ```ts
-import { Bgp, Checks, Exchange, Filters } from "@takodotid/circuit/presets";
+import { Bgp, Checks, Exchange, Filters } from "@takodotid/circuit/helpers";
 ```
 
-| Preset                                       | What it gives you                                                         | Where it goes                    |
+| Helper                                       | What it gives you                                                         | Where it goes                    |
 | -------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
 | `Filters.MARTIANS`                           | IPv4 sources that never come from the internet                            | anywhere a list of prefixes goes |
 | `Filters.PRIVATE_RANGES`                     | IPv4 private space, RFC 1918                                              | anywhere a list of prefixes goes |
@@ -23,7 +23,7 @@ import { Bgp, Checks, Exchange, Filters } from "@takodotid/circuit/presets";
 | `Checks.trustBoundary({ … })`                | A check: traffic from outside reaches your VLANs only through a router    | `checks`                         |
 | `Exchange.build({ … }, members)`             | An internet exchange's member ports, and a check that keeps members apart | `ports`, `checks`                |
 
-The descriptions on the rules a preset makes are fixed, because a device stores them. A release that changes one is a breaking change.
+The descriptions on the rules a helper makes are fixed, because a device stores them. A release that changes one is a breaking change.
 
 ## Edge filters
 
@@ -100,7 +100,7 @@ Other lengths can be given: `Bgp.sanity({ ipv4: { min: 8, max: 24 }, ipv6: { min
 ## Checks
 
 ```ts
-import { Checks } from "@takodotid/circuit/presets";
+import { Checks } from "@takodotid/circuit/helpers";
 
 export default defineNetwork({
     devices,
@@ -140,7 +140,7 @@ These help when you write your own checks. Each example is a complete check.
 
 ```ts
 import type { Check } from "@takodotid/circuit";
-import { Checks } from "@takodotid/circuit/presets";
+import { Checks } from "@takodotid/circuit/helpers";
 
 // No port carries more than 20 VLANs.
 const fewVlansPerPort: Check = (devices) =>
@@ -157,7 +157,7 @@ const fewVlansPerPort: Check = (devices) =>
 
 ```ts
 import type { Check } from "@takodotid/circuit";
-import { Bgp } from "@takodotid/circuit/presets";
+import { Bgp } from "@takodotid/circuit/helpers";
 
 // Every BGP session filters what it takes in.
 const everyImportFiltered: Check = (devices) =>
@@ -174,7 +174,7 @@ const everyImportFiltered: Check = (devices) =>
 
 ```ts
 import type { Check } from "@takodotid/circuit";
-import { Bgp } from "@takodotid/circuit/presets";
+import { Bgp } from "@takodotid/circuit/helpers";
 
 // A test prefix is never announced to anyone.
 const testPrefixStaysHome: Check = (devices) =>

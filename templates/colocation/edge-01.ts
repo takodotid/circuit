@@ -3,8 +3,8 @@
 // Hurricane Electric and SGIX stand for your own transit and exchange. Addresses are from the documentation ranges; use the ones your providers give you.
 
 import type { Prefix } from "@takodotid/circuit";
-import { defineDevice, merge, secret } from "@takodotid/circuit";
-import { Bgp, Filters } from "@takodotid/circuit/presets";
+import { defineDevice, secret, Utils } from "@takodotid/circuit";
+import { Bgp, Filters } from "@takodotid/circuit/helpers";
 import { ASN, communities } from "./routing";
 import { edgeRules, gateways, internetVlanNames, internetVlans } from "./tenancy";
 import { TENANTS } from "./tenants";
@@ -28,7 +28,7 @@ export default defineDevice({
     system: { timezone: "Asia/Jakarta", ntp: { servers: ["pool.ntp.org"] } },
     management: { allow: [MANAGEMENT], ssh: {} },
 
-    vlans: merge(
+    vlans: Utils.merge(
         {
             mgmt: { id: 99, description: "Management of the switches" },
             transit: { id: 300, description: "IP transit from Hurricane Electric, AS6939" },
@@ -49,7 +49,7 @@ export default defineDevice({
         },
     },
 
-    interfaces: merge(
+    interfaces: Utils.merge(
         {
             mgmt: { type: "vlan", vlan: "mgmt", addresses: ["10.0.99.1/24"] },
             transit: { type: "vlan", vlan: "transit", addresses: ["203.0.113.2/30"] },

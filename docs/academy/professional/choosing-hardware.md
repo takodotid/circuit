@@ -32,7 +32,7 @@ interfaces: {
 },
 ```
 
-That is `edge-a1` in the full-setup example: the router forwards in its chip, but traffic through the exchange interface goes to the CPU, which the schema notes is what makes the firewall apply to it. On RouterOS, Circuit renders the first line as `set switch1 l3-hw-offloading=yes`.
+That is `edge-a1` in the regional provider example: the router forwards in its chip, but traffic through the exchange interface goes to the CPU, which the schema notes is what makes the firewall apply to it. On RouterOS, Circuit renders the first line as `set switch1 l3-hw-offloading=yes`.
 
 ## How many routes it must hold
 
@@ -132,7 +132,7 @@ Fibre comes in two kinds. <Term means="Fibre with a wide core, 50 micrometres in
 
 The SR4 optics send on eight fibres, four each way, through an MPO connector, one plug that holds them all; the other optics in the table use one pair of fibres. For a few metres inside one rack, a <Term means="Direct attach cable: two plugs joined by a short copper cable, used instead of two optics and a fibre for a link inside a rack.">DAC</Term> replaces two optics and the fibre; a passive one for SFP+ reaches up to about 7 metres.
 
-<TryIt title="Light four links of the full-setup example">
+<TryIt title="Light four links of the regional provider example">
 
 Pick the link, then an optic for each end and the fibre. Light it. When a link comes up, see how its ports are written in Circuit.
 

@@ -5,10 +5,10 @@ import { Platforms } from "../../src/platforms";
 import { FortiOsFirewall } from "../../src/platforms/fortios/firewall";
 import { FortiOs } from "../../src/platforms/fortios/index";
 import { FortiOsTree } from "../../src/platforms/fortios/tree";
-import aggregationSwitch from "../../examples/aggregation-switch";
-import coreSwitch from "../../examples/core-switch";
-import firewall from "../../examples/firewall";
-import router from "../../examples/router";
+import aggregationSwitch from "../../examples/platforms/junos";
+import coreSwitch from "../../examples/platforms/raisecom-ros";
+import firewall from "../../examples/platforms/fortios";
+import router from "../../examples/platforms/routeros";
 
 // The forms a Raisecom switch prints, seen on a RAX721: an access group with its notify view, an SNMPv3 user as localized keys, and `portswitch` on a switched LAG.
 test("example-core-switch plans nothing against how the device prints it", () => {

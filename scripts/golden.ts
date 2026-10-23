@@ -12,12 +12,11 @@ class Golden {
     static readonly DIRECTORY = join(Golden.ROOT, ".golden");
     static readonly CLI = join(Golden.ROOT, "src/cli/index.ts");
 
-    /** Every config the repository holds, the standalone examples gathered into one. */
+    /** Every config the repository holds. */
     static readonly CONFIGS = [
-        "examples/golden.config.ts",
-        "examples/full-setup/circuit.config.ts",
+        "examples/platforms/circuit.config.ts",
         ...["single-site", "edge-router", "colocation"].map((pattern) => `templates/${pattern}/circuit.config.ts`),
-        ...["ip-transit", "ix-transit", "internet-exchange", "virtual-exchange"].map(
+        ...["ip-transit", "ix-transit", "internet-exchange", "virtual-exchange", "regional-provider"].map(
             (name) => `examples/use-cases/${name}/circuit.config.ts`
         ),
     ];

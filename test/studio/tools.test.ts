@@ -5,7 +5,7 @@ import { Platforms } from "../../src/platforms";
 import { Topology } from "../../src/core/topology";
 import { StudioModel } from "../../src/studio/data";
 import { Evaluate } from "../../src/studio/public/evaluate.js";
-import router from "../../examples/router";
+import router from "../../examples/platforms/routeros";
 
 const network = (await import("../../templates/colocation/circuit.config.ts")).default;
 const data = StudioModel.build(

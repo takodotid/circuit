@@ -23,7 +23,7 @@ So `64500:100:6939` means "AS64500's function 100, toward AS6939": do not announ
 
 ```ts
 // routing.ts
-import { Bgp } from "@takodotid/circuit/presets";
+import { Bgp } from "@takodotid/circuit/helpers";
 
 export const communities = Bgp.communityScheme({
     asn: 64500,
@@ -60,7 +60,7 @@ A neighbor adds these to the routes it sends you, to ask you for something. Only
 
 ## What you get back
 
-`Bgp.communityScheme` returns five things:
+`Bgp.communityScheme` returns six things:
 
 | Name                                 | What it is                                              | Where it goes                                |
 | ------------------------------------ | ------------------------------------------------------- | -------------------------------------------- |
@@ -68,6 +68,7 @@ A neighbor adds these to the routes it sends you, to ask you for something. Only
 | `actions(asn)`                       | Rules that do what neighbors asked, toward one neighbor | Each neighbor's export policy                |
 | `blackhole(prefixSets)`              | Rules that accept a blackhole request                   | The import of each neighbor you allow, first |
 | `catalogue`                          | Every community with its meaning                        | `communities` in `defineNetwork`             |
+| `learned_from`                       | The community each class is tagged with, by class name  | A rule of your own                           |
 | `community(function, parameter)`     | One community, written out                              | A rule of your own                           |
 
 ### tag
@@ -157,13 +158,15 @@ To publish a community the scheme does not make, add it beside the catalogue:
 communities: [...communities.catalogue, { community: communities.community(200, 0), description: "Our own test routes" }],
 ```
 
-### community
+### learned_from and community
 
-`communities.community(1, 3)` writes `64500:1:3`. Use it in a rule of your own, so a community is never typed by hand. For example, to prefer routes learned from customers over the same routes from anyone else:
+`communities.learned_from.customer` is the community a route from a customer is tagged with, `64500:1:3`. The editor suggests the class names you gave in `learned_from.classes`, and shows the community each one makes. Use it in a rule of your own, so a community is never typed by hand. For example, to prefer routes learned from customers over the same routes from anyone else:
 
 ```ts
-{ description: "Customers first", match: { large_community: communities.community(1, 3) }, set: { local_pref: 300 } },
+{ description: "Customers first", match: { large_community: communities.learned_from.customer }, set: { local_pref: 300 } },
 ```
+
+`communities.community(1, 3)` writes any community of yours, here also `64500:1:3`, for a function the scheme does not name.
 
 ## Blackhole
 

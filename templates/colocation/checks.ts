@@ -2,7 +2,7 @@
 
 import type { Check, Finding } from "@takodotid/circuit";
 import { Address } from "@takodotid/circuit";
-import { Checks } from "@takodotid/circuit/presets";
+import { Checks } from "@takodotid/circuit/helpers";
 import { TENANTS } from "./tenants";
 
 export default [

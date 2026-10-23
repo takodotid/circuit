@@ -11,7 +11,7 @@ const text = ref("192.168.1.37");
 const prefix = ref(24);
 
 const examples = ["192.168.1.37", "10.20.30.40", "172.16.5.200"];
-const presets = [8, 16, 24, 25, 30];
+const shortcuts = [8, 16, 24, 25, 30];
 
 const parsed = computed(() => Ipv4.parse(text.value));
 const error = computed(() => ("error" in parsed.value ? parsed.value.error : undefined));
@@ -91,14 +91,14 @@ const splitText = computed(() => {
         </label>
         <div class="ac-row">
             <button
-                v-for="preset in presets"
-                :key="preset"
+                v-for="shortcut in shortcuts"
+                :key="shortcut"
                 type="button"
                 class="ac-button small"
-                :aria-pressed="prefix === preset"
-                @click="prefix = preset"
+                :aria-pressed="prefix === shortcut"
+                @click="prefix = shortcut"
             >
-                /{{ preset }}
+                /{{ shortcut }}
             </button>
         </div>
 

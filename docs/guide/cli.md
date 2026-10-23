@@ -2,6 +2,8 @@
 
 Run every command from your project as `npx circuit <command>`, or `pnpm circuit <command>` with pnpm, or `bun circuit <command>` with Bun. It reads `circuit.config.ts` in the current directory, or another file if you give its path with `--config <path>`.
 
+`npx circuit --help` lists every command, and `npx circuit <command> --help` lists what one command takes. An option can come before or after the device names, and an option with a value can be written either way: `--config other.ts` or `--config=other.ts`. A command stops with an error when it is given an option it does not know, or more device names than it takes.
+
 ## Every command
 
 | Command                          | What it does                                                                                                                                        | Touches a device |
@@ -41,9 +43,9 @@ These four are easy to mix up:
 | ------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `--config <path>`   | every command                                         | Read the network from this file instead of `circuit.config.ts`                                                                                                     |
 | `--confirm`         | `apply`, `refresh`, `peeringdb`, `librenms`, `rename` | Actually send, or for `rename`, write the files. Without it, nothing is sent or written.                                                                           |
-| `--secrets`         | `apply`                                               | Send every secret again, when you change a password. See [Secrets](/guide/secrets#changing-a-secret).                                                              |
+| `--secrets`         | `apply`, `diff`                                       | Send every secret again, when you change a password. With `diff`, plan as `apply --secrets` would. See [Secrets](/guide/secrets#changing-a-secret).                |
 | `--auths`           | `prometheus`                                          | Print the SNMP exporter's credentials instead of the devices. See [Prometheus](/integrations/prometheus#the-credentials).                                          |
-| `--rollback=N`      | `apply`                                               | On RouterOS, Junos and FortiOS, how many minutes the device waits before undoing the change if Circuit cannot log in again. 10 by default.                         |
+| `--rollback=N`      | `apply`                                               | On RouterOS, Junos and FortiOS, how many whole minutes the device waits before undoing the change if Circuit cannot log in again. 10 by default.                   |
 | `--console`         | `snapshot`, `apply`                                   | Reach the device through its serial console, on this computer or a jump host, instead of SSH. See [Devices](/guide/devices#reaching-a-device-through-its-console). |
 | `--file`            | `rename`                                              | Also rename the file that declares the device, to `<new-name>.ts`.                                                                                                 |
 | `--length=N`        | `addresses`                                           | List the free prefixes of this length, instead of the fewest that cover the free space.                                                                            |

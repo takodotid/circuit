@@ -18,7 +18,10 @@ Circuit looks for `SWITCH_PASSWORD` in two places, in this order:
 ```bash
 # .env
 SWITCH_PASSWORD=correct-horse-battery-staple
+ROUTER_PASSWORD="has#a-hash"
 ```
+
+Put quotes around a value that has a `#` in it. Without quotes, `#` starts a comment, so Circuit stops with an error rather than send a password cut short. A `#` after a space, as in `NAME=value # a note`, is a comment. Circuit reads `.env` the same way Node and Bun do.
 
 `.env` must never be committed. `circuit new` adds it to `.gitignore` for you.
 

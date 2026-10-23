@@ -103,7 +103,7 @@ const chosen = computed(() => ({
 
 const file = computed(() =>
     [
-        'import type { ExchangeMember } from "@takodotid/circuit/presets";',
+        'import type { ExchangeMember } from "@takodotid/circuit/helpers";',
         "",
         "export default {",
         '    name: "example",',
@@ -126,11 +126,11 @@ const terminal = computed(() => {
 });
 
 const outcome = computed(() => {
-    if (result.value?.validate.startsWith("error: merge")) {
+    if (result.value?.validate.startsWith("error: Utils.merge")) {
         return {
             kind: "bad",
             word: "Stopped",
-            text: "Circuit stops while reading the files: merge will not let a member's port replace the switch's own trunk, so nothing is checked or planned until it is fixed.",
+            text: "Circuit stops while reading the files: Utils.merge will not let a member's port replace the switch's own trunk, so nothing is checked or planned until it is fixed.",
         };
     }
     if (!result.value?.diff) {
@@ -143,7 +143,7 @@ const outcome = computed(() => {
     return {
         kind: "good",
         word: "Ready",
-        text: "One port, set up by the preset: the peering VLAN only, no spanning tree, no LLDP, and storm control at 1%. Nothing else on either switch changes.",
+        text: "One port, set up by the helper: the peering VLAN only, no spanning tree, no LLDP, and storm control at 1%. Nothing else on either switch changes.",
     };
 });
 </script>

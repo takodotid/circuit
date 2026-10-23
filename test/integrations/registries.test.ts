@@ -2,8 +2,8 @@
 
 import { expect, test } from "bun:test";
 import { defineNetwork } from "../../src/core/define";
-import router from "../../examples/router";
-import switchDevice from "../../examples/switch";
+import router from "../../examples/platforms/routeros";
+import switchDevice from "../../examples/platforms/vrp";
 
 test("prometheus lists every device with SNMP, each with its own auth, and no secret in the auths", async () => {
     const { Prometheus } = await import("../../src/integrations/prometheus");

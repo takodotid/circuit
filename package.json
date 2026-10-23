@@ -54,10 +54,10 @@
             "bun": "./src/index.ts",
             "default": "./dist/index.js"
         },
-        "./presets": {
-            "types": "./dist/types/presets/index.d.ts",
-            "bun": "./src/presets/index.ts",
-            "default": "./dist/presets/index.js"
+        "./helpers": {
+            "types": "./dist/types/helpers/index.d.ts",
+            "bun": "./src/helpers/index.ts",
+            "default": "./dist/helpers/index.js"
         }
     },
     "bin": {
@@ -93,9 +93,13 @@
         "agents:setup": "npx -y skills experimental_install"
     },
     "dependencies": {
+        "@clack/prompts": "^1.8.1",
+        "@commander-js/extra-typings": "~14.0.0",
         "@types/ssh2": "^1.15.6",
+        "commander": "~14.0.3",
         "jiti": "^2.7.0",
-        "ssh2": "^1.17.0"
+        "ssh2": "^1.17.0",
+        "yaml": "^2.9.1"
     },
     "devDependencies": {
         "@commitlint/cli": "^21.2.4",

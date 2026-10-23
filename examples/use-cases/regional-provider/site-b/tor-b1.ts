@@ -1,6 +1,6 @@
 // The top-of-rack switch at site B, below agg-b1: customers' servers and the office's desks.
 
-import { defineDevice, merge } from "@takodotid/circuit";
+import { defineDevice, Utils } from "@takodotid/circuit";
 import { AT } from "../customers";
 import { INFRA_VLANS, SERVICES } from "../network";
 import * as switches from "../switches";
@@ -20,9 +20,14 @@ export default defineDevice({
     stp: { mode: "rstp" },
     lldp: true,
 
-    vlans: merge(INFRA_VLANS, { office: { id: 50, description: "The site B office" } }, customerVlans(AT.b), privateVlans(AT.b, "tor-b1")),
+    vlans: Utils.merge(
+        INFRA_VLANS,
+        { office: { id: 50, description: "The site B office" } },
+        customerVlans(AT.b),
+        privateVlans(AT.b, "tor-b1")
+    ),
 
-    ports: merge(customerPorts(AT.b, "tor-b1", HOST), {
+    ports: Utils.merge(customerPorts(AT.b, "tor-b1", HOST), {
         "40g-1": { description: "agg-b1", trunk_vlans: switches.SITE_B, link: { device: "agg-b1", port: "100g-2" } },
         ...Object.fromEntries(
             [1, 2, 3, 4, 5, 6].map((n) => [`10g-${40 + n}`, { ...HOST, description: `Office, desk ${n}`, access_vlan: "office" }])

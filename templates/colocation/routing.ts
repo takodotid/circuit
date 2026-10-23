@@ -1,6 +1,6 @@
 // What your network is on the internet: its AS number and its BGP communities.
 
-import { Bgp } from "@takodotid/circuit/presets";
+import { Bgp } from "@takodotid/circuit/helpers";
 
 /** Your AS number. */
 export const ASN = 64500;
