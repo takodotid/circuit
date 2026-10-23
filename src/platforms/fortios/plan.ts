@@ -210,6 +210,7 @@ export class FortiOsPlan {
             "admin-telnet-port": "23",
             "admin-ssh-grace-time": "120",
         },
+        "system settings": { "bfd-desired-min-tx": "250", "bfd-required-min-rx": "250", "bfd-detect-mult": "3" },
         "system interface": { mtu: "1500" },
         "system snmp community": { "query-v2c-port": "161" },
         "system snmp user": { "query-port": "161" },

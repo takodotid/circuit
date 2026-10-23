@@ -204,7 +204,8 @@ export class FortiOs extends Platform {
             if (vrf.description) found.push(`vrfs.${name}.description, the platform numbers a VRF and keeps no description`);
         }
 
-        found.push(...Derive.unproved(device));
+        // Proved on a FG-3700D on FortiOS 6.2.2, in NAT mode. BFD on a multihop BGP session is taken and read back, but the device asks for a BFD session only once BGP is up, and no session came up to show one.
+        found.push(...Derive.unproved(device, ["bfd-timers", "static-route-bfd"]));
 
         return found;
     }
@@ -634,12 +635,14 @@ export class FortiOs extends Platform {
 
         const routing = device.routing;
         if (routing?.bgp || routing?.ospf) found.push(`routing, ${where}: static routes only`);
+        if (routing?.bfd) found.push(`routing.bfd, ${where}: BFD is proved in NAT mode only`);
 
         for (const [index, route] of (routing?.static ?? []).entries()) {
             const at = `routing.static[${index}]`;
             if (!management) found.push(`${at}, ${where}: a route needs the management address`);
             if (!route.via || Address.family(route.via) !== "ipv4" || route.interface || route.blackhole || route.vrf)
                 found.push(`${at}, ${where}: only an IPv4 next hop, for the management address`);
+            if (route.bfd) found.push(`${at}.bfd, ${where}: BFD is proved in NAT mode only`);
         }
 
         if (device.firewall?.nat) found.push(`firewall.nat, ${where}`);
@@ -886,6 +889,7 @@ export class FortiOs extends Platform {
         for (const route of device.routing?.static ?? []) {
             const where = `routing.static ${route.prefix}`;
 
+            if (route.vrf && route.bfd) found.push(`${where}.bfd, BFD in a VRF is not proved on a device yet`);
             if (route.vrf && route.blackhole)
                 found.push(`${where}, a blackhole in a VRF: a route takes the VRF of the interface it leaves through`);
             if (route.vrf && route.interface && FortiOsNames.settingsOf(device, route.interface)?.vrf !== route.vrf) {

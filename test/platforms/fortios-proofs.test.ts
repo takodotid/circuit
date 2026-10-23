@@ -88,3 +88,138 @@ test("LLDP neighbors are read from diagnose lldprx neighbor details, by Circuit'
 test("no LLDP neighbor when the device received none", () => {
     expect(FortiOs.neighborsOf("", firewall as Device)).toEqual([]);
 });
+
+/** A firewall with one routed port, a static route through it, and an IPv6 one. */
+const routed = {
+    name: "example-firewall",
+    platform: "fortios",
+    model: "FG-3700D",
+    connection: { host: "192.0.2.10", user: "admin" },
+    ports: { "10g-1": { addresses: ["192.0.2.2/30", "2001:db8:ffff::2/64"] } },
+    routing: {
+        static: [
+            { prefix: "198.51.100.0/24", via: "192.0.2.1", description: "BFD test" },
+            { prefix: "2001:db8:100::/48", via: "2001:db8:ffff::1", description: "BFD test" },
+        ],
+    },
+} as unknown as Device;
+
+const withBfd = {
+    ...routed,
+    routing: {
+        bfd: { interval: 300, multiplier: 4 },
+        static: routed.routing!.static!.map((route) => ({ ...route, bfd: true as const })),
+    },
+} as Device;
+
+/** What `show system settings`, `show router static` and `show router static6` printed once the device took BFD. */
+const PRINTED_BFD = {
+    "system settings": `config system settings
+    set bfd enable
+    set bfd-desired-min-tx 300
+    set bfd-required-min-rx 300
+    set bfd-detect-mult 4
+    set default-voip-alg-mode kernel-helper-based
+end`,
+    "router static": `config router static
+    edit 1
+        set dst 198.51.100.0 255.255.255.0
+        set gateway 192.0.2.1
+        set device "port5"
+        set comment "BFD test"
+        set bfd enable
+    next
+end`,
+    "router static6": `config router static6
+    edit 1
+        set dst 2001:db8:100::/48
+        set gateway 2001:db8:ffff::1
+        set device "port5"
+        set comment "BFD test"
+        set bfd enable
+    next
+end`,
+};
+
+/** The render of a device with some sections replaced by what the device printed. */
+function asPrinted(device: Device, sections: Record<string, string>): string {
+    let text = platform.render(device);
+
+    for (const [section, printed] of Object.entries(sections)) {
+        const start = text.indexOf(`config ${section}\n`);
+        const end = text.indexOf("\nend", start) + "\nend".length;
+        text = text.slice(0, start) + printed + text.slice(end);
+    }
+
+    return text;
+}
+
+const options = { secrets: false, rollback: 10 };
+
+test("BFD timers and BFD on static routes render as the device printed them", () => {
+    expect(platform.unsupported(withBfd)).toEqual([]);
+    expect(platform.plan(platform.render(withBfd), asPrinted(withBfd, PRINTED_BFD), options).steps).toEqual([]);
+});
+
+test("timers the device does not print, its 250 ms and 3, plan nothing", () => {
+    const defaults = { ...withBfd, routing: { ...withBfd.routing, bfd: { interval: 250, multiplier: 3 } } } as Device;
+    const printed = {
+        ...PRINTED_BFD,
+        "system settings": "config system settings\n    set bfd enable\n    set default-voip-alg-mode kernel-helper-based\nend",
+    };
+
+    expect(platform.render(defaults)).toContain("set bfd-detect-mult 3");
+    expect(platform.plan(platform.render(defaults), asPrinted(defaults, printed), options).steps).toEqual([]);
+});
+
+test("removing BFD unsets the timers while BFD still runs, then BFD, and creates each route again without it", () => {
+    const sent = platform.plan(platform.render(routed), asPrinted(withBfd, PRINTED_BFD), options).steps.flatMap((step) => step.send);
+
+    expect(sent).toEqual([
+        "config system settings",
+        "unset bfd-detect-mult",
+        "unset bfd-required-min-rx",
+        "unset bfd-desired-min-tx",
+        "unset bfd",
+        "end",
+        "config router static",
+        "delete 1",
+        "edit 1",
+        "set dst 198.51.100.0 255.255.255.0",
+        "set gateway 192.0.2.1",
+        'set device "port5"',
+        'set comment "BFD test"',
+        "next",
+        "end",
+        "config router static6",
+        "delete 1",
+        "edit 1",
+        "set dst 2001:db8:100::/48",
+        "set gateway 2001:db8:ffff::1",
+        'set device "port5"',
+        'set comment "BFD test"',
+        "next",
+        "end",
+    ]);
+});
+
+test("BFD stays refused where it is not proved: on a multihop BGP session, and on a route in a VRF", () => {
+    const multihop = {
+        ...routed,
+        routing: {
+            ...routed.routing,
+            bgp: { asn: 64496, neighbors: { far: { address: "198.51.100.1", remote_as: 64497, multihop: true, bfd: true } } },
+        },
+    } as Device;
+
+    expect(platform.unsupported(multihop)).toContain(
+        "routing.bgp.neighbors.far.bfd, BFD on a multihop session is not proved on a device yet"
+    );
+
+    const inVrf = {
+        ...firewall,
+        routing: { ...firewall.routing, static: [{ prefix: "0.0.0.0/0", via: "198.51.100.98", vrf: "guests", bfd: true }] },
+    } as Device;
+
+    expect(platform.unsupported(inVrf)).toContain("routing.static 0.0.0.0/0.bfd, BFD in a VRF is not proved on a device yet");
+});
