@@ -40,14 +40,11 @@ test("switch rules are counted as the render makes them, and more than a CCR2216
             acls: { edge: rules },
         }) as Device;
 
-    // 25 rules on two ports are 50 switch rules, as many as the chip held; on three ports they are 75.
+    // The CCR2216 held 70 switch rules with two distinct ranges (tako-bdr-01, 2026-10-24), so the count alone gives no warning: 25 rules on three ports are 75.
     const rules = Array.from({ length: 25 }, (_, n) => rule(n + 1));
     const warnings = (device: Device) => findings(device).filter((finding) => finding.startsWith("warning"));
 
-    expect(warnings(withRules(rules, ["100g-1", "25g-3"]))).toEqual([]);
-    expect(warnings(withRules(rules, ["100g-1", "25g-3", "25g-4"]))).toEqual([
-        "warning example-router: ACLs make 75 switch rules; a CCR2216-1G-12XS-2XQ held about 50. A rule it cannot hold is invalid, and so is every rule after it",
-    ]);
+    expect(warnings(withRules(rules, ["100g-1", "25g-3", "25g-4"]))).toEqual([]);
 
     // A list of ports is one switch rule for each, and a range counts once however often it is used.
     const ranges = [1, 2, 3, 4, 5, 6].map((n) => ({ min: n * 100, max: n * 100 + 9 }));
