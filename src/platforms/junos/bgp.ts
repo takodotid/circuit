@@ -84,7 +84,7 @@ export class JunosBgp {
             if (settings.passive) this.out.set(group, "passive");
             if (settings.hold_time !== undefined) this.out.set(group, "hold-time", settings.hold_time);
             if (settings.password) this.out.set(group, "authentication-key", Secrets.marker(settings.password));
-            if (settings.bfd) this.out.set(group, "bfd-liveness-detection minimum-interval", JunosRender.BFD_INTERVAL);
+            if (settings.bfd) JunosRender.bfd(this.out, group, this.device);
 
             this.out.set(group, "import", settings.import ?? JunosBgp.REJECT_ALL);
 

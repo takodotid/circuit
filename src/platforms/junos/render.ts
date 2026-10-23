@@ -157,7 +157,7 @@ export class JunosRender {
         native: ["tcp", 830],
     } as const;
 
-    /** Detection under a second: three missed packets 300 ms apart. */
+    /** Detection under a second: three missed packets 300 ms apart. The platform has no interval of its own, and 3 is its multiplier. */
     static readonly BFD_INTERVAL = 300;
 
     /** Kinds of flooded traffic, with the statement that leaves each out of a storm-control profile. */
@@ -201,6 +201,14 @@ export class JunosRender {
         render.sflow();
 
         return render.out.text();
+    }
+
+    /** BFD under a statement: `routing.bfd`'s timers, or every 300 ms when it has none. */
+    static bfd(out: JunosStatements, statement: string, device: Device): void {
+        const timers = device.routing?.bfd;
+
+        out.set(statement, "bfd-liveness-detection minimum-interval", timers?.interval ?? JunosRender.BFD_INTERVAL);
+        if (timers) out.set(statement, "bfd-liveness-detection multiplier", timers.multiplier);
     }
 
     /** Quote a value unless it is a plain word. Quoting more than the platform would is harmless: the comparison ignores quotes. */
@@ -641,6 +649,9 @@ export class JunosRender {
             const nextHop = route.via ?? this.names.unit(route.interface!);
             if (route.distance === undefined) this.out.set(statement, "next-hop", nextHop);
             else this.out.set(statement, "qualified-next-hop", nextHop, "preference", route.distance);
+
+            // BFD on the route watches its next hop.
+            if (route.bfd) JunosRender.bfd(this.out, statement, this.device);
         }
     }
 
@@ -708,7 +719,7 @@ export class JunosRender {
                     if (settings?.cost !== undefined) this.out.set(statement, "metric", settings.cost);
                     if (settings?.passive) this.out.set(statement, "passive");
                     if (settings?.network === "point-to-point") this.out.set(statement, "interface-type p2p");
-                    if (settings?.bfd) this.out.set(statement, "bfd-liveness-detection minimum-interval", JunosRender.BFD_INTERVAL);
+                    if (settings?.bfd) JunosRender.bfd(this.out, statement, this.device);
                 }
             }
 

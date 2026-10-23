@@ -33,3 +33,7 @@ Behaviour that looks like something else. Each one has been hit on a QFX5100-48S
 - After a login the console prints `Last login: ...`, which ends in `login: ` like the login prompt; only a `login: ` on a line of its own is the prompt.
 - A factory-default switch runs Auto Image Upgrade, which prints on the console every few seconds until `delete chassis auto-image-upgrade` is committed.
 - `show lldp neighbors` has no column for the far port: its `Port info` is the far port's description. `show lldp neighbors detail | display xml` has the port in `lldp-remote-port-id`, and Circuit reads that. In the detail form `lldp-local-port-id` is a number, `520`; the port's name is in `lldp-local-interface`.
+- BFD on a BGP group, an OSPF interface and a static route takes `bfd-liveness-detection minimum-interval N` and `multiplier N`, and prints both as sent, `multiplier 3`, the default, too. A multihop group takes it without a `local-address`.
+- BFD on a BGP session starts only once the session is up: `show bfd session` lists nothing for a session in `Connect`, though the session shows `<BfdEnabled>`.
+- A static route with BFD is withdrawn while its next hop does not answer BFD, so `show route` shows nothing for it. A session that is down sends every 2 seconds, `Transmit Interval 2.000`, whatever the interval.
+- `bfd-liveness-detection` on a static route also watches a `qualified-next-hop`: a session to that address starts.

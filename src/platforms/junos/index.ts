@@ -10,7 +10,7 @@ import type { Device, Family, IP } from "../../schema";
 import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../catalog";
-import { Derive } from "../derive";
+import { Derive, type ProvedFeature } from "../derive";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
 import { JunosBgp } from "./bgp";
 import { JunosNames, JunosRender } from "./render";
@@ -102,6 +102,9 @@ export class Junos extends Platform {
 
     /** Commands that only read. */
     private static readonly READS = /^show\s/;
+
+    /** Features `Derive.unproved` refuses until a platform proves them, proved here on a QFX5100-48S-6Q running Junos 21.4R3. */
+    private static readonly PROVED: readonly ProvedFeature[] = ["bfd-timers", "static-route-bfd", "multihop-bfd"];
 
     readonly name = "junos";
 
@@ -294,7 +297,7 @@ export class Junos extends Platform {
             if (names.members(name).some((port) => port.startsWith("em"))) found.push(`flow_export.interfaces ${name}, a management port`);
         }
 
-        found.push(...Derive.unproved(device));
+        found.push(...Derive.unproved(device, Junos.PROVED));
 
         return found;
     }
