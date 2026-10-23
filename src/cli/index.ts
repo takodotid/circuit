@@ -22,6 +22,7 @@ import { GraphFormat } from "./graph-format";
 import { Rename, type RenamePlan } from "./rename";
 import { ProjectFiles } from "../core/project-files";
 import { ConsoleScript, type ConsoleSession, SerialConsole } from "../transport/console";
+import { PathCheck } from "../transport/path-check";
 import { StudioModel } from "../studio/data";
 import type { ScaffoldOptions } from "./new";
 
@@ -193,8 +194,11 @@ class Cli {
             .option("--secrets", "also send every secret, to rotate one")
             .option("--rollback <minutes>", "minutes before a device that can restore itself does", Cli.minutes, 10)
             .option("--console", "through the device's serial console on its jump host, instead of SSH")
+            .option("--force", "send even when the pings before --confirm find a path that loses too much or is too slow")
             .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
-            .action(async (device, flags) => (await Cli.open(flags.config, flags)).apply(device, flags.confirm ?? false));
+            .action(async (device, flags) =>
+                (await Cli.open(flags.config, flags)).apply(device, flags.confirm ?? false, flags.force ?? false)
+            );
 
         program
             .command("show")
@@ -434,10 +438,13 @@ class Cli {
         }
     }
 
-    private async apply(name: string, confirmed: boolean): Promise<void> {
+    private async apply(name: string, confirmed: boolean, force: boolean): Promise<void> {
         const device = this.one(name);
         this.guard([device]);
         const adapter = this.adapterOf(device);
+
+        // A lossy path also cuts the read short, so the path is checked before the read.
+        if (confirmed) await this.checkPath(device, force);
 
         // The plan is made against what the device runs now, never against an old snapshot.
         const live = await adapter.read(device, this.network.devices, this.optionsFor(device));
@@ -594,6 +601,32 @@ class Cli {
 
         stdin.on("end", () => void leave(0));
         stdin.resume();
+    }
+
+    /** Ping the device and stop when the path loses too much or is too slow, unless `force`. A device reached through its console has no path to measure. */
+    private async checkPath(device: Device, force: boolean): Promise<void> {
+        const host = device.connection.host;
+        if (!host || this.optionsFor(device).console) return;
+
+        const measure = await PathCheck.measure(host);
+        if (!measure) {
+            console.log(`path: no ping program here, so the path to ${host} was not measured`);
+            return;
+        }
+
+        const { refuse, summary } = PathCheck.verdict(host, measure);
+        console.log(`path: ${summary}`);
+        if (!refuse) return;
+
+        const limits = `at most ${PathCheck.MAX_LOSS_PERCENT}% lost and ${PathCheck.MAX_AVERAGE_MS} ms on average`;
+        if (force) {
+            console.log(`path: worse than ${limits}; going ahead, as --force asks`);
+            return;
+        }
+
+        Cli.fail(
+            `\nNot sent: the path is worse than ${limits}. A change sent over a path that drops packets can cut the device off halfway. Fix the path, or add --force to go ahead anyway.`
+        );
     }
 
     private async refresh(name: string, confirmed: boolean): Promise<void> {
