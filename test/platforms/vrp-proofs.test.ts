@@ -195,3 +195,49 @@ test("OSPF BFD timers are undone before they change, a route's BFD template is r
     ]);
     expect(sent("", "ip route-static bfd 192.0.2.1 local-address 192.0.2.2\n")).toEqual(["undo ip route-static bfd 192.0.2.1"]);
 });
+
+// An exchange member port: one MAC address, and only IPv4, IPv6 and ARP.
+const member: Device = {
+    ...switchDevice,
+    ports: {
+        ...switchDevice.ports,
+        "10g-4": { description: "Member", access_vlan: "servers", mac_limit: 1, ethertypes: ["ipv4", "ipv6", "arp"] },
+        "10g-5": { description: "Member", access_vlan: "servers", ethertypes: ["ipv4", "arp"] },
+    },
+};
+
+test("a MAC limit and an ethertype filter render as the switch prints them", () => {
+    const rendered = vrp.render(member);
+
+    expect(rendered).toContain(
+        "acl number 4000\n rule 5 permit type ip\n rule 10 permit type ipv6\n rule 15 permit type arp\n rule 20 deny\n#"
+    );
+    expect(rendered).toContain("acl number 4001\n rule 5 permit type ip\n rule 10 permit type arp\n rule 15 deny\n#");
+    expect(rendered).toContain(
+        "interface 10GE1/0/4\n description Member\n port default vlan 20\n mac-address limit maximum 1\n traffic-filter acl 4000 inbound\n#"
+    );
+    expect(rendered).toContain("interface 10GE1/0/5\n description Member\n port default vlan 20\n traffic-filter acl 4001 inbound\n#");
+    expect(vrp.unsupported(member)).toEqual([]);
+});
+
+test("a MAC limit is undone without its value, and a filter on a LAG or a LAG member is refused", () => {
+    expect(sent("interface 10GE1/0/4\n#\n", "interface 10GE1/0/4\n mac-address limit maximum 1\n#\n")).toEqual([
+        "interface 10GE1/0/4",
+        "undo mac-address limit",
+        "quit",
+    ]);
+
+    const onLag: Device = {
+        ...switchDevice,
+        ports: { ...switchDevice.ports, "40g-1": { ...switchDevice.ports!["40g-1"]!, mac_limit: 1 } },
+        interfaces: {
+            ...switchDevice.interfaces,
+            uplink: { type: "lag", mode: "lacp", trunk_vlans: ["management", "servers", "guests"], ethertypes: ["ipv4"] },
+        },
+    };
+
+    expect(vrp.unsupported(onLag)).toEqual([
+        "ports.40g-1.mac_limit on a LAG member, set it on the LAG",
+        "interfaces.uplink.ethertypes, on a LAG is not proved",
+    ]);
+});
