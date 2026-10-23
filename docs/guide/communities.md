@@ -5,11 +5,11 @@ A BGP community is a tag on a route. Networks use them for two things:
 1. **To remember where a route came from.** Your router tags each route it learns, for example "learned from a transit, in Jakarta, from AS6939". Your own policies can then treat routes differently by where they came from.
 2. **To let a neighbor ask for something.** A customer, for example, tags a route it sends you with "do not announce this to AS6939", and your router does it.
 
-For this to work, three things must agree: the tags your routers add, the tags your routers act on, and the list you publish so others know what each tag means. `communityScheme` builds all three from one definition, so they cannot drift apart.
+For this to work, three things must agree: the tags your routers add, the tags your routers act on, and the list you publish so others know what each tag means. `Bgp.communityScheme` builds all three from one definition, so they cannot drift apart.
 
 ## How a community is written
 
-`communityScheme` uses large communities, which are three numbers: `asn:function:parameter`.
+`Bgp.communityScheme` uses large communities, which are three numbers: `asn:function:parameter`.
 
 | Part        | What it is                                                      | Example                     |
 | ----------- | --------------------------------------------------------------- | --------------------------- |
@@ -23,9 +23,9 @@ So `64500:100:6939` means "AS64500's function 100, toward AS6939": do not announ
 
 ```ts
 // routing.ts
-import { communityScheme } from "@takodotid/circuit/presets";
+import { Bgp } from "@takodotid/circuit/presets";
 
-export const communities = communityScheme({
+export const communities = Bgp.communityScheme({
     asn: 64500,
     learned_from: { function: 1, classes: { transit: 1, exchange: 2, customer: 3 } },
     learned_at: { function: 2, sites: { 0: "Jakarta" } },
@@ -60,7 +60,7 @@ A neighbor adds these to the routes it sends you, to ask you for something. Only
 
 ## What you get back
 
-`communityScheme` returns five things:
+`Bgp.communityScheme` returns five things:
 
 | Name                                 | What it is                                              | Where it goes                                |
 | ------------------------------------ | ------------------------------------------------------- | -------------------------------------------- |
@@ -207,7 +207,7 @@ blackhole: { function: 666, upstreams: { 6939: "65535:666" } },
 ],
 ```
 
-- It comes before `SANITY`, because `bgpSanity()` refuses anything longer than a /24, and a blackholed address is usually a /32.
+- It comes before `SANITY`, because `Bgp.sanity()` refuses anything longer than a /24, and a blackholed address is usually a /32.
 - It only takes an address inside the prefix sets you give it, `acme-v4` and `acme-v6`, the customer's own space, so a customer can never blackhole someone else's address. One call covers every set: it makes one rule for each.
 - Leave it out for a neighbor you do not allow to blackhole.
 

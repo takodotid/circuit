@@ -1,18 +1,18 @@
 // What Studio shows is gathered from the config alone: each device as written, every port its model has, what it would run, its BGP sessions and cables, and the schema's description of each field.
 
 import { expect, test } from "bun:test";
-import { adapters } from "../../src/platforms";
-import { graphOf } from "../../src/core/graph";
-import { studioData } from "../../src/studio/data";
+import { Platforms } from "../../src/platforms";
+import { Topology } from "../../src/core/topology";
+import { StudioModel } from "../../src/studio/data";
 
 test("Studio gathers the colocation pattern's devices, sessions, cables and field descriptions", async () => {
     const network = (await import("../../templates/colocation/circuit.config.ts")).default;
     const devices = network.devices;
-    const data = studioData(
+    const data = StudioModel.build(
         devices,
-        { ...graphOf(devices), findings: [], drift: {} },
+        { ...Topology.of(devices), findings: [], drift: {} },
         {
-            render: (device) => adapters[device.platform]!.render(device),
+            render: (device) => Platforms.get(device.platform).render(device),
             snapshot: (device) => (device.name === "tor-01" ? "sysname tor-01\n" : undefined),
             files: (device) => ({ source: `${device.name}.ts` }),
         }
@@ -57,9 +57,9 @@ test("a session to another of our devices names it, and says when that device ha
     });
 
     const devices = [device("r1", "10.255.0.1", "10.255.0.2", true), device("r2", "10.255.0.2", "10.255.0.1", false)];
-    const data = studioData(
+    const data = StudioModel.build(
         devices,
-        { ...graphOf(devices), findings: [], drift: {} },
+        { ...Topology.of(devices), findings: [], drift: {} },
         { render: () => "", snapshot: () => undefined, files: () => ({}) }
     );
 
@@ -85,9 +85,9 @@ test("a session back must be of the same family: a v4 session back does not answ
         }),
         device("r2", "10.255.0.2", "2001:db8::2", { "r1-v4": { address: "10.255.0.1", remote_as: 64500 } }),
     ];
-    const data = studioData(
+    const data = StudioModel.build(
         devices,
-        { ...graphOf(devices), findings: [], drift: {} },
+        { ...Topology.of(devices), findings: [], drift: {} },
         { render: () => "", snapshot: () => undefined, files: () => ({}) }
     );
 

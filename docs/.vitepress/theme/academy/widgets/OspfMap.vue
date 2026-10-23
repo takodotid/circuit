@@ -3,7 +3,7 @@
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
-import { nextHops, pathsTo, shortestPaths, type Link } from "./OspfMap";
+import { type Link, Spf } from "./OspfMap";
 
 const routers = [
     { id: "R1", x: 70, y: 165 },
@@ -35,8 +35,8 @@ const costs = [1, 5, 10, 20, 30, 50, 100];
 const from = ref("R1");
 const to = ref("R6");
 
-const paths = computed(() => shortestPaths(ids, links.value, from.value));
-const cheapest = computed(() => pathsTo(paths.value, to.value));
+const paths = computed(() => Spf.run(ids, links.value, from.value));
+const cheapest = computed(() => Spf.pathsTo(paths.value, to.value));
 
 const linkName = (link: Link) => `${link.a} to ${link.b}`;
 
@@ -104,7 +104,7 @@ const table = computed(() =>
         .map((id) => ({
             id,
             prefix: networkOf(id),
-            via: nextHops(paths.value, id).join(" or "),
+            via: Spf.nextHops(paths.value, id).join(" or "),
             cost: paths.value.cost.get(id),
         }))
 );

@@ -89,7 +89,7 @@ function inside(route: string, set: readonly string[]): boolean {
 const BOGONS = ["127.0.0.0/8", "169.254.0.0/16", "0.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"];
 const OURS = ["198.51.100.0/24"];
 
-/** The rules bgpSanity() makes, in its order. */
+/** The rules Bgp.sanity() makes, in its order. */
 const sanity = [
     { label: "IPv4 shorter than /8", test: (route: Incoming) => !isIpv6(route.prefix) && lengthOf(route.prefix) < 8 },
     { label: "IPv4 longer than /24", test: (route: Incoming) => !isIpv6(route.prefix) && lengthOf(route.prefix) > 24 },
@@ -173,12 +173,12 @@ function toggle(id: RuleId) {
 const code = computed(() => {
     const lines = [
         "prefix_sets: {",
-        "    bogons: { prefixes: [...MARTIANS, ...PRIVATE_RANGES] },",
+        "    bogons: { prefixes: [...Filters.MARTIANS, ...Filters.PRIVATE_RANGES] },",
         `    ours: { prefixes: ["198.51.100.0/24"] },`,
         "},",
         "",
         "policies: {",
-        "    SANITY: bgpSanity(),",
+        "    SANITY: Bgp.sanity(),",
         `    "TRANSIT-IN": [`,
     ];
     const lineOf: Partial<Record<RuleId, number>> = {};

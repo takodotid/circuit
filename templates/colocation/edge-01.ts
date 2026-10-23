@@ -4,7 +4,7 @@
 
 import type { Prefix } from "@takodotid/circuit";
 import { defineDevice, merge, secret } from "@takodotid/circuit";
-import { antiSpoofing, badTcpFlags, bgpSanity, MARTIANS, PRIVATE_RANGES } from "@takodotid/circuit/presets";
+import { Bgp, Filters } from "@takodotid/circuit/presets";
 import { ASN, communities } from "./routing";
 import { edgeRules, gateways, internetVlanNames, internetVlans } from "./tenancy";
 import { TENANTS } from "./tenants";
@@ -16,7 +16,7 @@ const OURS = ["198.51.100.0/24", "2001:db8:100::/48"] as const satisfies readonl
 const MANAGEMENT = "10.0.0.0/24" satisfies Prefix;
 
 /** Sources that never arrive from the internet: our own space, and addresses that are not on the internet at all. */
-const SPOOFED = [OURS[0], ...MARTIANS, ...PRIVATE_RANGES];
+const SPOOFED = [OURS[0], ...Filters.MARTIANS, ...Filters.PRIVATE_RANGES];
 
 export default defineDevice({
     name: "edge-01",
@@ -95,7 +95,7 @@ export default defineDevice({
     },
 
     policies: {
-        SANITY: bgpSanity(),
+        SANITY: Bgp.sanity(),
         // A route from the exchange is preferred over the same route from the transit: higher local preference wins.
         "TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 6939), { set: { local_pref: 100 } }, { action: "accept" }],
         "IX-IN": [{ call: "SANITY" }, communities.tag("exchange", 55518), { set: { local_pref: 200 } }, { action: "accept" }],
@@ -117,15 +117,15 @@ export default defineDevice({
                     { description: "BGP", match: { protocol: "tcp", dst_port: 179, src_set: "bgp-neighbors" }, action: "accept" },
                 ],
             },
-            forward: { rules: [...badTcpFlags()] },
+            forward: { rules: [...Filters.badTcpFlags()] },
         },
     },
 
     // In the switch chip, before a packet reaches the router's CPU: spoofed sources first, then each tenant's own rules.
     acls: {
         edge: [
-            ...antiSpoofing("transit", SPOOFED),
-            ...antiSpoofing("ix", SPOOFED),
+            ...Filters.antiSpoofing("transit", SPOOFED),
+            ...Filters.antiSpoofing("ix", SPOOFED),
             ...edgeRules(TENANTS, "transit"),
             ...edgeRules(TENANTS, "ix"),
         ],

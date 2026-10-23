@@ -2,11 +2,11 @@
 
 import { expect, test } from "bun:test";
 import { defineDevice, defineNetwork, secret } from "../../src/core/define";
-import { validate } from "../../src/core/validate";
+import { Validator } from "../../src/core/validator";
 import type { Device } from "../../src/schema";
 
 const findings = (...devices: Device[]) =>
-    validate(defineNetwork({ devices })).map((finding) => `${finding.level} ${finding.device}: ${finding.message}`);
+    Validator.run(defineNetwork({ devices })).map((finding) => `${finding.level} ${finding.device}: ${finding.message}`);
 
 const users = { admin: { role: "admin" as const, password: secret("PASSWORD") } };
 

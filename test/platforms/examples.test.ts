@@ -1,9 +1,9 @@
 // Every example validates, renders, and plans nothing against its own render. A plan that is not empty there means the reader and the renderer disagree on a form, which would show up as a change on every apply.
 
 import { describe, expect, test } from "bun:test";
-import { adapters } from "../../src/platforms";
+import { Platforms } from "../../src/platforms";
 import { defineNetwork } from "../../src/core/define";
-import { validate } from "../../src/core/validate";
+import { Validator } from "../../src/core/validator";
 import type { Device } from "../../src/schema";
 import aggregationSwitch from "../../examples/aggregation-switch";
 import coreSwitch from "../../examples/core-switch";
@@ -16,13 +16,13 @@ const examples = [router, switchDevice, coreSwitch, aggregationSwitch, firewall,
 
 describe("examples", () => {
     test("validate", () => {
-        const findings = validate(defineNetwork({ devices: examples }));
+        const findings = Validator.run(defineNetwork({ devices: examples }));
         expect(findings).toEqual([]);
     });
 
     for (const device of examples) {
         test(`${device.name} plans nothing against its own render`, () => {
-            const adapter = adapters[device.platform]!;
+            const adapter = Platforms.get(device.platform);
             const rendered = adapter.render(device);
             const plan = adapter.plan(rendered, rendered, { secrets: false, rollback: 10 });
             expect(plan.problems).toEqual([]);
@@ -42,11 +42,11 @@ describe("templates and use cases", () => {
     for (const directory of configs) {
         test(directory, async () => {
             const network = (await import(`../../${directory}/circuit.config.ts`)).default;
-            const findings = validate(network).filter((finding) => finding.level === "error");
+            const findings = Validator.run(network).filter((finding) => finding.level === "error");
             expect(findings).toEqual([]);
 
             for (const device of network.devices) {
-                const adapter = adapters[device.platform]!;
+                const adapter = Platforms.get(device.platform);
                 const rendered = adapter.render(device);
                 const plan = adapter.plan(rendered, rendered, { secrets: false, rollback: 10 });
                 expect(plan.problems).toEqual([]);
@@ -58,7 +58,7 @@ describe("templates and use cases", () => {
 
 // A field the render leaves out is reported, so it never goes missing without a word.
 test("a field a platform renders nothing for is unsupported", () => {
-    const unsupported = (device: Device) => adapters[device.platform]!.unsupported(device);
+    const unsupported = (device: Device) => Platforms.get(device.platform).unsupported(device);
 
     const switchGaps = (device: Device): Device => ({
         ...device,
@@ -205,13 +205,13 @@ test("a field a platform renders nothing for is unsupported", () => {
 test("a route through an AS is matched anywhere in its path", () => {
     const rule = { description: "Not through AS64496", match: { through_as: 64496 }, action: "reject" as const };
 
-    const routeros = adapters["routeros"]!.render({
+    const routeros = Platforms.get("routeros").render({
         ...router,
         policies: { ...router.policies, "UPSTREAM-IN": [rule, ...router.policies!["UPSTREAM-IN"]!] },
     });
     expect(routeros).toContain(`rule="if (bgp-as-path 64496) { reject }"`);
 
-    const junos = adapters["junos"]!.render({
+    const junos = Platforms.get("junos").render({
         ...aggregationSwitch,
         policies: { ...aggregationSwitch.policies, "transit-in": [rule, ...aggregationSwitch.policies!["transit-in"]!] },
     });
@@ -232,7 +232,7 @@ test("a transparent FortiGate takes one management address outside its bridges",
         },
         routing: { static: [{ prefix: "0.0.0.0/0", via: "192.0.2.1" }] },
     };
-    const adapter = adapters["fortios"]!;
+    const adapter = Platforms.get("fortios");
 
     expect(adapter.unsupported!(managed)).toEqual([]);
     const rendered = adapter.render(managed);
@@ -255,11 +255,11 @@ test("a transparent FortiGate takes one management address outside its bridges",
 
 test("management services answer only on the interfaces listed", () => {
     const listed = { ...firewall, management: { ...firewall.management, interfaces: ["management"] } } as Device;
-    const rendered = adapters["fortios"]!.render(listed);
+    const rendered = Platforms.get("fortios").render(listed);
 
     expect(rendered).toMatch(/edit "uplink"[^]*?set allowaccess ping\n/);
     expect(rendered).toMatch(/edit "management"[^]*?set allowaccess ping https ssh/);
     expect(
-        adapters["routeros"]!.unsupported!({ ...router, management: { ...router.management, interfaces: ["management"] } } as Device)
+        Platforms.get("routeros").unsupported({ ...router, management: { ...router.management, interfaces: ["management"] } } as Device)
     ).toContain("management.interfaces, which only FortiOS builds for now");
 });

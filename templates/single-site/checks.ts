@@ -1,7 +1,7 @@
 // Rules of your own. `circuit validate` runs them beside Circuit's own, and an error stops `diff` and `apply`.
 
 import type { Check } from "@takodotid/circuit";
-import { vlansOf } from "@takodotid/circuit/presets";
+import { Checks } from "@takodotid/circuit/presets";
 
 export default [
     // A port without a description is hard to trace later. A warning, so it does not block anything.
@@ -16,7 +16,7 @@ export default [
     (devices) =>
         devices.flatMap((device) =>
             Object.entries(device.ports ?? {})
-                .filter(([, port]) => port?.access_vlan && vlansOf(port).includes("mgmt"))
+                .filter(([, port]) => port?.access_vlan && Checks.vlansOf(port).includes("mgmt"))
                 .map(([name]) => ({
                     level: "error" as const,
                     device: device.name,

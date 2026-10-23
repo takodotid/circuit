@@ -15,45 +15,47 @@ export type Round = {
     sent: Message[];
 };
 
-/**
- * Every round of announcing one prefix, until nothing changes.
- *
- * Each AS keeps the shortest path it hears, and keeps the one it has when a new one is no shorter. Whenever its path changes, it sends the path to every neighbor with its own number added at the front. An AS that finds its own number in a path drops it.
- */
-export function announce(links: readonly [number, number][], origin: number): Round[] {
-    const neighborsOf = (as: number) => links.flatMap(([a, b]) => (a === as ? [b] : b === as ? [a] : []));
-    const send = (as: number, path: number[]): Message[] => neighborsOf(as).map((to) => ({ from: as, to, path: [as, ...path] }));
+export class Announcement {
+    /**
+     * Every round of announcing one prefix, until nothing changes.
+     *
+     * Each AS keeps the shortest path it hears, and keeps the one it has when a new one is no shorter. Whenever its path changes, it sends the path to every neighbor with its own number added at the front. An AS that finds its own number in a path drops it.
+     */
+    static rounds(links: readonly [number, number][], origin: number): Round[] {
+        const neighborsOf = (as: number) => links.flatMap(([a, b]) => (a === as ? [b] : b === as ? [a] : []));
+        const send = (as: number, path: number[]): Message[] => neighborsOf(as).map((to) => ({ from: as, to, path: [as, ...path] }));
 
-    const best = new Map<number, number[]>([[origin, []]]);
-    const rounds: Round[] = [{ arrivals: [], best: new Map(best), sent: send(origin, []) }];
+        const best = new Map<number, number[]>([[origin, []]]);
+        const rounds: Round[] = [{ arrivals: [], best: new Map(best), sent: send(origin, []) }];
 
-    while (rounds[rounds.length - 1]!.sent.length && rounds.length < 50) {
-        const arriving = rounds[rounds.length - 1]!.sent;
-        const changed = new Set<number>();
+        while (rounds[rounds.length - 1]!.sent.length && rounds.length < 50) {
+            const arriving = rounds[rounds.length - 1]!.sent;
+            const changed = new Set<number>();
 
-        const arrivals = arriving.map((message): Arrival => {
-            if (message.path.includes(message.to)) return { ...message, result: "loop" };
+            const arrivals = arriving.map((message): Arrival => {
+                if (message.path.includes(message.to)) return { ...message, result: "loop" };
 
-            const known = best.get(message.to);
+                const known = best.get(message.to);
 
-            if (known === undefined) {
-                best.set(message.to, message.path);
-                changed.add(message.to);
-                return { ...message, result: "new" };
-            }
+                if (known === undefined) {
+                    best.set(message.to, message.path);
+                    changed.add(message.to);
+                    return { ...message, result: "new" };
+                }
 
-            if (message.path.length < known.length) {
-                best.set(message.to, message.path);
-                changed.add(message.to);
-                return { ...message, result: "shorter" };
-            }
+                if (message.path.length < known.length) {
+                    best.set(message.to, message.path);
+                    changed.add(message.to);
+                    return { ...message, result: "shorter" };
+                }
 
-            return { ...message, result: "longer" };
-        });
+                return { ...message, result: "longer" };
+            });
 
-        const sent = [...changed].flatMap((as) => send(as, best.get(as)!));
-        rounds.push({ arrivals, best: new Map(best), sent });
+            const sent = [...changed].flatMap((as) => send(as, best.get(as)!));
+            rounds.push({ arrivals, best: new Map(best), sent });
+        }
+
+        return rounds;
     }
-
-    return rounds;
 }

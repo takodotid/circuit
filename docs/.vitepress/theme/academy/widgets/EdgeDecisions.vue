@@ -46,7 +46,7 @@ const decisions: Decision[] = [
                 id: "all",
                 label: "Everything we know",
                 verdict: "bad",
-                text: "A route leak: the transit's routes would go to the exchange, and the exchange's to the transit. exportsEndInReject stops it before it reaches the router.",
+                text: "A route leak: the transit's routes would go to the exchange, and the exchange's to the transit. Checks.exportsEndInReject stops it before it reaches the router.",
             },
             {
                 id: "noreject",
@@ -165,7 +165,7 @@ const code = computed(() => {
         "},",
         "",
         "policies: {",
-        "    SANITY: bgpSanity(),",
+        "    SANITY: Bgp.sanity(),",
         transitIn,
         `    "IX-IN": [{ call: "SANITY" }, communities.tag("exchange", 64511), { set: { local_pref: ${exchangePref} } }, { action: "accept" }],`,
         ...out,

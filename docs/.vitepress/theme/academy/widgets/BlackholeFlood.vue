@@ -140,7 +140,7 @@ const code = computed(() => {
         ? `    blackhole: { function: 666, upstreams: { ${entries.map((upstream) => `${upstream.asn}: "${upstream.community}"`).join(", ")} } },`
         : "    blackhole: { function: 666 },";
 
-    return ["export const communities = communityScheme({", "    asn: 64500,", blackhole, "});"].join("\n");
+    return ["export const communities = Bgp.communityScheme({", "    asn: 64500,", blackhole, "});"].join("\n");
 });
 
 const meter = (load: number, capacity: number) => Math.min(100, (load / capacity) * 100);

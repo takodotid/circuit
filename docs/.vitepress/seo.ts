@@ -3,95 +3,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { DefaultTheme, HeadConfig, PageData } from "vitepress";
-import { levels } from "./academy";
-
-/** The longest description search results show in full. */
-const LONGEST = 160;
-
-/** A page's markdown, with each `<!--@include: file-->` replaced by the file it names. */
-function source(file: string): string {
-    const text = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
-
-    return text.replace(/<!--\s*@include:\s*(\S+?)\s*-->/g, (_, path: string) => {
-        try {
-            return source(resolve(dirname(file), path.replace(/[#{].*$/, "")));
-        } catch {
-            return "";
-        }
-    });
-}
-
-/** Markdown as the plain text a reader sees, with each code span left as a numbered mark, so its dots and angle brackets are not read as prose. */
-function plain(markdown: string, code: string[]): string {
-    return markdown
-        .replace(/`([^`]*)`/g, (_, span: string) => `@@${code.push(span) - 1}@@`)
-        .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-        .replace(/(\*\*|__|\*|_)(\S[^*_]*?)\1/g, "$2")
-        .replace(/<\/?[a-z][^>]*>/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-}
-
-/** The first prose on a page, as whole sentences that fit in a search result. */
-export function describe(file: string): string | undefined {
-    const blocks = source(file)
-        .replace(/^---\n[\s\S]*?\n---\n/, "")
-        .replace(/^```[\s\S]*?^```/gm, "")
-        .replace(/^:::[\s\S]*?^:::/gm, "")
-        .split(/\n\s*\n/)
-        .map((block) => block.trim());
-
-    for (const block of blocks) {
-        // Prose is not a heading, list, table, quote or markup.
-        if (!block || /^(#|\||<|>|-|\*|!|\d+\.)/.test(block) || block.includes("{{")) continue;
-
-        const code: string[] = [];
-        const text = plain(block, code);
-        const restore = (part: string) => part.replace(/@@(\d+)@@/g, (_, index: string) => code[Number(index)] ?? "").trim();
-
-        // A sentence that leads into what follows it, ending in a colon, is left out.
-        const sentences = text.match(/.+?[.!?](?=\s|$)/g);
-        if (!sentences) continue;
-
-        let description = "";
-        for (const sentence of sentences) {
-            if (restore(description + sentence).length > LONGEST) break;
-            description += sentence;
-        }
-
-        // One sentence longer than a search result shows is cut at a word.
-        return description
-            ? restore(description)
-            : `${restore(sentences[0] ?? "")
-                  .slice(0, LONGEST - 3)
-                  .replace(/\s+\S*$/, "")}...`;
-    }
-
-    return undefined;
-}
-
-/** The page's address, as cleanUrls serves it. */
-export function addressOf(hostname: string, relativePath: string): string {
-    const path = relativePath.replace(/(^|\/)index\.md$/, "$1").replace(/\.md$/, "");
-    return `${hostname}/${path}`;
-}
-
-/** The sidebar group a page is listed under, named and linked by its first page, for the page's breadcrumb. */
-function groupOf(sidebar: DefaultTheme.SidebarItem[], path: string): { name: string; link: string } | undefined {
-    const group = sidebar.find((candidate) => candidate.items?.some((item) => item.link === path));
-    const first = group?.items?.[0]?.link;
-
-    return group?.text && first && first !== path ? { name: group.text, link: first } : undefined;
-}
-
-/** An Academy lesson of a level that opens with an entry check: its text is in the page, hidden until the reader passes the check. */
-const gated = (page: PageData) => levels.slice(1).some((level) => page.relativePath.startsWith(`academy/${level.slug}/`));
-
-/** How search engines are told that a lesson's text is behind a check, so hiding it is not read as hiding it from them alone. */
-const behindCheck = {
-    isAccessibleForFree: false,
-    hasPart: { "@type": "WebPageElement", isAccessibleForFree: false, cssSelector: ".vp-doc" },
-};
+import { Academy } from "./academy";
 
 type Site = {
     hostname: string;
@@ -102,80 +14,172 @@ type Site = {
     sidebar: DefaultTheme.SidebarItem[];
 };
 
-/** The tags a page adds to its head for search engines and link previews. */
-export function seoHead(page: PageData, site: Site): HeadConfig[] {
-    if (page.isNotFound) return [["meta", { name: "robots", content: "noindex" }]];
+export class Seo {
+    /** The longest description search results show in full. */
+    private static readonly LONGEST = 160;
 
-    const home = page.relativePath === "index.md";
-    const url = addressOf(site.hostname, page.relativePath);
-    const title = home ? `${site.name} | ${page.frontmatter.titleTemplate}` : `${page.title} | ${site.name}`;
-    const description = page.description || site.description;
-    const image = `${site.hostname}/og.png`;
-    const modified = page.lastUpdated ? new Date(page.lastUpdated).toISOString() : undefined;
-    const group = groupOf(site.sidebar, url.slice(site.hostname.length));
-
-    const website = {
-        "@type": "WebSite",
-        "@id": `${site.hostname}/#website`,
-        name: site.name,
-        url: `${site.hostname}/`,
-        description: site.description,
-        inLanguage: "en",
+    /** How search engines are told that a lesson's text is behind a check, so hiding it is not read as hiding it from them alone. */
+    private static readonly BEHIND_CHECK = {
+        isAccessibleForFree: false,
+        hasPart: { "@type": "WebPageElement", isAccessibleForFree: false, cssSelector: ".vp-doc" },
     };
 
-    const graph = home
-        ? [
-              website,
-              {
-                  "@type": "SoftwareSourceCode",
-                  name: site.name,
-                  description: site.description,
-                  url: `${site.hostname}/`,
-                  codeRepository: site.repository,
-                  programmingLanguage: "TypeScript",
-                  version: site.version,
-                  license: `${site.repository}/blob/main/LICENSE`,
-              },
-          ]
-        : [
-              website,
-              {
-                  "@type": "TechArticle",
-                  headline: page.title,
-                  description,
-                  url,
-                  inLanguage: "en",
-                  isPartOf: { "@id": `${site.hostname}/#website` },
-                  ...(modified ? { dateModified: modified } : {}),
-                  ...(gated(page) ? behindCheck : {}),
-              },
-              {
-                  "@type": "BreadcrumbList",
-                  itemListElement: [
-                      { name: site.name, item: `${site.hostname}/` },
-                      ...(group ? [{ name: group.name, item: `${site.hostname}${group.link}` }] : []),
-                      { name: page.title, item: url },
-                  ].map((crumb, index) => ({ "@type": "ListItem", position: index + 1, ...crumb })),
-              },
-          ];
+    /** A page's markdown, with each `<!--@include: file-->` replaced by the file it names. */
+    private static source(file: string): string {
+        const text = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
 
-    return [
-        ["link", { rel: "canonical", href: url }],
-        ["meta", { property: "og:type", content: home ? "website" : "article" }],
-        ["meta", { property: "og:site_name", content: site.name }],
-        ["meta", { property: "og:locale", content: "en_US" }],
-        ["meta", { property: "og:title", content: title }],
-        ["meta", { property: "og:description", content: description }],
-        ["meta", { property: "og:url", content: url }],
-        ["meta", { property: "og:image", content: image }],
-        ["meta", { property: "og:image:width", content: "1200" }],
-        ["meta", { property: "og:image:height", content: "630" }],
-        ["meta", { property: "og:image:alt", content: "Circuit: your network, written down." }],
-        ...(modified ? [["meta", { property: "article:modified_time", content: modified }] as HeadConfig] : []),
-        ["meta", { name: "twitter:card", content: "summary_large_image" }],
-        ["meta", { name: "twitter:title", content: title }],
-        ["meta", { name: "twitter:description", content: description }],
-        ["meta", { name: "twitter:image", content: image }],
-        ["script", { type: "application/ld+json" }, JSON.stringify({ "@context": "https://schema.org", "@graph": graph })],
-    ];
+        return text.replace(/<!--\s*@include:\s*(\S+?)\s*-->/g, (_, path: string) => {
+            try {
+                return Seo.source(resolve(dirname(file), path.replace(/[#{].*$/, "")));
+            } catch {
+                return "";
+            }
+        });
+    }
+
+    /** Markdown as the plain text a reader sees, with each code span left as a numbered mark, so its dots and angle brackets are not read as prose. */
+    private static plain(markdown: string, code: string[]): string {
+        return markdown
+            .replace(/`([^`]*)`/g, (_, span: string) => `@@${code.push(span) - 1}@@`)
+            .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+            .replace(/(\*\*|__|\*|_)(\S[^*_]*?)\1/g, "$2")
+            .replace(/<\/?[a-z][^>]*>/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    /** The first prose on a page, as whole sentences that fit in a search result. */
+    static describe(file: string): string | undefined {
+        const blocks = Seo.source(file)
+            .replace(/^---\n[\s\S]*?\n---\n/, "")
+            .replace(/^```[\s\S]*?^```/gm, "")
+            .replace(/^:::[\s\S]*?^:::/gm, "")
+            .split(/\n\s*\n/)
+            .map((block) => block.trim());
+
+        for (const block of blocks) {
+            // Prose is not a heading, list, table, quote or markup.
+            if (!block || /^(#|\||<|>|-|\*|!|\d+\.)/.test(block) || block.includes("{{")) continue;
+
+            const code: string[] = [];
+            const text = Seo.plain(block, code);
+            const restore = (part: string) => part.replace(/@@(\d+)@@/g, (_, index: string) => code[Number(index)] ?? "").trim();
+
+            // A sentence that leads into what follows it, ending in a colon, is left out.
+            const sentences = text.match(/.+?[.!?](?=\s|$)/g);
+            if (!sentences) continue;
+
+            let description = "";
+            for (const sentence of sentences) {
+                if (restore(description + sentence).length > Seo.LONGEST) break;
+                description += sentence;
+            }
+
+            // One sentence longer than a search result shows is cut at a word.
+            return description
+                ? restore(description)
+                : `${restore(sentences[0] ?? "")
+                      .slice(0, Seo.LONGEST - 3)
+                      .replace(/\s+\S*$/, "")}...`;
+        }
+
+        return undefined;
+    }
+
+    /** The page's address, as cleanUrls serves it. */
+    static address(hostname: string, relativePath: string): string {
+        const path = relativePath.replace(/(^|\/)index\.md$/, "$1").replace(/\.md$/, "");
+        return `${hostname}/${path}`;
+    }
+
+    /** The sidebar group a page is listed under, named and linked by its first page, for the page's breadcrumb. */
+    private static groupOf(sidebar: DefaultTheme.SidebarItem[], path: string): { name: string; link: string } | undefined {
+        const group = sidebar.find((candidate) => candidate.items?.some((item) => item.link === path));
+        const first = group?.items?.[0]?.link;
+
+        return group?.text && first && first !== path ? { name: group.text, link: first } : undefined;
+    }
+
+    /** An Academy lesson of a level that opens with an entry check: its text is in the page, hidden until the reader passes the check. */
+    private static gated(page: PageData) {
+        return Academy.LEVELS.slice(1).some((level) => page.relativePath.startsWith(`academy/${level.slug}/`));
+    }
+
+    /** The tags a page adds to its head for search engines and link previews. */
+    static head(page: PageData, site: Site): HeadConfig[] {
+        if (page.isNotFound) return [["meta", { name: "robots", content: "noindex" }]];
+
+        const home = page.relativePath === "index.md";
+        const url = Seo.address(site.hostname, page.relativePath);
+        const title = home ? `${site.name} | ${page.frontmatter.titleTemplate}` : `${page.title} | ${site.name}`;
+        const description = page.description || site.description;
+        const image = `${site.hostname}/og.png`;
+        const modified = page.lastUpdated ? new Date(page.lastUpdated).toISOString() : undefined;
+        const group = Seo.groupOf(site.sidebar, url.slice(site.hostname.length));
+
+        const website = {
+            "@type": "WebSite",
+            "@id": `${site.hostname}/#website`,
+            name: site.name,
+            url: `${site.hostname}/`,
+            description: site.description,
+            inLanguage: "en",
+        };
+
+        const graph = home
+            ? [
+                  website,
+                  {
+                      "@type": "SoftwareSourceCode",
+                      name: site.name,
+                      description: site.description,
+                      url: `${site.hostname}/`,
+                      codeRepository: site.repository,
+                      programmingLanguage: "TypeScript",
+                      version: site.version,
+                      license: `${site.repository}/blob/main/LICENSE`,
+                  },
+              ]
+            : [
+                  website,
+                  {
+                      "@type": "TechArticle",
+                      headline: page.title,
+                      description,
+                      url,
+                      inLanguage: "en",
+                      isPartOf: { "@id": `${site.hostname}/#website` },
+                      ...(modified ? { dateModified: modified } : {}),
+                      ...(Seo.gated(page) ? Seo.BEHIND_CHECK : {}),
+                  },
+                  {
+                      "@type": "BreadcrumbList",
+                      itemListElement: [
+                          { name: site.name, item: `${site.hostname}/` },
+                          ...(group ? [{ name: group.name, item: `${site.hostname}${group.link}` }] : []),
+                          { name: page.title, item: url },
+                      ].map((crumb, index) => ({ "@type": "ListItem", position: index + 1, ...crumb })),
+                  },
+              ];
+
+        return [
+            ["link", { rel: "canonical", href: url }],
+            ["meta", { property: "og:type", content: home ? "website" : "article" }],
+            ["meta", { property: "og:site_name", content: site.name }],
+            ["meta", { property: "og:locale", content: "en_US" }],
+            ["meta", { property: "og:title", content: title }],
+            ["meta", { property: "og:description", content: description }],
+            ["meta", { property: "og:url", content: url }],
+            ["meta", { property: "og:image", content: image }],
+            ["meta", { property: "og:image:width", content: "1200" }],
+            ["meta", { property: "og:image:height", content: "630" }],
+            ["meta", { property: "og:image:alt", content: "Circuit: your network, written down." }],
+            ...(modified ? [["meta", { property: "article:modified_time", content: modified }] as HeadConfig] : []),
+            ["meta", { name: "twitter:card", content: "summary_large_image" }],
+            ["meta", { name: "twitter:title", content: title }],
+            ["meta", { name: "twitter:description", content: description }],
+            ["meta", { name: "twitter:image", content: image }],
+            ["script", { type: "application/ld+json" }, JSON.stringify({ "@context": "https://schema.org", "@graph": graph })],
+        ];
+    }
 }

@@ -3,7 +3,7 @@
 ## How do I rename a device?
 
 1. Change `name` in the device's file. Circuit sets it as the device's hostname.
-2. Change every place that refers to the old name: a `link` on the device at the other end of a cable, and any check that uses the device's name, such as `routers` in `trustBoundary`. `circuit validate` reports a `link` to a device that does not exist.
+2. Change every place that refers to the old name: a `link` on the device at the other end of a cable, and any check that uses the device's name, such as `routers` in `Checks.trustBoundary`. `circuit validate` reports a `link` to a device that does not exist.
 3. Rename the file too if you like. It only matters to you; Circuit goes by `name`.
 4. Run `npx circuit apply <new name>`, then `--confirm`. The plan changes the hostname.
 5. Run `npx circuit snapshot` with no device names. It saves the device under its new name and removes the old snapshot from `.circuit/state/`.
@@ -20,7 +20,7 @@ It depends on what the AS numbers are for:
 - **Each AS has its own PeeringDB record or its own communities.** Give each AS its own config file in the same repository, such as `as64500.config.ts` and `as65551.config.ts`, and choose one with `--config`. Each config file gets its own `.circuit/` next to it, so put each in its own directory.
 - **The networks are run by different teams.** Use one repository per network. Each team then has its own history, secrets and access.
 
-## Why does `trustBoundary` ask for untrusted VLANs, not trusted ones?
+## Why does `Checks.trustBoundary` ask for untrusted VLANs, not trusted ones?
 
 The untrusted list is short and rarely changes: your transits, exchanges and ISP handoffs. Your own VLANs grow every time you add a customer or a service. Listing the untrusted ones means every VLAN you add later is protected from the start, without anyone remembering to add it to the check.
 

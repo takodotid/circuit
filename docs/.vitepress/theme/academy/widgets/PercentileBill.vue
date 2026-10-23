@@ -2,20 +2,20 @@
 // Lesson: what an ISP sells. The reader guesses where a 95th percentile bill lands, then sorts an evening of five-minute samples, throws away the busiest 5 percent, bills the highest left, and adds a burst to see when it starts to cost.
 
 import { computed, ref, watch } from "vue";
-import { BURST_RATE, BURST_START, EVENING, bill, percentile95, withBurst } from "./PercentileBill";
+import { Percentile95 } from "./PercentileBill";
 
 const TOP = 700;
 const CHART = { left: 52, right: 690, top: 18, bottom: 238 };
-const SLOT = (CHART.right - CHART.left) / EVENING.length;
+const SLOT = (CHART.right - CHART.left) / Percentile95.EVENING.length;
 
 const burst = ref(0);
 const stage = ref(0);
 const guess = ref(400);
 const commit = ref(200);
 
-const samples = computed(() => withBurst(EVENING, burst.value));
-const result = computed(() => percentile95(samples.value));
-const money = computed(() => bill(result.value.billed, commit.value));
+const samples = computed(() => Percentile95.withBurst(Percentile95.EVENING, burst.value));
+const result = computed(() => Percentile95.of(samples.value));
+const money = computed(() => Percentile95.bill(result.value.billed, commit.value));
 
 // A new burst changes what is billed, so the reader works it out again from the sorted samples.
 watch(burst, () => {
@@ -175,7 +175,10 @@ const billText = computed(() => {
             </div>
 
             <label class="ac-field">
-                <span>A burst at {{ BURST_RATE }} Mbit/s from {{ clock(BURST_START) }}, lasting {{ burst }} five-minute samples</span>
+                <span
+                    >A burst at {{ Percentile95.BURST_RATE }} Mbit/s from {{ clock(Percentile95.BURST_START) }}, lasting
+                    {{ burst }} five-minute samples</span
+                >
                 <input v-model.number="burst" class="range" type="range" min="0" max="4" step="1" />
             </label>
         </div>

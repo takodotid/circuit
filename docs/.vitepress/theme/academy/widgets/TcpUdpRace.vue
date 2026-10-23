@@ -2,8 +2,8 @@
 // Lesson: ports and protocols. The reader races one message over TCP and over UDP across a link that loses packets, and sees TCP shake hands, resend and keep order while UDP is faster but keeps holes and disorder.
 
 import { computed, onBeforeUnmount, ref } from "vue";
-import { prefersStill } from "./SwitchLearning";
-import { runRace, WORD, type Flight, type Race } from "./TcpUdpRace";
+import { Motion } from "./SwitchLearning";
+import { type Flight, type Race, Races } from "./TcpUdpRace";
 
 /** Real milliseconds shown for each millisecond of the race, so it can be watched. */
 const SLOW_DOWN = 10;
@@ -42,10 +42,10 @@ function stop() {
 
 function start() {
     cancelAnimationFrame(frame);
-    race.value = runRace(pattern.value, lossRate.value);
+    race.value = Races.run(pattern.value, lossRate.value);
     now.value = 0;
 
-    if (prefersStill()) {
+    if (Motion.still()) {
         now.value = race.value.end;
         return;
     }
@@ -86,7 +86,7 @@ const losing = computed(
     () => race.value?.flights.filter((flight) => flight.lost && flight.end <= now.value && now.value < flight.end + 45) ?? []
 );
 
-const letters = [...WORD];
+const letters = [...Races.WORD];
 
 /** Each TCP slot on the server: empty, arrived but waiting for an earlier piece, or handed to the program. */
 const tcpSlots = computed(() =>

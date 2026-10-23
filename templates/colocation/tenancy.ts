@@ -1,7 +1,7 @@
 // What a tenant is, and what each device carries for it. A tenant's file says what is the tenant's own; its VLANs and names follow from its name and number.
 
 import type { AclRule, Interface, IP, Port, Prefix, Vlan } from "@takodotid/circuit";
-import { familyOf } from "@takodotid/circuit";
+import { Address } from "@takodotid/circuit";
 
 /** A tenant's networks. `internet` carries its servers' public addresses and reaches the router. `private` connects its own servers to each other and stays on the switches. */
 type TenantNetwork = "internet" | "private";
@@ -87,7 +87,7 @@ export const edgeRules = <V extends string>(tenants: readonly Tenant[], vlan: V)
     tenants.flatMap((t) =>
         (t.acl ?? []).flatMap((rule) =>
             t.blocks
-                .filter(({ prefix }) => familyOf(prefix) === "ipv4")
+                .filter(({ prefix }) => Address.family(prefix) === "ipv4")
                 .map(({ prefix }) => ({
                     ...rule,
                     ...(rule.description ? { description: `${vlan}: ${rule.description}` } : {}),

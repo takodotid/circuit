@@ -30,7 +30,7 @@ The template's files use a well-known transit and exchange as stand-ins for your
 export const ASN = 64500;
 
 /** What your BGP communities mean. The router tags each route it learns with them, and `circuit communities` publishes them. */
-export const communities = communityScheme({
+export const communities = Bgp.communityScheme({
     asn: ASN,
     learned_from: { function: 1, classes: { transit: 1, exchange: 2 } },
     learned_from_as: 3,
@@ -121,7 +121,7 @@ Every import calls `SANITY`, tags the route with where it came from, sets a loca
 
 ```ts
 policies: {
-    SANITY: bgpSanity(),
+    SANITY: Bgp.sanity(),
     // A route from the exchange is preferred over the same route from the transit: higher local preference wins.
     "TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 64510), { set: { local_pref: 100 } }, { action: "accept" }],
     "IX-IN": [{ call: "SANITY" }, communities.tag("exchange", 64511), { set: { local_pref: 200 } }, { action: "accept" }],
@@ -149,15 +149,15 @@ firewall: {
                 { description: "BGP", match: { protocol: "tcp", dst_port: 179, src_set: "bgp-neighbors" }, action: "accept" },
             ],
         },
-        forward: { rules: [...badTcpFlags()] },
+        forward: { rules: [...Filters.badTcpFlags()] },
     },
 },
 
 // In the switch chip, before a packet reaches the router's CPU.
-acls: { edge: [...antiSpoofing("transit", SPOOFED), ...antiSpoofing("ix", SPOOFED)] },
+acls: { edge: [...Filters.antiSpoofing("transit", SPOOFED), ...Filters.antiSpoofing("ix", SPOOFED)] },
 ```
 
-`SPOOFED` is your own IPv4 block, the martians and the private ranges. A packet from outside whose source is one of those is forged, because no such sender can be out there. `antiSpoofing` drops it in the switch chip, so a flood of them never costs the router's CPU anything.
+`SPOOFED` is your own IPv4 block, the martians and the private ranges. A packet from outside whose source is one of those is forged, because no such sender can be out there. `Filters.antiSpoofing` drops it in the switch chip, so a flood of them never costs the router's CPU anything.
 
 <Quiz
   question="A packet arrives from the transit with the source address 198.51.100.7. What happens to it?"
@@ -169,7 +169,7 @@ acls: { edge: [...antiSpoofing("transit", SPOOFED), ...antiSpoofing("ix", SPOOFE
 
 ## Your own checks
 
-`checks.ts` adds three rules to Circuit's own, and `circuit validate` runs them all: every export ends in a reject (`exportsEndInReject`), traffic from the transit and exchange VLANs reaches the rest of the network only through the router (`trustBoundary`), and every BGP session has an import policy. `circuit.config.ts` lists the router, the checks, your AS number and your communities.
+`checks.ts` adds three rules to Circuit's own, and `circuit validate` runs them all: every export ends in a reject (`Checks.exportsEndInReject`), traffic from the transit and exchange VLANs reaches the rest of the network only through the router (`Checks.trustBoundary`), and every BGP session has an import policy. `circuit.config.ts` lists the router, the checks, your AS number and your communities.
 
 ## Make the decisions yourself
 

@@ -1,24 +1,24 @@
 // Every address the config uses, by prefix, and what is free: each kind of use is found, owned space is split into what is used and what is not, and the arithmetic holds at the edges.
 
 import { expect, test } from "bun:test";
-import { formatAddress, prefixesBetween, rangeOf } from "../../src/core/addr";
-import { addressesOf, freeOfLength } from "../../src/core/addresses";
+import { Address } from "../../src/core/address";
+import { AddressSpace } from "../../src/core/address-space";
 import { defineDevice, secret } from "../../src/core/define";
 
-test("rangeOf and prefixesBetween cover exactly what they are given", () => {
-    const { first, last } = rangeOf("198.51.100.77/24");
-    expect([formatAddress(first, "ipv4"), formatAddress(last, "ipv4")]).toEqual(["198.51.100.0", "198.51.100.255"]);
+test("Address.range and Address.prefixesBetween cover exactly what they are given", () => {
+    const { first, last } = Address.range("198.51.100.77/24");
+    expect([Address.fromNumber(first, "ipv4"), Address.fromNumber(last, "ipv4")]).toEqual(["198.51.100.0", "198.51.100.255"]);
 
-    expect(prefixesBetween(first + 72n, last, "ipv4")).toEqual([
+    expect(Address.prefixesBetween(first + 72n, last, "ipv4")).toEqual([
         "198.51.100.72/29",
         "198.51.100.80/28",
         "198.51.100.96/27",
         "198.51.100.128/25",
     ]);
-    expect(prefixesBetween(0n, (1n << 32n) - 1n, "ipv4")).toEqual(["0.0.0.0/0"]);
+    expect(Address.prefixesBetween(0n, (1n << 32n) - 1n, "ipv4")).toEqual(["0.0.0.0/0"]);
 
-    const v6 = rangeOf("2001:db8::/126");
-    expect(prefixesBetween(v6.first + 1n, v6.last, "ipv6")).toEqual(["2001:db8::1/128", "2001:db8::2/127"]);
+    const v6 = Address.range("2001:db8::/126");
+    expect(Address.prefixesBetween(v6.first + 1n, v6.last, "ipv6")).toEqual(["2001:db8::1/128", "2001:db8::2/127"]);
 });
 
 const edge = defineDevice({
@@ -68,7 +68,7 @@ const edge = defineDevice({
 });
 
 test("owned space lists each segment's uses, the blocks handed out, and the free rest", () => {
-    const [space] = addressesOf([edge]).spaces;
+    const [space] = AddressSpace.report([edge]).spaces;
 
     expect(space?.prefix).toBe("198.51.100.0/24");
     expect(space?.owner).toBe("originated by edge");
@@ -110,7 +110,7 @@ test("owned space lists each segment's uses, the blocks handed out, and the free
 });
 
 test("what is outside owned space is listed apart, with the next hops and neighbors in it", () => {
-    const { elsewhere } = addressesOf([edge]);
+    const { elsewhere } = AddressSpace.report([edge]);
 
     expect(elsewhere.segments.map((segment) => segment.prefix)).toEqual(["10.0.0.0/24", "10.9.0.0/24", "203.0.113.0/30"]);
 
@@ -124,14 +124,17 @@ test("what is outside owned space is listed apart, with the next hops and neighb
 });
 
 test("a prefix asked for is the one space, with only what falls inside it", () => {
-    const report = addressesOf([edge], "10.0.0.0/8");
+    const report = AddressSpace.report([edge], "10.0.0.0/8");
 
     expect(report.spaces.map((space) => [space.prefix, space.owner])).toEqual([["10.0.0.0/8", "asked for"]]);
     expect(report.spaces[0]?.segments.map((segment) => segment.prefix)).toEqual(["10.0.0.0/24", "10.9.0.0/24"]);
     expect(report.elsewhere).toEqual({ segments: [], blocks: [] });
 });
 
-test("freeOfLength lists free prefixes of one length, up to a limit, and counts them all", () => {
-    expect(freeOfLength(["10.0.1.0/24", "10.0.2.0/23"], 24, 2)).toEqual({ prefixes: ["10.0.1.0/24", "10.0.2.0/24"], total: 3n });
-    expect(freeOfLength(["10.0.0.0/30"], 24, 10)).toEqual({ prefixes: [], total: 0n });
+test("AddressSpace.freeOfLength lists free prefixes of one length, up to a limit, and counts them all", () => {
+    expect(AddressSpace.freeOfLength(["10.0.1.0/24", "10.0.2.0/23"], 24, 2)).toEqual({
+        prefixes: ["10.0.1.0/24", "10.0.2.0/24"],
+        total: 3n,
+    });
+    expect(AddressSpace.freeOfLength(["10.0.0.0/30"], 24, 10)).toEqual({ prefixes: [], total: 0n });
 });

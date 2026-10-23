@@ -3,7 +3,7 @@
 
 import { computed, ref } from "vue";
 import BitSwitches from "./BitSwitches.vue";
-import { bitText, sumText } from "./BitSwitches";
+import { Bits } from "./BitSwitches";
 
 type Challenge = { kind: "make"; target: number } | { kind: "read"; value: number };
 
@@ -41,7 +41,7 @@ const shown = computed({
 
 const prompt = computed(() => {
     const now = challenge.value;
-    if (now.kind === "read") return `What number is ${bitText(now.value)}?`;
+    if (now.kind === "read") return `What number is ${Bits.text(now.value)}?`;
     if (now.target === 256) return "Make 256.";
     if (now.target === 192) return "Make 192. Many home networks have addresses that start with it.";
     return `Make ${now.target}.`;
@@ -62,7 +62,7 @@ function check() {
     if (now.kind === "read") {
         const typed = answer.value.trim();
         if (!/^\d+$/.test(typed)) return wrong("Type the number as digits first, such as 42.");
-        if (Number(typed) === now.value) return right(`${bitText(now.value)} is ${sumText(now.value)}, which is ${now.value}.`);
+        if (Number(typed) === now.value) return right(`${Bits.text(now.value)} is ${Bits.sum(now.value)}, which is ${now.value}.`);
         return wrong(`It is not ${typed}. Add up the numbers above the switches that are on.`);
     }
 
@@ -72,10 +72,10 @@ function check() {
         return wrong(`That is ${value.value}. Keep going, or decide whether it can be done at all.`);
     }
 
-    if (value.value === now.target) return right(`${now.target} is ${sumText(now.target)}, written ${bitText(now.target)}.`);
+    if (value.value === now.target) return right(`${now.target} is ${Bits.sum(now.target)}, written ${Bits.text(now.target)}.`);
 
     const gap = now.target - value.value;
-    const what = value.value === 0 ? "All the switches are off, which is 0." : `That is ${value.value} (${sumText(value.value)}).`;
+    const what = value.value === 0 ? "All the switches are off, which is 0." : `That is ${value.value} (${Bits.sum(value.value)}).`;
     return wrong(`${what} ${now.target} is ${Math.abs(gap)} ${gap > 0 ? "more" : "less"}.`);
 }
 

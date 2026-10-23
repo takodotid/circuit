@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Lesson: OSPF. The reader steps through four routers finding their neighbors, sharing their links until each holds the same map, computing paths, and doing it again when a link fails.
 
-import { shortestPaths, pathsTo, type Link } from "./OspfMap";
+import { type Link, Spf } from "./OspfMap";
 
 const routers = [
     { id: "R1", x: 70, y: 70 },
@@ -67,8 +67,8 @@ function lit(step: number): Set<string> {
 
     const up: Link[] = links.map((link) => ({ ...link, up: step < 4 || key(link) !== FAILED }));
     const path =
-        pathsTo(
-            shortestPaths(
+        Spf.pathsTo(
+            Spf.run(
                 routers.map((router) => router.id),
                 up,
                 "R1"

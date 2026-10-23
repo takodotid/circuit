@@ -2,12 +2,12 @@
 // Lesson: routing tables. The reader looks up destination addresses in an office router's table, adds and removes static routes, and sees the matching rows, the winner and the Circuit file.
 
 import { computed, ref } from "vue";
-import { bitsOf, firstDifference, formatIPv4, formatPrefix, lookup, parseIPv4, parsePrefix, type Prefix, type Route } from "./RouteLookup";
+import { type Prefix, type Route, RouteTable } from "./RouteLookup";
 
 type Row = Route & { id: number };
 
 const prefixOf = (text: string): Prefix => {
-    const parsed = parsePrefix(text);
+    const parsed = RouteTable.parsePrefix(text);
     if ("error" in parsed) throw new Error(parsed.error);
     return parsed.prefix;
 };
@@ -33,8 +33,8 @@ const rows = ref<Row[]>([
 const destination = ref("");
 const picks = ["10.0.10.25", "10.20.5.9", "192.0.2.80", "10.0.11.7", "203.0.113.1"];
 
-const address = computed(() => parseIPv4(destination.value));
-const result = computed(() => (address.value === undefined ? undefined : lookup(rows.value, address.value)));
+const address = computed(() => RouteTable.parseIPv4(destination.value));
+const result = computed(() => (address.value === undefined ? undefined : RouteTable.lookup(rows.value, address.value)));
 
 /** The row whose bits are shown under the table: the one the reader chose, or the winner. */
 const comparedId = ref<number>();
@@ -54,7 +54,7 @@ function sendsTo(route: Row): string {
 function verdict(route: Row): string {
     if (address.value === undefined) return "";
 
-    const differs = firstDifference(route.prefix, address.value);
+    const differs = RouteTable.firstDifference(route.prefix, address.value);
     if (differs !== undefined) return `No, bit ${differs} differs`;
     if (route.prefix.length === 0) return "Yes, it holds every address";
 
@@ -71,7 +71,7 @@ const said = computed(() => {
         };
 
     const { matches, winner } = result.value!;
-    const shown = formatIPv4(address.value);
+    const shown = RouteTable.formatIPv4(address.value);
 
     if (!winner)
         return {
@@ -99,9 +99,9 @@ const bits = computed(() => {
     if (!route || address.value === undefined) return undefined;
 
     const split = (text: string) => ({ compared: text.slice(0, route.prefix.length), rest: text.slice(route.prefix.length) });
-    const differs = firstDifference(route.prefix, address.value);
+    const differs = RouteTable.firstDifference(route.prefix, address.value);
 
-    return { route, address: split(bitsOf(address.value)), prefix: split(bitsOf(route.prefix.network)), differs };
+    return { route, address: split(RouteTable.bitsOf(address.value)), prefix: split(RouteTable.bitsOf(route.prefix.network)), differs };
 });
 
 /** Bits grouped by eight, each character with whether it is in the compared part and whether it is the first that differs. */
@@ -120,15 +120,15 @@ const newTarget = ref("203.0.113.1");
 const formError = ref("");
 
 function add() {
-    const parsed = parsePrefix(newPrefix.value);
+    const parsed = RouteTable.parsePrefix(newPrefix.value);
 
     if ("error" in parsed) {
         formError.value = parsed.error;
         return;
     }
 
-    if (rows.value.some((entry) => formatPrefix(entry.prefix) === formatPrefix(parsed.prefix))) {
-        formError.value = `The table already has a route for ${formatPrefix(parsed.prefix)}. Remove it first, or pick another prefix.`;
+    if (rows.value.some((entry) => RouteTable.formatPrefix(entry.prefix) === RouteTable.formatPrefix(parsed.prefix))) {
+        formError.value = `The table already has a route for ${RouteTable.formatPrefix(parsed.prefix)}. Remove it first, or pick another prefix.`;
         return;
     }
 
@@ -159,7 +159,7 @@ const code = computed(() => {
     const statics = rows.value.filter((entry) => entry.kind === "static");
     const lines = statics.map((entry) => {
         const target = entry.blackhole ? "blackhole: true" : `via: "${entry.via}"`;
-        return `        { prefix: "${formatPrefix(entry.prefix)}", ${target}, description: "${entry.description}" },`;
+        return `        { prefix: "${RouteTable.formatPrefix(entry.prefix)}", ${target}, description: "${entry.description}" },`;
     });
 
     return [
@@ -224,7 +224,7 @@ const code = computed(() => {
                         :key="route.id"
                         :class="{ lit: result?.winner?.id === route.id, miss: result && !result.matches.includes(route) }"
                     >
-                        <td class="ac-mono">{{ formatPrefix(route.prefix) }}</td>
+                        <td class="ac-mono">{{ RouteTable.formatPrefix(route.prefix) }}</td>
                         <td>{{ sendsTo(route) }}</td>
                         <td>{{ route.kind }}</td>
                         <td>
@@ -236,7 +236,7 @@ const code = computed(() => {
                                 v-if="route.kind === 'static'"
                                 type="button"
                                 class="ac-button small"
-                                :aria-label="`Remove the route for ${formatPrefix(route.prefix)}`"
+                                :aria-label="`Remove the route for ${RouteTable.formatPrefix(route.prefix)}`"
                                 @click="remove(route.id)"
                             >
                                 Remove
@@ -254,7 +254,7 @@ const code = computed(() => {
                 <span>Compare the bits with</span>
                 <select v-model="comparedId" class="ac-select">
                     <option :value="undefined">the winning route</option>
-                    <option v-for="route in sorted" :key="route.id" :value="route.id">{{ formatPrefix(route.prefix) }}</option>
+                    <option v-for="route in sorted" :key="route.id" :value="route.id">{{ RouteTable.formatPrefix(route.prefix) }}</option>
                 </select>
             </label>
             <p class="bit-line">

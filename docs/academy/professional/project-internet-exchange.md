@@ -23,7 +23,7 @@ Members share one LAN and do not have to trust each other. A mistake at one memb
 
 MANRS, the routing security effort from [Hijacks and leaks](/academy/professional/routing-security), asks the same of an exchange in its own words: publish a policy on the traffic not allowed on the fabric, and filter it.
 
-Circuit's `internetExchange` preset writes four of these protections onto every member port: the peering VLAN alone, no spanning tree, no LLDP, and <Term means="A switch feature that drops broadcast, multicast and unknown unicast above a set share of the port's speed, so a storm cannot flood everyone else.">storm control</Term> at 1% of the port's speed.
+Circuit's `Exchange.build` preset writes four of these protections onto every member port: the peering VLAN alone, no spanning tree, no LLDP, and <Term means="A switch feature that drops broadcast, multicast and unknown unicast above a set share of the port's speed, so a storm cannot flood everyone else.">storm control</Term> at 1% of the port's speed.
 
 <TryIt title="Make a member misbehave">
 
@@ -71,7 +71,7 @@ The example names two real networks, Cloudflare and Akamai, with their real AS n
 
 <<< @/../examples/use-cases/internet-exchange/exchange.ts
 
-`internetExchange` takes the peering VLAN's name, the peering LAN, the addresses no member may take, here the two route servers', and the list of members. It returns two things:
+`Exchange.build` takes the peering VLAN's name, the peering LAN, the addresses no member may take, here the two route servers', and the list of members. It returns two things:
 
 - **`exchange.ports(device)`**: every member's port on that switch, set up with the four protections. Each switch puts it in its `ports`.
 - **`exchange.check`**: no two members share a name, an AS, an address or a port; every address is inside the peering LAN and not reserved; and every member port carries the peering VLAN alone.
@@ -176,7 +176,7 @@ The port is shut, so whatever is still plugged into it reaches nothing. Its addr
 ## In short
 
 - An exchange is a fabric of switches carrying one peering LAN, and route servers that pass routes between members; Circuit runs the fabric.
-- Every member port carries the peering VLAN alone, takes no part in spanning tree or LLDP, and keeps flooded traffic to 1%; `internetExchange` writes all four.
+- Every member port carries the peering VLAN alone, takes no part in spanning tree or LLDP, and keeps flooded traffic to 1%; `Exchange.build` writes all four.
 - One MAC address per port and an ethertype filter are not in Circuit yet, so an exchange that needs them cannot use it for its fabric today.
 - A member is one file; `exchange.check` catches shared ASes, ports that are taken, and addresses that are taken, reserved or outside the LAN.
 - Route servers carry no traffic, keep the next hop, come in pairs, and filter what each member announces.

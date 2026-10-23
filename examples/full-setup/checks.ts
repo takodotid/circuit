@@ -1,19 +1,19 @@
 // Rules of this network's own, beside Circuit's.
 
 import type { Check, Finding } from "@takodotid/circuit";
-import { contains } from "@takodotid/circuit";
-import { exportsEndInReject, trustBoundary, tunnelsOutsideOffered } from "@takodotid/circuit/presets";
+import { Address } from "@takodotid/circuit";
+import { Checks } from "@takodotid/circuit/presets";
 import { CUSTOMERS } from "./customers";
 import { OURS } from "./network";
 
 export default [
     // Nothing leaves by accident: every export but a customer's ends by rejecting what it did not accept.
-    exportsEndInReject,
+    Checks.exportsEndInReject,
 
     // Traffic from the transits and the exchange reaches the customers only through an edge router, which filters it.
-    trustBoundary({ untrusted: ["transit-a", "transit-b", "transit-c", "ix"], routers: ["edge-a1", "edge-a2", "edge-b1"] }),
+    Checks.trustBoundary({ untrusted: ["transit-a", "transit-b", "transit-c", "ix"], routers: ["edge-a1", "edge-a2", "edge-b1"] }),
 
-    tunnelsOutsideOffered,
+    Checks.tunnelsOutsideOffered,
 
     // Customers never share a name, a number or an address, take their blocks from our space, and announce only their own.
     (devices) => {
@@ -30,16 +30,17 @@ export default [
 
                 for (const block of blocks) {
                     const clash = [other.ipv4, ...(other.routed ?? [])].find(
-                        (theirs) => contains(theirs, block) || contains(block, theirs)
+                        (theirs) => Address.contains(theirs, block) || Address.contains(block, theirs)
                     );
                     if (clash) error(`${block} of ${c.name} overlaps ${clash} of ${other.name}`);
                 }
             }
 
-            for (const block of blocks) if (!contains(OURS.v4, block)) error(`${block} of ${c.name} is outside ${OURS.v4}`);
+            for (const block of blocks) if (!Address.contains(OURS.v4, block)) error(`${block} of ${c.name} is outside ${OURS.v4}`);
 
             for (const prefix of c.bgp?.prefixes ?? []) {
-                if (contains(OURS.v4, prefix) || contains(OURS.v6, prefix)) error(`${c.name} announces ${prefix}, which is ours`);
+                if (Address.contains(OURS.v4, prefix) || Address.contains(OURS.v6, prefix))
+                    error(`${c.name} announces ${prefix}, which is ours`);
                 if (prefix.includes(":") && !c.ipv6) error(`${c.name} announces ${prefix} without an IPv6 /64 to announce it from`);
             }
 

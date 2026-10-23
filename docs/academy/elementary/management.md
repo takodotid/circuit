@@ -107,7 +107,7 @@ Circuit cannot know which of your VLANs is the management one, so the single-sit
 (devices) =>
     devices.flatMap((device) =>
         Object.entries(device.ports ?? {})
-            .filter(([, port]) => port?.access_vlan && vlansOf(port).includes("mgmt"))
+            .filter(([, port]) => port?.access_vlan && Checks.vlansOf(port).includes("mgmt"))
             .map(([name]) => ({
                 level: "error" as const,
                 device: device.name,

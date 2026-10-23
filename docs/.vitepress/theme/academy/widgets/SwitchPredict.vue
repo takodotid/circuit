@@ -2,7 +2,7 @@
 // Lesson: switches. The reader is the switch: for each frame, they read the address table and pick the ports the frame goes out of.
 
 import { computed, ref } from "vue";
-import { BROADCAST, hostById, hosts } from "./SwitchLearning";
+import { Lan } from "./SwitchLearning";
 
 type Round = {
     /** The devices the switch already knows, in the order it learned them. */
@@ -22,15 +22,15 @@ const rounds: Round[] = [
 
 const index = ref(0);
 const round = computed(() => rounds[index.value]!);
-const sender = computed(() => hostById(round.value.from));
-const toMac = computed(() => (round.value.to === "everyone" ? BROADCAST : hostById(round.value.to).mac));
-const table = computed(() => round.value.known.map((id) => hostById(id)));
+const sender = computed(() => Lan.host(round.value.from));
+const toMac = computed(() => (round.value.to === "everyone" ? Lan.BROADCAST : Lan.host(round.value.to).mac));
+const table = computed(() => round.value.known.map((id) => Lan.host(id)));
 
 /** The ports the switch really sends the frame out of. */
 const answer = computed(() => {
     const entry = table.value.find((host) => host.mac === toMac.value);
     if (entry) return [entry.port];
-    return hosts.filter((host) => host.port !== sender.value.port).map((host) => host.port);
+    return Lan.HOSTS.filter((host) => host.port !== sender.value.port).map((host) => host.port);
 });
 
 const picked = ref<number[]>([]);
@@ -45,9 +45,9 @@ function toggle(port: number) {
 /** Why the right ports are right, in words. */
 const reason = computed(() => {
     if (round.value.to === "everyone")
-        return `The frame is for ${BROADCAST}, which means everyone, so it goes out of every port except port ${sender.value.port}, where it came in.`;
+        return `The frame is for ${Lan.BROADCAST}, which means everyone, so it goes out of every port except port ${sender.value.port}, where it came in.`;
 
-    const target = hostById(round.value.to);
+    const target = Lan.host(round.value.to);
     const entry = table.value.find((host) => host.mac === target.mac);
     if (entry) return `The table has ${target.mac} behind port ${entry.port}, so the frame goes out of port ${entry.port} only.`;
 
@@ -76,7 +76,7 @@ function check() {
         return;
     }
 
-    const target = round.value.to === "everyone" ? undefined : hostById(round.value.to);
+    const target = round.value.to === "everyone" ? undefined : Lan.host(round.value.to);
     const flooding = answer.value.length > 1 && round.value.to !== "everyone";
     if (target && flooding && picked.value.length === 1 && picked.value[0] === target.port) {
         result.value = {
@@ -152,7 +152,7 @@ const finished = computed(() => index.value === rounds.length - 1 && result.valu
                 <p class="panel-title">Which ports does it go out of?</p>
                 <div class="ports" role="group" aria-label="Switch ports">
                     <button
-                        v-for="host in hosts"
+                        v-for="host in Lan.HOSTS"
                         :key="host.id"
                         type="button"
                         class="ac-button port"

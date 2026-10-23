@@ -37,7 +37,7 @@ BGP believes what neighbors tell it, so neither is stopped by BGP itself. Three 
 1. **You publish a ROA.** A <Term means="Route Origin Authorization: a signed record that says which AS may originate a prefix, and the longest prefix length it may announce inside it.">ROA</Term> says: this prefix, up to this length, may be originated by this AS. You create it with your <Term means="Regional Internet Registry: the body that gives out addresses and AS numbers in a region, such as APNIC in Asia Pacific. Its members create ROAs for that space in its systems.">RIR</Term>, the registry that gave you the space; at APNIC, in the MyAPNIC portal.
 2. **Validators collect them.** A <Term means="A program that downloads every ROA from the registries, checks each signature, and hands routers the list of valid ones.">validator</Term>, a program such as Routinator, downloads every ROA, checks its signature, and serves the result to routers over the RPKI to Router protocol, RTR.
 3. **Routers check every route.** For each route, the router compares the prefix and the <Term means="The AS that first announced a route: the last AS in its AS path.">origin AS</Term>, the last AS of the path, with the ROAs, and marks the route valid, invalid or not found.
-4. **Your policy acts on it.** `bgpSanity()` rejects invalid routes; valid and not found ones go on through the rest of the import.
+4. **Your policy acts on it.** `Bgp.sanity()` rejects invalid routes; valid and not found ones go on through the rest of the import.
 
 RFC 6811 defines the check in two words. A ROA **covers** a route when the route's prefix is the ROA's prefix or inside it. A ROA **matches** a route when it covers it, has the same origin AS, and allows its length. Then:
 
@@ -101,7 +101,7 @@ Two more guards stop leaks, both from [Route policies](/academy/intermediate/rou
 
 ## In Circuit
 
-The validators go in `routing.rpki`, and `bgpSanity()` rejects what they mark invalid. A customer's import accepts only its registered space, written in `prefix_sets`:
+The validators go in `routing.rpki`, and `Bgp.sanity()` rejects what they mark invalid. A customer's import accepts only its registered space, written in `prefix_sets`:
 
 ```ts
 routing: {
@@ -119,7 +119,7 @@ prefix_sets: {
 },
 
 policies: {
-    SANITY: bgpSanity(),
+    SANITY: Bgp.sanity(),
     "ACME-IN": [
         { call: "SANITY" },
         { description: "Their IPv4", match: { prefix_set: "acme-v4" }, action: "accept" },
@@ -135,7 +135,7 @@ Three things Circuit does not do, and you should know:
 
 - **It does not publish your ROAs.** You create them at your RIR, as above.
 - **It does not read the IRR.** A prefix set can be fetched with `source: { registry: "ripe-stat", query: "AS65550", family: "ipv6" }`, and `circuit refresh` keeps it current. That list is every prefix RIPEstat sees the AS announcing today, not what it registered. It saves typing for a customer whose own customers change every day, but it accepts whatever that customer announces, a hijack included, so it is no substitute for checking its route objects and ROAs.
-- **It runs RPKI on `routeros` and `junos` only.** `fortios` runs BGP without RPKI, so it refuses `routing.rpki` and any rule that matches `rpki`, the last rule of `bgpSanity()` included. `vrp` and `raisecom-ros` run no BGP. See [Platforms](/platforms/).
+- **It runs RPKI on `routeros` and `junos` only.** `fortios` runs BGP without RPKI, so it refuses `routing.rpki` and any rule that matches `rpki`, the last rule of `Bgp.sanity()` included. `vrp` and `raisecom-ros` run no BGP. See [Platforms](/platforms/).
 
 ## MANRS
 
@@ -169,4 +169,4 @@ A network that joins commits to them, and each is something this lesson or the n
 - Publish minimal ROAs at your RIR. Route origin validation marks a route valid when a ROA matches its origin and length, invalid when ROAs cover it but none matches, and not found otherwise.
 - Validation protects you only where others drop invalid routes on the way, and never stops a leak or a forged origin within maxLength.
 - Registry filters on every customer, `role` and `max_prefixes` stop leaks and hijacks at the first provider.
-- In Circuit: validators in `routing.rpki`, `bgpSanity()` first in every import, and each customer's registered space in `prefix_sets`. MANRS asks every network for these, plus anti-spoofing and up-to-date contacts.
+- In Circuit: validators in `routing.rpki`, `Bgp.sanity()` first in every import, and each customer's registered space in `prefix_sets`. MANRS asks every network for these, plus anti-spoofing and up-to-date contacts.

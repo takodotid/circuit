@@ -2,7 +2,7 @@
 // Lesson: BGP inside a network. The reader sets how many routers an AS has, draws its iBGP sessions as a full mesh or with route reflectors, adds a router, and fails a reflector.
 
 import { computed, ref, watch } from "vue";
-import { fullMesh, sessions, withReflectors } from "./ReflectorCount";
+import { IbgpSessions } from "./ReflectorCount";
 
 type Design = 0 | 1 | 2;
 
@@ -47,7 +47,7 @@ const places = computed(() => {
 const at = (number: number) => places.value[number - 1]!;
 
 const lines = computed(() =>
-    sessions(routers.value, reflectors.value).map(([a, b]) => ({
+    IbgpSessions.pairs(routers.value, reflectors.value).map(([a, b]) => ({
         key: `${a}-${b}`,
         a: at(a),
         b: at(b),
@@ -61,12 +61,12 @@ const formula = computed(() => {
     const n = routers.value;
     const k = reflectors.value;
 
-    if (k === 0) return `${n} x ${n - 1} / 2 = ${fullMesh(n)}`;
+    if (k === 0) return `${n} x ${n - 1} / 2 = ${IbgpSessions.fullMesh(n)}`;
 
     const clients = n - k;
     return k === 1
-        ? `${clients} clients x 1 reflector = ${withReflectors(n, k)}`
-        : `${clients} clients x 2 reflectors + 1 between the reflectors = ${withReflectors(n, k)}`;
+        ? `${clients} clients x 1 reflector = ${IbgpSessions.withReflectors(n, k)}`
+        : `${clients} clients x 2 reflectors + 1 between the reflectors = ${IbgpSessions.withReflectors(n, k)}`;
 });
 
 function addRouter() {
@@ -84,12 +84,12 @@ function addRouter() {
             ? {
                   kind: "warn",
                   word: "Every file",
-                  text: `The new router needs ${n - 1} sessions, and each of the ${n - 1} routers already there needs one more: ${n} device files change. The network now has ${fullMesh(n)} sessions.`,
+                  text: `The new router needs ${n - 1} sessions, and each of the ${n - 1} routers already there needs one more: ${n} device files change. The network now has ${IbgpSessions.fullMesh(n)} sessions.`,
               }
             : {
                   kind: "good",
                   word: `${k + 1} files`,
-                  text: `The new router needs ${k} session${k > 1 ? "s" : ""}, one to each reflector, and only the reflector${k > 1 ? "s" : ""} gain one: ${k + 1} device files change. The network now has ${withReflectors(n, k)} sessions.`,
+                  text: `The new router needs ${k} session${k > 1 ? "s" : ""}, one to each reflector, and only the reflector${k > 1 ? "s" : ""} gain one: ${k + 1} device files change. The network now has ${IbgpSessions.withReflectors(n, k)} sessions.`,
               };
 }
 
@@ -122,8 +122,8 @@ function toggleReflector() {
 const growth = computed(() =>
     [...new Set([routers.value, 20, 50, 200])].map((n) => ({
         n,
-        full: fullMesh(n),
-        reflected: withReflectors(n, 2),
+        full: IbgpSessions.fullMesh(n),
+        reflected: IbgpSessions.withReflectors(n, 2),
     }))
 );
 

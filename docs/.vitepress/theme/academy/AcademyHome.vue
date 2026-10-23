@@ -3,38 +3,38 @@
 
 import { computed, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
-import { lessons, levels } from "../../academy";
-import { done, gated, isDone, isOpen, loadProgress, passed, resetProgress } from "./progress";
+import { Academy } from "../../academy";
+import { Progress } from "./progress";
 
 // What this browser remembers is only known once the page is in it, so the first paint shows a fresh start.
 const ready = ref(false);
 
 onMounted(() => {
-    loadProgress();
+    Progress.load();
     ready.value = true;
 });
 
-const finished = computed(() => (ready.value ? lessons.filter((lesson) => done.value[lesson.link]).length : 0));
-const next = computed(() => (ready.value ? lessons.find((lesson) => !done.value[lesson.link]) : lessons[0]));
+const finished = computed(() => (ready.value ? Academy.LESSONS.filter((lesson) => Progress.done.value[lesson.link]).length : 0));
+const next = computed(() => (ready.value ? Academy.LESSONS.find((lesson) => !Progress.done.value[lesson.link]) : Academy.LESSONS[0]));
 
 // The way on: the next lesson, or the entry check of its level while that level is closed.
 const nextStep = computed(() => {
     const lesson = next.value;
     if (!lesson) return undefined;
-    if (ready.value && !isOpen(lesson.level.slug, passed.value)) {
+    if (ready.value && !Progress.isOpen(lesson.level.slug, Progress.passed.value)) {
         return { link: `/academy/checks/${lesson.level.slug}`, text: `Next: the ${lesson.level.name} entry check` };
     }
     return { link: lesson.link, text: finished.value === 0 ? "Start lesson 1" : `Continue: ${lesson.title}` };
 });
 
 /** Whether a level is shown as closed. Before the browser is read, every gated level is. */
-const closed = (slug: string) => gated.includes(slug) && (!ready.value || !isOpen(slug, passed.value));
+const closed = (slug: string) => Progress.GATED.includes(slug) && (!ready.value || !Progress.isOpen(slug, Progress.passed.value));
 
 const levelDone = (slug: string) =>
-    ready.value ? lessons.filter((lesson) => lesson.level.slug === slug && isDone(lesson.link)).length : 0;
+    ready.value ? Academy.LESSONS.filter((lesson) => lesson.level.slug === slug && Progress.isDone(lesson.link)).length : 0;
 
 function clear() {
-    if (confirm("Clear every lesson you marked done, and every entry check you passed, in this browser?")) resetProgress();
+    if (confirm("Clear every lesson you marked done, and every entry check you passed, in this browser?")) Progress.reset();
 }
 </script>
 
@@ -46,20 +46,26 @@ function clear() {
                 fits.
             </p>
             <p v-else-if="next">
-                <strong>{{ finished }} of {{ lessons.length }} lessons done.</strong> Pick up where you left off.
+                <strong>{{ finished }} of {{ Academy.LESSONS.length }} lessons done.</strong> Pick up where you left off.
             </p>
             <p v-else><strong>Every lesson done.</strong> The certification is the next step.</p>
 
             <div class="actions">
                 <a v-if="nextStep" class="ac-button primary" :href="withBase(nextStep.link)">{{ nextStep.text }}</a>
                 <a v-else class="ac-button primary" :href="withBase('/academy/certification')">See the certification</a>
-                <button v-if="finished > 0 || Object.keys(passed).length" type="button" class="ac-button" @click="clear">
+                <button v-if="finished > 0 || Object.keys(Progress.passed.value).length" type="button" class="ac-button" @click="clear">
                     Clear my progress
                 </button>
             </div>
         </div>
 
-        <section v-for="(level, index) in levels" :id="level.slug" :key="level.slug" class="level" :aria-labelledby="`${level.slug}-title`">
+        <section
+            v-for="(level, index) in Academy.LEVELS"
+            :id="level.slug"
+            :key="level.slug"
+            class="level"
+            :aria-labelledby="`${level.slug}-title`"
+        >
             <div class="art">
                 <img :src="withBase(level.illustration)" alt="" loading="lazy" />
             </div>
@@ -70,11 +76,11 @@ function clear() {
                 </p>
                 <h2 :id="`${level.slug}-title`">{{ level.title }}</h2>
                 <p class="audience">{{ level.audience }}</p>
-                <p v-if="gated.includes(level.slug)" class="gate" :class="{ closed: closed(level.slug) }">
+                <p v-if="Progress.GATED.includes(level.slug)" class="gate" :class="{ closed: closed(level.slug) }">
                     <template v-if="closed(level.slug)">
                         <span class="lock">Locked</span>
                         Opens with its <a :href="withBase(`/academy/checks/${level.slug}`)">entry check</a>: ten questions about
-                        {{ levels[index - 1]?.name }}.
+                        {{ Academy.LEVELS[index - 1]?.name }}.
                     </template>
                     <template v-else>
                         <span class="lock open">Open</span>
@@ -86,14 +92,14 @@ function clear() {
                 <li
                     v-for="(lesson, number) in level.lessons"
                     :key="lesson.slug"
-                    :class="{ done: ready && isDone(`/academy/${level.slug}/${lesson.slug}`) }"
+                    :class="{ done: ready && Progress.isDone(`/academy/${level.slug}/${lesson.slug}`) }"
                 >
                     <span class="dot" aria-hidden="true">{{
-                        ready && isDone(`/academy/${level.slug}/${lesson.slug}`) ? "✓" : number + 1
+                        ready && Progress.isDone(`/academy/${level.slug}/${lesson.slug}`) ? "✓" : number + 1
                     }}</span>
                     <div>
                         <a :href="withBase(`/academy/${level.slug}/${lesson.slug}`)">{{ lesson.title }}</a>
-                        <span v-if="ready && isDone(`/academy/${level.slug}/${lesson.slug}`)" class="ac-hidden"> (done)</span>
+                        <span v-if="ready && Progress.isDone(`/academy/${level.slug}/${lesson.slug}`)" class="ac-hidden"> (done)</span>
                         <p>{{ lesson.outcome }}</p>
                     </div>
                 </li>

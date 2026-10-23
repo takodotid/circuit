@@ -14,43 +14,47 @@ export type Service = {
     address: string;
 };
 
-export const SERVICES: readonly Service[] = [
-    { id: "branch", place: "the branch office", vlan: 2010, name: "to-branch", address: "10.255.0.1/30" },
-    { id: "dc", place: "the data centre", vlan: 2020, name: "to-dc", address: "10.255.0.5/30" },
-];
+export class Handoff {
+    static readonly SERVICES: readonly Service[] = [
+        { id: "branch", place: "the branch office", vlan: 2010, name: "to-branch", address: "10.255.0.1/30" },
+        { id: "dc", place: "the data centre", vlan: 2020, name: "to-dc", address: "10.255.0.5/30" },
+    ];
 
-/** The port the provider's circuit is handed over on. */
-export const PORT = "25g-1";
+    /** The port the provider's circuit is handed over on. */
+    static readonly PORT = "25g-1";
 
-/** The part of the office router's device file that the circuits change. */
-export function handoffCode(mode: Mode, bought: readonly Service["id"][]): string {
-    if (mode === "epl") {
+    /** The part of the office router's device file that the circuits change. */
+    static code(mode: Mode, bought: readonly Service["id"][]): string {
+        const { PORT, SERVICES } = Handoff;
+
+        if (mode === "epl") {
+            return [
+                "ports: {",
+                `    "${PORT}": { description: "EPL to the branch office", addresses: ["${SERVICES[0]!.address}"] },`,
+                "},",
+            ].join("\n");
+        }
+
+        const services = SERVICES.filter((service) => bought.includes(service.id));
+
+        if (services.length === 0) return "// Buy at least one EVPL, and the port has something to carry.";
+
+        const names = services.map((service) => `"${service.name}"`).join(", ");
+
         return [
+            "vlans: {",
+            ...services.map((service) => `    "${service.name}": { id: ${service.vlan}, description: "EVPL to ${service.place}" },`),
+            "},",
+            "",
             "ports: {",
-            `    "${PORT}": { description: "EPL to the branch office", addresses: ["${SERVICES[0]!.address}"] },`,
+            `    "${PORT}": { description: "Provider hand-off", trunk_vlans: [${names}] },`,
+            "},",
+            "",
+            "interfaces: {",
+            ...services.map(
+                (service) => `    "${service.name}": { type: "vlan", vlan: "${service.name}", addresses: ["${service.address}"] },`
+            ),
             "},",
         ].join("\n");
     }
-
-    const services = SERVICES.filter((service) => bought.includes(service.id));
-
-    if (services.length === 0) return "// Buy at least one EVPL, and the port has something to carry.";
-
-    const names = services.map((service) => `"${service.name}"`).join(", ");
-
-    return [
-        "vlans: {",
-        ...services.map((service) => `    "${service.name}": { id: ${service.vlan}, description: "EVPL to ${service.place}" },`),
-        "},",
-        "",
-        "ports: {",
-        `    "${PORT}": { description: "Provider hand-off", trunk_vlans: [${names}] },`,
-        "},",
-        "",
-        "interfaces: {",
-        ...services.map(
-            (service) => `    "${service.name}": { type: "vlan", vlan: "${service.name}", addresses: ["${service.address}"] },`
-        ),
-        "},",
-    ].join("\n");
 }

@@ -5,8 +5,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compareNetworks } from "../../src/studio/public/evaluate.js";
-import { commitOf, history, networkAt, references } from "../../src/studio/git";
+import { Evaluate } from "../../src/studio/public/evaluate.js";
+import { Git } from "../../src/studio/git";
 
 const root = mkdtempSync(join(tmpdir(), "circuit-studio-git-"));
 
@@ -31,26 +31,26 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 const directory = join(root, "network");
 
 test("history lists the commits that changed a file, newest first", async () => {
-    expect((await history(directory, ["circuit.config.ts"])).map((commit) => commit.subject)).toEqual(["Second", "First"]);
-    expect((await history(directory, ["edge-01.ts"])).map((commit) => commit.subject)).toEqual(["First"]);
-    expect(await history(directory, [])).toEqual([]);
+    expect((await Git.history(directory, ["circuit.config.ts"])).map((commit) => commit.subject)).toEqual(["Second", "First"]);
+    expect((await Git.history(directory, ["edge-01.ts"])).map((commit) => commit.subject)).toEqual(["First"]);
+    expect(await Git.history(directory, [])).toEqual([]);
 });
 
 test("references lists branches and the latest commits, and commitOf takes only a git name", async () => {
-    const found = await references(directory);
+    const found = await Git.references(directory);
     expect(found.names).toEqual(["main"]);
     expect(found.commits.map((commit) => commit.subject)).toEqual(["Second", "First"]);
 
-    expect((await commitOf(directory, "HEAD~1"))?.subject).toBe("First");
-    expect(await commitOf(directory, "--output=x")).toBeUndefined();
-    expect(await commitOf(directory, "no-such-branch")).toBeUndefined();
+    expect((await Git.commitOf(directory, "HEAD~1"))?.subject).toBe("First");
+    expect(await Git.commitOf(directory, "--output=x")).toBeUndefined();
+    expect(await Git.commitOf(directory, "no-such-branch")).toBeUndefined();
 });
 
 test("networkAt reads the config as it was at a commit, from a checkout git ignores and removes", async () => {
-    const first = (await commitOf(directory, "HEAD~1"))!;
+    const first = (await Git.commitOf(directory, "HEAD~1"))!;
     let seen = "";
 
-    const read = await networkAt(directory, join(directory, "circuit.config.ts"), first.commit, async (configPath) => {
+    const read = await Git.networkAt(directory, join(directory, "circuit.config.ts"), first.commit, async (configPath) => {
         seen = configPath;
         return readFileSync(configPath, "utf8");
     });
@@ -76,7 +76,7 @@ test("compareNetworks finds devices changed, added and removed, the graph's new 
 
     const before = network(["a", "b", "gone"], { a: "x", b: "y", gone: "z" }, ["one", "two"], ["old problem"]);
     const after = network(["a", "b", "new"], { a: "x", b: "y2", new: "w" }, ["two", "three"], ["new problem"]);
-    const found = compareNetworks(before, after);
+    const found = Evaluate.compareNetworks(before, after);
 
     expect(found.devices).toEqual({ added: ["new"], removed: ["gone"], changed: ["b"] });
     expect(found.edges.added.map((edge) => edge.label)).toEqual(["three"]);

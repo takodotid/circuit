@@ -1,16 +1,16 @@
 // Presets are plain config: what each returns is what a device holds, or a check that finds what it describes.
 
 import { expect, test } from "bun:test";
-import { adapters } from "../../src/platforms";
+import { Platforms } from "../../src/platforms";
 import router from "../../examples/router";
 import switchDevice from "../../examples/switch";
 
 test("presets build the rules they describe", async () => {
-    const { antiSpoofing, badTcpFlags, bgpSanity, exportsEndInReject, MARTIANS } = await import("../../src/presets");
+    const { Bgp, Checks, Filters } = await import("../../src/presets");
 
-    expect(antiSpoofing("ix", MARTIANS).map((rule) => rule.match?.src)).toEqual([...MARTIANS]);
-    expect(badTcpFlags()).toHaveLength(6);
-    expect(bgpSanity().map((rule) => rule.description)).toEqual([
+    expect(Filters.antiSpoofing("ix", Filters.MARTIANS).map((rule) => rule.match?.src)).toEqual([...Filters.MARTIANS]);
+    expect(Filters.badTcpFlags()).toHaveLength(6);
+    expect(Bgp.sanity().map((rule) => rule.description)).toEqual([
         "IPv4 shorter than /8",
         "IPv4 longer than /24",
         "IPv6 shorter than /16",
@@ -18,13 +18,13 @@ test("presets build the rules they describe", async () => {
         "RPKI invalid",
     ]);
 
-    const findings = exportsEndInReject([{ ...router, policies: { ...router.policies, "UPSTREAM-OUT": [{ action: "accept" }] } }]);
+    const findings = Checks.exportsEndInReject([{ ...router, policies: { ...router.policies, "UPSTREAM-OUT": [{ action: "accept" }] } }]);
     expect(findings.map((finding) => finding.message)).toContain("upstream-1: export UPSTREAM-OUT does not end in an unconditional reject");
 });
 
-test("antiAmplification drops fragments and amplifiers, keeps asked services' answers, one switch rule per port", async () => {
-    const { antiAmplification, AMPLIFIERS } = await import("../../src/presets");
-    const rules = antiAmplification(["198.51.100.0/24"], { keep_fragments: ["198.51.100.64/27", "192.0.2.0/24"] });
+test("Filters.antiAmplification drops fragments and amplifiers, keeps asked services' answers, one switch rule per port", async () => {
+    const { Filters } = await import("../../src/presets");
+    const rules = Filters.antiAmplification(["198.51.100.0/24"], { keep_fragments: ["198.51.100.64/27", "192.0.2.0/24"] });
 
     expect(rules.slice(0, 2)).toEqual([
         {
@@ -38,7 +38,7 @@ test("antiAmplification drops fragments and amplifiers, keeps asked services' an
             action: "drop",
         },
     ]);
-    expect([...new Set(rules.slice(2).map((rule) => rule.match?.src_port))]).toEqual(Object.values(AMPLIFIERS));
+    expect([...new Set(rules.slice(2).map((rule) => rule.match?.src_port))]).toEqual(Object.values(Filters.AMPLIFIERS));
     // A server's own port passes first, so every drop takes the one range: a switch chip has few range checkers.
     expect(rules.filter((rule) => rule.match?.src_port === 53).map((rule) => [rule.action, rule.match?.dst_port])).toEqual([
         ["accept", 53],
@@ -48,7 +48,7 @@ test("antiAmplification drops fragments and amplifiers, keeps asked services' an
     const ranges = rules.flatMap((rule) => [rule.match?.dst_port].flat()).filter((port) => typeof port === "object");
     expect(new Set(ranges.map((range) => JSON.stringify(range))).size).toBe(1);
 
-    const dns = adapters["routeros"]!.render({ ...router, acls: { edge: rules } });
+    const dns = Platforms.get("routeros").render({ ...router, acls: { edge: rules } });
     expect(
         dns.match(/comment="UDP to 198.51.100.0\/24 from dns, to a port below 1024".*/g)?.map((line) => line.match(/dst-port=\S+/)?.[0])
     ).toEqual(["dst-port=0-1023"]);
@@ -57,27 +57,27 @@ test("antiAmplification drops fragments and amplifiers, keeps asked services' an
         ...router,
         acls: { edge: [{ description: "Two ports", match: { protocol: "udp" as const, src_port: [53, 123] }, action: "drop" as const }] },
     };
-    const rendered = adapters["routeros"]!.render(listed);
+    const rendered = Platforms.get("routeros").render(listed);
     expect(rendered.match(/comment="Two ports".*/g)?.map((line) => line.match(/src-port=\S+/)?.[0])).toEqual([
         "src-port=53",
         "src-port=123",
     ]);
 });
 
-test("trustBoundary finds an untrusted VLAN beside a trusted one away from a router", async () => {
-    const { trustBoundary, vlansOf } = await import("../../src/presets");
+test("Checks.trustBoundary finds an untrusted VLAN beside a trusted one away from a router", async () => {
+    const { Checks } = await import("../../src/presets");
 
-    expect(vlansOf({ access_vlan: "a", trunk_vlans: ["b"] })).toEqual(["a", "b"]);
+    expect(Checks.vlansOf({ access_vlan: "a", trunk_vlans: ["b"] })).toEqual(["a", "b"]);
 
-    const check = trustBoundary({ untrusted: ["guests"], routers: ["example-router"] });
+    const check = Checks.trustBoundary({ untrusted: ["guests"], routers: ["example-router"] });
     expect(check([switchDevice]).map((finding) => finding.message)).toEqual([
         "LAG uplink carries an untrusted VLAN beside a trusted one and does not face a router",
         "interface guests puts an address on untrusted VLAN guests; only a router may",
     ]);
 });
 
-test("trustBoundary lets a named link between two switches extend a site", async () => {
-    const { trustBoundary } = await import("../../src/presets");
+test("Checks.trustBoundary lets a named link between two switches extend a site", async () => {
+    const { Checks } = await import("../../src/presets");
     const extension = (name: string, far: string) =>
         ({
             ...switchDevice,
@@ -87,13 +87,13 @@ test("trustBoundary lets a named link between two switches extend a site", async
         }) as typeof switchDevice;
     const devices = [extension("near", "far"), extension("far", "near")];
 
-    expect(trustBoundary({ untrusted: ["guests"], routers: [] })(devices)).toHaveLength(2);
-    expect(trustBoundary({ untrusted: ["guests"], routers: [], extended: [["near", "far"]] })(devices)).toEqual([]);
+    expect(Checks.trustBoundary({ untrusted: ["guests"], routers: [] })(devices)).toHaveLength(2);
+    expect(Checks.trustBoundary({ untrusted: ["guests"], routers: [], extended: [["near", "far"]] })(devices)).toEqual([]);
 });
 
-test("communityScheme blackholes only inside the customer's space, and never announces it", async () => {
-    const { communityScheme } = await import("../../src/presets");
-    const communities = communityScheme({
+test("Bgp.communityScheme blackholes only inside the customer's space, and never announces it", async () => {
+    const { Bgp } = await import("../../src/presets");
+    const communities = Bgp.communityScheme({
         asn: 64500,
         learned_from: { function: 1, classes: { customer: 3 } },
         blackhole: { function: 666, upstreams: { 64501: "64501:666" } },
@@ -119,8 +119,8 @@ test("communityScheme blackholes only inside the customer's space, and never ann
 });
 
 test("a trusted neighbor keeps its requests; anyone else loses every community of ours", async () => {
-    const { communityScheme } = await import("../../src/presets");
-    const communities = communityScheme({
+    const { Bgp } = await import("../../src/presets");
+    const communities = Bgp.communityScheme({
         asn: 64500,
         learned_from: { function: 1, classes: { transit: 1, customer: 3 } },
         do_not_announce: 100,
@@ -132,30 +132,30 @@ test("a trusted neighbor keeps its requests; anyone else loses every community o
     expect(communities.tag("transit", 6939).set?.remove_large_communities).toEqual(["64500:*:*"]);
 });
 
-test("exportsEndInReject leaves out an export to a customer", async () => {
-    const { exportsEndInReject } = await import("../../src/presets");
+test("Checks.exportsEndInReject leaves out an export to a customer", async () => {
+    const { Checks } = await import("../../src/presets");
     const policies = { ...router.policies, "UPSTREAM-OUT": [{ action: "accept" as const }] };
     const bgp = router.routing!.bgp!;
     const asCustomer = { ...bgp, groups: { upstream: { ...bgp.groups!.upstream!, role: "customer" as const } } };
-    const aboutUpstream = (devices: Parameters<typeof exportsEndInReject>[0]) =>
-        exportsEndInReject(devices).filter((finding) => finding.message.startsWith("upstream-1"));
+    const aboutUpstream = (devices: Parameters<typeof Checks.exportsEndInReject>[0]) =>
+        Checks.exportsEndInReject(devices).filter((finding) => finding.message.startsWith("upstream-1"));
 
     expect(aboutUpstream([{ ...router, policies }])).toHaveLength(1);
     expect(aboutUpstream([{ ...router, policies, routing: { ...router.routing, bgp: asCustomer } }])).toEqual([]);
 });
 
-test("internetExchange gives a port to one member only", async () => {
-    const { internetExchange } = await import("../../src/presets");
+test("Exchange.build gives a port to one member only", async () => {
+    const { Exchange } = await import("../../src/presets");
     const member = { name: "a", asn: 64510, ports: { "ix-sw-01": "10g-1" } };
-    const exchange = internetExchange({ vlan: "peering", lan: { ipv4: "203.0.113.0/24" } }, [member, { ...member, name: "b", asn: 64511 }]);
+    const exchange = Exchange.build({ vlan: "peering", lan: { ipv4: "203.0.113.0/24" } }, [member, { ...member, name: "b", asn: 64511 }]);
 
     expect(exchange.check([]).map((finding) => finding.message)).toContain("port 10g-1 is given to both a and b");
 });
 
-test("internetExchange keeps members apart", async () => {
-    const { internetExchange } = await import("../../src/presets");
+test("Exchange.build keeps members apart", async () => {
+    const { Exchange } = await import("../../src/presets");
     const member = { name: "a", asn: 64510, ports: {}, ipv4: "203.0.113.1" };
-    const exchange = internetExchange({ vlan: "peering", lan: { ipv4: "203.0.113.0/24" }, reserved: ["203.0.113.1"] }, [
+    const exchange = Exchange.build({ vlan: "peering", lan: { ipv4: "203.0.113.0/24" }, reserved: ["203.0.113.1"] }, [
         member,
         { ...member, name: "b" },
     ]);

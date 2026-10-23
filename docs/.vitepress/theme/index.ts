@@ -13,7 +13,7 @@ import StepThrough from "./academy/StepThrough.vue";
 import SvgDevice from "./academy/SvgDevice.vue";
 import Term from "./academy/Term.vue";
 import TryIt from "./academy/TryIt.vue";
-import Home from "./Home.vue";
+import Home from "./home/Home.vue";
 import "./style.css";
 import "./academy/academy.css";
 

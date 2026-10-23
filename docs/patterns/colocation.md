@@ -60,7 +60,7 @@ The switch has every tenant's ports, and one uplink to the router.
 
 ## checks.ts
 
-Besides the edge router's checks, tenants must never share a name, a number or an address. `trustBoundary` makes sure traffic from the transit and the exchange reaches tenants only through the router.
+Besides the edge router's checks, tenants must never share a name, a number or an address. `Checks.trustBoundary` makes sure traffic from the transit and the exchange reaches tenants only through the router.
 
 <<< @/../templates/colocation/checks.ts
 

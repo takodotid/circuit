@@ -52,14 +52,14 @@ Here is a `checks.ts` with two rules of its own and two from the [presets](/guid
 
 ```ts
 import type { Check } from "@takodotid/circuit";
-import { exportsEndInReject, trustBoundary, vlansOf } from "@takodotid/circuit/presets";
+import { Checks } from "@takodotid/circuit/presets";
 
 export default [
     // A ready-made check: every BGP export ends by rejecting what it did not accept.
-    exportsEndInReject,
+    Checks.exportsEndInReject,
 
     // A ready-made check, set up for this network: traffic from the transit reaches the rest only through the router.
-    trustBoundary({ untrusted: ["transit"], routers: ["edge-01"] }),
+    Checks.trustBoundary({ untrusted: ["transit"], routers: ["edge-01"] }),
 
     // A port without a description is hard to trace later. A warning, so it does not stop anything.
     (devices) =>
@@ -73,7 +73,7 @@ export default [
     (devices) =>
         devices.flatMap((device) =>
             Object.entries(device.ports ?? {})
-                .filter(([, port]) => port?.access_vlan && vlansOf(port).includes("mgmt"))
+                .filter(([, port]) => port?.access_vlan && Checks.vlansOf(port).includes("mgmt"))
                 .map(([name]) => ({
                     level: "error" as const,
                     device: device.name,

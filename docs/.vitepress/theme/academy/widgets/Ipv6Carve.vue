@@ -2,7 +2,7 @@
 // Lesson: IPv6. The reader takes a /48 or a /56 for a site, gives each VLAN a subnet number, and sees the /64 each one gets and the Circuit interfaces that result.
 
 import { computed, ref } from "vue";
-import { shorten } from "./Ipv6Shorten";
+import { Ipv6 } from "./Ipv6Shorten";
 
 const sites = {
     48: { groups: [0x2001, 0x0db8, 0x0100, 0], subnetBits: 16, text: "2001:db8:100::/48" },
@@ -42,7 +42,7 @@ const plan = computed<Plan[]>(() =>
 
         const groups = [...site.value.groups.slice(0, 3), site.value.groups[3] + number, 0, 0, 0, 0];
 
-        return { ...vlan, prefix: `${shorten(groups)}/64`, router: `${shorten([...groups.slice(0, 7), 1])}/64` };
+        return { ...vlan, prefix: `${Ipv6.shorten(groups)}/64`, router: `${Ipv6.shorten([...groups.slice(0, 7), 1])}/64` };
     })
 );
 

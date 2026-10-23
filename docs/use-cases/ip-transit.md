@@ -43,7 +43,7 @@ Your transit and the exchange's route servers do not take every route you send t
 
 <<< @/../examples/use-cases/ip-transit/circuit.config.ts
 
-`exportsEndInReject` checks that every export ends by rejecting what it did not accept. `ACME-OUT` accepts everything on purpose, and the check leaves it alone, because it goes to a neighbor whose `role` is `customer`.
+`Checks.exportsEndInReject` checks that every export ends by rejecting what it did not accept. `ACME-OUT` accepts everything on purpose, and the check leaves it alone, because it goes to a neighbor whose `role` is `customer`.
 
 ## Prefixes that change often
 

@@ -1,10 +1,10 @@
 // A plan sends only what changed, in the form each device accepts: what it prints differently is no change, and what it keeps for itself is never touched.
 
 import { expect, test } from "bun:test";
-import { adapters } from "../../src/platforms";
-import { serviceOf } from "../../src/platforms/fortios/firewall";
-import { fillLines, withSecrets } from "../../src/platforms/fortios/index";
-import { parse, print, UNSET } from "../../src/platforms/fortios/tree";
+import { Platforms } from "../../src/platforms";
+import { FortiOsFirewall } from "../../src/platforms/fortios/firewall";
+import { FortiOs } from "../../src/platforms/fortios/index";
+import { FortiOsTree } from "../../src/platforms/fortios/tree";
 import aggregationSwitch from "../../examples/aggregation-switch";
 import coreSwitch from "../../examples/core-switch";
 import firewall from "../../examples/firewall";
@@ -12,7 +12,7 @@ import router from "../../examples/router";
 
 // The forms a Raisecom switch prints, seen on a RAX721: an access group with its notify view, an SNMPv3 user as localized keys, and `portswitch` on a switched LAG.
 test("example-core-switch plans nothing against how the device prints it", () => {
-    const adapter = adapters["raisecom-ros"]!;
+    const adapter = Platforms.get("raisecom-ros");
     const rendered = adapter.render(coreSwitch);
     const printed = rendered
         .replace(
@@ -33,7 +33,7 @@ test("example-core-switch plans nothing against how the device prints it", () =>
 
 // The device refuses `no storm-control mode`, so a port leaving pps goes back to kbps, its default.
 test("a Raisecom port leaving storm control in pps returns to kbps", () => {
-    const adapter = adapters["raisecom-ros"]!;
+    const adapter = Platforms.get("raisecom-ros");
     const current = ["interface tengigabitethernet 1/3/12", "storm-control mode pps", "storm-control broadcast pps 1000"].join("\n");
     const desired = ["interface tengigabitethernet 1/3/12", "shutdown"].join("\n");
 
@@ -44,7 +44,7 @@ test("a Raisecom port leaving storm control in pps returns to kbps", () => {
 
 // A port set back to auto prints it, though auto is the default, and the device refuses `no duplex auto`.
 test("a Raisecom port's speed and duplex at auto plan nothing", () => {
-    const adapter = adapters["raisecom-ros"]!;
+    const adapter = Platforms.get("raisecom-ros");
     const desired = ["interface tengigabitethernet 1/3/12", "shutdown"].join("\n");
     const current = ["interface tengigabitethernet 1/3/12", "duplex auto", "speed auto", "shutdown"].join("\n");
 
@@ -55,15 +55,15 @@ test("a Raisecom port's speed and duplex at auto plan nothing", () => {
 test("a VLAN list change sends only the VLANs added and removed", () => {
     const options = { secrets: false, rollback: 10 };
 
-    const vrp = adapters["vrp"]!.plan("vlan batch 10 20 to 21 127\n", "vlan batch 10 20 to 22 99\n", options);
+    const vrp = Platforms.get("vrp").plan("vlan batch 10 20 to 21 127\n", "vlan batch 10 20 to 22 99\n", options);
     expect(vrp.steps.flatMap((step) => step.send)).toEqual(["undo vlan batch 22 99", "vlan batch 127"]);
 
-    const raisecom = adapters["raisecom-ros"]!.plan("create vlan 10,20-21,127 active\n", "create vlan 10,20-22,99 active\n", options);
+    const raisecom = Platforms.get("raisecom-ros").plan("create vlan 10,20-21,127 active\n", "create vlan 10,20-22,99 active\n", options);
     expect(raisecom.steps.flatMap((step) => step.send)).toEqual(["no vlan 22", "no vlan 99", "create vlan 127 active"]);
 });
 
 test("untracked prefixes skip connection tracking both ways, in their own family", async () => {
-    const rendered = adapters["routeros"]!.render({
+    const rendered = Platforms.get("routeros").render({
         ...router,
         firewall: { ...router.firewall, untracked: ["198.51.100.64/27", "2001:db8:100::/48"] },
     });
@@ -82,13 +82,13 @@ test("untracked prefixes skip connection tracking both ways, in their own family
         ].join("\n")
     );
 
-    const adapter = adapters["routeros"]!;
+    const adapter = Platforms.get("routeros");
     expect(adapter.plan(rendered, rendered, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.show)).toEqual([]);
 });
 
 // The device keeps a dynamic fasttrack counter rule in the raw table, which it refuses to remove.
 test("a rewrite of the raw table never selects a dynamic rule", () => {
-    const adapter = adapters["routeros"]!;
+    const adapter = Platforms.get("routeros");
     const before = adapter.render(router);
     const after = adapter.render({ ...router, firewall: { ...router.firewall, untracked: ["198.51.100.64/27"] } });
     const sent = adapter.plan(after, before, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
@@ -98,7 +98,7 @@ test("a rewrite of the raw table never selects a dynamic rule", () => {
 
 // 7.23 refuses a new BGP connection without its instance, and the export never prints the default one.
 test("a new BGP connection names its instance, and an existing one plans nothing for it", () => {
-    const adapter = adapters["routeros"]!;
+    const adapter = Platforms.get("routeros");
     const rendered = adapter.render(router);
     const connections = rendered.split("\n").filter((line) => line.startsWith("add") && line.includes("remote.as="));
 
@@ -111,7 +111,7 @@ test("a new BGP connection names its instance, and an existing one plans nothing
 
 // A peer's name is unique on the device, so a new key for the same peer must change the peer, not add another under its name.
 test("a new WireGuard key for a peer is set on it", () => {
-    const adapter = adapters["routeros"]!;
+    const adapter = Platforms.get("routeros");
     const line = (key: string) =>
         `/interface wireguard peers\nadd allowed-address=10.0.0.2/32 interface=wg1 name=wg1-alice public-key="${key}"\n`;
     const plan = adapter.plan(line("bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmU="), line("b2xkS2V5b2xkS2V5b2xkS2V5b2xkS2V5b2xkS2V5b2w="), {
@@ -128,7 +128,7 @@ test("a new WireGuard key for a peer is set on it", () => {
 
 // A VLAN interface on the bridge adds a dynamic bridge VLAN entry beside the static one, which a set must not select.
 test("a change to a bridge VLAN selects only its static entry", () => {
-    const adapter = adapters["routeros"]!;
+    const adapter = Platforms.get("routeros");
     const entry = (tagged: string) => `/interface bridge vlan\nadd bridge=bridge tagged=${tagged} vlan-ids=325\n`;
     const sent = adapter.plan(entry("bridge,ether1"), entry("ether1"), { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
 
@@ -137,7 +137,7 @@ test("a change to a bridge VLAN selects only its static entry", () => {
 
 // RouterOS refuses a logging rule whose action does not exist yet: "input does not match any value of action".
 test("a new remote logging action is added before the rules that use it", () => {
-    const adapter = adapters["routeros"]!;
+    const adapter = Platforms.get("routeros");
     const wanted =
         "/system logging action\nadd name=remote1 remote=10.0.0.1 target=remote\n/system logging\nadd action=remote1 topics=critical\n";
     const sent = adapter.plan(wanted, "", { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
@@ -150,7 +150,7 @@ test("a new remote logging action is added before the rules that use it", () => 
 
 // Seen on a CE6855 on V200R005 after its first SNMPv3 user: an engine ID of its own, and the user's own line before its settings.
 test("a VRP SNMPv3 user plans nothing against how the switch prints it", () => {
-    const adapter = adapters["vrp"]!;
+    const adapter = Platforms.get("vrp");
     const wanted = "snmp-agent\nsnmp-agent usm-user v3 monitoring\nsnmp-agent usm-user v3 monitoring group circuit\n";
     const printed =
         "snmp-agent\nsnmp-agent local-engineid 800007DB03E8ABF39705B1\nsnmp-agent usm-user v3 monitoring\nsnmp-agent usm-user v3 monitoring group circuit\n";
@@ -160,7 +160,7 @@ test("a VRP SNMPv3 user plans nothing against how the switch prints it", () => {
 
 // The forms a Junos switch prints, seen on a QFX5100 running 21.4: secrets hashed or encrypted, values quoted where the render does not quote them, the release and each user's number.
 test("example-aggregation-switch plans nothing against how the device prints it", () => {
-    const adapter = adapters["junos"]!;
+    const adapter = Platforms.get("junos");
     const rendered = adapter.render(aggregationSwitch);
     const printed = [
         "set version 21.4R3-S8.5",
@@ -186,7 +186,7 @@ test("example-aggregation-switch plans nothing against how the device prints it"
 
 // A service allowed only from IPv4 is refused over IPv6, not opened to every IPv6 source.
 test("a Junos service allowed from one family is discarded in the other", () => {
-    const adapter = adapters["junos"]!;
+    const adapter = Platforms.get("junos");
     const rendered = adapter.render({ ...aggregationSwitch, management: { allow: ["192.0.2.0/24"], ssh: {} } });
     const v6 = rendered.split("\n").filter((line) => line.includes("circuit-services-v6 term ssh"));
 
@@ -196,7 +196,7 @@ test("a Junos service allowed from one family is discarded in the other", () => 
 
 // The device refuses `delete interfaces xe-0/0/1 unit`: a named list goes entry by entry, while a block the render does not hold goes whole.
 test("a Junos removal stops at an entry of a named list, never at the list", () => {
-    const adapter = adapters["junos"]!;
+    const adapter = Platforms.get("junos");
     const desired = "set interfaces xe-0/0/1 description Host\n";
     const current = [
         "set interfaces xe-0/0/1 description Host",
@@ -211,7 +211,7 @@ test("a Junos removal stops at an entry of a named list, never at the list", () 
 
 // A community is named by its value, which the read redacts: a new one is sent after the device's are deleted, each named in the session.
 test("a rotated Junos community clears the device's communities first", () => {
-    const adapter = adapters["junos"]!;
+    const adapter = Platforms.get("junos");
     const desired = "set snmp community <secret:COMMUNITY> authorization read-only\n";
     const current = "set snmp community <redacted> authorization read-only\n";
 
@@ -222,7 +222,7 @@ test("a rotated Junos community clears the device's communities first", () => {
 });
 
 test("a deactivated Junos statement the render wants is activated", () => {
-    const adapter = adapters["junos"]!;
+    const adapter = Platforms.get("junos");
     const desired = "set protocols lldp interface all\n";
     const current = "set protocols lldp interface all\ndeactivate protocols lldp\n";
 
@@ -232,7 +232,7 @@ test("a deactivated Junos statement the render wants is activated", () => {
 
 // Junos keeps a policy's terms in order and adds a new one at the end, so a rule inserted in the middle rewrites the policy whole.
 test("a Junos policy that changes is deleted and set again in order", () => {
-    const adapter = adapters["junos"]!;
+    const adapter = Platforms.get("junos");
     const term = (name: string, action: string) => `set policy-options policy-statement in term ${name} then ${action}`;
     const current = [term("1", "reject"), term("2", "accept")].join("\n");
     const desired = [term("1", "reject"), term('"2 New"', "reject"), term("3", "accept")].join("\n");
@@ -243,7 +243,7 @@ test("a Junos policy that changes is deleted and set again in order", () => {
 
 // A prefix list `refresh` fills keeps what the device holds, and the device prints an empty list only while it has no entries.
 test("a Junos prefix list a registry fills keeps its entries", () => {
-    const adapter = adapters["junos"]!;
+    const adapter = Platforms.get("junos");
     const desired = "set policy-options prefix-list customer\n# generated policy-options prefix-list customer\n";
     const current = "set policy-options prefix-list customer 198.18.0.0/16\nset policy-options prefix-list customer 198.19.0.0/16\n";
 
@@ -252,11 +252,11 @@ test("a Junos prefix list a registry fills keeps its entries", () => {
 
 // The forms a FortiGate prints, seen on a 3700D running 6.2.2: settings in an order of its own, passwords as ciphers, an object's UUID and an interface's SNMP index, a default it does not print, and factory objects beside ours.
 test("example-firewall plans nothing against how the device prints it", () => {
-    const adapter = adapters["fortios"]!;
+    const adapter = Platforms.get("fortios");
     const rendered = adapter.render(firewall);
 
-    const tree = parse(rendered);
-    const reverse = (block: ReturnType<typeof parse>) => {
+    const tree = FortiOsTree.parse(rendered);
+    const reverse = (block: ReturnType<typeof FortiOsTree.parse>) => {
         const settings = [...block.settings].reverse();
         block.settings.clear();
         for (const [key, value] of settings) block.settings.set(key, value);
@@ -265,7 +265,7 @@ test("example-firewall plans nothing against how the device prints it", () => {
     };
     reverse(tree);
 
-    const printed = print(tree)
+    const printed = FortiOsTree.print(tree)
         .replace(/set password "<secret:\w+>"/g, "set password ENC <redacted>")
         .replace(/set name "<secret:\w+>"/, 'set name "<redacted>"')
         .replace(/\n\s*set dns-service specify/, "")
@@ -284,7 +284,7 @@ test("example-firewall plans nothing against how the device prints it", () => {
 });
 
 const fortiosPlan = (desired: string[], current: string[], secrets = false) =>
-    adapters["fortios"]!.plan(desired.join("\n") + "\n", current.join("\n") + "\n", { secrets, rollback: 10 });
+    Platforms.get("fortios").plan(desired.join("\n") + "\n", current.join("\n") + "\n", { secrets, rollback: 10 });
 
 // A port joins an aggregate only while nothing names it: the device answers `entry not found in datasource`.
 test("a FortiOS port joining a LAG is first freed of what names it", () => {
@@ -457,7 +457,7 @@ test("a FortiOS LAG lets its ports go before they change", () => {
 
 // Who reaches the device's services is decided ahead of the input chain: each service accepts its sources and refuses everyone else.
 test("FortiOS guards the management services with local-in policies", () => {
-    const rendered = parse(adapters["fortios"]!.render(firewall));
+    const rendered = FortiOsTree.parse(Platforms.get("fortios").render(firewall));
     const policies = [...rendered.blocks.get("firewall local-in-policy")!.entries.values()].map(({ block }) =>
         ["srcaddr", "action", "service"].map((key) => block.settings.get(key) ?? "").join(" ")
     );
@@ -536,17 +536,17 @@ test("a FortiOS prefix list a registry fills keeps its entries", () => {
     expect(fortiosPlan(list([]), current).steps).toEqual([]);
 
     // Until it is filled, the list refuses every prefix; once filled, each prefix matches what is more specific too.
-    const rendered = parse(adapters["fortios"]!.render(firewall));
+    const rendered = FortiOsTree.parse(Platforms.get("fortios").render(firewall));
     const placeholder = rendered.blocks.get("router prefix-list")!.entries.get("upstream-origins")!.block.blocks.get("rule")!;
     expect([...placeholder.entries.values()].map(({ block }) => Object.fromEntries(block.settings))).toEqual([
-        { prefix: "0.0.0.0 0.0.0.0", ge: UNSET, le: "32", action: "deny" },
+        { prefix: "0.0.0.0 0.0.0.0", ge: FortiOsTree.UNSET, le: "32", action: "deny" },
     ]);
-    expect(fillLines("upstream-origins", "ipv4", ["198.18.0.0/15"])).toContain("set le 32");
+    expect(FortiOs.fillLines("upstream-origins", "ipv4", ["198.18.0.0/15"])).toContain("set le 32");
 });
 
 // A port given no protocol is matched on TCP and UDP alike.
 test("a FortiOS service without a protocol covers TCP and UDP", () => {
-    const service = serviceOf({ dst_port: 53 }, "ipv4");
+    const service = FortiOsFirewall.serviceOf({ dst_port: 53 }, "ipv4");
     expect(service.name).toBe("tcp+udp/53");
     expect(Object.fromEntries(service.block!.settings)).toEqual({ "tcp-portrange": "53", "udp-portrange": "53" });
 });
@@ -571,7 +571,7 @@ test("a FortiOS address moving between interfaces leaves the first before it joi
 
 // A route map filters one family at a time: a rule limited to the other family is left out of it.
 test("a FortiOS policy becomes a route map for each family", () => {
-    const rendered = parse(adapters["fortios"]!.render(firewall));
+    const rendered = FortiOsTree.parse(Platforms.get("fortios").render(firewall));
     const maps = rendered.blocks.get("router route-map")!;
     const rules = (name: string) => maps.entries.get(name)?.block.blocks.get("rule")?.entries.size;
 
@@ -613,18 +613,18 @@ test("a FortiOS tunnel between IPv6 endpoints states its family first", () => {
         },
     } as typeof firewall;
 
-    const rendered = parse(adapters["fortios"]!.render(device));
+    const rendered = FortiOsTree.parse(Platforms.get("fortios").render(device));
     const settings = (section: string, name: string) => [...rendered.blocks.get(section)!.entries.get(name)!.block.settings.keys()];
 
     expect(settings("system gre-tunnel", "partner")).toEqual(["interface", "ip-version", "remote-gw6", "local-gw6"]);
     expect(settings("system vxlan", "stretch")).toEqual(["interface", "vni", "ip-version", "remote-ip6"]);
-    expect(adapters["fortios"]!.unsupported(device)).toEqual([]);
+    expect(Platforms.get("fortios").unsupported(device)).toEqual([]);
 });
 
 // A PEM file saved on Windows ends its lines with CR LF; the CLI takes each CR as a line of its own and refuses the key.
 test("a FortiOS secret is sent with plain line endings", () => {
     process.env.CIRCUIT_TEST_PEM = "-----BEGIN PRIVATE KEY-----\r\nMIIE\r\n-----END PRIVATE KEY-----\r\n";
-    expect(withSecrets('set private-key "<secret:CIRCUIT_TEST_PEM>"')).toBe(
+    expect(FortiOs.withSecrets('set private-key "<secret:CIRCUIT_TEST_PEM>"')).toBe(
         'set private-key "-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----\n"'
     );
     delete process.env.CIRCUIT_TEST_PEM;
@@ -665,6 +665,8 @@ test("removing an SSH algorithm list on VRP sends the undo without the algorithm
     const options = { secrets: false, rollback: 10 };
     const current = "ssh server hmac sha2_256 sha1\nssh server key-exchange dh_group_exchange_sha1 ecdh_sha2_nistp256\n";
 
-    const sent = adapters["vrp"]!.plan("", current, options).steps.flatMap((step) => step.send);
+    const sent = Platforms.get("vrp")
+        .plan("", current, options)
+        .steps.flatMap((step) => step.send);
     expect(sent).toEqual(expect.arrayContaining(["undo ssh server hmac", "undo ssh server key-exchange"]));
 });

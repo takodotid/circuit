@@ -3,7 +3,7 @@
 
 import { computed, ref } from "vue";
 import { useTravel, type Point } from "../travel";
-import { BROADCAST, hostById, hosts, useNarrow, usePause, type Host } from "./SwitchLearning";
+import { type Host, Lan, useNarrow, usePause } from "./SwitchLearning";
 
 type Layout = {
     viewBox: string;
@@ -70,7 +70,7 @@ const usedMac = ref<string>();
 const from = ref("laptop");
 const to = ref("printer");
 
-const packets = hosts.map(() => useTravel());
+const packets = Lan.HOSTS.map(() => useTravel());
 const pause = usePause();
 const busy = ref(false);
 
@@ -91,14 +91,14 @@ const goalList = computed(() => [
     { done: goals.value.broadcast, text: "Send a broadcast, a frame for everyone." },
 ]);
 
-const whoHas = (mac: string) => (mac === BROADCAST ? "everyone" : (hosts.find((host) => host.mac === mac)?.label ?? "unknown"));
+const whoHas = (mac: string) => (mac === Lan.BROADCAST ? "everyone" : (Lan.HOSTS.find((host) => host.mac === mac)?.label ?? "unknown"));
 
 async function send() {
     if (busy.value) return;
 
-    const sender = hostById(from.value);
+    const sender = Lan.host(from.value);
     const everyone = to.value === "everyone";
-    const target = everyone ? undefined : hostById(to.value);
+    const target = everyone ? undefined : Lan.host(to.value);
 
     if (target && target.id === sender.id) {
         said.value = { kind: "bad", word: "Pick again", text: "A device does not send a frame to itself. Pick two different devices." };
@@ -111,7 +111,7 @@ async function send() {
     litPorts.value = [sender.port];
     learnedMac.value = undefined;
     usedMac.value = undefined;
-    frame.value = { to: target?.mac ?? BROADCAST, from: sender.mac };
+    frame.value = { to: target?.mac ?? Lan.BROADCAST, from: sender.mac };
 
     await packets[sender.port - 1]!.travel(toSwitch(sender));
 
@@ -125,7 +125,7 @@ async function send() {
 
     // Then it looks for the receiver in its table.
     const entry = target ? table.value.find((row) => row.mac === target.mac) : undefined;
-    const receivers = entry ? hosts.filter((host) => host.port === entry.port) : hosts.filter((host) => host.port !== sender.port);
+    const receivers = entry ? Lan.HOSTS.filter((host) => host.port === entry.port) : Lan.HOSTS.filter((host) => host.port !== sender.port);
     usedMac.value = entry?.mac;
     litPorts.value = [sender.port, ...receivers.map((host) => host.port)];
 
@@ -138,14 +138,14 @@ async function send() {
     const learned = known
         ? `The switch already had ${sender.mac} behind port ${sender.port}, so that row stays as it is.`
         : `The switch read the sender, ${sender.mac}, and wrote down that it is behind port ${sender.port}.`;
-    const allKnownNow = table.value.length === hosts.length && !goals.value.everyone;
+    const allKnownNow = table.value.length === Lan.HOSTS.length && !goals.value.everyone;
 
     if (everyone) {
         goals.value.broadcast = true;
         said.value = {
             kind: "good",
             word: "Broadcast",
-            text: `${learned} The frame was for ${BROADCAST}, the address that means everyone, so the switch sent a copy out of every other port, and every device kept it.`,
+            text: `${learned} The frame was for ${Lan.BROADCAST}, the address that means everyone, so the switch sent a copy out of every other port, and every device kept it.`,
         };
     } else if (entry) {
         goals.value.direct = true;
@@ -196,7 +196,7 @@ function clearTable() {
             aria-label="Five devices: a laptop, a desktop, a printer, a camera and a server, each joined by a cable to its own numbered port on one switch."
         >
             <line
-                v-for="host in hosts"
+                v-for="host in Lan.HOSTS"
                 :key="`cable-${host.id}`"
                 class="cable"
                 :class="{ lit: litPorts.includes(host.port) }"
@@ -207,7 +207,7 @@ function clearTable() {
             />
 
             <g
-                v-for="host in hosts"
+                v-for="host in Lan.HOSTS"
                 :key="`port-${host.id}`"
                 class="port-tag"
                 :transform="`translate(${portTag(host)[0]} ${portTag(host)[1]})`"
@@ -219,7 +219,7 @@ function clearTable() {
             <SvgDevice kind="switch" :x="layout.hub[0]" :y="layout.hub[1]" :label="layout.switchLabel ? undefined : 'Switch'" :lit="busy" />
             <text v-if="layout.switchLabel" class="switch-label" :x="layout.switchLabel[0]" :y="layout.switchLabel[1]">Switch</text>
             <SvgDevice
-                v-for="host in hosts"
+                v-for="host in Lan.HOSTS"
                 :key="host.id"
                 :kind="host.kind"
                 :x="spot(host).x"
@@ -228,7 +228,7 @@ function clearTable() {
                 :note="host.mac"
             />
 
-            <template v-for="host in hosts" :key="`mark-${host.id}`">
+            <template v-for="host in Lan.HOSTS" :key="`mark-${host.id}`">
                 <g
                     v-if="marks[host.id]"
                     class="mark"
@@ -255,13 +255,13 @@ function clearTable() {
             <label class="ac-field">
                 <span>Send a frame from</span>
                 <select v-model="from" class="ac-select" :disabled="busy">
-                    <option v-for="host in hosts" :key="host.id" :value="host.id">{{ host.label }}</option>
+                    <option v-for="host in Lan.HOSTS" :key="host.id" :value="host.id">{{ host.label }}</option>
                 </select>
             </label>
             <label class="ac-field">
                 <span>to</span>
                 <select v-model="to" class="ac-select" :disabled="busy">
-                    <option v-for="host in hosts" :key="host.id" :value="host.id">{{ host.label }}</option>
+                    <option v-for="host in Lan.HOSTS" :key="host.id" :value="host.id">{{ host.label }}</option>
                     <option value="everyone">Everyone (broadcast)</option>
                 </select>
             </label>

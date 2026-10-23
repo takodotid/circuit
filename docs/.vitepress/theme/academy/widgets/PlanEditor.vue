@@ -2,7 +2,7 @@
 // Lesson: writing a network down. The reader edits a router's file with toggles, or changes the router by hand, and reads the plan Circuit makes.
 
 import { computed, reactive } from "vue";
-import { type Edits, planKey, plans, routerFile } from "./PlanEditor";
+import { type Edits, RouterFile } from "./PlanEditor";
 
 const edits = reactive<Edits>({ describe: false, removeIntern: false, dns: false, drift: false });
 
@@ -12,11 +12,11 @@ const fileEdits: { key: keyof Edits; label: string }[] = [
     { key: "dns", label: "Add a DNS server" },
 ];
 
-const file = computed(() => routerFile(edits));
+const file = computed(() => RouterFile.of(edits));
 
 // The plan as `circuit diff` printed it, without the indent, so each line starts with its mark.
 const plan = computed(() =>
-    (plans[planKey(edits)] ?? "")
+    (RouterFile.PLANS[RouterFile.key(edits)] ?? "")
         .split("\n")
         .map((line) => line.trimStart())
         .join("\n")

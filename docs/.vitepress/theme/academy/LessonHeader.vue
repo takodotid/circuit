@@ -3,9 +3,9 @@
 
 import { computed } from "vue";
 import { withBase } from "vitepress";
-import type { lessons } from "../../academy";
+import type { Academy } from "../../academy";
 
-const props = defineProps<{ lesson: (typeof lessons)[number] }>();
+const props = defineProps<{ lesson: (typeof Academy.LESSONS)[number] }>();
 
 const total = computed(() => props.lesson.level.lessons.length);
 </script>

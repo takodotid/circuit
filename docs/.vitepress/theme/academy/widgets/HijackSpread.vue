@@ -3,19 +3,7 @@
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
-import {
-    ASES,
-    deliver,
-    type Delivery,
-    MORE_SPECIFIC,
-    OTHER,
-    type RoaChoice,
-    type Scenario,
-    spread,
-    TARGET,
-    YOU,
-    YOUR_BLOCK,
-} from "./HijackSpread";
+import { type Delivery, type RoaChoice, RouteSpread, type Scenario } from "./HijackSpread";
 
 type Place = { label: string; x: number; y: number };
 
@@ -24,9 +12,9 @@ const places: Record<number, Place> = {
     64497: { label: "Transit 2", x: 470, y: 80 },
     64503: { label: "ISP West", x: 75, y: 205 },
     64501: { label: "Your provider", x: 250, y: 215 },
-    [OTHER]: { label: "Another network", x: 470, y: 215 },
+    [RouteSpread.OTHER]: { label: "Another network", x: 470, y: 215 },
     64502: { label: "ISP East", x: 630, y: 205 },
-    [YOU]: { label: "You", x: 250, y: 345 },
+    [RouteSpread.YOU]: { label: "You", x: 250, y: 345 },
 };
 
 const place = (as: number) => places[as]!;
@@ -35,23 +23,27 @@ const links: { a: number; b: number; peer?: boolean }[] = [
     { a: 64496, b: 64497, peer: true },
     { a: 64496, b: 64503 },
     { a: 64496, b: 64501 },
-    { a: 64497, b: OTHER },
+    { a: 64497, b: RouteSpread.OTHER },
     { a: 64497, b: 64502 },
-    { a: 64501, b: OTHER },
-    { a: 64501, b: YOU },
+    { a: 64501, b: RouteSpread.OTHER },
+    { a: 64501, b: RouteSpread.YOU },
 ];
 
 /** The networks whose traffic the widget follows: everyone but you and AS64510. */
 const watched = [64496, 64497, 64501, 64502, 64503];
 
 const scenarios: { id: Scenario; label: string; text: string }[] = [
-    { id: "normal", label: "Nothing", text: `Only you announce ${YOUR_BLOCK}.` },
-    { id: "same", label: "Announces your /40", text: `AS64510 announces ${YOUR_BLOCK} as its own, beside you.` },
-    { id: "specific", label: "Announces a /48 inside it", text: `AS64510 announces ${MORE_SPECIFIC}, a more specific part of your block.` },
+    { id: "normal", label: "Nothing", text: `Only you announce ${RouteSpread.YOUR_BLOCK}.` },
+    { id: "same", label: "Announces your /40", text: `AS64510 announces ${RouteSpread.YOUR_BLOCK} as its own, beside you.` },
+    {
+        id: "specific",
+        label: "Announces a /48 inside it",
+        text: `AS64510 announces ${RouteSpread.MORE_SPECIFIC}, a more specific part of your block.`,
+    },
     {
         id: "forged",
         label: "Forges you as the origin",
-        text: `AS64510 announces ${MORE_SPECIFIC} with the path 64510 64500, as if it had heard it from you.`,
+        text: `AS64510 announces ${RouteSpread.MORE_SPECIFIC} with the path 64510 64500, as if it had heard it from you.`,
     },
     {
         id: "leak",
@@ -62,8 +54,8 @@ const scenarios: { id: Scenario; label: string; text: string }[] = [
 
 const roaChoices: { id: RoaChoice; label: string }[] = [
     { id: "none", label: "No ROA" },
-    { id: "40", label: `${YOUR_BLOCK}, max /40` },
-    { id: "48", label: `${YOUR_BLOCK}, max /48` },
+    { id: "40", label: `${RouteSpread.YOUR_BLOCK}, max /40` },
+    { id: "48", label: `${RouteSpread.YOUR_BLOCK}, max /48` },
 ];
 
 const scenario = ref<Scenario>("same");
@@ -74,14 +66,14 @@ const from = ref(64502);
 
 const sceneText = computed(() => scenarios.find((choice) => choice.id === scenario.value)?.text ?? "");
 
-const outcome = computed(() => spread(scenario.value, { roa: roa.value, rov: rov.value, registry: registry.value }));
-const deliveries = computed(() => new Map<number, Delivery>(watched.map((as) => [as, deliver(outcome.value, as)])));
+const outcome = computed(() => RouteSpread.run(scenario.value, { roa: roa.value, rov: rov.value, registry: registry.value }));
+const deliveries = computed(() => new Map<number, Delivery>(watched.map((as) => [as, RouteSpread.deliver(outcome.value, as)])));
 
 type Fate = "you" | "other" | "through" | "none";
 
 function fateOf(as: number): Fate {
     const delivery = deliveries.value.get(as)!;
-    if (delivery.end === "you" && delivery.hops.includes(OTHER)) return "through";
+    if (delivery.end === "you" && delivery.hops.includes(RouteSpread.OTHER)) return "through";
     return delivery.end;
 }
 
@@ -148,7 +140,7 @@ const sentSay = computed(() => {
     if (!sent.value.length || travelling.value) return undefined;
     const fate = fateOf(from.value);
     const path = sent.value.map((as) => place(as).label).join(", then ");
-    return { fate, text: `Traffic to ${TARGET} from ${place(from.value).label} went: ${path}.` };
+    return { fate, text: `Traffic to ${RouteSpread.TARGET} from ${place(from.value).label} went: ${path}.` };
 });
 
 const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
@@ -237,7 +229,7 @@ const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
             <text class="caption" x="350" y="70" text-anchor="middle">peers</text>
 
             <SvgDevice
-                v-for="as in ASES"
+                v-for="as in RouteSpread.ASES"
                 :key="as"
                 kind="router"
                 :x="place(as).x"
@@ -265,7 +257,7 @@ const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
 
         <div class="send">
             <label class="ac-field">
-                <span>Send traffic to {{ TARGET }} from</span>
+                <span>Send traffic to {{ RouteSpread.TARGET }} from</span>
                 <select v-model.number="from" class="ac-select" @change="changed">
                     <option v-for="as in watched" :key="as" :value="as">{{ place(as).label }}</option>
                 </select>
@@ -279,7 +271,7 @@ const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
                 <thead>
                     <tr>
                         <th>Network</th>
-                        <th>Route it uses for {{ TARGET }}</th>
+                        <th>Route it uses for {{ RouteSpread.TARGET }}</th>
                         <th>Traffic goes</th>
                     </tr>
                 </thead>
