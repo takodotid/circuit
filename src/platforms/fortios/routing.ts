@@ -177,14 +177,15 @@ export class FortiOsRouting {
         return [...(FortiOsRouting.neighborSettings(device, neighbor).families ?? [Address.family(neighbor.address)])];
     }
 
-    /** Whether OSPF or BGP detects a dead neighbor with BFD, which the device then runs. */
+    /** Whether a static route, OSPF or BGP detects a dead neighbor with BFD, which the device then runs. */
     static usesBfd(device: Device): boolean {
+        const routes = (device.routing?.static ?? []).some((route) => route.bfd);
         const areas = Object.values(device.routing?.ospf?.areas ?? {});
         const ospf = areas.some((area) => Object.values(area.interfaces).some((settings) => settings?.bfd));
         const bgp = Object.values(device.routing?.bgp?.neighbors ?? {}).some(
             (neighbor) => FortiOsRouting.neighborSettings(device, neighbor).bfd
         );
-        return ospf || bgp;
+        return routes || ospf || bgp;
     }
 
     static render(root: FortiOsBlock, device: Device): void {

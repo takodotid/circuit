@@ -279,7 +279,7 @@ export class FortiOsRender {
         if (FortiOsFirewall.natRules(device).length) section("system settings").set("central-nat", "enable");
         // SIP is otherwise rewritten by its proxy whatever the helpers say; this way only the `sip` helper does.
         section("system settings").set("default-voip-alg-mode", "kernel-helper-based");
-        if (FortiOsRouting.usesBfd(device)) section("system settings").set("bfd", "enable");
+        FortiOsRender.bfd(section("system settings"), device);
         FortiOsRender.users(section("system accprofile"), section("system admin"), device);
         FortiOsRender.interfaces(root, device);
         FortiOsRender.dns(section("system dns"), section("system dns-server"), device);
@@ -749,7 +749,22 @@ export class FortiOsRender {
             if (route.distance !== undefined && route.distance !== 10) entry.set("distance", route.distance);
             if (route.description) entry.set("comment", FortiOsTree.quote(route.description));
             if (route.blackhole) entry.set("blackhole", "enable");
+            if (route.bfd) entry.set("bfd", "enable");
         }
+    }
+
+    /** BFD runs once a route or a session uses it, or the config sets its timers, which the device shows only while it runs. */
+    private static bfd(settings: FortiOsBlock, device: Device): void {
+        const timers = device.routing?.bfd;
+        if (!FortiOsRouting.usesBfd(device) && !timers) return;
+
+        settings.set("bfd", "enable");
+        if (!timers) return;
+
+        settings
+            .set("bfd-desired-min-tx", timers.interval)
+            .set("bfd-required-min-rx", timers.interval)
+            .set("bfd-detect-mult", timers.multiplier);
     }
 
     /** The helpers the config lists, each on the protocols and ports the factory gives it. None run otherwise. */

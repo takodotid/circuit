@@ -327,10 +327,17 @@ test("BFD timers, BFD on a static route and BFD on a multihop session are refuse
             },
         };
 
+        // FortiOS proved timers and static routes (test/platforms/fortios-proofs.test.ts).
+        const proved = device.platform === "fortios";
+
         expect(Platforms.get(device.platform).unsupported(withBfd)).toEqual(
             expect.arrayContaining([
-                "routing.bfd, BFD timers are not proved on a device yet",
-                "routing.static 198.51.100.128/25 bfd, BFD on a static route is not proved on a device yet",
+                ...(proved
+                    ? []
+                    : [
+                          "routing.bfd, BFD timers are not proved on a device yet",
+                          "routing.static 198.51.100.128/25 bfd, BFD on a static route is not proved on a device yet",
+                      ]),
                 "routing.bgp.neighbors.loopback.bfd, BFD on a multihop session is not proved on a device yet",
             ])
         );

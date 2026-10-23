@@ -27,6 +27,9 @@ Behaviour that looks like something else. Each one has been hit on a FortiGate 3
 - A tunnel's interface takes an IPv4 address only as a host, with the far end in `remote-ip`: `set ip 10.0.0.1 255.255.255.252` on one is dropped without a word.
 - A GRE or VXLAN tunnel creates an interface of its own, named after it, which goes when the tunnel goes. VXLAN has no local address: it leaves from the address of the interface it points to.
 - A static route has no VRF of its own. It lands in the VRF of the interface it leaves through, as `get router info routing-table all` shows, so a blackhole route cannot go in a VRF. OSPF and BGP have no VRF setting.
+- BFD's timers, `bfd-desired-min-tx`, `bfd-required-min-rx` and `bfd-detect-mult` under `config system settings`, exist only while `bfd` is on there: `get` hides them otherwise. They default to 250, 250 and 3, which `show` does not print. So the render sets `bfd` before them, and a plan unsets them before `bfd`.
+- A static route takes `set bfd enable`, IPv4 and IPv6 alike. The route stays in the table while its BFD session has never come up.
+- BGP asks for a BFD session only once its session is up: `get router info bfd requests` lists nothing for a neighbor still `Active`, with `ebgp-enforce-multihop` or without. So BFD on a multihop session is taken and read back, but whether it runs is not proved, and Circuit refuses it.
 - The stateless ACL, `firewall acl` and `acl6`, only drops: it has no action.
 - A route map stops at the first rule that matches, with no way to go on to the next, and its rules permit unless told to deny.
 - `show vpn certificate local` prints a certificate without its text or key. `show full-configuration` prints both, the key encrypted.
