@@ -94,6 +94,10 @@ export class RaisecomRos extends Platform {
     /** The firmware offers only an `ssh-rsa` host key, so that one is allowed for this platform alone. Key exchange, cipher and MAC still negotiate modern ones. */
     private static readonly HOST_KEYS = ["ssh-rsa"];
 
+    /** How long a dump may go quiet before the prompt, as on a lossy path where a retransmit stalls it for seconds, and how long it may take in all. */
+    private static readonly DUMP_QUIET = 30_000;
+    private static readonly DUMP_LIMIT = 150_000;
+
     /** What the device prints when it refuses a line. */
     private static readonly REFUSED = /^(%|Error|Incomplete|Unrecognized)|can not|cannot |is in use|Wrong parameter|invalid|unsuccessful/im;
 
@@ -255,10 +259,10 @@ export class RaisecomRos extends Platform {
         const { channel, close } = await RaisecomRos.open(device, options);
 
         try {
-            // Without paging off and a long wait for silence, the dump stops halfway with no error. Even then a pause of the device's own can end it early: a complete dump ends at the prompt, and one that does not is read again rather than planned against.
+            // Without paging off the dump stops halfway with no error. A complete dump ends at the prompt, so the read waits for it through a pause of the device's own or a stall on a lossy path; one that never gets there is read again rather than planned against.
             let dump = "";
             for (let attempt = 1; ; attempt++) {
-                dump = await Ssh.send(channel, "show running-config", 150_000, 6000);
+                dump = await RaisecomRos.dump(channel);
                 if (/[#>]\s*$/.test(dump.replace(/\r/g, "").trimEnd())) break;
                 if (attempt === 3) throw new Error(`${device.name} returned an incomplete configuration three times`);
                 // What the device still prints of the cut dump ends before the next one starts.
@@ -279,6 +283,41 @@ export class RaisecomRos extends Platform {
         } finally {
             close();
         }
+    }
+
+    /** Read `show running-config` until it ends at the prompt, or until it goes quiet for too long or takes too long in all. */
+    private static dump(channel: ClientChannel): Promise<string> {
+        const ended = (text: string) => {
+            const clean = text.replace(/\r/g, "").trimEnd();
+            return clean.includes("!ROS version") && /\n[^\n]*[#>]$/.test(clean);
+        };
+
+        return new Promise((done) => {
+            let output = "";
+            let quiet: ReturnType<typeof setTimeout>;
+            let settle: ReturnType<typeof setTimeout> | undefined;
+
+            const finish = () => {
+                clearTimeout(quiet);
+                clearTimeout(settle);
+                clearTimeout(limit);
+                channel.removeListener("data", onData);
+                done(output);
+            };
+
+            const onData = (chunk: Buffer) => {
+                output += chunk.toString("utf8");
+                clearTimeout(quiet);
+                clearTimeout(settle);
+                quiet = setTimeout(finish, RaisecomRos.DUMP_QUIET);
+                if (ended(output)) settle = setTimeout(finish, 1_000);
+            };
+
+            const limit = setTimeout(finish, RaisecomRos.DUMP_LIMIT);
+            quiet = setTimeout(finish, RaisecomRos.DUMP_QUIET);
+            channel.on("data", onData);
+            channel.write("show running-config\n");
+        });
     }
 
     plan(desired: string, current: string, options: ApplyOptions): Plan {

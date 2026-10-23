@@ -11,6 +11,9 @@ export type FakeShell = {
     prompt: () => string;
 };
 
+/** An answer that arrives in parts, each after a pause, as on a slow or lossy path. */
+export type FakeParts = { parts: { text: string; after: number }[] };
+
 export class FakeSshDevice {
     static readonly PASSWORD = "lab-pass";
 
@@ -19,7 +22,7 @@ export class FakeSshDevice {
 
     constructor(
         private readonly user: string,
-        private readonly answer: (command: string) => string,
+        private readonly answer: (command: string) => string | FakeParts,
         private readonly shell?: FakeShell
     ) {
         const { privateKey } = generateKeyPairSync("rsa", {
@@ -44,7 +47,7 @@ export class FakeSshDevice {
                     session.on("exec", (acceptExec, _reject, info) => {
                         const stream = acceptExec();
 
-                        stream.write(this.run(info.command));
+                        stream.write(FakeSshDevice.whole(this.run(info.command)));
                         stream.exit(0);
                         stream.end();
                     });
@@ -65,7 +68,21 @@ export class FakeSshDevice {
                             for (let end = typed.search(/\r?\n|\r/); end >= 0; end = typed.search(/\r?\n|\r/)) {
                                 const line = typed.slice(0, end);
                                 typed = typed.slice(end).replace(/^\r?\n|^\r/, "");
-                                stream.write(`${line}\r\n${this.run(line)}${shell.prompt()}`);
+                                const answer = this.run(line);
+
+                                if (typeof answer === "string") {
+                                    stream.write(`${line}\r\n${answer}${shell.prompt()}`);
+                                    continue;
+                                }
+
+                                // Each part waits its pause after the one before; the prompt follows the last.
+                                stream.write(`${line}\r\n`);
+                                let delay = 0;
+                                for (const part of answer.parts) {
+                                    delay += part.after;
+                                    setTimeout(() => stream.write(part.text), delay);
+                                }
+                                setTimeout(() => stream.write(shell.prompt()), delay);
                             }
                         });
                     });
@@ -76,7 +93,12 @@ export class FakeSshDevice {
         });
     }
 
-    private run(command: string): string {
+    /** An answer in parts, all at once, for an exec. */
+    private static whole(answer: string | FakeParts): string {
+        return typeof answer === "string" ? answer : answer.parts.map((part) => part.text).join("");
+    }
+
+    private run(command: string): string | FakeParts {
         this.commands.push(command);
         return this.answer(command);
     }
