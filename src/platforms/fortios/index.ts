@@ -160,9 +160,9 @@ export class FortiOs extends Platform {
     /** How long a device may take to come back from a reload of its configuration, and how often to try it. */
     private static readonly RELOAD = { attempts: 20, interval: 15_000 } as const;
 
-    /** Commands that only read: `show`, `get`, a set of `diagnose` and `execute` commands. `diagnose sys session filter` sets only this session's filter; `diagnose sys session clear`, which ends sessions, is not here. */
+    /** Commands that only read: `show`, `get`, a set of `diagnose` and `execute` commands. `diagnose sys session filter` sets only this session's filter; `diagnose sys session clear`, which ends sessions, is not here. `diagnose lldprx` shows what LLDP received. */
     private static readonly READS =
-        /^(?:(?:show|get)\s|diagnose (?:sys session (?:filter|list|stat|full-stat)|sys top|hardware deviceinfo nic|npu np6 (?:dce|synproxy-stats|port-list|sse-stats)|netlink aggregate|debug crashlog read)\b|execute (?:ping|ping6|traceroute|sensor list)\b)/;
+        /^(?:(?:show|get)\s|diagnose (?:sys session (?:filter|list|stat|full-stat)|sys top|hardware deviceinfo nic|npu np6 (?:dce|synproxy-stats|port-list|sse-stats)|netlink aggregate|debug crashlog read|lldprx (?:neighbor|port) (?:summary|details))\b|execute (?:ping|ping6|traceroute|sensor list)\b)/;
 
     /** A session filter, which holds only in the shell that set it. */
     private static readonly SESSION_FILTER = /^diagnose sys session filter\b/;
