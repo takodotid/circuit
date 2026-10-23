@@ -91,6 +91,20 @@ A finding has a `level`, a `message`, and the `device` it is about when it is ab
 
 Circuit writes into `.circuit/`, next to `circuit.config.ts`. Do not edit anything in it: an edit changes nothing on a device, and Circuit overwrites it.
 
-`.circuit/state/` has one file per device: what the device ran when Circuit last read it, with secrets removed. `snapshot` and `apply` write it, and `diff` compares your files with it.
+`.circuit/state/` has one file per device: what the device ran when Circuit last read it, with secrets removed. `snapshot` and `apply` write it, and `diff` compares your files with it. Beside it, a `.lldp.json` file holds what the device saw over LLDP at the last `snapshot`; see [Checking the cabling](#checking-the-cabling).
 
 Commit `.circuit/` with your changes. Its git history is then the history of your network: what each device ran after each change.
+
+## Checking the cabling
+
+A port's `link` says which device and port is at the other end of its cable. [LLDP](/guide/glossary#networking) lets the device find out what is really there: each end sends its name and port down the cable. `circuit snapshot` reads what each device sees and saves it in `.circuit/state/<device>.lldp.json`. `circuit validate` then compares it with `link`, and warns about:
+
+1. **A cable in the wrong port:** LLDP sees another device or port than `link` names.
+2. **A cable missing or down:** `link` is set, and LLDP sees nothing on the port.
+3. **A cable not written down:** LLDP sees another of your devices on a port without `link`.
+
+These are warnings, not errors: LLDP can be off at the far end, or on a port. Only ports where both ends run LLDP, by `lldp` on the device and on the port, are compared. A device whose neighbors were never read is not compared at all. `diff` and `apply` ignore what LLDP saw: it is what was plugged in, not config.
+
+The far device is found by its name, which every platform sets as the device's hostname. A name with a domain after it, such as `tor-01.example.net`, matches `tor-01`. The far port is matched as that device's platform spells it, such as `10GE1/0/5` for `10g-5` on VRP.
+
+No platform reads LLDP neighbors yet. Each platform's command for it, and the form of what it prints, must be proved on a real device first. Until then, `snapshot` says so for each device that runs LLDP, saves nothing, and `validate` has nothing to compare.

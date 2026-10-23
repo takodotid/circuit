@@ -14,8 +14,9 @@ import { NetBox, type NetBoxPlan } from "../integrations/netbox";
 import { PeeringDb } from "../integrations/peeringdb";
 import { Prometheus } from "../integrations/prometheus";
 import { Address } from "../core/address";
+import { Cabling, type Neighbor } from "../core/cabling";
 import { AddressSpace, type Segment } from "../core/address-space";
-import type { Network } from "../core/define";
+import type { Finding, Network } from "../core/define";
 import { Topology, type Annotated, type Drift, type Layer } from "../core/topology";
 import { Secrets } from "../core/secrets";
 import { Validator } from "../core/validator";
@@ -33,6 +34,8 @@ const GENERATED_README = `# Written by Circuit
 Do not edit anything here: an edit changes nothing on a device, and Circuit overwrites it. Change the config instead.
 
 \`state/\` holds what each device ran when Circuit last read it, with secrets removed. \`circuit snapshot\` and \`circuit apply\` write it, and \`circuit diff\` plans against it. Commit it, so the history of this directory is the history of the network.
+
+A \`.lldp.json\` file beside a device's config is what the device saw over LLDP at the last \`circuit snapshot\`: which device and port is at the far end of each cable. \`circuit validate\` compares it with each port's \`link\`; \`circuit diff\` ignores it.
 `;
 
 /** One run of the command line: the network it loaded, and how it reaches devices. */
@@ -389,10 +392,27 @@ class Cli {
         writeFileSync(this.statePath(device), text);
     }
 
-    /** Validate, print what was found, and stop on an error about one of these devices. */
-    private guard(devices: Device[]): void {
+    /** Each device's LLDP neighbors at its last snapshot, for the devices whose neighbors were read. */
+    private neighbors(): Map<string, Neighbor[]> {
+        const found = new Map<string, Neighbor[]>();
+
+        for (const device of this.network.devices) {
+            const neighbors = Cabling.load(this.stateDirectory, device.name);
+            if (neighbors) found.set(device.name, neighbors);
+        }
+
+        return found;
+    }
+
+    /** What `validate` finds: the config's own findings, then where LLDP at the last snapshot disagrees with `link`. */
+    private findings(): Finding[] {
+        return [...Validator.run(this.network), ...Cabling.compare(this.network.devices, this.neighbors())];
+    }
+
+    /** Validate, print what was found, and stop on an error about one of these devices. `diff` and `apply` leave LLDP out: it is what was seen, not config. */
+    private guard(devices: Device[], all: readonly Finding[] = Validator.run(this.network)): void {
         const relevant = new Set(devices.map((device) => device.name));
-        const findings = Validator.run(this.network).filter((finding) => !finding.device || relevant.has(finding.device));
+        const findings = all.filter((finding) => !finding.device || relevant.has(finding.device));
 
         for (const finding of findings) {
             const where = finding.device ? `${finding.device}: ` : "";
@@ -421,7 +441,7 @@ class Cli {
     }
 
     private validate(): void {
-        this.guard([...this.network.devices]);
+        this.guard([...this.network.devices], this.findings());
         console.log(`${this.network.devices.length} device(s), no errors.`);
     }
 
@@ -453,21 +473,44 @@ class Cli {
 
     private async snapshot(names: string[]): Promise<void> {
         for (const device of this.selected(names, true)) {
-            const text = await this.adapterOf(device).read(device, this.network.devices, this.optionsFor(device));
+            const adapter = this.adapterOf(device);
+            const text = await adapter.read(device, this.network.devices, this.optionsFor(device));
             this.writeState(device, text);
             console.log(`${device.name}: ${text.split("\n").length} lines`);
+
+            await this.snapshotNeighbors(device, adapter);
         }
 
         // With every device read, a snapshot of a device the config no longer has, such as one renamed, is removed.
         if (names.length || !existsSync(this.stateDirectory)) return;
 
-        const current = new Set(this.network.devices.map((device) => basename(this.statePath(device))));
+        const current = new Set(
+            this.network.devices.flatMap((device) => [
+                basename(this.statePath(device)),
+                basename(Cabling.path(this.stateDirectory, device.name)),
+            ])
+        );
         for (const file of readdirSync(this.stateDirectory)) {
             if (current.has(file)) continue;
 
             rmSync(join(this.stateDirectory, file));
             console.log(`${file}: removed, no such device in the config`);
         }
+    }
+
+    /** Save a device's LLDP neighbors beside its config, where its platform can read them. A device without LLDP is left alone. */
+    private async snapshotNeighbors(device: Device, adapter: Platform): Promise<void> {
+        if (!Cabling.runsAnywhere(device)) return;
+
+        if (!adapter.neighbors) {
+            Cabling.forget(this.stateDirectory, device.name);
+            console.log(`${device.name}: LLDP neighbors not read, reading them on ${device.platform} is not proved on a device yet`);
+            return;
+        }
+
+        const neighbors = await adapter.neighbors(device, this.network.devices, this.optionsFor(device));
+        Cabling.save(this.stateDirectory, device.name, neighbors);
+        console.log(`${device.name}: ${neighbors.length} LLDP neighbor(s)`);
     }
 
     private async apply(name: string, confirmed: boolean, force: boolean): Promise<void> {
@@ -1029,7 +1072,7 @@ class Cli {
 
         return {
             ...graph,
-            findings: Validator.run(this.network).filter((finding) => !finding.device || shown.has(finding.device)),
+            findings: this.findings().filter((finding) => !finding.device || shown.has(finding.device)),
             drift: Object.fromEntries(
                 this.network.devices.filter((device) => shown.has(device.name)).map((device) => [device.name, this.driftOf(device)])
             ),
@@ -1107,8 +1150,8 @@ class Cli {
         if (this.network.devices.some((candidate) => candidate.name === to)) Cli.fail(`${to} is already a device`);
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(to)) Cli.fail(`${to} is not a hostname: letters, digits, dots, dashes and underscores`);
 
-        const snapshot = this.statePath(device);
-        const snapshots = existsSync(snapshot) ? [relative(this.root, snapshot)] : [];
+        const files = [this.statePath(device), Cabling.path(this.stateDirectory, device.name)];
+        const snapshots = files.filter((file) => existsSync(file)).map((file) => relative(this.root, file));
 
         let plan: RenamePlan;
         try {

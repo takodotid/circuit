@@ -77,6 +77,16 @@ test("applying moves the snapshot and leaves the rest of each file as it was", (
     expect(readFileSync(join(root, "switch.ts"), "utf8").split("\n")).toHaveLength(5);
 });
 
+test("the LLDP neighbors saved beside the snapshot move with it", () => {
+    const snapshots = [join(".circuit", "state", "tor-01.cfg"), join(".circuit", "state", "tor-01.lldp.json")];
+    const plan = Rename.plan(project(), "tor-01", "rack-a-01", { file: false, snapshots });
+
+    expect(plan.moves).toEqual([
+        { from: snapshots[0]!, to: join(".circuit", "state", "rack-a-01.cfg") },
+        { from: snapshots[1]!, to: join(".circuit", "state", "rack-a-01.lldp.json") },
+    ]);
+});
+
 test("a name no file declares as written, or a file name already taken, stops the rename", () => {
     expect(() => Rename.plan(project(), "core-01", "core-02", { file: false, snapshots: [] })).toThrow('no file declares name: "core-01"');
 

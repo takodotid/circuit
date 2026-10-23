@@ -55,7 +55,8 @@ export class Rename {
         }
 
         for (const snapshot of options.snapshots) {
-            moves.push({ from: snapshot, to: join(dirname(snapshot), `${to}${extname(snapshot)}`) });
+            // A state file is named after the device, then its kind: `tor-01.cfg`, `tor-01.lldp.json`.
+            moves.push({ from: snapshot, to: join(dirname(snapshot), `${to}${basename(snapshot).slice(from.length)}`) });
         }
 
         if (options.file) {

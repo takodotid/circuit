@@ -9,7 +9,7 @@ Run every command from your project as `npx circuit <command>`, or `pnpm circuit
 | Command                          | What it does                                                                                                                                                                        | Touches a device |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | `new [directory]`                | Starts a new project from a pattern. See [Getting started](/guide/getting-started).                                                                                                 | no               |
-| `validate`                       | Checks every file and runs your checks                                                                                                                                              | no               |
+| `validate`                       | Checks every file and runs your checks, and warns where [LLDP disagrees](/guide/network#checking-the-cabling) with a cable                                                          | no               |
 | `secrets`                        | Lists every secret the files use, and whether each one can be read                                                                                                                  | no               |
 | `build <device>`                 | Prints the whole configuration the device should run, in its vendor's commands                                                                                                      | no               |
 | `diff [device...]`               | Shows what would change, compared with the last snapshot                                                                                                                            | no               |
@@ -36,7 +36,7 @@ Run every command from your project as `npx circuit <command>`, or `pnpm circuit
 
 These four are easy to mix up:
 
-- **`snapshot`** only reads. It logs in to each device and saves what the device runs in `.circuit/state/`. It changes nothing on any device.
+- **`snapshot`** only reads. It logs in to each device and saves what the device runs in `.circuit/state/`, and what it sees over LLDP where its platform can read that. It changes nothing on any device.
 - **`diff`** never logs in. It compares your files with the last snapshot, so it is fast, works offline, and is safe in CI. If someone changed a device by hand after the last snapshot, `diff` does not know.
 - **`apply`** always reads the device again first, so its plan is made against what the device runs right now. Without `--confirm` it stops after showing the plan. With `--confirm` it first checks the path to the device (see below), then sends the plan, reads the device once more and saves the new snapshot. Last, it checks the device is healthy, such as that the BGP sessions up before are up again, and fails if not. See [Checking the device afterwards](/guide/convergence#checking-the-device-afterwards).
 - **`refresh`** is only for prefix lists that come from a registry, such as every prefix a customer's AS announces. Those lists change on their own, every day, so they are not part of your files or of `apply`. `refresh` fetches the current list and, with `--confirm`, puts it on the device. Run it on a schedule: see [Scheduled refresh](/guide/scheduled-refresh).
