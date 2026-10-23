@@ -2,6 +2,7 @@ import { Address } from "../core/address";
 import type { Check, Finding } from "../core/define";
 import type { Ethertype, IP, Port, Prefix } from "../schema";
 import { Checks } from "./checks";
+import { RouteServerConfig, type RouteServer } from "./route-server";
 
 /** A member of an internet exchange: a network with a port on the fabric and an address on the peering LAN. */
 export type ExchangeMember = {
@@ -31,13 +32,14 @@ export type InternetExchange<V extends string> = {
     ethertypes?: readonly Ethertype[];
 };
 
-/** An internet exchange's fabric: its member ports and a check of its members. */
+/** An internet exchange's fabric: its member ports, a check of its members, and its route servers' config. */
 export class Exchange {
     /**
      * Member ports and a check for an internet exchange's fabric.
      *
      * - `ports(device)`: every member's port on one switch. A member port is in the peering VLAN and nothing else, takes no part in spanning tree or LLDP, and lets only a trickle of broadcast, multicast and unknown unicast through. With `mac_limit` and `ethertypes`, it also learns that many MAC addresses at most and takes in only those kinds of frame.
      * - `check`: members never share a name, an AS, an address or a port; every address is inside the peering LAN and not reserved; every member port carries the peering VLAN alone.
+     * - `bird(server)`: one route server's BIRD 2 config, with a session to every member. Write it to a file for the server; Circuit never logs in to a route server.
      */
     static build<const V extends string>(exchange: InternetExchange<V>, members: readonly ExchangeMember[]) {
         const percent = exchange.storm_percent ?? 1;
@@ -106,6 +108,8 @@ export class Exchange {
             return findings;
         };
 
-        return { ports, check };
+        const bird = (server: RouteServer) => RouteServerConfig.bird(server, exchange.lan, members);
+
+        return { ports, check, bird };
     }
 }

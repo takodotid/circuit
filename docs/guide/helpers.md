@@ -8,21 +8,21 @@ A helper only returns plain config, like the config you write yourself. Nothing 
 import { Bgp, Checks, Exchange, Filters } from "@takodotid/circuit/helpers";
 ```
 
-| Helper                                       | What it gives you                                                         | Where it goes                    |
-| -------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| `Filters.MARTIANS`                           | IPv4 sources that never come from the internet                            | anywhere a list of prefixes goes |
-| `Filters.PRIVATE_RANGES`                     | IPv4 private space, RFC 1918                                              | anywhere a list of prefixes goes |
-| `Filters.antiSpoofing(vlan, …)`              | ACL rules that drop forged sources arriving on a VLAN                     | `acls`                           |
-| `Filters.antiAmplification(destinations, …)` | ACL rules that drop reflected UDP floods                                  | `acls`                           |
-| `Filters.AMPLIFIERS`                         | UDP ports of services attackers use to reflect floods                     | anywhere a list of ports goes    |
-| `Filters.badTcpFlags()`                      | Firewall rules that drop TCP packets no real program sends                | `firewall.filter.forward.rules`  |
-| `Bgp.sanity(lengths?)`                       | Route policy rules that refuse routes no neighbor should send             | `policies`                       |
-| `Bgp.communityScheme({ … })`                 | Your BGP communities: rules for your routers and the list you publish     | `policies`, `communities`        |
-| `Checks.exportsEndInReject`                  | A check: every BGP export ends by rejecting what it did not accept        | `checks`                         |
-| `Checks.tunnelsOutsideOffered`               | A check: a tunnel never starts from an address you announce through it    | `checks`                         |
-| `Checks.trustBoundary({ … })`                | A check: traffic from outside reaches your VLANs only through a router    | `checks`                         |
-| `Checks.nativeVlansAreDeadEnds`              | A check: a native VLAN is native on one trunk and carried nowhere else    | `checks`                         |
-| `Exchange.build({ … }, members)`             | An internet exchange's member ports, and a check that keeps members apart | `ports`, `checks`                |
+| Helper                                       | What it gives you                                                                                         | Where it goes                                  |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `Filters.MARTIANS`                           | IPv4 sources that never come from the internet                                                            | anywhere a list of prefixes goes               |
+| `Filters.PRIVATE_RANGES`                     | IPv4 private space, RFC 1918                                                                              | anywhere a list of prefixes goes               |
+| `Filters.antiSpoofing(vlan, …)`              | ACL rules that drop forged sources arriving on a VLAN                                                     | `acls`                                         |
+| `Filters.antiAmplification(destinations, …)` | ACL rules that drop reflected UDP floods                                                                  | `acls`                                         |
+| `Filters.AMPLIFIERS`                         | UDP ports of services attackers use to reflect floods                                                     | anywhere a list of ports goes                  |
+| `Filters.badTcpFlags()`                      | Firewall rules that drop TCP packets no real program sends                                                | `firewall.filter.forward.rules`                |
+| `Bgp.sanity(lengths?)`                       | Route policy rules that refuse routes no neighbor should send                                             | `policies`                                     |
+| `Bgp.communityScheme({ … })`                 | Your BGP communities: rules for your routers and the list you publish                                     | `policies`, `communities`                      |
+| `Checks.exportsEndInReject`                  | A check: every BGP export ends by rejecting what it did not accept                                        | `checks`                                       |
+| `Checks.tunnelsOutsideOffered`               | A check: a tunnel never starts from an address you announce through it                                    | `checks`                                       |
+| `Checks.trustBoundary({ … })`                | A check: traffic from outside reaches your VLANs only through a router                                    | `checks`                                       |
+| `Checks.nativeVlansAreDeadEnds`              | A check: a native VLAN is native on one trunk and carried nowhere else                                    | `checks`                                       |
+| `Exchange.build({ … }, members)`             | An internet exchange's member ports, a check that keeps members apart, and its route servers' BIRD config | `ports`, `checks`, a file on each route server |
 
 The descriptions on the rules a helper makes are fixed, because a device stores them. A release that changes one is a breaking change.
 
@@ -196,4 +196,4 @@ const testPrefixStaysHome: Check = (devices) =>
 
 ## Internet exchange
 
-`Exchange.build` makes an exchange's member ports and a check that keeps members apart. See [Running an internet exchange](/use-cases/internet-exchange#exchange-build).
+`Exchange.build` makes an exchange's member ports, a check that keeps members apart, and the config of its route servers. See [Running an internet exchange](/use-cases/internet-exchange#exchange-build).
