@@ -23,3 +23,4 @@ Behaviour that looks like something else. Each one has been hit on a RAX721 runn
 - OSPF settings for an interface sit on the interface, `ip ospf cost`, `ip ospf network ptp`, `ip ospf passive-interface enable`; passive is undone with `... disable`, not `no`.
 - `create vlan <list> active` has every VLAN on one line. A change creates only the new VLANs and removes each one that is gone with `no vlan <id>`.
 - An access-list rule is not replaced by one with the same number: the device answers `Set unsuccessfully.` and keeps the old rule. The old one is removed first. `no rule N` answers slowly, after a second or more.
+- `show running-config` can stop partway even with paging off and six seconds of silence, with no error: on 2026-10-23 three reads of an RAX721 in a row gave plans of 62, 0 and 158 commands against an unchanged switch. A dump that does not end at the prompt is read again, and after three the read fails rather than planning against a part.

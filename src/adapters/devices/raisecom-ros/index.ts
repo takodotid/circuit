@@ -398,8 +398,15 @@ export async function read(device: Device, _network: readonly Device[] = [], opt
     const { channel, close } = await open(device, options);
 
     try {
-        // Without paging off and a long wait for silence, the dump stops halfway with no error.
-        const dump = await send(channel, "show running-config", 150_000, 6000);
+        // Without paging off and a long wait for silence, the dump stops halfway with no error. Even then a pause of the device's own can end it early: a complete dump ends at the prompt, and one that does not is read again rather than planned against.
+        let dump = "";
+        for (let attempt = 1; ; attempt++) {
+            dump = await send(channel, "show running-config", 150_000, 6000);
+            if (/[#>]\s*$/.test(dump.replace(/\r/g, "").trimEnd())) break;
+            if (attempt === 3) throw new Error(`${device.name} returned an incomplete configuration three times`);
+            // What the device still prints of the cut dump ends before the next one starts.
+            await send(channel, "", 30_000, 6000);
+        }
         const lines = dump.replace(/\r/g, "").split("\n");
         const start = lines.findIndex((line) => line.trim().startsWith("!ROS version"));
         if (start < 0) throw new Error(`${device.name} returned no configuration`);
