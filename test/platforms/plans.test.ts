@@ -9,6 +9,7 @@ import aggregationSwitch from "../../examples/platforms/junos";
 import coreSwitch from "../../examples/platforms/raisecom-ros";
 import firewall from "../../examples/platforms/fortios";
 import router from "../../examples/platforms/routeros";
+import switchDevice from "../../examples/platforms/vrp";
 
 // The forms a Raisecom switch prints, seen on a RAX721: an access group with its notify view, an SNMPv3 user as localized keys, and `portswitch` on a switched LAG.
 test("example-core-switch plans nothing against how the device prints it", () => {
@@ -692,4 +693,19 @@ test("removing an SSH algorithm list on VRP sends the undo without the algorithm
         .plan("", current, options)
         .steps.flatMap((step) => step.send);
     expect(sent).toEqual(expect.arrayContaining(["undo ssh server hmac", "undo ssh server key-exchange"]));
+});
+
+// A switch prints a secret as a cipher, so a rotated one compares equal: `apply --secrets` sends every line that holds one again (#93).
+test("VRP and Raisecom send every secret again with --secrets, and none without", () => {
+    for (const device of [switchDevice, coreSwitch]) {
+        const adapter = Platforms.get(device.platform);
+        const rendered = adapter.render(device);
+        const secretLines = rendered.split("\n").filter((line) => line.includes("<secret:"));
+
+        expect(secretLines.length).toBeGreaterThan(0);
+        expect(adapter.plan(rendered, rendered, { secrets: false, rollback: 10 }).steps).toEqual([]);
+
+        const sent = adapter.plan(rendered, rendered, { secrets: true, rollback: 10 }).steps.flatMap((step) => step.send);
+        for (const line of secretLines) expect(sent).toContain(line.trim());
+    }
 });
