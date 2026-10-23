@@ -209,10 +209,11 @@ test("a field a platform renders nothing for is unsupported", () => {
     );
 });
 
-// No platform's commands for a MAC limit or an ethertype filter are proved on a device yet, so each refuses both rather than guess.
-test("every platform refuses a MAC limit and an ethertype filter", () => {
-    // RouterOS proved the ethertype filter, and refuses a MAC limit for another reason: routeros-proofs.test.ts.
-    for (const device of examples.filter((example) => example.platform !== "routeros")) {
+// A platform whose commands for a MAC limit or an ethertype filter are not proved on a device refuses both rather than guess. Each proved one has its own proofs test.
+test("a platform that has not proved them refuses a MAC limit and an ethertype filter", () => {
+    const proved = ["routeros", "raisecom-ros"];
+
+    for (const device of examples.filter((example) => !proved.includes(example.platform))) {
         const [port, settings] = Object.entries(device.ports ?? {})[0]!;
         const filtered: Device = {
             ...device,

@@ -38,7 +38,14 @@ export default defineDevice({
     vlans: { management: { id: 10 }, servers: { id: 20 }, exchange: { id: 200 }, native: { id: 999 } },
 
     ports: {
-        "100g-1": { description: "Exchange", access_vlan: "exchange", lldp: false, stp: false },
+        "100g-1": {
+            description: "Exchange",
+            access_vlan: "exchange",
+            lldp: false,
+            stp: false,
+            mac_limit: 1,
+            ethertypes: ["ipv4", "ipv6", "arp"],
+        },
         "25g-1": { description: "Router", lag: "router" },
         "25g-2": { description: "Router", lag: "router" },
         "10g-1": { description: "Host", access_vlan: "servers", storm_control: { broadcast: { pps: 1000 } } },
