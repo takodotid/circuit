@@ -2,7 +2,7 @@
 
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
-import type { AclRule, Device, Family, Interface, Port, Ports, Rate, Severity, Vrrp } from "../../schema";
+import type { AclRule, Device, Ethertype, Family, Interface, Port, Ports, Rate, Severity, Vrrp } from "../../schema";
 import { Catalog } from "../catalog";
 import { Derive } from "../derive";
 import { JunosBgp } from "./bgp";
@@ -157,6 +157,9 @@ export class JunosRender {
         native: ["tcp", 830],
     } as const;
 
+    /** Kinds of frame as `ether-type` names them, in the order the render writes them. */
+    private static readonly ETHERTYPES: readonly Ethertype[] = ["ipv4", "ipv6", "arp"];
+
     /** Detection under a second: three missed packets 300 ms apart. The platform has no interval of its own, and 3 is its multiplier. */
     static readonly BFD_INTERVAL = 300;
 
@@ -197,6 +200,7 @@ export class JunosRender {
         render.dhcpServers();
         render.routerAdvertisements();
         render.acls();
+        render.ethertypeFilters();
         JunosBgp.render(render.out, device);
         render.sflow();
 
@@ -416,6 +420,35 @@ export class JunosRender {
 
         const storm = JunosRender.stormProfile(settings);
         if (storm) this.out.set(family, "storm-control", storm.name);
+
+        // The device keeps the limit on the logical interface, `xe-0/0/1.0`, as two statements.
+        if (settings.mac_limit !== undefined) {
+            const limit = `switch-options interface ${physical}.0 interface-mac-limit`;
+            this.out.set(limit, settings.mac_limit);
+            this.out.set(limit, "packet-action drop");
+        }
+
+        if (settings.ethertypes) this.out.set(family, "filter input", JunosRender.ethertypeFilter(settings.ethertypes));
+    }
+
+    /** The filter that lets only these kinds of frame in, named after them: `circuit-ethertypes-ipv4-ipv6-arp`. */
+    private static ethertypeFilter(kinds: readonly Ethertype[]): string {
+        return `circuit-ethertypes-${JunosRender.ETHERTYPES.filter((kind) => kinds.includes(kind)).join("-")}`;
+    }
+
+    /** One filter for each set of kinds a port or LAG lets in: those kinds, then nothing else. */
+    private ethertypeFilters(): void {
+        const holders = [...Object.values(this.device.ports ?? {}), ...Object.values(this.device.interfaces ?? {})];
+
+        for (const settings of holders) {
+            if (!settings || !("ethertypes" in settings) || !settings.ethertypes) continue;
+
+            const filter = `firewall family ethernet-switching filter ${JunosRender.ethertypeFilter(settings.ethertypes)}`;
+            for (const kind of JunosRender.ETHERTYPES.filter((kind) => settings.ethertypes!.includes(kind)))
+                this.out.set(filter, "term allowed from ether-type", kind);
+            this.out.set(filter, "term allowed then accept");
+            this.out.set(filter, "term others then discard");
+        }
     }
 
     /** Addresses and VRRP groups of a logical interface such as `irb.10`. */

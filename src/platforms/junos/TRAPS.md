@@ -37,3 +37,5 @@ Behaviour that looks like something else. Each one has been hit on a QFX5100-48S
 - BFD on a BGP session starts only once the session is up: `show bfd session` lists nothing for a session in `Connect`, though the session shows `<BfdEnabled>`.
 - A static route with BFD is withdrawn while its next hop does not answer BFD, so `show route` shows nothing for it. A session that is down sends every 2 seconds, `Transmit Interval 2.000`, whatever the interval.
 - `bfd-liveness-detection` on a static route also watches a `qualified-next-hop`: a session to that address starts.
+- `set switch-options interface xe-0/0/1 interface-mac-limit 1 packet-action drop` is stored on the logical interface and in two statements: `... interface xe-0/0/1.0 interface-mac-limit 1` and `... interface-mac-limit packet-action drop`. The render writes those two.
+- An `ethernet-switching` filter takes `from ether-type ipv4`, `ipv6` and `arp` by name. Ethertypes and an `acl` would both be the port's `filter input`, so Circuit refuses the two on one port rather than merge them.
