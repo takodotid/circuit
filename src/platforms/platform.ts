@@ -32,6 +32,23 @@ export type ReadSession = {
     close(): void;
 };
 
+/** A BGP neighbor in the config and its live session, as `circuit bgp` shows it. A neighbor with no session is not established. */
+export type BgpSession = {
+    /** The neighbor's name in the config. */
+    neighbor: string;
+    /** The session's remote address, or `-` when there is no session. */
+    remote: string;
+    /** Whether the session is established. */
+    established: boolean;
+    /** How many prefixes it received, as the device prints it, or `-`. */
+    prefixes: string;
+    /** How long it has been up, as the device prints it, or `no session`. */
+    uptime: string;
+};
+
+/** One BGP log line: when, as the device printed it, such as `2026-10-24 03:12:44`, and the rest of the line. */
+export type BgpLogLine = { at: string; message: string };
+
 /** The operating system a platform runs, and the versions it is proved on. */
 export type OsSupport = {
     /** Its name in full, such as `MikroTik RouterOS`. */
@@ -68,4 +85,8 @@ export abstract class Platform {
     abstract readOnly(command: string): boolean;
     /** Log in for commands that only read, over SSH or on the console, the way the platform's read logs in. */
     abstract session(device: Device, options?: ReadOptions): Promise<ReadSession>;
+    /** Each BGP neighbor in the config, in its order, with its live session, read over a `session()`. Absent on a platform `circuit bgp` does not support yet. */
+    bgpSessions?(device: Device, session: ReadSession): Promise<BgpSession[]>;
+    /** The device's BGP log lines from the last `minutes`, by the device's own clock, read over a `session()`. */
+    bgpLog?(session: ReadSession, minutes: number): Promise<BgpLogLine[]>;
 }

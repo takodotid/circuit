@@ -30,7 +30,7 @@ A good agent will edit the files, run `npx circuit validate` and `npx circuit di
 
 Applying a change is the one step that touches your network. Keep it for yourself:
 
-1. Let the agent run `validate`, `diff`, `build`, `snapshot`, `show` and `apply` without `--confirm`. None of them change a device.
+1. Let the agent run `validate`, `diff`, `build`, `snapshot`, `show`, `bgp` and `apply` without `--confirm`. None of them change a device.
 2. Read the plan it shows you.
 3. Run `apply <device> --confirm` yourself, or tell the agent to run exactly that, for that plan only.
 
@@ -47,6 +47,6 @@ Most agents let you require approval for a command. In Claude Code, for example,
 
 ## Keep secrets away from the agent
 
-The agent never needs a password to edit files or to plan. Only `snapshot`, `show` and `apply` log in to a device.
+The agent never needs a password to edit files or to plan. Only `snapshot`, `show`, `bgp` and `apply` log in to a device.
 
 If your secrets are in [1Password](/integrations/1password), `.env` only has references, so opening it shows the agent no password. Reading a value goes through 1Password, which asks you to approve access first. Otherwise, deny the agent access to `.env` as above.

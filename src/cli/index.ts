@@ -6,7 +6,8 @@ import { createPrivateKey, createPublicKey } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { Platforms } from "../platforms";
-import type { ApplyOptions, Platform, Plan } from "../platforms/platform";
+import type { ApplyOptions, BgpLogLine, BgpSession, Platform, Plan, ReadSession } from "../platforms/platform";
+import { BgpWait } from "../platforms/bgp-wait";
 import { Registries } from "../integrations/registries";
 import { LibreNms } from "../integrations/librenms";
 import { PeeringDb } from "../integrations/peeringdb";
@@ -127,6 +128,14 @@ class Cli {
         return seconds;
     }
 
+    /** `--wait`'s value: a whole number of sessions. */
+    private static count(value: string): number {
+        const count = Number(value);
+        if (!Number.isInteger(count) || count < 1) throw new InvalidArgumentError("Give a whole number of sessions, such as 4.");
+
+        return count;
+    }
+
     /** Every command, with its arguments and options. `circuit --help` and `circuit <command> --help` are written from these. */
     private static program() {
         const program = new Command("circuit")
@@ -212,6 +221,21 @@ class Cli {
             .action(async (device, commands, flags) =>
                 (await Cli.open(flags.config, flags)).show(device, commands, flags.file, flags.timeout)
             );
+
+        program
+            .command("bgp")
+            .description("each BGP neighbor in the config next to its live session: up or down, prefixes, uptime")
+            .argument("[device]", "may be left out when only one device has BGP neighbors")
+            .argument("[name-regex]", "only the neighbors whose name matches")
+            .option(
+                "--wait [count]",
+                `read again every ${BgpWait.COMMAND.every} seconds until every neighbor shown, or this many, is up`,
+                Cli.count
+            )
+            .option("--max <seconds>", "how long --wait waits at most", Cli.seconds, BgpWait.COMMAND.seconds)
+            .option("--log [minutes]", "also print the device's BGP log lines from the last minutes, 5 by default", Cli.minutes)
+            .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
+            .action(async (first, second, flags) => (await Cli.open(flags.config)).bgp(first, second, flags));
 
         program
             .command("console")
@@ -512,6 +536,120 @@ class Cli {
         }
 
         if (failed) process.exitCode = 1;
+    }
+
+    /**
+     * Each BGP neighbor in the config next to its live session. `first` is the device, or, when it names none and only one device has BGP neighbors, the name pattern. With `wait`, reads again until every neighbor shown, or that many, is up, and fails when time runs out.
+     */
+    private async bgp(
+        first: string | undefined,
+        second: string | undefined,
+        flags: { wait?: true | number; max: number; log?: true | number }
+    ): Promise<void> {
+        const { device, pattern } = this.bgpTarget(first, second);
+        const adapter = this.adapterOf(device);
+
+        const supported = Platforms.all()
+            .filter((platform) => platform.bgpSessions)
+            .map((platform) => platform.name)
+            .join(", ");
+        if (!adapter.bgpSessions) Cli.fail(`circuit bgp does not support ${device.platform} yet, only ${supported}`);
+        if (flags.log && !adapter.bgpLog) Cli.fail(`circuit bgp --log does not support ${device.platform} yet`);
+
+        let matcher: RegExp;
+        try {
+            matcher = new RegExp(pattern ?? ".");
+        } catch (error) {
+            Cli.fail(`${pattern} is not a regular expression: ${(error as Error).message}`);
+        }
+
+        const names = Object.keys(device.routing?.bgp?.neighbors ?? {});
+        if (!names.length) Cli.fail(`${device.name} has no BGP neighbors`);
+
+        const shown = names.filter((name) => matcher.test(name));
+        if (!shown.length) Cli.fail(`no BGP neighbor of ${device.name} matches ${matcher}; known: ${names.join(", ")}`);
+
+        const want = flags.wait === undefined ? 0 : flags.wait === true ? shown.length : flags.wait;
+        const session = await adapter.session(device, this.optionsFor(device));
+
+        try {
+            const read = async () => (await adapter.bgpSessions!(device, session)).filter((neighbor) => shown.includes(neighbor.neighbor));
+
+            const limits = { seconds: flags.max, every: BgpWait.COMMAND.every };
+            const sessions = await BgpWait.until(
+                read,
+                (sessions) => BgpWait.upCount(sessions) >= want,
+                limits,
+                (sessions) =>
+                    console.log(
+                        `${new Date().toLocaleTimeString()}: ${BgpWait.upCount(sessions)}/${want} up, checking again in ${limits.every}s`
+                    )
+            );
+
+            Cli.printBgp(sessions);
+            if (BgpWait.upCount(sessions) < want) process.exitCode = 1;
+
+            if (flags.log) await this.printBgpLog(adapter, session, flags.log === true ? 5 : flags.log);
+        } finally {
+            session.close();
+        }
+    }
+
+    /** The device `circuit bgp` reads, and the name pattern, from its two optional arguments. */
+    private bgpTarget(first: string | undefined, second: string | undefined): { device: Device; pattern: string | undefined } {
+        if (second !== undefined || (first && this.network.devices.some((device) => device.name === first))) {
+            return { device: this.one(first!), pattern: second };
+        }
+
+        const withBgp = this.network.devices.filter((device) => Object.keys(device.routing?.bgp?.neighbors ?? {}).length);
+        const named = first ? `no device ${first}, and ` : "";
+
+        if (withBgp.length === 1) return { device: withBgp[0]!, pattern: first };
+        if (!withBgp.length) Cli.fail(`${named}no device has BGP neighbors`);
+
+        return Cli.fail(`${named}several devices have BGP neighbors, so name one: ${withBgp.map((device) => device.name).join(", ")}`);
+    }
+
+    /** One line per neighbor: name, up or down, prefixes received, uptime, remote address. Then how many are up. */
+    private static printBgp(sessions: readonly BgpSession[]): void {
+        const width = Math.max(...sessions.map((session) => session.neighbor.length));
+
+        for (const session of sessions) {
+            const state = session.established ? "up  " : "DOWN";
+            console.log(
+                `${session.neighbor.padEnd(width)}  ${state}  ${session.prefixes.padStart(7)}  ${session.uptime.padEnd(12)}  ${session.remote}`
+            );
+        }
+
+        console.log(`${BgpWait.upCount(sessions)}/${sessions.length} up`);
+    }
+
+    /** The device's BGP log lines from the last `minutes`, a message repeated folded into one line, secrets hidden. */
+    private async printBgpLog(adapter: Platform, session: ReadSession, minutes: number): Promise<void> {
+        const lines = Cli.foldLog(await adapter.bgpLog!(session, minutes));
+        const text = `\n--- BGP log, last ${minutes} min\n${lines.join("\n") || "(nothing)"}\n`;
+
+        process.stdout.write(Secrets.scrub(text, { network: this.network }));
+    }
+
+    /** A message repeated, such as one every 10 seconds, becomes one line with when it came first, when last, and how many times. */
+    private static foldLog(lines: readonly BgpLogLine[]): string[] {
+        const folded = new Map<string, { count: number; first: string; last: string }>();
+
+        for (const { at, message } of lines) {
+            const seen = folded.get(message);
+            if (seen) {
+                seen.count++;
+                seen.last = at;
+            } else {
+                folded.set(message, { count: 1, first: at, last: at });
+            }
+        }
+
+        return [...folded].map(([message, { count, first, last }]) => {
+            const lastTime = last.split(" ")[1] ?? last;
+            return count > 1 ? `${first}..${lastTime} x${count}  ${message}` : `${first}  ${message}`;
+        });
     }
 
     /**

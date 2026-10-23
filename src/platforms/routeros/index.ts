@@ -8,7 +8,16 @@ import { Secrets } from "../../core/secrets";
 import type { Device, Family } from "../../schema";
 import { SerialConsole, type ConsoleDialect, ConsoleShell } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
-import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
+import {
+    type ApplyOptions,
+    type BgpLogLine,
+    type BgpSession,
+    type OsSupport,
+    type Plan,
+    type ReadOptions,
+    type ReadSession,
+    Platform,
+} from "../platform";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../catalog";
 import { RouterOsRender } from "./render";
@@ -51,6 +60,20 @@ export class RouterOs extends Platform {
         ':put ("add fingerprint=" . [/certificate get $c fingerprint] . " name=" . [/certificate get $c name] . " private-key=" . $key)',
         "}",
     ].join(" ");
+
+    /** Every BGP session, one line each: name, remote address, established, prefixes received, uptime. One line, because a script sent over exec runs as one. */
+    private static readonly LIST_BGP_SESSIONS = [
+        ":foreach s in=[/routing bgp session find] do={",
+        ":local g [/routing bgp session get $s];",
+        ':put (($g->"name") . "|" . ($g->"remote.address") . "|" . ($g->"established") . "|" . ($g->"prefix-count") . "|" . ($g->"uptime"))',
+        "}",
+    ].join(" ");
+
+    /** BGP log lines, without the `connection ...` lines a session that cannot connect repeats. */
+    private static readonly BGP_LOG = '/log print where topics~"bgp" and !(message~"^connection ")';
+
+    /** The device's date and time, in the form its log prints: `2026-10-24 03:12:44`. */
+    private static readonly CLOCK = ':put ([/system clock get date] . " " . [/system clock get time])';
 
     private static readonly ROLLBACK_SCHEDULER = "apply-rollback";
 
@@ -256,6 +279,54 @@ export class RouterOs extends Platform {
         return { run: (command, timeout) => session.run(command, timeout), close: () => session.end() };
     }
 
+    /**
+     * A session is named `<connection>-<n>`, but a renamed connection keeps its session's old name until the session restarts. So a neighbor is matched by its address first, then by name.
+     */
+    async bgpSessions(device: Device, session: ReadSession): Promise<BgpSession[]> {
+        const output = await session.run(RouterOs.LIST_BGP_SESSIONS, 60_000);
+        const live = output
+            .split(/\r?\n/)
+            .filter((line) => line.includes("|"))
+            .map((line) => line.trim().split("|"));
+
+        return Object.entries(device.routing?.bgp?.neighbors ?? {}).map(([name, neighbor]) => {
+            const found =
+                live.find(([, remote]) => remote === neighbor.address) ??
+                live.find(([sessionName]) => sessionName === name || sessionName?.replace(/-\d+$/, "") === name);
+
+            if (!found) return { neighbor: name, remote: "-", established: false, prefixes: "-", uptime: "no session" };
+
+            const [, remote, established, prefixes, uptime] = found;
+            return {
+                neighbor: name,
+                remote: remote || "-",
+                established: established === "true",
+                prefixes: prefixes || "-",
+                uptime: uptime || "-",
+            };
+        });
+    }
+
+    /** A `time>` filter in `/log print` does not filter, so the lines are kept here by comparing each one's time with the device's clock. */
+    async bgpLog(session: ReadSession, minutes: number): Promise<BgpLogLine[]> {
+        const now = (await session.run(RouterOs.CLOCK)).trim();
+        const nowTime = RouterOs.logTime(now);
+        if (Number.isNaN(nowTime)) throw new Error(`could not read the device's clock: ${now.slice(0, 120)}`);
+
+        const since = nowTime - minutes * 60_000;
+        const log = await session.run(RouterOs.BGP_LOG, 60_000);
+
+        return log
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .flatMap((line) => {
+                const [date, time, ...rest] = line.split(" ");
+                const at = `${date} ${time}`;
+                return RouterOs.logTime(at) >= since ? [{ at, message: rest.join(" ") }] : [];
+            });
+    }
+
     /** Replace a list's entries in batches, so each command stays a sane length. */
     async fill(device: Device, _network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void> {
         const menu = family === "ipv4" ? "/ip firewall address-list" : "/ipv6 firewall address-list";
@@ -345,6 +416,11 @@ export class RouterOs extends Platform {
         if (major !== RouterOs.SUPPORTED_MAJOR) {
             throw new Error(`${device.name} runs RouterOS ${version}; this adapter renders for version ${RouterOs.SUPPORTED_MAJOR}`);
         }
+    }
+
+    /** A time as the clock and the log print it, `2026-10-24 03:12:44`, in milliseconds. Both are read the same way, so the computer's time zone does not matter. Not a number when the text is not such a time. */
+    private static logTime(stamp: string): number {
+        return Date.parse(stamp.replace(" ", "T"));
     }
 
     private static withoutTimestamp(text: string): string {
