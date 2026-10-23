@@ -21,7 +21,6 @@
             "Bash(bun src/cli/index.ts graph:*)",
             "Bash(bun src/cli/index.ts addresses:*)"
         ],
-        "ask": ["Bash(bun scripts/lab.ts:*)", "Bash(bun run release:*)", "Bash(git push:*)", "Bash(gh pr merge:*)", "Bash(gh release:*)"],
         "deny": ["Read(./.env)", "Read(./**/.env)"]
     }
 }
