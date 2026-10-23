@@ -145,7 +145,7 @@ class Lab {
 
     private async runOverSsh(lines: string[]): Promise<string> {
         const user = this.device.connection.user;
-        const password = Secrets.resolve(this.device.users![user]!.password);
+        const password = Secrets.reveal(this.device.users![user]!.password);
         const hostKey = this.values.get("host-key");
 
         const client = await Ssh.connect({

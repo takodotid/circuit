@@ -256,14 +256,13 @@ export class RouterOs extends Platform {
     }
 
     private static async login(device: Device): Promise<Client> {
-        const user = device.users?.[device.connection.user];
-        if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
+        const { port, user, password } = Secrets.loginOf(device);
 
         return Ssh.connect({
             host: Ssh.hostOf(device),
-            port: device.connection.port,
-            user: device.connection.user,
-            password: Secrets.resolve(user.password),
+            port,
+            user,
+            password,
         });
     }
 
@@ -350,7 +349,7 @@ export class RouterOs extends Platform {
 
         if (certificate.private_key) {
             // A key from a file is PEM as it is; one from a variable is PEM encoded as one line of base64.
-            const value = Secrets.resolve(certificate.private_key);
+            const value = Secrets.reveal(certificate.private_key);
             const privateKey = value.includes("-----BEGIN") ? `${value}\n` : Buffer.from(value, "base64").toString("utf8");
 
             await session.upload(`${name}.key`, privateKey);

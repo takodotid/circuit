@@ -111,7 +111,7 @@ export class PeeringDb {
     /** Send the changes, with the network's API key. */
     static async send(network: Network, changes: PeeringDbChange[]): Promise<void> {
         if (!network.peeringdb) throw new Error("the network declares no peeringdb api_key");
-        const apiKey = Secrets.resolve(network.peeringdb.api_key);
+        const apiKey = Secrets.reveal(network.peeringdb.api_key);
 
         for (const change of changes) {
             const response = await fetch(`${PeeringDb.API}/netixlan${change.id ? `/${change.id}` : ""}`, {

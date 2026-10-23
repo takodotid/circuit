@@ -480,7 +480,7 @@ class Cli {
             `Address = ${peer.allowed_addresses.join(", ")}`,
             "",
             "[Peer]",
-            `PublicKey = ${Cli.publicKeyOf(Secrets.resolve(iface.private_key))}`,
+            `PublicKey = ${Cli.publicKeyOf(Secrets.reveal(iface.private_key))}`,
             `Endpoint = ${iface.endpoint ?? "<FILL IN>"}:${iface.listen_port}`,
             `AllowedIPs = ${(peer.client_allowed_addresses ?? tunnelNetworks).join(", ")}`,
             "PersistentKeepalive = 25",
@@ -556,24 +556,15 @@ class Cli {
         console.log(JSON.stringify(targets, null, 4));
     }
 
-    /** Every secret reference in a value, however deep. */
-    private static secretsIn(value: unknown, found = new Set<string>()): Set<string> {
-        if (Secrets.isSecret(value)) found.add(Secrets.referenceOf(value));
-        else if (Array.isArray(value)) for (const item of value) Cli.secretsIn(item, found);
-        else if (typeof value === "object" && value !== null) for (const item of Object.values(value)) Cli.secretsIn(item, found);
-
-        return found;
-    }
-
     private secrets(): void {
-        const references = [...Cli.secretsIn([this.network.devices, this.network.peeringdb, this.network.librenms])].sort();
+        const references = [...Secrets.referencesIn([this.network.devices, this.network.peeringdb, this.network.librenms])].sort();
         let missing = 0;
 
         for (const reference of references) {
             const name = reference.replace(/^file:/, "");
 
             try {
-                Secrets.resolve(reference);
+                Secrets.reveal(reference);
                 console.log(`  ok       ${name}, from ${Secrets.sourceOf(reference)}`);
             } catch (error) {
                 missing++;

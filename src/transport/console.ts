@@ -121,7 +121,7 @@ export class SerialConsole {
     private static connectJump(jump: Jump): Promise<Client> {
         return new Promise((done, fail) => {
             const client = new Client();
-            const login = { username: jump.user, password: Secrets.resolve(jump.password), readyTimeout: 60_000 };
+            const login = { username: jump.user, password: Secrets.reveal(jump.password), readyTimeout: 60_000 };
 
             client.on("ready", () => done(client)).on("error", fail);
 
@@ -257,13 +257,10 @@ export class SerialConsole {
 
     /** A device's console and its login, for `--console`. */
     static of(device: Device) {
-        const console = device.connection.console;
+        const { console, user, password } = Secrets.loginOf(device);
         if (!console) throw new Error(`${device.name}: no connection.console`);
 
-        const user = device.users?.[device.connection.user];
-        if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
-
-        return { console, user: device.connection.user as string, password: Secrets.resolve(user.password) };
+        return { console, user, password };
     }
 
     /** Write, then wait until what the console printed since ends with one of the patterns. Returns which, and what was printed. */

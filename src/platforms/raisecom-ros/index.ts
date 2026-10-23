@@ -483,14 +483,13 @@ export class RaisecomRos extends Platform {
     }
 
     private static async sshShell(device: Device): Promise<Session> {
-        const user = device.users?.[device.connection.user];
-        if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
+        const { port, user, password } = Secrets.loginOf(device);
 
         const client = await Ssh.connect({
             host: Ssh.hostOf(device),
-            port: device.connection.port,
-            user: device.connection.user,
-            password: Secrets.resolve(user.password),
+            port,
+            user,
+            password,
             hostKeys: RaisecomRos.HOST_KEYS,
         });
         const channel = await Ssh.shell(client);
