@@ -311,7 +311,8 @@ test("management services answer only on the interfaces listed", () => {
 
 // Nothing in these was proved on a device yet, so every platform refuses them rather than guess (#27).
 test("BFD timers, BFD on a static route and BFD on a multihop session are refused until proved", () => {
-    for (const device of examples) {
+    // RouterOS proved them, or refuses them for another reason: routeros-proofs.test.ts.
+    for (const device of examples.filter((example) => example.platform !== "routeros")) {
         const bgp = device.routing?.bgp;
         const withBfd: Device = {
             ...device,

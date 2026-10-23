@@ -1237,14 +1237,29 @@ export class RouterOsRender {
         }
     }
 
-    /** BFD runs where a session or an OSPF interface asks for it. One configuration covers every interface. */
+    /**
+     * BFD runs where a session or an OSPF interface asks for it, with the device's timers when it states them. One configuration covers every interface. A multihop session has no interface, and BFD for it is forbidden unless a configuration names its address, so each gets one of its own.
+     */
     private bfd(): void {
         const routing = this.device.routing;
-        const bgpWants = Object.values(routing?.bgp?.neighbors ?? {}).some((neighbor) => this.settingsOf(neighbor).bfd);
+        const bgpBfd = Object.values(routing?.bgp?.neighbors ?? {}).filter((neighbor) => this.settingsOf(neighbor).bfd);
+        const multihop = bgpBfd.filter((neighbor) => this.settingsOf(neighbor).multihop);
         const ospfWants = Object.values(routing?.ospf?.areas ?? {}).some((area) =>
             Object.values(area.interfaces).some((iface) => iface?.bfd)
         );
-        if (bgpWants || ospfWants) this.add("/routing bfd configuration", "add", { interfaces: "all" });
+        const timers = routing?.bfd;
+        const interval = timers ? `${timers.interval}ms` : undefined;
+        const timerProperties = { "min-rx": interval, "min-tx": interval, multiplier: timers?.multiplier };
+
+        const directWants = bgpBfd.length > multihop.length || ospfWants;
+        if (directWants || (timers && !multihop.length)) {
+            this.add("/routing bfd configuration", "add", { interfaces: "all", ...timerProperties });
+        }
+
+        for (const neighbor of multihop) {
+            const length = Address.family(neighbor.address) === "ipv4" ? 32 : 128;
+            this.add("/routing bfd configuration", "add", { addresses: `${neighbor.address}/${length}`, ...timerProperties });
+        }
     }
 
     private management(): void {
