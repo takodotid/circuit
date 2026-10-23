@@ -2,13 +2,15 @@
 
 A platform is a device's operating system. It decides which commands Circuit sends, and what the device can do.
 
-| Platform       | Operating system     | Proved on           |
-| -------------- | -------------------- | ------------------- |
-| `routeros`     | MikroTik RouterOS 7  | CCR2216-1G-12XS-2XQ |
-| `vrp`          | Huawei VRP           | CE6855-48S6Q-HI     |
-| `raisecom-ros` | Raisecom ROS         | RAX721-C-6C48       |
-| `junos`        | Juniper Junos 21     | QFX5100-48S-6Q      |
-| `fortios`      | Fortinet FortiOS 6.2 | FG-3700D            |
+| Platform       | Operating system  | Versions | Version checked | Proved on                          |
+| -------------- | ----------------- | -------- | --------------- | ---------------------------------- |
+| `routeros`     | MikroTik RouterOS | 7        | yes             | CCR2216-1G-12XS-2XQ, RouterOS 7.23 |
+| `vrp`          | Huawei VRP        | V200R005 | no              | CE6855-48S6Q-HI, V200R005C00SPC800 |
+| `raisecom-ros` | Raisecom ROS      | 6.5      | no              | RAX721-C-6C48, ROS 6.5.2           |
+| `junos`        | Juniper Junos     | 21       | yes             | QFX5100-48S-6Q, Junos 21.4R3       |
+| `fortios`      | Fortinet FortiOS  | 6.2      | yes             | FG-3700D, FortiOS 6.2.2            |
+
+A platform is one operating system at the versions in the table, not every version of it. `routeros` is RouterOS 7: RouterOS 6 takes other commands, so it isn't supported. Where the version is checked, `snapshot` and `apply` stop on a device that runs another version. Where it isn't, nothing stops you, so check the version yourself before the first apply.
 
 Each platform supports one hardware model so far, the one it was proved on. Another model of the same platform needs its port layout added to the platform's `models.ts`; see [Contributing](/contributing#adding-a-platform).
 

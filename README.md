@@ -44,19 +44,18 @@ npx @takodotid/circuit new        # or: pnpm dlx @takodotid/circuit new, bunx @t
 
 It asks which kind of network you have, creates a project with example devices, and installs Circuit. [Getting started](https://circuit.tako.id/guide/getting-started) walks through the first run.
 
-Circuit supports MikroTik RouterOS 7, Huawei VRP, Raisecom ROS, Juniper Junos and Fortinet FortiOS. Releases are on the [releases page](https://github.com/takodotid/circuit/releases), on npm and on GitHub Packages.
+Circuit supports MikroTik RouterOS 7, Huawei VRP V200R005, Raisecom ROS 6.5, Juniper Junos 21 and Fortinet FortiOS 6.2, at the versions on the [platforms page](https://circuit.tako.id/platforms/). Releases are on the [releases page](https://github.com/takodotid/circuit/releases), on npm and on GitHub Packages.
 
 ## Working on Circuit
 
 ```bash
 bun install
-bun run typecheck
+bun run check       # everything CI runs: typecheck, tests, format, docs build, Node build
 bun run test        # every example and template validates, and plans nothing against its own render
-bun run build       # dist/, what Node, npm and pnpm run
 bun run docs:dev    # the documentation site, from docs/
 ```
 
-[Contributing](https://circuit.tako.id/contributing) explains the layout, how to add a platform, and how releases are cut. `AGENTS.md` has the rules for changing the code.
+[Contributing](https://circuit.tako.id/contributing) explains the layout, how to add a platform, and how releases are cut. `AGENTS.md` has the rules for changing the code, for people and AI agents alike; `.claude/skills/` has the step-by-step guides an agent loads, such as adding a device.
 
 ## License
 
