@@ -47,6 +47,8 @@ A field a platform cannot do is an error, never skipped; see [Devices](/guide/de
 | Firewall, NAT, hardware ACLs, DHCP server     | yes                   | no                       | no                      | hardware ACLs, DHCP server        | yes, ACLs that drop, NAT for IPv4             |
 | Flow export                                   | NetFlow 9, IPFIX      | sFlow                    | no                      | sFlow                             | sFlow, NetFlow 9, one collector               |
 | SNMP                                          | v2c, v3 with SHA1     | v2c, v3                  | v2c, v3 with SHA1       | v2c, v3                           | v2c, v3 with SHA1                             |
+| Sources per service, such as `snmp.allow`     | yes                   | `management.allow` only  | `management.allow` only | yes                               | yes                                           |
+| Logging, kept and sent to collectors          | yes                   | not yet                  | not yet                 | yes, files rotate by size         | yes, kept in memory, up to 4 collectors       |
 | Certificates, web and API                     | yes                   | no                       | no                      | web, API and NETCONF, without TLS | certificates and web                          |
 | An alarm's severity, by name                  | not yet               | not yet                  | not yet                 | not yet                           | not yet                                       |
 
