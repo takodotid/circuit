@@ -59,15 +59,28 @@ export class VrpRender {
     private static readonly SNMP_AUTH = { sha1: "sha", sha256: "sha2-256" } as const;
     private static readonly SNMP_PRIVACY = { aes128: "aes128", des: "des56" } as const;
 
+    /** Layer 2 ACLs, one for each set of ethertypes a port takes, are numbered from here. */
+    private static readonly FIRST_L2_ACL = 4000;
+
+    /** An ethertype as the platform prints it in a layer 2 ACL rule: `0x0800` prints as `type ip`. */
+    private static readonly ETHERTYPE = { ipv4: "ip", ipv6: "ipv6", arp: "arp" } as const;
+
     private readonly lines: string[] = [];
     private readonly vlans: NonNullable<Device["vlans"]>;
     private readonly interfaces: NonNullable<Device["interfaces"]>;
     private readonly lagNumbers: Map<string, number>;
+    /** The layer 2 ACL of each set of ethertypes the ports take, by the set written as `ipv4 ipv6 arp`. */
+    private readonly ethertypeAcls = new Map<string, number>();
 
     private constructor(private readonly device: Device) {
         this.vlans = device.vlans ?? {};
         this.interfaces = device.interfaces ?? {};
         this.lagNumbers = Derive.lagIds(device);
+
+        for (const port of Object.values(device.ports ?? {})) {
+            const key = port?.ethertypes?.join(" ");
+            if (key && !this.ethertypeAcls.has(key)) this.ethertypeAcls.set(key, VrpRender.FIRST_L2_ACL + this.ethertypeAcls.size);
+        }
     }
 
     /** The whole configuration the device should run. Secrets appear as markers, never values. */
@@ -97,6 +110,7 @@ export class VrpRender {
         this.vlanBlocks();
         this.managementAcl();
         this.snmpAcl();
+        this.ethertypeAclBlocks();
         this.users();
         this.vrfs();
 
@@ -226,6 +240,14 @@ export class VrpRender {
     }
 
     /** SNMP with sources of its own gets an ACL of its own, built the same way. */
+    private ethertypeAclBlocks(): void {
+        for (const [key, number] of this.ethertypeAcls) {
+            const kinds = key.split(" ") as (keyof typeof VrpRender.ETHERTYPE)[];
+            const rules = kinds.map((kind, index) => `rule ${(index + 1) * 5} permit type ${VrpRender.ETHERTYPE[kind]}`);
+            this.block(`acl number ${number}`, [...rules, `rule ${(kinds.length + 1) * 5} deny`]);
+        }
+    }
+
     private snmpAcl(): void {
         const allow = this.device.management?.snmp?.allow ?? [];
         if (!allow.length) return;
@@ -366,6 +388,8 @@ export class VrpRender {
         if (settings.description) lines.push(`description ${settings.description}`);
         lines.push(...this.switching(settings));
         if (settings.lldp === false) lines.push("lldp disable");
+        if (settings.mac_limit !== undefined) lines.push(`mac-address limit maximum ${settings.mac_limit}`);
+        if (settings.ethertypes) lines.push(`traffic-filter acl ${this.ethertypeAcls.get(settings.ethertypes.join(" "))} inbound`);
 
         const flow = this.device.flow_export;
         const observed = flow?.protocol === "sflow" && (!flow.interfaces || flow.interfaces.includes(port));

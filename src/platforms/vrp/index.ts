@@ -53,7 +53,7 @@ export class Vrp extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+)\b/;
+        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+|mac-address limit)\b/;
 
     /** Lines a new line of the same kind replaces whole, so the old one is not undone first. */
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
@@ -116,6 +116,10 @@ export class Vrp extends Platform {
                 if (port[field] !== undefined) found.push(`ports.${name}.${field}, ports are switched; use a VLAN interface`);
             }
 
+            for (const field of ["mac_limit", "ethertypes"] as const) {
+                if (port[field] !== undefined && port.lag) found.push(`ports.${name}.${field} on a LAG member, set it on the LAG`);
+            }
+
             if (port.lldp === true && !device.lldp) found.push(`ports.${name}.lldp true while LLDP is off on the device`);
             const storm = Object.values(port.storm_control ?? {});
             if (storm.some((threshold) => "pps" in threshold)) found.push(`ports.${name}.storm_control in pps, the platform takes percent`);
@@ -124,6 +128,8 @@ export class Vrp extends Platform {
         for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
             if (iface.type !== "vlan" && iface.type !== "lag") found.push(`interfaces.${name}, a ${iface.type}`);
             if (iface.type === "lag" && iface.addresses?.length) found.push(`interfaces.${name}.addresses, LAGs are switched`);
+            if (iface.type === "lag" && iface.mac_limit !== undefined) found.push(`interfaces.${name}.mac_limit, on a LAG is not proved`);
+            if (iface.type === "lag" && iface.ethertypes) found.push(`interfaces.${name}.ethertypes, on a LAG is not proved`);
             if (iface.mtu !== undefined) found.push(`interfaces.${name}.mtu`);
             if (iface.ipv6_ra) found.push(`interfaces.${name}.ipv6_ra`);
             for (const group of iface.vrrp ?? [])
@@ -204,7 +210,7 @@ export class Vrp extends Platform {
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device).filter((field) => !field.startsWith("management.snmp.allow")));
-        found.push(...Derive.unproved(device, ["alarm-severity", "bfd-timers", "static-route-bfd"]));
+        found.push(...Derive.unproved(device, ["alarm-severity", "bfd-timers", "static-route-bfd", "mac-limit", "ethertype-filter"]));
 
         const flow = device.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
