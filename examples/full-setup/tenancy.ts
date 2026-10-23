@@ -1,7 +1,7 @@
 // What a customer is, and what each device carries for it. A customer's entry in customers.ts says what is the customer's own; its VLANs, addresses, sessions and policies follow from its name, number and site.
 
 import type { Interface, IP, Neighbor, Port, PolicyRule, Prefix, PrefixSet, RoutePolicy, StaticRoute, Vlan } from "@takodotid/circuit";
-import { familyOf } from "@takodotid/circuit";
+import { Address } from "@takodotid/circuit";
 import { communities, SITE, type Site } from "./network";
 
 export type Customer = {
@@ -112,7 +112,7 @@ export const routedBlocks = (customers: readonly Customer[]): StaticRoute<never,
 const policyOf = (c: Customer) => `CUSTOMER-${c.name.toUpperCase()}-IN`;
 
 /** The families a BGP customer announces. */
-const familiesOf = (c: Customer) => new Set((c.bgp?.prefixes ?? []).map(familyOf));
+const familiesOf = (c: Customer) => new Set((c.bgp?.prefixes ?? []).map(Address.family));
 
 /** The prefix sets of every BGP customer, by family, for the imports that accept them and the exports that pass them on. */
 export function customerPrefixSets(customers: readonly Customer[]) {
@@ -120,7 +120,7 @@ export function customerPrefixSets(customers: readonly Customer[]) {
 
     for (const c of customers) {
         for (const family of familiesOf(c)) {
-            const prefixes = c.bgp!.prefixes.filter((prefix) => familyOf(prefix) === family);
+            const prefixes = c.bgp!.prefixes.filter((prefix) => Address.family(prefix) === family);
             sets[`${c.name}-${family === "ipv4" ? "v4" : "v6"}`] = { prefixes };
         }
     }

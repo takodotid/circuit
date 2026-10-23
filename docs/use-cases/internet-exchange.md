@@ -20,9 +20,9 @@ Members share one LAN and do not trust each other. So each member port:
 
 The switches have no address on the peering LAN. They only carry it.
 
-## internetExchange
+## Exchange.build
 
-The `internetExchange` preset builds member ports and a check from a list of members:
+The `Exchange.build` preset makes member ports and a check from a list of members:
 
 | Field           | What it is                                                                                          |
 | --------------- | --------------------------------------------------------------------------------------------------- |

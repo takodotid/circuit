@@ -3,7 +3,7 @@
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
-import { PORT, SERVICES, handoffCode, type Mode, type Service } from "./EvplHandoff";
+import { Handoff, type Mode, type Service } from "./EvplHandoff";
 
 const mode = ref<Mode>("evpl");
 const bought = ref<Service["id"][]>(["branch"]);
@@ -29,7 +29,7 @@ function choose(next: Mode) {
 /** Whether a far end is reached through this port at all. */
 const reaches = (id: Service["id"]) => (mode.value === "epl" ? id === "branch" : bought.value.includes(id));
 
-const code = computed(() => handoffCode(mode.value, bought.value));
+const code = computed(() => Handoff.code(mode.value, bought.value));
 
 const said = ref<{ kind: string; word: string; text: string }>();
 const { position, travelling, travel } = useTravel();
@@ -51,7 +51,7 @@ async function send() {
         return;
     }
 
-    const service = SERVICES.find((entry) => entry.vlan === tag.value && bought.value.includes(entry.id));
+    const service = Handoff.SERVICES.find((entry) => entry.vlan === tag.value && bought.value.includes(entry.id));
 
     if (!service) {
         await travel([start, middle]);
@@ -88,7 +88,7 @@ async function send() {
             <span>EVPLs bought on this port</span>
             <div class="ac-row">
                 <button
-                    v-for="service in SERVICES"
+                    v-for="service in Handoff.SERVICES"
                     :key="service.id"
                     type="button"
                     class="ac-button small"
@@ -107,9 +107,9 @@ async function send() {
             :aria-label="`Your office router hands frames to the provider on one port. ${mode === 'epl' ? 'An EPL carries everything to the branch office.' : 'Each EVPL carries one VLAN to its own far end.'}`"
         >
             <line class="cable lit" :x1="PLACES.office.x" :y1="PLACES.office.y" :x2="PLACES.provider.x" :y2="PLACES.provider.y" />
-            <text class="caption" x="205" y="140" text-anchor="middle">one port, {{ PORT }}</text>
+            <text class="caption" x="205" y="140" text-anchor="middle">one port, {{ Handoff.PORT }}</text>
             <line
-                v-for="service in SERVICES"
+                v-for="service in Handoff.SERVICES"
                 :key="service.id"
                 class="cable"
                 :class="{ lit: reaches(service.id), off: !reaches(service.id) }"
@@ -119,7 +119,7 @@ async function send() {
                 :y2="PLACES[service.id].y"
             />
             <text
-                v-for="service in SERVICES"
+                v-for="service in Handoff.SERVICES"
                 :key="`t${service.id}`"
                 class="caption"
                 :x="(PLACES.provider.x + PLACES[service.id].x) / 2 + 10"

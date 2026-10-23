@@ -3,7 +3,7 @@
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
-import { contains, parseIPv4, parsePrefix, type Prefix } from "./RouteLookup";
+import { type Prefix, RouteTable } from "./RouteLookup";
 
 type Place = "internet" | "provider" | "yours" | "server";
 
@@ -15,7 +15,7 @@ const places: Record<Place, { kind: "cloud" | "router" | "server"; label: string
 };
 
 const prefixOf = (text: string): Prefix => {
-    const parsed = parsePrefix(text);
+    const parsed = RouteTable.parsePrefix(text);
     if ("error" in parsed) throw new Error(parsed.error);
     return parsed.prefix;
 };
@@ -38,7 +38,7 @@ const yourTable = computed<Entry[]>(() => [
 /** The entry a table uses for an address: the longest prefix that holds it. */
 function decide(table: readonly Entry[], address: number): Entry | undefined {
     return table
-        .filter((entry) => contains(prefixOf(entry.prefix), address))
+        .filter((entry) => RouteTable.contains(prefixOf(entry.prefix), address))
         .sort((a, b) => prefixOf(b.prefix).length - prefixOf(a.prefix).length)[0];
 }
 
@@ -52,7 +52,7 @@ type Hop = { at: "provider" | "yours"; ttl: number; entry?: Entry };
 
 /** Every router the packet passes, with the TTL it leaves with, until it is delivered or dropped. */
 const journey = computed(() => {
-    const address = parseIPv4(destination.value)!;
+    const address = RouteTable.parseIPv4(destination.value)!;
     const hops: Hop[] = [];
     let at: "provider" | "yours" = "provider";
     let ttl = 64;

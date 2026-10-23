@@ -2,7 +2,7 @@
 // Lesson: BGP. The reader writes the BGP neighbor for a transit provider in Circuit, then brings the session up and sees each stage pass or fail because of what they wrote.
 
 import { computed, ref } from "vue";
-import { parseIPv6 } from "./Ipv6Shorten";
+import { Ipv6 } from "./Ipv6Shorten";
 
 const OURS = { as: 64500, address: "203.0.113.2", routerId: "203.0.113.2" };
 const THEIRS = { as: 64501, address: "203.0.113.1", routerId: "192.0.2.1" };
@@ -23,7 +23,7 @@ const offered = computed(() =>
 
 /** Whether the text is an IPv4 or IPv6 address. */
 function isAddress(text: string): boolean {
-    if (text.includes(":")) return "groups" in parseIPv6(text);
+    if (text.includes(":")) return "groups" in Ipv6.parse(text);
 
     const parts = text.split(".");
     return parts.length === 4 && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255);

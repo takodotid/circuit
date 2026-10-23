@@ -9,81 +9,91 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 type Bump = "patch" | "minor" | "major";
 
-const BUMPS: readonly Bump[] = ["patch", "minor", "major"];
+/** A version's parts. */
+type Version = { major: number; minor: number; patch: number; candidate: number | undefined };
 
-function fail(message: string): never {
-    console.error(message);
-    process.exit(1);
-}
+class Release {
+    private static readonly BUMPS: readonly Bump[] = ["patch", "minor", "major"];
 
-function run(command: string[]): string {
-    const result = Bun.spawnSync(command, { stdout: "pipe", stderr: "inherit" });
-    if (result.exitCode !== 0) fail(`${command.join(" ")} failed`);
+    /** Bump the version the arguments ask for, then commit, tag and push it. */
+    static main(args: string[]): void {
+        if (Release.run(["git", "status", "--porcelain"])) Release.fail("the working tree has changes; commit them first");
+        if (Release.run(["git", "branch", "--show-current"]) !== "main") Release.fail("releases are cut from main");
 
-    return result.stdout.toString().trim();
-}
+        const packagePath = new URL("../package.json", import.meta.url);
+        const packageJson = JSON.parse(readFileSync(packagePath, "utf8")) as { version: string };
 
-/** `1.2.3-rc.4` to its parts. */
-function parse(version: string) {
-    const match = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(version);
-    if (!match) fail(`version ${version} is neither X.Y.Z nor X.Y.Z-rc.N`);
+        const version = Release.next(packageJson.version, args);
+        const tag = `v${version}`;
 
-    const [, major, minor, patch, candidate] = match;
-    return {
-        major: Number(major),
-        minor: Number(minor),
-        patch: Number(patch),
-        candidate: candidate === undefined ? undefined : Number(candidate),
-    };
-}
+        packageJson.version = version;
+        writeFileSync(packagePath, JSON.stringify(packageJson, null, 4) + "\n");
 
-function bumped(version: ReturnType<typeof parse>, bump: Bump): string {
-    if (bump === "major") return `${version.major + 1}.0.0`;
-    if (bump === "minor") return `${version.major}.${version.minor + 1}.0`;
-    return `${version.major}.${version.minor}.${version.patch + 1}`;
-}
+        Release.run(["git", "add", "package.json"]);
+        Release.run(["git", "commit", "-m", `chore(release): ${tag}`]);
+        Release.run(["git", "tag", "-a", tag, "-m", tag]);
+        Release.run(["git", "push", "--follow-tags"]);
 
-function next(current: string, args: string[]): string {
-    const version = parse(current);
-    const base = `${version.major}.${version.minor}.${version.patch}`;
-    const [kind, bump] = args;
-
-    if (kind === "stable") {
-        if (version.candidate === undefined) fail(`${current} is not a release candidate`);
-        return base;
+        console.log(`${tag} pushed; the release workflow publishes it.`);
     }
 
-    if (kind === "rc") {
-        if (bump === undefined) {
-            if (version.candidate === undefined) fail(`${current} is not a release candidate; name patch, minor or major`);
-            return `${base}-rc.${version.candidate + 1}`;
+    private static fail(message: string): never {
+        console.error(message);
+        process.exit(1);
+    }
+
+    private static run(command: string[]): string {
+        const result = Bun.spawnSync(command, { stdout: "pipe", stderr: "inherit" });
+        if (result.exitCode !== 0) Release.fail(`${command.join(" ")} failed`);
+
+        return result.stdout.toString().trim();
+    }
+
+    /** `1.2.3-rc.4` to its parts. */
+    private static parse(version: string): Version {
+        const match = /^(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/.exec(version);
+        if (!match) Release.fail(`version ${version} is neither X.Y.Z nor X.Y.Z-rc.N`);
+
+        const [, major, minor, patch, candidate] = match;
+        return {
+            major: Number(major),
+            minor: Number(minor),
+            patch: Number(patch),
+            candidate: candidate === undefined ? undefined : Number(candidate),
+        };
+    }
+
+    private static bumped(version: Version, bump: Bump): string {
+        if (bump === "major") return `${version.major + 1}.0.0`;
+        if (bump === "minor") return `${version.major}.${version.minor + 1}.0`;
+        return `${version.major}.${version.minor}.${version.patch + 1}`;
+    }
+
+    private static next(current: string, args: string[]): string {
+        const version = Release.parse(current);
+        const base = `${version.major}.${version.minor}.${version.patch}`;
+        const [kind, bump] = args;
+
+        if (kind === "stable") {
+            if (version.candidate === undefined) Release.fail(`${current} is not a release candidate`);
+            return base;
         }
 
-        if (!BUMPS.includes(bump as Bump)) fail(`unknown bump ${bump}`);
-        return `${bumped(version, bump as Bump)}-rc.0`;
+        if (kind === "rc") {
+            if (bump === undefined) {
+                if (version.candidate === undefined) Release.fail(`${current} is not a release candidate; name patch, minor or major`);
+                return `${base}-rc.${version.candidate + 1}`;
+            }
+
+            if (!Release.BUMPS.includes(bump as Bump)) Release.fail(`unknown bump ${bump}`);
+            return `${Release.bumped(version, bump as Bump)}-rc.0`;
+        }
+
+        if (!Release.BUMPS.includes(kind as Bump)) Release.fail("usage: bun run release <patch|minor|major|rc [patch|minor|major]|stable>");
+        if (version.candidate !== undefined) Release.fail(`${current} is a release candidate; finish it with stable, or continue with rc`);
+
+        return Release.bumped(version, kind as Bump);
     }
-
-    if (!BUMPS.includes(kind as Bump)) fail("usage: bun run release <patch|minor|major|rc [patch|minor|major]|stable>");
-    if (version.candidate !== undefined) fail(`${current} is a release candidate; finish it with stable, or continue with rc`);
-
-    return bumped(version, kind as Bump);
 }
 
-if (run(["git", "status", "--porcelain"])) fail("the working tree has changes; commit them first");
-if (run(["git", "branch", "--show-current"]) !== "main") fail("releases are cut from main");
-
-const packagePath = new URL("../package.json", import.meta.url);
-const packageJson = JSON.parse(readFileSync(packagePath, "utf8")) as { version: string };
-
-const version = next(packageJson.version, process.argv.slice(2));
-const tag = `v${version}`;
-
-packageJson.version = version;
-writeFileSync(packagePath, JSON.stringify(packageJson, null, 4) + "\n");
-
-run(["git", "add", "package.json"]);
-run(["git", "commit", "-m", `chore(release): ${tag}`]);
-run(["git", "tag", "-a", tag, "-m", tag]);
-run(["git", "push", "--follow-tags"]);
-
-console.log(`${tag} pushed; the release workflow publishes it.`);
+Release.main(process.argv.slice(2));

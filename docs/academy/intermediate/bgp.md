@@ -110,7 +110,7 @@ routing: {
 },
 
 policies: {
-    SANITY: bgpSanity(),
+    SANITY: Bgp.sanity(),
     "TRANSIT-IN": [{ call: "SANITY" }, { action: "accept" }],
     "TRANSIT-OUT": [
         { description: "Our block", match: { prefix: "198.51.100.0/24" }, action: "accept" },
@@ -130,14 +130,14 @@ policies: {
 | `export`       | The policy for routes you announce to the neighbor. Nothing is announced without one.                                                                                                                                                                 |
 | `max_prefixes` | Close the session if the neighbor sends more routes than this, as a fuse against a mistake on their side.                                                                                                                                             |
 
-`bgpSanity()` comes from `@takodotid/circuit/presets` and refuses routes that should never be on the internet; [Route policies](/academy/intermediate/route-policy) opens it up. The input firewall must also let BGP in from your neighbors, so their side can open the session too:
+`Bgp.sanity()` comes from `@takodotid/circuit/presets` and refuses routes that should never be on the internet; [Route policies](/academy/intermediate/route-policy) opens it up. The input firewall must also let BGP in from your neighbors, so their side can open the session too:
 
 ```ts
 { description: "BGP", match: { protocol: "tcp", dst_port: 179, src: "203.0.113.1/32" }, action: "accept" },
 ```
 
 ::: warning Not every platform runs BGP
-Of the platforms Circuit supports, `routeros`, `junos` and `fortios` run BGP; `vrp` and `raisecom-ros` report `routing.bgp` as an error. On RouterOS one session carries one address family, so an IPv4 and an IPv6 neighbor are two sessions, as in the [edge router](/patterns/edge-router) pattern. Junos and FortiOS have no BGP roles, so they report `role` as an error. FortiOS has no RPKI either, so it refuses the RPKI rule in `bgpSanity()`. See [Platforms](/platforms/).
+Of the platforms Circuit supports, `routeros`, `junos` and `fortios` run BGP; `vrp` and `raisecom-ros` report `routing.bgp` as an error. On RouterOS one session carries one address family, so an IPv4 and an IPv6 neighbor are two sessions, as in the [edge router](/patterns/edge-router) pattern. Junos and FortiOS have no BGP roles, so they report `role` as an error. FortiOS has no RPKI either, so it refuses the RPKI rule in `Bgp.sanity()`. See [Platforms](/platforms/).
 :::
 
 ## In short

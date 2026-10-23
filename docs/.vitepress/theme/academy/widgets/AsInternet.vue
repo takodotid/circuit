@@ -2,7 +2,7 @@
 // Lesson: networks of networks. The reader joins their own AS to a small internet with transit and peering links, and sees which networks each can reach and who pays whom.
 
 import { computed, ref } from "vue";
-import { pathBetween, type AsLink } from "./AsInternet";
+import { AsPaths, type AsLink } from "./AsInternet";
 
 const networks = [
     { id: "64500", name: "Your network", x: 350, y: 235 },
@@ -79,10 +79,10 @@ const to = ref("64504");
 const reach = computed(() =>
     networks
         .filter((network) => network.id !== from.value)
-        .map((network) => ({ ...network, path: pathBetween(links.value, from.value, network.id) }))
+        .map((network) => ({ ...network, path: AsPaths.between(links.value, from.value, network.id) }))
 );
 
-const path = computed(() => (from.value === to.value ? undefined : pathBetween(links.value, from.value, to.value)));
+const path = computed(() => (from.value === to.value ? undefined : AsPaths.between(links.value, from.value, to.value)));
 
 function onPath(link: AsLink): boolean {
     const [a, b] = ends(link);

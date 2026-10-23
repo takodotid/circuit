@@ -24,21 +24,21 @@ A rule without `action` changes the route and moves on to the next rule. The fir
 
 A neighbor can send you routes it should not, by mistake or on purpose. Four kinds should never reach your routing table:
 
-1. **Addresses that are not on the internet**: private ranges such as `10.0.0.0/8`, and <Term means="Addresses that can never be a real destination on the internet, such as 127.0.0.0/8, the device itself, or 169.254.0.0/16, used only on one link.">martians</Term>. Circuit's presets list them as `PRIVATE_RANGES` and `MARTIANS`.
+1. **Addresses that are not on the internet**: private ranges such as `10.0.0.0/8`, and <Term means="Addresses that can never be a real destination on the internet, such as 127.0.0.0/8, the device itself, or 169.254.0.0/16, used only on one link.">martians</Term>. Circuit's presets list them as `Filters.PRIVATE_RANGES` and `Filters.MARTIANS`.
 2. **Prefixes too long or too short**. Most networks accept nothing longer than a /24 for IPv4 or a /48 for IPv6, so a longer one would not travel far, and it only makes every table bigger. Nothing shorter than a /8 or a /16 is a real network either.
 3. **Your own prefixes, coming back**. You already know where your own space is. A neighbor announcing it means someone else claims it, by mistake or to steal its traffic.
 4. **Routes RPKI marks invalid**. With <Term means="Resource Public Key Infrastructure. The holder of a prefix publishes a signed record, a ROA, that says which AS may announce it, and routers check each route against those records.">RPKI</Term>, a validator compares each route with the published records: `valid` if a record allows it, `invalid` if one contradicts it, `not-found` if there is none. Your validators go in `routing.rpki`.
 
-`bgpSanity()` from the [presets](/guide/presets#bgp-sanity) makes the rules for the second and fourth. The first and third need a `prefix_set` each, a named list of prefixes. A route matches a set when its prefix is one of the set's own, or inside one:
+`Bgp.sanity()` from the [presets](/guide/presets#bgp-sanity) makes the rules for the second and fourth. The first and third need a `prefix_set` each, a named list of prefixes. A route matches a set when its prefix is one of the set's own, or inside one:
 
 ```ts
 prefix_sets: {
-    bogons: { prefixes: [...MARTIANS, ...PRIVATE_RANGES] },
+    bogons: { prefixes: [...Filters.MARTIANS, ...Filters.PRIVATE_RANGES] },
     ours: { prefixes: ["198.51.100.0/24"] },
 },
 
 policies: {
-    SANITY: bgpSanity(),
+    SANITY: Bgp.sanity(),
     "TRANSIT-IN": [
         { call: "SANITY" },
         { description: "Martians and private ranges", match: { prefix_set: "bogons" }, action: "reject" },
@@ -95,7 +95,7 @@ Your own routers never sent the leaked traffic anywhere. The routes you announce
 
 Three things guard against it, and the template uses all of them:
 
-- **The export ends in a reject.** The template's checks include `exportsEndInReject`, so `circuit validate` fails on an export that does not, as you saw in the terminal, and `diff` and `apply` stop until it is fixed.
+- **The export ends in a reject.** The template's checks include `Checks.exportsEndInReject`, so `circuit validate` fails on an export that does not, as you saw in the terminal, and `diff` and `apply` stop until it is fixed.
 - **`role`** says what each neighbor is to you: `provider`, `customer`, `peer`, or an exchange's route server, `rs`. It turns on RFC 9234, so both sides reject a leaked route on their own. Of the platforms Circuit supports, only RouterOS has BGP roles.
 - **`max_prefixes`** is a fuse. When a neighbor sends more prefixes than this, the session closes. It stays closed until it is cleared by hand, on RouterOS with `/routing bgp session clear <session> flag=limit-exceeded`. Set it a little above what each neighbor should send. Your providers set one on their side for you, which is what the limit in the widget showed.
 
@@ -111,7 +111,7 @@ Three things guard against it, and the template uses all of them:
 
 A <Term means="A tag on a route. A router can add it on import and match on it later, or a neighbor can add it to ask you for something.">BGP community</Term> is a tag a route carries. The template uses large communities, three numbers: your AS, a function, and a parameter, such as `64500:1:1`.
 
-The template's `routing.ts` describes what its communities mean with `communityScheme` (see [BGP communities](/guide/communities)), and `communities.tag("transit", 64510)` in the import above does two things to each route:
+The template's `routing.ts` describes what its communities mean with `Bgp.communityScheme` (see [BGP communities](/guide/communities)), and `communities.tag("transit", 64510)` in the import above does two things to each route:
 
 1. It removes every community of yours the neighbor put on the route, so nobody outside can fake them.
 2. It adds where the route came from: `64500:1:1`, learned from a transit, and `64500:3:64510`, learned from AS64510.
@@ -129,7 +129,7 @@ A later rule can then match `large_community`. For example, an export to a custo
 ## In short
 
 - A route policy is rules read from the top: `call`, then `match`, `set` and `action`. The first decision wins, and a route no rule accepts is rejected.
-- On import, reject martians and private ranges, prefixes too long or too short, your own space coming back, and RPKI invalid routes. `bgpSanity()` and two prefix sets cover them.
+- On import, reject martians and private ranges, prefixes too long or too short, your own space coming back, and RPKI invalid routes. `Bgp.sanity()` and two prefix sets cover them.
 - On export, accept only your own prefixes and your customers', then reject everything else. Anything more can leak routes between two other networks.
-- `role` and `max_prefixes` on each neighbor, and the `exportsEndInReject` check, guard against leaks.
+- `role` and `max_prefixes` on each neighbor, and the `Checks.exportsEndInReject` check, guard against leaks.
 - Communities tag routes with where they came from, so later rules can treat them differently.

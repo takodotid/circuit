@@ -2,7 +2,7 @@
 // Lesson: IPv6. The reader shortens full addresses by hand and has each answer checked against the standard rules, or types any address to see it written in full, step by step.
 
 import { computed, ref } from "vue";
-import { differences, expand, longestZeroRun, parseIPv6, same, shorten } from "./Ipv6Shorten";
+import { Ipv6 } from "./Ipv6Shorten";
 
 const challenges = [
     "2001:0db8:0000:0000:0000:ff00:0042:8329",
@@ -21,24 +21,24 @@ const answer = ref("");
 const checked = ref(false);
 const showSteps = ref(false);
 
-const challenge = computed(() => (parseIPv6(challenges[index.value]!) as { groups: number[] }).groups);
+const challenge = computed(() => (Ipv6.parse(challenges[index.value]!) as { groups: number[] }).groups);
 
 const verdict = computed(() => {
     if (!checked.value) return undefined;
 
-    const parsed = parseIPv6(answer.value);
+    const parsed = Ipv6.parse(answer.value);
     if ("error" in parsed) return { kind: "bad", word: "Not an address", text: parsed.error };
 
-    if (!same(parsed.groups, challenge.value)) {
+    if (!Ipv6.same(parsed.groups, challenge.value)) {
         return {
             kind: "bad",
             word: "Different address",
-            text: `That is another address. Written in full, yours is ${expand(parsed.groups)}.`,
+            text: `That is another address. Written in full, yours is ${Ipv6.expand(parsed.groups)}.`,
         };
     }
 
-    const reasons = differences(answer.value, challenge.value);
-    if (!reasons.length) return { kind: "good", word: "Right", text: `${shorten(challenge.value)} is the standard short form.` };
+    const reasons = Ipv6.differences(answer.value, challenge.value);
+    if (!reasons.length) return { kind: "good", word: "Right", text: `${Ipv6.shorten(challenge.value)} is the standard short form.` };
 
     return { kind: "warn", word: "Same address", text: `It is the same address, but not its standard short form. ${reasons.join(" ")}` };
 });
@@ -56,7 +56,7 @@ function next() {
 
 // Expanding any address.
 const typed = ref("2001:db8::1");
-const typedParsed = computed(() => parseIPv6(typed.value));
+const typedParsed = computed(() => Ipv6.parse(typed.value));
 
 /** The address the steps are drawn for: the challenge, or what the reader typed. */
 const shown = computed(() => {
@@ -65,7 +65,7 @@ const shown = computed(() => {
     return "groups" in parsed ? parsed.groups : undefined;
 });
 
-const run = computed(() => (shown.value ? longestZeroRun(shown.value) : undefined));
+const run = computed(() => (shown.value ? Ipv6.longestZeroRun(shown.value) : undefined));
 const inRun = (position: number) => run.value !== undefined && position >= run.value.start && position < run.value.start + run.value.length;
 
 /** The group whose bits are shown under the steps. */
@@ -135,7 +135,7 @@ function setMode(next: "shorten" | "expand") {
                 <input v-model="typed" class="ac-input mono" autocomplete="off" spellcheck="false" :aria-invalid="'error' in typedParsed" />
             </label>
             <p v-if="'error' in typedParsed" class="ac-say bad" data-word="Not an address" aria-live="polite">{{ typedParsed.error }}</p>
-            <p v-else class="ac-say good" data-word="In full" aria-live="polite">{{ expand(typedParsed.groups) }}</p>
+            <p v-else class="ac-say good" data-word="In full" aria-live="polite">{{ Ipv6.expand(typedParsed.groups) }}</p>
         </template>
 
         <ol v-if="shown" class="steps">
@@ -172,7 +172,7 @@ function setMode(next: "shorten" | "expand") {
             </li>
             <li>
                 <span class="step-name">{{ runText }}</span>
-                <span class="result ac-mono">{{ shorten(shown) }}</span>
+                <span class="result ac-mono">{{ Ipv6.shorten(shown) }}</span>
             </li>
         </ol>
     </div>

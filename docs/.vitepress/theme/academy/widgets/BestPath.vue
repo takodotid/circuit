@@ -185,7 +185,7 @@ const pref = (id: string) => routes.value.find((route) => route.id === id)!.loca
 const code = computed(() =>
     [
         "policies: {",
-        "    SANITY: bgpSanity(),",
+        "    SANITY: Bgp.sanity(),",
         `    "TRANSIT-A-IN": [{ call: "SANITY" }, { set: { local_pref: ${pref("transit-a")} } }, { action: "accept" }],`,
         `    "TRANSIT-B-IN": [{ call: "SANITY" }, { set: { local_pref: ${pref("transit-b")} } }, { action: "accept" }],`,
         `    "IX-IN": [{ call: "SANITY" }, { set: { local_pref: ${pref("exchange")} } }, { action: "accept" }],`,

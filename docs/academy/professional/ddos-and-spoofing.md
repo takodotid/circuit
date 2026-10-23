@@ -66,7 +66,7 @@ acls: {
 
 A FortiGate's ACLs can only drop, so on a FortiGate the same check goes in its firewall instead, as rules that accept the customer's sources on that port and drop the rest. Write the IPv6 rules the same way, and keep accepting link-local sources, `fe80::/10`, which IPv6 neighbor discovery uses on the link, as RFC 4861 says.
 
-The other direction is the `antiSpoofing` preset from [Presets](/guide/presets#edge-filters), on the ports toward your transits and exchanges: traffic arriving from the internet that claims to come from your own space, a private range or a martian is dropped. The [edge router template](/patterns/edge-router) has both of its outside ports filtered this way.
+The other direction is the `Filters.antiSpoofing` preset from [Presets](/guide/presets#edge-filters), on the ports toward your transits and exchanges: traffic arriving from the internet that claims to come from your own space, a private range or a martian is dropped. The [edge router template](/patterns/edge-router) has both of its outside ports filtered this way.
 
 ## Shedding a flood
 
@@ -89,7 +89,7 @@ A blackhole on your own router freed Acme's link, and nothing else. Each transit
 In Circuit, blackholing is part of the [community scheme](/guide/communities#blackhole). The scheme says which community asks for a blackhole, and which upstreams take it:
 
 ```ts
-export const communities = communityScheme({
+export const communities = Bgp.communityScheme({
     asn: 64500,
     learned_from: { function: 1, classes: { transit: 1, exchange: 2, customer: 3 } },
     // Transit A drops traffic to a route it receives with 65535:666. Transit B takes no blackholes, so it never receives the route.
@@ -112,7 +112,7 @@ A customer's import takes a blackhole request first, before `SANITY` refuses any
 
 `communities.actions(64501)` at the start of the export to Transit A then passes the route on with `65535:666`, and the export to every upstream not listed rejects it.
 
-Blackholing drops everything toward the address, the attack and the customers of that service alike. <Term means="BGP flow specification: rules carried in BGP that match traffic by addresses, protocol, ports, packet length and more, and drop or rate-limit only what matches.">Flowspec</Term>, defined in RFC 8955, is the finer tool: a rule carried in BGP that matches the flood by protocol, ports or packet length, and drops or rate-limits only that. Circuit has no field for flowspec. On your own edge, the `antiAmplification` preset drops reflected floods by their source port in the switch chip, which saves your router, but not the link the flood arrived on.
+Blackholing drops everything toward the address, the attack and the customers of that service alike. <Term means="BGP flow specification: rules carried in BGP that match traffic by addresses, protocol, ports, packet length and more, and drop or rate-limit only what matches.">Flowspec</Term>, defined in RFC 8955, is the finer tool: a rule carried in BGP that matches the flood by protocol, ports or packet length, and drops or rate-limits only that. Circuit has no field for flowspec. On your own edge, the `Filters.antiAmplification` preset drops reflected floods by their source port in the switch chip, which saves your router, but not the link the flood arrived on.
 
 <Quiz
   question="A flood of 30 Gbit/s toward one customer address arrives over your two 10 Gbit/s transit links. You blackhole the address on your own router only. What changes?"
@@ -149,7 +149,7 @@ firewall: {
                 { description: "BGP", match: { protocol: "tcp", dst_port: 179, src_set: "bgp-neighbors" }, action: "accept" },
             ],
         },
-        forward: { rules: [...badTcpFlags()] },
+        forward: { rules: [...Filters.badTcpFlags()] },
     },
 },
 ```
@@ -181,5 +181,5 @@ A forward chain that drops by default must also accept the state `untracked`, si
 
 - Spoofed sources let one attacker reflect and amplify a flood off thousands of servers. BCP 38 stops it in the sender's network: drop customer traffic from outside the customer's space, by uRPF or, in Circuit, an ACL on the customer port.
 - A flood larger than your links must be dropped upstream. Blackholing announces the target's /32 with a community; every upstream that takes it drops the flood in its own network. The target becomes unreachable, and everyone else is saved.
-- In Circuit, `communityScheme` says which community asks for a blackhole and which upstreams take it, and `communities.blackhole` lets a customer blackhole only its own space. Circuit has no flowspec.
+- In Circuit, `Bgp.communityScheme` says which community asks for a blackhole and which upstreams take it, and `communities.blackhole` lets a customer blackhole only its own space. Circuit has no flowspec.
 - Protect the router's CPU: an input chain that ends in drop, ACL drops in the switch chip, `untracked` for customer space, and SYN cookies.

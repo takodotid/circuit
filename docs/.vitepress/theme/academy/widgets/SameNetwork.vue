@@ -2,7 +2,7 @@
 // Lesson: reading an IP address. A game of nine pairs: the reader says whether two devices are on the same network, then sees their network parts side by side.
 
 import { computed, ref } from "vue";
-import { bitsOfAddress, formatAddress, maskOf, networkOf, parseAddress } from "./PrefixSlider";
+import { Ipv4 } from "./PrefixSlider";
 
 type Pair = { first: string; second: string; prefix: number; asMask?: boolean };
 
@@ -18,7 +18,7 @@ const pairs: Pair[] = [
     { first: "10.1.1.6", second: "10.1.1.9", prefix: 30 },
 ];
 
-const read = (text: string) => (parseAddress(text) as { value: number }).value;
+const read = (text: string) => (Ipv4.parse(text) as { value: number }).value;
 
 const index = ref(0);
 const picked = ref<boolean>();
@@ -27,13 +27,13 @@ const score = ref(0);
 const pair = computed(() => pairs[index.value]!);
 const first = computed(() => read(pair.value.first));
 const second = computed(() => read(pair.value.second));
-const firstNetwork = computed(() => networkOf(first.value, pair.value.prefix));
-const secondNetwork = computed(() => networkOf(second.value, pair.value.prefix));
+const firstNetwork = computed(() => Ipv4.network(first.value, pair.value.prefix));
+const secondNetwork = computed(() => Ipv4.network(second.value, pair.value.prefix));
 const same = computed(() => firstNetwork.value === secondNetwork.value);
 const answered = computed(() => picked.value !== undefined);
 const last = computed(() => index.value === pairs.length - 1);
 
-const sizeText = computed(() => (pair.value.asMask ? `the mask ${formatAddress(maskOf(pair.value.prefix))}` : `/${pair.value.prefix}`));
+const sizeText = computed(() => (pair.value.asMask ? `the mask ${Ipv4.format(Ipv4.mask(pair.value.prefix))}` : `/${pair.value.prefix}`));
 
 function answer(sameNetwork: boolean) {
     if (answered.value) return;
@@ -53,8 +53,8 @@ function next() {
 
 /** Both addresses as bits, with the network bits marked, and whether each network bit matches. */
 const rows = computed(() => {
-    const firstBits = bitsOfAddress(first.value);
-    const secondBits = bitsOfAddress(second.value);
+    const firstBits = Ipv4.bits(first.value);
+    const secondBits = Ipv4.bits(second.value);
     const prefix = pair.value.prefix;
 
     const cells = (bits: number[]) => bits.map((bit, place) => ({ bit, network: place < prefix, group: Math.floor(place / 8) }));
@@ -67,7 +67,7 @@ const groupsOf = <T,>(cells: T[]) => [0, 1, 2, 3].map((group) => cells.slice(gro
 
 const verdict = computed(() => {
     const prefix = pair.value.prefix;
-    const networks = `With ${sizeText.value}, the first ${prefix} bits are the network. The laptop’s network is ${formatAddress(firstNetwork.value)}, the printer’s is ${formatAddress(secondNetwork.value)}.`;
+    const networks = `With ${sizeText.value}, the first ${prefix} bits are the network. The laptop’s network is ${Ipv4.format(firstNetwork.value)}, the printer’s is ${Ipv4.format(secondNetwork.value)}.`;
     return same.value
         ? `${networks} They match, so they are on the same network.`
         : `${networks} They differ, so they are on different networks.`;

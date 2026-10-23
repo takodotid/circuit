@@ -2,7 +2,7 @@
 // Lesson: hijacks and leaks. The reader writes ROAs and a route, and sees route origin validation decide valid, invalid or not found, ROA by ROA.
 
 import { computed, ref } from "vue";
-import { covers, parsePrefix, type Roa, validate } from "./OriginCheck";
+import { type Roa, Rov } from "./OriginCheck";
 
 type RoaRow = { prefix: string; maxLength: string; asn: string };
 type Case = { label: string; roas: RoaRow[]; prefix: string; path: string };
@@ -53,7 +53,7 @@ const isAsn = (text: string) => /^\d{1,10}$/.test(text.trim()) && Number(text) <
 
 /** What is wrong with one ROA row, or undefined. */
 function problemOf(row: RoaRow): string | undefined {
-    const parsed = parsePrefix(row.prefix);
+    const parsed = Rov.parsePrefix(row.prefix);
     if (typeof parsed === "string") return parsed;
 
     const max = Number(row.maxLength);
@@ -68,7 +68,7 @@ function problemOf(row: RoaRow): string | undefined {
 const pathNumbers = computed(() => path.value.trim().split(/\s+/).filter(Boolean));
 
 const routeProblem = computed(() => {
-    const parsed = parsePrefix(prefix.value);
+    const parsed = Rov.parsePrefix(prefix.value);
     if (typeof parsed === "string") return parsed;
     if (pathNumbers.value.length === 0) return "Write the AS path, nearest AS first, such as 64501 64500.";
     if (!pathNumbers.value.every(isAsn)) return "Each AS in the path must be a number, separated by spaces.";
@@ -84,16 +84,16 @@ const published = computed<Roa[]>(() =>
     roas.value.map((row) => ({ prefix: row.prefix.trim(), maxLength: Number(row.maxLength), asn: Number(row.asn) }))
 );
 
-const verdict = computed(() => (ready.value ? validate(published.value, prefix.value.trim(), origin.value) : undefined));
+const verdict = computed(() => (ready.value ? Rov.validate(published.value, prefix.value.trim(), origin.value) : undefined));
 
 /** For each ROA: does it cover the route, name its origin, allow its length. */
 const checks = computed(() => {
-    const route = parsePrefix(prefix.value);
+    const route = Rov.parsePrefix(prefix.value);
     return published.value.map((roa, index) => {
-        const parsed = parsePrefix(roa.prefix);
+        const parsed = Rov.parsePrefix(roa.prefix);
         if (problems.value[index] || typeof parsed === "string" || typeof route === "string") return undefined;
 
-        const covering = covers(parsed, route);
+        const covering = Rov.covers(parsed, route);
         return {
             covers: covering,
             sameAs: covering ? roa.asn === origin.value : undefined,
@@ -171,7 +171,7 @@ const mark = (value: boolean | undefined) => (value === undefined ? "not asked" 
                     class="ac-input mono"
                     autocomplete="off"
                     spellcheck="false"
-                    :aria-invalid="problems[index] !== undefined && typeof parsePrefix(row.prefix) === 'string'"
+                    :aria-invalid="problems[index] !== undefined && typeof Rov.parsePrefix(row.prefix) === 'string'"
                     @input="picked = -1"
                 />
             </label>

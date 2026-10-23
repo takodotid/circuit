@@ -1,8 +1,8 @@
 import { defineConfig, type DefaultTheme } from "vitepress";
 import circuit from "../../package.json";
-import { academySidebar } from "./academy";
-import { LOCK_SCRIPT } from "./theme/academy/progress";
-import { describe, seoHead } from "./seo";
+import { Academy } from "./academy";
+import { Seo } from "./seo";
+import { Progress } from "./theme/academy/progress";
 
 const repository = circuit.repository.url.replace(/^git\+/, "").replace(/\.git$/, "");
 
@@ -109,25 +109,25 @@ export default defineConfig({
         // Special Gothic is shared by the documentation site and Circuit Studio, and served from the site itself.
         ["link", { rel: "preload", href: "/fonts/special-gothic-latin.woff2", as: "font", type: "font/woff2", crossorigin: "" }],
         // An Academy lesson whose level is still closed is hidden behind its gate before the page is drawn.
-        ["script", {}, LOCK_SCRIPT],
+        ["script", {}, Progress.LOCK_SCRIPT],
     ],
 
     // A page without a description of its own is described by its first paragraph, so each page shows its own words in search results.
     transformPageData(pageData, { siteConfig }) {
         if (pageData.frontmatter.description || pageData.isNotFound) return;
 
-        const description = describe(`${siteConfig.srcDir}/${pageData.relativePath}`);
+        const description = Seo.describe(`${siteConfig.srcDir}/${pageData.relativePath}`);
         if (description) pageData.description = description;
     },
 
     transformHead: ({ pageData }) =>
-        seoHead(pageData, {
+        Seo.head(pageData, {
             hostname: circuit.homepage,
             name: "Circuit",
             description: circuit.description,
             repository,
             version: circuit.version,
-            sidebar: [...sidebar, ...academySidebar],
+            sidebar: [...sidebar, ...Academy.SIDEBAR],
         }),
 
     // Code is set on a navy ground in both themes, like the editor in the home page's drawing.
@@ -147,7 +147,7 @@ export default defineConfig({
         ],
 
         // The Academy keeps a sidebar of its own, so its lessons are never mixed in with the documentation.
-        sidebar: { "/academy/": academySidebar, "/": sidebar },
+        sidebar: { "/academy/": Academy.SIDEBAR, "/": sidebar },
 
         socialLinks: [
             { icon: "npm", link: `https://www.npmjs.com/package/${circuit.name}` },

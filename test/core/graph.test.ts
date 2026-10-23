@@ -1,9 +1,9 @@
 // The graph is read from the config alone: each layer finds what the fields say, matches the far end where it is one of our devices, and marks what only one end declares.
 
 import { expect, test } from "bun:test";
-import { dot, mermaid } from "../../src/cli/graph";
+import { GraphFormat } from "../../src/cli/graph-format";
 import { defineDevice, secret } from "../../src/core/define";
-import { graphOf, only, type GraphEdge } from "../../src/core/graph";
+import { Topology, type GraphEdge } from "../../src/core/topology";
 
 const r1 = defineDevice({
     name: "r1",
@@ -95,7 +95,7 @@ const sw = defineDevice({
     },
 });
 
-const graph = graphOf([r1, r2, sw]);
+const graph = Topology.of([r1, r2, sw]);
 
 const on = (layer: GraphEdge["layer"]) =>
     graph.edges.filter((edge) => edge.layer === layer).map((edge) => ({ ...edge, between: `${edge.from} ${edge.to}` }));
@@ -167,13 +167,13 @@ test("a cable to a device that is not in the network ends at a node of its own",
         users: { admin: { role: "admin", password: secret("LONELY_PASSWORD") } },
         ports: { "10g-1": { link: { device: "gone", port: "10g-1" } } },
     });
-    const edges = graphOf([lonely]).edges;
+    const edges = Topology.of([lonely]).edges;
 
     expect(edges.map((edge) => [edge.to, edge.oneSided ?? false])).toEqual([["missing:gone", true]]);
 });
 
-test("only keeps the layers asked for, and the edges that touch the devices named", () => {
-    const bgp = only(graph, ["bgp"], ["r2"]);
+test("Topology.only keeps the layers asked for, and the edges that touch the devices named", () => {
+    const bgp = Topology.only(graph, ["bgp"], ["r2"]);
 
     expect(bgp.edges.map((edge) => `${edge.from} ${edge.to}`)).toEqual(["device:r1 device:r2"]);
     expect(bgp.nodes.map((node) => node.id).sort()).toEqual(["device:r1", "device:r2"]);
@@ -186,19 +186,19 @@ test("the graph holds no secret, not even a reference to one", () => {
 
 test("mermaid and dot mark a device with an error, a device unlike its snapshot, and a line only one end declares", () => {
     const annotated = {
-        ...only(graph, ["l1"]),
+        ...Topology.only(graph, ["l1"]),
         findings: [{ level: "error" as const, device: "r1", message: "broken" }],
         drift: { r2: { status: "differs" as const, lines: ["/ip address"] } },
     };
 
-    const chart = mermaid(annotated);
+    const chart = GraphFormat.mermaid(annotated);
     expect(chart).toStartWith("graph LR\n");
     expect(chart).toContain('n0["r1<br/>routeros CCR2216-1G-12XS-2XQ"]');
     expect(chart).toContain('n1 -.-|"25g-2 to 10g-4"| n2');
     expect(chart).toContain("class n0 error");
     expect(chart).toContain("class n1 warning");
 
-    const drawing = dot(annotated);
+    const drawing = GraphFormat.dot(annotated);
     expect(drawing).toContain('"device:r2" -- "device:sw" [label="25g-2 to 10g-4", style=dashed];');
     expect(drawing).toContain('color="#d1242f"');
 });

@@ -2,7 +2,7 @@
 // Lesson: writing a network down. The reader slips a mistake into a router's file and sees what `circuit validate` says about it, before anything is sent.
 
 import { computed, ref } from "vue";
-import { routerFile } from "./PlanEditor";
+import { RouterFile } from "./PlanEditor";
 
 type Mistake = {
     id: string;
@@ -62,7 +62,7 @@ const mistakes: Mistake[] = [
 const chosen = ref<string>();
 const mistake = computed(() => mistakes.find((entry) => entry.id === chosen.value));
 
-const base = routerFile({ describe: true, removeIntern: false, dns: false, drift: false }).text;
+const base = RouterFile.of({ describe: true, removeIntern: false, dns: false, drift: false }).text;
 
 const file = computed(() => {
     if (!mistake.value) return { text: base, line: [] as number[] };

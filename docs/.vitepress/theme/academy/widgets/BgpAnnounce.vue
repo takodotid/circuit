@@ -2,7 +2,7 @@
 // Lesson: BGP. The reader announces a prefix from their AS and steps through the rounds as it spreads, the AS path growing at each hop and loops dropped; cutting links changes the paths.
 
 import { computed, ref } from "vue";
-import { announce, type Arrival } from "./BgpAnnounce";
+import { Announcement, type Arrival } from "./BgpAnnounce";
 
 const ORIGIN = 64500;
 const PREFIX = "198.51.100.0/24";
@@ -31,7 +31,7 @@ const cut = ref<string[]>([]);
 const linkKey = ([a, b]: [number, number]) => `${a}-${b}`;
 const links = computed(() => allLinks.filter((link) => !cut.value.includes(linkKey(link))));
 
-const rounds = computed(() => announce(links.value, ORIGIN));
+const rounds = computed(() => Announcement.rounds(links.value, ORIGIN));
 const step = ref(0);
 
 const round = computed(() => (step.value === 0 ? undefined : rounds.value[step.value]));

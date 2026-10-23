@@ -2,18 +2,7 @@
 // Lesson: reading an IP address. The reader types an address and slides the prefix length, and sees its 32 bits split into network and host, the mask, the first and last address, and how many the block holds.
 
 import { computed, ref, watch } from "vue";
-import {
-    bitsOfAddress,
-    blockSize,
-    broadcastOf,
-    countText,
-    formatAddress,
-    maskOf,
-    networkOf,
-    parseAddress,
-    partsOf,
-    privateRangeOf,
-} from "./PrefixSlider";
+import { Ipv4 } from "./PrefixSlider";
 
 const MIN_PREFIX = 8;
 const MAX_PREFIX = 30;
@@ -24,11 +13,11 @@ const prefix = ref(24);
 const examples = ["192.168.1.37", "10.20.30.40", "172.16.5.200"];
 const presets = [8, 16, 24, 25, 30];
 
-const parsed = computed(() => parseAddress(text.value));
+const parsed = computed(() => Ipv4.parse(text.value));
 const error = computed(() => ("error" in parsed.value ? parsed.value.error : undefined));
 
 /** The last address the reader typed that could be read, so the drawing stays while they type. */
-const address = ref((parseAddress(text.value) as { value: number }).value);
+const address = ref((Ipv4.parse(text.value) as { value: number }).value);
 
 watch(parsed, (next) => {
     if ("value" in next) address.value = next.value;
@@ -36,8 +25,8 @@ watch(parsed, (next) => {
 
 /** Four groups of eight bits, each with its number and which part each bit belongs to. */
 function groups(value: number) {
-    const bits = bitsOfAddress(value);
-    return partsOf(value).map((number, group) => ({
+    const bits = Ipv4.bits(value);
+    return Ipv4.parts(value).map((number, group) => ({
         number,
         bits: bits
             .slice(group * 8, group * 8 + 8)
@@ -46,14 +35,14 @@ function groups(value: number) {
 }
 
 const addressGroups = computed(() => groups(address.value));
-const maskGroups = computed(() => groups(maskOf(prefix.value)));
+const maskGroups = computed(() => groups(Ipv4.mask(prefix.value)));
 
-const mask = computed(() => formatAddress(maskOf(prefix.value)));
-const network = computed(() => networkOf(address.value, prefix.value));
-const broadcast = computed(() => broadcastOf(address.value, prefix.value));
-const size = computed(() => blockSize(prefix.value));
+const mask = computed(() => Ipv4.format(Ipv4.mask(prefix.value)));
+const network = computed(() => Ipv4.network(address.value, prefix.value));
+const broadcast = computed(() => Ipv4.broadcast(address.value, prefix.value));
+const size = computed(() => Ipv4.blockSize(prefix.value));
 const hostBits = computed(() => 32 - prefix.value);
-const privateRange = computed(() => privateRangeOf(address.value));
+const privateRange = computed(() => Ipv4.privateRange(address.value));
 
 /** How the count is made: a 2 for every host bit, multiplied together. */
 const twosText = computed(() =>
@@ -114,7 +103,7 @@ const splitText = computed(() => {
         </div>
 
         <div class="rows" :class="{ stale: error }">
-            <p class="row-name">The address, {{ formatAddress(address) }}, as 32 bits</p>
+            <p class="row-name">The address, {{ Ipv4.format(address) }}, as 32 bits</p>
             <div class="groups">
                 <div v-for="(group, index) in addressGroups" :key="index" class="group">
                     <span class="group-number">{{ group.number }}</span>
@@ -164,27 +153,27 @@ const splitText = computed(() => {
                     <tr>
                         <th scope="row">First address</th>
                         <td>
-                            <span class="ac-mono">{{ formatAddress(network) }}</span
+                            <span class="ac-mono">{{ Ipv4.format(network) }}</span
                             >: the network address, stands for the network itself
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">Last address</th>
                         <td>
-                            <span class="ac-mono">{{ formatAddress(broadcast) }}</span
+                            <span class="ac-mono">{{ Ipv4.format(broadcast) }}</span
                             >: the broadcast address, reaches every device at once
                         </td>
                     </tr>
                     <tr class="lit">
                         <th scope="row">For devices</th>
                         <td>
-                            <span class="ac-mono">{{ formatAddress(network + 1) }}</span> to
-                            <span class="ac-mono">{{ formatAddress(broadcast - 1) }}</span>
+                            <span class="ac-mono">{{ Ipv4.format(network + 1) }}</span> to
+                            <span class="ac-mono">{{ Ipv4.format(broadcast - 1) }}</span>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">How many</th>
-                        <td>{{ countText(size) }} addresses in all, {{ countText(size - 2) }} for devices</td>
+                        <td>{{ Ipv4.countText(size) }} addresses in all, {{ Ipv4.countText(size - 2) }} for devices</td>
                     </tr>
                     <tr>
                         <th scope="row">Private?</th>
@@ -196,7 +185,7 @@ const splitText = computed(() => {
 
         <p class="ac-say hint" aria-live="polite">
             With <span class="ac-mono">/{{ prefix }}</span
-            >, {{ hostBits }} host bits make {{ twosText }} = {{ countText(size) }} addresses. {{ splitText }}
+            >, {{ hostBits }} host bits make {{ twosText }} = {{ Ipv4.countText(size) }} addresses. {{ splitText }}
         </p>
     </div>
 </template>

@@ -4,12 +4,12 @@
 
 import { computed } from "vue";
 import { withBase } from "vitepress";
-import { levels, lessonLink, type lessons } from "../../academy";
+import { Academy } from "../../academy";
 
-const props = defineProps<{ lesson: (typeof lessons)[number] }>();
+const props = defineProps<{ lesson: (typeof Academy.LESSONS)[number] }>();
 
-const before = computed(() => levels[levels.findIndex((level) => level.slug === props.lesson.level.slug) - 1]!);
-const beforeStart = computed(() => lessonLink(before.value, before.value.lessons[0]!));
+const before = computed(() => Academy.LEVELS[Academy.LEVELS.findIndex((level) => level.slug === props.lesson.level.slug) - 1]!);
+const beforeStart = computed(() => Academy.link(before.value, before.value.lessons[0]!));
 </script>
 
 <template>

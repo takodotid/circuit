@@ -1,10 +1,10 @@
 // Your AS number, and what your BGP communities mean, for you and for your customers.
 
-import { communityScheme } from "@takodotid/circuit/presets";
+import { Bgp } from "@takodotid/circuit/presets";
 
 export const ASN = 64500;
 
-export const communities = communityScheme({
+export const communities = Bgp.communityScheme({
     asn: ASN,
     learned_from: { function: 1, classes: { transit: 1, exchange: 2, customer: 3 } },
     learned_from_as: 3,

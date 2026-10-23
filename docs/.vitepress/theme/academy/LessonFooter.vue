@@ -3,20 +3,20 @@
 
 import { computed } from "vue";
 import { withBase } from "vitepress";
-import { lessons } from "../../academy";
-import { isDone, isOpen, setDone } from "./progress";
+import { Academy } from "../../academy";
+import { Progress } from "./progress";
 
-const props = defineProps<{ lesson: (typeof lessons)[number] }>();
+const props = defineProps<{ lesson: (typeof Academy.LESSONS)[number] }>();
 
-const finished = computed(() => isDone(props.lesson.link));
-const next = computed(() => lessons[lessons.findIndex((entry) => entry.link === props.lesson.link) + 1]);
+const finished = computed(() => Progress.isDone(props.lesson.link));
+const next = computed(() => Academy.LESSONS[Academy.LESSONS.findIndex((entry) => entry.link === props.lesson.link) + 1]);
 
 // The next lesson may start a level that is still closed: then the way on is its entry check.
 const nextLink = computed(() =>
-    next.value && !isOpen(next.value.level.slug) ? `/academy/checks/${next.value.level.slug}` : next.value?.link
+    next.value && !Progress.isOpen(next.value.level.slug) ? `/academy/checks/${next.value.level.slug}` : next.value?.link
 );
 const nextText = computed(() =>
-    next.value && !isOpen(next.value.level.slug) ? `Next: the ${next.value.level.name} entry check` : `Next: ${next.value?.title}`
+    next.value && !Progress.isOpen(next.value.level.slug) ? `Next: the ${next.value.level.name} entry check` : `Next: ${next.value?.title}`
 );
 </script>
 
@@ -27,13 +27,13 @@ const nextText = computed(() =>
             You can now: <strong>{{ lesson.outcome.replace(/\.$/, "").replace(/^./, (letter) => letter.toLowerCase()) }}.</strong>
         </p>
         <div class="actions">
-            <button v-if="!finished" type="button" class="ac-button primary" @click="setDone(lesson.link, true)">
+            <button v-if="!finished" type="button" class="ac-button primary" @click="Progress.setDone(lesson.link, true)">
                 I can do this, mark it done
             </button>
             <template v-else>
                 <a v-if="next" class="ac-button primary" :href="withBase(nextLink)">{{ nextText }}</a>
                 <a v-else class="ac-button primary" :href="withBase('/academy/certification')">See the certification</a>
-                <button type="button" class="ac-button" @click="setDone(lesson.link, false)">Not yet, unmark it</button>
+                <button type="button" class="ac-button" @click="Progress.setDone(lesson.link, false)">Not yet, unmark it</button>
             </template>
         </div>
         <p class="note">Your progress is kept in this browser only.</p>

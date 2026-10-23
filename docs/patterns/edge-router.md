@@ -18,7 +18,7 @@ my-network/
 
 ## routing.ts
 
-Your AS number, and what your BGP communities mean. The router tags every route it learns with where it came from, and `circuit communities` publishes the same list. See [communityScheme](/guide/communities).
+Your AS number, and what your BGP communities mean. The router tags every route it learns with where it came from, and `circuit communities` publishes the same list. See [Bgp.communityScheme](/guide/communities).
 
 <<< @/../templates/edge-router/routing.ts
 

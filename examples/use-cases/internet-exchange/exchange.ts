@@ -3,10 +3,10 @@
 // Addresses are from the documentation ranges, in place of the exchange's own.
 
 import type { Prefix, Vlan } from "@takodotid/circuit";
-import { internetExchange } from "@takodotid/circuit/presets";
+import { Exchange } from "@takodotid/circuit/presets";
 import { MEMBERS } from "./members";
 
-export const exchange = internetExchange(
+export const exchange = Exchange.build(
     {
         vlan: "peering",
         lan: { ipv4: "203.0.113.0/24", ipv6: "2001:db8:ffff::/64" },

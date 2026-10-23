@@ -17,7 +17,9 @@ class Golden {
         "examples/golden.config.ts",
         "examples/full-setup/circuit.config.ts",
         ...["single-site", "edge-router", "colocation"].map((pattern) => `templates/${pattern}/circuit.config.ts`),
-        ...["ip-transit", "ix-transit", "internet-exchange", "virtual-exchange"].map((name) => `examples/use-cases/${name}/circuit.config.ts`),
+        ...["ip-transit", "ix-transit", "internet-exchange", "virtual-exchange"].map(
+            (name) => `examples/use-cases/${name}/circuit.config.ts`
+        ),
     ];
 
     /** Commands that read only the config, the same on every run. */
@@ -37,7 +39,11 @@ class Golden {
 
     /** Run the CLI and keep what it printed, the exit code included. */
     static run(args: string[]): string {
-        const result = spawnSync("bun", [Golden.CLI, ...args], { cwd: Golden.ROOT, encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } });
+        const result = spawnSync("bun", [Golden.CLI, ...args], {
+            cwd: Golden.ROOT,
+            encoding: "utf8",
+            env: { ...process.env, NO_COLOR: "1" },
+        });
         return `exit ${result.status}\n--- stdout\n${result.stdout}\n--- stderr\n${result.stderr}`;
     }
 
@@ -87,7 +93,9 @@ class Golden {
 
         if (differ.length) {
             console.log(differ.join("\n"));
-            console.log(`\n${differ.length} of ${outputs.size} outputs changed. Compare with: git diff --no-index .golden/<file> <(bun src/cli/index.ts ...)`);
+            console.log(
+                `\n${differ.length} of ${outputs.size} outputs changed. Compare with: git diff --no-index .golden/<file> <(bun src/cli/index.ts ...)`
+            );
             process.exit(1);
         }
 

@@ -4,7 +4,7 @@ import { afterEach, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applyRename, planRename } from "../../src/cli/rename";
+import { Rename } from "../../src/cli/rename";
 
 let root = "";
 
@@ -37,7 +37,7 @@ function project(): string {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 test("every exact string takes the new name, in any quotes, outside node_modules", () => {
-    const plan = planRename(project(), "tor-01", "rack-a-01", { file: false, snapshots: [join(".circuit", "state", "tor-01.cfg")] });
+    const plan = Rename.plan(project(), "tor-01", "rack-a-01", { file: false, snapshots: [join(".circuit", "state", "tor-01.cfg")] });
 
     expect(plan.changes.map((change) => [change.file.replaceAll("\\", "/"), change.line, change.after.trim()])).toEqual([
         ["edge-01.ts", 3, 'ports: { "100g-1": { description: "To tor-01", link: { device: \'rack-a-01\', port: "10g-1" } } },'],
@@ -52,14 +52,14 @@ test("every exact string takes the new name, in any quotes, outside node_modules
 });
 
 test("with file, the file that declares the device takes its name, and imports of it follow, in their own form", () => {
-    const plan = planRename(project(), "tor-01", "rack-a-01", { file: true, snapshots: [] });
+    const plan = Rename.plan(project(), "tor-01", "rack-a-01", { file: true, snapshots: [] });
 
     expect(plan.moves.map((move) => [move.from, move.to])).toEqual([["switch.ts", "rack-a-01.ts"]]);
     expect(plan.changes.filter((change) => change.file === "circuit.config.ts").map((change) => change.after)).toEqual([
         'import access from "./rack-a-01.ts";',
     ]);
 
-    applyRename(root, plan);
+    Rename.apply(root, plan);
 
     expect(existsSync(join(root, "switch.ts"))).toBe(false);
     expect(readFileSync(join(root, "rack-a-01.ts"), "utf8")).toContain('name: "rack-a-01"');
@@ -69,8 +69,8 @@ test("with file, the file that declares the device takes its name, and imports o
 });
 
 test("applying moves the snapshot and leaves the rest of each file as it was", () => {
-    const plan = planRename(project(), "tor-01", "rack-a-01", { file: false, snapshots: [join(".circuit", "state", "tor-01.cfg")] });
-    applyRename(root, plan);
+    const plan = Rename.plan(project(), "tor-01", "rack-a-01", { file: false, snapshots: [join(".circuit", "state", "tor-01.cfg")] });
+    Rename.apply(root, plan);
 
     expect(readFileSync(join(root, ".circuit/state/rack-a-01.cfg"), "utf8")).toBe("sysname tor-01\n");
     expect(readFileSync(join(root, "node_modules/other/index.ts"), "utf8")).toBe('export const name = "tor-01";\n');
@@ -78,8 +78,8 @@ test("applying moves the snapshot and leaves the rest of each file as it was", (
 });
 
 test("a name no file declares as written, or a file name already taken, stops the rename", () => {
-    expect(() => planRename(project(), "core-01", "core-02", { file: false, snapshots: [] })).toThrow('no file declares name: "core-01"');
+    expect(() => Rename.plan(project(), "core-01", "core-02", { file: false, snapshots: [] })).toThrow('no file declares name: "core-01"');
 
     writeFileSync(join(root, "rack-a-01.ts"), "");
-    expect(() => planRename(root, "tor-01", "rack-a-01", { file: true, snapshots: [] })).toThrow("rack-a-01.ts already exists");
+    expect(() => Rename.plan(root, "tor-01", "rack-a-01", { file: true, snapshots: [] })).toThrow("rack-a-01.ts already exists");
 });

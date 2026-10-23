@@ -3,7 +3,7 @@
 
 import { computed, ref } from "vue";
 import { useTravel, type Point } from "../travel";
-import { prefersStill, useNarrow, usePause } from "./SwitchLearning";
+import { Motion, useNarrow, usePause } from "./SwitchLearning";
 
 const props = defineProps<{
     /** Add the forgotten row that makes two routers pass a packet back and forth. */
@@ -287,7 +287,7 @@ async function send() {
 
     let router: RouterId = "main";
     let hops = 0;
-    const still = prefersStill();
+    const still = Motion.still();
 
     while (true) {
         if (owners.some((owner) => owner.node === router && owner.address === text)) {

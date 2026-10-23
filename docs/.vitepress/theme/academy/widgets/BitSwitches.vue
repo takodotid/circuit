@@ -2,7 +2,7 @@
 // Lesson: counting like a computer. The reader flips eight switches to make a number from 0 to 255, or lets them count up one at a time. BitChallenges reuses it.
 
 import { computed, onBeforeUnmount, ref } from "vue";
-import { bitsOf, bitText, placeValues, sumText } from "./BitSwitches";
+import { Bits } from "./BitSwitches";
 
 const props = defineProps<{
     /** The switches show a number to read and cannot be flipped. */
@@ -15,14 +15,14 @@ const props = defineProps<{
 
 const value = defineModel<number>({ default: 0 });
 
-const bits = computed(() => bitsOf(value.value));
+const bits = computed(() => Bits.of(value.value));
 const said = ref<{ kind: "warn"; text: string }>();
 
 function flip(index: number) {
     if (props.locked) return;
     stop();
     said.value = undefined;
-    value.value = value.value ^ placeValues[index]!;
+    value.value = value.value ^ Bits.PLACES[index]!;
 }
 
 function addOne() {
@@ -89,7 +89,7 @@ onBeforeUnmount(stop);
     <div class="bit-switches">
         <div class="switches" role="group" aria-label="Eight switches, each worth twice the one to its right">
             <button
-                v-for="(place, index) in placeValues"
+                v-for="(place, index) in Bits.PLACES"
                 :key="place"
                 type="button"
                 class="switch"
@@ -106,14 +106,14 @@ onBeforeUnmount(stop);
         </div>
 
         <p v-if="!hideTotal" class="total" aria-live="polite">
-            <span class="ac-mono">{{ bitText(value) }}</span>
+            <span class="ac-mono">{{ Bits.text(value) }}</span>
             <span class="equals">=</span>
-            <span>{{ sumText(value) }}</span>
+            <span>{{ Bits.sum(value) }}</span>
             <span class="equals">=</span>
             <strong>{{ value }}</strong>
         </p>
         <p v-else class="total">
-            <span class="ac-mono">{{ bitText(value) }}</span>
+            <span class="ac-mono">{{ Bits.text(value) }}</span>
         </p>
 
         <div v-if="tools" class="ac-row tools">

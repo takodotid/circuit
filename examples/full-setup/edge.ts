@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import type { AclRule, Firewall, IP, Neighbor, NeighborSettings, PolicyRule, RoutePolicy, RpkiServer } from "@takodotid/circuit";
 import { secret } from "@takodotid/circuit";
-import { antiAmplification, antiSpoofing, badTcpFlags, bgpSanity } from "@takodotid/circuit/presets";
+import { Bgp, Filters } from "@takodotid/circuit/presets";
 import { AT, CUSTOMERS } from "./customers";
 import { ADMIN, ASN, communities, IX, OURS, SERVICES, SITE, type Site, SPOOFED } from "./network";
 import { customerPolicies, customerPrefixSets, customerSpace } from "./tenancy";
@@ -144,7 +144,7 @@ const learned = (
 /** Every policy an edge router at this site has: its transits', the exchange's when it is there, iBGP, and its BGP customers'. */
 export function policies(site: Site, transits: Readonly<Record<string, number>>, exchange: boolean) {
     const result: Record<string, RoutePolicy<string, string>> = {
-        SANITY: bgpSanity(),
+        SANITY: Bgp.sanity(),
 
         "IBGP-IN": [{ description: "Everything our other edge routers pass on", action: "accept" }],
         // Only what an import tagged, and our own space. A route that skipped an import never spreads.
@@ -252,7 +252,7 @@ export function firewall<const I extends string>(options: {
                 rules: [
                     { description: "Replies", match: { state: ["established", "related"] }, action: "accept", offload: true },
                     { description: "Invalid", match: { state: ["invalid"] }, action: "drop" },
-                    ...badTcpFlags(),
+                    ...Filters.badTcpFlags(),
                     // Remote desktop and telnet on a customer's server are never meant for the whole internet.
                     ...outside.map((iface) => ({
                         description: `Remote desktop and telnet from ${iface}`,
@@ -278,5 +278,5 @@ export function firewall<const I extends string>(options: {
 export function acl<const V extends string>(outside: readonly V[]): AclRule<V>[] {
     const shielded = CUSTOMERS.filter((c) => c.shield).map((c) => c.ipv4);
 
-    return [...outside.flatMap((vlan) => antiSpoofing(vlan, SPOOFED)), ...antiAmplification(shielded)];
+    return [...outside.flatMap((vlan) => Filters.antiSpoofing(vlan, SPOOFED)), ...Filters.antiAmplification(shielded)];
 }

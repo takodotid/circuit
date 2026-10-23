@@ -3,7 +3,7 @@
 // Not a real network. Our addresses are from the documentation ranges, 198.51.100.0/24 and 2001:db8:100::/48, and the links to other networks come from 203.0.113.0/24 and 2001:db8:ffff::/48. Every other network has a documentation AS number.
 
 import type { IP, Prefix, Vlan } from "@takodotid/circuit";
-import { communityScheme, MARTIANS, PRIVATE_RANGES } from "@takodotid/circuit/presets";
+import { Bgp, Filters } from "@takodotid/circuit/presets";
 
 /** Our AS number. */
 export const ASN = 64500;
@@ -12,7 +12,7 @@ export const ASN = 64500;
 export const OURS = { v4: "198.51.100.0/24", v6: "2001:db8:100::/48" } as const satisfies Record<string, Prefix>;
 
 /** Sources that never arrive from outside: our own space, and addresses not on the internet at all. */
-export const SPOOFED = [OURS.v4, ...MARTIANS, ...PRIVATE_RANGES];
+export const SPOOFED = [OURS.v4, ...Filters.MARTIANS, ...Filters.PRIVATE_RANGES];
 
 /** Where the devices are managed from: each site's management VLAN, and the NOC's VPN. */
 export const ADMIN = ["10.0.99.0/24", "10.1.99.0/24", "10.254.2.0/24"] as const satisfies readonly Prefix[];
@@ -40,7 +40,7 @@ export const INFRA_VLANS = {
 } as const satisfies Record<string, Vlan>;
 
 /** What our BGP communities mean. The edge routers tag each route they learn with them, and `circuit communities` publishes them. */
-export const communities = communityScheme({
+export const communities = Bgp.communityScheme({
     asn: ASN,
     learned_from: { function: 1, classes: { transit: 1, exchange: 2, peer: 3, customer: 4 } },
     learned_at: { function: 2, sites: { [SITE.a]: "site A", [SITE.b]: "site B" } },

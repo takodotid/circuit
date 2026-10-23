@@ -160,8 +160,8 @@ const members = [
             {{ current.outcome.harm }} The protection that stops it: {{ ruleLabel }}.
         </p>
         <p v-else class="ac-say hint" aria-live="polite">
-            All four protections start on, as the internetExchange preset writes them. Make C misbehave, then turn the protection that
-            stopped it off and try again.
+            All four protections start on, as the Exchange.build preset writes them. Make C misbehave, then turn the protection that stopped
+            it off and try again.
         </p>
     </div>
 </template>

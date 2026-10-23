@@ -3,16 +3,16 @@
 
 import { computed, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
-import { levels, lessonLink } from "../../academy";
+import { Academy } from "../../academy";
 import { checks, type Question } from "./checks";
-import { loadProgress, passed, setPassed } from "./progress";
+import { Progress } from "./progress";
 
 const props = defineProps<{ level: string }>();
 
 const check = checks.find((entry) => entry.level === props.level)!;
-const level = levels.find((entry) => entry.slug === check.level)!;
-const about = levels.find((entry) => entry.slug === check.about)!;
-const lessonTitle = (link: string) => about.lessons.find((lesson) => lessonLink(about, lesson) === link)?.title ?? link;
+const level = Academy.LEVELS.find((entry) => entry.slug === check.level)!;
+const about = Academy.LEVELS.find((entry) => entry.slug === check.about)!;
+const lessonTitle = (link: string) => about.lessons.find((lesson) => Academy.link(about, lesson) === link)?.title ?? link;
 
 type Drawn = Question & { order: number[] };
 
@@ -40,7 +40,7 @@ function draw() {
 }
 
 onMounted(() => {
-    loadProgress();
+    Progress.load();
     draw();
     ready.value = true;
 });
@@ -48,7 +48,7 @@ onMounted(() => {
 const answered = computed(() => Object.keys(picked.value).length);
 const right = computed(() => drawn.value.filter((question, index) => picked.value[index] === question.answer).length);
 const passedNow = computed(() => submitted.value && right.value >= check.pass);
-const passedBefore = computed(() => passed.value[check.level]);
+const passedBefore = computed(() => Progress.passed.value[check.level]);
 
 /** The lessons to read again: the ones behind every question answered wrong. */
 const review = computed(() => [
@@ -57,10 +57,10 @@ const review = computed(() => [
 
 function submit() {
     submitted.value = true;
-    if (right.value >= check.pass) setPassed(check.level);
+    if (right.value >= check.pass) Progress.setPassed(check.level);
 }
 
-const first = lessonLink(level, level.lessons[0]!);
+const first = Academy.link(level, level.lessons[0]!);
 const day = (time: number) => new Date(time).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 </script>
 

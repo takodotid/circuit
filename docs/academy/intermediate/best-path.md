@@ -61,7 +61,7 @@ You set it on import, per neighbor, with a policy rule that has only a `set`. Th
 
 ```ts
 policies: {
-    SANITY: bgpSanity(),
+    SANITY: Bgp.sanity(),
     // A route from the exchange is preferred over the same route from the transit: higher local preference wins.
     "TRANSIT-IN": [{ call: "SANITY" }, communities.tag("transit", 64510), { set: { local_pref: 100 } }, { action: "accept" }],
     "IX-IN": [{ call: "SANITY" }, communities.tag("exchange", 64511), { set: { local_pref: 200 } }, { action: "accept" }],

@@ -2,10 +2,10 @@
 
 import { EventEmitter } from "node:events";
 import { expect, test } from "bun:test";
-import { FORTIOS_CONSOLE } from "../../src/platforms/fortios/index";
-import { VRP_CONSOLE } from "../../src/platforms/vrp/index";
-import { ROUTEROS_CONSOLE } from "../../src/platforms/routeros/index";
-import { afterEcho, consoleLogin, ConsoleShell } from "../../src/transport/console";
+import { FortiOs } from "../../src/platforms/fortios/index";
+import { Vrp } from "../../src/platforms/vrp/index";
+import { RouterOs } from "../../src/platforms/routeros/index";
+import { SerialConsole, ConsoleShell } from "../../src/transport/console";
 
 /** A console that answers each line it receives from a script, and records what was written. */
 function fakeConsole(answers: Record<string, string | string[] | (() => string | string[])>) {
@@ -37,7 +37,7 @@ test("a FortiOS console left inside a config level is left, logged out, and logg
         "secret\n": "*******\r\nWelcome !\r\n\r\nFortiGate-3700D # ",
     });
 
-    await consoleLogin(channel, FORTIOS_CONSOLE, "supertako", "secret");
+    await SerialConsole.login(channel, FortiOs.CONSOLE, "supertako", "secret");
     expect(written).toEqual(["\n", "end\n", "exit\n", "supertako\n", "secret\n"]);
 });
 
@@ -49,7 +49,7 @@ test("a FortiOS console showing the pre-login banner is accepted before the logi
         "secret\n": "*******\r\nFortiGate-3700D # ",
     });
 
-    await consoleLogin(channel, FORTIOS_CONSOLE, "supertako", "secret");
+    await SerialConsole.login(channel, FortiOs.CONSOLE, "supertako", "secret");
     expect(written).toEqual(["\n", "a", "supertako\n", "secret\n"]);
 });
 
@@ -60,7 +60,7 @@ test("a refused console login fails", async () => {
         "wrong\n": "*****\r\nLogin incorrect\r\nFortiGate-3700D login: ",
     });
 
-    await expect(consoleLogin(channel, FORTIOS_CONSOLE, "supertako", "wrong")).rejects.toThrow("refused the login");
+    await expect(SerialConsole.login(channel, FortiOs.CONSOLE, "supertako", "wrong")).rejects.toThrow("refused the login");
 });
 
 test("a RouterOS console logs in with its flags after the user", async () => {
@@ -70,7 +70,7 @@ test("a RouterOS console logs in with its flags after the user", async () => {
         "secret\n": "\r\n  MikroTik RouterOS 7.23.5\r\n\r\n[supertako@tako-bdr-01] > ",
     });
 
-    await consoleLogin(channel, ROUTEROS_CONSOLE, "supertako", "secret");
+    await SerialConsole.login(channel, RouterOs.CONSOLE, "supertako", "secret");
     expect(written).toEqual(["\n", "supertako+cwt\n", "secret\n"]);
 });
 
@@ -84,19 +84,19 @@ test("a console command returns what it printed, without its wrapped echo or the
         ],
     });
 
-    const shell = new ConsoleShell(channel, ROUTEROS_CONSOLE);
+    const shell = new ConsoleShell(channel, RouterOs.CONSOLE);
     expect(await shell.run(command)).toBe("Flags: X - DISABLED\n 0 X ether1");
 });
 
 test("an echo that does not match leaves the text as it is", () => {
-    expect(afterEcho("something else\nout", "/system print")).toBe("something else\nout");
+    expect(SerialConsole.afterEcho("something else\nout", "/system print")).toBe("something else\nout");
 });
 
 test("a device needs a management address or a console", async () => {
-    const { validate } = await import("../../src/core/validate");
+    const { Validator } = await import("../../src/core/validator");
     const { default: firewall } = await import("../../examples/firewall");
     const reach = (connection: object) =>
-        validate({ devices: [{ ...firewall, connection: { user: firewall.connection.user, ...connection } }] });
+        Validator.run({ devices: [{ ...firewall, connection: { user: firewall.connection.user, ...connection } }] });
     const message = "connection has neither a host nor a console to reach the device through";
 
     expect(reach({}).map((finding) => finding.message)).toContain(message);
@@ -110,7 +110,7 @@ test("a VRP console that asks for a username and a password logs in", async () =
         "secret\n": "\r\nInfo: Current time.\r\n<tako-sw-01>",
     });
 
-    await consoleLogin(channel, VRP_CONSOLE, "netops", "secret");
+    await SerialConsole.login(channel, Vrp.CONSOLE, "netops", "secret");
     expect(written).toEqual(["\n", "netops\n", "secret\n"]);
 });
 
@@ -120,7 +120,7 @@ test("a VRP console that asks only for a password gets the password and no name"
         "secret\n": "\r\n<tako-sw-01>",
     });
 
-    await consoleLogin(channel, VRP_CONSOLE, "netops", "secret", true);
+    await SerialConsole.login(channel, Vrp.CONSOLE, "netops", "secret", true);
     expect(written).toEqual(["\n", "secret\n"]);
 });
 
@@ -133,7 +133,7 @@ test("a VRP console left logged in is logged out and brought back to its passwor
     });
     screens.splice(1, 1);
 
-    await consoleLogin(channel, VRP_CONSOLE, "netops", "secret", true);
+    await SerialConsole.login(channel, Vrp.CONSOLE, "netops", "secret", true);
     expect(written).toEqual(["\n", "quit\n", "\n", "secret\n"]);
 });
 
@@ -143,11 +143,11 @@ test("a VRP console that refuses the password says so", async () => {
         "wrong\n": "\r\nError: The password is invalid.\r\n\r\nUser interface con0 is available\r\n\r\nPlease Press ENTER.",
     });
 
-    await expect(consoleLogin(channel, VRP_CONSOLE, "netops", "wrong", true)).rejects.toThrow("refused the password");
+    await expect(SerialConsole.login(channel, Vrp.CONSOLE, "netops", "wrong", true)).rejects.toThrow("refused the password");
 });
 
 test("a console set to ask only for a password fails when it asks for a name", async () => {
     const { channel } = fakeConsole({ "\n": "\r\nUsername:" });
 
-    await expect(consoleLogin(channel, VRP_CONSOLE, "netops", "secret", true)).rejects.toThrow("asks for a name");
+    await expect(SerialConsole.login(channel, Vrp.CONSOLE, "netops", "secret", true)).rejects.toThrow("asks for a name");
 });
