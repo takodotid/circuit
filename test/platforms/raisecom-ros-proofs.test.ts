@@ -218,3 +218,16 @@ test("port security takes 1 to 1024, and 1024, its default, prints nothing", () 
     expect(platform.render(portDevice({ mac_limit: 1024 }))).toContain("switchport port-security\n!\n");
     expect(platform.unsupported(portDevice({ mac_limit: 1025 }))).toEqual(["ports.25g-1.mac_limit 1025, port security takes 1 to 1024"]);
 });
+
+test("the hostname is the device's name, set outside configuration mode, where `hostname` is refused", () => {
+    const rendered = platform.render(example);
+    expect(rendered).toContain("hostname example-core-switch\n");
+
+    // An unset hostname prints nothing, and the switch sends `Raisecom` over LLDP.
+    const unset = rendered.replace("hostname example-core-switch\n", "");
+    expect(platform.plan(rendered, unset, { secrets: false, rollback: 0 }).steps).toEqual([
+        { title: "hostname", show: ["+ hostname example-core-switch"], send: ["exit", "hostname example-core-switch", "config"] },
+    ]);
+    expect(sent(rendered, unset.replace("!\n", "!\nhostname old-name\n"))).toEqual(["exit", "hostname example-core-switch", "config"]);
+    expect(sent(rendered, rendered)).toEqual([]);
+});
