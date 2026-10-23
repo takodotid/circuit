@@ -67,6 +67,7 @@ test("a VLAN interface that keeps its name and takes a new VLAN ID is changed wi
 
     // The export as the router printed it, wrapped, after the interface was added on VLAN 3990.
     const running = platform.render(withVlan(3990)).replace("name=test-vlan01 vlan-id=3990", "name=test-vlan01 vlan-id=\\\n    3990");
+    expect(running).toContain("vlan-id=\\\n    3990");
 
     const plan = platform.plan(platform.render(withVlan(3991)), running, options);
     const sent = plan.steps.flatMap((step) => step.send);
@@ -149,5 +150,44 @@ test("BFD timers and multihop BFD are no longer refused; BFD on a static route i
 
     expect(platform.unsupported(device)).toEqual([
         "routing.static 192.0.2.0/24 bfd, a static route's check-gateway takes arp, none or ping on 7.23",
+    ]);
+});
+
+test("an ethertype filter: a switch rule per kind after the port's ACL, then a drop, as the router printed them", () => {
+    const filtered: Device = {
+        ...edge,
+        ports: { ...edge.ports, "25g-2": { ...edge.ports!["25g-2"]!, ethertypes: ["ipv4", "ipv6", "arp"] } },
+    };
+    const desired = platform.render(filtered);
+    const rules = desired.slice(desired.indexOf("/interface ethernet switch rule\n")).split("\n/")[0]!.split("\n").slice(1);
+
+    expect(rules.slice(-4)).toEqual([
+        'add comment="sfp28-2 takes ipv4" mac-protocol=ip ports=sfp28-2 switch=switch1',
+        'add comment="sfp28-2 takes ipv6" mac-protocol=ipv6 ports=sfp28-2 switch=switch1',
+        'add comment="sfp28-2 takes arp" mac-protocol=arp ports=sfp28-2 switch=switch1',
+        'add comment="sfp28-2 takes nothing else" new-dst-ports="" ports=sfp28-2 switch=switch1',
+    ]);
+
+    // The export wraps them as it wraps every long line.
+    const printed = desired
+        .replace("mac-protocol=ip ports=sfp28-2 switch=switch1", "mac-protocol=ip ports=sfp28-2 switch=\\\n    switch1")
+        .replace('new-dst-ports="" ports=sfp28-2 switch=switch1', 'new-dst-ports="" ports=sfp28-2 \\\n    switch=switch1');
+    expect(printed).toContain("switch=\\\n    switch1");
+    expect(platform.plan(desired, printed, options).steps).toEqual([]);
+
+    expect(platform.switchRules!(filtered).count).toBe(platform.switchRules!(edge).count + 4);
+});
+
+test("a MAC limit stays refused, for the reason the router gave, and an ethertype filter on a LAG as unproved", () => {
+    const device: Device = {
+        ...edge,
+        ports: { ...edge.ports, "25g-2": { ...edge.ports!["25g-2"]!, mac_limit: 1, ethertypes: ["ipv4"] } },
+        interfaces: { ...edge.interfaces, members: { type: "lag", mac_limit: 1, ethertypes: ["ipv4"] } },
+    };
+
+    expect(platform.unsupported(device)).toEqual([
+        "ports.25g-2.mac_limit, the platform has no MAC learning limit on a bridge port or a switch port on 7.23",
+        "interfaces.members.mac_limit, the platform has no MAC learning limit on a bridge port or a switch port on 7.23",
+        "interfaces.members.ethertypes, on a LAG, which is not proved on a device yet",
     ]);
 });

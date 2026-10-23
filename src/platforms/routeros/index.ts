@@ -52,6 +52,9 @@ export class RouterOs extends Platform {
         user: (user) => `${user}+cwt`,
     };
 
+    /** Why a MAC limit is refused: neither a bridge port nor a switch port has a learning limit on 7.23.5. */
+    private static readonly NO_MAC_LIMIT = "the platform has no MAC learning limit on a bridge port or a switch port on 7.23";
+
     /** The major version this adapter renders for. Version 6 has a different BGP and filter language altogether. */
     private static readonly SUPPORTED_MAJOR = 7;
 
@@ -139,6 +142,8 @@ export class RouterOs extends Platform {
             const thresholds = Object.values(port.storm_control ?? {});
             const percents = new Set(thresholds.map((threshold) => ("percent" in threshold ? threshold.percent : undefined)));
 
+            if (port.mac_limit !== undefined) found.push(`ports.${name}.mac_limit, ${RouterOs.NO_MAC_LIMIT}`);
+
             if (thresholds.some((threshold) => "pps" in threshold)) {
                 found.push(`ports.${name}.storm_control in pps, the platform takes percent`);
             } else if (percents.size > 1) {
@@ -148,6 +153,9 @@ export class RouterOs extends Platform {
 
         for (const [name, iface] of Object.entries(device.interfaces ?? {})) {
             if (iface.type !== "lag") continue;
+
+            if (iface.mac_limit !== undefined) found.push(`interfaces.${name}.mac_limit, ${RouterOs.NO_MAC_LIMIT}`);
+            if (iface.ethertypes !== undefined) found.push(`interfaces.${name}.ethertypes, on a LAG, which is not proved on a device yet`);
 
             for (const field of ["storm_control", "stp"] as const) {
                 if (iface[field] !== undefined) found.push(`interfaces.${name}.${field}, on a LAG`);
@@ -188,8 +196,8 @@ export class RouterOs extends Platform {
             if (route.bfd) found.push(`routing.static ${route.prefix} bfd, a static route's check-gateway takes arp, none or ping on 7.23`);
         }
 
-        // BFD on a static route is refused above, for the reason the device gave, rather than as unproved.
-        found.push(...Derive.unproved(device, ["bfd-timers", "multihop-bfd", "static-route-bfd"]));
+        // BFD on a static route and a MAC limit are refused above, for the reason the device gave, and an ethertype filter on a LAG as unproved.
+        found.push(...Derive.unproved(device, ["bfd-timers", "multihop-bfd", "static-route-bfd", "mac-limit", "ethertype-filter"]));
 
         return found;
     }
@@ -201,8 +209,9 @@ export class RouterOs extends Platform {
     override switchRules(device: Device): SwitchRules {
         const rules = RouterOsRender.switchRules(device);
         const ranges = new Set(rules.flatMap(({ srcPort, dstPort }) => [srcPort, dstPort]).filter((port) => port?.includes("-")));
+        const filters = RouterOsRender.ethertypeFilters(device).reduce((count, { ethertypes }) => count + ethertypes.length + 1, 0);
 
-        return { count: rules.length, ranges: ranges.size };
+        return { count: rules.length + filters, ranges: ranges.size };
     }
 
     /**

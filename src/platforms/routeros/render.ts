@@ -6,6 +6,7 @@ import { Secrets } from "../../core/secrets";
 import type {
     AclRule,
     Device,
+    Ethertype,
     Family,
     FilterMatch,
     Interface,
@@ -59,6 +60,9 @@ export class RouterOsRender {
 
     /** Address lists holding the prefixes BGP originates. A session reads the one of its family. */
     private static readonly NETWORKS: Record<Family, string> = { ipv4: "bgp-networks-v4", ipv6: "bgp-networks-v6" };
+
+    /** A kind of frame as a switch rule's `mac-protocol` names it. */
+    private static readonly MAC_PROTOCOLS: Record<Ethertype, string> = { ipv4: "ip", ipv6: "ipv6", arp: "arp" };
 
     /** Helpers the platform has, all stated so that one the config does not list is off. */
     private static readonly HELPERS = ["ftp", "tftp", "irc", "h323", "sip", "pptp", "rtsp"] as const;
@@ -1009,6 +1013,40 @@ export class RouterOsRender {
                 "vlan-id": match.vlan && this.vlanId(match.vlan),
             });
         }
+
+        this.ethertypeFilters();
+    }
+
+    /**
+     * A port that takes only some kinds of frame: a rule that lets each kind through, then one that drops the rest. The chip takes the first rule that matches on the port, so these come after the port's ACL, whose rules match only IPv4 or IPv6.
+     */
+    private ethertypeFilters(): void {
+        for (const { port, ethertypes } of RouterOsRender.ethertypeFilters(this.device)) {
+            const name = this.name(port);
+
+            for (const ethertype of ethertypes) {
+                this.add("/interface ethernet switch rule", "add", {
+                    comment: `${name} takes ${ethertype}`,
+                    "mac-protocol": RouterOsRender.MAC_PROTOCOLS[ethertype],
+                    ports: name,
+                    switch: "switch1",
+                });
+            }
+
+            this.add("/interface ethernet switch rule", "add", {
+                comment: `${name} takes nothing else`,
+                "new-dst-ports": "",
+                ports: name,
+                switch: "switch1",
+            });
+        }
+    }
+
+    /** The ports with an ethertype filter, with the kinds each takes. Each makes one switch rule per kind and one more. */
+    static ethertypeFilters(device: Device): { port: string; ethertypes: readonly Ethertype[] }[] {
+        return Object.entries(device.ports ?? {}).flatMap(([port, settings]) =>
+            settings?.ethertypes ? [{ port, ethertypes: settings.ethertypes }] : []
+        );
     }
 
     /** Every switch rule the device's hardware ACLs make, in order: one for each port with an ACL, each rule of it, and each source and destination port or range of the rule. */
