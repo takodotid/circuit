@@ -3,7 +3,7 @@
 import { X509Certificate } from "node:crypto";
 import { Platforms } from "../platforms";
 import { Catalog } from "../platforms/catalog";
-import type { Device } from "../schema";
+import type { Device, Switched } from "../schema";
 import { Address } from "./address";
 import { CrossChecks } from "./cross-checks";
 import type { Finding, Network } from "./define";
@@ -194,7 +194,19 @@ export class Validator {
             names.expect(`port ${name} ACL`, port.acl, port.acl !== undefined && port.acl in (device.acls ?? {}));
             names.expect(`port ${name} LAG`, port.lag, port.lag !== undefined && device.interfaces?.[port.lag]?.type === "lag");
             names.expect(`port ${name} VRF`, port.vrf, port.vrf !== undefined && port.vrf in (device.vrfs ?? {}));
+            Validator.checkFrames(`port ${name}`, port, report);
         }
+    }
+
+    /** A MAC limit is a whole number above 0, and an ethertype filter lets at least one kind in, each once. */
+    private static checkFrames(where: string, settings: Switched<string>, report: Report): void {
+        const limit = settings.mac_limit;
+        if (limit !== undefined && !(Number.isInteger(limit) && limit >= 1))
+            report(`${where} mac_limit ${limit} is not a whole number above 0`);
+
+        const kinds = settings.ethertypes;
+        if (kinds && !kinds.length) report(`${where} ethertypes is empty, so it would drop every frame`);
+        if (kinds && new Set(kinds).size !== kinds.length) report(`${where} ethertypes names a kind twice`);
     }
 
     private static checkInterfaces(device: Device, names: Names, report: Report, ip: Checker): void {
@@ -211,6 +223,8 @@ export class Validator {
             }
 
             if (iface.type === "lag") {
+                Validator.checkFrames(`LAG ${name}`, iface, report);
+
                 const members = Object.values(device.ports ?? {}).filter((port) => port?.lag === name);
                 if (!members.length) report(`LAG ${name} has no member ports`);
             }

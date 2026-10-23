@@ -192,3 +192,17 @@ test("Exchange.build keeps members apart", async () => {
         "203.0.113.1 of b is already a's",
     ]);
 });
+
+test("Exchange.build puts a MAC limit and an ethertype filter on every member port, only when asked", async () => {
+    const { Exchange } = await import("../../src/helpers");
+    const member = { name: "a", asn: 64510, ports: { "ix-sw-01": "10g-1" } };
+    const plain = Exchange.build({ vlan: "peering", lan: { ipv4: "203.0.113.0/24" } }, [member]);
+    const filtered = Exchange.build(
+        { vlan: "peering", lan: { ipv4: "203.0.113.0/24" }, mac_limit: 1, ethertypes: ["ipv4", "ipv6", "arp"] },
+        [member]
+    );
+
+    expect(plain.ports("ix-sw-01")["10g-1"]).not.toHaveProperty("mac_limit");
+    expect(plain.ports("ix-sw-01")["10g-1"]).not.toHaveProperty("ethertypes");
+    expect(filtered.ports("ix-sw-01")["10g-1"]).toMatchObject({ mac_limit: 1, ethertypes: ["ipv4", "ipv6", "arp"] });
+});

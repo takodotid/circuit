@@ -36,6 +36,7 @@ A field a platform cannot do is an error, never skipped; see [Devices](/guide/de
 | --------------------------------------------- | --------------------- | ------------------------ | ----------------------- | --------------------------------- | --------------------------------------------- |
 | VLANs, access and trunk ports, links          | yes                   | yes                      | yes                     | yes                               | VLAN interfaces on a routed port or LAG       |
 | Per-port STP, storm control, LLDP             | yes, storm in percent | yes, storm in percent    | off only, broadcast pps | yes, storm in percent             | LLDP                                          |
+| MAC limit, ethertype filter                   | not yet               | not yet                  | not yet                 | not yet                           | not yet                                       |
 | LAGs                                          | yes                   | yes                      | yes                     | yes                               | yes                                           |
 | Routed ports, loopbacks, tunnels              | yes                   | VLAN interfaces only     | VLAN interfaces only    | yes, GRE tunnels                  | yes, GRE and VXLAN                            |
 | VRRP, VRFs, DHCP relay                        | yes                   | IPv4                     | VRRP, IPv4              | IPv4 VRRP and relay               | IPv4 VRRP, VRFs, relay                        |

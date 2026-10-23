@@ -1,6 +1,6 @@
 import { Address } from "../core/address";
 import type { Check, Finding } from "../core/define";
-import type { IP, Port, Prefix } from "../schema";
+import type { Ethertype, IP, Port, Prefix } from "../schema";
 import { Checks } from "./checks";
 
 /** A member of an internet exchange: a network with a port on the fabric and an address on the peering LAN. */
@@ -25,6 +25,10 @@ export type InternetExchange<V extends string> = {
     reserved?: readonly IP[];
     /** How much broadcast, multicast and unknown unicast a member port lets through, in percent of its speed. 1 when absent. */
     storm_percent?: number;
+    /** The most MAC addresses a member port learns, usually 1. No limit when absent. No platform renders it yet, so `validate` refuses it. */
+    mac_limit?: number;
+    /** The only kinds of frame a member port takes in, usually `ipv4`, `ipv6` and `arp`. Every kind when absent. No platform renders it yet, so `validate` refuses it. */
+    ethertypes?: readonly Ethertype[];
 };
 
 /** An internet exchange's fabric: its member ports and a check of its members. */
@@ -32,7 +36,7 @@ export class Exchange {
     /**
      * Member ports and a check for an internet exchange's fabric.
      *
-     * - `ports(device)`: every member's port on one switch. A member port is in the peering VLAN and nothing else, takes no part in spanning tree or LLDP, and lets only a trickle of broadcast, multicast and unknown unicast through.
+     * - `ports(device)`: every member's port on one switch. A member port is in the peering VLAN and nothing else, takes no part in spanning tree or LLDP, and lets only a trickle of broadcast, multicast and unknown unicast through. With `mac_limit` and `ethertypes`, it also learns that many MAC addresses at most and takes in only those kinds of frame.
      * - `check`: members never share a name, an AS, an address or a port; every address is inside the peering LAN and not reserved; every member port carries the peering VLAN alone.
      */
     static build<const V extends string>(exchange: InternetExchange<V>, members: readonly ExchangeMember[]) {
@@ -51,6 +55,8 @@ export class Exchange {
                     stp: false,
                     lldp: false,
                     storm_control: { broadcast: { percent }, multicast: { percent }, unknown_unicast: { percent } },
+                    ...(exchange.mac_limit !== undefined ? { mac_limit: exchange.mac_limit } : {}),
+                    ...(exchange.ethertypes ? { ethertypes: exchange.ethertypes } : {}),
                 };
             }
 

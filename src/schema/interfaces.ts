@@ -11,6 +11,9 @@ export type Vlan = {
 /** A storm-control threshold: packets per second, or percent of the link's speed. */
 export type Threshold = { pps: number } | { percent: number };
 
+/** A kind of frame, by the ethertype in its header: `ipv4` is 0x0800, `ipv6` 0x86DD, `arp` 0x0806. */
+export type Ethertype = "ipv4" | "ipv6" | "arp";
+
 /** A virtual router address shared with other devices on the same segment, RFC 5798. */
 export type Vrrp = {
     /** Virtual router number, 1 to 255. The same on every device sharing the address. */
@@ -77,6 +80,10 @@ export type Switched<V extends string> = {
         multicast?: Threshold;
         unknown_unicast?: Threshold;
     };
+    /** The most MAC addresses this port or LAG learns, 1 or more. Frames from any other source address are dropped. An exchange sets 1 on a member port, so each member sends from one router only. No limit when absent. */
+    mac_limit?: number;
+    /** The only kinds of frame this port or LAG takes in; any other kind is dropped. An exchange takes `ipv4`, `ipv6` and `arp` on a member port. Every kind when absent. */
+    ethertypes?: readonly Ethertype[];
 };
 
 /** The other end of a cable: another device and its port. Both ends must agree on how they are switched. */
