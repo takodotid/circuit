@@ -141,6 +141,7 @@ export class RaisecomRosRender {
             if (ospfSettings?.network === "point-to-point") lines.push("ip ospf network ptp");
             if (ospfSettings?.cost !== undefined) lines.push(`ip ospf cost ${ospfSettings.cost}`);
             if (ospfSettings?.passive) lines.push("ip ospf passive-interface enable");
+            if (ospfSettings?.bfd) lines.push("ip ospf bfd");
 
             for (const group of iface.vrrp ?? []) lines.push(...RaisecomRosRender.vrrp(group));
 
@@ -193,9 +194,19 @@ export class RaisecomRosRender {
         const snmpAcl = snmpSources ? RaisecomRosRender.SNMP_ACL : allow.length ? RaisecomRosRender.MANAGEMENT_ACL : undefined;
         if ((snmp?.community || snmpUsers.length) && snmpAcl) lines.push(`snmp-server access-list ${snmpAcl}`);
 
+        // A static route watched by BFD tracks a BFD session, one per next hop, bound to the VLAN interface the next hop is on.
+        const sessions = RaisecomRosRender.bfdSessions(device);
+
+        for (const [via, session] of sessions) {
+            lines.push(`bfd ${session.id} bind peer-ip ${via} interface vlan ${vlanId(session.vlan)}`, "session enable", "!");
+        }
+
         for (const route of device.routing?.static ?? []) {
             const { addr, len } = Address.split(route.prefix);
-            if (Address.family(addr) === "ipv4" && route.via) lines.push(`ip route ${addr} ${Address.netmask(len)} ${route.via}`);
+            if (Address.family(addr) !== "ipv4" || !route.via) continue;
+
+            const session = route.bfd ? sessions.get(route.via) : undefined;
+            lines.push(`ip route ${addr} ${Address.netmask(len)} ${route.via}${session ? ` track bfd ${session.id}` : ""}`);
         }
 
         if (management.telnet) {
@@ -289,6 +300,28 @@ export class RaisecomRosRender {
     }
 
     /** The MAC access-list of the port at `index` in the catalog, for its `ethertypes`. MAC access-lists are 3000 and up. */
+    /** The BFD session for each next hop a static route watches, numbered from 1 in the order the routes come, with the VLAN its interface is on. A next hop on no VLAN interface's network has none. */
+    static bfdSessions(device: Device): Map<string, { id: number; vlan: string }> {
+        const sessions = new Map<string, { id: number; vlan: string }>();
+
+        for (const route of device.routing?.static ?? []) {
+            if (!route.bfd || !route.via || sessions.has(route.via)) continue;
+
+            const holder = Object.values(device.interfaces ?? {}).find(
+                (iface) =>
+                    iface.type === "vlan" &&
+                    (iface.addresses ?? []).some((entry) => {
+                        const address = typeof entry === "string" ? entry : entry.address;
+                        return Address.family(address) === "ipv4" && Address.contains(Address.prefixOf(address), route.via!);
+                    })
+            );
+
+            if (holder?.type === "vlan") sessions.set(route.via, { id: sessions.size + 1, vlan: holder.vlan });
+        }
+
+        return sessions;
+    }
+
     static ethertypeAcl(index: number): number {
         return 3001 + index;
     }

@@ -335,6 +335,7 @@ test("BFD timers, BFD on a static route and BFD on a multihop session are refuse
             fortios: ["timers", "static", "multihop"],
             vrp: ["timers", "static"],
             junos: ["timers", "static", "multihop"],
+            "raisecom-ros": ["static"],
         };
         const findings = {
             timers: "routing.bfd, BFD timers are not proved on a device yet",

@@ -63,9 +63,9 @@ export default defineDevice({
 
     routing: {
         router_id: "192.0.2.3",
-        static: [{ prefix: "0.0.0.0/0", via: "192.0.2.1" }],
+        static: [{ prefix: "0.0.0.0/0", via: "192.0.2.1", bfd: true }],
         ospf: {
-            areas: { "0.0.0.0": { interfaces: { management: { cost: 10, network: "point-to-point", passive: true } } } },
+            areas: { "0.0.0.0": { interfaces: { management: { cost: 10, network: "point-to-point", passive: true, bfd: true } } } },
             redistribute: ["connected", "static"],
         },
     },

@@ -231,3 +231,45 @@ test("the hostname is the device's name, set outside configuration mode, where `
     expect(sent(rendered, unset.replace("!\n", "!\nhostname old-name\n"))).toEqual(["exit", "hostname example-core-switch", "config"]);
     expect(sent(rendered, rendered)).toEqual([]);
 });
+
+// Proved on tako-mmr-01 (ROS 6.5.2), 2026-10-24: OSPF BFD on a VLAN interface, and a static route tracking a BFD session bound to the next hop (#107).
+test("OSPF BFD and a static route watched by BFD render as the switch printed them, and go in order", () => {
+    const platform = Platforms.get("raisecom-ros");
+    const watched: Device = {
+        ...coreSwitch,
+        vlans: { ...coreSwitch.vlans, test: { id: 3999 } },
+        interfaces: { ...coreSwitch.interfaces, test: { type: "vlan", vlan: "test", addresses: ["198.18.10.1/30"] } },
+        routing: {
+            ...coreSwitch.routing,
+            static: [{ prefix: "198.51.100.0/24", via: "198.18.10.2", bfd: true }],
+            ospf: { areas: { "0.0.0.0": { interfaces: { test: { bfd: true } } } } },
+        },
+    } as Device;
+
+    const rendered = platform.render(watched);
+    expect(rendered).toContain("interface vlan 3999\nip address 198.18.10.1 255.255.255.252\nip ospf bfd\n!");
+    expect(rendered).toContain("bfd 1 bind peer-ip 198.18.10.2 interface vlan 3999\nsession enable\n!");
+    expect(rendered).toContain("ip route 198.51.100.0 255.255.255.0 198.18.10.2 track bfd 1");
+    expect(platform.unsupported(watched)).toEqual([]);
+
+    // How the switch printed them.
+    const printed = rendered.replace("session enable", "  session enable").replace("track bfd 1", "track bfd-session 1 ");
+    expect(platform.plan(rendered, printed, { secrets: false, rollback: 10 }).steps).toEqual([]);
+
+    // Taken away, the route goes before the session it tracks.
+    const sent = platform.plan(platform.render(coreSwitch), printed, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+    const route = sent.indexOf("no ip route 198.51.100.0 255.255.255.0 198.18.10.2");
+    expect(route).toBeGreaterThanOrEqual(0);
+    expect(sent.indexOf("no bfd 1")).toBeGreaterThan(route);
+});
+
+test("a static route watched by BFD needs its next hop on a VLAN interface's network", () => {
+    const astray: Device = {
+        ...coreSwitch,
+        routing: { ...coreSwitch.routing, static: [{ prefix: "198.51.100.0/24", via: "203.0.113.1", bfd: true }] },
+    } as Device;
+
+    expect(Platforms.get("raisecom-ros").unsupported(astray)).toContain(
+        "routing.static 198.51.100.0/24 bfd, the next hop must be on a VLAN interface's network"
+    );
+});
