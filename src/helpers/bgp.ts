@@ -1,5 +1,15 @@
+import { Address } from "../core/address";
 import type { Community } from "../core/define";
-import type { Device, LargeCommunityPattern, PolicyRule, Prefix, StandardCommunity, StandardCommunityPattern } from "../schema";
+import type {
+    Device,
+    IP,
+    LargeCommunity,
+    LargeCommunityPattern,
+    PolicyRule,
+    Prefix,
+    StandardCommunity,
+    StandardCommunityPattern,
+} from "../schema";
 
 /** The prefix lengths a BGP import accepts. */
 export type SanityLengths = {
@@ -7,6 +17,33 @@ export type SanityLengths = {
     ipv4?: { min: number; max: number };
     /** Shortest and longest IPv6 prefix accepted. /16 to /48 when absent. */
     ipv6?: { min: number; max: number };
+};
+
+/** A prefix we announce, and what it is. */
+export type Announced = { prefix: Prefix; description?: string };
+
+/** What `Bgp.learn` builds an import from. */
+export type LearnOptions<P extends string> = {
+    /** Rules of your own, first. */
+    before?: readonly PolicyRule<P, never>[];
+    /** A policy holding `Bgp.sanity()` to call. The sanity rules are written in the import itself when absent. */
+    sanity?: P;
+    /** The source address for routes of its family, one per family. */
+    sources?: readonly IP[];
+    /** Preference for the routes learned. Higher wins. */
+    local_pref?: number;
+    /** Where the route came from: a community to add, or a rule, such as `communityScheme(...).tag(...)`. */
+    tag?: StandardCommunity | LargeCommunity | PolicyRule<never, never>;
+};
+
+/** What `Bgp.defaultOnly` sets on the default routes it takes. */
+export type DefaultOnlyOptions = {
+    /** Preference for the default route. Higher wins. */
+    local_pref?: number;
+    /** Shown beside each rule. `Default route, ipv4` and `Default route, ipv6` when absent. */
+    description?: string;
+    /** The source address for the default of its family, one per family. */
+    sources?: readonly IP[];
 };
 
 /** Kinds of neighbor and the number each is tagged with, such as `{ transit: 1, customer: 3 }`. */
@@ -45,12 +82,18 @@ export type CommunityScheme<
 /** The class names a scheme declares, or any name when it declares none. */
 type ClassName<Classes extends CommunityClasses> = {} extends Classes ? string : Extract<keyof Classes, string>;
 
-/** BGP policy: an import sanity policy, a community scheme, and helpers that read a device's BGP neighbors. */
+/** BGP policy: an import sanity policy, the shapes most imports and exports take, a community scheme, and helpers that read a device's BGP neighbors. */
 export class Bgp {
     private static readonly PREPENDS = [
         ["once", 1],
         ["twice", 2],
         ["three_times", 3],
+    ] as const;
+
+    /** The default route of each family. */
+    private static readonly DEFAULTS = [
+        { family: "ipv4", prefix: "0.0.0.0/0" },
+        { family: "ipv6", prefix: "::/0" },
     ] as const;
 
     /** Route policy rules rejecting what no neighbor should send: prefixes too short or too long for the global table, and RPKI invalid. Place it first in an import, or as a policy other imports call. */
@@ -81,6 +124,65 @@ export class Bgp {
             },
             { description: "RPKI invalid", match: { rpki: "invalid" }, action: "reject" },
         ];
+    }
+
+    /** An export policy that announces each prefix, at exactly its length, then rejects everything else. The last rule is the unconditional reject `Checks.exportsEndInReject` looks for. */
+    static announce(prefixes: readonly Announced[]): PolicyRule<never, never>[] {
+        return [
+            ...prefixes.map(({ prefix, description }) => ({
+                ...(description ? { description } : {}),
+                match: { prefix },
+                action: "accept" as const,
+            })),
+            { description: "Nothing else", action: "reject" },
+        ];
+    }
+
+    /**
+     * An import policy that takes a neighbor's routes: `before` first, then the sanity rules, then each source address and the local preference, then the tag, then accept.
+     *
+     * `sanity` names a policy holding `Bgp.sanity()` to call, so several imports share one; without it, the sanity rules are written here. `tag` is a community to add, or a rule such as `communityScheme(...).tag(...)`. Each of `sources` is the source address for routes of its own family.
+     */
+    static learn<const P extends string = never>(options: LearnOptions<P> = {}): PolicyRule<P, never>[] {
+        const { tag } = options;
+
+        return [
+            ...(options.before ?? []),
+            ...(options.sanity ? [{ call: options.sanity }] : Bgp.sanity()),
+            ...(options.sources ?? []).map((source) => ({ set: { preferred_source: source } })),
+            ...(options.local_pref !== undefined ? [{ set: { local_pref: options.local_pref } }] : []),
+            ...(tag === undefined ? [] : [typeof tag === "object" ? tag : Bgp.adding(tag)]),
+            { action: "accept" },
+        ];
+    }
+
+    /**
+     * Import rules that take the default route, `0.0.0.0/0` and `::/0`, from a transit. Any other route reaches the next rule, or is rejected when there is none. Each of `sources` is the source address for the default of its own family.
+     */
+    static defaultOnly(options: DefaultOnlyOptions = {}): PolicyRule<never, never>[] {
+        return Bgp.DEFAULTS.map(({ family, prefix }) => {
+            const source = options.sources?.find((address) => Address.family(address) === family);
+            const set = {
+                ...(options.local_pref !== undefined ? { local_pref: options.local_pref } : {}),
+                ...(source ? { preferred_source: source } : {}),
+            };
+
+            return {
+                description: options.description ?? `Default route, ${family}`,
+                match: { prefix },
+                ...(Object.keys(set).length ? { set } : {}),
+                action: "accept" as const,
+            };
+        });
+    }
+
+    /** A rule adding one community, standard or large. */
+    private static adding(community: StandardCommunity | LargeCommunity): PolicyRule<never, never> {
+        const large = community.split(":").length === 3;
+        return {
+            description: `Tag ${community}`,
+            set: large ? { add_large_communities: [community as LargeCommunity] } : { add_communities: [community as StandardCommunity] },
+        };
     }
 
     /** Each BGP neighbor's own policies and role, or its group's. */

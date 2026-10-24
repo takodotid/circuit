@@ -94,6 +94,28 @@ policies: {
 
 Other lengths can be given: `Bgp.sanity({ ipv4: { min: 8, max: 24 }, ipv6: { min: 16, max: 48 } })`.
 
+## BGP policies
+
+Three policies come back on almost every edge router. Each helper gives the rules, so they go straight into `policies`:
+
+```ts
+policies: {
+    SANITY: Bgp.sanity(),
+    // What we announce: each prefix at exactly its length, then a reject of everything else.
+    "TRANSIT-OUT": Bgp.announce([{ prefix: "192.0.2.0/24", description: "Our IPv4" }, { prefix: "2001:db8::/32" }]),
+    // What we take from a transit that sends its full table: sanity, preference, where it came from.
+    "TRANSIT-IN": Bgp.learn({ sanity: "SANITY", local_pref: 250, tag: "64500:1:1", sources: ["192.0.2.1", "2001:db8::1"] }),
+    // What we take from a transit that sends only its default route.
+    "BACKUP-IN": Bgp.defaultOnly({ local_pref: 100, description: "Transit B default" }),
+},
+```
+
+- `Bgp.announce` ends in the unconditional reject that `Checks.exportsEndInReject` looks for.
+- `Bgp.learn` writes, in this order: your own rules from `before`, the sanity rules (a call to `sanity`, or the rules themselves when you leave it out), each of `sources` as the source address for its family, `local_pref`, the `tag`, then accept. `tag` is a community, or a rule from [`Bgp.communityScheme`](/guide/communities).
+- `Bgp.defaultOnly` takes `0.0.0.0/0` and `::/0`. Any other route goes on to the next rule, so `[...Bgp.defaultOnly(), ...Bgp.learn()]` takes both, and is rejected when no rule follows.
+
+FortiOS has no RPKI match and no rule without an action, so it refuses `Bgp.learn` as it is; see [Platforms](/platforms/).
+
 ## BGP communities
 
 `Bgp.communityScheme` turns what your BGP communities mean into the rules your routers need and the list you publish. It has its own page: [BGP communities](/guide/communities).
