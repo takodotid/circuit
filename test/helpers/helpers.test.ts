@@ -322,3 +322,84 @@ test("exchange.openbgpd writes a group only for a family both ends have, and ref
         "198.51.100.1 of route server rs1 is outside the peering LAN"
     );
 });
+
+test("Bgp.announce accepts each prefix at its length and ends in the reject exportsEndInReject wants", async () => {
+    const { Bgp, Checks } = await import("../../src/helpers");
+    const rules = Bgp.announce([{ prefix: "192.0.2.0/24", description: "Our IPv4" }, { prefix: "2001:db8::/32" }]);
+
+    expect(rules).toEqual([
+        { description: "Our IPv4", match: { prefix: "192.0.2.0/24" }, action: "accept" },
+        { match: { prefix: "2001:db8::/32" }, action: "accept" },
+        { description: "Nothing else", action: "reject" },
+    ]);
+    expect(Checks.exportsEndInReject([{ ...router, policies: { ...router.policies, "UPSTREAM-OUT": rules } }])).toEqual([]);
+});
+
+test("Bgp.learn runs project rules, sanity, sources, preference and tag in that order, then accepts", async () => {
+    const { Bgp } = await import("../../src/helpers");
+    const before = { description: "No routes of ours back", match: { prefix: "192.0.2.0/24" as const }, action: "reject" as const };
+
+    expect(
+        Bgp.learn({ before: [before], sanity: "SANITY", sources: ["192.0.2.1", "2001:db8::1"], local_pref: 250, tag: "64500:1:1" })
+    ).toEqual([
+        before,
+        { call: "SANITY" },
+        { set: { preferred_source: "192.0.2.1" } },
+        { set: { preferred_source: "2001:db8::1" } },
+        { set: { local_pref: 250 } },
+        { description: "Tag 64500:1:1", set: { add_large_communities: ["64500:1:1"] } },
+        { action: "accept" },
+    ]);
+
+    // Without a policy to call, the sanity rules are written in; a standard community or a rule of the scheme tags just the same.
+    const scheme = Bgp.communityScheme({ asn: 64500, learned_from: { function: 1, classes: { transit: 1 } } });
+    expect(Bgp.learn({ tag: "64500:100" }).slice(0, 5)).toEqual(Bgp.sanity());
+    expect(Bgp.learn({ tag: "64500:100" }).at(-2)).toEqual({ description: "Tag 64500:100", set: { add_communities: ["64500:100"] } });
+    expect(Bgp.learn({ sanity: "SANITY", tag: scheme.tag("transit", 64501) }).at(-2)).toEqual(scheme.tag("transit", 64501));
+});
+
+test("Bgp.defaultOnly takes the default route of each family, with the source of its family", async () => {
+    const { Bgp } = await import("../../src/helpers");
+
+    expect(Bgp.defaultOnly({ local_pref: 100, description: "Transit A default", sources: ["2001:db8::1", "192.0.2.1"] })).toEqual([
+        {
+            description: "Transit A default",
+            match: { prefix: "0.0.0.0/0" },
+            set: { local_pref: 100, preferred_source: "192.0.2.1" },
+            action: "accept",
+        },
+        {
+            description: "Transit A default",
+            match: { prefix: "::/0" },
+            set: { local_pref: 100, preferred_source: "2001:db8::1" },
+            action: "accept",
+        },
+    ]);
+    expect(Bgp.defaultOnly()).toEqual([
+        { description: "Default route, ipv4", match: { prefix: "0.0.0.0/0" }, action: "accept" },
+        { description: "Default route, ipv6", match: { prefix: "::/0" }, action: "accept" },
+    ]);
+});
+
+test("RouterOS and Junos render the three policy shapes; FortiOS has no RPKI match and no rule without an action", async () => {
+    const { Bgp } = await import("../../src/helpers");
+    const policies = {
+        ANNOUNCE: Bgp.announce([{ prefix: "192.0.2.0/24", description: "Our IPv4" }]),
+        LEARN: Bgp.learn({ local_pref: 250, tag: "64500:100" }),
+        DEFAULT: Bgp.defaultOnly({ local_pref: 100 }),
+    };
+
+    for (const name of ["routeros", "junos", "fortios"] as const) {
+        const example = (await import(`../../examples/platforms/${name}`)).default;
+        const device = { ...example, policies: { ...example.policies, ...policies } };
+        const platform = Platforms.get(name);
+
+        if (name === "fortios") {
+            expect(platform.unsupported(device)).toContain("policies.LEARN[4].match.rpki");
+            continue;
+        }
+
+        expect(platform.unsupported(device)).toEqual([]);
+        expect(platform.render(device)).toContain("192.0.2.0/24");
+    }
+});
