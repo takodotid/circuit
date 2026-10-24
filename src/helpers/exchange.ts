@@ -40,6 +40,7 @@ export class Exchange {
      * - `ports(device)`: every member's port on one switch. A member port is in the peering VLAN and nothing else, takes no part in spanning tree or LLDP, and lets only a trickle of broadcast, multicast and unknown unicast through. With `mac_limit` and `ethertypes`, it also learns that many MAC addresses at most and takes in only those kinds of frame.
      * - `check`: members never share a name, an AS, an address or a port; every address is inside the peering LAN and not reserved; every member port carries the peering VLAN alone.
      * - `bird(server)`: one route server's BIRD 2 config, with a session to every member. Write it to a file for the server; Circuit never logs in to a route server.
+     * - `openbgpd(server)`: the same route server's config for OpenBGPD, its `bgpd.conf`, with the same sessions and the same rules.
      */
     static build<const V extends string>(exchange: InternetExchange<V>, members: readonly ExchangeMember[]) {
         const percent = exchange.storm_percent ?? 1;
@@ -109,7 +110,8 @@ export class Exchange {
         };
 
         const bird = (server: RouteServer) => RouteServerConfig.bird(server, exchange.lan, members);
+        const openbgpd = (server: RouteServer) => RouteServerConfig.openbgpd(server, exchange.lan, members);
 
-        return { ports, check, bird };
+        return { ports, check, bird, openbgpd };
     }
 }
