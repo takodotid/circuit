@@ -204,8 +204,8 @@ export class FortiOs extends Platform {
             if (vrf.description) found.push(`vrfs.${name}.description, the platform numbers a VRF and keeps no description`);
         }
 
-        // Proved on a FG-3700D on FortiOS 6.2.2, in NAT mode. BFD on a multihop BGP session is taken and read back, but the device asks for a BFD session only once BGP is up, and no session came up to show one.
-        found.push(...Derive.unproved(device, ["bfd-timers", "static-route-bfd"]));
+        // Proved on a FG-3700D on FortiOS 6.2.2, in NAT mode. BFD on a multihop BGP session is refused in FortiOsRouting.gaps, for the reason the device showed.
+        found.push(...Derive.unproved(device, ["bfd-timers", "static-route-bfd", "multihop-bfd"]));
 
         return found;
     }
