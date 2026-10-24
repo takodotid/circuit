@@ -113,7 +113,7 @@ export default defineDevice({
     routing: {
         router_id: "198.51.100.255",
         static: [
-            { prefix: "0.0.0.0/0", via: "203.0.113.9", description: "Upstream" },
+            { prefix: "0.0.0.0/0", via: "203.0.113.9", description: "Upstream", bfd: true },
             { prefix: "::/0", via: "2001:db8:fff0::1" },
             { prefix: "198.51.100.0/24", blackhole: true, description: "Originate" },
             { prefix: "198.18.0.0/15", via: "192.0.2.130", distance: 20 },
@@ -153,6 +153,7 @@ export default defineDevice({
                 },
             },
         },
+        bfd: { interval: 300, multiplier: 4 },
     },
 
     prefix_sets: {

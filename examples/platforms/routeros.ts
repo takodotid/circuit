@@ -75,6 +75,7 @@ export default defineDevice({
             access_vlan: "servers",
             stp: { edge: true },
             storm_control: { broadcast: { percent: 5 }, multicast: { percent: 5 } },
+            ethertypes: ["ipv4", "ipv6", "arp"],
         },
         "25g-4": { description: "Lab switch that must not join our spanning tree", access_vlan: "guests", stp: false },
         "25g-5": { description: "A 10G optic in a 25G cage", speed: "10g", access_vlan: "guests" },
@@ -131,6 +132,8 @@ export default defineDevice({
                     export: "UPSTREAM-OUT",
                     hold_time: 90,
                     keepalive: 30,
+                    multihop: true,
+                    bfd: true,
                 },
             },
         },
@@ -140,6 +143,7 @@ export default defineDevice({
             },
             redistribute: ["connected", "static"],
         },
+        bfd: { interval: 300, multiplier: 4 },
     },
 
     prefix_sets: {

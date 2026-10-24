@@ -72,6 +72,8 @@ const withBfd: Device = {
     ...aggregationSwitch,
     routing: {
         ...aggregationSwitch.routing,
+        // The example sets timers of its own; this test is about the defaults.
+        bfd: undefined,
         static: [...aggregationSwitch.routing!.static!, { prefix: "198.51.100.0/24", via: "192.0.2.1", bfd: true }],
         ospf: { areas: { "0.0.0.0": { interfaces: { loopback: { passive: true, bfd: true } } } } },
         bgp: {
@@ -123,9 +125,15 @@ const MAC_AND_ETHERTYPES = [
 
 const filtered = { mac_limit: 1, ethertypes: ["arp", "ipv6", "ipv4"] } as const;
 
-const withFilters: Device = {
+// The example without its own filtered port, so a removal deletes all of it.
+const unfiltered: Device = {
     ...aggregationSwitch,
-    ports: { ...aggregationSwitch.ports, "10g-3": { ...aggregationSwitch.ports!["10g-3"], ...filtered } },
+    ports: { ...aggregationSwitch.ports, "10g-2": { description: "Host on a 1G optic", access_vlan: "servers", speed: "1g", lldp: false } },
+};
+
+const withFilters: Device = {
+    ...unfiltered,
+    ports: { ...unfiltered.ports, "10g-3": { ...aggregationSwitch.ports!["10g-3"], ...filtered } },
     interfaces: {
         ...aggregationSwitch.interfaces,
         uplink: { ...aggregationSwitch.interfaces!.uplink!, ...filtered },
@@ -138,7 +146,7 @@ test("a MAC limit and an ethertype filter render as the device printed them, and
     expect(rendered.split("\n")).toEqual(expect.arrayContaining(MAC_AND_ETHERTYPES));
     expect(platform.unsupported(withFilters)).toEqual([]);
 
-    const removal = platform.plan(platform.render(aggregationSwitch), rendered, { secrets: false, rollback: 10 });
+    const removal = platform.plan(platform.render(unfiltered), rendered, { secrets: false, rollback: 10 });
     const sent = removal.steps.flatMap((step) => step.send);
 
     expect(sent).toEqual(

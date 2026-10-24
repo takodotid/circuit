@@ -69,7 +69,14 @@ export default defineDevice({
             stp: { edge: true },
             storm_control: { broadcast: { percent: 1 }, multicast: { percent: 1 } },
         },
-        "10g-2": { description: "Host on a 1G optic", access_vlan: "servers", speed: "1g", lldp: false },
+        "10g-2": {
+            description: "Host on a 1G optic",
+            access_vlan: "servers",
+            speed: "1g",
+            lldp: false,
+            mac_limit: 1,
+            ethertypes: ["ipv4", "ipv6", "arp"],
+        },
         "10g-3": { description: "Lab switch", trunk_vlans: ["guests"], native_vlan: "native", stp: false },
         "10g-48": { description: "Transit", addresses: ["198.51.100.5/31", "2001:db8:31::1/64"], acl: "transit-in" },
     },
@@ -103,7 +110,7 @@ export default defineDevice({
             { prefix: "0.0.0.0/0", via: "192.0.2.1" },
             { prefix: "0.0.0.0/0", via: "198.51.100.4", distance: 20 },
             { prefix: "203.0.113.64/26", blackhole: true },
-            { prefix: "::/0", via: "2001:db8::1" },
+            { prefix: "::/0", via: "2001:db8::1", bfd: true },
             { prefix: "0.0.0.0/0", via: "198.51.100.129", vrf: "guests" },
         ],
         ospf: {
@@ -148,10 +155,12 @@ export default defineDevice({
                     local_address: "203.0.113.65",
                     multihop: true,
                     passive: true,
+                    bfd: true,
                 },
             },
         },
         rpki: [{ address: "192.0.2.80", port: 323 }],
+        bfd: { interval: 300, multiplier: 4 },
     },
 
     prefix_sets: {

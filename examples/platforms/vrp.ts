@@ -9,11 +9,17 @@ export default defineDevice({
     connection: { host: "192.0.2.2", user: "operator" },
     users: { operator: { role: "admin", password: secret("EXAMPLE_OPERATOR_PASSWORD") } },
 
-    system: { timezone: "Asia/Jakarta", ntp: { servers: ["192.0.2.1"] } },
+    system: {
+        timezone: "Asia/Jakarta",
+        ntp: { servers: ["192.0.2.1"] },
+        logging: { local: { level: "info", files: 10 }, remote: [{ address: "192.0.2.98", port: 5514, level: "warning" }] },
+        alarms: { hwOpticalUnAuthorized: { severity: "warning" } },
+    },
     management: {
         allow: ["192.0.2.0/24"],
         ssh: {},
         snmp: {
+            allow: ["192.0.2.96/28"],
             users: {
                 monitor: {
                     auth: "sha1",
@@ -35,7 +41,13 @@ export default defineDevice({
         "40g-1": { description: "Router", lag: "uplink" },
         "40g-2": { description: "Router", lag: "uplink" },
         "10g-1": { description: "Host", access_vlan: "servers", stp: { edge: true }, storm_control: { broadcast: { percent: 1 } } },
-        "10g-2": { description: "Host without LLDP", access_vlan: "servers", lldp: false },
+        "10g-2": {
+            description: "Host without LLDP",
+            access_vlan: "servers",
+            lldp: false,
+            mac_limit: 1,
+            ethertypes: ["ipv4", "ipv6", "arp"],
+        },
         "10g-3": { description: "Lab switch", access_vlan: "guests", stp: false },
     },
 
@@ -53,10 +65,12 @@ export default defineDevice({
     routing: {
         router_id: "192.0.2.2",
         static: [
-            { prefix: "0.0.0.0/0", via: "192.0.2.1" },
+            // BFD watches the next hop from this switch's own address on its network, 192.0.2.2 on the management VLAN.
+            { prefix: "0.0.0.0/0", via: "192.0.2.1", bfd: true },
             { prefix: "0.0.0.0/0", via: "198.51.100.129", vrf: "guests" },
         ],
         ospf: { areas: { "0.0.0.0": { interfaces: { management: { cost: 10, bfd: true } } } }, redistribute: ["connected"] },
+        bfd: { interval: 300, multiplier: 4 },
     },
 
     dhcp_relay: { guests: { interface: "guests", servers: ["198.51.100.66"] } },
