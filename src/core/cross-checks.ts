@@ -97,7 +97,7 @@ export class CrossChecks {
         return undefined;
     }
 
-    /** A link names a device and port that exist, the far end links back, and both ends carry the same VLANs the same way, with the same MTU, speed and addresses. */
+    /** A link names a device and port that exist, the far end links back through the same carrier, and both ends carry the same VLANs the same way, with the same MTU, speed and addresses. */
     private static checkLinks(devices: readonly Device[]): Finding[] {
         const findings: Finding[] = [];
         const byName = new Map(devices.map((device) => [device.name, device]));
@@ -130,6 +130,11 @@ export class CrossChecks {
                 if (!linksBack) {
                     report(`${link.device} ${link.port} does not link back to it`);
                     continue;
+                }
+
+                if (link.through !== farPort.link?.through) {
+                    const say = (through: string | undefined) => (through ? `through ${through}` : "direct");
+                    report(`${say(link.through)} here, and ${say(farPort.link?.through)} on ${link.device} ${link.port}`);
                 }
 
                 const near = CrossChecks.carrierOf(device, portName, port);

@@ -111,3 +111,20 @@ test("validate warns where LLDP disagrees, and diff ignores it", () => {
 
     expect(run("diff", "ix-sw-02").stdout).not.toContain("LLDP");
 });
+
+test("a link through a carrier is not compared with LLDP, which sees the carrier's switches", () => {
+    const through = (device: Device): Device => ({
+        ...device,
+        ports: {
+            ...device.ports,
+            "40g-5": { ...device.ports!["40g-5"]!, link: { ...device.ports!["40g-5"]!.link!, through: "Carrier local loop" } },
+        },
+    });
+    const neighbors = new Map([
+        ["ix-sw-01", [{ port: "40g-5", system: "CARRIER-SW-1", remote_port: "Ethernet1/10" }]],
+        ["ix-sw-02", []],
+    ]);
+
+    expect(messages([sw1, sw2], neighbors)).toHaveLength(2);
+    expect(messages([through(sw1), through(sw2)], neighbors)).toEqual([]);
+});

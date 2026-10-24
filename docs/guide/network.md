@@ -105,6 +105,14 @@ A port's `link` says which device and port is at the other end of its cable. [LL
 
 These are warnings, not errors: LLDP can be off at the far end, or on a port. Only ports where both ends run LLDP, by `lldp` on the device and on the port, are compared. A device whose neighbors were never read is not compared at all. `diff` and `apply` ignore what LLDP saw: it is what was plugged in, not config.
 
+A cable that runs through a carrier, such as a local loop or an L2 transport, reaches the far end through someone else's switches, and LLDP sees those switches instead. Say so on the link at both ends, and `validate` doesn't compare LLDP on that port. `graph` and Studio show the carrier on the cable.
+
+```ts
+ports: {
+    "10g-3": { link: { device: "core-02", port: "10g-2", through: "Carrier A local loop" } },
+},
+```
+
 The far device is found by its name, which every platform sets as the device's hostname. A name with a domain after it, such as `tor-01.example.net`, matches `tor-01`. The far port is matched as that device's platform spells it, such as `10GE1/0/5` for `10g-5` on VRP.
 
 Every platform reads its LLDP neighbors, each proved on a real device. Two things a far end sends can still stop a match: RouterOS sends a port's description where its name should be, so Circuit matches it when exactly one port of that device has that description; and a device that sends something other than its own name as its system name, or its port as a number, matches nothing, so `validate` warns about that cable.

@@ -37,6 +37,8 @@ export type Cable = {
     lag?: string;
     farLag?: string;
     description?: string;
+    /** What is between the two ends, such as a carrier's local loop. */
+    through?: string;
     /** VLANs carried, as `name (id)`, from the port or its LAG. */
     vlans: string[];
     /** The far end does not name this cable back. */
@@ -227,6 +229,7 @@ export class StudioModel {
                     ...(port.lag ? { lag: port.lag } : {}),
                     ...(farPort?.lag ? { farLag: farPort.lag } : {}),
                     ...(port.description ? { description: port.description } : {}),
+                    ...(link.through ? { through: link.through } : {}),
                     vlans: vlansOf(device, portName),
                     ...(linksBack ? {} : { oneSided: true as const }),
                 });

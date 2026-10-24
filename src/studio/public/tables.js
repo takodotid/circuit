@@ -1021,19 +1021,33 @@ export class Tables {
 
     /** @param {HTMLElement} container */
     static #cablesView(container) {
+        // A carrier column only when a cable runs through one.
+        const carried = Tables.#data.cables.some((cable) => cable.through);
+
         container.append(
             Tables.heading("Cables", "h2"),
             Tables.empty("Every cable a port's link names, once, from the end that names it first."),
             Tables.#data.cables.length
                 ? Tables.of({
                       csv: "cables",
-                      head: ["Device", "Port", "Far device", "Far port", "LAG", "VLANs", "Description", ""].map((label) => ({ label })),
+                      head: [
+                          "Device",
+                          "Port",
+                          "Far device",
+                          "Far port",
+                          ...(carried ? ["Through"] : []),
+                          "LAG",
+                          "VLANs",
+                          "Description",
+                          "",
+                      ].map((label) => ({ label })),
                       rows: Tables.#data.cables.map((cable) => ({
                           cells: [
                               Tables.deviceLink(cable.device),
                               cable.port,
                               Tables.deviceLink(cable.farDevice),
                               cable.farPort,
+                              ...(carried ? [cable.through ?? ""] : []),
                               [cable.lag, cable.farLag].filter(Boolean).join(" to "),
                               cable.vlans.join(", "),
                               cable.description ?? "",

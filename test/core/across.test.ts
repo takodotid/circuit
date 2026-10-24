@@ -85,6 +85,23 @@ test("the two ends of a cable agree on prefix, MTU and speed", () => {
     expect(speeds).toContain("error r1: port 100g-1 link: speed 100g, and r2 100g-1 is 40g");
 });
 
+test("both ends of a cable name the same carrier, or none", () => {
+    const [r1, r2] = routers();
+    const through = (device: Device, carrier: string): Device => ({
+        ...device,
+        ports: {
+            ...device.ports,
+            "100g-1": { ...device.ports!["100g-1"]!, link: { ...device.ports!["100g-1"]!.link!, through: carrier } },
+        },
+    });
+
+    expect(findings(through(r1, "Carrier local loop"), through(r2, "Carrier local loop"))).toEqual([]);
+    expect(findings(through(r1, "Carrier local loop"), r2)).toEqual([
+        "error r1: port 100g-1 link: through Carrier local loop here, and direct on r2 100g-1",
+        "error r2: port 100g-1 link: direct here, and through Carrier local loop on r1 100g-1",
+    ]);
+});
+
 test("the two ends of a cable carry the same VLANs, and a LAG is compared by what the LAG carries", () => {
     const [r1, r2] = routers();
     const vlans = { mgmt: { id: 10 }, office: { id: 20 } };
