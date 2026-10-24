@@ -332,7 +332,7 @@ test("BFD timers, BFD on a static route and BFD on a multihop session are refuse
 
         // What each platform proved on a device has its own proofs test, such as test/platforms/vrp-proofs.test.ts.
         const proved: Record<string, readonly string[]> = {
-            fortios: ["timers", "static"],
+            fortios: ["timers", "static", "multihop"],
             vrp: ["timers", "static"],
             junos: ["timers", "static", "multihop"],
         };

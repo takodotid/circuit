@@ -203,19 +203,74 @@ test("removing BFD unsets the timers while BFD still runs, then BFD, and creates
     ]);
 });
 
-test("BFD stays refused where it is not proved: on a multihop BGP session, and on a route in a VRF", () => {
-    const multihop = {
-        ...routed,
-        routing: {
-            ...routed.routing,
-            bgp: { asn: 64496, neighbors: { far: { address: "198.51.100.1", remote_as: 64497, multihop: true, bfd: true } } },
+/** A multihop session from the routed port's address to a loopback behind the far end, with BFD. */
+const multihop = {
+    ...routed,
+    routing: {
+        router_id: "192.0.2.2",
+        static: [{ prefix: "198.51.100.1/32", via: "192.0.2.1", description: "To the peer's loopback" }],
+        bgp: {
+            asn: 64496,
+            neighbors: {
+                far: { address: "198.51.100.1", remote_as: 64497, local_address: "192.0.2.2", multihop: true, bfd: true },
+            },
         },
-    } as Device;
+    },
+} as Device;
 
-    expect(platform.unsupported(multihop)).toContain(
-        "routing.bgp.neighbors.far.bfd, BFD on a multihop session is not proved on a device yet"
-    );
+/** What `show router bgp` printed once the device took the session. */
+const PRINTED_MULTIHOP = {
+    "router bgp": `config router bgp
+    set as 64496
+    set router-id 192.0.2.2
+    config neighbor
+        edit "198.51.100.1"
+            set activate6 disable
+            set bfd enable
+            set ebgp-enforce-multihop enable
+            set remote-as 64497
+            set route-map-in "circuit-reject-all"
+            set route-map-out "circuit-reject-all"
+            set update-source "port5"
+        next
+    end
+    config redistribute "connected"
+    end
+    config redistribute "rip"
+    end
+    config redistribute "ospf"
+    end
+    config redistribute "static"
+    end
+    config redistribute "isis"
+    end
+    config redistribute6 "connected"
+    end
+    config redistribute6 "rip"
+    end
+    config redistribute6 "ospf"
+    end
+    config redistribute6 "static"
+    end
+    config redistribute6 "isis"
+    end
+end`,
+};
 
+test("BFD on a multihop BGP session is taken and read back, but refused: the device runs it single-hop", () => {
+    expect(platform.plan(platform.render(multihop), asPrinted(multihop, PRINTED_MULTIHOP), options).steps).toEqual([]);
+
+    // With BGP up, the device asked for a session and sent single-hop BFD, to port 3784, while the peer sent multihop BFD to port 4784:
+    //   get router info bfd requests:  src=192.0.2.2  dst=198.51.100.1  ct=08 ifi=70
+    //   get router info bfd neighbor:  192.0.2.2  198.51.100.1  DOWN  port5  18/0
+    //   diagnose sniffer packet:       port5 in 198.51.100.1.49197 -> 192.0.2.2.4784: udp 24
+    //                                  port5 out 192.0.2.2.49162 -> 198.51.100.1.3784: udp 24
+    expect(platform.unsupported(multihop)).toEqual([
+        "routing.bgp.neighbors.far.bfd, FortiOS 6.2 runs single-hop BFD on a multihop session, which a peer running multihop BFD never answers",
+    ]);
+});
+
+test("BFD stays refused on a route in a VRF", () => {
     const inVrf = {
         ...firewall,
         routing: { ...firewall.routing, static: [{ prefix: "0.0.0.0/0", via: "198.51.100.98", vrf: "guests", bfd: true }] },
