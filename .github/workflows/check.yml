@@ -18,5 +18,5 @@ jobs:
               with:
                   node-version: 22.12.0
             - run: bun install --frozen-lockfile
-            # The same as `bun run check` locally: typecheck, tests, format, docs build, Node build, templates on Node.
+            # The same as `bun run check` locally: typecheck, tests, format, docs build, Node build, the published types, templates on Node.
             - run: bun run check
