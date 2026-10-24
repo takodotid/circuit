@@ -5,7 +5,7 @@ Many networks write the same building blocks: the same list of addresses that ne
 A helper only returns plain config, like the config you write yourself. Nothing happens until you put it somewhere in a device or in `circuit.config.ts`.
 
 ```ts
-import { Bgp, Checks, Exchange, Filters } from "@takodotid/circuit/helpers";
+import { Bgp, Cables, Checks, Exchange, Filters } from "@takodotid/circuit/helpers";
 ```
 
 | Helper                                       | What it gives you                                                                                                     | Where it goes                                  |
@@ -18,6 +18,10 @@ import { Bgp, Checks, Exchange, Filters } from "@takodotid/circuit/helpers";
 | `Filters.badTcpFlags()`                      | Firewall rules that drop TCP packets no real program sends                                                            | `firewall.filter.forward.rules`                |
 | `Bgp.sanity(lengths?)`                       | Route policy rules that refuse routes no neighbor should send                                                         | `policies`                                     |
 | `Bgp.communityScheme({ … })`                 | Your BGP communities: rules for your routers and the list you publish                                                 | `policies`, `communities`                      |
+| `Bgp.announce(prefixes)`                     | An export that announces these prefixes and nothing else                                                              | `policies`                                     |
+| `Bgp.learn({ … })`                           | An import that takes a neighbor's routes: sanity, preference, where they came from                                    | `policies`                                     |
+| `Bgp.defaultOnly({ … })`                     | Import rules that take a transit's default route                                                                      | `policies`                                     |
+| `Cables.link({ … })`, `Cables.lag({ … })`    | Both ends of a cable or a LAG from one entry, each port described by the far port's label                             | `ports` on both devices                        |
 | `Checks.exportsEndInReject`                  | A check: every BGP export ends by rejecting what it did not accept                                                    | `checks`                                       |
 | `Checks.tunnelsOutsideOffered`               | A check: a tunnel never starts from an address you announce through it                                                | `checks`                                       |
 | `Checks.trustBoundary({ … })`                | A check: traffic from outside reaches your VLANs only through a router                                                | `checks`                                       |
@@ -25,6 +29,25 @@ import { Bgp, Checks, Exchange, Filters } from "@takodotid/circuit/helpers";
 | `Exchange.build({ … }, members)`             | An internet exchange's member ports, a check that keeps members apart, and its route servers' BIRD or OpenBGPD config | `ports`, `checks`, a file on each route server |
 
 The descriptions on the rules a helper makes are fixed, because a device stores them. A release that changes one is a breaking change.
+
+## Cables
+
+A cable between two of your devices has two ends, and each end's port names the other in `link`. `Cables` writes both from one entry, so a LAG of eight cables is eight lines, not sixteen entries kept in step by hand:
+
+```ts
+const firewallLag = Cables.lag({
+    a: { device: "router-1", platform: "routeros", model: "CCR2216-1G-12XS-2XQ", lag: "to-firewall" },
+    b: { device: "firewall-1", platform: "fortios", model: "FG-3700D", lag: "to-router" },
+    cables: { "25g-1": "10g-2", "25g-2": "10g-1" }, // read from end A
+});
+
+// router-1:   ports: { ...firewallLag.a }
+// firewall-1: ports: { ...firewallLag.b }
+```
+
+Each port gets `lag`, `link` and a description naming the far device and the far port as printed on it: `firewall-1 port6` on the router, `router-1 sfp28-1` on the firewall, so the person on site reads the label they see. `describe: (far) => ...` writes your own. The port names are checked against each model, so the editor suggests real ones.
+
+`Cables.link` does the same for one cable, with `port` on each end instead of `lag`. Both take `through` for a carrier in between; see [Checking the cabling](/guide/network#checking-the-cabling).
 
 ## Edge filters
 
