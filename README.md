@@ -36,7 +36,7 @@ New to networking? [Circuit Academy](https://circuit.tako.id/academy/) teaches i
 
 ## Start
 
-You need [Node.js](https://nodejs.org) 20.12 or newer, or [Bun](https://bun.sh). Then:
+You need [Node.js](https://nodejs.org) 22.12 or newer, or [Bun](https://bun.sh). Then:
 
 ```bash
 npx @takodotid/circuit new        # or: pnpm dlx @takodotid/circuit new, bunx @takodotid/circuit new
