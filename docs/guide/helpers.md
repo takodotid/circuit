@@ -5,28 +5,29 @@ Many networks write the same building blocks: the same list of addresses that ne
 A helper only returns plain config, like the config you write yourself. Nothing happens until you put it somewhere in a device or in `circuit.config.ts`.
 
 ```ts
-import { Bgp, Cables, Checks, Exchange, Filters } from "@takodotid/circuit/helpers";
+import { Bgp, Cables, Checks, Exchange, Filters, Upstreams } from "@takodotid/circuit/helpers";
 ```
 
-| Helper                                       | What it gives you                                                                                                     | Where it goes                                  |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `Filters.MARTIANS`                           | IPv4 sources that never come from the internet                                                                        | anywhere a list of prefixes goes               |
-| `Filters.PRIVATE_RANGES`                     | IPv4 private space, RFC 1918                                                                                          | anywhere a list of prefixes goes               |
-| `Filters.antiSpoofing(vlan, …)`              | ACL rules that drop forged sources arriving on a VLAN                                                                 | `acls`                                         |
-| `Filters.antiAmplification(destinations, …)` | ACL rules that drop reflected UDP floods                                                                              | `acls`                                         |
-| `Filters.AMPLIFIERS`                         | UDP ports of services attackers use to reflect floods                                                                 | anywhere a list of ports goes                  |
-| `Filters.badTcpFlags()`                      | Firewall rules that drop TCP packets no real program sends                                                            | `firewall.filter.forward.rules`                |
-| `Bgp.sanity(lengths?)`                       | Route policy rules that refuse routes no neighbor should send                                                         | `policies`                                     |
-| `Bgp.communityScheme({ … })`                 | Your BGP communities: rules for your routers and the list you publish                                                 | `policies`, `communities`                      |
-| `Bgp.announce(prefixes)`                     | An export that announces these prefixes and nothing else                                                              | `policies`                                     |
-| `Bgp.learn({ … })`                           | An import that takes a neighbor's routes: sanity, preference, where they came from                                    | `policies`                                     |
-| `Bgp.defaultOnly({ … })`                     | Import rules that take a transit's default route                                                                      | `policies`                                     |
-| `Cables.link({ … })`, `Cables.lag({ … })`    | Both ends of a cable or a LAG from one entry, each port described by the far port's label                             | `ports` on both devices                        |
-| `Checks.exportsEndInReject`                  | A check: every BGP export ends by rejecting what it did not accept                                                    | `checks`                                       |
-| `Checks.tunnelsOutsideOffered`               | A check: a tunnel never starts from an address you announce through it                                                | `checks`                                       |
-| `Checks.trustBoundary({ … })`                | A check: traffic from outside reaches your VLANs only through a router                                                | `checks`                                       |
-| `Checks.nativeVlansAreDeadEnds`              | A check: a native VLAN is native on one trunk and carried nowhere else                                                | `checks`                                       |
-| `Exchange.build({ … }, members)`             | An internet exchange's member ports, a check that keeps members apart, and its route servers' BIRD or OpenBGPD config | `ports`, `checks`, a file on each route server |
+| Helper                                       | What it gives you                                                                                                     | Where it goes                                                       |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `Filters.MARTIANS`                           | IPv4 sources that never come from the internet                                                                        | anywhere a list of prefixes goes                                    |
+| `Filters.PRIVATE_RANGES`                     | IPv4 private space, RFC 1918                                                                                          | anywhere a list of prefixes goes                                    |
+| `Filters.antiSpoofing(vlan, …)`              | ACL rules that drop forged sources arriving on a VLAN                                                                 | `acls`                                                              |
+| `Filters.antiAmplification(destinations, …)` | ACL rules that drop reflected UDP floods                                                                              | `acls`                                                              |
+| `Filters.AMPLIFIERS`                         | UDP ports of services attackers use to reflect floods                                                                 | anywhere a list of ports goes                                       |
+| `Filters.badTcpFlags()`                      | Firewall rules that drop TCP packets no real program sends                                                            | `firewall.filter.forward.rules`                                     |
+| `Bgp.sanity(lengths?)`                       | Route policy rules that refuse routes no neighbor should send                                                         | `policies`                                                          |
+| `Bgp.communityScheme({ … })`                 | Your BGP communities: rules for your routers and the list you publish                                                 | `policies`, `communities`                                           |
+| `Bgp.announce(prefixes)`                     | An export that announces these prefixes and nothing else                                                              | `policies`                                                          |
+| `Bgp.learn({ … })`                           | An import that takes a neighbor's routes: sanity, preference, where they came from                                    | `policies`                                                          |
+| `Bgp.defaultOnly({ … })`                     | Import rules that take a transit's default route                                                                      | `policies`                                                          |
+| `Cables.link({ … })`, `Cables.lag({ … })`    | Both ends of a cable or a LAG from one entry, each port described by the far port's label                             | `ports` on both devices                                             |
+| `Checks.exportsEndInReject`                  | A check: every BGP export ends by rejecting what it did not accept                                                    | `checks`                                                            |
+| `Checks.tunnelsOutsideOffered`               | A check: a tunnel never starts from an address you announce through it                                                | `checks`                                                            |
+| `Checks.trustBoundary({ … })`                | A check: traffic from outside reaches your VLANs only through a router                                                | `checks`                                                            |
+| `Checks.nativeVlansAreDeadEnds`              | A check: a native VLAN is native on one trunk and carried nowhere else                                                | `checks`                                                            |
+| `Exchange.build({ … }, members)`             | An internet exchange's member ports, a check that keeps members apart, and its route servers' BIRD or OpenBGPD config | `ports`, `checks`, a file on each route server                      |
+| `Upstreams.define({ … })`                    | Each transit, exchange and peer written once: VLANs, router interfaces, BGP sessions and policies, switch ports       | `vlans`, `interfaces`, `routing.bgp`, `policies`, `ports`, `checks` |
 
 The descriptions on the rules a helper makes are fixed, because a device stores them. A release that changes one is a breaking change.
 
@@ -242,3 +243,64 @@ const testPrefixStaysHome: Check = (devices) =>
 ## Internet exchange
 
 `Exchange.build` makes an exchange's member ports, a check that keeps members apart, and the config of its route servers. See [Running an internet exchange](/use-cases/internet-exchange#exchange-build).
+
+## Upstreams
+
+A network that buys transit, joins exchanges or peers writes each upstream in several places: a VLAN on the switches, an interface and addresses on the router, a BGP session per address, an import and an export, the switch port where the handoff lands, and sometimes a tunnel with its firewall rule. `Upstreams.define` takes each upstream once and builds every device's part, so they never drift apart:
+
+```ts
+const OURS = [{ prefix: "198.51.100.0/24", description: "Our IPv4" }] as const;
+
+const upstreams = Upstreams.define({
+    transit_a: {
+        name: "Transit A",
+        asn: 64510,
+        role: "provider",
+        handoff: { vlan: 3001, addresses: ["203.0.113.2/30"], port: { device: "switch-1", port: "10g-4" } },
+        sessions: { "transit-a": { address: "203.0.113.1" } },
+        limits: { ipv4: 1_200_000 },
+        import: { default: { local_pref: 100 } }, // or learn: { local_pref }
+        announce: OURS,
+    },
+    ix_b: {
+        name: "IX B",
+        asn: 64511,
+        role: "rs",
+        handoff: { vlan: 3002, addresses: ["192.0.2.10/24"], port: { device: "switch-1", port: "10g-5" } },
+        sessions: { "ix-b-rs1": { address: "192.0.2.1" }, "ix-b-rs2": { address: "192.0.2.2" } },
+        import: { learn: { local_pref: 200 } },
+        announce: OURS,
+    },
+});
+```
+
+On the router:
+
+```ts
+vlans: upstreams.vlans(),
+interfaces: { ...upstreams.interfaces() },
+routing: { bgp: { asn: 64500, groups: upstreams.groups(), neighbors: upstreams.neighbors() } },
+policies: { SANITY: Bgp.sanity(), ...upstreams.policies({ sanity: "SANITY", tag: (key, upstream) => scheme.tag("transit", upstream.asn) }) },
+```
+
+On the switch where the handoffs land:
+
+```ts
+vlans: upstreams.vlans("switch-1"),
+ports: { "10g-1": { trunk_vlans: upstreams.vlansOn("switch-1") }, ...upstreams.ports("switch-1") },
+```
+
+Every name comes from the key, the same way each time, and the editor knows them:
+
+| Built     | Name                                                                 |
+| --------- | -------------------------------------------------------------------- |
+| VLAN      | `transit_a`, and `transit_a-native` for a handoff with `native`      |
+| Interface | `transit_a`: a VLAN interface, or a GRE tunnel for one with `tunnel` |
+| Policies  | `TRANSIT_A-IN` (only with `import`) and `TRANSIT_A-OUT`              |
+| BGP group | `ix_b`, for an exchange's route servers (`role: "rs"`) or `multihop` |
+
+- A session takes its upstream's AS, role and policies, or its group, and the limit of its own family from `limits`.
+- An import takes the default route with `default`, the routes with `learn` (through `Bgp.learn`), or both. An export runs `actions`, then the upstream's `export` rules, then `Bgp.announce(announce)`.
+- A handoff's switch port is in its VLAN, untagged, or tagged with a native VLAN of its own when `native` is set, and takes no part in LLDP or spanning tree.
+- `untrusted()` lists every handoff VLAN and native, for `Checks.trustBoundary`. `privateDrops()` lists the VLANs whose upstream has `drop_private`, `tunnelRules()` the firewall rules that take each tunnel from its far end, and `addresses()` every session's address. Each list follows the catalog's order.
+- A key the shape does not have is refused at every level, so a misspelled field fails to compile instead of being ignored.
