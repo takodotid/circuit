@@ -67,7 +67,7 @@ export class Cabling {
     /**
      * Warnings where LLDP and `link` disagree, from each device's own view: a cable in another port than `link` names, a cable `link` names that LLDP does not see, and another of our devices on a port without `link`.
      *
-     * Only ports where both ends run LLDP, by the config, are compared, and only on devices whose neighbors were read. LLDP can be off at the far end, so each is a warning.
+     * Only ports where both ends run LLDP, by the config, are compared, and only on devices whose neighbors were read. A link `through` a carrier is not compared. LLDP can be off at the far end, so each is a warning.
      */
     static compare(devices: readonly Device[], neighbors: ReadonlyMap<string, readonly Neighbor[]>): Finding[] {
         const findings: Finding[] = [];
@@ -96,6 +96,9 @@ export class Cabling {
                     }
                     continue;
                 }
+
+                // Through a carrier, LLDP sees the carrier's switches, not the far end.
+                if (link.through) continue;
 
                 const far = devices.find((candidate) => candidate.name === link.device);
                 if (!far || !Cabling.runsOn(far, link.port)) continue;

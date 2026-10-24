@@ -203,7 +203,8 @@ export class Topology {
                     ? Topology.deviceId(far.name)
                     : graph.node(`missing:${link.device}`, "outside", link.device, ["named by a link, and not in the network"]);
 
-                const cableLine = `${here} to ${there}`;
+                const through = link.through ? `, through ${link.through}` : "";
+                const cableLine = `${here} to ${there}${through}`;
 
                 // A LAG's member cables to one LAG on the far side are one edge.
                 const lag = port.lag;
@@ -214,7 +215,7 @@ export class Topology {
                 if (bundle) {
                     bundle.members++;
                     bundle.cable.detail.push(cableLine);
-                    bundle.cable.label = `${lag} to ${farLag}, ${bundle.members} cables`;
+                    bundle.cable.label = `${lag} to ${farLag}, ${bundle.members} cables${through}`;
                     continue;
                 }
 
@@ -224,7 +225,7 @@ export class Topology {
                     layer: "l1",
                     from: Topology.deviceId(device.name),
                     to,
-                    label: isBundle ? `${lag} to ${farLag}` : `${portName} to ${link.port}`,
+                    label: `${isBundle ? `${lag} to ${farLag}` : `${portName} to ${link.port}`}${through}`,
                     detail: [cableLine],
                     ...(linksBack ? {} : { oneSided: true as const }),
                 });

@@ -4,6 +4,7 @@ import { expect, test } from "bun:test";
 import { GraphFormat } from "../../src/cli/graph-format";
 import { defineDevice, secret } from "../../src/core/define";
 import { Topology, type GraphEdge } from "../../src/core/topology";
+import type { Device } from "../../src/schema";
 
 const r1 = defineDevice({
     name: "r1",
@@ -108,6 +109,24 @@ test("l1 draws each cable once, a LAG's cables as one, and marks a cable only on
         ["device:r1 device:r2", "100g-1 to 100g-1", false],
         ["device:r2 device:sw", "25g-1 to 10g-3", false],
         ["device:r2 device:sw", "25g-2 to 10g-4", true],
+    ]);
+});
+
+test("a cable through a carrier names the carrier", () => {
+    const through = (device: Device, far: string): Device => ({
+        ...device,
+        ports: {
+            ...device.ports,
+            "100g-1": { ...device.ports!["100g-1"]!, link: { device: far, port: "100g-1", through: "Carrier local loop" } },
+        },
+    });
+    const cable = Topology.of([through(r1, "r2"), through(r2, "r1"), sw]).edges.find(
+        (edge) => edge.layer === "l1" && edge.from === "device:r1" && edge.to === "device:r2"
+    );
+
+    expect([cable?.label, cable?.detail]).toEqual([
+        "100g-1 to 100g-1, through Carrier local loop",
+        ["r1 100g-1 to r2 100g-1, through Carrier local loop"],
     ]);
 });
 

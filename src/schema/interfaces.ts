@@ -92,6 +92,10 @@ export type Link = {
     device: string;
     /** The port on that device. */
     port: string;
+    /**
+     * What is between the two ends when the cable is not direct, such as a carrier's local loop or L2 transport: `"Carrier A local loop"`. LLDP then sees the carrier's switches, not the far end, so `validate` does not compare LLDP on this port. Both ends name the same carrier.
+     */
+    through?: string;
 };
 
 /** A physical port. Ports a device does not declare are shut down. */
