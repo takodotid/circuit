@@ -1,4 +1,4 @@
-// Waiting for BGP sessions to be established: `circuit bgp --wait`, and the check after an apply.
+// BGP sessions as `circuit bgp` and the check after an apply read them: waiting for them to be established, and spotting limits that closed several at once.
 
 import { setTimeout as sleep } from "node:timers/promises";
 import type { BgpSession } from "./platform";
@@ -37,5 +37,28 @@ export class BgpWait {
     /** How many of these sessions are established. */
     static upCount(sessions: readonly BgpSession[]): number {
         return sessions.filter((session) => session.established).length;
+    }
+
+    /** Sessions closed on their limit within this many minutes of each other are one burst. */
+    static readonly BURST_MINUTES = 5;
+
+    /**
+     * Groups of two or more sessions closed on their limit within `BURST_MINUTES` of each other, earliest first. Several limits at once is usually a leak upstream, not growth, so raising them is the wrong fix.
+     */
+    static limitBursts(sessions: readonly BgpSession[]): BgpSession[][] {
+        const closed = sessions
+            .filter((session) => session.limit?.stoppedAt !== undefined && !Number.isNaN(session.limit.stoppedAt))
+            .sort((a, b) => a.limit!.stoppedAt! - b.limit!.stoppedAt!);
+
+        const bursts: BgpSession[][] = [];
+        for (const session of closed) {
+            const last = bursts.at(-1);
+            const previous = last?.at(-1);
+            if (last && previous && session.limit!.stoppedAt! - previous.limit!.stoppedAt! <= BgpWait.BURST_MINUTES * 60_000)
+                last.push(session);
+            else bursts.push([session]);
+        }
+
+        return bursts.filter((burst) => burst.length > 1);
     }
 }

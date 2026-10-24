@@ -70,13 +70,23 @@ export class RouterOs extends Platform {
         "}",
     ].join(" ");
 
-    /** Every BGP session, one line each: name, remote address, established, prefixes received, uptime. One line, because a script sent over exec runs as one. */
+    /**
+     * Every BGP session, one line each: name, remote address, established, prefixes received, uptime, closed on its limit, the limit, when it last closed. Then each disabled connection, `disabled|<name>|<address>`. One line, because a script sent over exec runs as one.
+     */
     private static readonly LIST_BGP_SESSIONS = [
         ":foreach s in=[/routing bgp session find] do={",
         ":local g [/routing bgp session get $s];",
-        ':put (($g->"name") . "|" . ($g->"remote.address") . "|" . ($g->"established") . "|" . ($g->"prefix-count") . "|" . ($g->"uptime"))',
+        ':put (($g->"name") . "|" . ($g->"remote.address") . "|" . ($g->"established") . "|" . ($g->"prefix-count") . "|" . ($g->"uptime") . "|" . ($g->"limit-exceeded") . "|" . ($g->"input.limit-process-routes") . "|" . ($g->"last-stopped"))',
+        "};",
+        ":foreach c in=[/routing bgp connection find disabled] do={",
+        ':put ("disabled|" . [/routing bgp connection get $c name] . "|" . [/routing bgp connection get $c remote.address])',
         "}",
     ].join(" ");
+
+    /** Open again the session from one address, only while it is closed on its limit. */
+    private static clearLimit(address: string): string {
+        return `/routing bgp session clear [find remote.address=${address} and limit-exceeded] flag=limit-exceeded`;
+    }
 
     /**
      * Every LLDP neighbor, one line each: our interfaces, the port first and then the LAG and bridge it is in, the far system name, and the far port as LLDP reports it. `:tostr` keeps the interface list one value; joined to a string as it is, a list repeats the whole line for each of its items. One line, because a script sent over exec runs as one.
@@ -325,30 +335,66 @@ export class RouterOs extends Platform {
 
     /**
      * A session is named `<connection>-<n>`, but a renamed connection keeps its session's old name until the session restarts. So a neighbor is matched by its address first, then by name.
+     *
+     * A session that is down says why: closed on its limit, or still connecting. A neighbor with no session and a disabled connection is admin down.
      */
     async bgpSessions(device: Device, session: ReadSession): Promise<BgpSession[]> {
         const output = await session.run(RouterOs.LIST_BGP_SESSIONS, 60_000);
-        const live = output
+        const lines = output
             .split(/\r?\n/)
             .filter((line) => line.includes("|"))
             .map((line) => line.trim().split("|"));
+        const live = lines.filter(([first]) => first !== "disabled");
+        // A connection's address carries its length, `10.0.0.1/32`.
+        const disabled = lines
+            .filter(([first]) => first === "disabled")
+            .map(([, name, address]) => ({ name, address: address?.split("/")[0] }));
 
-        return Object.entries(device.routing?.bgp?.neighbors ?? {}).map(([name, neighbor]) => {
+        return Object.entries(device.routing?.bgp?.neighbors ?? {}).map(([name, neighbor]): BgpSession => {
             const found =
                 live.find(([, remote]) => remote === neighbor.address) ??
                 live.find(([sessionName]) => sessionName === name || sessionName?.replace(/-\d+$/, "") === name);
 
-            if (!found) return { neighbor: name, remote: "-", established: false, prefixes: "-", uptime: "no session" };
+            if (!found) {
+                const off = disabled.some((connection) => connection.address === neighbor.address || connection.name === name);
+                return {
+                    neighbor: name,
+                    remote: "-",
+                    established: false,
+                    prefixes: "-",
+                    uptime: "no session",
+                    ...(off ? { reason: "admin down" } : {}),
+                };
+            }
 
-            const [, remote, established, prefixes, uptime] = found;
+            const [, remote, established, prefixes, uptime, limitExceeded, max, stopped] = found;
+            const up = established === "true";
+            const limited = limitExceeded === "true";
+
             return {
                 neighbor: name,
                 remote: remote || "-",
-                established: established === "true",
+                established: up,
                 prefixes: prefixes || "-",
                 uptime: uptime || "-",
+                ...(up ? {} : { reason: limited ? "limit exceeded" : "connecting" }),
+                ...(limited
+                    ? {
+                          limit: {
+                              ...(max && /^\d+$/.test(max) ? { max: Number(max) } : {}),
+                              ...(stopped ? { stopped, stoppedAt: RouterOs.logTime(stopped) } : {}),
+                          },
+                      }
+                    : {}),
             };
         });
+    }
+
+    async bgpClearLimit(session: ReadSession, sessions: readonly BgpSession[]): Promise<void> {
+        for (const bgp of sessions) {
+            const answer = (await session.run(RouterOs.clearLimit(bgp.remote))).trim();
+            if (answer) throw new Error(`could not clear ${bgp.neighbor}: ${answer.slice(0, 200)}`);
+        }
     }
 
     /** A `time>` filter in `/log print` does not filter, so the lines are kept here by comparing each one's time with the device's clock. */
@@ -501,9 +547,10 @@ export class RouterOs extends Platform {
             return [];
         }
 
-        return down.map(
-            (bgp) =>
-                `BGP session ${bgp.neighbor} was established before the apply and is not ${limits.seconds} s after it (${bgp.uptime === "no session" ? "no session" : "not established"}). Look with: circuit bgp ${device.name} --log`
+        return down.map((bgp) =>
+            bgp.limit
+                ? `BGP session ${bgp.neighbor} was established before the apply and closed on its limit${bgp.limit.max !== undefined ? ` of ${bgp.limit.max} prefixes` : ""}: the neighbor sends more than it may. Find out why, then: circuit bgp ${device.name} ${bgp.neighbor} --clear-limit`
+                : `BGP session ${bgp.neighbor} was established before the apply and is not ${limits.seconds} s after it (${bgp.reason ?? (bgp.uptime === "no session" ? "no session" : "not established")}). Look with: circuit bgp ${device.name} --log`
         );
     }
 

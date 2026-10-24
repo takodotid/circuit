@@ -1,6 +1,7 @@
 // What a real RouterOS device printed, proved on a CCR2216 on 7.23.5, with names and addresses replaced. Each test feeds the device's own lines to the adapter.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { BgpWait } from "../../src/platforms/bgp-wait";
 import { Platforms } from "../../src/platforms";
 import type { Device } from "../../src/schema";
 import edge from "../../templates/edge-router/edge-01";
@@ -16,6 +17,19 @@ const SESSIONS = [
     "sgix-rs-v6-1|2001:db8:ffff::1||0|",
 ].join("\n");
 
+/**
+ * The same script after a leak on an exchange: the two route servers' IPv6 sessions closed on their limit nine seconds apart. The session lines are as a CCR2216 on 7.23.5 printed them after such a leak: `limit-exceeded`, the limit, and when the session last closed. The last line is the form the script writes for a disabled connection; the router had none to print.
+ */
+const LEAK = [
+    "sgix-rs-v4-1|192.0.2.1|true|9204|13:35:04.930|||",
+    "sgix-rs-v6-1|2001:db8:ffff::1||0||true|6000|2026-10-24 21:57:06",
+    "sgix-rs2-v6-1|2001:db8:ffff::2||0||true|6000|2026-10-24 21:57:15",
+    "disabled|hurricane-electric|203.0.113.1/32",
+].join("\n");
+
+let sessions = SESSIONS;
+const sent: string[] = [];
+
 /** A BGP log line as the router printed it, trailing space included. */
 const LOG_LINE =
     "2026-10-24 04:50:03 route,bgp,warning sgix-rs-v6-1 {l_addr: 2001:db8:ffff::10, r_addr: 2001:db8:ffff::1} Starter {openOk: false} Received Notification [ code: (6,5), msg: (cease: connection rejected)] ";
@@ -25,7 +39,11 @@ const NEIGHBORS = ["qsfp28-1-1;bridge|Vendor|edge-01 uplink", "sfp28-1;lag-fw;br
 
 const fake = new FakeSshDevice("operator+ct300w", (command) => {
     if (command.startsWith(':foreach n in=[/ip neighbor find where discovered-by~"lldp"]')) return NEIGHBORS + "\n";
-    if (command.startsWith(":foreach s in=[/routing bgp session find]")) return SESSIONS + "\n";
+    if (command.startsWith(":foreach s in=[/routing bgp session find]")) return sessions + "\n";
+    if (command.startsWith("/routing bgp session clear ")) {
+        sent.push(command);
+        return "";
+    }
     if (command === ':put ([/system clock get date] . " " . [/system clock get time])') return "2026-10-24 04:53:08\n";
     if (command === '/log print where topics~"bgp" and !(message~"^connection ")') return LOG_LINE + "\n";
     return `bad command name ${command}\n`;
@@ -47,7 +65,7 @@ test("circuit bgp reads the router's sessions: a renamed connection by its addre
         expect(await platform.bgpSessions!(device, session)).toEqual([
             { neighbor: "hurricane-electric", remote: "203.0.113.1", established: true, prefixes: "1099935", uptime: "13:35:26.440" },
             { neighbor: "sgix-rs-v4", remote: "192.0.2.1", established: true, prefixes: "9204", uptime: "13:35:04.930" },
-            { neighbor: "sgix-rs-v6", remote: "2001:db8:ffff::1", established: false, prefixes: "0", uptime: "-" },
+            { neighbor: "sgix-rs-v6", remote: "2001:db8:ffff::1", established: false, prefixes: "0", uptime: "-", reason: "connecting" },
         ]);
 
         const [line] = await platform.bgpLog!(session, 10);
@@ -190,4 +208,43 @@ test("a MAC limit stays refused, for the reason the router gave, and an ethertyp
         "interfaces.members.mac_limit, the platform has no MAC learning limit on a bridge port or a switch port on 7.23",
         "interfaces.members.ethertypes, on a LAG, which is not proved on a device yet",
     ]);
+});
+
+test("circuit bgp says why a session is down: closed on its limit with the limit and when, admin down, connecting", async () => {
+    const bgp = device.routing!.bgp!;
+    const withRs2 = {
+        ...device,
+        routing: {
+            ...device.routing,
+            bgp: { ...bgp, neighbors: { ...bgp.neighbors, "sgix-rs2-v6": { address: "2001:db8:ffff::2", remote_as: 64512 } } },
+        },
+    } as Device;
+    sessions = LEAK;
+    const session = await platform.session(device);
+
+    try {
+        const read = await platform.bgpSessions!(withRs2, session);
+        expect(read.map(({ neighbor, reason, limit }) => ({ neighbor, reason, max: limit?.max, stopped: limit?.stopped }))).toEqual([
+            { neighbor: "hurricane-electric", reason: "admin down", max: undefined, stopped: undefined },
+            { neighbor: "sgix-rs-v4", reason: undefined, max: undefined, stopped: undefined },
+            { neighbor: "sgix-rs-v6", reason: "limit exceeded", max: 6000, stopped: "2026-10-24 21:57:06" },
+            { neighbor: "sgix-rs2-v6", reason: "limit exceeded", max: 6000, stopped: "2026-10-24 21:57:15" },
+        ]);
+
+        // Two limits nine seconds apart are one burst.
+        expect(BgpWait.limitBursts(read).map((burst) => burst.map((one) => one.neighbor))).toEqual([["sgix-rs-v6", "sgix-rs2-v6"]]);
+
+        // Clearing names each session by its address, and only while it is closed on its limit.
+        await platform.bgpClearLimit!(
+            session,
+            read.filter((one) => one.limit)
+        );
+        expect(sent).toEqual([
+            "/routing bgp session clear [find remote.address=2001:db8:ffff::1 and limit-exceeded] flag=limit-exceeded",
+            "/routing bgp session clear [find remote.address=2001:db8:ffff::2 and limit-exceeded] flag=limit-exceeded",
+        ]);
+    } finally {
+        session.close();
+        sessions = SESSIONS;
+    }
 });

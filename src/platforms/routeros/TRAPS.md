@@ -12,6 +12,7 @@ Behaviour that looks like something else. Each one has been hit on a real device
 - A session edited repeatedly can stick: SYN both ways, no RST, no log. Remove the connection and add it again.
 - A session that never established is missing from `/routing bgp session print`; look at `/routing bgp connection print`. One that is trying prints `established` empty, not `false`, and no uptime (7.23.5).
 - A BGP session is named `<connection>-<n>`, and a renamed connection keeps its session's old name until the session restarts. `circuit bgp` matches a session by the neighbor's address first.
+- A session closed on its limit keeps its entry with `limit-exceeded=true`, its `input.limit-process-routes` and `last-stopped`, and the notification it sent ends in `0601` (cease, maximum prefixes). Its `prefix-count` is back to 0, so the count that tripped it is gone. `/routing bgp session clear <id> flag=limit-exceeded` opens it again; a misspelled flag is a `syntax error`, and a `find` that matches nothing does nothing (CCR2216, 7.23.5).
 - `time>` in a `/log print` filter does not filter. `circuit bgp --log` keeps the lines of the last minutes itself, against the device's clock.
 - `tcp-md5-key` set from the CLI has been seen discarded without an error, and a mismatch logs nothing. Confirm with `/tool sniffer quick port=179`.
 - Incoming GRE is subject to the input chain. Accept it before testing the tunnel.

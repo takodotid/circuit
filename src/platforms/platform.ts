@@ -58,7 +58,14 @@ export type BgpSession = {
     prefixes: string;
     /** How long it has been up, as the device prints it, or `no session`. */
     uptime: string;
+    /** Why it is down, when the device says: `limit exceeded`, `admin down`, `connecting`. */
+    reason?: string;
+    /** It closed because the neighbor sent more prefixes than its limit, and stays closed until cleared. */
+    limit?: BgpLimit;
 };
+
+/** A session closed on its prefix limit: the limit, and when it closed, as the device prints it and in milliseconds, to compare. */
+export type BgpLimit = { max?: number; stopped?: string; stoppedAt?: number };
 
 /** One BGP log line: when, as the device printed it, such as `2026-10-24 03:12:44`, and the rest of the line. */
 export type BgpLogLine = { at: string; message: string };
@@ -115,6 +122,8 @@ export abstract class Platform {
     bgpSessions?(device: Device, session: ReadSession): Promise<BgpSession[]>;
     /** The device's BGP log lines from the last `minutes`, by the device's own clock, read over a `session()`. */
     bgpLog?(session: ReadSession, minutes: number): Promise<BgpLogLine[]>;
+    /** Open again these sessions, each closed on its prefix limit, read by `bgpSessions`. Only a session still closed on its limit is touched. */
+    bgpClearLimit?(session: ReadSession, sessions: readonly BgpSession[]): Promise<void>;
     /**
      * Checks that the device is healthy after an apply, not only that it took the commands. Called before the plan is sent, to read what the checks compare against; the CLI runs them after the apply and the snapshot. Absent on a platform with no checks yet.
      */

@@ -40,7 +40,7 @@ test("each configured neighbor gets a row: matched by address first, then by nam
     try {
         expect(await platform.bgpSessions!(device, session)).toEqual([
             { neighbor: "hurricane-electric", remote: "203.0.113.1", established: true, prefixes: "987654", uptime: "1w2d03:04:05" },
-            { neighbor: "sgix-rs-v4", remote: "192.0.2.1", established: false, prefixes: "-", uptime: "-" },
+            { neighbor: "sgix-rs-v4", remote: "192.0.2.1", established: false, prefixes: "-", uptime: "-", reason: "connecting" },
             { neighbor: "sgix-rs-v6", remote: "-", established: false, prefixes: "-", uptime: "no session" },
         ]);
 
