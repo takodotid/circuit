@@ -2,6 +2,7 @@
 
 import { expect, test } from "bun:test";
 import { Bgp } from "../../src/helpers";
+import type { ModelName, PlatformName, PortName } from "../../src";
 import type {
     AlarmSeverity,
     Endpoint,
@@ -98,4 +99,18 @@ test("other fixed values are suggested and checked", () => {
     const severity: AlarmSeverity = "error";
 
     expect([right, zone, mac, endpoint, area, channel, severity]).toHaveLength(7);
+});
+
+test("a project names a model's ports in types of its own, for any platform and model", () => {
+    /** A tenant's ports on one switch, typed by the switch's model. */
+    type TenantPorts<P extends PlatformName, M extends ModelName<P>> = Partial<Record<PortName<P, M>, string>>;
+    const tenant = <P extends PlatformName, M extends ModelName<P>>(_platform: P, _model: M, ports: TenantPorts<P, M>) => ports;
+
+    const right = tenant("junos", "QFX5100-48S-6Q", { "10g-1": "Tenant A", "40g-6": "Tenant A uplink" });
+    // @ts-expect-error The QFX5100-48S-6Q has 48 10G ports.
+    const noPort = tenant("junos", "QFX5100-48S-6Q", { "10g-49": "Tenant B" });
+    // @ts-expect-error Not a model of that platform.
+    const noModel = tenant("junos", "CE6855-48S6Q-HI", {});
+
+    expect([right, noPort, noModel]).toHaveLength(3);
 });
