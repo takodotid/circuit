@@ -65,7 +65,7 @@ export class RaisecomRos extends Platform {
         /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|ip address|port-channel|ip ospf cost|ip ospf network|switchport port-security maximum)\b/;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |access-list |router ospf )/,
+        block: /^(interface |access-list |router ospf |bfd \d+ bind )/,
         indented: false,
         terminator: "!",
         ignore: (line) => line.startsWith("!") || RaisecomRos.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
@@ -83,11 +83,15 @@ export class RaisecomRos extends Platform {
                     /^snmp-server user (\S+) (?:authentication|authkey) (\S+) \S+ (?:privacy|privkey)\s+(\S+) \S+$/,
                     "snmp-server user $1 $2 $3 <secret>"
                 )
+                // A route is sent tracking `bfd N` and prints as tracking `bfd-session N`.
+                .replace(/ track bfd-session (\d+)$/, " track bfd $1")
                 // An access group prints a notify view the render leaves to its default.
                 .replace(/^(snmp-server access \S+ read \S+) notify internet (usm \S+)$/, "$1 $2"),
         // A LAG exists before a port joins it, and an OSPF process comes after the interfaces it names.
         order: (path) => {
             const header = path[0] ?? "";
+            // A BFD session binds to a VLAN interface, so it comes after the interfaces. Only one session binds to a peer, so an old one goes first, with the routes at the top level; a route takes a session that does not exist yet.
+            if (header.startsWith("bfd ")) return 4;
             if (header.startsWith("interface port-channel")) return 1;
             if (header.startsWith("interface ")) return 2;
             if (header.startsWith("router ospf")) return 3;
@@ -199,10 +203,9 @@ export class RaisecomRos extends Platform {
         if (ospf?.families?.includes("ipv6")) found.push("routing.ospf for IPv6");
 
         for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
-            for (const [name, settings] of Object.entries(area.interfaces)) {
+            for (const name of Object.keys(area.interfaces)) {
                 if (device.interfaces?.[name]?.type !== "vlan")
                     found.push(`routing.ospf.areas.${areaId}.${name}, OSPF runs on VLAN interfaces here`);
-                if (settings?.bfd) found.push(`routing.ospf.areas.${areaId}.${name}.bfd`);
             }
         }
 
@@ -212,6 +215,10 @@ export class RaisecomRos extends Platform {
             }
 
             if (route.description || route.distance) found.push(`routing.static ${route.prefix} description and distance`);
+
+            if (route.bfd && route.via && !RaisecomRosRender.bfdSessions(device).has(route.via)) {
+                found.push(`routing.static ${route.prefix} bfd, the next hop must be on a VLAN interface's network`);
+            }
         }
 
         for (const [name, vlan] of Object.entries(device.vlans ?? {})) {
@@ -264,7 +271,7 @@ export class RaisecomRos extends Platform {
 
         // SNMP takes its own access-list; SSH and telnet share the management one.
         found.push(...Derive.switchUnsupported(device, ["snmp"]));
-        found.push(...Derive.unproved(device, ["mac-limit", "ethertype-filter"]));
+        found.push(...Derive.unproved(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
 
         return found;
     }
@@ -593,6 +600,13 @@ export class RaisecomRos extends Platform {
         // A VRRP group goes with its address; its other settings return to their defaults by keyword. Preemption is on unless turned off.
         const vrrp = /^(no )?vrrp (\d+) (ip \S+|priority|timers advertise-interval|preempt)/.exec(line);
         if (vrrp) return vrrp[1] ? `vrrp ${vrrp[2]} preempt` : `no vrrp ${vrrp[2]} ${vrrp[3]}`;
+
+        // A route goes by its prefix and next hop, whatever it tracks; a BFD session by its number.
+        const route = /^(ip route \S+ \S+ \S+)/.exec(line);
+        if (route) return `no ${route[1]}`;
+
+        const bfdSession = /^bfd (\d+) bind /.exec(line);
+        if (bfdSession) return `no bfd ${bfdSession[1]}`;
 
         const ospfProcess = /^router ospf (\d+)/.exec(line);
         if (ospfProcess) return `no router ospf ${ospfProcess[1]}`;
