@@ -65,6 +65,10 @@ test("bgp takes the only device with BGP when none is named, and checks the neig
     expect(circuit("bgp", "--config=examples/platforms/circuit.config.ts").stderr).toStartWith(
         "several devices have BGP neighbors, so name one: "
     );
+    expect(circuit("bgp", "--clear-limit", "--wait", `--config=${config}`)).toMatchObject({
+        status: 1,
+        stderr: "--clear-limit and --wait go in two runs: clear first, then wait\n",
+    });
 });
 
 test("console stops at once on a device without a console", () => {

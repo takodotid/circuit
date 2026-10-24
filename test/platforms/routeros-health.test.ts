@@ -89,7 +89,7 @@ test("a session that comes back within the time is not a problem; one that does 
     sessionReads = [UP, SGIX_DOWN];
     const problems = await applyAndCheck();
     expect(problems).toHaveLength(1);
-    expect(problems[0]).toStartWith("BGP session sgix-rs-v4 was established before the apply and is not 0.5 s after it (not established)");
+    expect(problems[0]).toStartWith("BGP session sgix-rs-v4 was established before the apply and is not 0.5 s after it (connecting)");
 });
 
 test("a session down before the apply is not waited for, and a plan without switch rules does not count them", async () => {

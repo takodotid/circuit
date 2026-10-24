@@ -89,32 +89,44 @@ On Git Bash for Windows, set `MSYS_NO_PATHCONV=1` first. Otherwise a command tha
 
 ## bgp: neighbors and their sessions
 
-`bgp` shows each BGP neighbor in the device's file next to its live session on the device, one line each: its name, `up` or `DOWN`, how many prefixes it sent us, how long the session has been up, and the neighbor's address. A neighbor with no session at all is shown as down.
+`bgp` shows each BGP neighbor in the device's file next to its live session on the device, one line each: its name, `up` or `DOWN`, how many prefixes it sent us, how long the session has been up, the neighbor's address, and why it is down when the device says. A neighbor with no session at all is shown as down.
 
 ```bash
 npx circuit bgp edge-01
 npx circuit bgp edge-01 'sgix' --wait          # until every neighbor whose name has sgix is up
 npx circuit bgp edge-01 'sgix' --wait=4        # until at least 4 of them are up
 npx circuit bgp edge-01 --log=10               # also the BGP log lines of the last 10 minutes
+npx circuit bgp edge-01 'sgix' --clear-limit   # open again those closed on their prefix limit
 ```
 
 ```
 hurricane-electric  up     987654  1w2d03:04:05  203.0.113.1
-sgix-rs-v4          DOWN        -  -             192.0.2.1
-sgix-rs-v6          DOWN        -  no session    -
-1/3 up
+sgix-rs-v4          DOWN        0  -             192.0.2.1  limit exceeded: over 20000 prefixes, closed 2026-10-24 21:57:06
+sgix-rs2-v4         DOWN        0  -             192.0.2.2  limit exceeded: over 20000 prefixes, closed 2026-10-24 21:57:13
+sgix-rs-v6          DOWN        0  -             2001:db8:ffff::1  connecting
+1/4 up
+
+sgix-rs-v4 and sgix-rs2-v4 closed on their prefix limit within 7 s of each other, from 2026-10-24 21:57:06. Several limits at once is usually a leak upstream, not growth: find the leak before raising a limit, then clear them with --clear-limit.
 ```
+
+Why a session is down:
+
+- `limit exceeded`: the neighbor sent more prefixes than its `max_prefixes`. The session stays closed until it is cleared. When two or more closed on their limit within 5 minutes of each other, `bgp` says so: that is usually a leak upstream, and raising the limits is the wrong fix.
+- `connecting`: the session exists and is not established yet.
+- `admin down`: the connection is disabled on the device.
 
 1. The device can be left out when only one device in the network has BGP neighbors: `npx circuit bgp sgix`.
 2. The second argument is a regular expression. Only the neighbors whose name matches are shown.
 3. `--wait` reads again every 15 seconds until every neighbor shown is up, or with `--wait=N`, at least N of them. It gives up after `--max` seconds, 600 by default, and then exits with code 1. Use it after a provider cutover. `apply --confirm` already waits for the sessions that were up before it.
 4. `--log` adds the device's BGP log lines of the last few minutes, 5 by default. A message that repeats is folded into one line with its first and last time and a count, such as `2026-10-24 03:01:00..03:04:50 x24`. It shows every BGP line, not only those of the neighbors shown.
+5. `--clear-limit` opens again each neighbor shown that closed on its prefix limit, once you know why it did. Any other neighbor shown is left alone and named; when none closed on its limit, nothing is sent and it exits with code 1. It then shows the sessions again. A session that still sends too much closes again.
 
-`bgp` only reads, and works on RouterOS so far. On another platform it says it does not support it yet and stops before it connects.
+`bgp` only reads, except with `--clear-limit`, and works on RouterOS so far. On another platform it says it does not support it yet and stops before it connects.
 
 On RouterOS:
 
 - A neighbor is matched with its session by address first, then by name. A connection that was renamed keeps its session's old name until the session restarts.
+- `--clear-limit` sends `/routing bgp session clear [find remote.address=<address> and limit-exceeded] flag=limit-exceeded` for each session, so a session that is no longer closed on its limit is not touched.
 - `--log` leaves out the `connection ...` lines a session that cannot connect repeats. The device's own time filter in `/log print` does not filter, so Circuit keeps the lines of the last minutes itself, by the device's clock.
 
 ## console: a device's serial console

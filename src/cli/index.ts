@@ -228,7 +228,7 @@ class Cli {
 
         program
             .command("bgp")
-            .description("each BGP neighbor in the config next to its live session: up or down, prefixes, uptime")
+            .description("each BGP neighbor in the config next to its live session: up or down and why, prefixes, uptime")
             .argument("[device]", "may be left out when only one device has BGP neighbors")
             .argument("[name-regex]", "only the neighbors whose name matches")
             .option(
@@ -238,6 +238,7 @@ class Cli {
             )
             .option("--max <seconds>", "how long --wait waits at most", Cli.seconds, BgpWait.COMMAND.seconds)
             .option("--log [minutes]", "also print the device's BGP log lines from the last minutes, 5 by default", Cli.minutes)
+            .option("--clear-limit", "open again the neighbors shown that closed on their prefix limit; any other is left alone")
             .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
             .action(async (first, second, flags) => (await Cli.open(flags.config)).bgp(first, second, flags));
 
@@ -604,12 +605,12 @@ class Cli {
     }
 
     /**
-     * Each BGP neighbor in the config next to its live session. `first` is the device, or, when it names none and only one device has BGP neighbors, the name pattern. With `wait`, reads again until every neighbor shown, or that many, is up, and fails when time runs out.
+     * Each BGP neighbor in the config next to its live session. `first` is the device, or, when it names none and only one device has BGP neighbors, the name pattern. With `wait`, reads again until every neighbor shown, or that many, is up, and fails when time runs out. With `clearLimit`, opens again the neighbors shown that closed on their prefix limit, and fails when none did.
      */
     private async bgp(
         first: string | undefined,
         second: string | undefined,
-        flags: { wait?: true | number; max: number; log?: true | number }
+        flags: { wait?: true | number; max: number; log?: true | number; clearLimit?: true }
     ): Promise<void> {
         const { device, pattern } = this.bgpTarget(first, second);
         const adapter = this.adapterOf(device);
@@ -620,6 +621,8 @@ class Cli {
             .join(", ");
         if (!adapter.bgpSessions) Cli.fail(`circuit bgp does not support ${device.platform} yet, only ${supported}`);
         if (flags.log && !adapter.bgpLog) Cli.fail(`circuit bgp --log does not support ${device.platform} yet`);
+        if (flags.clearLimit && !adapter.bgpClearLimit) Cli.fail(`circuit bgp --clear-limit does not support ${device.platform} yet`);
+        if (flags.clearLimit && flags.wait !== undefined) Cli.fail("--clear-limit and --wait go in two runs: clear first, then wait");
 
         let matcher: RegExp;
         try {
@@ -640,6 +643,11 @@ class Cli {
         try {
             const read = async () => (await adapter.bgpSessions!(device, session)).filter((neighbor) => shown.includes(neighbor.neighbor));
 
+            if (flags.clearLimit) {
+                await Cli.clearLimits(adapter, session, read);
+                return;
+            }
+
             const limits = { seconds: flags.max, every: BgpWait.COMMAND.every };
             const sessions = await BgpWait.until(
                 read,
@@ -658,6 +666,27 @@ class Cli {
         } finally {
             session.close();
         }
+    }
+
+    /** Open again the sessions closed on their limit, say which others were left alone, and show them all after. */
+    private static async clearLimits(adapter: Platform, session: ReadSession, read: () => Promise<BgpSession[]>): Promise<void> {
+        const sessions = await read();
+        const closed = sessions.filter((bgp) => bgp.limit);
+
+        if (!closed.length) {
+            Cli.printBgp(sessions);
+            console.error("\nno neighbor shown is closed on its prefix limit, so nothing was cleared");
+            process.exitCode = 1;
+            return;
+        }
+
+        for (const bgp of sessions) if (!bgp.limit) console.log(`${bgp.neighbor}: left alone, not closed on its limit`);
+        await adapter.bgpClearLimit!(session, closed);
+        console.log(
+            `cleared ${closed.map((bgp) => bgp.neighbor).join(", ")}: each connects again, and closes again if it still sends too much\n`
+        );
+
+        Cli.printBgp(await read());
     }
 
     /** The device `circuit bgp` reads, and the name pattern, from its two optional arguments. */
@@ -681,12 +710,34 @@ class Cli {
 
         for (const session of sessions) {
             const state = session.established ? "up  " : "DOWN";
+            const why = session.reason ? `  ${Cli.downReason(session)}` : "";
             console.log(
-                `${session.neighbor.padEnd(width)}  ${state}  ${session.prefixes.padStart(7)}  ${session.uptime.padEnd(12)}  ${session.remote}`
+                `${session.neighbor.padEnd(width)}  ${state}  ${session.prefixes.padStart(7)}  ${session.uptime.padEnd(12)}  ${session.remote}${why}`
             );
         }
 
         console.log(`${BgpWait.upCount(sessions)}/${sessions.length} up`);
+
+        for (const burst of BgpWait.limitBursts(sessions)) {
+            const names = burst.map((session) => session.neighbor);
+            const listed = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
+            const seconds = Math.round((burst.at(-1)!.limit!.stoppedAt! - burst[0]!.limit!.stoppedAt!) / 1000);
+
+            console.log(
+                `
+${listed} closed on their prefix limit within ${seconds} s of each other, from ${burst[0]!.limit!.stopped}. Several limits at once is usually a leak upstream, not growth: find the leak before raising a limit, then clear them with --clear-limit.`
+            );
+        }
+    }
+
+    /** Why a session is down, with its limit and when it closed when that is why. */
+    private static downReason(session: BgpSession): string {
+        const { limit } = session;
+        if (!limit) return session.reason ?? "";
+
+        const over = limit.max !== undefined ? `: over ${limit.max} prefixes` : "";
+        const when = limit.stopped ? `, closed ${limit.stopped}` : "";
+        return `${session.reason}${over}${when}`;
     }
 
     /** The device's BGP log lines from the last `minutes`, a message repeated folded into one line, secrets hidden. */
