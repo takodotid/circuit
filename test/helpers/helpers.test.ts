@@ -268,3 +268,57 @@ test("exchange.bird gives a session only in the families both ends have, and ref
         "members big-net and big_net would both have session big_net_ipv4"
     );
 });
+
+// The output was parse-checked with `bgpd -n` on OpenBGPD 9.1, and run against member routers, which got only the routes these rules keep; these keep its shape.
+test("exchange.openbgpd writes one OpenBGPD group per family and rules that keep only each member's own routes", async () => {
+    const { exchange, ROUTE_SERVERS } = await import("../../examples/use-cases/internet-exchange/exchange");
+    const config = exchange.openbgpd(ROUTE_SERVERS[0]);
+
+    expect(config).toContain(["AS 64500", "router-id 203.0.113.1"].join("\n"));
+    expect(config).toContain("\nfib-update no\n");
+    expect(config).toContain("\ntransparent-as yes\n");
+    expect(config).toContain("\nrde rib Loc-RIB include filtered\n");
+    expect(config.match(/^ {4}neighbor /gm)).toHaveLength(6);
+    expect(config).toContain(
+        [
+            'group "ipv6 members" {',
+            "    local-address 2001:db8:ffff::1",
+            "    # A route whose first AS is not the member's own is dropped by the rules below. The default would close the whole session.",
+            "    enforce neighbor-as no",
+            "    neighbor 2001:db8:ffff::10 {",
+            "        remote-as 13335",
+            '        descr "cloudflare, AS13335"',
+            "    }",
+        ].join("\n")
+    );
+    expect(config.match(/^(allow|deny) .*$/gm)).toEqual([
+        'allow from group "ipv4 members" peer-as neighbor-as nexthop neighbor prefix 0.0.0.0/0 prefixlen 8 - 24',
+        'allow from group "ipv6 members" peer-as neighbor-as nexthop neighbor prefix ::/0 prefixlen 12 - 48',
+        "deny from any prefix 203.0.113.0/24 or-longer",
+        "deny from any prefix 2001:db8:ffff::/64 or-longer",
+        "allow to any",
+    ]);
+});
+
+test("exchange.openbgpd writes a group only for a family both ends have, and refuses a server bird would", async () => {
+    const { Exchange } = await import("../../src/helpers");
+    const lan = { ipv4: "203.0.113.0/24", ipv6: "2001:db8:ffff::/64" } as const;
+    const members = [
+        { name: "big-net", asn: 64510, ports: {}, ipv4: "203.0.113.10" },
+        { name: "small", asn: 64511, ports: {}, ipv4: "203.0.113.11" },
+    ] as const;
+    const exchange = Exchange.build({ vlan: "peering", lan }, members);
+
+    // No member has an IPv6 address, so the server's IPv6 address gets no group and no rule.
+    const config = exchange.openbgpd({ name: "rs1", asn: 64500, router_id: "203.0.113.1", ipv4: "203.0.113.1", ipv6: "2001:db8:ffff::1" });
+    expect(config.match(/^group .*$/gm)).toEqual(['group "ipv4 members" {']);
+    expect(config).not.toContain("ipv6 members");
+    expect(config).not.toContain("2001:db8:ffff::");
+
+    expect(() => exchange.openbgpd({ name: "rs1", asn: 64500, router_id: "203.0.113.1" })).toThrow(
+        "route server rs1 has no address on the peering LAN"
+    );
+    expect(() => exchange.openbgpd({ name: "rs1", asn: 64500, router_id: "198.51.100.1", ipv4: "198.51.100.1" })).toThrow(
+        "198.51.100.1 of route server rs1 is outside the peering LAN"
+    );
+});

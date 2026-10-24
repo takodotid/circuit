@@ -10,7 +10,7 @@ In [Networks of networks](/academy/intermediate/autonomous-systems) you joined a
 An exchange has two parts, and Circuit runs one of them:
 
 1. **The <Term means="The switches of an exchange, which carry its peering LAN to every member's port.">fabric</Term>**: the switches that carry the peering LAN to every member port. Circuit configures it.
-2. **The route servers**: servers running BGP software that pass every member's routes on to every other member. Circuit does not configure these yet.
+2. **The route servers**: servers running BGP software that pass every member's routes on to every other member. Circuit writes their config, and you copy it to them.
 
 ## What the fabric must protect
 
@@ -133,7 +133,7 @@ With every choice sound, the plan is one port, and each line is one of the prote
 
 ## The route servers
 
-Route servers are the other half of the exchange, and Circuit does not write their config yet: you run BGP software such as BIRD on two servers, and build its config from the same member list. The standards for them say:
+Route servers are the other half of the exchange: you run BGP software, BIRD or OpenBGPD, on two servers, and Circuit writes its config from the same member list, as in [The route servers](/use-cases/internet-exchange#the-route-servers). The standards for them say:
 
 - **A route server carries no traffic.** It passes every member's routes on with the next hop unchanged, so traffic goes straight from one member's router to another's across the fabric.
 - **It should not add its own AS** to the routes it passes on, so members see each other's paths as if they peered directly.

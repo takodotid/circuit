@@ -5,7 +5,7 @@ An internet exchange, IX, is a shared network where networks connect to each oth
 An exchange has two parts:
 
 1. **The fabric**: the switches that carry the peering LAN to every member port. Circuit configures it.
-2. **The route servers**: servers running BGP software such as BIRD, which pass every member's routes to every other member. Circuit writes their config from the member list, and you copy it to them.
+2. **The route servers**: servers running BGP software, BIRD or OpenBGPD, which pass every member's routes to every other member. Circuit writes their config from the member list, and you copy it to them.
 
 The example is an exchange of two switches, with Cloudflare, Akamai and a small network, Acme, as members.
 
@@ -33,11 +33,12 @@ The `Exchange.build` helper makes member ports and a check from a list of member
 | `mac_limit`     | The most MAC addresses a member port learns, usually 1. Not on RouterOS, see below                  |
 | `ethertypes`    | The only kinds of frame a member port takes in, usually `ipv4`, `ipv6` and `arp`                    |
 
-It returns three things:
+It returns four things:
 
 - **`exchange.ports(device)`:** every member's port on that switch, set up as above. Put it in the switch's `ports`.
 - **`exchange.check`:** a check that no two members share a name, an AS or an address, that every address is inside the peering LAN and not reserved, and that every member port carries only the peering VLAN. Put it in `checks`.
 - **`exchange.bird(server)`:** a route server's config, for BIRD 2. See [The route servers](#the-route-servers).
+- **`exchange.openbgpd(server)`:** the same route server's config, for OpenBGPD. See [OpenBGPD](#openbgpd).
 
 <<< @/../examples/use-cases/internet-exchange/exchange.ts
 
@@ -73,7 +74,7 @@ A member joins by being added to `members/index.ts`, and leaves by being removed
 
 A route server peers with every member, takes each member's routes, and passes them on to all the others. A member then needs one or two sessions, to the route servers, instead of one to every other member.
 
-Circuit never logs in to a route server. It writes the server's BIRD config from the member list, and you copy the file to the server. BIRD 2 is the routing software; Circuit writes nothing for OpenBGPD or other software yet.
+Circuit never logs in to a route server. It writes the server's config from the member list, and you copy the file to the server. It writes for two kinds of routing software: BIRD 2, and OpenBGPD, the BGP daemon from OpenBSD that also runs on Linux. Both get the same sessions and the same rules; pick the one your servers run.
 
 Each route server is a few lines in `exchange.ts`. Their addresses are also the exchange's `reserved` addresses, so no member can take one:
 
@@ -81,22 +82,22 @@ Each route server is a few lines in `exchange.ts`. Their addresses are also the 
 | ----------- | ------------------------------------------------------------------------------ |
 | `name`      | Its name, such as `rs1`, written at the top of its config                      |
 | `asn`       | Its own AS. It never adds this AS to a path, so members see each other's paths |
-| `router_id` | BIRD's router ID, an IPv4 address of the server, usually its `ipv4`            |
+| `router_id` | Its BGP router ID, an IPv4 address of the server, usually its `ipv4`           |
 | `ipv4`      | Its IPv4 address on the peering LAN. Members with an IPv4 address peer with it |
 | `ipv6`      | Its IPv6 address on the peering LAN. Members with an IPv6 address peer with it |
 
-`route-servers.ts` writes each one's config beside it. Run it with `bun route-servers.ts`, or with `npx tsx route-servers.ts` on Node:
+`route-servers.ts` writes each one's config beside it, once for BIRD and once for OpenBGPD. Run it with `bun route-servers.ts`, or with `npx tsx route-servers.ts` on Node:
 
 <<< @/../examples/use-cases/internet-exchange/route-servers.ts
 
-The config has one BGP session per member and family. Each session keeps a route the member sends only when:
+Each config has one BGP session per member and family. Each session keeps a route the member sends only when:
 
 1. the first AS in its path is the member's own,
 2. its next hop is the member's own address on the peering LAN, so a member cannot send traffic toward another member's router,
 3. it is not the peering LAN itself, or a part of it,
 4. it is /8 to /24 long for IPv4, or /12 to /48 for IPv6.
 
-A route that fails stays on the server, hidden: `birdc show route filtered` lists it. Here is the session for one member:
+A route that fails stays on the server, hidden. Here is the BIRD session for one member; `birdc show route filtered` lists the routes it did not keep:
 
 ```
 protocol bgp cloudflare_ipv4 {
@@ -120,7 +121,31 @@ protocol bgp cloudflare_ipv4 {
 
 When a member joins or leaves, run the script again, copy the files, and run `birdc configure` on each server. BIRD starts the new sessions, stops the old ones, and keeps the sessions it did not change up.
 
-The config does not check routes against IRR or RPKI, and has no prefix limit per member. A large exchange wants both: add them in your own script after `exchange.bird` writes the rest, or use a route server tool built for them. A change by hand in the written file is lost the next time the script runs.
+A member's router must accept a path that does not start with the route server's AS, since the server never adds it. Many routers refuse such a path by default, with a setting called something like "enforce first AS": the member turns it off on its sessions to the route servers. On OpenBGPD it is `enforce neighbor-as no`.
+
+### OpenBGPD
+
+The OpenBGPD config, `bgpd.conf`, uses OpenBGPD's own way to say the same thing. It was checked with `bgpd -n`, and run with member routers in a test lab, on OpenBGPD 9.1.
+
+1. **`transparent-as yes`** makes it a route server: it never adds its own AS to a path, and passes MED and communities on as they came.
+2. **`fib-update no`** keeps the routes out of the server's own routing table, since it carries no traffic.
+3. **One group per family**, `"ipv4 members"` and `"ipv6 members"`, holds a session for each member with an address in that family.
+4. **Four filter rules** hold the four checks for every member at once: an `allow` per family and a `deny` per peering LAN subnet. `neighbor-as` is the AS of the session the route came in on, and `nexthop neighbor` is that session's address. In OpenBGPD the last rule a route matches decides, and a route no rule allows is dropped:
+
+```
+allow from group "ipv4 members" peer-as neighbor-as nexthop neighbor prefix 0.0.0.0/0 prefixlen 8 - 24
+allow from group "ipv6 members" peer-as neighbor-as nexthop neighbor prefix ::/0 prefixlen 12 - 48
+deny from any prefix 203.0.113.0/24 or-longer
+deny from any prefix 2001:db8:ffff::/64 or-longer
+```
+
+Each group has `enforce neighbor-as no`. OpenBGPD checks the first AS on its own by default, but a single route that fails that check closes the member's whole session. With the check in the rules, only that route is dropped, as with BIRD.
+
+`rde rib Loc-RIB include filtered` keeps the routes that fail visible: `bgpctl show rib filtered` lists them. When a member joins or leaves, run the script again, copy the files, and run `bgpctl reload` on each server. Like BIRD, OpenBGPD starts the new sessions, stops the old ones, and keeps the others up.
+
+### What neither config does
+
+Neither config checks routes against IRR or RPKI, and neither has a prefix limit per member. A large exchange wants both: add them in your own script after `exchange.bird` or `exchange.openbgpd` writes the rest, or use a route server tool built for them. A change by hand in the written file is lost the next time the script runs.
 
 ## A virtual exchange
 
