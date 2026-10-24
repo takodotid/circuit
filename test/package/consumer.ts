@@ -1,7 +1,7 @@
 // A project that uses the built package by its name, as npm installs it: `bun run check` compiles this against dist/types with `nodenext`, the strictest resolution. Each `@ts-expect-error` must fail, so a type that resolves to `any` fails the check.
 
 import { Address, defineDevice, secret, type ModelName, type PlatformName, type PortName, type Prefix } from "@takodotid/circuit";
-import { Bgp, Filters } from "@takodotid/circuit/helpers";
+import { Bgp, Cables, Filters, Upstreams } from "@takodotid/circuit/helpers";
 
 export default defineDevice({
     name: "tor-01",
@@ -30,3 +30,14 @@ export const wrong = defineDevice({
 export const sanity = Bgp.sanity();
 export const spoof = Filters.antiSpoofing("servers", ["10.0.0.0/24"]);
 export const inside: boolean = Address.contains("10.0.0.0/8", "10.1.0.0/16");
+export const upstreams = Upstreams.define({
+    transit: { asn: 64510, role: "provider", sessions: { transit: { address: "203.0.113.1" } }, announce: [{ prefix: "198.51.100.0/24" }] },
+});
+// @ts-expect-error Only an upstream with an import has an IN policy.
+export const noImport: typeof upstreams.policies extends () => infer R ? keyof R : never = "TRANSIT-IN";
+export const lag = Cables.lag({
+    a: { device: "a", platform: "junos", model: "QFX5100-48S-6Q", lag: "ae0" },
+    b: { device: "b", platform: "vrp", model: "CE6855-48S6Q-HI", lag: "eth-trunk1" },
+    // @ts-expect-error The CE6855 has no 100G ports.
+    cables: { "40g-1": "100g-1" },
+});
