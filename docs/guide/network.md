@@ -107,4 +107,4 @@ These are warnings, not errors: LLDP can be off at the far end, or on a port. On
 
 The far device is found by its name, which every platform sets as the device's hostname. A name with a domain after it, such as `tor-01.example.net`, matches `tor-01`. The far port is matched as that device's platform spells it, such as `10GE1/0/5` for `10g-5` on VRP.
 
-No platform reads LLDP neighbors yet. Each platform's command for it, and the form of what it prints, must be proved on a real device first. Until then, `snapshot` says so for each device that runs LLDP, saves nothing, and `validate` has nothing to compare.
+Every platform reads its LLDP neighbors, each proved on a real device. Two things a far end sends can still stop a match: RouterOS sends a port's description where its name should be, so Circuit matches it when exactly one port of that device has that description; and a device that sends something other than its own name as its system name, or its port as a number, matches nothing, so `validate` warns about that cable.

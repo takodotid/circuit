@@ -15,7 +15,7 @@ Circuit never guesses what a device does. Anything an adapter sends or reads is 
 
 ## Try syntax without applying it
 
-- **RouterOS:** `:put [:parse "<command>"]` compiles a command without running it and reports a syntax error or an unknown property. It doesn't check text inside `rule=`, or whether a named action exists.
+- **RouterOS:** `:put [:parse "<command>"]` compiles a command without running it and reports a syntax error or an unknown property. It doesn't check text inside `rule=`, whether a named action exists, or a quoted value (`check-gateway="bfd"` passed `:parse` and the run then refused it, restoring the backup and restarting the router). Check an enum with `/console inspect` first.
 - **VRP:** send lines into the candidate (`system-view`), read `display configuration candidate`, then drop them with `clear configuration candidate`. `abort` isn't a command.
 - **Junos:** `configure exclusive`, `load set terminal`, `commit check`, then `rollback 0` to drop the candidate.
 - **FortiOS:** `execute config-transaction start` opens a transaction that `execute config-transaction abort` drops, but a transaction behaves differently from a plain apply. Prove the apply itself under `cfg-save revert`, then undo it with `execute cfg reload`. `abort` inside a table does nothing, and every `next` outside a transaction applies and saves.
