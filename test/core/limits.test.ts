@@ -36,7 +36,11 @@ test("switch rules are counted as the render makes them, and more than a CCR2216
     const withRules = (rules: object[], ports: string[]): Device =>
         ({
             ...router,
-            ports: { ...router.ports, ...Object.fromEntries(ports.map((port) => [port, { access_vlan: "servers", acl: "edge" }])) },
+            // Only the ACLs given here count: the example's own ethertype filter makes switch rules too.
+            ports: {
+                ...Object.fromEntries(Object.entries(router.ports ?? {}).map(([name, port]) => [name, { ...port, ethertypes: undefined }])),
+                ...Object.fromEntries(ports.map((port) => [port, { access_vlan: "servers", acl: "edge" }])),
+            },
             acls: { edge: rules },
         }) as Device;
 
