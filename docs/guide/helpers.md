@@ -93,7 +93,7 @@ firewall: {
 },
 ```
 
-Accept the state `untracked` in the forward chain, since no other state applies to it.
+Accept the state `untracked` in the forward chain, since no other state applies to it. An address NAT uses inside an untracked prefix, a source translation's address or a destination translation's, stays tracked: a reply to it that skipped tracking would never be translated back.
 
 `Filters.badTcpFlags()` drops TCP packets with flag combinations that no real program sends, such as SYN and FIN together. Scanners send them to learn about your network:
 

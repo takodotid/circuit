@@ -70,9 +70,12 @@ test("untracked prefixes skip connection tracking both ways, in their own family
         firewall: { ...router.firewall, untracked: ["198.51.100.64/27", "2001:db8:100::/48"] },
     });
 
+    // The web server a destination translation sends to is inside the IPv4 prefix, so it stays tracked.
     expect(rendered).toContain(
         [
             "/ip firewall raw",
+            'add action=accept chain=prerouting comment="Tracked for NAT, to 198.51.100.70" dst-address=198.51.100.70',
+            'add action=accept chain=prerouting comment="Tracked for NAT, from 198.51.100.70" src-address=198.51.100.70',
             'add action=notrack chain=prerouting comment="Untracked to 198.51.100.64/27" dst-address=198.51.100.64/27',
             'add action=notrack chain=prerouting comment="Untracked from 198.51.100.64/27" src-address=198.51.100.64/27',
         ].join("\n")
@@ -89,6 +92,34 @@ test("untracked prefixes skip connection tracking both ways, in their own family
 });
 
 // The device keeps a dynamic fasttrack counter rule in the raw table, which it refuses to remove.
+// Proved on a CCR2216 on 7.23.5: with the two accepts before the notracks, a source NAT address inside an untracked block was translated back, and the router printed the rules as rendered.
+test("an address NAT uses inside an untracked prefix stays tracked, before every notrack", () => {
+    const rendered = Platforms.get("routeros").render({
+        ...router,
+        firewall: {
+            ...router.firewall,
+            untracked: ["198.51.100.32/27"],
+            nat: {
+                source: [{ match: { src: "10.101.0.0/24", out_interface: "uplink" }, action: "snat", to: "198.51.100.34" }],
+                destination: [{ match: { protocol: "tcp", dst: "198.51.100.40/32", dst_port: 443 }, action: "dnat", to: "10.101.0.10" }],
+            },
+        },
+    });
+
+    expect(rendered).toContain(
+        [
+            "/ip firewall raw",
+            'add action=accept chain=prerouting comment="Tracked for NAT, to 198.51.100.34" dst-address=198.51.100.34',
+            'add action=accept chain=prerouting comment="Tracked for NAT, from 198.51.100.34" src-address=198.51.100.34',
+            'add action=accept chain=prerouting comment="Tracked for NAT, to 198.51.100.40/32" dst-address=198.51.100.40/32',
+            'add action=accept chain=prerouting comment="Tracked for NAT, from 198.51.100.40/32" src-address=198.51.100.40/32',
+            'add action=notrack chain=prerouting comment="Untracked to 198.51.100.32/27" dst-address=198.51.100.32/27',
+        ].join("\n")
+    );
+    // An address outside every untracked prefix needs nothing.
+    expect(rendered).not.toContain("Tracked for NAT, to 10.101.0.10");
+});
+
 test("a rewrite of the raw table never selects a dynamic rule", () => {
     const adapter = Platforms.get("routeros");
     const before = adapter.render(router);

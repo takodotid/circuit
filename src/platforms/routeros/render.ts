@@ -874,13 +874,32 @@ export class RouterOsRender {
         this.switchAcls();
     }
 
-    /** Untracked prefixes skip connection tracking in the raw table, both ways, before a connection is ever made. */
+    /**
+     * Untracked prefixes skip connection tracking in the raw table, both ways, before a connection is ever made.
+     *
+     * An address NAT uses inside one stays tracked, by an `accept` in each direction before every `notrack`: a reply to it that skipped tracking would never be translated back.
+     */
     private untracked(family: Family): void {
         const menu = family === "ipv4" ? "/ip firewall raw" : "/ipv6 firewall raw";
+        const untracked = (this.device.firewall?.untracked ?? []).filter((prefix) => Address.family(prefix) === family);
 
-        for (const prefix of this.device.firewall?.untracked ?? []) {
-            if (Address.family(prefix) !== family) continue;
+        for (const address of RouterOsRender.natAddresses(this.device)) {
+            if (Address.family(address) !== family || !untracked.some((prefix) => Address.contains(prefix, address))) continue;
 
+            for (const [direction, property] of [
+                ["to", "dst-address"],
+                ["from", "src-address"],
+            ] as const) {
+                this.add(menu, "add", {
+                    action: "accept",
+                    chain: "prerouting",
+                    comment: `Tracked for NAT, ${direction} ${address}`,
+                    [property]: address,
+                });
+            }
+        }
+
+        for (const prefix of untracked) {
             for (const [direction, property] of [
                 ["to", "dst-address"],
                 ["from", "src-address"],
@@ -893,6 +912,20 @@ export class RouterOsRender {
                 });
             }
         }
+    }
+
+    /** Every address NAT translates to or from: each translation's target, and the address a destination translation matches. Once each, in rule order. */
+    static natAddresses(device: Device): string[] {
+        const nat = device.firewall?.nat;
+        const addresses = [
+            ...(nat?.source ?? []).flatMap((rule) => (rule.action === "masquerade" ? [] : [rule.to])),
+            ...(nat?.destination ?? []).flatMap((rule) => [
+                ...(rule.match?.dst ? [rule.match.dst] : []),
+                ...(rule.action === "masquerade" ? [] : [rule.to]),
+            ]),
+        ];
+
+        return [...new Set(addresses)];
     }
 
     /**
