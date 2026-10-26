@@ -332,12 +332,20 @@ export class Validator {
         const sets = device.prefix_sets ?? {};
 
         for (const [name, rules] of Object.entries(policies)) {
-            for (const rule of rules) {
+            rules.forEach((rule, index) => {
+                // A device runs a call for every route, so a match beside it would read as a condition it isn't.
+                const beside = (["match", "set", "action"] as const).filter((key) => rule.call !== undefined && rule[key] !== undefined);
+                if (beside.length) {
+                    report(
+                        `policy ${name} rule ${index + 1} has call and ${beside.join(", ")}: a call is a rule of its own, run for every route. Put ${beside.join(", ")} in the next rule, or the match inside ${rule.call}`
+                    );
+                }
+
                 names.expect(`policy ${name} call`, rule.call, rule.call !== undefined && rule.call in policies);
                 const set = rule.match?.prefix_set;
                 names.expect(`policy ${name} prefix set`, set, set !== undefined && set in sets);
                 if (rule.match?.prefix) cidr(`policy ${name}`, rule.match.prefix);
-            }
+            });
         }
 
         // A policy that calls itself, directly or not, never finishes.

@@ -11,12 +11,15 @@ The rule for both is short: never accept everything, and never announce everythi
 
 ## How a policy is read
 
-In a device file, `policies` has named lists of rules, and each BGP neighbor says, by name, which list it uses for `import` and which for `export`. A rule can have four parts, and Circuit evaluates them in this order:
+In a device file, `policies` has named lists of rules, and each BGP neighbor says, by name, which list it uses for `import` and which for `export`. The rules are read from the top, and a rule is one of two kinds.
 
-1. `call`: run another policy first. A route that policy accepts or rejects stops there.
-2. `match`: which routes the rule applies to, such as a `prefix`, a `prefix_set`, a `prefix_length`, an `rpki` state or a `community`. A rule without `match` applies to every route.
-3. `set`: what to change on the route, such as `local_pref` from [the last lesson](/academy/intermediate/best-path).
-4. `action`: `accept` or `reject`, which ends the policy for that route.
+A **call** runs another policy at that point, for every route: `{ call: "SANITY" }`. A route that policy accepts or rejects stops there; any other goes on to the next rule. A call holds nothing else. To call a policy for some routes only, put the match inside that policy.
+
+Every other rule has up to three parts, evaluated in this order:
+
+1. `match`: which routes the rule applies to, such as a `prefix`, a `prefix_set`, a `prefix_length`, an `rpki` state or a `community`. A rule without `match` applies to every route.
+2. `set`: what to change on the route, such as `local_pref` from [the last lesson](/academy/intermediate/best-path).
+3. `action`: `accept` or `reject`, which ends the policy for that route.
 
 A rule without `action` changes the route and moves on to the next rule. The first decision wins, and a route that no rule accepts is rejected.
 
@@ -128,7 +131,7 @@ A later rule can then match `large_community`. For example, an export to a custo
 
 ## In short
 
-- A route policy is rules read from the top: `call`, then `match`, `set` and `action`. The first decision wins, and a route no rule accepts is rejected.
+- A route policy is rules read from the top: a `call` to another policy, or a rule with `match`, `set` and `action`. The first decision wins, and a route no rule accepts is rejected.
 - On import, reject martians and private ranges, prefixes too long or too short, your own space coming back, and RPKI invalid routes. `Bgp.sanity()` and two prefix sets cover them.
 - On export, accept only your own prefixes and your customers', then reject everything else. Anything more can leak routes between two other networks.
 - `role` and `max_prefixes` on each neighbor, and the `Checks.exportsEndInReject` check, guard against leaks.

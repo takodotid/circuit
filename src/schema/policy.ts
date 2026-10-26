@@ -83,15 +83,23 @@ export type Sets = {
 };
 
 /**
- * One step of a route policy. Evaluated in this order: `call`, then `match`, then `set`, then `action`.
- *
- * A rule without `action` changes the route and moves on to the next rule.
+ * Run another policy at this point. A route it accepts or rejects stops there; any other route goes on to the next rule. A call holds nothing else: to call a policy for some routes only, put the match inside that policy.
  */
-export type PolicyRule<P extends string, S extends string> = {
+export type CallRule<P extends string> = {
     /** Shown beside the rule on the device. */
     description?: string;
-    /** Evaluate another policy first. A route it accepts or rejects stops there. */
-    call?: P;
+    /** The policy to run. */
+    call: P;
+    match?: never;
+    set?: never;
+    action?: never;
+};
+
+/** Change and decide on the routes that match. A rule without `action` changes the route and moves on to the next rule. */
+export type MatchRule<S extends string> = {
+    /** Shown beside the rule on the device. */
+    description?: string;
+    call?: never;
     /** Which routes the rule applies to. Every route when absent. */
     match?: Match<S>;
     /** What to change on a matching route. */
@@ -99,6 +107,9 @@ export type PolicyRule<P extends string, S extends string> = {
     /** Accept or reject a matching route, ending the policy for it. */
     action?: "accept" | "reject";
 };
+
+/** One step of a route policy: a call to another policy, or a rule that matches routes, changes them and may decide on them. */
+export type PolicyRule<P extends string, S extends string> = CallRule<P> | MatchRule<S>;
 
 /** Rules evaluated in order, first decision wins. A route no rule accepts is rejected. */
 export type RoutePolicy<P extends string, S extends string> = readonly PolicyRule<P, S>[];
