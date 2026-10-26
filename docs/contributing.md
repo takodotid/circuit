@@ -4,6 +4,8 @@ description: How to work on Circuit itself, beside a network project, with its c
 
 # Contributing
 
+Everyone in issues, pull requests and Discussions follows the [Code of Conduct](https://github.com/takodotid/circuit/blob/main/CODE_OF_CONDUCT.md). A bug, a feature, a device to support or a documentation fix each has an [issue form](https://github.com/takodotid/circuit/issues/new/choose); a question goes to [Discussions](https://github.com/takodotid/circuit/discussions/categories/q-a), and a vulnerability to a [private report](https://github.com/takodotid/circuit/security/advisories/new).
+
 ## Working on Circuit beside a network
 
 Link the working copy into the network's project, so a change here is live there without a release:

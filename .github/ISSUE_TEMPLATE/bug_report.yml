@@ -1,0 +1,87 @@
+name: Bug report
+description: Circuit did something wrong, refused something it should take, or a plan never empties.
+labels: ["bug"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for reporting. Before you paste anything, remove passwords, keys, SNMP communities and other secrets, and replace real names and addresses you'd rather keep private. A security problem goes to [a private report](https://github.com/takodotid/circuit/security/advisories/new) instead.
+    - type: checkboxes
+      attributes:
+          label: Before you start
+          options:
+              - label: I'm on the latest Circuit release, and the problem is still there.
+                required: true
+              - label: I searched the open and closed issues.
+                required: true
+              - label: Nothing below holds a secret.
+                required: true
+    - type: input
+      id: version
+      attributes:
+          label: Circuit version
+          description: "`npm ls @takodotid/circuit` prints it."
+          placeholder: "0.39.0"
+      validations:
+          required: true
+    - type: input
+      id: runtime
+      attributes:
+          label: Runtime and system
+          placeholder: "Node.js 24.22.1 on Ubuntu 24.04, or Bun 1.4.4 on Windows 11"
+      validations:
+          required: true
+    - type: dropdown
+      id: platform
+      attributes:
+          label: Platform
+          description: The device platform involved, if any.
+          options:
+              - None, or not about a device
+              - routeros (MikroTik RouterOS)
+              - vrp (Huawei VRP)
+              - raisecom-ros (Raisecom ROS)
+              - junos (Juniper Junos)
+              - fortios (Fortinet FortiOS)
+              - More than one
+      validations:
+          required: true
+    - type: input
+      id: device
+      attributes:
+          label: Device model and OS version
+          description: As the device reports it.
+          placeholder: "CCR2216-1G-12XS-2XQ, RouterOS 7.23.5"
+    - type: textarea
+      id: command
+      attributes:
+          label: What you ran
+          render: shell
+          placeholder: "npx circuit apply edge-01"
+      validations:
+          required: true
+    - type: textarea
+      id: happened
+      attributes:
+          label: What happened
+          description: The output, the plan that never empties, or the command the device refused.
+      validations:
+          required: true
+    - type: textarea
+      id: expected
+      attributes:
+          label: What you expected
+      validations:
+          required: true
+    - type: textarea
+      id: output
+      attributes:
+          label: Output
+          description: What Circuit printed, and what the device printed if it matters. Secrets removed.
+          render: text
+    - type: textarea
+      id: config
+      attributes:
+          label: Config
+          description: The smallest device or network file that shows it.
+          render: ts

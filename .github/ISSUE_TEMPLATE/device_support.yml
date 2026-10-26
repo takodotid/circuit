@@ -1,0 +1,57 @@
+name: Device support
+description: A hardware model, an OS version or a whole platform Circuit should support.
+labels: ["enhancement"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Circuit supports what it has proved on a real device; see [Platforms](https://circuit.tako.id/platforms/). A new model of a platform Circuit has needs only its ports. A new OS version or platform needs someone who can try commands on a device that isn't in production.
+    - type: dropdown
+      id: kind
+      attributes:
+          label: What to add
+          options:
+              - A new model of a platform Circuit already has
+              - A new version of an OS Circuit already has
+              - A new platform (operating system)
+      validations:
+          required: true
+    - type: input
+      id: os
+      attributes:
+          label: Vendor, OS and version
+          placeholder: "Huawei VRP V200R005C00SPC800"
+      validations:
+          required: true
+    - type: input
+      id: model
+      attributes:
+          label: Model
+          placeholder: "CE6855-48S6Q-HI"
+      validations:
+          required: true
+    - type: textarea
+      id: ports
+      attributes:
+          label: Ports
+          description: How many of each speed, and how the device names them.
+          placeholder: |
+              48 x 10G: 10GE1/0/1 to 10GE1/0/48
+              6 x 40G: 40GE1/0/1 to 40GE1/0/6
+      validations:
+          required: true
+    - type: dropdown
+      id: device
+      attributes:
+          label: Can you try commands on one?
+          options:
+              - Yes, on a device that isn't in production
+              - Only on a device in production
+              - No
+      validations:
+          required: true
+    - type: textarea
+      id: notes
+      attributes:
+          label: Anything else
+          description: Links to the vendor's command reference, what you need from it first, quirks you know.
