@@ -403,3 +403,13 @@ test("RouterOS and Junos render the three policy shapes; FortiOS has no RPKI mat
         expect(platform.render(device)).toContain("192.0.2.0/24");
     }
 });
+
+test("Bgp.announce ends in a reject unless told not to; Bgp.defaultOnly ends in one only when asked", async () => {
+    const { Bgp } = await import("../../src/helpers");
+    const ours = [{ prefix: "192.0.2.0/24" as const }];
+
+    expect(Bgp.announce(ours).at(-1)).toEqual({ description: "Nothing else", action: "reject" });
+    expect(Bgp.announce(ours, { reject: false })).toEqual([{ match: { prefix: "192.0.2.0/24" }, action: "accept" }]);
+    expect(Bgp.defaultOnly()).toHaveLength(2);
+    expect(Bgp.defaultOnly({ reject: true }).at(-1)).toEqual({ description: "Nothing else", action: "reject" });
+});

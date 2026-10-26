@@ -44,6 +44,14 @@ export type DefaultOnlyOptions = {
     description?: string;
     /** The source address for the default of its family, one per family. */
     sources?: readonly IP[];
+    /** End with `{ description: "Nothing else", action: "reject" }`, so the policy takes the default route only. Off by default: any other route goes on to the rules after these. */
+    reject?: boolean;
+};
+
+/** What `Bgp.announce` writes after the accepts. */
+export type AnnounceOptions = {
+    /** End with `{ description: "Nothing else", action: "reject" }`, so nothing else leaves. On by default: it stops a route leak when the reject is forgotten. Turn it off for an export that adds rules after these. */
+    reject?: boolean;
 };
 
 /** Kinds of neighbor and the number each is tagged with, such as `{ transit: 1, customer: 3 }`. */
@@ -126,17 +134,27 @@ export class Bgp {
         ];
     }
 
-    /** An export policy that announces each prefix, at exactly its length, then rejects everything else. The last rule is the unconditional reject `Checks.exportsEndInReject` looks for. */
-    static announce(prefixes: readonly Announced[]): PolicyRule<never, never>[] {
+    /**
+     * An export that announces each prefix, at exactly its length. It returns, in order:
+     *
+     * 1. `{ description, match: { prefix }, action: "accept" }` for each prefix;
+     * 2. `{ description: "Nothing else", action: "reject" }`, the unconditional reject `Checks.exportsEndInReject` looks for.
+     *
+     * The reject is there by default, so a forgotten one can't leak routes. `{ reject: false }` leaves it out, for an export that adds rules after these and ends in a reject of its own.
+     */
+    static announce(prefixes: readonly Announced[], options: AnnounceOptions = {}): PolicyRule<never, never>[] {
         return [
             ...prefixes.map(({ prefix, description }) => ({
                 ...(description ? { description } : {}),
                 match: { prefix },
                 action: "accept" as const,
             })),
-            { description: "Nothing else", action: "reject" },
+            ...(options.reject === false ? [] : [Bgp.NOTHING_ELSE]),
         ];
     }
+
+    /** The reject that ends a policy: nothing else gets through. */
+    private static readonly NOTHING_ELSE: PolicyRule<never, never> = { description: "Nothing else", action: "reject" };
 
     /**
      * An import policy that takes a neighbor's routes: `before` first, then the sanity rules, then each source address and the local preference, then the tag, then accept.
@@ -157,10 +175,16 @@ export class Bgp {
     }
 
     /**
-     * Import rules that take the default route, `0.0.0.0/0` and `::/0`, from a transit. Any other route reaches the next rule, or is rejected when there is none. Each of `sources` is the source address for the default of its own family.
+     * Import rules that take the default route from a transit. They are, in order:
+     *
+     * 1. `{ description, match: { prefix: "0.0.0.0/0" }, set: { local_pref, preferred_source }, action: "accept" }`;
+     * 2. the same for `::/0`;
+     * 3. with `{ reject: true }` only, `{ description: "Nothing else", action: "reject" }`.
+     *
+     * Without `reject`, any other route goes on to the rules after these, so `[...Bgp.defaultOnly(), ...Bgp.learn()]` takes both. Each of `sources` is the source address for the default of its own family; `set` holds only what is given.
      */
     static defaultOnly(options: DefaultOnlyOptions = {}): PolicyRule<never, never>[] {
-        return Bgp.DEFAULTS.map(({ family, prefix }) => {
+        const defaults = Bgp.DEFAULTS.map(({ family, prefix }) => {
             const source = options.sources?.find((address) => Address.family(address) === family);
             const set = {
                 ...(options.local_pref !== undefined ? { local_pref: options.local_pref } : {}),
@@ -174,6 +198,8 @@ export class Bgp {
                 action: "accept" as const,
             };
         });
+
+        return options.reject ? [...defaults, Bgp.NOTHING_ELSE] : defaults;
     }
 
     /** A rule adding one community, standard or large. */

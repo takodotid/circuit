@@ -20,7 +20,7 @@ import { Bgp, Cables, Checks, Exchange, Filters, Upstreams } from "@takodotid/ci
 | `Bgp.communityScheme({ … })`                 | Your BGP communities: rules for your routers and the list you publish                                                 | `policies`, `communities`                                           |
 | `Bgp.announce(prefixes)`                     | An export that announces these prefixes and nothing else                                                              | `policies`                                                          |
 | `Bgp.learn({ … })`                           | An import that takes a neighbor's routes: sanity, preference, where they came from                                    | `policies`                                                          |
-| `Bgp.defaultOnly({ … })`                     | Import rules that take a transit's default route                                                                      | `policies`                                                          |
+| `Bgp.defaultOnly({ … })`                     | Import rules that take a transit's default route, and with `reject: true` nothing else                                | `policies`                                                          |
 | `Cables.link({ … })`, `Cables.lag({ … })`    | Both ends of a cable or a LAG from one entry, each port described by the far port's label                             | `ports` on both devices                                             |
 | `Checks.exportsEndInReject`                  | A check: every BGP export ends by rejecting what it did not accept                                                    | `checks`                                                            |
 | `Checks.tunnelsOutsideOffered`               | A check: a tunnel never starts from an address you announce through it                                                | `checks`                                                            |
@@ -132,13 +132,13 @@ policies: {
     // What we take from a transit that sends its full table: sanity, preference, where it came from.
     "TRANSIT-IN": Bgp.learn({ sanity: "SANITY", local_pref: 250, tag: "64500:1:1", sources: ["192.0.2.1", "2001:db8::1"] }),
     // What we take from a transit that sends only its default route.
-    "BACKUP-IN": Bgp.defaultOnly({ local_pref: 100, description: "Transit B default" }),
+    "BACKUP-IN": Bgp.defaultOnly({ local_pref: 100, description: "Transit B default", reject: true }),
 },
 ```
 
-- `Bgp.announce` ends in the unconditional reject that `Checks.exportsEndInReject` looks for.
+- `Bgp.announce` writes an accept for each prefix, then `{ description: "Nothing else", action: "reject" }`, the unconditional reject `Checks.exportsEndInReject` looks for. The reject is there by default, so a forgotten one can't leak routes. For an export that adds rules after the accepts, `Bgp.announce(prefixes, { reject: false })` leaves it out; end that export with a reject of your own.
 - `Bgp.learn` writes, in this order: your own rules from `before`, the sanity rules (a call to `sanity`, or the rules themselves when you leave it out), each of `sources` as the source address for its family, `local_pref`, the `tag`, then accept. `tag` is a community, or a rule from [`Bgp.communityScheme`](/guide/communities).
-- `Bgp.defaultOnly` takes `0.0.0.0/0` and `::/0`. Any other route goes on to the next rule, so `[...Bgp.defaultOnly(), ...Bgp.learn()]` takes both, and is rejected when no rule follows.
+- `Bgp.defaultOnly` accepts `0.0.0.0/0` and `::/0`. With `{ reject: true }` it ends in `{ description: "Nothing else", action: "reject" }`, so the import takes the default route only. Without it, any other route goes on to the next rule, so `[...Bgp.defaultOnly(), ...Bgp.learn()]` takes both.
 
 FortiOS has no RPKI match and no rule without an action, so it refuses `Bgp.learn` as it is; see [Platforms](/platforms/).
 
