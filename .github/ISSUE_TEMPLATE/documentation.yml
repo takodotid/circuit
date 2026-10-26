@@ -1,0 +1,19 @@
+name: Documentation
+description: A page that is wrong, unclear or missing, in the guides, the reference or Circuit Academy.
+labels: ["documentation"]
+body:
+    - type: input
+      id: page
+      attributes:
+          label: Page
+          placeholder: "https://circuit.tako.id/guide/network"
+    - type: textarea
+      id: problem
+      attributes:
+          label: What's wrong or missing
+      validations:
+          required: true
+    - type: textarea
+      id: suggestion
+      attributes:
+          label: What it should say
