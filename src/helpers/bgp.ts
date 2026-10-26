@@ -237,8 +237,12 @@ export class Bgp {
     /**
      * Policy rules and a catalogue from one community scheme, so the communities your routers set, the ones they act on, and the ones you publish never disagree.
      *
-     * - `tag(neighborClass, neighborAs, { site, trusted })`: a rule for an import policy. It removes your communities a neighbor set, then adds where the route was learned. A `trusted` neighbor keeps its requests: do not announce, prepend, blackhole. `site` is needed when the scheme has `learned_at`.
-     * - `actions(neighborAs, { blackhole })`: rules for an export policy toward one neighbor. They act on a customer's action communities, then remove all of yours. Place them before the rules that accept. A blackholed route goes no further, unless `blackhole` names the neighbor's own blackhole community: then it is passed on with it, so the neighbor drops the traffic too.
+     * - `tag(neighborClass, neighborAs, { site, trusted })`: one rule for an import policy, `{ description: "Learned from AS<n>", set }`. Its `set` removes your standard communities and your large ones (a `trusted` neighbor loses only the "where it came from" functions, so it keeps its requests: do not announce, prepend, blackhole), then adds `learned_from`, `learned_at` and `learned_from_as` where the scheme has them. `site` is needed when the scheme has `learned_at`.
+     * - `actions(neighborAs)`: the rules for an export policy toward one neighbor, before the rules that accept. They are `[...blackholeExport(n), ...rejectDoNotAnnounce(n), ...prepends(n), stripOurs()]`; toward a neighbor that takes blackholes (`blackhole.upstreams`), `rejectDoNotAnnounce(n)` comes first, so a route asked not to go there is never passed on as a blackhole.
+     * - `blackholeExport(neighborAs)`: a blackholed route goes no further, `Blackholed here, never announced`, unless `blackhole.upstreams` names the neighbor's own blackhole community: then it is passed on with it, so the neighbor drops the traffic too. Nothing without `blackhole`.
+     * - `rejectDoNotAnnounce(neighborAs)`: rejects a route asked not to be announced anywhere, then one asked not to be announced to this neighbor. Nothing without `do_not_announce`.
+     * - `prepends(neighborAs)`: prepends once, twice or three times toward this neighbor, where a route asks. Nothing without `prepend`.
+     * - `stripOurs()`: one rule removing every community of yours, `Our communities stay inside our network`.
      * - `blackhole(prefixSets)`: rules for the import policy of a neighbor you trust with blackholes, before anything that rejects long prefixes. They take a route the neighbor asked to blackhole, but only inside `prefixSets`, its own space, and drop traffic to it here. One rule per set, so one call covers both families.
      * - `catalogue`: every community, for `communities` in `defineNetwork`.
      * - `community(fn, parameter)`: one community of yours, for a rule of your own.
@@ -317,66 +321,65 @@ export class Bgp {
             }));
         };
 
-        const actions = (neighborAs: number): PolicyRule<never, never>[] => {
-            // The upstream's own blackhole community, when it takes blackholes from us.
-            const passOn = scheme.blackhole?.upstreams?.[neighborAs];
+        /** The neighbor's own blackhole community, when it takes blackholes from us. */
+        const passOnTo = (neighborAs: number) => scheme.blackhole?.upstreams?.[neighborAs];
+
+        const blackholeExport = (neighborAs: number): PolicyRule<never, never>[] => {
+            if (scheme.blackhole === undefined) return [];
+
+            const passOn = passOnTo(neighborAs);
+            const match = { large_community: community(scheme.blackhole.function, 0) };
+
+            return passOn
+                ? [
+                      {
+                          description: `Blackhole passed on to AS${neighborAs}`,
+                          match,
+                          set: { remove_communities: ours.standard, remove_large_communities: ours.large, add_communities: [passOn] },
+                          action: "accept",
+                      },
+                  ]
+                : [{ description: "Blackholed here, never announced", match, action: "reject" }];
+        };
+
+        const rejectDoNotAnnounce = (neighborAs: number): PolicyRule<never, never>[] => {
+            const fn = scheme.do_not_announce;
+            if (fn === undefined) return [];
 
             return [
-                ...(scheme.blackhole !== undefined && !passOn
-                    ? [
-                          {
-                              description: "Blackholed here, never announced",
-                              match: { large_community: community(scheme.blackhole.function, 0) },
-                              action: "reject" as const,
-                          },
-                      ]
-                    : []),
-                ...(scheme.do_not_announce !== undefined
-                    ? [
-                          {
-                              description: "Asked not to be announced anywhere",
-                              match: { large_community: community(scheme.do_not_announce, 0) },
-                              action: "reject" as const,
-                          },
-                          {
-                              description: `Asked not to be announced to AS${neighborAs}`,
-                              match: { large_community: community(scheme.do_not_announce, neighborAs) },
-                              action: "reject" as const,
-                          },
-                      ]
-                    : []),
-                ...(scheme.blackhole !== undefined && passOn
-                    ? [
-                          {
-                              description: `Blackhole passed on to AS${neighborAs}`,
-                              match: { large_community: community(scheme.blackhole.function, 0) },
-                              set: {
-                                  remove_communities: ours.standard,
-                                  remove_large_communities: ours.large,
-                                  add_communities: [passOn],
-                              },
-                              action: "accept" as const,
-                          },
-                      ]
-                    : []),
-                ...Bgp.PREPENDS.flatMap(([name, times]) => {
-                    const fn = scheme.prepend?.[name];
-                    if (fn === undefined) return [];
-
-                    return [
-                        {
-                            description: `Asked to prepend ${name.replace("_", " ")} to AS${neighborAs}`,
-                            match: { large_community: community(fn, neighborAs) },
-                            set: { prepend: times },
-                        },
-                    ];
-                }),
+                { description: "Asked not to be announced anywhere", match: { large_community: community(fn, 0) }, action: "reject" },
                 {
-                    description: "Our communities stay inside our network",
-                    set: { remove_communities: ours.standard, remove_large_communities: ours.large },
+                    description: `Asked not to be announced to AS${neighborAs}`,
+                    match: { large_community: community(fn, neighborAs) },
+                    action: "reject",
                 },
             ];
         };
+
+        const prepends = (neighborAs: number): PolicyRule<never, never>[] =>
+            Bgp.PREPENDS.flatMap(([name, times]) => {
+                const fn = scheme.prepend?.[name];
+                if (fn === undefined) return [];
+
+                return [
+                    {
+                        description: `Asked to prepend ${name.replace("_", " ")} to AS${neighborAs}`,
+                        match: { large_community: community(fn, neighborAs) },
+                        set: { prepend: times },
+                    },
+                ];
+            });
+
+        const stripOurs = (): PolicyRule<never, never> => ({
+            description: "Our communities stay inside our network",
+            set: { remove_communities: ours.standard, remove_large_communities: ours.large },
+        });
+
+        // A route asked not to be announced to a neighbor is never passed on to it as a blackhole either; where nothing is passed on, both only reject.
+        const actions = (neighborAs: number): PolicyRule<never, never>[] =>
+            passOnTo(neighborAs)
+                ? [...rejectDoNotAnnounce(neighborAs), ...blackholeExport(neighborAs), ...prepends(neighborAs), stripOurs()]
+                : [...blackholeExport(neighborAs), ...rejectDoNotAnnounce(neighborAs), ...prepends(neighborAs), stripOurs()];
 
         const catalogue: Community[] = [
             ...Object.entries<number>(scheme.learned_from?.classes ?? {}).map(([name, value]) => ({
@@ -419,7 +422,18 @@ export class Bgp {
                 : []),
         ];
 
-        return { community, learned_from: learnedFrom, tag, actions, blackhole, catalogue };
+        return {
+            community,
+            learned_from: learnedFrom,
+            tag,
+            actions,
+            blackholeExport,
+            rejectDoNotAnnounce,
+            prepends,
+            stripOurs,
+            blackhole,
+            catalogue,
+        };
     }
 
     /** A word with its article: "a customer", "an upstream". */
