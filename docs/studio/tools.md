@@ -24,7 +24,7 @@ When a rule depends on something you left empty, such as the source port, Studio
 
 ## Test a route policy
 
-Describe a route: the device and the policy, picked by the BGP sessions that use it, the prefix, the AS path length as the route arrives, its RPKI state and its communities. Studio goes through the policy rule by rule, `call`, then `match`, then `set`, then `action`, and shows what matched, what changed and the decision. A route the policy never accepts is rejected.
+Describe a route: the device and the policy, picked by the BGP sessions that use it, the prefix, the AS path length as the route arrives, its RPKI state and its communities. Studio goes through the policy rule by rule, into each policy a rule calls, and for every other rule its `match`, then `set`, then `action`, and shows what matched, what changed and the decision. A route the policy never accepts is rejected.
 
 Two things the files cannot tell:
 

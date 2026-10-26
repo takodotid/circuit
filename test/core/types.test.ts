@@ -11,6 +11,7 @@ import type {
     LargeCommunityPattern,
     MacAddress,
     OspfAreaId,
+    PolicyRule,
     Prefix,
     ReleaseChannel,
     StandardCommunity,
@@ -113,4 +114,31 @@ test("a project names a model's ports in types of its own, for any platform and 
     const noModel = tenant("junos", "CE6855-48S6Q-HI", {});
 
     expect([right, noPort, noModel]).toHaveLength(3);
+});
+
+test("a call is a rule of its own: the type and validate refuse a match, set or action beside it", async () => {
+    const { defineNetwork } = await import("../../src/core/define");
+    const { Validator } = await import("../../src/core/validator");
+    const router = (await import("../../examples/platforms/routeros")).default;
+
+    const alone: PolicyRule<"SANITY", never>[] = [{ call: "SANITY" }, { match: { family: "ipv6" }, action: "accept" }];
+    // @ts-expect-error A call runs for every route; a match beside it would read as a condition.
+    const withMatch: PolicyRule<"SANITY", never> = { call: "SANITY", match: { family: "ipv6" } };
+    // @ts-expect-error Nor an action.
+    const withAction: PolicyRule<"SANITY", never> = { call: "SANITY", action: "accept" };
+
+    const device = {
+        ...router,
+        policies: {
+            ...router.policies,
+            SANITY: [{ action: "accept" }],
+            MIXED: [{ call: "SANITY", match: { family: "ipv6" }, set: { local_pref: 10 } }],
+        },
+    } as unknown as typeof router;
+    const messages = Validator.run(defineNetwork({ devices: [device] })).map((finding) => finding.message);
+
+    expect(messages).toContain(
+        "policy MIXED rule 1 has call and match, set: a call is a rule of its own, run for every route. Put match, set in the next rule, or the match inside SANITY"
+    );
+    expect([alone, withMatch, withAction]).toHaveLength(3);
 });
