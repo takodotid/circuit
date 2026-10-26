@@ -41,6 +41,29 @@ export class Checks {
         return findings;
     };
 
+    /**
+     * Every BGP import ends in a rule that decides for every route, an accept or a reject without a match, so what the import takes is written in it and not left to the platform's default.
+     */
+    static readonly importsEndInAcceptOrReject: Check = (devices) => {
+        const findings: Finding[] = [];
+
+        for (const device of devices) {
+            for (const neighbor of Bgp.neighborPolicies(device)) {
+                const last = neighbor.import ? device.policies?.[neighbor.import]?.at(-1) : undefined;
+
+                if (neighbor.import && (!last?.action || last.match)) {
+                    findings.push({
+                        level: "error",
+                        device: device.name,
+                        message: `${neighbor.name}: import ${neighbor.import} does not end in an unconditional accept or reject`,
+                    });
+                }
+            }
+        }
+
+        return findings;
+    };
+
     /** A GRE or VXLAN tunnel's local address is outside what the neighbors over it are offered, or their replies route back into the tunnel. */
     static readonly tunnelsOutsideOffered: Check = (devices) => {
         const findings: Finding[] = [];
