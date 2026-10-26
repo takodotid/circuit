@@ -11,6 +11,6 @@ export type { ExchangeMember, InternetExchange } from "./exchange";
 export { Filters } from "./filters";
 export { RouteServerConfig } from "./route-server";
 export { Upstreams } from "./upstreams";
-export type { Upstream, UpstreamCatalog, UpstreamPolicies } from "./upstreams";
+export type { NamedVlan, Upstream, UpstreamCatalog, UpstreamOptions, UpstreamPolicy } from "./upstreams";
 export type { RouteServer } from "./route-server";
 export type { AntiAmplificationOptions } from "./filters";

@@ -15,255 +15,164 @@ import type {
     Vlan,
     VlanInterface,
 } from "../schema";
-import { Bgp, type Announced, type LearnOptions } from "./bgp";
 
-/** One network we exchange routes with: a transit we buy, an exchange's route servers, or a peer. */
+/** A route policy an upstream's sessions use: its name on the device, and its rules, in order. */
+export type UpstreamPolicy = {
+    /** The policy's name, as the device carries it. */
+    name: string;
+    /** Its rules, in order. Nothing is added to them unless `mapImports` or `mapExports` adds it. */
+    rules: readonly PolicyRule<string, string>[];
+};
+
+/** A VLAN by its name and its ID. */
+export type NamedVlan = { name: string; id: number };
+
+/** One network we exchange routes with: a transit we buy, an exchange's route servers, or a peer. Every name it puts on a device is written here. */
 export type Upstream = {
     /** Its name as people write it, for descriptions: `Transit A`. The key when absent. */
     name?: string;
     asn: number;
     /** What it is to us: `provider` for a transit, `rs` for an exchange's route servers, `peer` for a direct session. */
     role: "provider" | "rs" | "peer";
-    /** Where it lands on our side: a VLAN, our addresses on it, and the switch port it arrives on. A peer over a tunnel, or over an exchange's VLAN, has none. */
+    /** Where it lands on our side: a VLAN, the router's interface on it, and the switch port it arrives on. A peer over a tunnel, or over an exchange's VLAN, has none. */
     handoff?: {
-        /** The VLAN's ID. */
-        vlan: number;
-        /** It sends its VLAN tagged: its port gets a native VLAN of its own with this ID, which nothing else is in. Untagged when absent. */
-        native?: number;
-        /** Its number in names with `{number}`, such as `core-ipt01-transita`. Written here, so removing another upstream renumbers nothing. */
-        number?: number;
+        /** The VLAN it arrives on. */
+        vlan: NamedVlan;
+        /** It sends its VLAN tagged: its switch port gets this native VLAN, which nothing else is in. Untagged when absent. */
+        native?: NamedVlan;
+        /** The router's VLAN interface on it. */
+        interface: string;
         /** Our addresses on it. `{ address, peer }` for a point-to-point address whose far end is outside its own prefix. */
         addresses: readonly (InterfaceAddress | { address: InterfaceAddress; peer: IP })[];
-        /** The switch port it arrives on. */
-        port?: { device: string; port: string; storm_control?: Port<string, string, string, string>["storm_control"] };
+        /**
+         * The switch port it arrives on. LLDP and spanning tree are off there unless `lldp` or `stp` says otherwise: an upstream's port faces someone else's network, which should neither learn ours nor join our spanning tree.
+         */
+        port?: {
+            device: string;
+            port: string;
+            storm_control?: Port<string, string, string, string>["storm_control"];
+            /** LLDP on the port. Off when absent. */
+            lldp?: boolean;
+            /** Spanning tree on the port. Off when absent. */
+            stp?: boolean;
+        };
         /** An exchange's LAN, for `circuit peeringdb`. */
         exchange?: ExchangeLan;
     };
-    /** A GRE tunnel to it. `number` is its number in names with `{number}`. */
-    tunnel?: { local: IP; remote: IP; addresses: readonly InterfaceAddress[]; mtu?: number; number?: number };
+    /** A GRE tunnel to it, and the router's interface for it. */
+    tunnel?: { interface: string; local: IP; remote: IP; addresses: readonly InterfaceAddress[]; mtu?: number };
     /** Our BGP sessions with it, by name: its address, and ours when it is not the interface's. */
     sessions: Readonly<Record<string, { address: IP; local_address?: IP }>>;
-    /** The sessions are more than one hop away, from this address of ours. They share a group. */
+    /** A BGP group its sessions share, by this name: the group holds the AS, role, policies and multihop settings, and each session names it. Each session holds them itself when absent. */
+    group?: string;
+    /** The sessions are more than one hop away, from this address of ours. */
     multihop?: { local_address: IP; families?: readonly Family[]; password?: Secret };
     /** The most prefixes a session may send, by its family: about twice what it sends. Over it, the session closes until it is cleared. */
     limits?: { ipv4?: number; ipv6?: number };
-    /** What we take. Nothing when absent. */
-    import?: {
-        /** Its default route, at this preference. */
-        default?: { local_pref?: number; description?: string };
-        /** Its routes, through `Bgp.learn`: the `before` rules, sanity, this preference, the tag. Only the default when absent. */
-        learn?: { local_pref?: number; before?: readonly PolicyRule<never, never>[] };
-    };
-    /** Rules of yours in its export, between the community actions and what we announce, such as a prepend. */
-    export?: readonly PolicyRule<never, never>[];
-    /** What we announce to it. Everything else is rejected. */
-    announce: readonly Announced[];
-    /** Drop RFC 1918 sources arriving from it. `privateDrops()` lists the VLANs. */
+    /** What we take, as its policy. Nothing when absent. */
+    import?: UpstreamPolicy;
+    /** What we send it, as its policy. */
+    export: UpstreamPolicy;
+    /** Its VLAN is listed by `privateDrops()`, for an ACL that drops RFC 1918 sources arriving from it. Nothing else is done with it. */
     drop_private?: true;
 };
 
-/** Upstreams by key. The key names everything built from it. */
+/** Upstreams by key. */
 export type UpstreamCatalog = Readonly<Record<string, Upstream>>;
 
-/** A name made from an upstream: `{key}` is its key, `{KEY}` the key in capitals, `{number}` its `handoff.number` or `tunnel.number`. */
-type Pattern = string;
-/** A pattern for every upstream, or one per role. A role left out takes the default. */
-type ByRole = Pattern | { readonly provider?: Pattern; readonly rs?: Pattern; readonly peer?: Pattern };
-
-/** How the names built from each upstream are made. Each one left out takes its default. */
-export type UpstreamNames = {
-    /** The VLAN a handoff is on. `{key}` when absent. */
-    vlan?: ByRole;
-    /** The native VLAN of a handoff sent tagged. `{key}-native` when absent. */
-    native?: Pattern;
-    /** The router's interface: per role, and `tunnel` for one reached over a tunnel. `{key}` when absent. */
-    interface?: Pattern | { readonly provider?: Pattern; readonly rs?: Pattern; readonly peer?: Pattern; readonly tunnel?: Pattern };
-    /** The import policy. `{KEY}-IN` when absent. */
-    import?: Pattern;
-    /** The export policy. `{KEY}-OUT` when absent. */
-    export?: Pattern;
-    /** The BGP group of an exchange's route servers or of multihop sessions. `{key}` when absent. */
-    group?: Pattern;
-    /** The description of a handoff's switch port. Its `name` when absent. No device names it, so it may be any function. */
-    port?: (key: string, upstream: Upstream) => string;
+/** What every upstream's policies share, written once: plain functions over each policy's rules. */
+export type UpstreamOptions = {
+    /** Each import's rules as the device gets them, from the rules the upstream writes. The rules as written when absent. */
+    mapImports?: (rules: readonly PolicyRule<string, string>[], key: string, upstream: Upstream) => readonly PolicyRule<string, string>[];
+    /** Each export's rules as the device gets them, from the rules the upstream writes. The rules as written when absent. */
+    mapExports?: (rules: readonly PolicyRule<string, string>[], key: string, upstream: Upstream) => readonly PolicyRule<string, string>[];
 };
 
-/** How each upstream's policies are written: shared by every upstream of a catalog. */
-export type UpstreamPolicies<P extends string> = {
-    /** A policy holding `Bgp.sanity()` that each import calls. The sanity rules are written in each import when absent. */
-    sanity?: P;
-    /** Where a route came from, by upstream: a community or a rule, such as `communityScheme(...).tag(...)`. Nothing is tagged when absent. */
-    tag?: (key: string, upstream: Upstream) => NonNullable<LearnOptions<never>["tag"]>;
-    /** Rules first in each export, such as `communityScheme(...).actions(upstream.asn)`. */
-    actions?: (key: string, upstream: Upstream) => readonly PolicyRule<never, never>[];
-    /** The source address for routes of its family, one per family. */
-    sources?: readonly IP[];
-};
-
-/** The names a device can refer to, and their patterns when the project gives none. */
-const DEFAULTS = {
-    vlan: "{key}",
-    native: "{key}-native",
-    interface: "{key}",
-    import: "{KEY}-IN",
-    export: "{KEY}-OUT",
-    group: "{key}",
-} as const;
-
-type Defaults = typeof DEFAULTS;
-type Field = keyof Defaults;
-
-type Key<C> = keyof C & string;
-/** The upstreams that land on a VLAN of ours. */
-type Landed<C> = { [K in Key<C>]: C[K] extends { handoff: object } ? K : never }[Key<C>];
-/** The upstreams that send their VLAN tagged. */
-type Tagged<C> = { [K in Key<C>]: C[K] extends { handoff: { native: number } } ? K : never }[Key<C>];
-/** The upstreams reached over a tunnel. */
-type Tunneled<C> = { [K in Key<C>]: C[K] extends { tunnel: object } ? K : never }[Key<C>];
-/** The upstreams whose sessions share a group: an exchange's route servers, or multihop sessions. */
-type Grouped<C> = { [K in Key<C>]: C[K] extends { role: "rs" } | { multihop: object } ? K : never }[Key<C>];
-/** The upstreams we take routes from. */
-type Importing<C> = { [K in Key<C>]: C[K] extends { import: object } ? K : never }[Key<C>];
-
-/** The project's pattern for a name, or the default. */
-type PatternOf<N, F extends Field> = N extends { [X in F]: infer P } ? P : Defaults[F];
-/** The pattern an upstream takes: the only one, its tunnel's, its role's, or the default. */
-type Chosen<P, U, F extends Field> = P extends string
-    ? P
-    : U extends { tunnel: object }
-      ? P extends { tunnel: infer T extends string }
-          ? T
-          : Defaults[F]
-      : U extends { role: infer R extends string }
-        ? P extends { [X in R]: infer T extends string }
-            ? T
-            : Defaults[F]
-        : Defaults[F];
-/** Every `From` in `S` replaced. */
-type Replace<S extends string, From extends string, To extends string> = S extends `${infer A}${From}${infer B}`
-    ? `${A}${To}${Replace<B, From, To>}`
-    : S;
-/** An upstream's `handoff.number` or `tunnel.number`. */
-type NumberOf<U> = U extends { handoff: { number: infer N extends number } }
-    ? N
-    : U extends { tunnel: { number: infer N extends number } }
-      ? N
-      : number;
-/** The name built for upstream `K`: its pattern with the key, the key in capitals and its number filled in. */
-type Named<C, N, F extends Field, K extends Key<C>> = Replace<
-    Replace<Replace<Chosen<PatternOf<N, F>, C[K], F>, "{key}", K>, "{KEY}", Uppercase<K>>,
-    "{number}",
-    `${NumberOf<C[K]>}`
->;
-/** Each of these upstreams' names. */
-type Names<C, N, F extends Field, Ks extends Key<C>> = { [K in Ks]: Named<C, N, F, K> }[Ks];
-
-/** The catalog as written, with any key the shape does not have refused, at every level. */
-type Exact<S, T> = T extends readonly unknown[] | string | number | boolean | Secret | ((...args: never[]) => unknown)
-    ? T
-    : // A shape that is a union, such as a storm-control threshold, is each of its members in turn: its keys are any member's.
-      S extends unknown
-      ? { [K in keyof T]: K extends keyof S ? Exact<NonNullable<S[K]>, T[K]> : never }
-      : never;
-
-/** The names as written, with a name or a role Upstreams does not make refused. */
-type ExactNames<N> = {
-    [F in keyof N]: F extends keyof UpstreamNames
-        ? N[F] extends string | ((...args: never[]) => unknown)
-            ? N[F]
-            : { [R in keyof N[F]]: R extends "provider" | "rs" | "peer" | "tunnel" ? N[F][R] : never }
-        : never;
-};
+type Values<T> = T[keyof T];
+/** Each VLAN name the catalog writes. */
+type VlanName<C> = Values<{ [K in keyof C]: C[K] extends { handoff: { vlan: { name: infer N extends string } } } ? N : never }>;
+/** Each native VLAN name. */
+type NativeName<C> = Values<{ [K in keyof C]: C[K] extends { handoff: { native: { name: infer N extends string } } } ? N : never }>;
+/** Each router interface on a handoff. */
+type HandoffInterface<C> = Values<{ [K in keyof C]: C[K] extends { handoff: { interface: infer N extends string } } ? N : never }>;
+/** Each router interface for a tunnel. */
+type TunnelInterface<C> = Values<{ [K in keyof C]: C[K] extends { tunnel: { interface: infer N extends string } } ? N : never }>;
+/** Each policy name. */
+type PolicyName<C> = Values<{
+    [K in keyof C]:
+        | (C[K] extends { import: { name: infer N extends string } } ? N : never)
+        | (C[K] extends { export: { name: infer N extends string } } ? N : never);
+}>;
+/** Each BGP group name. */
+type GroupName<C> = Values<{ [K in keyof C]: C[K] extends { group: infer N extends string } ? N : never }>;
 
 /** A network's upstreams written once, and each device's part built from them. */
 export class Upstreams {
     /**
-     * Each upstream written once: its AS, where it lands, its sessions, limits and policy. Everything a device needs is built from it, under names made from each key, so a device that names one is checked. By default:
+     * Each upstream written once: its AS, where it lands, its sessions, limits and policies, and every name it puts on a device. Everything a device needs is built from it:
      *
-     * - VLAN `<key>`, and `<key>-native` for one that sends its VLAN tagged. The router's interface is `<key>` too, a VLAN interface or a GRE tunnel.
-     * - Policies `<KEY>-IN` and `<KEY>-OUT`; a BGP group `<key>` for an exchange's route servers or multihop sessions.
+     * - On the router: `vlans()`, `interfaces()`, `uplinks()`, `groups()`, `neighbors()`, `policies()`, `tunnelRules()`, `addresses()`.
+     * - On a switch: `vlans(device)`, `ports(device)`, `vlansOn(device)`.
+     * - For checks and ACLs: `untrusted()`, `natives()`, `privateDrops()`.
      *
-     * `names` gives patterns of your own, such as `{ interface: { provider: "core-ipt0{number}-{key}" } }`; see `UpstreamNames`.
-     *
-     * On the router: `vlans()`, `interfaces()`, `uplinks()`, `groups()`, `neighbors()`, `policies({ ... })`, `tunnelRules()`, `addresses()`. On a switch: `vlans(device)`, `ports(device)`, `vlansOn(device)`. For checks and ACLs: `untrusted()`, `natives()`, `privateDrops()`. Lists follow the catalog's order, where order counts on a device.
+     * An import or export is the rules the upstream writes, in order, passed through `mapImports` or `mapExports` when given: what every upstream shares, such as a call to a sanity policy or the community actions, goes there. Nothing else is added. Lists follow the catalog's order, where order counts on a device. A key the shape doesn't have is refused by the type, by its name.
      */
-    static define<const C extends UpstreamCatalog, const N extends UpstreamNames = {}>(
-        catalog: C & { [K in keyof C]: Exact<Upstream, C[K]> },
-        options: { names?: N & ExactNames<N> } = {}
-    ) {
-        type V = Names<C, N, "vlan", Landed<C>>;
-        type T = Names<C, N, "native", Tagged<C>>;
-        type I = Names<C, N, "interface", Landed<C>>;
-        type G = Names<C, N, "interface", Tunneled<C>>;
-        type PolicyName = Names<C, N, "import", Importing<C>> | Names<C, N, "export", Key<C>>;
-        type Group = Names<C, N, "group", Grouped<C>>;
+    static define<const C extends UpstreamCatalog>(catalog: C & UpstreamCatalog, options: UpstreamOptions = {}) {
+        type V = VlanName<C>;
+        type T = NativeName<C>;
 
-        const names: UpstreamNames = options.names ?? {};
-        const all = Object.entries(catalog) as [Key<C>, Upstream][];
+        const all = Object.entries(catalog) as [string, Upstream][];
         const nameOf = (key: string, upstream: Upstream) => upstream.name ?? key;
-        const grouped = (upstream: Upstream) => upstream.role === "rs" || Boolean(upstream.multihop);
-
-        /** The name built for one upstream: its pattern with the key, the key in capitals and its number filled in. */
-        const named = (field: Field, key: string, upstream: Upstream): string => {
-            const given = names[field];
-            const pattern =
-                given === undefined || typeof given === "string"
-                    ? (given ?? DEFAULTS[field])
-                    : ((upstream.tunnel && "tunnel" in given ? given.tunnel : given[upstream.role]) ?? DEFAULTS[field]);
-
-            return pattern
-                .replaceAll("{key}", key)
-                .replaceAll("{KEY}", key.toUpperCase())
-                .replaceAll("{number}", () => {
-                    const number = upstream.handoff?.number ?? upstream.tunnel?.number;
-                    if (number === undefined) throw new Error(`Upstreams: ${key} needs a number for ${field} name ${pattern}`);
-                    return String(number);
-                });
-        };
 
         // Two upstreams under one name would replace each other on the device.
-        for (const field of Object.keys(DEFAULTS) as Field[]) {
+        const unique = (what: string, names: [string, string | undefined][]) => {
             const taken = new Map<string, string>();
-
-            for (const [key, upstream] of all) {
-                if (field === "native" && upstream.handoff?.native === undefined) continue;
-                if (field === "import" && !upstream.import) continue;
-                if (field === "group" && !grouped(upstream)) continue;
-                if ((field === "vlan" && !upstream.handoff) || (field === "interface" && !upstream.handoff && !upstream.tunnel)) continue;
-
-                const name = named(field, key, upstream);
+            for (const [key, name] of names) {
+                if (name === undefined) continue;
                 const other = taken.get(name);
-                if (other) throw new Error(`Upstreams: ${other} and ${key} both have the ${field} name ${name}`);
+                if (other) throw new Error(`Upstreams: ${other} and ${key} both have the ${what} ${name}`);
                 taken.set(name, key);
             }
-        }
+        };
+        unique("VLAN", [
+            ...all.map(([key, upstream]): [string, string | undefined] => [key, upstream.handoff?.vlan.name]),
+            ...all.map(([key, upstream]): [string, string | undefined] => [key, upstream.handoff?.native?.name]),
+        ]);
+        unique(
+            "interface",
+            all.map(([key, upstream]) => [key, upstream.handoff?.interface ?? upstream.tunnel?.interface])
+        );
+        unique("policy", [
+            ...all.map(([key, upstream]): [string, string | undefined] => [key, upstream.import?.name]),
+            ...all.map(([key, upstream]): [string, string | undefined] => [key, upstream.export.name]),
+        ]);
+        unique(
+            "BGP group",
+            all.map(([key, upstream]) => [key, upstream.group])
+        );
 
-        const vlan = (key: string, upstream: Upstream) => named("vlan", key, upstream) as V;
-        const native = (key: string, upstream: Upstream) => named("native", key, upstream) as T;
-        const policy = (direction: "import" | "export", key: string, upstream: Upstream) => named(direction, key, upstream) as PolicyName;
-
-        /** Each landed upstream's VLAN; with a device, the VLANs and natives of those arriving on its ports. */
-        const vlans = <const D extends string | undefined = undefined>(device?: D) => {
+        /** Each landed upstream's VLAN and native, or with a device, those of the upstreams arriving on its ports. */
+        const vlans = (device?: string) => {
             const result: Record<string, Vlan> = {};
 
             for (const [key, upstream] of all) {
                 const handoff = upstream.handoff;
                 if (!handoff || (device !== undefined && handoff.port?.device !== device)) continue;
 
-                result[vlan(key, upstream)] = { id: handoff.vlan, description: nameOf(key, upstream) };
-                if (device !== undefined && handoff.native !== undefined) {
-                    result[native(key, upstream)] = {
-                        id: handoff.native,
+                result[handoff.vlan.name] = { id: handoff.vlan.id, description: nameOf(key, upstream) };
+                if (handoff.native) {
+                    result[handoff.native.name] = {
+                        id: handoff.native.id,
                         description: `Native toward ${nameOf(key, upstream)}, nothing else in it`,
                     };
                 }
             }
 
-            return result as D extends string ? { [K in V]: Vlan } & { [K in T]: Vlan } : { [K in V]: Vlan };
+            return result as { [K in V | T]: Vlan };
         };
 
         const vlansOn = (device: string) =>
-            all.filter(([, upstream]) => upstream.handoff?.port?.device === device).map(([key, upstream]) => vlan(key, upstream));
+            all.flatMap(([, upstream]) => (upstream.handoff?.port?.device === device ? [upstream.handoff.vlan.name as V] : []));
 
         const ports = (device: string) => {
             const result: Record<string, Port<V | T, never, never, never>> = {};
@@ -273,12 +182,12 @@ export class Upstreams {
                 if (!handoff?.port || handoff.port.device !== device) continue;
 
                 result[handoff.port.port] = {
-                    description: names.port ? names.port(key, upstream) : nameOf(key, upstream),
-                    ...(handoff.native !== undefined
-                        ? { trunk_vlans: [vlan(key, upstream)], native_vlan: native(key, upstream) }
-                        : { access_vlan: vlan(key, upstream) }),
-                    lldp: false,
-                    stp: false,
+                    description: nameOf(key, upstream),
+                    ...(handoff.native
+                        ? { trunk_vlans: [handoff.vlan.name as V], native_vlan: handoff.native.name as T }
+                        : { access_vlan: handoff.vlan.name as V }),
+                    lldp: handoff.port.lldp ?? false,
+                    stp: handoff.port.stp ?? false,
                     ...(handoff.port.storm_control ? { storm_control: handoff.port.storm_control } : {}),
                 };
             }
@@ -291,55 +200,46 @@ export class Upstreams {
 
             for (const [key, upstream] of all) {
                 const description = nameOf(key, upstream);
-                const name = named("interface", key, upstream);
 
                 if (upstream.tunnel) {
-                    const { local, remote, addresses, mtu } = upstream.tunnel;
+                    const { interface: name, local, remote, addresses, mtu } = upstream.tunnel;
                     result[name] = { type: "gre", description, local, remote, addresses, ...(mtu ? { mtu } : {}) };
                 } else if (upstream.handoff) {
-                    const { addresses, exchange } = upstream.handoff;
-                    result[name] = { type: "vlan", vlan: vlan(key, upstream), description, addresses, ...(exchange ? { exchange } : {}) };
+                    const { interface: name, vlan, addresses, exchange } = upstream.handoff;
+                    result[name] = { type: "vlan", vlan: vlan.name as V, description, addresses, ...(exchange ? { exchange } : {}) };
                 }
             }
 
-            return result as { [K in I]: VlanInterface<V, never> } & { [K in G]: Gre<never> };
+            return result as { [K in HandoffInterface<C>]: VlanInterface<V, never> } & { [K in TunnelInterface<C>]: Gre<never> };
         };
 
-        /** The router's interfaces toward the internet: every landed upstream's, for NAT and lists like it. */
-        const uplinks = () =>
-            all.filter(([, upstream]) => upstream.handoff).map(([key, upstream]) => named("interface", key, upstream) as I);
+        /** The router's interface toward each handoff, for NAT and lists like it. */
+        const uplinks = () => all.flatMap(([, upstream]) => (upstream.handoff ? [upstream.handoff.interface as HandoffInterface<C>] : []));
 
-        /** What a session or its group takes from its upstream. */
-        const settings = (key: string, upstream: Upstream): NeighborSettings<PolicyName> => ({
-            remote_as: upstream.asn,
-            description: nameOf(key, upstream),
-            role: upstream.role,
-            ...(upstream.import ? { import: policy("import", key, upstream) } : {}),
-            export: policy("export", key, upstream),
-        });
+        /** What a session, or the group it is in, takes from its upstream. */
+        const settings = (key: string, upstream: Upstream): NeighborSettings<PolicyName<C>> => {
+            const multihop = upstream.multihop;
+            return {
+                remote_as: upstream.asn,
+                description: nameOf(key, upstream),
+                role: upstream.role,
+                ...(upstream.import ? { import: upstream.import.name as PolicyName<C> } : {}),
+                export: upstream.export.name as PolicyName<C>,
+                ...(multihop
+                    ? {
+                          local_address: multihop.local_address,
+                          multihop: true,
+                          ...(multihop.families ? { families: multihop.families } : {}),
+                          ...(multihop.password ? { password: multihop.password } : {}),
+                      }
+                    : {}),
+            };
+        };
 
         const groups = () =>
             Object.fromEntries(
-                all
-                    .filter(([, upstream]) => grouped(upstream))
-                    .map(([key, upstream]) => {
-                        const multihop = upstream.multihop;
-                        return [
-                            named("group", key, upstream),
-                            {
-                                ...settings(key, upstream),
-                                ...(multihop
-                                    ? {
-                                          local_address: multihop.local_address,
-                                          multihop: true,
-                                          ...(multihop.families ? { families: multihop.families } : {}),
-                                          ...(multihop.password ? { password: multihop.password } : {}),
-                                      }
-                                    : {}),
-                            },
-                        ];
-                    })
-            ) as Record<Group, NeighborSettings<PolicyName>>;
+                all.flatMap(([key, upstream]) => (upstream.group ? [[upstream.group, settings(key, upstream)]] : []))
+            ) as Record<GroupName<C>, NeighborSettings<PolicyName<C>>>;
 
         const neighbors = () =>
             Object.fromEntries(
@@ -349,59 +249,44 @@ export class Upstreams {
                         return [
                             name,
                             {
+                                ...(upstream.group ? { group: upstream.group } : settings(key, upstream)),
                                 ...session,
-                                ...(grouped(upstream) ? { group: named("group", key, upstream) } : settings(key, upstream)),
                                 ...(limit ? { max_prefixes: limit } : {}),
                             },
                         ];
                     })
                 )
-            ) as Record<string, Neighbor<PolicyName, Group>>;
+            ) as Record<string, Neighbor<PolicyName<C>, GroupName<C>>>;
 
-        const policies = <const P extends string = never>(options: UpstreamPolicies<P> = {}) => {
-            const result: Record<string, PolicyRule<P, never>[]> = {};
+        /**
+         * Each upstream's import and export, by name. The policies and prefix sets their rules name are checked by `validate`, not by the editor, so the rules are typed to fit any device.
+         */
+        const policies = () => {
+            const result: Record<string, readonly PolicyRule<string, string>[]> = {};
 
             for (const [key, upstream] of all) {
-                result[policy("export", key, upstream)] = [
-                    ...(options.actions?.(key, upstream) ?? []),
-                    ...(upstream.export ?? []),
-                    ...Bgp.announce(upstream.announce),
-                ];
+                if (upstream.import) {
+                    const rules = upstream.import.rules;
+                    result[upstream.import.name] = options.mapImports ? options.mapImports(rules, key, upstream) : rules;
+                }
 
-                const taken = upstream.import;
-                if (!taken) continue;
-
-                const tag = options.tag?.(key, upstream);
-                result[policy("import", key, upstream)] = [
-                    ...(taken.default
-                        ? Bgp.defaultOnly({ ...taken.default, ...(options.sources ? { sources: options.sources } : {}) })
-                        : []),
-                    ...(taken.learn
-                        ? Bgp.learn<P>({
-                              ...(taken.learn.before ? { before: taken.learn.before } : {}),
-                              ...(options.sanity ? { sanity: options.sanity } : {}),
-                              ...(options.sources ? { sources: options.sources } : {}),
-                              ...(taken.learn.local_pref !== undefined ? { local_pref: taken.learn.local_pref } : {}),
-                              ...(tag !== undefined ? { tag } : {}),
-                          })
-                        : [{ description: "Nothing else", action: "reject" as const }]),
-                ];
+                const rules = upstream.export.rules;
+                result[upstream.export.name] = options.mapExports ? options.mapExports(rules, key, upstream) : rules;
             }
 
-            return result as Record<PolicyName, PolicyRule<P, never>[]>;
+            return result as Record<PolicyName<C>, PolicyRule<never, never>[]>;
         };
 
         /** The VLANs straight off an upstream, natives included: `untrusted` for `Checks.trustBoundary`. */
         const untrusted = () => [
-            ...all.filter(([, upstream]) => upstream.handoff).map(([key, upstream]) => vlan(key, upstream)),
+            ...all.flatMap(([, upstream]) => (upstream.handoff ? [upstream.handoff.vlan.name as V] : [])),
             ...natives(),
         ];
 
-        const natives = () =>
-            all.filter(([, upstream]) => upstream.handoff?.native !== undefined).map(([key, upstream]) => native(key, upstream));
+        const natives = () => all.flatMap(([, upstream]) => (upstream.handoff?.native ? [upstream.handoff.native.name as T] : []));
 
         const privateDrops = () =>
-            all.filter(([, upstream]) => upstream.handoff && upstream.drop_private).map(([key, upstream]) => vlan(key, upstream));
+            all.flatMap(([, upstream]) => (upstream.handoff && upstream.drop_private ? [upstream.handoff.vlan.name as V] : []));
 
         const tunnelRules = (): FilterRule<never, never>[] =>
             all.flatMap(([key, upstream]) =>

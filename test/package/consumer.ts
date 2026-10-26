@@ -31,10 +31,15 @@ export const sanity = Bgp.sanity();
 export const spoof = Filters.antiSpoofing("servers", ["10.0.0.0/24"]);
 export const inside: boolean = Address.contains("10.0.0.0/8", "10.1.0.0/16");
 export const upstreams = Upstreams.define({
-    transit: { asn: 64510, role: "provider", sessions: { transit: { address: "203.0.113.1" } }, announce: [{ prefix: "198.51.100.0/24" }] },
+    transit: {
+        asn: 64510,
+        role: "provider",
+        sessions: { transit: { address: "203.0.113.1" } },
+        export: { name: "TRANSIT-OUT", rules: [] },
+    },
 });
-// @ts-expect-error Only an upstream with an import has an IN policy.
-export const noImport: typeof upstreams.policies extends () => infer R ? keyof R : never = "TRANSIT-IN";
+// @ts-expect-error Only an upstream with an import has an import policy.
+export const noImport: keyof ReturnType<typeof upstreams.policies> = "TRANSIT-IN";
 export const lag = Cables.lag({
     a: { device: "a", lag: "ae0" },
     b: { device: "b", lag: "eth-trunk1" },
