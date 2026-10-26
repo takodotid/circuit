@@ -163,7 +163,10 @@ type Names<C, N, F extends Field, Ks extends Key<C>> = { [K in Ks]: Named<C, N, 
 /** The catalog as written, with any key the shape does not have refused, at every level. */
 type Exact<S, T> = T extends readonly unknown[] | string | number | boolean | Secret | ((...args: never[]) => unknown)
     ? T
-    : { [K in keyof T]: K extends keyof S ? Exact<NonNullable<S[K]>, T[K]> : never };
+    : // A shape that is a union, such as a storm-control threshold, is each of its members in turn: its keys are any member's.
+      S extends unknown
+      ? { [K in keyof T]: K extends keyof S ? Exact<NonNullable<S[K]>, T[K]> : never }
+      : never;
 
 /** The names as written, with a name or a role Upstreams does not make refused. */
 type ExactNames<N> = {
