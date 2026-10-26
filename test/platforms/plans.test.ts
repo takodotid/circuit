@@ -92,7 +92,7 @@ test("untracked prefixes skip connection tracking both ways, in their own family
 });
 
 // The device keeps a dynamic fasttrack counter rule in the raw table, which it refuses to remove.
-// Proved on a CCR2216 on 7.23.5: with the two accepts before the notracks, a source NAT address inside an untracked block was translated back, and the router printed the rules as rendered.
+// Proved on a CCR2216 on 7.23.5: the router took the two accepts before the notracks, counted packets on them, and printed them back as rendered.
 test("an address NAT uses inside an untracked prefix stays tracked, before every notrack", () => {
     const rendered = Platforms.get("routeros").render({
         ...router,
