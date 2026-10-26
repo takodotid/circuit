@@ -29,6 +29,6 @@ A flaw in Circuit itself. For example:
 - `circuit show` sending a command that changes a device, when it should only read;
 - Studio answering on a host name it wasn't told to allow;
 - an apply that leaves a device unreachable without rolling back, when the platform's safe apply should have caught it;
-- a published package that doesn't match this repository. Packages on npm carry a provenance statement from GitHub Actions; one without it is not ours.
+- a published package that doesn't match this repository. Every version on npm from 0.5 on carries a provenance statement from this repository's GitHub Actions; a later one without it is not ours.
 
 A flaw in a device's own software belongs to its vendor. A config that is unsafe as written, such as a firewall that allows too much, is the config's to fix; `validate` and its checks are there to help find those.
