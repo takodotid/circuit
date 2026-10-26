@@ -2,7 +2,7 @@ import type { IP, Secret } from "./common";
 import type { AclRule, Firewall } from "./firewall";
 import type { Interface, Port, Vlan } from "./interfaces";
 import type { PrefixSet, RoutePolicy } from "./policy";
-import type { Routing } from "./routing";
+import type { Routing, StaticRoute } from "./routing";
 import type { Certificate, DhcpRelay, DhcpServer, FlowExport, Management, System, User } from "./system";
 
 /** How the framework reaches the device. */
@@ -41,6 +41,25 @@ export type Console = {
     baud: number;
     /** The console asks only for a password, with no name first. Circuit then types no name; `connection.user` still picks the password. */
     passwordOnly?: true;
+};
+
+/**
+ * Virtual domains, on FortiOS: the device's own traffic kept apart from the traffic it routes. Everything is in `root` when absent.
+ *
+ * Multi-VDOM mode is turned on by hand, not by a plan: it moves the whole configuration into `root` and ends every session.
+ */
+export type Vdoms<I extends string> = {
+    /**
+     * A VDOM for the device's own traffic: FortiGuard, NTP, DNS and logging leave from it, by its own routes, so they never follow the routed traffic's default route. Everything not listed here stays in `root`.
+     */
+    management: {
+        /** Its name, such as `mgmt`. Not `root`. */
+        name: string;
+        /** The ports and interfaces in it, by name. A LAG's member ports go with the LAG. */
+        interfaces: readonly I[];
+        /** Its static routes, such as its own default route. */
+        static?: readonly StaticRoute<I, never>[];
+    };
 };
 
 /** A separate routing table, with the interfaces that route in it. */
@@ -120,4 +139,6 @@ export type Device<
     };
     /** Forward in hardware where the platform can. An interface may override it. */
     hardware_offload?: boolean;
+    /** Virtual domains, on FortiOS only: a management VDOM apart from the routed traffic. */
+    vdoms?: Vdoms<NoInfer<I | N>>;
 };
