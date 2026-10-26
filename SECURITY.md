@@ -21,6 +21,8 @@ We'll confirm we got it, tell you what we find, and credit you in the release th
 
 Circuit is alpha. Only the latest release on npm gets fixes, so upgrade to it first and check the problem is still there.
 
+Circuit runs on Node.js 22.12 or newer, and CI checks it on both 22.12 and the newest LTS. Run it on the latest patch of a Node.js LTS line, which carries Node's own security fixes, above all when Studio is reachable from other machines (`--allow-host`).
+
 ## What counts
 
 A flaw in Circuit itself. For example:
