@@ -19,6 +19,9 @@ import { type ConsoleDialect, ConsoleShell, SerialConsole } from "../src/transpo
 import { Ssh } from "../src/transport/ssh";
 
 class Lab {
+    /** A shell prompt at the end of what came back, terminal codes after it allowed: `] > `, `<host>#`, `$`. */
+    static readonly PROMPT = /[>#$%]\s*(?:\x1b\[[0-9;?]*[A-Za-z]\s*)*$/;
+
     private readonly platform: Platform;
     private readonly folder: string;
 
@@ -179,7 +182,8 @@ class Lab {
 
         try {
             const channel = await Ssh.shell(client);
-            let output = await Ssh.readUntil(channel, () => false, 3_000);
+            // Wait for the first prompt: RouterOS swallowed a line sent while it still set up the terminal.
+            let output = await Ssh.readUntil(channel, (text) => Lab.PROMPT.test(text), 20_000, 1_000);
 
             for (const line of lines) {
                 const answer = await Ssh.send(channel, line, 120_000, 2_000);

@@ -104,7 +104,7 @@ export type Firewall<I extends string, AS extends string> = {
     };
     /** Helpers that run. None when absent. */
     helpers?: readonly Helper[];
-    /** Traffic to and from these prefixes passes without connection tracking. A flood toward them cannot fill the connection table, and rules see its packets in the state `untracked`. Everything is tracked when absent. */
+    /** Traffic to and from these prefixes passes without connection tracking. A flood toward them cannot fill the connection table, and rules see its packets in the state `untracked`. An address NAT uses inside one stays tracked, or its replies would never be translated back. Everything is tracked when absent. */
     untracked?: readonly Prefix[];
 };
 
