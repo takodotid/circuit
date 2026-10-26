@@ -340,7 +340,13 @@ test("Bgp.learn runs project rules, sanity, sources, preference and tag in that 
     const before = { description: "No routes of ours back", match: { prefix: "192.0.2.0/24" as const }, action: "reject" as const };
 
     expect(
-        Bgp.learn({ before: [before], sanity: "SANITY", sources: ["192.0.2.1", "2001:db8::1"], local_pref: 250, tag: "64500:1:1" })
+        Bgp.learn({
+            before: [before],
+            sanity: "SANITY",
+            sources: ["192.0.2.1", "2001:db8::1"],
+            local_pref: 250,
+            tag: { large: "64500:1:1" },
+        })
     ).toEqual([
         before,
         { call: "SANITY" },
@@ -353,8 +359,11 @@ test("Bgp.learn runs project rules, sanity, sources, preference and tag in that 
 
     // Without a policy to call, the sanity rules are written in; a standard community or a rule of the scheme tags just the same.
     const scheme = Bgp.communityScheme({ asn: 64500, learned_from: { function: 1, classes: { transit: 1 } } });
-    expect(Bgp.learn({ tag: "64500:100" }).slice(0, 5)).toEqual(Bgp.sanity());
-    expect(Bgp.learn({ tag: "64500:100" }).at(-2)).toEqual({ description: "Tag 64500:100", set: { add_communities: ["64500:100"] } });
+    expect(Bgp.learn({ tag: { standard: "64500:100" } }).slice(0, 5)).toEqual(Bgp.sanity());
+    expect(Bgp.learn({ tag: { standard: "64500:100" } }).at(-2)).toEqual({
+        description: "Tag 64500:100",
+        set: { add_communities: ["64500:100"] },
+    });
     expect(Bgp.learn({ sanity: "SANITY", tag: scheme.tag("transit", 64501) }).at(-2)).toEqual(scheme.tag("transit", 64501));
 });
 
@@ -385,7 +394,7 @@ test("RouterOS and Junos render the three policy shapes; FortiOS has no RPKI mat
     const { Bgp } = await import("../../src/helpers");
     const policies = {
         ANNOUNCE: Bgp.announce([{ prefix: "192.0.2.0/24", description: "Our IPv4" }]),
-        LEARN: Bgp.learn({ local_pref: 250, tag: "64500:100" }),
+        LEARN: Bgp.learn({ local_pref: 250, tag: { standard: "64500:100" } }),
         DEFAULT: Bgp.defaultOnly({ local_pref: 100 }),
     };
 
@@ -445,4 +454,25 @@ test("communityScheme().actions is its single helpers in a fixed order, and each
     // A scheme without a function gives nothing for it.
     const bare = Bgp.communityScheme({ asn: 64500 });
     expect([...bare.blackholeExport(1), ...bare.rejectDoNotAnnounce(1), ...bare.prepends(1)]).toEqual([]);
+});
+
+test("Bgp.learn's tag is one explicit kind, and FortiOS says which rules it can't hold", async () => {
+    const { Bgp } = await import("../../src/helpers");
+
+    expect(Bgp.learn({ sanity: "SANITY", local_pref: 200, tag: { large: "64500:1:1" } })).toEqual([
+        { call: "SANITY" },
+        { set: { local_pref: 200 } },
+        { description: "Tag 64500:1:1", set: { add_large_communities: ["64500:1:1"] } },
+        { action: "accept" },
+    ]);
+    // @ts-expect-error A community is written with its kind, not told apart by its colons.
+    const bare = () => Bgp.learn({ tag: "64500:1:1" });
+    expect(bare).toBeFunction();
+
+    const firewall = (await import("../../examples/platforms/fortios")).default;
+    const refused = Platforms.get("fortios").unsupported({
+        ...firewall,
+        policies: { ...firewall.policies, LEARN: Bgp.learn({ sanity: "NOT-TO-UPSTREAMS", local_pref: 200 }) },
+    });
+    expect(refused).toContain("policies.LEARN[1], a rule without action: the platform stops at the first rule that matches");
 });

@@ -6,18 +6,16 @@ import type {
     Gre,
     InterfaceAddress,
     IP,
-    LargeCommunity,
     Neighbor,
     NeighborSettings,
     PolicyRule,
     Port,
     Prefix,
     Secret,
-    StandardCommunity,
     Vlan,
     VlanInterface,
 } from "../schema";
-import { Bgp, type Announced } from "./bgp";
+import { Bgp, type Announced, type LearnOptions } from "./bgp";
 
 /** One network we exchange routes with: a transit we buy, an exchange's route servers, or a peer. */
 export type Upstream = {
@@ -95,7 +93,7 @@ export type UpstreamPolicies<P extends string> = {
     /** A policy holding `Bgp.sanity()` that each import calls. The sanity rules are written in each import when absent. */
     sanity?: P;
     /** Where a route came from, by upstream: a community or a rule, such as `communityScheme(...).tag(...)`. Nothing is tagged when absent. */
-    tag?: (key: string, upstream: Upstream) => StandardCommunity | LargeCommunity | PolicyRule<never, never>;
+    tag?: (key: string, upstream: Upstream) => NonNullable<LearnOptions<never>["tag"]>;
     /** Rules first in each export, such as `communityScheme(...).actions(upstream.asn)`. */
     actions?: (key: string, upstream: Upstream) => readonly PolicyRule<never, never>[];
     /** The source address for routes of its family, one per family. */
