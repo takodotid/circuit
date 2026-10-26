@@ -11,6 +11,20 @@
             "description": "@types/node follows the Node.js major CI publishes with (release.yml), not the latest: newer types describe APIs Circuit's users may not have, and v26 already rejects Duplex.from with a readable and writable pair.",
             "matchPackageNames": ["@types/node"],
             "allowedVersions": "<25"
+        },
+        {
+            "description": "Node.js in CI and in the release workflow moves only to an even major, the ones that become LTS.",
+            "matchDatasources": ["node-version"],
+            "matchDepNames": ["node"],
+            "allowedVersions": "/^\\d*[02468]\\./"
+        }
+    ],
+    "customManagers": [
+        {
+            "description": "The newest Node.js LTS that CI checks on (check.yml), marked with a renovate comment. The oldest one beside it has no comment, so it never moves.",
+            "customType": "regex",
+            "managerFilePatterns": ["/^\\.github/workflows/check\\.yml$/"],
+            "matchStrings": ["\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\" # renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)"]
         }
     ]
 }

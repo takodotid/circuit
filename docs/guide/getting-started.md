@@ -6,7 +6,7 @@ description: What you need to run Circuit, how to start a project with circuit n
 
 ## What you need
 
-- [Node.js](https://nodejs.org) 22.12 or newer, with npm or pnpm. Or [Bun](https://bun.sh) instead, if you prefer it.
+- [Node.js](https://nodejs.org) 22.12 or newer, with npm or pnpm. Or [Bun](https://bun.sh) instead, if you prefer it. Keep it on the latest patch of a Node.js LTS line: those carry the security fixes.
 - A computer that can reach your devices' management addresses over SSH.
 - An editor that understands TypeScript, such as VS Code. It shows what every field means as you type.
 

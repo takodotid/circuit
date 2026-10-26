@@ -8,15 +8,23 @@ on:
 jobs:
     check:
         runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                node:
+                    # The oldest Node.js Circuit promises (engines in package.json). Fixed: it moves only when engines does.
+                    - "22.12.0"
+                    # The newest Node.js LTS, where most users run Circuit. Renovate keeps it current.
+                    - "24.22.1" # renovate: datasource=node-version depName=node
+        name: check (Node.js ${{ matrix.node }})
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
             - uses: oven-sh/setup-bun@v2
               with:
                   bun-version: 1.4.4
-            # The oldest Node.js Circuit promises (engines in package.json), so the Node build is checked where users may run it.
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
-                  node-version: 22.12.0
+                  node-version: ${{ matrix.node }}
             - run: bun install --frozen-lockfile
             # The same as `bun run check` locally: typecheck, tests, format, docs build, Node build, the published types, templates on Node.
             - run: bun run check
