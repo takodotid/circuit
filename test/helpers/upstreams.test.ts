@@ -190,6 +190,42 @@ test("a key the shape does not have is refused at every level", () => {
     const handoff = { vlan: 1, addresses: [], prot: {} } as const;
     // @ts-expect-error `prot` is not a field of a handoff.
     const nested = () => Upstreams.define({ a: { asn: 1, role: "peer", handoff, sessions: {}, announce: [] } });
+    // A field whose shape is a union takes any member's keys, and only those.
+    const port = { device: "switch-1", port: "10g-1" } as const;
+    const pps = Upstreams.define({
+        a: {
+            asn: 1,
+            role: "rs",
+            handoff: { vlan: 1, addresses: [], port: { ...port, storm_control: { broadcast: { pps: 1000 } } } },
+            sessions: {},
+            announce: [],
+        },
+    });
+    const percent = Upstreams.define({
+        a: {
+            asn: 1,
+            role: "rs",
+            handoff: { vlan: 1, addresses: [], port: { ...port, storm_control: { multicast: { percent: 1 } } } },
+            sessions: {},
+            announce: [],
+        },
+    });
+    const threshold = { pss: 1000 } as const;
+    const misspelledThreshold = () =>
+        Upstreams.define({
+            a: {
+                asn: 1,
+                role: "rs",
+                // @ts-expect-error `pss` is in no member of a threshold.
+                handoff: { vlan: 1, addresses: [], port: { ...port, storm_control: { broadcast: threshold } } },
+                sessions: {},
+                announce: [],
+            },
+        });
+    expect(pps.ports("switch-1")["10g-1"]?.storm_control).toEqual({ broadcast: { pps: 1000 } });
+    expect(percent.ports("switch-1")["10g-1"]?.storm_control).toEqual({ multicast: { percent: 1 } });
+    expect(misspelledThreshold).toBeFunction();
+
     // @ts-expect-error `customer` is not a role an upstream has.
     const role = () => Upstreams.define({ a: { asn: 1, role: "customer", sessions: {}, announce: [] } });
 
