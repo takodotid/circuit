@@ -103,12 +103,20 @@ class Cli {
         return new Cli(configPath, network, options);
     }
 
-    /** The config, a TypeScript file. Bun imports it as it is; Node needs jiti, which also resolves imports written without an extension. */
+    /**
+     * The config, a TypeScript file. Bun imports it as it is; Node needs jiti, which also resolves imports written without an extension. A linked port without a description is given one from its far end.
+     */
     private static async load(path: string): Promise<Network> {
-        if (process.versions.bun) return (await import(path)).default;
+        let network: Network;
 
-        const { createJiti } = await import("jiti");
-        return createJiti(import.meta.url).import(path, { default: true });
+        if (process.versions.bun) {
+            network = (await import(path)).default;
+        } else {
+            const { createJiti } = await import("jiti");
+            network = await createJiti(import.meta.url).import<Network>(path, { default: true });
+        }
+
+        return { ...network, devices: Cabling.describeLinks(network.devices) };
     }
 
     private static fail(message: string): never {

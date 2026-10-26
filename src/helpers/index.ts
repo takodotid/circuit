@@ -3,7 +3,7 @@
 export { Bgp } from "./bgp";
 export type { Announced, CommunityScheme, DefaultOnlyOptions, LearnOptions, SanityLengths } from "./bgp";
 export { Cables } from "./cables";
-export type { CableEnd, FarEnd } from "./cables";
+export type { FarEnd } from "./cables";
 export { Checks } from "./checks";
 export type { TrustBoundary } from "./checks";
 export { Exchange } from "./exchange";

@@ -37,8 +37,8 @@ A cable between two of your devices has two ends, and each end's port names the 
 
 ```ts
 const firewallLag = Cables.lag({
-    a: { device: "router-1", platform: "routeros", model: "CCR2216-1G-12XS-2XQ", lag: "to-firewall" },
-    b: { device: "firewall-1", platform: "fortios", model: "FG-3700D", lag: "to-router" },
+    a: { device: "router-1", lag: "to-firewall" },
+    b: { device: "firewall-1", lag: "to-router" },
     cables: { "25g-1": "10g-2", "25g-2": "10g-1" }, // read from end A
 });
 
@@ -46,7 +46,9 @@ const firewallLag = Cables.lag({
 // firewall-1: ports: { ...firewallLag.b }
 ```
 
-Each port gets `lag`, `link` and a description naming the far device and the far port as printed on it: `firewall-1 port6` on the router, `router-1 sfp28-1` on the firewall, so the person on site reads the label they see. `describe: (far) => ...` writes your own. The port names are checked against each model, so the editor suggests real ones.
+Each port gets `lag` and `link`. `validate` checks that each port exists on its device's model and that both ends agree.
+
+Circuit describes every linked port that has no description of its own from its far end: the far device and the far port as printed on it, `firewall-1 port6` on the router and `router-1 sfp28-1` on the firewall, so the person on site reads the label they see. It reads the far device's platform and model from that device's own file, so they are never written twice. This holds for any `link`, written by hand or by `Cables`. A description you write stays, and `describe: (far) => ...` writes your own for every port of the entry.
 
 `Cables.link` does the same for one cable, with `port` on each end instead of `lag`. Both take `through` for a carrier in between; see [Checking the cabling](/guide/network#checking-the-cabling).
 

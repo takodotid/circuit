@@ -36,8 +36,9 @@ export const upstreams = Upstreams.define({
 // @ts-expect-error Only an upstream with an import has an IN policy.
 export const noImport: typeof upstreams.policies extends () => infer R ? keyof R : never = "TRANSIT-IN";
 export const lag = Cables.lag({
-    a: { device: "a", platform: "junos", model: "QFX5100-48S-6Q", lag: "ae0" },
-    b: { device: "b", platform: "vrp", model: "CE6855-48S6Q-HI", lag: "eth-trunk1" },
-    // @ts-expect-error The CE6855 has no 100G ports.
-    cables: { "40g-1": "100g-1" },
+    a: { device: "a", lag: "ae0" },
+    b: { device: "b", lag: "eth-trunk1" },
+    cables: { "40g-1": "40g-1" },
 });
+// @ts-expect-error A LAG's end names its device and LAG, not a port.
+export const noLag = Cables.lag({ a: { device: "a", port: "40g-1" }, b: { device: "b", lag: "x" }, cables: {} });
