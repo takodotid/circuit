@@ -93,7 +93,9 @@ firewall: {
 },
 ```
 
-Accept the state `untracked` in the forward chain, since no other state applies to it. An address NAT uses inside an untracked prefix, a source translation's address or a destination translation's, stays tracked: a reply to it that skipped tracking would never be translated back.
+Accept the state `untracked` in the forward chain, since no other state applies to it.
+
+An address NAT uses inside an untracked prefix stays tracked. That is a source translation's `to`, a destination translation's `to`, or the `dst` a destination translation matches. For each one, Circuit writes two accept rules before the untracked rules: one for traffic to the address, one for traffic from it. A reply to a NAT address that skipped tracking would never be translated back. On RouterOS they appear in the raw table as `Tracked for NAT, to 198.51.100.70` and `Tracked for NAT, from 198.51.100.70`.
 
 `Filters.badTcpFlags()` drops TCP packets with flag combinations that no real program sends, such as SYN and FIN together. Scanners send them to learn about your network:
 
