@@ -132,17 +132,23 @@ policies: {
     // What we announce: each prefix at exactly its length, then a reject of everything else.
     "TRANSIT-OUT": Bgp.announce([{ prefix: "192.0.2.0/24", description: "Our IPv4" }, { prefix: "2001:db8::/32" }]),
     // What we take from a transit that sends its full table: sanity, preference, where it came from.
-    "TRANSIT-IN": Bgp.learn({ sanity: "SANITY", local_pref: 250, tag: "64500:1:1", sources: ["192.0.2.1", "2001:db8::1"] }),
+    "TRANSIT-IN": Bgp.learn({ sanity: "SANITY", local_pref: 250, tag: { large: "64500:1:1" }, sources: ["192.0.2.1", "2001:db8::1"] }),
     // What we take from a transit that sends only its default route.
     "BACKUP-IN": Bgp.defaultOnly({ local_pref: 100, description: "Transit B default", reject: true }),
 },
 ```
 
 - `Bgp.announce` writes an accept for each prefix, then `{ description: "Nothing else", action: "reject" }`, the unconditional reject `Checks.exportsEndInReject` looks for. The reject is there by default, so a forgotten one can't leak routes. For an export that adds rules after the accepts, `Bgp.announce(prefixes, { reject: false })` leaves it out; end that export with a reject of your own.
-- `Bgp.learn` writes, in this order: your own rules from `before`, the sanity rules (a call to `sanity`, or the rules themselves when you leave it out), each of `sources` as the source address for its family, `local_pref`, the `tag`, then accept. `tag` is a community, or a rule from [`Bgp.communityScheme`](/guide/communities).
+- `Bgp.learn` writes these rules, in this order, each only when its option is given:
+    1. your own rules from `before`, as written;
+    2. `{ call: "SANITY" }` for `sanity: "SANITY"`, or the rules of `Bgp.sanity()` themselves when you leave `sanity` out;
+    3. `{ set: { preferred_source: "192.0.2.1" } }` for each of `sources`, one per family;
+    4. `{ set: { local_pref: 250 } }`;
+    5. the tag: `{ large: "64500:1:1" }` becomes `{ description: "Tag 64500:1:1", set: { add_large_communities: ["64500:1:1"] } }`, `{ standard: "64500:100" }` the same with `add_communities`, and a rule, such as one from [`Bgp.communityScheme`](/guide/communities)'s `tag`, is used as it is;
+    6. `{ action: "accept" }`.
 - `Bgp.defaultOnly` accepts `0.0.0.0/0` and `::/0`. With `{ reject: true }` it ends in `{ description: "Nothing else", action: "reject" }`, so the import takes the default route only. Without it, any other route goes on to the next rule, so `[...Bgp.defaultOnly(), ...Bgp.learn()]` takes both.
 
-FortiOS has no RPKI match and no rule without an action, so it refuses `Bgp.learn` as it is; see [Platforms](/platforms/).
+FortiOS refuses `Bgp.learn`, and `validate` names each rule it can't hold. A FortiOS route map stops at the first rule that matches, so it can't hold rules 3 to 5, which change a route and go on to the next rule; and the sanity rules match RPKI, which FortiOS doesn't have. On FortiOS, write the import by hand, with what rules 3 to 5 set in the rule that accepts. See [Platforms](/platforms/).
 
 ## BGP communities
 

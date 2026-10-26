@@ -32,8 +32,8 @@ export type LearnOptions<P extends string> = {
     sources?: readonly IP[];
     /** Preference for the routes learned. Higher wins. */
     local_pref?: number;
-    /** Where the route came from: a community to add, or a rule, such as `communityScheme(...).tag(...)`. */
-    tag?: StandardCommunity | LargeCommunity | PolicyRule<never, never>;
+    /** Where the route came from: `{ standard: "64500:100" }` or `{ large: "64500:1:1" }` adds that community, and a rule, such as `communityScheme(...).tag(...)`, is used as it is. */
+    tag?: { standard: StandardCommunity } | { large: LargeCommunity } | PolicyRule<never, never>;
 };
 
 /** What `Bgp.defaultOnly` sets on the default routes it takes. */
@@ -157,9 +157,19 @@ export class Bgp {
     private static readonly NOTHING_ELSE: PolicyRule<never, never> = { description: "Nothing else", action: "reject" };
 
     /**
-     * An import policy that takes a neighbor's routes: `before` first, then the sanity rules, then each source address and the local preference, then the tag, then accept.
+     * An import policy that takes a neighbor's routes. It returns these rules, in order, each only when its option is given:
      *
-     * `sanity` names a policy holding `Bgp.sanity()` to call, so several imports share one; without it, the sanity rules are written here. `tag` is a community to add, or a rule such as `communityScheme(...).tag(...)`. Each of `sources` is the source address for routes of its own family.
+     * 1. the `before` rules, as written;
+     * 2. `{ call: sanity }`, or the rules of `Bgp.sanity()` written in when `sanity` is left out;
+     * 3. `{ set: { preferred_source: source } }` for each of `sources`, one per family;
+     * 4. `{ set: { local_pref } }`;
+     * 5. the tag: `{ description: "Tag 64500:1:1", set: { add_large_communities: ["64500:1:1"] } }` for `{ large: "64500:1:1" }`, `add_communities` for `{ standard }`, or the rule given;
+     * 6. `{ action: "accept" }`.
+     *
+     * So `Bgp.learn({ sanity: "SANITY", local_pref: 200, tag: { large: "64500:1:1" } })` is
+     * `[{ call: "SANITY" }, { set: { local_pref: 200 } }, { description: "Tag 64500:1:1", set: { add_large_communities: ["64500:1:1"] } }, { action: "accept" }]`.
+     *
+     * FortiOS refuses it: a route map stops at the first rule that matches, so it can't hold rules 3 to 5, which change a route and go on; and its sanity rules match RPKI, which FortiOS doesn't have. `validate` names each such rule. On FortiOS, write the import by hand with what rules 3 to 5 set in the rule that accepts.
      */
     static learn<const P extends string = never>(options: LearnOptions<P> = {}): PolicyRule<P, never>[] {
         const { tag } = options;
@@ -169,7 +179,7 @@ export class Bgp {
             ...(options.sanity ? [{ call: options.sanity }] : Bgp.sanity()),
             ...(options.sources ?? []).map((source) => ({ set: { preferred_source: source } })),
             ...(options.local_pref !== undefined ? [{ set: { local_pref: options.local_pref } }] : []),
-            ...(tag === undefined ? [] : [typeof tag === "object" ? tag : Bgp.adding(tag)]),
+            ...(tag === undefined ? [] : ["standard" in tag ? Bgp.adding(tag.standard) : "large" in tag ? Bgp.adding(tag.large) : tag]),
             { action: "accept" },
         ];
     }

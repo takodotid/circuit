@@ -74,7 +74,11 @@ const router = defineDevice({
     },
     policies: {
         SANITY: Bgp.sanity(),
-        ...upstreams.policies({ sanity: "SANITY", tag: (_, upstream) => `64500:1:${upstream.asn}` as const, sources: ["203.0.113.2"] }),
+        ...upstreams.policies({
+            sanity: "SANITY",
+            tag: (_, upstream) => ({ large: `64500:1:${upstream.asn}` as const }),
+            sources: ["203.0.113.2"],
+        }),
     },
     firewall: {
         address_sets: { "bgp-neighbors": upstreams.addresses() },
