@@ -413,3 +413,36 @@ test("Bgp.announce ends in a reject unless told not to; Bgp.defaultOnly ends in 
     expect(Bgp.defaultOnly()).toHaveLength(2);
     expect(Bgp.defaultOnly({ reject: true }).at(-1)).toEqual({ description: "Nothing else", action: "reject" });
 });
+
+test("communityScheme().actions is its single helpers in a fixed order, and each stands on its own", async () => {
+    const { Bgp } = await import("../../src/helpers");
+    const c = Bgp.communityScheme({
+        asn: 64500,
+        do_not_announce: 100,
+        prepend: { once: 101, twice: 102 },
+        blackhole: { function: 666, upstreams: { 64510: "64510:666" } },
+    });
+
+    // Toward a neighbor that takes no blackholes: blackhole, do-not-announce, prepends, strip.
+    expect(c.actions(64511)).toEqual([...c.blackholeExport(64511), ...c.rejectDoNotAnnounce(64511), ...c.prepends(64511), c.stripOurs()]);
+    // Toward one that does, do-not-announce comes first, so a route asked not to go there is never passed on as a blackhole.
+    expect(c.actions(64510)).toEqual([...c.rejectDoNotAnnounce(64510), ...c.blackholeExport(64510), ...c.prepends(64510), c.stripOurs()]);
+
+    expect(c.blackholeExport(64511)).toEqual([
+        { description: "Blackholed here, never announced", match: { large_community: "64500:666:0" }, action: "reject" },
+    ]);
+    expect(c.blackholeExport(64510)[0]).toMatchObject({ description: "Blackhole passed on to AS64510", action: "accept" });
+    expect(c.rejectDoNotAnnounce(64511).map((rule) => rule.match)).toEqual([
+        { large_community: "64500:100:0" },
+        { large_community: "64500:100:64511" },
+    ]);
+    expect(c.prepends(64511).map((rule) => rule.set)).toEqual([{ prepend: 1 }, { prepend: 2 }]);
+    expect(c.stripOurs()).toEqual({
+        description: "Our communities stay inside our network",
+        set: { remove_communities: ["64500:*"], remove_large_communities: ["64500:*:*"] },
+    });
+
+    // A scheme without a function gives nothing for it.
+    const bare = Bgp.communityScheme({ asn: 64500 });
+    expect([...bare.blackholeExport(1), ...bare.rejectDoNotAnnounce(1), ...bare.prepends(1)]).toEqual([]);
+});

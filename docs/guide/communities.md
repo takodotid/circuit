@@ -60,16 +60,17 @@ A neighbor adds these to the routes it sends you, to ask you for something. Only
 
 ## What you get back
 
-`Bgp.communityScheme` returns six things:
+`Bgp.communityScheme` returns these:
 
-| Name                                 | What it is                                              | Where it goes                                |
-| ------------------------------------ | ------------------------------------------------------- | -------------------------------------------- |
-| `tag(class, asn, { site, trusted })` | One rule that tags a route as it comes in               | Each neighbor's import policy                |
-| `actions(asn)`                       | Rules that do what neighbors asked, toward one neighbor | Each neighbor's export policy                |
-| `blackhole(prefixSets)`              | Rules that accept a blackhole request                   | The import of each neighbor you allow, first |
-| `catalogue`                          | Every community with its meaning                        | `communities` in `defineNetwork`             |
-| `learned_from`                       | The community each class is tagged with, by class name  | A rule of your own                           |
-| `community(function, parameter)`     | One community, written out                              | A rule of your own                           |
+| Name                                                                               | What it is                                              | Where it goes                                            |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------- |
+| `tag(class, asn, { site, trusted })`                                               | One rule that tags a route as it comes in               | Each neighbor's import policy                            |
+| `actions(asn)`                                                                     | Rules that do what neighbors asked, toward one neighbor | Each neighbor's export policy                            |
+| `blackholeExport(asn)`, `rejectDoNotAnnounce(asn)`, `prepends(asn)`, `stripOurs()` | The parts `actions` is made of, one each                | An export that needs only some of them, or another order |
+| `blackhole(prefixSets)`                                                            | Rules that accept a blackhole request                   | The import of each neighbor you allow, first             |
+| `catalogue`                                                                        | Every community with its meaning                        | `communities` in `defineNetwork`                         |
+| `learned_from`                                                                     | The community each class is tagged with, by class name  | A rule of your own                                       |
+| `community(function, parameter)`                                                   | One community, written out                              | A rule of your own                                       |
 
 ### tag
 
@@ -85,7 +86,7 @@ communities.tag("customer", 65550, { site: 0, trusted: true });
 | `site`    | The number of the site the router is at. Needed when the scheme has `learned_at`; otherwise leave it out.        |
 | `trusted` | `true` if this neighbor may ask you for something. Leave it out for everyone else.                               |
 
-It does two things to every route from that neighbor:
+It is one rule, `Learned from AS<asn>`, that does two things to every route from that neighbor:
 
 1. **It removes your communities that the neighbor put on the route.** Nobody may fake your "where it came from" tags, so those are always removed. A neighbor that is not `trusted` loses its requests too, so a transit can never tell your router what to do with your routes.
 2. **It adds where the route came from.**
@@ -110,12 +111,16 @@ Put it in each import, after the filters that decide whether to accept the route
 communities.actions(6939);
 ```
 
-`asn` is the AS of the neighbor this export goes to. For that neighbor, it makes these rules, in this order:
+`asn` is the AS of the neighbor this export goes to. `actions` is four helpers, one after another, each of which you can also use on its own:
 
-1. Reject a route tagged `64500:100:0`, "do not announce to anyone", and one tagged `64500:100:6939`, "do not announce to AS6939".
-2. Pass on a blackholed route, tagged `64500:666:0`, to this neighbor with the neighbor's own blackhole community if the neighbor is in `blackhole.upstreams`, and reject it otherwise. See [Blackhole](#blackhole).
-3. Prepend once, twice or three times for a route tagged `64500:101:6939`, `64500:102:6939` or `64500:103:6939`.
-4. Remove every community of yours, so your tags stay inside your network.
+| Helper                      | Rules                                                                                                                                                                                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `blackholeExport(6939)`     | A blackholed route, tagged `64500:666:0`, is passed on with the neighbor's own blackhole community if the neighbor is in `blackhole.upstreams`, and rejected otherwise: `Blackholed here, never announced`. See [Blackhole](#blackhole). |
+| `rejectDoNotAnnounce(6939)` | Reject a route tagged `64500:100:0`, "do not announce to anyone", then one tagged `64500:100:6939`, "do not announce to AS6939".                                                                                                         |
+| `prepends(6939)`            | Prepend once, twice or three times for a route tagged `64500:101:6939`, `64500:102:6939` or `64500:103:6939`.                                                                                                                            |
+| `stripOurs()`               | One rule that removes every community of yours, so your tags stay inside your network: `Our communities stay inside our network`.                                                                                                        |
+
+`actions(6939)` is `[...blackholeExport(6939), ...rejectDoNotAnnounce(6939), ...prepends(6939), stripOurs()]`. Toward a neighbor in `blackhole.upstreams`, `rejectDoNotAnnounce` comes first instead, so a route asked not to go to that neighbor is never passed on to it as a blackhole. A helper whose function the scheme doesn't have gives no rules.
 
 Put them at the start of each export, before the rules that accept your routes:
 
