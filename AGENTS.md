@@ -24,6 +24,19 @@ Circuit turns one TypeScript file per network device into that device's config, 
 8. Never guess what a device does. Prove it (skill `prove-on-device`) and write what you learned in its `TRAPS.md`.
 9. When unsure, ask.
 10. When the owner approves a new rule or decision, add it here in the same change.
+11. Easy to learn beats clever. Someone who knows networking but not Circuit, and not any one vendor, must understand a config, and Circuit's own code, on first read. See "Easy to learn" below.
+
+## Easy to learn
+
+Circuit is declarative config for networks in general, across vendors. Keep what a user has to learn and remember small:
+
+- **Plain data.** Policies, filters, ACLs and NAT are ordered lists of rules. What lands on the device can be read in the config, in order.
+- **No hidden flow.** A helper returns config the user could have written by hand, and its doc lists every rule it adds, in order. Something many entries share goes through one plain function or a value the user spreads in.
+- **Names written out.** A name a device carries is written literally in the config, so a search finds it. No naming patterns, placeholders or precedence rules to learn.
+- **Not opinionated.** Give building blocks, not a project layout or naming scheme. No vendor's CLI or GUI is the model.
+- **Safe defaults only when visible.** A default that prevents harm (the final reject that stops a route leak) is fine when its doc says so and it can be turned off.
+- **Errors say what to fix.** A wrong config names the key and what to write instead.
+- **Before adding an API, ask:** can a newcomer guess what this call does from its name and arguments alone? If not, make it simpler.
 
 ## Code
 

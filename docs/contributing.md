@@ -4,6 +4,8 @@ description: How to work on Circuit itself, beside a network project, with its c
 
 # Contributing
 
+Circuit has to stay easy to learn: plain data, no hidden flow, names written out, and nothing a newcomer must memorise. The rules are in [AGENTS.md](https://github.com/takodotid/circuit/blob/main/AGENTS.md#easy-to-learn), for people and AI agents alike.
+
 Everyone in issues, pull requests and Discussions follows the [Code of Conduct](https://github.com/takodotid/circuit/blob/main/CODE_OF_CONDUCT.md). A bug, a feature, a device to support or a documentation fix each has an [issue form](https://github.com/takodotid/circuit/issues/new/choose); a question goes to [Discussions](https://github.com/takodotid/circuit/discussions/categories/q-a), and a vulnerability to a [private report](https://github.com/takodotid/circuit/security/advisories/new).
 
 ## Working on Circuit beside a network
