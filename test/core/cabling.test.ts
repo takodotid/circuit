@@ -128,3 +128,42 @@ test("a link through a carrier is not compared with LLDP, which sees the carrier
     expect(messages([sw1, sw2], neighbors)).toHaveLength(2);
     expect(messages([through(sw1), through(sw2)], neighbors)).toEqual([]);
 });
+
+test("a linked port without a description is given one from its far end: the far device and the port as printed on it", () => {
+    const bare = (device: Device): Device => ({
+        ...device,
+        ports: { ...device.ports, "40g-5": { ...device.ports!["40g-5"]!, description: undefined } },
+    });
+    const [one, two] = Cabling.describeLinks([bare(sw1), sw2]);
+
+    expect(one!.ports!["40g-5"]!.description).toBe("ix-sw-02 40GE1/0/5");
+    // A description written by hand stays, and so does every port without a link.
+    expect(two).toBe(sw2);
+    expect(one!.ports!["10g-47"]).toEqual(sw1.ports!["10g-47"]);
+    // A far device not in the network gives nothing to describe from.
+    expect(Cabling.describeLinks([bare(sw1)])[0]!.ports!["40g-5"]!.description).toBeUndefined();
+});
+
+test("the CLI describes a linked port from its far end when it loads the config", () => {
+    root = mkdtempSync(join(tmpdir(), "circuit-cabling-"));
+    const file = (path: string) => join(import.meta.dirname, "../..", path).replaceAll("\\", "/");
+    writeFileSync(
+        join(root, "circuit.config.ts"),
+        [
+            `import network from "${file("examples/use-cases/internet-exchange/circuit.config.ts")}";`,
+            `const bare = (device) => device.name !== "ix-sw-01" ? device : { ...device, ports: { ...device.ports, "40g-5": { ...device.ports["40g-5"], description: undefined } } };`,
+            `export default { ...network, devices: network.devices.map(bare) };`,
+        ].join("\n")
+    );
+
+    const build = spawnSync(
+        "bun",
+        [join(import.meta.dirname, "../../src/cli/index.ts"), "build", "ix-sw-01", `--config=${join(root, "circuit.config.ts")}`],
+        {
+            encoding: "utf8",
+        }
+    );
+
+    expect(build.status).toBe(0);
+    expect(build.stdout).toContain("interface 40GE1/0/5\n description ix-sw-02 40GE1/0/5\n");
+});

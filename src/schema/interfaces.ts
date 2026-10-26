@@ -113,7 +113,7 @@ export type Port<V extends string, A extends string, L extends string, F extends
         acl?: A;
         /** The LAG this port is in. Every other setting goes on the LAG. */
         lag?: L;
-        /** Another of our devices at the other end of the cable. */
+        /** Another of our devices at the other end of the cable. Without a `description`, the port is described from it: the far device and the far port as printed on it, such as `firewall-1 port6`. */
         link?: Link;
     };
 
