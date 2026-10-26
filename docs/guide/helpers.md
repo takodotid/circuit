@@ -290,7 +290,7 @@ vlans: upstreams.vlans("switch-1"),
 ports: { "10g-1": { trunk_vlans: upstreams.vlansOn("switch-1") }, ...upstreams.ports("switch-1") },
 ```
 
-Every name comes from the key, the same way each time, and the editor knows them:
+Every name comes from the key, the same way each time, and the editor knows them. By default:
 
 | Built     | Name                                                                 |
 | --------- | -------------------------------------------------------------------- |
@@ -298,6 +298,23 @@ Every name comes from the key, the same way each time, and the editor knows them
 | Interface | `transit_a`: a VLAN interface, or a GRE tunnel for one with `tunnel` |
 | Policies  | `TRANSIT_A-IN` (only with `import`) and `TRANSIT_A-OUT`              |
 | BGP group | `ix_b`, for an exchange's route servers (`role: "rs"`) or `multihop` |
+
+A network with its own naming gives patterns in `names`. `{key}` is the key, `{KEY}` the key in capitals, and `{number}` the upstream's `handoff.number` or `tunnel.number`, written in the catalog so that removing one upstream renumbers nothing. A VLAN or interface pattern can differ by role, and `tunnel` names an interface over a tunnel:
+
+```ts
+const upstreams = Upstreams.define(catalog, {
+    names: {
+        vlan: { provider: "{key}-ipt" }, // a role left out keeps {key}
+        native: "native-{key}",
+        interface: { provider: "core-ipt0{number}-{key}", rs: "core-ix0{number}-{key}", tunnel: "core-gre0{number}-{key}" },
+        import: "{KEY}-IMPORT",
+        export: "{KEY}-EXPORT",
+        port: (key, upstream) => `${key.toUpperCase()}-${upstream.role === "provider" ? "IPTRANSIT" : "PEERING"}`,
+    },
+});
+```
+
+The names stay checked: with these patterns, `transita-ipt` and `core-ipt01-transita` are names the editor offers, and `transita` is refused. Two upstreams given one name, or a `{number}` for an upstream without one, stop with an error. `port` is the description of a handoff's switch port; no device refers to it, so it is any function. `uplinks()` lists the router's interface toward each handoff, for NAT and lists like it.
 
 - A session takes its upstream's AS, role and policies, or its group, and the limit of its own family from `limits`.
 - An import takes the default route with `default`, the routes with `learn` (through `Bgp.learn`), or both. An export runs `actions`, then the upstream's `export` rules, then `Bgp.announce(announce)`.

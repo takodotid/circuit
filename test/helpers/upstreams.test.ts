@@ -195,3 +195,115 @@ test("a key the shape does not have is refused at every level", () => {
 
     expect([top, nested, role]).toHaveLength(3);
 });
+
+/** A project's own naming: an owner, a role and a number on each interface, `-ipt` on a transit's VLAN, natives first, IMPORT and EXPORT. */
+const named = Upstreams.define(
+    {
+        transita: {
+            asn: 64510,
+            role: "provider",
+            handoff: { vlan: 3001, native: 3901, number: 1, addresses: ["203.0.113.2/30"], port: { device: "switch-1", port: "10g-4" } },
+            sessions: { transita: { address: "203.0.113.1" } },
+            import: { default: { local_pref: 100 } },
+            announce: OURS,
+        },
+        exchangeb: {
+            asn: 64511,
+            role: "rs",
+            handoff: { vlan: 3002, number: 2, addresses: ["192.0.2.10/24"], port: { device: "switch-1", port: "10g-5" } },
+            sessions: { "exchangeb-rs1": { address: "192.0.2.1" } },
+            import: { learn: { local_pref: 200 } },
+            announce: OURS,
+        },
+        peerc: {
+            asn: 64512,
+            role: "peer",
+            tunnel: { local: "198.51.100.1", remote: "192.0.2.200", addresses: ["10.255.0.1/30"], number: 3 },
+            sessions: { peerc: { address: "10.255.0.2" } },
+            announce: OURS,
+        },
+    },
+    {
+        names: {
+            vlan: { provider: "{key}-ipt" },
+            native: "native-{key}",
+            interface: { provider: "core-ipt0{number}-{key}", rs: "core-ix0{number}-{key}", tunnel: "core-gre0{number}-{key}" },
+            import: "{KEY}-IMPORT",
+            export: "{KEY}-EXPORT",
+            port: (key, upstream) => `${key.toUpperCase()}-${upstream.role === "provider" ? "IPTRANSIT" : "PEERING"}-10G`,
+        },
+    }
+);
+
+test("names of the project's own: per role, with the upstream's number, and literal types a device is checked against", () => {
+    expect(named.vlans("switch-1")).toEqual({
+        "transita-ipt": { id: 3001, description: "transita" },
+        "native-transita": { id: 3901, description: "Native toward transita, nothing else in it" },
+        exchangeb: { id: 3002, description: "exchangeb" },
+    });
+    expect(Object.keys(named.interfaces())).toEqual(["core-ipt01-transita", "core-ix02-exchangeb", "core-gre03-peerc"]);
+    expect(named.uplinks()).toEqual(["core-ipt01-transita", "core-ix02-exchangeb"]);
+    expect(Object.keys(named.policies())).toEqual([
+        "TRANSITA-EXPORT",
+        "TRANSITA-IMPORT",
+        "EXCHANGEB-EXPORT",
+        "EXCHANGEB-IMPORT",
+        "PEERC-EXPORT",
+    ]);
+    expect(named.neighbors().transita).toMatchObject({ import: "TRANSITA-IMPORT", export: "TRANSITA-EXPORT" });
+    expect(named.ports("switch-1")["10g-4"]).toEqual({
+        description: "TRANSITA-IPTRANSIT-10G",
+        trunk_vlans: ["transita-ipt"],
+        native_vlan: "native-transita",
+        lldp: false,
+        stp: false,
+    });
+
+    const vlan: keyof ReturnType<typeof named.vlans> = "transita-ipt";
+    // @ts-expect-error A transit's VLAN is `<key>-ipt` in this project.
+    const plain: keyof ReturnType<typeof named.vlans> = "transita";
+    const iface: ReturnType<typeof named.uplinks>[number] = "core-ix02-exchangeb";
+    // @ts-expect-error An exchange's interface is `core-ix0<number>-<key>`.
+    const wrongRole: ReturnType<typeof named.uplinks>[number] = "core-ipt02-exchangeb";
+    const policy: keyof ReturnType<typeof named.policies> = "EXCHANGEB-IMPORT";
+    // @ts-expect-error peerc has no import, so no import policy.
+    const noImport: keyof ReturnType<typeof named.policies> = "PEERC-IMPORT";
+
+    expect([vlan, plain, iface, wrongRole, policy, noImport]).toHaveLength(6);
+});
+
+test("a name two upstreams share, or a {number} an upstream does not have, is refused", () => {
+    const upstream = { asn: 1, role: "provider", handoff: { vlan: 1, addresses: [] }, sessions: {}, announce: [] } as const;
+
+    expect(() =>
+        Upstreams.define({ a: upstream, b: { ...upstream, handoff: { vlan: 2, addresses: [] } } }, { names: { vlan: "transit" } })
+    ).toThrow("Upstreams: a and b both have the vlan name transit");
+    expect(() => Upstreams.define({ a: upstream }, { names: { interface: "core-ipt0{number}-{key}" } })).toThrow(
+        "Upstreams: a needs a number for interface name core-ipt0{number}-{key}"
+    );
+    // @ts-expect-error `vlans` is not a name Upstreams makes.
+    const misspelled = () => Upstreams.define({ a: upstream }, { names: { vlans: "x" } });
+
+    expect(misspelled).toBeFunction();
+});
+
+test("a router built with the project's own names passes validate", () => {
+    const core = defineDevice({
+        name: "core-1",
+        platform: "routeros",
+        model: "CCR2216-1G-12XS-2XQ",
+        connection: { host: "10.0.0.1", user: "operator" },
+        users,
+        vlans: { ...named.vlans() },
+        ports: { "1g-1": { addresses: ["10.0.0.1/24"] }, "25g-1": { trunk_vlans: named.vlansOn("switch-1") } },
+        interfaces: { ...named.interfaces() },
+        routing: { router_id: "203.0.113.2", bgp: { asn: 64500, groups: named.groups(), neighbors: named.neighbors() } },
+        policies: { ...named.policies() },
+        firewall: {
+            nat: { source: named.uplinks().map((uplink) => ({ match: { out_interface: uplink }, action: "masquerade" as const })) },
+        },
+    });
+
+    expect(Validator.run(defineNetwork({ devices: [core] })).filter((finding) => finding.level === "error")).toEqual([]);
+    expect(Platforms.get("routeros").render(core)).toContain("name=core-ipt01-transita vlan-id=3001");
+});
