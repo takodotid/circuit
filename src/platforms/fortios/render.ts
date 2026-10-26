@@ -8,6 +8,7 @@ import { FortiOsFirewall } from "./firewall";
 import { FortiOsNames } from "./names";
 import { FortiOsRouting } from "./routing";
 import { FortiOsBlock, FortiOsTree } from "./tree";
+import { FortiOsVdoms } from "./vdoms";
 
 export type Section = (typeof FortiOsRender.SECTIONS)[number];
 
@@ -292,8 +293,26 @@ export class FortiOsRender {
         FortiOsRouting.render(root, device);
         FortiOsRender.helpers(section("system session-helper"), device);
         FortiOsFirewall.render(root, device);
+        FortiOsRender.managementVdom(root, device);
 
         return FortiOsTree.print(root);
+    }
+
+    /** A management VDOM's routes, and who reaches the device's own services through it, as sections of their own after everything else. */
+    private static managementVdom(root: FortiOsBlock, device: Device): void {
+        const management = device.vdoms?.management;
+        if (!management) return;
+
+        const vdom = new FortiOsBlock();
+        for (const section of FortiOsVdoms.MANAGEMENT_SECTIONS) vdom.block(section);
+
+        FortiOsRender.staticRoutes(vdom.block("router static"), vdom.block("router static6"), {
+            ...device,
+            routing: { static: management.static ?? [] },
+        });
+        FortiOsFirewall.managementOnly(vdom, device);
+
+        for (const [section, block] of vdom.blocks) root.blocks.set(FortiOsVdoms.key(management.name, section), block);
     }
 
     /** A certificate with its key is the device's own; one without is only trusted. */
@@ -330,6 +349,9 @@ export class FortiOsRender {
         if (device.system?.banner) block.set("pre-login-banner", "enable");
 
         if (device.lldp === true) block.set("lldp-transmission", "enable").set("lldp-reception", "enable");
+
+        const vdom = FortiOsVdoms.managementOf(device);
+        if (vdom) block.set("vdom-mode", "multi-vdom").set("management-vdom", FortiOsTree.quote(vdom));
     }
 
     /** Each user, with the profile its role takes. */
@@ -365,7 +387,7 @@ export class FortiOsRender {
             const settings = device.ports?.[port as keyof typeof device.ports];
             const entry = block.entry(Catalog.spell(device.platform, device.model, port));
 
-            entry.set("vdom", FortiOsTree.quote("root"));
+            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.vdomOf(device, port)));
             entry.set("type", "physical");
 
             if (!settings) {
@@ -395,7 +417,7 @@ export class FortiOsRender {
                 .map(([port]) => Catalog.spell(device.platform, device.model, port));
 
             const entry = block.entry(name);
-            entry.set("vdom", FortiOsTree.quote("root"));
+            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.vdomOf(device, name)));
             entry.set("type", "aggregate");
             if (members.length) entry.set("member", FortiOsTree.quoteAll(members));
             if (iface.mode === "static") entry.set("lacp-mode", "static");
@@ -410,7 +432,7 @@ export class FortiOsRender {
 
             const parent = FortiOsRender.vlanParent(device, iface.vlan);
             const entry = block.entry(name);
-            entry.set("vdom", FortiOsTree.quote("root"));
+            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.vdomOf(device, name)));
             if (parent) entry.set("interface", FortiOsTree.quote(FortiOsNames.nameOf(device, parent)));
             entry.set("vlanid", device.vlans?.[iface.vlan]?.id ?? 0);
             const domain = FortiOsNames.forwardDomainOf(device, name);
@@ -425,7 +447,7 @@ export class FortiOsRender {
             if (iface.type !== "loopback") continue;
 
             const entry = block.entry(name);
-            entry.set("vdom", FortiOsTree.quote("root"));
+            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.vdomOf(device, name)));
             entry.set("type", "loopback");
             if (iface.description) entry.set("description", FortiOsTree.quote(iface.description));
             FortiOsRender.redirects(entry, device);
@@ -454,7 +476,7 @@ export class FortiOsRender {
             }
 
             const entry = block.entry(name);
-            entry.set("vdom", FortiOsTree.quote("root"));
+            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.vdomOf(device, name)));
             entry.set("type", iface.type === "gre" ? "tunnel" : "vxlan");
             entry.set("interface", via);
             if (iface.type === "vxlan" && iface.mac) entry.set("macaddr", iface.mac.toLowerCase());

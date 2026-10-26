@@ -155,6 +155,15 @@ export class FortiOsFirewall {
         );
     }
 
+    /** Who reaches the device's own services, alone: for a management VDOM, which routes no traffic of its own. */
+    static managementOnly(root: FortiOsBlock, device: Device): void {
+        const localIns = { ipv4: 0, ipv6: 0 };
+        const localInEntry = (family: Family) =>
+            root.block(family === "ipv4" ? "firewall local-in-policy" : "firewall local-in-policy6").entry(++localIns[family]);
+
+        FortiOsFirewall.management(localInEntry, new Objects(root, device), device);
+    }
+
     /** Packet filtering, who reaches the device, NAT and stateless ACLs. */
     static render(root: FortiOsBlock, device: Device): void {
         const fw = device.firewall;

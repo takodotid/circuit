@@ -93,6 +93,31 @@ export class Validator {
         Validator.checkFirewall(device, names, cidr);
         Validator.checkServices(device, names, report, cidr);
         Validator.checkCertificates(device, names, report);
+        Validator.checkVdoms(device, names, report, cidr, ip);
+    }
+
+    /** A management VDOM: FortiOS only, not `root`, with declared interfaces, and routes that leave through its own. */
+    private static checkVdoms(device: Device, names: Names, report: Report, cidr: Checker, ip: Checker): void {
+        const management = device.vdoms?.management;
+        if (!management) return;
+
+        if (device.platform !== "fortios") report("vdoms are a FortiOS setting");
+        if (management.name === "root") report("vdoms.management.name is root, the VDOM everything else is in; give it a name of its own");
+
+        for (const name of management.interfaces) {
+            names.expectInterface("vdoms.management interface", name);
+            const port = device.ports?.[name as keyof typeof device.ports];
+            if (port?.lag) report(`vdoms.management interface ${name} is in LAG ${port.lag}; list the LAG`);
+        }
+
+        for (const route of management.static ?? []) {
+            const where = `vdoms.management static route ${route.prefix}`;
+            cidr(where, route.prefix);
+            if (route.via) ip(where, route.via);
+            if (!route.via && !route.interface && !route.blackhole) report(`${where} has no next hop`);
+            if (route.interface && !management.interfaces.includes(route.interface))
+                report(`${where} leaves through ${route.interface}, which is not in the VDOM`);
+        }
     }
 
     /** What the model's hardware holds, from the catalog. A LAG with too many members is an error; too many switch rules is a warning, since the limit is only roughly known. */

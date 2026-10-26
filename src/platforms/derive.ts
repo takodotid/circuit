@@ -4,7 +4,8 @@ import { Address } from "../core/address";
 import type { Device } from "../schema";
 
 /** A feature a platform renders once proved on one of its devices. */
-export type ProvedFeature = "bfd-timers" | "static-route-bfd" | "multihop-bfd" | "alarm-severity" | "mac-limit" | "ethertype-filter";
+export type ProvedFeature =
+    "bfd-timers" | "static-route-bfd" | "multihop-bfd" | "alarm-severity" | "mac-limit" | "ethertype-filter" | "management-vdom";
 
 export class Derive {
     /** Each LAG's number: its own `id`, or its position among the device's LAGs. */
@@ -41,6 +42,7 @@ export class Derive {
         const has = (feature: ProvedFeature) => proved.includes(feature);
 
         if (routing?.bfd && !has("bfd-timers")) found.push(`routing.bfd, BFD timers are ${unproved}`);
+        if (device.vdoms && !has("management-vdom")) found.push(`vdoms, a management VDOM is ${unproved}`);
 
         for (const route of routing?.static ?? []) {
             if (route.bfd && !has("static-route-bfd"))
