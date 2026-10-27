@@ -1,157 +1,291 @@
-// Every customer. A customer joins by being added here, and leaves by being removed: the next apply takes away its VLAN, ports, gateway, routes and BGP sessions.
+// Every customer, with everything its devices carry written out: its VLANs, its blocks, each edge router's addresses on its VLAN, its BGP sessions and policy, and its ports. A customer joins by being added here, and leaves by being removed: the next apply takes away its VLAN, ports, gateway, routes and BGP sessions.
 
-import { customer } from "./tenancy";
+import type { Customer } from "./tenancy";
 
-export const CUSTOMERS = [
-    customer({
+export const CUSTOMERS: readonly Customer[] = [
+    {
         name: "acme",
-        number: 1,
         site: "a",
-        ipv4: "198.51.100.16/28",
-        ipv6: true,
-        bgp: { asn: 65537, prefixes: ["192.0.2.0/24", "2001:db8:201::/48"] },
+        vlan: { name: "acme", id: 1001, description: "Customer acme" },
+        blocks: ["198.51.100.16/28", "2001:db8:100:1::/64"],
+        gateways: {
+            "edge-a1": {
+                addresses: ["198.51.100.18/28", "2001:db8:100:1::2/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 101, address: "198.51.100.17", priority: 200, preempt: true }],
+            },
+            "edge-a2": {
+                addresses: ["198.51.100.19/28", "2001:db8:100:1::3/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 101, address: "198.51.100.17", priority: 100, preempt: true }],
+            },
+        },
+        bgp: {
+            asn: 65537,
+            import: "CUSTOMER-ACME-IN",
+            prefix_sets: { "acme-v4": ["192.0.2.0/24"], "acme-v6": ["2001:db8:201::/48"] },
+            sessions: { "acme-v4": "198.51.100.20", "acme-v6": "2001:db8:100:1::4" },
+            max_prefixes: 20,
+        },
         shield: true,
         ports: {
-            "tor-a1": { "10g-1": { description: "acme router, first link" } },
-            "tor-a2": { "10g-1": { description: "acme router, second link" } },
-        },
-    }),
-    customer({
-        name: "globex",
-        number: 2,
-        site: "a",
-        ipv4: "198.51.100.32/28",
-        ipv6: true,
-        bgp: { asn: 65538, prefixes: ["2001:db8:202::/48"] },
-        ports: {
             "tor-a1": {
-                "10g-2": { description: "globex router" },
-                "10g-3": { description: "globex web 1" },
+                "10g-1": { description: "acme router, first link", access_vlan: "acme" },
             },
-            "tor-a3": { "25g-1": { description: "globex web 2" } },
-        },
-    }),
-    customer({
-        name: "initech",
-        number: 3,
-        site: "a",
-        ipv4: "198.51.100.48/29",
-        ipv6: true,
-        ports: {
             "tor-a2": {
-                "10g-2": { description: "initech app", private: true },
-                "10g-3": { description: "initech database", private: true },
+                "10g-1": { description: "acme router, second link", access_vlan: "acme" },
             },
         },
-    }),
-    customer({
-        name: "vandelay",
-        number: 4,
+    },
+    {
+        name: "globex",
         site: "a",
-        ipv4: "198.51.100.56/29",
-        routed: ["198.51.100.192/28"],
-        ports: {
-            "tor-a2": { "10g-4": { description: "vandelay firewall" } },
-            "tor-a3": { "25g-2": { description: "vandelay backup" } },
+        vlan: { name: "globex", id: 1002, description: "Customer globex" },
+        blocks: ["198.51.100.32/28", "2001:db8:100:2::/64"],
+        gateways: {
+            "edge-a1": {
+                addresses: ["198.51.100.34/28", "2001:db8:100:2::2/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 102, address: "198.51.100.33", priority: 200, preempt: true }],
+            },
+            "edge-a2": {
+                addresses: ["198.51.100.35/28", "2001:db8:100:2::3/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 102, address: "198.51.100.33", priority: 100, preempt: true }],
+            },
         },
-    }),
-    customer({
-        name: "soylent",
-        number: 5,
-        site: "a",
-        ipv4: "198.51.100.64/27",
-        ipv6: true,
-        shield: true,
+        bgp: {
+            asn: 65538,
+            import: "CUSTOMER-GLOBEX-IN",
+            prefix_sets: { "globex-v6": ["2001:db8:202::/48"] },
+            sessions: { "globex-v6": "2001:db8:100:2::4" },
+            max_prefixes: 10,
+        },
         ports: {
             "tor-a1": {
-                "10g-4": { description: "soylent game server 1" },
-                "10g-5": { description: "soylent game server 2" },
-                "10g-6": { description: "soylent game server 3" },
-                "10g-7": { description: "soylent game server 4" },
+                "10g-2": { description: "globex router", access_vlan: "globex" },
+                "10g-3": { description: "globex web 1", access_vlan: "globex" },
             },
             "tor-a3": {
-                "25g-3": { description: "soylent matchmaking", private: true },
-                "25g-4": { description: "soylent database", private: true },
+                "25g-1": { description: "globex web 2", access_vlan: "globex" },
             },
         },
-    }),
-    customer({
-        name: "cyberdyne",
-        number: 6,
+    },
+    {
+        name: "initech",
         site: "a",
-        ipv4: "198.51.100.96/28",
-        ipv6: true,
-        bgp: { asn: 65540, prefixes: ["2001:db8:203::/48"] },
-        ports: { "tor-a3": { "25g-5": { description: "cyberdyne router" } } },
-    }),
-    customer({
-        name: "tyrell",
-        number: 7,
-        site: "a",
-        ipv4: "198.51.100.112/29",
-        ports: { "tor-a1": { "10g-8": { description: "tyrell server" } } },
-    }),
-    customer({
-        name: "wonka",
-        number: 8,
-        site: "a",
-        ipv4: "198.51.100.120/29",
-        ipv6: true,
+        vlan: { name: "initech", id: 1003, description: "Customer initech" },
+        private: { name: "initech-private", id: 2003, description: "Customer initech, private" },
+        blocks: ["198.51.100.48/29", "2001:db8:100:3::/64"],
+        gateways: {
+            "edge-a1": {
+                addresses: ["198.51.100.50/29", "2001:db8:100:3::2/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 103, address: "198.51.100.49", priority: 200, preempt: true }],
+            },
+            "edge-a2": {
+                addresses: ["198.51.100.51/29", "2001:db8:100:3::3/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 103, address: "198.51.100.49", priority: 100, preempt: true }],
+            },
+        },
         ports: {
             "tor-a2": {
-                "10g-5": { description: "wonka shop 1" },
-                "10g-6": { description: "wonka shop 2" },
+                "10g-2": { description: "initech app", trunk_vlans: ["initech", "initech-private"] },
+                "10g-3": { description: "initech database", trunk_vlans: ["initech", "initech-private"] },
             },
         },
-    }),
-    customer({
+    },
+    {
+        name: "vandelay",
+        site: "a",
+        vlan: { name: "vandelay", id: 1004, description: "Customer vandelay" },
+        blocks: ["198.51.100.56/29"],
+        gateways: {
+            "edge-a1": { addresses: ["198.51.100.58/29"], vrrp: [{ id: 104, address: "198.51.100.57", priority: 200, preempt: true }] },
+            "edge-a2": { addresses: ["198.51.100.59/29"], vrrp: [{ id: 104, address: "198.51.100.57", priority: 100, preempt: true }] },
+        },
+        routed: { via: "198.51.100.60", prefixes: ["198.51.100.192/28"] },
+        ports: {
+            "tor-a2": {
+                "10g-4": { description: "vandelay firewall", access_vlan: "vandelay" },
+            },
+            "tor-a3": {
+                "25g-2": { description: "vandelay backup", access_vlan: "vandelay" },
+            },
+        },
+    },
+    {
+        name: "soylent",
+        site: "a",
+        vlan: { name: "soylent", id: 1005, description: "Customer soylent" },
+        private: { name: "soylent-private", id: 2005, description: "Customer soylent, private" },
+        blocks: ["198.51.100.64/27", "2001:db8:100:5::/64"],
+        gateways: {
+            "edge-a1": {
+                addresses: ["198.51.100.66/27", "2001:db8:100:5::2/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 105, address: "198.51.100.65", priority: 200, preempt: true }],
+            },
+            "edge-a2": {
+                addresses: ["198.51.100.67/27", "2001:db8:100:5::3/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 105, address: "198.51.100.65", priority: 100, preempt: true }],
+            },
+        },
+        shield: true,
+        ports: {
+            "tor-a1": {
+                "10g-4": { description: "soylent game server 1", access_vlan: "soylent" },
+                "10g-5": { description: "soylent game server 2", access_vlan: "soylent" },
+                "10g-6": { description: "soylent game server 3", access_vlan: "soylent" },
+                "10g-7": { description: "soylent game server 4", access_vlan: "soylent" },
+            },
+            "tor-a3": {
+                "25g-3": { description: "soylent matchmaking", trunk_vlans: ["soylent", "soylent-private"] },
+                "25g-4": { description: "soylent database", trunk_vlans: ["soylent", "soylent-private"] },
+            },
+        },
+    },
+    {
+        name: "cyberdyne",
+        site: "a",
+        vlan: { name: "cyberdyne", id: 1006, description: "Customer cyberdyne" },
+        blocks: ["198.51.100.96/28", "2001:db8:100:6::/64"],
+        gateways: {
+            "edge-a1": {
+                addresses: ["198.51.100.98/28", "2001:db8:100:6::2/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 106, address: "198.51.100.97", priority: 200, preempt: true }],
+            },
+            "edge-a2": {
+                addresses: ["198.51.100.99/28", "2001:db8:100:6::3/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 106, address: "198.51.100.97", priority: 100, preempt: true }],
+            },
+        },
+        bgp: {
+            asn: 65540,
+            import: "CUSTOMER-CYBERDYNE-IN",
+            prefix_sets: { "cyberdyne-v6": ["2001:db8:203::/48"] },
+            sessions: { "cyberdyne-v6": "2001:db8:100:6::4" },
+            max_prefixes: 10,
+        },
+        ports: {
+            "tor-a3": {
+                "25g-5": { description: "cyberdyne router", access_vlan: "cyberdyne" },
+            },
+        },
+    },
+    {
+        name: "tyrell",
+        site: "a",
+        vlan: { name: "tyrell", id: 1007, description: "Customer tyrell" },
+        blocks: ["198.51.100.112/29"],
+        gateways: {
+            "edge-a1": { addresses: ["198.51.100.114/29"], vrrp: [{ id: 107, address: "198.51.100.113", priority: 200, preempt: true }] },
+            "edge-a2": { addresses: ["198.51.100.115/29"], vrrp: [{ id: 107, address: "198.51.100.113", priority: 100, preempt: true }] },
+        },
+        ports: {
+            "tor-a1": {
+                "10g-8": { description: "tyrell server", access_vlan: "tyrell" },
+            },
+        },
+    },
+    {
+        name: "wonka",
+        site: "a",
+        vlan: { name: "wonka", id: 1008, description: "Customer wonka" },
+        blocks: ["198.51.100.120/29", "2001:db8:100:8::/64"],
+        gateways: {
+            "edge-a1": {
+                addresses: ["198.51.100.122/29", "2001:db8:100:8::2/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 108, address: "198.51.100.121", priority: 200, preempt: true }],
+            },
+            "edge-a2": {
+                addresses: ["198.51.100.123/29", "2001:db8:100:8::3/64"],
+                ipv6_ra: true,
+                vrrp: [{ id: 108, address: "198.51.100.121", priority: 100, preempt: true }],
+            },
+        },
+        ports: {
+            "tor-a2": {
+                "10g-5": { description: "wonka shop 1", access_vlan: "wonka" },
+                "10g-6": { description: "wonka shop 2", access_vlan: "wonka" },
+            },
+        },
+    },
+    {
         name: "hanso",
-        number: 9,
         site: "b",
-        ipv4: "198.51.100.128/28",
-        ipv6: true,
+        vlan: { name: "hanso", id: 1009, description: "Customer hanso" },
+        blocks: ["198.51.100.128/28", "2001:db8:100:9::/64"],
+        gateways: {
+            "edge-b1": { addresses: ["198.51.100.129/28", "2001:db8:100:9::1/64"], ipv6_ra: true },
+        },
         ports: {
             "agg-b1": {
-                "25g-1": { description: "hanso server 1" },
-                "25g-2": { description: "hanso server 2" },
+                "25g-1": { description: "hanso server 1", access_vlan: "hanso" },
+                "25g-2": { description: "hanso server 2", access_vlan: "hanso" },
             },
         },
-    }),
-    customer({
+    },
+    {
         name: "oscorp",
-        number: 10,
         site: "b",
-        ipv4: "198.51.100.144/28",
-        ipv6: true,
-        bgp: { asn: 65541, prefixes: ["2001:db8:204::/48"] },
-        ports: { "tor-b1": { "10g-1": { description: "oscorp router" } } },
-    }),
-    customer({
+        vlan: { name: "oscorp", id: 1010, description: "Customer oscorp" },
+        blocks: ["198.51.100.144/28", "2001:db8:100:a::/64"],
+        gateways: {
+            "edge-b1": { addresses: ["198.51.100.145/28", "2001:db8:100:a::1/64"], ipv6_ra: true },
+        },
+        bgp: {
+            asn: 65541,
+            import: "CUSTOMER-OSCORP-IN",
+            prefix_sets: { "oscorp-v6": ["2001:db8:204::/48"] },
+            sessions: { "oscorp-v6": "2001:db8:100:a::4" },
+            max_prefixes: 10,
+        },
+        ports: {
+            "tor-b1": {
+                "10g-1": { description: "oscorp router", access_vlan: "oscorp" },
+            },
+        },
+    },
+    {
         name: "dunder",
-        number: 11,
         site: "b",
-        ipv4: "198.51.100.160/29",
+        vlan: { name: "dunder", id: 1011, description: "Customer dunder" },
+        blocks: ["198.51.100.160/29"],
+        gateways: {
+            "edge-b1": { addresses: ["198.51.100.161/29"] },
+        },
         ports: {
             "tor-b1": {
-                "10g-2": { description: "dunder file server" },
-                "10g-3": { description: "dunder mail" },
+                "10g-2": { description: "dunder file server", access_vlan: "dunder" },
+                "10g-3": { description: "dunder mail", access_vlan: "dunder" },
             },
         },
-    }),
-    customer({
+    },
+    {
         name: "sirius",
-        number: 12,
         site: "b",
-        ipv4: "198.51.100.168/29",
-        ipv6: true,
+        vlan: { name: "sirius", id: 1012, description: "Customer sirius" },
+        private: { name: "sirius-private", id: 2012, description: "Customer sirius, private" },
+        blocks: ["198.51.100.168/29", "2001:db8:100:c::/64"],
+        gateways: {
+            "edge-b1": { addresses: ["198.51.100.169/29", "2001:db8:100:c::1/64"], ipv6_ra: true },
+        },
         ports: {
-            "agg-b1": { "25g-3": { description: "sirius router" } },
+            "agg-b1": {
+                "25g-3": { description: "sirius router", access_vlan: "sirius" },
+            },
             "tor-b1": {
-                "10g-4": { description: "sirius build 1", private: true },
-                "10g-5": { description: "sirius build 2", private: true },
+                "10g-4": { description: "sirius build 1", trunk_vlans: ["sirius", "sirius-private"] },
+                "10g-5": { description: "sirius build 2", trunk_vlans: ["sirius", "sirius-private"] },
             },
         },
-    }),
+    },
 ];
 
 /** The customers at each site. */

@@ -165,7 +165,7 @@ export default defineDevice({
                 ],
             },
         },
-        gateways(AT.a, 2, { priority: 200 })
+        gateways(AT.a, "edge-a1")
     ),
 
     routing: {

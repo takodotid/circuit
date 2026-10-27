@@ -276,7 +276,7 @@ export function firewall<const I extends string>(options: {
 
 /** The filter in an edge router's switch chip, on every port from another network: spoofed sources on each outside VLAN, then reflected floods toward each customer that asked for it. */
 export function acl<const V extends string>(outside: readonly V[]): AclRule<V>[] {
-    const shielded = CUSTOMERS.filter((c) => c.shield).map((c) => c.ipv4);
+    const shielded = CUSTOMERS.filter((c) => c.shield).flatMap((c) => c.blocks.filter((block) => !block.includes(":")));
 
     return [...outside.flatMap((vlan) => Filters.antiSpoofing(vlan, SPOOFED)), ...Filters.antiAmplification(shielded)];
 }

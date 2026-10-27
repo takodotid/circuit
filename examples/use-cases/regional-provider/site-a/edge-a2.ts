@@ -140,7 +140,7 @@ export default defineDevice({
                 addresses: ["10.254.9.0/31"],
             },
         },
-        gateways(AT.a, 3, { priority: 100 })
+        gateways(AT.a, "edge-a2")
     ),
 
     routing: {

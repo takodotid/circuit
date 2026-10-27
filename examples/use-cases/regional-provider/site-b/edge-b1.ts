@@ -156,7 +156,7 @@ export default defineDevice({
                 ],
             },
         },
-        gateways(AT.b, 1)
+        gateways(AT.b, "edge-b1")
     ),
 
     routing: {
