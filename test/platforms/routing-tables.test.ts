@@ -10,11 +10,20 @@ import edge from "../../templates/edge-router/edge-01";
 const platform = Platforms.get("routeros");
 const options = { secrets: false, rollback: 10 };
 
-/** The edge router with a block that leaves only through its own transit: a table, the rules that send the block's traffic to it, the transit's session installing in it, and the block's route in main and in the table, so both announce it. */
+/** The edge router with a block that leaves only through its own transit: a table, the rules that send the block's traffic to it, the transit's session installing in it, and the block's route in main and in the table, so both announce it. The transit's export accepts our own block too, which its table lacks. */
 function withBlockB(): Device {
     const routing = edge.routing!;
     return {
         ...edge,
+        policies: {
+            ...edge.policies,
+            // What it announces: block B, and our own block, which its table then lacks.
+            "TRANSIT-P-OUT": [
+                { description: "Block B", match: { prefix: "2001:db8:200::/48" }, action: "accept" },
+                { description: "Our IPv6", match: { prefix: "2001:db8:100::/48" }, action: "accept" },
+                { description: "Nothing else", action: "reject" },
+            ],
+        },
         routing: {
             ...routing,
             tables: { "block-b": { description: "Block B's own way out" } },
@@ -37,7 +46,7 @@ function withBlockB(): Device {
                         remote_as: 64510,
                         role: "provider",
                         import: "TRANSIT-IN",
-                        export: "OUT",
+                        export: "TRANSIT-P-OUT",
                         table: "block-b",
                     },
                 },
@@ -239,4 +248,59 @@ test("an upstream's table goes on its group, or on each session when it has none
     expect(upstreams.groups()["transit-p"].table).toBe("block-b");
     expect(upstreams.neighbors()["p-a"]).toEqual({ group: "transit-p", address: "2001:db8:fffe::1" });
     expect(upstreams.neighbors()["q-a"]?.table).toBe("block-b");
+});
+
+test("main written out is the main table: it renders, validates and is accepted everywhere as if left out", () => {
+    const routing = edge.routing!;
+    const written: Device = {
+        ...edge,
+        routing: {
+            ...routing,
+            static: routing.static!.map((route) => ({ ...route, table: "main" })),
+            bgp: {
+                ...routing.bgp!,
+                neighbors: Object.fromEntries(
+                    Object.entries(routing.bgp!.neighbors!).map(([name, neighbor]) => [name, { ...neighbor, table: "main" }])
+                ),
+            },
+        },
+    };
+
+    expect(platform.render(written)).toBe(platform.render(edge));
+    expect(errors(written)).toEqual([]);
+    expect(platform.checks?.(written) ?? []).toEqual([]);
+
+    const { name, connection, users, policies } = written;
+    const junos: Device = { name, connection, users, routing: written.routing, policies, platform: "junos", model: "QFX5100-48S-6Q" };
+    expect(
+        Platforms.get("junos")
+            .unsupported(junos)
+            .filter((field) => /table/.test(field))
+    ).toEqual([]);
+});
+
+test("a network the session's export rejects anyway needs no route in its table, so no warning", () => {
+    const device = withBlockB();
+    const onlyBlockB: Device = {
+        ...device,
+        policies: {
+            ...device.policies,
+            "BLOCK-B-OUT": [
+                { description: "Block B", match: { prefix: "2001:db8:200::/48" }, action: "accept" },
+                { description: "Nothing else", action: "reject" },
+            ],
+        },
+        routing: {
+            ...device.routing!,
+            bgp: {
+                ...device.routing!.bgp!,
+                neighbors: {
+                    ...device.routing!.bgp!.neighbors,
+                    "transit-p": { ...device.routing!.bgp!.neighbors!["transit-p"]!, export: "BLOCK-B-OUT" },
+                },
+            },
+        },
+    };
+
+    expect(platform.checks?.(onlyBlockB) ?? []).toEqual([]);
 });

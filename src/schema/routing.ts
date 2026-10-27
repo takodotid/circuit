@@ -16,8 +16,8 @@ export type StaticRoute<I extends string, F extends string, T extends string = n
     distance?: number;
     /** The VRF the route is in. The main table when absent. */
     vrf?: F;
-    /** The table the route is in, one of `routing.tables`. The main table when absent. A route has a `vrf` or a `table`, not both. */
-    table?: T;
+    /** The table the route is in: `main`, or one of `routing.tables`. The main table when absent; write `main` to say so. A route has a `vrf` or a `table`, not both. */
+    table?: T | "main";
     /** Why the route exists. */
     description?: string;
 };
@@ -57,8 +57,8 @@ export type NeighborSettings<P extends string, T extends string = never> = {
     passive?: boolean;
     /** Detect a dead link in under a second with BFD. */
     bfd?: boolean;
-    /** The table the routes learned are installed in, one of `routing.tables`. The main table when absent. On RouterOS the session also announces from that table, so each prefix of `networks` it announces needs a route in the table too, and a running session takes a new table only when it restarts. */
-    table?: T;
+    /** The table the routes learned are installed in: `main`, or one of `routing.tables`. The main table when absent; write `main` to say so. On RouterOS the session also announces from that table, so each prefix of `networks` it announces needs a route in the table too, and a running session takes a new table only when it restarts. */
+    table?: T | "main";
 };
 
 /** One BGP session. Settings it does not set come from its group. */

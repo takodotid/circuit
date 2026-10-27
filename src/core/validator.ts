@@ -1,6 +1,7 @@
 // Rules every network has to satisfy, whatever its design. Types catch most of this at compile time; these run again at load, because config is data and may not come from TypeScript.
 
 import { X509Certificate } from "node:crypto";
+import { Utils } from "./utils";
 import { Platforms } from "../platforms";
 import { Catalog } from "../platforms/catalog";
 import type { Device, Switched } from "../schema";
@@ -297,9 +298,10 @@ export class Validator {
             names.expect(
                 `static route ${route.prefix} table`,
                 route.table,
-                route.table !== undefined && route.table in (routing?.tables ?? {})
+                route.table !== undefined && (route.table === "main" || route.table in (routing?.tables ?? {}))
             );
-            if (route.vrf && route.table) report(`static route ${route.prefix} has both vrf and table; a route is in one of them`);
+            if (route.vrf && Utils.otherTable(route.table))
+                report(`static route ${route.prefix} has both vrf and table; a route is in one of them`);
         }
 
         Validator.checkTables(device, names, report, cidr);
@@ -309,7 +311,7 @@ export class Validator {
 
         for (const prefix of bgp?.networks ?? []) cidr("BGP network", prefix);
 
-        const isTable = (table: string | undefined) => table !== undefined && table in (routing?.tables ?? {});
+        const isTable = (table: string | undefined) => table !== undefined && (table === "main" || table in (routing?.tables ?? {}));
 
         for (const [name, group] of Object.entries(bgp?.groups ?? {})) {
             for (const policy of [group.import, group.export]) {
@@ -351,9 +353,12 @@ export class Validator {
         const bgp = routing?.bgp;
 
         const installed = new Set<string>();
-        for (const route of routing?.static ?? []) if (route.table) installed.add(route.table);
+        for (const route of routing?.static ?? []) {
+            const table = Utils.otherTable(route.table);
+            if (table) installed.add(table);
+        }
         for (const neighbor of Object.values(bgp?.neighbors ?? {})) {
-            const table = neighbor.table ?? (neighbor.group ? bgp?.groups?.[neighbor.group]?.table : undefined);
+            const table = Utils.otherTable(neighbor.table ?? (neighbor.group ? bgp?.groups?.[neighbor.group]?.table : undefined));
             if (table) installed.add(table);
         }
 

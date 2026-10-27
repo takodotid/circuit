@@ -1,6 +1,7 @@
 // The neutral model as a RouterOS 7 export, written in the form `/export` prints so the two compare line for line.
 
 import { X509Certificate } from "node:crypto";
+import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import type {
@@ -1147,7 +1148,7 @@ export class RouterOsRender {
                 distance: route.distance,
                 "dst-address": route.prefix,
                 gateway,
-                "routing-table": route.vrf ?? route.table,
+                "routing-table": route.vrf ?? Utils.otherTable(route.table),
             });
         }
     }
@@ -1292,7 +1293,7 @@ export class RouterOsRender {
                 "output.network": originates ? RouterOsRender.NETWORKS[family] : undefined,
                 "remote.address": `${neighbor.address}/${addressFamily === "ipv4" ? 32 : 128}`,
                 "remote.as": settings.remote_as,
-                "routing-table": settings.table,
+                "routing-table": Utils.otherTable(settings.table),
                 "tcp-md5-key": settings.password && Secrets.marker(settings.password),
                 "use-bfd": settings.bfd ? "yes" : undefined,
             });

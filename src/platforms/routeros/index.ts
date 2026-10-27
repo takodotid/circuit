@@ -3,6 +3,7 @@
 // The platform applies every command the moment it arrives and has no candidate configuration, so a run is guarded three ways. Every command is first compiled on the device without running, so a syntax error or an unknown property costs nothing. A backup is saved and a scheduler armed to restore it, and the run must log in again in a fresh session before the scheduler is removed. A command the device refuses restores the backup at once, rather than leaving the device half applied.
 
 import type { Client } from "ssh2";
+import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import type { Finding } from "../../core/define";
@@ -152,21 +153,28 @@ export class RouterOs extends Platform {
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.group ? bgp?.groups?.[neighbor.group] : undefined;
-            const table = neighbor.table ?? group?.table;
+            const table = Utils.otherTable(neighbor.table ?? group?.table);
             if (!table) continue;
 
             const families = neighbor.families ?? group?.families ?? [Address.family(neighbor.address)];
             const networks = (bgp?.networks ?? []).filter((prefix) => families.includes(Address.family(Address.host(prefix))));
             const inTable = (prefix: string) =>
                 statics.some((route) => route.table === table && Address.canonical(route.prefix) === Address.canonical(prefix));
-            const missing = networks.filter((prefix) => !inTable(prefix));
+            // What its export accepts by prefix: a network it would reject anyway needs no route in the table. Every network when the export names none.
+            const exportPolicy = neighbor.export ?? group?.export;
+            const accepted = (exportPolicy ? (device.policies?.[exportPolicy] ?? []) : [])
+                .filter((rule) => rule.action === "accept" && rule.match?.prefix)
+                .map((rule) => Address.canonical(rule.match!.prefix!));
+            const announced = accepted.length ? networks.filter((prefix) => accepted.includes(Address.canonical(prefix))) : networks;
+
+            const missing = announced.filter((prefix) => !inTable(prefix));
             if (!missing.length) continue;
 
             const where = `routing.bgp.neighbors.${name}`;
             const route = (prefix: string) => `{ prefix: "${prefix}", blackhole: true, table: "${table}" }`;
             const fix = `On RouterOS a session announces from its own table, ${table}`;
 
-            if (missing.length === networks.length) {
+            if (missing.length === announced.length) {
                 findings.push({
                     level: "error",
                     device: device.name,

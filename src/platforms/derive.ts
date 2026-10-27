@@ -1,6 +1,7 @@
 // Values more than one adapter derives from a device in the same way.
 
 import { Address } from "../core/address";
+import { Utils } from "../core/utils";
 import type { Device } from "../schema";
 
 /** A feature a platform renders once proved on one of its devices. */
@@ -54,7 +55,7 @@ export class Derive {
         for (const route of routing?.static ?? []) {
             if (route.bfd && !has("static-route-bfd"))
                 found.push(`routing.static ${route.prefix} bfd, BFD on a static route is ${unproved}`);
-            if (route.table && !has("routing-tables"))
+            if (Utils.otherTable(route.table) && !has("routing-tables"))
                 found.push(`routing.static ${route.prefix} table, a routing table beside the main one is ${unproved}`);
         }
 
@@ -66,12 +67,12 @@ export class Derive {
         const bgp = routing?.bgp;
 
         for (const [name, group] of Object.entries(bgp?.groups ?? {})) {
-            if (group.table && !has("routing-tables"))
+            if (Utils.otherTable(group.table) && !has("routing-tables"))
                 found.push(`routing.bgp.groups.${name}.table, a routing table beside the main one is ${unproved}`);
         }
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
-            if (neighbor.table && !has("routing-tables"))
+            if (Utils.otherTable(neighbor.table) && !has("routing-tables"))
                 found.push(`routing.bgp.neighbors.${name}.table, a routing table beside the main one is ${unproved}`);
 
             const group = neighbor.group ? bgp?.groups?.[neighbor.group] : undefined;
