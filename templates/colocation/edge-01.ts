@@ -6,7 +6,7 @@ import type { Prefix } from "@takodotid/circuit";
 import { defineDevice, secret, Utils } from "@takodotid/circuit";
 import { Bgp, Filters } from "@takodotid/circuit/helpers";
 import { ASN, communities } from "./routing";
-import { edgeRules, gateways, internetVlanNames, internetVlans } from "./tenancy";
+import { edgeRules, gateways, internetVlanNames, routerVlans } from "./tenancy";
 import { TENANTS } from "./tenants";
 
 /** The address space this router announces. */
@@ -34,7 +34,7 @@ export default defineDevice({
             transit: { id: 300, description: "IP transit from Hurricane Electric, AS6939" },
             ix: { id: 200, description: "Peering LAN of SGIX" },
         },
-        internetVlans(TENANTS)
+        routerVlans(TENANTS)
     ),
 
     ports: {

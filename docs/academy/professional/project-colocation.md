@@ -44,16 +44,16 @@ The template names a well-known transit, Hurricane Electric, and an exchange, SG
 
 ## A tenant is one file
 
-A tenant's file says only what is the tenant's own: its name, a number no other tenant has, its public blocks, its ports, and any rules for traffic toward it.
+A tenant's file writes everything its devices carry for it: its VLANs, the router's addresses on its public VLAN, its ports, and any rules for traffic toward it. Nothing is worked out from a name or a number, so a search for `acme-internet` or `1001` finds the file.
 
 <<< @/../templates/colocation/tenants/acme.ts
 
-From the name `acme` and the number `1`, everything else follows:
+Read it field by field:
 
-- its public VLAN is `acme-internet`, 1000 + 1 = 1001, on the router and the switch;
-- its private VLAN is `acme-private`, 2000 + 1 = 2001. It exists only on a switch where one of acme's ports uses it, and never on the router;
-- the router takes each block's `gateway`, `198.51.100.9/29` and `2001:db8:100:1::1/64`, on `acme-internet`;
-- both server ports are trunks carrying both VLANs, tagged, so each server sees two networks.
+- `internet.vlan` is its public VLAN, `acme-internet` with ID 1001, on the router and the switch;
+- `internet.gateways` are the router's addresses on it, `198.51.100.9/29` and `2001:db8:100:1::1/64`. Each is the gateway acme's servers use, and its length says the block: `198.51.100.8/29`;
+- `private.vlan` is its private VLAN, `acme-private` with ID 2001. It exists only on a switch where one of acme's ports uses it, and never on the router;
+- both server ports are written as any port is: trunks carrying both VLANs, tagged, so each server sees two networks.
 
 acme's `acl` rule asks for UDP toward its IPv4 block to be limited to 1 Gbit/s, in the router's switch chip. On RouterOS, a limit like this did not hold back traffic that the router's CPU routes, as its [platform page](/platforms/routeros) records, and traffic to a tenant is routed. Do not count on it to stop a flood; [Attacks on the network](/academy/professional/ddos-and-spoofing) covers what does.
 
@@ -65,18 +65,16 @@ A tenant joins by being added to the list, and leaves by being removed from it:
 
 <<< @/../templates/colocation/tenancy.ts
 
-Each function answers one question a device asks:
+Each function only gathers what the tenants' files wrote, for one device:
 
-| Function            | Used by           | What it returns                                                                  |
-| ------------------- | ----------------- | -------------------------------------------------------------------------------- |
-| `internetVlans`     | router and switch | every tenant's public VLAN                                                       |
-| `internetVlanNames` | both trunk ends   | their names, so the trunk carries them all                                       |
-| `privateVlans`      | each switch       | the private VLANs of tenants with a port on that switch in their private network |
-| `portsOn`           | each switch       | the tenants' ports on that switch                                                |
-| `gateways`          | router            | an interface on each public VLAN, with the tenant's gateway addresses            |
-| `edgeRules`         | router            | each tenant's `acl` rules, once per outside VLAN and IPv4 block                  |
-
-To change how every tenant is numbered or named, you change it here, once.
+| Function            | Used by         | What it returns                                                                          |
+| ------------------- | --------------- | ---------------------------------------------------------------------------------------- |
+| `routerVlans`       | router          | every tenant's public VLAN                                                               |
+| `switchVlans`       | each switch     | every tenant's public VLAN, and the private VLANs that tenants' ports on that switch use |
+| `internetVlanNames` | both trunk ends | the public VLANs' names, so the trunk carries them all                                   |
+| `portsOn`           | each switch     | the tenants' ports on that switch                                                        |
+| `gateways`          | router          | an interface on each public VLAN, with the tenant's gateway addresses                    |
+| `edgeRules`         | router          | each tenant's `acl` rules, once per outside VLAN and IPv4 block                          |
 
 ## The router and the switch
 
@@ -115,7 +113,7 @@ Two tenants are as far apart as any two networks on the internet: traffic betwee
 
 <<< @/../templates/colocation/checks.ts
 
-Two of the edge router's checks are here, and one of the pattern's own: tenants never share a name, a number or a port, their blocks never overlap, and each gateway is inside its block. `Checks.trustBoundary` makes sure traffic from the transit and the exchange reaches tenants only through the router, which filters it. `Checks.nativeVlansAreDeadEnds` keeps a native VLAN to one trunk, so it never joins two trunks into one.
+Two of the edge router's checks are here, and one of the pattern's own: tenants never share a name, a VLAN or a port, and their blocks never overlap. `Checks.trustBoundary` makes sure traffic from the transit and the exchange reaches tenants only through the router, which filters it. `Checks.nativeVlansAreDeadEnds` keeps a native VLAN to one trunk, so it never joins two trunks into one.
 
 <<< @/../templates/colocation/circuit.config.ts
 
@@ -143,7 +141,7 @@ Make each decision, then run validate and diff. Every output is what Circuit pri
 
 When every choice is sound, the plan is exactly what the tenant's file promised: on the router, a VLAN interface and the two gateway addresses; on the switch, the VLAN, the port and the VLAN added to the uplink. acme's lines do not move.
 
-Every clash stops `validate`, and each is described in the words of the check that found it: two tenants with one number, overlapping blocks, a gateway outside its block, and a port given to two tenants. That last one matters most. `portsOn` writes each tenant's ports in turn, so without the check the second tenant to list `10g-1` would silently take it, and `10GE1/0/1` would lose acme's VLANs. The check in `checks.ts` says instead: `port 10g-1 on tor-01 is given to both acme and globex`.
+Every clash stops `validate`, and each is described in the words of the check that found it: two tenants on one VLAN, overlapping blocks, and a port given to two tenants. That last one matters most. `portsOn` writes each tenant's ports in turn, so without the check the second tenant to list `10g-1` would silently take it, and `10GE1/0/1` would lose acme's VLANs. The check in `checks.ts` says instead: `port 10g-1 on tor-01 is given to both acme and globex`.
 
 <Quiz
   question="globex is given 10g-1, which acme already uses. Which step of the workflow catches it?"
@@ -197,5 +195,5 @@ The [pattern's page](/patterns/colocation#growing) shows how it grows: more swit
 - A colocation hosts tenants' servers and gives each tenant a public VLAN, a block of addresses with the router as gateway, ports, and optionally a private VLAN that stays on the switch.
 - Each tenant is one file; `tenancy.ts` turns the list into VLANs, gateways, ports and edge rules for every device.
 - `circuit addresses` finds a free block; a /29 has room for five servers besides the network, gateway and broadcast addresses.
-- The checks stop clashing numbers, overlapping blocks, stray gateways and a port given to two tenants; the plan shows the rest, so read it.
+- The checks stop clashing VLANs, overlapping blocks and a port given to two tenants; the plan shows the rest, so read it.
 - Removing a tenant from the list removes everything it had and shuts its ports.

@@ -1,7 +1,7 @@
 // The top-of-rack switch: the tenants' servers, and one uplink to the router.
 
 import { defineDevice, secret, Utils } from "@takodotid/circuit";
-import { internetVlanNames, internetVlans, portsOn, privateVlans } from "./tenancy";
+import { internetVlanNames, portsOn, switchVlans } from "./tenancy";
 import { TENANTS } from "./tenants";
 
 export default defineDevice({
@@ -17,7 +17,7 @@ export default defineDevice({
     lldp: true,
     stp: {},
 
-    vlans: Utils.merge({ mgmt: { id: 99, description: "Management" } }, internetVlans(TENANTS), privateVlans(TENANTS, "tor-01")),
+    vlans: Utils.merge({ mgmt: { id: 99, description: "Management" } }, switchVlans(TENANTS, "tor-01")),
 
     // Every tenant's ports, from its file in tenants/, beside the switch's own.
     ports: Utils.merge(portsOn(TENANTS, "tor-01"), {

@@ -25,15 +25,14 @@ my-network/
 
 ## A tenant
 
-A tenant's file only says what is the tenant's own: its name, its number, its public blocks, its ports, and any edge rules it wants.
+A tenant's file writes everything its devices carry for it: its VLANs, the router's addresses on its public VLAN, its ports, and any edge rules it wants.
 
 <<< @/../templates/colocation/tenants/acme.ts
 
-From the name `acme` and the number `1`:
-
-- its internet VLAN is `acme-internet`, number 1001, on the router and the switch;
-- its private VLAN is `acme-private`, number 2001. It exists only on a switch where one of acme's ports uses it, and never on the router;
-- the router has each block's `gateway`, which acme's servers use as their default gateway;
+- `internet.vlan`, `acme-internet` with ID 1001, is on the router and the switch;
+- `internet.gateways` are the router's addresses on it, which acme's servers use as their default gateway. Each one's length says the tenant's block;
+- `private.vlan`, `acme-private` with ID 2001, exists only on a switch where one of acme's ports uses it, and never on the router;
+- its ports are written as any port is, with the VLANs by name;
 - acme's `acl` rule limits UDP traffic toward its IPv4 blocks to 1 Gbit/s, in the router's switch chip.
 
 A tenant joins by being added to `tenants/index.ts`, and leaves by being removed. Because the file is the whole truth, the next apply removes everything it had, everywhere.
@@ -42,7 +41,7 @@ A tenant joins by being added to `tenants/index.ts`, and leaves by being removed
 
 ## tenancy.ts
 
-The functions that turn tenants into device config. To change how VLANs are numbered or named, change it here, once, for every tenant.
+Plain functions that gather what the tenants' files wrote, for one device: the VLANs, the ports, the router's interfaces and the edge rules.
 
 <<< @/../templates/colocation/tenancy.ts
 
@@ -60,7 +59,7 @@ The switch has every tenant's ports, and one uplink to the router.
 
 ## checks.ts
 
-Besides the edge router's checks, tenants must never share a name, a number or an address. `Checks.trustBoundary` makes sure traffic from the transit and the exchange reaches tenants only through the router.
+Besides the edge router's checks, tenants must never share a name, a VLAN, an address or a port. `Checks.trustBoundary` makes sure traffic from the transit and the exchange reaches tenants only through the router.
 
 <<< @/../templates/colocation/checks.ts
 
