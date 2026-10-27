@@ -32,8 +32,8 @@ const steps: Step[] = [
         code: [
             "ports: {",
             '    "tor-01": {',
-            '        "10g-2": { description: "acme server 2", trunk: ["internet", "private"] },',
-            '        "10g-3": { description: "acme server 3", trunk: ["internet", "private"] },',
+            '        "10g-2": { description: "acme server 2", trunk_vlans: ["acme-internet", "acme-private"] },',
+            '        "10g-3": { description: "acme server 3", trunk_vlans: ["acme-internet", "acme-private"] },',
             "    },",
             "},",
         ].join("\n"),

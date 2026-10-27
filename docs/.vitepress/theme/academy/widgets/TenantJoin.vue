@@ -6,67 +6,47 @@ import { RUNS } from "./TenantJoin";
 
 type Verdict = "good" | "warn" | "bad";
 type Choice = { id: string; label: string; verdict: Verdict; text: string };
-type DecisionId = "number" | "block" | "gateway" | "port" | "networks";
+type DecisionId = "vlan" | "block" | "port" | "networks";
 type Decision = { id: DecisionId; question: string; choices: Choice[] };
 
-const BLOCKS = {
-    free: { prefix: "198.51.100.16/29", first: "198.51.100.17" },
-    overlap: { prefix: "198.51.100.12/30", first: "198.51.100.13" },
-};
-const WRONG_GATEWAY = "198.51.100.25";
+/** The router's address in each block, the gateway, written with the block's length. */
+const GATEWAYS = { free: "198.51.100.17/29", overlap: "198.51.100.13/30" };
+const VLANS = { "1002": { internet: 1002, private: 2002 }, "1001": { internet: 1001, private: 2001 } };
 
 const decisions: Decision[] = [
     {
-        id: "number",
-        question: "1. Its number",
+        id: "vlan",
+        question: "1. Its VLAN IDs",
         choices: [
             {
-                id: "2",
-                label: "2, the next one",
+                id: "1002",
+                label: "1002 and 2002",
                 verdict: "good",
-                text: "Its public VLAN is 1000 + 2 = 1002, and a private one, if it gets one, 2002.",
+                text: "No tenant uses them: 1002 for its public network, 2002 for a private one, if it gets one.",
             },
             {
-                id: "1",
-                label: "1",
+                id: "1001",
+                label: "1001 and 2001",
                 verdict: "bad",
-                text: "acme already has 1. Both tenants would get VLAN 1001, and their traffic would mix on it.",
+                text: "acme already uses them. Both tenants would be on VLAN 1001, and their traffic would mix on it.",
             },
         ],
     },
     {
         id: "block",
-        question: "2. Its IPv4 block",
+        question: "2. The router's address in its block, the gateway",
         choices: [
             {
                 id: "free",
-                label: "198.51.100.16/29",
+                label: GATEWAYS.free,
                 verdict: "good",
-                text: "circuit addresses lists 198.51.100.16/28 as free. A /29 from it is 8 addresses: the network address, the gateway, 5 for servers, and the broadcast address.",
+                text: "circuit addresses lists 198.51.100.16/28 as free. The /29 from it is 8 addresses: the network address, the gateway .17, 5 for servers, and the broadcast address.",
             },
             {
                 id: "overlap",
-                label: "198.51.100.12/30",
+                label: GATEWAYS.overlap,
                 verdict: "bad",
-                text: "It lies inside acme's 198.51.100.8/29. Two tenants would answer for the same addresses.",
-            },
-        ],
-    },
-    {
-        id: "gateway",
-        question: "3. The router's address in it, the gateway",
-        choices: [
-            {
-                id: "first",
-                label: "The first address in the block",
-                verdict: "good",
-                text: "The router takes it on globex's VLAN, and globex's servers use it as their default gateway.",
-            },
-            {
-                id: "wrong",
-                label: WRONG_GATEWAY,
-                verdict: "bad",
-                text: "That address is in another block. A server cannot use a gateway outside its own network.",
+                text: "Its block, 198.51.100.12/30, lies inside acme's 198.51.100.8/29. Two tenants would answer for the same addresses.",
             },
         ],
     },
@@ -104,9 +84,8 @@ const decisions: Decision[] = [
 ];
 
 const picked = ref<Record<DecisionId, string | undefined>>({
-    number: undefined,
+    vlan: undefined,
     block: undefined,
-    gateway: undefined,
     port: undefined,
     networks: undefined,
 });
@@ -124,40 +103,36 @@ const decidedCount = computed(() => decisions.filter((decision) => picked.value[
 
 /** Each choice, or the sound one where the reader has not picked yet. */
 const chosen = computed(() => ({
-    number: picked.value.number ?? "2",
-    block: (picked.value.block ?? "free") as keyof typeof BLOCKS,
-    gateway: picked.value.gateway ?? "first",
+    vlan: (picked.value.vlan ?? "1002") as keyof typeof VLANS,
+    block: (picked.value.block ?? "free") as keyof typeof GATEWAYS,
     port: picked.value.port ?? "10g-3",
     networks: picked.value.networks ?? "internet",
 }));
 
-const block = computed(() => BLOCKS[chosen.value.block]);
-const gateway = computed(() => (chosen.value.gateway === "first" ? block.value.first : WRONG_GATEWAY));
-
 const file = computed(() => {
-    const carries = chosen.value.networks === "both" ? 'trunk: ["internet", "private"]' : 'access: "internet"';
+    const ids = VLANS[chosen.value.vlan];
+    const carries =
+        chosen.value.networks === "both" ? 'trunk_vlans: ["globex-internet", "globex-private"]' : 'access_vlan: "globex-internet"';
 
     return [
-        'import { tenant } from "../tenancy";',
+        'import type { Tenant } from "../tenancy";',
         "",
-        "export default tenant({",
+        "export default {",
         '    name: "globex",',
-        `    number: ${chosen.value.number},`,
-        "    blocks: [",
-        `        { prefix: "${block.value.prefix}", gateway: "${gateway.value}" },`,
-        '        { prefix: "2001:db8:100:2::/64", gateway: "2001:db8:100:2::1" },',
-        "    ],",
-        "    ports: {",
-        '        "tor-01": {',
-        `            "${chosen.value.port}": { description: "globex server 1", ${carries} },`,
-        "        },",
+        "    internet: {",
+        `        vlan: { name: "globex-internet", id: ${ids.internet}, description: "Tenant globex internet" },`,
+        `        gateways: ["${GATEWAYS[chosen.value.block]}", "2001:db8:100:2::1/64"],`,
         "    },",
-        "});",
+        `    private: { vlan: { name: "globex-private", id: ${ids.private}, description: "Tenant globex private" } },`,
+        "    ports: {",
+        `        "tor-01": { "${chosen.value.port}": { description: "globex server 1", ${carries} } },`,
+        "    },",
+        "} satisfies Tenant;",
     ].join("\n");
 });
 
 const result = computed(() => {
-    const key = [chosen.value.number, chosen.value.block, chosen.value.gateway, chosen.value.port, chosen.value.networks].join("|");
+    const key = [chosen.value.vlan, chosen.value.block, chosen.value.port, chosen.value.networks].join("|");
     return RUNS[key];
 });
 

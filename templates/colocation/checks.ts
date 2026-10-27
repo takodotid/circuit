@@ -3,6 +3,7 @@
 import type { Check, Finding } from "@takodotid/circuit";
 import { Address } from "@takodotid/circuit";
 import { Checks } from "@takodotid/circuit/helpers";
+import { blocksOf, type Tenant } from "./tenancy";
 import { TENANTS } from "./tenants";
 
 export default [
@@ -15,21 +16,27 @@ export default [
     // A native VLAN stays on one trunk and nowhere else, or it joins every trunk it is native on.
     Checks.nativeVlansAreDeadEnds,
 
-    // Tenants never share a name, a number, an address or a port. A port given twice would go to the last tenant alone.
+    // Tenants never share a name, a VLAN, an address or a port. A port given twice would go to the last tenant alone.
     () => {
         const findings: Finding[] = [];
         const error = (message: string) => findings.push({ level: "error", message });
+        const vlansOf = (t: Tenant) => [t.internet.vlan, ...(t.private ? [t.private.vlan] : [])];
 
         TENANTS.forEach((t, index) => {
             for (const other of TENANTS.slice(index + 1)) {
                 if (other.name === t.name) error(`tenant ${t.name} is declared twice`);
-                if (other.number === t.number) error(`tenants ${t.name} and ${other.name} share number ${t.number}`);
 
-                for (const block of t.blocks) {
-                    const clash = other.blocks.find(
-                        ({ prefix }) => Address.contains(prefix, block.prefix) || Address.contains(block.prefix, prefix)
-                    );
-                    if (clash) error(`${block.prefix} of ${t.name} overlaps ${clash.prefix} of ${other.name}`);
+                for (const vlan of vlansOf(t)) {
+                    for (const theirs of vlansOf(other)) {
+                        if (theirs.id === vlan.id)
+                            error(`VLAN ${vlan.id} is both ${vlan.name} of ${t.name} and ${theirs.name} of ${other.name}`);
+                        if (theirs.name === vlan.name) error(`VLAN ${vlan.name} is declared by both ${t.name} and ${other.name}`);
+                    }
+                }
+
+                for (const block of blocksOf(t)) {
+                    const clash = blocksOf(other).find((prefix) => Address.contains(prefix, block) || Address.contains(block, prefix));
+                    if (clash) error(`${block} of ${t.name} overlaps ${clash} of ${other.name}`);
                 }
             }
 
@@ -38,10 +45,6 @@ export default [
                     const sharer = TENANTS.slice(index + 1).find((other) => other.ports[device]?.[port]);
                     if (sharer) error(`port ${port} on ${device} is given to both ${t.name} and ${sharer.name}`);
                 }
-            }
-
-            for (const { prefix, gateway } of t.blocks) {
-                if (!Address.contains(prefix, gateway)) error(`the gateway ${gateway} of ${t.name} is outside ${prefix}`);
             }
         });
 
