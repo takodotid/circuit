@@ -18,6 +18,8 @@ Members share one LAN and do not trust each other. So each member port:
 3. **Sends no LLDP,** so members learn nothing about the exchange's own devices.
 4. **Lets only a little broadcast, multicast and unknown unicast through**, 1% of its speed. A loop at one member does not flood the others.
 
+`Exchange.build` writes all four on every member port. Each is a default you can change on the exchange: `storm_percent` for the storm limit, and `stp: true` or `lldp: true` to turn spanning tree or LLDP back on.
+
 The switches have no address on the peering LAN. They only carry it.
 
 ## Exchange.build

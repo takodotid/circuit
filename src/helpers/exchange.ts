@@ -30,6 +30,10 @@ export type InternetExchange<V extends string> = {
     mac_limit?: number;
     /** The only kinds of frame a member port takes in, usually `ipv4`, `ipv6` and `arp`. Every kind when absent. No platform renders it yet, so `validate` refuses it. */
     ethertypes?: readonly Ethertype[];
+    /** LLDP on member ports. Off when absent: a member's router has no business learning the fabric. */
+    lldp?: boolean;
+    /** Spanning tree on member ports. Off when absent: a member's port faces a router, which must not join the fabric's spanning tree. */
+    stp?: boolean;
 };
 
 /** An internet exchange's fabric: its member ports, a check of its members, and its route servers' config. */
@@ -37,7 +41,9 @@ export class Exchange {
     /**
      * Member ports and a check for an internet exchange's fabric.
      *
-     * - `ports(device)`: every member's port on one switch. A member port is in the peering VLAN and nothing else, takes no part in spanning tree or LLDP, and lets only a trickle of broadcast, multicast and unknown unicast through. With `mac_limit` and `ethertypes`, it also learns that many MAC addresses at most and takes in only those kinds of frame.
+     * - `ports(device)`: every member's port on one switch, each written as
+     *   `{ description: "<name>, AS<asn>", access_vlan: vlan, stp: false, lldp: false, storm_control: { broadcast, multicast, unknown_unicast: { percent: storm_percent } } }`,
+     *   plus `mac_limit` and `ethertypes` when the exchange sets them. `stp` and `lldp` are the exchange's own when it sets them, and storm control is 1 % when `storm_percent` is absent.
      * - `check`: members never share a name, an AS, an address or a port; every address is inside the peering LAN and not reserved; every member port carries the peering VLAN alone.
      * - `bird(server)`: one route server's BIRD 2 config, with a session to every member. Write it to a file for the server; Circuit never logs in to a route server.
      * - `openbgpd(server)`: the same route server's config for OpenBGPD, its `bgpd.conf`, with the same sessions and the same rules.
@@ -55,8 +61,8 @@ export class Exchange {
                 result[port] = {
                     description: `${member.name}, AS${member.asn}`,
                     access_vlan: exchange.vlan,
-                    stp: false,
-                    lldp: false,
+                    stp: exchange.stp ?? false,
+                    lldp: exchange.lldp ?? false,
                     storm_control: { broadcast: { percent }, multicast: { percent }, unknown_unicast: { percent } },
                     ...(exchange.mac_limit !== undefined ? { mac_limit: exchange.mac_limit } : {}),
                     ...(exchange.ethertypes ? { ethertypes: exchange.ethertypes } : {}),

@@ -207,6 +207,24 @@ test("Exchange.build puts a MAC limit and an ethertype filter on every member po
     expect(filtered.ports("ix-sw-01")["10g-1"]).toMatchObject({ mac_limit: 1, ethertypes: ["ipv4", "ipv6", "arp"] });
 });
 
+test("Exchange.build writes each member port as its doc lists, with LLDP and spanning tree off unless the exchange turns them on", async () => {
+    const { Exchange } = await import("../../src/helpers");
+    const member = { name: "a", asn: 64510, ports: { "ix-sw-01": "10g-1" } };
+    const lan = { ipv4: "203.0.113.0/24" } as const;
+
+    expect(Exchange.build({ vlan: "peering", lan }, [member]).ports("ix-sw-01")["10g-1"]).toEqual({
+        description: "a, AS64510",
+        access_vlan: "peering",
+        stp: false,
+        lldp: false,
+        storm_control: { broadcast: { percent: 1 }, multicast: { percent: 1 }, unknown_unicast: { percent: 1 } },
+    });
+    expect(Exchange.build({ vlan: "peering", lan, lldp: true, stp: true }, [member]).ports("ix-sw-01")["10g-1"]).toMatchObject({
+        lldp: true,
+        stp: true,
+    });
+});
+
 // The output was parse-checked with `bird -p -c` on BIRD 2.0.12 and 2.15.1; these keep its shape.
 test("exchange.bird writes one BIRD session per member and family, each taking only the member's own routes", async () => {
     const { exchange, ROUTE_SERVERS } = await import("../../examples/use-cases/internet-exchange/exchange");
