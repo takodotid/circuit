@@ -83,12 +83,12 @@ test("--clear-limit opens only the sessions closed on their limit, and refuses w
     sessions = LEAK;
     cleared.length = 0;
 
-    const nothing = await circuit("bgp", "edge-01", "hurricane", "--clear-limit");
+    const nothing = await circuit("bgp", "edge-01", "--neighbors", "hurricane", "--clear-limit");
     expect(nothing.status).toBe(1);
     expect(nothing.stderr).toContain("no neighbor shown is closed on its prefix limit, so nothing was cleared");
     expect(cleared).toEqual([]);
 
-    const { status, stdout } = await circuit("bgp", "edge-01", "sgix", "--clear-limit");
+    const { status, stdout } = await circuit("bgp", "edge-01", "--neighbors", "sgix", "--clear-limit");
     expect(status).toBe(0);
     expect(stdout).toContain("sgix-rs-v6: left alone, not closed on its limit");
     expect(cleared).toEqual(["/routing bgp session clear [find remote.address=192.0.2.1 and limit-exceeded] flag=limit-exceeded"]);

@@ -46,7 +46,7 @@ A device can take every command and still not work as it should. So after the ap
 On RouterOS, `apply` checks two things:
 
 1. **Switch rules.** When the plan changed a switch rule, no switch rule may be invalid. A switch chip can hold far fewer rules than MikroTik lists: a CCR2216 stopped at 66 rules, at its sixth distinct port range. When one rule does not fit, it and every rule after it are marked invalid and do nothing, with no log line. A port ACL is made of switch rules, so its drops silently stop. The fix is fewer distinct port ranges in the device's ACLs.
-2. **BGP sessions.** Before sending anything, Circuit notes which BGP sessions are established. After the apply, each of them must be established again within 180 seconds; Circuit reads them every 10 seconds, so an apply that left them up does not wait. A session still down at the end is named with why: one closed on its prefix limit is reported as that, with the `circuit bgp <device> <neighbor> --clear-limit` to run once you know why, and for any other `circuit bgp <device> --log` shows more. A session that was down before the apply is not waited for.
+2. **BGP sessions.** Before sending anything, Circuit notes which BGP sessions are established. After the apply, each of them must be established again within 180 seconds; Circuit reads them every 10 seconds, so an apply that left them up does not wait. A session still down at the end is named with why: one closed on its prefix limit is reported as that, with the `circuit bgp <device> --neighbors <name> --clear-limit` to run once you know why, and for any other `circuit bgp <device> --log` shows more. A session that was down before the apply is not waited for.
 
 The other platforms have no checks yet.
 

@@ -16,21 +16,21 @@ What each field means is written as a comment on the field, in `node_modules/@ta
 
 ## Commands
 
-| Command                                       | What it does                                                                  | Changes a device |
-| --------------------------------------------- | ----------------------------------------------------------------------------- | ---------------- |
-| `npx circuit validate`                        | Checks every file and every rule in the checks                                | no               |
-| `npx circuit diff [device]`                   | Shows what would change, compared with the last snapshot                      | no               |
-| `npx circuit build <device>`                  | Prints the full configuration the device should run                           | no               |
-| `npx circuit snapshot [device]`               | Reads what each device runs now into `.circuit/state/`                        | no, only reads   |
-| `npx circuit show <device> '<command>'`       | Runs commands that only read on the device, secrets hidden                    | no, only reads   |
-| `npx circuit bgp [device] [name-regex]`       | Each BGP neighbor in the config next to its live session: up or down          | no, only reads   |
-| `npx circuit console <device> '<line>'`       | Sends lines to the device's serial console, unchecked                         | **can**          |
-| `npx circuit apply <device>`                  | Reads the device, then shows what would change on it                          | no               |
-| `npx circuit apply <device> --confirm`        | Sends the change to the device                                                | **yes**          |
-| `npx circuit secrets`                         | Lists every secret the config uses, and whether each one can be read          | no               |
-| `npx circuit rename <device> <new-name>`      | Shows every line a new device name changes; `--confirm` writes them           | no               |
-| `npx circuit addresses`                       | Every address the config uses, by prefix, and what is still free              | no               |
-| `npx circuit graph --layer=all --format=json` | The whole network as a graph: cables, VLANs, addresses, BGP, OSPF and tunnels | no               |
+| Command                                        | What it does                                                                  | Changes a device |
+| ---------------------------------------------- | ----------------------------------------------------------------------------- | ---------------- |
+| `npx circuit validate`                         | Checks every file and every rule in the checks                                | no               |
+| `npx circuit diff [device]`                    | Shows what would change, compared with the last snapshot                      | no               |
+| `npx circuit build <device>`                   | Prints the full configuration the device should run                           | no               |
+| `npx circuit snapshot [device]`                | Reads what each device runs now into `.circuit/state/`                        | no, only reads   |
+| `npx circuit show <device> '<command>'`        | Runs commands that only read on the device, secrets hidden                    | no, only reads   |
+| `npx circuit bgp [device] --neighbors <regex>` | Each BGP neighbor in the config next to its live session: up or down          | no, only reads   |
+| `npx circuit console <device> '<line>'`        | Sends lines to the device's serial console, unchecked                         | **can**          |
+| `npx circuit apply <device>`                   | Reads the device, then shows what would change on it                          | no               |
+| `npx circuit apply <device> --confirm`         | Sends the change to the device                                                | **yes**          |
+| `npx circuit secrets`                          | Lists every secret the config uses, and whether each one can be read          | no               |
+| `npx circuit rename <device> <new-name>`       | Shows every line a new device name changes; `--confirm` writes them           | no               |
+| `npx circuit addresses`                        | Every address the config uses, by prefix, and what is still free              | no               |
+| `npx circuit graph --layer=all --format=json`  | The whole network as a graph: cables, VLANs, addresses, BGP, OSPF and tunnels | no               |
 
 ## Making a change
 

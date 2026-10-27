@@ -16,7 +16,7 @@ Run every command from your project as `npx circuit <command>`, or `pnpm circuit
 | `snapshot [device...]`           | Reads what each device runs now, into `.circuit/state/`                                                                                                                             | reads only       |
 | `apply <device>`                 | Reads the device, then shows the plan; with `--confirm`, sends it                                                                                                                   | with `--confirm` |
 | `show <device> [command...]`     | Runs commands that only read, such as `/ip route print`, and prints the answers with secrets hidden. See [show](#show-commands-that-only-read).                                     | reads only       |
-| `bgp [device] [name-regex]`      | Shows each BGP neighbor in the files next to its live session: up or down, prefixes, uptime. See [bgp](#bgp-neighbors-and-their-sessions).                                          | reads only       |
+| `bgp [device]`                   | Shows each BGP neighbor in the files next to its live session: up or down, prefixes, uptime. See [bgp](#bgp-neighbors-and-their-sessions).                                          | reads only       |
 | `console <device> [line...]`     | Opens the device's serial console in your terminal, logged in; or sends it lines. See [console](#console-a-device-s-serial-console).                                                | what you send    |
 | `refresh <device>`               | Fetches prefix lists from a registry; with `--confirm`, puts them on the device                                                                                                     | with `--confirm` |
 | `rename <device> <new-name>`     | Gives a device a new name in every file that uses its name; with `--confirm`, writes it. See [Renaming a device](/guide/devices#renaming-a-device).                                 | no               |
@@ -93,10 +93,10 @@ On Git Bash for Windows, set `MSYS_NO_PATHCONV=1` first. Otherwise a command tha
 
 ```bash
 npx circuit bgp edge-01
-npx circuit bgp edge-01 'sgix' --wait          # until every neighbor whose name has sgix is up
-npx circuit bgp edge-01 'sgix' --wait=4        # until at least 4 of them are up
-npx circuit bgp edge-01 --log=10               # also the BGP log lines of the last 10 minutes
-npx circuit bgp edge-01 'sgix' --clear-limit   # open again those closed on their prefix limit
+npx circuit bgp edge-01 --neighbors sgix --wait          # until every neighbor whose name has sgix is up
+npx circuit bgp edge-01 --neighbors sgix --wait=4        # until at least 4 of them are up
+npx circuit bgp edge-01 --log=10                         # also the BGP log lines of the last 10 minutes
+npx circuit bgp edge-01 --neighbors sgix --clear-limit   # open again those closed on their prefix limit
 ```
 
 ```
@@ -115,8 +115,8 @@ Why a session is down:
 - `connecting`: the session exists and is not established yet.
 - `admin down`: the connection is disabled on the device.
 
-1. The device can be left out when only one device in the network has BGP neighbors: `npx circuit bgp sgix`.
-2. The second argument is a regular expression. Only the neighbors whose name matches are shown.
+1. The argument is always the device. It can be left out when only one device in the network has BGP neighbors: `npx circuit bgp --neighbors sgix`.
+2. `--neighbors` takes a regular expression. Only the neighbors whose name matches are shown.
 3. `--wait` reads again every 15 seconds until every neighbor shown is up, or with `--wait=N`, at least N of them. It gives up after `--max` seconds, 600 by default, and then exits with code 1. Use it after a provider cutover. `apply --confirm` already waits for the sessions that were up before it.
 4. `--log` adds the device's BGP log lines of the last few minutes, 5 by default. A message that repeats is folded into one line with its first and last time and a count, such as `2026-10-24 03:01:00..03:04:50 x24`. It shows every BGP line, not only those of the neighbors shown.
 5. `--clear-limit` opens again each neighbor shown that closed on its prefix limit, once you know why it did. Any other neighbor shown is left alone and named; when none closed on its limit, nothing is sent and it exits with code 1. It then shows the sessions again. A session that still sends too much closes again.
@@ -169,6 +169,7 @@ Only one program can hold a console port. If another one does, `console` says th
 | `--console`         | `snapshot`, `apply`, `show`                                     | Reach the device through its serial console, on this computer or a jump host, instead of SSH. See [Devices](/guide/devices#reaching-a-device-through-its-console). |
 | `--file`            | `rename`, `show`                                                | For `rename`, also rename the file that declares the device, to `<new-name>.ts`. For `show`, also run each line of this file.                                      |
 | `--timeout=N`       | `show`                                                          | How many whole seconds each command may take. 90 by default.                                                                                                       |
+| `--neighbors=REGEX` | `bgp`                                                           | Only the neighbors whose name matches.                                                                                                                             |
 | `--wait[=N]`        | `bgp`                                                           | Read again until every neighbor shown, or N of them, is up.                                                                                                        |
 | `--max=N`           | `bgp`                                                           | How many whole seconds `--wait` waits at most. 600 by default.                                                                                                     |
 | `--log[=N]`         | `bgp`                                                           | Also print the device's BGP log lines of the last N minutes. 5 by default.                                                                                         |
