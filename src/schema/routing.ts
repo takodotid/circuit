@@ -57,7 +57,7 @@ export type NeighborSettings<P extends string, T extends string = never> = {
     passive?: boolean;
     /** Detect a dead link in under a second with BFD. */
     bfd?: boolean;
-    /** The table the routes learned are installed in, one of `routing.tables`. The main table when absent. What is announced still comes from `networks` and the main table. */
+    /** The table the routes learned are installed in, one of `routing.tables`. The main table when absent. On RouterOS the session also announces from that table, so each prefix of `networks` it announces needs a route in the table too, and a running session takes a new table only when it restarts. */
     table?: T;
 };
 

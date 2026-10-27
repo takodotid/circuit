@@ -123,7 +123,13 @@ class Lab {
             return;
         }
 
+        // The checks `circuit apply` runs after an apply, reading what they compare against first.
+        const health = await this.platform.health?.(this.device, plan, this.options);
         await this.platform.apply(this.device, [this.device], plan, this.options);
+
+        const problems = (await health?.run()) ?? [];
+        for (const problem of problems) console.log(`not healthy: ${problem}`);
+        if (problems.length) process.exitCode = 1;
         console.log("applied; reading again");
 
         // A second plan after an apply must be empty, or the reader and the renderer disagree on something.

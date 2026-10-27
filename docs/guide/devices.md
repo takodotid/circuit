@@ -65,8 +65,14 @@ routing: {
         { description: "Our own networks", match: { dst: "2001:db8::/32" }, table: "main" },
         { description: "Block B leaves through its transits", match: { src: "2001:db8:200::/48" }, table: "block-b" },
     ],
+    static: [
+        { prefix: "2001:db8:200::/48", blackhole: true, description: "Originate block B" },
+        // Again in block-b: a session in that table announces only what the table holds.
+        { prefix: "2001:db8:200::/48", blackhole: true, table: "block-b", description: "Originate block B toward its transits" },
+    ],
     bgp: {
         asn: 64500,
+        networks: ["2001:db8:200::/48"],
         neighbors: {
             // What transit P sends goes into block-b, not into the main table.
             "transit-p": { address: "2001:db8:ffff::1", remote_as: 64510, table: "block-b", import: "P-IN", export: "P-OUT" },
@@ -75,7 +81,9 @@ routing: {
 },
 ```
 
-- `table` on a BGP neighbor or group puts the routes it learns in that table. What it announces still comes from `networks`.
+- `table` on a BGP neighbor or group puts the routes it learns in that table. On RouterOS the session also announces from that table: each prefix of `networks` it should announce needs a route there too, as block B has above. `validate` stops when the table holds none of `networks`, and warns for each one it lacks.
+- Giving a running session another `table` restarts it: RouterOS takes the change only at a restart, and until then the session announces nothing. The plan says so on that line.
+- After an apply, Circuit checks that each session still announces what it announced of `networks` before, and names one that stopped, even if it stayed up.
 - `table` on a static route puts the route in that table.
 - A rule's `match` takes `src`, `dst` and `in_interface`, all of which must match. A rule without `match` takes every packet, so it goes last.
 - When the table has no route for a packet, the packet is dropped. `fallback: "main"` on the rule routes it by the main table instead.

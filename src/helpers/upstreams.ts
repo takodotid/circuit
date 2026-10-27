@@ -67,7 +67,7 @@ export type Upstream = {
     group?: string;
     /** The sessions are more than one hop away, from this address of ours. */
     multihop?: { local_address: IP; families?: readonly Family[]; password?: Secret };
-    /** The routing table its sessions install the routes they learn in, one of the router's `routing.tables`: a transit that carries only one block's traffic out. The main table when absent. */
+    /** The routing table its sessions install the routes they learn in, one of the router's `routing.tables`: a transit that carries only one block's traffic out. The main table when absent. On RouterOS the sessions also announce from that table, so what they announce needs a route there too. */
     table?: string;
     /** The most prefixes a session may send, by its family: about twice what it sends. Over it, the session closes until it is cleared. */
     limits?: { ipv4?: number; ipv6?: number };

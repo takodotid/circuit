@@ -63,7 +63,10 @@ export class Validator {
 
             const adapter = Platforms.find(device.platform);
             if (!adapter) report(`no adapter for platform ${device.platform}`);
-            else for (const field of adapter.unsupported(device)) report(`${device.platform} cannot express ${field}`);
+            else {
+                for (const field of adapter.unsupported(device)) report(`${device.platform} cannot express ${field}`);
+                findings.push(...(adapter.checks?.(device) ?? []));
+            }
         }
 
         findings.push(...CrossChecks.run(network.devices));

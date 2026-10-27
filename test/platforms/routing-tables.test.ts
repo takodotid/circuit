@@ -1,4 +1,4 @@
-// Routing tables beside the main one and the rules that pick them, proved on a CCR2216 on 7.23.5: a BGP session with `routing-table` installed what it learned in that table and not in main, a rule sent traffic from a block to its table, and `lookup-only-in-table` dropped what the table had no route for where `lookup` fell back to main. Each test feeds the router's own lines to the adapter, with names and addresses replaced.
+// Routing tables beside the main one and the rules that pick them, proved on a CCR2216 on 7.23.5: a BGP session with `routing-table` installed what it learned in that table and not in main, and announced only what that table held; a new `routing-table` on a running session took effect only when it restarted; a rule sent traffic from a block to its table, and `lookup-only-in-table` dropped what the table had no route for where `lookup` fell back to main. Each test feeds the router's own lines to the adapter, with names and addresses replaced.
 
 import { expect, test } from "bun:test";
 import { Validator } from "../../src/core/validator";
@@ -10,7 +10,7 @@ import edge from "../../templates/edge-router/edge-01";
 const platform = Platforms.get("routeros");
 const options = { secrets: false, rollback: 10 };
 
-/** The edge router with a block that leaves only through its own transit: a table, the rules that send the block's traffic to it, and the transit's session installing in it. */
+/** The edge router with a block that leaves only through its own transit: a table, the rules that send the block's traffic to it, the transit's session installing in it, and the block's route in main and in the table, so both announce it. */
 function withBlockB(): Device {
     const routing = edge.routing!;
     return {
@@ -22,9 +22,14 @@ function withBlockB(): Device {
                 { description: "Our own networks", match: { dst: "2001:db8::/32" }, table: "main" },
                 { description: "Block B leaves through its transit", match: { src: "2001:db8:200::/48" }, table: "block-b" },
             ],
-            static: [...routing.static!, { prefix: "2001:db8:300::/48", blackhole: true, table: "block-b", description: "Test" }],
+            static: [
+                ...routing.static!,
+                { prefix: "2001:db8:200::/48", blackhole: true, description: "Block B" },
+                { prefix: "2001:db8:200::/48", blackhole: true, table: "block-b", description: "Block B" },
+            ],
             bgp: {
                 ...routing.bgp!,
+                networks: [...routing.bgp!.networks!, "2001:db8:200::/48"],
                 neighbors: {
                     ...routing.bgp!.neighbors,
                     "transit-p": {
@@ -57,7 +62,7 @@ test("a table, its rules, a route in it and a session installing in it render as
             'add action=lookup-only-in-table comment="Block B leaves through its transit" src-address=2001:db8:200::/48 table=block-b',
         ].join("\n")
     );
-    expect(desired).toContain("add blackhole comment=Test dst-address=2001:db8:300::/48 routing-table=block-b\n");
+    expect(desired).toContain('add blackhole comment="Block B" dst-address=2001:db8:200::/48 routing-table=block-b\n');
     expect(desired).toMatch(/add as=64500 .*name=transit-p .*remote.as=64510 routing-table=block-b\n/);
 
     // The export as the router printed it: the flag between the properties, and the rules and routes as the render writes them.
@@ -103,7 +108,7 @@ test("the table comes first, its rules are rewritten in order, and removing it r
     expect(tableRemoved).toBe(removing.length - 1);
 });
 
-test("a session moved out of the table goes back to main, which the router does not print", () => {
+test("a session moved to another table is restarted, since a running session takes a new routing-table only when it restarts", () => {
     const device = withBlockB();
     const neighbors = device.routing!.bgp!.neighbors!;
     const { table: _, ...inMain } = neighbors["transit-p"]!;
@@ -118,8 +123,47 @@ test("a session moved out of the table goes back to main, which the router does 
         },
     };
 
-    const sent = platform.plan(platform.render(moved), platform.render(device), options).steps.flatMap((step) => step.send);
-    expect(sent).toContain('/routing bgp connection set [ find remote.address="2001:db8:fffe::1/128" ] routing-table=main');
+    const toMain = platform.plan(platform.render(moved), platform.render(device), options).steps;
+    const selector = '[ find remote.address="2001:db8:fffe::1/128" ]';
+    expect(toMain.flatMap((step) => step.send)).toContain(`/routing bgp connection set ${selector} disabled=yes routing-table=main`);
+    expect(toMain.flatMap((step) => step.send)).toContain(`/routing bgp connection set ${selector} disabled=no`);
+    expect(toMain.flatMap((step) => step.show)).toContain(
+        '~ {"remote.address":"2001:db8:fffe::1/128"} routing-table=main, restarting the session: it takes a new routing-table only when it restarts'
+    );
+
+    const toTable = platform.plan(platform.render(device), platform.render(moved), options).steps.flatMap((step) => step.send);
+    const restart = toTable.indexOf(`/routing bgp connection set ${selector} disabled=yes routing-table=block-b`);
+    expect(restart).toBeGreaterThan(-1);
+    expect(toTable[restart + 1]).toBe(`/routing bgp connection set ${selector} disabled=no`);
+
+    // Any other change to a session is sent as it was, with no restart.
+    const limited = platform.render({
+        ...device,
+        routing: {
+            ...device.routing!,
+            bgp: { ...device.routing!.bgp!, neighbors: { ...neighbors, "transit-p": { ...neighbors["transit-p"]!, max_prefixes: 10 } } },
+        },
+    });
+    expect(platform.plan(limited, platform.render(device), options).steps.flatMap((step) => step.send)).toEqual([
+        `/routing bgp connection set ${selector} input.limit-process-routes-ipv6=10`,
+    ]);
+});
+
+test("a session in a table announces from it: none of networks there is an error, one missing a warning", () => {
+    const findings = (device: Device) => (platform.checks?.(device) ?? []).map((finding) => `${finding.level} ${finding.message}`);
+    const device = withBlockB();
+    const routing = device.routing!;
+
+    expect(findings(device)).toEqual([
+        'warning routing.bgp.neighbors.transit-p does not announce 2001:db8:100::/48: On RouterOS a session announces from its own table, block-b, which has no route for it. If its export should announce it, add { prefix: "2001:db8:100::/48", blackhole: true, table: "block-b" } to routing.static',
+    ]);
+
+    // The block's route only in main, as on the router where the session then announced nothing at all.
+    const onlyInMain: Device = { ...device, routing: { ...routing, static: routing.static!.filter((route) => !route.table) } };
+    expect(findings(onlyInMain)).toEqual([
+        'error routing.bgp.neighbors.transit-p would announce nothing: On RouterOS a session announces from its own table, block-b, which has no route for any of networks. Add the routes it announces to block-b too, such as { prefix: "2001:db8:100::/48", blackhole: true, table: "block-b" } in routing.static',
+    ]);
+    expect(errors(onlyInMain)).toContain(findings(onlyInMain)[0]!.slice("error ".length));
 });
 
 test("validate: a table named main or like a VRF, one nothing installs in, an unknown table, a rule nothing reaches", () => {
@@ -152,6 +196,8 @@ test("validate: a table named main or like a VRF, one nothing installs in, an un
         "routing.rules 2 table 'nope' is not declared",
         "routing.rules 2: src and dst differ in family, so no packet matches both",
         "routing.rules 3 looks up main and has fallback; fallback is for another table, so remove it",
+        // Its static routes replaced, block-b has no route for any of networks.
+        'routing.bgp.neighbors.transit-p would announce nothing: On RouterOS a session announces from its own table, block-b, which has no route for any of networks. Add the routes it announces to block-b too, such as { prefix: "2001:db8:100::/48", blackhole: true, table: "block-b" } in routing.static',
     ]);
 });
 
@@ -163,7 +209,7 @@ test("a platform that has not proved routing tables refuses them, by the field",
         .filter((field) => /table|rules/.test(field));
 
     expect(refused).toEqual([
-        "routing.static 2001:db8:300::/48 table, a routing table beside the main one is not proved on a device yet",
+        "routing.static 2001:db8:200::/48 table, a routing table beside the main one is not proved on a device yet",
         "routing.tables, a routing table beside the main one is not proved on a device yet",
         "routing.rules, routing rules are not proved on a device yet",
         "routing.bgp.neighbors.transit-p.table, a routing table beside the main one is not proved on a device yet",

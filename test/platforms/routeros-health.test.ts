@@ -1,4 +1,4 @@
-// The checks after a RouterOS apply, over real SSH sessions against a fake device: no switch rule may be invalid when the plan touched them, and the BGP sessions established before must be established again.
+// The checks after a RouterOS apply, over real SSH sessions against a fake device: no switch rule may be invalid when the plan touched them, the BGP sessions established before must be established again, and announce again what they announced of the device's networks.
 
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
@@ -20,6 +20,8 @@ let running: string;
 let invalid: string;
 /** The sessions the `:foreach` script prints, read by read: the last one stays. */
 let sessionReads: string[][];
+/** The advertisements of the device's networks, read by read, as the router printed them: the last one stays. */
+let advertisementReads: string[][];
 
 const fake = new FakeSshDevice(["operator", "operator+ct300w"], (command) => {
     if (command === ":put [/system resource get version]") return "7.23.5\n";
@@ -28,6 +30,16 @@ const fake = new FakeSshDevice(["operator", "operator+ct300w"], (command) => {
     if (command.startsWith(":put [:parse ")) return "(evaluate)\n";
     if (/^\/system (backup|scheduler)|^\/file remove/.test(command)) return "";
     if (command === COUNT_INVALID) return `${invalid}\n`;
+
+    if (command.startsWith(":foreach a in=[/routing bgp advertisements print as-value where ")) {
+        const lines = advertisementReads.length > 1 ? advertisementReads.shift()! : advertisementReads[0]!;
+        return lines
+            .map(
+                (line) => `${line}
+`
+            )
+            .join("");
+    }
 
     if (command.startsWith(":foreach s in=[/routing bgp session find]")) {
         const sessions = sessionReads.length > 1 ? sessionReads.shift()! : sessionReads[0]!;
@@ -52,6 +64,7 @@ beforeEach(() => {
     running = platform.render(before);
     invalid = "0";
     sessionReads = [UP];
+    advertisementReads = [[]];
 });
 
 afterAll(() => fake.close());
@@ -99,4 +112,22 @@ test("a session down before the apply is not waited for, and a plan without swit
 
     expect(await applyAndCheck()).toEqual([]);
     expect(fake.commands.slice(count)).not.toContain(COUNT_INVALID);
+});
+
+/** Both sessions announce our IPv4 block, as `ADV|<session>|<prefix>`. */
+const ANNOUNCED = ["ADV|hurricane-electric-1|198.51.100.0/24", "ADV|sgix-rs-v4-1|198.51.100.0/24"];
+
+test("a session that stays up but stops announcing a network is named; one that announces again in time is not", async () => {
+    advertisementReads = [ANNOUNCED, [ANNOUNCED[0]!], ANNOUNCED];
+    expect(await applyAndCheck()).toEqual([]);
+    expect(fake.commands).toContain(
+        ':foreach a in=[/routing bgp advertisements print as-value where dst=198.51.100.0/24 or dst=2001:db8:100::/48] do={ :put ("ADV|" . ($a->"peer") . "|" . ($a->"dst")) }'
+    );
+
+    running = platform.render(before);
+    advertisementReads = [ANNOUNCED, [ANNOUNCED[0]!]];
+    const problems = await applyAndCheck();
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toStartWith("BGP session sgix-rs-v4 announced 198.51.100.0/24 before the apply and does not 0.5 s after it");
+    expect(problems[0]).toContain("circuit show edge-01 '/routing bgp advertisements print'");
 });

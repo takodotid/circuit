@@ -83,6 +83,11 @@ export class RouterOsPlan {
     /** Menus where an entry that keeps its name but changes what it is known by is changed with a `set`, so what points at it by name, such as an address on a VLAN interface, stays attached. In every other menu it is removed and added again. */
     private static readonly CHANGED_IN_PLACE = new Set(["/interface vlan"]);
 
+    /**
+     * Properties a running entry takes only when it restarts. A BGP session given a new `routing-table` stops announcing at once and keeps its routes in the old table until it restarts (TRAPS.md), so the plan disables the connection, changes it and enables it again: one restart, written in the plan.
+     */
+    private static readonly RESTART_ON: Record<string, string[]> = { "/routing bgp connection": ["routing-table"] };
+
     /** The variable holding the old rules of an ordered menu while the new ones are added. Removed when the rewrite ends. */
     private static readonly OLD_RULES = "frameworkOldRules";
 
@@ -314,8 +319,19 @@ export class RouterOsPlan {
             const update = this.changes(entry, current, `${menu} ${entryKey}`);
             if (!Object.keys(update).length) continue;
 
+            const selector = RouterOsPlan.find(menu, RouterOsExport.identity(current));
+            const restartsOn = (RouterOsPlan.RESTART_ON[menu] ?? []).filter((property) => property in update);
+            if (restartsOn.length) {
+                changeStep.show.push(
+                    `~ ${entryKey} ${RouterOsPlan.describe(update)}, restarting the session: it takes a new ${restartsOn.join(" and ")} only when it restarts`
+                );
+                changeStep.send.push(RouterOsPlan.line(menu, "set", selector, [], { disabled: "yes", ...update }));
+                changeStep.send.push(RouterOsPlan.line(menu, "set", selector, [], { disabled: "no" }));
+                continue;
+            }
+
             changeStep.show.push(`~ ${entryKey} ${RouterOsPlan.describe(update)}`);
-            changeStep.send.push(RouterOsPlan.line(menu, "set", RouterOsPlan.find(menu, RouterOsExport.identity(current)), [], update));
+            changeStep.send.push(RouterOsPlan.line(menu, "set", selector, [], update));
         }
 
         const removed = existingEntries.filter((entry) => !kept.has(key(entry)));
