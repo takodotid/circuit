@@ -53,11 +53,16 @@ test("show refuses a command not known to only read, before it connects", () => 
 });
 
 test("bgp takes the only device with BGP when none is named, and checks the neighbors and the platform before it connects", () => {
-    expect(circuit("bgp", "nope", `--config=${config}`)).toMatchObject({
+    // The first argument is always the device; the neighbor filter is an option.
+    expect(circuit("bgp", "nope", `--config=${config}`)).toMatchObject({ status: 1, stderr: "no device nope; known: edge-01\n" });
+    expect(circuit("bgp", "--neighbors", "nope", `--config=${config}`)).toMatchObject({
         status: 1,
         stderr: "no BGP neighbor of edge-01 matches /nope/; known: hurricane-electric, sgix-rs-v4, sgix-rs-v6\n",
     });
-    expect(circuit("bgp", "edge-01", "nope", `--config=${config}`).status).toBe(1);
+    expect(circuit("bgp", "edge-01", "sgix", `--config=${config}`)).toMatchObject({
+        status: 1,
+        stderr: "circuit bgp takes one device; filter the neighbors with --neighbors: circuit bgp edge-01 --neighbors 'sgix'\n",
+    });
     expect(circuit("bgp", "example-aggregation-switch", "--config=examples/platforms/circuit.config.ts")).toMatchObject({
         status: 1,
         stderr: "circuit bgp does not support junos yet, only routeros\n",

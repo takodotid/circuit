@@ -230,7 +230,9 @@ class Cli {
             .command("bgp")
             .description("each BGP neighbor in the config next to its live session: up or down and why, prefixes, uptime")
             .argument("[device]", "may be left out when only one device has BGP neighbors")
-            .argument("[name-regex]", "only the neighbors whose name matches")
+            // A second argument was the name filter before 0.42; it is refused below with the way to write it now.
+            .allowExcessArguments()
+            .option("--neighbors <regex>", "only the neighbors whose name matches")
             .option(
                 "--wait [count]",
                 `read again every ${BgpWait.COMMAND.every} seconds until every neighbor shown, or this many, is up`,
@@ -240,7 +242,14 @@ class Cli {
             .option("--log [minutes]", "also print the device's BGP log lines from the last minutes, 5 by default", Cli.minutes)
             .option("--clear-limit", "open again the neighbors shown that closed on their prefix limit; any other is left alone")
             .option(Cli.CONFIG_FLAGS, Cli.CONFIG_HELP)
-            .action(async (first, second, flags) => (await Cli.open(flags.config)).bgp(first, second, flags));
+            .action(async (device, flags, command) => {
+                const [, filter] = command.args;
+                if (filter !== undefined)
+                    Cli.fail(
+                        `circuit bgp takes one device; filter the neighbors with --neighbors: circuit bgp ${device} --neighbors '${filter}'`
+                    );
+                (await Cli.open(flags.config)).bgp(device, flags);
+            });
 
         program
             .command("console")
@@ -605,14 +614,14 @@ class Cli {
     }
 
     /**
-     * Each BGP neighbor in the config next to its live session. `first` is the device, or, when it names none and only one device has BGP neighbors, the name pattern. With `wait`, reads again until every neighbor shown, or that many, is up, and fails when time runs out. With `clearLimit`, opens again the neighbors shown that closed on their prefix limit, and fails when none did.
+     * Each BGP neighbor in the config next to its live session, on the device named or the only one with BGP neighbors, and only those whose name matches `neighbors` when given. With `wait`, reads again until every neighbor shown, or that many, is up, and fails when time runs out. With `clearLimit`, opens again the neighbors shown that closed on their prefix limit, and fails when none did.
      */
     private async bgp(
-        first: string | undefined,
-        second: string | undefined,
-        flags: { wait?: true | number; max: number; log?: true | number; clearLimit?: true }
+        deviceName: string | undefined,
+        flags: { neighbors?: string; wait?: true | number; max: number; log?: true | number; clearLimit?: true }
     ): Promise<void> {
-        const { device, pattern } = this.bgpTarget(first, second);
+        const device = this.bgpDevice(deviceName);
+        const pattern = flags.neighbors;
         const adapter = this.adapterOf(device);
 
         const supported = Platforms.all()
@@ -689,19 +698,15 @@ class Cli {
         Cli.printBgp(await read());
     }
 
-    /** The device `circuit bgp` reads, and the name pattern, from its two optional arguments. */
-    private bgpTarget(first: string | undefined, second: string | undefined): { device: Device; pattern: string | undefined } {
-        if (second !== undefined || (first && this.network.devices.some((device) => device.name === first))) {
-            return { device: this.one(first!), pattern: second };
-        }
+    /** The device `circuit bgp` reads: the one named, or the only device with BGP neighbors. */
+    private bgpDevice(name: string | undefined): Device {
+        if (name !== undefined) return this.one(name);
 
         const withBgp = this.network.devices.filter((device) => Object.keys(device.routing?.bgp?.neighbors ?? {}).length);
-        const named = first ? `no device ${first}, and ` : "";
+        if (withBgp.length === 1) return withBgp[0]!;
+        if (!withBgp.length) Cli.fail("no device has BGP neighbors");
 
-        if (withBgp.length === 1) return { device: withBgp[0]!, pattern: first };
-        if (!withBgp.length) Cli.fail(`${named}no device has BGP neighbors`);
-
-        return Cli.fail(`${named}several devices have BGP neighbors, so name one: ${withBgp.map((device) => device.name).join(", ")}`);
+        return Cli.fail(`several devices have BGP neighbors, so name one: ${withBgp.map((device) => device.name).join(", ")}`);
     }
 
     /** One line per neighbor: name, up or down, prefixes received, uptime, remote address. Then how many are up. */

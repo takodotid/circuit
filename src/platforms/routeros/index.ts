@@ -549,7 +549,7 @@ export class RouterOs extends Platform {
 
         return down.map((bgp) =>
             bgp.limit
-                ? `BGP session ${bgp.neighbor} was established before the apply and closed on its limit${bgp.limit.max !== undefined ? ` of ${bgp.limit.max} prefixes` : ""}: the neighbor sends more than it may. Find out why, then: circuit bgp ${device.name} ${bgp.neighbor} --clear-limit`
+                ? `BGP session ${bgp.neighbor} was established before the apply and closed on its limit${bgp.limit.max !== undefined ? ` of ${bgp.limit.max} prefixes` : ""}: the neighbor sends more than it may. Find out why, then: circuit bgp ${device.name} --neighbors '^${bgp.neighbor}$' --clear-limit`
                 : `BGP session ${bgp.neighbor} was established before the apply and is not ${limits.seconds} s after it (${bgp.reason ?? (bgp.uptime === "no session" ? "no session" : "not established")}). Look with: circuit bgp ${device.name} --log`
         );
     }
