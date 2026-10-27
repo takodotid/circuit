@@ -4,8 +4,9 @@ import { readFileSync } from "node:fs";
 import type { AclRule, Firewall, IP, Neighbor, Prefix, NeighborSettings, PolicyRule, RoutePolicy, RpkiServer } from "@takodotid/circuit";
 import { secret } from "@takodotid/circuit";
 import { Bgp, Filters } from "@takodotid/circuit/helpers";
+import type { ExportNeighbor } from "@takodotid/circuit/helpers";
 import { AT, CUSTOMERS } from "./customers";
-import { ADMIN, ASN, communities, IX, OURS, SERVICES, SITE, type Site, SPOOFED } from "./network";
+import { ADMIN, ASN, communities, IX, OURS, SERVICES, SITE, type Site, SPOOFED, TRANSIT_COMMUNITIES } from "./network";
 import { customerPolicies, customerPrefixSets, customerSpace } from "./tenancy";
 
 export const users = {
@@ -118,8 +119,8 @@ export function exchangeSessions() {
 export const prefixSets = customerPrefixSets(CUSTOMERS);
 
 /** What leaves for another network: our space and our BGP customers' own, nothing else. */
-const announced = (neighborAs: number): PolicyRule<never, string>[] => [
-    ...communities.actions(neighborAs),
+const announced = (neighbor: ExportNeighbor): PolicyRule<never, string>[] => [
+    ...communities.actions(neighbor),
     { description: "Our IPv4", match: { prefix: OURS.v4 }, action: "accept" },
     { description: "Our IPv6", match: { prefix: OURS.v6 }, action: "accept" },
     ...customerSpace(CUSTOMERS),
@@ -165,7 +166,7 @@ export function policies(site: Site, transits: Readonly<Record<string, number>>,
 
     for (const [name, asn] of Object.entries(transits)) {
         result[`${name.toUpperCase()}-IN`] = learned("transit", asn, site, 100);
-        result[`${name.toUpperCase()}-OUT`] = announced(asn);
+        result[`${name.toUpperCase()}-OUT`] = announced({ asn, communities: TRANSIT_COMMUNITIES[asn] });
     }
 
     if (exchange) {

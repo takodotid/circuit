@@ -244,3 +244,46 @@ test("a name two upstreams share is refused, and a misspelled key is named by th
     expect(pps.ports("s").p?.storm_control).toEqual({ broadcast: { pps: 1000 } });
     expect(misspelled).toBeFunction();
 });
+
+test("Upstreams.catalog gives the catalog back as written, and refuses a misspelled key", () => {
+    const catalog = Upstreams.catalog({
+        ix_d: {
+            asn: 64513,
+            role: "rs",
+            sessions: { "ix-d-rs1": { address: "192.0.2.50" } },
+            export: { name: "IX-D-OUT", rules: Bgp.announce(OURS) },
+            communities: { do_not_announce_to: (asn) => `64513:0:${asn}` },
+        },
+    });
+
+    expect(Object.keys(catalog)).toEqual(["ix_d"]);
+    expect(catalog.ix_d.asn).toBe(64513);
+
+    // @ts-expect-error A key the shape doesn't have is refused.
+    Upstreams.catalog({ ix_e: { asn: 64514, role: "rs", sessions: {}, export: { name: "IX-E-OUT", rules: [] }, comunities: {} } });
+});
+
+test("doNotAnnounceTo asks with the upstream's own community, one per AS, and refuses an upstream that has none", () => {
+    const rs = { asn: 64513, role: "rs", sessions: {}, export: { name: "OUT", rules: [] } } as const;
+
+    expect(
+        Upstreams.doNotAnnounceTo({ ...rs, communities: { do_not_announce_to: (asn) => `64513:0:${asn}` } }, [64600, 64601], "Not to them")
+    ).toEqual([{ description: "Not to them", set: { add_large_communities: ["64513:0:64600", "64513:0:64601"] } }]);
+    expect(Upstreams.doNotAnnounceTo({ ...rs, communities: { do_not_announce_to: (asn) => `0:${asn}` } }, [64600], "Not to them")).toEqual([
+        { description: "Not to them", set: { add_communities: ["0:64600"] } },
+    ]);
+    expect(Upstreams.doNotAnnounceTo(rs, [], "Not to them")).toEqual([]);
+    expect(() => Upstreams.doNotAnnounceTo(rs, [64600], "Not to them")).toThrow("has no communities.do_not_announce_to");
+});
+
+test("an upstream's blackhole community reaches the scheme's actions through the upstream", () => {
+    const scheme = Bgp.communityScheme({ asn: 64500, blackhole: { function: 666 } });
+    const transit = { asn: 64510, communities: { blackhole: "65535:666" } } as const;
+
+    expect(scheme.blackholeExport(transit)[0]).toMatchObject({
+        description: "Blackhole passed on to AS64510",
+        set: { add_communities: ["65535:666"] },
+        action: "accept",
+    });
+    expect(scheme.blackholeExport(64511)[0]).toMatchObject({ description: "Blackholed here, never announced", action: "reject" });
+});

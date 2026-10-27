@@ -4,6 +4,7 @@
 
 import type { IP, Prefix, Vlan } from "@takodotid/circuit";
 import { Bgp, Filters } from "@takodotid/circuit/helpers";
+import type { NeighborCommunities } from "@takodotid/circuit/helpers";
 
 /** Our AS number. */
 export const ASN = 64500;
@@ -47,9 +48,13 @@ export const communities = Bgp.communityScheme({
     learned_from_as: 3,
     do_not_announce: 100,
     prepend: { once: 101, twice: 102, three_times: 103 },
-    // Transit A drops traffic to a route it receives with its own blackhole community. The other transits never receive a blackholed route.
-    blackhole: { function: 666, upstreams: { 64501: "64501:666" } },
+    blackhole: { function: 666 },
 });
+
+/** The communities each transit offers, by its AS. Transit A drops traffic to a route it receives with its own blackhole community; the other transits never receive a blackholed route. */
+export const TRANSIT_COMMUNITIES: Readonly<Record<number, NeighborCommunities>> = {
+    64501: { blackhole: "64501:666" },
+};
 
 /** A network we peer with directly at the exchange. */
 export type ExchangePeer = {

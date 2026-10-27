@@ -80,12 +80,21 @@ export type CommunityScheme<
     /** A neighbor asks: prepend toward an AS once, twice or three times, `asn:function:asn`. */
     prepend?: { once?: number; twice?: number; three_times?: number };
     /**
-     * A neighbor asks: drop all traffic to this route, `asn:function:0`, usually one address under attack. Your router drops it, and so does every upstream in `upstreams`.
-     *
-     * `upstreams` maps an upstream's AS to its own blackhole community, as its NOC gives it. The route is passed to that upstream with it, so the traffic stops before it reaches your links. An upstream not listed never receives the route.
+     * A neighbor asks: drop all traffic to this route, `asn:function:0`, usually one address under attack. Your router drops it. An upstream whose own blackhole community you know (`communities.blackhole` on the neighbor you pass to `actions`) receives the route with it and drops the traffic too; any other never receives the route.
      */
-    blackhole?: { function: number; upstreams?: Readonly<Record<number, StandardCommunity>> };
+    blackhole?: { function: number };
 };
+
+/** The communities another network offers us, as its NOC gives them: what it does with a route we send it. */
+export type NeighborCommunities = {
+    /** It drops traffic to a route we send it with this community. */
+    blackhole?: StandardCommunity | LargeCommunity;
+    /** It does not pass a route we send it with this community to the AS given, such as an exchange's route servers' `rs-asn:0:peer-asn`. */
+    do_not_announce_to?: (asn: number) => StandardCommunity | LargeCommunity;
+};
+
+/** A neighbor an export goes to: its AS, or its AS and the communities it offers. */
+export type ExportNeighbor = number | { asn: number; communities?: NeighborCommunities };
 
 /** The class names a scheme declares, or any name when it declares none. */
 type ClassName<Classes extends CommunityClasses> = {} extends Classes ? string : Extract<keyof Classes, string>;
@@ -248,10 +257,12 @@ export class Bgp {
      * Policy rules and a catalogue from one community scheme, so the communities your routers set, the ones they act on, and the ones you publish never disagree.
      *
      * - `tag(neighborClass, neighborAs, { site, trusted })`: one rule for an import policy, `{ description: "Learned from AS<n>", set }`. Its `set` removes your standard communities and your large ones (a `trusted` neighbor loses only the "where it came from" functions, so it keeps its requests: do not announce, prepend, blackhole), then adds `learned_from`, `learned_at` and `learned_from_as` where the scheme has them. `site` is needed when the scheme has `learned_at`.
-     * - `actions(neighborAs)`: the rules for an export policy toward one neighbor, before the rules that accept. They are `[...blackholeExport(n), ...rejectDoNotAnnounce(n), ...prepends(n), stripOurs()]`; toward a neighbor that takes blackholes (`blackhole.upstreams`), `rejectDoNotAnnounce(n)` comes first, so a route asked not to go there is never passed on as a blackhole.
-     * - `blackholeExport(neighborAs)`: a blackholed route goes no further, `Blackholed here, never announced`, unless `blackhole.upstreams` names the neighbor's own blackhole community: then it is passed on with it, so the neighbor drops the traffic too. Nothing without `blackhole`.
-     * - `rejectDoNotAnnounce(neighborAs)`: rejects a route asked not to be announced anywhere, then one asked not to be announced to this neighbor. Nothing without `do_not_announce`.
-     * - `prepends(neighborAs)`: prepends once, twice or three times toward this neighbor, where a route asks. Nothing without `prepend`.
+     * Each export helper takes the neighbor: its AS, or `{ asn, communities }` with the communities it offers, such as an `Upstreams.catalog` entry.
+     *
+     * - `actions(neighbor)`: the rules for an export policy toward one neighbor, before the rules that accept. They are `[...blackholeExport(n), ...rejectDoNotAnnounce(n), ...prepends(n), stripOurs()]`; toward a neighbor that takes blackholes (`communities.blackhole`), `rejectDoNotAnnounce(n)` comes first, so a route asked not to go there is never passed on as a blackhole.
+     * - `blackholeExport(neighbor)`: a blackholed route goes no further, `Blackholed here, never announced`, unless the neighbor has `communities.blackhole`: then it is passed on with it, so the neighbor drops the traffic too. Nothing without `blackhole` in the scheme.
+     * - `rejectDoNotAnnounce(neighbor)`: rejects a route asked not to be announced anywhere, then one asked not to be announced to this neighbor. Nothing without `do_not_announce`.
+     * - `prepends(neighbor)`: prepends once, twice or three times toward this neighbor, where a route asks. Nothing without `prepend`.
      * - `stripOurs()`: one rule removing every community of yours, `Our communities stay inside our network`.
      * - `blackhole(prefixSets)`: rules for the import policy of a neighbor you trust with blackholes, before anything that rejects long prefixes. They take a route the neighbor asked to blackhole, but only inside `prefixSets`, its own space, and drop traffic to it here. One rule per set, so one call covers both families.
      * - `catalogue`: every community, for `communities` in `defineNetwork`.
@@ -331,28 +342,38 @@ export class Bgp {
             }));
         };
 
-        /** The neighbor's own blackhole community, when it takes blackholes from us. */
-        const passOnTo = (neighborAs: number) => scheme.blackhole?.upstreams?.[neighborAs];
+        /** The neighbor's AS. */
+        const asnOf = (neighbor: ExportNeighbor) => (typeof neighbor === "number" ? neighbor : neighbor.asn);
 
-        const blackholeExport = (neighborAs: number): PolicyRule<never, never>[] => {
+        /** The neighbor's own blackhole community, when it takes blackholes from us. */
+        const passOnTo = (neighbor: ExportNeighbor) => (typeof neighbor === "number" ? undefined : neighbor.communities?.blackhole);
+
+        const blackholeExport = (neighbor: ExportNeighbor): PolicyRule<never, never>[] => {
             if (scheme.blackhole === undefined) return [];
 
-            const passOn = passOnTo(neighborAs);
+            const passOn = passOnTo(neighbor);
             const match = { large_community: community(scheme.blackhole.function, 0) };
+            if (!passOn) return [{ description: "Blackholed here, never announced", match, action: "reject" }];
 
-            return passOn
-                ? [
-                      {
-                          description: `Blackhole passed on to AS${neighborAs}`,
-                          match,
-                          set: { remove_communities: ours.standard, remove_large_communities: ours.large, add_communities: [passOn] },
-                          action: "accept",
-                      },
-                  ]
-                : [{ description: "Blackholed here, never announced", match, action: "reject" }];
+            const large = passOn.split(":").length === 3;
+            return [
+                {
+                    description: `Blackhole passed on to AS${asnOf(neighbor)}`,
+                    match,
+                    set: {
+                        remove_communities: ours.standard,
+                        remove_large_communities: ours.large,
+                        ...(large
+                            ? { add_large_communities: [passOn as LargeCommunity] }
+                            : { add_communities: [passOn as StandardCommunity] }),
+                    },
+                    action: "accept",
+                },
+            ];
         };
 
-        const rejectDoNotAnnounce = (neighborAs: number): PolicyRule<never, never>[] => {
+        const rejectDoNotAnnounce = (neighbor: ExportNeighbor): PolicyRule<never, never>[] => {
+            const neighborAs = asnOf(neighbor);
             const fn = scheme.do_not_announce;
             if (fn === undefined) return [];
 
@@ -366,8 +387,9 @@ export class Bgp {
             ];
         };
 
-        const prepends = (neighborAs: number): PolicyRule<never, never>[] =>
+        const prepends = (neighbor: ExportNeighbor): PolicyRule<never, never>[] =>
             Bgp.PREPENDS.flatMap(([name, times]) => {
+                const neighborAs = asnOf(neighbor);
                 const fn = scheme.prepend?.[name];
                 if (fn === undefined) return [];
 
@@ -386,10 +408,10 @@ export class Bgp {
         });
 
         // A route asked not to be announced to a neighbor is never passed on to it as a blackhole either; where nothing is passed on, both only reject.
-        const actions = (neighborAs: number): PolicyRule<never, never>[] =>
-            passOnTo(neighborAs)
-                ? [...rejectDoNotAnnounce(neighborAs), ...blackholeExport(neighborAs), ...prepends(neighborAs), stripOurs()]
-                : [...blackholeExport(neighborAs), ...rejectDoNotAnnounce(neighborAs), ...prepends(neighborAs), stripOurs()];
+        const actions = (neighbor: ExportNeighbor): PolicyRule<never, never>[] =>
+            passOnTo(neighbor)
+                ? [...rejectDoNotAnnounce(neighbor), ...blackholeExport(neighbor), ...prepends(neighbor), stripOurs()]
+                : [...blackholeExport(neighbor), ...rejectDoNotAnnounce(neighbor), ...prepends(neighbor), stripOurs()];
 
         const catalogue: Community[] = [
             ...Object.entries<number>(scheme.learned_from?.classes ?? {}).map(([name, value]) => ({
@@ -424,9 +446,7 @@ export class Bgp {
                 ? [
                       {
                           community: written(scheme.blackhole.function, 0),
-                          description: Object.keys(scheme.blackhole.upstreams ?? {}).length
-                              ? `Blackhole: dropped in AS${asn} and by its upstreams that take it`
-                              : `Blackhole: dropped in AS${asn}, not announced further`,
+                          description: `Blackhole: dropped in AS${asn}, and by the upstreams that take it`,
                       },
                   ]
                 : []),
