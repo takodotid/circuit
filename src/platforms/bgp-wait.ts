@@ -15,23 +15,23 @@ export class BgpWait {
      */
     static readonly AFTER_APPLY: WaitLimits = { seconds: 180, every: 10 };
 
-    /** Read the sessions until `enough` holds or time runs out, and give the last read. `waiting` is told of each read that fell short, before the pause. */
-    static async until(
-        read: () => Promise<BgpSession[]>,
-        enough: (sessions: BgpSession[]) => boolean,
+    /** Read until `enough` holds or time runs out, and give the last read: the sessions, or what they announce. `waiting` is told of each read that fell short, before the pause. */
+    static async until<T>(
+        read: () => Promise<T>,
+        enough: (value: T) => boolean,
         limits: WaitLimits,
-        waiting: (sessions: BgpSession[]) => void = () => {}
-    ): Promise<BgpSession[]> {
+        waiting: (value: T) => void = () => {}
+    ): Promise<T> {
         const deadline = Date.now() + limits.seconds * 1000;
-        let sessions = await read();
+        let value = await read();
 
-        while (!enough(sessions) && Date.now() < deadline) {
-            waiting(sessions);
+        while (!enough(value) && Date.now() < deadline) {
+            waiting(value);
             await sleep(Math.min(limits.every * 1000, Math.max(0, deadline - Date.now())));
-            sessions = await read();
+            value = await read();
         }
 
-        return sessions;
+        return value;
     }
 
     /** How many of these sessions are established. */

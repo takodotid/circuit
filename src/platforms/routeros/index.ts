@@ -5,6 +5,7 @@
 import type { Client } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
+import type { Finding } from "../../core/define";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family } from "../../schema";
 import { SerialConsole, type ConsoleDialect, ConsoleShell } from "../../transport/console";
@@ -84,6 +85,12 @@ export class RouterOs extends Platform {
     ].join(" ");
 
     /** Open again the session from one address, only while it is closed on its limit. */
+    /** Each advertisement of these prefixes, one line each: `ADV|<session>|<prefix>`. One line, because a script sent over exec runs as one. */
+    private static listAdvertisements(prefixes: readonly string[]): string {
+        const where = prefixes.map((prefix) => `dst=${prefix}`).join(" or ");
+        return `:foreach a in=[/routing bgp advertisements print as-value where ${where}] do={ :put ("ADV|" . ($a->"peer") . "|" . ($a->"dst")) }`;
+    }
+
     private static clearLimit(address: string): string {
         return `/routing bgp session clear [find remote.address=${address} and limit-exceeded] flag=limit-exceeded`;
     }
@@ -134,6 +141,51 @@ export class RouterOs extends Platform {
     readonly extension = ".rsc";
 
     override readonly console = RouterOs.CONSOLE;
+
+    /**
+     * A BGP session with a `table` announces from that table, not from main: each prefix of `networks` it announces needs a route in the table too, or it is not announced (TRAPS.md). A session left with nothing to announce is an error; a prefix missing from its table is a warning, since its export may not announce it anyway.
+     */
+    checks(device: Device): Finding[] {
+        const bgp = device.routing?.bgp;
+        const statics = device.routing?.static ?? [];
+        const findings: Finding[] = [];
+
+        for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
+            const group = neighbor.group ? bgp?.groups?.[neighbor.group] : undefined;
+            const table = neighbor.table ?? group?.table;
+            if (!table) continue;
+
+            const families = neighbor.families ?? group?.families ?? [Address.family(neighbor.address)];
+            const networks = (bgp?.networks ?? []).filter((prefix) => families.includes(Address.family(Address.host(prefix))));
+            const inTable = (prefix: string) =>
+                statics.some((route) => route.table === table && Address.canonical(route.prefix) === Address.canonical(prefix));
+            const missing = networks.filter((prefix) => !inTable(prefix));
+            if (!missing.length) continue;
+
+            const where = `routing.bgp.neighbors.${name}`;
+            const route = (prefix: string) => `{ prefix: "${prefix}", blackhole: true, table: "${table}" }`;
+            const fix = `On RouterOS a session announces from its own table, ${table}`;
+
+            if (missing.length === networks.length) {
+                findings.push({
+                    level: "error",
+                    device: device.name,
+                    message: `${where} would announce nothing: ${fix}, which has no route for any of networks. Add the routes it announces to ${table} too, such as ${route(missing[0]!)} in routing.static`,
+                });
+                continue;
+            }
+
+            for (const prefix of missing) {
+                findings.push({
+                    level: "warning",
+                    device: device.name,
+                    message: `${where} does not announce ${prefix}: ${fix}, which has no route for it. If its export should announce it, add ${route(prefix)} to routing.static`,
+                });
+            }
+        }
+
+        return findings;
+    }
 
     unsupported(device: Device): string[] {
         const found: string[] = [];
@@ -427,13 +479,14 @@ export class RouterOs extends Platform {
     }
 
     /**
-     * Two checks after an apply. When the plan touched switch rules, none may be invalid. BGP sessions established before the apply must be established again, within `BgpWait.AFTER_APPLY`.
+     * Three checks after an apply. When the plan touched switch rules, none may be invalid. BGP sessions established before the apply must be established again, and announce again each of the device's `networks` they announced before, within `BgpWait.AFTER_APPLY`. A session can stay up and stop announcing (TRAPS.md), which the session check alone would not see.
      */
     async health(device: Device, plan: Plan, options: HealthOptions = {}): Promise<HealthCheck> {
         const switchRules = plan.steps.some((step) => step.send.some((command) => command.startsWith(RouterOs.SWITCH_RULES)));
         const limits = options.bgp ?? BgpWait.AFTER_APPLY;
 
         const establishedBefore = await this.establishedSessions(device, options);
+        const announcedBefore = establishedBefore.length ? await this.announcedNow(device, options) : [];
 
         return {
             run: async () => {
@@ -447,7 +500,8 @@ export class RouterOs extends Platform {
                 try {
                     const switchProblems = switchRules ? await RouterOs.invalidSwitchRules(session, device) : [];
                     const bgpProblems = await this.bgpBack(device, session, establishedBefore, limits);
-                    return [...switchProblems, ...bgpProblems];
+                    const announceProblems = await this.announcedBack(device, session, announcedBefore, limits);
+                    return [...switchProblems, ...bgpProblems, ...announceProblems];
                 } finally {
                     session.close();
                 }
@@ -561,6 +615,72 @@ export class RouterOs extends Platform {
                 ? `BGP session ${bgp.neighbor} was established before the apply and closed on its limit${bgp.limit.max !== undefined ? ` of ${bgp.limit.max} prefixes` : ""}: the neighbor sends more than it may. Find out why, then: circuit bgp ${device.name} --neighbors '^${bgp.neighbor}$' --clear-limit`
                 : `BGP session ${bgp.neighbor} was established before the apply and is not ${limits.seconds} s after it (${bgp.reason ?? (bgp.uptime === "no session" ? "no session" : "not established")}). Look with: circuit bgp ${device.name} --log`
         );
+    }
+
+    /** What each session announces of the device's own `networks`, as `neighbor prefix`. None, without logging in, on a device without networks. */
+    private async announcedNow(device: Device, options: ReadOptions): Promise<string[]> {
+        if (!device.routing?.bgp?.networks?.length) return [];
+
+        const session = await this.session(device, options);
+
+        try {
+            return await this.announced(device, session);
+        } finally {
+            session.close();
+        }
+    }
+
+    /** The `networks` each session announces, as `neighbor prefix`, sorted. An advertisement names its session, which is matched to its neighbor by address first, as in `bgpSessions`. */
+    private async announced(device: Device, session: ReadSession): Promise<string[]> {
+        const bgp = device.routing?.bgp;
+        const networks = bgp?.networks ?? [];
+        if (!networks.length) return [];
+
+        const sessions = (await session.run(RouterOs.LIST_BGP_SESSIONS, 60_000))
+            .split(/\r?\n/)
+            .map((line) => line.trim().split("|"))
+            .filter((fields) => fields.length > 1 && fields[0] !== "disabled");
+        const neighbors = Object.entries(bgp?.neighbors ?? {});
+        const neighborOf = (sessionName: string) => {
+            const remote = sessions.find(([name]) => name === sessionName)?.[1];
+            const byAddress = neighbors.find(([, neighbor]) => neighbor.address === remote);
+            const byName = neighbors.find(([name]) => name === sessionName.replace(/-\d+$/, ""));
+            return (byAddress ?? byName)?.[0];
+        };
+
+        const output = await session.run(RouterOs.listAdvertisements(networks), 60_000);
+        return output
+            .split(/\r?\n/)
+            .map((line) => line.trim().split("|"))
+            .flatMap(([marker, peer, prefix]) => {
+                const neighbor = marker === "ADV" && peer ? neighborOf(peer) : undefined;
+                return neighbor && prefix ? [`${neighbor} ${prefix}`] : [];
+            })
+            .sort();
+    }
+
+    /** Wait until each session announces again what it announced before, and give a problem for each prefix a session no longer announces when time runs out. */
+    private async announcedBack(device: Device, session: ReadSession, before: readonly string[], limits: WaitLimits): Promise<string[]> {
+        if (!before.length) return [];
+
+        const missing = (now: string[]) => before.filter((pair) => !now.includes(pair));
+        const after = await BgpWait.until(
+            () => this.announced(device, session),
+            (now) => !missing(now).length,
+            limits,
+            (now) => console.log(`  BGP: ${missing(now).length} announcement(s) not back yet, checking again in ${limits.every} s`)
+        );
+
+        const gone = missing(after);
+        if (!gone.length) {
+            console.log(`  BGP: every session announces what it announced before`);
+            return [];
+        }
+
+        return gone.map((pair) => {
+            const [neighbor, prefix] = pair.split(" ");
+            return `BGP session ${neighbor} announced ${prefix} before the apply and does not ${limits.seconds} s after it, though it may still be established. A RouterOS session announces from its routing table: that table needs a route for ${prefix}, and a session whose table changed must restart. Look with: circuit show ${device.name} '/routing bgp advertisements print'`;
+        });
     }
 
     /** A problem when any switch rule is invalid, saying what to do. */

@@ -340,7 +340,7 @@ What each field builds:
 | `tunnel.interface`               | The router's GRE tunnel to it.                                                                                                                              |
 | `import.name`, `export.name`     | The policies its sessions use. A policy is `rules`, in order, passed through `mapImports` or `mapExports` when you give one. Nothing else is added.         |
 | `group`                          | A BGP group of that name holding the AS, role, policies, `table` and `multihop` settings; each session names it. Without `group`, each session holds them.  |
-| `table`                          | The routing table its sessions put what they learn in, one of the router's `routing.tables`. The main table when absent.                                    |
+| `table`                          | The routing table its sessions put what they learn in, one of the router's `routing.tables`. On RouterOS they announce from it too. Main when absent.       |
 | `limits`                         | Each session's `max_prefixes`, by the family of its address.                                                                                                |
 
 The defaults it applies, each written here:

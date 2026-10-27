@@ -1,4 +1,5 @@
 import type { Neighbor } from "../core/cabling";
+import type { Finding } from "../core/define";
 import type { Device, Family } from "../schema";
 import type { ConsoleDialect } from "../transport/console";
 import type { WaitLimits } from "./bgp-wait";
@@ -100,6 +101,8 @@ export abstract class Platform {
     readonly console: ConsoleDialect | undefined = undefined;
     /** Fields this platform cannot express. Validation fails on any of them, so nothing is skipped silently. */
     abstract unsupported(device: Device): string[];
+    /** What the platform does with a config that it may not do elsewhere, each as `validate` reports it: an error stops `diff` and `apply`, a warning is reported only. Absent on a platform with none. */
+    checks?(device: Device): Finding[];
     /** The switch rules the render makes from the device's hardware ACLs, so `validate` can hold them to the model's limits. Absent on a platform whose rules are not counted. */
     switchRules?(device: Device): SwitchRules;
     /** The whole configuration the device should run. Secrets appear as markers, never values. */
