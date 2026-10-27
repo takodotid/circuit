@@ -129,22 +129,7 @@ test("a link through a carrier is not compared with LLDP, which sees the carrier
     expect(messages([through(sw1), through(sw2)], neighbors)).toEqual([]);
 });
 
-test("a linked port without a description is given one from its far end: the far device and the port as printed on it", () => {
-    const bare = (device: Device): Device => ({
-        ...device,
-        ports: { ...device.ports, "40g-5": { ...device.ports!["40g-5"]!, description: undefined } },
-    });
-    const [one, two] = Cabling.describeLinks([bare(sw1), sw2]);
-
-    expect(one!.ports!["40g-5"]!.description).toBe("ix-sw-02 40GE1/0/5");
-    // A description written by hand stays, and so does every port without a link.
-    expect(two).toBe(sw2);
-    expect(one!.ports!["10g-47"]).toEqual(sw1.ports!["10g-47"]);
-    // A far device not in the network gives nothing to describe from.
-    expect(Cabling.describeLinks([bare(sw1)])[0]!.ports!["40g-5"]!.description).toBeUndefined();
-});
-
-test("the CLI describes a linked port from its far end when it loads the config", () => {
+test("a linked port without a description has none: Circuit adds no text the config does not write", () => {
     root = mkdtempSync(join(tmpdir(), "circuit-cabling-"));
     const file = (path: string) => join(import.meta.dirname, "../..", path).replaceAll("\\", "/");
     writeFileSync(
@@ -165,5 +150,5 @@ test("the CLI describes a linked port from its far end when it loads the config"
     );
 
     expect(build.status).toBe(0);
-    expect(build.stdout).toContain("interface 40GE1/0/5\n description ix-sw-02 40GE1/0/5\n");
+    expect(build.stdout).toContain("interface 40GE1/0/5\n port link-type trunk\n");
 });

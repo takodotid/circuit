@@ -1,7 +1,6 @@
 // A cable between two of our devices written once: both ends' ports come from one entry, and each port is described from its far end, by the far device's own platform and model.
 
 import { expect, test } from "bun:test";
-import { Cabling } from "../../src/core/cabling";
 import { defineDevice, defineNetwork, secret } from "../../src/core/define";
 import { Validator } from "../../src/core/validator";
 import { Cables } from "../../src/helpers";
@@ -48,16 +47,20 @@ test("Cables.lag builds both ends of a LAG from one list, by device name only", 
     });
 });
 
-test("each end is described from the far device's own file, so the label is never written twice", () => {
+test("a description is only the one describe writes, with the far port's label when that end names its platform and model", () => {
     const lag = Cables.lag({
-        a: { device: "router-1", lag: "to-firewall" },
-        b: { device: "firewall-1", lag: "to-router" },
-        cables: { "25g-1": "10g-2", "25g-2": "10g-1" },
+        a: { device: "router-1", platform: "routeros", model: "CCR2216-1G-12XS-2XQ", lag: "to-firewall" },
+        b: { device: "firewall-1", platform: "fortios", model: "FG-3700D", lag: "to-router" },
+        cables: { "25g-1": "10g-2" },
+        describe: (far) => `${far.device} ${far.label}`,
     });
-    const [router, firewall] = Cabling.describeLinks(pair(lag));
 
-    expect(router!.ports!["25g-1"]!.description).toBe("firewall-1 port6");
-    expect(firewall!.ports!["10g-2"]!.description).toBe("router-1 sfp28-1");
+    expect(lag.a["25g-1"].description).toBe("firewall-1 port6");
+    expect(lag.b["10g-2"].description).toBe("router-1 sfp28-1");
+
+    // Without describe, no description.
+    const bare = Cables.lag({ a: { device: "router-1", lag: "x" }, b: { device: "firewall-1", lag: "y" }, cables: { "25g-1": "10g-2" } });
+    expect(bare.a["25g-1"]).toEqual({ link: { device: "firewall-1", port: "10g-2" }, lag: "x" });
 
     const findings = Validator.run(defineNetwork({ devices: pair(lag) })).filter((finding) => finding.level === "error");
     expect(findings).toEqual([]);
