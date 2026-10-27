@@ -2,7 +2,7 @@
 //
 // Addresses are from the documentation ranges, in place of real ones.
 
-import type { Interface, IP, Prefix } from "@takodotid/circuit";
+import type { Interface, InterfaceAddress, IP, Prefix } from "@takodotid/circuit";
 
 /** The exchange's own space: the route servers' LAN, then one /31 per member tunnel. */
 export const SPACE = "10.254.0.0/16" satisfies Prefix;
@@ -16,23 +16,15 @@ export type VirtualMember = {
     asn: number;
     /** The member's own address on the internet, where its end of the tunnel is. */
     endpoint: IP;
-    /** A number no other member has. Its tunnel is 10.254.1.(2n)/31: the hub takes the even address, the member the odd one, and the route servers peer with that. */
-    number: number;
+    /** Its GRE tunnel on the hub: the interface's name, and the hub's address in the tunnel's /31. The member takes the other address, and the route servers peer with that. */
+    tunnel: { interface: string; address: InterfaceAddress };
 };
 
-/** One GRE tunnel per member, on the hub. */
-export function tunnels(members: readonly VirtualMember[]) {
-    const interfaces: Record<string, Interface<never, never>> = {};
-
-    for (const m of members) {
-        interfaces[`vix-${m.name}`] = {
-            type: "gre",
-            description: `${m.name}, AS${m.asn}`,
-            local: HUB,
-            remote: m.endpoint,
-            addresses: [`10.254.1.${2 * m.number}/31`],
-        };
-    }
-
-    return interfaces;
-}
+/** One GRE tunnel per member, on the hub, as each member writes it. */
+export const tunnels = (members: readonly VirtualMember[]): Record<string, Interface<never, never>> =>
+    Object.fromEntries(
+        members.map((m) => [
+            m.tunnel.interface,
+            { type: "gre", description: `${m.name}, AS${m.asn}`, local: HUB, remote: m.endpoint, addresses: [m.tunnel.address] },
+        ])
+    );
