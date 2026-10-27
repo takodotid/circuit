@@ -1,11 +1,16 @@
-/** The far end of a port, for a description of your own: the device and its port by Circuit's name. */
-export type FarEnd = { device: string; port: string };
+import { Catalog } from "../platforms/catalog";
+
+/** The far end of a port, for a description of your own: the device, its port by Circuit's name, and the port as printed on the device when that end names its platform and model. */
+export type FarEnd = { device: string; port: string; label?: string };
+
+/** One end of a cable entry: the device, and its platform and model if a description should name its ports as printed on it. */
+type End = { device: string; platform?: string; model?: string };
 
 /** What every cable of one entry shares. */
 type Shared = {
     /** What is between the two ends, such as a carrier's local loop. Both ends get it on their `link`. */
     through?: string;
-    /** A port's description from its far end. When absent, Circuit writes the far device and the far port as printed on it, such as `firewall-1 port6`, from the far device's own file. */
+    /** A port's description from its far end, such as `(far) => \`${far.device} ${far.label}\``. No description when absent. */
     describe?: (far: FarEnd) => string;
 };
 
@@ -26,12 +31,10 @@ export class Cables {
      * // router-1: ports: { ...uplink.a }
      * ```
      */
-    static link<const NA extends string, const NB extends string>(
-        spec: Shared & { a: { device: string; port: NA }; b: { device: string; port: NB } }
-    ) {
+    static link<const NA extends string, const NB extends string>(spec: Shared & { a: End & { port: NA }; b: End & { port: NB } }) {
         return {
-            a: { [spec.a.port]: Cables.end(spec, spec.b.device, spec.b.port) } as Record<NA, CablePort<never>>,
-            b: { [spec.b.port]: Cables.end(spec, spec.a.device, spec.a.port) } as Record<NB, CablePort<never>>,
+            a: { [spec.a.port]: Cables.end(spec, spec.b, spec.b.port) } as Record<NA, CablePort<never>>,
+            b: { [spec.b.port]: Cables.end(spec, spec.a, spec.a.port) } as Record<NB, CablePort<never>>,
         };
     }
 
@@ -39,7 +42,7 @@ export class Cables {
      * The cables of a LAG, both ends, from one list read from end A: `{ "25g-1": "10g-2" }` is a cable from A's 25g-1 to B's 10g-2. Each port is a member of its end's LAG. Spread each end into its device's `ports`; the LAG itself stays on each device.
      */
     static lag<const LA extends string, const LB extends string, const C extends Readonly<Record<string, string>>>(
-        spec: Shared & { a: { device: string; lag: LA }; b: { device: string; lag: LB }; cables: C }
+        spec: Shared & { a: End & { lag: LA }; b: End & { lag: LB }; cables: C }
     ) {
         const pairs = Object.entries(spec.cables);
 
@@ -50,8 +53,8 @@ export class Cables {
             taken.set(far, near);
         }
 
-        const a = Object.fromEntries(pairs.map(([near, far]) => [near, { ...Cables.end(spec, spec.b.device, far), lag: spec.a.lag }]));
-        const b = Object.fromEntries(pairs.map(([near, far]) => [far, { ...Cables.end(spec, spec.a.device, near), lag: spec.b.lag }]));
+        const a = Object.fromEntries(pairs.map(([near, far]) => [near, { ...Cables.end(spec, spec.b, far), lag: spec.a.lag }]));
+        const b = Object.fromEntries(pairs.map(([near, far]) => [far, { ...Cables.end(spec, spec.a, near), lag: spec.b.lag }]));
 
         return {
             a: a as Record<keyof C & string, CablePort<LA>>,
@@ -59,11 +62,13 @@ export class Cables {
         };
     }
 
-    /** A port facing `port` on the far device. */
-    private static end(shared: Shared, device: string, port: string): CablePort<never> {
+    /** A port facing `port` on the far end. */
+    private static end(shared: Shared, far: End, port: string): CablePort<never> {
+        const label = far.platform && far.model ? Catalog.spell(far.platform, far.model, port) : undefined;
+
         return {
-            link: { device, port, ...(shared.through ? { through: shared.through } : {}) },
-            ...(shared.describe ? { description: shared.describe({ device, port }) } : {}),
+            link: { device: far.device, port, ...(shared.through ? { through: shared.through } : {}) },
+            ...(shared.describe ? { description: shared.describe({ device: far.device, port, ...(label ? { label } : {}) }) } : {}),
         };
     }
 }

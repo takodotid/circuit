@@ -49,7 +49,16 @@ const firewallLag = Cables.lag({
 
 Each port gets `lag` and `link`. `validate` checks that each port exists on its device's model and that both ends agree.
 
-Circuit describes every linked port that has no description of its own from its far end: the far device and the far port as printed on it, `firewall-1 port6` on the router and `router-1 sfp28-1` on the firewall, so the person on site reads the label they see. It reads the far device's platform and model from that device's own file, so they are never written twice. This holds for any `link`, written by hand or by `Cables`. A description you write stays, and `describe: (far) => ...` writes your own for every port of the entry.
+A port gets only the description you write. `describe` writes one for every port of the entry, from its far end: the device, the port by Circuit's name, and, when that end names its `platform` and `model`, the port as printed on the device, so the person on site reads the label they see:
+
+```ts
+Cables.lag({
+    a: { device: "router-1", platform: "routeros", model: "CCR2216-1G-12XS-2XQ", lag: "to-firewall" },
+    b: { device: "firewall-1", platform: "fortios", model: "FG-3700D", lag: "to-router" },
+    cables: { "25g-1": "10g-2" },
+    describe: (far) => `${far.device} ${far.label}`, // "firewall-1 port6" on the router, "router-1 sfp28-1" on the firewall
+});
+```
 
 `Cables.link` does the same for one cable, with `port` on each end instead of `lag`. Both take `through` for a carrier in between; see [Checking the cabling](/guide/network#checking-the-cabling).
 

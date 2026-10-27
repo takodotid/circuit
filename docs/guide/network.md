@@ -97,7 +97,7 @@ Commit `.circuit/` with your changes. Its git history is then the history of you
 
 ## Checking the cabling
 
-A port's `link` says which device and port is at the other end of its cable. A linked port with no `description` is described from its far end, such as `firewall-1 port6`: the far device and the port as printed on it. [LLDP](/guide/glossary#networking) lets the device find out what is really there: each end sends its name and port down the cable. `circuit snapshot` reads what each device sees and saves it in `.circuit/state/<device>.lldp.json`. `circuit validate` then compares it with `link`, and warns about:
+A port's `link` says which device and port is at the other end of its cable. [LLDP](/guide/glossary#networking) lets the device find out what is really there: each end sends its name and port down the cable. `circuit snapshot` reads what each device sees and saves it in `.circuit/state/<device>.lldp.json`. `circuit validate` then compares it with `link`, and warns about:
 
 1. **A cable in the wrong port:** LLDP sees another device or port than `link` names.
 2. **A cable missing or down:** `link` is set, and LLDP sees nothing on the port.

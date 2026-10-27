@@ -121,36 +121,6 @@ export class Cabling {
         return findings;
     }
 
-    /**
-     * Each linked port without a description gets one from its far end: the far device and the far port as printed on it, such as `firewall-1 port6`. The far device's own file has its platform and model, so the label is never written twice. A port whose far device is not in the network keeps none.
-     */
-    static describeLinks(devices: readonly Device[]): Device[] {
-        const byName = new Map(devices.map((device) => [device.name, device]));
-
-        return devices.map((device) => {
-            const ports = Object.entries(device.ports ?? {});
-            if (!ports.some(([, port]) => port?.link && port.description === undefined)) return device;
-
-            const described = ports.map(([name, port]) => {
-                const far = port?.link ? byName.get(port.link.device) : undefined;
-                if (!port?.link || port.description !== undefined || !far) return [name, port];
-
-                return [name, { ...port, description: `${far.name} ${Cabling.labelOf(far, port.link.port)}` }];
-            });
-
-            return { ...device, ports: Object.fromEntries(described) } as Device;
-        });
-    }
-
-    /** A port as printed on the device, or Circuit's name for it when the model has no spelling for it. */
-    private static labelOf(device: Device, port: string): string {
-        try {
-            return Catalog.spell(device.platform, device.model, port);
-        } catch {
-            return port;
-        }
-    }
-
     /** A system name is the device's name, alone or with a domain after it. */
     private static isDevice(system: string, name: string): boolean {
         return system === name || system.startsWith(`${name}.`);
