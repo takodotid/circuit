@@ -291,17 +291,29 @@ export class Validator {
             if (route.bfd && !route.via) report(`static route ${route.prefix} has bfd without via, the address BFD watches`);
             names.expectInterface(`static route ${route.prefix} interface`, route.interface);
             names.expect(`static route ${route.prefix} VRF`, route.vrf, route.vrf !== undefined && route.vrf in (device.vrfs ?? {}));
+            names.expect(
+                `static route ${route.prefix} table`,
+                route.table,
+                route.table !== undefined && route.table in (routing?.tables ?? {})
+            );
+            if (route.vrf && route.table) report(`static route ${route.prefix} has both vrf and table; a route is in one of them`);
         }
+
+        Validator.checkTables(device, names, report, cidr);
 
         const bgp = routing?.bgp;
         const isPolicy = (policy: string | undefined) => policy !== undefined && policy in policies;
 
         for (const prefix of bgp?.networks ?? []) cidr("BGP network", prefix);
 
+        const isTable = (table: string | undefined) => table !== undefined && table in (routing?.tables ?? {});
+
         for (const [name, group] of Object.entries(bgp?.groups ?? {})) {
             for (const policy of [group.import, group.export]) {
                 names.expect(`BGP group ${name} policy`, policy, isPolicy(policy));
             }
+
+            names.expect(`BGP group ${name} table`, group.table, isTable(group.table));
         }
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
@@ -316,6 +328,8 @@ export class Validator {
                 names.expect(`neighbor ${name} policy`, policy, isPolicy(policy));
             }
 
+            names.expect(`neighbor ${name} table`, neighbor.table, isTable(neighbor.table));
+
             const local = neighbor.local_address ?? group?.local_address;
             if (local && Address.family(local) !== Address.family(neighbor.address))
                 report(`neighbor ${name} local_address and address differ in family`);
@@ -325,6 +339,52 @@ export class Validator {
             if (!/^\d+\.\d+\.\d+\.\d+$/.test(areaId)) report(`OSPF area '${areaId}' is not written as a dotted area ID`);
             for (const iface of Object.keys(area.interfaces)) names.expectInterface(`OSPF area ${areaId} interface`, iface);
         }
+    }
+
+    /** Routing tables have names of their own and something installing routes in them, and rules name a table and can each be reached. */
+    private static checkTables(device: Device, names: Names, report: Report, cidr: Checker): void {
+        const routing = device.routing;
+        const tables = routing?.tables ?? {};
+        const bgp = routing?.bgp;
+
+        const installed = new Set<string>();
+        for (const route of routing?.static ?? []) if (route.table) installed.add(route.table);
+        for (const neighbor of Object.values(bgp?.neighbors ?? {})) {
+            const table = neighbor.table ?? (neighbor.group ? bgp?.groups?.[neighbor.group]?.table : undefined);
+            if (table) installed.add(table);
+        }
+
+        for (const name of Object.keys(tables)) {
+            if (name === "main") report("routing.tables has main, the main table every device has; give the table another name");
+            if (name in (device.vrfs ?? {})) report(`routing.tables ${name} has the name of a VRF; give the table another name`);
+            if (name !== "main" && !installed.has(name))
+                report(
+                    `routing.tables ${name}: nothing installs routes in it; give a static route or a BGP neighbor table: "${name}", or remove the table`
+                );
+        }
+
+        const rules = routing?.rules ?? [];
+        rules.forEach((rule, index) => {
+            const where = `routing.rules ${index + 1}${rule.description ? ` (${rule.description})` : ""}`;
+            const match = rule.match ?? {};
+
+            names.expect(`${where} table`, rule.table, rule.table === "main" || rule.table in tables);
+            names.expectInterface(`${where} in_interface`, match.in_interface);
+            if (match.src) cidr(where, match.src);
+            if (match.dst) cidr(where, match.dst);
+
+            if (match.src && match.dst && Address.isCidr(match.src) && Address.isCidr(match.dst)) {
+                if (Address.family(Address.host(match.src)) !== Address.family(Address.host(match.dst)))
+                    report(`${where}: src and dst differ in family, so no packet matches both`);
+            }
+
+            if (rule.table === "main" && rule.fallback)
+                report(`${where} looks up main and has fallback; fallback is for another table, so remove it`);
+
+            const matchesAll = !match.src && !match.dst && !match.in_interface;
+            if (matchesAll && index < rules.length - 1)
+                report(`${where} matches every packet, so the rules after it never run; give it a match, or move it last`);
+        });
     }
 
     private static checkPolicies(device: Device, names: Names, report: Report, cidr: Checker): void {

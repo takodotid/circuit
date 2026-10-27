@@ -32,7 +32,7 @@ export type AnyInterface = Interface<string, string>;
 
 type Speed = NonNullable<AnyPort["speed"]>;
 type AnyRule = PolicyRule<string, string>;
-type AnyNeighbor = Neighbor<string, string>;
+type AnyNeighbor = Neighbor<string, string, string>;
 
 /** One device's render: the device, and the commands collected under their menu. */
 export class RouterOsRender {
@@ -1101,6 +1101,8 @@ export class RouterOsRender {
     }
 
     private routing(): void {
+        this.routingTables();
+        this.routingRules();
         this.staticRoutes();
         this.rpki();
         if (this.device.routing?.bgp) {
@@ -1113,6 +1115,28 @@ export class RouterOsRender {
         this.bfd();
     }
 
+    /** A table beside the main one. `fib` puts its routes in the forwarding table, so traffic can be routed by them. */
+    private routingTables(): void {
+        for (const [name, table] of Object.entries(this.device.routing?.tables ?? {})) {
+            this.add("/routing table", "add fib", { comment: table.description, name });
+        }
+    }
+
+    /** Rules in the order written. `lookup-only-in-table` drops what the table has no route for, and `lookup` falls back to the main table. */
+    private routingRules(): void {
+        for (const rule of this.device.routing?.rules ?? []) {
+            const onlyInTable = rule.table !== "main" && (rule.fallback ?? "none") === "none";
+            this.add("/routing rule", "add", {
+                action: onlyInTable ? "lookup-only-in-table" : "lookup",
+                comment: rule.description,
+                "dst-address": rule.match?.dst,
+                interface: rule.match?.in_interface && this.name(rule.match.in_interface),
+                "src-address": rule.match?.src,
+                table: rule.table,
+            });
+        }
+    }
+
     private staticRoutes(): void {
         for (const route of this.device.routing?.static ?? []) {
             const menu = Address.family(Address.host(route.prefix)) === "ipv4" ? "/ip route" : "/ipv6 route";
@@ -1123,7 +1147,7 @@ export class RouterOsRender {
                 distance: route.distance,
                 "dst-address": route.prefix,
                 gateway,
-                "routing-table": route.vrf,
+                "routing-table": route.vrf ?? route.table,
             });
         }
     }
@@ -1146,7 +1170,7 @@ export class RouterOsRender {
     }
 
     /** A neighbor's settings with its group's beneath them. */
-    private settingsOf(neighbor: AnyNeighbor): NeighborSettings<string> {
+    private settingsOf(neighbor: AnyNeighbor): NeighborSettings<string, string> {
         const group = neighbor.group ? this.device.routing?.bgp?.groups?.[neighbor.group] : undefined;
         return { ...group, ...neighbor };
     }
@@ -1268,6 +1292,7 @@ export class RouterOsRender {
                 "output.network": originates ? RouterOsRender.NETWORKS[family] : undefined,
                 "remote.address": `${neighbor.address}/${addressFamily === "ipv4" ? 32 : 128}`,
                 "remote.as": settings.remote_as,
+                "routing-table": settings.table,
                 "tcp-md5-key": settings.password && Secrets.marker(settings.password),
                 "use-bfd": settings.bfd ? "yes" : undefined,
             });

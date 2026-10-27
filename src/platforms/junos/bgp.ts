@@ -6,7 +6,7 @@ import type { Device, Family, Neighbor, NeighborSettings, PolicyRule } from "../
 import { JunosRender, type JunosStatements } from "./render";
 
 type AnyRule = PolicyRule<string, string>;
-type AnyNeighbor = Neighbor<string, string>;
+type AnyNeighbor = Neighbor<string, string, string>;
 
 /** BGP sessions, the policies they use, prefix sets and RPKI servers, added to one device's statements. */
 export class JunosBgp {
@@ -41,7 +41,7 @@ export class JunosBgp {
     }
 
     /** A neighbor's settings with its group's beneath them. */
-    static settingsOf(device: Device, neighbor: AnyNeighbor): NeighborSettings<string> {
+    static settingsOf(device: Device, neighbor: AnyNeighbor): NeighborSettings<string, string> {
         const group = neighbor.group ? device.routing?.bgp?.groups?.[neighbor.group] : undefined;
         return { ...group, ...neighbor };
     }

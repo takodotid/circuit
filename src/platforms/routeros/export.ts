@@ -137,6 +137,7 @@ export class RouterOsExport {
     /** Menus whose entries are an ordered list without names. They are rewritten whole, in the order the render gives. */
     static readonly ORDERED = new Set([
         "/routing filter rule",
+        "/routing rule",
         "/ip firewall filter",
         "/ipv6 firewall filter",
         "/ip firewall nat",

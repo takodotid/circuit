@@ -207,7 +207,16 @@ export class RouterOs extends Platform {
         }
 
         // BFD on a static route and a MAC limit are refused above, for the reason the device gave, and an ethertype filter on a LAG as unproved.
-        found.push(...Derive.unproved(device, ["bfd-timers", "multihop-bfd", "static-route-bfd", "mac-limit", "ethertype-filter"]));
+        found.push(
+            ...Derive.unproved(device, [
+                "bfd-timers",
+                "multihop-bfd",
+                "static-route-bfd",
+                "mac-limit",
+                "ethertype-filter",
+                "routing-tables",
+            ])
+        );
 
         return found;
     }

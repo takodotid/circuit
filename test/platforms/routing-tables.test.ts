@@ -1,0 +1,196 @@
+// Routing tables beside the main one and the rules that pick them, proved on a CCR2216 on 7.23.5: a BGP session with `routing-table` installed what it learned in that table and not in main, a rule sent traffic from a block to its table, and `lookup-only-in-table` dropped what the table had no route for where `lookup` fell back to main. Each test feeds the router's own lines to the adapter, with names and addresses replaced.
+
+import { expect, test } from "bun:test";
+import { Validator } from "../../src/core/validator";
+import { Upstreams } from "../../src/helpers/upstreams";
+import { Platforms } from "../../src/platforms";
+import type { Device } from "../../src/schema";
+import edge from "../../templates/edge-router/edge-01";
+
+const platform = Platforms.get("routeros");
+const options = { secrets: false, rollback: 10 };
+
+/** The edge router with a block that leaves only through its own transit: a table, the rules that send the block's traffic to it, and the transit's session installing in it. */
+function withBlockB(): Device {
+    const routing = edge.routing!;
+    return {
+        ...edge,
+        routing: {
+            ...routing,
+            tables: { "block-b": { description: "Block B's own way out" } },
+            rules: [
+                { description: "Our own networks", match: { dst: "2001:db8::/32" }, table: "main" },
+                { description: "Block B leaves through its transit", match: { src: "2001:db8:200::/48" }, table: "block-b" },
+            ],
+            static: [...routing.static!, { prefix: "2001:db8:300::/48", blackhole: true, table: "block-b", description: "Test" }],
+            bgp: {
+                ...routing.bgp!,
+                neighbors: {
+                    ...routing.bgp!.neighbors,
+                    "transit-p": {
+                        address: "2001:db8:fffe::1",
+                        remote_as: 64510,
+                        role: "provider",
+                        import: "TRANSIT-IN",
+                        export: "OUT",
+                        table: "block-b",
+                    },
+                },
+            },
+        },
+    };
+}
+
+const errors = (device: Device) =>
+    Validator.run({ devices: [device] })
+        .filter((finding) => finding.level === "error")
+        .map((finding) => finding.message);
+
+test("a table, its rules, a route in it and a session installing in it render as the router printed them", () => {
+    const desired = platform.render(withBlockB());
+
+    expect(desired).toContain('/routing table\nadd fib comment="Block B\'s own way out" name=block-b\n');
+    expect(desired).toContain(
+        [
+            "/routing rule",
+            'add action=lookup comment="Our own networks" dst-address=2001:db8::/32 table=main',
+            'add action=lookup-only-in-table comment="Block B leaves through its transit" src-address=2001:db8:200::/48 table=block-b',
+        ].join("\n")
+    );
+    expect(desired).toContain("add blackhole comment=Test dst-address=2001:db8:300::/48 routing-table=block-b\n");
+    expect(desired).toMatch(/add as=64500 .*name=transit-p .*remote.as=64510 routing-table=block-b\n/);
+
+    // The export as the router printed it: the flag between the properties, and the rules and routes as the render writes them.
+    const printed = desired.replace(
+        'add fib comment="Block B\'s own way out" name=block-b',
+        'add comment="Block B\'s own way out" fib name=block-b'
+    );
+    expect(printed).not.toBe(desired);
+    expect(platform.plan(desired, printed, options).steps).toEqual([]);
+});
+
+test("a rule that falls back to main is a lookup, and one in an interface's traffic names it as the router spells it", () => {
+    const device = withBlockB();
+    const rules = device.routing!.rules!;
+    const desired = platform.render({
+        ...device,
+        routing: {
+            ...device.routing!,
+            rules: [...rules, { match: { src: "198.51.100.0/24", in_interface: "25g-2" }, table: "block-b", fallback: "main" }],
+        },
+    });
+
+    expect(desired).toContain("add action=lookup interface=sfp28-2 src-address=198.51.100.0/24 table=block-b\n");
+});
+
+test("the table comes first, its rules are rewritten in order, and removing it removes what uses it before the table", () => {
+    const before = platform.render(edge);
+    const after = platform.render(withBlockB());
+
+    const adding = platform.plan(after, before, options);
+    expect(adding.problems).toEqual([]);
+    const sent = adding.steps.flatMap((step) => step.send);
+    const at = (prefix: string) => sent.findIndex((line) => line.startsWith(prefix));
+
+    expect(sent[at("/routing table")]).toBe('/routing table add fib comment="Block B\'s own way out" name=block-b');
+    expect(at("/routing table")).toBeLessThan(at("/routing rule add"));
+    expect(at("/routing rule add")).toBeLessThan(at("/routing bgp connection add"));
+    expect(at("/routing table")).toBeLessThan(at("/ipv6 route add"));
+
+    const removing = platform.plan(before, after, options).steps.flatMap((step) => step.send);
+    const tableRemoved = removing.findIndex((line) => line.startsWith("/routing table remove"));
+    expect(removing[tableRemoved]).toBe("/routing table remove [ find name=block-b ]");
+    expect(tableRemoved).toBe(removing.length - 1);
+});
+
+test("a session moved out of the table goes back to main, which the router does not print", () => {
+    const device = withBlockB();
+    const neighbors = device.routing!.bgp!.neighbors!;
+    const { table: _, ...inMain } = neighbors["transit-p"]!;
+    const moved: Device = {
+        ...device,
+        routing: {
+            ...device.routing!,
+            tables: undefined,
+            rules: undefined,
+            static: edge.routing!.static,
+            bgp: { ...device.routing!.bgp!, neighbors: { ...neighbors, "transit-p": inMain } },
+        },
+    };
+
+    const sent = platform.plan(platform.render(moved), platform.render(device), options).steps.flatMap((step) => step.send);
+    expect(sent).toContain('/routing bgp connection set [ find remote.address="2001:db8:fffe::1/128" ] routing-table=main');
+});
+
+test("validate: a table named main or like a VRF, one nothing installs in, an unknown table, a rule nothing reaches", () => {
+    expect(errors(withBlockB())).toEqual([]);
+
+    const device = withBlockB();
+    const routing = device.routing!;
+    const broken: Device = {
+        ...device,
+        vrfs: { oob: {} },
+        routing: {
+            ...routing,
+            tables: { ...routing.tables, main: {}, oob: {}, empty: {} },
+            rules: [
+                { description: "Everything", table: "block-b" },
+                { match: { src: "192.0.2.0/24", dst: "2001:db8::/32" }, table: "nope" },
+                { match: { dst: "2001:db8::/32" }, table: "main", fallback: "main" },
+            ],
+            static: [{ prefix: "192.0.2.0/24", blackhole: true, vrf: "oob", table: "block-b" }],
+        },
+    };
+
+    expect(errors(broken)).toEqual([
+        "static route 192.0.2.0/24 has both vrf and table; a route is in one of them",
+        "routing.tables has main, the main table every device has; give the table another name",
+        "routing.tables oob has the name of a VRF; give the table another name",
+        'routing.tables oob: nothing installs routes in it; give a static route or a BGP neighbor table: "oob", or remove the table',
+        'routing.tables empty: nothing installs routes in it; give a static route or a BGP neighbor table: "empty", or remove the table',
+        "routing.rules 1 (Everything) matches every packet, so the rules after it never run; give it a match, or move it last",
+        "routing.rules 2 table 'nope' is not declared",
+        "routing.rules 2: src and dst differ in family, so no packet matches both",
+        "routing.rules 3 looks up main and has fallback; fallback is for another table, so remove it",
+    ]);
+});
+
+test("a platform that has not proved routing tables refuses them, by the field", () => {
+    const { name, connection, users, routing, policies } = withBlockB();
+    const device: Device = { name, connection, users, routing, policies, platform: "junos", model: "QFX5100-48S-6Q" };
+    const refused = Platforms.get("junos")
+        .unsupported(device)
+        .filter((field) => /table|rules/.test(field));
+
+    expect(refused).toEqual([
+        "routing.static 2001:db8:300::/48 table, a routing table beside the main one is not proved on a device yet",
+        "routing.tables, a routing table beside the main one is not proved on a device yet",
+        "routing.rules, routing rules are not proved on a device yet",
+        "routing.bgp.neighbors.transit-p.table, a routing table beside the main one is not proved on a device yet",
+    ]);
+    expect(platform.unsupported(withBlockB())).toEqual([]);
+});
+
+test("an upstream's table goes on its group, or on each session when it has none", () => {
+    const upstreams = Upstreams.define({
+        p: {
+            asn: 64510,
+            role: "provider",
+            table: "block-b",
+            group: "transit-p",
+            sessions: { "p-a": { address: "2001:db8:fffe::1" } },
+            export: { name: "P-OUT", rules: [] },
+        },
+        q: {
+            asn: 64511,
+            role: "provider",
+            table: "block-b",
+            sessions: { "q-a": { address: "2001:db8:fffd::1" } },
+            export: { name: "Q-OUT", rules: [] },
+        },
+    });
+
+    expect(upstreams.groups()["transit-p"].table).toBe("block-b");
+    expect(upstreams.neighbors()["p-a"]).toEqual({ group: "transit-p", address: "2001:db8:fffe::1" });
+    expect(upstreams.neighbors()["q-a"]?.table).toBe("block-b");
+});

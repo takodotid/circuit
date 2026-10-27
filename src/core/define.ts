@@ -28,6 +28,7 @@ export function defineDevice<
     const Users extends string = never,
     const Vrfs extends string = never,
     const Certificates extends string = never,
+    const Tables extends string = never,
 >(
     device: Device<
         Platform,
@@ -42,7 +43,8 @@ export function defineDevice<
         AddressSets,
         Users,
         Vrfs,
-        Certificates
+        Certificates,
+        Tables
     >
 ): Device {
     return device as unknown as Device;
