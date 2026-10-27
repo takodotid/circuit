@@ -30,6 +30,9 @@ export class RouterOsPlan {
         "/interface bridge filter",
         "/interface list",
         "/ip vrf",
+        // Routes, rules and BGP connections name a table, so it exists first.
+        "/routing table",
+        "/routing rule",
         "/ip address",
         "/ipv6 address",
         "/ip pool",

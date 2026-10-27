@@ -142,3 +142,42 @@ test("a call is a rule of its own: the type and validate refuse a match, set or 
     );
     expect([alone, withMatch, withAction]).toHaveLength(3);
 });
+
+test("a routing table is named in routing.tables before a rule, a route or a neighbor names it", async () => {
+    const { defineDevice } = await import("../../src/core/define");
+    const base = {
+        name: "r1",
+        platform: "routeros",
+        model: "CCR2216-1G-12XS-2XQ",
+        connection: { host: "192.0.2.1", user: "admin" },
+        users: { admin: { role: "admin", password: { secret: "R1" } } },
+    } as const;
+
+    const right = defineDevice({
+        ...base,
+        routing: {
+            tables: { "block-b": {} },
+            rules: [{ match: { src: "2001:db8:200::/48" }, table: "block-b" }, { table: "main" }],
+            static: [{ prefix: "::/0", via: "2001:db8::1", table: "block-b" }],
+            bgp: { asn: 64500, neighbors: { p: { address: "2001:db8::2", remote_as: 64510, table: "block-b" } } },
+        },
+    });
+    const wrongRule = defineDevice({
+        ...base,
+        routing: {
+            tables: { "block-b": {} },
+            // @ts-expect-error No table of that name.
+            rules: [{ table: "block-c" }],
+        },
+    });
+    const wrongRoute = defineDevice({
+        ...base,
+        routing: {
+            tables: { "block-b": {} },
+            // @ts-expect-error No table of that name.
+            static: [{ prefix: "::/0", blackhole: true, table: "block-c" }],
+        },
+    });
+
+    expect([right, wrongRule, wrongRoute]).toHaveLength(3);
+});

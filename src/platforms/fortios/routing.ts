@@ -7,7 +7,7 @@ import { FortiOsNames } from "./names";
 import { FortiOsBlock, FortiOsTree } from "./tree";
 
 type AnyRule = PolicyRule<string, string>;
-type AnyNeighbor = Neighbor<string, string>;
+type AnyNeighbor = Neighbor<string, string, string>;
 
 /** The lengths a prefix list's rule takes within its prefix. */
 type Lengths = { ge?: number; le?: number };
@@ -167,7 +167,7 @@ export class FortiOsRouting {
     static readonly BITS = { ipv4: 32, ipv6: 128 } as const;
 
     /** A neighbor's settings with its group's beneath them. */
-    static neighborSettings(device: Device, neighbor: AnyNeighbor): NeighborSettings<string> {
+    static neighborSettings(device: Device, neighbor: AnyNeighbor): NeighborSettings<string, string> {
         const group = neighbor.group ? device.routing?.bgp?.groups?.[neighbor.group] : undefined;
         return { ...group, ...neighbor };
     }

@@ -5,7 +5,14 @@ import type { Device } from "../schema";
 
 /** A feature a platform renders once proved on one of its devices. */
 export type ProvedFeature =
-    "bfd-timers" | "static-route-bfd" | "multihop-bfd" | "alarm-severity" | "mac-limit" | "ethertype-filter" | "management-vdom";
+    | "bfd-timers"
+    | "static-route-bfd"
+    | "multihop-bfd"
+    | "alarm-severity"
+    | "mac-limit"
+    | "ethertype-filter"
+    | "management-vdom"
+    | "routing-tables";
 
 export class Derive {
     /** Each LAG's number: its own `id`, or its position among the device's LAGs. */
@@ -47,11 +54,26 @@ export class Derive {
         for (const route of routing?.static ?? []) {
             if (route.bfd && !has("static-route-bfd"))
                 found.push(`routing.static ${route.prefix} bfd, BFD on a static route is ${unproved}`);
+            if (route.table && !has("routing-tables"))
+                found.push(`routing.static ${route.prefix} table, a routing table beside the main one is ${unproved}`);
+        }
+
+        if (!has("routing-tables")) {
+            if (routing?.tables) found.push(`routing.tables, a routing table beside the main one is ${unproved}`);
+            if (routing?.rules) found.push(`routing.rules, routing rules are ${unproved}`);
         }
 
         const bgp = routing?.bgp;
 
+        for (const [name, group] of Object.entries(bgp?.groups ?? {})) {
+            if (group.table && !has("routing-tables"))
+                found.push(`routing.bgp.groups.${name}.table, a routing table beside the main one is ${unproved}`);
+        }
+
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
+            if (neighbor.table && !has("routing-tables"))
+                found.push(`routing.bgp.neighbors.${name}.table, a routing table beside the main one is ${unproved}`);
+
             const group = neighbor.group ? bgp?.groups?.[neighbor.group] : undefined;
             const bfd = neighbor.bfd ?? group?.bfd;
             const multihop = neighbor.multihop ?? group?.multihop;

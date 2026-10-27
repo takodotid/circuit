@@ -71,7 +71,7 @@ export type Vrf = {
 /**
  * Everything one device runs. What is not written here is removed from the device or returned to its default.
  *
- * Type parameters are the names the device declares, so a reference to a name that does not exist fails to compile: N ports, V VLANs, I interfaces, P policies, S prefix sets, G BGP groups, A ACLs, AS address sets, U users, F VRFs, C certificates.
+ * Type parameters are the names the device declares, so a reference to a name that does not exist fails to compile: N ports, V VLANs, I interfaces, P policies, S prefix sets, G BGP groups, A ACLs, AS address sets, U users, F VRFs, C certificates, T routing tables.
  */
 export type Device<
     Pl extends string = string,
@@ -87,6 +87,7 @@ export type Device<
     U extends string = string,
     F extends string = string,
     C extends string = string,
+    T extends string = string,
 > = {
     /** Hostname. */
     name: string;
@@ -112,8 +113,8 @@ export type Device<
     interfaces?: Record<I, Interface<NoInfer<V>, NoInfer<F>>>;
     /** Separate routing tables, keyed by name. */
     vrfs?: Record<F, Vrf>;
-    /** Static routes, BGP, OSPF and route validation. */
-    routing?: Routing<NoInfer<P>, G, NoInfer<I | N>, NoInfer<F>>;
+    /** Routing tables and rules, static routes, BGP, OSPF and route validation. */
+    routing?: Routing<NoInfer<P>, G, NoInfer<I | N>, NoInfer<F>, T>;
     /** Route policies, keyed by name. */
     policies?: Record<P, RoutePolicy<NoInfer<P>, NoInfer<S>>>;
     /** Prefix sets that policies match on, keyed by name. */

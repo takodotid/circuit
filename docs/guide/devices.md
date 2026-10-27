@@ -39,8 +39,8 @@ Hover any field in your editor to see what it does. The [schema reference](/refe
 | `vlans`              | The VLANs the device has, by name.                                                                                      |
 | `ports`              | The physical ports. A port not listed here is shut down.                                                                |
 | `interfaces`         | VLAN interfaces, loopbacks, LAGs, bridges, and GRE, VXLAN and WireGuard tunnels.                                        |
-| `vrfs`               | Separate routing tables.                                                                                                |
-| `routing`            | Static routes, BGP, OSPF and RPKI.                                                                                      |
+| `vrfs`               | Separate routing tables, each with interfaces in it.                                                                    |
+| `routing`            | Routing tables and rules, static routes, BGP, OSPF and RPKI.                                                            |
 | `policies`           | Route policies: ordered rules that decide which routes are accepted, and change them.                                   |
 | `prefix_sets`        | Lists of prefixes, written out or fetched from a registry.                                                              |
 | `firewall`           | Filter rules, NAT and address lists.                                                                                    |
@@ -49,6 +49,39 @@ Hover any field in your editor to see what it does. The [schema reference](/refe
 | `flow_export`        | NetFlow, IPFIX or sFlow, to see what traffic goes where.                                                                |
 | `lldp`, `stp`        | Neighbor discovery and spanning tree, for the whole device. A port can override either.                                 |
 | `hardware_offload`   | Forward in hardware where the device can. An interface can override it.                                                 |
+
+## Traffic from one block through its own transits
+
+A router picks the way out by the destination, from its main table. When a block of yours may only leave through its own transits, such as a block registered in another region that your other transits drop, give it a table of its own and a rule that sends its traffic there:
+
+```ts
+routing: {
+    tables: {
+        "block-b": { description: "Block B's own way out: the default from transits P and Q" },
+    },
+    // In order: the first rule that matches decides. Traffic no rule matches uses the main table.
+    rules: [
+        // Block B's hosts still reach our own networks, through the main table.
+        { description: "Our own networks", match: { dst: "2001:db8::/32" }, table: "main" },
+        { description: "Block B leaves through its transits", match: { src: "2001:db8:200::/48" }, table: "block-b" },
+    ],
+    bgp: {
+        asn: 64500,
+        neighbors: {
+            // What transit P sends goes into block-b, not into the main table.
+            "transit-p": { address: "2001:db8:ffff::1", remote_as: 64510, table: "block-b", import: "P-IN", export: "P-OUT" },
+        },
+    },
+},
+```
+
+- `table` on a BGP neighbor or group puts the routes it learns in that table. What it announces still comes from `networks`.
+- `table` on a static route puts the route in that table.
+- A rule's `match` takes `src`, `dst` and `in_interface`, all of which must match. A rule without `match` takes every packet, so it goes last.
+- When the table has no route for a packet, the packet is dropped. `fallback: "main"` on the rule routes it by the main table instead.
+- `validate` stops on a table nothing puts routes in, a table or interface that is not declared, and a rule after one that takes every packet.
+
+RouterOS renders this; the other platforms refuse it until it is proved on one of their devices.
 
 ## Reaching a device through its console
 

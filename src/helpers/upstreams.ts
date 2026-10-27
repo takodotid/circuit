@@ -63,10 +63,12 @@ export type Upstream = {
     tunnel?: { interface: string; local: IP; remote: IP; addresses: readonly InterfaceAddress[]; mtu?: number };
     /** Our BGP sessions with it, by name: its address, and ours when it is not the interface's. */
     sessions: Readonly<Record<string, { address: IP; local_address?: IP }>>;
-    /** A BGP group its sessions share, by this name: the group holds the AS, role, policies and multihop settings, and each session names it. Each session holds them itself when absent. */
+    /** A BGP group its sessions share, by this name: the group holds the AS, role, policies, table and multihop settings, and each session names it. Each session holds them itself when absent. */
     group?: string;
     /** The sessions are more than one hop away, from this address of ours. */
     multihop?: { local_address: IP; families?: readonly Family[]; password?: Secret };
+    /** The routing table its sessions install the routes they learn in, one of the router's `routing.tables`: a transit that carries only one block's traffic out. The main table when absent. */
+    table?: string;
     /** The most prefixes a session may send, by its family: about twice what it sends. Over it, the session closes until it is cleared. */
     limits?: { ipv4?: number; ipv6?: number };
     /** What we take, as its policy. Nothing when absent. */
@@ -105,6 +107,8 @@ type PolicyName<C> = Values<{
 }>;
 /** Each BGP group name. */
 type GroupName<C> = Values<{ [K in keyof C]: C[K] extends { group: infer N extends string } ? N : never }>;
+/** Each routing table name. */
+type TableName<C> = Values<{ [K in keyof C]: C[K] extends { table: infer N extends string } ? N : never }>;
 
 /** A network's upstreams written once, and each device's part built from them. */
 export class Upstreams {
@@ -217,7 +221,7 @@ export class Upstreams {
         const uplinks = () => all.flatMap(([, upstream]) => (upstream.handoff ? [upstream.handoff.interface as HandoffInterface<C>] : []));
 
         /** What a session, or the group it is in, takes from its upstream. */
-        const settings = (key: string, upstream: Upstream): NeighborSettings<PolicyName<C>> => {
+        const settings = (key: string, upstream: Upstream): NeighborSettings<PolicyName<C>, TableName<C>> => {
             const multihop = upstream.multihop;
             return {
                 remote_as: upstream.asn,
@@ -225,6 +229,7 @@ export class Upstreams {
                 role: upstream.role,
                 ...(upstream.import ? { import: upstream.import.name as PolicyName<C> } : {}),
                 export: upstream.export.name as PolicyName<C>,
+                ...(upstream.table ? { table: upstream.table as TableName<C> } : {}),
                 ...(multihop
                     ? {
                           local_address: multihop.local_address,
@@ -239,7 +244,7 @@ export class Upstreams {
         const groups = () =>
             Object.fromEntries(
                 all.flatMap(([key, upstream]) => (upstream.group ? [[upstream.group, settings(key, upstream)]] : []))
-            ) as Record<GroupName<C>, NeighborSettings<PolicyName<C>>>;
+            ) as Record<GroupName<C>, NeighborSettings<PolicyName<C>, TableName<C>>>;
 
         const neighbors = () =>
             Object.fromEntries(
@@ -256,7 +261,7 @@ export class Upstreams {
                         ];
                     })
                 )
-            ) as Record<string, Neighbor<PolicyName<C>, GroupName<C>>>;
+            ) as Record<string, Neighbor<PolicyName<C>, GroupName<C>, TableName<C>>>;
 
         /**
          * Each upstream's import and export, by name. The policies and prefix sets their rules name are checked by `validate`, not by the editor, so the rules are typed to fit any device.

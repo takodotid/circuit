@@ -339,7 +339,8 @@ What each field builds:
 | `handoff.interface`              | The router's VLAN interface on the handoff, with `addresses`.                                                                                               |
 | `tunnel.interface`               | The router's GRE tunnel to it.                                                                                                                              |
 | `import.name`, `export.name`     | The policies its sessions use. A policy is `rules`, in order, passed through `mapImports` or `mapExports` when you give one. Nothing else is added.         |
-| `group`                          | A BGP group of that name holding the AS, role, policies and `multihop` settings; each session names it. Without `group`, each session holds them.           |
+| `group`                          | A BGP group of that name holding the AS, role, policies, `table` and `multihop` settings; each session names it. Without `group`, each session holds them.  |
+| `table`                          | The routing table its sessions put what they learn in, one of the router's `routing.tables`. The main table when absent.                                    |
 | `limits`                         | Each session's `max_prefixes`, by the family of its address.                                                                                                |
 
 The defaults it applies, each written here:
