@@ -86,15 +86,18 @@ Send a wave of the flood as it is. Then have Acme ask for a blackhole, and send 
 
 A blackhole on your own router freed Acme's link, and nothing else. Each transit that received the route freed your link to it. The exchange takes no blackholes in this widget, so its share kept arriving, and your router dropped it. And in every case `192.0.2.10` became unreachable for everyone: blackholing gives up one address to save every other customer, which RFC 5635 says plainly. Acme can move its service to another address while the attack lasts.
 
-In Circuit, blackholing is part of the [community scheme](/guide/communities#blackhole). The scheme says which community asks for a blackhole, and which upstreams take it:
+In Circuit, blackholing is part of the [community scheme](/guide/communities#blackhole). The scheme says which community asks for a blackhole; each upstream that takes it carries its own community:
 
 ```ts
 export const communities = Bgp.communityScheme({
     asn: 64500,
     learned_from: { function: 1, classes: { transit: 1, exchange: 2, customer: 3 } },
-    // Transit A drops traffic to a route it receives with 65535:666. Transit B takes no blackholes, so it never receives the route.
-    blackhole: { function: 666, upstreams: { 64501: "65535:666" } },
+    blackhole: { function: 666 },
 });
+
+// Transit A drops traffic to a route it receives with 65535:666. Transit B takes no blackholes, so it never receives the route.
+const transitA = { asn: 64501, communities: { blackhole: "65535:666" } } as const;
+communities.actions(transitA); // in transit A's export
 ```
 
 A customer's import takes a blackhole request first, before `SANITY` refuses anything longer than a /24, and only for an address inside the customer's own space, so it can never blackhole someone else:

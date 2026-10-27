@@ -333,15 +333,16 @@ ports: { "10g-1": { trunk_vlans: upstreams.vlansOn("switch-1") }, ...upstreams.p
 
 What each field builds:
 
-| Field                            | On the device                                                                                                                                               |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `handoff.vlan`, `handoff.native` | A VLAN of that name and ID. `native` is for an upstream that sends its VLAN tagged: its switch port takes it as the native VLAN, and nothing else is in it. |
-| `handoff.interface`              | The router's VLAN interface on the handoff, with `addresses`.                                                                                               |
-| `tunnel.interface`               | The router's GRE tunnel to it.                                                                                                                              |
-| `import.name`, `export.name`     | The policies its sessions use. A policy is `rules`, in order, passed through `mapImports` or `mapExports` when you give one. Nothing else is added.         |
-| `group`                          | A BGP group of that name holding the AS, role, policies, `table` and `multihop` settings; each session names it. Without `group`, each session holds them.  |
-| `table`                          | The routing table its sessions put what they learn in, one of the router's `routing.tables`. On RouterOS they announce from it too. Main when absent.       |
-| `limits`                         | Each session's `max_prefixes`, by the family of its address.                                                                                                |
+| Field                            | On the device                                                                                                                                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `handoff.vlan`, `handoff.native` | A VLAN of that name and ID. `native` is for an upstream that sends its VLAN tagged: its switch port takes it as the native VLAN, and nothing else is in it.                              |
+| `handoff.interface`              | The router's VLAN interface on the handoff, with `addresses`.                                                                                                                            |
+| `tunnel.interface`               | The router's GRE tunnel to it.                                                                                                                                                           |
+| `import.name`, `export.name`     | The policies its sessions use. A policy is `rules`, in order, passed through `mapImports` or `mapExports` when you give one. Nothing else is added.                                      |
+| `group`                          | A BGP group of that name holding the AS, role, policies, `table` and `multihop` settings; each session names it. Without `group`, each session holds them.                               |
+| `table`                          | The routing table its sessions put what they learn in: `main`, or one of the router's `routing.tables`. On RouterOS they announce from it too. Main when absent; write `main` to say so. |
+| `communities`                    | What the upstream offers, as its NOC gives it: `blackhole`, its blackhole community, and `do_not_announce_to(asn)`, how to ask it not to pass our routes to one AS.                      |
+| `limits`                         | Each session's `max_prefixes`, by the family of its address.                                                                                                                             |
 
 The defaults it applies, each written here:
 
@@ -349,6 +350,19 @@ The defaults it applies, each written here:
 - `vlans()` and `vlans(device)` give the VLANs and natives together; with a device, only those of the upstreams arriving on its ports.
 - `drop_private` only lists the upstream's VLAN in `privateDrops()`, for an ACL of your own that drops RFC 1918 sources.
 - `Bgp.announce` ends in a reject unless you pass `{ reject: false }`; see [BGP policies](#bgp-policies). `Checks.exportsEndInReject` and `Checks.importsEndInAcceptOrReject` check that every export ends in a reject and every import in an accept or a reject.
+
+Two helpers read the catalog:
+
+- `Upstreams.catalog({ … })` checks a catalog and gives it back as written, so you can read its keys and entries before `define` takes it, or keep it in a file of its own.
+- `Upstreams.doNotAnnounceTo(upstream, asns, description)` is one export rule adding the upstream's `do_not_announce_to` community for each AS: an exchange's route servers then keep our routes from those networks. Nothing for no AS; an upstream without `do_not_announce_to` is an error, since it can't be asked.
+
+```ts
+mapExports: (rules, _, upstream) => [
+    ...communities.actions(upstream), // passes a blackhole on with upstream.communities.blackhole
+    ...Upstreams.doNotAnnounceTo(upstream, upstream.communities?.do_not_announce_to ? [64666] : [], "Not to AS64666"),
+    ...rules,
+],
+```
 
 The rest:
 

@@ -32,7 +32,7 @@ export const communities = Bgp.communityScheme({
     learned_from_as: 3,
     do_not_announce: 100,
     prepend: { once: 101, twice: 102, three_times: 103 },
-    blackhole: { function: 666, upstreams: { 6939: "65535:666" } },
+    blackhole: { function: 666 },
 });
 ```
 
@@ -56,21 +56,21 @@ A neighbor adds these to the routes it sends you, to ask you for something. Only
 | ----------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `do_not_announce` | The function number                                                                      | `64500:100:6939`: the route is not announced to AS6939. `64500:100:0`: it is not announced to anyone.                         |
 | `prepend`         | A function number for each of `once`, `twice` and `three_times`; give the ones you offer | `64500:101:6939`: your AS is added once more to the path toward AS6939, so that route looks longer and less attractive there. |
-| `blackhole`       | `function`, and `upstreams`                                                              | `64500:666:0`: drop all traffic to this route. See [Blackhole](#blackhole).                                                   |
+| `blackhole`       | `function`                                                                               | `64500:666:0`: drop all traffic to this route. See [Blackhole](#blackhole).                                                   |
 
 ## What you get back
 
 `Bgp.communityScheme` returns these:
 
-| Name                                                                               | What it is                                              | Where it goes                                            |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------- |
-| `tag(class, asn, { site, trusted })`                                               | One rule that tags a route as it comes in               | Each neighbor's import policy                            |
-| `actions(asn)`                                                                     | Rules that do what neighbors asked, toward one neighbor | Each neighbor's export policy                            |
-| `blackholeExport(asn)`, `rejectDoNotAnnounce(asn)`, `prepends(asn)`, `stripOurs()` | The parts `actions` is made of, one each                | An export that needs only some of them, or another order |
-| `blackhole(prefixSets)`                                                            | Rules that accept a blackhole request                   | The import of each neighbor you allow, first             |
-| `catalogue`                                                                        | Every community with its meaning                        | `communities` in `defineNetwork`                         |
-| `learned_from`                                                                     | The community each class is tagged with, by class name  | A rule of your own                                       |
-| `community(function, parameter)`                                                   | One community, written out                              | A rule of your own                                       |
+| Name                                                                         | What it is                                              | Where it goes                                            |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------- |
+| `tag(class, asn, { site, trusted })`                                         | One rule that tags a route as it comes in               | Each neighbor's import policy                            |
+| `actions(neighbor)`                                                          | Rules that do what neighbors asked, toward one neighbor | Each neighbor's export policy                            |
+| `blackholeExport(n)`, `rejectDoNotAnnounce(n)`, `prepends(n)`, `stripOurs()` | The parts `actions` is made of, one each                | An export that needs only some of them, or another order |
+| `blackhole(prefixSets)`                                                      | Rules that accept a blackhole request                   | The import of each neighbor you allow, first             |
+| `catalogue`                                                                  | Every community with its meaning                        | `communities` in `defineNetwork`                         |
+| `learned_from`                                                               | The community each class is tagged with, by class name  | A rule of your own                                       |
+| `community(function, parameter)`                                             | One community, written out                              | A rule of your own                                       |
 
 ### tag
 
@@ -111,16 +111,16 @@ Put it in each import, after the filters that decide whether to accept the route
 communities.actions(6939);
 ```
 
-`asn` is the AS of the neighbor this export goes to. `actions` is four helpers, one after another, each of which you can also use on its own:
+The neighbor is the one this export goes to: its AS, or `{ asn, communities }` with the communities it offers, such as an [upstream](/guide/helpers#upstreams) from your catalog. `actions` is four helpers, one after another, each of which you can also use on its own:
 
-| Helper                      | Rules                                                                                                                                                                                                                                    |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `blackholeExport(6939)`     | A blackholed route, tagged `64500:666:0`, is passed on with the neighbor's own blackhole community if the neighbor is in `blackhole.upstreams`, and rejected otherwise: `Blackholed here, never announced`. See [Blackhole](#blackhole). |
-| `rejectDoNotAnnounce(6939)` | Reject a route tagged `64500:100:0`, "do not announce to anyone", then one tagged `64500:100:6939`, "do not announce to AS6939".                                                                                                         |
-| `prepends(6939)`            | Prepend once, twice or three times for a route tagged `64500:101:6939`, `64500:102:6939` or `64500:103:6939`.                                                                                                                            |
-| `stripOurs()`               | One rule that removes every community of yours, so your tags stay inside your network: `Our communities stay inside our network`.                                                                                                        |
+| Helper                      | Rules                                                                                                                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `blackholeExport(6939)`     | A blackholed route, tagged `64500:666:0`, is passed on with the neighbor's own blackhole community if it has `communities.blackhole`, and rejected otherwise: `Blackholed here, never announced`. See [Blackhole](#blackhole). |
+| `rejectDoNotAnnounce(6939)` | Reject a route tagged `64500:100:0`, "do not announce to anyone", then one tagged `64500:100:6939`, "do not announce to AS6939".                                                                                               |
+| `prepends(6939)`            | Prepend once, twice or three times for a route tagged `64500:101:6939`, `64500:102:6939` or `64500:103:6939`.                                                                                                                  |
+| `stripOurs()`               | One rule that removes every community of yours, so your tags stay inside your network: `Our communities stay inside our network`.                                                                                              |
 
-`actions(6939)` is `[...blackholeExport(6939), ...rejectDoNotAnnounce(6939), ...prepends(6939), stripOurs()]`. Toward a neighbor in `blackhole.upstreams`, `rejectDoNotAnnounce` comes first instead, so a route asked not to go to that neighbor is never passed on to it as a blackhole. A helper whose function the scheme doesn't have gives no rules.
+`actions(6939)` is `[...blackholeExport(6939), ...rejectDoNotAnnounce(6939), ...prepends(6939), stripOurs()]`. Toward a neighbor with `communities.blackhole`, `rejectDoNotAnnounce` comes first instead, so a route asked not to go to that neighbor is never passed on to it as a blackhole. A helper whose function the scheme doesn't have gives no rules.
 
 Put them at the start of each export, before the rules that accept your routes:
 
@@ -186,21 +186,29 @@ It sends you a route for that one address, `192.0.2.10/32`, tagged with your bla
 Two things, both automatic once set up:
 
 1. **Your router drops the traffic.** Nothing to `192.0.2.10` reaches the customer any more, so its link is free.
-2. **Your upstreams drop it too, if they offer blackholing.** The attack still arrives from the internet, over your own links to your upstreams. So the route goes on to each upstream in `blackhole.upstreams`, tagged with that upstream's own blackhole community instead of yours. That upstream drops the traffic in its own network, and your links are free as well. An upstream that does not offer blackholing never receives the route, because it would only keep sending the traffic to you.
+2. **Your upstreams drop it too, if they offer blackholing.** The attack still arrives from the internet, over your own links to your upstreams. So the route goes on to each upstream with `communities.blackhole`, tagged with that upstream's own blackhole community instead of yours. That upstream drops the traffic in its own network, and your links are free as well. An upstream that does not offer blackholing never receives the route, because it would only keep sending the traffic to you.
 
-| Where the traffic is dropped | When                                    |
-| ---------------------------- | --------------------------------------- |
-| Your router                  | Always                                  |
-| An upstream in `upstreams`   | When its NOC gave you its own community |
-| Any other upstream           | Never: it does not receive the route    |
+| Where the traffic is dropped             | When                                    |
+| ---------------------------------------- | --------------------------------------- |
+| Your router                              | Always                                  |
+| An upstream with `communities.blackhole` | When its NOC gave you its own community |
+| Any other upstream                       | Never: it does not receive the route    |
 
 ### What you set up
 
-**Once, in the scheme:** your blackhole community, and each upstream that offers blackholing, with the community its NOC gave you. `65535:666`, from RFC 7999, is common.
+**Once, in the scheme:** your blackhole community.
 
 ```ts
-blackhole: { function: 666, upstreams: { 6939: "65535:666" } },
+blackhole: { function: 666 },
 ```
+
+**On each upstream that offers blackholing:** the community its NOC gave you, where the upstream is written. `65535:666`, from RFC 7999, is common.
+
+```ts
+transit_a: { asn: 6939, …, communities: { blackhole: "65535:666" } },
+```
+
+Then pass the upstream, not just its AS, to `actions`: `communities.actions(upstream)`, as `mapExports` does with the upstream it is given.
 
 **For each neighbor you allow to blackhole:** this rule, first in its import.
 
@@ -219,4 +227,4 @@ blackhole: { function: 666, upstreams: { 6939: "65535:666" } },
 - It only takes an address inside the prefix sets you give it, `acme-v4` and `acme-v6`, the customer's own space, so a customer can never blackhole someone else's address. One call covers every set: it makes one rule for each.
 - Leave it out for a neighbor you do not allow to blackhole.
 
-The exports need nothing extra: `actions` already passes the route on to the upstreams in `upstreams`, and does not send it to anyone else.
+The exports need nothing extra: `actions` already passes the route on to an upstream with `communities.blackhole`, and does not send it to anyone else.

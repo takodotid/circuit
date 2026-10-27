@@ -56,7 +56,7 @@ test("Bgp.communityScheme gives back the communities it makes", () => {
     const communities = Bgp.communityScheme({
         asn: 64500,
         learned_from: { function: 1, classes: { transit: 1, customer: 3 } },
-        blackhole: { function: 666, upstreams: { 64501: "64501:666" } },
+        blackhole: { function: 666 },
     });
 
     const customer: "64500:1:3" = communities.learned_from.customer;
@@ -67,8 +67,10 @@ test("Bgp.communityScheme gives back the communities it makes", () => {
     communities.tag("trasnit", 6939);
     // @ts-expect-error Only the classes the scheme declares.
     const missing = communities.learned_from.peer;
-    // @ts-expect-error An upstream's blackhole community is a standard one.
-    Bgp.communityScheme({ asn: 64500, blackhole: { function: 666, upstreams: { 64501: "64501:666:0" } } });
+    // @ts-expect-error A neighbor's blackhole community is a community, not free text.
+    communities.actions({ asn: 64501, communities: { blackhole: "blackhole" } });
+    // @ts-expect-error Other networks' communities belong to the neighbor, not the scheme.
+    Bgp.communityScheme({ asn: 64500, blackhole: { function: 666, upstreams: { 64501: "64501:666" } } });
     // @ts-expect-error A misspelled field is refused.
     Bgp.communityScheme({ asn: 64500, do_not_anounce: 100 });
 

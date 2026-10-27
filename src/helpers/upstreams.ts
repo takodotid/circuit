@@ -5,6 +5,8 @@ import type {
     FilterRule,
     Gre,
     InterfaceAddress,
+    StandardCommunity,
+    LargeCommunity,
     IP,
     Neighbor,
     NeighborSettings,
@@ -15,6 +17,7 @@ import type {
     Vlan,
     VlanInterface,
 } from "../schema";
+import type { NeighborCommunities } from "./bgp";
 
 /** A route policy an upstream's sessions use: its name on the device, and its rules, in order. */
 export type UpstreamPolicy = {
@@ -77,6 +80,8 @@ export type Upstream = {
     export: UpstreamPolicy;
     /** Its VLAN is listed by `privateDrops()`, for an ACL that drops RFC 1918 sources arriving from it. Nothing else is done with it. */
     drop_private?: true;
+    /** The communities it offers, as its NOC gives them: its blackhole community, and how to keep a route from one AS. `communityScheme().actions(upstream)` passes blackholes on with it, and `Upstreams.doNotAnnounceTo` uses the other. */
+    communities?: NeighborCommunities;
 };
 
 /** Upstreams by key. */
@@ -112,6 +117,40 @@ type TableName<C> = Values<{ [K in keyof C]: C[K] extends { table: infer N exten
 
 /** A network's upstreams written once, and each device's part built from them. */
 export class Upstreams {
+    /**
+     * A catalog of upstreams, by key, written once and checked: a key the shape doesn't have is refused by its name. It gives the catalog back as written, so its keys and entries can be read, and is what `define` takes.
+     */
+    static catalog<const C extends UpstreamCatalog>(catalog: C & UpstreamCatalog): C {
+        return catalog;
+    }
+
+    /**
+     * Export rules asking an upstream not to pass our routes to these ASes, with its own `communities.do_not_announce_to`: one rule, `description`, adding one community per AS. Nothing for no AS. An upstream without `do_not_announce_to` is an error, since it can't be asked.
+     */
+    static doNotAnnounceTo(upstream: Upstream, asns: readonly number[], description: string): PolicyRule<never, never>[] {
+        if (!asns.length) return [];
+
+        const community = upstream.communities?.do_not_announce_to;
+        if (!community)
+            throw new Error(
+                `Upstreams: ${upstream.name ?? `AS${upstream.asn}`} has no communities.do_not_announce_to, so it can't be asked to keep our routes from AS${asns.join(", AS")}`
+            );
+
+        const communities = asns.map(community);
+        const large = communities.filter((value) => value.split(":").length === 3) as LargeCommunity[];
+        const standard = communities.filter((value) => value.split(":").length === 2) as StandardCommunity[];
+
+        return [
+            {
+                description,
+                set: {
+                    ...(standard.length ? { add_communities: standard } : {}),
+                    ...(large.length ? { add_large_communities: large } : {}),
+                },
+            },
+        ];
+    }
+
     /**
      * Each upstream written once: its AS, where it lands, its sessions, limits and policies, and every name it puts on a device. Everything a device needs is built from it:
      *

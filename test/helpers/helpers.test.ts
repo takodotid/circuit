@@ -122,7 +122,7 @@ test("Bgp.communityScheme blackholes only inside the customer's space, and never
     const communities = Bgp.communityScheme({
         asn: 64500,
         learned_from: { function: 1, classes: { customer: 3 } },
-        blackhole: { function: 666, upstreams: { 64501: "64501:666" } },
+        blackhole: { function: 666 },
     });
 
     expect(communities.blackhole(["customer-v4", "customer-v6"])).toEqual(
@@ -136,12 +136,18 @@ test("Bgp.communityScheme blackholes only inside the customer's space, and never
     expect(communities.actions(64502)[0]).toMatchObject({ match: { large_community: "64500:666:0" }, action: "reject" });
     expect(communities.catalogue).toContainEqual({
         community: "64500:666:0",
-        description: "Blackhole: dropped in AS64500 and by its upstreams that take it",
+        description: "Blackhole: dropped in AS64500, and by the upstreams that take it",
     });
 
     // A neighbor with its own blackhole community gets the route, tagged with it, and none of ours.
-    const passed = communities.actions(64501).find((rule) => rule.description === "Blackhole passed on to AS64501")!;
+    const passed = communities
+        .actions({ asn: 64501, communities: { blackhole: "64501:666" } })
+        .find((rule) => rule.description === "Blackhole passed on to AS64501")!;
     expect(passed).toMatchObject({ action: "accept", set: { add_communities: ["64501:666"], remove_large_communities: ["64500:*:*"] } });
+
+    // A large blackhole community is added as a large one.
+    const large = communities.blackholeExport({ asn: 64503, communities: { blackhole: "64503:666:0" } })[0]!;
+    expect(large.set).toMatchObject({ add_large_communities: ["64503:666:0"] });
 });
 
 test("a trusted neighbor keeps its requests; anyone else loses every community of ours", async () => {
@@ -447,18 +453,24 @@ test("communityScheme().actions is its single helpers in a fixed order, and each
         asn: 64500,
         do_not_announce: 100,
         prepend: { once: 101, twice: 102 },
-        blackhole: { function: 666, upstreams: { 64510: "64510:666" } },
+        blackhole: { function: 666 },
     });
+    const takesBlackholes = { asn: 64510, communities: { blackhole: "64510:666" } } as const;
 
     // Toward a neighbor that takes no blackholes: blackhole, do-not-announce, prepends, strip.
     expect(c.actions(64511)).toEqual([...c.blackholeExport(64511), ...c.rejectDoNotAnnounce(64511), ...c.prepends(64511), c.stripOurs()]);
     // Toward one that does, do-not-announce comes first, so a route asked not to go there is never passed on as a blackhole.
-    expect(c.actions(64510)).toEqual([...c.rejectDoNotAnnounce(64510), ...c.blackholeExport(64510), ...c.prepends(64510), c.stripOurs()]);
+    expect(c.actions(takesBlackholes)).toEqual([
+        ...c.rejectDoNotAnnounce(takesBlackholes),
+        ...c.blackholeExport(takesBlackholes),
+        ...c.prepends(takesBlackholes),
+        c.stripOurs(),
+    ]);
 
     expect(c.blackholeExport(64511)).toEqual([
         { description: "Blackholed here, never announced", match: { large_community: "64500:666:0" }, action: "reject" },
     ]);
-    expect(c.blackholeExport(64510)[0]).toMatchObject({ description: "Blackhole passed on to AS64510", action: "accept" });
+    expect(c.blackholeExport(takesBlackholes)[0]).toMatchObject({ description: "Blackhole passed on to AS64510", action: "accept" });
     expect(c.rejectDoNotAnnounce(64511).map((rule) => rule.match)).toEqual([
         { large_community: "64500:100:0" },
         { large_community: "64500:100:64511" },
