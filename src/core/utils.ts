@@ -19,6 +19,11 @@ export class Utils {
         return result as Merged<T>;
     }
 
+    /** The table a route or a BGP session is in, beside the main one: `undefined` for the main table, written `main` or left out. */
+    static otherTable(table: string | undefined): string | undefined {
+        return table === "main" ? undefined : table;
+    }
+
     /** Minutes east of UTC an IANA zone is at now, for platforms that take an offset rather than a zone. */
     static timeZoneOffset(zone: string): number {
         const name = new Intl.DateTimeFormat("en-US", {

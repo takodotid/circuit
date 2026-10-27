@@ -85,6 +85,7 @@ routing: {
 - Giving a running session another `table` restarts it: RouterOS takes the change only at a restart, and until then the session announces nothing. The plan says so on that line.
 - After an apply, Circuit checks that each session still announces what it announced of `networks` before, and names one that stopped, even if it stayed up.
 - `table` on a static route puts the route in that table.
+- `table: "main"` on a static route, a neighbor, a group or an upstream is the main table, as when `table` is left out. Write it to say so.
 - A rule's `match` takes `src`, `dst` and `in_interface`, all of which must match. A rule without `match` takes every packet, so it goes last.
 - When the table has no route for a packet, the packet is dropped. `fallback: "main"` on the rule routes it by the main table instead.
 - `validate` stops on a table nothing puts routes in, a table or interface that is not declared, and a rule after one that takes every packet.
