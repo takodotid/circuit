@@ -403,8 +403,8 @@ test("a FortiOS port joining a LAG is first freed of what names it", () => {
     expect(sent.indexOf('set member "port1"')).toBeLessThan(sent.indexOf('set device "uplink"'));
 });
 
-// The device refuses a static route the same as another, `Duplicated entry`, so editing route 1 into what route 2 holds fails before route 2 moves on.
-test("FortiOS deletes changing static routes before it creates any", () => {
+// The device refuses a static route the same as another, `Duplicated entry`: editing route 1 into what route 2 holds failed before route 2 moved on. A route the config keeps is found by what it holds, whatever its number, and one that changes is deleted before any is created.
+test("FortiOS leaves kept static routes alone, and deletes changing ones before it creates any", () => {
     const route = (id: number, dst: string, gateway: string, device: string) => [
         `    edit ${id}`,
         `        set dst ${dst}`,
@@ -430,11 +430,26 @@ test("FortiOS deletes changing static routes before it creates any", () => {
         "end",
     ];
 
-    const sent = fortiosPlan(desired, current).steps.flatMap((step) => step.send);
-    const firstCreate = sent.indexOf("edit 1");
+    expect(fortiosPlan(desired, current).steps.flatMap((step) => step.send)).toEqual(["config router static", "delete 1", "end"]);
 
-    expect(sent.slice(0, 4)).toEqual(["config router static", "delete 1", "delete 2", "delete 3"]);
-    expect(firstCreate).toBeGreaterThan(sent.indexOf("delete 3"));
+    const changed = [
+        "config router static",
+        ...route(1, "10.0.0.0 255.255.255.0", "192.0.2.2", "mgmt1"),
+        ...route(2, "10.0.1.0 255.255.255.0", "192.0.2.1", "mgmt1"),
+        "end",
+    ];
+
+    expect(fortiosPlan(changed, current).steps.flatMap((step) => step.send)).toEqual([
+        "config router static",
+        "delete 1",
+        "delete 2",
+        "edit 4",
+        "set dst 10.0.0.0 255.255.255.0",
+        "set gateway 192.0.2.2",
+        'set device "mgmt1"',
+        "next",
+        "end",
+    ]);
 });
 
 // NTP refuses to delete its last server while it synchronises, and `unset type` hides the servers without deleting them.

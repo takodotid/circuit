@@ -10,15 +10,19 @@ import { type Entry, FortiOsBlock, FortiOsTree } from "./tree";
 type Table = {
     /** Entries the factory holds. The plan neither reads nor removes them. */
     factory?: readonly string[];
-    /** The device keeps the entries in an order of their own, which `move` changes. An entry is known by what it holds or by its description, so it keeps its number for life. */
+    /** The device keeps the entries in an order of their own, which `move` changes. */
     ordered?: true;
+    /**
+     * The render numbers the entries by their place, but on the device each keeps the number it was created with. An entry is known by what it holds, or else by the settings of the first of `keys` that only it holds, such as its description. A new entry takes a number the device does not use, after `prefix` when the render names entries so.
+     */
+    numbered?: { keys: readonly (readonly string[])[]; prefix?: string };
     /** An entry is known by what it holds, not by its number. */
     byContent?: true;
     /** Settings the device gives an entry it creates. They are unset when the render does not hold them. */
     created?: (entry: FortiOsBlock) => readonly string[];
     /** Settings an entry keeps for life. A change deletes the entry and creates it again. */
     fixed?: readonly string[];
-    /** The device refuses an entry that holds the same as another, `Duplicated entry`, even for a moment while entries are renumbered. */
+    /** Every entry that changes or goes is deleted before any is created. The device refuses a static route the same as another, `Duplicated entry`, even for a moment. */
     distinct?: true;
 };
 
@@ -154,7 +158,13 @@ export class FortiOsPlan {
         "Fortinet_SSL_ED448",
     ];
 
-    private static readonly ORDERED: Table = { ordered: true };
+    /** An entry known by what it holds, or else by its description. */
+    private static readonly BY_COMMENTS: Table["numbered"] = { keys: [["comments"]] };
+
+    private static readonly ORDERED: Table = { ordered: true, numbered: FortiOsPlan.BY_COMMENTS };
+
+    /** A static route known by what it holds, or else by its description. Many routes share a destination, so that is no key. */
+    private static readonly ROUTES: Table = { numbered: { keys: [["comment"]] }, distinct: true };
 
     /** Tables whose entries need more than a plain comparison, by section. */
     private static readonly TABLES: Record<string, Table> = {
@@ -180,8 +190,12 @@ export class FortiOsPlan {
         "firewall local-in-policy": FortiOsPlan.ORDERED,
         "firewall local-in-policy6": FortiOsPlan.ORDERED,
         "firewall central-snat-map": FortiOsPlan.ORDERED,
-        "router static": { distinct: true },
-        "router static6": { distinct: true },
+        "firewall acl": { numbered: FortiOsPlan.BY_COMMENTS },
+        "firewall acl6": { numbered: FortiOsPlan.BY_COMMENTS },
+        // A virtual IP that changes is also known by the address it answers on.
+        "firewall vip": { numbered: { keys: [["comment"], ["extintf", "extip", "protocol", "extport"]], prefix: "dnat-" } },
+        "router static": FortiOsPlan.ROUTES,
+        "router static6": FortiOsPlan.ROUTES,
     };
 
     /** Settings the device keeps for itself: an object's UUID and an interface's SNMP index. */
@@ -399,11 +413,9 @@ export class FortiOsPlan {
 
         const entries = table?.byContent
             ? FortiOsPlan.byContent(path, want, have)
-            : table?.ordered
-              ? FortiOsPlan.ordered(path, want, have, table, context)
-              : table?.distinct
-                ? FortiOsPlan.distinctById(path, want, have, table, context)
-                : FortiOsPlan.byId(path, want, have, table, context);
+            : table?.numbered
+              ? FortiOsPlan.numbered(path, want, have, table, table.numbered, context)
+              : FortiOsPlan.byId(path, want, have, table, context);
         send.push(...entries.send);
         show.push(...entries.show);
 
@@ -462,16 +474,30 @@ export class FortiOsPlan {
     }
 
     /**
-     * Entries of a table the device keeps in order, such as policies. The render numbers them by their place, but on the device each keeps the number it was created with, so they are matched by what they are.
+     * Entries the render numbers by their place, while on the device each keeps the number it was created with, so they are matched by what they are.
      *
-     * An entry that holds the same as one on the device is kept. One that changes is found by its description, when no other entry left to match has it, and edited under its own number. Any other is new: it takes a number the device does not use, is created at the end and moved into place, and the entry it replaces is deleted last. So every entry the render keeps stays on the device through the whole change.
+     * An entry that holds the same as one on the device is kept. One that changes is found by the first of the table's keys that no other entry left to match shares, such as its description, and edited under its own number. Any other is new and takes a number the device does not use; in a table the device keeps in order, it is created at the end and moved into place. An entry on the device that nothing matched is deleted last, so every entry the render keeps stays on the device through the whole change.
+     *
+     * In a `distinct` table, an entry that changes is deleted and created again under its own number, and every deletion comes before any creation.
      */
-    private static ordered(path: string[], want: FortiOsBlock, have: FortiOsBlock, table: Table, context: Context): Diff {
+    private static numbered(
+        path: string[],
+        want: FortiOsBlock,
+        have: FortiOsBlock,
+        table: Table,
+        numbered: NonNullable<Table["numbered"]>,
+        context: Context
+    ): Diff {
         const send: string[] = [];
         const show: string[] = [];
 
+        // The number in a name the render gives, such as 7 in `dnat-7`. An entry named otherwise is never kept.
+        const pattern = new RegExp(`^${numbered.prefix ?? ""}(\\d+)$`);
+        const numberOf = (entry: Entry) => Number(pattern.exec(FortiOsTree.bare(entry.id))?.[1] ?? NaN);
+
+        const held = [...have.entries.values()].filter((entry) => !FortiOsPlan.isFactory(table, entry));
         const kept = new Map<string, Entry>();
-        const unmatched = new Set([...have.entries.values()].filter((entry) => !FortiOsPlan.isFactory(table, entry)));
+        const unmatched = new Set(held.filter((entry) => Number.isInteger(numberOf(entry))));
 
         const keep = (key: string, old: Entry) => {
             kept.set(key, old);
@@ -488,88 +514,73 @@ export class FortiOsPlan {
             if (index >= 0) keep(key, candidates.splice(index, 1)[0]!);
         }
 
-        const comments = (entry: Entry) => FortiOsPlan.canonical("comments", entry.block.settings.get("comments") ?? "");
-        const changed = Map.groupBy(
-            [...want.entries].filter(([key]) => !kept.has(key)),
-            ([, entry]) => comments(entry)
-        );
-        const held = Map.groupBy(unmatched, comments);
+        for (const settings of numbered.keys) {
+            const valueOf = (entry: Entry) => {
+                const parts = settings.map((setting) => FortiOsPlan.canonical(setting, entry.block.settings.get(setting) ?? ""));
+                return parts.some(Boolean) ? parts.join("\n") : undefined;
+            };
 
-        for (const [text, entries] of changed) {
-            const old = held.get(text);
-            if (text && entries.length === 1 && old?.length === 1) keep(entries[0]![0], old[0]!);
+            const changed = Map.groupBy(
+                [...want.entries].filter(([key]) => !kept.has(key)),
+                ([, entry]) => valueOf(entry)
+            );
+            const left = Map.groupBy(unmatched, valueOf);
+
+            for (const [value, entries] of changed) {
+                const old = left.get(value);
+                if (value !== undefined && entries.length === 1 && old?.length === 1) keep(entries[0]![0], old[0]!);
+            }
         }
 
         // A number no entry on the device holds, not even one deleted at the end.
-        let next = Math.max(0, ...[...have.entries.keys()].map(Number).filter(Number.isInteger)) + 1;
+        let next = Math.max(0, ...[...have.entries.values()].map(numberOf).filter(Number.isInteger)) + 1;
         const wanted: string[] = [];
+        const replaced: string[] = [];
 
         for (const [key, entry] of want.entries) {
             const old = kept.get(key);
 
             if (!old) {
-                const id = String(next++);
+                const name = `${numbered.prefix ?? ""}${next++}`;
+                const id = numbered.prefix ? FortiOsTree.quote(name) : name;
                 wanted.push(id);
                 send.push(...FortiOsPlan.creation(entry, table, id));
-                show.push(...FortiOsPlan.shown("+", [...path, id], entry.block));
+                show.push(...FortiOsPlan.shown("+", [...path, name], entry.block));
                 continue;
             }
 
             wanted.push(old.id);
 
-            const diff = FortiOsPlan.compare([...path, FortiOsTree.bare(old.id)], entry.block, old.block, undefined, false, context);
+            const where = [...path, FortiOsTree.bare(old.id)];
+            const diff = FortiOsPlan.compare(where, entry.block, old.block, undefined, false, context);
             if (!diff.send.length) continue;
+
+            if (table.distinct) {
+                replaced.push(`delete ${old.id}`);
+                send.push(...FortiOsPlan.creation(entry, table, old.id));
+                show.push(...FortiOsPlan.shown("-", where, old.block), ...FortiOsPlan.shown("+", where, entry.block));
+                continue;
+            }
 
             send.push(`edit ${old.id}`, ...diff.send, "next");
             show.push(...diff.show);
         }
 
         const keptEntries = new Set(kept.values());
-        const order = [...have.entries.values()].filter((entry) => keptEntries.has(entry)).map((entry) => entry.id);
 
-        const moved = FortiOsPlan.moves(wanted, order);
-        send.push(...moved);
-        show.push(...moved.map((line) => `+ ${FortiOsPlan.labelOf(path)}${line}`));
-
-        const gone = [...unmatched];
-
-        return {
-            send,
-            show,
-            removals: gone.map((entry) => `delete ${entry.id}`),
-            removed: gone.flatMap((entry) => FortiOsPlan.shown("-", [...path, FortiOsTree.bare(entry.id)], entry.block)),
-        };
-    }
-
-    /** Entries matched by name in a table that refuses two alike: every entry that changes or goes is deleted before any is created, so none is ever briefly the same as another. */
-    private static distinctById(path: string[], want: FortiOsBlock, have: FortiOsBlock, table: Table, context: Context): Diff {
-        const deletes: string[] = [];
-        const creates: string[] = [];
-        const show: string[] = [];
-
-        for (const [key, entry] of want.entries) {
-            const old = have.entries.get(key);
-            const where = [...path, FortiOsTree.bare(entry.id)];
-
-            if (old) {
-                if (!FortiOsPlan.compare(where, entry.block, old.block, undefined, false, context).send.length) continue;
-
-                deletes.push(`delete ${old.id}`);
-                show.push(...FortiOsPlan.shown("-", where, old.block));
-            }
-
-            creates.push(...FortiOsPlan.creation(entry, table));
-            show.push(...FortiOsPlan.shown("+", where, entry.block));
+        if (table.ordered) {
+            const order = held.filter((entry) => keptEntries.has(entry)).map((entry) => entry.id);
+            const moved = FortiOsPlan.moves(wanted, order);
+            send.push(...moved);
+            show.push(...moved.map((line) => `+ ${FortiOsPlan.labelOf(path)}${line}`));
         }
 
-        for (const [key, entry] of have.entries) {
-            if (want.entries.has(key) || FortiOsPlan.isFactory(table, entry)) continue;
+        const gone = held.filter((entry) => !keptEntries.has(entry));
+        const removals = gone.map((entry) => `delete ${entry.id}`);
+        const removed = gone.flatMap((entry) => FortiOsPlan.shown("-", [...path, FortiOsTree.bare(entry.id)], entry.block));
 
-            deletes.push(`delete ${entry.id}`);
-            show.push(...FortiOsPlan.shown("-", [...path, FortiOsTree.bare(entry.id)], entry.block));
-        }
-
-        return { send: [...deletes, ...creates], show, removals: [], removed: [] };
+        if (table.distinct) return { send: [...replaced, ...removals, ...send], show: [...removed, ...show], removals: [], removed: [] };
+        return { send, show, removals, removed };
     }
 
     /** The `move` commands that put a table's entries in the render's order, by the device's numbers: `wanted` in the render's order, `held` the kept ones in the device's. Kept entries hold their place on the device and new ones are added at the end. */
