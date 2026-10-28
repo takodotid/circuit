@@ -1,11 +1,11 @@
-// A FortiGate keeps each policy under the number it was created with, whatever its place. A plan finds a rule by what it holds, or by its description, so adding or removing a rule changes no other policy, and every rule the config keeps stays on the device through the change.
+// A FortiGate keeps each policy, static route, ACL entry and virtual IP under the number it was created with, whatever its place. A plan finds an entry by what it holds, or by its description, so adding or removing one changes no other, and every entry the config keeps stays on the device through the change.
 
 import { expect, test } from "bun:test";
 import firewall from "../../examples/platforms/fortios";
 import { Platforms } from "../../src/platforms";
 import { FortiOsBlock, FortiOsTree } from "../../src/platforms/fortios/tree";
 import type { Plan } from "../../src/platforms/platform";
-import type { Device, FilterRule, NatRule } from "../../src/schema";
+import type { AclRule, Device, FilterRule, NatRule, StaticRoute } from "../../src/schema";
 
 const platform = Platforms.get("fortios");
 const options = { secrets: false, rollback: 10 };
@@ -23,6 +23,15 @@ const LAB_OUT: NatRule<string, string> = {
     match: { src: "198.51.100.192/27", out_interface: "uplink" },
     action: "masquerade",
 };
+const LAB_WEB: NatRule<string, string> = {
+    description: "Lab web",
+    match: { protocol: "tcp", dst: "203.0.113.13/32", dst_port: 443, in_interface: "uplink" },
+    action: "dnat",
+    to: "198.51.100.44",
+};
+const LAB_ROUTE: StaticRoute<string, string, string> = { prefix: "192.0.2.128/25", via: "203.0.113.9", description: "Lab" };
+const LAB_ROUTE6: StaticRoute<string, string, string> = { prefix: "2001:db8:100::/48", via: "2001:db8:fff0::1", description: "Lab" };
+const NO_CHARGEN: AclRule<string> = { description: "No chargen", match: { protocol: "udp", dst_port: 19 }, action: "drop" };
 
 /** The device with the rules of one chain changed. */
 function withRules(device: Device, chain: "forward" | "input", change: (rules: FilterRule<string, string>[]) => void): Device {
@@ -33,13 +42,29 @@ function withRules(device: Device, chain: "forward" | "input", change: (rules: F
     return { ...device, firewall: { ...device.firewall, filter: { ...filter, [chain]: { ...filter?.[chain], rules } } } };
 }
 
-/** The device with its source NAT rules changed. */
-function withSourceNat(device: Device, change: (rules: NatRule<string, string>[]) => void): Device {
+/** The device with its source or destination NAT rules changed. */
+function withNat(device: Device, direction: "source" | "destination", change: (rules: NatRule<string, string>[]) => void): Device {
     const nat = device.firewall?.nat;
-    const source = [...(nat?.source ?? [])];
-    change(source);
+    const rules = [...(nat?.[direction] ?? [])];
+    change(rules);
 
-    return { ...device, firewall: { ...device.firewall, nat: { ...nat, source } } };
+    return { ...device, firewall: { ...device.firewall, nat: { ...nat, [direction]: rules } } };
+}
+
+/** The device with its static routes changed. */
+function withRoutes(device: Device, change: (routes: StaticRoute<string, string, string>[]) => void): Device {
+    const routes = [...(device.routing?.static ?? [])];
+    change(routes);
+
+    return { ...device, routing: { ...device.routing, static: routes } };
+}
+
+/** The device with the rules of its ACL `lab` changed. */
+function withAcl(device: Device, change: (rules: AclRule<string>[]) => void): Device {
+    const rules = [...(device.acls?.lab ?? [])];
+    change(rules);
+
+    return { ...device, acls: { ...device.acls, lab: rules } };
 }
 
 /** A device's config as a FortiGate prints it: a policy that denies does not print its action. */
@@ -192,19 +217,19 @@ test("an input rule added or removed changes no other local-in policy", () => {
 test("a source NAT rule added or removed changes no other", () => {
     const top = planned(
         base,
-        withSourceNat(base, (rules) => rules.unshift(LAB_OUT))
+        withNat(base, "source", (rules) => rules.unshift(LAB_OUT))
     );
     expect(entryLines(top, "firewall central-snat-map")).toEqual(["edit 3", "move 3 before 1"]);
 
     const middle = planned(
         base,
-        withSourceNat(base, (rules) => rules.splice(1, 0, LAB_OUT))
+        withNat(base, "source", (rules) => rules.splice(1, 0, LAB_OUT))
     );
     expect(entryLines(middle, "firewall central-snat-map")).toEqual(["edit 3", "move 3 after 1"]);
 
     const removed = planned(
         base,
-        withSourceNat(base, (rules) => rules.splice(0, 1))
+        withNat(base, "source", (rules) => rules.splice(0, 1))
     );
     expect(entryLines(removed, "firewall central-snat-map")).toEqual(["delete 1"]);
 });
@@ -245,4 +270,142 @@ test("rules sharing a description are created again when they change, and the ol
     const plan = platform.plan(desired, current, options);
     expect(plan.steps.map((step) => step.title)).toEqual(["firewall policy", "firewall policy, removed"]);
     expect(entryLines(plan, "firewall policy")).toEqual(["edit 3", "edit 4", "delete 1", "delete 2"]);
+});
+
+// Static routes 1 to 4: the default route, our space, a route with no description, and the guests' default route; IPv6 route 1 is the default route, and the lab's route is the second.
+test("a static route added or removed changes no other", () => {
+    const top = planned(
+        base,
+        withRoutes(base, (routes) => routes.unshift(LAB_ROUTE))
+    );
+    expect(entryLines(top, "router static")).toEqual(["edit 5"]);
+    expect(entryLines(top, "router static6")).toEqual([]);
+
+    const middle = planned(
+        base,
+        withRoutes(base, (routes) => routes.splice(3, 0, LAB_ROUTE))
+    );
+    expect(entryLines(middle, "router static")).toEqual(["edit 5"]);
+
+    const removed = planned(
+        base,
+        withRoutes(base, (routes) => routes.splice(2, 1))
+    );
+    expect(entryLines(removed, "router static")).toEqual(["delete 2"]);
+
+    const before = withRoutes(base, (routes) => routes.push(LAB_ROUTE6));
+    const ipv6 = { prefix: "2001:db8:200::/48", via: "2001:db8:fff0::1" } as const;
+
+    expect(
+        entryLines(
+            planned(
+                before,
+                withRoutes(before, (routes) => routes.unshift(ipv6))
+            ),
+            "router static6"
+        )
+    ).toEqual(["edit 3"]);
+    expect(
+        entryLines(
+            planned(
+                before,
+                withRoutes(before, (routes) => routes.splice(2, 0, ipv6))
+            ),
+            "router static6"
+        )
+    ).toEqual(["edit 3"]);
+    expect(
+        entryLines(
+            planned(
+                before,
+                withRoutes(before, (routes) => routes.splice(1, 1))
+            ),
+            "router static6"
+        )
+    ).toEqual(["delete 1"]);
+});
+
+// The device refuses a static route the same as another, so one that changes is deleted, then created again under its own number.
+test("a static route that changes is created again under its own number, found by its description", () => {
+    const after = withRoutes(base, (routes) => {
+        routes[2] = { ...routes[2]!, prefix: "198.51.100.0/25" };
+        routes.unshift(LAB_ROUTE);
+    });
+
+    const plan = planned(base, after);
+    expect(entryLines(plan, "router static")).toEqual(["delete 2", "edit 5", "edit 2"]);
+});
+
+// Virtual IPs dnat-1 and dnat-2: the web server, and mail for partners.
+test("a destination NAT rule added or removed changes no other virtual IP", () => {
+    const top = planned(
+        base,
+        withNat(base, "destination", (rules) => rules.unshift(LAB_WEB))
+    );
+    expect(entryLines(top, "firewall vip")).toEqual(['edit "dnat-3"']);
+
+    const middle = planned(
+        base,
+        withNat(base, "destination", (rules) => rules.splice(1, 0, LAB_WEB))
+    );
+    expect(entryLines(middle, "firewall vip")).toEqual(['edit "dnat-3"']);
+
+    const removed = planned(
+        base,
+        withNat(base, "destination", (rules) => rules.splice(0, 1))
+    );
+    expect(entryLines(removed, "firewall vip")).toEqual(['delete "dnat-1"']);
+});
+
+test("a virtual IP without a description is found by the address it answers on", () => {
+    const undescribed = withNat(base, "destination", (rules) =>
+        rules.forEach((rule, index) => (rules[index] = { ...rule, description: undefined }))
+    );
+    const after = withNat(undescribed, "destination", (rules) => {
+        rules[0] = { ...rules[0]!, to: "198.51.100.45" } as NatRule<string, string>;
+        rules.unshift(LAB_WEB);
+    });
+
+    const plan = planned(undescribed, after);
+    expect(entryLines(plan, "firewall vip")).toEqual(['edit "dnat-3"', 'edit "dnat-1"']);
+    expect(plan.steps.find((step) => step.title === "firewall vip")!.show).toContain('+ dnat-1: set mappedip "198.51.100.45"');
+});
+
+// Only a virtual IP named the way Circuit names them is kept, even when another holds the same.
+test("a virtual IP named by hand is deleted, and the config's own is created beside the others", () => {
+    const current = printed(base).replace('edit "dnat-1"', 'edit "web"');
+    const plan = platform.plan(platform.render(base), current, options);
+
+    expect(entryLines(plan, "firewall vip")).toEqual(['edit "dnat-3"', 'delete "web"']);
+    expect(platform.plan(platform.render(base), applied(current, plan), options).steps).toEqual([]);
+});
+
+// ACL entries 1 and 2: spoofed sources and memcached; IPv6 entry 1: memcached.
+test("an ACL rule added or removed changes no other ACL entry", () => {
+    const top = planned(
+        base,
+        withAcl(base, (rules) => rules.unshift(NO_CHARGEN))
+    );
+    expect(entryLines(top, "firewall acl")).toEqual(["edit 3"]);
+    expect(entryLines(top, "firewall acl6")).toEqual(["edit 2"]);
+
+    const middle = planned(
+        base,
+        withAcl(base, (rules) => rules.splice(1, 0, NO_CHARGEN))
+    );
+    expect(entryLines(middle, "firewall acl")).toEqual(["edit 3"]);
+    expect(entryLines(middle, "firewall acl6")).toEqual(["edit 2"]);
+
+    const first = planned(
+        base,
+        withAcl(base, (rules) => rules.splice(0, 1))
+    );
+    expect(entryLines(first, "firewall acl")).toEqual(["delete 1"]);
+
+    const memcached = planned(
+        base,
+        withAcl(base, (rules) => rules.splice(1, 1))
+    );
+    expect(entryLines(memcached, "firewall acl")).toEqual(["delete 2"]);
+    expect(entryLines(memcached, "firewall acl6")).toEqual(["delete 1"]);
 });
