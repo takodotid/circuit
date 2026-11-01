@@ -19,6 +19,8 @@ docs/reference/
 
 # Built for Node by scripts/build.ts: published, never committed.
 /dist/
+# Studio's page, built by scripts/studio.ts into the binary: written on bun install and each build.
+/src/studio/assets.generated.ts
 
 # Third-party skills and agents, installed on each machine from skills-lock.json with `bun run agents:setup`. Our own skills are committed.
 /.agents/

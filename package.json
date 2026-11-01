@@ -27,13 +27,14 @@
         "README.md"
     ],
     "scripts": {
-        "typecheck": "bunx tsc --noEmit",
+        "typecheck": "bunx tsc --noEmit && bunx tsc --noEmit -p src/studio/app",
         "test": "bun test",
         "build": "bun scripts/build.ts",
+        "studio": "bun scripts/studio.ts",
         "format": "bunx prettier --write .",
         "format:check": "bunx prettier --check .",
-        "check": "bun run typecheck && bun run test && bun run format:check && bun run build",
-        "prepare": "husky || true"
+        "check": "bun run studio && bun run typecheck && bun run test && bun run format:check && bun run build",
+        "prepare": "bun run studio; husky || true"
     },
     "dependencies": {
         "@clack/prompts": "1.8.1",
@@ -48,10 +49,15 @@
         "@types/bun": "^1.4.4",
         "@types/node": "^24.19.2",
         "@types/ssh2": "^1.15.6",
+        "@vitejs/plugin-vue": "6.0.10",
+        "cytoscape": "3.34.4",
+        "eciesjs": "0.5.0",
         "husky": "^9.1.7",
         "prettier": "^3.9.10",
         "typescript": "^7.0.2",
-        "typescript-6": "npm:typescript@6.0.3"
+        "typescript-6": "npm:typescript@6.0.3",
+        "vite": "8.3.5",
+        "vue": "3.5.44"
     },
     "packageManager": "bun@1.4.4"
 }

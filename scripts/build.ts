@@ -20,6 +20,10 @@ const RELEASE: Record<string, string> = {
 // The files Circuit writes for a project's editor, from the sources as they are now.
 writeFileSync(join(root, "src", "cli", "editor-types.generated.ts"), generated());
 
+// Studio's page, built and carried into the binary.
+const studio = spawnSync("bun", ["scripts/studio.ts"], { cwd: root, stdio: "inherit" });
+if (studio.status !== 0) process.exit(studio.status ?? 1);
+
 /** Compile one binary. Circuit reads a project's `.env` itself, from the project's folder, so Bun is told not to load one. */
 function compile(outfile: string, target?: string): void {
     const build = spawnSync(

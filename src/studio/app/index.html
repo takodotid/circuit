@@ -1,0 +1,18 @@
+<!doctype html>
+<!-- Circuit Studio. The app fills the page from /api/data, and draws again when the server says the project changed. -->
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Circuit Studio</title>
+        <!-- Studio shows one team's network, so search engines are asked to leave it out. -->
+        <meta name="robots" content="noindex, nofollow, noarchive" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <!-- Special Gothic is shared with the documentation site, and served from beside this page so Studio works offline. -->
+        <link rel="preload" href="/special-gothic-latin.woff2" as="font" type="font/woff2" crossorigin />
+    </head>
+    <body>
+        <div id="app"></div>
+        <script type="module" src="/src/main.ts"></script>
+    </body>
+</html>
