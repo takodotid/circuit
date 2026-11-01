@@ -1,7 +1,7 @@
 // The commands that read a project: `validate`, `diff` and `apply`, and the utilities that reach a device, `exec`, `bgp` and `access-console`. Each reads the project in the folder `--project` names, or in the working directory or the nearest folder above it that holds `circuit.ts`.
 
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { Validation } from "../checks";
 import { Cabling } from "../core/cabling";
 import { Secrets } from "../core/secrets";
@@ -13,6 +13,7 @@ import type { ApplyOptions, BgpLogLine, BgpSession, Plan, Platform, ReadSession 
 import { ProjectError, type ProjectRead, readProject } from "../project/project";
 import { ConsoleScript, type ConsoleSession, SerialConsole } from "../transport/console";
 import { PathCheck } from "../transport/path-check";
+import { Rename, type RenamePlan } from "./rename";
 import { Setup } from "./setup";
 import { Ui } from "./ui";
 
@@ -281,6 +282,59 @@ export class ProjectCommands {
         }
 
         if (failed) process.exitCode = 1;
+    }
+
+    /** A device's new name everywhere the project's files write it, and its file's when asked. Shows every change, and writes once the person says yes, or with `--confirm`. */
+    async rename(from: string | undefined, to: string | undefined, file: boolean | undefined, confirmed: boolean): Promise<void> {
+        const device = await this.pick(from);
+        const network = this.project.networks.find((candidate) => device.name in candidate.devices)!;
+        const declaring = network.files[device.name] ?? Ui.fail(`No file of the project writes ${device.name}, so rename it by hand.`);
+
+        const check = (name: string) => {
+            if (!Rename.HOSTNAME.test(name)) return `${name} is not a hostname: letters, digits, dots, dashes and underscores.`;
+            if (this.devices.some((candidate) => candidate.name === name)) return `${name} is already a device.`;
+            return undefined;
+        };
+        const name = to ?? (Ui.interactive ? await Ui.text(`New name for ${device.name}`, { check }) : Ui.fail("Give the new name."));
+        const wrong = check(name);
+        if (wrong) Ui.fail(wrong);
+
+        // A file named after the device follows it, unless the person says otherwise.
+        const namedAfter = basename(declaring, extname(declaring)) === device.name;
+        const moveFile =
+            file ??
+            (namedAfter && Ui.interactive ? await Ui.confirm(`Also rename ${declaring} to ${name}${extname(declaring)}?`, true) : false);
+
+        let plan: RenamePlan;
+        try {
+            plan = Rename.plan(this.root, device.name, name, { declaring, file: moveFile });
+        } catch (error) {
+            Ui.fail((error as Error).message);
+        }
+
+        for (const change of plan.changes) {
+            console.log(Ui.bold(`${change.file}:${change.line}`));
+            console.log(Ui.red(`  - ${change.before.trim()}`));
+            console.log(Ui.green(`  + ${change.after.trim()}`));
+        }
+        for (const move of plan.moves) console.log(`${Ui.bold("move")} ${move.from} to ${move.to}`);
+
+        if (plan.mentions.length) {
+            console.log(`\nStill naming ${device.name}, left as they are. Change them by hand if they mean the device:`);
+            for (const mention of plan.mentions) console.log(`  ${mention.file}:${mention.line}  ${mention.text.slice(0, 160)}`);
+        }
+
+        if (!confirmed) {
+            if (!Ui.interactive) Ui.fail("\nNothing written. Without a person to answer, add --confirm.");
+            console.log();
+            if (!(await Ui.confirm(`Rename ${device.name} to ${name}?`))) {
+                console.log("Nothing written.");
+                return;
+            }
+        }
+
+        Rename.apply(this.root, plan);
+        Ui.done(`Renamed. Run circuit validate, then circuit apply ${name}: the device keeps its old hostname until then.`);
     }
 
     /** Every secret the config names, as `secret("NAME")` writes it. */

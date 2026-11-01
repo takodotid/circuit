@@ -151,6 +151,19 @@ class Cli {
                 (await ProjectCommands.open(flags.project)).accessConsole(device, lines, flags.raw ?? false)
             );
 
+        program
+            .command("rename")
+            .description("give a device a new name everywhere the project writes it, and its file too")
+            .argument("[device]", "picked from a list when left out")
+            .argument("[new-name]", "asked for when left out")
+            .option("--file", "also rename the file that writes the device")
+            .option("--no-file", "leave the file's name as it is")
+            .option("--confirm", "write without asking")
+            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
+            .action(async (device, name, flags) =>
+                (await ProjectCommands.open(flags.project)).rename(device, name, flags.file, flags.confirm ?? false)
+            );
+
         program.commandsGroup("Secrets:");
 
         const env = program.command("env").description("the project's secrets in .env, each one encrypted");
@@ -261,6 +274,7 @@ class Cli {
             { value: "exec", label: "Execute", hint: "run a command that only reads on a device" },
             { value: "bgp", label: "BGP", hint: "each BGP session of a device" },
             { value: "access-console", label: "Access console", hint: "a device's serial console" },
+            { value: "rename", label: "Rename", hint: "give a device a new name everywhere" },
             heading("Secrets"),
             { value: "env", label: "Secrets", hint: "list, set or delete the secrets in .env" },
             heading("Circuit"),

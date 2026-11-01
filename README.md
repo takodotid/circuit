@@ -69,6 +69,7 @@ Each reads the project in the working directory or the nearest folder above it, 
 | `exec [device] [command...]`        | Runs commands that only read on the device, and prints the answer, secrets hidden.        |
 | `bgp [device]`                      | Each BGP neighbor next to its live session: up or down, prefixes, uptime.                 |
 | `access-console [device] [line...]` | Opens the device's serial console, logged in, or sends it lines.                          |
+| `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.             |
 | `env`                               | Lists the secrets in `.env`; `env set`, `get`, `delete`, `encrypt` and `rotate` the rest. |
 | `update`                            | Installs the newest Circuit.                                                              |
 
