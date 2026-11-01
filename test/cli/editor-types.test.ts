@@ -9,7 +9,8 @@ import { VERSION } from "../../src/cli/version";
 const root = join(import.meta.dir, "..", "..");
 
 test("editor-types.generated.ts is current: bun run build writes it", () => {
-    expect(readFileSync(join(root, "src", "cli", "editor-types.generated.ts"), "utf8")).toBe(generated());
+    // A Windows checkout writes CRLF; the generated text is LF everywhere.
+    expect(readFileSync(join(root, "src", "cli", "editor-types.generated.ts"), "utf8").replaceAll("\r\n", "\n")).toBe(generated());
 });
 
 test("the version is package.json's", () => {
