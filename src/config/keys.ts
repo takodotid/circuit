@@ -1,4 +1,4 @@
-// Every key Circuit takes, at run time, so `circuit check` stops on one it doesn't know. One source: the types. Each shape here is typed
+// Every key Circuit takes, at run time, so `circuit validate` stops on one it doesn't know. One source: the types. Each shape here is typed
 // `ShapeOf<the type>`, which needs every key of the type and allows no other, so a key added to, renamed in or removed from a type
 // fails `tsc` until its shape says the same. The two can't drift.
 

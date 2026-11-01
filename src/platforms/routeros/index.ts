@@ -736,7 +736,7 @@ export class RouterOs extends Platform {
 
         return gone.map((pair) => {
             const [neighbor, prefix] = pair.split(" ");
-            return `BGP session ${neighbor} announced ${prefix} before the apply and does not ${limits.seconds} s after it, though it may still be established. A RouterOS session announces from its routing table: that table needs a route for ${prefix}, and a session whose table changed must restart. Look with: circuit show ${device.name} '/routing bgp advertisements print'`;
+            return `BGP session ${neighbor} announced ${prefix} before the apply and does not ${limits.seconds} s after it, though it may still be established. A RouterOS session announces from its routing table: that table needs a route for ${prefix}, and a session whose table changed must restart. Look with: circuit exec ${device.name} '/routing bgp advertisements print'`;
         });
     }
 
@@ -752,7 +752,7 @@ export class RouterOs extends Platform {
         }
 
         return [
-            `${invalid} switch rule(s) are invalid: the switch chip cannot hold them, and every rule after the first invalid one is invalid too, so those rules do nothing. Use fewer distinct port ranges in this device's ACLs, then apply again. See them with: circuit show ${device.name} '${RouterOs.SWITCH_RULES} print where invalid'`,
+            `${invalid} switch rule(s) are invalid: the switch chip cannot hold them, and every rule after the first invalid one is invalid too, so those rules do nothing. Use fewer distinct port ranges in this device's ACLs, then apply again. See them with: circuit exec ${device.name} '${RouterOs.SWITCH_RULES} print where invalid'`,
         ];
     }
 

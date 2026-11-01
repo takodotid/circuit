@@ -45,10 +45,16 @@ beforeAll(async () => {
 
 afterAll(() => rmSync(folder, { recursive: true, force: true }));
 
-test("the editor's types take every device", () => {
-    const tsc = spawnSync("bunx", ["tsc", "--noEmit", "-p", folder], { encoding: "utf8", shell: true });
-    expect(tsc.stdout + tsc.stderr).toBe("");
-});
+// TypeScript 7, and TypeScript 6, which VS Code bundles: the editor checks a project with its own TypeScript, whatever the project has.
+for (const [version, tsc] of [
+    ["7", join(import.meta.dir, "..", "..", "node_modules", "typescript", "bin", "tsc")],
+    ["6", join(import.meta.dir, "..", "..", "node_modules", "typescript-6", "bin", "tsc")],
+] as const) {
+    test(`the editor's types take every device, in TypeScript ${version}`, () => {
+        const run = spawnSync("bun", [tsc, "--noEmit", "-p", folder], { encoding: "utf8" });
+        expect(run.stdout + run.stderr).toBe("");
+    });
+}
 
 describe("each device is in the model as written", () => {
     for (const name of Fixtures.names()) {

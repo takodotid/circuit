@@ -104,7 +104,7 @@ export type CommunitiesImport<R extends string> = {
 export type CommunitiesExport = {
     /** The rules for an export. */
     communities: "export";
-    /** Keep our communities on the route. `false` when absent. Toward iBGP, write it: `true` sends every tag and request on, as it is; without it, `circuit check` stops. */
+    /** Keep our communities on the route. `false` when absent. Toward iBGP, write it: `true` sends every tag and request on, as it is; without it, `circuit validate` stops. */
     keep_ours?: boolean;
     /** Keep our tags on the route, for a neighbor that wants to see where a route was learned; the requests are still taken off. `false` when absent. */
     send_tags?: boolean;

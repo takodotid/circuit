@@ -27,7 +27,7 @@ export type ProjectNetwork = {
     /** Its name in `circuit.ts`, such as `as64500`. */
     name: string;
     asn?: number;
-    /** What each community of the network's scheme means, for `circuit communities`. */
+    /** What each community of the network's scheme means, for a looking glass or bgp.tools. */
     communities: Community[];
     /** Each device, in the model the platforms read, by hostname. */
     devices: Record<string, Device>;
@@ -98,7 +98,7 @@ export async function readProject(folder: string): Promise<ProjectRead> {
     source.read = (file) => readFileSync(file, "utf8");
 
     if (!existsSync(resolve(project, "circuit.ts")))
-        stop([`${project} has no circuit.ts. Run circuit init there, or give the project's folder.`]);
+        stop([`${project} has no circuit.ts. Start one by running circuit, or give the project's folder.`]);
 
     // circuit.ts first: the networks it exports.
     const root = await load(resolve(project, "circuit.ts"));

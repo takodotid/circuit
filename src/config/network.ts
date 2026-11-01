@@ -32,7 +32,7 @@ export type Site = {
     number?: number;
 };
 
-/** Circuit's built-in checks, by name. A check is on when it is here. `D` is the network's device names: `circuit check` checks each is a device of the network. */
+/** Circuit's built-in checks, by name. A check is on when it is here. `D` is the network's device names: `circuit validate` checks each is a device of the network. */
 export type Checks<D extends string> = {
     /**
      * Where traffic from outside, before anything filters it, may go. The untrusted VLANs are those written `untrusted: true` in
@@ -54,7 +54,7 @@ export type Checks<D extends string> = {
     /** A GRE or VXLAN tunnel's local address is outside what the neighbors over it are offered, or their replies route back into the tunnel. */
     tunnels_outside_offered?: true;
     /**
-     * One VLAN name has one ID on every device of the network. Circuit runs it when it reads the project, and `circuit check` stops on a VLAN
+     * One VLAN name has one ID on every device of the network. Circuit runs it when it reads the project, and `circuit validate` stops on a VLAN
      * with two IDs, naming both devices and where each is written. So the resolved network always passes it, and leaves it out.
      */
     same_vlan_ids?: true;
@@ -90,7 +90,7 @@ export type ResolvedNetwork = { readonly asn?: number; readonly prefixes: Prefix
 
 /**
  * A check of your own, beside Circuit's: it reads the network resolved, as its devices will run it, and returns what is wrong. Nothing
- * found is an empty list. `circuit check` runs it; the resolved network never shows it.
+ * found is an empty list. `circuit validate` runs it; the resolved network never shows it.
  */
 export type Check = (network: ResolvedNetwork) => readonly Finding[];
 
@@ -156,14 +156,14 @@ export type NetworkSettings<
     /**
      * The network's BGP large communities, `asn:code:value` (RFC 8092), used as RFC 8195 describes. Written once here: a neighbor group
      * says which `groups` it is in, and a policy places `{ communities: "import" }` or `{ communities: "export" }`. Circuit writes the
-     * catalogue from it, which `circuit communities` prints for a looking glass or bgp.tools.
+     * catalogue from it, for a looking glass or bgp.tools.
      */
     communities?: C & CommunityScheme & SchemeCheck<C, Numbered<Sites>>;
     /** Each site, by name: a data centre or an office. The NetBox site and LibreNMS group of that name. A device's `site` is one of these, and each has a device. */
     sites: Sites;
     /**
      * Circuit's built-in checks, turned on by name, with their settings, and your own: any other name takes a function that reads the
-     * network and returns what it found (`Check`). `circuit check` runs them all. `untrusted: true` on a VLAN is allowed only while
+     * network and returns what it found (`Check`). `circuit validate` runs them all. `untrusted: true` on a VLAN is allowed only while
      * `untrusted_vlans` is here.
      */
     checks?: Own & Checks<string> & { [K in Exclude<keyof Own, keyof Checks<string>>]: Check };

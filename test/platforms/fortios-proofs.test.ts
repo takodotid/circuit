@@ -10,7 +10,7 @@ const platform = new FortiOs();
 /** The FortiOS example. */
 const firewall = Fixtures.device("platforms--example-firewall");
 
-test("circuit show may read what LLDP received", () => {
+test("circuit exec may read what LLDP received", () => {
     for (const command of [
         "diagnose lldprx neighbor summary",
         "diagnose lldprx neighbor details",

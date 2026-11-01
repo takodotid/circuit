@@ -6,7 +6,7 @@ import { models as raisecom } from "../platforms/raisecom-ros/models";
 import { models as routeros } from "../platforms/routeros/models";
 import { models as vrp } from "../platforms/vrp/models";
 
-/** What a model's hardware holds, where a real device held less than its datasheet lists. `circuit check` checks a config against it. */
+/** What a model's hardware holds, where a real device held less than its datasheet lists. `circuit validate` checks a config against it. */
 export type ModelLimits = {
     /** The most member ports one LAG may have. More is an error. */
     readonly lag_members?: number;

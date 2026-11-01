@@ -23,7 +23,7 @@ export type ApplyOptions = {
 /** How a device is read. */
 export type ReadOptions = Pick<ApplyOptions, "console">;
 
-/** A login on a device for commands that only read, as `circuit show` runs them. */
+/** A login on a device for commands that only read, as `circuit exec` runs them. */
 export type ReadSession = {
     /**
      * Run one command and return what it printed, without its echo or the prompt.
@@ -95,9 +95,9 @@ export abstract class Platform {
     /** The name a device's `platform` field takes. */
     abstract readonly name: PlatformName;
     abstract readonly os: OsSupport;
-    /** File extension of a saved snapshot, for syntax highlighting. */
+    /** File extension of the device's config, for syntax highlighting. */
     abstract readonly extension: string;
-    /** How the platform's serial console asks for a login and shows its prompt. Present when the platform can be read and applied through a console, `--console`, and opened with `circuit console`. */
+    /** How the platform's serial console asks for a login and shows its prompt. Present when the platform can be read and applied through a console, `--console`, and opened with `circuit access-console`. */
     readonly console: ConsoleDialect | undefined = undefined;
     /** Fields this platform cannot express. Validation fails on any of them, so nothing is skipped silently. */
     abstract unsupported(device: Device): string[];
@@ -109,7 +109,7 @@ export abstract class Platform {
     abstract render(device: Device): string;
     /** What the device runs now, secrets removed, in the form `render` produces where the platform allows. */
     abstract read(device: Device, network: readonly Device[], options?: ReadOptions): Promise<string>;
-    /** The LLDP neighbors the device sees, by Circuit's port names, for `snapshot` to save. Absent on a platform whose LLDP command and its output are not proved on a device yet. */
+    /** The LLDP neighbors the device sees, by Circuit's port names, for `diff` and `apply` to compare with each port's `link`. Absent on a platform whose LLDP command and its output are not proved on a device yet. */
     neighbors?(device: Device, network: readonly Device[], options?: ReadOptions): Promise<Neighbor[]>;
     /** What it takes to go from `current` to `desired`. */
     abstract plan(desired: string, current: string, options: ApplyOptions): Plan;
@@ -117,7 +117,7 @@ export abstract class Platform {
     fill?(device: Device, network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void>;
     /** Send a plan, keeping the device reachable or restoring it. */
     abstract apply(device: Device, network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void>;
-    /** Whether a command only reads on this platform, so `circuit show` may send it. Anything not known to only read is refused. */
+    /** Whether a command only reads on this platform, so `circuit exec` may send it. Anything not known to only read is refused. */
     abstract readOnly(command: string): boolean;
     /** Log in for commands that only read, over SSH or on the console, the way the platform's read logs in. */
     abstract session(device: Device, options?: ReadOptions): Promise<ReadSession>;
@@ -128,7 +128,7 @@ export abstract class Platform {
     /** Open again these sessions, each closed on its prefix limit, read by `bgpSessions`. Only a session still closed on its limit is touched. */
     bgpClearLimit?(session: ReadSession, sessions: readonly BgpSession[]): Promise<void>;
     /**
-     * Checks that the device is healthy after an apply, not only that it took the commands. Called before the plan is sent, to read what the checks compare against; the CLI runs them after the apply and the snapshot. Absent on a platform with no checks yet.
+     * Checks that the device is healthy after an apply, not only that it took the commands. Called before the plan is sent, to read what the checks compare against; the CLI runs them after the apply. Absent on a platform with no checks yet.
      */
     health?(device: Device, plan: Plan, options?: HealthOptions): Promise<HealthCheck>;
 }

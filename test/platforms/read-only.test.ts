@@ -1,4 +1,4 @@
-// Which commands `circuit show` may send on each platform: only what reads, and never a `?` where a script's `?` is run.
+// Which commands `circuit exec` may send on each platform: only what reads, and never a `?` where a script's `?` is run.
 
 import { expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";

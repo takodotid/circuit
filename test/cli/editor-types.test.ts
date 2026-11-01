@@ -1,4 +1,4 @@
-// What `circuit init` writes for the editor is the sources as they are, and the binary says the version package.json says.
+// What Circuit writes for the editor is the sources as they are, and the binary says the version package.json says.
 
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";

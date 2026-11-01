@@ -24,12 +24,13 @@ Every change to Circuit is weighed against these, set by the owner.
 - `src/platforms/<name>/`: one adapter per device OS (`routeros`, `vrp`, `raisecom-ros`, `junos`, `fortios`), the only place for vendor syntax. Its `models.ts` lists the models and their ports; its `TRAPS.md` lists what the device does that you wouldn't expect.
 - `src/core/`: addresses, secrets, cabling, registries, and `Utils`.
 - `src/transport/`: SSH and serial consoles.
-- `src/cli/`: the `circuit` command. `editor-types.generated.ts` is written by `scripts/editor-types.ts`: the files `circuit init` puts in a project's `.circuit/types`.
+- `src/cli/`: the `circuit` command: its menu and commands (`index.ts`), the commands that read a project (`project-commands.ts`), `env` (`env.ts`), a new project (`setup.ts`), the git hook (`git-hooks.ts`), updates (`releases.ts`), and how it talks to a person (`ui.ts`, with `@clack/prompts`). `editor-types.generated.ts` is written by `scripts/editor-types.ts`: the files Circuit puts in a project's `.circuit/types`.
+- `src/core/env-file.ts`: a project's `.env`, each value encrypted as dotenvx encrypts it (`@dotenvx/primitives`).
 - `scripts/`: `build.ts` makes `dist/circuit` (`circuit.exe` on Windows); `from-v0.ts` moves a 0.x device into the v1 model.
 - `test/`: `test/platforms/<platform>-golden.test.ts` prove each platform renders 0.x's examples (moved to v1 by `scripts/from-v0.ts`, kept in `test/fixtures/v0/`) byte for byte as 0.x did. `test/project/examples.test.ts` writes them as a v1 project and checks the editor's types take every one. `test/platforms/fake-ssh.ts` is a fake device over SSH.
 - `docs/`: [project.md](docs/project.md) (how to write a project), [model.md](docs/model.md) (the model), [decisions.md](docs/decisions.md) (the decisions that shaped v1).
 
-Not in v1 yet, later work: Studio, the docs site, integrations (PeeringDB, LibreNMS, NetBox, Prometheus), and the `graph`, `addresses` and `rename` commands.
+Not in v1 yet, later work: integrations (PeeringDB, LibreNMS, NetBox, Prometheus, to become one `circuit sync <target>`), and the `refresh`, `wireguard`, `communities`, `graph` and `addresses` commands.
 
 ## Rules
 
@@ -38,7 +39,7 @@ Not in v1 yet, later work: Studio, the docs site, integrations (PeeringDB, Libre
 3. A field is written only when it has a value. No `enabled: false`, no placeholders, nothing marked spare. Off means the field isn't there.
 4. Every field in `src/config/` has a doc comment, shown on hover.
 5. A field a platform can't express goes in its `unsupported()`. Never skip one silently.
-6. Secrets are `secret("NAME")` or `secretFile("path")` references. Rendered config, plans and snapshots never hold a value.
+6. Secrets are `secret("NAME")` or `secretFile("path")` references. Rendered config and plans never hold a value. In `.env`, each value is encrypted, or an `op://` reference; the key that decrypts is never committed.
 7. A platform is one OS at the versions in its `os.versions` (`routeros` is RouterOS 7, not 6). A new version gets a wider `os.versions` once proved on it, or its own platform if it takes other commands.
 8. Never guess what a device does. Prove it on a real device, and write what you learned in its `TRAPS.md`.
 9. When unsure, ask.
@@ -83,7 +84,7 @@ Docs, comments, commit messages and replies to the owner:
 
 - `bun run check` runs typecheck, tests and the build. The pre-commit hook runs `bun run typecheck` and `bun run test`.
 - `bun run build` writes `src/cli/editor-types.generated.ts` from the sources, then compiles `dist/circuit` (`dist/circuit.exe` on Windows) with Bun inside. `bun scripts/build.ts --target=bun-linux-x64` builds for another system. A test fails when `editor-types.generated.ts` is not current.
-- `bun src/cli/index.ts <command> --project <folder>` runs Circuit from the sources. `circuit init` writes a project's `.circuit/types` and `tsconfig.json`; `bunx tsc --noEmit -p <folder>` then checks the project as the editor does.
+- `bun src/cli/index.ts <command> --project <folder>` runs Circuit from the sources. Circuit writes a project's `.circuit/types` when it starts the project and whenever they are not its own; `bunx tsc --noEmit -p <folder>` then checks the project as the editor does.
 - A change to a platform keeps its golden test passing: every 0.x example renders as 0.x rendered it, byte for byte.
 
 ## Git and releases

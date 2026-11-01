@@ -15,10 +15,10 @@ export type Secret =
           readonly secret_file: string;
       };
 
-/** An IPv4 address, four numbers with dots between them, for example `10.0.0.1`. The type checks the shape; `circuit check` checks each number is 0 to 255. */
+/** An IPv4 address, four numbers with dots between them, for example `10.0.0.1`. The type checks the shape; `circuit validate` checks each number is 0 to 255. */
 export type IPv4 = `${number}.${number}.${number}.${number}`;
 
-/** An IPv6 address, groups with colons between them, for example `2001:db8::1`. The type only checks there is a colon; `circuit check` checks the rest. */
+/** An IPv6 address, groups with colons between them, for example `2001:db8::1`. The type only checks there is a colon; `circuit validate` checks the rest. */
 export type IPv6 = `${string}:${string}`;
 
 /** An address without a length, IPv4 or IPv6, for example `10.0.0.1` or `2001:db8::1`. */

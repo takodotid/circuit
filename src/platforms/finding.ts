@@ -1,4 +1,4 @@
-/** Something wrong with a config, as `circuit check` reports it. */
+/** Something wrong with a config, as `circuit validate` reports it. */
 export type Finding = {
     /** An error stops `diff` and `apply`; a warning is reported only. */
     level: "error" | "warning";

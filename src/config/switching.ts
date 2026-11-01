@@ -15,7 +15,7 @@ export type Vlan<Untrusted extends boolean = true> = {
     /**
      * The VLAN carries traffic straight from outside: a transit, an exchange, an ISP handoff, or such a one's native VLAN. Only Circuit
      * reads it, for the check `untrusted_vlans`; the device never sees it. Write it on every device that declares the VLAN. Allowed only
-     * when the network's `circuit()` turns on `untrusted_vlans`: an error in the editor, and `circuit check` stops.
+     * when the network's `circuit()` turns on `untrusted_vlans`: an error in the editor, and `circuit validate` stops.
      */
     untrusted?: Untrusted extends true ? true : "allowed only when circuit.ts turns on the check untrusted_vlans";
 };

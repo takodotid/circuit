@@ -97,7 +97,7 @@ A renderer may still leave out what its platform can't hold, and says so: a VLAN
 
 ## Communities
 
-`communities` in the model is the catalogue: every community the scheme defines, `nnn` for any number, with what it means. `circuit communities` prints it. The scheme itself, and how a neighbor and a policy use it, is in [How to write a project](project.md#communities).
+`communities` in the model is the catalogue: every community the scheme defines, `nnn` for any number, with what it means. The scheme itself, and how a neighbor and a policy use it, is in [How to write a project](project.md#communities).
 
 ## Checks
 

@@ -440,7 +440,7 @@ export class SerialConsole {
 
 /** A CLI on a console or in an SSH shell that runs one command at a time and returns what it printed, as an SSH exec would: no echo, no prompt. */
 export class ConsoleShell {
-    /** The quiet to wait for after the prompt when output can hold a line that looks like it, as `circuit show` prints whatever the device has. */
+    /** The quiet to wait for after the prompt when output can hold a line that looks like it, as `circuit exec` prints whatever the device has. */
     static readonly SETTLE = 1_000;
 
     constructor(
@@ -476,7 +476,7 @@ export class ConsoleShell {
     }
 }
 
-/** One line for `circuit console`: what to send, the quiet that ends its answer, and the text the last answer must end with for the line to be sent. */
+/** One line for `circuit access-console`: what to send, the quiet that ends its answer, and the text the last answer must end with for the line to be sent. */
 export type ScriptLine = { text: string; quiet: number; onlyAfter?: string };
 
 /**

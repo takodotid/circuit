@@ -568,7 +568,7 @@ const mapAt = (value: unknown, path: string): unknown =>
  *   `{ "edge-01": part("device", { ... }) }`. The names it refers to are checked at the device.
  * - `part("filter", [...])`, `"nat"`, `"acl"`, `"policy"`, `"policy-routing"`: rules for an ordered list another file writes, such as
  *   each tenant's rules for the router's input chain. That file places them with `merge`: `rules: merge([own_rule, tenants.rules.router_input])`.
- *   Each rule has its kind's fields only. Rules made here that no device holds stop `circuit check`, so none is forgotten.
+ *   Each rule has its kind's fields only. Rules made here that no device holds stop `circuit validate`, so none is forgotten.
  */
 export function part<const K extends "device" | "filter" | "nat" | "acl" | "policy" | "policy-routing", const T>(
     kind: K,

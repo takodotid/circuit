@@ -2,16 +2,16 @@
 
 A project is a folder of TypeScript files that describe one network: one file per device, plus the facts several devices share. It is plain data. It imports nothing from Circuit, and needs no npm and no Node: Circuit's functions are globals, and the editor reads their types from `.circuit/types`.
 
-The example on this page is a whole project, a router and a switch at one site with one tenant. It passes `tsc` and `circuit check` as written.
+The example on this page is a whole project, a router and a switch at one site with one tenant. It passes `tsc` and `circuit validate` as written.
 
 ## Start
 
-1. Run `circuit init my-network --asn 64500`. It writes `circuit.ts`, `sites/`, `tenants/`, `tsconfig.json`, `.gitignore`, `.env`, and the editor's types in `.circuit/types`.
+1. Install Circuit. The installer asks a few questions, then writes the project: `circuit.ts`, `sites/`, `tenants/`, `tsconfig.json`, `.gitignore`, an encrypted `.env`, and the editor's types in `.circuit/types`. In a folder without a project, `circuit` offers to start one.
 2. Open the folder in VS Code. It needs nothing else: `tsconfig.json` points the editor at `.circuit/types`.
-3. Write each device in `sites/<site>/<device>.ts`.
-4. Run `circuit check` in the folder, or `circuit check --project my-network` from anywhere.
+3. Add a site in `circuit.ts`, then write each device in `sites/<site>/<device>.ts`.
+4. Run `circuit validate` in the folder, or `circuit validate --project my-network` from anywhere.
 
-After Circuit is updated, run `circuit init` again in the project: it writes `.circuit/types` again and changes nothing else. `circuit check` warns when the types are not the running Circuit's.
+After Circuit is updated, it writes `.circuit/types` again the next time it runs in the project, and changes nothing else.
 
 ## Layout
 
@@ -65,7 +65,7 @@ export const as64500 = circuit({
 - `communities` is the network's BGP community scheme (see [Communities](#communities)).
 - `sites` is each site's `description`, and its `number` when a community tags routes by site. A site is only that: Circuit takes nothing from it into a device. Each device's `site` is one of these, and the editor suggests them.
 - `checks` turns on Circuit's checks and names your own (see [Checks](#checks)).
-- `integrations` (PeeringDB, LibreNMS, NetBox) is checked, and `circuit secrets` lists its secrets, but no v1 command uses it yet.
+- `integrations` (PeeringDB, LibreNMS, NetBox) is checked, and `circuit env` lists its secrets, but no v1 command uses it yet.
 
 Name the network after its AS, as `as64500` here: the name then says which network a device file joins. For two networks, such as two ASes, write one `circuit()` each in `circuit.ts`, each exported under its own name, and each device file calls its own network's `device()`. One hostname in two networks is an error.
 
@@ -223,7 +223,7 @@ What a device doesn't write is removed from the device or set back to its defaul
 
 A `link` is written at both ends, each in its own device file. The port's `description` names the far end as printed there, `<far device> <far port>`, such as `switch-01 10GE1/0/1`. Circuit checks that the far end links back, and warns when the description doesn't name it. It never writes the description for you.
 
-A secret is `secret("NAME")`: read from the environment or `.env` when a device is applied, or from 1Password when its value is an `op://` reference. `secretFile("path")` reads a file, such as a private key. `circuit secrets` lists every secret and whether it can be read.
+A secret is `secret("NAME")`: read from the environment or `.env` when a device is applied. Each value in `.env` is encrypted, so `.env` is committed; `circuit env set NAME` adds one. A value that is an `op://` reference is read from 1Password. `secretFile("path")` reads a file, such as a private key. `circuit env` lists every secret and says which ones the config needs that `.env` lacks.
 
 The switch is shorter:
 
@@ -437,7 +437,7 @@ Data is snake_case: fields, `presets`, your own variables. Functions are camelCa
 
 ## What Circuit tells you
 
-The editor checks most things as you type: keys, values, names, ports, sites. `circuit check` checks the rest, and says each problem with its file and line:
+The editor checks most things as you type: keys, values, names, ports, sites. `circuit validate` checks the rest, and says each problem with its file and line:
 
 ```
 sites/site-a/switch-01.ts:32: switch-01: switching.stp.mod: no such field. Did you mean mode?
@@ -448,7 +448,7 @@ It stops on any key Circuit doesn't take, a name a device doesn't declare, a por
 
 The editor misses some of these, and Circuit doesn't:
 
-- A misspelt key in a map keyed by name inside a part, such as a port in a tenant's file, is caught by `circuit check` only.
+- A misspelt key in a map keyed by name inside a part, such as a port in a tenant's file, is caught by `circuit validate` only.
 - A map written with `merge` in a device file, such as `address_sets: merge([a, b])`, hides its names from the rest of the device in the editor, which then shows false errors where they are used. Circuit reads it right. Write the map out, or bring it with `include`.
 - Two single rules merged into a value of their own, `const two = merge([rule_a, rule_b])`, are read as two maps: the editor says `then is written twice`. Write `part("filter", [rule_a, rule_b])`.
 - `bgpNeighbors()` is the whole set. Inside `merge` with other addresses it adds nothing.

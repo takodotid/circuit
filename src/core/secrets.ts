@@ -1,10 +1,10 @@
-// Secrets are references in the config and values only at the moment a command is sent. A reference names a variable, set in the environment or in `.env` beside the config, or a file kept out of the repository. A variable's value may itself be a 1Password reference, `op://vault/item/field`, read with the 1Password CLI.
+// Secrets are references in the config and values only at the moment a command is sent. A reference names a variable, set in the environment or in `.env` beside the config, or a file kept out of the repository. A value in `.env` is encrypted (see `EnvFile`), or a 1Password reference, `op://vault/item/field`, read with the 1Password CLI.
 
-import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseEnv } from "node:util";
 import type { Console, Device, IP, Secret } from "../model";
+import { EnvFile, OnePassword } from "./env-file";
 
 /** Anything that holds secret references, such as a network's devices. */
 type Network = object;
@@ -25,7 +25,7 @@ export class Secrets {
     private static root = process.cwd();
 
     private static envFile: Record<string, string> | undefined;
-    private static readonly fromOnePassword = new Map<string, string>();
+    private static encrypted: EnvFile | undefined;
     /** Every value read in this run, so `scrub` can hide it. */
     private static readonly revealed = new Set<string>();
 
@@ -42,6 +42,13 @@ export class Secrets {
     static useRoot(directory: string): void {
         Secrets.root = directory;
         Secrets.envFile = undefined;
+        Secrets.encrypted = undefined;
+    }
+
+    /** `.env` beside the config, which decrypts its values. */
+    private static env(): EnvFile {
+        Secrets.encrypted ??= new EnvFile(Secrets.root);
+        return Secrets.encrypted;
     }
 
     /** `.env` beside the config, read once. Node and Bun read it the same way they load `.env` themselves: a `#` starts a comment unless the value is quoted. */
@@ -66,25 +73,6 @@ export class Secrets {
         }
     }
 
-    /** Read a 1Password reference with the 1Password CLI, `op`, once per run. */
-    private static readOnePassword(name: string, reference: string): string {
-        const cached = Secrets.fromOnePassword.get(reference);
-        if (cached !== undefined) return cached;
-
-        const result = spawnSync("op", ["read", "--no-newline", reference], { encoding: "utf8" });
-
-        if (result.error) throw new Error(`secret ${name} is a 1Password reference, and the 1Password CLI, op, is not installed`);
-
-        if (result.status !== 0) {
-            const reason = result.stderr.trim() || `op exited with ${result.status}`;
-            throw new Error(`secret ${name}: 1Password could not read ${reference}: ${reason}`);
-        }
-
-        const value = result.stdout;
-        Secrets.fromOnePassword.set(reference, value);
-        return value;
-    }
-
     static isSecret(value: unknown): value is Secret {
         return typeof value === "object" && value !== null && ("secret" in value || "secret_file" in value);
     }
@@ -105,7 +93,8 @@ export class Secrets {
         // Bun loads `.env` into the environment when it starts in the same directory, so the same value in both came from `.env`.
         const where = process.env[reference] && process.env[reference] !== fromFile ? "the environment" : ".env";
 
-        return value.startsWith("op://") ? `1Password, through ${where}` : where;
+        if (value.startsWith("op://")) return `1Password, through ${where}`;
+        return EnvFile.isEncrypted(value) ? `${where}, encrypted` : where;
     }
 
     /** The value behind a reference, as `referenceOf` writes it: one marker's reference, for a platform that takes a secret interactively. */
@@ -127,7 +116,7 @@ export class Secrets {
         const value = process.env[reference] || fromFile;
         if (!value) throw new Error(`secret ${reference} is not set in the environment or in .env`);
 
-        const revealed = value.startsWith("op://") ? Secrets.readOnePassword(reference, value) : value;
+        const revealed = value.startsWith("op://") ? OnePassword.read(value, `secret ${reference}`) : Secrets.env().decrypt(value);
         Secrets.revealed.add(revealed);
         return revealed;
     }
@@ -154,8 +143,9 @@ export class Secrets {
     static scrub(text: string, options: { network?: Network; extra?: readonly string[] } = {}): string {
         const values = new Set<string>(options.extra ?? []);
 
-        for (const value of Object.values(Secrets.dotenv())) {
-            if (value.length >= Secrets.SHORTEST_DOTENV_VALUE && !value.startsWith("op://")) values.add(value);
+        // An encrypted value or a reference is not the secret itself.
+        for (const [name, value] of Object.entries(Secrets.dotenv())) {
+            if (value.length >= Secrets.SHORTEST_DOTENV_VALUE && EnvFile.kindOf(name, value) === "not encrypted") values.add(value);
         }
 
         for (const value of Secrets.revealed) values.add(value);
@@ -170,7 +160,7 @@ export class Secrets {
         return ordered.reduce((out, value) => out.split(value).join(Secrets.REDACTED), text);
     }
 
-    /** The value behind a reference when it can be had without asking anyone: a 1Password reference only once read in this run. Undefined otherwise. */
+    /** The value behind a reference when it can be had without asking anyone: a 1Password reference only once read in this run, an encrypted value only with the key at hand. Undefined otherwise. */
     private static storedValueOf(reference: string): string | undefined {
         if (reference.startsWith("file:")) {
             const path = join(Secrets.root, reference.slice("file:".length));
@@ -178,9 +168,11 @@ export class Secrets {
         }
 
         const value = process.env[reference] || Secrets.dotenv()[reference];
-        if (!value?.startsWith("op://")) return value;
+        if (!value) return undefined;
+        if (value.startsWith("op://")) return OnePassword.cached(value);
+        if (!EnvFile.isEncrypted(value)) return value;
 
-        return Secrets.fromOnePassword.get(value);
+        return Secrets.env().keyAtHand() ? Secrets.env().decrypt(value) : undefined;
     }
 
     /** How Circuit logs in to a device: its address, port, connection user, that user's password revealed, and its console. */

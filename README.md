@@ -8,12 +8,12 @@ Circuit turns one TypeScript file per network device into that device's config, 
 ## What it does
 
 - **One file per device.** Ports, VLANs, addresses, routing, BGP, firewall, users and services, written as plain data. Your editor checks every name and every port as you type.
-- **Plain TypeScript, nothing to install.** A project imports nothing from Circuit and needs no npm and no Node. Circuit's functions are globals, and the editor reads its types from `.circuit/types`, which `circuit init` writes.
+- **Plain TypeScript, nothing to install.** A project imports nothing from Circuit and needs no npm and no Node. Circuit's functions are globals, and the editor reads its types from `.circuit/types`, which Circuit writes.
 - **One binary.** `circuit` has Bun inside. It reads the project, checks what the editor can't, and talks to the devices.
 - **Same words for every vendor.** MikroTik RouterOS 7, Huawei VRP, Raisecom ROS, Juniper Junos and Fortinet FortiOS each get their own commands. Anything a device can't do is an error before anything is sent.
 - **The file is the whole truth.** A port, user or service the file doesn't write is removed or turned off. Circuit fills in nothing you didn't write.
-- **See every change first.** `diff` shows it offline, `apply` plans it against the live device, and nothing is sent without `--confirm`.
-- **Secrets stay out of the repo.** They come from `.env` or 1Password and never show up in a plan or a snapshot.
+- **See every change first.** `diff` and `apply` read the live device and show what would change; `apply` sends it only once you say yes.
+- **Secrets are encrypted.** Each value in `.env` is encrypted, so `.env` is committed; the key stays out of git, in `.env.keys` or 1Password. A git hook stops a commit with a secret in plain text.
 
 ## A device
 
@@ -45,39 +45,32 @@ export default as64500.device({
 });
 ```
 
-In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`, and so is `trunk_vlans: ["mgnt"]`: the device has no VLAN of that name. `circuit check` says the same, with the file and line, and `Did you mean mgmt?`. [How to write a project](docs/project.md) has the whole project: this switch in full, a router and a tenant.
+In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`, and so is `trunk_vlans: ["mgnt"]`: the device has no VLAN of that name. `circuit validate` says the same, with the file and line, and `Did you mean mgmt?`. [How to write a project](docs/project.md) has the whole project: this switch in full, a router and a tenant.
 
 ## Start
 
-1. Build the binary (below), or take one from a release once there is one.
-2. Start a project: `circuit init my-network --asn 64500`. It writes `circuit.ts`, `sites/`, `tenants/`, `tsconfig.json`, `.gitignore`, `.env`, and the editor's types in `.circuit/types`.
-3. Open the folder in VS Code. Write each device in `sites/<site>/<device>.ts`.
-4. Run `circuit check`. It reads the project and runs every check.
-5. Run `circuit diff` to see what would change, then `circuit apply <device> --confirm`.
+1. Install Circuit, which then starts a project:
+    - Linux and macOS: `curl -fsSL https://circuit.tako.id/install | sh`
+    - Windows, in PowerShell: `irm https://circuit.tako.id/install.ps1 | iex`
+2. Open the project's folder in VS Code. Add a site in `circuit.ts`, then write each device in `sites/<site>/<device>.ts`.
+3. Run `circuit`. It opens a menu, or runs a command straight away, such as `circuit validate`.
 
-After Circuit is updated, run `circuit init` again in the project: it writes the editor's types again and changes nothing else.
+Circuit checks for a newer version before each command and warns when there is one: run `circuit update`.
 
 ## Commands
 
-Every command but `init` reads the project in the working directory, or in the folder `--project <folder>` names.
+Each reads the project in the working directory or the nearest folder above it, or in the folder `--project <folder>` names. Leave out the device and Circuit lists them to pick from.
 
-| Command                                 | What it does                                                                          |
-| --------------------------------------- | ------------------------------------------------------------------------------------- |
-| `init [folder]`                         | Starts a project, or writes the editor's types again. `--asn` for a new project's AS. |
-| `check`                                 | Reads the project and checks it, then runs every check in `circuit.ts`.               |
-| `build <device>`                        | Prints the config the device should run, without contacting it.                       |
-| `diff [device...]`                      | What `apply` would send, planned against the last snapshot, offline.                  |
-| `snapshot [device...]`                  | Reads what each device runs into `.circuit/state`.                                    |
-| `apply <device>`                        | Reads the device, plans against what it runs, and sends with `--confirm`.             |
-| `show <device> [command...]`            | Runs commands that only read and prints the answer, secrets hidden.                   |
-| `bgp [device]`                          | Each BGP neighbor next to its live session: up or down, prefixes, uptime.             |
-| `console <device>`                      | Opens the device's serial console, logged in, or sends it lines.                      |
-| `refresh <device>`                      | Fetches prefix sets that come from a registry onto the device, with `--confirm`.      |
-| `wireguard <device> <interface> <peer>` | Prints a client config for one WireGuard peer.                                        |
-| `communities`                           | Prints the network's BGP communities, for a looking glass or bgp.tools.               |
-| `secrets`                               | Lists every secret the project uses, and whether each can be read.                    |
-
-`.circuit/state` holds what each device ran when Circuit last read it, secrets removed. Commit it, so the history of the project is the history of the network.
+| Command                             | What it does                                                                              |
+| ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| `validate`                          | Reads the project and checks it, then runs every check in `circuit.ts`.                   |
+| `diff [device]`                     | Reads the device and shows what `apply` would change.                                     |
+| `apply [device]`                    | Reads the device, shows what would change, and sends it once you say yes (`--confirm`).   |
+| `exec [device] [command...]`        | Runs commands that only read on the device, and prints the answer, secrets hidden.        |
+| `bgp [device]`                      | Each BGP neighbor next to its live session: up or down, prefixes, uptime.                 |
+| `access-console [device] [line...]` | Opens the device's serial console, logged in, or sends it lines.                          |
+| `env`                               | Lists the secrets in `.env`; `env set`, `get`, `delete`, `encrypt` and `rotate` the rest. |
+| `update`                            | Installs the newest Circuit.                                                              |
 
 ## Docs
 
@@ -93,7 +86,7 @@ Every command but `init` reads the project in the working directory, or in the f
 bun install
 bun run check       # typecheck, tests, and the binary
 bun run build       # dist/circuit, or dist/circuit.exe on Windows
-bun src/cli/index.ts check --project <folder>   # run Circuit from the sources
+bun src/cli/index.ts validate --project <folder>   # run Circuit from the sources
 ```
 
 `AGENTS.md` has the rules for changing the code, for people and AI agents alike.

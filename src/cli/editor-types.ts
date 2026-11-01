@@ -10,7 +10,7 @@ export class EditorTypes {
     /** Where they go, in the project. */
     static readonly FOLDER = join(".circuit", "types");
 
-    /** The project's `tsconfig.json`: `circuit init` writes it once. It reads Circuit's globals, and `circuit` for `import type` in `lib/`. */
+    /** The project's `tsconfig.json`: Circuit writes it when it starts a project. It reads Circuit's globals, and `circuit` for `import type` in `lib/`. */
     static readonly TSCONFIG = `${JSON.stringify(
         {
             compilerOptions: {

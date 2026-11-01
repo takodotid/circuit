@@ -1,7 +1,5 @@
-// The cabling as LLDP sees it, compared with what `link` says. `snapshot` saves each device's LLDP neighbors beside its config; `validate` warns where they disagree.
+// The cabling as LLDP sees it, compared with what `link` says. `diff` and `apply` read a device's LLDP neighbors while they are connected, and warn where they disagree.
 
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { Catalog } from "../platforms/catalog";
 import type { Device } from "../model";
 import type { Finding } from "../platforms/finding";
@@ -17,39 +15,6 @@ export type Neighbor = {
 };
 
 export class Cabling {
-    /** The end of a state file that holds a device's LLDP neighbors, beside its config. */
-    static readonly SUFFIX = ".lldp.json";
-
-    /** The file a device's neighbors are saved in. */
-    static path(stateDirectory: string, device: string): string {
-        return join(stateDirectory, device + Cabling.SUFFIX);
-    }
-
-    /** Save what a device sees, sorted, so a file changes only when a neighbor does. */
-    static save(stateDirectory: string, device: string, neighbors: readonly Neighbor[]): void {
-        const sorted = [...neighbors].sort((a, b) => Cabling.order(a).localeCompare(Cabling.order(b)));
-        const tidy = sorted.map(({ port, system, remote_port }) => ({ port, system, remote_port }));
-
-        writeFileSync(Cabling.path(stateDirectory, device), JSON.stringify(tidy, null, 4) + "\n");
-    }
-
-    /** Forget what a device saw, when its neighbors could not be read this time. */
-    static forget(stateDirectory: string, device: string): void {
-        rmSync(Cabling.path(stateDirectory, device), { force: true });
-    }
-
-    /** What a device saw at its last snapshot, or undefined when its neighbors were never read. */
-    static load(stateDirectory: string, device: string): Neighbor[] | undefined {
-        const path = Cabling.path(stateDirectory, device);
-        if (!existsSync(path)) return undefined;
-
-        return JSON.parse(readFileSync(path, "utf8")) as Neighbor[];
-    }
-
-    private static order(neighbor: Neighbor): string {
-        return `${neighbor.port} ${neighbor.system} ${neighbor.remote_port}`;
-    }
-
     /** The device runs LLDP somewhere: on every port, on the interfaces it lists, or on a port that turns it on. */
     static runsAnywhere(device: Device): boolean {
         return Boolean(device.switching?.lldp) || Object.values(device.interfaces?.ethernet ?? {}).some((port) => port?.lldp === true);

@@ -137,5 +137,5 @@ test("a session that stays up but stops announcing an originated prefix is named
     const problems = await applyAndCheck();
     expect(problems).toHaveLength(1);
     expect(problems[0]).toStartWith("BGP session sgix-rs-v4 announced 198.51.100.0/24 before the apply and does not 0.5 s after it");
-    expect(problems[0]).toContain("circuit show edge-01 '/routing bgp advertisements print'");
+    expect(problems[0]).toContain("circuit exec edge-01 '/routing bgp advertisements print'");
 });

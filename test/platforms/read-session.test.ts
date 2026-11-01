@@ -1,4 +1,4 @@
-// The session `circuit show` runs commands in, over a real SSH session against fake devices: RouterOS runs each command on its own with plain wide output, VRP runs them in one shell after its login questions, and FortiOS moves to one shell once a session filter must carry over.
+// The session `circuit exec` runs commands in, over a real SSH session against fake devices: RouterOS runs each command on its own with plain wide output, VRP runs them in one shell after its login questions, and FortiOS moves to one shell once a session filter must carry over.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Device } from "../../src/model";
