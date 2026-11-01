@@ -19,7 +19,8 @@ exec circuit hook pre-commit
 `;
 
     private static git(root: string, args: string[]): { ok: boolean; out: string } {
-        const result = spawnSync("git", ["-C", root, ...args], { encoding: "utf8" });
+        // `env` given, so a change to process.env reaches git: Bun passes its starting environment otherwise.
+        const result = spawnSync("git", ["-C", root, ...args], { encoding: "utf8", env: process.env });
         return { ok: !result.error && result.status === 0, out: result.stdout ?? "" };
     }
 

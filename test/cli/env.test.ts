@@ -122,7 +122,7 @@ test("a device's secret is read from .env, decrypted", () => {
 });
 
 describe("the pre-commit hook", () => {
-    const git = (...args: string[]) => spawnSync("git", ["-C", root, ...args], { encoding: "utf8" });
+    const git = (...args: string[]) => spawnSync("git", ["-C", root, ...args], { encoding: "utf8", env: process.env });
 
     beforeEach(() => {
         git("init", "--initial-branch=main");

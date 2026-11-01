@@ -57,13 +57,13 @@ test(".env is encrypted and committed; its key is kept out of git", () => {
     expect(env.publicKey()).toBeDefined();
     expect(env.plaintext()).toEqual([]);
 
-    const ignored = (file: string) => spawnSync("git", ["-C", root, "check-ignore", "-q", file]).status === 0;
+    const ignored = (file: string) => spawnSync("git", ["-C", root, "check-ignore", "-q", file], { env: process.env }).status === 0;
     expect(ignored(".env.keys")).toBe(true);
     expect(ignored(".env")).toBe(false);
 });
 
 test("git checks each commit with the project's hook", () => {
-    const hooks = spawnSync("git", ["-C", root, "config", "--get", "core.hooksPath"], { encoding: "utf8" });
+    const hooks = spawnSync("git", ["-C", root, "config", "--get", "core.hooksPath"], { encoding: "utf8", env: process.env });
     expect(hooks.stdout.trim()).toBe(".circuit/hooks");
 });
 
