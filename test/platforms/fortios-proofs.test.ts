@@ -1,0 +1,285 @@
+// What a FortiGate 3700D on FortiOS 6.2.2 printed while a feature was proved on it, and what Circuit makes of it.
+
+import { expect, test } from "bun:test";
+import type { Device } from "../../src/model";
+import { FortiOs } from "../../src/platforms/fortios";
+import { Fixtures } from "../fixtures";
+
+const platform = new FortiOs();
+
+/** The FortiOS example. */
+const firewall = Fixtures.device("platforms--example-firewall");
+
+test("circuit show may read what LLDP received", () => {
+    for (const command of [
+        "diagnose lldprx neighbor summary",
+        "diagnose lldprx neighbor details",
+        "diagnose lldprx port summary",
+        "diagnose lldprx port details port5",
+    ]) {
+        expect(platform.readOnly(command)).toBe(true);
+    }
+
+    expect(platform.readOnly("diagnose lldprx")).toBe(false);
+});
+
+test("LLDP runs on an aggregate, and is refused on a VLAN interface, which has no LLDP settings", () => {
+    const lldp = (name: string) =>
+        platform
+            .unsupported({ ...firewall, switching: { ...firewall.switching, lldp: { interfaces: [name] } } })
+            .filter((gap) => gap.startsWith("switching.lldp"));
+
+    expect(lldp("uplink")).toEqual([]);
+    expect(lldp("guests")).toEqual(["switching.lldp.interfaces guests, a vlan_interface"]);
+});
+
+/** Two neighbors as `diagnose lldprx neighbor details` printed them, from a router whose LAG runs LLDP on each port. */
+const LLDP_DETAILS = `lldprx.neighbor.1.port: 38
+lldprx.neighbor.1.port.txt: port17
+lldprx.neighbor.1.mac: 02:00:00:00:00:42
+lldprx.neighbor.1.chassis.type: 4
+lldprx.neighbor.1.chassis.type.txt: interface-mac
+lldprx.neighbor.1.chassis.data: 02:00:00:00:00:35
+lldprx.neighbor.1.port.id.type: 5
+lldprx.neighbor.1.port.id.type.txt: interface-name
+lldprx.neighbor.1.port.id.len: 7
+lldprx.neighbor.1.port.id.data: sfp28-6
+lldprx.neighbor.1.ttl: 121
+lldprx.neighbor.1.port.desc.len: 25
+lldprx.neighbor.1.port.desc.data: bridge/uplink-lag/sfp28-6
+lldprx.neighbor.1.system.name.len: 14
+lldprx.neighbor.1.system.name.data: example-router
+lldprx.neighbor.1.system.desc.len: 76
+lldprx.neighbor.1.system.desc.data: MikroTik RouterOS 7.23.5 (long-term) 2026-09-04 05:32:46 CCR2216-1G-12XS-2XQ
+lldprx.neighbor.1.system.caps.available: 0014
+lldprx.neighbor.1.system.caps.available.txt: bridge router
+lldprx.neighbor.1.system.caps.enabled: 0014
+lldprx.neighbor.1.system.caps.enabled.txt: bridge router
+lldprx.neighbor.1.address.count: 1
+lldprx.neighbor.1.address.1.type: 2
+lldprx.neighbor.1.address.1.type.txt: ipv6
+lldprx.neighbor.1.address.1.len: 16
+lldprx.neighbor.1.address.1.addr: fe80::ff:fe00:35
+lldprx.neighbor.1.address.1.addr.interface.type: 2
+lldprx.neighbor.1.address.1.addr.interface.type.txt: if-index
+lldprx.neighbor.1.address.1.addr.interface.number: 16
+lldprx.neighbor.1.vlan.id: 0
+lldprx.neighbor.1.med.caps.caps: 0001
+lldprx.neighbor.1.med.caps.caps.txt: capabilities
+lldprx.neighbor.1.med.caps.type: 0004
+lldprx.neighbor.1.med.caps.type.txt: Network Connectivity
+lldprx.neighbor.2.port: 23
+lldprx.neighbor.2.port.txt: port5
+lldprx.neighbor.2.mac: 02:00:00:00:00:3E
+lldprx.neighbor.2.chassis.type: 4
+lldprx.neighbor.2.chassis.type.txt: interface-mac
+lldprx.neighbor.2.chassis.data: 02:00:00:00:00:35
+lldprx.neighbor.2.port.id.type: 5
+lldprx.neighbor.2.port.id.type.txt: interface-name
+lldprx.neighbor.2.port.id.len: 7
+lldprx.neighbor.2.port.id.data: sfp28-2
+lldprx.neighbor.2.ttl: 121
+lldprx.neighbor.2.system.name.len: 14
+lldprx.neighbor.2.system.name.data: example-router`;
+
+test("LLDP neighbors are read from diagnose lldprx neighbor details, by Circuit's port names", () => {
+    expect(FortiOs.neighborsOf(LLDP_DETAILS, firewall)).toEqual([
+        { port: "10g-13", system: "example-router", remote_port: "sfp28-6" },
+        { port: "10g-1", system: "example-router", remote_port: "sfp28-2" },
+    ]);
+});
+
+test("no LLDP neighbor when the device received none", () => {
+    expect(FortiOs.neighborsOf("", firewall)).toEqual([]);
+});
+
+/** A firewall with one routed port, a static route through it, and an IPv6 one. */
+const routed: Device = {
+    name: "example-firewall",
+    site: "lab",
+    platform: "fortios",
+    model: "FG-3700D",
+    connection: { host: "192.0.2.10", user: "admin" },
+    interfaces: { ethernet: { "10g-1": { addresses: ["192.0.2.2/30", "2001:db8:ffff::2/64"] } } },
+    routing: {
+        static_routes: [
+            { prefix: "198.51.100.0/24", next_hop: "192.0.2.1", description: "BFD test" },
+            { prefix: "2001:db8:100::/48", next_hop: "2001:db8:ffff::1", description: "BFD test" },
+        ],
+    },
+};
+
+const withBfd: Device = {
+    ...routed,
+    routing: {
+        bfd: { interval: 300, multiplier: 4 },
+        static_routes: routed.routing!.static_routes!.map((route) => ({ ...route, bfd: true as const })),
+    },
+};
+
+/** What `show system settings`, `show router static` and `show router static6` printed once the device took BFD. */
+const PRINTED_BFD = {
+    "system settings": `config system settings
+    set bfd enable
+    set bfd-desired-min-tx 300
+    set bfd-required-min-rx 300
+    set bfd-detect-mult 4
+    set default-voip-alg-mode kernel-helper-based
+end`,
+    "router static": `config router static
+    edit 1
+        set dst 198.51.100.0 255.255.255.0
+        set gateway 192.0.2.1
+        set device "port5"
+        set comment "BFD test"
+        set bfd enable
+    next
+end`,
+    "router static6": `config router static6
+    edit 1
+        set dst 2001:db8:100::/48
+        set gateway 2001:db8:ffff::1
+        set device "port5"
+        set comment "BFD test"
+        set bfd enable
+    next
+end`,
+};
+
+/** The render of a device with some sections replaced by what the device printed. */
+function asPrinted(device: Device, sections: Record<string, string>): string {
+    let text = platform.render(device);
+
+    for (const [section, printed] of Object.entries(sections)) {
+        const start = text.indexOf(`config ${section}\n`);
+        const end = text.indexOf("\nend", start) + "\nend".length;
+        text = text.slice(0, start) + printed + text.slice(end);
+    }
+
+    return text;
+}
+
+const options = { secrets: false, rollback: 10 };
+
+test("BFD timers and BFD on static routes render as the device printed them", () => {
+    expect(platform.unsupported(withBfd)).toEqual([]);
+    expect(platform.plan(platform.render(withBfd), asPrinted(withBfd, PRINTED_BFD), options).steps).toEqual([]);
+});
+
+test("timers the device does not print, its 250 ms and 3, plan nothing", () => {
+    const defaults: Device = { ...withBfd, routing: { ...withBfd.routing, bfd: { interval: 250, multiplier: 3 } } };
+    const printed = {
+        ...PRINTED_BFD,
+        "system settings": "config system settings\n    set bfd enable\n    set default-voip-alg-mode kernel-helper-based\nend",
+    };
+
+    expect(platform.render(defaults)).toContain("set bfd-detect-mult 3");
+    expect(platform.plan(platform.render(defaults), asPrinted(defaults, printed), options).steps).toEqual([]);
+});
+
+test("removing BFD unsets the timers while BFD still runs, then BFD, and creates each route again without it", () => {
+    const sent = platform.plan(platform.render(routed), asPrinted(withBfd, PRINTED_BFD), options).steps.flatMap((step) => step.send);
+
+    expect(sent).toEqual([
+        "config system settings",
+        "unset bfd-detect-mult",
+        "unset bfd-required-min-rx",
+        "unset bfd-desired-min-tx",
+        "unset bfd",
+        "end",
+        "config router static",
+        "delete 1",
+        "edit 1",
+        "set dst 198.51.100.0 255.255.255.0",
+        "set gateway 192.0.2.1",
+        'set device "port5"',
+        'set comment "BFD test"',
+        "next",
+        "end",
+        "config router static6",
+        "delete 1",
+        "edit 1",
+        "set dst 2001:db8:100::/48",
+        "set gateway 2001:db8:ffff::1",
+        'set device "port5"',
+        'set comment "BFD test"',
+        "next",
+        "end",
+    ]);
+});
+
+/** A multihop session from the routed port's address to a loopback behind the far end, with BFD. */
+const multihop: Device = {
+    ...routed,
+    routing: {
+        router_id: "192.0.2.2",
+        static_routes: [{ prefix: "198.51.100.1/32", next_hop: "192.0.2.1", description: "To the peer's loopback" }],
+        bgp: {
+            asn: 64496,
+            neighbors: {
+                far: { address: "198.51.100.1", remote_as: 64497, local_address: "192.0.2.2", multihop: true, bfd: true },
+            },
+        },
+    },
+};
+
+/** What `show router bgp` printed once the device took the session. */
+const PRINTED_MULTIHOP = {
+    "router bgp": `config router bgp
+    set as 64496
+    set router-id 192.0.2.2
+    config neighbor
+        edit "198.51.100.1"
+            set activate6 disable
+            set bfd enable
+            set ebgp-enforce-multihop enable
+            set remote-as 64497
+            set route-map-in "circuit-reject-all"
+            set route-map-out "circuit-reject-all"
+            set update-source "port5"
+        next
+    end
+    config redistribute "connected"
+    end
+    config redistribute "rip"
+    end
+    config redistribute "ospf"
+    end
+    config redistribute "static"
+    end
+    config redistribute "isis"
+    end
+    config redistribute6 "connected"
+    end
+    config redistribute6 "rip"
+    end
+    config redistribute6 "ospf"
+    end
+    config redistribute6 "static"
+    end
+    config redistribute6 "isis"
+    end
+end`,
+};
+
+test("BFD on a multihop BGP session is taken and read back, but refused: the device runs it single-hop", () => {
+    expect(platform.plan(platform.render(multihop), asPrinted(multihop, PRINTED_MULTIHOP), options).steps).toEqual([]);
+
+    // With BGP up, the device asked for a session and sent single-hop BFD, to port 3784, while the peer sent multihop BFD to port 4784:
+    //   get router info bfd requests:  src=192.0.2.2  dst=198.51.100.1  ct=08 ifi=70
+    //   get router info bfd neighbor:  192.0.2.2  198.51.100.1  DOWN  port5  18/0
+    //   diagnose sniffer packet:       port5 in 198.51.100.1.49197 -> 192.0.2.2.4784: udp 24
+    //                                  port5 out 192.0.2.2.49162 -> 198.51.100.1.3784: udp 24
+    expect(platform.unsupported(multihop)).toEqual([
+        "routing.bgp.neighbors.far.bfd, FortiOS 6.2 runs single-hop BFD on a multihop session, which a peer running multihop BFD never answers",
+    ]);
+});
+
+test("BFD stays refused on a route in a VRF", () => {
+    const inVrf: Device = {
+        ...firewall,
+        routing: { ...firewall.routing, static_routes: [{ prefix: "0.0.0.0/0", next_hop: "198.51.100.98", vrf: "guests", bfd: true }] },
+    };
+
+    expect(platform.unsupported(inVrf)).toContain("routing.static_routes 0.0.0.0/0.bfd, BFD in a VRF is not proved on a device yet");
+});

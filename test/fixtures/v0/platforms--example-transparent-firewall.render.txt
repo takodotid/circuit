@@ -1,0 +1,391 @@
+config vpn certificate local
+end
+config vpn certificate ca
+end
+config system global
+    set hostname "example-transparent-firewall"
+    set timezone 80
+end
+config system replacemsg admin "pre_admin-disclaimer-text"
+end
+config system settings
+    set opmode transparent
+    set manageip 169.254.0.1/255.255.255.255
+    set default-voip-alg-mode kernel-helper-based
+end
+config system accprofile
+end
+config system admin
+    edit "netops"
+        set accprofile "super_admin"
+        set vdom "root"
+        set password "<secret:EXAMPLE_NETOPS_PASSWORD>"
+    next
+end
+config system interface
+    edit "port1"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port2"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port3"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port4"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port5"
+        set vdom "root"
+        set type physical
+        set description "Router"
+    next
+    edit "port6"
+        set vdom "root"
+        set type physical
+        set description "Router"
+    next
+    edit "port7"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port8"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port9"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port10"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port11"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port12"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port13"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port14"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port15"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port16"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port17"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port18"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port19"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port20"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port21"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port22"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port23"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port24"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port25"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port26"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port27"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port28"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port29"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port30"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port31"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "port32"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "mgmt1"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "mgmt2"
+        set vdom "root"
+        set type physical
+        set icmp-send-redirect disable
+        set status down
+    next
+    edit "router"
+        set vdom "root"
+        set type aggregate
+        set member "port5" "port6"
+        set icmp-send-redirect disable
+    next
+    edit "outside"
+        set vdom "root"
+        set interface "router"
+        set vlanid 3901
+        set forward-domain 1
+        set description "From the router's gateway"
+        set icmp-send-redirect disable
+    next
+    edit "inside"
+        set vdom "root"
+        set interface "router"
+        set vlanid 3902
+        set forward-domain 1
+        set description "Toward the servers"
+        set icmp-send-redirect disable
+    next
+end
+config system gre-tunnel
+end
+config system vxlan
+end
+config system dns
+end
+config system dns-server
+end
+config system ntp
+end
+config system snmp sysinfo
+end
+config system snmp community
+end
+config system snmp user
+end
+config log memory setting
+    set status disable
+end
+config log memory filter
+end
+config log disk setting
+    set status disable
+end
+config log syslogd setting
+end
+config log syslogd filter
+end
+config log syslogd2 setting
+end
+config log syslogd2 filter
+end
+config log syslogd3 setting
+end
+config log syslogd3 filter
+end
+config log syslogd4 setting
+end
+config log syslogd4 filter
+end
+config system sflow
+end
+config system netflow
+end
+config system dhcp server
+end
+config router static
+end
+config router static6
+end
+config router prefix-list
+end
+config router prefix-list6
+end
+config router community-list
+end
+config router route-map
+end
+config router ospf
+end
+config router ospf6
+end
+config router bgp
+end
+config system session-helper
+end
+config firewall address
+end
+config firewall address6
+end
+config firewall addrgrp
+end
+config firewall addrgrp6
+end
+config firewall service custom
+    edit "circuit-all"
+        set protocol IP
+    next
+end
+config firewall ippool
+end
+config firewall vip
+end
+config firewall policy
+    edit 1
+        set srcintf "outside"
+        set dstintf "inside"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set schedule "always"
+        set service "circuit-all"
+        set auto-asic-offload disable
+        set comments "Into the servers"
+    next
+    edit 2
+        set srcintf "inside"
+        set dstintf "outside"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set schedule "always"
+        set service "circuit-all"
+        set auto-asic-offload disable
+        set comments "Out of the servers"
+    next
+end
+config firewall policy6
+    edit 1
+        set srcintf "outside"
+        set dstintf "inside"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set schedule "always"
+        set service "circuit-all"
+        set auto-asic-offload disable
+        set comments "Into the servers"
+    next
+    edit 2
+        set srcintf "inside"
+        set dstintf "outside"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set schedule "always"
+        set service "circuit-all"
+        set auto-asic-offload disable
+        set comments "Out of the servers"
+    next
+end
+config firewall local-in-policy
+end
+config firewall local-in-policy6
+end
+config firewall central-snat-map
+end
+config firewall acl
+end
+config firewall acl6
+end

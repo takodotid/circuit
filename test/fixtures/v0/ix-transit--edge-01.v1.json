@@ -1,0 +1,809 @@
+{
+  "name": "edge-01",
+  "site": "ix-transit",
+  "platform": "routeros",
+  "model": "CCR2216-1G-12XS-2XQ",
+  "connection": {
+    "host": "10.0.0.1",
+    "user": "operator"
+  },
+  "system": {
+    "users": {
+      "operator": {
+        "role": "admin",
+        "password": {
+          "secret": "EDGE_01_PASSWORD"
+        }
+      }
+    }
+  },
+  "management": {
+    "allow": [
+      "10.0.0.0/24"
+    ],
+    "ssh": {}
+  },
+  "interfaces": {
+    "ethernet": {
+      "1g-1": {
+        "description": "Management",
+        "addresses": [
+          "10.0.0.1/24"
+        ]
+      },
+      "25g-1": {
+        "description": "Hurricane Electric",
+        "access_vlan": "transit",
+        "ingress_acl": "edge"
+      },
+      "25g-2": {
+        "description": "SGIX",
+        "access_vlan": "ix",
+        "ingress_acl": "edge"
+      },
+      "25g-3": {
+        "description": "Acme",
+        "access_vlan": "acme"
+      }
+    },
+    "vlan_interface": {
+      "transit": {
+        "vlan": "transit",
+        "addresses": [
+          "203.0.113.2/30"
+        ]
+      },
+      "ix": {
+        "vlan": "ix",
+        "addresses": [
+          "203.0.113.140/25",
+          "2001:db8:ffff::70/64"
+        ]
+      },
+      "acme": {
+        "vlan": "acme",
+        "addresses": [
+          "198.51.100.253/30",
+          "2001:db8:100:ff01::1/64"
+        ]
+      }
+    }
+  },
+  "switching": {
+    "vlans": {
+      "transit": {
+        "id": 300,
+        "description": "IP transit from Hurricane Electric, AS6939"
+      },
+      "ix": {
+        "id": 200,
+        "description": "Peering LAN of SGIX"
+      },
+      "acme": {
+        "id": 1001,
+        "description": "Acme, AS65550"
+      }
+    },
+    "acls": {
+      "edge": [
+        {
+          "description": "transit: drop source 198.51.100.0/24",
+          "if": {
+            "vlan": "transit",
+            "src": "198.51.100.0/24"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 192.0.2.0/24",
+          "if": {
+            "vlan": "transit",
+            "src": "192.0.2.0/24"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 127.0.0.0/8",
+          "if": {
+            "vlan": "transit",
+            "src": "127.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 169.254.0.0/16",
+          "if": {
+            "vlan": "transit",
+            "src": "169.254.0.0/16"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 0.0.0.0/8",
+          "if": {
+            "vlan": "transit",
+            "src": "0.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 10.0.0.0/8",
+          "if": {
+            "vlan": "transit",
+            "src": "10.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 172.16.0.0/12",
+          "if": {
+            "vlan": "transit",
+            "src": "172.16.0.0/12"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 192.168.0.0/16",
+          "if": {
+            "vlan": "transit",
+            "src": "192.168.0.0/16"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 198.51.100.0/24",
+          "if": {
+            "vlan": "ix",
+            "src": "198.51.100.0/24"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 192.0.2.0/24",
+          "if": {
+            "vlan": "ix",
+            "src": "192.0.2.0/24"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 127.0.0.0/8",
+          "if": {
+            "vlan": "ix",
+            "src": "127.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 169.254.0.0/16",
+          "if": {
+            "vlan": "ix",
+            "src": "169.254.0.0/16"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 0.0.0.0/8",
+          "if": {
+            "vlan": "ix",
+            "src": "0.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 10.0.0.0/8",
+          "if": {
+            "vlan": "ix",
+            "src": "10.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 172.16.0.0/12",
+          "if": {
+            "vlan": "ix",
+            "src": "172.16.0.0/12"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 192.168.0.0/16",
+          "if": {
+            "vlan": "ix",
+            "src": "192.168.0.0/16"
+          },
+          "then": "drop"
+        }
+      ]
+    }
+  },
+  "routing": {
+    "router_id": "203.0.113.2",
+    "static_routes": [
+      {
+        "prefix": "198.51.100.0/24",
+        "blackhole": true,
+        "description": "Originate"
+      },
+      {
+        "prefix": "2001:db8:100::/48",
+        "blackhole": true,
+        "description": "Originate"
+      }
+    ],
+    "bgp": {
+      "asn": 64500,
+      "originated_prefixes": [
+        "198.51.100.0/24",
+        "2001:db8:100::/48"
+      ],
+      "neighbors": {
+        "hurricane-electric": {
+          "address": "203.0.113.1",
+          "remote_as": 6939,
+          "role": "provider",
+          "max_prefixes": 1200000,
+          "import_policy": "TRANSIT-IN",
+          "export_policy": "TRANSIT-OUT"
+        },
+        "sgix-rs": {
+          "address": "203.0.113.129",
+          "remote_as": 55518,
+          "role": "rs",
+          "max_prefixes": 100000,
+          "import_policy": "IX-IN",
+          "export_policy": "IX-OUT"
+        },
+        "acme-v4": {
+          "address": "198.51.100.254",
+          "remote_as": 65550,
+          "role": "customer",
+          "max_prefixes": 10,
+          "import_policy": "ACME-IN",
+          "export_policy": "ACME-OUT"
+        },
+        "acme-v6": {
+          "address": "2001:db8:100:ff01::2",
+          "remote_as": 65550,
+          "role": "customer",
+          "max_prefixes": 10,
+          "import_policy": "ACME-IN",
+          "export_policy": "ACME-OUT"
+        }
+      }
+    },
+    "policies": {
+      "SANITY": [
+        {
+          "description": "IPv4 shorter than /8",
+          "if": {
+            "family": "ipv4",
+            "prefix_length": {
+              "max": 7
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "IPv4 longer than /24",
+          "if": {
+            "family": "ipv4",
+            "prefix_length": {
+              "min": 25
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "IPv6 shorter than /16",
+          "if": {
+            "family": "ipv6",
+            "prefix_length": {
+              "max": 15
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "IPv6 longer than /48",
+          "if": {
+            "family": "ipv6",
+            "prefix_length": {
+              "min": 49
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "RPKI invalid",
+          "if": {
+            "rpki": "invalid"
+          },
+          "then": "reject"
+        }
+      ],
+      "TRANSIT-IN": [
+        {
+          "call": "SANITY"
+        },
+        {
+          "description": "Learned from AS6939",
+          "set": {
+            "remove_large_communities": [
+              "64500:*:*"
+            ],
+            "add_large_communities": [
+              "64500:1:1",
+              "64500:3:6939"
+            ],
+            "remove_standard_communities": [
+              "64500:*"
+            ]
+          }
+        },
+        {
+          "set": {
+            "local_pref": 100
+          }
+        },
+        {
+          "then": "accept"
+        }
+      ],
+      "IX-IN": [
+        {
+          "call": "SANITY"
+        },
+        {
+          "description": "Learned from AS55518",
+          "set": {
+            "remove_large_communities": [
+              "64500:*:*"
+            ],
+            "add_large_communities": [
+              "64500:1:2",
+              "64500:3:55518"
+            ],
+            "remove_standard_communities": [
+              "64500:*"
+            ]
+          }
+        },
+        {
+          "set": {
+            "local_pref": 200
+          }
+        },
+        {
+          "then": "accept"
+        }
+      ],
+      "ACME-IN": [
+        {
+          "description": "Blackhole, asked by the neighbor",
+          "if": {
+            "large_community": "64500:666:0",
+            "prefix_set": "acme-v4"
+          },
+          "set": {
+            "blackhole": true
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Blackhole, asked by the neighbor",
+          "if": {
+            "large_community": "64500:666:0",
+            "prefix_set": "acme-v6"
+          },
+          "set": {
+            "blackhole": true
+          },
+          "then": "accept"
+        },
+        {
+          "call": "SANITY"
+        },
+        {
+          "description": "Learned from AS65550",
+          "set": {
+            "remove_large_communities": [
+              "64500:1:*",
+              "64500:3:*"
+            ],
+            "add_large_communities": [
+              "64500:1:3",
+              "64500:3:65550"
+            ],
+            "remove_standard_communities": [
+              "64500:*"
+            ]
+          }
+        },
+        {
+          "description": "Their IPv4",
+          "if": {
+            "prefix_set": "acme-v4"
+          },
+          "set": {
+            "local_pref": 300
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Their IPv6",
+          "if": {
+            "prefix_set": "acme-v6"
+          },
+          "set": {
+            "local_pref": 300
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Nothing else",
+          "then": "reject"
+        }
+      ],
+      "ACME-OUT": [
+        {
+          "description": "Learned at an exchange",
+          "if": {
+            "large_community": "64500:1:2"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Our other customers",
+          "if": {
+            "large_community": "64500:1:3"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Our IPv4",
+          "if": {
+            "prefix": "198.51.100.0/24"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Our IPv6",
+          "if": {
+            "prefix": "2001:db8:100::/48"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Nothing from the transit",
+          "then": "reject"
+        }
+      ],
+      "TRANSIT-OUT": [
+        {
+          "description": "Blackholed here, never announced",
+          "if": {
+            "large_community": "64500:666:0"
+          },
+          "then": "reject"
+        },
+        {
+          "description": "Asked not to be announced anywhere",
+          "if": {
+            "large_community": "64500:100:0"
+          },
+          "then": "reject"
+        },
+        {
+          "description": "Asked not to be announced to AS6939",
+          "if": {
+            "large_community": "64500:100:6939"
+          },
+          "then": "reject"
+        },
+        {
+          "description": "Asked to prepend once to AS6939",
+          "if": {
+            "large_community": "64500:101:6939"
+          },
+          "set": {
+            "prepend": 1
+          }
+        },
+        {
+          "description": "Asked to prepend twice to AS6939",
+          "if": {
+            "large_community": "64500:102:6939"
+          },
+          "set": {
+            "prepend": 2
+          }
+        },
+        {
+          "description": "Asked to prepend three times to AS6939",
+          "if": {
+            "large_community": "64500:103:6939"
+          },
+          "set": {
+            "prepend": 3
+          }
+        },
+        {
+          "description": "Our communities stay inside our network",
+          "set": {
+            "remove_large_communities": [
+              "64500:*:*"
+            ],
+            "remove_standard_communities": [
+              "64500:*"
+            ]
+          }
+        },
+        {
+          "description": "Our IPv4",
+          "if": {
+            "prefix": "198.51.100.0/24"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Our IPv6",
+          "if": {
+            "prefix": "2001:db8:100::/48"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Nothing else leaves",
+          "then": "reject"
+        }
+      ],
+      "IX-OUT": [
+        {
+          "description": "Blackholed here, never announced",
+          "if": {
+            "large_community": "64500:666:0"
+          },
+          "then": "reject"
+        },
+        {
+          "description": "Asked not to be announced anywhere",
+          "if": {
+            "large_community": "64500:100:0"
+          },
+          "then": "reject"
+        },
+        {
+          "description": "Asked not to be announced to AS55518",
+          "if": {
+            "large_community": "64500:100:55518"
+          },
+          "then": "reject"
+        },
+        {
+          "description": "Asked to prepend once to AS55518",
+          "if": {
+            "large_community": "64500:101:55518"
+          },
+          "set": {
+            "prepend": 1
+          }
+        },
+        {
+          "description": "Asked to prepend twice to AS55518",
+          "if": {
+            "large_community": "64500:102:55518"
+          },
+          "set": {
+            "prepend": 2
+          }
+        },
+        {
+          "description": "Asked to prepend three times to AS55518",
+          "if": {
+            "large_community": "64500:103:55518"
+          },
+          "set": {
+            "prepend": 3
+          }
+        },
+        {
+          "description": "Our communities stay inside our network",
+          "set": {
+            "remove_large_communities": [
+              "64500:*:*"
+            ],
+            "remove_standard_communities": [
+              "64500:*"
+            ]
+          }
+        },
+        {
+          "description": "Our IPv4",
+          "if": {
+            "prefix": "198.51.100.0/24"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Our IPv6",
+          "if": {
+            "prefix": "2001:db8:100::/48"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Customer IPv4",
+          "if": {
+            "prefix_set": "acme-v4"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Customer IPv6",
+          "if": {
+            "prefix_set": "acme-v6"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Nothing else leaves",
+          "then": "reject"
+        }
+      ]
+    },
+    "prefix_sets": {
+      "acme-v4": {
+        "prefixes": [
+          "192.0.2.0/24"
+        ]
+      },
+      "acme-v6": {
+        "prefixes": [
+          "2001:db8:200::/48"
+        ]
+      }
+    }
+  },
+  "firewall": {
+    "address_sets": {
+      "bgp-neighbors": [
+        "203.0.113.1",
+        "203.0.113.129",
+        "198.51.100.254",
+        "2001:db8:100:ff01::2"
+      ]
+    },
+    "filter": {
+      "input": {
+        "default_action": "drop",
+        "rules": [
+          {
+            "description": "Replies",
+            "if": {
+              "connection_state": [
+                "established",
+                "related"
+              ]
+            },
+            "then": "accept"
+          },
+          {
+            "description": "Ping",
+            "if": {
+              "protocol": "icmp"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "Management",
+            "if": {
+              "src": "10.0.0.0/24"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "BGP",
+            "if": {
+              "protocol": "tcp",
+              "dst_port": 179,
+              "src_address_set": "bgp-neighbors"
+            },
+            "then": "accept"
+          }
+        ]
+      },
+      "forward": {
+        "rules": [
+          {
+            "description": "Bad flags FIN+SYN",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "syn"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags SYN+RST",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "syn",
+                  "rst"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags FIN+RST",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "rst"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags FIN without ACK",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin"
+                ],
+                "unset": [
+                  "ack"
+                ]
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags FIN+URG",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "urg"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags Xmas scan",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "syn",
+                  "psh",
+                  "urg"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          }
+        ]
+      }
+    }
+  }
+}

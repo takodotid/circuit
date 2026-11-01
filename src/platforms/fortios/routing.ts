@@ -1,0 +1,507 @@
+// OSPF, OSPFv3 and BGP, with the route maps, prefix lists and community lists BGP's policies become.
+
+import { Address } from "../../core/address";
+import { Secrets } from "../../core/secrets";
+import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, PrefixSet, RouteRule } from "../../model";
+import { FortiOsNames } from "./names";
+import { FortiOsBlock, FortiOsTree } from "./tree";
+
+/** The lengths a prefix list's rule takes within its prefix. */
+type Lengths = { ge?: number; le?: number };
+
+/** Each policy as a route map for each family, built once, with the lists its rules match. */
+class RouteMaps {
+    private readonly built = new Set<string>();
+
+    constructor(
+        private readonly root: FortiOsBlock,
+        private readonly device: Device
+    ) {}
+
+    /** A name made of a value's words, for a list named after what it matches: `64500:*` becomes `64500-any`. */
+    private static slug(value: string): string {
+        return value.replace(/\*/g, "any").replace(/[^A-Za-z0-9]+/g, "-");
+    }
+
+    /** A community pattern as a regular expression, `*` standing for any value of its field. */
+    private static patternOf(pattern: string): string {
+        return `^${pattern.replace(/\*/g, "[0-9]+")}$`;
+    }
+
+    /** The route map for a policy in one family; one that rejects everything when there is no policy. */
+    of(policy: string | undefined, family: Family): string {
+        if (!policy) {
+            if (!this.built.has(FortiOsRouting.REJECT_ALL)) {
+                this.built.add(FortiOsRouting.REJECT_ALL);
+                this.root.block("router route-map").entry(FortiOsRouting.REJECT_ALL).block("rule").entry(1).set("action", "deny");
+            }
+
+            return FortiOsRouting.REJECT_ALL;
+        }
+
+        const name = family === "ipv4" ? policy : `${policy}-v6`;
+        if (this.built.has(name)) return name;
+        this.built.add(name);
+
+        const map = this.root.block("router route-map").entry(name);
+        let number = 0;
+
+        for (const rule of FortiOsRouting.flatten(this.device, policy)) {
+            const only = FortiOsRouting.familyOfRule(this.device, rule);
+            if (only && only !== family) continue;
+
+            this.rule(map.block("rule").entry(++number), rule, family, `${name}-${number}`);
+        }
+
+        return name;
+    }
+
+    private rule(entry: FortiOsBlock, rule: RouteRule, family: Family, label: string): void {
+        const match = rule.if ?? {};
+        const set = rule.set ?? {};
+        const address = family === "ipv4" ? "match-ip-address" : "match-ip6-address";
+        const bits = FortiOsRouting.BITS[family];
+
+        if (match.prefix) {
+            this.list(label, family, [[match.prefix, {}]]);
+            entry.set(address, FortiOsTree.quote(label));
+        } else if (match.prefix_set && match.prefix_length) {
+            const name = `${match.prefix_set}-${match.prefix_length.min ?? 0}-${match.prefix_length.max ?? bits}`;
+            const prefixes = this.prefixesOf(match.prefix_set);
+            this.list(
+                name,
+                family,
+                prefixes.map((prefix) => [
+                    prefix,
+                    FortiOsRouting.bounds(prefix, family, match.prefix_length?.min, match.prefix_length?.max),
+                ])
+            );
+            entry.set(address, FortiOsTree.quote(name));
+        } else if (match.prefix_set) {
+            entry.set(address, FortiOsTree.quote(match.prefix_set));
+        } else if (match.prefix_length) {
+            const { min = 0, max = bits } = match.prefix_length;
+            const name = `circuit-length-${min}-${max}`;
+            const everything = family === "ipv4" ? "0.0.0.0/0" : "::/0";
+            this.list(name, family, [[everything, FortiOsRouting.bounds(everything, family, min, max)]]);
+            entry.set(address, FortiOsTree.quote(name));
+        }
+
+        if (match.standard_community)
+            entry.set(
+                "match-community",
+                FortiOsTree.quote(
+                    this.communities(`circuit-match-${RouteMaps.slug(match.standard_community)}`, [match.standard_community], false)
+                )
+            );
+
+        if (set.local_pref !== undefined) entry.set("set-local-preference", set.local_pref);
+        if (set.med !== undefined) entry.set("set-metric", set.med);
+        if (set.prepend !== undefined)
+            entry.set("set-aspath", FortiOsTree.quote(Array(set.prepend).fill(this.device.routing?.bgp?.asn).join(" ")));
+
+        // Replacing the communities makes removing some needless; added ones join the new ones.
+        if (set.standard_communities) {
+            entry.set("set-community", FortiOsTree.quoteAll([...set.standard_communities, ...(set.add_standard_communities ?? [])]));
+        } else {
+            if (set.add_standard_communities)
+                entry.set("set-community", FortiOsTree.quoteAll(set.add_standard_communities)).set("set-community-additive", "enable");
+
+            if (set.remove_standard_communities) {
+                const name = `circuit-remove-${RouteMaps.slug(set.remove_standard_communities.join(" "))}`;
+                entry.set("set-community-delete", FortiOsTree.quote(this.communities(name, set.remove_standard_communities, true)));
+            }
+        }
+
+        if (set.next_hop && Address.family(set.next_hop) === family)
+            entry.set(family === "ipv4" ? "set-ip-nexthop" : "set-ip6-nexthop", set.next_hop);
+
+        // Permit is the default and is not printed.
+        if (rule.then === "reject") entry.set("action", "deny");
+    }
+
+    /** The prefixes of a set the config lists. */
+    private prefixesOf(set: string): string[] {
+        return FortiOsRouting.listed(this.device.routing?.prefix_sets?.[set]) ?? [];
+    }
+
+    /** A prefix list of its own, rule by rule; a prefix no length fits is left out. */
+    private list(name: string, family: Family, rules: [string, Lengths | undefined][]): void {
+        const rulesBlock = this.root.block(FortiOsRouting.PREFIX_LIST[family]).entry(name).block("rule");
+        let number = 0;
+
+        for (const [prefix, lengths] of rules) if (lengths) FortiOsRouting.listRule(rulesBlock.entry(++number), family, prefix, lengths);
+    }
+
+    /** A community list matching these communities, or, expanded, these patterns. */
+    private communities(name: string, values: readonly string[], patterns: boolean): string {
+        const list = this.root.block("router community-list").entry(name);
+        if (patterns) list.set("type", "expanded");
+
+        values.forEach((value, index) => {
+            const rule = list
+                .block("rule")
+                .entry(index + 1)
+                .set("action", "permit");
+            if (patterns) rule.set("regexp", FortiOsTree.quote(RouteMaps.patternOf(value)));
+            else rule.set("match", FortiOsTree.quote(value));
+        });
+
+        return name;
+    }
+}
+
+export class FortiOsRouting {
+    /** The route map a session takes when its config states none, so it learns or announces nothing. */
+    static readonly REJECT_ALL = "circuit-reject-all";
+
+    /** The start of the comment on a prefix list `refresh` fills. The plan keeps the entries the device holds in one. */
+    static readonly FILLED = "Filled by circuit refresh";
+
+    /** The table a prefix list of one family sits in. */
+    static readonly PREFIX_LIST = { ipv4: "router prefix-list", ipv6: "router prefix-list6" } as const;
+
+    /** The longest prefix of each family. */
+    static readonly BITS = { ipv4: 32, ipv6: 128 } as const;
+
+    /** A neighbor's settings with its group's beneath them. */
+    static neighborSettings(device: Device, neighbor: Neighbor): NeighborSettings {
+        const group = neighbor.neighbor_group ? device.routing?.bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
+        return { ...group, ...neighbor };
+    }
+
+    /** The families a session carries: its own, or the family of its address. */
+    static familiesOfNeighbor(device: Device, neighbor: Neighbor): Family[] {
+        return [...(FortiOsRouting.neighborSettings(device, neighbor).address_families ?? [Address.family(neighbor.address)])];
+    }
+
+    /** The prefixes a set lists, from a list or a map of named prefixes; undefined for a set a registry fills. */
+    static listed(set: PrefixSet | undefined): string[] | undefined {
+        if (!set || !("prefixes" in set)) return undefined;
+        return Array.isArray(set.prefixes) ? [...set.prefixes] : Object.values(set.prefixes);
+    }
+
+    /** Whether a static route, OSPF or BGP detects a dead neighbor with BFD, which the device then runs. */
+    static usesBfd(device: Device): boolean {
+        const routes = (device.routing?.static_routes ?? []).some((route) => route.bfd);
+        const areas = Object.values(device.routing?.ospf?.areas ?? {});
+        const ospf = areas.some((area) => Object.values(area.interfaces).some((settings) => settings?.bfd));
+        const bgp = Object.values(device.routing?.bgp?.neighbors ?? {}).some(
+            (neighbor) => FortiOsRouting.neighborSettings(device, neighbor).bfd
+        );
+        return routes || ospf || bgp;
+    }
+
+    static render(root: FortiOsBlock, device: Device): void {
+        FortiOsRouting.prefixLists(root, device);
+        FortiOsRouting.ospf(root, device);
+        FortiOsRouting.ospf6(root, device);
+        FortiOsRouting.bgp(root, device);
+    }
+
+    /** A prefix as the platform writes it in a prefix list of its family. */
+    private static listPrefix(prefix: string, family: Family): string {
+        return family === "ipv4" ? FortiOsNames.subnet(FortiOsNames.network(prefix)) : FortiOsNames.network(prefix);
+    }
+
+    /** One rule of a prefix list: a prefix, and the lengths it takes within it. The device prints a bound the rule does not hold as `unset`. */
+    static listRule(rule: FortiOsBlock, family: Family, prefix: string, lengths: Lengths = {}): void {
+        rule.set(family === "ipv4" ? "prefix" : "prefix6", FortiOsRouting.listPrefix(prefix, family));
+        rule.set("ge", lengths.ge ?? FortiOsTree.UNSET);
+        rule.set("le", lengths.le ?? FortiOsTree.UNSET);
+    }
+
+    /** The lengths a rule takes within a prefix to match lengths from `min` to `max`, or none when no length fits. A bound equal to the prefix's own length is left out. */
+    static bounds(prefix: string, family: Family, min = 0, max: number = FortiOsRouting.BITS[family]): Lengths | undefined {
+        const own = Address.split(FortiOsNames.network(prefix)).len;
+        const low = Math.max(min, own);
+        if (max < low) return undefined;
+        if (low === own && max === own) return {};
+
+        return { ...(low > own ? { ge: low } : {}), le: max };
+    }
+
+    /** Each prefix set as a prefix list matching its prefixes and any more specific. One a registry fills starts with a rule that denies every prefix, so it matches nothing until `refresh` fills it. */
+    private static prefixLists(root: FortiOsBlock, device: Device): void {
+        for (const [name, set] of Object.entries(device.routing?.prefix_sets ?? {})) {
+            if (!set) continue;
+
+            if ("source" in set) {
+                const { registry, query, family } = set.source;
+                const entry = root
+                    .block(FortiOsRouting.PREFIX_LIST[family])
+                    .entry(name)
+                    .set("comments", FortiOsTree.quote(`${FortiOsRouting.FILLED} from ${registry} ${query}`));
+                // Until `refresh` fills it, the list refuses every prefix, so a rule matching it matches nothing.
+                const rule = entry.block("rule").entry(1);
+                FortiOsRouting.listRule(rule, family, family === "ipv4" ? "0.0.0.0/0" : "::/0", { le: FortiOsRouting.BITS[family] });
+                rule.set("action", "deny");
+                continue;
+            }
+
+            const prefixes = FortiOsRouting.listed(set) ?? [];
+            const family = prefixes[0] ? FortiOsNames.familyOfPrefix(prefixes[0]) : "ipv4";
+            const entry = root.block(FortiOsRouting.PREFIX_LIST[family]).entry(name);
+            prefixes.forEach((prefix, index) =>
+                FortiOsRouting.listRule(entry.block("rule").entry(index + 1), family, prefix, FortiOsRouting.bounds(prefix, family))
+            );
+        }
+    }
+
+    /** The networks of an interface's addresses of one family, for an OSPF area to announce. */
+    private static networksOf(device: Device, name: string, family: Family): string[] {
+        return FortiOsNames.addressesOf(FortiOsNames.settingsOf(device, name))
+            .filter((address) => FortiOsNames.familyOfPrefix(address) === family)
+            .map(FortiOsNames.network);
+    }
+
+    /** OSPF for IPv4. An area runs on the networks of its interfaces; an interface named with a cost, a link type or BFD has settings of its own; a passive one forms no adjacency. */
+    private static ospf(root: FortiOsBlock, device: Device): void {
+        const ospf = device.routing?.ospf;
+        if (!ospf || !(ospf.address_families ?? ["ipv4"]).includes("ipv4")) return;
+
+        const block = root.block("router ospf");
+        if (device.routing?.router_id) block.set("router-id", device.routing.router_id);
+
+        const passive: string[] = [];
+        let networks = 0;
+
+        for (const [areaId, area] of Object.entries(ospf.areas)) {
+            block.block("area").entry(areaId, true);
+
+            for (const [name, settings] of Object.entries(area.interfaces)) {
+                const iface = FortiOsNames.nameOf(device, name);
+                if (settings?.passive) passive.push(iface);
+
+                if (settings?.cost !== undefined || settings?.network === "point-to-point" || settings?.bfd) {
+                    const entry = block.block("ospf-interface").entry(iface);
+                    entry.set("interface", FortiOsTree.quote(iface));
+                    if (settings.cost !== undefined) entry.set("cost", settings.cost);
+                    if (settings.network === "point-to-point") entry.set("network-type", "point-to-point");
+                    if (settings.bfd) entry.set("bfd", "enable");
+                }
+
+                for (const prefix of FortiOsRouting.networksOf(device, name, "ipv4")) {
+                    const entry = block.block("network").entry(++networks);
+                    entry.set("prefix", FortiOsNames.subnet(prefix));
+                    // The backbone is the platform's default area and is not printed.
+                    if (areaId !== "0.0.0.0") entry.set("area", areaId);
+                }
+            }
+        }
+
+        if (passive.length) block.set("passive-interface", FortiOsTree.quoteAll(passive));
+        for (const source of ospf.redistribute ?? []) block.block(`redistribute "${source}"`).set("status", "enable");
+    }
+
+    /** OSPFv3 for IPv6. Every interface of an area runs it in that area. */
+    private static ospf6(root: FortiOsBlock, device: Device): void {
+        const ospf = device.routing?.ospf;
+        if (!ospf?.address_families?.includes("ipv6")) return;
+
+        const block = root.block("router ospf6");
+        if (device.routing?.router_id) block.set("router-id", device.routing.router_id);
+
+        const passive: string[] = [];
+
+        for (const [areaId, area] of Object.entries(ospf.areas)) {
+            block.block("area").entry(areaId, true);
+
+            for (const [name, settings] of Object.entries(area.interfaces)) {
+                const iface = FortiOsNames.nameOf(device, name);
+                if (settings?.passive) passive.push(iface);
+
+                const entry = block.block("ospf6-interface").entry(iface);
+                entry.set("interface", FortiOsTree.quote(iface));
+                if (areaId !== "0.0.0.0") entry.set("area-id", areaId);
+                if (settings?.cost !== undefined) entry.set("cost", settings.cost);
+                if (settings?.network === "point-to-point") entry.set("network-type", "point-to-point");
+                if (settings?.bfd) entry.set("bfd", "enable");
+            }
+        }
+
+        if (passive.length) block.set("passive-interface", FortiOsTree.quoteAll(passive));
+        for (const source of ospf.redistribute ?? []) block.block(`redistribute "${source}"`).set("status", "enable");
+    }
+
+    /** BGP: each session with its settings and group's, the route maps its policies become for each family it carries, and the prefixes the device originates. */
+    private static bgp(root: FortiOsBlock, device: Device): void {
+        const bgp = device.routing?.bgp;
+        if (!bgp) return;
+
+        const block = root.block("router bgp");
+        if (bgp.asn !== undefined) block.set("as", bgp.asn);
+        if (device.routing?.router_id) block.set("router-id", device.routing.router_id);
+
+        const maps = new RouteMaps(root, device);
+
+        for (const neighbor of Object.values(bgp.neighbors ?? {})) {
+            if (!neighbor) continue;
+
+            const settings = FortiOsRouting.neighborSettings(device, neighbor);
+            const families = FortiOsRouting.familiesOfNeighbor(device, neighbor);
+            const entry = block.block("neighbor").entry(neighbor.address);
+
+            // Both families are active unless told otherwise.
+            if (!families.includes("ipv4")) entry.set("activate", "disable");
+            if (!families.includes("ipv6")) entry.set("activate6", "disable");
+            if (settings.bfd) entry.set("bfd", "enable");
+            if (settings.multihop) entry.set("ebgp-enforce-multihop", "enable");
+            if (settings.passive) entry.set("passive", "enable");
+            if (settings.description) entry.set("description", FortiOsTree.quote(settings.description));
+            if (settings.remote_as !== undefined) entry.set("remote-as", settings.remote_as);
+
+            for (const family of families) {
+                const suffix = family === "ipv4" ? "" : "6";
+                if (settings.max_prefixes !== undefined) entry.set(`maximum-prefix${suffix}`, settings.max_prefixes);
+                entry.set(`route-map-in${suffix}`, FortiOsTree.quote(maps.of(settings.import_policy, family)));
+                entry.set(`route-map-out${suffix}`, FortiOsTree.quote(maps.of(settings.export_policy, family)));
+            }
+
+            if (settings.keepalive !== undefined) entry.set("keep-alive-timer", settings.keepalive);
+            if (settings.hold_time !== undefined) entry.set("holdtime-timer", settings.hold_time);
+
+            const source = settings.local_address ? FortiOsNames.holderOf(device, settings.local_address) : undefined;
+            if (source) entry.set("update-source", FortiOsTree.quote(FortiOsNames.nameOf(device, source)));
+
+            if (settings.password) entry.set("password", FortiOsTree.quote(Secrets.marker(settings.password)));
+        }
+
+        const networks = { ipv4: 0, ipv6: 0 };
+
+        for (const prefix of bgp.originated_prefixes ?? []) {
+            const family = FortiOsNames.familyOfPrefix(prefix);
+            const entry = block.block(family === "ipv4" ? "network" : "network6").entry(++networks[family]);
+            entry.set(family === "ipv4" ? "prefix" : "prefix6", FortiOsRouting.listPrefix(prefix, family));
+        }
+    }
+
+    /** The family a rule is limited to, by its match: a family, a prefix, or a prefix set of one family. */
+    static familyOfRule(device: Device, rule: RouteRule): Family | undefined {
+        const match = rule.if;
+        if (match?.family) return match.family;
+        if (match?.prefix) return FortiOsNames.familyOfPrefix(match.prefix);
+
+        const set = match?.prefix_set ? device.routing?.prefix_sets?.[match.prefix_set] : undefined;
+        if (set && "source" in set) return set.source.family;
+
+        const first = FortiOsRouting.listed(set)?.[0];
+        if (first) return FortiOsNames.familyOfPrefix(first);
+
+        return undefined;
+    }
+
+    /** A policy's rules with each call replaced by the rules it calls, in order. A called policy that decides nothing hands back to the caller. A `{ communities }` rule, which Circuit writes out before the platform reads it, is left out; `unsupported()` refuses one. */
+    static flatten(device: Device, policy: string, seen: string[] = [policy]): RouteRule[] {
+        const flat: RouteRule[] = [];
+
+        for (const rule of device.routing?.policies?.[policy] ?? []) {
+            if ("call" in rule && rule.call !== undefined) {
+                if (!seen.includes(rule.call)) flat.push(...FortiOsRouting.flatten(device, rule.call, [...seen, rule.call]));
+                continue;
+            }
+
+            if (FortiOsRouting.isRouteRule(rule) && (rule.if || rule.set || rule.then)) flat.push(rule);
+        }
+
+        return flat;
+    }
+
+    /** Whether a policy rule is a rule on routes, not a call or a `{ communities }` rule. */
+    static isRouteRule(rule: PolicyRule): rule is RouteRule {
+        return !("call" in rule && rule.call !== undefined) && !("communities" in rule && rule.communities !== undefined);
+    }
+
+    /** Routing the platform cannot express, or that this adapter does not yet write. */
+    static gaps(device: Device): string[] {
+        const found: string[] = [];
+        const routing = device.routing;
+
+        if (routing?.rpki) found.push("routing.rpki, the platform has no route origin validation");
+        if (routing?.router_id && !routing.ospf && !routing.bgp) found.push("routing.router_id without OSPF or BGP, which each hold it");
+        if (routing?.bgp && routing.bgp.asn === undefined) found.push("routing.bgp without asn, which the platform's BGP needs");
+
+        const ospf = routing?.ospf;
+        if (ospf?.address_families?.includes("ipv6") && !routing?.router_id) found.push("routing.ospf for IPv6 without routing.router_id");
+
+        for (const area of Object.values(ospf?.areas ?? {})) {
+            for (const name of Object.keys(area.interfaces)) {
+                if (FortiOsNames.settingsOf(device, name)?.vrf)
+                    found.push(`routing.ospf on ${name}, which routes in a VRF: OSPF runs in the default table`);
+
+                const ipv4 = FortiOsNames.addressesOf(FortiOsNames.settingsOf(device, name)).some(
+                    (address) => Address.family(Address.host(address)) === "ipv4"
+                );
+                if ((ospf?.address_families ?? ["ipv4"]).includes("ipv4") && !ipv4)
+                    found.push(`routing.ospf on ${name}, which has no IPv4 address for OSPF to run on`);
+            }
+        }
+
+        for (const [name, neighbor] of Object.entries(routing?.bgp?.neighbors ?? {})) {
+            if (!neighbor) continue;
+
+            const where = `routing.bgp.neighbors.${name}`;
+            const settings = FortiOsRouting.neighborSettings(device, neighbor);
+
+            if (settings.role) found.push(`${where}.role, the platform has no BGP roles`);
+            if (settings.bfd && settings.multihop)
+                found.push(
+                    `${where}.bfd, FortiOS 6.2 runs single-hop BFD on a multihop session, which a peer running multihop BFD never answers`
+                );
+            if (settings.local_address && !FortiOsNames.holderOf(device, settings.local_address)) {
+                found.push(`${where}.local_address, no interface holds ${settings.local_address}`);
+            }
+
+            if (Address.family(neighbor.address) === "ipv6" && FortiOsRouting.familiesOfNeighbor(device, neighbor).includes("ipv4")) {
+                found.push(`${where}.address_families ipv4 over an IPv6 session`);
+            }
+        }
+
+        for (const [name, rules] of Object.entries(routing?.policies ?? {})) {
+            (rules ?? []).forEach((rule, index) =>
+                found.push(...FortiOsRouting.ruleGaps(device, `routing.policies.${name}[${index}]`, rule))
+            );
+        }
+
+        return found;
+    }
+
+    private static ruleGaps(device: Device, where: string, rule: PolicyRule): string[] {
+        if (!FortiOsRouting.isRouteRule(rule)) {
+            return "communities" in rule && rule.communities !== undefined
+                ? [`${where}.communities, a rule Circuit writes out as route rules before the platform reads it`]
+                : [];
+        }
+
+        const found: string[] = [];
+        const match = rule.if ?? {};
+        const set = rule.set ?? {};
+
+        if ((rule.if || rule.set) && !rule.then)
+            found.push(`${where}, a rule without then: the platform stops at the first rule that matches`);
+
+        for (const field of ["as_path_length", "as_path_contains", "rpki", "large_community"] as const) {
+            if (match[field] !== undefined) found.push(`${where}.if.${field}`);
+        }
+
+        for (const field of [
+            "large_communities",
+            "add_large_communities",
+            "remove_large_communities",
+            "preferred_source",
+            "blackhole",
+        ] as const) {
+            if (set[field] !== undefined) found.push(`${where}.set.${field}`);
+        }
+
+        if (match.prefix && match.prefix_length) found.push(`${where}.if.prefix with prefix_length`);
+        if (match.prefix && match.prefix_set) found.push(`${where}.if.prefix with prefix_set`);
+
+        const prefixSet = match.prefix_set ? device.routing?.prefix_sets?.[match.prefix_set] : undefined;
+        if (prefixSet && "source" in prefixSet && match.prefix_length) {
+            found.push(`${where}.if.prefix_length with a prefix set a registry fills`);
+        }
+
+        return found;
+    }
+}

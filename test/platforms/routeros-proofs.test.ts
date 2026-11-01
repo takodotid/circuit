@@ -1,0 +1,260 @@
+// What a real RouterOS device printed, proved on a CCR2216 on 7.23.5, with names and addresses replaced. Each test feeds the device's own lines to the adapter.
+
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { BgpWait } from "../../src/platforms/bgp-wait";
+import { Platforms } from "../../src/platforms";
+import type { Device, Port } from "../../src/model";
+import { Fixtures } from "../fixtures";
+import { FakeSshDevice } from "./fake-ssh";
+
+const platform = Platforms.get("routeros");
+const options = { secrets: false, rollback: 10 };
+
+const edge = Fixtures.device("edge-router--edge-01");
+const ethernet = edge.interfaces!.ethernet!;
+
+/** The edge router with these ports written anew. */
+const withPorts = (ports: Record<string, Port>): Device => ({
+    ...edge,
+    interfaces: { ...edge.interfaces, ethernet: { ...ethernet, ...ports } },
+});
+
+/** The `:foreach` over `/routing bgp session`, as the router printed it. The transit's connection was renamed, so its session keeps the old name; a session that never established prints `established` empty and no uptime. */
+const SESSIONS = [
+    "transit-global-v4-1|203.0.113.1|true|1099935|13:35:26.440",
+    "sgix-rs-v4-1|192.0.2.1|true|9204|13:35:04.930",
+    "sgix-rs-v6-1|2001:db8:ffff::1||0|",
+].join("\n");
+
+/**
+ * The same script after a leak on an exchange: the two route servers' IPv6 sessions closed on their limit nine seconds apart. The session lines are as a CCR2216 on 7.23.5 printed them after such a leak: `limit-exceeded`, the limit, and when the session last closed. The last line is the form the script writes for a disabled connection; the router had none to print.
+ */
+const LEAK = [
+    "sgix-rs-v4-1|192.0.2.1|true|9204|13:35:04.930|||",
+    "sgix-rs-v6-1|2001:db8:ffff::1||0||true|6000|2026-10-24 21:57:06",
+    "sgix-rs2-v6-1|2001:db8:ffff::2||0||true|6000|2026-10-24 21:57:15",
+    "disabled|hurricane-electric|203.0.113.1/32",
+].join("\n");
+
+let sessions = SESSIONS;
+const sent: string[] = [];
+
+/** A BGP log line as the router printed it, trailing space included. */
+const LOG_LINE =
+    "2026-10-24 04:50:03 route,bgp,warning sgix-rs-v6-1 {l_addr: 2001:db8:ffff::10, r_addr: 2001:db8:ffff::1} Starter {openOk: false} Received Notification [ code: (6,5), msg: (cease: connection rejected)] ";
+
+/** The LLDP neighbors script, as the router printed it: a switch that sends its vendor as its system name, and a firewall port in a LAG. The far port is its description. */
+const NEIGHBORS = ["qsfp28-1-1;bridge|Vendor|edge-01 uplink", "sfp28-1;lag-fw;bridge|fw-01|edge-01 sfp28-1"].join("\n");
+
+const fake = new FakeSshDevice("operator+ct300w", (command) => {
+    if (command.startsWith(':foreach n in=[/ip neighbor find where discovered-by~"lldp"]')) return NEIGHBORS + "\n";
+    if (command.startsWith(":foreach s in=[/routing bgp session find]")) return sessions + "\n";
+    if (command.startsWith("/routing bgp session clear ")) {
+        sent.push(command);
+        return "";
+    }
+    if (command === ':put ([/system clock get date] . " " . [/system clock get time])') return "2026-10-24 04:53:08\n";
+    if (command === '/log print where topics~"bgp" and !(message~"^connection ")') return LOG_LINE + "\n";
+    return `bad command name ${command}\n`;
+});
+
+let device: Device;
+
+beforeAll(async () => {
+    process.env.EDGE_01_PASSWORD = FakeSshDevice.PASSWORD;
+    device = { ...edge, connection: { host: "127.0.0.1", port: await fake.listen(), user: "operator" } };
+});
+
+afterAll(() => fake.close());
+
+test("circuit bgp reads the router's sessions: a renamed connection by its address, one never established as down", async () => {
+    const session = await platform.session(device);
+
+    try {
+        expect(await platform.bgpSessions!(device, session)).toEqual([
+            { neighbor: "hurricane-electric", remote: "203.0.113.1", established: true, prefixes: "1099935", uptime: "13:35:26.440" },
+            { neighbor: "sgix-rs-v4", remote: "192.0.2.1", established: true, prefixes: "9204", uptime: "13:35:04.930" },
+            { neighbor: "sgix-rs-v6", remote: "2001:db8:ffff::1", established: false, prefixes: "0", uptime: "-", reason: "connecting" },
+        ]);
+
+        const [line] = await platform.bgpLog!(session, 10);
+        expect(line?.at).toBe("2026-10-24 04:50:03");
+        expect(line?.message.endsWith("(cease: connection rejected)]")).toBe(true);
+    } finally {
+        session.close();
+    }
+});
+
+test("a VLAN interface that keeps its name and takes a new VLAN ID is changed with a set, and its address stays", () => {
+    const withVlan = (id: number): Device => ({
+        ...edge,
+        switching: { ...edge.switching, vlans: { ...edge.switching!.vlans, test: { id } } },
+        interfaces: {
+            ...edge.interfaces,
+            vlan_interface: { ...edge.interfaces!.vlan_interface, "test-vlan01": { vlan: "test", addresses: ["192.0.2.201/30"] } },
+        },
+    });
+
+    // The export as the router printed it, wrapped, after the interface was added on VLAN 3990.
+    const running = platform.render(withVlan(3990)).replace("name=test-vlan01 vlan-id=3990", "name=test-vlan01 vlan-id=\\\n    3990");
+    expect(running).toContain("vlan-id=\\\n    3990");
+
+    const plan = platform.plan(platform.render(withVlan(3991)), running, options);
+    const sent = plan.steps.flatMap((step) => step.send);
+
+    expect(plan.problems).toEqual([]);
+    expect(sent).toEqual([
+        "/interface vlan set [ find interface=bridge and vlan-id=3990 ] vlan-id=3991",
+        "/interface bridge vlan add bridge=bridge tagged=bridge vlan-ids=3991",
+        "/interface bridge vlan remove [ find vlan-ids=3990 and !dynamic ]",
+    ]);
+});
+
+test("LLDP neighbors: our port by Circuit's name, and the far port by the description it reports", async () => {
+    const firewall: Device = {
+        ...edge,
+        name: "fw-01",
+        interfaces: { ...edge.interfaces, ethernet: { "25g-3": { description: "edge-01 sfp28-1" } } },
+    };
+
+    expect(await platform.neighbors!(device, [device, firewall])).toEqual([
+        { port: "100g-1", system: "Vendor", remote_port: "edge-01 uplink" },
+        { port: "25g-1", system: "fw-01", remote_port: "25g-3" },
+    ]);
+});
+
+/** The edge router with a multihop session to a controller, with BFD, and BFD timers when given. */
+function withMultihopBfd(bfd?: { interval: number; multiplier: number }, sessionBfd = true): Device {
+    const routing = edge.routing!;
+    const controller = { address: "198.51.100.7", remote_as: 64512, multihop: true, bfd: sessionBfd || undefined } as const;
+
+    return {
+        ...edge,
+        routing: { ...routing, bfd, bgp: { ...routing.bgp!, neighbors: { ...routing.bgp!.neighbors, controller } } },
+    };
+}
+
+test("BFD timers and a multihop session: the configuration names the session's address, and its timers read back as the router printed them", () => {
+    const desired = platform.render(withMultihopBfd({ interval: 300, multiplier: 3 }));
+
+    // As the router printed it. Without a configuration naming the address, its BFD session was `BFD forbidden for destination address`.
+    expect(desired).toContain("/routing bfd configuration\nadd addresses=198.51.100.7/32 min-rx=300ms min-tx=300ms multiplier=3\n");
+    expect(desired).not.toContain("interfaces=all");
+
+    const timersOnly: Device = { ...edge, routing: { ...edge.routing!, bfd: { interval: 300, multiplier: 3 } } };
+    expect(platform.render(timersOnly)).toContain(
+        "/routing bfd configuration\nadd interfaces=all min-rx=300ms min-tx=300ms multiplier=3\n"
+    );
+});
+
+test("timers the config no longer states are set back to the router's own, which it then prints", () => {
+    const running = platform.render(withMultihopBfd({ interval: 300, multiplier: 3 }));
+    const plan = platform.plan(platform.render(withMultihopBfd()), running, options);
+
+    expect(plan.problems).toEqual([]);
+    expect(plan.steps.flatMap((step) => step.send)).toEqual([
+        '/routing bfd configuration set [ find addresses="198.51.100.7/32" ] min-rx=200ms min-tx=200ms multiplier=5',
+    ]);
+
+    const printed = running.replace("min-rx=300ms min-tx=300ms multiplier=3", "min-rx=200ms min-tx=200ms multiplier=5");
+    expect(platform.plan(platform.render(withMultihopBfd()), printed, options).steps).toEqual([]);
+});
+
+test("BFD taken off a session sets use-bfd=no, which the router then prints", () => {
+    const running = platform.render(withMultihopBfd());
+    const sent = platform.plan(platform.render(withMultihopBfd(undefined, false)), running, options).steps.flatMap((step) => step.send);
+
+    expect(sent).toEqual([
+        '/routing bgp connection set [ find remote.address="198.51.100.7/32" ] use-bfd=no',
+        '/routing bfd configuration remove [ find addresses="198.51.100.7/32" ]',
+    ]);
+
+    const desired = platform.render(withMultihopBfd(undefined, false));
+    const printed = desired.replace("remote.as=64512", "remote.as=64512 use-bfd=no");
+    expect(printed).toContain("use-bfd=no");
+    expect(platform.plan(desired, printed, options).steps).toEqual([]);
+});
+
+test("BFD timers and multihop BFD are no longer refused; BFD on a static route is, for the reason the router gave", () => {
+    const route = { prefix: "192.0.2.0/24", next_hop: "203.0.113.1", bfd: true } as const;
+    const device: Device = {
+        ...withMultihopBfd({ interval: 300, multiplier: 3 }),
+        routing: { ...withMultihopBfd().routing, static_routes: [route] },
+    };
+
+    expect(platform.unsupported(device)).toEqual([
+        "routing.static_routes 192.0.2.0/24 bfd, a static route's check-gateway takes arp, none or ping on 7.23",
+    ]);
+});
+
+test("an ethertype filter: a switch rule per kind after the port's ACL, then a drop, as the router printed them", () => {
+    const filtered = withPorts({ "25g-2": { ...ethernet["25g-2"]!, ethertypes: ["ipv4", "ipv6", "arp"] } });
+    const desired = platform.render(filtered);
+    const rules = desired.slice(desired.indexOf("/interface ethernet switch rule\n")).split("\n/")[0]!.split("\n").slice(1);
+
+    expect(rules.slice(-4)).toEqual([
+        'add comment="sfp28-2 takes ipv4" mac-protocol=ip ports=sfp28-2 switch=switch1',
+        'add comment="sfp28-2 takes ipv6" mac-protocol=ipv6 ports=sfp28-2 switch=switch1',
+        'add comment="sfp28-2 takes arp" mac-protocol=arp ports=sfp28-2 switch=switch1',
+        'add comment="sfp28-2 takes nothing else" new-dst-ports="" ports=sfp28-2 switch=switch1',
+    ]);
+
+    // The export wraps them as it wraps every long line.
+    const printed = desired
+        .replace("mac-protocol=ip ports=sfp28-2 switch=switch1", "mac-protocol=ip ports=sfp28-2 switch=\\\n    switch1")
+        .replace('new-dst-ports="" ports=sfp28-2 switch=switch1', 'new-dst-ports="" ports=sfp28-2 \\\n    switch=switch1');
+    expect(printed).toContain("switch=\\\n    switch1");
+    expect(platform.plan(desired, printed, options).steps).toEqual([]);
+
+    expect(platform.switchRules!(filtered).count).toBe(platform.switchRules!(edge).count + 4);
+});
+
+test("a MAC limit stays refused, for the reason the router gave, and an ethertype filter on a LAG as unproved", () => {
+    const ported = withPorts({ "25g-2": { ...ethernet["25g-2"]!, mac_limit: 1, ethertypes: ["ipv4"] } });
+    const device: Device = { ...ported, interfaces: { ...ported.interfaces, lag: { members: { mac_limit: 1, ethertypes: ["ipv4"] } } } };
+
+    expect(platform.unsupported(device)).toEqual([
+        "interfaces.ethernet.25g-2.mac_limit, the platform has no MAC learning limit on a bridge port or a switch port on 7.23",
+        "interfaces.lag.members.mac_limit, the platform has no MAC learning limit on a bridge port or a switch port on 7.23",
+        "interfaces.lag.members.ethertypes, on a LAG, which is not proved on a device yet",
+    ]);
+});
+
+test("circuit bgp says why a session is down: closed on its limit with the limit and when, admin down, connecting", async () => {
+    const bgp = device.routing!.bgp!;
+    const withRs2 = {
+        ...device,
+        routing: {
+            ...device.routing,
+            bgp: { ...bgp, neighbors: { ...bgp.neighbors, "sgix-rs2-v6": { address: "2001:db8:ffff::2", remote_as: 64512 } } },
+        },
+    } as Device;
+    sessions = LEAK;
+    const session = await platform.session(device);
+
+    try {
+        const read = await platform.bgpSessions!(withRs2, session);
+        expect(read.map(({ neighbor, reason, limit }) => ({ neighbor, reason, max: limit?.max, stopped: limit?.stopped }))).toEqual([
+            { neighbor: "hurricane-electric", reason: "admin down", max: undefined, stopped: undefined },
+            { neighbor: "sgix-rs-v4", reason: undefined, max: undefined, stopped: undefined },
+            { neighbor: "sgix-rs-v6", reason: "limit exceeded", max: 6000, stopped: "2026-10-24 21:57:06" },
+            { neighbor: "sgix-rs2-v6", reason: "limit exceeded", max: 6000, stopped: "2026-10-24 21:57:15" },
+        ]);
+
+        // Two limits nine seconds apart are one burst.
+        expect(BgpWait.limitBursts(read).map((burst) => burst.map((one) => one.neighbor))).toEqual([["sgix-rs-v6", "sgix-rs2-v6"]]);
+
+        // Clearing names each session by its address, and only while it is closed on its limit.
+        await platform.bgpClearLimit!(
+            session,
+            read.filter((one) => one.limit)
+        );
+        expect(sent).toEqual([
+            "/routing bgp session clear [find remote.address=2001:db8:ffff::1 and limit-exceeded] flag=limit-exceeded",
+            "/routing bgp session clear [find remote.address=2001:db8:ffff::2 and limit-exceeded] flag=limit-exceeded",
+        ]);
+    } finally {
+        session.close();
+        sessions = SESSIONS;
+    }
+});

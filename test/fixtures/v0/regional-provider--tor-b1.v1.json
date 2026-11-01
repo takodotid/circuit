@@ -1,0 +1,300 @@
+{
+  "name": "tor-b1",
+  "site": "regional-provider",
+  "platform": "vrp",
+  "model": "CE6855-48S6Q-HI",
+  "connection": {
+    "host": "10.1.99.3",
+    "user": "operator"
+  },
+  "system": {
+    "timezone": "Asia/Jakarta",
+    "ntp": {
+      "servers": [
+        "10.0.20.123",
+        "10.0.20.124"
+      ]
+    },
+    "users": {
+      "operator": {
+        "role": "admin",
+        "password": {
+          "secret": "SWITCH_OPERATOR_PASSWORD"
+        }
+      }
+    }
+  },
+  "management": {
+    "allow": [
+      "10.0.99.0/24",
+      "10.1.99.0/24",
+      "10.254.2.0/24"
+    ],
+    "ssh": {}
+  },
+  "monitoring": {
+    "snmp": {
+      "users": {
+        "monitor": {
+          "auth": "sha1",
+          "auth_password": {
+            "secret": "SWITCH_SNMP_AUTH"
+          },
+          "privacy": "aes128",
+          "privacy_password": {
+            "secret": "SWITCH_SNMP_PRIVACY"
+          }
+        }
+      },
+      "location": "Site B, rack 2"
+    },
+    "flow_export": {
+      "protocol": "sflow",
+      "collectors": [
+        {
+          "address": "10.0.20.40"
+        }
+      ],
+      "sampling": 4096,
+      "interfaces": [
+        "40g-1"
+      ]
+    }
+  },
+  "interfaces": {
+    "ethernet": {
+      "10g-1": {
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        },
+        "description": "oscorp router",
+        "access_vlan": "oscorp"
+      },
+      "10g-2": {
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        },
+        "description": "dunder file server",
+        "access_vlan": "dunder"
+      },
+      "10g-3": {
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        },
+        "description": "dunder mail",
+        "access_vlan": "dunder"
+      },
+      "10g-4": {
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        },
+        "description": "sirius build 1",
+        "trunk_vlans": [
+          "sirius",
+          "sirius-private"
+        ]
+      },
+      "10g-5": {
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        },
+        "description": "sirius build 2",
+        "trunk_vlans": [
+          "sirius",
+          "sirius-private"
+        ]
+      },
+      "40g-1": {
+        "description": "agg-b1",
+        "trunk_vlans": [
+          "mgmt",
+          "infra",
+          "office",
+          "hanso",
+          "oscorp",
+          "dunder",
+          "sirius"
+        ],
+        "link": {
+          "device": "agg-b1",
+          "port": "100g-2"
+        }
+      },
+      "10g-41": {
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        },
+        "description": "Office, desk 1",
+        "access_vlan": "office"
+      },
+      "10g-42": {
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        },
+        "description": "Office, desk 2",
+        "access_vlan": "office"
+      },
+      "10g-43": {
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        },
+        "description": "Office, desk 3",
+        "access_vlan": "office"
+      },
+      "10g-44": {
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        },
+        "description": "Office, desk 4",
+        "access_vlan": "office"
+      },
+      "10g-45": {
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        },
+        "description": "Office, desk 5",
+        "access_vlan": "office"
+      },
+      "10g-46": {
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        },
+        "description": "Office, desk 6",
+        "access_vlan": "office"
+      }
+    },
+    "vlan_interface": {
+      "mgmt": {
+        "vlan": "mgmt",
+        "addresses": [
+          "10.1.99.3/24"
+        ]
+      },
+      "infra": {
+        "vlan": "infra",
+        "addresses": [
+          "10.1.10.3/24"
+        ]
+      }
+    }
+  },
+  "switching": {
+    "vlans": {
+      "mgmt": {
+        "id": 99,
+        "description": "Management of every device at the site"
+      },
+      "infra": {
+        "id": 10,
+        "description": "OSPF between the site's routers and switches"
+      },
+      "office": {
+        "id": 50,
+        "description": "The site B office"
+      },
+      "hanso": {
+        "id": 1009,
+        "description": "Customer hanso"
+      },
+      "oscorp": {
+        "id": 1010,
+        "description": "Customer oscorp"
+      },
+      "dunder": {
+        "id": 1011,
+        "description": "Customer dunder"
+      },
+      "sirius": {
+        "id": 1012,
+        "description": "Customer sirius"
+      },
+      "sirius-private": {
+        "id": 2012,
+        "description": "Customer sirius, private"
+      }
+    },
+    "stp": {
+      "mode": "rstp"
+    },
+    "lldp": true
+  },
+  "routing": {
+    "router_id": "10.1.10.3",
+    "static_routes": [
+      {
+        "prefix": "0.0.0.0/0",
+        "next_hop": "10.1.99.1"
+      }
+    ],
+    "ospf": {
+      "areas": {
+        "0.0.0.1": {
+          "interfaces": {
+            "infra": {
+              "cost": 10,
+              "bfd": true
+            },
+            "mgmt": {
+              "passive": true
+            }
+          }
+        }
+      }
+    }
+  }
+}

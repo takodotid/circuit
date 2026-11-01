@@ -1,0 +1,224 @@
+{
+  "name": "agg-b1",
+  "site": "regional-provider",
+  "platform": "raisecom-ros",
+  "model": "RAX721-C-6C48",
+  "connection": {
+    "host": "10.1.99.2",
+    "user": "operator"
+  },
+  "system": {
+    "timezone": "Asia/Jakarta",
+    "ntp": {
+      "servers": [
+        "10.0.20.123",
+        "10.0.20.124"
+      ]
+    },
+    "users": {
+      "operator": {
+        "role": "admin",
+        "password": {
+          "secret": "SWITCH_OPERATOR_PASSWORD"
+        }
+      }
+    }
+  },
+  "management": {
+    "allow": [
+      "10.0.99.0/24",
+      "10.1.99.0/24",
+      "10.254.2.0/24"
+    ],
+    "ssh": {
+      "auth_timeout": 60,
+      "auth_retries": 3
+    },
+    "privilege_password": {
+      "secret": "SWITCH_ENABLE_PASSWORD"
+    }
+  },
+  "monitoring": {
+    "snmp": {
+      "users": {
+        "monitor": {
+          "auth": "sha1",
+          "auth_password": {
+            "secret": "SWITCH_SNMP_AUTH"
+          },
+          "privacy": "aes128",
+          "privacy_password": {
+            "secret": "SWITCH_SNMP_PRIVACY"
+          }
+        }
+      }
+    },
+    "transceivers": true
+  },
+  "interfaces": {
+    "ethernet": {
+      "25g-1": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "hanso server 1",
+        "access_vlan": "hanso"
+      },
+      "25g-2": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "hanso server 2",
+        "access_vlan": "hanso"
+      },
+      "25g-3": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "sirius router",
+        "access_vlan": "sirius"
+      },
+      "100g-1": {
+        "description": "edge-b1",
+        "trunk_vlans": [
+          "mgmt",
+          "infra",
+          "office",
+          "hanso",
+          "oscorp",
+          "dunder",
+          "sirius"
+        ],
+        "link": {
+          "device": "edge-b1",
+          "port": "100g-1"
+        }
+      },
+      "100g-2": {
+        "description": "tor-b1",
+        "trunk_vlans": [
+          "mgmt",
+          "infra",
+          "office",
+          "hanso",
+          "oscorp",
+          "dunder",
+          "sirius"
+        ],
+        "link": {
+          "device": "tor-b1",
+          "port": "40g-1"
+        }
+      },
+      "10g-1": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "Office, printer",
+        "access_vlan": "office"
+      },
+      "10g-2": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "Office, phone system",
+        "access_vlan": "office"
+      },
+      "10g-3": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "Office, door controller",
+        "access_vlan": "office"
+      },
+      "10g-4": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "Office, wireless access point",
+        "access_vlan": "office",
+        "stp": false
+      }
+    },
+    "vlan_interface": {
+      "mgmt": {
+        "vlan": "mgmt",
+        "addresses": [
+          "10.1.99.2/24"
+        ]
+      },
+      "infra": {
+        "vlan": "infra",
+        "addresses": [
+          "10.1.10.2/24"
+        ]
+      }
+    }
+  },
+  "switching": {
+    "vlans": {
+      "mgmt": {
+        "id": 99
+      },
+      "infra": {
+        "id": 10
+      },
+      "office": {
+        "id": 50
+      },
+      "hanso": {
+        "id": 1009
+      },
+      "oscorp": {
+        "id": 1010
+      },
+      "dunder": {
+        "id": 1011
+      },
+      "sirius": {
+        "id": 1012
+      }
+    },
+    "stp": {
+      "priority": 8192
+    },
+    "lldp": true
+  },
+  "routing": {
+    "router_id": "10.1.10.2",
+    "static_routes": [
+      {
+        "prefix": "0.0.0.0/0",
+        "next_hop": "10.1.99.1"
+      }
+    ],
+    "ospf": {
+      "areas": {
+        "0.0.0.1": {
+          "interfaces": {
+            "infra": {
+              "cost": 10
+            },
+            "mgmt": {
+              "passive": true
+            }
+          }
+        }
+      }
+    }
+  }
+}

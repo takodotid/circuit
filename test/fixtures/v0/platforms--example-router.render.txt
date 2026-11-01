@@ -1,0 +1,211 @@
+/interface ethernet switch
+set switch1 l3-hw-offloading=yes
+/interface ethernet switch l3hw-settings
+set autorestart=yes ipv6-hw=yes
+/interface bridge
+add name=bridge protocol-mode=rstp priority=0x1000 vlan-filtering=yes
+add name=loopback
+/interface ethernet
+set [ find default-name=qsfp28-1-1 ] comment="Core switch"
+set [ find default-name=qsfp28-2-1 ] disabled=yes
+set [ find default-name=sfp28-1 ] comment="Bond member"
+set [ find default-name=sfp28-2 ] comment="Bond member"
+set [ find default-name=sfp28-3 ] comment=Host
+set [ find default-name=sfp28-4 ] comment="Lab switch that must not join our spanning tree"
+set [ find default-name=sfp28-5 ] auto-negotiation=no comment="A 10G optic in a 25G cage" speed=10G-baseSR-LR
+set [ find default-name=sfp28-6 ] disabled=yes
+set [ find default-name=sfp28-7 ] disabled=yes
+set [ find default-name=sfp28-8 ] disabled=yes
+set [ find default-name=sfp28-9 ] disabled=yes
+set [ find default-name=sfp28-10 ] disabled=yes
+set [ find default-name=sfp28-11 ] disabled=yes
+set [ find default-name=sfp28-12 ] disabled=yes
+set [ find default-name=ether1 ] comment=Out-of-band
+/interface ethernet switch port
+set sfp28-3 limit-broadcasts=yes limit-unknown-multicasts=yes limit-unknown-unicasts=no storm-rate=5
+/interface bonding
+add comment="Upstream bond" mode=802.3ad name=uplink slaves="sfp28-1,sfp28-2" transmit-hash-policy=layer-2-and-3
+/interface vlan
+add interface=bridge name=management vlan-id=10
+add interface=bridge l3-hw-offloading=no name=servers vlan-id=20
+add interface=bridge name=guests-vlan vlan-id=30
+/interface macvlan
+add interface=guests-vlan mac-address=02:00:00:00:00:30 name=guests
+/interface vrrp
+add interface=management name=management-vrrp1 preemption-mode=yes priority=200 vrid=1
+/interface bridge port
+add bridge=bridge frame-types=admit-only-vlan-tagged interface=qsfp28-1-1 path-cost=100
+add bridge=bridge edge=yes frame-types=admit-only-untagged-and-priority-tagged interface=sfp28-3 pvid=20
+add bridge=bridge frame-types=admit-only-untagged-and-priority-tagged interface=sfp28-4 pvid=30
+add bridge=bridge frame-types=admit-only-untagged-and-priority-tagged interface=sfp28-5 pvid=30
+/interface bridge vlan
+add bridge=bridge comment=Management tagged="bridge,qsfp28-1-1" vlan-ids=10
+add bridge=bridge tagged="bridge,qsfp28-1-1" vlan-ids=20
+add bridge=bridge tagged="bridge,qsfp28-1-1" vlan-ids=30
+/interface bridge filter
+add action=drop chain=input comment="sfp28-4 out of spanning tree" dst-mac-address=01:80:C2:00:00:00/FF:FF:FF:FF:FF:FF in-interface=sfp28-4
+add action=drop chain=output comment="sfp28-4 out of spanning tree" dst-mac-address=01:80:C2:00:00:00/FF:FF:FF:FF:FF:FF out-interface=sfp28-4
+/interface list
+add name=lldp
+add name=native
+/interface list member
+add interface=management list=lldp
+add interface=qsfp28-1-1 list=lldp
+add interface=management list=native
+/ip vrf
+add comment="Kept apart from everything else" interfaces=guests name=guests
+/ip address
+add address=198.51.100.2/30 comment=Out-of-band interface=ether1
+add address=203.0.113.2/30 comment="Upstream bond" interface=uplink
+add address=192.0.2.255/32 interface=loopback
+add address=192.0.2.1/24 interface=management
+add address=192.0.2.254/32 comment="VRRP 1 on management" interface=management-vrrp1
+add address=198.51.100.65/26 interface=servers
+add address=198.51.100.129/26 interface=guests
+/ipv6 address
+add address=2001:db8:20::1/64 advertise=yes interface=servers
+/ip pool
+add name=servers ranges=198.51.100.100-198.51.100.120
+/ip dhcp-server
+add address-pool=servers interface=servers lease-time=1h name=servers
+/ip dhcp-server network
+add address=198.51.100.64/26 dns-server=192.0.2.53 gateway=198.51.100.65
+/ip dhcp-relay
+add dhcp-server=198.51.100.66 interface=guests name=guests
+/ip dns
+set allow-remote-requests=yes servers=192.0.2.53
+/ip firewall address-list
+# generated upstream-origins
+add address=192.0.2.0/24 list=management
+add address=198.51.100.0/24 list=ours
+add address=198.51.100.0/24 list=bgp-networks-v4
+/ip firewall filter
+add action=accept chain=input comment=Established connection-state="established,related"
+add action=accept chain=input comment=Management src-address-list=management
+add action=accept chain=input comment=BGP dst-port=179 protocol=tcp src-address=203.0.113.1/32
+add action=accept chain=input comment=OSPF protocol=ospf
+add action=accept chain=input comment=VRRP protocol=vrrp
+add action=drop chain=input comment=Default
+add action=fasttrack-connection chain=forward comment=Established connection-state="established,related"
+add action=accept chain=forward comment=Established connection-state="established,related"
+/ip firewall nat
+add action=masquerade chain=srcnat comment="Guests out" out-interface=uplink src-address=198.51.100.128/26
+add action=dst-nat to-addresses=198.51.100.70 to-ports=80 chain=dstnat comment="Web server" dst-port=8080 in-interface=uplink protocol=tcp
+/ipv6 firewall filter
+add action=accept chain=input comment=Established connection-state="established,related"
+add action=accept chain=input comment=OSPF protocol=ospf
+add action=accept chain=input comment=VRRP protocol=vrrp
+add action=drop chain=input comment=Default
+add action=accept chain=forward comment=Established connection-state="established,related"
+/ip firewall service-port
+set ftp disabled=no
+set tftp disabled=yes
+set irc disabled=yes
+set h323 disabled=yes
+set sip disabled=yes
+set pptp disabled=yes
+set rtsp disabled=yes
+/interface ethernet switch rule
+add comment="Drop spoofed" mac-protocol=ip new-dst-ports="" ports=qsfp28-1-1 src-address=198.51.100.0/255.255.255.0 switch=switch1
+add comment="Cap UDP" mac-protocol=ip ports=qsfp28-1-1 protocol=udp rate=1.0Gbps switch=switch1
+add comment="sfp28-3 takes ipv4" mac-protocol=ip ports=sfp28-3 switch=switch1
+add comment="sfp28-3 takes ipv6" mac-protocol=ipv6 ports=sfp28-3 switch=switch1
+add comment="sfp28-3 takes arp" mac-protocol=arp ports=sfp28-3 switch=switch1
+add comment="sfp28-3 takes nothing else" new-dst-ports="" ports=sfp28-3 switch=switch1
+/ip route
+add comment=Upstream dst-address=0.0.0.0/0 gateway=203.0.113.1
+add blackhole comment=Originate dst-address=198.51.100.0/24
+add comment="Guest exit" dst-address=0.0.0.0/0 gateway=198.51.100.130 routing-table=guests
+/routing rpki
+add address=192.0.2.80 group=rpki port=323
+/routing bgp instance
+add as=64500 name=default router-id=192.0.2.255
+/routing filter rule
+add chain=UPSTREAM-IN-V4 comment=Blackhole rule="if (dst in ours && bgp-large-communities includes 64500:666:0) { set blackhole yes; accept }"
+add chain=UPSTREAM-IN-V4 comment="Only the default route" rule="if (dst==0.0.0.0/0) { set bgp-local-pref 200; append bgp-large-communities 64500:1:1; set pref-src 192.0.2.255; accept }"
+add chain=UPSTREAM-IN-V4 comment="The upstream's own customers" rule="if (bgp-path-len>0 && bgp-path-len<3) { accept }"
+add chain=UPSTREAM-IN-V4 rule=reject
+add chain=UPSTREAM-OUT-V4 comment="Not to upstreams" rule="if (bgp-large-communities includes 64500:100:0) { reject }"
+add chain=UPSTREAM-OUT-V4 rule="set bgp-communities 64501:100; delete bgp-large-communities regexp \"^64500:[0-9]+:[0-9]+\$\""
+add chain=UPSTREAM-OUT-V4 comment="Our space" rule="rpki-verify rpki; if (dst in ours && rpki valid) { set bgp-med 10; set bgp-path-prepend 1; accept }"
+add chain=UPSTREAM-OUT-V4 rule=reject
+/routing bgp connection
+add as=64500 input.filter=UPSTREAM-IN-V4 instance=default input.limit-process-routes-ipv4=10 local.role=ebgp-customer name=upstream-1 output.filter-chain=UPSTREAM-OUT-V4 output.network=bgp-networks-v4 remote.address=203.0.113.1/32 remote.as=64501 use-bfd=yes
+add as=64500 hold-time=1m30s input.filter=UPSTREAM-IN-V4 instance=default keepalive-time=30s local.address=192.0.2.255 local.role=ibgp multihop=yes name=internal output.filter-chain=UPSTREAM-OUT-V4 output.network=bgp-networks-v4 remote.address=192.0.2.254/32 remote.as=64500 use-bfd=yes
+/routing ospf instance
+add name=ospf-v2 redistribute="connected,static" router-id=192.0.2.255 version=2
+/routing ospf area
+add area-id=0.0.0.0 instance=ospf-v2 name=ospf-v2-0.0.0.0
+/routing ospf interface-template
+add passive area=ospf-v2-0.0.0.0 interfaces=management
+add area=ospf-v2-0.0.0.0 cost=10 interfaces=uplink type=ptp use-bfd=yes
+/routing bfd configuration
+add interfaces=all min-rx=300ms min-tx=300ms multiplier=4
+add addresses=192.0.2.254/32 min-rx=300ms min-tx=300ms multiplier=4
+/ip service
+set ftp disabled=yes
+set ssh address=192.0.2.0/24 disabled=no
+set telnet disabled=yes
+set www disabled=yes
+set www-ssl address=192.0.2.0/24 certificate=web disabled=no
+set api disabled=yes
+set api-ssl disabled=yes
+set winbox address=192.0.2.0/24 disabled=no
+set reverse-proxy disabled=yes
+/ip ssh
+set strong-crypto=yes
+/tool mac-server
+set allowed-interface-list=native
+/tool mac-server mac-winbox
+set allowed-interface-list=native
+/tool mac-server ping
+set enabled=no
+/tool bandwidth-server
+set enabled=no
+/ip neighbor discovery-settings
+set discover-interface-list=lldp protocol=lldp
+/snmp
+set contact="" enabled=yes location="Rack 1"
+/snmp community
+set [ find default=yes ] addresses=192.0.2.0/24 name="<secret:EXAMPLE_SNMP_COMMUNITY>"
+add addresses=192.0.2.0/24 authentication-password="<secret:EXAMPLE_SNMP_AUTH>" authentication-protocol=SHA1 encryption-password="<secret:EXAMPLE_SNMP_PRIVACY>" encryption-protocol=AES name=monitor security=private
+/user
+add group=full name=admin password="<secret:EXAMPLE_ADMIN_PASSWORD>"
+add group=read name=monitor password="<secret:EXAMPLE_MONITOR_PASSWORD>"
+/user ssh-keys
+add key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyOnlyForTheExampleNotARealKey00000 operator" user=admin
+/certificate
+add fingerprint=8767232e8f0b0020ba8a20fc449016c9c2b1f149a75a79dd08fa62ffc27af5f0 name=web private-key=yes
+/ip settings
+set send-redirects=no tcp-syncookies=yes
+/system identity
+set name=example-router
+/system clock
+set time-zone-autodetect=no time-zone-name=Asia/Jakarta
+/system note
+set note="Authorised access only." show-at-login=yes
+/system ntp client
+set enabled=yes
+/system ntp server
+set enabled=yes
+/system ntp client servers
+add address=pool.ntp.org
+/system logging action
+set 1 disk-file-count=5 disk-lines-per-file=1000
+add name=remote1 remote=192.0.2.14 remote-port=514 target=remote
+/system logging
+add action=disk topics=critical
+add action=disk topics=error
+add action=disk topics=warning
+add action=remote1 topics=critical
+add action=remote1 topics=error
+add action=remote1 topics=warning
+add action=remote1 topics=info
+/system package update
+set channel=long-term
+/system routerboard settings
+set enter-setup-on=delete-key
+/ip traffic-flow
+set enabled=yes interfaces=uplink packet-sampling=yes sampling-interval=100 sampling-space=1
+/ip traffic-flow target
+add dst-address=192.0.2.99 port=2055 version=ipfix

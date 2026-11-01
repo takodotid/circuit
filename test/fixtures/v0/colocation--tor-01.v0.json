@@ -1,0 +1,91 @@
+{
+  "name": "tor-01",
+  "platform": "vrp",
+  "model": "CE6855-48S6Q-HI",
+  "connection": {
+    "host": "10.0.99.2",
+    "user": "operator"
+  },
+  "users": {
+    "operator": {
+      "role": "admin",
+      "password": {
+        "secret": "TOR_01_PASSWORD"
+      }
+    }
+  },
+  "system": {
+    "timezone": "Asia/Jakarta",
+    "ntp": {
+      "servers": [
+        "10.0.99.1"
+      ]
+    }
+  },
+  "management": {
+    "allow": [
+      "10.0.0.0/24"
+    ],
+    "ssh": {}
+  },
+  "lldp": true,
+  "stp": {},
+  "vlans": {
+    "mgmt": {
+      "id": 99,
+      "description": "Management"
+    },
+    "acme-internet": {
+      "id": 1001,
+      "description": "Tenant acme internet"
+    },
+    "acme-private": {
+      "id": 2001,
+      "description": "Tenant acme private"
+    }
+  },
+  "ports": {
+    "10g-1": {
+      "description": "acme server 1",
+      "trunk_vlans": [
+        "acme-internet",
+        "acme-private"
+      ]
+    },
+    "10g-2": {
+      "description": "acme server 2",
+      "trunk_vlans": [
+        "acme-internet",
+        "acme-private"
+      ]
+    },
+    "40g-1": {
+      "description": "edge-01",
+      "trunk_vlans": [
+        "mgmt",
+        "acme-internet"
+      ],
+      "link": {
+        "device": "edge-01",
+        "port": "100g-1"
+      }
+    }
+  },
+  "interfaces": {
+    "mgmt": {
+      "type": "vlan",
+      "vlan": "mgmt",
+      "addresses": [
+        "10.0.99.2/24"
+      ]
+    }
+  },
+  "routing": {
+    "static": [
+      {
+        "prefix": "0.0.0.0/0",
+        "via": "10.0.99.1"
+      }
+    ]
+  }
+}

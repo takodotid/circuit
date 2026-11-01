@@ -1,0 +1,301 @@
+sysname example-switch
+#
+clock timezone Jakarta add 07:00:00
+#
+stp mode rstp
+stp priority 8192
+lldp enable
+#
+ntp server disable
+ntp ipv6 server disable
+ntp unicast-server 192.0.2.1
+#
+vlan batch 10 20 30
+#
+telnet server disable
+telnet ipv6 server disable
+#
+vlan 10
+ name management
+ description Management
+#
+vlan 20
+ name servers
+#
+vlan 30
+ name guests
+#
+acl number 2000
+ description Management access
+ rule 5 permit source 192.0.2.0 0.0.0.255
+ rule 10 deny
+#
+acl number 2001
+ description SNMP access
+ rule 5 permit source 192.0.2.96 0.0.0.15
+ rule 10 deny
+#
+acl number 4000
+ rule 5 permit type ip
+ rule 10 permit type ipv6
+ rule 15 permit type arp
+ rule 20 deny
+#
+aaa
+ local-user operator password irreversible-cipher <secret:EXAMPLE_OPERATOR_PASSWORD>
+ local-user operator service-type ssh
+ local-user operator level 3
+#
+ip vpn-instance guests
+ ipv4-family
+#
+interface Eth-Trunk1
+ mode lacp-static
+ port link-type trunk
+ undo port trunk allow-pass vlan 1
+ port trunk allow-pass vlan 10 20 30
+#
+interface Vlanif10
+ ip address 192.0.2.2 255.255.255.0
+ vrrp vrid 1 virtual-ip 192.0.2.254
+ vrrp vrid 1 priority 100
+ vrrp vrid 1 preempt disable
+ ospf cost 10
+ ospf bfd enable
+ ospf bfd min-tx-interval 300 min-rx-interval 300 detect-multiplier 4
+#
+interface Vlanif30
+ ip binding vpn-instance guests
+ ip address 198.51.100.130 255.255.255.192
+ dhcp select relay
+ dhcp relay binding server ip 198.51.100.66
+#
+interface 10GE1/0/1
+ description Host
+ port default vlan 20
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+ sflow sampling collector 1
+ sflow sampling rate 4096
+ sflow sampling inbound
+#
+interface 10GE1/0/2
+ description Host without LLDP
+ port default vlan 20
+ lldp disable
+ mac-address limit maximum 1
+ traffic-filter acl 4000 inbound
+#
+interface 10GE1/0/3
+ description Lab switch
+ port default vlan 30
+ stp disable
+#
+interface 10GE1/0/4
+ shutdown
+#
+interface 10GE1/0/5
+ shutdown
+#
+interface 10GE1/0/6
+ shutdown
+#
+interface 10GE1/0/7
+ shutdown
+#
+interface 10GE1/0/8
+ shutdown
+#
+interface 10GE1/0/9
+ shutdown
+#
+interface 10GE1/0/10
+ shutdown
+#
+interface 10GE1/0/11
+ shutdown
+#
+interface 10GE1/0/12
+ shutdown
+#
+interface 10GE1/0/13
+ shutdown
+#
+interface 10GE1/0/14
+ shutdown
+#
+interface 10GE1/0/15
+ shutdown
+#
+interface 10GE1/0/16
+ shutdown
+#
+interface 10GE1/0/17
+ shutdown
+#
+interface 10GE1/0/18
+ shutdown
+#
+interface 10GE1/0/19
+ shutdown
+#
+interface 10GE1/0/20
+ shutdown
+#
+interface 10GE1/0/21
+ shutdown
+#
+interface 10GE1/0/22
+ shutdown
+#
+interface 10GE1/0/23
+ shutdown
+#
+interface 10GE1/0/24
+ shutdown
+#
+interface 10GE1/0/25
+ shutdown
+#
+interface 10GE1/0/26
+ shutdown
+#
+interface 10GE1/0/27
+ shutdown
+#
+interface 10GE1/0/28
+ shutdown
+#
+interface 10GE1/0/29
+ shutdown
+#
+interface 10GE1/0/30
+ shutdown
+#
+interface 10GE1/0/31
+ shutdown
+#
+interface 10GE1/0/32
+ shutdown
+#
+interface 10GE1/0/33
+ shutdown
+#
+interface 10GE1/0/34
+ shutdown
+#
+interface 10GE1/0/35
+ shutdown
+#
+interface 10GE1/0/36
+ shutdown
+#
+interface 10GE1/0/37
+ shutdown
+#
+interface 10GE1/0/38
+ shutdown
+#
+interface 10GE1/0/39
+ shutdown
+#
+interface 10GE1/0/40
+ shutdown
+#
+interface 10GE1/0/41
+ shutdown
+#
+interface 10GE1/0/42
+ shutdown
+#
+interface 10GE1/0/43
+ shutdown
+#
+interface 10GE1/0/44
+ shutdown
+#
+interface 10GE1/0/45
+ shutdown
+#
+interface 10GE1/0/46
+ shutdown
+#
+interface 10GE1/0/47
+ shutdown
+#
+interface 10GE1/0/48
+ shutdown
+#
+interface 40GE1/0/1
+ eth-trunk 1
+ description Router
+#
+interface 40GE1/0/2
+ eth-trunk 1
+ description Router
+#
+interface 40GE1/0/3
+ shutdown
+#
+interface 40GE1/0/4
+ shutdown
+#
+interface 40GE1/0/5
+ shutdown
+#
+interface 40GE1/0/6
+ shutdown
+#
+ip route-static bfd 192.0.2.1 local-address 192.0.2.2 min-tx-interval 300 min-rx-interval 300 detect-multiplier 4
+ip route-static 0.0.0.0 0.0.0.0 192.0.2.1 bfd enable
+ip route-static vpn-instance guests 0.0.0.0 0.0.0.0 198.51.100.129
+#
+ospf 1 router-id 192.0.2.2
+ import-route direct
+ area 0.0.0.0
+  network 192.0.2.0 0.0.0.255
+#
+bfd
+#
+dhcp enable
+#
+sflow agent ip 192.0.2.2
+sflow collector 1 ip 192.0.2.99 udp-port 6343
+#
+info-center source default channel 9 log level informational
+info-center max-logfile-number 10
+info-center loghost 192.0.2.98 level warning port 5514
+#
+alarm
+ alarm hwOpticalUnAuthorized severity Warning
+#
+snmp-agent
+snmp-agent sys-info version v3
+snmp-agent mib-view included all iso
+snmp-agent group v3 circuit privacy read-view all acl 2001
+snmp-agent usm-user v3 monitor
+snmp-agent usm-user v3 monitor group circuit
+snmp-agent usm-user v3 monitor authentication-mode sha cipher <secret:EXAMPLE_SNMP_AUTH>
+snmp-agent usm-user v3 monitor privacy-mode aes128 cipher <secret:EXAMPLE_SNMP_PRIVACY>
+#
+stelnet server enable
+ssh user operator
+ssh user operator authentication-type password
+ssh user operator service-type stelnet
+ssh server acl 2000
+ssh authorization-type default aaa
+#
+ssh server cipher aes256_ctr aes128_ctr
+ssh server hmac sha2_256_96 sha2_256
+ssh server key-exchange dh_group_exchange_sha256 ecdh_sha2_nistp256 ecdh_sha2_nistp384 ecdh_sha2_nistp521
+#
+user-interface con 0
+ authentication-mode aaa
+#
+user-interface vty 0 4
+ authentication-mode aaa
+ protocol inbound ssh
+#

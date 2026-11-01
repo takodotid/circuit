@@ -1,0 +1,232 @@
+{
+  "name": "tor-a3",
+  "site": "regional-provider",
+  "platform": "raisecom-ros",
+  "model": "RAX721-C-6C48",
+  "connection": {
+    "host": "10.0.99.8",
+    "user": "operator"
+  },
+  "system": {
+    "timezone": "Asia/Jakarta",
+    "ntp": {
+      "servers": [
+        "10.0.20.123",
+        "10.0.20.124"
+      ]
+    },
+    "users": {
+      "operator": {
+        "role": "admin",
+        "password": {
+          "secret": "SWITCH_OPERATOR_PASSWORD"
+        }
+      }
+    }
+  },
+  "management": {
+    "allow": [
+      "10.0.99.0/24",
+      "10.1.99.0/24",
+      "10.254.2.0/24"
+    ],
+    "ssh": {
+      "auth_timeout": 60,
+      "auth_retries": 3
+    },
+    "privilege_password": {
+      "secret": "SWITCH_ENABLE_PASSWORD"
+    }
+  },
+  "monitoring": {
+    "snmp": {
+      "users": {
+        "monitor": {
+          "auth": "sha1",
+          "auth_password": {
+            "secret": "SWITCH_SNMP_AUTH"
+          },
+          "privacy": "aes128",
+          "privacy_password": {
+            "secret": "SWITCH_SNMP_PRIVACY"
+          }
+        }
+      }
+    },
+    "transceivers": true
+  },
+  "interfaces": {
+    "ethernet": {
+      "25g-1": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "globex web 2",
+        "access_vlan": "globex"
+      },
+      "25g-2": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "vandelay backup",
+        "access_vlan": "vandelay"
+      },
+      "25g-3": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "soylent matchmaking",
+        "trunk_vlans": [
+          "soylent",
+          "soylent-private"
+        ]
+      },
+      "25g-4": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "soylent database",
+        "trunk_vlans": [
+          "soylent",
+          "soylent-private"
+        ]
+      },
+      "25g-5": {
+        "storm_control": {
+          "broadcast": {
+            "pps": 2000
+          }
+        },
+        "description": "cyberdyne router",
+        "access_vlan": "cyberdyne"
+      },
+      "10g-21": {
+        "description": "core-a2, first cable",
+        "link": {
+          "device": "core-a2",
+          "port": "10g-47"
+        },
+        "in_lag": "core-a2"
+      },
+      "10g-22": {
+        "description": "core-a2, second cable",
+        "link": {
+          "device": "core-a2",
+          "port": "10g-48"
+        },
+        "in_lag": "core-a2"
+      },
+      "10g-23": {
+        "description": "core-a1, first cable",
+        "link": {
+          "device": "core-a1",
+          "port": "10g-47"
+        },
+        "in_lag": "core-a1"
+      },
+      "10g-24": {
+        "description": "core-a1, second cable",
+        "link": {
+          "device": "core-a1",
+          "port": "10g-48"
+        },
+        "in_lag": "core-a1"
+      }
+    },
+    "lag": {
+      "core-a1": {
+        "description": "core-a1",
+        "mode": "lacp",
+        "trunk_vlans": [
+          "mgmt",
+          "acme",
+          "globex",
+          "initech",
+          "vandelay",
+          "soylent",
+          "cyberdyne",
+          "tyrell",
+          "wonka"
+        ]
+      },
+      "core-a2": {
+        "description": "core-a2",
+        "mode": "lacp",
+        "trunk_vlans": [
+          "mgmt",
+          "acme",
+          "globex",
+          "initech",
+          "vandelay",
+          "soylent",
+          "cyberdyne",
+          "tyrell",
+          "wonka"
+        ]
+      }
+    },
+    "vlan_interface": {
+      "mgmt": {
+        "vlan": "mgmt",
+        "addresses": [
+          "10.0.99.8/24"
+        ]
+      }
+    }
+  },
+  "switching": {
+    "vlans": {
+      "mgmt": {
+        "id": 99
+      },
+      "acme": {
+        "id": 1001
+      },
+      "globex": {
+        "id": 1002
+      },
+      "initech": {
+        "id": 1003
+      },
+      "vandelay": {
+        "id": 1004
+      },
+      "soylent": {
+        "id": 1005
+      },
+      "cyberdyne": {
+        "id": 1006
+      },
+      "tyrell": {
+        "id": 1007
+      },
+      "wonka": {
+        "id": 1008
+      },
+      "soylent-private": {
+        "id": 2005
+      }
+    },
+    "stp": {
+      "mode": "mstp",
+      "priority": 32768
+    },
+    "lldp": true
+  },
+  "routing": {
+    "static_routes": [
+      {
+        "prefix": "0.0.0.0/0",
+        "next_hop": "10.0.99.1"
+      }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+node_modules/
+dist/
+# What 0.x wrote, kept as it wrote it.
+test/fixtures/
+# Written by scripts/editor-types.ts.
+src/cli/editor-types.generated.ts

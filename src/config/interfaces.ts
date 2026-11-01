@@ -1,0 +1,255 @@
+// Every port and interface, by kind: `interfaces.ethernet`, `.lag`, `.vlan_interface`, `.bridge`, `.loopback`, `.gre`, `.vxlan`, `.wireguard`.
+
+import type { HostAddress, IP, InterfaceAddress, MacAddress, Named, Prefix, Secret } from "./common";
+
+/** A storm-control threshold: packets per second, or percent of the link's speed. */
+export type Threshold =
+    | {
+          /** Packets per second. */
+          pps: number;
+      }
+    | {
+          /** Percent of the link's speed, above 0 and up to 100. */
+          percent: number;
+      };
+
+/** A kind of frame, by the ethertype in its header: `ipv4` is 0x0800, `ipv6` 0x86DD, `arp` 0x0806. */
+export type Ethertype = "ipv4" | "ipv6" | "arp";
+
+/** A virtual router address shared with other devices on the same segment, RFC 9568 (VRRPv3). */
+export type Vrrp = {
+    /** Virtual router number, 1 to 255. The same on every device sharing the address. */
+    id: number;
+    /** The shared address, without a length. */
+    address: IP;
+    /** Higher wins the master election, 1 to 254. 100 when absent. */
+    priority?: number;
+    /** Take mastership back from a lower priority device when this one returns. Off when absent. */
+    preempt?: boolean;
+    /** Seconds between advertisements. 1 when absent. */
+    interval?: number;
+};
+
+/** Presence at an internet exchange, as a registry lists it. The addresses are the interface's own. */
+export type Exchange = {
+    /** The exchange's name, for output. */
+    name: string;
+    /** Capacity toward the exchange, in Mbit/s. */
+    speed: number;
+    /** The exchange LAN's id at PeeringDB, its `ixlan_id`. */
+    peeringdb_ixlan?: number;
+};
+
+/** An address with its length, or `{ address, peer_address }` for a point-to-point address whose far end is outside its own prefix. */
+export type Address =
+    | InterfaceAddress
+    | {
+          /** Our address, with its length. */
+          address: InterfaceAddress;
+          /** The far end's address. */
+          peer_address: IP;
+      };
+
+/** Layer 3 settings shared by every interface that can have an address. `Vrf` is the device's VRF names. */
+export type Routed<Vrf extends string> = {
+    /** Addresses with their length. Use `{ address, peer_address }` for a point-to-point address whose far end is outside its own prefix. */
+    addresses?: readonly Address[];
+    /** Send IPv6 router advertisements on this interface. Off when absent. */
+    ipv6_ra?: boolean;
+    /** Overrides `system.hardware_offload` for traffic routed through this interface. Software forwarding is what makes the firewall apply. */
+    hardware_offload?: boolean;
+    /** Virtual router addresses on this interface. */
+    vrrp?: readonly Vrrp[];
+    /** One of `routing.vrfs`: the VRF this interface routes in. The main table when absent. */
+    vrf?: Vrf;
+    /** This interface is the network's presence at an internet exchange. Devices ignore it; `circuit peeringdb` publishes it. */
+    exchange?: Exchange;
+};
+
+/** Spanning tree settings for one port. */
+export type PortStp = {
+    /** The port faces a host, never a switch, so it forwards at once. */
+    edge?: boolean;
+    /** Path cost. Lower is preferred. Derived from speed when absent. */
+    cost?: number;
+    /** Port priority, 0 to 240 in steps of 16. Lower is preferred. */
+    priority?: number;
+};
+
+/** Drop flooded traffic above these thresholds. */
+export type StormControl = {
+    /** Frames to every host. */
+    broadcast?: Threshold;
+    /** Frames to a group. */
+    multicast?: Threshold;
+    /** Frames to a MAC address the switch has not learned. */
+    unknown_unicast?: Threshold;
+};
+
+/** Layer 2 membership. A port or LAG with none of these is routed. `Vlan` is the device's VLAN names. */
+export type Switched<Vlan extends string> = {
+    /** One of `switching.vlans`: the one VLAN this port or LAG is in, untagged. */
+    access_vlan?: Vlan;
+    /** Some of `switching.vlans`: the VLANs this port or LAG carries, tagged. */
+    trunk_vlans?: readonly Vlan[];
+    /** One of `switching.vlans`: untagged frames on a trunk are in this VLAN. Only with `trunk_vlans`. */
+    native_vlan?: Vlan;
+    /** Overrides `switching.stp` for this port. `false` stops it sending or acting on BPDUs. */
+    stp?: boolean | PortStp;
+    /** Drop flooded traffic above these thresholds. */
+    storm_control?: StormControl;
+    /** The most MAC addresses this port or LAG learns, 1 or more. Frames from any other source address are dropped. An exchange sets 1 on a member port, so each member sends from one router only. No limit when absent. */
+    mac_limit?: number;
+    /** The only kinds of frame this port or LAG takes in; any other kind is dropped. An exchange takes `ipv4`, `ipv6` and `arp` on a member port. Every kind when absent. */
+    ethertypes?: readonly Ethertype[];
+};
+
+/**
+ * The other end of a cable: another of our devices and its port. Both ends must agree on how they are switched, and the far end must
+ * link back. The port's own `description` names that end, `<far device> <far port as printed there>`, such as `fw-01 port6`:
+ * Circuit warns when it doesn't, and never writes it.
+ */
+export type Link = {
+    /** The device at the other end, by its key in `devices`. */
+    device: string;
+    /** The port on that device, such as `10g-2`. */
+    port: string;
+    /**
+     * What is between the two ends when the cable is not direct, such as a carrier's local loop or L2 transport: `"Carrier A local loop"`. LLDP then sees the carrier's switches, not the far end, so `validate` does not compare LLDP on this port. Both ends name the same carrier.
+     */
+    through?: string;
+};
+
+/** A physical port, by its key `<speed>-<position>`, such as `10g-4`. Ports a device does not declare are shut down. */
+export type Port<Vlan extends string, Acl extends string, Lag extends string, Vrf extends string> = Routed<Vrf> &
+    Switched<Vlan> & {
+        /** What is plugged in. On a port with a `link`, the far end: `<far device> <far port as printed there>`. */
+        description?: string;
+        /** Largest IP packet, in bytes. 1500 when absent. */
+        mtu?: number;
+        /** Fixed speed, for an optic slower than the cage. Negotiated when absent. */
+        speed?: "100m" | "1g" | "10g" | "25g" | "40g" | "50g" | "100g";
+        /** Overrides `switching.lldp` for this port. */
+        lldp?: boolean;
+        /** One of `switching.acls`: the hardware ACL applied to traffic arriving on this port. */
+        ingress_acl?: Acl;
+        /** One of `interfaces.lag`: the LAG this port is in. Every other setting goes on the LAG. */
+        in_lag?: Lag;
+        /** Another of our devices at the other end of the cable. Circuit checks that it links back, and warns when `description` doesn't name it. */
+        link?: Link;
+    };
+
+/** Settings every interface that is not a physical port shares. */
+export type Base<Vrf extends string> = Routed<Vrf> & {
+    /** What the interface is for. */
+    description?: string;
+    /** Largest IP packet, in bytes. */
+    mtu?: number;
+};
+
+/** A layer 3 interface on a VLAN. */
+export type VlanInterface<Vlan extends string, Vrf extends string> = Base<Vrf> & {
+    /** One of `switching.vlans`: the VLAN it is on. */
+    vlan: Vlan;
+    /**
+     * A MAC address of its own, instead of the one it shares with the device's other VLAN interfaces. A gateway in front of a transparent firewall needs one: frames to it come back on another VLAN, where the bridge would otherwise take a shared MAC for its own and keep them.
+     */
+    mac?: MacAddress;
+};
+
+/** An interface that is always up and is on no link, for addresses that must not depend on one. */
+export type Loopback<Vrf extends string> = Base<Vrf>;
+
+/** A link aggregation. Each member port points to it with `in_lag`. */
+export type Lag<Vlan extends string, Vrf extends string> = Base<Vrf> &
+    Switched<Vlan> & {
+        /** LACP negotiates membership with the far end; `static` joins the ports without asking. LACP when absent. */
+        mode?: "lacp" | "static";
+        /** Number, on platforms where a LAG has a number instead of a name. Its position among the device's LAGs when absent. */
+        id?: number;
+    };
+
+/** A GRE tunnel. */
+export type Gre<Vrf extends string> = Base<Vrf> & {
+    /** Our tunnel endpoint, alone or with its length. */
+    local_address: HostAddress;
+    /** The far tunnel endpoint. */
+    remote_address: IP;
+};
+
+/** A point-to-point VXLAN tunnel. */
+export type Vxlan<Vrf extends string> = Base<Vrf> & {
+    /** Segment identifier, the same on both ends, 1 to 16777215. */
+    vni: number;
+    /** Our tunnel endpoint, alone or with its length. */
+    local_address: HostAddress;
+    /** The far tunnel endpoint. */
+    remote_address: IP;
+    /** UDP port. 4789 when absent. */
+    port?: number;
+    /** Fixed MAC address, so a rebuild keeps the one the far side learned. */
+    mac?: MacAddress;
+};
+
+/** A host and a UDP port, `host:port`, for example `203.0.113.10:51820` or `vpn.example.net:51820`. */
+export type Endpoint = `${string}:${number}`;
+
+/** One peer of a WireGuard interface. */
+export type WireGuardPeer = {
+    /** Who or what the peer is. */
+    name: string;
+    /** The peer's public key. Public keys are not secrets. */
+    public_key: string;
+    /** Addresses the peer may send from and that are routed to it. */
+    allowed_addresses: readonly Prefix[];
+    /** `host:port`, for a peer this side dials. The peer dials in when absent. */
+    endpoint?: Endpoint;
+    /** Seconds between keepalives, for a peer behind NAT. None when absent. */
+    keepalive?: number;
+    /** What a generated client config routes into the tunnel. Affects no forwarding here. */
+    client_allowed_addresses?: readonly Prefix[];
+};
+
+/** A WireGuard interface. */
+export type WireGuard<Vrf extends string> = Base<Vrf> & {
+    /** UDP port peers connect to. */
+    listen_port: number;
+    /** The address clients connect to, for generated client configs, alone or with its length. */
+    endpoint?: HostAddress;
+    /** This interface's private key. Its public key is derived from it. */
+    private_key: Secret;
+    /** Who may connect. */
+    peers?: readonly WireGuardPeer[];
+};
+
+/**
+ * A layer 2 bridge between VLAN interfaces, each keeping its own VLAN: a frame that comes in on one member leaves another with that member's tag. A firewall filters what crosses it, by the rules of its forward chain between the members, without routing it.
+ */
+export type Bridge<VlanInterface extends string, Vrf extends string> = Base<Vrf> & {
+    /** Some of `interfaces.vlan_interface`: the VLAN interfaces it joins. Each has no address of its own. */
+    member_interfaces: readonly VlanInterface[];
+};
+
+/**
+ * Every port and interface, by kind, each keyed by its name. A port's key is `<speed>-<position>` from the model.
+ *
+ * The type parameters are the names the device declares: `Ethernet` the ports, `L` LAGs, `VI` VLAN interfaces, `T` the other interfaces, `V` VLANs, `A` ACLs, `F` VRFs.
+ */
+export type Interfaces<Ethernet, L extends string, VI extends string, T extends string, V extends string, F extends string> = {
+    /** Physical ports, keyed by `<speed>-<position>` from the model, such as `10g-4`. Ports not listed are shut down. */
+    ethernet?: Ethernet;
+    /** Link aggregations, keyed by name. Each member port names one with `in_lag`. */
+    lag?: Named<L, Lag<V, F>>;
+    /** Layer 3 interfaces on a VLAN, keyed by name. Each names its VLAN in `vlan`. */
+    vlan_interface?: Named<VI, VlanInterface<V, F>>;
+    /** Layer 2 bridges between VLAN interfaces, keyed by name. */
+    bridge?: Named<T, Bridge<NoInfer<VI>, F>>;
+    /** Interfaces on no link, keyed by name. */
+    loopback?: Named<T, Loopback<F>>;
+    /** GRE tunnels, keyed by name. */
+    gre?: Named<T, Gre<F>>;
+    /** Point-to-point VXLAN tunnels, keyed by name. */
+    vxlan?: Named<T, Vxlan<F>>;
+    /** WireGuard interfaces, keyed by name. */
+    wireguard?: Named<T, WireGuard<F>>;
+};

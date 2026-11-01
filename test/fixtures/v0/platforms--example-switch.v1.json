@@ -1,0 +1,219 @@
+{
+  "name": "example-switch",
+  "site": "platforms",
+  "platform": "vrp",
+  "model": "CE6855-48S6Q-HI",
+  "connection": {
+    "host": "192.0.2.2",
+    "user": "operator"
+  },
+  "system": {
+    "timezone": "Asia/Jakarta",
+    "ntp": {
+      "servers": [
+        "192.0.2.1"
+      ]
+    },
+    "logging": {
+      "local": {
+        "level": "info",
+        "files": 10
+      }
+    },
+    "alarms": {
+      "hwOpticalUnAuthorized": {
+        "severity": "warning"
+      }
+    },
+    "users": {
+      "operator": {
+        "role": "admin",
+        "password": {
+          "secret": "EXAMPLE_OPERATOR_PASSWORD"
+        }
+      }
+    }
+  },
+  "management": {
+    "allow": [
+      "192.0.2.0/24"
+    ],
+    "ssh": {}
+  },
+  "monitoring": {
+    "snmp": {
+      "allow": [
+        "192.0.2.96/28"
+      ],
+      "users": {
+        "monitor": {
+          "auth": "sha1",
+          "auth_password": {
+            "secret": "EXAMPLE_SNMP_AUTH"
+          },
+          "privacy": "aes128",
+          "privacy_password": {
+            "secret": "EXAMPLE_SNMP_PRIVACY"
+          }
+        }
+      }
+    },
+    "syslog": [
+      {
+        "address": "192.0.2.98",
+        "port": 5514,
+        "level": "warning"
+      }
+    ],
+    "flow_export": {
+      "protocol": "sflow",
+      "collectors": [
+        {
+          "address": "192.0.2.99"
+        }
+      ],
+      "sampling": 4096,
+      "interfaces": [
+        "10g-1"
+      ]
+    }
+  },
+  "interfaces": {
+    "ethernet": {
+      "40g-1": {
+        "description": "Router",
+        "in_lag": "uplink"
+      },
+      "40g-2": {
+        "description": "Router",
+        "in_lag": "uplink"
+      },
+      "10g-1": {
+        "description": "Host",
+        "access_vlan": "servers",
+        "stp": {
+          "edge": true
+        },
+        "storm_control": {
+          "broadcast": {
+            "percent": 1
+          }
+        }
+      },
+      "10g-2": {
+        "description": "Host without LLDP",
+        "access_vlan": "servers",
+        "lldp": false,
+        "mac_limit": 1,
+        "ethertypes": [
+          "ipv4",
+          "ipv6",
+          "arp"
+        ]
+      },
+      "10g-3": {
+        "description": "Lab switch",
+        "access_vlan": "guests",
+        "stp": false
+      }
+    },
+    "lag": {
+      "uplink": {
+        "mode": "lacp",
+        "trunk_vlans": [
+          "management",
+          "servers",
+          "guests"
+        ]
+      }
+    },
+    "vlan_interface": {
+      "management": {
+        "vlan": "management",
+        "vrrp": [
+          {
+            "id": 1,
+            "address": "192.0.2.254",
+            "priority": 100
+          }
+        ],
+        "addresses": [
+          "192.0.2.2/24"
+        ]
+      },
+      "guests": {
+        "vlan": "guests",
+        "vrf": "guests",
+        "addresses": [
+          "198.51.100.130/26"
+        ]
+      }
+    }
+  },
+  "switching": {
+    "vlans": {
+      "management": {
+        "id": 10,
+        "description": "Management"
+      },
+      "servers": {
+        "id": 20
+      },
+      "guests": {
+        "id": 30
+      }
+    },
+    "stp": {
+      "mode": "rstp",
+      "priority": 8192
+    },
+    "lldp": true
+  },
+  "services": {
+    "dhcp_relay": {
+      "guests": {
+        "interface": "guests",
+        "servers": [
+          "198.51.100.66"
+        ]
+      }
+    }
+  },
+  "routing": {
+    "router_id": "192.0.2.2",
+    "bfd": {
+      "interval": 300,
+      "multiplier": 4
+    },
+    "vrfs": {
+      "guests": {}
+    },
+    "static_routes": [
+      {
+        "prefix": "0.0.0.0/0",
+        "bfd": true,
+        "next_hop": "192.0.2.1"
+      },
+      {
+        "prefix": "0.0.0.0/0",
+        "vrf": "guests",
+        "next_hop": "198.51.100.129"
+      }
+    ],
+    "ospf": {
+      "areas": {
+        "0.0.0.0": {
+          "interfaces": {
+            "management": {
+              "cost": 10,
+              "bfd": true
+            }
+          }
+        }
+      },
+      "redistribute": [
+        "connected"
+      ]
+    }
+  }
+}

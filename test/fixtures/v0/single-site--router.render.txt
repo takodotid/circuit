@@ -1,0 +1,134 @@
+/interface ethernet switch
+set switch1 l3-hw-offloading=no
+/interface ethernet switch l3hw-settings
+set autorestart=no ipv6-hw=no
+/interface bridge
+add name=bridge protocol-mode=none vlan-filtering=yes
+/interface ethernet
+set [ find default-name=qsfp28-1-1 ] disabled=yes
+set [ find default-name=qsfp28-2-1 ] disabled=yes
+set [ find default-name=sfp28-1 ] auto-negotiation=no comment=Switch speed=10G-baseSR-LR
+set [ find default-name=sfp28-2 ] disabled=yes
+set [ find default-name=sfp28-3 ] disabled=yes
+set [ find default-name=sfp28-4 ] disabled=yes
+set [ find default-name=sfp28-5 ] disabled=yes
+set [ find default-name=sfp28-6 ] disabled=yes
+set [ find default-name=sfp28-7 ] disabled=yes
+set [ find default-name=sfp28-8 ] disabled=yes
+set [ find default-name=sfp28-9 ] disabled=yes
+set [ find default-name=sfp28-10 ] disabled=yes
+set [ find default-name=sfp28-11 ] disabled=yes
+set [ find default-name=sfp28-12 ] disabled=yes
+set [ find default-name=ether1 ] comment="Internet provider"
+/interface vlan
+add interface=bridge name=mgmt vlan-id=10
+add interface=bridge name=home vlan-id=20
+add interface=bridge name=guests vlan-id=30
+/interface bridge port
+add bridge=bridge frame-types=admit-only-vlan-tagged interface=sfp28-1
+/interface bridge vlan
+add bridge=bridge comment=Management tagged="bridge,sfp28-1" vlan-ids=10
+add bridge=bridge comment=Home tagged="bridge,sfp28-1" vlan-ids=20
+add bridge=bridge comment=Guests tagged="bridge,sfp28-1" vlan-ids=30
+/ip address
+add address=203.0.113.2/30 comment="Internet provider" interface=ether1
+add address=192.168.10.1/24 interface=mgmt
+add address=192.168.20.1/24 interface=home
+add address=192.168.30.1/24 interface=guests
+/ip pool
+add name=home ranges=192.168.20.100-192.168.20.200
+add name=guests ranges=192.168.30.100-192.168.30.200
+/ip dhcp-server
+add address-pool=home interface=home name=home
+add address-pool=guests interface=guests lease-time=1h name=guests
+/ip dhcp-server network
+add address=192.168.20.0/24 dns-server=192.168.20.1 gateway=192.168.20.1
+add address=192.168.30.0/24 dns-server=192.168.30.1 gateway=192.168.30.1
+/ip dns
+set allow-remote-requests=yes servers="1.1.1.1,1.0.0.1"
+/ip firewall filter
+add action=accept chain=input comment=Replies connection-state="established,related"
+add action=accept chain=input comment=Ping protocol=icmp
+add action=accept chain=input comment=Management src-address=192.168.10.0/24
+add action=accept chain=input comment="DNS from home" dst-port=53 in-interface=home protocol=udp
+add action=accept chain=input comment="DNS from guests" dst-port=53 in-interface=guests protocol=udp
+add action=drop chain=input comment=Default
+add action=fasttrack-connection chain=forward comment=Replies connection-state="established,related"
+add action=accept chain=forward comment=Replies connection-state="established,related"
+add action=accept chain=forward comment="Home to the internet" in-interface=home out-interface=ether1
+add action=accept chain=forward comment="Guests to the internet" in-interface=guests out-interface=ether1
+add action=drop chain=forward comment=Default
+/ip firewall nat
+add action=masquerade chain=srcnat comment="Share the public address" out-interface=ether1
+/ipv6 firewall filter
+add action=accept chain=input comment=Replies connection-state="established,related"
+add action=accept chain=input comment=Ping protocol=icmpv6
+add action=accept chain=input comment="DNS from home" dst-port=53 in-interface=home protocol=udp
+add action=accept chain=input comment="DNS from guests" dst-port=53 in-interface=guests protocol=udp
+add action=drop chain=input comment=Default
+add action=accept chain=forward comment=Replies connection-state="established,related"
+add action=accept chain=forward comment="Home to the internet" in-interface=home out-interface=ether1
+add action=accept chain=forward comment="Guests to the internet" in-interface=guests out-interface=ether1
+add action=drop chain=forward comment=Default
+/ipv6 firewall nat
+add action=masquerade chain=srcnat comment="Share the public address" out-interface=ether1
+/ip firewall service-port
+set ftp disabled=yes
+set tftp disabled=yes
+set irc disabled=yes
+set h323 disabled=yes
+set sip disabled=yes
+set pptp disabled=yes
+set rtsp disabled=yes
+/ip route
+add comment="Internet provider" dst-address=0.0.0.0/0 gateway=203.0.113.1
+/ip service
+set ftp disabled=yes
+set ssh address=192.168.10.0/24 disabled=no
+set telnet disabled=yes
+set www disabled=yes
+set www-ssl disabled=yes
+set api disabled=yes
+set api-ssl disabled=yes
+set winbox disabled=yes
+set reverse-proxy disabled=yes
+/ip ssh
+set strong-crypto=yes
+/tool mac-server
+set allowed-interface-list=none
+/tool mac-server mac-winbox
+set allowed-interface-list=none
+/tool mac-server ping
+set enabled=no
+/tool bandwidth-server
+set enabled=no
+/ip neighbor discovery-settings
+set discover-interface-list=none protocol=lldp
+/snmp
+set enabled=no
+/snmp community
+set [ find default=yes ] addresses=::/0 name=public
+/user
+add group=full name=operator password="<secret:ROUTER_PASSWORD>"
+/ip settings
+set send-redirects=no tcp-syncookies=no
+/system identity
+set name=router
+/system clock
+set time-zone-autodetect=no time-zone-name=Asia/Jakarta
+/system note
+set note="" show-at-login=yes
+/system ntp client
+set enabled=yes
+/system ntp server
+set enabled=yes
+/system ntp client servers
+add address=pool.ntp.org
+/system logging action
+set 1 disk-file-count=2 disk-lines-per-file=1000
+/system package update
+set channel=stable
+/system routerboard settings
+set enter-setup-on=delete-key
+/ip traffic-flow
+set enabled=no

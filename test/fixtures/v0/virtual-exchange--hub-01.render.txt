@@ -1,0 +1,103 @@
+/interface ethernet switch
+set switch1 l3-hw-offloading=no
+/interface ethernet switch l3hw-settings
+set autorestart=no ipv6-hw=no
+/interface ethernet
+set [ find default-name=qsfp28-1-1 ] disabled=yes
+set [ find default-name=qsfp28-2-1 ] disabled=yes
+set [ find default-name=sfp28-1 ] comment=Internet
+set [ find default-name=sfp28-2 ] comment="Route servers rs1 and rs2"
+set [ find default-name=sfp28-3 ] disabled=yes
+set [ find default-name=sfp28-4 ] disabled=yes
+set [ find default-name=sfp28-5 ] disabled=yes
+set [ find default-name=sfp28-6 ] disabled=yes
+set [ find default-name=sfp28-7 ] disabled=yes
+set [ find default-name=sfp28-8 ] disabled=yes
+set [ find default-name=sfp28-9 ] disabled=yes
+set [ find default-name=sfp28-10 ] disabled=yes
+set [ find default-name=sfp28-11 ] disabled=yes
+set [ find default-name=sfp28-12 ] disabled=yes
+set [ find default-name=ether1 ] comment=Management
+/interface gre
+add comment="acme, AS65550" local-address=198.51.100.2 name=vix-acme remote-address=203.0.113.10
+add comment="globex, AS65551" local-address=198.51.100.2 name=vix-globex remote-address=192.0.2.20
+/ip address
+add address=10.0.0.1/24 comment=Management interface=ether1
+add address=198.51.100.2/30 comment=Internet interface=sfp28-1
+add address=10.254.0.1/24 comment="Route servers rs1 and rs2" interface=sfp28-2
+add address=10.254.1.2/31 comment="acme, AS65550" interface=vix-acme
+add address=10.254.1.4/31 comment="globex, AS65551" interface=vix-globex
+/ip dns
+set allow-remote-requests=no servers=""
+/ip firewall address-list
+add address=203.0.113.10 list=members
+add address=192.0.2.20 list=members
+/ip firewall filter
+add action=accept chain=input comment=Replies connection-state="established,related"
+add action=accept chain=input comment="Members' tunnels" protocol=gre src-address-list=members
+add action=accept chain=input comment=Management src-address=10.0.0.0/24
+add action=drop chain=input comment=Default
+add action=accept chain=forward comment="Inside the exchange" dst-address=10.254.0.0/16 src-address=10.254.0.0/16
+add action=drop chain=forward comment=Default
+/ipv6 firewall filter
+add action=accept chain=input comment=Replies connection-state="established,related"
+add action=drop chain=input comment=Default
+add action=drop chain=forward comment=Default
+/ip firewall service-port
+set ftp disabled=yes
+set tftp disabled=yes
+set irc disabled=yes
+set h323 disabled=yes
+set sip disabled=yes
+set pptp disabled=yes
+set rtsp disabled=yes
+/ip route
+add comment=Internet dst-address=0.0.0.0/0 gateway=198.51.100.1
+/ip service
+set ftp disabled=yes
+set ssh address=10.0.0.0/24 disabled=no
+set telnet disabled=yes
+set www disabled=yes
+set www-ssl disabled=yes
+set api disabled=yes
+set api-ssl disabled=yes
+set winbox disabled=yes
+set reverse-proxy disabled=yes
+/ip ssh
+set strong-crypto=yes
+/tool mac-server
+set allowed-interface-list=none
+/tool mac-server mac-winbox
+set allowed-interface-list=none
+/tool mac-server ping
+set enabled=no
+/tool bandwidth-server
+set enabled=no
+/ip neighbor discovery-settings
+set discover-interface-list=none protocol=lldp
+/snmp
+set enabled=no
+/snmp community
+set [ find default=yes ] addresses=::/0 name=public
+/user
+add group=full name=operator password="<secret:HUB_01_PASSWORD>"
+/ip settings
+set send-redirects=no tcp-syncookies=no
+/system identity
+set name=hub-01
+/system clock
+set time-zone-autodetect=no time-zone-name=UTC
+/system note
+set note="" show-at-login=yes
+/system ntp client
+set enabled=no
+/system ntp server
+set enabled=no
+/system logging action
+set 1 disk-file-count=2 disk-lines-per-file=1000
+/system package update
+set channel=stable
+/system routerboard settings
+set enter-setup-on=delete-key
+/ip traffic-flow
+set enabled=no

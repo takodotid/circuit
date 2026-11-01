@@ -1,0 +1,98 @@
+{
+  "name": "example-transparent-firewall",
+  "site": "platforms",
+  "platform": "fortios",
+  "model": "FG-3700D",
+  "connection": {
+    "user": "netops",
+    "console": {
+      "port": "/dev/serial/by-path/pci-0000:00:14.0-usb-0:2.4:1.0-port0",
+      "baud": 9600
+    }
+  },
+  "system": {
+    "users": {
+      "netops": {
+        "role": "admin",
+        "password": {
+          "secret": "EXAMPLE_NETOPS_PASSWORD"
+        }
+      }
+    }
+  },
+  "interfaces": {
+    "ethernet": {
+      "10g-1": {
+        "description": "Router",
+        "in_lag": "router"
+      },
+      "10g-2": {
+        "description": "Router",
+        "in_lag": "router"
+      }
+    },
+    "lag": {
+      "router": {
+        "mode": "lacp",
+        "trunk_vlans": [
+          "outside",
+          "inside"
+        ]
+      }
+    },
+    "vlan_interface": {
+      "outside": {
+        "vlan": "outside",
+        "description": "From the router's gateway"
+      },
+      "inside": {
+        "vlan": "inside",
+        "description": "Toward the servers"
+      }
+    },
+    "bridge": {
+      "scrub": {
+        "description": "Filtered between outside and inside",
+        "member_interfaces": [
+          "outside",
+          "inside"
+        ]
+      }
+    }
+  },
+  "switching": {
+    "vlans": {
+      "outside": {
+        "id": 3901
+      },
+      "inside": {
+        "id": 3902
+      }
+    }
+  },
+  "firewall": {
+    "filter": {
+      "forward": {
+        "default_action": "drop",
+        "rules": [
+          {
+            "description": "Into the servers",
+            "if": {
+              "in_interface": "outside",
+              "out_interface": "inside"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "Out of the servers",
+            "if": {
+              "in_interface": "inside",
+              "out_interface": "outside"
+            },
+            "then": "accept"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,365 @@
+{
+  "name": "core-a1",
+  "platform": "vrp",
+  "model": "CE6855-48S6Q-HI",
+  "connection": {
+    "host": "10.0.99.4",
+    "user": "operator"
+  },
+  "users": {
+    "operator": {
+      "role": "admin",
+      "password": {
+        "secret": "SWITCH_OPERATOR_PASSWORD"
+      }
+    }
+  },
+  "system": {
+    "timezone": "Asia/Jakarta",
+    "ntp": {
+      "servers": [
+        "10.0.20.123",
+        "10.0.20.124"
+      ]
+    }
+  },
+  "management": {
+    "allow": [
+      "10.0.99.0/24",
+      "10.1.99.0/24",
+      "10.254.2.0/24"
+    ],
+    "ssh": {},
+    "snmp": {
+      "users": {
+        "monitor": {
+          "auth": "sha1",
+          "auth_password": {
+            "secret": "SWITCH_SNMP_AUTH"
+          },
+          "privacy": "aes128",
+          "privacy_password": {
+            "secret": "SWITCH_SNMP_PRIVACY"
+          }
+        }
+      },
+      "location": "Site A, rack 1"
+    }
+  },
+  "stp": {
+    "mode": "rstp",
+    "priority": 4096
+  },
+  "lldp": true,
+  "vlans": {
+    "mgmt": {
+      "id": 99,
+      "description": "Management of every device at the site"
+    },
+    "infra": {
+      "id": 10,
+      "description": "OSPF between the site's routers and switches"
+    },
+    "services": {
+      "id": 20,
+      "description": "Resolvers, time, logs, flows and DHCP"
+    },
+    "acme": {
+      "id": 1001,
+      "description": "Customer acme"
+    },
+    "globex": {
+      "id": 1002,
+      "description": "Customer globex"
+    },
+    "initech": {
+      "id": 1003,
+      "description": "Customer initech"
+    },
+    "vandelay": {
+      "id": 1004,
+      "description": "Customer vandelay"
+    },
+    "soylent": {
+      "id": 1005,
+      "description": "Customer soylent"
+    },
+    "cyberdyne": {
+      "id": 1006,
+      "description": "Customer cyberdyne"
+    },
+    "tyrell": {
+      "id": 1007,
+      "description": "Customer tyrell"
+    },
+    "wonka": {
+      "id": 1008,
+      "description": "Customer wonka"
+    }
+  },
+  "ports": {
+    "40g-1": {
+      "description": "edge-a1",
+      "trunk_vlans": [
+        "mgmt",
+        "infra",
+        "acme",
+        "globex",
+        "initech",
+        "vandelay",
+        "soylent",
+        "cyberdyne",
+        "tyrell",
+        "wonka"
+      ],
+      "link": {
+        "device": "edge-a1",
+        "port": "100g-2"
+      }
+    },
+    "40g-2": {
+      "description": "tor-a1",
+      "trunk_vlans": [
+        "mgmt",
+        "acme",
+        "globex",
+        "initech",
+        "vandelay",
+        "soylent",
+        "cyberdyne",
+        "tyrell",
+        "wonka"
+      ],
+      "link": {
+        "device": "tor-a1",
+        "port": "40g-1"
+      }
+    },
+    "40g-3": {
+      "description": "tor-a2",
+      "trunk_vlans": [
+        "mgmt",
+        "acme",
+        "globex",
+        "initech",
+        "vandelay",
+        "soylent",
+        "cyberdyne",
+        "tyrell",
+        "wonka"
+      ],
+      "link": {
+        "device": "tor-a2",
+        "port": "40g-1"
+      }
+    },
+    "40g-5": {
+      "description": "core-a2, first cable",
+      "lag": "peer",
+      "link": {
+        "device": "core-a2",
+        "port": "40g-5"
+      }
+    },
+    "40g-6": {
+      "description": "core-a2, second cable",
+      "lag": "peer",
+      "link": {
+        "device": "core-a2",
+        "port": "40g-6"
+      }
+    },
+    "10g-47": {
+      "description": "tor-a3, first cable",
+      "lag": "tor-a3",
+      "link": {
+        "device": "tor-a3",
+        "port": "10g-23"
+      }
+    },
+    "10g-48": {
+      "description": "tor-a3, second cable",
+      "lag": "tor-a3",
+      "link": {
+        "device": "tor-a3",
+        "port": "10g-24"
+      }
+    },
+    "10g-1": {
+      "description": "Resolver 1",
+      "access_vlan": "services",
+      "stp": {
+        "edge": true
+      },
+      "storm_control": {
+        "broadcast": {
+          "percent": 1
+        },
+        "multicast": {
+          "percent": 1
+        }
+      }
+    },
+    "10g-2": {
+      "description": "Time server 1",
+      "access_vlan": "services",
+      "stp": {
+        "edge": true
+      },
+      "storm_control": {
+        "broadcast": {
+          "percent": 1
+        },
+        "multicast": {
+          "percent": 1
+        }
+      }
+    },
+    "10g-3": {
+      "description": "Log collector",
+      "access_vlan": "services",
+      "stp": {
+        "edge": true
+      },
+      "storm_control": {
+        "broadcast": {
+          "percent": 1
+        },
+        "multicast": {
+          "percent": 1
+        }
+      }
+    },
+    "10g-4": {
+      "description": "Flow collector",
+      "access_vlan": "services",
+      "stp": {
+        "edge": true
+      },
+      "storm_control": {
+        "broadcast": {
+          "percent": 1
+        },
+        "multicast": {
+          "percent": 1
+        }
+      },
+      "lldp": false
+    }
+  },
+  "interfaces": {
+    "peer": {
+      "type": "lag",
+      "description": "core-a2",
+      "mode": "lacp",
+      "trunk_vlans": [
+        "mgmt",
+        "infra",
+        "acme",
+        "globex",
+        "initech",
+        "vandelay",
+        "soylent",
+        "cyberdyne",
+        "tyrell",
+        "wonka",
+        "services"
+      ]
+    },
+    "tor-a3": {
+      "type": "lag",
+      "description": "tor-a3",
+      "mode": "lacp",
+      "trunk_vlans": [
+        "mgmt",
+        "acme",
+        "globex",
+        "initech",
+        "vandelay",
+        "soylent",
+        "cyberdyne",
+        "tyrell",
+        "wonka"
+      ]
+    },
+    "mgmt": {
+      "type": "vlan",
+      "vlan": "mgmt",
+      "addresses": [
+        "10.0.99.4/24"
+      ]
+    },
+    "infra": {
+      "type": "vlan",
+      "vlan": "infra",
+      "addresses": [
+        "10.0.10.4/24"
+      ]
+    },
+    "services": {
+      "type": "vlan",
+      "vlan": "services",
+      "addresses": [
+        "10.0.20.2/24"
+      ],
+      "vrrp": [
+        {
+          "id": 20,
+          "address": "10.0.20.1",
+          "priority": 200,
+          "preempt": true
+        }
+      ]
+    }
+  },
+  "routing": {
+    "router_id": "10.0.10.4",
+    "static": [
+      {
+        "prefix": "0.0.0.0/0",
+        "via": "10.0.10.1",
+        "description": "The edge routers"
+      }
+    ],
+    "ospf": {
+      "areas": {
+        "0.0.0.0": {
+          "interfaces": {
+            "infra": {
+              "cost": 10,
+              "bfd": true
+            },
+            "services": {
+              "passive": true
+            },
+            "mgmt": {
+              "passive": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "dhcp_relay": {
+    "mgmt": {
+      "interface": "mgmt",
+      "servers": [
+        "10.0.20.67"
+      ]
+    }
+  },
+  "flow_export": {
+    "protocol": "sflow",
+    "collectors": [
+      {
+        "address": "10.0.20.40"
+      }
+    ],
+    "sampling": 8192,
+    "interfaces": [
+      "40g-1",
+      "40g-2",
+      "40g-3"
+    ]
+  }
+}

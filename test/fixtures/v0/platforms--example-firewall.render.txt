@@ -1,0 +1,1213 @@
+config vpn certificate local
+    edit "web"
+        set private-key "<secret:EXAMPLE_WEB_KEY>"
+        set certificate "-----BEGIN CERTIFICATE-----
+MIIBijCCAS+gAwIBAgIUGVLESipZqU02Dom2VFcIUrtTkWowCgYIKoZIzj0EAwIw
+GjEYMBYGA1UEAwwPZXhhbXBsZS5pbnZhbGlkMB4XDTI2MTAwMTIyMjU0MVoXDTM2
+MDkyODIyMjU0MVowGjEYMBYGA1UEAwwPZXhhbXBsZS5pbnZhbGlkMFkwEwYHKoZI
+zj0CAQYIKoZIzj0DAQcDQgAEAbIZoMufFUL3IJuDDzOztD0TzvwapN4523xSvvDx
+jrX9eyoDI4f33l0TvBNYISReQ27URm0A/P8TrIb0kTAlTKNTMFEwHQYDVR0OBBYE
+FJBvMHcOmgZKuk4P/m1/ThCW2Gq5MB8GA1UdIwQYMBaAFJBvMHcOmgZKuk4P/m1/
+ThCW2Gq5MA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAM2IhRae
+eq8PdfO4/1Xb6v7+OlDvb0kiG4Up/XApZEQfAiEA9s3KFtxd0H38Cw2WY0UXD+cU
+JjD8Y3wLV6mR++0khHc=
+-----END CERTIFICATE-----"
+    next
+end
+config vpn certificate ca
+end
+config system global
+    set hostname "example-firewall"
+    set timezone 53
+    set admin-ssh-port 2222
+    set admin-ssh-grace-time 30
+    set admin-sport 8443
+    set admin-server-cert "web"
+    set pre-login-banner enable
+    set lldp-transmission enable
+    set lldp-reception enable
+end
+config system replacemsg admin "pre_admin-disclaimer-text"
+    set buffer "Authorised access only."
+end
+config system settings
+    set central-nat enable
+    set default-voip-alg-mode kernel-helper-based
+    set bfd enable
+    set bfd-desired-min-tx 300
+    set bfd-required-min-rx 300
+    set bfd-detect-mult 4
+end
+config system accprofile
+    edit "circuit-operator"
+        set secfabgrp read-write
+        set ftviewgrp read-write
+        set authgrp read-write
+        set sysgrp read
+        set netgrp read-write
+        set loggrp read-write
+        set fwgrp read-write
+        set vpngrp read-write
+        set utmgrp read-write
+        set wanoptgrp read-write
+        set wifi read-write
+    next
+    edit "circuit-read-only"
+        set secfabgrp read
+        set ftviewgrp read
+        set authgrp read
+        set sysgrp read
+        set netgrp read
+        set loggrp read
+        set fwgrp read
+        set vpngrp read
+        set utmgrp read
+        set wanoptgrp read
+        set wifi read
+    next
+end
+config system admin
+    edit "netops"
+        set accprofile "super_admin"
+        set comments "Network team"
+        set vdom "root"
+        set ssh-public-key1 "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGq5UoWNbDBN7kXsEcNWmMEqlb7r0Ec6oOOfzxwKrUfS netops@example"
+        set password "<secret:EXAMPLE_NETOPS_PASSWORD>"
+    next
+    edit "noc"
+        set accprofile "circuit-operator"
+        set vdom "root"
+        set password "<secret:EXAMPLE_NOC_PASSWORD>"
+    next
+    edit "monitor"
+        set accprofile "circuit-read-only"
+        set vdom "root"
+        set password "<secret:EXAMPLE_MONITOR_PASSWORD>"
+    next
+end
+config system interface
+    edit "port1"
+        set vdom "root"
+        set type physical
+        set description "Upstream bond"
+        set speed 40000full
+    next
+    edit "port2"
+        set vdom "root"
+        set type physical
+        set description "Upstream bond"
+        set speed 40000full
+    next
+    edit "port3"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port4"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port5"
+        set vdom "root"
+        set type physical
+        set description "Core switch"
+        set mtu-override enable
+        set mtu 9000
+    next
+    edit "port6"
+        set vdom "root"
+        set type physical
+        set description "Lab host"
+        set speed 1000full
+        set ip 198.51.100.193 255.255.255.224
+        set allowaccess ping https ssh snmp fgfm
+        set lldp-transmission disable
+        set lldp-reception disable
+    next
+    edit "port7"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port8"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port9"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port10"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port11"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port12"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port13"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port14"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port15"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port16"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port17"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port18"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port19"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port20"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port21"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port22"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port23"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port24"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port25"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port26"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port27"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port28"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port29"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port30"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port31"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "port32"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "mgmt1"
+        set vdom "root"
+        set type physical
+        set description "Out-of-band"
+        set ip 192.0.2.4 255.255.255.192
+        set allowaccess ping https ssh snmp fgfm
+    next
+    edit "mgmt2"
+        set vdom "root"
+        set type physical
+        set status down
+    next
+    edit "uplink"
+        set vdom "root"
+        set type aggregate
+        set member "port1" "port2"
+        set description "Upstream"
+        set ip 203.0.113.10 255.255.255.252
+        set allowaccess ping https ssh snmp fgfm
+        set sflow-sampler enable
+        set sample-rate 4096
+        config ipv6
+            set ip6-address 2001:db8:fff0::2/64
+            set ip6-allowaccess ping https ssh snmp fgfm
+        end
+    next
+    edit "management"
+        set vdom "root"
+        set interface "port5"
+        set vlanid 10
+        set description "Management"
+        set ip 192.0.2.129 255.255.255.192
+        set allowaccess ping https ssh snmp fgfm
+        set secondary-IP enable
+        config secondaryip
+            edit 1
+                set ip 192.0.2.161 255.255.255.224
+                set allowaccess ping https ssh snmp fgfm
+            next
+        end
+        config ipv6
+            set ip6-address 2001:db8:10::1/64
+            set ip6-allowaccess ping https ssh snmp fgfm
+        end
+        config vrrp
+            edit 1
+                set vrip 192.0.2.190
+                set priority 200
+            next
+        end
+    next
+    edit "servers"
+        set vdom "root"
+        set interface "port5"
+        set vlanid 20
+        set mtu-override enable
+        set mtu 9000
+        set ip 198.51.100.33 255.255.255.224
+        set allowaccess ping https ssh snmp fgfm
+        set sflow-sampler enable
+        set sample-rate 4096
+        config ipv6
+            set ip6-address 2001:db8:40::1/64
+            set ip6-allowaccess ping https ssh snmp fgfm
+            set ip6-send-adv enable
+            set dhcp6-relay-service enable
+            set dhcp6-relay-ip 2001:db8::67
+            config ip6-prefix-list
+                edit 2001:db8:40::/64
+                next
+                edit 2001:db8:41::/64
+                next
+            end
+            config ip6-extra-addr
+                edit 2001:db8:41::1/64
+                next
+            end
+        end
+    next
+    edit "guests"
+        set vdom "root"
+        set interface "port5"
+        set vlanid 30
+        set vrf 1
+        set ip 198.51.100.97 255.255.255.224
+        set allowaccess ping https ssh snmp fgfm
+        set dhcp-relay-service enable
+        set dhcp-relay-ip "198.51.100.66"
+    next
+    edit "loopback"
+        set vdom "root"
+        set type loopback
+        set description "Router address"
+        set ip 198.51.100.255 255.255.255.255
+        set allowaccess ping https ssh snmp fgfm
+    next
+    edit "partner"
+        set vdom "root"
+        set type tunnel
+        set interface "uplink"
+        set description "Partner tunnel"
+        set ip 192.0.2.249 255.255.255.255
+        set remote-ip 192.0.2.250 255.255.255.252
+        set allowaccess ping https ssh snmp fgfm
+        config ipv6
+            set ip6-address 2001:db8:ffee::1/64
+            set ip6-allowaccess ping https ssh snmp fgfm
+        end
+    next
+    edit "stretch"
+        set vdom "root"
+        set type vxlan
+        set interface "uplink"
+        set macaddr 02:00:00:00:50:00
+        set ip 192.0.2.241 255.255.255.248
+        set allowaccess ping https ssh snmp fgfm
+    next
+end
+config system gre-tunnel
+    edit "partner"
+        set interface "uplink"
+        set remote-gw 203.0.113.220
+        set local-gw 203.0.113.10
+    next
+end
+config system vxlan
+    edit "stretch"
+        set interface "uplink"
+        set vni 5000
+        set remote-ip "203.0.113.221"
+    next
+end
+config system dns
+    set primary 192.0.2.53
+    set ip6-primary 2001:db8::53
+end
+config system dns-server
+    edit "port6"
+    next
+    edit "mgmt1"
+    next
+    edit "uplink"
+    next
+    edit "loopback"
+    next
+    edit "management"
+    next
+    edit "servers"
+    next
+    edit "guests"
+    next
+    edit "partner"
+    next
+    edit "stretch"
+    next
+end
+config system ntp
+    set ntpsync enable
+    set type custom
+    set server-mode enable
+    set interface "port6" "mgmt1" "uplink" "loopback" "management" "servers" "guests" "partner" "stretch"
+    config ntpserver
+        edit 1
+            set server "192.0.2.1"
+        next
+        edit 2
+            set server "pool.ntp.org"
+        next
+    end
+end
+config system snmp sysinfo
+    set status enable
+    set contact-info "noc@example.com"
+    set location "Rack 2, Jakarta"
+end
+config system snmp community
+    edit 1
+        set name "<secret:EXAMPLE_SNMP_COMMUNITY>"
+        set query-v1-status disable
+        set trap-v1-status disable
+        set trap-v2c-status disable
+        config hosts
+            edit 1
+                set ip 192.0.2.96 255.255.255.240
+            next
+        end
+    next
+end
+config system snmp user
+    edit "monitor"
+        set security-level auth-priv
+        set auth-pwd "<secret:EXAMPLE_SNMP_AUTH>"
+        set priv-pwd "<secret:EXAMPLE_SNMP_PRIVACY>"
+    next
+end
+config log memory setting
+    set status enable
+end
+config log memory filter
+    set severity warning
+end
+config log disk setting
+    set status disable
+end
+config log syslogd setting
+    set status enable
+    set server "192.0.2.98"
+end
+config log syslogd filter
+end
+config log syslogd2 setting
+    set status enable
+    set server "192.0.2.99"
+    set port 5514
+end
+config log syslogd2 filter
+    set severity warning
+end
+config log syslogd3 setting
+end
+config log syslogd3 filter
+end
+config log syslogd4 setting
+end
+config log syslogd4 filter
+end
+config system sflow
+    set collector-ip 192.0.2.99
+end
+config system netflow
+end
+config system dhcp server
+    edit 1
+        set lease-time 3600
+        set default-gateway 198.51.100.33
+        set netmask 255.255.255.224
+        set interface "servers"
+        set dns-service specify
+        set dns-server1 192.0.2.53
+        config ip-range
+            edit 1
+                set start-ip 198.51.100.40
+                set end-ip 198.51.100.50
+            next
+        end
+        config reserved-address
+            edit 1
+                set ip 198.51.100.41
+                set mac 00:11:22:33:44:55
+                set description "Printer"
+            next
+        end
+    next
+end
+config router static
+    edit 1
+        set gateway 203.0.113.9
+        set device "uplink"
+        set comment "Upstream"
+        set bfd enable
+    next
+    edit 2
+        set dst 198.51.100.0 255.255.255.0
+        set comment "Originate"
+        set blackhole enable
+    next
+    edit 3
+        set dst 198.18.0.0 255.254.0.0
+        set gateway 192.0.2.130
+        set device "management"
+        set distance 20
+    next
+    edit 4
+        set gateway 198.51.100.98
+        set device "guests"
+        set comment "Guest exit"
+    next
+end
+config router static6
+    edit 1
+        set gateway 2001:db8:fff0::1
+        set device "uplink"
+    next
+end
+config router prefix-list
+    edit "ours"
+        config rule
+            edit 1
+                set prefix 198.51.100.0 255.255.255.0
+                unset ge
+                set le 32
+            next
+        end
+    next
+    edit "upstream-origins"
+        set comments "Filled by circuit refresh from ripe-stat AS64501"
+        config rule
+            edit 1
+                set prefix 0.0.0.0 0.0.0.0
+                unset ge
+                set le 32
+                set action deny
+            next
+        end
+    next
+    edit "circuit-length-25-32"
+        config rule
+            edit 1
+                set prefix 0.0.0.0 0.0.0.0
+                set ge 25
+                set le 32
+            next
+        end
+    next
+    edit "UPSTREAM-IN-3"
+        config rule
+            edit 1
+                set prefix 0.0.0.0 0.0.0.0
+                unset ge
+                unset le
+            next
+        end
+    next
+    edit "ours-0-24"
+        config rule
+            edit 1
+                set prefix 198.51.100.0 255.255.255.0
+                unset ge
+                unset le
+            next
+        end
+    next
+end
+config router prefix-list6
+    edit "circuit-length-25-128"
+        config rule
+            edit 1
+                set prefix6 ::/0
+                set ge 25
+                set le 128
+            next
+        end
+    next
+end
+config router community-list
+    edit "circuit-match-64501-666"
+        config rule
+            edit 1
+                set action permit
+                set match "64501:666"
+            next
+        end
+    next
+    edit "circuit-match-64500-999"
+        config rule
+            edit 1
+                set action permit
+                set match "64500:999"
+            next
+        end
+    next
+    edit "circuit-remove-64500-any"
+        set type expanded
+        config rule
+            edit 1
+                set action permit
+                set regexp "^64500:[0-9]+$"
+            next
+        end
+    next
+end
+config router route-map
+    edit "UPSTREAM-IN"
+        config rule
+            edit 1
+                set match-ip-address "circuit-length-25-32"
+                set action deny
+            next
+            edit 2
+                set match-community "circuit-match-64501-666"
+                set action deny
+            next
+            edit 3
+                set match-ip-address "UPSTREAM-IN-3"
+                set set-local-preference 200
+                set set-community "64500:100"
+                set set-community-additive enable
+            next
+            edit 4
+                set match-ip-address "upstream-origins"
+                set set-metric 10
+            next
+        end
+    next
+    edit "UPSTREAM-OUT"
+        config rule
+            edit 1
+                set match-community "circuit-match-64500-999"
+                set action deny
+            next
+            edit 2
+                set match-ip-address "ours-0-24"
+                set set-aspath "64500"
+                set set-community-delete "circuit-remove-64500-any"
+                set set-ip-nexthop 203.0.113.10
+            next
+        end
+    next
+    edit "UPSTREAM-IN-v6"
+        config rule
+            edit 1
+                set match-ip6-address "circuit-length-25-128"
+                set action deny
+            next
+            edit 2
+                set match-community "circuit-match-64501-666"
+                set action deny
+            next
+        end
+    next
+    edit "UPSTREAM-OUT-v6"
+        config rule
+            edit 1
+                set match-community "circuit-match-64500-999"
+                set action deny
+            next
+            edit 2
+                set set-community "64501:100"
+            next
+        end
+    next
+    edit "circuit-reject-all"
+        config rule
+            edit 1
+                set action deny
+            next
+        end
+    next
+end
+config router ospf
+    set router-id 198.51.100.255
+    set passive-interface "loopback"
+    config area
+        edit 0.0.0.0
+        next
+    end
+    config network
+        edit 1
+            set prefix 198.51.100.255 255.255.255.255
+        next
+        edit 2
+            set prefix 192.0.2.128 255.255.255.192
+        next
+        edit 3
+            set prefix 192.0.2.160 255.255.255.224
+        next
+    end
+    config ospf-interface
+        edit "management"
+            set interface "management"
+            set cost 10
+            set network-type point-to-point
+            set bfd enable
+        next
+    end
+    config redistribute "connected"
+        set status enable
+    end
+end
+config router ospf6
+    set router-id 198.51.100.255
+    set passive-interface "loopback"
+    config area
+        edit 0.0.0.0
+        next
+    end
+    config ospf6-interface
+        edit "loopback"
+            set interface "loopback"
+        next
+        edit "management"
+            set interface "management"
+            set cost 10
+            set network-type point-to-point
+            set bfd enable
+        next
+    end
+    config redistribute "connected"
+        set status enable
+    end
+end
+config router bgp
+    set as 64500
+    set router-id 198.51.100.255
+    config neighbor
+        edit "203.0.113.9"
+            set activate6 disable
+            set bfd enable
+            set description "Transit"
+            set remote-as 64501
+            set maximum-prefix 1000
+            set route-map-in "UPSTREAM-IN"
+            set route-map-out "UPSTREAM-OUT"
+            set password "<secret:EXAMPLE_BGP_PASSWORD>"
+        next
+        edit "2001:db8:fff0::1"
+            set activate disable
+            set bfd enable
+            set remote-as 64501
+            set maximum-prefix6 1000
+            set route-map-in6 "UPSTREAM-IN-v6"
+            set route-map-out6 "UPSTREAM-OUT-v6"
+            set password "<secret:EXAMPLE_BGP_PASSWORD>"
+        next
+        edit "192.0.2.130"
+            set activate6 disable
+            set ebgp-enforce-multihop enable
+            set passive enable
+            set remote-as 64500
+            set route-map-in "circuit-reject-all"
+            set route-map-out "circuit-reject-all"
+            set keep-alive-timer 30
+            set holdtime-timer 90
+            set update-source "loopback"
+        next
+    end
+    config network
+        edit 1
+            set prefix 198.51.100.0 255.255.255.0
+        next
+    end
+end
+config system session-helper
+    edit 1
+        set name ftp
+        set protocol 6
+        set port 21
+    next
+    edit 2
+        set name sip
+        set protocol 17
+        set port 5060
+    next
+end
+config firewall address
+    edit "198.51.100.96/27"
+        set subnet 198.51.100.96 255.255.255.224
+    next
+    edit "192.0.2.53/32"
+        set subnet 192.0.2.53 255.255.255.255
+    next
+    edit "198.51.100.42/32"
+        set subnet 198.51.100.42 255.255.255.255
+    next
+    edit "192.0.2.0/24"
+        set subnet 192.0.2.0 255.255.255.0
+    next
+    edit "192.0.2.96/28"
+        set subnet 192.0.2.96 255.255.255.240
+    next
+    edit "198.51.100.32/27"
+        set subnet 198.51.100.32 255.255.255.224
+    next
+end
+config firewall address6
+    edit "2001:db8::/64"
+        set ip6 2001:db8::/64
+    next
+end
+config firewall addrgrp
+    edit "dns"
+        set member "192.0.2.53/32"
+    next
+    edit "circuit-management"
+        set member "192.0.2.0/24"
+    next
+    edit "circuit-snmp"
+        set member "192.0.2.96/28"
+    next
+    edit "management"
+        set member "192.0.2.0/24"
+    next
+end
+config firewall addrgrp6
+    edit "circuit-management"
+        set member "2001:db8::/64"
+    next
+    edit "management"
+        set member "2001:db8::/64"
+    next
+end
+config firewall service custom
+    edit "udp/53"
+        set udp-portrange 53
+    next
+    edit "tcp/25,465,587"
+        set tcp-portrange 25 465 587
+    next
+    edit "tcp/80"
+        set tcp-portrange 80
+    next
+    edit "tcp/2222"
+        set tcp-portrange 2222
+    next
+    edit "tcp/8443"
+        set tcp-portrange 8443
+    next
+    edit "udp/161"
+        set udp-portrange 161
+    next
+    edit "tcp/541"
+        set tcp-portrange 541
+    next
+    edit "protocol/112"
+        set protocol IP
+        set protocol-number 112
+    next
+    edit "protocol/89"
+        set protocol IP
+        set protocol-number 89
+    next
+    edit "tcp/179"
+        set tcp-portrange 179
+    next
+    edit "icmp"
+        set protocol ICMP
+        unset icmptype
+    next
+    edit "icmp6"
+        set protocol ICMP6
+        unset icmptype
+    next
+    edit "udp/11211"
+        set udp-portrange 11211
+    next
+end
+config firewall ippool
+    edit "203.0.113.11"
+        set startip 203.0.113.11
+        set endip 203.0.113.11
+    next
+end
+config firewall vip
+    edit "dnat-1"
+        set comment "Web server"
+        set extip 203.0.113.10
+        set extintf "uplink"
+        set portforward enable
+        set mappedip "198.51.100.42"
+        set extport 8080
+        set mappedport 80
+    next
+    edit "dnat-2"
+        set comment "Mail for partners"
+        set extip 203.0.113.12
+        set extintf "any"
+        set src-filter "203.0.113.192/28"
+        set portforward enable
+        set mappedip "198.51.100.43"
+        set extport 25
+        set mappedport 25
+    next
+end
+config firewall policy
+    edit 1
+        set srcintf "servers"
+        set dstintf "uplink"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set schedule "always"
+        set service "ALL"
+        set comments "Servers out"
+    next
+    edit 2
+        set srcintf "any"
+        set dstintf "uplink"
+        set srcaddr "198.51.100.96/27"
+        set dstaddr "all"
+        set action accept
+        set schedule "always"
+        set service "ALL"
+        set comments "Guests out"
+    next
+    edit 3
+        set srcintf "any"
+        set dstintf "any"
+        set srcaddr "all"
+        set dstaddr "dns"
+        set action accept
+        set schedule "always"
+        set service "udp/53"
+        set comments "Guests to resolvers"
+    next
+    edit 4
+        set srcintf "any"
+        set dstintf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action deny
+        set schedule "always"
+        set service "tcp/25,465,587"
+        set logtraffic disable
+        set comments "No SMTP out"
+        set send-deny-packet enable
+    next
+    edit 5
+        set srcintf "any"
+        set dstintf "any"
+        set srcaddr "all"
+        set dstaddr "198.51.100.42/32"
+        set action accept
+        set schedule "always"
+        set service "tcp/80"
+        set comments "Web in"
+    next
+end
+config firewall policy6
+    edit 1
+        set srcintf "servers"
+        set dstintf "uplink"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set schedule "always"
+        set service "ALL"
+        set comments "Servers out"
+    next
+    edit 2
+        set srcintf "any"
+        set dstintf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action deny
+        set schedule "always"
+        set service "tcp/25,465,587"
+        set logtraffic disable
+        set comments "No SMTP out"
+        set send-deny-packet enable
+    next
+end
+config firewall local-in-policy
+    edit 1
+        set intf "any"
+        set srcaddr "circuit-management"
+        set dstaddr "all"
+        set action accept
+        set service "tcp/2222" "tcp/8443" "tcp/541"
+        set schedule "always"
+        set comments "Management from allowed sources"
+    next
+    edit 2
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action deny
+        set service "tcp/2222" "tcp/8443" "tcp/541"
+        set schedule "always"
+        set comments "Management from anywhere else"
+    next
+    edit 3
+        set intf "any"
+        set srcaddr "circuit-snmp"
+        set dstaddr "all"
+        set action accept
+        set service "udp/161"
+        set schedule "always"
+        set comments "Management from allowed sources"
+    next
+    edit 4
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action deny
+        set service "udp/161"
+        set schedule "always"
+        set comments "Management from anywhere else"
+    next
+    edit 5
+        set intf "any"
+        set srcaddr "management"
+        set dstaddr "all"
+        set action accept
+        set service "ALL"
+        set schedule "always"
+        set comments "Management"
+    next
+    edit 6
+        set intf "management"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set service "protocol/112"
+        set schedule "always"
+        set comments "VRRP"
+    next
+    edit 7
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set service "protocol/89"
+        set schedule "always"
+        set comments "OSPF"
+    next
+    edit 8
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set service "tcp/179"
+        set schedule "always"
+        set comments "BGP"
+    next
+    edit 9
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set service "icmp"
+        set schedule "always"
+        set comments "Ping"
+    next
+    edit 10
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action deny
+        set service "ALL"
+        set schedule "always"
+    next
+end
+config firewall local-in-policy6
+    edit 1
+        set intf "any"
+        set srcaddr "circuit-management"
+        set dstaddr "all"
+        set action accept
+        set service "tcp/2222" "tcp/8443" "tcp/541"
+        set schedule "always"
+        set comments "Management from allowed sources"
+    next
+    edit 2
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action deny
+        set service "tcp/2222" "tcp/8443" "tcp/541"
+        set schedule "always"
+        set comments "Management from anywhere else"
+    next
+    edit 3
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action deny
+        set service "udp/161"
+        set schedule "always"
+        set comments "Management from anywhere else"
+    next
+    edit 4
+        set intf "any"
+        set srcaddr "management"
+        set dstaddr "all"
+        set action accept
+        set service "ALL"
+        set schedule "always"
+        set comments "Management"
+    next
+    edit 5
+        set intf "management"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set service "protocol/112"
+        set schedule "always"
+        set comments "VRRP"
+    next
+    edit 6
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set service "protocol/89"
+        set schedule "always"
+        set comments "OSPF"
+    next
+    edit 7
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set service "tcp/179"
+        set schedule "always"
+        set comments "BGP"
+    next
+    edit 8
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action accept
+        set service "icmp6"
+        set schedule "always"
+        set comments "Ping"
+    next
+    edit 9
+        set intf "any"
+        set srcaddr "all"
+        set dstaddr "all"
+        set action deny
+        set service "ALL"
+        set schedule "always"
+    next
+end
+config firewall central-snat-map
+    edit 1
+        set orig-addr "198.51.100.96/27"
+        set srcintf "any"
+        set dst-addr "all"
+        set dstintf "uplink"
+        set comments "Guests out"
+    next
+    edit 2
+        set orig-addr "198.51.100.32/27"
+        set srcintf "any"
+        set dst-addr "all"
+        set dstintf "uplink"
+        set nat-ippool "203.0.113.11"
+        set comments "Servers out"
+    next
+end
+config firewall acl
+    edit 1
+        set comments "Drop spoofed"
+        set interface "port6"
+        set srcaddr "192.0.2.0/24"
+        set dstaddr "all"
+        set service "ALL"
+    next
+    edit 2
+        set comments "No memcached"
+        set interface "port6"
+        set srcaddr "all"
+        set dstaddr "all"
+        set service "udp/11211"
+    next
+end
+config firewall acl6
+    edit 1
+        set comments "No memcached"
+        set interface "port6"
+        set srcaddr "all"
+        set dstaddr "all"
+        set service "udp/11211"
+    next
+end

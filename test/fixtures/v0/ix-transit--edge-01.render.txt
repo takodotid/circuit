@@ -1,0 +1,229 @@
+/interface ethernet switch
+set switch1 l3-hw-offloading=no
+/interface ethernet switch l3hw-settings
+set autorestart=no ipv6-hw=no
+/interface bridge
+add name=bridge protocol-mode=none vlan-filtering=yes
+/interface ethernet
+set [ find default-name=qsfp28-1-1 ] disabled=yes
+set [ find default-name=qsfp28-2-1 ] disabled=yes
+set [ find default-name=sfp28-1 ] comment="Hurricane Electric"
+set [ find default-name=sfp28-2 ] comment=SGIX
+set [ find default-name=sfp28-3 ] comment=Acme
+set [ find default-name=sfp28-4 ] disabled=yes
+set [ find default-name=sfp28-5 ] disabled=yes
+set [ find default-name=sfp28-6 ] disabled=yes
+set [ find default-name=sfp28-7 ] disabled=yes
+set [ find default-name=sfp28-8 ] disabled=yes
+set [ find default-name=sfp28-9 ] disabled=yes
+set [ find default-name=sfp28-10 ] disabled=yes
+set [ find default-name=sfp28-11 ] disabled=yes
+set [ find default-name=sfp28-12 ] disabled=yes
+set [ find default-name=ether1 ] comment=Management
+/interface vlan
+add interface=bridge name=transit vlan-id=300
+add interface=bridge name=ix vlan-id=200
+add interface=bridge name=acme vlan-id=1001
+/interface bridge port
+add bridge=bridge frame-types=admit-only-untagged-and-priority-tagged interface=sfp28-1 pvid=300
+add bridge=bridge frame-types=admit-only-untagged-and-priority-tagged interface=sfp28-2 pvid=200
+add bridge=bridge frame-types=admit-only-untagged-and-priority-tagged interface=sfp28-3 pvid=1001
+/interface bridge vlan
+add bridge=bridge comment="IP transit from Hurricane Electric, AS6939" tagged=bridge vlan-ids=300
+add bridge=bridge comment="Peering LAN of SGIX" tagged=bridge vlan-ids=200
+add bridge=bridge comment="Acme, AS65550" tagged=bridge vlan-ids=1001
+/ip address
+add address=10.0.0.1/24 comment=Management interface=ether1
+add address=203.0.113.2/30 interface=transit
+add address=203.0.113.140/25 interface=ix
+add address=198.51.100.253/30 interface=acme
+/ipv6 address
+add address=2001:db8:ffff::70/64 advertise=no interface=ix
+add address=2001:db8:100:ff01::1/64 advertise=no interface=acme
+/ip dns
+set allow-remote-requests=no servers=""
+/ip firewall address-list
+add address=203.0.113.1 list=bgp-neighbors
+add address=203.0.113.129 list=bgp-neighbors
+add address=198.51.100.254 list=bgp-neighbors
+add address=192.0.2.0/24 list=acme-v4
+add address=198.51.100.0/24 list=bgp-networks-v4
+/ipv6 firewall address-list
+add address=2001:db8:100:ff01::2 list=bgp-neighbors
+add address=2001:db8:200::/48 list=acme-v6
+add address=2001:db8:100::/48 list=bgp-networks-v6
+/ip firewall filter
+add action=accept chain=input comment=Replies connection-state="established,related"
+add action=accept chain=input comment=Ping protocol=icmp
+add action=accept chain=input comment=Management src-address=10.0.0.0/24
+add action=accept chain=input comment=BGP dst-port=179 protocol=tcp src-address-list=bgp-neighbors
+add action=drop chain=input comment=Default
+add action=drop chain=forward comment="Bad flags FIN+SYN" protocol=tcp tcp-flags="fin,syn"
+add action=drop chain=forward comment="Bad flags SYN+RST" protocol=tcp tcp-flags="syn,rst"
+add action=drop chain=forward comment="Bad flags FIN+RST" protocol=tcp tcp-flags="fin,rst"
+add action=drop chain=forward comment="Bad flags FIN without ACK" protocol=tcp tcp-flags="fin,!ack"
+add action=drop chain=forward comment="Bad flags FIN+URG" protocol=tcp tcp-flags="fin,urg"
+add action=drop chain=forward comment="Bad flags Xmas scan" protocol=tcp tcp-flags="fin,syn,psh,urg"
+/ipv6 firewall filter
+add action=accept chain=input comment=Replies connection-state="established,related"
+add action=accept chain=input comment=Ping protocol=icmpv6
+add action=accept chain=input comment=BGP dst-port=179 protocol=tcp src-address-list=bgp-neighbors
+add action=drop chain=input comment=Default
+add action=drop chain=forward comment="Bad flags FIN+SYN" protocol=tcp tcp-flags="fin,syn"
+add action=drop chain=forward comment="Bad flags SYN+RST" protocol=tcp tcp-flags="syn,rst"
+add action=drop chain=forward comment="Bad flags FIN+RST" protocol=tcp tcp-flags="fin,rst"
+add action=drop chain=forward comment="Bad flags FIN without ACK" protocol=tcp tcp-flags="fin,!ack"
+add action=drop chain=forward comment="Bad flags FIN+URG" protocol=tcp tcp-flags="fin,urg"
+add action=drop chain=forward comment="Bad flags Xmas scan" protocol=tcp tcp-flags="fin,syn,psh,urg"
+/ip firewall service-port
+set ftp disabled=yes
+set tftp disabled=yes
+set irc disabled=yes
+set h323 disabled=yes
+set sip disabled=yes
+set pptp disabled=yes
+set rtsp disabled=yes
+/interface ethernet switch rule
+add comment="transit: drop source 198.51.100.0/24" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=198.51.100.0/255.255.255.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 192.0.2.0/24" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=192.0.2.0/255.255.255.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 127.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=127.0.0.0/255.0.0.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 169.254.0.0/16" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=169.254.0.0/255.255.0.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 0.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=0.0.0.0/255.0.0.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 10.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=10.0.0.0/255.0.0.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 172.16.0.0/12" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=172.16.0.0/255.240.0.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 192.168.0.0/16" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=192.168.0.0/255.255.0.0 switch=switch1 vlan-id=300
+add comment="ix: drop source 198.51.100.0/24" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=198.51.100.0/255.255.255.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 192.0.2.0/24" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=192.0.2.0/255.255.255.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 127.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=127.0.0.0/255.0.0.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 169.254.0.0/16" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=169.254.0.0/255.255.0.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 0.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=0.0.0.0/255.0.0.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 10.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=10.0.0.0/255.0.0.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 172.16.0.0/12" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=172.16.0.0/255.240.0.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 192.168.0.0/16" mac-protocol=ip new-dst-ports="" ports=sfp28-1 src-address=192.168.0.0/255.255.0.0 switch=switch1 vlan-id=200
+add comment="transit: drop source 198.51.100.0/24" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=198.51.100.0/255.255.255.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 192.0.2.0/24" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=192.0.2.0/255.255.255.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 127.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=127.0.0.0/255.0.0.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 169.254.0.0/16" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=169.254.0.0/255.255.0.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 0.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=0.0.0.0/255.0.0.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 10.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=10.0.0.0/255.0.0.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 172.16.0.0/12" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=172.16.0.0/255.240.0.0 switch=switch1 vlan-id=300
+add comment="transit: drop source 192.168.0.0/16" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=192.168.0.0/255.255.0.0 switch=switch1 vlan-id=300
+add comment="ix: drop source 198.51.100.0/24" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=198.51.100.0/255.255.255.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 192.0.2.0/24" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=192.0.2.0/255.255.255.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 127.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=127.0.0.0/255.0.0.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 169.254.0.0/16" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=169.254.0.0/255.255.0.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 0.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=0.0.0.0/255.0.0.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 10.0.0.0/8" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=10.0.0.0/255.0.0.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 172.16.0.0/12" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=172.16.0.0/255.240.0.0 switch=switch1 vlan-id=200
+add comment="ix: drop source 192.168.0.0/16" mac-protocol=ip new-dst-ports="" ports=sfp28-2 src-address=192.168.0.0/255.255.0.0 switch=switch1 vlan-id=200
+/ip route
+add blackhole comment=Originate dst-address=198.51.100.0/24
+/ipv6 route
+add blackhole comment=Originate dst-address=2001:db8:100::/48
+/routing bgp instance
+add as=64500 name=default router-id=203.0.113.2
+/routing filter rule
+add chain=ACME-IN-V4 comment="Blackhole, asked by the neighbor" rule="if (dst in acme-v4 && bgp-large-communities includes 64500:666:0) { set blackhole yes; accept }"
+add chain=ACME-IN-V4 rule="jump SANITY-V4"
+add chain=ACME-IN-V4 comment="Learned from AS65550" rule="delete bgp-communities regexp \"^64500:[0-9]+\$\"; delete bgp-large-communities regexp \"^64500:1:[0-9]+\$\"; delete bgp-large-communities regexp \"^64500:3:[0-9]+\$\"; append bgp-large-communities 64500:1:3,64500:3:65550"
+add chain=ACME-IN-V4 comment="Their IPv4" rule="if (dst in acme-v4) { set bgp-local-pref 300; accept }"
+add chain=ACME-IN-V4 comment="Nothing else" rule=reject
+add chain=ACME-IN-V6 comment="Blackhole, asked by the neighbor" rule="if (dst in acme-v6 && bgp-large-communities includes 64500:666:0) { set blackhole yes; accept }"
+add chain=ACME-IN-V6 rule="jump SANITY-V6"
+add chain=ACME-IN-V6 comment="Learned from AS65550" rule="delete bgp-communities regexp \"^64500:[0-9]+\$\"; delete bgp-large-communities regexp \"^64500:1:[0-9]+\$\"; delete bgp-large-communities regexp \"^64500:3:[0-9]+\$\"; append bgp-large-communities 64500:1:3,64500:3:65550"
+add chain=ACME-IN-V6 comment="Their IPv6" rule="if (dst in acme-v6) { set bgp-local-pref 300; accept }"
+add chain=ACME-IN-V6 comment="Nothing else" rule=reject
+add chain=ACME-OUT-V4 comment="Learned at an exchange" rule="if (bgp-large-communities includes 64500:1:2) { accept }"
+add chain=ACME-OUT-V4 comment="Our other customers" rule="if (bgp-large-communities includes 64500:1:3) { accept }"
+add chain=ACME-OUT-V4 comment="Our IPv4" rule="if (dst==198.51.100.0/24) { accept }"
+add chain=ACME-OUT-V4 comment="Nothing from the transit" rule=reject
+add chain=ACME-OUT-V6 comment="Learned at an exchange" rule="if (bgp-large-communities includes 64500:1:2) { accept }"
+add chain=ACME-OUT-V6 comment="Our other customers" rule="if (bgp-large-communities includes 64500:1:3) { accept }"
+add chain=ACME-OUT-V6 comment="Our IPv6" rule="if (dst==2001:db8:100::/48) { accept }"
+add chain=ACME-OUT-V6 comment="Nothing from the transit" rule=reject
+add chain=IX-IN-V4 rule="jump SANITY-V4"
+add chain=IX-IN-V4 comment="Learned from AS55518" rule="delete bgp-communities regexp \"^64500:[0-9]+\$\"; delete bgp-large-communities regexp \"^64500:[0-9]+:[0-9]+\$\"; append bgp-large-communities 64500:1:2,64500:3:55518"
+add chain=IX-IN-V4 rule="set bgp-local-pref 200"
+add chain=IX-IN-V4 rule=accept
+add chain=IX-OUT-V4 comment="Blackholed here, never announced" rule="if (bgp-large-communities includes 64500:666:0) { reject }"
+add chain=IX-OUT-V4 comment="Asked not to be announced anywhere" rule="if (bgp-large-communities includes 64500:100:0) { reject }"
+add chain=IX-OUT-V4 comment="Asked not to be announced to AS55518" rule="if (bgp-large-communities includes 64500:100:55518) { reject }"
+add chain=IX-OUT-V4 comment="Asked to prepend once to AS55518" rule="if (bgp-large-communities includes 64500:101:55518) { set bgp-path-prepend 1 }"
+add chain=IX-OUT-V4 comment="Asked to prepend twice to AS55518" rule="if (bgp-large-communities includes 64500:102:55518) { set bgp-path-prepend 2 }"
+add chain=IX-OUT-V4 comment="Asked to prepend three times to AS55518" rule="if (bgp-large-communities includes 64500:103:55518) { set bgp-path-prepend 3 }"
+add chain=IX-OUT-V4 comment="Our communities stay inside our network" rule="delete bgp-communities regexp \"^64500:[0-9]+\$\"; delete bgp-large-communities regexp \"^64500:[0-9]+:[0-9]+\$\""
+add chain=IX-OUT-V4 comment="Our IPv4" rule="if (dst==198.51.100.0/24) { accept }"
+add chain=IX-OUT-V4 comment="Customer IPv4" rule="if (dst in acme-v4) { accept }"
+add chain=IX-OUT-V4 comment="Nothing else leaves" rule=reject
+add chain=SANITY-V4 comment="IPv4 shorter than /8" rule="if (dst-len<8) { reject }"
+add chain=SANITY-V4 comment="IPv4 longer than /24" rule="if (dst-len>24) { reject }"
+add chain=SANITY-V4 comment="RPKI invalid" rule="rpki-verify rpki; if (rpki invalid) { reject }"
+add chain=SANITY-V6 comment="IPv6 shorter than /16" rule="if (dst-len<16) { reject }"
+add chain=SANITY-V6 comment="IPv6 longer than /48" rule="if (dst-len>48) { reject }"
+add chain=SANITY-V6 comment="RPKI invalid" rule="rpki-verify rpki; if (rpki invalid) { reject }"
+add chain=TRANSIT-IN-V4 rule="jump SANITY-V4"
+add chain=TRANSIT-IN-V4 comment="Learned from AS6939" rule="delete bgp-communities regexp \"^64500:[0-9]+\$\"; delete bgp-large-communities regexp \"^64500:[0-9]+:[0-9]+\$\"; append bgp-large-communities 64500:1:1,64500:3:6939"
+add chain=TRANSIT-IN-V4 rule="set bgp-local-pref 100"
+add chain=TRANSIT-IN-V4 rule=accept
+add chain=TRANSIT-OUT-V4 comment="Blackholed here, never announced" rule="if (bgp-large-communities includes 64500:666:0) { reject }"
+add chain=TRANSIT-OUT-V4 comment="Asked not to be announced anywhere" rule="if (bgp-large-communities includes 64500:100:0) { reject }"
+add chain=TRANSIT-OUT-V4 comment="Asked not to be announced to AS6939" rule="if (bgp-large-communities includes 64500:100:6939) { reject }"
+add chain=TRANSIT-OUT-V4 comment="Asked to prepend once to AS6939" rule="if (bgp-large-communities includes 64500:101:6939) { set bgp-path-prepend 1 }"
+add chain=TRANSIT-OUT-V4 comment="Asked to prepend twice to AS6939" rule="if (bgp-large-communities includes 64500:102:6939) { set bgp-path-prepend 2 }"
+add chain=TRANSIT-OUT-V4 comment="Asked to prepend three times to AS6939" rule="if (bgp-large-communities includes 64500:103:6939) { set bgp-path-prepend 3 }"
+add chain=TRANSIT-OUT-V4 comment="Our communities stay inside our network" rule="delete bgp-communities regexp \"^64500:[0-9]+\$\"; delete bgp-large-communities regexp \"^64500:[0-9]+:[0-9]+\$\""
+add chain=TRANSIT-OUT-V4 comment="Our IPv4" rule="if (dst==198.51.100.0/24) { accept }"
+add chain=TRANSIT-OUT-V4 comment="Nothing else leaves" rule=reject
+/routing bgp connection
+add as=64500 input.filter=TRANSIT-IN-V4 instance=default input.limit-process-routes-ipv4=1200000 local.role=ebgp-customer name=hurricane-electric output.filter-chain=TRANSIT-OUT-V4 output.network=bgp-networks-v4 remote.address=203.0.113.1/32 remote.as=6939
+add as=64500 input.filter=IX-IN-V4 instance=default input.limit-process-routes-ipv4=100000 local.role=ebgp-rs-client name=sgix-rs output.filter-chain=IX-OUT-V4 output.network=bgp-networks-v4 remote.address=203.0.113.129/32 remote.as=55518
+add as=64500 input.filter=ACME-IN-V4 instance=default input.limit-process-routes-ipv4=10 local.role=ebgp-provider name=acme-v4 output.filter-chain=ACME-OUT-V4 output.network=bgp-networks-v4 remote.address=198.51.100.254/32 remote.as=65550
+add as=64500 input.filter=ACME-IN-V6 instance=default input.limit-process-routes-ipv6=10 local.role=ebgp-provider name=acme-v6 output.filter-chain=ACME-OUT-V6 output.network=bgp-networks-v6 remote.address=2001:db8:100:ff01::2/128 remote.as=65550
+/ip service
+set ftp disabled=yes
+set ssh address=10.0.0.0/24 disabled=no
+set telnet disabled=yes
+set www disabled=yes
+set www-ssl disabled=yes
+set api disabled=yes
+set api-ssl disabled=yes
+set winbox disabled=yes
+set reverse-proxy disabled=yes
+/ip ssh
+set strong-crypto=yes
+/tool mac-server
+set allowed-interface-list=none
+/tool mac-server mac-winbox
+set allowed-interface-list=none
+/tool mac-server ping
+set enabled=no
+/tool bandwidth-server
+set enabled=no
+/ip neighbor discovery-settings
+set discover-interface-list=none protocol=lldp
+/snmp
+set enabled=no
+/snmp community
+set [ find default=yes ] addresses=::/0 name=public
+/user
+add group=full name=operator password="<secret:EDGE_01_PASSWORD>"
+/ip settings
+set send-redirects=no tcp-syncookies=no
+/system identity
+set name=edge-01
+/system clock
+set time-zone-autodetect=no time-zone-name=UTC
+/system note
+set note="" show-at-login=yes
+/system ntp client
+set enabled=no
+/system ntp server
+set enabled=no
+/system logging action
+set 1 disk-file-count=2 disk-lines-per-file=1000
+/system package update
+set channel=stable
+/system routerboard settings
+set enter-setup-on=delete-key
+/ip traffic-flow
+set enabled=no

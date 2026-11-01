@@ -1,0 +1,107 @@
+{
+  "name": "ix-sw-02",
+  "platform": "vrp",
+  "model": "CE6855-48S6Q-HI",
+  "connection": {
+    "host": "10.0.0.3",
+    "user": "operator"
+  },
+  "users": {
+    "operator": {
+      "role": "admin",
+      "password": {
+        "secret": "IX_SW_02_PASSWORD"
+      }
+    }
+  },
+  "system": {
+    "timezone": "Asia/Singapore",
+    "ntp": {
+      "servers": [
+        "10.0.0.1"
+      ]
+    }
+  },
+  "management": {
+    "allow": [
+      "10.0.0.0/24"
+    ],
+    "ssh": {}
+  },
+  "lldp": true,
+  "stp": {},
+  "vlans": {
+    "mgmt": {
+      "id": 10,
+      "description": "Management, never on a member port"
+    },
+    "peering": {
+      "id": 100,
+      "description": "Peering LAN"
+    }
+  },
+  "ports": {
+    "40g-1": {
+      "description": "akamai, AS20940",
+      "access_vlan": "peering",
+      "stp": false,
+      "lldp": false,
+      "storm_control": {
+        "broadcast": {
+          "percent": 1
+        },
+        "multicast": {
+          "percent": 1
+        },
+        "unknown_unicast": {
+          "percent": 1
+        }
+      }
+    },
+    "10g-1": {
+      "description": "acme, AS65550",
+      "access_vlan": "peering",
+      "stp": false,
+      "lldp": false,
+      "storm_control": {
+        "broadcast": {
+          "percent": 1
+        },
+        "multicast": {
+          "percent": 1
+        },
+        "unknown_unicast": {
+          "percent": 1
+        }
+      }
+    },
+    "40g-5": {
+      "description": "ix-sw-01",
+      "trunk_vlans": [
+        "peering",
+        "mgmt"
+      ],
+      "link": {
+        "device": "ix-sw-01",
+        "port": "40g-5"
+      }
+    }
+  },
+  "interfaces": {
+    "mgmt": {
+      "type": "vlan",
+      "vlan": "mgmt",
+      "addresses": [
+        "10.0.0.3/24"
+      ]
+    }
+  },
+  "routing": {
+    "static": [
+      {
+        "prefix": "0.0.0.0/0",
+        "via": "10.0.0.1"
+      }
+    ]
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "name": "hub-01",
+  "platform": "routeros",
+  "model": "CCR2216-1G-12XS-2XQ",
+  "connection": {
+    "host": "10.0.0.1",
+    "user": "operator"
+  },
+  "users": {
+    "operator": {
+      "role": "admin",
+      "password": {
+        "secret": "HUB_01_PASSWORD"
+      }
+    }
+  },
+  "management": {
+    "allow": [
+      "10.0.0.0/24"
+    ],
+    "ssh": {}
+  },
+  "ports": {
+    "1g-1": {
+      "description": "Management",
+      "addresses": [
+        "10.0.0.1/24"
+      ]
+    },
+    "25g-1": {
+      "description": "Internet",
+      "addresses": [
+        "198.51.100.2/30"
+      ]
+    },
+    "25g-2": {
+      "description": "Route servers rs1 and rs2",
+      "addresses": [
+        "10.254.0.1/24"
+      ]
+    }
+  },
+  "interfaces": {
+    "vix-acme": {
+      "type": "gre",
+      "description": "acme, AS65550",
+      "local": "198.51.100.2",
+      "remote": "203.0.113.10",
+      "addresses": [
+        "10.254.1.2/31"
+      ]
+    },
+    "vix-globex": {
+      "type": "gre",
+      "description": "globex, AS65551",
+      "local": "198.51.100.2",
+      "remote": "192.0.2.20",
+      "addresses": [
+        "10.254.1.4/31"
+      ]
+    }
+  },
+  "routing": {
+    "static": [
+      {
+        "prefix": "0.0.0.0/0",
+        "via": "198.51.100.1",
+        "description": "Internet"
+      }
+    ]
+  },
+  "firewall": {
+    "address_sets": {
+      "members": [
+        "203.0.113.10",
+        "192.0.2.20"
+      ]
+    },
+    "filter": {
+      "input": {
+        "default": "drop",
+        "rules": [
+          {
+            "description": "Replies",
+            "match": {
+              "state": [
+                "established",
+                "related"
+              ]
+            },
+            "action": "accept"
+          },
+          {
+            "description": "Members' tunnels",
+            "match": {
+              "protocol": "gre",
+              "src_set": "members"
+            },
+            "action": "accept"
+          },
+          {
+            "description": "Management",
+            "match": {
+              "src": "10.0.0.0/24"
+            },
+            "action": "accept"
+          }
+        ]
+      },
+      "forward": {
+        "default": "drop",
+        "rules": [
+          {
+            "description": "Inside the exchange",
+            "match": {
+              "src": "10.254.0.0/16",
+              "dst": "10.254.0.0/16"
+            },
+            "action": "accept"
+          }
+        ]
+      }
+    }
+  }
+}

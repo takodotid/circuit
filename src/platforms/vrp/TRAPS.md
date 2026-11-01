@@ -1,0 +1,45 @@
+# VRP traps
+
+Behaviour that looks like something else. Each one has been hit on a CE6855 running V200R005.
+
+- Changes stage in a candidate and apply at `commit`. `commit` does not write to flash; without `save` a reboot restores the old configuration. `save` asks `[Y/N]`.
+- An ACL bound to a service with no rules denies everything, including the session doing it. Rules and binding go in one commit.
+- The first login asks to change the password. Answering Y replaces it at once and invalidates every stored credential; always answer N.
+- SSH negotiates an ECDSA host key it then signs wrongly, so the handshake fails. Pin `ssh-rsa`.
+- Connections in quick succession are refused before authentication for a while. Connect one at a time.
+- Accounts lock after a few failures and the last ten passwords are refused. A retry loop locks the account out.
+- A `?` sent by a script is executed, not treated as help. Never send one.
+- `reset saved-configuration` erases the management address. Never over the network.
+- The prompt shows commit state: `[~host]` clean, `[*host]` uncommitted. Read `display configuration candidate` when in doubt.
+- LLDP is off by default. A port setting for LLDP is refused until it is on globally.
+- A trunk forwards its native VLAN's untagged frames only when that VLAN is also allowed; the adapter adds it.
+- The name `admin` is refused for a local user.
+- A port joins an Eth-Trunk only while it has no other setting, including a description.
+- An empty block such as `bfd` enters its view; the next line sent goes into it unless the view is left.
+- SNMPv3 passwords are asked for interactively, twice. `authentication-mode` must come before `privacy-mode`.
+- `abort` is not a command here. `clear configuration candidate` discards uncommitted changes.
+- sFlow samples per port, `sflow sampling rate N`, N from 4096; the default is 8192 and an explicit 8192 is kept as written. A port can point to a collector only once the collector exists globally; until then it is refused with "collector does not exist".
+- `vlan batch` has every VLAN on one line, and undoing a list that includes a VLAN with an L3 interface is refused. A change sends only the VLANs added and `undo vlan batch` for the ones removed.
+- A VLAN name is unique across VLANs: a new VLAN cannot take a name another still has. VLANs no longer used, and their VLAN interfaces, are removed first, in the same candidate.
+- `undo ssh server key-exchange <algorithms>` is refused with "Too many parameters"; `undo ssh server key-exchange` takes none. `hmac` was proved the same way. `cipher` is undone the same way but was not proved on its own.
+- A console on a password only (`password_only`) shows `Please Press ENTER.` after a logout or a refused password, and `Error: The password is invalid.` for a wrong one.
+- Once SNMP is on, the switch prints an engine ID of its own, `snmp-agent local-engineid`, derived from its MAC, and prints each SNMPv3 user as a bare `snmp-agent usm-user v3 <name>` line before its settings. Planning against either as unrendered would undo the user; seen on a CE6855 on V200R005C00SPC800.
+- `apply --secrets` sends every line holding a secret again, the local users' passwords included, and a password among the user's last ten is refused, which discards the whole candidate. Send it only when a password changed.
+- An SNMPv3 key prints as `cipher %^%#...%^%#`, which can be turned back into the key. The read redacts every value after `cipher`, as it does a password.
+- `display configuration candidate` shows the uncommitted lines as they were sent, not as the switch will print them. Commit to see the printed form.
+- An ACL bound to a service cannot be removed: `undo acl number N` is refused at once with "This ACL is being used.", even when the same candidate already moved the binding. ACLs no longer used are removed last.
+- An ACL rule sent over a rule of the same number merges into it: `rule 10 deny` over `rule 10 permit source A` leaves `rule 10 deny source A`. A changed rule is undone first.
+- A single source address prints its wildcard as `0`: `rule 5 permit source 192.0.2.1 0`.
+- `snmp-agent group v3 <group> ... acl N` sent again with another ACL replaces the binding in place.
+- A log host line sent again changes only the options it names: `info-center loghost A port 514` over `level informational` keeps the level. A log host that loses an option is undone first. Its undo takes the address alone, `undo info-center loghost A`; `level ...` after it is refused with "Too many parameters".
+- Defaults are not printed: a log host's `level debugging` and `port 514`, the log files' level `debugging` (channel 9) and `info-center max-logfile-number 200`. The file count is 3 to 500. Every log host line warns "non secure syslog protocol" and is still taken.
+- `undo info-center source default channel 9` turns the log files' default source off and prints as that line; `info-center source default channel 9` puts it back. Circuit undoes the level alone: `undo info-center source default channel 9 log level`.
+- An alarm's severity prints with a capital, `alarm hwOpticalUnAuthorized severity Warning`, in the `alarm` view. A new severity replaces the old in place. `undo alarm` is not a command: `undo alarm <name> severity` takes no value, and the view goes once it is empty. An alarm raised before the change keeps its old severity in `display alarm active`. An unknown alarm name is refused with "Wrong parameter".
+- `ospf bfd enable` starts with `ospf` like the `ospf 1` header; reading it as a header sent `quit` after it and the next line went to the system view. Only `ospf <number>` opens a block.
+- BFD intervals are 50 to 1000 ms and the multiplier 3 to 50; anything else is "Wrong parameter". `detect-multiplier 3` is the default and is not printed.
+- `ospf bfd min-tx-interval ...` sent again changes only the options it names: an old `detect-multiplier 50` stays. Changed timers are undone first; the undo takes the whole line.
+- A static route watched by BFD needs a template for its next hop first, `ip route-static bfd <next hop> local-address <own address>`, or the route is refused with "The bfd parameter template does not exist". The template sent again replaces the old one whole, and is undone by its next hop alone, `undo ip route-static bfd <next hop>`.
+- A static route prints `preference`, `description`, then `bfd enable`. Its undo takes the destination and next hop alone; `preference` after them is refused with "Too many parameters".
+- A port's MAC limit is `mac-address limit maximum N` (sent as `mac limit maximum N` too). The default action, discard, and the alarm are not printed; the line sent again changes only the options it names. Its undo takes no value, `undo mac-address limit`. `mac-limit` and `port-security max-mac-num` are not commands here, and `mac limit` is refused while `port-security enable` is on.
+- A layer 2 ACL (4000 and up) rule sent as `permit l2-protocol 0x0800` prints as `permit type ip`, and `0x86dd` and `0x0806` as `type ipv6` and `type arp`; the printed form is taken as sent. A port applies it with `traffic-filter acl N inbound`; `traffic-filter inbound acl N` is not a command.
+- `display lldp neighbor` lists every port with LLDP on, `10GE1/0/2 has 1 neighbor(s):` or `has 0 neighbor(s)`, the management port too; a port with `lldp disable` is not listed. `Port ID` comes before `System name`, and some values end in spaces. The brief form puts each neighbor on one line in fixed columns, so the full form is read.

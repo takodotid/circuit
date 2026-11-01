@@ -1,0 +1,1744 @@
+{
+  "name": "edge-b1",
+  "site": "regional-provider",
+  "platform": "routeros",
+  "model": "CCR2216-1G-12XS-2XQ",
+  "connection": {
+    "host": "10.1.99.1",
+    "user": "operator"
+  },
+  "system": {
+    "timezone": "Asia/Jakarta",
+    "banner": "Authorised access only. Every session is logged.",
+    "release_channel": "long-term",
+    "ip_stack": {
+      "syn_cookies": true
+    },
+    "dns": {
+      "servers": [
+        "10.0.20.53",
+        "10.0.20.54"
+      ]
+    },
+    "ntp": {
+      "servers": [
+        "10.0.20.123",
+        "10.0.20.124"
+      ]
+    },
+    "logging": {
+      "local": {
+        "level": "warning",
+        "files": 5,
+        "lines_per_file": 10000
+      }
+    },
+    "hardware_offload": true,
+    "users": {
+      "operator": {
+        "role": "admin",
+        "password": {
+          "secret": "EDGE_OPERATOR_PASSWORD"
+        },
+        "description": "Circuit"
+      },
+      "noc": {
+        "role": "operator",
+        "password": {
+          "secret": "EDGE_NOC_PASSWORD"
+        },
+        "description": "The NOC on call",
+        "ssh_keys": [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyOnlyForTheExampleNotARealKey00001 noc-1",
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyOnlyForTheExampleNotARealKey00002 noc-2"
+        ]
+      },
+      "monitor": {
+        "role": "read-only",
+        "password": {
+          "secret": "EDGE_MONITOR_PASSWORD"
+        },
+        "description": "Monitoring"
+      }
+    },
+    "certificates": {
+      "web": {
+        "certificate_file": "regional-provider--edge-b1.web.pem",
+        "private_key": {
+          "secret": "EDGE_WEB_KEY"
+        }
+      }
+    }
+  },
+  "management": {
+    "allow": [
+      "10.0.99.0/24",
+      "10.1.99.0/24",
+      "10.254.2.0/24"
+    ],
+    "ssh": {},
+    "https": {
+      "certificate": "web"
+    },
+    "api_tls": {
+      "certificate": "web",
+      "allow": [
+        "10.0.20.30/32"
+      ]
+    }
+  },
+  "monitoring": {
+    "snmp": {
+      "allow": [
+        "10.0.20.30/32",
+        "10.0.20.31/32"
+      ],
+      "community": {
+        "secret": "EDGE_SNMP_COMMUNITY"
+      },
+      "users": {
+        "monitor": {
+          "auth": "sha1",
+          "auth_password": {
+            "secret": "EDGE_SNMP_AUTH"
+          },
+          "privacy": "aes128",
+          "privacy_password": {
+            "secret": "EDGE_SNMP_PRIVACY"
+          }
+        }
+      },
+      "contact": "noc@example.net",
+      "location": "Site B, rack 1"
+    },
+    "syslog": [
+      {
+        "address": "10.0.20.14",
+        "level": "info"
+      }
+    ],
+    "flow_export": {
+      "protocol": "netflow-v9",
+      "collectors": [
+        {
+          "address": "10.0.20.40"
+        }
+      ],
+      "sampling": 1000,
+      "interfaces": [
+        "transit-c"
+      ]
+    }
+  },
+  "interfaces": {
+    "ethernet": {
+      "1g-1": {
+        "description": "Out-of-band switch",
+        "vrf": "oob",
+        "addresses": [
+          "10.9.1.1/24"
+        ]
+      },
+      "100g-1": {
+        "description": "agg-b1",
+        "trunk_vlans": [
+          "mgmt",
+          "infra",
+          "office",
+          "hanso",
+          "oscorp",
+          "dunder",
+          "sirius"
+        ],
+        "link": {
+          "device": "agg-b1",
+          "port": "100g-1"
+        }
+      },
+      "25g-1": {
+        "description": "Transit C",
+        "access_vlan": "transit-c",
+        "lldp": false,
+        "stp": false,
+        "ingress_acl": "edge"
+      },
+      "25g-12": {
+        "description": "Leased wave to edge-a2",
+        "mtu": 9000,
+        "link": {
+          "device": "edge-a2",
+          "port": "25g-12"
+        },
+        "addresses": [
+          "10.254.0.3/31"
+        ]
+      }
+    },
+    "loopback": {
+      "loopback": {
+        "description": "Router ID, iBGP, and the anycast resolver",
+        "addresses": [
+          "198.51.100.3/32",
+          "2001:db8:100::3/128",
+          "198.51.100.10/32"
+        ]
+      }
+    },
+    "vlan_interface": {
+      "mgmt": {
+        "vlan": "mgmt",
+        "addresses": [
+          "10.1.99.1/24"
+        ]
+      },
+      "infra": {
+        "vlan": "infra",
+        "addresses": [
+          "10.1.10.1/24"
+        ]
+      },
+      "office": {
+        "vlan": "office",
+        "description": "The site B office",
+        "addresses": [
+          "10.1.50.1/24"
+        ]
+      },
+      "transit-c": {
+        "vlan": "transit-c",
+        "description": "Transit C",
+        "addresses": [
+          "203.0.113.10/30",
+          "2001:db8:ffff:3::2/64"
+        ]
+      },
+      "hanso": {
+        "vlan": "hanso",
+        "description": "Customer hanso",
+        "ipv6_ra": true,
+        "addresses": [
+          "198.51.100.129/28",
+          "2001:db8:100:9::1/64"
+        ]
+      },
+      "oscorp": {
+        "vlan": "oscorp",
+        "description": "Customer oscorp",
+        "ipv6_ra": true,
+        "addresses": [
+          "198.51.100.145/28",
+          "2001:db8:100:a::1/64"
+        ]
+      },
+      "dunder": {
+        "vlan": "dunder",
+        "description": "Customer dunder",
+        "addresses": [
+          "198.51.100.161/29"
+        ]
+      },
+      "sirius": {
+        "vlan": "sirius",
+        "description": "Customer sirius",
+        "ipv6_ra": true,
+        "addresses": [
+          "198.51.100.169/29",
+          "2001:db8:100:c::1/64"
+        ]
+      }
+    },
+    "gre": {
+      "gre-a1": {
+        "description": "Backup path to site A, over the internet",
+        "mtu": 1476,
+        "addresses": [
+          "10.254.1.1/31"
+        ],
+        "local_address": "203.0.113.10",
+        "remote_address": "203.0.113.2"
+      }
+    },
+    "vxlan": {
+      "vxlan-a1": {
+        "description": "The lab, stretched to site A",
+        "vni": 4010,
+        "mac": "02:00:00:00:b1:01",
+        "mtu": 1450,
+        "addresses": [
+          "10.254.1.3/31"
+        ],
+        "local_address": "203.0.113.10",
+        "remote_address": "203.0.113.2"
+      }
+    },
+    "wireguard": {
+      "wg-a2": {
+        "description": "Site A's management, when nothing else reaches it",
+        "listen_port": 51821,
+        "private_key": {
+          "secret": "EDGE_B1_WG_KEY"
+        },
+        "peers": [
+          {
+            "name": "edge-a2",
+            "public_key": "ZXhhbXBsZSBlZGdlLWEyIG5vdCBhIHJlYWwga2V5Li4=",
+            "endpoint": "203.0.113.6:51821",
+            "allowed_addresses": [
+              "10.254.1.4/32",
+              "10.0.99.0/24"
+            ],
+            "keepalive": 25
+          }
+        ],
+        "addresses": [
+          "10.254.1.5/31"
+        ]
+      },
+      "wg-staff": {
+        "description": "Staff working from home",
+        "listen_port": 51820,
+        "endpoint": "203.0.113.10",
+        "private_key": {
+          "secret": "EDGE_B1_WG_STAFF_KEY"
+        },
+        "peers": [
+          {
+            "name": "staff-1",
+            "public_key": "ZXhhbXBsZSBzdGFmZi0xIG5vdCBhIHJlYWwga2V5Li4=",
+            "allowed_addresses": [
+              "10.254.3.11/32"
+            ],
+            "client_allowed_addresses": [
+              "10.1.50.0/24"
+            ]
+          },
+          {
+            "name": "staff-2",
+            "public_key": "ZXhhbXBsZSBzdGFmZi0yIG5vdCBhIHJlYWwga2V5Li4=",
+            "allowed_addresses": [
+              "10.254.3.12/32"
+            ],
+            "client_allowed_addresses": [
+              "10.1.50.0/24"
+            ]
+          },
+          {
+            "name": "staff-3",
+            "public_key": "ZXhhbXBsZSBzdGFmZi0zIG5vdCBhIHJlYWwga2V5Li4=",
+            "allowed_addresses": [
+              "10.254.3.13/32"
+            ],
+            "client_allowed_addresses": [
+              "10.1.50.0/24"
+            ]
+          },
+          {
+            "name": "staff-4",
+            "public_key": "ZXhhbXBsZSBzdGFmZi00IG5vdCBhIHJlYWwga2V5Li4=",
+            "allowed_addresses": [
+              "10.254.3.14/32"
+            ],
+            "client_allowed_addresses": [
+              "10.1.50.0/24"
+            ]
+          },
+          {
+            "name": "staff-5",
+            "public_key": "ZXhhbXBsZSBzdGFmZi01IG5vdCBhIHJlYWwga2V5Li4=",
+            "allowed_addresses": [
+              "10.254.3.15/32"
+            ],
+            "client_allowed_addresses": [
+              "10.1.50.0/24"
+            ]
+          },
+          {
+            "name": "lab",
+            "public_key": "ZXhhbXBsZSBsYWIgbm90IGEgcmVhbCBrZXkuLi4uLi4=",
+            "endpoint": "lab.example.net:51820",
+            "allowed_addresses": [
+              "10.254.3.200/32",
+              "172.16.30.0/24"
+            ],
+            "keepalive": 25
+          }
+        ],
+        "addresses": [
+          "10.254.3.1/24"
+        ]
+      }
+    }
+  },
+  "switching": {
+    "vlans": {
+      "mgmt": {
+        "id": 99,
+        "description": "Management of every device at the site"
+      },
+      "infra": {
+        "id": 10,
+        "description": "OSPF between the site's routers and switches"
+      },
+      "transit-c": {
+        "id": 302,
+        "description": "Transit C, AS64503"
+      },
+      "office": {
+        "id": 50,
+        "description": "The site B office"
+      },
+      "hanso": {
+        "id": 1009,
+        "description": "Customer hanso"
+      },
+      "oscorp": {
+        "id": 1010,
+        "description": "Customer oscorp"
+      },
+      "dunder": {
+        "id": 1011,
+        "description": "Customer dunder"
+      },
+      "sirius": {
+        "id": 1012,
+        "description": "Customer sirius"
+      }
+    },
+    "stp": {
+      "mode": "rstp",
+      "priority": 4096
+    },
+    "lldp": true,
+    "acls": {
+      "edge": [
+        {
+          "description": "transit-c: drop source 198.51.100.0/24",
+          "if": {
+            "vlan": "transit-c",
+            "src": "198.51.100.0/24"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit-c: drop source 127.0.0.0/8",
+          "if": {
+            "vlan": "transit-c",
+            "src": "127.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit-c: drop source 169.254.0.0/16",
+          "if": {
+            "vlan": "transit-c",
+            "src": "169.254.0.0/16"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit-c: drop source 0.0.0.0/8",
+          "if": {
+            "vlan": "transit-c",
+            "src": "0.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit-c: drop source 10.0.0.0/8",
+          "if": {
+            "vlan": "transit-c",
+            "src": "10.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit-c: drop source 172.16.0.0/12",
+          "if": {
+            "vlan": "transit-c",
+            "src": "172.16.0.0/12"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit-c: drop source 192.168.0.0/16",
+          "if": {
+            "vlan": "transit-c",
+            "src": "192.168.0.0/16"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP fragments to 198.51.100.16/28",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 0
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from qotd",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 17
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from chargen",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 19
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from dns, between two servers",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 53,
+            "dst_port": 53
+          },
+          "then": "accept"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from dns, to a port below 1024",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 53,
+            "dst_port": {
+              "min": 0,
+              "max": 1023
+            }
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from portmap",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 111
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from ntp, between two servers",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 123,
+            "dst_port": 123
+          },
+          "then": "accept"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from ntp, to a port below 1024",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 123,
+            "dst_port": {
+              "min": 0,
+              "max": 1023
+            }
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from netbios",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 137
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from snmp, between two servers",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 161,
+            "dst_port": 161
+          },
+          "then": "accept"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from snmp, to a port below 1024",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 161,
+            "dst_port": {
+              "min": 0,
+              "max": 1023
+            }
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from cldap",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 389
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from slp",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 427
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from rip",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 520
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from ms-sql",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 1434
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from ssdp",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 1900
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from ard",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 3283
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from ws-discovery",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 3702
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from mdns",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 5353
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from coap",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 5683
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from ubiquiti",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 10001
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from memcached",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 11211
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.16/28 from dvr",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.16/28",
+            "src_port": 37810
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP fragments to 198.51.100.64/27",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 0
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from qotd",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 17
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from chargen",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 19
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from dns, between two servers",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 53,
+            "dst_port": 53
+          },
+          "then": "accept"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from dns, to a port below 1024",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 53,
+            "dst_port": {
+              "min": 0,
+              "max": 1023
+            }
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from portmap",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 111
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from ntp, between two servers",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 123,
+            "dst_port": 123
+          },
+          "then": "accept"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from ntp, to a port below 1024",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 123,
+            "dst_port": {
+              "min": 0,
+              "max": 1023
+            }
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from netbios",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 137
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from snmp, between two servers",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 161,
+            "dst_port": 161
+          },
+          "then": "accept"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from snmp, to a port below 1024",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 161,
+            "dst_port": {
+              "min": 0,
+              "max": 1023
+            }
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from cldap",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 389
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from slp",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 427
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from rip",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 520
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from ms-sql",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 1434
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from ssdp",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 1900
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from ard",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 3283
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from ws-discovery",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 3702
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from mdns",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 5353
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from coap",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 5683
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from ubiquiti",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 10001
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from memcached",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 11211
+          },
+          "then": "drop"
+        },
+        {
+          "description": "UDP to 198.51.100.64/27 from dvr",
+          "if": {
+            "protocol": "udp",
+            "dst": "198.51.100.64/27",
+            "src_port": 37810
+          },
+          "then": "drop"
+        }
+      ]
+    }
+  },
+  "services": {
+    "dhcp_server": {
+      "office": {
+        "interface": "office",
+        "network": "10.1.50.0/24",
+        "gateway": "10.1.50.1",
+        "dns": [
+          "10.1.50.1"
+        ],
+        "pool": [
+          "10.1.50.100",
+          "10.1.50.199"
+        ],
+        "lease_time": 28800,
+        "reservations": [
+          {
+            "address": "10.1.50.10",
+            "mac": "02:00:00:00:50:10",
+            "description": "Printer"
+          },
+          {
+            "address": "10.1.50.11",
+            "mac": "02:00:00:00:50:11",
+            "description": "Phone system"
+          },
+          {
+            "address": "10.1.50.12",
+            "mac": "02:00:00:00:50:12",
+            "description": "Door controller"
+          }
+        ]
+      }
+    },
+    "dns_server": true,
+    "ntp_server": true
+  },
+  "routing": {
+    "router_id": "198.51.100.3",
+    "rpki": [
+      {
+        "address": "10.0.20.80",
+        "port": 323,
+        "description": "Validator 1"
+      },
+      {
+        "address": "10.0.20.81",
+        "port": 8282,
+        "description": "Validator 2"
+      }
+    ],
+    "vrfs": {
+      "oob": {
+        "description": "The out-of-band network, apart from everything else"
+      }
+    },
+    "static_routes": [
+      {
+        "prefix": "198.51.100.0/24",
+        "blackhole": true,
+        "description": "Originate"
+      },
+      {
+        "prefix": "2001:db8:100::/48",
+        "blackhole": true,
+        "description": "Originate"
+      },
+      {
+        "prefix": "0.0.0.0/0",
+        "vrf": "oob",
+        "description": "Out-of-band exit",
+        "next_hop": "10.9.1.254"
+      },
+      {
+        "prefix": "10.0.99.0/24",
+        "interface": "wg-a2",
+        "distance": 200,
+        "description": "Site A management, last resort"
+      },
+      {
+        "prefix": "172.16.30.0/24",
+        "interface": "wg-staff",
+        "description": "The lab"
+      }
+    ],
+    "ospf": {
+      "areas": {
+        "0.0.0.0": {
+          "interfaces": {
+            "loopback": {
+              "passive": true
+            },
+            "25g-12": {
+              "cost": 100,
+              "network": "point-to-point",
+              "bfd": true
+            },
+            "gre-a1": {
+              "cost": 1000,
+              "network": "point-to-point"
+            }
+          }
+        },
+        "0.0.0.1": {
+          "interfaces": {
+            "infra": {
+              "cost": 10
+            },
+            "mgmt": {
+              "passive": true
+            },
+            "office": {
+              "passive": true
+            }
+          }
+        }
+      },
+      "redistribute": [
+        "connected",
+        "static"
+      ]
+    },
+    "bgp": {
+      "asn": 64500,
+      "originated_prefixes": [
+        "198.51.100.0/24",
+        "2001:db8:100::/48"
+      ],
+      "neighbor_groups": {
+        "ibgp": {
+          "remote_as": 64500,
+          "description": "Our other edge routers",
+          "import_policy": "IBGP-IN",
+          "export_policy": "IBGP-OUT"
+        }
+      },
+      "neighbors": {
+        "transit-c-v4": {
+          "address": "203.0.113.9",
+          "remote_as": 64503,
+          "role": "provider",
+          "description": "Transit C",
+          "max_prefixes": 1200000,
+          "import_policy": "TRANSIT-C-IN",
+          "export_policy": "TRANSIT-C-OUT"
+        },
+        "transit-c-v6": {
+          "address": "2001:db8:ffff:3::1",
+          "remote_as": 64503,
+          "role": "provider",
+          "description": "Transit C",
+          "max_prefixes": 250000,
+          "import_policy": "TRANSIT-C-IN",
+          "export_policy": "TRANSIT-C-OUT"
+        },
+        "edge-a1-v4": {
+          "address": "198.51.100.1",
+          "local_address": "198.51.100.3",
+          "neighbor_group": "ibgp"
+        },
+        "edge-a1-v6": {
+          "address": "2001:db8:100::1",
+          "local_address": "2001:db8:100::3",
+          "neighbor_group": "ibgp"
+        },
+        "edge-a2-v4": {
+          "address": "198.51.100.2",
+          "local_address": "198.51.100.3",
+          "neighbor_group": "ibgp"
+        },
+        "edge-a2-v6": {
+          "address": "2001:db8:100::2",
+          "local_address": "2001:db8:100::3",
+          "neighbor_group": "ibgp"
+        },
+        "oscorp-v6": {
+          "address": "2001:db8:100:a::4",
+          "remote_as": 65541,
+          "role": "customer",
+          "description": "Customer oscorp",
+          "max_prefixes": 10,
+          "import_policy": "CUSTOMER-OSCORP-IN",
+          "export_policy": "CUSTOMER-OUT"
+        }
+      }
+    },
+    "policies": {
+      "SANITY": [
+        {
+          "description": "IPv4 shorter than /8",
+          "if": {
+            "family": "ipv4",
+            "prefix_length": {
+              "max": 7
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "IPv4 longer than /24",
+          "if": {
+            "family": "ipv4",
+            "prefix_length": {
+              "min": 25
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "IPv6 shorter than /16",
+          "if": {
+            "family": "ipv6",
+            "prefix_length": {
+              "max": 15
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "IPv6 longer than /48",
+          "if": {
+            "family": "ipv6",
+            "prefix_length": {
+              "min": 49
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "RPKI invalid",
+          "if": {
+            "rpki": "invalid"
+          },
+          "then": "reject"
+        }
+      ],
+      "IBGP-IN": [
+        {
+          "description": "Everything our other edge routers pass on",
+          "then": "accept"
+        }
+      ],
+      "IBGP-OUT": [
+        {
+          "description": "Our IPv4",
+          "if": {
+            "prefix": "198.51.100.0/24"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Our IPv6",
+          "if": {
+            "prefix": "2001:db8:100::/48"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Learned from a transit",
+          "if": {
+            "large_community": "64500:1:1"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Learned from a exchange",
+          "if": {
+            "large_community": "64500:1:2"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Learned from a peer",
+          "if": {
+            "large_community": "64500:1:3"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Learned from a customer",
+          "if": {
+            "large_community": "64500:1:4"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Nothing untagged",
+          "then": "reject"
+        }
+      ],
+      "CUSTOMER-OUT": [
+        {
+          "description": "The full table",
+          "then": "accept"
+        }
+      ],
+      "TRANSIT-C-IN": [
+        {
+          "call": "SANITY"
+        },
+        {
+          "description": "Learned from AS64503",
+          "set": {
+            "remove_large_communities": [
+              "64500:*:*"
+            ],
+            "add_large_communities": [
+              "64500:1:1",
+              "64500:2:2",
+              "64500:3:64503"
+            ],
+            "remove_standard_communities": [
+              "64500:*"
+            ]
+          }
+        },
+        {
+          "set": {
+            "local_pref": 100
+          }
+        },
+        {
+          "then": "accept"
+        }
+      ],
+      "TRANSIT-C-OUT": [
+        {
+          "description": "Blackholed here, never announced",
+          "if": {
+            "large_community": "64500:666:0"
+          },
+          "then": "reject"
+        },
+        {
+          "description": "Asked not to be announced anywhere",
+          "if": {
+            "large_community": "64500:100:0"
+          },
+          "then": "reject"
+        },
+        {
+          "description": "Asked not to be announced to AS64503",
+          "if": {
+            "large_community": "64500:100:64503"
+          },
+          "then": "reject"
+        },
+        {
+          "description": "Asked to prepend once to AS64503",
+          "if": {
+            "large_community": "64500:101:64503"
+          },
+          "set": {
+            "prepend": 1
+          }
+        },
+        {
+          "description": "Asked to prepend twice to AS64503",
+          "if": {
+            "large_community": "64500:102:64503"
+          },
+          "set": {
+            "prepend": 2
+          }
+        },
+        {
+          "description": "Asked to prepend three times to AS64503",
+          "if": {
+            "large_community": "64500:103:64503"
+          },
+          "set": {
+            "prepend": 3
+          }
+        },
+        {
+          "description": "Our communities stay inside our network",
+          "set": {
+            "remove_large_communities": [
+              "64500:*:*"
+            ],
+            "remove_standard_communities": [
+              "64500:*"
+            ]
+          }
+        },
+        {
+          "description": "Our IPv4",
+          "if": {
+            "prefix": "198.51.100.0/24"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Our IPv6",
+          "if": {
+            "prefix": "2001:db8:100::/48"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Customer space acme-v4",
+          "if": {
+            "prefix_set": "acme-v4"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Customer space acme-v6",
+          "if": {
+            "prefix_set": "acme-v6"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Customer space globex-v6",
+          "if": {
+            "prefix_set": "globex-v6"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Customer space cyberdyne-v6",
+          "if": {
+            "prefix_set": "cyberdyne-v6"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Customer space oscorp-v6",
+          "if": {
+            "prefix_set": "oscorp-v6"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Nothing else leaves",
+          "then": "reject"
+        }
+      ],
+      "CUSTOMER-OSCORP-IN": [
+        {
+          "description": "Blackhole, asked by the neighbor",
+          "if": {
+            "large_community": "64500:666:0",
+            "prefix_set": "oscorp-v6"
+          },
+          "set": {
+            "blackhole": true
+          },
+          "then": "accept"
+        },
+        {
+          "call": "SANITY"
+        },
+        {
+          "description": "Learned from AS65541",
+          "set": {
+            "remove_large_communities": [
+              "64500:1:*",
+              "64500:2:*",
+              "64500:3:*"
+            ],
+            "add_large_communities": [
+              "64500:1:4",
+              "64500:2:2",
+              "64500:3:65541"
+            ],
+            "remove_standard_communities": [
+              "64500:*"
+            ]
+          }
+        },
+        {
+          "description": "Their space, oscorp-v6",
+          "if": {
+            "prefix_set": "oscorp-v6"
+          },
+          "set": {
+            "local_pref": 300
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Nothing else",
+          "then": "reject"
+        }
+      ]
+    },
+    "prefix_sets": {
+      "acme-v4": {
+        "prefixes": [
+          "192.0.2.0/24"
+        ]
+      },
+      "acme-v6": {
+        "prefixes": [
+          "2001:db8:201::/48"
+        ]
+      },
+      "globex-v6": {
+        "prefixes": [
+          "2001:db8:202::/48"
+        ]
+      },
+      "cyberdyne-v6": {
+        "prefixes": [
+          "2001:db8:203::/48"
+        ]
+      },
+      "oscorp-v6": {
+        "prefixes": [
+          "2001:db8:204::/48"
+        ]
+      }
+    }
+  },
+  "firewall": {
+    "address_sets": {
+      "admin": [
+        "10.0.99.0/24",
+        "10.1.99.0/24",
+        "10.254.2.0/24"
+      ],
+      "monitoring": [
+        "10.0.20.30",
+        "10.0.20.31"
+      ],
+      "bgp-neighbors": [
+        "203.0.113.9",
+        "2001:db8:ffff:3::1",
+        "198.51.100.1",
+        "2001:db8:100::1",
+        "198.51.100.2",
+        "2001:db8:100::2",
+        "2001:db8:100:a::4"
+      ],
+      "tunnel-peers": [
+        "203.0.113.2"
+      ],
+      "ours": [
+        "198.51.100.0/24",
+        "2001:db8:100::/48"
+      ]
+    },
+    "filter": {
+      "input": {
+        "default_action": "drop",
+        "rules": [
+          {
+            "description": "Replies",
+            "if": {
+              "connection_state": [
+                "established",
+                "related"
+              ]
+            },
+            "then": "accept"
+          },
+          {
+            "description": "Invalid",
+            "if": {
+              "connection_state": [
+                "invalid"
+              ]
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Ping",
+            "if": {
+              "protocol": "icmp"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "Management",
+            "if": {
+              "protocol": "tcp",
+              "dst_port": [
+                22,
+                443,
+                8729
+              ],
+              "src_address_set": "admin"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "SNMP",
+            "if": {
+              "protocol": "udp",
+              "dst_port": 161,
+              "src_address_set": "monitoring"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "BGP",
+            "if": {
+              "protocol": "tcp",
+              "dst_port": 179,
+              "src_address_set": "bgp-neighbors"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "BFD",
+            "if": {
+              "protocol": "udp",
+              "dst_port": {
+                "min": 3784,
+                "max": 3785
+              }
+            },
+            "then": "accept"
+          },
+          {
+            "description": "OSPF",
+            "if": {
+              "protocol": "ospf"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "VRRP",
+            "if": {
+              "protocol": "vrrp"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "GRE",
+            "if": {
+              "protocol": "gre",
+              "src_address_set": "tunnel-peers"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "VXLAN",
+            "if": {
+              "protocol": "udp",
+              "dst_port": 4789,
+              "src_address_set": "tunnel-peers"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "WireGuard",
+            "if": {
+              "protocol": "udp",
+              "dst_port": [
+                51820,
+                51821
+              ]
+            },
+            "then": "accept"
+          },
+          {
+            "description": "DNS for customers, UDP",
+            "if": {
+              "protocol": "udp",
+              "dst_port": 53,
+              "src_address_set": "ours"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "DNS for customers, TCP",
+            "if": {
+              "protocol": "tcp",
+              "dst_port": 53,
+              "src_address_set": "ours"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "NTP for customers",
+            "if": {
+              "protocol": "udp",
+              "dst_port": 123,
+              "src_address_set": "ours"
+            },
+            "then": "accept"
+          }
+        ]
+      },
+      "forward": {
+        "rules": [
+          {
+            "description": "Replies",
+            "if": {
+              "connection_state": [
+                "established",
+                "related"
+              ]
+            },
+            "then": "accept",
+            "fast_path": true
+          },
+          {
+            "description": "Invalid",
+            "if": {
+              "connection_state": [
+                "invalid"
+              ]
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags FIN+SYN",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "syn"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags SYN+RST",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "syn",
+                  "rst"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags FIN+RST",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "rst"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags FIN without ACK",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin"
+                ],
+                "unset": [
+                  "ack"
+                ]
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags FIN+URG",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "urg"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags Xmas scan",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "syn",
+                  "psh",
+                  "urg"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Remote desktop and telnet from transit-c",
+            "if": {
+              "protocol": "tcp",
+              "dst_port": [
+                23,
+                3389,
+                5900
+              ],
+              "in_interface": "transit-c"
+            },
+            "then": "drop"
+          }
+        ]
+      }
+    },
+    "nat": {
+      "source": [
+        {
+          "description": "Management out through transit-c",
+          "if": {
+            "src": "10.0.0.0/8",
+            "out_interface": "transit-c"
+          },
+          "then": "masquerade"
+        }
+      ]
+    },
+    "conntrack_helpers": [
+      "ftp"
+    ]
+  }
+}

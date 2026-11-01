@@ -1,0 +1,128 @@
+{
+  "name": "hub-01",
+  "site": "virtual-exchange",
+  "platform": "routeros",
+  "model": "CCR2216-1G-12XS-2XQ",
+  "connection": {
+    "host": "10.0.0.1",
+    "user": "operator"
+  },
+  "system": {
+    "users": {
+      "operator": {
+        "role": "admin",
+        "password": {
+          "secret": "HUB_01_PASSWORD"
+        }
+      }
+    }
+  },
+  "management": {
+    "allow": [
+      "10.0.0.0/24"
+    ],
+    "ssh": {}
+  },
+  "interfaces": {
+    "ethernet": {
+      "1g-1": {
+        "description": "Management",
+        "addresses": [
+          "10.0.0.1/24"
+        ]
+      },
+      "25g-1": {
+        "description": "Internet",
+        "addresses": [
+          "198.51.100.2/30"
+        ]
+      },
+      "25g-2": {
+        "description": "Route servers rs1 and rs2",
+        "addresses": [
+          "10.254.0.1/24"
+        ]
+      }
+    },
+    "gre": {
+      "vix-acme": {
+        "description": "acme, AS65550",
+        "addresses": [
+          "10.254.1.2/31"
+        ],
+        "local_address": "198.51.100.2",
+        "remote_address": "203.0.113.10"
+      },
+      "vix-globex": {
+        "description": "globex, AS65551",
+        "addresses": [
+          "10.254.1.4/31"
+        ],
+        "local_address": "198.51.100.2",
+        "remote_address": "192.0.2.20"
+      }
+    }
+  },
+  "routing": {
+    "static_routes": [
+      {
+        "prefix": "0.0.0.0/0",
+        "description": "Internet",
+        "next_hop": "198.51.100.1"
+      }
+    ]
+  },
+  "firewall": {
+    "address_sets": {
+      "members": [
+        "203.0.113.10",
+        "192.0.2.20"
+      ]
+    },
+    "filter": {
+      "input": {
+        "default_action": "drop",
+        "rules": [
+          {
+            "description": "Replies",
+            "if": {
+              "connection_state": [
+                "established",
+                "related"
+              ]
+            },
+            "then": "accept"
+          },
+          {
+            "description": "Members' tunnels",
+            "if": {
+              "protocol": "gre",
+              "src_address_set": "members"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "Management",
+            "if": {
+              "src": "10.0.0.0/24"
+            },
+            "then": "accept"
+          }
+        ]
+      },
+      "forward": {
+        "default_action": "drop",
+        "rules": [
+          {
+            "description": "Inside the exchange",
+            "if": {
+              "src": "10.254.0.0/16",
+              "dst": "10.254.0.0/16"
+            },
+            "then": "accept"
+          }
+        ]
+      }
+    }
+  }
+}

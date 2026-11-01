@@ -1,0 +1,348 @@
+sysname tor-b1
+#
+clock timezone Jakarta add 07:00:00
+#
+stp mode rstp
+lldp enable
+#
+ntp server disable
+ntp ipv6 server disable
+ntp unicast-server 10.0.20.123
+ntp unicast-server 10.0.20.124
+#
+vlan batch 10 50 99 1009 to 1012 2012
+#
+telnet server disable
+telnet ipv6 server disable
+#
+vlan 99
+ name mgmt
+ description Management of every device at the site
+#
+vlan 10
+ name infra
+ description OSPF between the site's routers and switches
+#
+vlan 50
+ name office
+ description The site B office
+#
+vlan 1009
+ name hanso
+ description Customer hanso
+#
+vlan 1010
+ name oscorp
+ description Customer oscorp
+#
+vlan 1011
+ name dunder
+ description Customer dunder
+#
+vlan 1012
+ name sirius
+ description Customer sirius
+#
+vlan 2012
+ name sirius-private
+ description Customer sirius, private
+#
+acl number 2000
+ description Management access
+ rule 5 permit source 10.0.99.0 0.0.0.255
+ rule 10 permit source 10.1.99.0 0.0.0.255
+ rule 15 permit source 10.254.2.0 0.0.0.255
+ rule 20 deny
+#
+aaa
+ local-user operator password irreversible-cipher <secret:SWITCH_OPERATOR_PASSWORD>
+ local-user operator service-type ssh
+ local-user operator level 3
+#
+interface Vlanif99
+ ip address 10.1.99.3 255.255.255.0
+#
+interface Vlanif10
+ ip address 10.1.10.3 255.255.255.0
+ ospf cost 10
+ ospf bfd enable
+#
+interface 10GE1/0/1
+ description oscorp router
+ port default vlan 1010
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+#
+interface 10GE1/0/2
+ description dunder file server
+ port default vlan 1011
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+#
+interface 10GE1/0/3
+ description dunder mail
+ port default vlan 1011
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+#
+interface 10GE1/0/4
+ description sirius build 1
+ port link-type trunk
+ undo port trunk allow-pass vlan 1
+ port trunk allow-pass vlan 1012 2012
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+#
+interface 10GE1/0/5
+ description sirius build 2
+ port link-type trunk
+ undo port trunk allow-pass vlan 1
+ port trunk allow-pass vlan 1012 2012
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+#
+interface 10GE1/0/6
+ shutdown
+#
+interface 10GE1/0/7
+ shutdown
+#
+interface 10GE1/0/8
+ shutdown
+#
+interface 10GE1/0/9
+ shutdown
+#
+interface 10GE1/0/10
+ shutdown
+#
+interface 10GE1/0/11
+ shutdown
+#
+interface 10GE1/0/12
+ shutdown
+#
+interface 10GE1/0/13
+ shutdown
+#
+interface 10GE1/0/14
+ shutdown
+#
+interface 10GE1/0/15
+ shutdown
+#
+interface 10GE1/0/16
+ shutdown
+#
+interface 10GE1/0/17
+ shutdown
+#
+interface 10GE1/0/18
+ shutdown
+#
+interface 10GE1/0/19
+ shutdown
+#
+interface 10GE1/0/20
+ shutdown
+#
+interface 10GE1/0/21
+ shutdown
+#
+interface 10GE1/0/22
+ shutdown
+#
+interface 10GE1/0/23
+ shutdown
+#
+interface 10GE1/0/24
+ shutdown
+#
+interface 10GE1/0/25
+ shutdown
+#
+interface 10GE1/0/26
+ shutdown
+#
+interface 10GE1/0/27
+ shutdown
+#
+interface 10GE1/0/28
+ shutdown
+#
+interface 10GE1/0/29
+ shutdown
+#
+interface 10GE1/0/30
+ shutdown
+#
+interface 10GE1/0/31
+ shutdown
+#
+interface 10GE1/0/32
+ shutdown
+#
+interface 10GE1/0/33
+ shutdown
+#
+interface 10GE1/0/34
+ shutdown
+#
+interface 10GE1/0/35
+ shutdown
+#
+interface 10GE1/0/36
+ shutdown
+#
+interface 10GE1/0/37
+ shutdown
+#
+interface 10GE1/0/38
+ shutdown
+#
+interface 10GE1/0/39
+ shutdown
+#
+interface 10GE1/0/40
+ shutdown
+#
+interface 10GE1/0/41
+ description Office, desk 1
+ port default vlan 50
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+#
+interface 10GE1/0/42
+ description Office, desk 2
+ port default vlan 50
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+#
+interface 10GE1/0/43
+ description Office, desk 3
+ port default vlan 50
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+#
+interface 10GE1/0/44
+ description Office, desk 4
+ port default vlan 50
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+#
+interface 10GE1/0/45
+ description Office, desk 5
+ port default vlan 50
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+#
+interface 10GE1/0/46
+ description Office, desk 6
+ port default vlan 50
+ stp edged-port enable
+ storm control broadcast min-rate percent 1 max-rate percent 1
+ storm control action suppress
+ storm control enable trap
+ storm control enable log
+#
+interface 10GE1/0/47
+ shutdown
+#
+interface 10GE1/0/48
+ shutdown
+#
+interface 40GE1/0/1
+ description agg-b1
+ port link-type trunk
+ undo port trunk allow-pass vlan 1
+ port trunk allow-pass vlan 10 50 99 1009 to 1012
+ sflow sampling collector 1
+ sflow sampling rate 4096
+ sflow sampling inbound
+#
+interface 40GE1/0/2
+ shutdown
+#
+interface 40GE1/0/3
+ shutdown
+#
+interface 40GE1/0/4
+ shutdown
+#
+interface 40GE1/0/5
+ shutdown
+#
+interface 40GE1/0/6
+ shutdown
+#
+ip route-static 0.0.0.0 0.0.0.0 10.1.99.1
+#
+ospf 1 router-id 10.1.10.3
+ silent-interface Vlanif99
+ area 0.0.0.1
+  network 10.1.10.0 0.0.0.255
+  network 10.1.99.0 0.0.0.255
+#
+bfd
+#
+sflow agent ip 10.1.99.3
+sflow collector 1 ip 10.0.20.40 udp-port 6343
+#
+snmp-agent
+snmp-agent sys-info version v3
+snmp-agent sys-info location Site B, rack 2
+snmp-agent mib-view included all iso
+snmp-agent group v3 circuit privacy read-view all acl 2000
+snmp-agent usm-user v3 monitor
+snmp-agent usm-user v3 monitor group circuit
+snmp-agent usm-user v3 monitor authentication-mode sha cipher <secret:SWITCH_SNMP_AUTH>
+snmp-agent usm-user v3 monitor privacy-mode aes128 cipher <secret:SWITCH_SNMP_PRIVACY>
+#
+stelnet server enable
+ssh user operator
+ssh user operator authentication-type password
+ssh user operator service-type stelnet
+ssh server acl 2000
+ssh authorization-type default aaa
+#
+ssh server cipher aes256_ctr aes128_ctr
+ssh server hmac sha2_256_96 sha2_256
+ssh server key-exchange dh_group_exchange_sha256 ecdh_sha2_nistp256 ecdh_sha2_nistp384 ecdh_sha2_nistp521
+#
+user-interface con 0
+ authentication-mode aaa
+#
+user-interface vty 0 4
+ authentication-mode aaa
+ protocol inbound ssh
+#

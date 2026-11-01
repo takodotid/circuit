@@ -1,0 +1,510 @@
+{
+  "name": "edge-01",
+  "site": "edge-router",
+  "platform": "routeros",
+  "model": "CCR2216-1G-12XS-2XQ",
+  "connection": {
+    "host": "10.0.0.1",
+    "user": "operator"
+  },
+  "system": {
+    "timezone": "Asia/Jakarta",
+    "ntp": {
+      "servers": [
+        "pool.ntp.org"
+      ]
+    },
+    "users": {
+      "operator": {
+        "role": "admin",
+        "password": {
+          "secret": "EDGE_01_PASSWORD"
+        }
+      }
+    }
+  },
+  "management": {
+    "allow": [
+      "10.0.0.0/24"
+    ],
+    "ssh": {}
+  },
+  "interfaces": {
+    "ethernet": {
+      "1g-1": {
+        "description": "Management",
+        "addresses": [
+          "10.0.0.1/24"
+        ]
+      },
+      "25g-1": {
+        "description": "Hurricane Electric",
+        "access_vlan": "transit",
+        "ingress_acl": "edge"
+      },
+      "25g-2": {
+        "description": "SGIX",
+        "access_vlan": "ix",
+        "ingress_acl": "edge"
+      }
+    },
+    "vlan_interface": {
+      "transit": {
+        "vlan": "transit",
+        "addresses": [
+          "203.0.113.2/30"
+        ]
+      },
+      "ix": {
+        "vlan": "ix",
+        "addresses": [
+          "192.0.2.10/24",
+          "2001:db8:ffff::10/64"
+        ]
+      }
+    }
+  },
+  "switching": {
+    "vlans": {
+      "transit": {
+        "id": 300,
+        "description": "IP transit from Hurricane Electric, AS6939"
+      },
+      "ix": {
+        "id": 200,
+        "description": "Peering LAN of SGIX"
+      }
+    },
+    "acls": {
+      "edge": [
+        {
+          "description": "transit: drop source 198.51.100.0/24",
+          "if": {
+            "vlan": "transit",
+            "src": "198.51.100.0/24"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 127.0.0.0/8",
+          "if": {
+            "vlan": "transit",
+            "src": "127.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 169.254.0.0/16",
+          "if": {
+            "vlan": "transit",
+            "src": "169.254.0.0/16"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 0.0.0.0/8",
+          "if": {
+            "vlan": "transit",
+            "src": "0.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 10.0.0.0/8",
+          "if": {
+            "vlan": "transit",
+            "src": "10.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 172.16.0.0/12",
+          "if": {
+            "vlan": "transit",
+            "src": "172.16.0.0/12"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "transit: drop source 192.168.0.0/16",
+          "if": {
+            "vlan": "transit",
+            "src": "192.168.0.0/16"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 198.51.100.0/24",
+          "if": {
+            "vlan": "ix",
+            "src": "198.51.100.0/24"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 127.0.0.0/8",
+          "if": {
+            "vlan": "ix",
+            "src": "127.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 169.254.0.0/16",
+          "if": {
+            "vlan": "ix",
+            "src": "169.254.0.0/16"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 0.0.0.0/8",
+          "if": {
+            "vlan": "ix",
+            "src": "0.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 10.0.0.0/8",
+          "if": {
+            "vlan": "ix",
+            "src": "10.0.0.0/8"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 172.16.0.0/12",
+          "if": {
+            "vlan": "ix",
+            "src": "172.16.0.0/12"
+          },
+          "then": "drop"
+        },
+        {
+          "description": "ix: drop source 192.168.0.0/16",
+          "if": {
+            "vlan": "ix",
+            "src": "192.168.0.0/16"
+          },
+          "then": "drop"
+        }
+      ]
+    }
+  },
+  "routing": {
+    "router_id": "203.0.113.2",
+    "static_routes": [
+      {
+        "prefix": "198.51.100.0/24",
+        "blackhole": true,
+        "description": "Originate"
+      },
+      {
+        "prefix": "2001:db8:100::/48",
+        "blackhole": true,
+        "description": "Originate"
+      }
+    ],
+    "bgp": {
+      "asn": 64500,
+      "originated_prefixes": [
+        "198.51.100.0/24",
+        "2001:db8:100::/48"
+      ],
+      "neighbors": {
+        "hurricane-electric": {
+          "address": "203.0.113.1",
+          "remote_as": 6939,
+          "role": "provider",
+          "max_prefixes": 1200000,
+          "import_policy": "TRANSIT-IN",
+          "export_policy": "OUT"
+        },
+        "sgix-rs-v4": {
+          "address": "192.0.2.1",
+          "remote_as": 55518,
+          "role": "rs",
+          "max_prefixes": 100000,
+          "import_policy": "IX-IN",
+          "export_policy": "OUT"
+        },
+        "sgix-rs-v6": {
+          "address": "2001:db8:ffff::1",
+          "remote_as": 55518,
+          "role": "rs",
+          "max_prefixes": 50000,
+          "import_policy": "IX-IN",
+          "export_policy": "OUT"
+        }
+      }
+    },
+    "policies": {
+      "SANITY": [
+        {
+          "description": "IPv4 shorter than /8",
+          "if": {
+            "family": "ipv4",
+            "prefix_length": {
+              "max": 7
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "IPv4 longer than /24",
+          "if": {
+            "family": "ipv4",
+            "prefix_length": {
+              "min": 25
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "IPv6 shorter than /16",
+          "if": {
+            "family": "ipv6",
+            "prefix_length": {
+              "max": 15
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "IPv6 longer than /48",
+          "if": {
+            "family": "ipv6",
+            "prefix_length": {
+              "min": 49
+            }
+          },
+          "then": "reject"
+        },
+        {
+          "description": "RPKI invalid",
+          "if": {
+            "rpki": "invalid"
+          },
+          "then": "reject"
+        }
+      ],
+      "TRANSIT-IN": [
+        {
+          "call": "SANITY"
+        },
+        {
+          "description": "Learned from AS6939",
+          "set": {
+            "remove_large_communities": [
+              "64500:*:*"
+            ],
+            "add_large_communities": [
+              "64500:1:1",
+              "64500:3:6939"
+            ],
+            "remove_standard_communities": [
+              "64500:*"
+            ]
+          }
+        },
+        {
+          "set": {
+            "local_pref": 100
+          }
+        },
+        {
+          "then": "accept"
+        }
+      ],
+      "IX-IN": [
+        {
+          "call": "SANITY"
+        },
+        {
+          "description": "Learned from AS55518",
+          "set": {
+            "remove_large_communities": [
+              "64500:*:*"
+            ],
+            "add_large_communities": [
+              "64500:1:2",
+              "64500:3:55518"
+            ],
+            "remove_standard_communities": [
+              "64500:*"
+            ]
+          }
+        },
+        {
+          "set": {
+            "local_pref": 200
+          }
+        },
+        {
+          "then": "accept"
+        }
+      ],
+      "OUT": [
+        {
+          "description": "Announce 198.51.100.0/24",
+          "if": {
+            "prefix": "198.51.100.0/24"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Announce 2001:db8:100::/48",
+          "if": {
+            "prefix": "2001:db8:100::/48"
+          },
+          "then": "accept"
+        },
+        {
+          "description": "Nothing else leaves",
+          "then": "reject"
+        }
+      ]
+    }
+  },
+  "firewall": {
+    "address_sets": {
+      "bgp-neighbors": [
+        "203.0.113.1",
+        "192.0.2.1",
+        "2001:db8:ffff::1"
+      ]
+    },
+    "filter": {
+      "input": {
+        "default_action": "drop",
+        "rules": [
+          {
+            "description": "Replies",
+            "if": {
+              "connection_state": [
+                "established",
+                "related"
+              ]
+            },
+            "then": "accept"
+          },
+          {
+            "description": "Ping",
+            "if": {
+              "protocol": "icmp"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "Management",
+            "if": {
+              "src": "10.0.0.0/24"
+            },
+            "then": "accept"
+          },
+          {
+            "description": "BGP",
+            "if": {
+              "protocol": "tcp",
+              "dst_port": 179,
+              "src_address_set": "bgp-neighbors"
+            },
+            "then": "accept"
+          }
+        ]
+      },
+      "forward": {
+        "rules": [
+          {
+            "description": "Bad flags FIN+SYN",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "syn"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags SYN+RST",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "syn",
+                  "rst"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags FIN+RST",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "rst"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags FIN without ACK",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin"
+                ],
+                "unset": [
+                  "ack"
+                ]
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags FIN+URG",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "urg"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          },
+          {
+            "description": "Bad flags Xmas scan",
+            "if": {
+              "protocol": "tcp",
+              "tcp_flags": {
+                "set": [
+                  "fin",
+                  "syn",
+                  "psh",
+                  "urg"
+                ],
+                "unset": []
+              }
+            },
+            "then": "drop"
+          }
+        ]
+      }
+    }
+  }
+}

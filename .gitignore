@@ -1,0 +1,38 @@
+# Secrets live in .env and nowhere else.
+.env
+*.key
+
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+
+# The documentation site, built.
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+# Generated from the schema by scripts/schema-reference.ts.
+docs/reference/
+
+# Built for Node by scripts/build.ts: published, never committed.
+/dist/
+
+# Third-party skills and agents, installed on each machine from skills-lock.json with `bun run agents:setup`. Our own skills are committed.
+/.agents/
+/.claude/skills/*
+!/.claude/skills/implement-device/
+!/.claude/skills/fix-device/
+!/.claude/skills/prove-on-device/
+!/.claude/skills/release/
+/.claude/agents/
+/.claude/settings.local.json
+/.github/agents/
+/.github/skills/
+
+# What scripts/golden.ts, scripts/lab.ts and scripts/shots.ts write.
+/.golden/
+/.lab/
+/.shots/

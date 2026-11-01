@@ -1,0 +1,47 @@
+{
+    "name": "@takodotid/circuit",
+    "version": "1.0.0-rc.0",
+    "private": true,
+    "description": "Declarative, vendor-neutral network configuration: describe each device in TypeScript, and Circuit makes the device match. One binary, nothing to install.",
+    "homepage": "https://circuit.tako.id",
+    "bugs": {
+        "url": "https://github.com/takodotid/circuit/issues",
+        "email": "noc@tako.id"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/takodotid/circuit.git"
+    },
+    "license": "BUSL-1.1",
+    "author": {
+        "name": "Tako Network Engineering Team",
+        "email": "noc@tako.id",
+        "url": "https://tako.id"
+    },
+    "type": "module",
+    "scripts": {
+        "typecheck": "bunx tsc --noEmit",
+        "test": "bun test",
+        "build": "bun scripts/build.ts",
+        "format": "bunx prettier --write .",
+        "format:check": "bunx prettier --check .",
+        "check": "bun run typecheck && bun run test && bun run format:check && bun run build",
+        "prepare": "husky || true"
+    },
+    "dependencies": {
+        "@commander-js/extra-typings": "~15.0.0",
+        "commander": "~15.0.0",
+        "ssh2": "^1.17.0"
+    },
+    "devDependencies": {
+        "@commitlint/cli": "^21.2.4",
+        "@commitlint/config-conventional": "^21.2.4",
+        "@types/bun": "^1.4.4",
+        "@types/node": "^24.19.2",
+        "@types/ssh2": "^1.15.6",
+        "husky": "^9.1.7",
+        "prettier": "^3.9.10",
+        "typescript": "^7.0.2"
+    },
+    "packageManager": "bun@1.4.4"
+}
