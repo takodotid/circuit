@@ -32,6 +32,9 @@
         "build": "bun scripts/build.ts",
         "format": "bunx prettier --write .",
         "format:check": "bunx prettier --check .",
+        "docs:dev": "vitepress dev docs",
+        "docs:build": "vitepress build docs",
+        "docs:preview": "vitepress preview docs",
         "check": "bun run typecheck && bun run test && bun run format:check && bun run build",
         "prepare": "husky || true"
     },
@@ -51,7 +54,11 @@
         "husky": "^9.1.7",
         "prettier": "^3.9.10",
         "typescript": "^7.0.2",
-        "typescript-6": "npm:typescript@6.0.3"
+        "typescript-6": "npm:typescript@6.0.3",
+        "vitepress": "1.6.4"
     },
-    "packageManager": "bun@1.4.4"
+    "packageManager": "bun@1.4.4",
+    "overrides": {
+        "vite": "6.4.5"
+    }
 }

@@ -1,0 +1,137 @@
+/* The diagrams in the docs: flat parts with 2px ink frames, cobalt step dots, yellow for the one action, monospace for files and commands. Each colour is a theme token, so light and dark both work. */
+
+.circuit-diagram {
+    margin: 24px 0;
+}
+
+.circuit-diagram svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--circuit-font);
+}
+
+.circuit-diagram .box {
+    fill: var(--circuit-paper);
+    stroke: var(--circuit-ink);
+    stroke-width: 2;
+}
+
+.circuit-diagram .soft-box {
+    fill: var(--circuit-mist);
+    stroke: var(--circuit-line);
+    stroke-width: 2;
+}
+
+.circuit-diagram .code-box {
+    fill: var(--circuit-navy);
+    stroke: var(--circuit-navy);
+    stroke-width: 2;
+}
+
+.circuit-diagram .action {
+    fill: var(--circuit-yellow);
+    stroke: var(--circuit-ink);
+    stroke-width: 2;
+}
+
+.circuit-diagram .secret-box {
+    fill: var(--circuit-paper);
+    stroke: var(--circuit-red);
+    stroke-width: 2;
+    stroke-dasharray: 6 4;
+}
+
+.circuit-diagram .dot {
+    fill: var(--circuit-cobalt);
+}
+
+.circuit-diagram .dot-text {
+    fill: #ffffff;
+    font-size: 15px;
+    font-weight: 700;
+    text-anchor: middle;
+}
+
+.circuit-diagram .title {
+    fill: var(--circuit-ink);
+    font-size: 19px;
+    font-weight: 700;
+    text-anchor: middle;
+}
+
+.circuit-diagram .action + .dot + .dot-text + .title,
+.circuit-diagram .on-yellow {
+    fill: #0a1a36;
+}
+
+.circuit-diagram .mono {
+    fill: var(--circuit-soft);
+    font-family: var(--circuit-mono);
+    font-size: 13px;
+    text-anchor: middle;
+}
+
+.circuit-diagram .code {
+    fill: #e6ecfa;
+    font-family: var(--circuit-mono);
+    font-size: 14px;
+}
+
+.circuit-diagram .code-dim {
+    fill: #9db3e0;
+    font-family: var(--circuit-mono);
+    font-size: 14px;
+}
+
+.circuit-diagram .code-lit {
+    fill: var(--circuit-yellow);
+    font-family: var(--circuit-mono);
+    font-size: 14px;
+}
+
+.circuit-diagram .note {
+    fill: var(--circuit-soft);
+    font-size: 14px;
+    text-anchor: middle;
+}
+
+.circuit-diagram .label {
+    fill: var(--circuit-ink);
+    font-size: 15px;
+}
+
+.circuit-diagram .label-soft {
+    fill: var(--circuit-soft);
+    font-size: 14px;
+}
+
+.circuit-diagram .chip {
+    fill: var(--circuit-ink);
+}
+
+.circuit-diagram .chip-text {
+    fill: var(--circuit-paper);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.circuit-diagram .chip-red {
+    fill: var(--circuit-red);
+}
+
+.circuit-diagram .arrow {
+    stroke: var(--circuit-ink);
+    stroke-width: 2;
+}
+
+.circuit-diagram .arrow-dashed {
+    stroke: var(--circuit-soft);
+    stroke-width: 2;
+    stroke-dasharray: 5 4;
+}
+
+.circuit-diagram .ink-fill {
+    fill: var(--circuit-ink);
+}

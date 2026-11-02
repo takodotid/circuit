@@ -28,7 +28,8 @@ Every change to Circuit is weighed against these, set by the owner.
 - `src/core/env-file.ts`: a project's `.env`, each value encrypted as dotenvx encrypts it (`@dotenvx/primitives`).
 - `scripts/`: `build.ts` makes `dist/circuit` (`circuit.exe` on Windows); `from-v0.ts` moves a 0.x device into the v1 model.
 - `test/`: `test/platforms/<platform>-golden.test.ts` prove each platform renders 0.x's examples (moved to v1 by `scripts/from-v0.ts`, kept in `test/fixtures/v0/`) byte for byte as 0.x did. `test/project/examples.test.ts` writes them as a v1 project and checks the editor's types take every one. `test/platforms/fake-ssh.ts` is a fake device over SSH.
-- `docs/`: [project.md](docs/project.md) (how to write a project), [model.md](docs/model.md) (the model), [decisions.md](docs/decisions.md) (the decisions that shaped v1).
+- `docs/`: the documentation site, built with VitePress (`bun run docs:dev`, `bun run docs:build`): `guide/` (install, writing a project, the `circuit` command, secrets), `studio/`, `academy/` (Circuit Academy), `platforms/`, and `reference/`: [model.md](docs/reference/model.md) (the model) and [decisions.md](docs/reference/decisions.md) (the decisions that shaped v1). Its theme and diagrams are in `docs/.vitepress/theme/`, following `DESIGN.md` of Circuit 0.x.
+- `examples/`: whole example projects the docs and the Academy show; `test/project/example-projects.test.ts` checks each with TypeScript 6 and 7 and `circuit validate`.
 
 Not in v1 yet, later work: integrations (PeeringDB, LibreNMS, NetBox, Prometheus, to become one `circuit sync <target>`), and the `refresh`, `wireguard`, `communities`, `graph` and `addresses` commands.
 
@@ -43,7 +44,7 @@ Not in v1 yet, later work: integrations (PeeringDB, LibreNMS, NetBox, Prometheus
 7. A platform is one OS at the versions in its `os.versions` (`routeros` is RouterOS 7, not 6). A new version gets a wider `os.versions` once proved on it, or its own platform if it takes other commands.
 8. Never guess what a device does. Prove it on a real device, and write what you learned in its `TRAPS.md`.
 9. When unsure, ask.
-10. When the owner approves a new rule or decision, add it here, or to [docs/decisions.md](docs/decisions.md) with the next number, in the same change.
+10. When the owner approves a new rule or decision, add it here, or to [docs/reference/decisions.md](docs/reference/decisions.md) with the next number, in the same change.
 11. Easy to learn beats clever. Someone who knows networking but not Circuit, and not any one vendor, must understand a project, and Circuit's own code, on first read. See "Easy to learn" below.
 
 ## Easy to learn
@@ -78,7 +79,7 @@ Docs, comments, commit messages and replies to the owner:
 - English in the repo; reply to the owner in their language. No em-dashes, no manual line wrapping, no person or vendor named unless needed.
 - Say each thing once and link to it. Delete what isn't needed; git keeps history.
 - Replies and deliverables to the owner are short. A proposal about the language or the code comes with a sample (decision 21).
-- Every code sample in the docs is valid for the current code. A change to the language updates `docs/project.md` and `docs/model.md` in the same commit.
+- Every code sample in the docs is valid for the current code. A change to the language updates `docs/guide/` and `docs/reference/model.md`, and the example projects, in the same commit. A whole file in the docs is included from `examples/`, so its test covers it.
 
 ## Checks and tools
 

@@ -1,0 +1,225 @@
+/* What the home page's sections share. Each selector starts with .home, so it weighs the same as the scoped rule it came from, and a
+section's own rule loaded after it still wins a tie. */
+
+/* Lengths in the opening follow the width of the window, as the approved drawing was laid out at 1536 pixels: 1px there is 0.0651vw. */
+.home {
+    --gutter: 3.65vw;
+    --px: 0.0651vw;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* A command to copy, in the opening and in the close. */
+
+.home .command {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(12 * var(--px));
+    height: max(50px, calc(67 * var(--px)));
+    padding: 0 calc(26 * var(--px));
+    border: 2px solid var(--circuit-on-cobalt-soft);
+    border-radius: 2px;
+    background: rgba(8, 28, 64, 0.35);
+    color: #ffffff;
+    cursor: copy;
+    transition: border-color 0.2s;
+}
+
+.home .command:hover {
+    border-color: #ffffff;
+}
+
+.home .command svg {
+    flex: none;
+    width: max(18px, calc(24 * var(--px)));
+    height: max(18px, calc(24 * var(--px)));
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.home .command code {
+    padding: 0;
+    background: none;
+    color: inherit;
+    font: max(14px, calc(22 * var(--px))) / 1 var(--circuit-mono);
+}
+
+.home .copied {
+    margin-left: auto;
+    color: var(--circuit-yellow);
+    font-size: max(13px, calc(17 * var(--px)));
+    font-weight: 700;
+}
+
+/* Chapters: a heavy heading on the left with a dotted underline, the reading on the right. */
+
+.home .chapter {
+    display: grid;
+    grid-template-columns: calc(644 * var(--px)) minmax(0, calc(720 * var(--px)));
+    padding: calc(34 * var(--px)) var(--gutter) calc(120 * var(--px));
+    background: var(--circuit-paper);
+    color: var(--circuit-ink);
+}
+
+.home .chapter:not(.why) {
+    padding-top: calc(100 * var(--px));
+}
+
+.home .chapter h2 {
+    align-self: start;
+    margin: 0;
+    padding: 0 calc(40 * var(--px)) 0 0;
+    border: 0;
+    font-family: var(--circuit-font);
+    font-size: calc(96 * var(--px));
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.04em;
+}
+
+/* The dotted line under a heading, as under a word that can be looked up: it follows each line of the heading. */
+.home .chapter h2 span {
+    padding-bottom: calc(10 * var(--px));
+    background: radial-gradient(circle, var(--circuit-cobalt) 48%, transparent 52%) left bottom / calc(19 * var(--px)) calc(9 * var(--px))
+        space no-repeat;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+
+.dark .home .chapter h2 span {
+    background-image: radial-gradient(circle, var(--circuit-link) 48%, transparent 52%);
+}
+
+.home .body {
+    padding-top: calc(6 * var(--px));
+}
+
+.home .body p {
+    margin: 0 0 calc(18 * var(--px));
+    font-size: max(17px, calc(19 * var(--px)));
+    line-height: 1.6;
+}
+
+.home .chapter a {
+    color: var(--circuit-link);
+    font-weight: 600;
+    text-decoration: underline dotted 2px;
+    text-underline-offset: 5px;
+}
+
+.home .chapter a:hover {
+    text-decoration-style: solid;
+}
+
+.home .chapter code {
+    font-family: var(--circuit-mono);
+    font-size: 0.9em;
+}
+
+/* The same drawn arrow as the opening's button, in the link's colour. */
+.home .onward::after {
+    content: "";
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    margin-left: 0.3em;
+    vertical-align: -0.12em;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12h15m-6-6 6 6-6 6'/%3E%3C/svg%3E")
+        center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12h15m-6-6 6 6-6 6'/%3E%3C/svg%3E")
+        center / contain no-repeat;
+}
+
+/* The files a pattern starts with, and the first lessons of a level, as small tags. */
+
+.home .files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.home .files li {
+    padding: 2px 8px;
+    border: 1px solid var(--circuit-line);
+    border-radius: 2px;
+    color: var(--circuit-soft);
+    font: max(12px, calc(13.5 * var(--px))) / 1.5 var(--circuit-mono);
+}
+
+/* Below the opening, each part comes in as it is reached. Home.vue marks a part waiting, then shown once it scrolls into view. */
+@media (prefers-reduced-motion: no-preference) {
+    .home .waiting {
+        opacity: 0;
+    }
+
+    .home h2.shown {
+        animation: home-surface 0.9s var(--ease) backwards;
+    }
+}
+
+@keyframes home-rise {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+}
+
+@keyframes home-fade {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes home-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.3);
+    }
+}
+
+@keyframes home-surface {
+    from {
+        clip-path: inset(0 0 100% 0);
+        transform: translateY(0.35em);
+    }
+
+    to {
+        clip-path: inset(-10% -10% -40% -10%);
+    }
+}
+
+@media (max-width: 760px) {
+    .home {
+        --gutter: 16px;
+    }
+
+    .home .command {
+        padding-inline: 16px;
+    }
+
+    .home .chapter {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 28px;
+        padding: 64px var(--gutter) 72px;
+    }
+
+    .home .chapter.why {
+        padding-top: 48px;
+    }
+
+    .home .chapter h2 {
+        font-size: 52px;
+    }
+
+    .home .chapter h2 span {
+        padding-bottom: 8px;
+        background-size: 14px 7px;
+    }
+}

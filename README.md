@@ -45,7 +45,7 @@ export default as64500.device({
 });
 ```
 
-In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`, and so is `trunk_vlans: ["mgnt"]`: the device has no VLAN of that name. `circuit validate` says the same, with the file and line, and `Did you mean mgmt?`. [How to write a project](docs/project.md) has the whole project: this switch in full, a router and a tenant.
+In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`, and so is `trunk_vlans: ["mgnt"]`: the device has no VLAN of that name. `circuit validate` says the same, with the file and line, and `Did you mean mgmt?`. [How to write a project](docs/guide/project.md) has the whole project: this switch in full, a router and a tenant.
 
 ## Start
 
@@ -75,11 +75,11 @@ Each reads the project in the working directory or the nearest folder above it, 
 
 ## Docs
 
-- [How to write a project](docs/project.md): layout, globals, rules, parts, merge, communities, checks.
-- [The model](docs/model.md): what one device holds, and what Circuit resolves before a platform reads it.
-- [Decisions](docs/decisions.md): what shaped v1, and why.
+- [The documentation site](https://circuit.tako.id), whose pages are in `docs/`: install, writing a project, the `circuit` command, secrets, Studio, and Circuit Academy.
+- [How to write a project](docs/guide/project.md), then [rules](docs/guide/rules.md), [parts and merge](docs/guide/parts.md), [communities](docs/guide/communities.md) and [checks](docs/guide/checks.md).
+- [The model](docs/reference/model.md): what one device holds, and what Circuit resolves before a platform reads it.
+- [Decisions](docs/reference/decisions.md): what shaped v1, and why.
 - `src/config/`: every field, with its doc comment, which your editor shows on hover.
-- `src/platforms/<platform>/TRAPS.md`: what each device does that you wouldn't expect.
 
 ## Working on Circuit
 

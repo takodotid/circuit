@@ -2,7 +2,7 @@
 
 The model is what Circuit holds once it has read a project: each network and its devices, as the devices will run them. The platforms read only the model. Its types are in `src/model.ts`: the config's own types (`src/config/`), with plain names.
 
-Circuit is primitive: it knows devices and what one device runs. It has no idea of a tenant, an upstream or a customer. A project builds those itself, as parts it gives its devices ([How to write a project](project.md#parts-include-part-and-merge)).
+Circuit is primitive: it knows devices and what one device runs. It has no idea of a tenant, an upstream or a customer. A project builds those itself, as parts it gives its devices ([How to write a project](/guide/parts)).
 
 ## The network
 
@@ -97,11 +97,11 @@ A renderer may still leave out what its platform can't hold, and says so: a VLAN
 
 ## Communities
 
-`communities` in the model is the catalogue: every community the scheme defines, `nnn` for any number, with what it means. The scheme itself, and how a neighbor and a policy use it, is in [How to write a project](project.md#communities).
+`communities` in the model is the catalogue: every community the scheme defines, `nnn` for any number, with what it means. The scheme itself, and how a neighbor and a policy use it, is in [How to write a project](/guide/communities).
 
 ## Checks
 
-Circuit's own checks read the model. A check of the project's own reads the network as its devices will run it, still in the config's shape: its `asn` and `prefixes`, and each device with each neighbor holding what it takes from its group, each `call` replaced by the called policy's rules, `{ communities }` rules written out, `management.allow` as its addresses, and each rule's interface set as its interfaces. It gets a copy: the project doesn't change. [How to write a project](project.md#checks) lists the checks and how to write one.
+Circuit's own checks read the model. A check of the project's own reads the network as its devices will run it, still in the config's shape: its `asn` and `prefixes`, and each device with each neighbor holding what it takes from its group, each `call` replaced by the called policy's rules, `{ communities }` rules written out, `management.allow` as its addresses, and each rule's interface set as its interfaces. It gets a copy: the project doesn't change. [How to write a project](/guide/checks) lists the checks and how to write one.
 
 ## From Circuit 0.x
 
