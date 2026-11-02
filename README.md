@@ -1,6 +1,33 @@
-# Circuit
+<p align="center">
+    <a href="https://circuit.tako.id"><img src="docs/public/logo.png" alt="Circuit" width="112" height="112"></a>
+</p>
 
-Circuit turns one TypeScript file per network device into that device's config, shows what would change, then makes the device match.
+<h1 align="center">Circuit</h1>
+
+<p align="center"><b>Your network, written down.</b><br>One TypeScript file per device. Circuit shows what would change, then makes the device match.</p>
+
+<p align="center">
+    <a href="https://github.com/takodotid/circuit/actions/workflows/check.yml?query=branch%3Av1"><img src="https://github.com/takodotid/circuit/actions/workflows/check.yml/badge.svg?branch=v1" alt="check"></a>
+    <a href="https://github.com/takodotid/circuit/releases"><img src="https://img.shields.io/github/v/release/takodotid/circuit?include_prereleases&label=release&color=0a47b8" alt="release"></a>
+    <a href="https://www.npmjs.com/package/@takodotid/circuit"><img src="https://img.shields.io/npm/v/@takodotid/circuit?color=0a47b8" alt="npm"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSL%201.1-0a47b8" alt="license"></a>
+    <a href="https://circuit.tako.id"><img src="https://img.shields.io/badge/docs-circuit.tako.id-f8e347" alt="docs"></a>
+</p>
+
+<p align="center">
+    <img src="https://img.shields.io/badge/MikroTik-RouterOS%207-0a1a36" alt="RouterOS 7">
+    <img src="https://img.shields.io/badge/Huawei-VRP-0a1a36" alt="VRP">
+    <img src="https://img.shields.io/badge/Raisecom-ROS-0a1a36" alt="Raisecom ROS">
+    <img src="https://img.shields.io/badge/Juniper-Junos-0a1a36" alt="Junos">
+    <img src="https://img.shields.io/badge/Fortinet-FortiOS-0a1a36" alt="FortiOS">
+</p>
+
+<p align="center">
+    <a href="https://circuit.tako.id/guide/install">Install</a> ·
+    <a href="https://circuit.tako.id/guide/introduction">Guide</a> ·
+    <a href="https://circuit.tako.id/academy/">Academy</a> ·
+    <a href="https://circuit.tako.id/studio/">Studio</a>
+</p>
 
 > [!WARNING]
 > Circuit v1 is not released yet. It is a rewrite of the config language, and every version is a release candidate, `1.0.0-rc.N`, until it is stable. The language, the model and the commands can still change between candidates. Circuit 0.x, the version in use today, is on the `main` branch.
@@ -9,7 +36,7 @@ Circuit turns one TypeScript file per network device into that device's config, 
 
 - **One file per device.** Ports, VLANs, addresses, routing, BGP, firewall, users and services, written as plain data. Your editor checks every name and every port as you type.
 - **Plain TypeScript, nothing to install.** A project imports nothing from Circuit and needs no npm and no Node. Circuit's functions are globals, and the editor reads its types from `.circuit/types`, which Circuit writes.
-- **One binary.** `circuit` has Bun inside. It reads the project, checks what the editor can't, and talks to the devices.
+- **One binary, nothing else to install.** `circuit` reads the project, checks what the editor can't, and talks to the devices.
 - **Same words for every vendor.** MikroTik RouterOS 7, Huawei VRP, Raisecom ROS, Juniper Junos and Fortinet FortiOS each get their own commands. Anything a device can't do is an error before anything is sent.
 - **The file is the whole truth.** A port, user or service the file doesn't write is removed or turned off. Circuit fills in nothing you didn't write.
 - **See every change first.** `diff` and `apply` read the live device and show what would change; `apply` sends it only once you say yes.
@@ -46,6 +73,15 @@ export default as64500.device({
 ```
 
 In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`, and so is `trunk_vlans: ["mgnt"]`: the device has no VLAN of that name. `circuit validate` says the same, with the file and line, and `Did you mean mgmt?`. [How to write a project](docs/guide/project.md) has the whole project: this switch in full, a router and a tenant.
+
+## Circuit Studio
+
+`circuit studio` draws the network and lists everything in the project, in your browser.
+
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/public/screenshots/studio-dark.png">
+    <img src="docs/public/screenshots/studio-light.png" alt="Circuit Studio's graph of an example network, beside the layer's details.">
+</picture>
 
 ## Start
 
