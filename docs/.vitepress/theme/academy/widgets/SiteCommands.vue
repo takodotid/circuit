@@ -6,13 +6,15 @@ type Step = { title: string; text: string; code: string; lang: "shell" | "text" 
 const steps: Step[] = [
     {
         title: "Install Circuit and start the project",
-        text: "One command installs Circuit and asks a few questions: the folder, your AS number, git, and where to keep the key that decrypts .env. Then copy the files of the single-site example into the project's folder.",
+        text: "One command installs Circuit. circuit new then asks a few questions: the folder, your AS number, git, and where to keep the key that decrypts .env. Then copy the files of the single-site example into the project's folder.",
         lang: "shell",
         code: [
             "$ curl -fsSL https://circuit.tako.id/install | sh",
             "Circuit is installed: /home/you/.local/bin/circuit",
+            "Set up a new project in this folder? No",
+            "",
+            "$ circuit new my-network",
             "┌  A new Circuit project",
-            "◇  Project folder: my-network",
             "◇  How should this project run Circuit? Simple (recommended)",
             "◇  Your network's AS number: 64500",
             "◇  Start a git repository? Yes",

@@ -40,7 +40,7 @@ The whole picture is in the [feature matrix](/platforms/features).
 
 **Doesn't:** BGP, route policies, firewall, NAT, hardware ACLs, DHCP server, loopbacks and tunnels, SSH keys.
 
-**Not proved yet:** policy routing, MAC limit and ethertype filter on a LAG.
+**Not built yet:** policy routing, MAC limit and ethertype filter on a LAG.
 
 ## Raisecom ROS
 
@@ -48,7 +48,7 @@ The whole picture is in the [feature matrix](/platforms/features).
 
 **Doesn't:** BGP, VRFs, firewall, ACLs, DHCP, DNS and NTP servers, flow export, STP other than off, users other than admin.
 
-**Not proved yet:** BFD timers, policy routing.
+**Not built yet:** BFD timers, policy routing.
 
 ## Junos
 
@@ -56,7 +56,7 @@ The whole picture is in the [feature matrix](/platforms/features).
 
 **Doesn't:** firewall filter and NAT, VXLAN, WireGuard, DNS server, BGP roles.
 
-**Not proved yet:** policy routing.
+**Not built yet:** policy routing.
 
 ## FortiOS
 
@@ -64,4 +64,6 @@ The whole picture is in the [feature matrix](/platforms/features).
 
 **Doesn't:** STP, storm control, MAC limit (ports are routed), WireGuard, RPKI, large communities, BGP roles.
 
-**Not proved yet:** policy routing, a management VDOM.
+**Not built yet:** policy routing.
+
+**Built, not proved yet** (needs `--experimental`): a management VDOM, BFD on a VRF's static route.

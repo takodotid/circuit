@@ -6,11 +6,11 @@ description: Which feature works on which device OS, at a glance.
 
 What each platform can do today.
 
-| Mark | Means                                                               |
-| ---- | ------------------------------------------------------------------- |
-| ✅   | Works. Proved on a real device.                                     |
-| ❌   | Not on this platform. `circuit validate` stops you.                 |
-| 🧪   | Not proved on a real device yet. `circuit validate` stops you, too. |
+| Mark | Means                                                                                                                               |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| ✅   | Works. Proved on a real device.                                                                                                     |
+| ❌   | Not on this platform, or not built yet. Circuit stops you.                                                                          |
+| 🧪   | Built, but not proved on a real device yet. Circuit stops, unless you add `--experimental`: then it's a warning, and yours to test. |
 
 A note in a cell means "works, with this limit".
 
@@ -42,17 +42,17 @@ A note in a cell means "works, with this limit".
 
 ## Routing
 
-| Feature                     | RouterOS | VRP  | Raisecom ROS  | Junos        | FortiOS          |
-| --------------------------- | -------- | ---- | ------------- | ------------ | ---------------- |
-| Static routes               | ✅       | ✅   | IPv4 next hop | ✅           | ✅               |
-| VRFs                        | ✅       | ✅   | ❌            | ✅           | ✅               |
-| Policy routing, more tables | ✅       | 🧪   | 🧪            | 🧪           | 🧪               |
-| OSPF                        | ✅       | IPv4 | IPv4          | outside VRFs | outside VRFs     |
-| BFD                         | ✅       | ✅   | static routes | ✅           | ✅               |
-| BGP                         | ✅       | ❌   | ❌            | ✅           | ✅               |
-| Route policies, prefix sets | ✅       | ❌   | ❌            | ✅           | ✅               |
-| BGP communities             | ✅       | ❌   | ❌            | ✅           | ✅ no large ones |
-| RPKI                        | ✅       | ❌   | ❌            | ✅           | ❌               |
+| Feature                     | RouterOS | VRP        | Raisecom ROS  | Junos        | FortiOS                        |
+| --------------------------- | -------- | ---------- | ------------- | ------------ | ------------------------------ |
+| Static routes               | ✅       | ✅         | IPv4 next hop | ✅           | ✅                             |
+| VRFs                        | ✅       | ✅         | ❌            | ✅           | ✅                             |
+| Policy routing, more tables | ✅       | ❌ not yet | ❌ not yet    | ❌ not yet   | ❌ not yet                     |
+| OSPF                        | ✅       | IPv4       | IPv4          | outside VRFs | outside VRFs                   |
+| BFD                         | ✅       | ✅         | static routes | ✅           | ✅, 🧪 on a VRF's static route |
+| BGP                         | ✅       | ❌         | ❌            | ✅           | ✅                             |
+| Route policies, prefix sets | ✅       | ❌         | ❌            | ✅           | ✅                             |
+| BGP communities             | ✅       | ❌         | ❌            | ✅           | ✅ no large ones               |
+| RPKI                        | ✅       | ❌         | ❌            | ✅           | ❌                             |
 
 ## Firewall and services
 
@@ -76,6 +76,7 @@ A note in a cell means "works, with this limit".
 | Syslog                 | ✅               | ✅    | ✅             | ✅       | ✅ up to 4       |
 | Flow export            | NetFlow 9, IPFIX | sFlow | ❌             | sFlow    | sFlow, NetFlow 9 |
 | Web, API, certificates | ✅               | ❌    | ❌             | web, API | ✅               |
+| Management VDOM        | ❌               | ❌    | ❌             | ❌       | 🧪               |
 
 ## Circuit's own tools
 
@@ -89,10 +90,6 @@ A note in a cell means "works, with this limit".
 
 ## How this table is made
 
-It comes from Circuit's code, not from a datasheet:
-
-- ❌ is what each platform refuses in its `unsupported()`.
-- 🧪 is what `Derive.unproved` refuses until a platform has proved it.
-- ✅ is what the platform builds, proved by its tests against a real device's output.
+From Circuit's code, not from datasheets. ✅ is built and tested against a real device's output. ❌ is refused. 🧪 is built but refused until you add `--experimental`.
 
 Something missing that your device can do? See [Contributing](/contributing).

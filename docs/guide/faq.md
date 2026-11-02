@@ -39,9 +39,13 @@ Yes, carefully. The first plan removes everything your file doesn't have yet. So
 
 Not really. A project is plain data: names, numbers, lists. Your editor fills in fields and flags mistakes as you type. Only your own checks in `lib/` need a bit of TypeScript.
 
-## Do I need Node, npm or Bun?
+## Do I need to install anything else?
 
-No. The installer puts one app on your computer, `circuit`, with everything inside. Only the optional **full** install uses Bun, to pin Circuit's version in the project.
+No. `circuit` has everything inside.
+
+## Will updating Circuit break my project?
+
+No. Each project runs the version in its `.circuit-version`. A project moves only when you run `circuit update` in it and say yes.
 
 ## Can I run Circuit in CI?
 

@@ -50,13 +50,14 @@ More than 5% lost, or slower than 300 ms on average? It stops. Often it's your o
 
 ### Options
 
-| Option         | For                     | Does                                                                                                            |
-| -------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `--confirm`    | `apply`                 | Sends without asking.                                                                                           |
-| `--secrets`    | `apply`, `diff`         | Sends every secret again. Use it to change a password: devices never show passwords.                            |
-| `--rollback N` | `apply`                 | RouterOS, Junos, FortiOS: minutes before the device undoes the change if Circuit can't log back in. Default 10. |
-| `--force`      | `apply`                 | Sends even when the path check fails.                                                                           |
-| `--console`    | `apply`, `diff`, `exec` | Goes through the serial console on a jump host instead of SSH.                                                  |
+| Option           | For                         | Does                                                                                                                                                                                                            |
+| ---------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--confirm`      | `apply`                     | Sends without asking.                                                                                                                                                                                           |
+| `--secrets`      | `apply`, `diff`             | Sends every secret again. Use it to change a password: devices never show passwords.                                                                                                                            |
+| `--rollback N`   | `apply`                     | RouterOS, Junos, FortiOS: minutes before the device undoes the change if Circuit can't log back in. Default 10.                                                                                                 |
+| `--force`        | `apply`                     | Sends even when the path check fails.                                                                                                                                                                           |
+| `--console`      | `apply`, `diff`, `exec`     | Goes through the serial console on a jump host instead of SSH.                                                                                                                                                  |
+| `--experimental` | `validate`, `diff`, `apply` | Lets through a field that's built but not proved on a device yet (🧪 in the [feature matrix](/platforms/features)), as a warning. Test it yourself. Not built yet (❌) still stops. The commit hook only warns. |
 
 ## Utilities
 
@@ -67,6 +68,7 @@ More than 5% lost, or slower than 300 ms on average? It stops. Often it's your o
 | `access-console [device] [line...]` | Opens the serial console, already logged in.                  |
 | `studio`                            | Opens [Circuit Studio](/studio/) in your browser.             |
 | `rename [device] [new-name]`        | Renames a device everywhere in the project.                   |
+| `fmt [file...]`                     | Formats the project's files.                                  |
 
 ### exec
 
@@ -133,25 +135,25 @@ circuit rename edge-01 edge-02
 
 Then `circuit apply edge-02`, so the device gets its new hostname.
 
+### fmt
+
+```sh
+circuit fmt              # every file of the project
+circuit fmt --check      # only says which files aren't formatted, for CI
+```
+
+Formats the project's files in Circuit's style, set by `.prettierrc.json` in the project. VS Code formats the same way on save (see [Your editor](/guide/install#your-editor)).
+
 ## Secrets
 
 `circuit secret` lists, sets and rotates the project's secrets. See [Secrets](/guide/secrets).
 
-## The app itself
+## Projects and the app
 
-| Command             | Does                                                      |
-| ------------------- | --------------------------------------------------------- |
-| `circuit update`    | Installs the newest version within your major version.    |
-| `circuit uninstall` | Removes the app. Asks first. Never touches your projects. |
+| Command             | Does                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `circuit new`       | Starts a project. See [Start a project](/guide/install#start-a-project).             |
+| `circuit update`    | In a project: moves it to the newest version, after a yes. Outside: updates the app. |
+| `circuit uninstall` | Removes the app. Asks first. Never touches your projects.                            |
 
-Before each command, Circuit checks npm for a newer version, at most once a minute:
-
-- **Newer one out:** a warning, and your command runs.
-- **Critical fix out:** older versions stop. Only `circuit update` runs.
-- **Offline:** a warning, and your command runs.
-
-See [Install](/guide/install#updating) for more.
-
-## Coming later
-
-- `circuit fmt`, to format a project's files the same way for everyone.
+Each project runs the version in its `.circuit-version`. See [Install](/guide/install#each-project-pins-its-version).
