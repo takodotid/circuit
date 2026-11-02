@@ -1,8 +1,11 @@
 <p align="center">
-    <a href="https://circuit.tako.id"><img src="docs/public/logo.png" alt="Circuit" width="112" height="112"></a>
+    <a href="https://circuit.tako.id">
+        <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="docs/public/logotype-dark.png">
+            <img src="docs/public/logotype.png" alt="Circuit" width="320">
+        </picture>
+    </a>
 </p>
-
-<h1 align="center">Circuit</h1>
 
 <p align="center"><b>Your network, written down.</b><br>One TypeScript file per device. Circuit shows what would change, then makes the device match.</p>
 
@@ -35,7 +38,7 @@
 ## What it does
 
 - **One file per device.** Ports, VLANs, addresses, routing, BGP, firewall, users and services, written as plain data. Your editor checks every name and every port as you type.
-- **Plain TypeScript, nothing to install.** A project imports nothing from Circuit and needs no npm and no Node. Circuit's functions are globals, and the editor reads its types from `.circuit/types`, which Circuit writes.
+- **Plain TypeScript, nothing to install.** A project imports nothing from Circuit. Circuit's functions are globals, and the editor reads its types from `.circuit/types`, which Circuit writes.
 - **One binary, nothing else to install.** `circuit` reads the project, checks what the editor can't, and talks to the devices.
 - **Same words for every vendor.** MikroTik RouterOS 7, Huawei VRP, Raisecom ROS, Juniper Junos and Fortinet FortiOS each get their own commands. Anything a device can't do is an error before anything is sent.
 - **The file is the whole truth.** A port, user or service the file doesn't write is removed or turned off. Circuit fills in nothing you didn't write.
@@ -85,13 +88,13 @@ In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`
 
 ## Start
 
-1. Install Circuit, which then starts a project:
+1. Install Circuit:
     - Linux and macOS: `curl -fsSL https://circuit.tako.id/install | sh`
     - Windows, in PowerShell: `irm https://circuit.tako.id/install.ps1 | iex`
-2. Open the project's folder in VS Code. Add a site in `circuit.ts`, then write each device in `sites/<site>/<device>.ts`.
+2. Start a project: `circuit new network`. Open its folder in VS Code. Add a site in `circuit.ts`, then write each device in `sites/<site>/<device>.ts`.
 3. Run `circuit`. It opens a menu, or runs a command straight away, such as `circuit validate`.
 
-Circuit checks for a newer version before each command and warns when there is one: run `circuit update`.
+Each project runs the Circuit version in its `.circuit-version`. `circuit update` moves it to the newest one, after a yes.
 
 ## Commands
 
@@ -108,7 +111,9 @@ Each reads the project in the working directory or the nearest folder above it, 
 | `studio`                            | Opens the project in your browser: the graph, every table, tools, compare and secrets.       |
 | `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.                |
 | `secret`                            | Lists the secrets in `.env`; `secret set`, `get`, `delete`, `encrypt` and `rotate` the rest. |
-| `update`                            | Installs the newest Circuit.                                                                 |
+| `fmt [file...]`                     | Formats the project's files, as VS Code does on save.                                        |
+| `new [folder]`                      | Starts a project.                                                                            |
+| `update`                            | In a project: moves it to the newest version, after a yes. Outside: updates the app.         |
 | `uninstall`                         | Removes the Circuit app. Your projects stay.                                                 |
 
 ## Docs
