@@ -21,8 +21,8 @@ routing:
             hurricane-electric:
                 remote_as: 6939
                 address: 203.0.113.1
-                import: transit-import
-                export: !ref shared/policies.yaml#transit-export
+                import_policy: transit-import
+                export_policy: !ref shared/policies.yaml#transit-export
 ```
 
 ## How the tag works
