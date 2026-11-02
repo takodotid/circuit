@@ -1,0 +1,66 @@
+name: release
+
+# A release published on GitHub, with a tag `vX.Y.Z` or `vX.Y.Z-rc.N`, gets everything from this workflow: the binaries and SHA256SUMS attached to it, the package on npm, and the docs site built again, which writes latest.json, so `circuit` and the installers see the new version. A `[critical]` in the release's title makes it the minimum: an older Circuit stops until it is updated.
+#
+# npm takes no token: the package trusts this workflow, npm Trusted Publishing. A release candidate goes under the `next` dist-tag. Each step skips what is already done, so a failed run can be run again.
+
+on:
+    release:
+        types: [published]
+
+permissions:
+    contents: write
+    # npm Trusted Publishing proves the workflow's identity with an OIDC token; GitHub Pages deploys with one too.
+    id-token: write
+    pages: write
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: 1.4.4
+            - run: bun install --frozen-lockfile
+            - run: bun run typecheck
+            - run: bun run test
+
+            - name: version and dist-tag
+              run: |
+                  version="$(bun -e 'console.log(JSON.parse(require("fs").readFileSync("package.json", "utf8")).version)')"
+                  test "v$version" = "$GITHUB_REF_NAME" || { echo "the release is $GITHUB_REF_NAME, package.json says $version"; exit 1; }
+                  case "$version" in
+                      *-*) dist_tag=next ;;
+                      *) dist_tag=latest ;;
+                  esac
+                  echo "VERSION=$version" >> "$GITHUB_ENV"
+                  echo "DIST_TAG=$dist_tag" >> "$GITHUB_ENV"
+
+            # One binary per system, named as `circuit update` and the installers download them, and SHA256SUMS.
+            - run: bun scripts/build.ts --release
+            - name: attach the binaries to the release
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh release upload "$GITHUB_REF_NAME" dist/release/* --clobber
+
+            # The repository variable NPM_TRUSTED_PUBLISHING is true once npm trusts this workflow.
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              if: vars.NPM_TRUSTED_PUBLISHING == 'true'
+              with:
+                  node-version: 24.22.1
+                  registry-url: https://registry.npmjs.org
+            - name: publish to npm
+              if: vars.NPM_TRUSTED_PUBLISHING == 'true'
+              run: |
+                  if npm view "@takodotid/circuit@$VERSION" version > /dev/null 2>&1; then
+                      echo "$VERSION is already on npm"
+                  else
+                      npx -y npm@latest publish --access public --provenance --tag "$DIST_TAG"
+                  fi
+
+    # The site, and with it latest.json, written from every release published so far.
+    pages:
+        needs: release
+        uses: ./.github/workflows/pages.yml
+        secrets: inherit
