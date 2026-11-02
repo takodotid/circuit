@@ -37,6 +37,19 @@ test("exports_end_in_reject finds an export that does not end in an unconditiona
     );
 });
 
+test("exports_end_in_reject follows an export that ends by calling another, as the per-AS policies of a community scheme do", () => {
+    const calling = (shared: PolicyRule[]): Device => ({
+        ...router,
+        routing: { ...router.routing, policies: { ...router.routing?.policies, "UPSTREAM-OUT": [{ call: "SHARED" }], SHARED: shared } },
+    });
+    const messages = (device: Device) => BuiltInChecks.run([device], { exports_end_in_reject: true }).map((finding) => finding.message);
+
+    expect(messages(calling([{ then: "reject" }]))).toEqual([]);
+    expect(messages(calling([{ then: "accept" }]))).toContain(
+        "routing.bgp.neighbors.upstream-1: export_policy UPSTREAM-OUT does not end in an unconditional reject"
+    );
+});
+
 test("untrusted_vlans finds an untrusted VLAN beside a trusted one away from a filtering device", () => {
     expect(BuiltInChecks.vlansOf({ access_vlan: "a", trunk_vlans: ["b"] })).toEqual(["a", "b"]);
 
