@@ -24,7 +24,14 @@ bun src/cli/index.ts validate --project <folder>   # Circuit from the sources
 
 ## Writing the documentation
 
-Write for someone who may be new to networking, and whose English may be a second language: everyday words, the answer first, steps as a numbered list, a niche word explained or linked to the [Glossary](/guide/glossary). The full rules are in AGENTS.md.
+Write for someone who may be new to networking, and whose English may be a second language:
+
+- everyday words, short sentences, the answer first;
+- steps as a numbered list, tables over paragraphs;
+- a niche word explained, or linked to the [Glossary](/guide/glossary);
+- real providers and exchanges in examples (Hurricane Electric AS6939, DE-CIX), documentation addresses only.
+
+The full rules are in AGENTS.md.
 
 Every code sample must be valid for the current code. A whole file is best included from `examples/`, so its test covers it.
 
@@ -42,4 +49,10 @@ A platform is one device operating system at the versions it was proved on, in `
 
 ## Releases
 
-A release is made on GitHub. Its workflow builds the `circuit` binary for each system, publishes the package, and updates [`latest.json`](https://circuit.tako.id/latest.json), which every `circuit` reads to learn whether a newer one is out. A release whose title holds `[critical]` stops every older Circuit until it is updated. Commits follow Conventional Commits with a scope from `commitlint.config.js`.
+A release is made on GitHub. Its workflow builds `circuit` for each system, attaches the binaries, and publishes to npm:
+
+- **Stable** (`1.2.0`): npm tag `latest`, and the site is rebuilt.
+- **Release candidate** (`1.2.0-rc.1`): npm tag `rc`. The site stays as it is.
+- **`[critical]` in the title:** older versions of the same major are deprecated on npm, and they stop every command but `update`.
+
+Every `circuit` learns about new versions from npm. An update never crosses a major version. Commits follow Conventional Commits, with a scope from `commitlint.config.js`.

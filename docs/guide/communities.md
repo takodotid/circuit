@@ -30,7 +30,11 @@ export const as64500 = circuit({
         learned_from_as: { code: 3 },
         do_not_announce_to_as: { code: 100 },
         do_not_announce_to_group: { code: 101 },
-        prepend: { once: { code: 201 }, twice: { code: 202 }, three_times: { code: 203 } },
+        prepend: {
+            once: { code: 201 },
+            twice: { code: 202 },
+            three_times: { code: 203 },
+        },
         blackhole: { code: 666 },
     },
 });

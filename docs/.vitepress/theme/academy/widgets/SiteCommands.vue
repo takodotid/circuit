@@ -10,7 +10,7 @@ const steps: Step[] = [
         lang: "shell",
         code: [
             "$ curl -fsSL https://circuit.tako.id/install | sh",
-            "Circuit is installed: /home/you/.circuit/bin/circuit",
+            "Circuit is installed: /home/you/.local/bin/circuit",
             "┌  A new Circuit project",
             "◇  Project folder: my-network",
             "◇  How should this project run Circuit? Simple (recommended)",
