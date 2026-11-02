@@ -9,9 +9,9 @@ discussion: false
 
 Learn how networks work from the very start, then write real ones down in Circuit.
 
-Circuit describes a network, so it helps to know what a network is made of first, the same way you learn CSS before a CSS framework. These lessons start from nothing: no words you have not met, and no setup. Every lesson has something to try in your browser, so you learn by doing rather than only by reading.
+Start from zero. No setup, no words you haven't met. Every lesson has something to try right in your browser.
 
-The levels build on each other:
+Four levels, each building on the last:
 
 1. **Beginner** explains how computers talk at all: packets, addresses, switches, routers and names.
 2. **Elementary** builds a small home or office network, and writes it down in Circuit as you go.

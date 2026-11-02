@@ -1,12 +1,16 @@
+---
+description: Run Studio on a server for the whole team, behind a login.
+---
+
 # Hosting Circuit Studio
 
-Circuit Studio can run on a server, so your whole team opens one address and sees the network as your repository has it now. A copy of the repository on the server is pulled every minute, and Studio shows each change as it does on your own machine.
+Run Studio on a server, and the whole team opens one address to see the network as the repo has it now. The server pulls the repo every minute.
 
 ::: warning Put it behind a login
-Studio has no login of its own. It shows your network's whole design: devices, addresses, firewall rules, policies and the names of users and secrets. It shows a secret's value only to someone who types the key that decrypts `.env`. Never put it on the internet as it is: reach it only through something that asks who people are, such as a reverse proxy with a login, or only over your VPN.
+Studio has no login. It shows your whole design: devices, addresses, rules, user and secret names. Never put it on the internet as is. Put a login in front (a reverse proxy) or keep it on your VPN.
 :::
 
-Studio asks search engines to leave it out: every answer it sends has `X-Robots-Tag: noindex`, and its `/robots.txt` turns every crawler away. That keeps it out of search results, but it is not a lock, so the login is still needed.
+Studio tells search engines to stay away (`noindex`, `robots.txt`). That's not a lock, so you still need the login. A hosted Studio never logs in to devices.
 
 ## The command
 
@@ -14,13 +18,13 @@ Studio asks search engines to leave it out: every answer it sends has `X-Robots-
 circuit studio --host 0.0.0.0 --allow-host studio.example.com --no-open
 ```
 
-| Option         | What it does                                                                                                                                                                                                                                                                                               |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--host`       | The address Studio listens on. `0.0.0.0` is every address the server has. `127.0.0.1` by default, this machine only.                                                                                                                                                                                       |
-| `--allow-host` | The names people reach Studio by, several separated by spaces. Studio refuses a request for any other name. This stops a web page elsewhere from pointing a name of its own at your server and reading your network through it. Without it, a request addressed by any name but this machine's is refused. |
-| `--port`       | The port. `4600` by default.                                                                                                                                                                                                                                                                               |
+| Option         | Does                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `--host`       | Where it listens. `0.0.0.0` = every address. Default: this machine only.                   |
+| `--allow-host` | The names people use to reach it. Anything else is refused, so other sites can't sneak in. |
+| `--port`       | The port. Default `4600`.                                                                  |
 
-Compare and a device's history need `git` on the server, and the copy of your repository needs its history: clone it, do not copy only its files.
+Compare and history need `git` on the server, and a real clone with its history.
 
 ## With Docker Compose
 
@@ -49,7 +53,7 @@ This runs three containers: one keeps the copy of your repository pulled, one ru
                 sh -c "apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git &&
                 git config --global --add safe.directory '*' &&
                 curl -fsSL https://circuit.tako.id/install | CIRCUIT_NO_SETUP=1 sh &&
-                /root/.circuit/bin/circuit studio --host 0.0.0.0 --allow-host studio.example.com --no-open"
+                /root/.local/bin/circuit studio --host 0.0.0.0 --allow-host studio.example.com --no-open"
             volumes:
                 - ./network:/network
             restart: unless-stopped
@@ -89,4 +93,4 @@ To update Circuit, restart Studio: `docker compose restart studio` installs the 
 
 ## Without Docker
 
-Any way of keeping a clone pulled and the command running works: a service manager such as systemd for `circuit studio`, a timer or cron job for `git pull --ff-only`, and the reverse proxy you already run. Behind a proxy, Studio tells it not to hold back the stream that announces changes, so nginx needs no setting of its own for it.
+Anything that keeps a clone pulled and the command running works: systemd for `circuit studio`, cron for `git pull --ff-only`, and the proxy you already have. nginx needs no extra setting.

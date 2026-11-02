@@ -61,7 +61,7 @@ The device files go into git, and git keeps every version forever, for everyone 
 2. `.env`, in the project's folder, where each value is encrypted. The installer creates it, with the key that decrypts it kept out of git.
 
 ```bash
-circuit env set ROUTER_PASSWORD
+circuit secret set ROUTER_PASSWORD
 ```
 
 Circuit asks for the password without showing it, encrypts it, and writes it to `.env`. Only the key that decrypts `.env` is kept out of git. A value can also point to a password manager instead, such as `op://Network/router/password` for 1Password. See [Secrets](/guide/secrets).
@@ -78,7 +78,7 @@ And a password typed into the file as plain text is an error in your editor, bef
 Type 'string' is not assignable to type 'Secret'.
 ```
 
-`circuit env` lists every secret the files use, and how each is kept, without printing any of them. With `ROUTER_PASSWORD` set and `SWITCH_PASSWORD` forgotten:
+`circuit secret` lists every secret the files use, and how each is kept, without printing any of them. With `ROUTER_PASSWORD` set and `SWITCH_PASSWORD` forgotten:
 
 ```text
   ROUTER_PASSWORD  encrypted
@@ -87,7 +87,7 @@ Type 'string' is not assignable to type 'Secret'.
 Key that decrypts .env: .env.keys
 ```
 
-A device never shows its passwords back, so Circuit cannot see that one changed. To change a password, set it again with `circuit env set ROUTER_PASSWORD`, then run `circuit apply router --secrets`.
+A device never shows its passwords back, so Circuit cannot see that one changed. To change a password, set it again with `circuit secret set ROUTER_PASSWORD`, then run `circuit apply router --secrets`.
 
 <Quiz
   question="Where does the router’s password belong?"
@@ -184,6 +184,6 @@ What happens when the new login fails depends on the platform, as [How a change 
 ## In short
 
 - Whoever can log in to a device controls the network, so lock the door three ways: where from (`management.allow`), how (SSH only), and who (`users`, where anyone not listed is removed).
-- Passwords never go in the files: write `secret("NAME")`, and set the value with `circuit env set NAME`, encrypted in `.env`.
+- Passwords never go in the files: write `secret("NAME")`, and set the value with `circuit secret set NAME`, encrypted in `.env`.
 - A check of your own in `lib/checks.ts` keeps the management VLAN off access ports, and an error stops the change.
 - `validate` cannot always see a change that locks you out, so Circuit logs in again after every change, and keeps it only if that works.

@@ -52,7 +52,7 @@ Read each request, the file, CI's result and the plan. Ask the reviewer's questi
 
 </TryIt>
 
-The second pull request would have taken a paying customer's server off the network: `10g-1` is acme server 1's port, and a port given to two tenants goes to the last one alone. The template's check catches it, so `validate` stops it before anyone reads a plan. Not every mistake has a check written for it, though. When one does not, the plan shows it in plain words, on its `-` lines. A valid file is not always the change you meant, and that is what review is for.
+The second pull request would have taken a paying customer's server off the network: `10g-1` is netflix server 1's port, and a port given to two tenants goes to the last one alone. The template's check catches it, so `validate` stops it before anyone reads a plan. Not every mistake has a check written for it, though. When one does not, the plan shows it in plain words, on its `-` lines. A valid file is not always the change you meant, and that is what review is for.
 
 Studio helps the reviewer see the change as a network, not as text. Its [Compare](/studio/changes) sets your files beside another branch, a tag or a commit: each device's config then and now, line by line, the lines of the graph that are added or gone, and what `validate` finds newly. Compare the pull request's branch with `main` before you approve it.
 

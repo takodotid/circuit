@@ -30,13 +30,13 @@ const upstreams: Upstream[] = [
 
 /** Every link to an upstream, in Gbit/s. */
 const UPSTREAM_CAPACITY = 10;
-/** Acme's link, in Gbit/s, and Acme's own traffic on it. */
+/** Netflix's link, in Gbit/s, and Netflix's own traffic on it. */
 const ACME_CAPACITY = 1;
 const ACME_NORMAL = 0.3;
 
 const sources = { x: 70, y: 200 };
 const edge = { x: 450, y: 200 };
-const acme = { x: 630, y: 110 };
+const netflix = { x: 630, y: 110 };
 const others = { x: 630, y: 290 };
 
 const asked = ref(false);
@@ -56,7 +56,7 @@ const loads = computed(() =>
     })
 );
 
-/** The flood that reaches your router, and what reaches Acme's link. */
+/** The flood that reaches your router, and what reaches Netflix's link. */
 const atEdge = computed(() => loads.value.reduce((sum, entry) => sum + entry.flood, 0));
 const acmeLoad = computed(() => ACME_NORMAL + (asked.value ? 0 : atEdge.value));
 
@@ -64,7 +64,7 @@ const format = (gbits: number) => `${gbits.toLocaleString("en-US", { maximumFrac
 
 const overloaded = computed(() => [
     ...loads.value.filter((entry) => entry.load > UPSTREAM_CAPACITY).map((entry) => entry.upstream.label),
-    ...(acmeLoad.value > ACME_CAPACITY ? ["Acme's link"] : []),
+    ...(acmeLoad.value > ACME_CAPACITY ? ["Netflix's link"] : []),
 ]);
 
 const summary = computed(() => {
@@ -72,7 +72,7 @@ const summary = computed(() => {
         return {
             kind: "bad",
             word: "Flooded",
-            text: `${format(atEdge.value)} Gbit/s of flood is on its way to ${TARGET}. ${overloaded.value.join(", ")} ${overloaded.value.length === 1 ? "is" : "are"} full, so every customer's traffic through ${overloaded.value.length === 1 ? "it" : "them"} loses packets, not only Acme's.`,
+            text: `${format(atEdge.value)} Gbit/s of flood is on its way to ${TARGET}. ${overloaded.value.join(", ")} ${overloaded.value.length === 1 ? "is" : "are"} full, so every customer's traffic through ${overloaded.value.length === 1 ? "it" : "them"} loses packets, not only Netflix's.`,
         };
     }
 
@@ -85,7 +85,7 @@ const summary = computed(() => {
         return {
             kind: "warn",
             word: "Partly",
-            text: `Your router drops everything to ${TARGET}, so Acme's link is free. ${stoppedText}${overloaded.value.join(" and ")} ${overloaded.value.length === 1 ? "is" : "are"} still full.`,
+            text: `Your router drops everything to ${TARGET}, so Netflix's link is free. ${stoppedText}${overloaded.value.join(" and ")} ${overloaded.value.length === 1 ? "is" : "are"} still full.`,
         };
     }
 
@@ -115,7 +115,7 @@ async function send() {
                 [upstream.x, upstream.y],
             ];
             if (!takesIt(upstream)) path.push([edge.x, edge.y]);
-            if (!takesIt(upstream) && !asked.value) path.push([acme.x, acme.y]);
+            if (!takesIt(upstream) && !asked.value) path.push([netflix.x, netflix.y]);
             return travellers[index]!.travel(path);
         })
     );
@@ -130,7 +130,7 @@ const fates = computed(() =>
                 ? `${upstream.label} sends it on: it would take blackholes, but it is not in your upstreams, so it never received the route. Your router drops it.`
                 : `${upstream.label} sends it on: it takes no blackholes, and never received the route. Your router drops it.`;
         }
-        return `${upstream.label} sends it on, and your router passes it to Acme.`;
+        return `${upstream.label} sends it on, and your router passes it to Netflix.`;
     })
 );
 
@@ -152,7 +152,7 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
             class="ac-drawing"
             viewBox="0 0 700 400"
             role="img"
-            :aria-label="`A flood from many sources reaches your edge router through Transit A, Transit B and an exchange, toward Acme's server ${TARGET}. ${summary.text}`"
+            :aria-label="`A flood from many sources reaches your edge router through Transit A, Transit B and an exchange, toward Netflix's server ${TARGET}. ${summary.text}`"
         >
             <line
                 v-for="upstream in upstreams"
@@ -173,7 +173,7 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
                 :x2="edge.x"
                 :y2="edge.y"
             />
-            <line class="cable" :class="{ full: acmeLoad > ACME_CAPACITY }" :x1="edge.x" :y1="edge.y" :x2="acme.x" :y2="acme.y" />
+            <line class="cable" :class="{ full: acmeLoad > ACME_CAPACITY }" :x1="edge.x" :y1="edge.y" :x2="netflix.x" :y2="netflix.y" />
             <line class="cable" :x1="edge.x" :y1="edge.y" :x2="others.x" :y2="others.y" />
 
             <SvgDevice kind="cloud" :x="sources.x" :y="sources.y" label="Attack sources" note="thousands" />
@@ -188,7 +188,7 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
                 :lit="takesIt(upstream)"
             />
             <SvgDevice kind="router" :x="edge.x" :y="edge.y" label="Your edge" :note="asked ? `drops ${TARGET}` : 'AS64500'" :lit="asked" />
-            <SvgDevice kind="server" :x="acme.x" :y="acme.y" label="Acme's server" :note="TARGET" :dim="asked" />
+            <SvgDevice kind="server" :x="netflix.x" :y="netflix.y" label="Netflix's server" :note="TARGET" :dim="asked" />
             <SvgDevice kind="cloud" :x="others.x" :y="others.y" label="Other customers" />
 
             <template v-for="(traveller, index) in travellers" :key="`p-${index}`">
@@ -204,7 +204,7 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
 
         <div class="controls">
             <div class="ac-field">
-                <span>1. Acme, under attack, asks you</span>
+                <span>1. Netflix, under attack, asks you</span>
                 <button type="button" class="ac-button small" :aria-pressed="asked" @click="toggleAsk">
                     Announce {{ TARGET }}/32 with 64500:666:0
                 </button>
@@ -238,7 +238,7 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
                 >
             </div>
             <div class="meter" :class="{ full: acmeLoad > ACME_CAPACITY }">
-                <span class="name">Acme's link</span>
+                <span class="name">Netflix's link</span>
                 <span class="bar"><span :style="{ width: `${meter(acmeLoad, ACME_CAPACITY)}%` }" /></span>
                 <span class="value"
                     >{{ format(acmeLoad) }} of {{ ACME_CAPACITY }} Gbit/s{{ acmeLoad > ACME_CAPACITY ? ", full" : "" }}</span

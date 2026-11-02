@@ -1,55 +1,54 @@
+---
+description: What happens between your yes and a device that matches its file, and how Circuit keeps you from locking yourself out.
+---
+
 # How a change is applied
 
-What happens between your yes to `circuit apply` and a device that matches its file, and what protects you when a change goes wrong.
+What happens after you say yes to `circuit apply`, and what keeps you safe if it goes wrong.
 
-## Making the plan
+## The plan
 
-1. Circuit turns the device's file into the vendor's own commands.
-2. It logs in and reads the configuration the device runs.
-3. It compares the two. Whatever the device runs that the file does not describe is planned for removal, or for a return to its default. Nothing is kept just because it is already there.
+1. Circuit turns the file into the vendor's own commands.
+2. It logs in and reads what the device runs now.
+3. It compares the two. Anything on the device that the file doesn't have gets removed or reset.
 
-## The order of the plan
+The order:
 
-The plan runs in two stages:
+- **New and changed things go first**, in the order they depend on each other. A VLAN is made before a port joins it.
+- **Removals go last**, in reverse. A port leaves a VLAN before the VLAN goes.
+- **Ordered lists** (firewall chains, route policies) are swapped whole: new rules in first, old ones out after. There's never a moment with no rules.
 
-1. **Things that are new or changed come first,** in the order they depend on each other. For example, a VLAN is created before a port is added to it.
-2. **Things being removed come last,** in the reverse order. For example, a port leaves a VLAN before the VLAN is deleted. This way nothing is removed while something still uses it.
+## The dry run
 
-An ordered list, such as a firewall chain or a route policy, is replaced as a whole. The new rules are put in place first, and only then are the old ones removed, so there is never a moment with no rules at all.
+Before changing anything, Circuit tests the plan where the platform allows:
 
-## Checking before sending
+| Platform     | Dry run                                                                     |
+| ------------ | --------------------------------------------------------------------------- |
+| RouterOS     | Compiles every command without running it.                                  |
+| VRP          | Loads it as a candidate config. Any refused line throws the whole lot away. |
+| Junos        | Loads it into a locked candidate and runs `commit check`.                   |
+| Raisecom ROS | None. Runs each command and stops at the first one refused.                 |
+| FortiOS      | None. Runs each line; if one is refused, reloads the saved config.          |
 
-Each platform gets a dry run where it allows one:
+## Not locking you out
 
-- **RouterOS** compiles every command on the device without running it. A typo or an unknown setting fails here, before anything changes.
-- **VRP** puts every line into a candidate configuration, which is not active yet. If the device refuses any line, the whole candidate is thrown away.
-- **Raisecom ROS** has neither, so it runs each command as it is sent and stops at the first one it refuses.
-- **Junos** loads the whole plan into a locked candidate configuration and checks it with `commit check`. If the device refuses any line, or the check fails, the candidate is thrown away.
-- **FortiOS** runs each line as it is sent. If the device refuses one, Circuit stops and has the device reload its saved configuration, which undoes what was sent.
+The scariest change is one that cuts off Circuit's own way in. So after every change, Circuit logs in again in a fresh session. The change only stays if that works.
 
-## Protecting your access
+| Platform       | Change goes live                | If Circuit can't log back in                                                               |
+| -------------- | ------------------------------- | ------------------------------------------------------------------------------------------ |
+| `routeros`     | command by command              | A backup is made first. The device restores it by itself after `--rollback` minutes (10).  |
+| `vrp`          | all at once, `commit`           | Nothing was saved. A restart brings back the saved config.                                 |
+| `raisecom-ros` | command by command              | Nothing was saved. A restart brings back the saved config.                                 |
+| `junos`        | all at once, `commit confirmed` | Circuit rolls back. If it can't, the device does after `--rollback` minutes.               |
+| `fortios`      | line by line                    | Circuit reloads the saved config. If it can't, the device does after `--rollback` minutes. |
 
-The most dangerous change is one that cuts off the management access Circuit itself uses. So after every change, Circuit logs in again, in a new session. A change is only kept for good once that login works.
+## Checking afterwards
 
-| Platform       | How the change becomes active        | If Circuit cannot log in again                                                                                                                                                                            |
-| -------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `routeros`     | each command, as it is sent          | A backup is made first. The device restores it on its own after `--rollback` minutes, 10 by default.                                                                                                      |
-| `vrp`          | all at once, with `commit`           | The change is not saved. Restarting the device brings back the last saved configuration.                                                                                                                  |
-| `raisecom-ros` | each command, as it is sent          | The change is not saved. Restarting the device brings back the last saved configuration.                                                                                                                  |
-| `junos`        | all at once, with `commit confirmed` | Circuit restores the previous configuration over the session still open. If it cannot, the device rolls back on its own after `--rollback` minutes, 10 by default.                                        |
-| `fortios`      | each line, as it is sent             | The change is not saved yet. Circuit has the device reload its saved configuration over the session still open. If it cannot, the device reloads it on its own after `--rollback` minutes, 10 by default. |
+A device can take every command and still be broken. So on RouterOS, `apply` checks two things after sending:
 
-## Checking the device afterwards
+1. **Switch rules.** None may be invalid. The switch chip holds fewer rules than the datasheet says, and a rule that doesn't fit silently stops working, along with every rule after it.
+2. **BGP sessions.** Every session that was up before must be up again within 180 seconds. If one isn't, Circuit tells you why. Closed on its prefix limit? It gives you the `circuit bgp ... --clear-limit` to run once you know why.
 
-A device can take every command and still not work as it should. So after the apply, Circuit checks the device on platforms that have checks, and `apply` fails when one finds a problem. The change stays on the device: read what the problem says, fix it, and apply again.
+If a check fails, `apply` fails, but the change stays. Fix it and apply again.
 
-On RouterOS, `apply` checks two things:
-
-1. **Switch rules.** When the plan changed a switch rule, no switch rule may be invalid. A switch chip can hold far fewer rules than MikroTik lists: a CCR2216 stopped at 66 rules, at its sixth distinct port range. When one rule does not fit, it and every rule after it are marked invalid and do nothing, with no log line. A port ACL is made of switch rules, so its drops silently stop. The fix is fewer distinct port ranges in the device's ACLs.
-2. **BGP sessions.** Before sending anything, Circuit notes which BGP sessions are established. After the apply, each of them must be established again within 180 seconds; Circuit reads them every 10 seconds, so an apply that left them up does not wait. A session still down at the end is named with why: one closed on its prefix limit is reported as that, with the `circuit bgp <device> --neighbors <name> --clear-limit` to run once you know why, and for any other `circuit bgp <device> --log` shows more. A session that was down before the apply is not waited for.
-
-The other platforms have no checks yet.
-
-## Versions of a platform
-
-Each platform is written for one major version of its operating system, and Circuit refuses a device that runs another. `routeros` is RouterOS 7. RouterOS 6 writes BGP and firewall rules differently, so it would need its own platform.
+Other platforms have no after-checks yet.

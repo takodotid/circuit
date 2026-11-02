@@ -53,6 +53,15 @@ export class BuiltInChecks {
         return policy ? ((device.routing?.policies?.[policy] ?? []) as readonly LooseRule[]).slice() : [];
     }
 
+    /** The rule a policy ends in. A policy that ends by calling another, such as the one Circuit makes per AS for a community scheme's requests, ends where the called one ends. */
+    private static lastRuleOf(device: Device, policy: string | undefined, seen = new Set<string>()): LooseRule | undefined {
+        const last = BuiltInChecks.rulesOf(device, policy).at(-1);
+        if (!last?.call || last.if || seen.has(last.call)) return last;
+
+        seen.add(policy!);
+        return BuiltInChecks.lastRuleOf(device, last.call, seen);
+    }
+
     /** The prefixes an export policy accepts by name. */
     static offered(device: Device, policy: string | undefined): string[] {
         return BuiltInChecks.rulesOf(device, policy)
@@ -73,7 +82,7 @@ export class BuiltInChecks {
             for (const neighbor of BuiltInChecks.neighborPolicies(device)) {
                 if (neighbor.role === "customer" || !neighbor.exportPolicy) continue;
 
-                const last = BuiltInChecks.rulesOf(device, neighbor.exportPolicy).at(-1);
+                const last = BuiltInChecks.lastRuleOf(device, neighbor.exportPolicy);
                 if (last?.then !== "reject" || last.if) {
                     findings.push({
                         level: "error",
@@ -95,7 +104,7 @@ export class BuiltInChecks {
             for (const neighbor of BuiltInChecks.neighborPolicies(device)) {
                 if (!neighbor.importPolicy) continue;
 
-                const last = BuiltInChecks.rulesOf(device, neighbor.importPolicy).at(-1);
+                const last = BuiltInChecks.lastRuleOf(device, neighbor.importPolicy);
                 if (!last?.then || last.if) {
                     findings.push({
                         level: "error",

@@ -12,7 +12,7 @@ const { on, box, tokens, planLine } = HomeDrawing;
 
 // The install command, one tab per system. The tab open first is the visitor's own system, once the page is in the browser.
 const systems = Install.SYSTEMS;
-const chosen = ref(systems.findIndex((system) => system.id === "linux"));
+const chosen = ref(systems.findIndex((system) => system.id === "unix"));
 const install = computed(() => systems[chosen.value]!.command);
 const arts = HomeDrawing.ARTS;
 const parts = HomeDrawing.PARTS;
@@ -628,7 +628,8 @@ h1 {
     display: grid;
     grid-template-columns: calc(650 * var(--px)) calc(262 * var(--px)) calc(480 * var(--px));
     gap: calc(16 * var(--px));
-    align-items: center;
+    /* The tabs sit above the command, so the button lines up with the command, at the bottom. */
+    align-items: end;
     margin: calc(33 * var(--px)) var(--gutter) 0;
 }
 

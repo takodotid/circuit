@@ -17,6 +17,18 @@
         "email": "noc@tako.id",
         "url": "https://tako.id"
     },
+    "contributors": [
+        {
+            "name": "Rafly Maulana",
+            "email": "rafly@tako.id",
+            "url": "https://raflymaulana.com"
+        },
+        {
+            "name": "hzmi",
+            "email": "hzmi@tako.id",
+            "url": "https://hzmi.xyz"
+        }
+    ],
     "type": "module",
     "bin": {
         "circuit": "src/cli/index.ts"

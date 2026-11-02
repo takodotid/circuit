@@ -92,11 +92,11 @@ const exportRule = (count: number) =>
 
 const code = computed(() =>
     [
-        `"transit-a-export": [`,
+        `"hurricane-electric-export": [`,
         `    ${exportRule(prependA.value)}`,
         `    { description: "Nothing else leaves", then: "reject" },`,
         `],`,
-        `"transit-b-export": [`,
+        `"cogent-export": [`,
         `    ${exportRule(prependB.value)}`,
         `    { description: "Nothing else leaves", then: "reject" },`,
         `],`,

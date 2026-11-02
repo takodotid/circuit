@@ -1,5 +1,5 @@
 // Every tenant, merged whole. A new tenant joins the list.
 
-import { acme } from "./acme";
+import { netflix } from "./netflix";
 
-export const tenants = merge([acme]);
+export const tenants = merge([netflix]);

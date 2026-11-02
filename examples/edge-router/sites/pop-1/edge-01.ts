@@ -1,5 +1,5 @@
 // The edge router: BGP with an IP transit and an internet exchange, filtered on the way in and on the way out.
-// transit-a and exchange-a stand for your own transit and exchange. The addresses are documentation ranges: use the ones your providers give you.
+// hurricane-electric and de-cix stand for your own transit and exchange. The addresses are documentation ranges: use the ones your providers give you.
 
 import { as64500 } from "../../circuit";
 
@@ -21,8 +21,8 @@ export default as64500.device({
     interfaces: {
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.0.1/24"] },
-            "25g-1": { description: "transit-a", access_vlan: "transit", ingress_acl: "edge" },
-            "25g-2": { description: "exchange-a", access_vlan: "exchange", ingress_acl: "edge" },
+            "25g-1": { description: "Hurricane Electric", access_vlan: "transit", ingress_acl: "edge" },
+            "25g-2": { description: "de-cix", access_vlan: "exchange", ingress_acl: "edge" },
         },
         vlan_interface: {
             transit: { vlan: "transit", addresses: ["203.0.113.2/30"] },
@@ -31,8 +31,8 @@ export default as64500.device({
     },
     switching: {
         vlans: {
-            transit: { id: 300, description: "IP transit from transit-a, AS64501", untrusted: true },
-            exchange: { id: 200, description: "Peering LAN of exchange-a", untrusted: true },
+            transit: { id: 300, description: "IP transit from Hurricane Electric, AS6939", untrusted: true },
+            exchange: { id: 200, description: "DE-CIX peering LAN", untrusted: true },
         },
         // In the switch chip, before a packet reaches the router's CPU: nothing from outside may claim our addresses or private ones.
         acls: {
@@ -53,30 +53,30 @@ export default as64500.device({
         bgp: {
             originated_prefixes: [as64500.prefixes.ours.v4, as64500.prefixes.ours.v6],
             neighbors: {
-                "transit-a": {
+                "hurricane-electric": {
                     address: "203.0.113.1",
-                    remote_as: 64501,
-                    description: "transit-a",
+                    remote_as: 6939,
+                    description: "Hurricane Electric",
                     role: "provider",
                     max_prefixes: 1_200_000,
                     import_policy: "transit-import",
                     export_policy: "export",
                     communities: { groups: ["transit"] },
                 },
-                "exchange-a-rs-v4": {
+                "de-cix-rs-v4": {
                     address: "192.0.2.1",
-                    remote_as: 64502,
-                    description: "exchange-a route server",
+                    remote_as: 6695,
+                    description: "DE-CIX route server",
                     role: "rs",
                     max_prefixes: 100_000,
                     import_policy: "exchange-import",
                     export_policy: "export",
                     communities: { groups: ["exchange"] },
                 },
-                "exchange-a-rs-v6": {
+                "de-cix-rs-v6": {
                     address: "2001:db8:ffff::1",
-                    remote_as: 64502,
-                    description: "exchange-a route server",
+                    remote_as: 6695,
+                    description: "DE-CIX route server",
                     role: "rs",
                     max_prefixes: 50_000,
                     import_policy: "exchange-import",

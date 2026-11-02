@@ -6,8 +6,8 @@
     <figure class="circuit-diagram">
         <svg viewBox="0 0 1000 300" role="img" aria-labelledby="secrets-title">
             <title id="secrets-title">
-                circuit env set encrypts a value with the public key into .env, which git keeps. The private key, in .env.keys or 1Password,
-                stays out of git. Circuit decrypts the value only when it sends a command to the device.
+                circuit secret set encrypts a value with the public key into .env, which git keeps. The private key, in .env.keys or
+                1Password, stays out of git. Circuit decrypts the value only when it sends a command to the device.
             </title>
             <defs>
                 <marker id="secrets-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
@@ -20,7 +20,7 @@
             <circle cx="10" cy="40" r="15" class="dot" />
             <text x="10" y="45" class="dot-text">1</text>
             <text x="115" y="78" class="title">You</text>
-            <text x="115" y="104" class="mono">circuit env set NAME</text>
+            <text x="115" y="104" class="mono">circuit secret set NAME</text>
 
             <line x1="222" y1="85" x2="298" y2="85" class="arrow" marker-end="url(#secrets-arrow)" />
             <text x="260" y="72" class="note">encrypted</text>

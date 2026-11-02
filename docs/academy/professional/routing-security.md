@@ -111,16 +111,16 @@ routing: {
     ],
     // bgp: as before, with role and max_prefixes on every neighbor
     prefix_sets: {
-        // Acme's space, checked against its route objects and ROAs before it is written here.
-        "acme-v4": { prefixes: ["192.0.2.0/24"] },
-        "acme-v6": { prefixes: ["2001:db8:200::/48"] },
+        // Netflix's space, checked against its route objects and ROAs before it is written here.
+        "netflix-v4": { prefixes: ["192.0.2.0/24"] },
+        "netflix-v6": { prefixes: ["2001:db8:200::/48"] },
     },
     policies: {
         sanity: presets.bgp_sanity,
-        "acme-import": [
+        "netflix-import": [
             { call: "sanity" },
-            { description: "Their IPv4", if: { prefix_set: "acme-v4" }, then: "accept" },
-            { description: "Their IPv6", if: { prefix_set: "acme-v6" }, then: "accept" },
+            { description: "Their IPv4", if: { prefix_set: "netflix-v4" }, then: "accept" },
+            { description: "Their IPv6", if: { prefix_set: "netflix-v6" }, then: "accept" },
             { description: "Nothing else", then: "reject" },
         ],
     },

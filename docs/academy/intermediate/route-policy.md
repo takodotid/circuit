@@ -119,7 +119,7 @@ A <Term means="A tag on a route. A router can add it on import and match on it l
 The example's `circuit.ts` describes what its communities mean in `communities` (see [BGP communities](/guide/communities)), and `{ communities: "import" }` in the import above does two things to each route:
 
 1. It removes every community of yours the neighbor put on the route, so nobody outside can fake them.
-2. It adds where the route came from: `64500:1:1`, learned from the transit group, and `64500:3:64501`, learned from AS64501.
+2. It adds where the route came from: `64500:1:1`, learned from the transit group, and `64500:3:6939`, learned from AS64501.
 
 A later rule can then match `large_community`. For example, an export to a customer who only buys the routes you learn at exchanges accepts those tagged as learned from an exchange, as in [Internet products](/academy/professional/internet-products).
 

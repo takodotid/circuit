@@ -275,7 +275,7 @@ export const checks: Check[] = [
             },
             {
                 question: "Which command shows what would change on a device, without sending anything?",
-                choices: ["circuit apply, answering yes", "circuit diff", "circuit update", "circuit env"],
+                choices: ["circuit apply, answering yes", "circuit diff", "circuit update", "circuit secret"],
                 answer: 1,
                 lesson: "/academy/elementary/writing-it-down",
             },

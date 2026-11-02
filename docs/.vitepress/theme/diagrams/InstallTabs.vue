@@ -5,7 +5,7 @@ import { onMounted, ref } from "vue";
 import { Install, type System } from "../install";
 
 const systems = Install.SYSTEMS;
-const chosen = ref<System>("linux");
+const chosen = ref<System>("unix");
 const copied = ref(false);
 
 onMounted(() => (chosen.value = Install.detect()));
