@@ -9,7 +9,7 @@ import { GitHooks } from "./git-hooks";
 import { Ui } from "./ui";
 import { VERSION } from "./version";
 
-const GENERATED_README = `# Written by Circuit
+export const GENERATED_README = `# Written by Circuit
 
 Do not edit anything here: an edit changes nothing on a device, and Circuit overwrites it. Change the project instead.
 
@@ -18,7 +18,7 @@ Do not edit anything here: an edit changes nothing on a device, and Circuit over
 \`hooks/\` holds the git hook that checks each commit: no secret in plain text, no \`.env.keys\`, and a project that validates.
 `;
 
-const GITIGNORE = `# The key that decrypts .env. Never commit it.
+export const GITIGNORE = `# The key that decrypts .env. Never commit it.
 .env.keys
 
 node_modules/

@@ -7,6 +7,7 @@ import { EnvFile } from "../core/env-file";
 import { BgpWait } from "../platforms/bgp-wait";
 import { EnvCommands } from "./env";
 import { GitHooks } from "./git-hooks";
+import { Migrate } from "./migrate";
 import { ProjectCommands } from "./project-commands";
 import { Releases } from "./releases";
 import { Setup } from "./setup";
@@ -221,6 +222,15 @@ class Cli {
             .command("update")
             .description("install the newest Circuit, and the project's pinned one in a full install")
             .action(async () => Cli.update());
+
+        program
+            .command("migrate")
+            .description("write a Circuit 0.x project again as a v1 project, and list what did not move")
+            .argument("<v0-folder>", "the 0.x project, with its packages installed")
+            .option("--out <folder>", "an empty folder for the v1 project; <v0-folder>-v1 by default")
+            .option("--config <file>", "0.x's config file in that folder", "circuit.config.ts")
+            .option("--yes", "copy the 0.x project's .env without asking; it is encrypted at once")
+            .action(async (folder, flags) => Migrate.run(folder, { ...flags, yes: flags.yes ?? false }));
 
         program
             .command("setup", { hidden: true })
