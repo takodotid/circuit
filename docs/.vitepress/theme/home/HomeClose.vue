@@ -9,7 +9,7 @@ import { useCopy } from "./copy";
 const { copied, copy } = useCopy();
 
 const systems = Install.SYSTEMS;
-const chosen = ref(systems.findIndex((system) => system.id === "linux"));
+const chosen = ref(systems.findIndex((system) => system.id === "unix"));
 
 onMounted(() => (chosen.value = systems.findIndex((system) => system.id === Install.detect())));
 </script>

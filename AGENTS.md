@@ -29,7 +29,8 @@ Every change to Circuit is weighed against these, set by the owner.
 - `src/studio/`: `circuit studio`. The server (`server.ts`) reads the project in a new Circuit process (`circuit studio-data`, `data.ts`), so it is always fresh, and serves the page. The page is a Vue 3 app in `app/`, built by Vite (`scripts/studio.ts`) and carried in the binary as `assets.generated.ts`, which git ignores and `bun install`, `bun run check` and `bun run build` write. The graph is drawn with Cytoscape. `types.ts` is what the server sends the page.
 - `scripts/`: `build.ts` makes `dist/circuit` (`circuit.exe` on Windows); `studio.ts` builds Studio's page; `from-v0.ts` moves a 0.x device into the v1 model.
 - `test/`: `test/platforms/<platform>-golden.test.ts` prove each platform renders 0.x's examples (moved to v1 by `scripts/from-v0.ts`, kept in `test/fixtures/v0/`) byte for byte as 0.x did. `test/project/examples.test.ts` writes them as a v1 project and checks the editor's types take every one. `test/platforms/fake-ssh.ts` is a fake device over SSH.
-- `docs/`: the documentation site, built with VitePress (`bun run docs:dev`, `bun run docs:build`): `guide/` (install, writing a project, the `circuit` command, secrets), `studio/`, `academy/` (Circuit Academy), `platforms/`, and `reference/`: [model.md](docs/reference/model.md) (the model) and [decisions.md](docs/reference/decisions.md) (the decisions that shaped v1). Its theme and diagrams are in `docs/.vitepress/theme/`, following `DESIGN.md` of Circuit 0.x.
+- `docs/`: the documentation site, built with VitePress (`bun run docs:dev`, `bun run docs:build`): `guide/` (install, writing a project, the `circuit` command, secrets), `studio/`, `academy/` (Circuit Academy), `platforms/`, and `reference/model.md` (the model). The installers are `docs/public/install` and `docs/public/install.ps1`, served at circuit.tako.id.
+- `design/`: not on the site. [decisions.md](design/decisions.md), the decisions that shaped v1. Its theme and diagrams are in `docs/.vitepress/theme/`, following `DESIGN.md` of Circuit 0.x.
 - `examples/`: whole example projects the docs and the Academy show; `test/project/example-projects.test.ts` checks each with TypeScript 6 and 7 and `circuit validate`.
 
 Not in v1 yet, later work: integrations (PeeringDB, LibreNMS, NetBox, Prometheus, to become one `circuit sync <target>`), and the `refresh`, `wireguard`, `communities`, `graph` and `addresses` commands.
@@ -45,7 +46,7 @@ Not in v1 yet, later work: integrations (PeeringDB, LibreNMS, NetBox, Prometheus
 7. A platform is one OS at the versions in its `os.versions` (`routeros` is RouterOS 7, not 6). A new version gets a wider `os.versions` once proved on it, or its own platform if it takes other commands.
 8. Never guess what a device does. Prove it on a real device, and write what you learned in its `TRAPS.md`.
 9. When unsure, ask.
-10. When the owner approves a new rule or decision, add it here, or to [docs/reference/decisions.md](docs/reference/decisions.md) with the next number, in the same change.
+10. When the owner approves a new rule or decision, add it here, or to [design/decisions.md](design/decisions.md) with the next number, in the same change.
 11. Easy to learn beats clever. Someone who knows networking but not Circuit, and not any one vendor, must understand a project, and Circuit's own code, on first read. See "Easy to learn" below.
 
 ## Easy to learn

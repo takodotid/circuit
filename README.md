@@ -115,7 +115,7 @@ Each reads the project in the working directory or the nearest folder above it, 
 - [The documentation site](https://circuit.tako.id), whose pages are in `docs/`: install, writing a project, the `circuit` command, secrets, Studio, and Circuit Academy.
 - [How to write a project](docs/guide/project.md), then [rules](docs/guide/rules.md), [parts and merge](docs/guide/parts.md), [communities](docs/guide/communities.md) and [checks](docs/guide/checks.md).
 - [The model](docs/reference/model.md): what one device holds, and what Circuit resolves before a platform reads it.
-- [Decisions](docs/reference/decisions.md): what shaped v1, and why.
+- [Decisions](design/decisions.md): what shaped v1, and why.
 - `src/config/`: every field, with its doc comment, which your editor shows on hover.
 
 ## Working on Circuit

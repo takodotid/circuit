@@ -43,10 +43,7 @@ const sidebar: DefaultTheme.SidebarItem[] = [
     },
     {
         text: "Reference",
-        items: [
-            { text: "The model", link: "/reference/model" },
-            { text: "Decisions", link: "/reference/decisions" },
-        ],
+        items: [{ text: "The model", link: "/reference/model" }],
     },
     {
         text: "Project",
