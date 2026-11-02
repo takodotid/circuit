@@ -5,7 +5,7 @@ import { Command, InvalidArgumentError } from "@commander-js/extra-typings";
 import { spawnSync } from "node:child_process";
 import { EnvFile } from "../core/env-file";
 import { BgpWait } from "../platforms/bgp-wait";
-import { EnvCommands } from "./env";
+import { SecretCommands } from "./secret";
 import { GitHooks } from "./git-hooks";
 import { ProjectCommands } from "./project-commands";
 import { Releases } from "./releases";
@@ -183,37 +183,43 @@ class Cli {
 
         program.commandsGroup("Secrets:");
 
-        const env = program.command("env").description("the project's secrets in .env, each one encrypted");
-        env.command("list", { isDefault: true })
+        const secret = program.command("secret").description("the project's secrets in .env, each one encrypted");
+        secret
+            .command("list", { isDefault: true })
             .description("every secret, how it is kept, and the ones the config needs that .env lacks")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (flags) => EnvCommands.open(flags.project).list());
-        env.command("get")
+            .action(async (flags) => SecretCommands.open(flags.project).list());
+        secret
+            .command("get")
             .description("print one secret, decrypted")
             .argument("[name]")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action((name, flags) => EnvCommands.open(flags.project).get(name));
-        env.command("set")
+            .action((name, flags) => SecretCommands.open(flags.project).get(name));
+        secret
+            .command("set")
             .description("add or change a secret, encrypted; leave out the value to type it hidden")
             .argument("[name]")
             .argument("[value]", "an op://vault/item/field reference keeps the value in 1Password")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (name, value, flags) => EnvCommands.open(flags.project).set(name, value));
-        env.command("delete")
+            .action(async (name, value, flags) => SecretCommands.open(flags.project).set(name, value));
+        secret
+            .command("delete")
             .description("remove a secret")
             .argument("[name]")
             .option("--confirm", "delete without asking")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (name, flags) => EnvCommands.open(flags.project).delete(name, flags.confirm ?? false));
-        env.command("encrypt")
+            .action(async (name, flags) => SecretCommands.open(flags.project).delete(name, flags.confirm ?? false));
+        secret
+            .command("encrypt")
             .description("encrypt every value written in plain text")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action((flags) => EnvCommands.open(flags.project).encrypt());
-        env.command("rotate")
+            .action((flags) => SecretCommands.open(flags.project).encrypt());
+        secret
+            .command("rotate")
             .description("a new key: every secret encrypted again, the old key stops working")
             .option("--confirm", "rotate without asking")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (flags) => EnvCommands.open(flags.project).rotate(flags.confirm ?? false));
+            .action(async (flags) => SecretCommands.open(flags.project).rotate(flags.confirm ?? false));
 
         program.commandsGroup("Circuit:");
 
@@ -339,14 +345,14 @@ class Cli {
             { value: "studio", label: "Studio", hint: "the project in your browser" },
             { value: "rename", label: "Rename", hint: "give a device a new name everywhere" },
             heading("Secrets"),
-            { value: "env", label: "Secrets", hint: "list, set or delete the secrets in .env" },
+            { value: "secret", label: "Secrets", hint: "list, set or delete the secrets in .env" },
             heading("Circuit"),
             { value: "update", label: "Update Circuit" },
             { value: "exit", label: "Exit" },
         ]);
 
         if (choice === "exit") process.exit(0);
-        if (choice !== "env") return [choice];
+        if (choice !== "secret") return [choice];
 
         const action = await Ui.select("Secrets", [
             { value: "list", label: "List", hint: "every secret and how it is kept" },
@@ -356,12 +362,12 @@ class Cli {
             { value: "encrypt", label: "Encrypt", hint: "every value written in plain text" },
             { value: "rotate", label: "Rotate the key" },
         ]);
-        if (action !== "get" && action !== "delete") return ["env", action];
+        if (action !== "get" && action !== "delete") return ["secret", action];
 
         const names = new EnvFile(ProjectCommands.find()!).names();
-        if (!names.length) Ui.fail("No secrets yet. Add one with circuit env set NAME.");
+        if (!names.length) Ui.fail("No secrets yet. Add one with circuit secret set NAME.");
         return [
-            "env",
+            "secret",
             action,
             await Ui.select(
                 "Which secret?",

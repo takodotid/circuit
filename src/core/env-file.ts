@@ -301,7 +301,7 @@ export class EnvFile {
 
         writeFileSync(
             join(root, ".env"),
-            `# The project's secrets, each one encrypted, so this file is safe to commit. Add or change one with: circuit env set NAME
+            `# The project's secrets, each one encrypted, so this file is safe to commit. Add or change one with: circuit secret set NAME
 # The public key below can only encrypt. The key that decrypts is never committed.
 ${EnvFile.PUBLIC_KEY}="${pair.publicKey}"
 ${reference}`

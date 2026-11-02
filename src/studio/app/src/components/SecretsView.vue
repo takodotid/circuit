@@ -43,7 +43,7 @@ const KIND: Record<string, string> = {
     "1password": "kept in 1Password",
     reference: "a reference",
     empty: "empty",
-    "not encrypted": "NOT ENCRYPTED: run circuit env encrypt",
+    "not encrypted": "NOT ENCRYPTED: run circuit secret encrypt",
     missing: "missing: the project needs it",
 };
 </script>
@@ -51,7 +51,7 @@ const KIND: Record<string, string> = {
 <template>
     <h2>Secrets</h2>
     <p class="muted">
-        Each secret in <code>.env</code>, and how it is kept. Add or change one with <code>circuit env set NAME</code>. A value is never
+        Each secret in <code>.env</code>, and how it is kept. Add or change one with <code>circuit secret set NAME</code>. A value is never
         sent to this page in plain text.
     </p>
     <p v-if="loadError" class="verdict reject">{{ loadError }}</p>

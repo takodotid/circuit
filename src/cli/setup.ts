@@ -62,7 +62,7 @@ export class Setup {
         if (hooks) Ui.done(`${hooks[0]!.toUpperCase()}${hooks.slice(1)}.`);
 
         const plain = new EnvFile(root).plaintext();
-        if (plain.length) Ui.warn(`.env holds ${plain.join(", ")} in plain text. Run circuit env encrypt before you commit.`);
+        if (plain.length) Ui.warn(`.env holds ${plain.join(", ")} in plain text. Run circuit secret encrypt before you commit.`);
     }
 
     /** Ask how to set up a new project, then set it up. */
@@ -217,7 +217,7 @@ export const as${setup.asn} = circuit({
         return [
             `cd ${setup.folder}`,
             "Add a site in circuit.ts, then a device in sites/<site>/<device>.ts. Your editor completes each field.",
-            "circuit env set NAME     a secret, such as a device password, encrypted",
+            "circuit secret set NAME  a secret, such as a device password, encrypted",
             "circuit validate         check the project",
             "circuit diff <device>    what would change on the device",
             "circuit apply <device>   make the device match",

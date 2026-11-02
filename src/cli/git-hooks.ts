@@ -84,7 +84,7 @@ exec circuit hook pre-commit
             const plain = EnvFile.plaintextIn(text);
             if (plain.length)
                 problems.push(
-                    `${file} holds ${plain.join(", ")} in plain text. Encrypt it with circuit env encrypt, then stage ${file} again.`
+                    `${file} holds ${plain.join(", ")} in plain text. Encrypt it with circuit secret encrypt, then stage ${file} again.`
                 );
         }
 
