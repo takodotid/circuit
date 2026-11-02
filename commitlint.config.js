@@ -17,6 +17,7 @@ export default {
                 "platforms", // src/platforms, one adapter per device operating system
                 "transport", // src/transport, sessions to devices
                 "cli", // src/cli
+                "studio", // src/studio, Circuit Studio
                 "examples", // tests and fixtures
                 "release", // version bumps
             ],

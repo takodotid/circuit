@@ -1,7 +1,7 @@
 // The lessons a reader has finished and the entry checks they passed, kept in their own browser. Nothing leaves it.
 
 import { ref } from "vue";
-import { Academy } from "../../academy";
+import { Academy } from "../../academy.ts";
 
 export class Progress {
     private static readonly KEY = "circuit-academy-done";

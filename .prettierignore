@@ -4,3 +4,5 @@ dist/
 test/fixtures/
 # Written by scripts/editor-types.ts.
 src/cli/editor-types.generated.ts
+# Written by scripts/studio.ts.
+src/studio/assets.generated.ts

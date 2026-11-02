@@ -20,7 +20,7 @@ class Cli {
         "the project's folder; by default the working directory, or the nearest folder above it with circuit.ts";
 
     /** Commands that run before, or without, the version check. */
-    private static readonly UNCHECKED = new Set(["update", "help", "--help", "-h", "--version", "-V"]);
+    private static readonly UNCHECKED = new Set(["update", "studio-data", "help", "--help", "-h", "--version", "-V"]);
 
     /** Read the arguments and run the command they name, or open the menu. */
     static async main(argv: string[]): Promise<void> {
@@ -152,6 +152,23 @@ class Cli {
             );
 
         program
+            .command("studio")
+            .description("the project in your browser: the graph, every table, tools, compare and secrets")
+            .option("--port <number>", "the port it listens on", Cli.port, 4600)
+            .option(
+                "--host <address>",
+                "the address it listens on: this machine only by default; a server's address to share it",
+                "127.0.0.1"
+            )
+            .option(
+                "--allow-host <names...>",
+                "names besides this machine's that requests may be addressed to, such as studio.example.com behind a proxy"
+            )
+            .option("--no-open", "do not open the browser")
+            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
+            .action(async (flags) => Cli.studio(flags));
+
+        program
             .command("rename")
             .description("give a device a new name everywhere the project writes it, and its file too")
             .argument("[device]", "picked from a list when left out")
@@ -212,12 +229,57 @@ class Cli {
             .action(async (folder) => Setup.run(folder));
 
         program
+            .command("studio-data", { hidden: true })
+            .description("what Studio shows of the project, as JSON: Studio runs it to read the project fresh")
+            .argument("<folder>")
+            .action(async (folder) => {
+                const { StudioModel } = await import("../studio/data");
+                process.stdout.write(JSON.stringify(await StudioModel.gather(folder)));
+            });
+
+        program
             .command("hook", { hidden: true })
             .description("what the project's git hooks run")
             .argument("<name>", "pre-commit")
             .action(async (name) => Cli.hook(name));
 
         return program;
+    }
+
+    /** `--port`'s value: a port number. */
+    private static port(value: string): number {
+        const port = Number(value);
+        if (!Number.isInteger(port) || port < 1 || port > 65535)
+            throw new InvalidArgumentError("Give a port from 1 to 65535, such as 4600.");
+        return port;
+    }
+
+    /** Serve Studio for the project until Ctrl+C, and open it in the browser. */
+    private static async studio(flags: {
+        port: number;
+        host: string;
+        allowHost?: string[];
+        open: boolean;
+        project?: string;
+    }): Promise<void> {
+        const root = ProjectCommands.find(flags.project) ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it.");
+        Setup.prepare(root);
+
+        // Studio carries its page, so it is loaded only when asked for.
+        const { StudioServer } = await import("../studio/server");
+        const url = await Ui.step("Starting Studio", () =>
+            StudioServer.start({ root, port: flags.port, host: flags.host, allowHosts: flags.allowHost ?? [] })
+        );
+        const local = StudioServer.isLoopback(flags.host);
+
+        Ui.done(
+            `Circuit Studio at ${url}${local ? "" : `, listening on ${flags.host}:${flags.port}`}. It reads the project again when a file changes. Stop it with Ctrl+C.`
+        );
+        if (!local)
+            Ui.warn(
+                "Studio on a server shows the project to everyone who reaches it, and does not read devices. Put it behind a proxy that asks who people are."
+            );
+        if (flags.open && local) StudioServer.openBrowser(url);
     }
 
     /** Update this Circuit, then the one a full install pins in the project here, to the same version. */
@@ -274,6 +336,7 @@ class Cli {
             { value: "exec", label: "Execute", hint: "run a command that only reads on a device" },
             { value: "bgp", label: "BGP", hint: "each BGP session of a device" },
             { value: "access-console", label: "Access console", hint: "a device's serial console" },
+            { value: "studio", label: "Studio", hint: "the project in your browser" },
             { value: "rename", label: "Rename", hint: "give a device a new name everywhere" },
             heading("Secrets"),
             { value: "env", label: "Secrets", hint: "list, set or delete the secrets in .env" },

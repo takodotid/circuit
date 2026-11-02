@@ -1,8 +1,8 @@
 import { defineConfig, type DefaultTheme } from "vitepress";
 import circuit from "../../package.json";
-import { Academy } from "./academy";
-import { Seo } from "./seo";
-import { Progress } from "./theme/academy/progress";
+import { Academy } from "./academy.ts";
+import { Seo } from "./seo.ts";
+import { Progress } from "./theme/academy/progress.ts";
 
 const repository = circuit.repository.url.replace(/^git\+/, "").replace(/\.git$/, "");
 

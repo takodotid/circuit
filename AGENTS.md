@@ -22,11 +22,12 @@ Every change to Circuit is weighed against these, set by the owner.
 - `src/project/`: reads a project: imports `circuit.ts` and each device file, checks what the types can't, and resolves the shorthands into the model.
 - `src/checks/`: validation and Circuit's built-in checks, on the model.
 - `src/platforms/<name>/`: one adapter per device OS (`routeros`, `vrp`, `raisecom-ros`, `junos`, `fortios`), the only place for vendor syntax. Its `models.ts` lists the models and their ports; its `TRAPS.md` lists what the device does that you wouldn't expect.
-- `src/core/`: addresses, secrets, cabling, registries, and `Utils`.
+- `src/core/`: addresses, secrets, cabling, registries, the network as a graph (`topology.ts`), and `Utils`.
 - `src/transport/`: SSH and serial consoles.
 - `src/cli/`: the `circuit` command: its menu and commands (`index.ts`), the commands that read a project (`project-commands.ts`), `env` (`env.ts`), a new project (`setup.ts`), `rename` (`rename.ts`), the git hook (`git-hooks.ts`), updates (`releases.ts`), and how it talks to a person (`ui.ts`, with `@clack/prompts`). `editor-types.generated.ts` is written by `scripts/editor-types.ts`: the files Circuit puts in a project's `.circuit/types`.
 - `src/core/env-file.ts`: a project's `.env`, each value encrypted as dotenvx encrypts it (`@dotenvx/primitives`).
-- `scripts/`: `build.ts` makes `dist/circuit` (`circuit.exe` on Windows); `from-v0.ts` moves a 0.x device into the v1 model.
+- `src/studio/`: `circuit studio`. The server (`server.ts`) reads the project in a new Circuit process (`circuit studio-data`, `data.ts`), so it is always fresh, and serves the page. The page is a Vue 3 app in `app/`, built by Vite (`scripts/studio.ts`) and carried in the binary as `assets.generated.ts`, which git ignores and `bun install`, `bun run check` and `bun run build` write. The graph is drawn with Cytoscape. `types.ts` is what the server sends the page.
+- `scripts/`: `build.ts` makes `dist/circuit` (`circuit.exe` on Windows); `studio.ts` builds Studio's page; `from-v0.ts` moves a 0.x device into the v1 model.
 - `test/`: `test/platforms/<platform>-golden.test.ts` prove each platform renders 0.x's examples (moved to v1 by `scripts/from-v0.ts`, kept in `test/fixtures/v0/`) byte for byte as 0.x did. `test/project/examples.test.ts` writes them as a v1 project and checks the editor's types take every one. `test/platforms/fake-ssh.ts` is a fake device over SSH.
 - `docs/`: the documentation site, built with VitePress (`bun run docs:dev`, `bun run docs:build`): `guide/` (install, writing a project, the `circuit` command, secrets), `studio/`, `academy/` (Circuit Academy), `platforms/`, and `reference/`: [model.md](docs/reference/model.md) (the model) and [decisions.md](docs/reference/decisions.md) (the decisions that shaped v1). Its theme and diagrams are in `docs/.vitepress/theme/`, following `DESIGN.md` of Circuit 0.x.
 - `examples/`: whole example projects the docs and the Academy show; `test/project/example-projects.test.ts` checks each with TypeScript 6 and 7 and `circuit validate`.
@@ -84,7 +85,7 @@ Docs, comments, commit messages and replies to the owner:
 ## Checks and tools
 
 - `bun run check` runs typecheck, tests and the build. The pre-commit hook runs `bun run typecheck` and `bun run test`.
-- `bun run build` writes `src/cli/editor-types.generated.ts` from the sources, then compiles `dist/circuit` (`dist/circuit.exe` on Windows) with Bun inside. `bun scripts/build.ts --target=bun-linux-x64` builds for another system. A test fails when `editor-types.generated.ts` is not current.
+- `bun run build` writes `src/cli/editor-types.generated.ts` from the sources, builds Studio's page (`bun run studio`), then compiles `dist/circuit` (`dist/circuit.exe` on Windows) with Bun inside. `bun scripts/build.ts --target=bun-linux-x64` builds for another system. A test fails when `editor-types.generated.ts` is not current.
 - `bun src/cli/index.ts <command> --project <folder>` runs Circuit from the sources. Circuit writes a project's `.circuit/types` when it starts the project and whenever they are not its own; `bunx tsc --noEmit -p <folder>` then checks the project as the editor does.
 - A change to a platform keeps its golden test passing: every 0.x example renders as 0.x rendered it, byte for byte.
 

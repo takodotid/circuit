@@ -1,0 +1,17 @@
+{
+    // Studio's page: the browser's own types. Its .vue files are checked by Vite when it builds them.
+    "compilerOptions": {
+        "lib": ["ESNext", "DOM", "DOM.Iterable"],
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "types": [],
+        "strict": true,
+        "noEmit": true,
+        "skipLibCheck": true,
+        "verbatimModuleSyntax": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true
+    },
+    "include": ["env.d.ts", "src/**/*.ts"]
+}

@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { DefaultTheme, HeadConfig, PageData } from "vitepress";
-import { Academy } from "./academy";
+import { Academy } from "./academy.ts";
 
 type Site = {
     hostname: string;
