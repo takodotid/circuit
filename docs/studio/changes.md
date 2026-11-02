@@ -10,7 +10,6 @@ Studio can show your files now next to an earlier state of them: another branch,
     - devices added, removed, and those whose config changes, each with what it would run then and now, line by line;
     - lines of the graph added and gone, layer by layer;
     - what `circuit validate` finds that it did not find before, and what it no longer finds.
-4. **Show the changes in the graph** draws new lines in green and lines that are gone in red, dashed. **Stop comparing**, on the right, puts the graph back.
 
 Before you merge a pull request, compare its branch with `main` to see what it changes in the network, not only in the files.
 

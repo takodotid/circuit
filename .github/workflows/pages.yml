@@ -1,0 +1,60 @@
+name: pages
+
+# Builds the documentation site in docs/ and publishes it to GitHub Pages, served at circuit.tako.id, with latest.json and the installers beside it.
+#
+# It publishes only when run by hand or called by the release workflow, so the live site changes with a release. On a pull request or a push it only builds, to check the site still builds.
+
+on:
+    workflow_dispatch:
+    workflow_call:
+    pull_request:
+    push:
+        branches: [main, v1]
+
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+concurrency:
+    group: pages-${{ github.event_name }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            # The whole history, so each page's last-updated date, and the sitemap's, is the last commit that changed it.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: 1.4.4
+            - run: bun install --frozen-lockfile
+            - run: bun run docs:build
+
+            # What `curl -fsSL https://circuit.tako.id/install | sh` and `irm https://circuit.tako.id/install.ps1 | iex` download, and what every circuit reads to learn the newest version.
+            - name: installers and latest.json
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  cp scripts/install.sh docs/.vitepress/dist/install
+                  cp scripts/install.ps1 docs/.vitepress/dist/install.ps1
+                  bun scripts/latest.ts docs/.vitepress/dist/latest.json
+
+            - if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || github.event_name == 'release'
+              uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+              with:
+                  path: docs/.vitepress/dist
+
+    deploy:
+        needs: build
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || github.event_name == 'release'
+        runs-on: ubuntu-latest
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - id: deployment
+              uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

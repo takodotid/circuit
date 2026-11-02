@@ -1,34 +1,40 @@
 # Looking things up
 
-Next to the graph, the top bar has tables of everything in your files. You can read a network with them without reading TypeScript.
+Beside the graph, the top bar has tables of everything in your files. You can read a network with them without reading TypeScript.
 
-| View      | What it lists                                                                                                                                                                                                |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Devices   | Every device. Each has a page per part: ports, including those the config leaves shut; interfaces; VLANs; routing; policies; firewall; users and ways in; DHCP and flow export; and the config it would run. |
-| VLANs     | Every VLAN, the devices that declare it, its gateways, and the ports that carry it.                                                                                                                          |
-| Addresses | Every address in use, and what is free.                                                                                                                                                                      |
-| BGP       | Every session, with its group's settings filled in, and what is at the far end.                                                                                                                              |
-| Cables    | Every cable, with the VLANs it carries.                                                                                                                                                                      |
-| Problems  | Everything that needs a look: what `circuit validate` found, and what only one end declares. The top bar counts them.                                                                                        |
+| Tab       | What it lists                                                                           |
+| --------- | --------------------------------------------------------------------------------------- |
+| Devices   | Every device, with its platform, model and site. Each opens the device's page.          |
+| VLANs     | Every VLAN, the devices that have it, its gateways, and the ports that carry it.        |
+| Addresses | Every address in use, and what is free.                                                 |
+| BGP       | Every session, with what it takes from its group, and what is at the far end.           |
+| Cables    | Every cable, with the VLANs it carries.                                                 |
+| Problems  | What `circuit validate` found, and what only one end declares. The top bar counts them. |
 
 **Search** in the top bar finds a name, an address or any other value in any device, and opens the page that shows it.
 
-A column that shows a field, such as `remote_as`, has the field's name as its heading. Point at it to see what the field means: it is the same text your editor shows.
+A secret shows as its name, such as `secret("EDGE_01_PASSWORD")`, never as its value. Studio only reads. To change something, edit the file, and Studio shows the change when you save it.
 
-A secret shows as its name, such as `secret("EDGE_01_PASSWORD")`, never as its value. Studio only reads. To change something, edit the device's file, and Studio shows the change when you save it.
+## A device's page
 
-## What a device runs
+A device's page, such as `#devices/edge-01`, has a tab for each part of it:
 
-Studio keeps no copy of what a device runs. On a device's **Running** page, press **Read from the device now**: Studio logs in, reads what the device runs, and shows it next to what your files say, with the plan `circuit diff` would print. It reads only: nothing is sent. It needs the device's password, so it works where `circuit diff` works, with the key that decrypts `.env`.
+| Tab               | What it shows                                                                                                     |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Overview          | Its platform, model, site and file, and what `circuit validate` found on it.                                      |
+| Ports             | Its front panel, a square for each port of its model, colored by how the port is used, and a table of every port. |
+| Interfaces        | Its LAGs, VLAN interfaces, loopbacks and tunnels.                                                                 |
+| Switching         | Its VLANs, spanning tree, LLDP and ACLs.                                                                          |
+| Routing           | Its static routes, BGP, OSPF, policies and prefix sets.                                                           |
+| Firewall          | Its filter chains, NAT and address sets.                                                                          |
+| Management        | How people and tools log in.                                                                                      |
+| System            | Its users, time, DNS and logs.                                                                                    |
+| Config            | The configuration Circuit would send, in the vendor's own commands.                                               |
+| On the device now | What the device runs, read when you press **Read from the device now**, and what `apply` would send.              |
+| History           | The commits that changed the device's file. See [Reviewing changes](/studio/changes).                             |
 
-## A device's history
-
-A device's **History** page lists the commits that changed it. See [Reviewing changes](/studio/changes).
-
-## A device's ports
-
-A device's **Ports** page starts with its front panel: a square for each port of its model, by speed, colored by how the port is used. A dot marks a port linked to another of your devices. Click a square to find its row in the table below.
+Studio keeps no copy of what a device runs. **Read from the device now** logs in, reads it, and shows it beside your files with the plan `circuit diff` would print. It only reads: nothing is sent. It needs the device's password, so it works where `circuit diff` works, with the key that decrypts `.env`.
 
 ## Saving
 
-Each list can be saved for a spreadsheet with **Save as CSV** above it. On the graph, **Save image** saves the layer shown, as it looks, as an SVG or a PNG.
+Each table can be saved for a spreadsheet with **Save as CSV** above it. On the graph, **Save image** saves the layer shown as a PNG.

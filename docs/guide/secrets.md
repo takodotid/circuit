@@ -1,5 +1,7 @@
 # Secrets
 
+<img class="illustration" src="/illustrations/guide/secrets.webp" alt="A file of scrambled lines behind a padlock, its key kept apart on a card, and a line from the padlock to a router." width="1536" height="1024">
+
 A password, a BGP key or an SNMP community is never written in a device's file. The file names it, and its value is in `.env`, encrypted:
 
 ```ts

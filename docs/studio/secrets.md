@@ -4,13 +4,16 @@ The **Secrets** view lists every secret in the project's `.env`, the way `circui
 
 ## Seeing a value
 
-1. Open **Secrets**, and press **Show values**.
-2. Type the private key, the one in `.env.keys` or in 1Password.
-3. Studio shows each encrypted value, decrypted.
+1. Open **Secrets**.
+2. Type the key that decrypts `.env`, the one in `.env.keys` or in 1Password.
+3. Press **Show the values**. Studio shows each encrypted value, decrypted. **Hide them** hides them again.
 
-The values are decrypted in your browser. The key you type never goes to the Studio server, and Studio keeps neither the key nor the values: leave the page or reload it, and you type the key again.
+<img class="screenshot light" src="/screenshots/studio-secrets-light.png" alt="Studio's Secrets page: each secret's name and how it is kept, and the field for the key.">
+<img class="screenshot dark" src="/screenshots/studio-secrets-dark.png" alt="Studio's Secrets page: each secret's name and how it is kept, and the field for the key.">
 
-A value kept in 1Password shows where it is, such as **In 1Password: vault Network, item SNMP**, never the value itself.
+The values are decrypted in your browser: no value is sent to the page in plain text, and the key you type never goes to the Studio server. Studio keeps neither the key nor the values: leave the page or reload it, and you type the key again.
+
+A value kept in 1Password shows as **kept in 1Password**, never the value itself. A value written in plain text shows as **NOT ENCRYPTED**, with what to run.
 
 ## Changing a value
 

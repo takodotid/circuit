@@ -1,5 +1,7 @@
 # Install
 
+<img class="illustration" src="/illustrations/guide/install.webp" alt="A laptop with a terminal open, one line highlighted, leading to a new project folder with its files and a key." width="1536" height="1024">
+
 One command installs Circuit and starts your first project. Run it in a terminal, in the folder where the project should go.
 
 <InstallTabs />

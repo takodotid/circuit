@@ -11,14 +11,14 @@ Studio asks search engines to leave it out: every answer it sends has `X-Robots-
 ## The command
 
 ```bash
-circuit studio --host=0.0.0.0 --allow-host=studio.example.com --no-open
+circuit studio --host 0.0.0.0 --allow-host studio.example.com --no-open
 ```
 
-| Option         | What it does                                                                                                                                                                                                                                  |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--host`       | The address Studio listens on. `0.0.0.0` is every address the server has. `127.0.0.1` by default, this machine only.                                                                                                                          |
-| `--allow-host` | The names people reach Studio by, several with commas. Studio refuses a request for any other name. This stops a web page elsewhere from pointing a name of its own at your server and reading your network through it. Needed with `--host`. |
-| `--port`       | The port. `4600` by default.                                                                                                                                                                                                                  |
+| Option         | What it does                                                                                                                                                                                                                                                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--host`       | The address Studio listens on. `0.0.0.0` is every address the server has. `127.0.0.1` by default, this machine only.                                                                                                                                                                                       |
+| `--allow-host` | The names people reach Studio by, several separated by spaces. Studio refuses a request for any other name. This stops a web page elsewhere from pointing a name of its own at your server and reading your network through it. Without it, a request addressed by any name but this machine's is refused. |
+| `--port`       | The port. `4600` by default.                                                                                                                                                                                                                                                                               |
 
 Compare and a device's history need `git` on the server, and the copy of your repository needs its history: clone it, do not copy only its files.
 
@@ -49,7 +49,7 @@ This runs three containers: one keeps the copy of your repository pulled, one ru
                 sh -c "apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git &&
                 git config --global --add safe.directory '*' &&
                 curl -fsSL https://circuit.tako.id/install | CIRCUIT_NO_SETUP=1 sh &&
-                /root/.circuit/bin/circuit studio --host=0.0.0.0 --allow-host=studio.example.com --no-open"
+                /root/.circuit/bin/circuit studio --host 0.0.0.0 --allow-host studio.example.com --no-open"
             volumes:
                 - ./network:/network
             restart: unless-stopped

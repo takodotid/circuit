@@ -639,3 +639,12 @@ html:not(.dark) .vp-doc .screenshot.dark,
         display: block !important;
     }
 }
+
+/* A page's illustration: a cobalt plate in the style of the home page, as wide as the text, framed like a screenshot. */
+.vp-doc img.illustration {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 8px 0 28px;
+    border: 2px solid var(--circuit-ink);
+}

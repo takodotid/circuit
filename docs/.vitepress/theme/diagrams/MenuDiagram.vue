@@ -10,7 +10,7 @@ const entries = [
     { label: "Execute", hint: "run a command that only reads on a device" },
     { label: "BGP", hint: "each BGP session of a device" },
     { label: "Access console", hint: "a device's serial console" },
-    { label: "Studio", hint: "the network in your browser" },
+    { label: "Studio", hint: "the project in your browser" },
     { label: "Rename", hint: "give a device a new name everywhere" },
     { heading: "Secrets" },
     { label: "Secrets", hint: "list, set or delete the secrets in .env" },

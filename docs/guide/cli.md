@@ -54,13 +54,13 @@ It stops, and sends nothing, when more than 5% of the pings are lost or the aver
 
 ## Utilities
 
-| Command                             | What it does                                                                       |
-| ----------------------------------- | ---------------------------------------------------------------------------------- |
-| `exec [device] [command...]`        | Runs commands that only read on the device, and prints the answer. Also `execute`. |
-| `bgp [device]`                      | Each BGP neighbor next to its live session: up or down and why, prefixes, uptime.  |
-| `access-console [device] [line...]` | Opens the device's serial console, logged in, or sends it lines.                   |
-| `studio`                            | Opens [Circuit Studio](/studio/): the network in your browser.                     |
-| `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.      |
+| Command                             | What it does                                                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `exec [device] [command...]`        | Runs commands that only read on the device, and prints the answer. Also `execute`.                              |
+| `bgp [device]`                      | Each BGP neighbor next to its live session: up or down and why, prefixes, uptime.                               |
+| `access-console [device] [line...]` | Opens the device's serial console, logged in, or sends it lines.                                                |
+| `studio`                            | Opens [Circuit Studio](/studio/): the project in your browser. `--port`, `--host`, `--allow-host`, `--no-open`. |
+| `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.                                   |
 
 ### exec: commands that only read
 
