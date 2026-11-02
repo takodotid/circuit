@@ -1,0 +1,17 @@
+{
+    "name": "circuit-docs",
+    "private": true,
+    "type": "module",
+    "description": "The documentation site, circuit.tako.id. Its own package, so VitePress 1 keeps the vite it was made for, apart from Studio's.",
+    "scripts": {
+        "dev": "vitepress dev",
+        "build": "vitepress build",
+        "preview": "vitepress preview"
+    },
+    "devDependencies": {
+        "vitepress": "1.6.4"
+    },
+    "overrides": {
+        "vite": "6.4.5"
+    }
+}

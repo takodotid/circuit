@@ -33,9 +33,9 @@
         "studio": "bun scripts/studio.ts",
         "format": "bunx prettier --write .",
         "format:check": "bunx prettier --check .",
-        "docs:dev": "vitepress dev docs",
-        "docs:build": "vitepress build docs",
-        "docs:preview": "vitepress preview docs",
+        "docs:dev": "bun install --cwd docs && bun run --cwd docs dev",
+        "docs:build": "bun install --cwd docs --frozen-lockfile && bun run --cwd docs build",
+        "docs:preview": "bun run --cwd docs preview",
         "check": "bun run studio && bun run typecheck && bun run test && bun run format:check && bun run build",
         "prepare": "bun run studio; husky || true"
     },
@@ -60,7 +60,6 @@
         "typescript": "^7.0.2",
         "typescript-6": "npm:typescript@6.0.3",
         "vite": "8.3.5",
-        "vitepress": "2.0.0-alpha.21",
         "vue": "3.5.44"
     },
     "packageManager": "bun@1.4.4"
