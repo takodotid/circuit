@@ -1,6 +1,6 @@
 name: pages
 
-# Builds the documentation site in docs/ and publishes it to GitHub Pages, served at circuit.tako.id, with latest.json and the installers beside it.
+# Builds the documentation site in docs/ and publishes it to GitHub Pages, served at circuit.tako.id, with the installers beside it.
 #
 # It publishes only when run by hand or called by the release workflow, so the live site changes with a release. On a pull request or a push it only builds, to check the site still builds.
 
@@ -32,13 +32,8 @@ jobs:
               with:
                   bun-version: 1.4.4
             - run: bun install --frozen-lockfile
+            # The installers are in docs/public, so the site serves them at /install and /install.ps1.
             - run: bun run docs:build
-
-            # The installers are in docs/public, so the build already carries them. latest.json is what every circuit reads to learn the newest version.
-            - name: latest.json
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: bun scripts/latest.ts docs/.vitepress/dist/latest.json
 
             - if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || github.event_name == 'release'
               uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
