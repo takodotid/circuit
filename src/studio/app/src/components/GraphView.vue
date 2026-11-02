@@ -95,7 +95,25 @@ function fit(): void {
 }
 
 function layOut(): void {
-    graph?.layout({ name: "cose", animate: false, fit: false, nodeRepulsion: () => 12000, idealEdgeLength: () => 140 }).run();
+    // From a circle rather than random places, so the same network is drawn the same way each time.
+    graph?.layout({ name: "circle", animate: false, fit: false }).run();
+    // Boxes are wide, so they push hard and keep a gap, or they land on each other and on the lines' labels.
+    graph
+        ?.layout({
+            name: "cose",
+            animate: false,
+            fit: false,
+            randomize: false,
+            nodeRepulsion: () => 160000,
+            nodeOverlap: 40,
+            nodeDimensionsIncludeLabels: true,
+            idealEdgeLength: () => 55,
+            edgeElasticity: () => 200,
+            gravity: 2.5,
+            numIter: 3000,
+            componentSpacing: 140,
+        })
+        .run();
     fit();
     remember();
 }
