@@ -7,6 +7,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Setup } from "../../src/cli/setup";
 import { EditorTypes } from "../../src/cli/editor-types";
+import { VERSION } from "../../src/cli/version";
+import { Versions } from "../../src/cli/versions";
 import { EnvFile } from "../../src/core/env-file";
 import { readProject } from "../../src/project/project";
 
@@ -44,12 +46,18 @@ test("the project's files are written", () => {
         ".env.keys",
         "tenants/README.md",
         ".circuit/hooks/pre-commit",
+        ".circuit-version",
+        ".prettierrc.json",
+        ".editorconfig",
+        ".vscode/settings.json",
+        ".vscode/extensions.json",
     ]) {
         expect(existsSync(join(root, file))).toBe(true);
     }
 
     expect(readFileSync(join(root, "circuit.ts"), "utf8")).toContain("export const as64500 = circuit({");
     expect(EditorTypes.current(root)).toBe(true);
+    expect(Versions.pinned(root)).toBe(VERSION);
 });
 
 test(".env is encrypted and committed; its key is kept out of git", () => {

@@ -4,7 +4,8 @@
 #   curl -fsSL https://circuit.tako.id/install | sh
 #
 # Circuit goes in ~/.local/bin, like an app; that folder is added to PATH when it is not there yet. Run it again to update.
-# Then, in a folder with a project (circuit.ts), the project is set up as it is; anywhere else, Circuit offers to start one.
+# It asks before updating an app already there. A project in this folder (circuit.ts) is set up as it is; anywhere else, Circuit offers to start one.
+# Answer no to the first question for a full install: Circuit stays inside one new project, run with Bun, and nothing goes on PATH.
 #
 # CIRCUIT_VERSION=1.0.0 installs that version. CIRCUIT_NO_SETUP=1 installs only. `circuit uninstall` removes it.
 
@@ -52,22 +53,24 @@ if [ -z "$version" ]; then
     [ -n "$version" ] || fail "npm names no version of Circuit 1 yet"
 fi
 
-target="$BIN_DIR/circuit"
-installed=""
-[ -x "$target" ] && installed="$("$target" --version 2>/dev/null || true)"
+tty() { [ -t 1 ] && [ -r /dev/tty ]; }
 
-if [ "$installed" = "$version" ]; then
-    printf 'Circuit %s is installed already.\n' "$version"
-else
-    if [ -n "$installed" ]; then
-        printf 'Updating Circuit %s to %s\n' "$installed" "$version"
-    else
-        printf 'Installing Circuit %s\n' "$version"
-    fi
+# A yes or no question on the terminal. $2 is the answer an Enter gives. Without a terminal, the default.
+ask() {
+    if ! tty; then [ "$2" = yes ]; return; fi
+    if [ "$2" = yes ]; then hint="Y/n"; else hint="y/N"; fi
+    printf '%s [%s] ' "$1" "$hint" >/dev/tty
+    read -r answer </dev/tty || answer=""
+    case "$answer" in
+        y | Y | yes | Yes | YES) return 0 ;;
+        n | N | no | No | NO) return 1 ;;
+        *) [ "$2" = yes ] ;;
+    esac
+}
 
+# Download the binary for this system to $1, checked against the release's SHA256SUMS.
+download() {
     work="$(mktemp -d)"
-    trap 'rm -rf "$work"' EXIT
-
     base="https://github.com/$REPO/releases/download/v$version"
     curl -fsSL --retry 3 -o "$work/$asset" "$base/$asset" || fail "could not download $asset for Circuit $version"
     curl -fsSL --retry 3 -o "$work/SHA256SUMS" "$base/SHA256SUMS" || fail "could not download the checksums of Circuit $version"
@@ -80,9 +83,40 @@ else
     fi
     [ -n "$expected" ] && [ "$expected" = "$actual" ] || fail "$asset does not match the release's SHA256SUMS"
 
-    mkdir -p "$BIN_DIR"
+    mkdir -p "$(dirname "$1")"
     chmod +x "$work/$asset"
-    mv "$work/$asset" "$target"
+    mv "$work/$asset" "$1"
+    rm -rf "$work"
+}
+
+target="$BIN_DIR/circuit"
+installed=""
+[ -x "$target" ] && installed="$("$target" --version 2>/dev/null || true)"
+
+# A full install keeps Circuit inside one new project, run with Bun: nothing goes on PATH. Offered only where no app is installed and no project is.
+if [ -z "$installed" ] && [ ! -f circuit.ts ] && [ "${CIRCUIT_NO_SETUP:-}" != 1 ] && tty; then
+    if ! ask "Install Circuit as an app? Answer no to keep it inside one new project only, run with Bun." yes; then
+        once="$(mktemp -d)/circuit"
+        download "$once"
+        "$once" new --full </dev/tty
+        rm -rf "$(dirname "$once")"
+        exit 0
+    fi
+fi
+
+if [ "$installed" = "$version" ]; then
+    printf 'Circuit %s is installed already.\n' "$version"
+elif [ -n "$installed" ]; then
+    # Updating the app changes no project: each runs the version in its .circuit-version.
+    if ask "Circuit $installed is installed. Update the app to $version? Your projects keep the version they pin." no; then
+        download "$target"
+        printf 'Circuit %s is installed.\n' "$version"
+    else
+        printf 'Kept Circuit %s.\n' "$installed"
+    fi
+else
+    printf 'Installing Circuit %s\n' "$version"
+    download "$target"
 fi
 
 # PATH: the shell's own startup file, once, with a marker so `circuit uninstall` can take the line out again.
@@ -105,7 +139,11 @@ case ":$PATH:" in
         ;;
 esac
 
-# The project's questions need the terminal: this script's own input is the download.
-if [ "${CIRCUIT_NO_SETUP:-}" != 1 ] && [ -t 1 ] && [ -r /dev/tty ]; then
+[ "${CIRCUIT_NO_SETUP:-}" = 1 ] && exit 0
+
+# A project here, such as a fresh clone, is set up as it is. Anywhere else, Circuit offers to start one.
+if [ -f circuit.ts ]; then
     "$target" setup </dev/tty
+elif tty && ask "Start a new Circuit project now?" no; then
+    "$target" new </dev/tty
 fi

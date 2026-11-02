@@ -11,7 +11,9 @@ import { GitHooks } from "./git-hooks";
 import { Migrate } from "./migrate";
 import { ProjectCommands } from "./project-commands";
 import { Releases } from "./releases";
+import { Format } from "./format";
 import { Setup } from "./setup";
+import { Versions } from "./versions";
 import { type Choice, Ui } from "./ui";
 import { VERSION } from "./version";
 
@@ -21,6 +23,9 @@ class Cli {
     private static readonly PROJECT_HELP =
         "the project's folder; by default the working directory, or the nearest folder above it with circuit.ts";
 
+    /** Commands the installed app runs itself, whatever version a project pins. */
+    private static readonly APP_COMMANDS = new Set(["update", "uninstall", "new"]);
+
     /** Commands that run before, or without, the version check. */
     private static readonly UNCHECKED = new Set(["update", "uninstall", "studio-data", "help", "--help", "-h", "--version", "-V"]);
 
@@ -29,7 +34,12 @@ class Cli {
         Releases.tidy();
 
         const command = argv[0];
-        if (command !== "update" && command !== "uninstall" && command !== "setup") Cli.runLocal(argv);
+        if (!Cli.APP_COMMANDS.has(command ?? "")) {
+            Cli.runLocal(argv);
+            const at = argv.indexOf("--project");
+            const root = ProjectCommands.find(at >= 0 ? argv[at + 1] : undefined);
+            if (root) await Versions.runPinned(root, argv);
+        }
         if (!command || !Cli.UNCHECKED.has(command)) await Releases.gate();
 
         const program = Cli.program();
@@ -186,6 +196,20 @@ class Cli {
                 (await ProjectCommands.open(flags.project)).rename(device, name, flags.file, flags.confirm ?? false)
             );
 
+        program
+            .command("fmt")
+            .description("write the project's files in Circuit's style (Prettier, set by .prettierrc.json)")
+            .argument("[file...]", "every TypeScript file of the project when left out")
+            .option("--check", "change nothing; fail when a file is not in the style")
+            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
+            .action(async (files, flags) =>
+                Format.run(
+                    ProjectCommands.find(flags.project) ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it."),
+                    files,
+                    flags.check ?? false
+                )
+            );
+
         program.commandsGroup("Secrets:");
 
         const secret = program.command("secret").description("the project's secrets in .env, each one encrypted");
@@ -230,8 +254,17 @@ class Cli {
 
         program
             .command("update")
-            .description("install the newest Circuit, and the project's pinned one in a full install")
-            .action(async () => Cli.update());
+            .description("in a project, move it to the newest Circuit of its major version; elsewhere, update the app")
+            .option("--app", "update the installed app, even in a project")
+            .option("--confirm", "update without asking")
+            .action(async (flags) => Cli.update(flags.app ?? false, flags.confirm ?? false));
+
+        program
+            .command("new")
+            .description("start a new project")
+            .argument("[folder]", "asked for when left out")
+            .option("--full", "Circuit as a package in the project, run with bun circuit")
+            .action(async (folder, flags) => Setup.run(folder, { existing: "refuse", ...(flags.full ? { kind: "full" as const } : {}) }));
 
         program
             .command("uninstall")
@@ -250,9 +283,9 @@ class Cli {
 
         program
             .command("setup", { hidden: true })
-            .description("start a new project, as the installer does")
+            .description("what the installer runs: set up the project in a folder, or offer to start one")
             .argument("[folder]")
-            .action(async (folder) => Setup.run(folder));
+            .action(async (folder) => Setup.run(folder, { existing: "ready" }));
 
         program
             .command("studio-data", { hidden: true })
@@ -309,13 +342,27 @@ class Cli {
     }
 
     /** Update this Circuit, then the one a full install pins in the project here, to the same version. */
-    private static async update(): Promise<void> {
-        const installed = await Releases.update();
+    /** In a project: move it to the newest version of its major, once the person says yes. Elsewhere, or with `--app`: update the app. */
+    private static async update(app: boolean, confirmed: boolean): Promise<void> {
         const root = ProjectCommands.find();
-        if (!installed || !root || !Setup.pinned(root)) return;
+        if (app || !root) {
+            await Releases.updateApp(confirmed);
+            return;
+        }
 
-        await Ui.step(`Pinning Circuit ${installed} in the project`, async () => {
-            const result = spawnSync("bun", ["add", "--dev", "--exact", `${Setup.PACKAGE}@${installed}`], {
+        const packaged = Setup.pinned(root);
+        if (!packaged) {
+            await Versions.updateProject(root, confirmed);
+            return;
+        }
+
+        // A full install pins Circuit in package.json.
+        const target = await Releases.newer(packaged.replace(/^[\^~]/, ""));
+        if (!target) return Ui.done(`This project runs Circuit ${packaged}, the newest of its major version.`);
+        if (!confirmed && !(await Ui.confirm(`Move this project from Circuit ${packaged} to ${target}?`))) return;
+
+        await Ui.step(`Pinning Circuit ${target} in package.json`, async () => {
+            const result = spawnSync("bun", ["add", "--dev", "--exact", `${Setup.PACKAGE}@${target}`], {
                 cwd: root,
                 encoding: "utf8",
                 shell: process.platform === "win32",
@@ -345,7 +392,7 @@ class Cli {
 
         if (!ProjectCommands.find()) {
             const choice = await Ui.select("No Circuit project in this folder. What do you want to do?", [
-                { value: "setup", label: "Start a new project here" },
+                { value: "new", label: "Start a new project" },
                 { value: "update", label: "Update Circuit" },
                 { value: "uninstall", label: "Uninstall Circuit", hint: "your projects stay" },
                 { value: "exit", label: "Exit" },
@@ -366,6 +413,7 @@ class Cli {
             { value: "access-console", label: "Access console", hint: "a device's serial console" },
             { value: "studio", label: "Studio", hint: "the project in your browser" },
             { value: "rename", label: "Rename", hint: "give a device a new name everywhere" },
+            { value: "fmt", label: "Format", hint: "write every file in Circuit's style" },
             heading("Secrets"),
             { value: "secret", label: "Secrets", hint: "list, set or delete the secrets in .env" },
             heading("Circuit"),

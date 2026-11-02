@@ -171,44 +171,56 @@ export class Releases {
         if (binary) rmSync(`${binary}.old`, { force: true });
     }
 
-    /** Download the version this Circuit should be at, check it against the release's checksums, and put it in place of this one. */
-    static async update(): Promise<string | undefined> {
+    /** One release's binary for this system, checked against the release's SHA256SUMS. */
+    static async fetchBinary(version: string): Promise<Buffer> {
+        const asset = Releases.asset() ?? Ui.fail(`Circuit is not built for ${process.platform} ${process.arch}.`);
+        const download = async (file: string) => {
+            const response = await fetch(`${Releases.DOWNLOADS}/v${version}/${file}`);
+            if (!response.ok) throw new Error(`${file} of Circuit ${version}: GitHub answered ${response.status}`);
+            return Buffer.from(await response.arrayBuffer());
+        };
+
+        const [file, sums] = await Promise.all([download(asset), download("SHA256SUMS")]);
+        const expected = sums
+            .toString("utf8")
+            .split("\n")
+            .find((line) => line.trim().endsWith(` ${asset}`) || line.trim().endsWith(`*${asset}`))
+            ?.split(/\s+/)[0];
+        const actual = createHash("sha256").update(file).digest("hex");
+        if (!expected || expected !== actual) throw new Error(`${asset} does not match the release's SHA256SUMS, so it was not installed`);
+
+        return file;
+    }
+
+    /** The newest version of this major, from the registry, or a stop when the registry can't be read. Undefined when `current` is the newest. */
+    static async newer(current: string): Promise<string | undefined> {
         const { latest, offline } = await Ui.step("Checking for a newer Circuit", () => Releases.latest(true));
         if (!latest || offline)
             Ui.fail("Could not reach the npm registry to learn the newest Circuit. Check the internet connection and try again.");
 
-        const target = Releases.target(latest);
-        if (!target || Releases.compare(VERSION, target) >= 0) {
+        const target = Releases.target(latest, current);
+        return target && Releases.compare(current, target) < 0 ? target : undefined;
+    }
+
+    /** Update the installed app, once the person says yes. Projects keep their own version (`.circuit-version`), so this changes none of them. */
+    static async updateApp(confirmed: boolean): Promise<string | undefined> {
+        const target = await Releases.newer(VERSION);
+        if (!target) {
             Ui.done(`Circuit ${VERSION} is the newest.`);
             return undefined;
         }
 
         const binary =
-            Releases.binary() ?? Ui.fail(`This Circuit runs from its sources. Update it where it came from, such as with git pull.`);
-        const asset = Releases.asset() ?? Ui.fail(`Circuit is not built for ${process.platform} ${process.arch}.`);
+            Releases.binary() ?? Ui.fail("This Circuit runs from its sources. Update it where it came from, such as with git pull.");
+        if (
+            !confirmed &&
+            !(await Ui.confirm(`Update the Circuit app from ${VERSION} to ${target}? Your projects keep the version they pin.`))
+        )
+            return undefined;
 
-        const bytes = await Ui.step(`Downloading Circuit ${target}`, async () => {
-            const download = async (file: string) => {
-                const response = await fetch(`${Releases.DOWNLOADS}/v${target}/${file}`);
-                if (!response.ok) throw new Error(`${file}: GitHub answered ${response.status}`);
-                return Buffer.from(await response.arrayBuffer());
-            };
-
-            const [file, sums] = await Promise.all([download(asset), download("SHA256SUMS")]);
-            const expected = sums
-                .toString("utf8")
-                .split("\n")
-                .find((line) => line.trim().endsWith(` ${asset}`) || line.trim().endsWith(`*${asset}`))
-                ?.split(/\s+/)[0];
-            const actual = createHash("sha256").update(file).digest("hex");
-            if (!expected || expected !== actual)
-                throw new Error(`${asset} does not match the release's SHA256SUMS, so it was not installed`);
-
-            return file;
-        });
-
+        const bytes = await Ui.step(`Downloading Circuit ${target}`, () => Releases.fetchBinary(target));
         Releases.replace(binary, bytes);
-        Ui.done(`Circuit ${target} is installed. A project's editor types are written again the next time you run circuit in it.`);
+        Ui.done(`The Circuit app is ${target} now.`);
         return target;
     }
 

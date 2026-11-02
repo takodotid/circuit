@@ -3,7 +3,8 @@
 #   irm https://circuit.tako.id/install.ps1 | iex
 #
 # Circuit goes in %LOCALAPPDATA%\Programs\Circuit, like an app: added to your PATH and listed in Settings > Apps. Run it again to update.
-# Then, in a folder with a project (circuit.ts), the project is set up as it is; anywhere else, Circuit offers to start one.
+# It asks before updating an app already there. A project in this folder (circuit.ts) is set up as it is; anywhere else, Circuit offers to start one.
+# Answer no to the first question for a full install: Circuit stays inside one new project, run with Bun, and nothing goes on PATH.
 #
 # $env:CIRCUIT_VERSION = "1.0.0" installs that version. $env:CIRCUIT_NO_SETUP = "1" installs only. `circuit uninstall` removes it.
 
@@ -38,15 +39,22 @@ if (-not $version) {
 $installed = ""
 if (Test-Path $target) { try { $installed = (& $target --version 2>$null | Select-Object -First 1) } catch {} }
 
-if ($installed -eq $version) {
-    Write-Host "Circuit $version is installed already."
-}
-else {
-    if ($installed) { Write-Host "Updating Circuit $installed to $version" } else { Write-Host "Installing Circuit $version" }
+$interactive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
 
+# A yes or no question. $default is the answer an Enter gives; without a person to answer, the default.
+function Ask($question, [bool]$default) {
+    if (-not $interactive) { return $default }
+    $hint = if ($default) { "Y/n" } else { "y/N" }
+    $answer = Read-Host "$question [$hint]"
+    if ($answer -match '^(y|yes)$') { return $true }
+    if ($answer -match '^(n|no)$') { return $false }
+    return $default
+}
+
+# Download circuit.exe to $destination, checked against the release's SHA256SUMS.
+function Get-Circuit($destination) {
     $work = Join-Path ([IO.Path]::GetTempPath()) ("circuit-" + [Guid]::NewGuid())
     New-Item -ItemType Directory -Force $work | Out-Null
-
     try {
         $base = "https://github.com/$repo/releases/download/v$version"
         try {
@@ -60,18 +68,47 @@ else {
         $actual = (Get-FileHash -Algorithm SHA256 (Join-Path $work $asset)).Hash.ToLower()
         if (-not $expected -or $expected -ne $actual) { Stop-Install "$asset does not match the release's SHA256SUMS." }
 
-        New-Item -ItemType Directory -Force $folder | Out-Null
-
+        New-Item -ItemType Directory -Force (Split-Path $destination) | Out-Null
         # A running circuit.exe cannot be overwritten, but it can be renamed; circuit removes the old file on its next run.
-        if (Test-Path $target) {
-            Remove-Item -Force "$target.old" -ErrorAction SilentlyContinue
-            Rename-Item $target "circuit.exe.old"
+        if (Test-Path $destination) {
+            Remove-Item -Force "$destination.old" -ErrorAction SilentlyContinue
+            Rename-Item $destination ((Split-Path $destination -Leaf) + ".old")
         }
-        Move-Item (Join-Path $work $asset) $target
+        Move-Item (Join-Path $work $asset) $destination
     }
     finally {
         Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
     }
+}
+
+# A full install keeps Circuit inside one new project, run with Bun: nothing goes on PATH. Offered only where no app is installed and no project is.
+if (-not $installed -and -not (Test-Path "circuit.ts") -and $env:CIRCUIT_NO_SETUP -ne "1" -and $interactive) {
+    if (-not (Ask "Install Circuit as an app? Answer no to keep it inside one new project only, run with Bun." $true)) {
+        $once = Join-Path ([IO.Path]::GetTempPath()) ("circuit-once-" + [Guid]::NewGuid() + "\circuit.exe")
+        Get-Circuit $once
+        & $once new --full
+        Remove-Item -Recurse -Force (Split-Path $once) -ErrorAction SilentlyContinue
+        return
+    }
+}
+
+if ($installed -eq $version) {
+    Write-Host "Circuit $version is installed already."
+}
+elseif ($installed) {
+    # Updating the app changes no project: each runs the version in its .circuit-version.
+    if (Ask "Circuit $installed is installed. Update the app to $version? Your projects keep the version they pin." $false) {
+        Get-Circuit $target
+        Write-Host "Circuit $version is installed."
+    }
+    else {
+        Write-Host "Kept Circuit $installed."
+        $version = $installed
+    }
+}
+else {
+    Write-Host "Installing Circuit $version"
+    Get-Circuit $target
 }
 
 # Settings > Apps lists Circuit, with an uninstall that runs `circuit uninstall`.
@@ -94,4 +131,8 @@ if (-not (($userPath -split ";") -contains $folder)) {
 }
 if (-not (($env:Path -split ";") -contains $folder)) { $env:Path = "$env:Path;$folder" }
 
-if ($env:CIRCUIT_NO_SETUP -ne "1") { & $target setup }
+if ($env:CIRCUIT_NO_SETUP -eq "1") { return }
+
+# A project here, such as a fresh clone, is set up as it is. Anywhere else, Circuit offers to start one.
+if (Test-Path "circuit.ts") { & $target setup }
+elseif (Ask "Start a new Circuit project now?" $false) { & $target new }

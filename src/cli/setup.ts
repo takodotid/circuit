@@ -7,7 +7,9 @@ import { EnvFile, type KeyStore, OnePassword } from "../core/env-file";
 import { EditorTypes } from "./editor-types";
 import { GitHooks } from "./git-hooks";
 import { Ui } from "./ui";
+import { Format } from "./format";
 import { VERSION } from "./version";
+import { Versions } from "./versions";
 
 export const GENERATED_README = `# Written by Circuit
 
@@ -61,18 +63,24 @@ export class Setup {
         const hooks = GitHooks.install(root);
         if (hooks) Ui.done(`${hooks[0]!.toUpperCase()}${hooks.slice(1)}.`);
 
+        if (!Setup.pinned(root) && !Versions.pinned(root)) {
+            Versions.pin(root, VERSION);
+            Ui.done(`Pinned this project to Circuit ${VERSION} in ${Versions.FILE}. Commit it.`);
+        }
+
         const plain = new EnvFile(root).plaintext();
         if (plain.length) Ui.warn(`.env holds ${plain.join(", ")} in plain text. Run circuit secret encrypt before you commit.`);
     }
 
     /** Ask how to set up a new project, then set it up. */
-    static async ask(folder?: string): Promise<ProjectSetup> {
+    static async ask(folder?: string, chosen?: ProjectSetup["kind"]): Promise<ProjectSetup> {
         Ui.intro("A new Circuit project");
 
         const name =
             folder ??
             (await Ui.text("Project folder", {
-                initial: "network",
+                // An empty folder takes the project itself; elsewhere, a new folder in it.
+                initial: readdirSync(process.cwd()).length ? "network" : ".",
                 check: (value) => {
                     if (!value.trim()) return "Type a folder name.";
                     const path = resolve(process.cwd(), value.trim());
@@ -80,10 +88,12 @@ export class Setup {
                 },
             }));
 
-        const kind = await Ui.select<ProjectSetup["kind"]>("How should this project run Circuit?", [
-            { value: "simple", label: "Simple (recommended)", hint: "the circuit command alone, nothing else to install" },
-            { value: "full", label: "Full", hint: "Circuit as a package in the project, its version pinned for the whole team" },
-        ]);
+        const kind =
+            chosen ??
+            (await Ui.select<ProjectSetup["kind"]>("How should this project run Circuit?", [
+                { value: "simple", label: "Simple (recommended)", hint: "the circuit app, its version pinned in .circuit-version" },
+                { value: "full", label: "Full", hint: "Circuit as a package in the project, run with bun circuit" },
+            ]));
 
         if (kind === "full") {
             await Ui.select("Runtime", [
@@ -172,6 +182,8 @@ export const as${setup.asn} = circuit({
             );
             writeFileSync(join(root, ".gitignore"), GITIGNORE);
             writeFileSync(join(root, "tsconfig.json"), EditorTypes.TSCONFIG);
+            Setup.writeEditor(root);
+            if (setup.kind === "simple") Versions.pin(root, VERSION);
             EditorTypes.write(root);
             writeFileSync(join(root, ".circuit", "README.md"), GENERATED_README);
             EnvFile.create(root, setup.keys);
@@ -214,13 +226,14 @@ export const as${setup.asn} = circuit({
                 ? "The key that decrypts .env is in .env.keys: keep a copy in your password manager, and share it with your team there."
                 : "The key that decrypts .env is in 1Password. Your team reads it from there.";
 
+        const run = setup.kind === "full" ? "bun circuit" : "circuit";
         return [
-            `cd ${setup.folder}`,
+            ...(setup.folder === "." ? [] : [`cd ${setup.folder}`]),
             "Add a site in circuit.ts, then a device in sites/<site>/<device>.ts. Your editor completes each field.",
-            "circuit secret set NAME  a secret, such as a device password, encrypted",
-            "circuit validate         check the project",
-            "circuit diff <device>    what would change on the device",
-            "circuit apply <device>   make the device match",
+            `${run} secret set NAME  a secret, such as a device password, encrypted`,
+            `${run} validate         check the project`,
+            `${run} diff <device>    what would change on the device`,
+            `${run} apply <device>   make the device match`,
             "",
             keyNote,
             `Read more at https://circuit.tako.id. Project: ${root}`,
@@ -228,17 +241,18 @@ export const as${setup.asn} = circuit({
     }
 
     /** The whole of a new project: ask, create, and say what is next. */
-    static async run(folder?: string): Promise<void> {
+    static async run(folder: string | undefined, options: { existing: "ready" | "refuse"; kind?: ProjectSetup["kind"] }): Promise<void> {
         // In a project already, such as a fresh clone: set it up as it is, with no questions.
         const here = resolve(process.cwd(), folder ?? ".");
         if (existsSync(join(here, "circuit.ts"))) {
+            if (options.existing === "refuse") Ui.fail(`${here} holds a project already. Pick another folder.`);
             await Setup.ready(here);
             return;
         }
 
         if (!Ui.interactive) Ui.fail("Starting a project asks a few questions, so it needs a terminal.");
 
-        const setup = await Setup.ask(folder);
+        const setup = await Setup.ask(folder, options.kind);
         const root = await Setup.create(setup);
 
         Ui.note(Setup.nextSteps(root, setup), "Next");
@@ -257,6 +271,30 @@ export const as${setup.asn} = circuit({
         }
 
         Ui.done(`${root} is ready. Run circuit in it.`);
+    }
+
+    /** The editor's settings: Circuit's style for the formatter, and format on save in VS Code with the Prettier extension, the same style `circuit fmt` writes. A file the project has already is kept. */
+    static writeEditor(root: string): void {
+        const json = (value: unknown) => `${JSON.stringify(value, null, 4)}\n`;
+        const files: Record<string, string> = {
+            ".prettierrc.json": json(Format.STYLE),
+            ".editorconfig":
+                "root = true\n\n[*]\ncharset = utf-8\nend_of_line = lf\ninsert_final_newline = true\nindent_style = space\nindent_size = 4\n",
+            ".vscode/settings.json": json({
+                "editor.formatOnSave": true,
+                "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+                "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+                "files.eol": "\n",
+            }),
+            ".vscode/extensions.json": json({ recommendations: ["esbenp.prettier-vscode"] }),
+        };
+
+        for (const [file, text] of Object.entries(files)) {
+            const path = join(root, file);
+            if (existsSync(path)) continue;
+            mkdirSync(join(path, ".."), { recursive: true });
+            writeFileSync(path, text);
+        }
     }
 
     /** The version pinned in a full install's package.json, if the project has one. */
