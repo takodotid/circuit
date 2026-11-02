@@ -10,8 +10,8 @@ type DecisionId = "asn" | "port";
 type Decision = { id: DecisionId; question: string; choices: Choice[] };
 
 const MEMBERS = [
-    { member: "member-a", asn: "AS64510", port: "ix-sw-01 40g-1" },
-    { member: "member-b", asn: "AS64511", port: "ix-sw-02 40g-1" },
+    { member: "cloudflare", asn: "AS64510", port: "ix-sw-01 40g-1" },
+    { member: "google", asn: "AS64511", port: "ix-sw-02 40g-1" },
 ];
 
 const decisions: Decision[] = [
@@ -20,16 +20,16 @@ const decisions: Decision[] = [
         question: "1. Its AS number",
         choices: [
             {
-                id: "64512",
-                label: "64512, from its application",
+                id: "54113",
+                label: "54113, from its application",
                 verdict: "good",
                 text: "The AS the member gave, and no other member has it.",
             },
             {
-                id: "64510",
-                label: "64510",
+                id: "13335",
+                label: "13335",
                 verdict: "bad",
-                text: "A slip of the keyboard: that is member-a's AS. Here it is only in the port's description, so Circuit cannot tell it is wrong, but the NOC would look up the wrong network. Check it against the application.",
+                text: "A slip of the keyboard: that is cloudflare's AS. Here it is only in the port's description, so Circuit cannot tell it is wrong, but the NOC would look up the wrong network. Check it against the application.",
             },
         ],
     },
@@ -42,7 +42,7 @@ const decisions: Decision[] = [
                 id: "40g-1",
                 label: "40g-1",
                 verdict: "bad",
-                text: "member-b's port. Two members cannot share one port: the newcomer's router would have nowhere to plug in.",
+                text: "google's port. Two members cannot share one port: the newcomer's router would have nowhere to plug in.",
             },
             {
                 id: "40g-5",
@@ -68,7 +68,7 @@ function pick(decision: Decision, choice: Choice) {
 const decidedCount = computed(() => decisions.filter((decision) => picked.value[decision.id]).length);
 
 const chosen = computed(() => ({
-    asn: picked.value.asn ?? "64512",
+    asn: picked.value.asn ?? "54113",
     port: picked.value.port ?? "10g-2",
 }));
 
@@ -76,10 +76,10 @@ const file = computed(() =>
     [
         'import { ix_1 } from "../sites/ix-1/site";',
         "",
-        "export const member_c = {",
+        "export const fastly = {",
         "    parts: {",
         '        "ix-sw-02": part("device", {',
-        `            interfaces: { ethernet: { "${chosen.value.port}": { ...ix_1.member_port, description: "member-c, AS${chosen.value.asn}" } } },`,
+        `            interfaces: { ethernet: { "${chosen.value.port}": { ...ix_1.member_port, description: "fastly, AS${chosen.value.asn}" } } },`,
         "        }),",
         "    },",
         "};",
@@ -132,7 +132,7 @@ const outcome = computed(() => {
                 </tbody>
             </table>
         </div>
-        <p class="note">On ix-sw-02, member-b has 40g-1, and 40g-5 is the trunk to ix-sw-01.</p>
+        <p class="note">On ix-sw-02, google has 40g-1, and 40g-5 is the trunk to ix-sw-01.</p>
 
         <p class="progress">{{ decidedCount }} of {{ decisions.length }} decided</p>
 
@@ -161,7 +161,7 @@ const outcome = computed(() => {
             </p>
         </fieldset>
 
-        <CodeView :code="file" title="members/member-c.ts" />
+        <CodeView :code="file" title="members/fastly.ts" />
 
         <div class="ac-row">
             <button type="button" class="ac-button primary" @click="ran = true">Run validate and diff</button>

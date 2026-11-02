@@ -1,8 +1,14 @@
+---
+description: How a Circuit project is laid out, and what a network, a site and a device file look like.
+---
+
 # Write a project
 
-A project is a folder of TypeScript files that describe one network: one file per device, plus the facts several devices share. It is plain data. It imports nothing from Circuit, and needs no npm and no Node: Circuit's functions are globals, and the editor reads their types from `.circuit/types`.
+A project is a folder of files that describe your network: one file per device, plus the bits several devices share.
 
-The examples on these pages make one whole project, a router and a switch at one site with one tenant. It passes `tsc` and `circuit validate` as written. More whole projects are in [Example projects](/guide/examples).
+It's TypeScript, but it reads like data. You don't install anything: Circuit's helpers are already there, and your editor gets their types from `.circuit/types`.
+
+This page builds one small project: a router and a switch at one site, with one tenant. It passes `circuit validate` as written. Bigger ones are in [Example projects](/guide/examples).
 
 ## Layout
 
@@ -16,9 +22,10 @@ tenants/index.ts            every tenant, merged
 lib/checks.ts               the network's own checks
 ```
 
-Circuit imports `circuit.ts` first, then every `.ts` under `sites/`, at any depth, but `site.ts`. Each of those files is one device. `tenants/` and `lib/` are imported only by the files that use them. Any other folder is yours.
+- Circuit reads `circuit.ts` first, then every `.ts` under `sites/` (except `site.ts`). Each of those is one device.
+- `tenants/` and `lib/` are only read by the files that import them. Other folders are yours.
 
-A value is written in the device it lands on. When more than one device writes it, it moves to the site's `site.ts`, or to `circuit.ts`. Write it in the device first; decide what to share after.
+Rule of thumb: write a value in the device first. Only when a second device needs it, move it to `site.ts` or `circuit.ts`.
 
 ## The network
 
@@ -51,13 +58,15 @@ export const as64500 = circuit({
 });
 ```
 
-- `asn` is the network's AS. A device's BGP runs it unless the device writes `routing.bgp.asn`.
-- `prefixes` are the network's own, in groups you choose, each prefix with a name. A device uses one by name: `as64500.prefixes.site_a.v4_1`.
-- `communities` is the network's BGP community scheme (see [Communities](/guide/communities)).
-- `sites` is each site's `description`, and its `number` when a community tags routes by site. A site is only that: Circuit takes nothing from it into a device. Each device's `site` is one of these, and the editor suggests them.
-- `checks` turns on Circuit's checks and names your own (see [Checks](/guide/checks)).
+| Field         | Is                                                                                |
+| ------------- | --------------------------------------------------------------------------------- |
+| `asn`         | Your AS. BGP uses it unless a device sets `routing.bgp.asn`.                      |
+| `prefixes`    | Your address blocks, with names. Devices use them by name.                        |
+| `communities` | Your BGP community scheme. See [Communities](/guide/communities).                 |
+| `sites`       | Each site's `description` (and `number`, if communities tag by site). That's all. |
+| `checks`      | Circuit's checks to turn on, and your own. See [Checks](/guide/checks).           |
 
-Name the network after its AS, as `as64500` here: the name then says which network a device file joins. For two networks, such as two ASes, write one `circuit()` each in `circuit.ts`, each exported under its own name, and each device file calls its own network's `device()`. One hostname in two networks is an error.
+Name the network after its AS, like `as64500`. Got two networks? Write two `circuit()` calls, each exported under its own name.
 
 ## A site
 
@@ -78,9 +87,9 @@ export const site_a = literal({
 });
 ```
 
-`literal` keeps each value as written. Without it the editor sees `"mgmt"` only as some text, and can't check it where a device uses it.
-
-Write each address once, with its length, as an interface needs it. A field that names one host, such as a static route's `next_hop`, takes it as it is: Circuit writes the address alone there. A device takes a VLAN whole: `vlans: { mgmt: site_a.vlans.mgmt }`.
+- `literal` keeps values exactly as written, so the editor can check them where they're used.
+- Write an address once, with its length (`192.0.2.1/25`). Where only a host fits, like a `next_hop`, Circuit drops the length for you.
+- A device takes a VLAN whole: `vlans: { mgmt: site_a.vlans.mgmt }`.
 
 ## A device
 
@@ -109,7 +118,7 @@ export default as64500.device({
 
     interfaces: {
         ethernet: {
-            "25g-1": { description: "transit-a", addresses: ["198.51.100.2/30"] },
+            "25g-1": { description: "Hurricane Electric", addresses: ["198.51.100.2/30"] },
             "25g-2": { description: "switch-01 10GE1/0/1", trunk_vlans: ["mgmt"], link: { device: "switch-01", port: "10g-1" } },
         },
         vlan_interface: {
@@ -125,10 +134,10 @@ export default as64500.device({
         bgp: {
             originated_prefixes: [as64500.prefixes.site_a.v4_1],
             neighbors: {
-                "transit-a": {
+                "hurricane-electric": {
                     address: "198.51.100.1",
-                    remote_as: 64501,
-                    description: "transit-a",
+                    remote_as: 6939,
+                    description: "Hurricane Electric",
                     role: "provider",
                     import_policy: "transit-import",
                     export_policy: "transit-export",
@@ -197,23 +206,26 @@ export default as64500.device({
 });
 ```
 
-A device file is `export default <network>.device({...})`, one device per file.
+One device per file: `export default <network>.device({...})`.
 
-1. `name` is the hostname. `include`, right after it, lists where the device takes parts from (see [Parts](/guide/parts)).
-2. `site` is one of the network's sites. `role` is free text, such as `Router`.
-3. `platform` picks the operating system: `routeros`, `vrp`, `raisecom-ros`, `junos` or `fortios`. `model` is one of the platform's models, and decides the port names.
-4. `connection` is how Circuit logs in: `host`, and `user`, one of `system.users`. `host` is its own value, apart from any interface's address.
-5. The rest is the device's groups: `system`, `management`, `monitoring`, `interfaces`, `switching`, `services`, `routing`, `firewall`. [The model](/reference/model) says what each holds. Hover a field in the editor to read its documentation.
+| Field        | Is                                                                                                                                  |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `name`       | The hostname.                                                                                                                       |
+| `include`    | Where it takes [parts](/guide/parts) from. Right after `name`.                                                                      |
+| `site`       | One of your sites. The editor suggests them.                                                                                        |
+| `role`       | Free text, like `Router`.                                                                                                           |
+| `platform`   | `routeros`, `vrp`, `raisecom-ros`, `junos` or `fortios`.                                                                            |
+| `model`      | The hardware. It decides the port names.                                                                                            |
+| `connection` | How Circuit logs in: `host` and `user`.                                                                                             |
+| the rest     | `system`, `management`, `monitoring`, `interfaces`, `switching`, `services`, `routing`, `firewall`. Hover a field to read about it. |
 
-A port is `<speed>-<position>`: `25g-1` to `25g-12`, `100g-1`, `100g-2` and `1g-1` on this router. The editor says `25g-13 is not a port of CCR2216-1G-12XS-2XQ`. Circuit prints a port as the platform does, such as `sfp28-2` for `25g-2` on RouterOS and `10GE1/0/1` for `10g-1` on VRP.
+Things to know:
 
-A field that refers to something takes only a name the device declares, itself or through its parts: a VLAN, an interface, an address set, a policy. The editor suggests them, and a wrong one is an error.
-
-What a device doesn't write is removed from the device or set back to its default. A field is written only when it has a value: no `enabled: false`.
-
-A `link` is written at both ends, each in its own device file. The port's `description` names the far end as printed there, `<far device> <far port>`, such as `switch-01 10GE1/0/1`. Circuit checks that the far end links back, and warns when the description doesn't name it. It never writes the description for you.
-
-A secret is `secret("NAME")`: its value is in `.env`, encrypted, and read only when a command is sent to the device. `circuit env set NAME` adds one. See [Secrets](/guide/secrets).
+- **Ports** are `<speed>-<position>`, like `25g-1`. Circuit prints them the vendor's way (`sfp28-1` on RouterOS, `10GE1/0/1` on VRP). A port the model doesn't have is an error.
+- **Names must exist.** A VLAN, interface, address set or policy you refer to must be declared on that device. Typos show up in your editor.
+- **Not written = off.** Anything you leave out is removed or reset on the device. There's no `enabled: false`.
+- **Links go both ways.** Write `link` on both ends. The port's `description` should name the far end, like `switch-01 10GE1/0/1`. Circuit warns if it doesn't, but never writes it for you.
+- **Secrets** are `secret("NAME")`. See [Secrets](/guide/secrets).
 
 The switch is shorter:
 
@@ -271,4 +283,4 @@ export default as64500.device({
 | `presets`                          | Values from public standards: `bogons` (RFC 6890), `rfc1918`, `default_routes`, `ports`, `bgp_sanity`, `bad_tcp_flags`, `udp_amplifiers`. |
 | `address`                          | IP math for your own checks (RFC 4632, RFC 4291).                                                                                         |
 
-Data is snake_case: fields, `presets`, your own variables. Functions are camelCase.
+Data is `snake_case` (fields, `presets`, your variables). Functions are `camelCase`.

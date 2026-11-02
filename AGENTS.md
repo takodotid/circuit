@@ -38,7 +38,7 @@ Not in v1 yet, later work: integrations (PeeringDB, LibreNMS, NetBox, Prometheus
 ## Rules
 
 1. The config is the whole truth: a device runs exactly its config; anything else is removed or reset.
-2. No real network's names, addresses or policies in this repo. Examples use documentation values (RFC 5398, RFC 5737, RFC 3849): AS64496 to AS64511, 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32, and names such as `site-a`, `edge-01`, `switch-01`, `transit-a`.
+2. Examples name real providers, exchanges and vendors that engineers know, with their real ASNs (Hurricane Electric AS6939, Cogent AS174, DE-CIX, Cloudflare AS13335). Your own network in an example is AS64500. Addresses are documentation ranges only (RFC 5737, RFC 3849: 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32), so nobody copies someone else's space. Never show a real network doing something wrong, such as a hijack or a leak: use AS64496 to AS64511 there. No one's real config, addresses or policies.
 3. A field is written only when it has a value. No `enabled: false`, no placeholders, nothing marked spare. Off means the field isn't there.
 4. Every field in `src/config/` has a doc comment, shown on hover.
 5. A field a platform can't express goes in its `unsupported()`. Never skip one silently.

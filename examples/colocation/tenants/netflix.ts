@@ -1,21 +1,21 @@
-// Tenant acme: its VLANs, its gateway on the router, its servers' ports on the switch, and a cap on UDP toward it.
+// Tenant netflix: its VLANs, its gateway on the router, its servers' ports on the switch, and a cap on UDP toward it.
 // Copy this file for a new tenant, and add it to index.ts.
 
 const vlans = literal({
-    "acme-internet": { id: 1001, description: "Tenant acme internet" },
-    "acme-private": { id: 2001, description: "Tenant acme private" },
+    "netflix-internet": { id: 1001, description: "Tenant netflix internet" },
+    "netflix-private": { id: 2001, description: "Tenant netflix private" },
 });
 
-export const acme = {
+export const netflix = {
     parts: {
         "edge-01": part("device", {
-            switching: { vlans: { "acme-internet": vlans["acme-internet"] } },
+            switching: { vlans: { "netflix-internet": vlans["netflix-internet"] } },
             interfaces: {
-                ethernet: { "100g-1": { trunk_vlans: ["acme-internet"] } },
+                ethernet: { "100g-1": { trunk_vlans: ["netflix-internet"] } },
                 vlan_interface: {
-                    "acme-internet": {
-                        vlan: "acme-internet",
-                        description: "Tenant acme",
+                    "netflix-internet": {
+                        vlan: "netflix-internet",
+                        description: "Tenant netflix",
                         addresses: ["198.51.100.9/29", "2001:db8:100:1::1/64"],
                     },
                 },
@@ -25,9 +25,9 @@ export const acme = {
             switching: { vlans },
             interfaces: {
                 ethernet: {
-                    "40g-1": { trunk_vlans: ["acme-internet"] },
-                    "10g-1": { description: "acme server 1", trunk_vlans: ["acme-internet", "acme-private"] },
-                    "10g-2": { description: "acme server 2", trunk_vlans: ["acme-internet", "acme-private"] },
+                    "40g-1": { trunk_vlans: ["netflix-internet"] },
+                    "10g-1": { description: "netflix server 1", trunk_vlans: ["netflix-internet", "netflix-private"] },
+                    "10g-2": { description: "netflix server 2", trunk_vlans: ["netflix-internet", "netflix-private"] },
                 },
             },
         }),
@@ -35,7 +35,7 @@ export const acme = {
     rules: {
         edge_acl: part("acl", [
             {
-                description: "acme: UDP above 1G",
+                description: "netflix: UDP above 1G",
                 if: { vlan: ["transit", "exchange"], protocol: "udp", dst: "198.51.100.8/29" },
                 then: "accept",
                 rate: "1G",

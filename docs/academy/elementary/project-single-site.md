@@ -109,7 +109,7 @@ With the files right, the rest is a handful of commands. Step through them: the 
 
 </TryIt>
 
-1. **`env set`** writes each password to `.env`, encrypted, and **`env`** checks that every password the files ask for is there.
+1. **`secret set`** writes each password to `.env`, encrypted, and **`secret`** checks that every password the files ask for is there.
 2. **`validate`** checks the files.
 3. **`diff`** logs in, reads what the device runs right now, and shows the plan. It changes nothing.
 4. **`apply`** shows the same plan and asks. Say yes, and it sends the plan, then logs in again to make sure it still can.

@@ -23,8 +23,8 @@ export default as64500.device({
     interfaces: {
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.0.1/24"] },
-            "25g-1": { description: "transit-a", access_vlan: "transit", ingress_acl: "edge" },
-            "25g-2": { description: "exchange-a", access_vlan: "exchange", ingress_acl: "edge" },
+            "25g-1": { description: "Hurricane Electric", access_vlan: "transit", ingress_acl: "edge" },
+            "25g-2": { description: "de-cix", access_vlan: "exchange", ingress_acl: "edge" },
             "100g-1": {
                 description: "tor-01 40GE1/0/1",
                 speed: "40g",
@@ -41,8 +41,8 @@ export default as64500.device({
     switching: {
         vlans: {
             mgmt: dc_1.vlans.mgmt,
-            transit: { id: 300, description: "IP transit from transit-a, AS64501" },
-            exchange: { id: 200, description: "Peering LAN of exchange-a" },
+            transit: { id: 300, description: "IP transit from Hurricane Electric, AS6939" },
+            exchange: { id: 200, description: "DE-CIX peering LAN" },
         },
         // In the switch chip, before a packet reaches the router's CPU. Each tenant's own rules come last.
         acls: {
@@ -63,20 +63,20 @@ export default as64500.device({
         bgp: {
             originated_prefixes: [as64500.prefixes.ours.v4, as64500.prefixes.ours.v6],
             neighbors: {
-                "transit-a": {
+                "hurricane-electric": {
                     address: "203.0.113.1",
-                    remote_as: 64501,
-                    description: "transit-a",
+                    remote_as: 6939,
+                    description: "Hurricane Electric",
                     role: "provider",
                     max_prefixes: 1_200_000,
                     import_policy: "transit-import",
                     export_policy: "export",
                     communities: { groups: ["transit"] },
                 },
-                "exchange-a-rs-v4": {
+                "de-cix-rs-v4": {
                     address: "192.0.2.1",
-                    remote_as: 64502,
-                    description: "exchange-a route server",
+                    remote_as: 6695,
+                    description: "DE-CIX route server",
                     role: "rs",
                     max_prefixes: 100_000,
                     import_policy: "exchange-import",

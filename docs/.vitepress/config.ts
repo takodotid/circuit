@@ -39,7 +39,10 @@ const sidebar: DefaultTheme.SidebarItem[] = [
     },
     {
         text: "Platforms",
-        items: [{ text: "What each platform does", link: "/platforms/" }],
+        items: [
+            { text: "Overview", link: "/platforms/" },
+            { text: "Feature matrix", link: "/platforms/features" },
+        ],
     },
     {
         text: "Reference",

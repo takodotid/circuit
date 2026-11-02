@@ -57,7 +57,7 @@ my-exchange/
   sites/ix-1/site.ts      what both switches share, and what a member's port is
   sites/ix-1/ix-sw-01.ts
   sites/ix-1/ix-sw-02.ts
-  members/member-a.ts     one file per member
+  members/cloudflare.ts     one file per member
   members/index.ts        every member, merged
   lib/checks.ts           a check of your own
 ```
@@ -70,7 +70,7 @@ my-exchange/
 
 ## A member
 
-<<< @/../examples/internet-exchange/members/member-a.ts
+<<< @/../examples/internet-exchange/members/cloudflare.ts
 
 <<< @/../examples/internet-exchange/members/index.ts
 
@@ -86,7 +86,7 @@ The switches have no address on the peering LAN: they only carry it. Each writes
 
 ## Admit a member
 
-A new member, member-c, sent its application: AS64512, and a port on `ix-sw-02`. Write its file, and see what Circuit says.
+A new member, fastly, sent its application: AS64512, and a port on `ix-sw-02`. Write its file, and see what Circuit says.
 
 <TryIt title="Write the new member's file">
 
@@ -97,7 +97,7 @@ A new member, member-c, sent its application: AS64512, and a port on `ix-sw-02`.
 A member's addresses on the peering LAN are for the route servers, so they are not in the switches' files. Keep them in the route servers' config, and check them there.
 
 <Quiz
-  question="The new member is given 40g-1 on ix-sw-02, member-b's port. What does circuit validate say, and why?"
+  question="The new member is given 40g-1 on ix-sw-02, google's port. What does circuit validate say, and why?"
   :choices="['Nothing: 40g-1 is a real port of the switch', 'It stops: two files write port 40g-1 with two descriptions, and it names both', 'It warns, and the newer file wins']"
   :answer="1"
   :why="['The port exists, but two members write it. Circuit reads every member together.', '', 'Circuit never lets one file quietly win over another. Two values for one field stop it.']"
@@ -117,7 +117,7 @@ Members are free to peer with each other directly as well, over the same fabric,
 
 ## When a member leaves
 
-A member leaves by being removed from `members/index.ts`. Its file can stay where it is; it is just no longer in the list. When member-a leaves:
+A member leaves by being removed from `members/index.ts`. Its file can stay where it is; it is just no longer in the list. When cloudflare leaves:
 
 ```
 ix-sw-01: 16 command(s) in 2 step(s)
@@ -133,13 +133,13 @@ ix-sw-01: 16 command(s) in 2 step(s)
     - storm control broadcast min-rate percent 1 max-rate percent 1
     - stp disable
     - port default vlan 100
-    - description member-a, AS64510
+    - description Cloudflare, AS13335
     + shutdown
   ACLs no longer used
     - acl number 4000
 ```
 
-The port is shut, so whatever is still plugged into it reaches nothing. Its address on the peering LAN is free for the next member once the route servers have dropped member-a's sessions.
+The port is shut, so whatever is still plugged into it reaches nothing. Its address on the peering LAN is free for the next member once the route servers have dropped cloudflare's sessions.
 
 ## Further reading
 

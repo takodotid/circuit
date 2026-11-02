@@ -24,7 +24,7 @@ const MEDS = [0, 10, 50];
 
 const fresh = (): Route[] => [
     {
-        id: "transit-a",
+        id: "hurricane-electric",
         from: "Transit A",
         session: "eBGP",
         path: [64510, 64505],
@@ -34,7 +34,7 @@ const fresh = (): Route[] => [
         med: 0,
     },
     {
-        id: "transit-b",
+        id: "cogent",
         from: "Transit B",
         session: "eBGP",
         path: [64511, 64505],
@@ -175,7 +175,7 @@ function rowText(row: Row): string {
 }
 
 const goals = [
-    { text: "Transit B is your cheapest contract. Make it the best route.", done: () => outcome.value.winner.id === "transit-b" },
+    { text: "Transit B is your cheapest contract. Make it the best route.", done: () => outcome.value.winner.id === "cogent" },
     { text: "Make the choice come down to step 5, eBGP over iBGP.", done: () => outcome.value.decidedAt === 4 },
     { text: "Make the choice come down to the tie-break.", done: () => outcome.value.decidedAt === 5 },
 ];
@@ -186,8 +186,8 @@ const code = computed(() =>
     [
         "policies: {",
         "    sanity: presets.bgp_sanity,",
-        `    "transit-a-import": [{ call: "sanity" }, { set: { local_pref: ${pref("transit-a")} }, then: "accept" }],`,
-        `    "transit-b-import": [{ call: "sanity" }, { set: { local_pref: ${pref("transit-b")} }, then: "accept" }],`,
+        `    "hurricane-electric-import": [{ call: "sanity" }, { set: { local_pref: ${pref("hurricane-electric")} }, then: "accept" }],`,
+        `    "cogent-import": [{ call: "sanity" }, { set: { local_pref: ${pref("cogent")} }, then: "accept" }],`,
         `    "exchange-import": [{ call: "sanity" }, { set: { local_pref: ${pref("exchange")} }, then: "accept" }],`,
         "},",
         "// edge-02 sets the local preference of its route in its own import policy.",
@@ -196,8 +196,8 @@ const code = computed(() =>
 
 const changedLines = computed(() =>
     [
-        ["transit-a", 3],
-        ["transit-b", 4],
+        ["hurricane-electric", 3],
+        ["cogent", 4],
         ["exchange", 5],
     ]
         .filter(([id]) => pref(id as string) !== 100)

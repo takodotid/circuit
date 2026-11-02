@@ -28,7 +28,7 @@ const decisions: Decision[] = [
                 id: "1001",
                 label: "1001 and 2001",
                 verdict: "bad",
-                text: "acme already uses them. Both tenants would be on VLAN 1001, and their traffic would mix on it.",
+                text: "netflix already uses them. Both tenants would be on VLAN 1001, and their traffic would mix on it.",
             },
         ],
     },
@@ -46,7 +46,7 @@ const decisions: Decision[] = [
                 id: "overlap",
                 label: GATEWAYS.overlap,
                 verdict: "bad",
-                text: "Its block, 198.51.100.12/30, lies inside acme's 198.51.100.8/29. Two tenants would answer for the same addresses. Circuit does not know what a tenant is, so the example's own check, blocks_apart, catches it.",
+                text: "Its block, 198.51.100.12/30, lies inside netflix's 198.51.100.8/29. Two tenants would answer for the same addresses. Circuit does not know what a tenant is, so the example's own check, blocks_apart, catches it.",
             },
         ],
     },
@@ -59,7 +59,7 @@ const decisions: Decision[] = [
                 id: "10g-1",
                 label: "10g-1",
                 verdict: "bad",
-                text: "acme's file already gives 10g-1 to acme server 1. Two files that write one port with two values stop Circuit, which names both files.",
+                text: "netflix's file already gives 10g-1 to netflix server 1. Two files that write one port with two values stop Circuit, which names both files.",
             },
         ],
     },
@@ -77,7 +77,7 @@ const decisions: Decision[] = [
                 id: "both",
                 label: "Public and private",
                 verdict: "good",
-                text: "Two tagged VLANs. The private one exists only on the switch, between globex's own servers, and never reaches the router.",
+                text: "Two tagged VLANs. The private one exists only on the switch, between akamai's own servers, and never reaches the router.",
             },
         ],
     },
@@ -112,31 +112,31 @@ const chosen = computed(() => ({
 const file = computed(() => {
     const ids = VLANS[chosen.value.vlan];
     const both = chosen.value.networks === "both";
-    const carries = both ? 'trunk_vlans: ["globex-internet", "globex-private"]' : 'access_vlan: "globex-internet"';
+    const carries = both ? 'trunk_vlans: ["akamai-internet", "akamai-private"]' : 'access_vlan: "akamai-internet"';
 
     return [
         "const vlans = literal({",
-        `    "globex-internet": { id: ${ids.internet}, description: "Tenant globex internet" },`,
-        `    "globex-private": { id: ${ids.private}, description: "Tenant globex private" },`,
+        `    "akamai-internet": { id: ${ids.internet}, description: "Tenant akamai internet" },`,
+        `    "akamai-private": { id: ${ids.private}, description: "Tenant akamai private" },`,
         "});",
         "",
-        "export const globex = {",
+        "export const akamai = {",
         "    parts: {",
         '        "edge-01": part("device", {',
-        '            switching: { vlans: { "globex-internet": vlans["globex-internet"] } },',
+        '            switching: { vlans: { "akamai-internet": vlans["akamai-internet"] } },',
         "            interfaces: {",
-        '                ethernet: { "100g-1": { trunk_vlans: ["globex-internet"] } },',
+        '                ethernet: { "100g-1": { trunk_vlans: ["akamai-internet"] } },',
         "                vlan_interface: {",
-        `                    "globex-internet": { vlan: "globex-internet", description: "Tenant globex", addresses: ["${GATEWAYS[chosen.value.block]}", "2001:db8:100:2::1/64"] },`,
+        `                    "akamai-internet": { vlan: "akamai-internet", description: "Tenant akamai", addresses: ["${GATEWAYS[chosen.value.block]}", "2001:db8:100:2::1/64"] },`,
         "                },",
         "            },",
         "        }),",
         '        "tor-01": part("device", {',
-        `            switching: { vlans: ${both ? "vlans" : '{ "globex-internet": vlans["globex-internet"] }'} },`,
+        `            switching: { vlans: ${both ? "vlans" : '{ "akamai-internet": vlans["akamai-internet"] }'} },`,
         "            interfaces: {",
         "                ethernet: {",
-        '                    "40g-1": { trunk_vlans: ["globex-internet"] },',
-        `                    "${chosen.value.port}": { description: "globex server 1", ${carries} },`,
+        '                    "40g-1": { trunk_vlans: ["akamai-internet"] },',
+        `                    "${chosen.value.port}": { description: "akamai server 1", ${carries} },`,
         "                },",
         "            },",
         "        }),",
@@ -169,7 +169,7 @@ const outcome = computed(() => {
     return {
         kind: "good",
         word: "Ready",
-        text: "The router gets globex's VLAN and gateway, the switch gets the VLAN, the port, and the VLAN on its uplink. Nothing of acme's changes.",
+        text: "The router gets akamai's VLAN and gateway, the switch gets the VLAN, the port, and the VLAN on its uplink. Nothing of netflix's changes.",
     };
 });
 </script>
@@ -203,7 +203,7 @@ const outcome = computed(() => {
             </p>
         </fieldset>
 
-        <CodeView :code="file" title="tenants/globex.ts" />
+        <CodeView :code="file" title="tenants/akamai.ts" />
 
         <div class="ac-row">
             <button type="button" class="ac-button primary" @click="ran = true">Run validate and diff</button>

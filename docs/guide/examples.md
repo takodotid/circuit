@@ -1,12 +1,18 @@
+---
+description: Four whole projects to copy from, tested on every change to Circuit.
+---
+
 # Example projects
 
-Four whole projects, each in [`examples/`](https://github.com/takodotid/circuit/tree/v1/examples) in Circuit's repository. Each passes the editor's types and `circuit validate`, tested on every change to Circuit. Copy the one closest to your network, then change the names and addresses to your own.
+Four whole projects. Pick the one closest to your network, copy it, and change it to yours.
 
-The addresses and AS numbers are the ones kept for documentation (RFC 5737, RFC 3849, RFC 5398), so none of them is anybody's real network.
+- They live in [`examples/`](https://github.com/takodotid/circuit/tree/v1/examples) and pass `circuit validate` on every change to Circuit.
+- Providers and exchanges have real names, like Hurricane Electric (AS6939) and DE-CIX.
+- Your own network is AS64500, and every address is a documentation range, so nothing clashes with real space.
 
 ## A single site
 
-A home, an office or an internal network: a router and a switch, three VLANs, DHCP, and a firewall. No BGP.
+A home, an office or an internal network. A router, a switch, three VLANs, DHCP and a firewall. No BGP.
 
 ::: code-group
 
@@ -20,7 +26,7 @@ A home, an office or an internal network: a router and a switch, three VLANs, DH
 
 ## An edge router
 
-Your own AS: one router with an IP transit and an internet exchange, a filter on what comes in and what goes out, and BGP communities.
+Your own AS. One router, IP transit from Hurricane Electric, peering at DE-CIX, filters both ways, and BGP communities.
 
 ::: code-group
 
@@ -31,12 +37,12 @@ Your own AS: one router with an IP transit and an internet exchange, a filter on
 
 ## Colocation with tenants
 
-A router and a top-of-rack switch. Each tenant's VLANs, gateway, ports and rules are in its own file, and each device takes them with `include`. See [Parts and merge](/guide/parts).
+A router and a top-of-rack switch. Each tenant (here, Netflix) has its own file with its VLANs, gateway, ports and rules. Devices pull them in with `include`. See [Parts and merge](/guide/parts).
 
 ::: code-group
 
 <<< @/../examples/colocation/circuit.ts
-<<< @/../examples/colocation/tenants/acme.ts
+<<< @/../examples/colocation/tenants/netflix.ts
 <<< @/../examples/colocation/tenants/index.ts
 <<< @/../examples/colocation/sites/dc-1/site.ts
 <<< @/../examples/colocation/sites/dc-1/edge-01.ts
@@ -46,12 +52,12 @@ A router and a top-of-rack switch. Each tenant's VLANs, gateway, ports and rules
 
 ## An internet exchange
 
-Two fabric switches that carry one peering LAN. Each member's port is in the member's own file. Circuit configures the switches; the route servers run their own software.
+Two switches carrying one peering LAN. Each member (Cloudflare, Google) has its own file with its port. Circuit runs the switches; the route servers run their own software.
 
 ::: code-group
 
 <<< @/../examples/internet-exchange/circuit.ts
-<<< @/../examples/internet-exchange/members/member-a.ts
+<<< @/../examples/internet-exchange/members/cloudflare.ts
 <<< @/../examples/internet-exchange/members/index.ts
 <<< @/../examples/internet-exchange/sites/ix-1/site.ts
 <<< @/../examples/internet-exchange/sites/ix-1/ix-sw-01.ts

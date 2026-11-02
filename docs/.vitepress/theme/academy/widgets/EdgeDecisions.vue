@@ -151,15 +151,15 @@ const code = computed(() => {
 
     return [
         "neighbors: {",
-        `    "transit-a": {`,
+        `    "hurricane-electric": {`,
         `        address: "203.0.113.1",`,
-        "        remote_as: 64501,",
+        "        remote_as: 6939,",
         `        role: "provider",`,
         ...(imported === "none" ? [] : [`        import_policy: "transit-import",`]),
         `        export_policy: "export",`,
         "        max_prefixes: 1_200_000,",
         "    },",
-        `    // exchange-a-rs-v4 and exchange-a-rs-v6 alike, with import_policy: "exchange-import"`,
+        `    // de-cix-rs-v4 and de-cix-rs-v6 alike, with import_policy: "exchange-import"`,
         "},",
         "",
         "policies: {",
@@ -184,10 +184,10 @@ const code = computed(() => {
     ].join("\n");
 });
 
-/** What circuit validate printed for transit-a without an import policy: the example's own check, and the policy no neighbor uses. Circuit stops on them while it reads the project, before its other checks. */
+/** What circuit validate printed for hurricane-electric without an import policy: the example's own check, and the policy no neighbor uses. Circuit stops on them while it reads the project, before its other checks. */
 const IMPORT_ERRORS = [
     "sites/pop-1/edge-01.ts:93: edge-01: routing.policies.transit-import: no neighbor uses it as its import policy. Circuit writes a communities rule for the neighbors that use its policy, so it goes in a policy a neighbor names, not one another policy calls.",
-    "sites/pop-1/edge-01.ts:56: imports_filtered: edge-01: routing.bgp.neighbors.transit-a: takes every route it is sent: write an import_policy.",
+    "sites/pop-1/edge-01.ts:56: imports_filtered: edge-01: routing.bgp.neighbors.hurricane-electric: takes every route it is sent: write an import_policy.",
 ];
 
 /** What circuit validate printed for each combination, run on the example with these choices. */
@@ -200,9 +200,9 @@ const validate = computed(() => {
 
     if (exportErrors) {
         lines.push(
-            "  error  edge-01: routing.bgp.neighbors.transit-a: export_policy export does not end in an unconditional reject",
-            "  error  edge-01: routing.bgp.neighbors.exchange-a-rs-v4: export_policy export does not end in an unconditional reject",
-            "  error  edge-01: routing.bgp.neighbors.exchange-a-rs-v6: export_policy export does not end in an unconditional reject"
+            "  error  edge-01: routing.bgp.neighbors.hurricane-electric: export_policy export does not end in an unconditional reject",
+            "  error  edge-01: routing.bgp.neighbors.de-cix-rs-v4: export_policy export does not end in an unconditional reject",
+            "  error  edge-01: routing.bgp.neighbors.de-cix-rs-v6: export_policy export does not end in an unconditional reject"
         );
     }
 

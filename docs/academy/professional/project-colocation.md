@@ -28,26 +28,26 @@ my-network/
   sites/dc-1/site.ts     what both devices share
   sites/dc-1/edge-01.ts  the router
   sites/dc-1/tor-01.ts   the top-of-rack switch
-  tenants/acme.ts        one file per tenant
+  tenants/netflix.ts        one file per tenant
   tenants/index.ts       every tenant, merged
   lib/checks.ts          a check of your own
 ```
 
 ::: info The names in this project
-As in the edge router, the transit is `transit-a` and the exchange `exchange-a`. Replace their addresses, AS numbers and port names with what your providers give you.
+As in the edge router, the transit is `hurricane-electric` and the exchange `de-cix`. Replace their addresses, AS numbers and port names with what your providers give you.
 :::
 
 ## A tenant is one file
 
-<<< @/../examples/colocation/tenants/acme.ts
+<<< @/../examples/colocation/tenants/netflix.ts
 
-acme's file holds everything acme has, on every device, as [parts](/guide/parts):
+netflix's file holds everything netflix has, on every device, as [parts](/guide/parts):
 
-- **On the router**, `edge-01`: the VLAN `acme-internet`, carried on the trunk to the switch, and a VLAN interface with acme's gateways, the first address of each of its blocks.
-- **On the switch**, `tor-01`: both of acme's VLANs, the public one on the uplink to the router, and acme's two server ports, which carry both.
-- **A rule** for the router's switch chip: UDP toward acme's block is capped at 1G, so a flood aimed at acme cannot fill the uplinks of everyone else.
+- **On the router**, `edge-01`: the VLAN `netflix-internet`, carried on the trunk to the switch, and a VLAN interface with netflix's gateways, the first address of each of its blocks.
+- **On the switch**, `tor-01`: both of netflix's VLANs, the public one on the uplink to the router, and netflix's two server ports, which carry both.
+- **A rule** for the router's switch chip: UDP toward netflix's block is capped at 1G, so a flood aimed at netflix cannot fill the uplinks of everyone else.
 
-acme's names, addresses, VLAN IDs and ports are written out by hand in its file, so a search for `acme` finds every one.
+netflix's names, addresses, VLAN IDs and ports are written out by hand in its file, so a search for `netflix` finds every one.
 
 <<< @/../examples/colocation/tenants/index.ts
 
@@ -57,7 +57,7 @@ acme's names, addresses, VLAN IDs and ports are written out by hand in its file,
 
 <<< @/../examples/colocation/sites/dc-1/tor-01.ts
 
-The switch writes only what is its own: its management VLAN, its uplink and its address. `include: [tenants.parts]` takes from every tenant the part keyed by `tor-01`, so acme's VLANs and ports join the switch as if they were written there.
+The switch writes only what is its own: its management VLAN, its uplink and its address. `include: [tenants.parts]` takes from every tenant the part keyed by `tor-01`, so netflix's VLANs and ports join the switch as if they were written there.
 
 <<< @/../examples/colocation/sites/dc-1/edge-01.ts
 
@@ -74,7 +74,7 @@ Send packets between the internet and the servers, and between the tenants. Watc
 Two tenants are as far apart as any two networks on the internet: traffic between them is routed by the router, between their public VLANs. A tenant's private network is further still, because only the switch carries it, and only on that tenant's ports.
 
 <Quiz
-  question="acme server 1 sends a backup to acme server 2 over acme-private. Which devices does it pass?"
+  question="netflix server 1 sends a backup to netflix server 2 over netflix-private. Which devices does it pass?"
   :choices="['tor-01 only', 'tor-01, then edge-01, then tor-01 again', 'edge-01 only']"
   :answer="0"
   :why="['', 'That is how traffic between two different public networks goes. VLAN 2001 is not on the trunk, so the router never sees it.', 'The servers are not plugged into the router. Every port they have is on tor-01.']"
@@ -91,9 +91,9 @@ Circuit knows nothing about tenants, so it cannot know two tenants' blocks must 
 
 ## Add a tenant
 
-A new tenant, globex, wants one server on its public network. Copy `tenants/acme.ts` to `tenants/globex.ts`, change every name, VLAN ID, address and port to globex's, and add `globex` to `tenants/index.ts`. Each choice can clash with acme, and Circuit says how.
+A new tenant, akamai, wants one server on its public network. Copy `tenants/netflix.ts` to `tenants/akamai.ts`, change every name, VLAN ID, address and port to akamai's, and add `akamai` to `tenants/index.ts`. Each choice can clash with netflix, and Circuit says how.
 
-<TryIt title="Write globex's file">
+<TryIt title="Write akamai's file">
 
 Make each decision, then run validate and diff. Every output is what Circuit printed for that combination, run on the example. Each plan is made against the example as it is, rendered, rather than read from a device.
 
@@ -101,13 +101,13 @@ Make each decision, then run validate and diff. Every output is what Circuit pri
 
 </TryIt>
 
-When every choice is sound, the plan is exactly what the tenant's file promised: on the router, a VLAN interface and the two gateway addresses; on the switch, the VLAN, the port and the VLAN added to the uplink. acme's lines do not move.
+When every choice is sound, the plan is exactly what the tenant's file promised: on the router, a VLAN interface and the two gateway addresses; on the switch, the VLAN, the port and the VLAN added to the uplink. netflix's lines do not move.
 
-Every clash stops `validate`, and each message says where it is: a port two tenants write with two values, two tenants' VLANs with one ID, and, from the example's own check, overlapping blocks. The port matters most. Without the stop, one tenant would silently take the other's port, and `10GE1/0/1` would lose acme's VLANs. Circuit names both files instead, and the line in each.
+Every clash stops `validate`, and each message says where it is: a port two tenants write with two values, two tenants' VLANs with one ID, and, from the example's own check, overlapping blocks. The port matters most. Without the stop, one tenant would silently take the other's port, and `10GE1/0/1` would lose netflix's VLANs. Circuit names both files instead, and the line in each.
 
 <Quiz
-  question="globex is given 10g-1, which acme already uses. Which step of the workflow catches it?"
-  :choices="['Your editor, with a red line', 'circuit validate, with an error', 'Reading the plan from circuit diff, where 10GE1/0/1 loses acme’s VLANs']"
+  question="akamai is given 10g-1, which netflix already uses. Which step of the workflow catches it?"
+  :choices="['Your editor, with a red line', 'circuit validate, with an error', 'Reading the plan from circuit diff, where 10GE1/0/1 loses netflix’s VLANs']"
   :answer="1"
   :why="['10g-1 is a valid port name in each file, so the types are happy. It takes Circuit reading both files together.', '', 'There is no plan to read: diff reads the files first, and stops at the error.']"
   explain="Circuit merges every tenant's parts, sees 10g-1 written twice with two descriptions, and names both files. An error stops diff and apply, so the port never changes hands."
@@ -115,7 +115,7 @@ Every clash stops `validate`, and each message says where it is: a port two tena
 
 ## When a tenant leaves
 
-A tenant leaves by being removed from `tenants/index.ts`, and the next apply takes away everything it had, everywhere, because the file is the whole truth. When acme leaves, `circuit diff` plans 22 commands for the router and 19 for the switch. On the switch:
+A tenant leaves by being removed from `tenants/index.ts`, and the next apply takes away everything it had, everywhere, because the file is the whole truth. When netflix leaves, `circuit diff` plans 22 commands for the router and 19 for the switch. On the switch:
 
 ```
 tor-01: 19 command(s) in 4 step(s)
@@ -127,20 +127,20 @@ tor-01: 19 command(s) in 4 step(s)
     - port trunk allow-pass vlan 1001 2001
     - undo port trunk allow-pass vlan 1
     - port link-type trunk
-    - description acme server 1
+    - description netflix server 1
     + shutdown
   interface 10GE1/0/2
     - port trunk allow-pass vlan 1001 2001
     - undo port trunk allow-pass vlan 1
     - port link-type trunk
-    - description acme server 2
+    - description netflix server 2
     + shutdown
   interface 40GE1/0/1
     - port trunk allow-pass vlan 99 1001
     + port trunk allow-pass vlan 99
 ```
 
-Its ports are shut, not left open for whoever plugs in next. On the router, acme's VLAN, interface and addresses go, and the switch-chip rules are replaced as a whole, because an ordered list is rewritten in its new order rather than edited in place. Its block, `198.51.100.8/29`, is free again. Before you hand it to someone else, wait until the old tenant's servers are really unplugged.
+Its ports are shut, not left open for whoever plugs in next. On the router, netflix's VLAN, interface and addresses go, and the switch-chip rules are replaced as a whole, because an ordered list is rewritten in its new order rather than edited in place. Its block, `198.51.100.8/29`, is free again. Before you hand it to someone else, wait until the old tenant's servers are really unplugged.
 
 ## Where to go from here
 

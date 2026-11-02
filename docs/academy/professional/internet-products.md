@@ -107,14 +107,14 @@ In Circuit, the two products differ only in what the router sends the customer: 
 
 ```ts
 // What the customer pays for: the whole internet, every route we know.
-"acme-export": [{ description: "The full table", then: "accept" }],
+"netflix-export": [{ description: "The full table", then: "accept" }],
 ```
 
 Selling IX transit, it accepts only routes the router tagged as learned at an exchange or from another customer, and your own space:
 
 ```ts
 // 64500:1:2 and 64500:1:3 are the scheme's tags for routes learned from the exchange group and the customer group.
-"acme-export": [
+"netflix-export": [
     { description: "Learned at an exchange", if: { large_community: "64500:1:2" }, then: "accept" },
     { description: "Our other customers", if: { large_community: "64500:1:3" }, then: "accept" },
     { description: "Our own space", if: { prefix_set: "ours" }, then: "accept" },

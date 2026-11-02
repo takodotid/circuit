@@ -134,7 +134,7 @@ Find the moment something went wrong on the transit port, read the flow records 
 
 </TryIt>
 
-The flood was obvious once you saw it, and the flow records showed its target at once: UDP from tens of thousands of addresses to one of acme's servers. [Attacks on the network](/academy/professional/ddos-and-spoofing) is about what to do next.
+The flood was obvious once you saw it, and the flow records showed its target at once: UDP from tens of thousands of addresses to one of netflix's servers. [Attacks on the network](/academy/professional/ddos-and-spoofing) is about what to do next.
 
 The alert is where judgement comes in. A line at 8 Gbit/s is crossed every evening by ordinary traffic, and on a wobbly line it is crossed several times, so it pages again and again for nothing. Google's book on running large systems puts the rules plainly: every page must be something a person can act on, and needs a person's thinking to answer. Pages that come too often get skimmed, then ignored, and one day the real one is ignored too.
 

@@ -1,88 +1,90 @@
+---
+description: Passwords and keys live encrypted in .env, safe to commit. The key to open them never goes into git.
+---
+
 # Secrets
 
 <img class="illustration" src="/illustrations/guide/secrets.webp" alt="A file of scrambled lines behind a padlock, its key kept apart on a card, and a line from the padlock to a router." width="1536" height="1024">
 
-A password, a BGP key or an SNMP community is never written in a device's file. The file names it, and its value is in `.env`, encrypted:
+Passwords never go in a device's file. The file only names them:
 
 ```ts
-system: {
-    users: { operator: { role: "admin", password: secret("EDGE_01_PASSWORD") } },
-},
+users: { operator: { role: "admin", password: secret("EDGE_01_PASSWORD") } },
 ```
+
+The value goes in `.env`, encrypted:
 
 ```sh
-circuit env set EDGE_01_PASSWORD
+circuit secret set EDGE_01_PASSWORD
 ```
 
-Circuit asks for the value without showing it, encrypts it, and writes it to `.env`. It reads the value only when it sends a command to the device. Plans and output never show it: Circuit replaces every secret it knows with `<redacted>`.
+Circuit asks for the value without showing it. It only decrypts it when sending a command to the device. In any output, a secret shows as `<redacted>`.
 
 ## How it works
 
 <SecretsDiagram />
 
-1. `.env` holds each secret encrypted, the way [dotenvx](https://dotenvx.com) encrypts it. It is safe to commit, so the whole team shares the same secrets through git.
-2. The **public key** at the top of `.env` can only encrypt. Anyone can add a secret.
-3. The **private key** decrypts. It is never committed. Circuit looks for it in this order:
-    1. `DOTENV_PRIVATE_KEY` in the environment, such as in CI.
-    2. `.env.keys` in the project folder. `.gitignore` keeps it out of git.
-    3. 1Password, when `.env` has `CIRCUIT_ENV_KEY="op://vault/item/field"`. Circuit reads it with the 1Password CLI, `op`.
+- **`.env` is encrypted**, the [dotenvx](https://dotenvx.com) way. Safe to commit, so your team shares secrets through git.
+- **The public key** (top of `.env`) can only lock. Anyone can add a secret.
+- **The private key** unlocks. It never goes into git. Circuit looks for it in:
+    1. `DOTENV_PRIVATE_KEY` in the environment, like in CI.
+    2. `.env.keys` in the project. `.gitignore` keeps it out of git.
+    3. 1Password, if `.env` has `CIRCUIT_ENV_KEY="op://vault/item/field"`.
 
-Keep a copy of the private key in your password manager. Without it, nobody can read `.env`, and every secret must be set again.
+Keep a copy of the private key in your password manager. Lose it, and every secret has to be set again.
 
-## The commands
+## Commands
 
-| Command                   | What it does                                                                                    |
-| ------------------------- | ----------------------------------------------------------------------------------------------- |
-| `circuit env`             | Lists every secret, how it is kept, and the ones the config needs that `.env` lacks. No values. |
-| `circuit env set NAME`    | Adds or changes a secret, encrypted. It asks for the value without showing it.                  |
-| `circuit env get NAME`    | Prints one secret, decrypted.                                                                   |
-| `circuit env delete NAME` | Removes a secret, after asking. `--confirm` skips the question.                                 |
-| `circuit env encrypt`     | Encrypts every value written into `.env` by hand.                                               |
-| `circuit env rotate`      | A new key. Every secret is encrypted again, and the old key stops working.                      |
+| Command                      | Does                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `circuit secret`             | Lists every secret and how it's kept. Flags ones the config needs but `.env` lacks. Never shows values. |
+| `circuit secret set NAME`    | Adds or changes one. Asks for the value, hidden.                                                        |
+| `circuit secret get NAME`    | Prints one, decrypted.                                                                                  |
+| `circuit secret delete NAME` | Removes one, after asking.                                                                              |
+| `circuit secret encrypt`     | Encrypts anything typed into `.env` by hand.                                                            |
+| `circuit secret rotate`      | Makes a new key. The old one stops working.                                                             |
 
-`circuit env set NAME value` takes the value on the command line too, but your shell then keeps it in its history. Leave it out, and type it when asked.
+Tip: `circuit secret set NAME value` works too, but then your shell history has the value. Better to let it ask.
 
-## Keeping a secret in 1Password
+## 1Password
 
-A value in `.env` may be a 1Password reference instead of an encrypted value:
+A value can point at 1Password instead:
 
 ```sh
-circuit env set SNMP_COMMUNITY op://Network/SNMP/password
+circuit secret set SNMP_COMMUNITY op://Network/SNMP/password
 ```
 
-Circuit reads it with the 1Password CLI each time it needs it. `circuit env` shows where it is kept, never the value.
+Circuit reads it with the 1Password CLI (`op`) when needed. The list shows where it lives, never the value.
 
-To keep the private key itself in 1Password, pick 1Password when the installer asks. Each person then reads the key from the team's vault, and nobody has a `.env.keys` file.
+You can keep the private key itself in 1Password, too: pick 1Password when the installer asks. Then nobody needs a `.env.keys` file.
 
 ## Rotating the key
 
-Rotate when someone with the key leaves the team, or when the key may have leaked.
+Do it when someone with the key leaves, or the key may have leaked.
 
-1. Run `circuit env rotate`. It asks first.
+1. `circuit secret rotate`.
 2. Commit `.env`.
-3. Give the new key to your team. A key kept in 1Password is changed there, so there is nothing to give.
+3. Share the new key with your team. (In 1Password? Nothing to share.)
 
-Rotating changes the key, not the secrets. A secret that leaked is still known: change it on the device. Set the new value with `circuit env set`, then `circuit apply --secrets` the device.
+Rotating changes the key, not the passwords. If a password leaked, change it on the device: `circuit secret set`, then `circuit apply <device> --secrets`.
 
 ## The commit check
 
-When the project is a git repository, Circuit installs a git hook in `.circuit/hooks`. Before each commit, from a terminal, VS Code or GitHub Desktop, it stops the commit when:
+In a git project, Circuit adds a git hook. Before every commit, from the terminal, VS Code or GitHub Desktop, it stops the commit if:
 
-- `.env` holds a value in plain text. Run `circuit env encrypt`, then stage `.env` again.
-- `.env.keys` is staged.
-- The project doesn't pass `circuit validate`.
+- `.env` has a value in plain text. Fix: `circuit secret encrypt`, then stage `.env` again.
+- `.env.keys` is about to be committed.
+- The project fails `circuit validate`.
 
-Every command also warns when `.env` holds a value in plain text.
-
-The hook protects a normal commit, not every way into git:
+It can't catch everything:
 
 - `git commit --no-verify` skips it.
-- An edit made on the GitHub website skips it.
-- A clone runs it only once Circuit has run there, and only where Circuit is installed.
+- Edits on the GitHub website skip it.
+- On a fresh clone it works once Circuit has run there.
 
-If a secret in plain text reaches a pushed commit, treat it as known to everyone who can read the repository. Removing the commit doesn't take it back. Change it on the device.
+A plain-text password that reached a pushed commit is out. Deleting the commit doesn't help. Change the password on the device.
 
-## Other ways to give a secret
+## Other ways
 
-- **From the environment.** `EDGE_01_PASSWORD=... circuit apply edge-01`. A variable in the environment wins over `.env`.
-- **From a file.** `secretFile("keys/wg-edge-01.key")` reads a file in the project, such as a private key. Keep the file out of git.
+- **Environment variable:** `EDGE_01_PASSWORD=... circuit apply edge-01`. It wins over `.env`.
+- **A file:** `secretFile("keys/wg-edge-01.key")` reads a file in the project, like a private key. Keep that file out of git.

@@ -52,15 +52,15 @@ Circuit has no field for uRPF. You write the same check as a list, in the router
 ```ts
 interfaces: {
     ethernet: {
-        "25g-3": { description: "Acme", access_vlan: "acme", ingress_acl: "from-acme" },
+        "25g-3": { description: "Netflix", access_vlan: "netflix", ingress_acl: "from-netflix" },
     },
 },
 switching: {
     acls: {
-        // Acme may only send from its own space, and from its end of the link.
-        "from-acme": [
-            { description: "Acme's own IPv4", if: { src: "192.0.2.0/24" }, then: "accept" },
-            { description: "Acme's end of the link", if: { src: "198.51.100.252/30" }, then: "accept" },
+        // Netflix may only send from its own space, and from its end of the link.
+        "from-netflix": [
+            { description: "Netflix's own IPv4", if: { src: "192.0.2.0/24" }, then: "accept" },
+            { description: "Netflix's end of the link", if: { src: "198.51.100.252/30" }, then: "accept" },
             { description: "Any other IPv4 source", if: { family: "ipv4" }, then: "drop" },
         ],
     },
@@ -81,13 +81,13 @@ The lesson is about where the flood is dropped. A filter on your own router acts
 
 <TryIt title="Blackhole the target, and see who stops sending">
 
-Send a wave of the flood as it is. Then have Acme ask for a blackhole, and send again. Then list the transits that take blackholes, one at a time, and watch the link meters.
+Send a wave of the flood as it is. Then have Netflix ask for a blackhole, and send again. Then list the transits that take blackholes, one at a time, and watch the link meters.
 
 <BlackholeFlood />
 
 </TryIt>
 
-A blackhole on your own router freed Acme's link, and nothing else. Each transit that received the route freed your link to it. The exchange takes no blackholes in this widget, so its share kept arriving, and your router dropped it. And in every case `192.0.2.10` became unreachable for everyone: blackholing gives up one address to save every other customer, which RFC 5635 says plainly. Acme can move its service to another address while the attack lasts.
+A blackhole on your own router freed Netflix's link, and nothing else. Each transit that received the route freed your link to it. The exchange takes no blackholes in this widget, so its share kept arriving, and your router dropped it. And in every case `192.0.2.10` became unreachable for everyone: blackholing gives up one address to save every other customer, which RFC 5635 says plainly. Netflix can move its service to another address while the attack lasts.
 
 In Circuit, blackholing is part of the [community scheme](/guide/communities). The scheme says which community asks for a blackhole; each upstream that takes it carries its own community, and the import from a customer allowed to ask for one says so with `accept_requests`:
 
@@ -102,18 +102,18 @@ communities: {
 
 ```ts
 // edge-01.ts, the neighbors
-// transit-a drops traffic to a route it receives with 65535:666. transit-b takes no blackholes, so it never receives the route.
-"transit-a": { address: "203.0.113.1", remote_as: 64501, role: "provider", import_policy: "transit-import", export_policy: "export", communities: { groups: ["transit"], blackhole: "65535:666" } },
-"transit-b": { address: "203.0.113.129", remote_as: 64502, role: "provider", import_policy: "transit-import", export_policy: "export", communities: { groups: ["transit"] } },
-acme: { address: "198.51.100.254", remote_as: 65550, role: "customer", import_policy: "acme-import", export_policy: "acme-export", communities: { groups: ["customer"] } },
+// hurricane-electric drops traffic to a route it receives with 65535:666. cogent takes no blackholes, so it never receives the route.
+"hurricane-electric": { address: "203.0.113.1", remote_as: 6939, role: "provider", import_policy: "transit-import", export_policy: "export", communities: { groups: ["transit"], blackhole: "65535:666" } },
+"cogent": { address: "203.0.113.129", remote_as: 174, role: "provider", import_policy: "transit-import", export_policy: "export", communities: { groups: ["transit"] } },
+netflix: { address: "198.51.100.254", remote_as: 65550, role: "customer", import_policy: "netflix-import", export_policy: "netflix-export", communities: { groups: ["customer"] } },
 ```
 
 ```ts
-// edge-01.ts, the first rule of Acme's import: Acme may ask for a blackhole. The rest of the import accepts only Acme's own space, so it can never blackhole someone else.
+// edge-01.ts, the first rule of Netflix's import: Netflix may ask for a blackhole. The rest of the import accepts only Netflix's own space, so it can never blackhole someone else.
 { communities: "import", accept_requests: ["blackhole"] },
 ```
 
-Circuit writes the rest from the scheme: the communities rule in Acme's import keeps the blackhole request, and `{ communities: "export" }` in the export to transit-a passes the route on with `65535:666`, while the export to transit-b rejects it.
+Circuit writes the rest from the scheme: the communities rule in Netflix's import keeps the blackhole request, and `{ communities: "export" }` in the export to hurricane-electric passes the route on with `65535:666`, while the export to cogent rejects it.
 
 Blackholing drops everything toward the address, the attack and the customers of that service alike. <Term means="BGP flow specification: rules carried in BGP that match traffic by addresses, protocol, ports, packet length and more, and drop or rate-limit only what matches.">Flowspec</Term>, defined in RFC 8955, is the finer tool: a rule carried in BGP that matches the flood by protocol, ports or packet length, and drops or rate-limits only that. Circuit has no field for flowspec. On your own edge, `presets.udp_amplifiers` lists the source ports of reflected floods, for a switch-chip rule that drops them, which saves your router, but not the link the flood arrived on.
 
@@ -139,7 +139,7 @@ In Circuit, that is the input chain, with `default_action: "drop"`, as the [edge
 system: { ip_stack: { syn_cookies: true } },
 
 firewall: {
-    // Acme's servers: a flood toward them never fills the connection table.
+    // Netflix's servers: a flood toward them never fills the connection table.
     untracked: ["192.0.2.0/24"],
     address_sets: { management: ["10.0.0.0/24"], "bgp-neighbors": bgpNeighbors() },
     filter: {

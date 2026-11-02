@@ -14,7 +14,7 @@ It is Circuit's [edge router example](/guide/examples#an-edge-router), and every
 [Install Circuit](/guide/install) and give the installer your AS number. Then copy the example's files into the project: `circuit.ts` with your AS, your prefixes and your communities, `sites/pop-1/edge-01.ts` with the router, and `lib/checks.ts` with a check of your own.
 
 ::: info The names in this lesson
-The example calls the transit `transit-a`, AS64501, and the exchange `exchange-a`, whose route servers are AS64502. Replace the addresses, AS numbers and port names with the ones your providers give you.
+The example calls the transit `hurricane-electric`, AS64501, and the exchange `de-cix`, whose route servers are AS64502. Replace the addresses, AS numbers and port names with the ones your providers give you.
 :::
 
 ## Your AS, your prefixes and your communities
@@ -86,7 +86,7 @@ Circuit cannot know that every session of yours must filter what it takes in, so
 
 ## Validate, diff and apply
 
-1. Set the router's password: `circuit env set EDGE_01_PASSWORD`.
+1. Set the router's password: `circuit secret set EDGE_01_PASSWORD`.
 2. Run `circuit validate`. On the example it prints `✔ 1 device(s), no errors.`
 3. Run `circuit diff edge-01`. It logs in to the router, reads what it runs now, and shows the plan. It changes nothing.
 4. Run `circuit apply edge-01`. It shows the plan again and asks. Read every line, and say yes only when it is what you want.

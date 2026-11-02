@@ -101,12 +101,12 @@ const isLit = (from: string, to: string) => {
 
 const code = computed(() => {
     const neighbor = [
-        `"transit-b": {`,
+        `"cogent": {`,
         `    address: "203.0.113.5",`,
         `    remote_as: 64511,`,
         `    role: "provider",`,
         `    import_policy: "transit-import",`,
-        ...(exported.value === "ours" ? [`    export_policy: "transit-b-export",`] : []),
+        ...(exported.value === "ours" ? [`    export_policy: "cogent-export",`] : []),
         ...(exported.value === "everything" ? [`    export_policy: "everything",`] : []),
         `    max_prefixes: 1_200_000,`,
         `},`,
@@ -116,14 +116,14 @@ const code = computed(() => {
         exported.value === "ours"
             ? [
                   "",
-                  `"transit-b-export": [`,
+                  `"cogent-export": [`,
                   `    { description: "Announce 198.51.100.0/24", if: { prefix: "198.51.100.0/24" }, then: "accept" },`,
                   `    { description: "Nothing else leaves", then: "reject" },`,
                   `],`,
               ]
             : exported.value === "everything"
               ? ["", `everything: [{ then: "accept" }],`]
-              : ["", "// No export: nothing is announced to transit-b."];
+              : ["", "// No export: nothing is announced to cogent."];
 
     return [...neighbor, ...policy].join("\n");
 });
@@ -132,7 +132,7 @@ const validate = computed(() =>
     exported.value === "everything"
         ? [
               "$ circuit validate",
-              "  error  edge-01: routing.bgp.neighbors.transit-b: export_policy everything does not end in an unconditional reject",
+              "  error  edge-01: routing.bgp.neighbors.cogent: export_policy everything does not end in an unconditional reject",
               "",
               "1 error(s).",
           ].join("\n")

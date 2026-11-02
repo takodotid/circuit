@@ -97,18 +97,19 @@ Circuit checks for a newer version before each command and warns when there is o
 
 Each reads the project in the working directory or the nearest folder above it, or in the folder `--project <folder>` names. Leave out the device and Circuit lists them to pick from.
 
-| Command                             | What it does                                                                              |
-| ----------------------------------- | ----------------------------------------------------------------------------------------- |
-| `validate`                          | Reads the project and checks it, then runs every check in `circuit.ts`.                   |
-| `diff [device]`                     | Reads the device and shows what `apply` would change.                                     |
-| `apply [device]`                    | Reads the device, shows what would change, and sends it once you say yes (`--confirm`).   |
-| `exec [device] [command...]`        | Runs commands that only read on the device, and prints the answer, secrets hidden.        |
-| `bgp [device]`                      | Each BGP neighbor next to its live session: up or down, prefixes, uptime.                 |
-| `access-console [device] [line...]` | Opens the device's serial console, logged in, or sends it lines.                          |
-| `studio`                            | Opens the project in your browser: the graph, every table, tools, compare and secrets.    |
-| `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.             |
-| `env`                               | Lists the secrets in `.env`; `env set`, `get`, `delete`, `encrypt` and `rotate` the rest. |
-| `update`                            | Installs the newest Circuit.                                                              |
+| Command                             | What it does                                                                                 |
+| ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| `validate`                          | Reads the project and checks it, then runs every check in `circuit.ts`.                      |
+| `diff [device]`                     | Reads the device and shows what `apply` would change.                                        |
+| `apply [device]`                    | Reads the device, shows what would change, and sends it once you say yes (`--confirm`).      |
+| `exec [device] [command...]`        | Runs commands that only read on the device, and prints the answer, secrets hidden.           |
+| `bgp [device]`                      | Each BGP neighbor next to its live session: up or down, prefixes, uptime.                    |
+| `access-console [device] [line...]` | Opens the device's serial console, logged in, or sends it lines.                             |
+| `studio`                            | Opens the project in your browser: the graph, every table, tools, compare and secrets.       |
+| `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.                |
+| `secret`                            | Lists the secrets in `.env`; `secret set`, `get`, `delete`, `encrypt` and `rotate` the rest. |
+| `update`                            | Installs the newest Circuit.                                                                 |
+| `uninstall`                         | Removes the Circuit app. Your projects stay.                                                 |
 
 ## Docs
 

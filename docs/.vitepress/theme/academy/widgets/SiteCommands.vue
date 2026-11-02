@@ -23,12 +23,12 @@ const steps: Step[] = [
     },
     {
         title: "Set the passwords",
-        text: "circuit env set asks for each password without showing it, and writes it to .env, encrypted. circuit env lists every secret the files use, and says which are missing, without printing any of them.",
+        text: "circuit secret set asks for each password without showing it, and writes it to .env, encrypted. circuit secret lists every secret the files use, and says which are missing, without printing any of them.",
         lang: "shell",
         code: [
-            "$ circuit env set ROUTER_PASSWORD",
-            "$ circuit env set SWITCH_PASSWORD",
-            "$ circuit env",
+            "$ circuit secret set ROUTER_PASSWORD",
+            "$ circuit secret set SWITCH_PASSWORD",
+            "$ circuit secret",
             "  ROUTER_PASSWORD  encrypted",
             "  SWITCH_PASSWORD  encrypted",
             "",
