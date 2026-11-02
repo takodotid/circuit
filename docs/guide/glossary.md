@@ -1,7 +1,5 @@
 # Glossary
 
-Short explanations of the networking and Circuit words these pages use.
-
 ## Circuit
 
 | Word     | Meaning                                                                                                          |

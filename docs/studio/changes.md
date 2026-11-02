@@ -1,6 +1,6 @@
 # Reviewing changes
 
-Studio can show your files now next to an earlier state of them: another branch, a tag, or any commit. It needs your project in git, which the installer starts for you.
+Studio can show your files now next to an earlier state of them: another branch, a tag, or any commit. It needs your project in git, which `circuit new` starts for you.
 
 ## Compare
 

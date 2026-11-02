@@ -17,7 +17,7 @@ The switch only moves frames inside each VLAN. Everything that crosses from one 
 
 ## Start the project
 
-[Install Circuit](/guide/install). The installer asks a few questions and writes an empty project. Then copy the example's files into it:
+[Install Circuit](/guide/install), then run `circuit new my-network`. It asks a few questions and writes an empty project. Copy the example's files into it:
 
 ```text
 my-network/

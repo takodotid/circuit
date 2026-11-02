@@ -56,7 +56,7 @@ circuit secret set SNMP_COMMUNITY op://Network/SNMP/password
 
 Circuit reads it with the 1Password CLI (`op`) when needed. The list shows where it lives, never the value.
 
-You can keep the private key itself in 1Password, too: pick 1Password when the installer asks. Then nobody needs a `.env.keys` file.
+You can keep the private key itself in 1Password, too: pick 1Password when `circuit new` asks. Then nobody needs a `.env.keys` file.
 
 ## Rotating the key
 

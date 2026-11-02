@@ -6,11 +6,11 @@ description: Which feature works on which device OS, at a glance.
 
 What each platform can do today.
 
-| Mark | Means                                                               |
-| ---- | ------------------------------------------------------------------- |
-| ✅   | Works. Proved on a real device.                                     |
-| ❌   | Not on this platform. `circuit validate` stops you.                 |
-| 🧪   | Not proved on a real device yet. `circuit validate` stops you, too. |
+| Mark | Means                                                                                                                    |
+| ---- | ------------------------------------------------------------------------------------------------------------------------ |
+| ✅   | Works. Proved on a real device.                                                                                          |
+| ❌   | Not on this platform. `circuit validate` stops you.                                                                      |
+| 🧪   | Not proved on a real device yet. Circuit stops, unless you add `--experimental`: then it's a warning, and yours to test. |
 
 A note in a cell means "works, with this limit".
 
@@ -89,10 +89,6 @@ A note in a cell means "works, with this limit".
 
 ## How this table is made
 
-It comes from Circuit's code, not from a datasheet:
-
-- ❌ is what each platform refuses in its `unsupported()`.
-- 🧪 is what `Derive.unproved` refuses until a platform has proved it.
-- ✅ is what the platform builds, proved by its tests against a real device's output.
+From Circuit's code, not from datasheets. ✅ is built and tested against a real device's output. ❌ and 🧪 are what Circuit refuses.
 
 Something missing that your device can do? See [Contributing](/contributing).

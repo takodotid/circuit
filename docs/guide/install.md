@@ -1,34 +1,36 @@
 ---
-description: One command installs Circuit like an app and starts your first project.
+description: One command installs Circuit like an app. Then start a project, or set up one you cloned.
 ---
 
 # Install
 
 <img class="illustration" src="/illustrations/guide/install.webp" alt="A laptop with a terminal open, one line highlighted, leading to a new project folder with its files and a key." width="1536" height="1024">
 
-Open a terminal in the folder where your project should go, and run:
+Open a terminal and run:
 
 <InstallTabs />
 
-That's it. No Node, no npm, nothing else to install.
+It installs `circuit` like an app and adds it to your `PATH`:
 
-## What it does
+- **Windows:** `%LOCALAPPDATA%\Programs\Circuit\circuit.exe`, listed in **Settings > Apps**.
+- **macOS and Linux:** `~/.local/bin/circuit`.
 
-1. Downloads `circuit` for your system and checks it against the release's checksums.
-2. Installs it like an app:
-    - **Windows:** `%LOCALAPPDATA%\Programs\Circuit\circuit.exe`. It's in **Settings > Apps**, with an uninstall.
-    - **macOS and Linux:** `~/.local/bin/circuit`.
-3. Adds it to your `PATH`, so `circuit` works from any folder.
-4. Asks a few questions and writes your project.
+Then it asks: **Set up a new project in this folder?** No is the default. You can always start one later with `circuit new`.
 
 Open a new terminal afterwards, and restart VS Code, so both find `circuit`.
 
-## The questions
+## Start a project
+
+```sh
+circuit new network
+```
+
+Or run `circuit` in an empty folder and pick **Start a new project here**.
 
 | Question                | Pick                                                                              |
 | ----------------------- | --------------------------------------------------------------------------------- |
 | Project folder          | Any name. `network` by default.                                                   |
-| How to run Circuit      | **Simple** (recommended): just the app. **Full**: see [below](#full-install).     |
+| How to run Circuit      | **Simple** (recommended): the app. **Full**: see [below](#full-install).          |
 | Your AS number          | Yours, or keep `64500` for now and change it later in `circuit.ts`.               |
 | Start a git repository? | Yes. Git keeps every change and who made it.                                      |
 | Where to keep the key   | `.env.keys` (recommended) or 1Password. Only asked if you have the 1Password CLI. |
@@ -38,31 +40,37 @@ Once you add a site and a device, the project looks like this:
 
 <LayoutDiagram />
 
-## Running it again
+## Running the install command again
 
-The same command is safe to run again. What it does depends on where you are:
-
-| Where you run it                              | What happens                                                                                               |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Anywhere, with an older Circuit installed     | Updates Circuit.                                                                                           |
-| In a project folder, like a fresh `git clone` | Sets that project up, no questions: editor types and the git hook. A full install also runs `bun install`. |
-| In any other folder                           | Offers to start a new project there.                                                                       |
+| Where you run it                              | What happens                                                    |
+| --------------------------------------------- | --------------------------------------------------------------- |
+| Anywhere, with Circuit installed              | Asks before updating the app. No is the default.                |
+| In a project folder, like a fresh `git clone` | Sets that project up, no questions: editor types, the git hook. |
+| In any other folder                           | Asks whether to set up a new project there.                     |
 
 So a teammate who clones your project runs the install command once, in that folder, and is ready.
 
+## Each project pins its version
+
+A project keeps its Circuit version in `.circuit-version`, at its root, committed with the rest:
+
+```
+1.0.0-rc.1
+```
+
+`circuit` runs that version, downloading it once into `~/.circuit/versions/`. So:
+
+- Two projects on two versions never clash.
+- Updating the app never changes a project.
+- Everyone on the team runs the same version.
+
 ## Full install
 
-A full install pins Circuit inside the project, in its `package.json`. The whole team then runs the same version.
-
-- It needs [Bun](https://bun.sh). The installer offers to install it.
-- The `circuit` app still works as usual. In a full-install project, it hands over to the project's own version.
-- So two projects on two different versions never clash.
-
-Node and npm come later.
+Circuit as a package in the project, pinned in its `package.json`. Nothing goes on your `PATH`: you run it with Bun, as `bun circuit <command>`. Pick **Full** in the installer or in `circuit new`.
 
 ## Your editor
 
-Your editor completes every field and flags every wrong name as you type. It uses the project's `tsconfig.json` and `.circuit/types`. You don't install TypeScript: these editors bring their own.
+Your editor completes every field and flags every wrong name as you type, from the project's `tsconfig.json` and `.circuit/types`.
 
 | Editor                           | You install                                                 |
 | -------------------------------- | ----------------------------------------------------------- |
@@ -70,10 +78,10 @@ Your editor completes every field and flags every wrong name as you type. It use
 | Cursor, Windsurf, VSCodium       | Nothing. Built on VS Code, not tested yet.                  |
 | WebStorm, IntelliJ IDEA Ultimate | Nothing. TypeScript is built in, not tested yet.            |
 | Zed                              | Nothing. Zed fetches its TypeScript server, not tested yet. |
-| Neovim, Helix, Sublime Text      | Node and `typescript-language-server`, set up by hand.      |
+| Neovim, Helix, Sublime Text      | A TypeScript language server, set up by hand.               |
 | Notepad++ and plain editors      | No live checks. `circuit validate` still checks everything. |
 
-We recommend VS Code.
+We recommend VS Code. A new project comes with `.vscode/settings.json` and `.vscode/extensions.json`: VS Code asks to install the Prettier extension, and then formats each file as you save it, the same way `circuit fmt` does. VS Code can only format on save through an extension, which is why it asks.
 
 ## Updating
 
@@ -81,14 +89,15 @@ We recommend VS Code.
 circuit update
 ```
 
-Circuit checks for a new version before each command, at most once a minute, and tells you when there is one.
+- **In a project:** shows the newest version and asks before moving the project to it. No is the default. Then it rewrites `.circuit-version` and the editor types.
+- **Outside a project:** updates the app.
+- **Never across a major version.** 1.x stays on 1.x. Moving to 2.x is your choice.
 
-- **Stable versions** are on npm as `latest`, **release candidates** as `rc`.
-- **A major version is your choice.** `circuit update` never moves you from 1.x to 2.x, or from 0.x to 1.x.
-- **Critical fixes:** when a release fixes something critical, older versions stop. Only `circuit update` runs until you update.
-- **Offline?** Circuit warns that it can't check, and carries on.
+Circuit checks for a new version before each command, at most once a minute:
 
-The editor types are rewritten the next time Circuit runs in a project.
+- **Newer one out:** a warning, and your command runs.
+- **Critical fix out:** older versions stop. Only `circuit update` runs.
+- **Offline:** a warning, and your command runs.
 
 ## Uninstall
 

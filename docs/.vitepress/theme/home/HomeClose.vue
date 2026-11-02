@@ -17,7 +17,7 @@ onMounted(() => (chosen.value = systems.findIndex((system) => system.id === Inst
 <template>
     <section class="close" aria-labelledby="close">
         <h2 id="close" data-reveal>Write down your first device.</h2>
-        <p>One command installs Circuit, asks a few questions, then writes a working project. Nothing else to install.</p>
+        <p>One command installs Circuit. Then <code>circuit new</code> writes your first project.</p>
         <div class="starter" data-reveal>
             <div class="managers" role="tablist" aria-label="Your system">
                 <button
@@ -42,7 +42,7 @@ onMounted(() => (chosen.value = systems.findIndex((system) => system.id === Inst
         </div>
         <p class="more">
             Run it in {{ systems[chosen]!.shell }}. Or read <a :href="withBase('/guide/introduction')">what Circuit is</a> first, and
-            <a :href="withBase('/guide/install')">what the installer asks</a>.
+            <a :href="withBase('/guide/install#start-a-project')">how a project starts</a>.
         </p>
     </section>
 </template>
