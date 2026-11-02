@@ -35,7 +35,7 @@ Every change to Circuit is weighed against these, set by the owner.
 
 - `DESIGN.md` (the look of the site and Studio), `PRODUCT.md` (who Circuit is for), `DEPLOYMENT.md` (branches and releases), `.claude/skills/` (implement, fix and prove a device; release).
 
-Not in v1 yet, later work: integrations (PeeringDB, LibreNMS, NetBox, Prometheus, to become one `circuit sync <target>`), and the `refresh`, `wireguard`, `communities`, `graph` and `addresses` commands.
+Not in v1 yet: see the open issues (`gh issue list`), such as YAML projects (#167), `circuit sync` (#170) and the remaining 0.x commands (#171).
 
 ## Rules
 
