@@ -18,7 +18,7 @@ import { Setup } from "./setup";
 import { Ui } from "./ui";
 
 /** How a device is reached and what a plan sends, as `diff` and `apply` take them. */
-export type ReachFlags = { secrets?: boolean; rollback?: number; console?: boolean };
+export type ReachFlags = { secrets?: boolean; rollback?: number; console?: boolean; experimental?: boolean };
 
 /** One project, read, and how it reaches devices. */
 export class ProjectCommands {
@@ -33,7 +33,9 @@ export class ProjectCommands {
         readonly root: string,
         readonly project: ProjectRead,
         /** How a device is reached and what a plan sends: `apply`'s flags, the defaults for every other command. */
-        private readonly options: ApplyOptions
+        private readonly options: ApplyOptions,
+        /** `--experimental`: fields a platform renders but has not proved are warnings, not errors. */
+        private readonly experimental = false
     ) {
         this.devices = project.networks.flatMap((network) => Object.values(network.devices));
     }
@@ -88,7 +90,7 @@ export class ProjectCommands {
             ...(flags.console ? { console: true } : {}),
         };
 
-        return new ProjectCommands(root, project, options);
+        return new ProjectCommands(root, project, options, flags.experimental ?? false);
     }
 
     /** The device with this name. Without one, a person picks it from a list; a script must name it. */
@@ -124,7 +126,9 @@ export class ProjectCommands {
 
     /** What the model's checks find, network by network: what each platform can't express, what it does otherwise, and the built-in checks the network turns on. */
     private modelFindings(): Finding[] {
-        return this.project.networks.flatMap((network) => Validation.run(Object.values(network.devices), network.settings.checks));
+        return this.project.networks.flatMap((network) =>
+            Validation.run(Object.values(network.devices), network.settings.checks, { experimental: this.experimental })
+        );
     }
 
     /** Print what was found, and stop on an error about one of these devices. */

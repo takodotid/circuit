@@ -4,6 +4,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Device } from "../../src/model";
 import { FortiOs } from "../../src/platforms/fortios";
 import { FortiOsVdoms } from "../../src/platforms/fortios/vdoms";
+import { Validation } from "../../src/checks";
 import { FakeSshDevice } from "./fake-ssh";
 
 const platform = new FortiOs();
@@ -36,8 +37,9 @@ const firewall: Device = {
     routing: { static_routes: [{ prefix: "0.0.0.0/0", next_hop: "203.0.113.1", description: "Routed traffic out" }] },
 };
 
-test("a management VDOM is not root, has its own interfaces and routes, and is refused until proved", () => {
-    expect(platform.unsupported(firewall)).toEqual(["system.vdoms, a management VDOM is not proved on a device yet"]);
+test("a management VDOM is not root, has its own interfaces and routes, and is experimental until proved", () => {
+    expect(platform.unsupported(firewall)).toEqual([]);
+    expect(platform.experimental(firewall)).toEqual(["system.vdoms, a management VDOM"]);
     expect(platform.checks(firewall)).toEqual([]);
 
     const wrong: Device = {
@@ -51,6 +53,16 @@ test("a management VDOM is not root, has its own interfaces and routes, and is r
         "error fw-01: system.vdoms.management.name is root, the VDOM everything else is in; give it a name of its own",
         "error fw-01: system.vdoms.management.static_routes 10.0.0.0/8 leaves through 10g-1, which is not in the VDOM",
     ]);
+});
+
+test("validate stops on the management VDOM, and --experimental makes it a warning", () => {
+    const levels = (experimental: boolean) =>
+        Validation.run([firewall], undefined, { experimental })
+            .filter((finding) => finding.message.startsWith("system.vdoms, a management VDOM"))
+            .map((finding) => finding.level);
+
+    expect(levels(false)).toEqual(["error"]);
+    expect(levels(true)).toEqual(["warning"]);
 });
 
 test("the render puts each interface in its VDOM, and the management VDOM's routes and guards in sections of its own", () => {

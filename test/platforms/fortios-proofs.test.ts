@@ -275,11 +275,12 @@ test("BFD on a multihop BGP session is taken and read back, but refused: the dev
     ]);
 });
 
-test("BFD stays refused on a route in a VRF", () => {
+test("BFD on a route in a VRF is rendered but not proved: experimental", () => {
     const inVrf: Device = {
         ...firewall,
         routing: { ...firewall.routing, static_routes: [{ prefix: "0.0.0.0/0", next_hop: "198.51.100.98", vrf: "guests", bfd: true }] },
     };
 
-    expect(platform.unsupported(inVrf)).toContain("routing.static_routes 0.0.0.0/0.bfd, BFD in a VRF is not proved on a device yet");
+    expect(platform.unsupported(inVrf)).not.toContain(expect.stringContaining("BFD in a VRF"));
+    expect(platform.experimental(inVrf)).toEqual(["routing.static_routes 0.0.0.0/0.bfd, BFD in a VRF"]);
 });

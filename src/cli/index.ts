@@ -85,7 +85,8 @@ class Cli {
             .command("validate")
             .description("check every file of the project, and every check in circuit.ts")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (flags) => (await ProjectCommands.open(flags.project)).validate());
+            .option("--experimental", "allow what a platform renders but has not proved on a device yet, as a warning")
+            .action(async (flags) => (await ProjectCommands.open(flags.project, flags)).validate());
 
         program
             .command("diff")
@@ -94,6 +95,7 @@ class Cli {
             .option("--secrets", "plan as apply --secrets would, sending every secret again")
             .option("--console", "through the device's serial console on its jump host, instead of SSH")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
+            .option("--experimental", "allow what a platform renders but has not proved on a device yet, as a warning")
             .action(async (device, flags) => (await ProjectCommands.open(flags.project, flags)).diff(device));
 
         program
@@ -106,6 +108,7 @@ class Cli {
             .option("--console", "through the device's serial console on its jump host, instead of SSH")
             .option("--force", "send even when the path to the device loses too much or is too slow")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
+            .option("--experimental", "allow what a platform renders but has not proved on a device yet, as a warning")
             .action(async (device, flags) =>
                 (await ProjectCommands.open(flags.project, flags)).apply(device, flags.confirm ?? false, flags.force ?? false)
             );
@@ -332,7 +335,8 @@ class Cli {
             Ui.fail("\nThe commit was stopped, so no secret reaches git.");
         }
 
-        if (ProjectCommands.find()) (await ProjectCommands.open(undefined)).validate();
+        // A field not proved yet is a warning here: it stops `apply`, not a commit.
+        if (ProjectCommands.find()) (await ProjectCommands.open(undefined, { experimental: true })).validate();
     }
 
     /** The menu `circuit` opens alone: pick what to do, answer what it needs, and get the command it runs. */
