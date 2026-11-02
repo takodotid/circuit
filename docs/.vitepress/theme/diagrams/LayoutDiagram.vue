@@ -9,6 +9,7 @@ const rows = [
     { file: "lib/checks.ts", note: "your own checks", git: "commit" },
     { file: ".env", note: "the secrets, each one encrypted", git: "commit" },
     { file: ".env.keys", note: "the key that decrypts .env", git: "never" },
+    { file: ".gitignore", note: "keeps .env.keys out of git", git: "commit" },
     { file: ".circuit/types/", note: "the editor's types, written by Circuit", git: "commit" },
     { file: ".circuit/hooks/", note: "the check before each commit", git: "commit" },
     { file: "tsconfig.json", note: "points the editor at .circuit/types", git: "commit" },

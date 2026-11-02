@@ -44,7 +44,12 @@ section's own rule loaded after it still wins a tie. */
     padding: 0;
     background: none;
     color: inherit;
-    font: max(14px, calc(22 * var(--px))) / 1 var(--circuit-mono);
+    font: max(13px, calc(17 * var(--px))) / 1 var(--circuit-mono);
+    /* One line: Windows' command is long. Copying takes it whole. */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .home .copied {

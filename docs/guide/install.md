@@ -21,7 +21,7 @@ Open a new terminal afterwards, and restart VS Code, so both find `circuit`.
 | Where to keep the key        | The key that decrypts `.env`: in a `.env.keys` file (recommended), or in 1Password. Asked only when the 1Password CLI is installed. See [Secrets](/guide/secrets).                                                    |
 | Open the project in VS Code? | Asked only when VS Code is installed.                                                                                                                                                                                 |
 
-The project it writes:
+The installer writes `circuit.ts`, `sites/`, `tenants/`, `.env`, `.env.keys`, `.gitignore`, `tsconfig.json` and `.circuit/`. Once you add a site and a device, the project looks like this:
 
 <LayoutDiagram />
 

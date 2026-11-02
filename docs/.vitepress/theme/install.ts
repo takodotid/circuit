@@ -22,7 +22,7 @@ export class Install {
         const text = `${platform} ${navigator.userAgent}`.toLowerCase();
 
         if (/mac|iphone|ipad/.test(text)) return "macos";
-        if (/win/.test(text)) return "windows";
+        if (/\bwin/.test(text)) return "windows";
         return "linux";
     }
 }

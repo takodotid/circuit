@@ -15,7 +15,8 @@ const studioShot = computed(() => withBase(isDark.value ? "/screenshots/studio-d
             <h2 id="studio">The whole network, drawn</h2>
             <p>
                 <code>circuit studio</code> draws the network and lists everything in your files, so the whole team can look things up,
-                including people who do not read TypeScript. It reads only the files and the last snapshot, and never logs in to a device.
+                including people who do not read TypeScript. It reads only the files, and logs in to a device only when you ask it to read
+                one.
             </p>
             <a class="onward" :href="withBase('/studio/')">Circuit Studio</a>
         </div>
@@ -23,7 +24,7 @@ const studioShot = computed(() => withBase(isDark.value ? "/screenshots/studio-d
             class="shot"
             data-reveal
             :src="studioShot"
-            alt="Circuit Studio's graph of an example network, with the devices that differ from their snapshots marked, beside the layer's details."
+            alt="Circuit Studio's graph of an example network, beside the layer's details."
             width="1440"
             height="900"
             loading="lazy"

@@ -131,9 +131,9 @@ function nextChange() {
                         {{ node.name }}
                     </span>
 
-                    <span class="card-title" :style="on('network', 1088, 304)">Snapshot</span>
+                    <span class="card-title" :style="on('network', 1088, 304)">Live read</span>
                     <span class="card-name" :style="on('network', 1181, 420)">edge-b1</span>
-                    <span class="card-date" :style="on('network', 1181, 462)">2026-10-12</span>
+                    <span class="card-date" :style="on('network', 1181, 462)">read now</span>
 
                     <span
                         v-for="(commit, index) in commits"
@@ -172,7 +172,7 @@ function nextChange() {
 
             <figcaption id="plate-caption" class="visually-hidden">
                 How a change travels: an engineer writes a device file, a teammate reads the plan it makes, Apply sends it, the network
-                drawing shows the changed device, its snapshot is kept, and the git history records the change.
+                drawing shows the changed device, Circuit reads it again to check it, and the git history records the change.
             </figcaption>
         </figure>
 

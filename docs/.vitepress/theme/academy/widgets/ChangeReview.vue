@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: running it day to day. The reader reviews three pull requests against the colocation example, asks a reviewer's questions of each, and approves or asks for changes. Every validate and diff output is Circuit's own, run on the template; the snapshot diff compares against is the template's build.
+// Lesson: running it day to day. The reader reviews three pull requests against the colocation example, asks a reviewer's questions of each, and approves or asks for changes. Every validate and diff output is Circuit's own, run on the template; diff compares against the template's build, which stands in for the device.
 
 import { computed, ref } from "vue";
 
