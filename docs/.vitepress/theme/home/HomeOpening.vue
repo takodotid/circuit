@@ -10,8 +10,10 @@ import { Install } from "../install";
 const { copied, copy } = useCopy();
 const { on, box, tokens, planLine } = HomeDrawing;
 
-// The install command for the visitor's system, known once the page is in the browser.
-const install = ref(Install.UNIX);
+// The install command, one tab per system. The tab open first is the visitor's own system, once the page is in the browser.
+const systems = Install.SYSTEMS;
+const chosen = ref(systems.findIndex((system) => system.id === "linux"));
+const install = computed(() => systems[chosen.value]!.command);
 const arts = HomeDrawing.ARTS;
 const parts = HomeDrawing.PARTS;
 const nodes = HomeDrawing.NODES;
@@ -39,7 +41,7 @@ const idle = ref(false);
 let sight: IntersectionObserver | undefined;
 
 onMounted(() => {
-    install.value = Install.SYSTEMS.find((system) => system.id === Install.detect())!.command;
+    chosen.value = systems.findIndex((system) => system.id === Install.detect());
     fitWindow();
     watcher = new ResizeObserver(fitWindow);
     if (stage.value) watcher.observe(stage.value);
@@ -198,14 +200,28 @@ function nextChange() {
                 Get started
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6" /></svg>
             </a>
-            <button type="button" class="command" @click="copy(install)" :aria-label="`Copy ${install}`">
-                <code>{{ install }}</code>
-                <span class="copied" aria-live="polite">{{ copied === install ? "Copied" : "" }}</span>
-                <svg v-if="copied !== install" viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="8" y="8" width="12" height="12" rx="1" />
-                    <path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" />
-                </svg>
-            </button>
+            <div class="install">
+                <div class="systems" role="tablist" aria-label="Your system">
+                    <button
+                        v-for="(entry, index) in systems"
+                        :key="entry.id"
+                        type="button"
+                        role="tab"
+                        :aria-selected="chosen === index"
+                        @click="chosen = index"
+                    >
+                        {{ entry.name }}
+                    </button>
+                </div>
+                <button type="button" class="command" @click="copy(install)" :aria-label="`Copy ${install}`" :title="install">
+                    <code>{{ install }}</code>
+                    <span class="copied" aria-live="polite">{{ copied === install ? "Copied" : "" }}</span>
+                    <svg v-if="copied !== install" viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="8" y="8" width="12" height="12" rx="1" />
+                        <path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" />
+                    </svg>
+                </button>
+            </div>
         </div>
     </header>
 </template>
@@ -616,6 +632,42 @@ h1 {
     margin: calc(33 * var(--px)) var(--gutter) 0;
 }
 
+/* The install command, with a tab per system above it. */
+.install {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.systems {
+    display: flex;
+    align-self: flex-start;
+    border: 2px solid var(--circuit-on-cobalt-soft);
+    border-radius: 2px;
+}
+
+.systems button {
+    padding: 4px max(12px, calc(16 * var(--px)));
+    color: #ffffff;
+    font-size: max(13px, calc(15 * var(--px)));
+    font-weight: 700;
+}
+
+.systems button + button {
+    border-left: 2px solid var(--circuit-on-cobalt-soft);
+}
+
+.systems button[aria-selected="true"] {
+    background: #ffffff;
+    color: var(--circuit-cobalt);
+}
+
+/* Small enough that Windows' command, the longest, shows whole. */
+.install .command code {
+    font-size: max(12px, calc(14 * var(--px)));
+}
+
 .lead {
     margin: 0;
     max-width: calc(602 * var(--px));
@@ -859,6 +911,14 @@ h1 {
         grid-template-columns: minmax(0, 1fr);
         gap: 12px;
         margin-top: 28px;
+    }
+
+    .install .command {
+        padding-inline: 12px;
+    }
+
+    .install .command code {
+        font-size: 11.5px;
     }
 
     .lead {
