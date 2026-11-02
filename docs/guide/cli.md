@@ -50,14 +50,14 @@ More than 5% lost, or slower than 300 ms on average? It stops. Often it's your o
 
 ### Options
 
-| Option           | For                         | Does                                                                                                                                 |
-| ---------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `--confirm`      | `apply`                     | Sends without asking.                                                                                                                |
-| `--secrets`      | `apply`, `diff`             | Sends every secret again. Use it to change a password: devices never show passwords.                                                 |
-| `--rollback N`   | `apply`                     | RouterOS, Junos, FortiOS: minutes before the device undoes the change if Circuit can't log back in. Default 10.                      |
-| `--force`        | `apply`                     | Sends even when the path check fails.                                                                                                |
-| `--console`      | `apply`, `diff`, `exec`     | Goes through the serial console on a jump host instead of SSH.                                                                       |
-| `--experimental` | `validate`, `diff`, `apply` | Lets through a field not proved on a device yet (🧪 in the [feature matrix](/platforms/features)), with a warning. Test it yourself. |
+| Option           | For                         | Does                                                                                                                                                                                                            |
+| ---------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--confirm`      | `apply`                     | Sends without asking.                                                                                                                                                                                           |
+| `--secrets`      | `apply`, `diff`             | Sends every secret again. Use it to change a password: devices never show passwords.                                                                                                                            |
+| `--rollback N`   | `apply`                     | RouterOS, Junos, FortiOS: minutes before the device undoes the change if Circuit can't log back in. Default 10.                                                                                                 |
+| `--force`        | `apply`                     | Sends even when the path check fails.                                                                                                                                                                           |
+| `--console`      | `apply`, `diff`, `exec`     | Goes through the serial console on a jump host instead of SSH.                                                                                                                                                  |
+| `--experimental` | `validate`, `diff`, `apply` | Lets through a field that's built but not proved on a device yet (🧪 in the [feature matrix](/platforms/features)), as a warning. Test it yourself. Not built yet (❌) still stops. The commit hook only warns. |
 
 ## Utilities
 
