@@ -1,4 +1,4 @@
-// Which Circuit is current, and updating to it. Each release writes https://circuit.tako.id/latest.json: the newest stable version, the newest of any, and the minimum, the newest release marked critical. Circuit reads it before each command, at most once a minute, warns when a newer one is out, and stops below the minimum.
+// Which Circuit is current, and updating to it. Circuit asks the npm registry, at most once a minute: the dist-tag `latest` is the newest stable release, `rc` the newest release candidate. A release that fixes something critical is marked by deprecating the versions before it, with a message that starts with "critical"; such a version stops every command but `update`. An update stays within the major version, as `npm update` does: a new major version is a choice.
 
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -7,26 +7,25 @@ import { basename, join } from "node:path";
 import { Ui } from "./ui";
 import { VERSION } from "./version";
 
-/** What latest.json holds. */
+/** What Circuit learns from the registry. */
 export type Latest = {
-    /** The newest stable version. */
-    latest: string;
-    /** The newest version, a release candidate too. */
-    next: string;
-    /** The newest version marked critical: anything older stops. */
-    minimum: string;
+    /** The npm dist-tags, such as `{ latest: "1.0.0", rc: "1.1.0-rc.1" }`. */
+    tags: Record<string, string>;
+    /** Why this version is deprecated, when it is. */
+    deprecated?: string;
 };
 
 export class Releases {
-    static readonly LATEST_URL = "https://circuit.tako.id/latest.json";
+    static readonly REGISTRY = "https://registry.npmjs.org";
+    static readonly PACKAGE = "@takodotid/circuit";
     static readonly DOWNLOADS = "https://github.com/takodotid/circuit/releases/download";
 
     /** How long a check counts before Circuit asks again. */
     private static readonly FRESH_SECONDS = 60;
-    /** How long Circuit waits for latest.json before going on without it. */
+    /** How long Circuit waits for the registry before going on without it. */
     private static readonly TIMEOUT_MS = 3000;
 
-    /** Where Circuit keeps what it installed and what it learned: `~/.circuit`. */
+    /** Where Circuit keeps what it learned: `~/.circuit`. */
     static home(): string {
         return join(homedir(), ".circuit");
     }
@@ -65,60 +64,91 @@ export class Releases {
         return 0;
     }
 
-    /** The version this Circuit should be at: the newest stable one, or the newest of any while it runs a release candidate. */
-    static target(latest: Latest, current = VERSION): string {
-        return current.includes("-") && Releases.compare(latest.next, latest.latest) > 0 ? latest.next : latest.latest;
+    private static major(version: string): number {
+        return Number(version.replace(/^v/, "").split(".")[0]);
     }
 
-    private static readCache(): { checked: number; latest: Latest } | undefined {
+    /** The version this Circuit should be at: the newest stable one of its major version, or the newest release candidate while it runs one. Undefined when the registry names none. */
+    static target(latest: Latest, current = VERSION): string | undefined {
+        const candidates = [latest.tags.latest, current.includes("-") ? latest.tags.rc : undefined].filter(
+            (version): version is string => version !== undefined && Releases.major(version) === Releases.major(current)
+        );
+
+        return candidates.sort((a, b) => Releases.compare(b, a))[0];
+    }
+
+    /** A newer major version than this one, when the registry's stable release is one. */
+    static newerMajor(latest: Latest, current = VERSION): string | undefined {
+        const stable = latest.tags.latest;
+        return stable && Releases.major(stable) > Releases.major(current) ? stable : undefined;
+    }
+
+    private static readCache(): { checked: number; version: string; latest: Latest } | undefined {
         try {
-            return JSON.parse(readFileSync(Releases.cachePath(), "utf8"));
+            const cached = JSON.parse(readFileSync(Releases.cachePath(), "utf8"));
+            return cached.version === VERSION ? cached : undefined;
         } catch {
             return undefined;
         }
     }
 
-    private static isLatest(value: unknown): value is Latest {
-        const fields = value as Partial<Latest> | null;
-        return typeof fields?.latest === "string" && typeof fields.next === "string" && typeof fields.minimum === "string";
+    private static async json(url: string): Promise<Record<string, unknown>> {
+        const response = await fetch(url, { signal: AbortSignal.timeout(Releases.TIMEOUT_MS), headers: { accept: "application/json" } });
+        if (!response.ok) throw new Error(`the registry answered ${response.status}`);
+        return (await response.json()) as Record<string, unknown>;
     }
 
-    /** latest.json, from the cache when it was read in the last minute. `offline` when it could not be read, with the last one read, if any. */
+    /** The registry's dist-tags, and whether this version is deprecated, from the cache when read in the last minute. `offline` when the registry could not be read, with the last answer, if any. */
     static async latest(fresh = false): Promise<{ latest?: Latest; offline: boolean }> {
         const cached = Releases.readCache();
         if (!fresh && cached && Date.now() - cached.checked < Releases.FRESH_SECONDS * 1000)
             return { latest: cached.latest, offline: false };
 
         try {
-            const response = await fetch(Releases.LATEST_URL, { signal: AbortSignal.timeout(Releases.TIMEOUT_MS) });
-            const latest: unknown = response.ok ? await response.json() : undefined;
-            if (!Releases.isLatest(latest)) return { ...(cached ? { latest: cached.latest } : {}), offline: true };
+            const [tags, own] = await Promise.all([
+                Releases.json(`${Releases.REGISTRY}/-/package/${Releases.PACKAGE}/dist-tags`),
+                // A version not published, such as one built from the sources, is not deprecated.
+                Releases.json(`${Releases.REGISTRY}/${Releases.PACKAGE}/${VERSION}`).catch(() => ({}) as Record<string, unknown>),
+            ]);
+            const latest: Latest = {
+                tags: tags as Record<string, string>,
+                ...(typeof own.deprecated === "string" ? { deprecated: own.deprecated } : {}),
+            };
 
             mkdirSync(Releases.home(), { recursive: true });
-            writeFileSync(Releases.cachePath(), JSON.stringify({ checked: Date.now(), latest }));
+            writeFileSync(Releases.cachePath(), JSON.stringify({ checked: Date.now(), version: VERSION, latest }));
             return { latest, offline: false };
         } catch {
             return { ...(cached ? { latest: cached.latest } : {}), offline: true };
         }
     }
 
-    /** Before a command: stop below the minimum, warn when a newer Circuit is out, and warn when Circuit could not check. */
+    /** Before a command: stop on a version deprecated as critical, warn when a newer Circuit is out, and warn when Circuit could not check. */
     static async gate(): Promise<void> {
         const { latest, offline } = await Releases.latest();
 
-        if (latest && Releases.compare(VERSION, latest.minimum) < 0) {
+        if (latest?.deprecated && /^critical/i.test(latest.deprecated)) {
             Ui.fail(
-                `Circuit ${latest.minimum} fixes a critical problem, and this is Circuit ${VERSION}. Nothing runs until Circuit is updated: run circuit update.`
+                `Circuit ${VERSION} has a critical problem: ${latest.deprecated}\nNothing runs until Circuit is updated: run circuit update.`
             );
         }
+        if (latest?.deprecated) Ui.warn(`Circuit ${VERSION} is deprecated: ${latest.deprecated}`);
 
         if (offline) {
-            Ui.warn("Could not reach circuit.tako.id, so Circuit could not check that it is current. Go carefully.");
+            Ui.warn("Could not reach the npm registry, so Circuit could not check that it is current. Go carefully.");
             return;
         }
 
-        const target = latest ? Releases.target(latest) : VERSION;
-        if (Releases.compare(VERSION, target) < 0) Ui.warn(`Circuit ${target} is out, and this is ${VERSION}. Run circuit update.`);
+        const target = latest && Releases.target(latest);
+        if (target && Releases.compare(VERSION, target) < 0)
+            Ui.warn(`Circuit ${target} is out, and this is ${VERSION}. Run circuit update.`);
+
+        const major = latest && Releases.newerMajor(latest);
+        if (major) {
+            Ui.warn(
+                `Circuit ${major} is out, a new major version. circuit update stays on ${Releases.major(VERSION)}.x; read what changed at https://circuit.tako.id before you move.`
+            );
+        }
     }
 
     /** This Circuit's own file, when it runs as the installed binary rather than from its sources. */
@@ -143,11 +173,12 @@ export class Releases {
 
     /** Download the version this Circuit should be at, check it against the release's checksums, and put it in place of this one. */
     static async update(): Promise<string | undefined> {
-        const { latest } = await Ui.step("Checking for a newer Circuit", () => Releases.latest(true));
-        if (!latest) Ui.fail("Could not reach circuit.tako.id to learn the newest Circuit. Check the internet connection and try again.");
+        const { latest, offline } = await Ui.step("Checking for a newer Circuit", () => Releases.latest(true));
+        if (!latest || offline)
+            Ui.fail("Could not reach the npm registry to learn the newest Circuit. Check the internet connection and try again.");
 
         const target = Releases.target(latest);
-        if (Releases.compare(VERSION, target) >= 0) {
+        if (!target || Releases.compare(VERSION, target) >= 0) {
             Ui.done(`Circuit ${VERSION} is the newest.`);
             return undefined;
         }

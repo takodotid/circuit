@@ -15,12 +15,20 @@ test("versions compare as semver orders them, a release candidate before its rel
     expect(Releases.compare("v1.2.3", "1.2.3")).toBe(0);
 });
 
-test("a stable Circuit updates to the newest stable one, a release candidate to the newest of any", () => {
-    const latest = { latest: "1.0.0", next: "1.1.0-rc.1", minimum: "1.0.0" };
+test("an update stays within the major version: the newest stable one, or the newest release candidate while on one", () => {
+    const tags = { latest: "1.0.0", rc: "1.1.0-rc.1" };
 
-    expect(Releases.target(latest, "1.0.0")).toBe("1.0.0");
-    expect(Releases.target(latest, "1.1.0-rc.0")).toBe("1.1.0-rc.1");
-    expect(Releases.target({ ...latest, next: "1.0.0" }, "1.0.0-rc.3")).toBe("1.0.0");
+    expect(Releases.target({ tags }, "1.0.0")).toBe("1.0.0");
+    expect(Releases.target({ tags }, "1.1.0-rc.0")).toBe("1.1.0-rc.1");
+    expect(Releases.target({ tags: { latest: "1.0.0" } }, "1.0.0-rc.3")).toBe("1.0.0");
+
+    // While 0.x is still the stable release, a release candidate of 1 updates to the newest candidate.
+    expect(Releases.target({ tags: { latest: "0.43.1", rc: "1.0.0-rc.1" } }, "1.0.0-rc.0")).toBe("1.0.0-rc.1");
+
+    // A new major version is only told about.
+    expect(Releases.target({ tags: { latest: "2.0.0" } }, "1.4.0")).toBeUndefined();
+    expect(Releases.newerMajor({ tags: { latest: "2.0.0" } }, "1.4.0")).toBe("2.0.0");
+    expect(Releases.newerMajor({ tags: { latest: "0.43.1" } }, "1.0.0-rc.1")).toBeUndefined();
 });
 
 test("each system has its release file", () => {

@@ -24,7 +24,7 @@ Every change to Circuit is weighed against these, set by the owner.
 - `src/platforms/<name>/`: one adapter per device OS (`routeros`, `vrp`, `raisecom-ros`, `junos`, `fortios`), the only place for vendor syntax. Its `models.ts` lists the models and their ports; its `TRAPS.md` lists what the device does that you wouldn't expect.
 - `src/core/`: addresses, secrets, cabling, registries, the network as a graph (`topology.ts`), and `Utils`.
 - `src/transport/`: SSH and serial consoles.
-- `src/cli/`: the `circuit` command: its menu and commands (`index.ts`), the commands that read a project (`project-commands.ts`), `secret` (`secret.ts`), a new project (`setup.ts`), `rename` (`rename.ts`), the git hook (`git-hooks.ts`), updates (`releases.ts`), and how it talks to a person (`ui.ts`, with `@clack/prompts`). `editor-types.generated.ts` is written by `scripts/editor-types.ts`: the files Circuit puts in a project's `.circuit/types`.
+- `src/cli/`: the `circuit` command: its menu and commands (`index.ts`), the commands that read a project (`project-commands.ts`), `secret` (`secret.ts`), a new project (`setup.ts`), `rename` (`rename.ts`), the git hook (`git-hooks.ts`), updates from the npm registry (`releases.ts`), the install location and `uninstall` (`app.ts`), and how it talks to a person (`ui.ts`, with `@clack/prompts`). `editor-types.generated.ts` is written by `scripts/editor-types.ts`: the files Circuit puts in a project's `.circuit/types`.
 - `src/core/env-file.ts`: a project's `.env`, each value encrypted as dotenvx encrypts it (`@dotenvx/primitives`).
 - `src/studio/`: `circuit studio`. The server (`server.ts`) reads the project in a new Circuit process (`circuit studio-data`, `data.ts`), so it is always fresh, and serves the page. The page is a Vue 3 app in `app/`, built by Vite (`scripts/studio.ts`) and carried in the binary as `assets.generated.ts`, which git ignores and `bun install`, `bun run check` and `bun run build` write. The graph is drawn with Cytoscape. `types.ts` is what the server sends the page.
 - `scripts/`: `build.ts` makes `dist/circuit` (`circuit.exe` on Windows); `studio.ts` builds Studio's page; `from-v0.ts` moves a 0.x device into the v1 model.
@@ -94,6 +94,7 @@ Docs, comments, commit messages and replies to the owner:
 - v1 lives on the branch `v1`.
 - Conventional Commits, with a scope from `commitlint.config.js`: `repo`, `docs`, `config` (`src/config/` and `src/model.ts`), `project`, `checks`, `core`, `platforms`, `transport`, `cli`, `examples`, `release`.
 - Each commit does one thing, holds its tests and docs, and passes typecheck and tests on its own.
+- A GitHub release runs `.github/workflows/release.yml`: binaries, then npm (`latest` for stable, `rc` for a candidate). Only a stable release rebuilds the site. `[critical]` in the release title deprecates older versions of that major.
 - No release until the owner says so. Releases are `1.0.0-rc.N` until stable, then `1.0.0`. Say Circuit v1 is pre-release wherever it's installed.
 - Use `gh` for GitHub. Planned work is an issue; a release target is a milestone.
 - License: BSL 1.1 by PT Hobimu Jadi Cuan (`LICENSE`), questions to legal@tako.id. Maintainers: Tako Network Engineering Team, noc@tako.id. Attribution stays modest: the license and the copyright line.

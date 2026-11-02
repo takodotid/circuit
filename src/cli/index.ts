@@ -5,6 +5,7 @@ import { Command, InvalidArgumentError } from "@commander-js/extra-typings";
 import { spawnSync } from "node:child_process";
 import { EnvFile } from "../core/env-file";
 import { BgpWait } from "../platforms/bgp-wait";
+import { App } from "./app";
 import { SecretCommands } from "./secret";
 import { GitHooks } from "./git-hooks";
 import { ProjectCommands } from "./project-commands";
@@ -20,14 +21,14 @@ class Cli {
         "the project's folder; by default the working directory, or the nearest folder above it with circuit.ts";
 
     /** Commands that run before, or without, the version check. */
-    private static readonly UNCHECKED = new Set(["update", "studio-data", "help", "--help", "-h", "--version", "-V"]);
+    private static readonly UNCHECKED = new Set(["update", "uninstall", "studio-data", "help", "--help", "-h", "--version", "-V"]);
 
     /** Read the arguments and run the command they name, or open the menu. */
     static async main(argv: string[]): Promise<void> {
         Releases.tidy();
 
         const command = argv[0];
-        if (command !== "update" && command !== "setup") Cli.runLocal(argv);
+        if (command !== "update" && command !== "uninstall" && command !== "setup") Cli.runLocal(argv);
         if (!command || !Cli.UNCHECKED.has(command)) await Releases.gate();
 
         const program = Cli.program();
@@ -229,6 +230,12 @@ class Cli {
             .action(async () => Cli.update());
 
         program
+            .command("uninstall")
+            .description("remove Circuit from this machine; your projects stay")
+            .option("--confirm", "remove without asking")
+            .action(async (flags) => App.uninstall(flags.confirm ?? false));
+
+        program
             .command("setup", { hidden: true })
             .description("start a new project, as the installer does")
             .argument("[folder]")
@@ -326,6 +333,7 @@ class Cli {
             const choice = await Ui.select("No Circuit project in this folder. What do you want to do?", [
                 { value: "setup", label: "Start a new project here" },
                 { value: "update", label: "Update Circuit" },
+                { value: "uninstall", label: "Uninstall Circuit", hint: "your projects stay" },
                 { value: "exit", label: "Exit" },
             ]);
             if (choice === "exit") process.exit(0);
@@ -348,6 +356,7 @@ class Cli {
             { value: "secret", label: "Secrets", hint: "list, set or delete the secrets in .env" },
             heading("Circuit"),
             { value: "update", label: "Update Circuit" },
+            { value: "uninstall", label: "Uninstall Circuit", hint: "your projects stay" },
             { value: "exit", label: "Exit" },
         ]);
 

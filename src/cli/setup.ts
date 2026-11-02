@@ -229,6 +229,13 @@ export const as${setup.asn} = circuit({
 
     /** The whole of a new project: ask, create, and say what is next. */
     static async run(folder?: string): Promise<void> {
+        // In a project already, such as a fresh clone: set it up as it is, with no questions.
+        const here = resolve(process.cwd(), folder ?? ".");
+        if (existsSync(join(here, "circuit.ts"))) {
+            await Setup.ready(here);
+            return;
+        }
+
         if (!Ui.interactive) Ui.fail("Starting a project asks a few questions, so it needs a terminal.");
 
         const setup = await Setup.ask(folder);
@@ -236,6 +243,20 @@ export const as${setup.asn} = circuit({
 
         Ui.note(Setup.nextSteps(root, setup), "Next");
         Ui.outro("The project is ready.");
+    }
+
+    /** Get a project Circuit did not start here ready: its editor types, its git hook, and, in a full install, its packages. */
+    static async ready(root: string): Promise<void> {
+        Setup.prepare(root);
+
+        if (Setup.pinned(root)) {
+            await Ui.step("Installing the project's packages with Bun", async () => {
+                const result = spawnSync("bun", ["install"], { cwd: root, encoding: "utf8", shell: process.platform === "win32" });
+                if (result.status !== 0) throw new Error(`bun install failed: ${(result.stderr || result.stdout).trim()}`);
+            });
+        }
+
+        Ui.done(`${root} is ready. Run circuit in it.`);
     }
 
     /** The version pinned in a full install's package.json, if the project has one. */

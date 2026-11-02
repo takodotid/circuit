@@ -1,8 +1,10 @@
 name: release
 
-# A release published on GitHub, with a tag `vX.Y.Z` or `vX.Y.Z-rc.N`, gets everything from this workflow: the binaries and SHA256SUMS attached to it, the package on npm, and the docs site built again, which writes latest.json, so `circuit` and the installers see the new version. A `[critical]` in the release's title makes it the minimum: an older Circuit stops until it is updated.
+# A release published on GitHub, with a tag `vX.Y.Z` or `vX.Y.Z-rc.N`, gets everything from this workflow: the binaries and SHA256SUMS attached to it, and the package on npm, where `circuit` and the installers learn the newest version. A stable release goes under the dist-tag `latest` and builds the site again; a release candidate goes under `rc` and leaves the site alone. As with Next.js, a new major version moves nobody: `circuit update` stays within its major version.
 #
-# npm takes no token: the package trusts this workflow, npm Trusted Publishing. A release candidate goes under the `next` dist-tag. Each step skips what is already done, so a failed run can be run again.
+# A `[critical]` in the release's title deprecates the versions before it, of the same major version, with a message that starts with "critical": they stop every command but `update`. That needs the secret NPM_TOKEN; without it, the step prints the command to run by hand.
+#
+# npm publish takes no token: the package trusts this workflow, npm Trusted Publishing. Each step skips what is already done, so a failed run can be run again.
 
 on:
     release:
@@ -31,7 +33,7 @@ jobs:
                   version="$(bun -e 'console.log(JSON.parse(require("fs").readFileSync("package.json", "utf8")).version)')"
                   test "v$version" = "$GITHUB_REF_NAME" || { echo "the release is $GITHUB_REF_NAME, package.json says $version"; exit 1; }
                   case "$version" in
-                      *-*) dist_tag=next ;;
+                      *-*) dist_tag=rc ;;
                       *) dist_tag=latest ;;
                   esac
                   echo "VERSION=$version" >> "$GITHUB_ENV"
@@ -59,8 +61,23 @@ jobs:
                       npx -y npm@latest publish --access public --provenance --tag "$DIST_TAG"
                   fi
 
-    # The site, and with it latest.json, written from every release published so far.
+            - name: deprecate older versions when the release is critical
+              if: contains(github.event.release.name, '[critical]')
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+              run: |
+                  major="${VERSION%%.*}"
+                  range=">=$major.0.0-0 <$VERSION"
+                  message="critical: update to $VERSION with circuit update"
+                  if [ -z "$NODE_AUTH_TOKEN" ]; then
+                      echo "No NPM_TOKEN secret. Run by hand: npm deprecate \"@takodotid/circuit@$range\" \"$message\""
+                      exit 1
+                  fi
+                  npx -y npm@latest deprecate "@takodotid/circuit@$range" "$message"
+
+    # The site, rebuilt for a stable release only: a release candidate leaves the site as it is.
     pages:
         needs: release
+        if: ${{ !contains(github.event.release.tag_name, '-') }}
         uses: ./.github/workflows/pages.yml
         secrets: inherit
