@@ -15,6 +15,8 @@ It installs `circuit` like an app and adds it to your `PATH`:
 - **Windows:** `%LOCALAPPDATA%\Programs\Circuit\circuit.exe`, listed in **Settings > Apps**.
 - **macOS and Linux:** `~/.local/bin/circuit`.
 
+First it asks whether to install Circuit as an app. Say no for a [full install](#full-install).
+
 Then it asks: **Set up a new project in this folder?** No is the default. You can always start one later with `circuit new`.
 
 Open a new terminal afterwards, and restart VS Code, so both find `circuit`.
@@ -25,7 +27,7 @@ Open a new terminal afterwards, and restart VS Code, so both find `circuit`.
 circuit new network
 ```
 
-Or run `circuit` in an empty folder and pick **Start a new project here**.
+Or run `circuit` in an empty folder and pick **Start a new project**.
 
 | Question                | Pick                                                                              |
 | ----------------------- | --------------------------------------------------------------------------------- |
@@ -66,7 +68,7 @@ A project keeps its Circuit version in `.circuit-version`, at its root, committe
 
 ## Full install
 
-Circuit as a package in the project, pinned in its `package.json`. Nothing goes on your `PATH`: you run it with Bun, as `bun circuit <command>`. Pick **Full** in the installer or in `circuit new`.
+Circuit as a package in the project, pinned in its `package.json`. Nothing goes on your `PATH`: you run it with Bun, as `bun circuit <command>`. Say no to "install as an app" in the installer, or pick **Full** in `circuit new`.
 
 ## Your editor
 

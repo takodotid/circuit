@@ -144,6 +144,6 @@ esac
 # A project here, such as a fresh clone, is set up as it is. Anywhere else, Circuit offers to start one.
 if [ -f circuit.ts ]; then
     "$target" setup </dev/tty
-elif tty && ask "Start a new Circuit project now?" no; then
+elif tty && ask "Set up a new project in this folder?" no; then
     "$target" new </dev/tty
 fi

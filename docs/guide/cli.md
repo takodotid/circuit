@@ -138,7 +138,7 @@ Then `circuit apply edge-02`, so the device gets its new hostname.
 ### fmt
 
 ```sh
-circuit fmt              # every file of the project
+circuit fmt              # every .ts file of the project
 circuit fmt --check      # only says which files aren't formatted, for CI
 ```
 
@@ -150,10 +150,10 @@ Formats the project's files in Circuit's style, set by `.prettierrc.json` in the
 
 ## Projects and the app
 
-| Command             | Does                                                                                 |
-| ------------------- | ------------------------------------------------------------------------------------ |
-| `circuit new`       | Starts a project. See [Start a project](/guide/install#start-a-project).             |
-| `circuit update`    | In a project: moves it to the newest version, after a yes. Outside: updates the app. |
-| `circuit uninstall` | Removes the app. Asks first. Never touches your projects.                            |
+| Command             | Does                                                                                                  |
+| ------------------- | ----------------------------------------------------------------------------------------------------- |
+| `circuit new`       | Starts a project. See [Start a project](/guide/install#start-a-project).                              |
+| `circuit update`    | In a project: moves it to the newest version, after a yes. Outside, or with `--app`: updates the app. |
+| `circuit uninstall` | Removes the app. Asks first. Never touches your projects.                                             |
 
 Each project runs the version in its `.circuit-version`. See [Install](/guide/install#each-project-pins-its-version).

@@ -135,4 +135,4 @@ if ($env:CIRCUIT_NO_SETUP -eq "1") { return }
 
 # A project here, such as a fresh clone, is set up as it is. Anywhere else, Circuit offers to start one.
 if (Test-Path "circuit.ts") { & $target setup }
-elseif (Ask "Start a new Circuit project now?" $false) { & $target new }
+elseif (Ask "Set up a new project in this folder?" $false) { & $target new }
