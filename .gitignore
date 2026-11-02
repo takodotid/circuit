@@ -38,3 +38,6 @@ docs/reference/
 /.golden/
 /.lab/
 /.shots/
+
+# What bun build leaves when it cannot replace a binary that is running.
+*.bun-build

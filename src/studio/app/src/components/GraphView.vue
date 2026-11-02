@@ -47,7 +47,11 @@ function elements(): ElementDefinition[] {
     return [
         ...props.data.graph.nodes
             .filter((node) => node.kind === "device" || ends.has(node.id))
-            .map((node) => ({ group: "nodes" as const, data: { id: node.id, label: node.label, kind: node.kind, level: levelOf(node) } })),
+            .map((node) => ({
+                group: "nodes" as const,
+                // A box as wide as its name.
+                data: { id: node.id, label: node.label, kind: node.kind, level: levelOf(node), width: node.label.length * 8.5 + 28 },
+            })),
         ...edges.map((edge, index) => ({
             group: "edges" as const,
             data: {
@@ -74,14 +78,25 @@ function draw(): void {
         graph.nodes().forEach((node) => {
             node.position(positions[node.id()]!);
         });
-        graph.fit(undefined, 40);
+        fit();
     } else {
         layOut();
     }
 }
 
+/** Fit the drawing to the window, but never larger than its own size: a network of two devices stays readable. */
+function fit(): void {
+    if (!graph) return;
+    graph.fit(undefined, 60);
+    if (graph.zoom() > 1.2) {
+        graph.zoom(1.2);
+        graph.center();
+    }
+}
+
 function layOut(): void {
-    graph?.layout({ name: "cose", animate: false, padding: 40, nodeRepulsion: () => 12000, idealEdgeLength: () => 140 }).run();
+    graph?.layout({ name: "cose", animate: false, fit: false, nodeRepulsion: () => 12000, idealEdgeLength: () => 140 }).run();
+    fit();
     remember();
 }
 
@@ -101,15 +116,13 @@ onMounted(() => {
         container: container.value,
         minZoom: 0.2,
         maxZoom: 3,
-        wheelSensitivity: 0.3,
         style: [
             {
                 selector: "node",
                 style: {
                     shape: "round-rectangle",
-                    width: "label",
+                    width: "data(width)",
                     height: 34,
-                    padding: "10px",
                     "background-color": css("--surface"),
                     "border-width": 2,
                     "border-color": css("--text"),
@@ -188,7 +201,7 @@ const nodeFindings = computed(() =>
                 </button>
             </nav>
             <div class="actions">
-                <button title="Fit the drawing to the window" @click="graph?.fit(undefined, 40)">Fit</button>
+                <button title="Fit the drawing to the window" @click="fit">Fit</button>
                 <button title="Forget where nodes were moved on this layer, and lay it out again" @click="layOut">Lay out again</button>
                 <button title="Save this layer as a PNG image" @click="saveImage">Save image</button>
             </div>

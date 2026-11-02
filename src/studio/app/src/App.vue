@@ -29,7 +29,8 @@ const VIEWS = [
     { id: "problems", label: "Problems" },
 ] as const;
 
-const view = computed(() => store.route.view);
+// `#device/<name>` opens a device too, as `#devices/<name>` does.
+const view = computed(() => (store.route.view === "device" ? "devices" : store.route.view));
 const device = computed(() => (view.value === "devices" ? store.route.parts[0] : undefined));
 
 const errors = computed(() => store.data?.findings.filter((finding) => finding.level === "error").length ?? 0);
