@@ -1,0 +1,17 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": ["local>takodotid/renovate-config"],
+    "packageRules": [
+        {
+            "description": "typescript-6 is the TypeScript VS Code bundles, which the editor-types test checks against; it moves to 7 only when VS Code does.",
+            "matchPackageNames": ["typescript-6"],
+            "allowedVersions": "<7"
+        },
+        {
+            "description": "The docs site pins vite to a patched 6.x under VitePress 1 (docs/package.json overrides); VitePress 1 is not tested on a newer major.",
+            "matchFileNames": ["docs/package.json"],
+            "matchPackageNames": ["vite"],
+            "allowedVersions": "<7"
+        }
+    ]
+}

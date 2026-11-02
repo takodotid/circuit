@@ -32,6 +32,8 @@ Every change to Circuit is weighed against these, set by the owner.
 - `docs/`: the documentation site, built with VitePress (`bun run docs:dev`, `bun run docs:build`): `guide/` (install, writing a project, the `circuit` command, secrets), `studio/`, `academy/` (Circuit Academy), `platforms/`, and `reference/`: [model.md](docs/reference/model.md) (the model) and [decisions.md](docs/reference/decisions.md) (the decisions that shaped v1). Its theme and diagrams are in `docs/.vitepress/theme/`, following `DESIGN.md` of Circuit 0.x.
 - `examples/`: whole example projects the docs and the Academy show; `test/project/example-projects.test.ts` checks each with TypeScript 6 and 7 and `circuit validate`.
 
+- `DESIGN.md` (the look of the site and Studio), `PRODUCT.md` (who Circuit is for), `DEPLOYMENT.md` (branches and releases), `.claude/skills/` (implement, fix and prove a device; release).
+
 Not in v1 yet, later work: integrations (PeeringDB, LibreNMS, NetBox, Prometheus, to become one `circuit sync <target>`), and the `refresh`, `wireguard`, `communities`, `graph` and `addresses` commands.
 
 ## Rules
