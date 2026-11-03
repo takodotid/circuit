@@ -384,6 +384,7 @@ class Cli {
     /** In a project: move it to a version the person picks, and the app with it. Elsewhere, or with `--app`: update the app. Either way, versions no project pins any more are removed. */
     private static async update(app: boolean, confirmed: boolean): Promise<void> {
         const root = ProjectCommands.find();
+        if (root && Releases.binary()) Versions.remember(root);
         if (app || !root) {
             const target = await Releases.updateApp(confirmed);
             Versions.prune(target ?? VERSION);
