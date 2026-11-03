@@ -1,4 +1,4 @@
-// A small text editor in the terminal, for `circuit secrets`: the whole text on one screen, typed into as in any editor. Ctrl+S saves, Ctrl+Q leaves. It draws on the terminal's alternate screen, so what it showed is gone from the scrollback when it closes, and it never writes the text anywhere but through `save`.
+// A small text editor in the terminal, for `circuit secrets`: the whole text on one screen, typed into as in any editor. Ctrl+S saves; Esc leaves, or Ctrl+X, or Ctrl+Q where the terminal passes it on (VS Code's keeps Ctrl+Q for itself). It draws on the terminal's alternate screen, so what it showed is gone from the scrollback when it closes, and it never writes the text anywhere but through `save`.
 
 /** One key, as the terminal sends it. */
 export type Key =
@@ -142,6 +142,8 @@ export class TextEditor {
                 const sequence = /^\x1b(\[[0-9;]*[A-Za-z~]|O[A-Za-z])?/.exec(data.slice(i))![0];
                 const kind = TextEditor.SEQUENCES[sequence.replace(/^\x1b\[1;\d+([A-H])$/, "\x1b[$1")];
                 if (kind) keys.push({ kind } as Key);
+                // Esc alone, nothing after it, is the key itself, not the start of a sequence.
+                else if (sequence === "\x1b" && i + 1 === data.length) keys.push({ kind: "quit" });
                 i += sequence.length;
                 continue;
             }
@@ -172,7 +174,7 @@ export class TextEditor {
 
     /**
      * Edit `text` on the whole screen until the person leaves. `save` gets the text on Ctrl+S and gives back why it can't be saved, or
-     * undefined once saved. `note` shows at the bottom until the first key. Leaving with changes not saved asks for a second Ctrl+Q.
+     * undefined once saved. `note` shows at the bottom until the first key. Leaving with changes not saved asks to leave a second time.
      */
     static async open(options: {
         title: string;
@@ -185,7 +187,7 @@ export class TextEditor {
         const stdin = options.terminal?.input ?? (process.stdin as TerminalInput);
         const out = options.terminal?.output ?? (process.stdout as TerminalOutput);
         const buffer = new EditorBuffer(options.text);
-        const help = "Ctrl+S save   Ctrl+Q leave";
+        const help = "Ctrl+S save   Esc leave";
         let message = options.note ? `${options.note}   ${help}` : help;
         let top = 0;
         let left = 0;
@@ -250,7 +252,7 @@ export class TextEditor {
                                 return;
                             }
                             leaving = true;
-                            message = "Not saved. Ctrl+Q again leaves without saving; Ctrl+S saves.";
+                            message = "Not saved. Esc again leaves without saving; Ctrl+S saves.";
                         } else buffer.move(key.kind);
                     }
                     redraw();

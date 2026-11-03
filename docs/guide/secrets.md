@@ -47,7 +47,7 @@ EDGE_01_PASSWORD=s3cret-value
 SNMP_COMMUNITY=op://Network/SNMP/password
 ```
 
-Change a value, add a line, delete one. **Ctrl+S** saves, each value encrypted again; **Ctrl+Q** leaves. Only values you changed get a new encryption, so git shows just those. The editor is part of Circuit, no other program needed. Nothing is written to disk decrypted, and the screen is cleared when you leave.
+Change a value, add a line, delete one. **Ctrl+S** saves, each value encrypted again; **Esc** leaves (or Ctrl+X). Only values you changed get a new encryption, so git shows just those. The editor is part of Circuit, no other program needed. Nothing is written to disk decrypted, and the screen is cleared when you leave.
 
 A value with a space at either end goes in quotes: `NAME=" value "`.
 

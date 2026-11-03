@@ -18,6 +18,12 @@ describe("keys", () => {
             "page-down",
         ]);
         expect(TextEditor.keys("\x13\x11\r\x7f").map((key) => key.kind)).toEqual(["save", "quit", "enter", "backspace"]);
+        expect(TextEditor.keys("\x18").map((key) => key.kind)).toEqual(["quit"]);
+    });
+
+    test("Esc alone leaves; Esc that starts a sequence does not", () => {
+        expect(TextEditor.keys("\x1b")).toEqual([{ kind: "quit" }]);
+        expect(TextEditor.keys("\x1b[A")).toEqual([{ kind: "up" }]);
     });
 
     test("typed text stays together, and Enter sent as \\r\\n is one Enter", () => {
@@ -126,8 +132,8 @@ describe("the editor", () => {
         t.type("\x11");
         await Promise.resolve();
         expect(left).toBe(false);
-        expect(t.drawn.at(-1)).toContain("Ctrl+Q again");
-        t.type("\x11");
+        expect(t.drawn.at(-1)).toContain("Esc again");
+        t.type("\x1b");
         await done;
         expect(left).toBe(true);
     });
