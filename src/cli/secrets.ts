@@ -96,12 +96,17 @@ export class SecretCommands {
     /** Every secret, how it is kept, and the ones the config needs that the file lacks. Values are never shown. */
     list(): void {
         const rows = this.rows();
-        const width = Math.max(4, ...rows.map((row) => row.name.length));
 
         if (!rows.length) console.log(`No secrets yet. Add one with ${SecretsFile.command(this.file.name, "set NAME")}.`);
-        for (const row of rows)
+        else
             console.log(
-                `  ${row.name.padEnd(width)}  ${process.env[row.name] ? Ui.dim("from the environment") : SecretCommands.describe(row.kind, row.value)}`
+                Ui.table(
+                    [{ title: "Name" }, { title: "How it is kept" }],
+                    rows.map((row) => [
+                        row.name,
+                        process.env[row.name] ? Ui.dim("from the environment") : SecretCommands.describe(row.kind, row.value),
+                    ])
+                )
             );
 
         console.log(`\n${Ui.dim(this.passwordLine())}`);

@@ -193,6 +193,74 @@ export class Ui {
         return Ui.answered(answer) ?? "";
     }
 
+    /** How wide text is on screen: colours take no room. */
+    private static width(text: string): number {
+        return text.replace(/\x1b\[[0-9;]*m/g, "").length;
+    }
+
+    /** Words of `text` in lines of at most `width` characters; a longer word is cut. Colours are dropped, as a cut could break one. */
+    private static wrap(text: string, width: number): string[] {
+        const plain = text.replace(/\x1b\[[0-9;]*m/g, "");
+        if (plain.length <= width) return [text];
+
+        const lines: string[] = [];
+        let line = "";
+        for (const word of plain.split(" ")) {
+            const next = line ? `${line} ${word}` : word;
+            if (next.length <= width) {
+                line = next;
+                continue;
+            }
+            if (line) lines.push(line);
+            let rest = word;
+            while (rest.length > width) {
+                lines.push(rest.slice(0, width));
+                rest = rest.slice(width);
+            }
+            line = rest;
+        }
+        if (line) lines.push(line);
+        return lines;
+    }
+
+    /**
+     * Rows in a table with lines around each cell and a heading row. A column with `right` lines up its numbers on the right. In a terminal
+     * too narrow for it, the last column's text goes on more lines.
+     */
+    static table(columns: readonly { title: string; right?: boolean }[], rows: readonly (readonly string[])[]): string {
+        const widths = columns.map((column, at) => Math.max(column.title.length, ...rows.map((row) => Ui.width(row[at] ?? ""))));
+
+        // The borders and padding take 3 characters a column, and 1 more.
+        const room = (process.stdout.isTTY ? (process.stdout.columns ?? 0) : 0) - 1 - 3 * columns.length;
+        const others = widths.slice(0, -1).reduce((sum, width) => sum + width, 0);
+        if (room > 0 && others + widths.at(-1)! > room)
+            widths[widths.length - 1] = Math.max(columns.at(-1)!.title.length, room - others, 12);
+
+        const line = (left: string, middle: string, right: string) =>
+            Ui.dim(`${left}${widths.map((width) => "─".repeat(width + 2)).join(middle)}${right}`);
+        const bar = Ui.dim("│");
+        const cell = (text: string, at: number) => {
+            const pad = " ".repeat(Math.max(0, widths[at]! - Ui.width(text)));
+            return columns[at]!.right ? `${pad}${text}` : `${text}${pad}`;
+        };
+        const row = (cells: readonly string[]) => {
+            const wrapped = cells.map((text, at) => (at === columns.length - 1 ? Ui.wrap(text, widths[at]!) : [text]));
+            const height = Math.max(...wrapped.map((lines) => lines.length));
+            return Array.from(
+                { length: height },
+                (_, index) => `${bar} ${wrapped.map((lines, at) => cell(lines[index] ?? "", at)).join(` ${bar} `)} ${bar}`
+            );
+        };
+
+        return [
+            line("┌", "┬", "┐"),
+            ...row(columns.map((column) => Ui.bold(column.title))),
+            line("├", "┼", "┤"),
+            ...rows.flatMap((cells) => row(columns.map((_, at) => cells[at] ?? ""))),
+            line("└", "┴", "┘"),
+        ].join("\n");
+    }
+
     /** The CIRCUIT logotype, in the font of the one on the site, drawn with blocks. */
     static readonly LOGO = [
         " ▄██████▄   ██  ███████▄    ▄██████▄   ██     ██  ██  ████████",

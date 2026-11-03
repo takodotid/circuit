@@ -464,16 +464,25 @@ export class ProjectCommands {
 
     /** One line per neighbor: name, up or down, prefixes received, uptime, remote address. Then how many are up. */
     private static printBgp(sessions: readonly BgpSession[]): void {
-        const width = Math.max(...sessions.map((session) => session.neighbor.length));
+        const why = sessions.some((session) => session.reason);
+        const columns = [
+            { title: "Neighbor" },
+            { title: "State" },
+            { title: "Prefixes", right: true },
+            { title: "Uptime" },
+            { title: "Remote" },
+            ...(why ? [{ title: "Why" }] : []),
+        ];
+        const rows = sessions.map((session) => [
+            session.neighbor,
+            session.established ? Ui.green("up") : Ui.red("DOWN"),
+            session.prefixes,
+            session.uptime,
+            session.remote,
+            ...(why ? [ProjectCommands.downReason(session)] : []),
+        ]);
 
-        for (const session of sessions) {
-            const state = session.established ? "up  " : "DOWN";
-            const why = session.reason ? `  ${ProjectCommands.downReason(session)}` : "";
-            console.log(
-                `${session.neighbor.padEnd(width)}  ${state}  ${session.prefixes.padStart(7)}  ${session.uptime.padEnd(12)}  ${session.remote}${why}`
-            );
-        }
-
+        console.log(Ui.table(columns, rows));
         console.log(`${BgpWait.upCount(sessions)}/${sessions.length} up`);
 
         for (const burst of BgpWait.limitBursts(sessions)) {
