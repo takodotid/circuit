@@ -71,14 +71,7 @@ While Circuit remembers:
 - Any program running as you on this computer can get those secrets, and 1Password doesn't ask you.
 - Locking 1Password doesn't make Circuit forget them.
 
-They're kept in memory by a small Circuit process, never in a file. They're gone when the time is up, when the computer restarts, or with `circuit secrets forget`. A command that used them says so, with the time they're kept until.
-
-| Command                             | Does                                                                          |
-| ----------------------------------- | ----------------------------------------------------------------------------- |
-| `circuit secrets remember [10\|30]` | Remembers from now on, for 10 or 30 minutes. Also turns the question back on. |
-| `circuit secrets forget`            | Forgets everything Circuit remembers, now.                                    |
-
-"No, and don't ask again" turns the question off. `circuit secrets remember` turns it back on. In a script, Circuit never asks.
+They're kept in memory by a small Circuit process, never in a file. They're gone when the time is up, when the computer restarts, or with `circuit secrets forget`. A command that used them says so, with the time they're kept until. In a script, Circuit never asks.
 
 ## Changing the password
 

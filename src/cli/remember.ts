@@ -1,4 +1,4 @@
-// Remembering secrets between commands, only when the person opts in: values read from 1Password and passwords typed for a secrets file, kept for 10 or 30 minutes so the next commands don't ask again. A small Circuit process keeps them in its memory, never in a file, and stops when the time is up, when the computer restarts, or with `circuit secrets forget`. It is like ssh-agent: it answers only a program that shows the token in `~/.circuit/secrets-agent.json`, a file only its owner can read.
+// Remembering secrets between commands, only when the person opts in: values read from 1Password and passwords typed for a secrets file, kept for 10 or 30 minutes so the next commands don't ask again. Circuit asks after a command read them. A small Circuit process keeps them in its memory, never in a file, and stops when the time is up, when the computer restarts, or with `circuit secrets forget`. It is like ssh-agent: it answers only a program that shows the token in `~/.circuit/secrets-agent.json`, a file only its owner can read.
 
 import { spawn } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
@@ -219,25 +219,6 @@ export class Remember {
     private static asked = false;
     private static told = false;
 
-    private static settingsPath(): string {
-        return join(Releases.home(), "settings.json");
-    }
-
-    private static settings(): { askToRemember?: boolean } {
-        try {
-            return JSON.parse(readFileSync(Remember.settingsPath(), "utf8"));
-        } catch {
-            return {};
-        }
-    }
-
-    private static setAsk(ask: boolean): void {
-        mkdirSync(Releases.home(), { recursive: true });
-        const { askToRemember: _, ...rest } = Remember.settings();
-        const settings = ask ? rest : { ...rest, askToRemember: false };
-        writeFileSync(Remember.settingsPath(), `${JSON.stringify(settings, null, 4)}\n`);
-    }
-
     /** A password the person typed for a secrets file, to keep when they choose to. */
     static typedPassword(file: SecretsFile, password: string): void {
         Remember.typed.set(resolve(file.path), password);
@@ -294,17 +275,11 @@ export class Remember {
 
         if (count.values + count.passwords > 0) {
             if (Remember.until === undefined) {
-                if (!Ui.interactive || Remember.asked || Remember.settings().askToRemember === false) return;
+                if (!Ui.interactive || Remember.asked) return;
                 Remember.asked = true;
 
-                const minutes = await Remember.choose(Remember.warning(Remember.what(count.values, count.passwords)), true);
-                if (minutes === "never") {
-                    Remember.setAsk(false);
-                    Ui.done("Circuit won't ask again. Turn it on any time: circuit secrets remember");
-                    return;
-                }
-                if (!minutes) return;
-                if (!(await Remember.turnOn(minutes))) return;
+                const minutes = await Remember.choose(Remember.warning(Remember.what(count.values, count.passwords)));
+                if (!minutes || !(await Remember.turnOn(minutes))) return;
             }
 
             const answer = await SecretsAgent.ask({ op: "put", values, passwords });
@@ -326,47 +301,32 @@ export class Remember {
         }
     }
 
-    /** How long to remember: 10 or 30 minutes, nothing, or, when `never` is offered, nothing and never ask again. */
-    private static async choose(warning: string, offerNever: boolean): Promise<number | "never" | undefined> {
+    /** How long to remember: 10 or 30 minutes, or undefined for no. */
+    private static async choose(warning: string): Promise<number | undefined> {
         Ui.note(warning, "Remember secrets?");
-        const choices = [
-            { value: 0, label: "No" },
-            { value: 10, label: "For 10 minutes" },
-            { value: 30, label: "For 30 minutes" },
-            ...(offerNever ? [{ value: -1, label: "No, and don't ask again", hint: "circuit secrets remember turns it on" }] : []),
-        ];
-        const minutes = await Ui.select("Remember them?", choices, 0);
-        return minutes === -1 ? "never" : minutes || undefined;
+        const minutes = await Ui.select(
+            "Remember them?",
+            [
+                { value: 0, label: "No" },
+                { value: 10, label: "For 10 minutes" },
+                { value: 30, label: "For 30 minutes" },
+            ],
+            0
+        );
+        return minutes || undefined;
     }
 
-    /** Start remembering for `minutes`, or move the time when Circuit already remembers. */
+    /** Start remembering for `minutes`. */
     private static async turnOn(minutes: number): Promise<boolean> {
         const until = Date.now() + minutes * 60_000;
-        const moved = await SecretsAgent.ask({ op: "put", until });
-        if (!moved && !(await SecretsAgent.start(until))) {
+        if (!(await SecretsAgent.start(until))) {
             Ui.warn("Circuit could not start the process that remembers secrets, so nothing is remembered.");
             return false;
         }
 
-        Remember.until = moved?.until ?? until;
-        Ui.done(`Circuit remembers until ${Remember.time(Remember.until)}. Forget now: circuit secrets forget`);
+        Remember.until = until;
+        Ui.done(`Circuit remembers until ${Remember.time(until)}. Forget now: circuit secrets forget`);
         return true;
-    }
-
-    /** `circuit secrets remember`: keep what commands read from now on, for 10 or 30 minutes. */
-    static async remember(minutes: number | undefined): Promise<void> {
-        if (minutes !== undefined && minutes !== 10 && minutes !== 30) Ui.fail("Give 10 or 30 minutes.");
-
-        Remember.setAsk(true);
-        const what = "the values it reads from 1Password and the passwords you type, from now on";
-        if (minutes === undefined) {
-            if (!Ui.interactive) Ui.fail("Give the minutes: circuit secrets remember 10, or circuit secrets remember 30.");
-            const chosen = await Remember.choose(Remember.warning(what), false);
-            if (typeof chosen !== "number") return Ui.outro("Nothing is remembered.");
-            minutes = chosen;
-        } else Ui.note(Remember.warning(what), "Remember secrets");
-
-        await Remember.turnOn(minutes);
     }
 
     /** `circuit secrets forget`: stop the process, and with it everything it kept. */

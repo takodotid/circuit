@@ -17,7 +17,7 @@ export type SecretKind = "encrypted" | "1password" | "empty" | "not encrypted";
 export class OnePassword {
     /** Each reference read in this run, so 1Password asks once. */
     private static readonly cache = new Map<string, string>();
-    /** The references whose values Circuit remembers from an earlier run, with `circuit secrets remember`. */
+    /** The references whose values Circuit remembers from an earlier run, after a yes (src/cli/remember.ts). */
     private static readonly held = new Set<string>();
     /** Whether a remembered value was used in this run. */
     static usedHeld = false;
@@ -113,7 +113,7 @@ export class SecretsFile {
         SecretsFile.usedHeld = false;
     }
 
-    /** Passwords typed in an earlier run that Circuit remembers, with `circuit secrets remember`, by the file's full path. */
+    /** Passwords typed in an earlier run that Circuit remembers after a yes, by the file's full path. */
     private static readonly held = new Map<string, string>();
     /** Whether a remembered password was used in this run. */
     static usedHeld = false;

@@ -30,7 +30,7 @@ class Cli {
     /** Read the arguments and run the command they name, or open the menu. */
     static async main(argv: string[]): Promise<void> {
         const command = argv[0];
-        // The process that keeps remembered secrets, started by `circuit secrets remember` or a yes after a command.
+        // The process that keeps remembered secrets, started after a yes to remembering them.
         if (command === SecretsAgent.COMMAND) return SecretsAgent.serve();
         Releases.tidy();
 
@@ -289,11 +289,6 @@ class Cli {
                 })
             );
 
-        secrets
-            .command("remember")
-            .description("keep the values read from 1Password and the passwords typed, for 10 or 30 minutes, so commands don't ask again")
-            .argument("[minutes]", "10 or 30; picked from a list when left out", Cli.whole("minutes", 30))
-            .action(async (minutes) => Remember.remember(minutes));
         secrets
             .command("forget")
             .description("forget every secret Circuit remembers, now")
