@@ -111,7 +111,7 @@ Each reads the project in the working directory or the nearest folder above it, 
 | `studio`                            | Opens the project in your browser: the graph, every table, tools, compare and secrets.       |
 | `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.                |
 | `secret`                            | Lists the secrets in `.env`; `secret set`, `get`, `delete`, `encrypt` and `rotate` the rest. |
-| `fmt [file...]`                     | Formats the project's files, as VS Code does on save.                                        |
+| `fmt [file...]`                     | Tidies spacing and line breaks, as VS Code does on save. Nothing else changes.               |
 | `new [folder]`                      | Starts a project.                                                                            |
 | `update`                            | In a project: moves it to the newest version, after a yes. Outside: updates the app.         |
 | `uninstall`                         | Removes the Circuit app. Your projects stay.                                                 |

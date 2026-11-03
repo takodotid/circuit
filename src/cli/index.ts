@@ -198,7 +198,7 @@ class Cli {
 
         program
             .command("fmt")
-            .description("write the project's files in its style: Prettier, set by .editorconfig")
+            .description("tidy the spacing and line breaks of the project's .ts files; what they say stays the same")
             .argument("[file...]", "every TypeScript file of the project when left out")
             .option("--check", "change nothing; fail when a file is not in the style")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
@@ -418,7 +418,7 @@ class Cli {
             { value: "access-console", label: "Access console", hint: "a device's serial console" },
             { value: "studio", label: "Studio", hint: "the project in your browser" },
             { value: "rename", label: "Rename", hint: "give a device a new name everywhere" },
-            { value: "fmt", label: "Format", hint: "write every file in Circuit's style" },
+            { value: "fmt", label: "Tidy files", hint: "spacing and line breaks only; what the files say stays the same" },
             heading("Secrets"),
             { value: "secret", label: "Secrets", hint: "list, set or delete the secrets in .env" },
             heading("Circuit"),

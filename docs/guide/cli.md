@@ -68,7 +68,7 @@ More than 5% lost, or slower than 300 ms on average? It stops. Often it's your o
 | `access-console [device] [line...]` | Opens the serial console, already logged in.                  |
 | `studio`                            | Opens [Circuit Studio](/studio/) in your browser.             |
 | `rename [device] [new-name]`        | Renames a device everywhere in the project.                   |
-| `fmt [file...]`                     | Formats the project's files.                                  |
+| `fmt [file...]`                     | Tidies spacing and line breaks. Nothing else changes.         |
 
 ### exec
 
@@ -139,10 +139,10 @@ Then `circuit apply edge-02`, so the device gets its new hostname.
 
 ```sh
 circuit fmt              # every .ts file of the project
-circuit fmt --check      # only says which files aren't formatted, for CI
+circuit fmt --check      # only says which files need tidying, for CI
 ```
 
-The same Prettier as VS Code's Prettier extension, inside Circuit, with the style in the project's `.editorconfig`. For formatting without VS Code, in another editor, or in CI. In VS Code you can skip it: format on save does the same.
+Tidies the spacing, indents and line breaks of the `.ts` files. What the files say stays the same: nothing is deleted. The style is in the project's `.editorconfig`, and it's the same tidy-up VS Code does each time you save. Use it in another editor or in CI.
 
 ## Secrets
 

@@ -37,17 +37,32 @@ export class Format {
         return settings;
     }
 
-    /** The project's style: Prettier's own, then what `.editorconfig` sets, as Prettier maps it, then a `.prettierrc.json` if the project has one. */
+    /** The project's style: Prettier's own, then what `.editorconfig` sets, mapped as Prettier's `editorConfigToPrettier` maps it, then a `.prettierrc.json` if the project has one. */
     static style(root: string): Options {
         const style: Options = {};
         const editorconfig = join(root, ".editorconfig");
 
         if (existsSync(editorconfig)) {
             const settings = Format.editorconfig(readFileSync(editorconfig, "utf8"));
-            if (settings.indent_style) style.useTabs = settings.indent_style === "tab";
-            const width = Number(settings.indent_size === "tab" ? settings.tab_width : (settings.indent_size ?? settings.tab_width));
+            const whole = (value: string | undefined) => (value && /^[1-9]\d*$/.test(value) ? Number(value) : undefined);
+
+            // What the EditorConfig library fills in before Prettier reads the settings.
+            if (settings.indent_style === "tab" && !settings.indent_size) settings.indent_size = "tab";
+            if (settings.indent_size && !settings.tab_width && settings.indent_size !== "tab") settings.tab_width = settings.indent_size;
+            if (settings.indent_size === "tab" && settings.tab_width) settings.indent_size = settings.tab_width;
+
+            if (settings.indent_style === "space") style.useTabs = false;
+            else if (settings.indent_style === "tab" || settings.indent_size === "tab") style.useTabs = true;
+
+            const width = style.useTabs === false && whole(settings.indent_size) ? whole(settings.indent_size) : whole(settings.tab_width);
             if (width) style.tabWidth = width;
-            if (settings.max_line_length && settings.max_line_length !== "off") style.printWidth = Number(settings.max_line_length);
+
+            if (settings.max_line_length === "off") style.printWidth = Number.POSITIVE_INFINITY;
+            else if (whole(settings.max_line_length)) style.printWidth = whole(settings.max_line_length);
+
+            if (settings.quote_type === "single") style.singleQuote = true;
+            else if (settings.quote_type === "double") style.singleQuote = false;
+
             if (settings.end_of_line === "lf" || settings.end_of_line === "crlf" || settings.end_of_line === "cr")
                 style.endOfLine = settings.end_of_line;
         }
@@ -93,11 +108,15 @@ export class Format {
 
         if (check) {
             for (const file of off) Ui.warn(`${file} is not in the project's style`);
-            if (off.length) Ui.fail(`\n${off.length} file(s) to format: run circuit fmt.`);
+            if (off.length) Ui.fail(`\n${off.length} file(s) to tidy: run circuit fmt.`);
             Ui.done(`${files.length} file(s), all in style.`);
             return;
         }
 
-        Ui.done(off.length ? `Formatted ${off.length} of ${files.length} file(s).` : `${files.length} file(s), all in style already.`);
+        Ui.done(
+            off.length
+                ? `Tidied ${off.length} of ${files.length} file(s): spacing and line breaks only.`
+                : `${files.length} file(s), all in style already.`
+        );
     }
 }

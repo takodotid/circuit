@@ -82,7 +82,7 @@ Your editor completes every field and flags every wrong name as you type, from t
 | Neovim, Helix, Sublime Text      | A TypeScript language server, set up by hand.               |
 | Notepad++ and plain editors      | No live checks. `circuit validate` still checks everything. |
 
-We recommend VS Code. A new project comes with `.editorconfig`, `.vscode/settings.json` and `.vscode/extensions.json`: VS Code asks to install the Prettier extension, and then formats each file as you save it. `circuit fmt` does the same from the terminal, for other editors and CI.
+We recommend VS Code. A new project comes with `.editorconfig`, `.vscode/settings.json` and `.vscode/extensions.json`: VS Code asks to install the Prettier extension, and then tidies each file's spacing and line breaks as you save it. `circuit fmt` does the same from the terminal, for other editors and CI.
 
 The style is in `.editorconfig`: 4 spaces, lines up to 140, LF. Both the Prettier extension and `circuit fmt` read it; everything else is Prettier's own defaults. A `.prettierrc.json`, if you add one, goes on top, for both.
 

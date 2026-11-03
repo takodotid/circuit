@@ -1,4 +1,4 @@
-// `circuit fmt` writes a project's files in Circuit's style, or with --check only says which are not.
+// `circuit fmt` tidies a project's files in its style, or with --check only says which are not.
 
 import { afterEach, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -28,6 +28,18 @@ test("only the sections that apply to a TypeScript file count", () => {
         "root = true\n[*]\nindent_size = 2\n[*.md]\nindent_size = 8\n[*.{ts,json}]\nmax_line_length = 100 # comment\n"
     );
     expect(settings).toEqual({ indent_size: "2", max_line_length: "100" });
+});
+
+test(".editorconfig maps to Prettier's settings as Prettier maps it", () => {
+    root = mkdtempSync(join(tmpdir(), "circuit-fmt-"));
+    writeFileSync(
+        join(root, ".editorconfig"),
+        "[*]\nindent_style = tab\nindent_size = 4\ntab_width = 8\nmax_line_length = off\nquote_type = single\n"
+    );
+    expect(Format.style(root)).toEqual({ useTabs: true, tabWidth: 8, printWidth: Number.POSITIVE_INFINITY, singleQuote: true });
+
+    writeFileSync(join(root, ".editorconfig"), "[*]\nindent_size = 2\n");
+    expect(Format.style(root)).toEqual({ tabWidth: 2 });
 });
 
 test("a project's .prettierrc.json goes on top", async () => {
