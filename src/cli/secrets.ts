@@ -6,6 +6,7 @@ import { ProjectError, readProject, secretsFileOf } from "../project/project";
 import { ProjectCommands } from "./project-commands";
 import { Setup } from "./setup";
 import { SecretsPassword } from "./secrets-password";
+import { TextEditor } from "./text-editor";
 import { Ui } from "./ui";
 
 export class SecretCommands {
@@ -227,41 +228,30 @@ export class SecretCommands {
         if (reference) Ui.warn(`Put the new password in 1Password at ${reference} now: it still holds the old one.`);
     }
 
-    /** The secrets, opened in the terminal to look through and change, until the person is done. */
+    /** Every secret, decrypted, in a text editor on the whole screen: change, add or delete lines, Ctrl+S to save, each value encrypted again. Nothing is written to disk in plain text. */
     async edit(): Promise<void> {
-        Ui.intro(`Secrets in ${this.file.name}`);
+        if (!Ui.interactive) Ui.fail("The editor needs a terminal. Use circuit secrets set NAME instead.");
 
-        while (true) {
-            const rows = this.rows();
-            const choice = await Ui.select<string>("Pick a secret, or what to do", [
-                ...rows.map((row) => ({ value: `=${row.name}`, label: row.name, hint: SecretCommands.describe(row.kind, row.value) })),
-                { value: "add", label: "Add a secret" },
-                { value: "password", label: "Change the password" },
-                { value: "done", label: "Done" },
-            ]);
-
-            if (choice === "done") break;
-            if (choice === "add") await this.set(undefined, undefined);
-            else if (choice === "password") await this.password({});
-            else {
-                const name = choice.slice(1);
-                if (!(name in this.file.values())) {
-                    await this.set(name, undefined);
-                    continue;
-                }
-
-                const action = await Ui.select("What with it?", [
-                    { value: "show", label: "Show it" },
-                    { value: "change", label: "Change it" },
-                    { value: "delete", label: "Delete it" },
-                    { value: "back", label: "Back" },
-                ]);
-                if (action === "show") await this.get(name);
-                if (action === "change") await this.set(name, undefined);
-                if (action === "delete") await this.delete(name, false);
-            }
+        try {
+            await SecretsPassword.ready(this.file);
+        } catch (error) {
+            Ui.fail((error as Error).message);
         }
 
-        Ui.outro(this.passwordLine());
+        const missing = this.needed.filter((name) => !(name in this.file.values()));
+        await TextEditor.open({
+            title: `Secrets: ${this.file.name}`,
+            text: this.file.editable(),
+            ...(missing.length ? { note: `The config needs ${missing.join(", ")}: add a line NAME=value for each.` } : {}),
+            save: (edited) => {
+                try {
+                    return this.file.saveEditable(edited);
+                } catch (error) {
+                    return (error as Error).message;
+                }
+            },
+        });
+
+        Ui.done(`${this.file.name}: ${this.file.names().length} secret(s), each encrypted. Commit it.`);
     }
 }

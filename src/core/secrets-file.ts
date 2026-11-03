@@ -322,6 +322,88 @@ export class SecretsFile {
         return true;
     }
 
+    /** A name at the start of a line, `NAME=` or `export NAME=`. */
+    private static readonly ASSIGNMENT = /^[ \t]*(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_]*)[ \t]*=(.*)$/;
+
+    /** A value as the editor shows it: as it is, in quotes only when it starts or ends with a space or a quote, which the quotes then keep. */
+    private static shown(value: string): string {
+        return /^\s|\s$|^["']/.test(value) ? `"${value}"` : value;
+    }
+
+    /** A value as the editor's line writes it: as typed, its spaces at either end dropped; one pair of quotes around it is taken off. */
+    private static typed(text: string): string {
+        const value = text.trim();
+        return /^(["']).*\1$/s.test(value) && value.length >= 2 ? value.slice(1, -1) : value;
+    }
+
+    /** The whole file as a person edits it: every line in its place, each value decrypted. The file must be open. Never written to disk. */
+    editable(): string {
+        const lines = (this.source() || SecretsFile.HEADER).replace(/\r\n?/g, "\n").replace(/\n$/, "").split("\n");
+        return `${lines
+            .map((line) => {
+                const name = SecretsFile.ASSIGNMENT.exec(line)?.[1];
+                if (!name) return line;
+                const value = (parseEnv(line) as Record<string, string>)[name] ?? "";
+                return `${name}=${SecretsFile.shown(name === SecretsFile.PASSWORD ? value : this.decryptForEdit(name, value))}`;
+            })
+            .join("\n")}\n`;
+    }
+
+    /** A value decrypted for the editor: an encrypted one opened, anything else as written. */
+    private decryptForEdit(name: string, value: string): string {
+        return SecretsFile.isEncrypted(value) ? this.open(name, value, this.needPassword()) : value;
+    }
+
+    /**
+     * Write the file from the text the editor holds: comments and blank lines as they are, each value encrypted, a value that did not
+     * change kept as it was encrypted, so git shows only what changed. Gives back why it can't be written, or undefined once written.
+     */
+    saveEditable(text: string): string | undefined {
+        const before = new Map<string, { stored: string; value: string }>();
+        for (const [name, stored] of Object.entries(this.values()))
+            before.set(name, { stored, value: name === SecretsFile.PASSWORD ? stored : this.decryptForEdit(name, stored) });
+
+        const password = this.needPassword();
+        const salt = this.salt();
+        const seen = new Set<string>();
+        const out: string[] = [];
+        const lines = text.replace(/\r\n?/g, "\n").replace(/\n$/, "").split("\n");
+
+        for (const [i, line] of lines.entries()) {
+            if (!line.trim() || line.trim().startsWith("#")) {
+                out.push(line);
+                continue;
+            }
+
+            const match = SecretsFile.ASSIGNMENT.exec(line);
+            if (!match) return `line ${i + 1}: write NAME=value, or a comment starting with #`;
+            const [, name, raw] = match as unknown as [string, string, string];
+            if (seen.has(name)) return `line ${i + 1}: ${name} is written twice`;
+            seen.add(name);
+
+            const value = SecretsFile.typed(raw);
+            if (name === SecretsFile.PASSWORD) {
+                if (!value.startsWith("op://") || value.includes('"'))
+                    return `line ${i + 1}: ${name} may only be a 1Password reference, op://vault/item/field. The password itself never goes in the file.`;
+                out.push(`${name}="${value}"`);
+                continue;
+            }
+
+            if (value.includes('"') && value.startsWith("op://")) return `line ${i + 1}: a 1Password reference has no "`;
+            const old = before.get(name);
+            const stored =
+                old && old.value === value && SecretsFile.kindOf(old.stored) !== "not encrypted"
+                    ? old.stored
+                    : value.startsWith("op://") || !value
+                      ? value
+                      : this.seal(name, value, password, salt);
+            out.push(`${name}="${stored}"`);
+        }
+
+        this.write(`${out.join("\n")}\n`);
+        return undefined;
+    }
+
     /** Encrypt every value written in plain text. Gives back their names. */
     encryptAll(): string[] {
         const names = this.plaintext();

@@ -146,7 +146,7 @@ Tidies the spacing, indents and line breaks of the `.ts` files. What the files s
 
 ## Secrets
 
-`circuit secrets` opens the project's secrets in the terminal, to look through and change them. `list`, `get`, `set`, `delete`, `encrypt` and `password` do one thing each. `circuit secrets encrypt` encrypts only values in plain text: encrypted ones and `op://` references stay as they are. See [Secrets](/guide/secrets).
+`circuit secrets` opens every secret, decrypted, in a text editor in the terminal. Ctrl+S saves them encrypted, Ctrl+Q leaves. `list`, `get`, `set`, `delete`, `encrypt` and `password` do one thing each. `circuit secrets encrypt` encrypts only values in plain text: encrypted ones and `op://` references stay as they are. See [Secrets](/guide/secrets).
 
 ## Projects and the app
 

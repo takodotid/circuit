@@ -39,7 +39,17 @@ The first `circuit secrets set` asks you to choose a password, of at least 12 ch
 
 ## Commands
 
-`circuit secrets` alone, in a terminal, opens your secrets right there: pick one to show, change or delete it, add one, or change the password. No other program needed.
+`circuit secrets` alone, in a terminal, opens every secret in a text editor, decrypted, one `NAME=value` per line:
+
+```
+# Circuit's secrets, each value encrypted, so this file is safe to commit.
+EDGE_01_PASSWORD=s3cret-value
+SNMP_COMMUNITY=op://Network/SNMP/password
+```
+
+Change a value, add a line, delete one. **Ctrl+S** saves, each value encrypted again; **Ctrl+Q** leaves. Only values you changed get a new encryption, so git shows just those. The editor is part of Circuit, no other program needed. Nothing is written to disk decrypted, and the screen is cleared when you leave.
+
+A value with a space at either end goes in quotes: `NAME=" value "`.
 
 | Command                       | Does                                                                                                      |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------- |

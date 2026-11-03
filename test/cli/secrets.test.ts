@@ -150,6 +150,56 @@ describe("SecretsFile", () => {
         expect(file.names()).toEqual(["B_PASSWORD"]);
     });
 
+    test("the editor's text: every value decrypted, comments in place, the password's reference as it is", () => {
+        const file = opened();
+        file.setPasswordReference("op://Network/Circuit/password");
+        file.set("A_PASSWORD", "one");
+        file.set("SPACED", " two ");
+        file.set("SNMP", "op://Network/SNMP/password");
+
+        expect(file.editable()).toBe(
+            `${SecretsFile.HEADER}CIRCUIT_SECRETS_PASSWORD=op://Network/Circuit/password\nA_PASSWORD=one\nSPACED=" two "\nSNMP=op://Network/SNMP/password\n`
+        );
+    });
+
+    test("saving the editor's text encrypts what changed and keeps the rest as it was encrypted", () => {
+        const file = opened();
+        file.set("A_PASSWORD", "one");
+        file.set("B_PASSWORD", "two");
+        const before = file.values();
+
+        const edited = file.editable().replace("B_PASSWORD=two", 'B_PASSWORD=changed\n# a note\nC_PASSWORD="three"');
+        expect(file.saveEditable(edited)).toBeUndefined();
+
+        const after = file.values();
+        expect(after.A_PASSWORD).toBe(before.A_PASSWORD);
+        expect(after.B_PASSWORD).not.toBe(before.B_PASSWORD);
+        expect(file.reveal("B_PASSWORD")).toBe("changed");
+        expect(file.reveal("C_PASSWORD")).toBe("three");
+        expect(readFileSync(file.path, "utf8")).toContain("# a note\n");
+        expect(readFileSync(file.path, "utf8")).not.toContain("changed");
+        expect(file.problems()).toEqual([]);
+    });
+
+    test("a line taken out of the editor's text is deleted; a value typed in plain text is encrypted", () => {
+        const file = opened();
+        file.set("A_PASSWORD", "one");
+        writeFileSync(file.path, `${readFileSync(file.path, "utf8")}B_PASSWORD=typed-by-hand\n`);
+
+        expect(file.saveEditable(file.editable().replace(/^A_PASSWORD=.*\n/m, ""))).toBeUndefined();
+        expect(file.names()).toEqual(["B_PASSWORD"]);
+        expect(file.problems()).toEqual([]);
+        expect(file.reveal("B_PASSWORD")).toBe("typed-by-hand");
+    });
+
+    test("the editor's text is refused when a line is not NAME=value, a name is twice, or the password is written as itself", () => {
+        const file = opened();
+        expect(file.saveEditable("A=1\nnot a line\n")).toBe("line 2: write NAME=value, or a comment starting with #");
+        expect(file.saveEditable("A=1\nA=2\n")).toBe("line 2: A is written twice");
+        expect(file.saveEditable(`${SecretsFile.PASSWORD}=hunter2hunter2\n`)).toContain("may only be a 1Password reference");
+        expect(file.exists()).toBe(false);
+    });
+
     test("a made password is long and new each time", () => {
         const made = SecretsFile.generatePassword();
         expect(made.length).toBe(32);

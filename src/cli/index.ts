@@ -217,7 +217,7 @@ class Cli {
         const secrets = program
             .command("secrets")
             .alias("secret")
-            .description("the project's secrets, each one encrypted: alone, in a terminal, opens them to look through and change")
+            .description("the project's secrets, each one encrypted: alone, in a terminal, opens every one in a text editor")
             .option(NETWORK_FLAGS, NETWORK_HELP)
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
             .action(async (flags) => {
@@ -225,6 +225,12 @@ class Cli {
                 if (Ui.interactive) await commands.edit();
                 else commands.list();
             });
+        secrets
+            .command("edit")
+            .description("every secret, decrypted, in a text editor in the terminal; saved encrypted")
+            .option(NETWORK_FLAGS, NETWORK_HELP)
+            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
+            .action(async (flags) => (await SecretCommands.open(flags.project, flags.network)).edit());
         secrets
             .command("list")
             .description("every secret, how it is kept, and the ones the config needs that the file lacks")
@@ -450,7 +456,7 @@ class Cli {
             { value: "rename", label: "Rename", hint: "give a device a new name everywhere" },
             { value: "fmt", label: "Tidy files", hint: "spacing and line breaks only; what the files say stays the same" },
             heading("Secrets"),
-            { value: "secrets", label: "Secrets", hint: "look through and change the secrets, each one encrypted" },
+            { value: "secrets", label: "Secrets", hint: "every secret in a text editor, saved encrypted" },
             heading("Circuit"),
             { value: "update", label: "Update Circuit" },
             { value: "uninstall", label: "Uninstall Circuit", hint: "your projects stay" },

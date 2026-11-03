@@ -100,21 +100,21 @@ Each project runs the Circuit version in its `.circuit/version`. `circuit update
 
 Each reads the project in the working directory or the nearest folder above it, or in the folder `--project <folder>` names. Leave out the device and Circuit lists them to pick from.
 
-| Command                             | What it does                                                                                         |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `validate`                          | Reads the project and checks it, then runs every check in `circuit.ts`.                              |
-| `diff [device]`                     | Reads the device and shows what `apply` would change.                                                |
-| `apply [device]`                    | Reads the device, shows what would change, and sends it once you say yes (`--confirm`).              |
-| `exec [device] [command...]`        | Runs commands that only read on the device, and prints the answer, secrets hidden.                   |
-| `bgp [device]`                      | Each BGP neighbor next to its live session: up or down, prefixes, uptime.                            |
-| `access-console [device] [line...]` | Opens the device's serial console, logged in, or sends it lines.                                     |
-| `studio`                            | Opens the project in your browser: the graph, every table, tools, compare and secrets.               |
-| `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.                        |
-| `secrets`                           | Opens the secrets to look through and change; `list`, `get`, `set`, `delete`, `encrypt`, `password`. |
-| `fmt [file...]`                     | Tidies spacing and line breaks, as VS Code does on save. Nothing else changes.                       |
-| `new [folder]`                      | Starts a project.                                                                                    |
-| `update`                            | In a project: moves it to the newest version, after a yes. Outside: updates the app.                 |
-| `uninstall`                         | Removes the Circuit app. Your projects stay.                                                         |
+| Command                             | What it does                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `validate`                          | Reads the project and checks it, then runs every check in `circuit.ts`.                                |
+| `diff [device]`                     | Reads the device and shows what `apply` would change.                                                  |
+| `apply [device]`                    | Reads the device, shows what would change, and sends it once you say yes (`--confirm`).                |
+| `exec [device] [command...]`        | Runs commands that only read on the device, and prints the answer, secrets hidden.                     |
+| `bgp [device]`                      | Each BGP neighbor next to its live session: up or down, prefixes, uptime.                              |
+| `access-console [device] [line...]` | Opens the device's serial console, logged in, or sends it lines.                                       |
+| `studio`                            | Opens the project in your browser: the graph, every table, tools, compare and secrets.                 |
+| `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.                          |
+| `secrets`                           | Every secret in a text editor, saved encrypted; `list`, `get`, `set`, `delete`, `encrypt`, `password`. |
+| `fmt [file...]`                     | Tidies spacing and line breaks, as VS Code does on save. Nothing else changes.                         |
+| `new [folder]`                      | Starts a project.                                                                                      |
+| `update`                            | In a project: moves it to the newest version, after a yes. Outside: updates the app.                   |
+| `uninstall`                         | Removes the Circuit app. Your projects stay.                                                           |
 
 ## Docs
 
