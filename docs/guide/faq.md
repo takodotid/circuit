@@ -45,7 +45,7 @@ No. `circuit` has everything inside.
 
 ## Will updating Circuit break my project?
 
-No. Each project runs the version in its `.circuit-version`. A project moves only when you run `circuit update` in it and say yes.
+No. Each project runs the version in its `.circuit/version`. A project moves only when you run `circuit update` in it and say yes.
 
 ## Can I run Circuit in CI?
 

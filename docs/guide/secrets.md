@@ -29,7 +29,7 @@ Circuit asks for the value without showing it. It only decrypts it when sending 
 - **The private key** unlocks. It never goes into git. Circuit looks for it in:
     1. `DOTENV_PRIVATE_KEY` in the environment, like in CI.
     2. `.env.keys` in the project. `.gitignore` keeps it out of git.
-    3. 1Password, if `.env` has `CIRCUIT_ENV_KEY="op://vault/item/field"`.
+    3. 1Password, if `.env` has `CIRCUIT_ENV_KEY="op://vault/item/field"`. See [1Password](/integrations/1password).
 
 Keep a copy of the private key in your password manager. Lose it, and every secret has to be set again.
 
@@ -41,22 +41,14 @@ Keep a copy of the private key in your password manager. Lose it, and every secr
 | `circuit secret set NAME`    | Adds or changes one. Asks for the value, hidden.                                                        |
 | `circuit secret get NAME`    | Prints one, decrypted.                                                                                  |
 | `circuit secret delete NAME` | Removes one, after asking.                                                                              |
-| `circuit secret encrypt`     | Encrypts anything typed into `.env` by hand.                                                            |
+| `circuit secret encrypt`     | Encrypts values typed into `.env` by hand. Already encrypted ones and `op://` pointers are left alone.  |
 | `circuit secret rotate`      | Makes a new key. The old one stops working.                                                             |
 
 Tip: `circuit secret set NAME value` works too, but then your shell history has the value. Better to let it ask.
 
 ## 1Password
 
-A value can point at 1Password instead:
-
-```sh
-circuit secret set SNMP_COMMUNITY op://Network/SNMP/password
-```
-
-Circuit reads it with the 1Password CLI (`op`) when needed. The list shows where it lives, never the value.
-
-You can keep the private key itself in 1Password, too: pick 1Password when `circuit new` asks. Then nobody needs a `.env.keys` file.
+Keep the key in 1Password, so nobody passes `.env.keys` around, or keep the passwords themselves there. See [1Password](/integrations/1password).
 
 ## Rotating the key
 

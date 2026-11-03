@@ -54,7 +54,7 @@ So a teammate who clones your project runs the install command once, in that fol
 
 ## Each project pins its version
 
-A project keeps its Circuit version in `.circuit-version`, at its root, committed with the rest:
+A project keeps its Circuit version in `.circuit/version`, committed with the rest:
 
 ```
 1.0.0-rc.1
@@ -83,7 +83,7 @@ Your editor completes every field and flags every wrong name as you type, from t
 | Neovim, Helix, Sublime Text      | A TypeScript language server, set up by hand.               |
 | Notepad++ and plain editors      | No live checks. `circuit validate` still checks everything. |
 
-We recommend VS Code. A new project comes with `.vscode/settings.json` and `.vscode/extensions.json`: VS Code asks to install the Prettier extension, and then formats each file as you save it, the same way `circuit fmt` does. VS Code can only format on save through an extension, which is why it asks.
+We recommend VS Code. A new project comes with `.vscode/settings.json` and `.vscode/extensions.json`: VS Code asks to install the Prettier extension, and then formats each file as you save it. `circuit fmt` does the same from the terminal, for other editors and CI.
 
 ## Updating
 
@@ -91,7 +91,7 @@ We recommend VS Code. A new project comes with `.vscode/settings.json` and `.vsc
 circuit update
 ```
 
-- **In a project:** shows the newest version and asks before moving the project to it. No is the default. Then it rewrites `.circuit-version` and the editor types.
+- **In a project:** shows the newest version and asks before moving the project to it. No is the default. Then it rewrites `.circuit/version` and the editor types.
 - **Outside a project:** updates the app.
 - **Never across a major version.** 1.x stays on 1.x. Moving to 2.x is your choice.
 

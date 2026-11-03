@@ -26,6 +26,13 @@ const sidebar: DefaultTheme.SidebarItem[] = [
         ],
     },
     {
+        text: "Integrations",
+        items: [
+            { text: "Overview", link: "/integrations/" },
+            { text: "1Password", link: "/integrations/1password" },
+        ],
+    },
+    {
         text: "Circuit Studio",
         items: [
             { text: "Overview", link: "/studio/" },
