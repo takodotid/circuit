@@ -29,14 +29,13 @@ circuit new network
 
 Or run `circuit` in an empty folder and pick **Start a new project**.
 
-| Question                | Pick                                                                              |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| Project folder          | Any name. `network` by default.                                                   |
-| How to run Circuit      | **Simple** (recommended): the app. **Full**: see [below](#full-install).          |
-| Your AS number          | Yours, or keep `64500` for now and change it later in `circuit.ts`.               |
-| Start a git repository? | Yes. Git keeps every change and who made it.                                      |
-| Where to keep the key   | `.env.keys` (recommended) or 1Password. Only asked if you have the 1Password CLI. |
-| Open in VS Code?        | Only asked if you have VS Code.                                                   |
+| Question                | Pick                                                                     |
+| ----------------------- | ------------------------------------------------------------------------ |
+| Project folder          | Any name. `network` by default.                                          |
+| How to run Circuit      | **Simple** (recommended): the app. **Full**: see [below](#full-install). |
+| Your AS number          | Yours, or keep `64500` for now and change it later in `circuit.ts`.      |
+| Start a git repository? | Yes. Git keeps every change and who made it.                             |
+| Open in VS Code?        | Only asked if you have VS Code.                                          |
 
 Once you add a site and a device, the project looks like this:
 
@@ -54,7 +53,7 @@ So a teammate who clones your project runs the install command once, in that fol
 
 ## Each project pins its version
 
-A project keeps its Circuit version in `.circuit/version`, committed with the rest:
+A project keeps its Circuit version in `.circuit/VERSION`, committed with the rest:
 
 ```
 1.0.0-rc.1
@@ -83,7 +82,9 @@ Your editor completes every field and flags every wrong name as you type, from t
 | Neovim, Helix, Sublime Text      | A TypeScript language server, set up by hand.               |
 | Notepad++ and plain editors      | No live checks. `circuit validate` still checks everything. |
 
-We recommend VS Code. A new project comes with `.vscode/settings.json` and `.vscode/extensions.json`: VS Code asks to install the Prettier extension, and then formats each file as you save it. `circuit fmt` does the same from the terminal, for other editors and CI.
+We recommend VS Code. A new project comes with `.editorconfig`, `.vscode/settings.json` and `.vscode/extensions.json`: VS Code asks to install the Prettier extension, and then formats each file as you save it. `circuit fmt` does the same from the terminal, for other editors and CI.
+
+The style is in `.editorconfig`: 4 spaces, lines up to 140, LF. Both the Prettier extension and `circuit fmt` read it; everything else is Prettier's own defaults. A `.prettierrc.json`, if you add one, goes on top, for both.
 
 ## Updating
 
@@ -91,7 +92,7 @@ We recommend VS Code. A new project comes with `.vscode/settings.json` and `.vsc
 circuit update
 ```
 
-- **In a project:** shows the newest version and asks before moving the project to it. No is the default. Then it rewrites `.circuit/version` and the editor types.
+- **In a project:** shows the newest version and asks before moving the project to it. No is the default. Then it rewrites `.circuit/VERSION` and the editor types.
 - **Outside a project:** updates the app.
 - **Never across a major version.** 1.x stays on 1.x. Moving to 2.x is your choice.
 

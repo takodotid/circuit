@@ -94,7 +94,7 @@ In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`
 2. Start a project: `circuit new network`. Open its folder in VS Code. Add a site in `circuit.ts`, then write each device in `sites/<site>/<device>.ts`.
 3. Run `circuit`. It opens a menu, or runs a command straight away, such as `circuit validate`.
 
-Each project runs the Circuit version in its `.circuit/version`. `circuit update` moves it to the newest one, after a yes.
+Each project runs the Circuit version in its `.circuit/VERSION`. `circuit update` moves it to the newest one, after a yes.
 
 ## Commands
 

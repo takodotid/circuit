@@ -20,4 +20,6 @@ Maintained by the {{ circuit.author.name }}, <a :href="`mailto:${circuit.author.
 
 ## With thanks to
 
-[Bun](https://bun.sh), [TypeScript](https://www.typescriptlang.org), [ssh2](https://github.com/mscdex/ssh2), [Clack](https://github.com/bombshell-dev/clack), [dotenvx](https://dotenvx.com), [VitePress](https://vitepress.dev), and the [NLNOG Ring looking glass](https://github.com/NLNOG/lg.ring.nlnog.net) for its community format.
+Circuit's secrets are encrypted as [dotenvx](https://dotenvx.com) encrypts them.
+
+[Bun](https://bun.sh), [TypeScript](https://www.typescriptlang.org), [ssh2](https://github.com/mscdex/ssh2), [Clack](https://github.com/bombshell-dev/clack), [VitePress](https://vitepress.dev), and the [NLNOG Ring looking glass](https://github.com/NLNOG/lg.ring.nlnog.net) for its community format.

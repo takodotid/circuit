@@ -24,12 +24,13 @@ Circuit asks for the value without showing it. It only decrypts it when sending 
 
 <SecretsDiagram />
 
-- **`.env` is encrypted**, the [dotenvx](https://dotenvx.com) way. Safe to commit, so your team shares secrets through git.
+- **`.env` is encrypted**, value by value. Safe to commit, so your team shares secrets through git.
 - **The public key** (top of `.env`) can only lock. Anyone can add a secret.
-- **The private key** unlocks. It never goes into git. Circuit looks for it in:
-    1. `DOTENV_PRIVATE_KEY` in the environment, like in CI.
+- **The private key** unlocks: `DOTENV_PRIVATE_KEY`. Circuit looks for it in this order, and takes the first it finds:
+    1. The environment, like in CI.
     2. `.env.keys` in the project. `.gitignore` keeps it out of git.
-    3. 1Password, if `.env` has `CIRCUIT_ENV_KEY="op://vault/item/field"`. See [1Password](/integrations/1password).
+    3. `.env` itself, as a 1Password reference: `DOTENV_PRIVATE_KEY="op://vault/item/field"`. Committed, so the whole team gets it. A plain key there is refused by the commit check. See [1Password](/integrations/1password).
+- **Any value can be a 1Password reference** (`op://...`), the key too. Circuit reads it with the 1Password CLI by itself.
 
 Keep a copy of the private key in your password manager. Lose it, and every secret has to be set again.
 

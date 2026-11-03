@@ -40,7 +40,7 @@
             <circle cx="300" cy="190" r="15" class="dot" />
             <text x="300" y="195" class="dot-text">3</text>
             <text x="465" y="225" class="title">The private key</text>
-            <text x="465" y="250" class="mono">.env.keys, or 1Password</text>
+            <text x="465" y="250" class="mono">.env.keys, or a 1Password reference</text>
             <rect x="322" y="258" width="140" height="18" class="chip-red" />
             <text x="330" y="272" class="chip-text">NEVER COMMITTED</text>
 

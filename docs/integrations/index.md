@@ -6,7 +6,7 @@ description: What Circuit works with today, and what's coming.
 
 | Integration                          | What it does                                                                    | Status                                                                                        |
 | ------------------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| [1Password](/integrations/1password) | Keeps the key that opens `.env`, or the passwords themselves.                   | Works                                                                                         |
+| [1Password](/integrations/1password) | Reads the key that opens `.env`, or the passwords themselves.                   | Works                                                                                         |
 | git                                  | A commit check: no plain-text secret, no `.env.keys`, a project that validates. | Works. See [The commit check](/guide/secrets#the-commit-check).                               |
 | VS Code                              | Completes and checks every field; formats on save with the Prettier extension.  | Works. See [Your editor](/guide/install#your-editor).                                         |
 | NetBox                               | Devices, ports, VLANs, addresses and cables, from the project.                  | Coming as `circuit sync netbox` ([#170](https://github.com/takodotid/circuit/issues/170))     |

@@ -142,7 +142,7 @@ circuit fmt              # every .ts file of the project
 circuit fmt --check      # only says which files aren't formatted, for CI
 ```
 
-The same Prettier as VS Code's Prettier extension, inside Circuit, with the project's `.prettierrc.json`. For formatting without VS Code, in another editor, or in CI. In VS Code you can skip it: format on save does the same.
+The same Prettier as VS Code's Prettier extension, inside Circuit, with the style in the project's `.editorconfig`. For formatting without VS Code, in another editor, or in CI. In VS Code you can skip it: format on save does the same.
 
 ## Secrets
 
@@ -156,4 +156,4 @@ The same Prettier as VS Code's Prettier extension, inside Circuit, with the proj
 | `circuit update`    | In a project: moves it to the newest version, after a yes. Outside, or with `--app`: updates the app. |
 | `circuit uninstall` | Removes the app. Asks first. Never touches your projects.                                             |
 
-Each project runs the version in its `.circuit/version`. See [Install](/guide/install#each-project-pins-its-version).
+Each project runs the version in its `.circuit/VERSION`. See [Install](/guide/install#each-project-pins-its-version).
