@@ -23,27 +23,26 @@ class Cli {
     private static readonly PROJECT_HELP =
         "the project's folder; by default the working directory, or the nearest folder above it with circuit.ts";
 
-    /** Commands the installed app runs itself, whatever version a project pins. */
+    /** Commands the manager runs itself, whatever version a project pins. */
     private static readonly APP_COMMANDS = new Set(["update", "uninstall", "new"]);
-
-    /** Commands that run before, or without, the version check. */
-    private static readonly UNCHECKED = new Set(["update", "uninstall", "studio-data", "help", "--help", "-h", "--version", "-V"]);
 
     /** Read the arguments and run the command they name, or open the menu. */
     static async main(argv: string[]): Promise<void> {
         Releases.tidy();
-
         const command = argv[0];
+
+        // The manager keeps itself current before every command but `uninstall`. A version it started, or Studio's own reads, leave that to it.
+        if (command !== "uninstall" && !Versions.started() && !process.env.CIRCUIT_LOCAL) await Releases.check(argv);
+
         if (!Cli.APP_COMMANDS.has(command ?? "")) {
             Cli.runLocal(argv);
             const at = argv.indexOf("--project");
             const root = ProjectCommands.find(at >= 0 ? argv[at + 1] : undefined);
             if (root) {
                 if (Releases.binary()) Versions.remember(root);
-                await Versions.runPinned(root, argv);
+                await Versions.run(root, argv);
             }
         }
-        if (!command || !Cli.UNCHECKED.has(command)) await Releases.gate();
 
         const program = Cli.program();
         if (!argv.length) {

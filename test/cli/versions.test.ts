@@ -29,7 +29,7 @@ test("run from the sources, Circuit never starts another version", async () => {
     Versions.pin(root, "0.0.1");
 
     // Returns, rather than ending the process: this is not the installed app.
-    await Versions.runPinned(root, ["validate"]);
+    await Versions.run(root, ["validate"]);
 });
 
 test("a kept version no project pins any more is removed; the app's own is never kept apart", () => {

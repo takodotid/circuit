@@ -94,7 +94,7 @@ In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`
 2. Start a project: `circuit new network`. Open its folder in VS Code. Add a site in `circuit.ts`, then write each device in `sites/<site>/<device>.ts`.
 3. Run `circuit`. It opens a menu, or runs a command straight away, such as `circuit validate`.
 
-Each project runs the Circuit version in its `.circuit/version`. `circuit update` lists the newer versions, newest first, and moves the project to the one you pick.
+Each project runs the Circuit version in its `.circuit/version`. `circuit update` lists the newer versions, newest first, and moves the project to the one you pick. Circuit itself updates on its own, and a project on a version with a security problem has to move before anything runs.
 
 ## Commands
 
@@ -113,8 +113,8 @@ Each reads the project in the working directory or the nearest folder above it, 
 | `secrets`                           | Every secret in a text editor, saved encrypted; `list`, `get`, `set`, `delete`, `encrypt`, `password`. |
 | `fmt [file...]`                     | Tidies spacing and line breaks, as VS Code does on save. Nothing else changes.                         |
 | `new [folder]`                      | Starts a project.                                                                                      |
-| `update`                            | Pick a newer version, newest first. In a project: moves it, and the app with it. Outside: the app.     |
-| `uninstall`                         | Removes the Circuit app. Your projects stay.                                                           |
+| `update`                            | Pick a newer version for the project, newest first. Outside a project: Circuit's own.                  |
+| `uninstall`                         | Removes Circuit. Your projects stay.                                                                   |
 
 ## Docs
 

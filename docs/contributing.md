@@ -53,6 +53,6 @@ A release is made on GitHub. Its workflow builds `circuit` for each system, atta
 
 - **Stable** (`1.2.0`): npm tag `latest`, and the site is rebuilt.
 - **Release candidate** (`1.2.0-rc.1`): npm tag `rc`. The site stays as it is.
-- **`[critical]` in the title:** older versions of the same major are deprecated on npm, and they stop every command but `update`.
+- **Backport** (`1.9.5` after `1.16.0`): npm tag `latest-1.9`, not marked Latest on GitHub, and the site stays as it is.
 
-Every `circuit` learns about new versions from npm. An update never crosses a major version. Commits follow Conventional Commits, with a scope from `commitlint.config.js`.
+Every release's checksums are signed, and Circuit installs nothing unsigned. A version with a security problem gets a GitHub security advisory; see [SECURITY.md](https://github.com/takodotid/circuit/blob/v1/SECURITY.md). Every `circuit` learns about new versions from npm. An update never crosses a major version. Commits follow Conventional Commits, with a scope from `commitlint.config.js`.

@@ -1,7 +1,7 @@
-// Each project pins its Circuit in `.circuit/version`, committed. The installed `circuit` runs that version, kept once in ~/.circuit/versions/<version>/, so two projects on different versions never clash. Circuit remembers the projects it ran in, so a kept version no project pins any more is removed, and the app follows the newest version a project moves to.
+// Each project pins its Circuit in `.circuit/version`, committed. The installed `circuit`, the manager, runs that version for every command in the project, kept once in ~/.circuit/versions/<version>/, so two projects on different versions never clash and the manager updating itself changes no project. A version not here yet is downloaded once the person says yes, signed and checked; one a security advisory affects never runs. Circuit remembers the projects it ran in, so a kept version no project pins any more is removed.
 
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Releases } from "./releases";
 import { Ui } from "./ui";
@@ -86,12 +86,18 @@ export class Versions {
         return join(Releases.home(), "versions", version, process.platform === "win32" ? "circuit.exe" : "circuit");
     }
 
-    /** A version's binary, downloaded and checked first when it is not here yet. */
+    /** A version's binary: downloaded, signed and checked, once the person says yes, when it is not here yet. Without a person to ask, such as in CI, it is downloaded. */
     static async ensure(version: string): Promise<string> {
         const path = Versions.path(version);
         if (existsSync(path)) return path;
 
-        const bytes = await Ui.step(`Downloading Circuit ${version}, which this project uses`, () => Releases.fetchBinary(version));
+        if (
+            Ui.interactive &&
+            !(await Ui.confirm(`This project runs Circuit ${version}, which is not on this machine yet. Download it?`, true))
+        )
+            Ui.fail(`Not run. This project needs Circuit ${version}; or move it to another version with circuit update.`);
+
+        const bytes = await Ui.step(`Downloading Circuit ${version}`, () => Releases.fetchBinary(version));
         mkdirSync(join(path, ".."), { recursive: true });
         writeFileSync(`${path}.part`, bytes);
         if (process.platform !== "win32") chmodSync(`${path}.part`, 0o755);
@@ -100,25 +106,38 @@ export class Versions {
         return path;
     }
 
-    /** In a project that pins another version, run that version with these arguments, and end with its exit code. Nothing when this Circuit is the one to run. */
-    static async runPinned(root: string, argv: string[]): Promise<void> {
-        const pinned = Versions.pinned(root);
-        if (!pinned || pinned === VERSION || process.env[Versions.RUNNING] || !Releases.binary()) return;
+    /**
+     * Before a command in a project: a version a security advisory affects never runs, so the person moves the project to a fixed one
+     * first. Then, when the project pins another version than this one, run that version with these arguments, and end with its exit
+     * code. Nothing to do when this Circuit is the one to run.
+     */
+    static async run(root: string, argv: string[]): Promise<void> {
+        if (process.env[Versions.RUNNING] || !Releases.binary()) return;
 
-        let binary = await Versions.ensure(pinned);
-        // A project on a newer version than the app, such as after a teammate's update: the app follows it.
-        if (Releases.compare(pinned, VERSION) > 0) {
-            Versions.follow(pinned, binary);
-            binary = Releases.binary()!;
-            Versions.prune(pinned);
+        let pinned = Versions.pinned(root) ?? VERSION;
+        const affected = Releases.affecting((await Releases.advisories()).advisories, pinned);
+        if (affected.length) {
+            if (!Ui.interactive)
+                Ui.fail(
+                    `This project runs Circuit ${pinned}, which has a security problem: ${affected.map((advisory) => `${advisory.summary} (${advisory.url})`).join("; ")}. Fixed in ${[...new Set(affected.flatMap((advisory) => advisory.patched))].join(" or ")}. Run circuit update in a terminal.`
+                );
+            pinned =
+                (await Versions.updateProject(root, false)) ?? Ui.fail("Not run: the project stays on a version with a security problem.");
         }
+        if (pinned === VERSION) return;
 
+        const binary = await Versions.ensure(pinned);
         const result = spawnSync(binary, argv, { stdio: "inherit", env: { ...process.env, [Versions.RUNNING]: "1" } });
         if (result.error) Ui.fail(`Circuit ${pinned} could not start: ${result.error.message}`);
         process.exit(result.status ?? 1);
     }
 
-    /** Move a project to a version the person picks, then the app with it when that version is newer than the app. Gives back the version it moved to. */
+    /** Whether this Circuit was started by the manager to run a project's version, so it leaves checking and updating to it. */
+    static started(): boolean {
+        return Boolean(process.env[Versions.RUNNING]);
+    }
+
+    /** Move a project to a version the person picks. Gives back the version it moved to. */
     static async updateProject(root: string, confirmed: boolean): Promise<string | undefined> {
         const current = Versions.pinned(root) ?? VERSION;
         const target = await Releases.pick(current, confirmed, "This project");
@@ -132,23 +151,7 @@ export class Versions {
         spawnSync(binary, ["setup", root], { stdio: "inherit", env: { ...process.env, [Versions.RUNNING]: "1" } });
         Ui.done(`This project runs Circuit ${target} now. Commit ${Versions.FILE}.`);
 
-        Versions.follow(target, binary);
-        Versions.prune(Releases.compare(target, VERSION) > 0 && Releases.binary() ? target : VERSION);
+        Versions.prune();
         return target;
-    }
-
-    /** The app follows the newest version a project moved to: when `version` is newer than the app, the app becomes it, from the binary already here. A project that still pins the app's old version keeps it, kept apart. */
-    private static follow(version: string, binary: string): void {
-        const app = Releases.binary();
-        if (!app || Releases.compare(version, VERSION) <= 0) return;
-
-        const stillUsed = Versions.known().some((root) => existsSync(join(root, "circuit.ts")) && Versions.pinned(root) === VERSION);
-        if (stillUsed && !existsSync(Versions.path(VERSION))) {
-            mkdirSync(join(Versions.path(VERSION), ".."), { recursive: true });
-            copyFileSync(app, Versions.path(VERSION));
-        }
-
-        Releases.replace(app, readFileSync(binary));
-        Ui.done(`The Circuit app is ${version} now too, the newest a project of yours runs.`);
     }
 }

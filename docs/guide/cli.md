@@ -148,12 +148,12 @@ Tidies the spacing, indents and line breaks of the `.ts` files. What the files s
 
 `circuit secrets` opens every secret, decrypted, in a text editor in the terminal. Ctrl+S saves them encrypted, Esc leaves. `list`, `get`, `set`, `delete`, `encrypt` and `password` do one thing each. `circuit secrets encrypt` encrypts only values in plain text: encrypted ones and `op://` references stay as they are. See [Secrets](/guide/secrets).
 
-## Projects and the app
+## Projects and Circuit itself
 
-| Command             | Does                                                                                                                            |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `circuit new`       | Starts a project. See [Start a project](/guide/install#start-a-project).                                                        |
-| `circuit update`    | Pick a newer version, the newest first. In a project: moves it, and the app with it. Outside, or with `--app`: updates the app. |
-| `circuit uninstall` | Removes the app. Asks first. Never touches your projects.                                                                       |
+| Command             | Does                                                                                                        |
+| ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `circuit new`       | Starts a project. See [Start a project](/guide/install#start-a-project).                                    |
+| `circuit update`    | In a project: pick a newer version for it, the newest first. Outside, or with `--app`: picks Circuit's own. |
+| `circuit uninstall` | Removes Circuit. Asks first. Never touches your projects.                                                   |
 
-Each project runs the version in its `.circuit/version`. See [Install](/guide/install#each-project-pins-its-version).
+Each project runs the version in its `.circuit/version`. Circuit updates itself before each command, and a project on a version with a security problem has to move first. See [Updating](/guide/install#updating).

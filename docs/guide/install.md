@@ -45,7 +45,7 @@ Once you add a site and a device, the project looks like this:
 
 | Where you run it                              | What happens                                                    |
 | --------------------------------------------- | --------------------------------------------------------------- |
-| Anywhere, with Circuit installed              | Asks before updating the app. No is the default.                |
+| Anywhere, with Circuit installed              | Asks before updating Circuit. No is the default.                |
 | In a project folder, like a fresh `git clone` | Sets that project up, no questions: editor types, the git hook. |
 | In any other folder                           | Asks whether to set up a new project there.                     |
 
@@ -59,11 +59,13 @@ A project keeps its Circuit version in `.circuit/version`, committed with the re
 1.0.0-rc.1
 ```
 
-`circuit` runs that version, downloading it once into `~/.circuit/versions/`. So:
+Every command in the project runs that version. The first time, Circuit asks to download it, then keeps it once in `~/.circuit/versions/`. In CI, with nobody to ask, it just downloads. So:
 
 - Two projects on two versions never clash.
-- Updating the app never changes a project.
+- Circuit updating itself never changes a project.
 - Everyone on the team runs the same version.
+
+The installed `circuit` itself only manages: it starts projects (`circuit new`), keeps itself up to date, gets each project its version, and runs it.
 
 ## Full install
 
@@ -92,19 +94,37 @@ The style is in `.editorconfig`: 4 spaces, lines up to 140, LF. Both the Prettie
 circuit update
 ```
 
-- **Pick a version.** Circuit lists the last few versions newer than yours, newest at the top, plus "Stay". `--confirm` takes the newest without asking.
-- **In a project:** moves the project to the version you picked, rewriting `.circuit/version` and the editor types. The app moves with it when that version is newer than the app, so the app is always the newest version one of your projects runs.
-- **Outside a project, or with `--app`:** updates the app only.
-- **A version with a critical problem is never offered.** If yours has one, "Stay" is gone too: you pick a safe one.
+In a project, it moves the project to a newer version:
+
+- **Pick a version.** Circuit lists the last five versions newer than the project's, newest at the top, plus "Stay". `--confirm` takes the newest without asking.
+- Then it rewrites `.circuit/version` and the editor types. Commit `.circuit/version`, and your team gets the same version.
 - **Never across a major version.** 1.x stays on 1.x. Moving to 2.x is your choice.
 
-Each version a project pins is kept once on your machine, in `~/.circuit/versions`. When no project of yours uses a version any more, Circuit removes it, so old versions don't pile up.
+### Circuit updates itself
 
-Circuit checks for a new version before each command, at most once a minute:
+Before every command but `uninstall`, Circuit checks for a newer release, at most every 30 seconds:
 
-- **Newer one out:** a warning, and your command runs.
-- **Critical fix out:** older versions stop. Only `circuit update` runs.
+- **Newer one out:** Circuit updates itself, then runs your command. Your projects keep their own version.
 - **Offline:** a warning, and your command runs.
+- **New major version out:** only a warning.
+
+`circuit update` outside a project, or with `--app`, picks the version of Circuit itself. You rarely need it.
+
+### Security fixes
+
+A version with a security problem gets a [GitHub security advisory](https://github.com/takodotid/circuit/security/advisories). Circuit reads them, at most every 2 minutes:
+
+- **Your project's version is affected:** nothing runs until you move it. Circuit shows the problem and offers only fixed versions, no "Stay". The fix closest to your version is always in the list: it changes the least.
+- **In CI:** the command stops and names the fixed versions.
+- An affected version is never offered, and Circuit never updates itself to one.
+
+### Downloads are signed
+
+Every release's list of checksums is signed. Circuit installs a version only when the signature is Circuit's and the file matches it.
+
+### Old versions are cleaned up
+
+Each version is kept once in `~/.circuit/versions`. Circuit remembers the projects it ran in. When none of them uses a version any more, Circuit removes it, so old versions don't pile up.
 
 ## Uninstall
 
@@ -112,4 +132,4 @@ Circuit checks for a new version before each command, at most once a minute:
 circuit uninstall
 ```
 
-It asks first. Then it removes the app, its `PATH` entry, the **Settings > Apps** entry on Windows, and `~/.circuit`. Your projects are never touched.
+It asks first. Then it removes Circuit, its `PATH` entry, the **Settings > Apps** entry on Windows, and `~/.circuit`. Your projects are never touched.

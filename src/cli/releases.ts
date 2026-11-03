@@ -1,9 +1,12 @@
-// Which Circuit is current, and updating to it. Circuit asks the npm registry, at most once a minute: the dist-tag `latest` is the newest stable release, `rc` the newest release candidate. A release that fixes something critical is marked by deprecating the versions before it, with a message that starts with "critical"; such a version stops every command but `update`. An update stays within the major version, as `npm update` does: a new major version is a choice.
+// Which Circuit is current, and getting it. The installed `circuit` is the manager: before every command but `uninstall`, it asks the npm registry, at most every 30 seconds, and updates itself to the newest release of its major version: `latest` on npm, or `rc` while it runs a release candidate. A project's own version changes only when the person picks one (`circuit update`). A version a security advisory affects (see `Advisories`) never runs. Every binary Circuit downloads is checked against its release's SHA256SUMS, signed with the release key (see `Signing`).
 
+import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { type Advisory, Advisories } from "./advisories";
+import { Signing } from "./signing";
 import { Ui } from "./ui";
 import { VERSION } from "./version";
 
@@ -12,7 +15,7 @@ export type Release = { version: string; deprecated?: string };
 
 /** What Circuit learns from the registry. */
 export type Latest = {
-    /** The npm dist-tags, such as `{ latest: "1.0.0", rc: "1.1.0-rc.1" }`. */
+    /** The npm dist-tags, such as `{ latest: "1.0.0", rc: "1.1.0-rc.1", "latest-1.9": "1.9.5" }`. */
     tags: Record<string, string>;
     /** Why this version is deprecated, when it is. */
     deprecated?: string;
@@ -24,9 +27,11 @@ export class Releases {
     static readonly DOWNLOADS = "https://github.com/takodotid/circuit/releases/download";
 
     /** How long a check counts before Circuit asks again. */
-    private static readonly FRESH_SECONDS = 60;
+    private static readonly FRESH_SECONDS = 30;
     /** How long Circuit waits for the registry before going on without it. */
     private static readonly TIMEOUT_MS = 3000;
+    /** Set for the Circuit a manager started after updating itself, so it doesn't update again. */
+    private static readonly UPDATED = "CIRCUIT_UPDATED";
 
     /** How many versions `circuit update` offers, newest first. */
     static readonly OFFERED = 5;
@@ -104,7 +109,7 @@ export class Releases {
         return (await response.json()) as Record<string, unknown>;
     }
 
-    /** The registry's dist-tags, and whether this version is deprecated, from the cache when read in the last minute. `offline` when the registry could not be read, with the last answer, if any. */
+    /** The registry's dist-tags, and whether this version is deprecated, from the cache when read in the last 30 seconds. `offline` when the registry could not be read, with the last answer, if any. */
     static async latest(fresh = false): Promise<{ latest?: Latest; offline: boolean }> {
         const cached = Releases.readCache();
         if (!fresh && cached && Date.now() - cached.checked < Releases.FRESH_SECONDS * 1000)
@@ -121,40 +126,65 @@ export class Releases {
                 ...(typeof own.deprecated === "string" ? { deprecated: own.deprecated } : {}),
             };
 
-            mkdirSync(Releases.home(), { recursive: true });
-            writeFileSync(Releases.cachePath(), JSON.stringify({ checked: Date.now(), version: VERSION, latest }));
+            try {
+                mkdirSync(Releases.home(), { recursive: true });
+                writeFileSync(Releases.cachePath(), JSON.stringify({ checked: Date.now(), version: VERSION, latest }));
+            } catch {}
             return { latest, offline: false };
         } catch {
             return { ...(cached ? { latest: cached.latest } : {}), offline: true };
         }
     }
 
-    /** Before a command: stop on a version deprecated as critical, warn when a newer Circuit is out, and warn when Circuit could not check. */
-    static async gate(): Promise<void> {
-        const { latest, offline } = await Releases.latest();
+    /** The security advisories, from the cache when read in the last two minutes. */
+    static advisories(fresh = false): Promise<{ advisories: Advisory[]; offline: boolean }> {
+        return Advisories.read(Releases.home(), fresh);
+    }
 
-        if (latest?.deprecated && /^critical/i.test(latest.deprecated)) {
-            Ui.fail(
-                `Circuit ${VERSION} has a critical problem: ${latest.deprecated}\nNothing runs until Circuit is updated: run circuit update.`
-            );
-        }
+    /** The advisories that affect `version`. */
+    static affecting(advisories: readonly Advisory[], version: string): Advisory[] {
+        return Advisories.affecting(advisories, version, Releases.compare);
+    }
+
+    /**
+     * Before every command but `uninstall`: the manager updates itself to the newest release of its major and runs the command again
+     * as that version; it warns when it could not check, and when this version is deprecated. Run from the sources, or as a version a
+     * manager started, it only checks.
+     */
+    static async check(argv: readonly string[]): Promise<void> {
+        const [{ latest, offline }, advisories] = await Promise.all([Releases.latest(), Releases.advisories()]);
+
+        if (offline || advisories.offline)
+            Ui.warn("Could not reach the npm registry or GitHub, so Circuit could not check that it is current and safe. Go carefully.");
         if (latest?.deprecated) Ui.warn(`Circuit ${VERSION} is deprecated: ${latest.deprecated}`);
 
-        if (offline) {
-            Ui.warn("Could not reach the npm registry, so Circuit could not check that it is current. Go carefully.");
+        const major = latest && Releases.newerMajor(latest);
+        if (major)
+            Ui.warn(
+                `Circuit ${major} is out, a new major version. Circuit stays on ${Releases.major(VERSION)}.x; read what changed at https://circuit.tako.id before you move.`
+            );
+
+        const target = latest && Releases.target(latest);
+        if (!target || Releases.compare(VERSION, target) >= 0 || Releases.affecting(advisories.advisories, target).length) return;
+
+        const binary = Releases.binary();
+        if (!binary || process.env[Releases.UPDATED]) {
+            Ui.warn(`Circuit ${target} is out, and this is ${VERSION}.`);
             return;
         }
 
-        const target = latest && Releases.target(latest);
-        if (target && Releases.compare(VERSION, target) < 0)
-            Ui.warn(`Circuit ${target} is out, and this is ${VERSION}. Run circuit update.`);
-
-        const major = latest && Releases.newerMajor(latest);
-        if (major) {
-            Ui.warn(
-                `Circuit ${major} is out, a new major version. circuit update stays on ${Releases.major(VERSION)}.x; read what changed at https://circuit.tako.id before you move.`
-            );
+        try {
+            Releases.replace(binary, await Ui.step(`Updating Circuit to ${target}`, () => Releases.fetchBinary(target)));
+        } catch (error) {
+            Ui.warn(`Circuit ${target} is out, and could not be installed: ${(error as Error).message}`);
+            return;
         }
+        Ui.done(`Circuit is ${target} now. Your projects keep the version they pin.`);
+
+        // The command runs on as the new version.
+        const result = spawnSync(binary, argv, { stdio: "inherit", env: { ...process.env, [Releases.UPDATED]: "1" } });
+        if (result.error) Ui.fail(`Circuit ${target} could not start: ${result.error.message}`);
+        process.exit(result.status ?? 1);
     }
 
     /** This Circuit's own file, when it runs as the installed binary rather than from its sources. */
@@ -185,7 +215,21 @@ export class Releases {
         }
     }
 
-    /** One release's binary for this system, checked against the release's SHA256SUMS. */
+    /** The file of a release's SHA256SUMS that names `asset`, when the signature is the release key's. Throws otherwise. */
+    static expectedHash(sums: Buffer, signature: string, asset: string, keys: readonly string[] = Signing.KEYS): string {
+        if (!Signing.verify(sums, signature, keys))
+            throw new Error("the release's SHA256SUMS is not signed with Circuit's release key, so nothing was installed");
+
+        const expected = sums
+            .toString("utf8")
+            .split("\n")
+            .find((line) => line.trim().endsWith(` ${asset}`) || line.trim().endsWith(`*${asset}`))
+            ?.split(/\s+/)[0];
+        if (!expected) throw new Error(`the release's SHA256SUMS names no ${asset}`);
+        return expected;
+    }
+
+    /** One release's binary for this system, checked against the release's SHA256SUMS and its signature. */
     static async fetchBinary(version: string): Promise<Buffer> {
         const asset = Releases.asset() ?? Ui.fail(`Circuit is not built for ${process.platform} ${process.arch}.`);
         const download = async (file: string) => {
@@ -194,21 +238,12 @@ export class Releases {
             return Buffer.from(await response.arrayBuffer());
         };
 
-        const [file, sums] = await Promise.all([download(asset), download("SHA256SUMS")]);
-        const expected = sums
-            .toString("utf8")
-            .split("\n")
-            .find((line) => line.trim().endsWith(` ${asset}`) || line.trim().endsWith(`*${asset}`))
-            ?.split(/\s+/)[0];
+        const [file, sums, signature] = await Promise.all([download(asset), download("SHA256SUMS"), download("SHA256SUMS.sig")]);
+        const expected = Releases.expectedHash(sums, signature.toString("utf8"), asset);
         const actual = createHash("sha256").update(file).digest("hex");
-        if (!expected || expected !== actual) throw new Error(`${asset} does not match the release's SHA256SUMS, so it was not installed`);
+        if (expected !== actual) throw new Error(`${asset} does not match the release's signed SHA256SUMS, so it was not installed`);
 
         return file;
-    }
-
-    /** Whether a version is deprecated as critical: it must not run. */
-    static critical(release: Release | undefined): boolean {
-        return /^critical/i.test(release?.deprecated ?? "");
     }
 
     /** Every published version, and which are deprecated. A stop when the registry can't be read. */
@@ -233,35 +268,46 @@ export class Releases {
     }
 
     /**
-     * The versions to offer after `current`, newest first, at most `count`: of its major version, never one deprecated as critical. A
-     * release candidate only while `current` is one.
+     * The versions to offer after `current`, newest first, at most `count`: of its major version, never one an advisory affects. A
+     * release candidate only while `current` is one. The safe version closest to `current`, the fix that changes the least, is always
+     * among them.
      */
-    static choices(releases: readonly Release[], current: string, count = Releases.OFFERED): Release[] {
-        return releases
+    static choices(
+        releases: readonly Release[],
+        current: string,
+        advisories: readonly Advisory[] = [],
+        count = Releases.OFFERED
+    ): Release[] {
+        const safe = releases
             .filter(
                 (release) =>
                     Releases.major(release.version) === Releases.major(current) &&
                     Releases.compare(release.version, current) > 0 &&
-                    !Releases.critical(release) &&
+                    !Releases.affecting(advisories, release.version).length &&
                     (current.includes("-") || !release.version.includes("-"))
             )
-            .sort((a, b) => Releases.compare(b.version, a.version))
-            .slice(0, count);
+            .sort((a, b) => Releases.compare(b.version, a.version));
+
+        const offered = safe.slice(0, count);
+        const closest = safe.at(-1);
+        if (closest && !offered.includes(closest)) offered[offered.length - 1] = closest;
+        return offered;
     }
 
     /**
-     * Which version `what` moves to: the person picks from the newest few, the newest at the top, or stays, unless the version it runs is
-     * deprecated as critical. With `confirmed`, the newest. Undefined when it stays.
+     * Which version `what` moves to: the person picks from the newest few, the newest at the top, or stays, unless an advisory affects
+     * the version it runs: then it must move. With `confirmed`, the newest. Undefined when it stays.
      */
     static async pick(current: string, confirmed: boolean, what: string): Promise<string | undefined> {
-        const releases = await Releases.releases();
-        const choices = Releases.choices(releases, current);
-        const stuck = Releases.critical(releases.find((release) => release.version === current));
+        const [releases, { advisories }] = await Promise.all([Releases.releases(), Releases.advisories(true)]);
+        const choices = Releases.choices(releases, current, advisories);
+        const affected = Releases.affecting(advisories, current);
+        const closest = choices.at(-1)?.version;
 
         if (!choices.length) {
-            if (stuck)
+            if (affected.length)
                 Ui.fail(
-                    `${what} runs Circuit ${current}, deprecated as critical, and no safe version of ${Releases.major(current)}.x is out yet.`
+                    `${what} runs Circuit ${current}, which ${affected[0]!.id} affects, and no fixed version of ${Releases.major(current)}.x is out yet. See ${affected[0]!.url}`
                 );
             Ui.done(`${what} runs Circuit ${current}, the newest of ${Releases.major(current)}.x.`);
             return undefined;
@@ -269,36 +315,38 @@ export class Releases {
         if (confirmed) return choices[0]!.version;
         if (!Ui.interactive) Ui.fail("Not updated. Without a person to answer, add --confirm, which takes the newest.");
 
+        const problem = affected.map((advisory) => `${advisory.summary} (${advisory.severity}): ${advisory.url}`).join("\n");
         Ui.note(
-            `${what} runs Circuit ${current}.${stuck ? " It has a critical problem: only safe versions are offered." : ""}\nWhat changed: https://github.com/takodotid/circuit/releases\nRun circuit validate and circuit diff after, before you apply.`,
-            "Update"
+            `${what} runs Circuit ${current}.${affected.length ? `\nIt has a security problem, so it must move to a fixed version:\n${problem}` : ""}\nWhat changed: https://github.com/takodotid/circuit/releases\nRun circuit validate and circuit diff after, before you apply.`,
+            affected.length ? "Update required" : "Update"
         );
-        const picked = await Ui.select<string>("Which version?", [
+        const picked = await Ui.select<string>(affected.length ? "Move to which fixed version?" : "Which version?", [
             ...choices.map((release, i) => ({
                 value: release.version,
                 label: release.version,
                 hint: [
                     i === 0 ? "newest" : "",
+                    release.version === closest && choices.length > 1 ? "closest to yours, the least that changes" : "",
                     release.version.includes("-") ? "release candidate" : "",
                     release.deprecated ? `deprecated: ${release.deprecated}` : "",
                 ]
                     .filter(Boolean)
                     .join(", "),
             })),
-            ...(stuck ? [] : [{ value: "", label: `Stay on ${current}` }]),
+            ...(affected.length ? [] : [{ value: "", label: `Stay on ${current}` }]),
         ]);
         return picked || undefined;
     }
 
-    /** Update the installed app to a version the person picks. Gives back that version. */
+    /** Update the installed manager to a version the person picks. Gives back that version. */
     static async updateApp(confirmed: boolean): Promise<string | undefined> {
         const binary =
             Releases.binary() ?? Ui.fail("This Circuit runs from its sources. Update it where it came from, such as with git pull.");
-        const target = await Releases.pick(VERSION, confirmed, "The app");
+        const target = await Releases.pick(VERSION, confirmed, "Circuit");
         if (!target) return undefined;
 
         Releases.replace(binary, await Ui.step(`Downloading Circuit ${target}`, () => Releases.fetchBinary(target)));
-        Ui.done(`The Circuit app is ${target} now.`);
+        Ui.done(`Circuit is ${target} now.`);
         return target;
     }
 

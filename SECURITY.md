@@ -19,7 +19,32 @@ We'll confirm we got it, tell you what we find, and credit you in the fix releas
 
 ## Supported versions
 
-Only the newest release of the current major version gets fixes: `latest` on npm, or the newest `rc` while Circuit 1 is a release candidate. Update with `circuit update` and check the problem is still there. A fix for something critical deprecates the versions before it, and those refuse to run until updated.
+The newest release of the current major version gets fixes: `latest` on npm, or the newest `rc` while Circuit 1 is a release candidate. A security fix can also be backported to an older line, such as 1.9.5 beside 1.16.0. Update with `circuit update` and check the problem is still there.
+
+## How a fix reaches users
+
+A version with a security problem gets a GitHub security advisory on this repository, the same advisories `npm audit` reads. Each names the versions it affects, such as `>= 1.10.0, < 1.16.0` and `< 1.9.5`, and the versions that fix it, such as `1.16.0` and `1.9.5`. Every advisory counts, whatever its severity.
+
+- Circuit reads the advisories at most every 2 minutes, without signing in.
+- A project on an affected version runs nothing until it moves. Circuit offers only fixed versions, always including the one closest to the project's.
+- In CI, the command stops and names the fixed versions.
+- An affected version is never offered, and Circuit never updates itself to one.
+
+To publish a fix:
+
+1. Fix it on each supported line. Release the newest (`1.16.0`), then each backport (`1.9.5`) from a branch for its line, tagged `v1.9.5`.
+2. On GitHub, **Security > Advisories > New draft security advisory**: ecosystem npm, package `@takodotid/circuit`, the affected range for each line, the patched versions, and the severity.
+3. Publish it. Every Circuit sees it within 2 minutes.
+4. Optionally, `npm deprecate "@takodotid/circuit@<range>" "Security: GHSA-..., update to 1.16.0 or 1.9.5"`, so npm installs show it too. This needs an npm login.
+
+Never unpublish a version: projects pin it. If a binary itself was tampered with, also delete its files from the GitHub release.
+
+## Signed releases
+
+The release workflow signs each release's `SHA256SUMS` with Circuit's release key (Ed25519), kept as the repository secret `RELEASE_SIGNING_KEY`, and attaches the signature as `SHA256SUMS.sig`. Circuit installs a binary, when it updates itself, on `circuit update`, or when it downloads a project's version, only when `SHA256SUMS` is signed by a key in `src/cli/signing.ts` and the binary matches it.
+
+- To change the key: add the new public key to `src/cli/signing.ts` beside the old one, release, then switch the secret to the new private key.
+- The install commands (`curl ... | sh`, `irm ... | iex`) check `SHA256SUMS` over HTTPS but can't check the signature: PowerShell 5.1 has no Ed25519, nor does macOS's `openssl`. Everything after the install is signature-checked.
 
 ## What counts
 
@@ -31,7 +56,8 @@ A flaw in Circuit itself. For example:
 - a secrets file that opens without its password, or a value that opens under another name;
 - Studio answering on a host name it wasn't told to allow, or reading a device when started with `--host`;
 - an apply that leaves a device unreachable without rolling back, where the platform's safe apply should have caught it;
-- an installer or `circuit update` installing a binary that doesn't match its release's `SHA256SUMS`;
+- Circuit installing a binary whose `SHA256SUMS` isn't signed with the release key, or that doesn't match it, or an installer installing one that doesn't match `SHA256SUMS`;
+- a version an advisory affects running a command, or being offered by `circuit update`;
 - a published package that doesn't match this repository. Every version on npm carries a provenance statement from this repository's GitHub Actions; one without it isn't ours.
 
 A flaw in a device's own software belongs to its vendor. A config that is unsafe as written, such as a firewall that allows too much, is the config's to fix; `validate` and its checks help find those.

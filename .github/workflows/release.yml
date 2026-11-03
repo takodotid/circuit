@@ -1,8 +1,8 @@
 name: release
 
-# A release published on GitHub, with a tag `vX.Y.Z` or `vX.Y.Z-rc.N`, gets everything from this workflow: the binaries and SHA256SUMS attached to it, and the package on npm, where `circuit` and the installers learn the newest version. A stable release goes under the dist-tag `latest` and builds the site again; a release candidate goes under `rc` and leaves the site alone. As with Next.js, a new major version moves nobody: `circuit update` stays within its major version.
+# A release published on GitHub, with a tag `vX.Y.Z` or `vX.Y.Z-rc.N`, gets everything from this workflow: the binaries, SHA256SUMS and its signature attached to it, and the package on npm, where `circuit` and the installers learn the newest version. A stable release goes under the dist-tag `latest` and builds the site again; a release candidate goes under `rc` and leaves the site alone. A backport, a fix for an older line released after a newer version, such as 1.9.5 after 1.16.0, goes under `latest-1.9`: `latest` stays on the newest, the GitHub release is not marked Latest, and the site is left alone.
 #
-# A `[critical]` in the release's title deprecates the versions before it, of the same major version, with a message that starts with "critical": they stop every command but `update`. That needs the secret NPM_TOKEN; without it, the step prints the command to run by hand.
+# SHA256SUMS is signed with the secret RELEASE_SIGNING_KEY; Circuit installs nothing whose SHA256SUMS isn't signed (src/cli/signing.ts). A version with a security problem is marked by a GitHub security advisory, not here: see SECURITY.md.
 #
 # npm publish takes no token: the package trusts this workflow, npm Trusted Publishing. Each step skips what is already done, so a failed run can be run again.
 
@@ -19,6 +19,8 @@ permissions:
 jobs:
     release:
         runs-on: ubuntu-latest
+        outputs:
+            backport: ${{ steps.tag.outputs.backport }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
             - uses: oven-sh/setup-bun@v2
@@ -29,22 +31,42 @@ jobs:
             - run: bun run test
 
             - name: version and dist-tag
+              id: tag
               run: |
                   version="$(bun -e 'console.log(JSON.parse(require("fs").readFileSync("package.json", "utf8")).version)')"
                   test "v$version" = "$GITHUB_REF_NAME" || { echo "the release is $GITHUB_REF_NAME, package.json says $version"; exit 1; }
+                  latest="$(npm view @takodotid/circuit dist-tags.latest 2>/dev/null || true)"
+                  backport=false
                   case "$version" in
                       *-*) dist_tag=rc ;;
-                      *) dist_tag=latest ;;
+                      *)
+                          dist_tag=latest
+                          # Older than the newest stable release, of the same major version: a backport to its own line.
+                          if [ -n "$latest" ] && [ "${latest%%.*}" = "${version%%.*}" ] && bun -e 'const [a, b] = process.argv.slice(1).map((v) => v.split(".").map(Number)); process.exit(a[0] * 1e6 + a[1] * 1e3 + a[2] < b[0] * 1e6 + b[1] * 1e3 + b[2] ? 0 : 1)' "$version" "$latest"; then
+                              minor="${version%.*}"
+                              dist_tag="latest-$minor"
+                              backport=true
+                          fi
+                          ;;
                   esac
                   echo "VERSION=$version" >> "$GITHUB_ENV"
                   echo "DIST_TAG=$dist_tag" >> "$GITHUB_ENV"
+                  echo "backport=$backport" >> "$GITHUB_OUTPUT"
+                  echo "$version goes under the dist-tag $dist_tag"
 
             # One binary per system, named as `circuit update` and the installers download them, and SHA256SUMS.
             - run: bun scripts/build.ts --release
+            - name: sign SHA256SUMS
+              env:
+                  RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+              run: bun scripts/sign.ts dist/release/SHA256SUMS
             - name: attach the binaries to the release
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: gh release upload "$GITHUB_REF_NAME" dist/release/* --clobber
+              run: |
+                  gh release upload "$GITHUB_REF_NAME" dist/release/* --clobber
+                  # A backport leaves the newest release marked Latest on GitHub.
+                  if [ "${{ steps.tag.outputs.backport }}" = "true" ]; then gh release edit "$GITHUB_REF_NAME" --latest=false; fi
 
             # The repository variable NPM_TRUSTED_PUBLISHING is true once npm trusts this workflow.
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -61,23 +83,9 @@ jobs:
                       npx -y npm@latest publish --access public --provenance --tag "$DIST_TAG"
                   fi
 
-            - name: deprecate older versions when the release is critical
-              if: contains(github.event.release.name, '[critical]')
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-              run: |
-                  major="${VERSION%%.*}"
-                  range=">=$major.0.0-0 <$VERSION"
-                  message="critical: update to $VERSION with circuit update"
-                  if [ -z "$NODE_AUTH_TOKEN" ]; then
-                      echo "No NPM_TOKEN secret. Run by hand: npm deprecate \"@takodotid/circuit@$range\" \"$message\""
-                      exit 1
-                  fi
-                  npx -y npm@latest deprecate "@takodotid/circuit@$range" "$message"
-
-    # The site, rebuilt for a stable release only: a release candidate leaves the site as it is.
+    # The site, rebuilt for a stable release only: a release candidate or a backport leaves the site as it is.
     pages:
         needs: release
-        if: ${{ !contains(github.event.release.tag_name, '-') }}
+        if: ${{ !contains(github.event.release.tag_name, '-') && needs.release.outputs.backport != 'true' }}
         uses: ./.github/workflows/pages.yml
         secrets: inherit
