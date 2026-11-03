@@ -1,7 +1,7 @@
 // A new project, started by the installer or from the menu: the folder, its files, the encrypted `.env`, git and its hook, and the editor's types. Also what Circuit keeps current in a project each time it runs in it.
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { EnvFile, type KeyStore, OnePassword } from "../core/env-file";
 import { EditorTypes } from "./editor-types";
@@ -11,14 +11,18 @@ import { Format } from "./format";
 import { VERSION } from "./version";
 import { Versions } from "./versions";
 
-export const GENERATED_README = `# Written by Circuit
+export const GENERATED_README = `# Do not edit
 
-Do not edit anything here: an edit changes nothing on a device, and Circuit overwrites it. Change the project instead.
+Circuit writes everything in this folder, and writes it again when it needs to: an edit here is lost, and changes nothing on a device. Change the project's own files instead.
 
-\`types/\` is what your editor reads to complete and check the project's files. Circuit writes it again when it is updated.
-
-\`hooks/\` holds the git hook that checks each commit: no secret in plain text, no \`.env.keys\`, and a project that validates.
+- \`version\`: the Circuit version this project runs. \`circuit update\` changes it. (Not in a full install: \`package.json\` pins the version.)
+- \`types/\`: what your editor reads to complete and check the project's files. (Not in a full install: the types come from the package in \`node_modules\`.)
+- \`hooks/\`: the git hook that checks each commit: no secret in plain text, no \`.env.keys\`, and a project that validates.
+- \`cache/\`: temporary, ignored by git.
 `;
+
+/** The notice in `.circuit`. */
+export const NOTICE = "DO_NOT_EDIT.md";
 
 export const GITIGNORE = `# The key that decrypts .env. Never commit it.
 .env.keys
@@ -54,16 +58,19 @@ export class Setup {
 
     /** What Circuit keeps current in a project, each time it runs in it: the editor's types, the git hook, and a warning for a secret in plain text. */
     static prepare(root: string): void {
-        if (!EditorTypes.current(root)) {
+        const full = Boolean(Setup.pinned(root));
+
+        // A full install's editor reads the types from the package in node_modules.
+        if (!full && !EditorTypes.current(root)) {
             EditorTypes.write(root);
-            writeFileSync(join(root, ".circuit", "README.md"), GENERATED_README);
             Ui.done(`Wrote the editor types for Circuit ${VERSION}.`);
         }
+        Setup.writeNotice(root);
 
         const hooks = GitHooks.install(root);
         if (hooks) Ui.done(`${hooks[0]!.toUpperCase()}${hooks.slice(1)}.`);
 
-        if (!Setup.pinned(root) && !Versions.pinned(root)) {
+        if (!full && !Versions.pinned(root)) {
             Versions.pin(root, VERSION);
             Ui.done(`Pinned this project to Circuit ${VERSION} in ${Versions.FILE}. Commit it.`);
         }
@@ -91,7 +98,7 @@ export class Setup {
         const kind =
             chosen ??
             (await Ui.select<ProjectSetup["kind"]>("How should this project run Circuit?", [
-                { value: "simple", label: "Simple (recommended)", hint: "the circuit app, its version pinned in .circuit-version" },
+                { value: "simple", label: "Simple (recommended)", hint: "the circuit app, its version pinned in .circuit/version" },
                 { value: "full", label: "Full", hint: "Circuit as a package in the project, run with bun circuit" },
             ]));
 
@@ -181,11 +188,11 @@ export const as${setup.asn} = circuit({
                 "What tenants share with your devices, one file each, merged in `tenants/index.ts`.\n"
             );
             writeFileSync(join(root, ".gitignore"), GITIGNORE);
-            writeFileSync(join(root, "tsconfig.json"), EditorTypes.TSCONFIG);
+            writeFileSync(join(root, "tsconfig.json"), setup.kind === "full" ? EditorTypes.TSCONFIG_FULL : EditorTypes.TSCONFIG);
             Setup.writeEditor(root);
             if (setup.kind === "simple") Versions.pin(root, VERSION);
-            EditorTypes.write(root);
-            writeFileSync(join(root, ".circuit", "README.md"), GENERATED_README);
+            if (setup.kind === "simple") EditorTypes.write(root);
+            Setup.writeNotice(root);
             EnvFile.create(root, setup.keys);
 
             if (setup.kind === "full") {
@@ -271,6 +278,14 @@ export const as${setup.asn} = circuit({
         }
 
         Ui.done(`${root} is ready. Run circuit in it.`);
+    }
+
+    /** `.circuit/DO_NOT_EDIT.md`, in place of the README an older Circuit wrote there. */
+    static writeNotice(root: string): void {
+        mkdirSync(join(root, ".circuit"), { recursive: true });
+        const path = join(root, ".circuit", NOTICE);
+        if (!existsSync(path) || readFileSync(path, "utf8") !== GENERATED_README) writeFileSync(path, GENERATED_README);
+        rmSync(join(root, ".circuit", "README.md"), { force: true });
     }
 
     /** The editor's settings: Circuit's style for the formatter, and format on save in VS Code with the Prettier extension, the same style `circuit fmt` writes. A file the project has already is kept. */

@@ -281,6 +281,30 @@ export class EnvFile {
         return inOnePassword ? `1Password, ${reference}` : ".env.keys";
     }
 
+    /** Move the key from `.env.keys` into a new 1Password item, and point `.env` at it. `.env.keys` goes only once 1Password gives the key back. Gives back the reference. */
+    moveKeyToOnePassword(vault: string, title: string): string {
+        if (!this.keyFromFile()) throw new Error("There is no .env.keys here to move. circuit secret key says where the key is.");
+
+        const key = this.privateKey();
+        const reference = OnePassword.create(vault, title, key);
+        if (OnePassword.read(reference, "The key that decrypts .env") !== key) {
+            throw new Error(`1Password gave back another value for ${reference}, so .env.keys was kept.`);
+        }
+
+        writeFileSync(this.path, upsert(this.source(), EnvFile.KEY_REFERENCE, reference));
+        rmSync(this.keysPath, { force: true });
+        return reference;
+    }
+
+    /** Move the key from 1Password into `.env.keys`, and take the reference out of `.env`. The 1Password item stays. */
+    moveKeyToFile(): void {
+        if (this.keyFromFile()) throw new Error("The key is in .env.keys already.");
+
+        const key = this.privateKey();
+        EnvFile.writeKeys(this.root, key);
+        writeFileSync(this.path, remove(this.source(), EnvFile.KEY_REFERENCE));
+    }
+
     private static writeKeys(root: string, privateKey: string): void {
         writeFileSync(
             join(root, ".env.keys"),

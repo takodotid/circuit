@@ -1,6 +1,7 @@
 // `circuit secret`: the project's secrets in `.env`, each encrypted. List them, read one, set, delete, encrypt what is in plain text, and rotate the key.
 
-import { EnvFile, type EnvValueKind } from "../core/env-file";
+import { basename } from "node:path";
+import { EnvFile, type EnvValueKind, OnePassword } from "../core/env-file";
 import { Secrets } from "../core/secrets";
 import { ProjectError, readProject } from "../project/project";
 import { ProjectCommands } from "./project-commands";
@@ -121,6 +122,60 @@ export class SecretCommands {
         }
 
         Ui.done(names.length ? `Encrypted ${names.join(", ")}.` : "Every value is already encrypted.");
+    }
+
+    /** Where the key that decrypts `.env` is, or move it: `1password` puts it in a new 1Password item, `file` back into `.env.keys`. */
+    async key(to: string | undefined, vault: string | undefined, confirmed: boolean): Promise<void> {
+        if (to === undefined) {
+            console.log(
+                `The key that decrypts .env is in ${this.env.keyLocation() ?? "no place Circuit can find: put it in .env.keys, or ask your team"}.`
+            );
+            return;
+        }
+        if (to !== "1password" && to !== "file") Ui.fail(`Move the key to 1password or file, not ${to}.`);
+
+        if (to === "file") {
+            if (!confirmed && !(await Ui.confirm("Move the key out of 1Password into .env.keys? Each teammate then needs the file.")))
+                return;
+            try {
+                this.env.moveKeyToFile();
+            } catch (error) {
+                Ui.fail((error as Error).message);
+            }
+            Ui.done(
+                "The key is in .env.keys now, which git ignores. Commit .env. The 1Password item stays; delete it there when nobody needs it."
+            );
+            return;
+        }
+
+        if (!OnePassword.installed())
+            Ui.fail("The 1Password CLI, op, is not installed. Install it and sign in: https://developer.1password.com/docs/cli");
+
+        const chosen =
+            vault ??
+            (Ui.interactive
+                ? await Ui.select(
+                      "Which 1Password vault?",
+                      (await Ui.step("Reading your 1Password vaults", async () => OnePassword.vaults())).map((name) => ({
+                          value: name,
+                          label: name,
+                      }))
+                  )
+                : Ui.fail("Name the vault with --vault."));
+        const title = `Circuit ${basename(this.root)} env key`;
+
+        if (!confirmed && !(await Ui.confirm(`Save the key in 1Password as "${title}" in ${chosen}, and delete .env.keys?`))) return;
+
+        let reference: string;
+        try {
+            reference = await Ui.step("Moving the key to 1Password", async () => this.env.moveKeyToOnePassword(chosen, title));
+        } catch (error) {
+            Ui.fail((error as Error).message);
+        }
+
+        Ui.done(
+            `The key is in 1Password: ${reference}. .env points at it and .env.keys is gone. Commit .env. Teammates need the 1Password CLI signed in, with access to ${chosen}.`
+        );
     }
 
     /** A new key: every value encrypted again, and the old key no longer opens `.env`. */

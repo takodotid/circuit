@@ -244,6 +244,14 @@ class Cli {
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
             .action((flags) => SecretCommands.open(flags.project).encrypt());
         secret
+            .command("key")
+            .description("where the key that decrypts .env is; or move it to 1password, or back to a file")
+            .argument("[to]", "1password or file")
+            .option("--vault <name>", "the 1Password vault, asked when left out")
+            .option("--confirm", "move without asking")
+            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
+            .action(async (to, flags) => SecretCommands.open(flags.project).key(to, flags.vault, flags.confirm ?? false));
+        secret
             .command("rotate")
             .description("a new key: every secret encrypted again, the old key stops working")
             .option("--confirm", "rotate without asking")
@@ -431,6 +439,7 @@ class Cli {
             { value: "get", label: "Show", hint: "print one, decrypted" },
             { value: "delete", label: "Delete" },
             { value: "encrypt", label: "Encrypt", hint: "every value written in plain text" },
+            { value: "key", label: "Where the key is" },
             { value: "rotate", label: "Rotate the key" },
         ]);
         if (action !== "get" && action !== "delete") return ["secret", action];

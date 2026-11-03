@@ -7,7 +7,7 @@ import { Validation } from "../checks";
 import { EnvFile } from "../core/env-file";
 import { ProjectError, readProject } from "../project/project";
 import { EditorTypes } from "./editor-types";
-import { GENERATED_README, GITIGNORE } from "./setup";
+import { GITIGNORE, Setup } from "./setup";
 import { Ui } from "./ui";
 
 type Json = any;
@@ -417,7 +417,7 @@ export class Migrate {
         writeFileSync(join(out, ".gitignore"), GITIGNORE);
         writeFileSync(join(out, "tsconfig.json"), EditorTypes.TSCONFIG);
         EditorTypes.write(out);
-        writeFileSync(join(out, ".circuit", "README.md"), GENERATED_README);
+        Setup.writeNotice(out);
 
         Migrate.writeEnv(out, from);
     }

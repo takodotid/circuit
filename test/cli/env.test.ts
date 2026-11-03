@@ -65,6 +65,26 @@ describe("EnvFile", () => {
         expect(env.reveal("BGP_PASSWORD")).toBe("plain-text");
     });
 
+    test("encrypt touches only plain text: an encrypted value and a 1Password reference stay as written", () => {
+        const env = new EnvFile(root);
+        env.set("A_PASSWORD", "one");
+        env.set("SNMP_COMMUNITY", "op://Network/SNMP/password");
+        const encrypted = env.values().A_PASSWORD;
+        writeFileSync(env.path, `${readFileSync(env.path, "utf8")}B_PASSWORD=two\n`);
+
+        expect(env.encryptAll()).toEqual(["B_PASSWORD"]);
+        expect(env.values().A_PASSWORD).toBe(encrypted);
+        expect(env.values().SNMP_COMMUNITY).toBe("op://Network/SNMP/password");
+    });
+
+    test("the key moves only from where it is", () => {
+        const env = new EnvFile(root);
+        expect(() => env.moveKeyToFile()).toThrow("in .env.keys already");
+
+        rmSync(env.keysPath);
+        expect(() => new EnvFile(root).moveKeyToOnePassword("Network", "Circuit key")).toThrow("no .env.keys here to move");
+    });
+
     test("a .env without a key gets one when a value is set", () => {
         rmSync(join(root, ".env"));
         rmSync(join(root, ".env.keys"));

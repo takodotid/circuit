@@ -1,4 +1,4 @@
-// Each project pins its Circuit in `.circuit-version`, committed. The installed `circuit` runs that version, kept once in ~/.circuit/versions/<version>/, so two projects on different versions never clash and updating the app changes no project.
+// Each project pins its Circuit in `.circuit/version`, committed. The installed `circuit` runs that version, kept once in ~/.circuit/versions/<version>/, so two projects on different versions never clash and updating the app changes no project.
 
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -9,7 +9,7 @@ import { VERSION } from "./version";
 
 export class Versions {
     /** The file at a project's root that names its Circuit version. */
-    static readonly FILE = ".circuit-version";
+    static readonly FILE = ".circuit/version";
 
     /** Set in the environment of a pinned Circuit this one started, so it doesn't start another. */
     private static readonly RUNNING = "CIRCUIT_PINNED";
@@ -24,6 +24,7 @@ export class Versions {
     }
 
     static pin(root: string, version: string): void {
+        mkdirSync(join(root, ".circuit"), { recursive: true });
         writeFileSync(join(root, Versions.FILE), `${version}\n`);
     }
 
