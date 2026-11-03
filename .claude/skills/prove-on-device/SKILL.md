@@ -28,10 +28,11 @@ Never send `?` or Tab on VRP or Raisecom.
 Make a scratch project outside the repo with the one device file, then:
 
 ```bash
-bun src/cli/index.ts diff <device> --project <scratch>        # what apply would send
-bun src/cli/index.ts apply <device> --project <scratch>       # send it, after a yes
-bun src/cli/index.ts diff <device> --project <scratch>        # must be empty now
-bun src/cli/index.ts exec <device> '<show command>' --project <scratch>
+cd <scratch>
+bun <repo>/src/cli/index.ts diff <device>                     # what apply would send
+bun <repo>/src/cli/index.ts apply <device>                    # send it, after a yes
+bun <repo>/src/cli/index.ts diff <device>                     # must be empty now
+bun <repo>/src/cli/index.ts exec <device> '<show command>'
 ```
 
 Add `--console` to go through the serial console.

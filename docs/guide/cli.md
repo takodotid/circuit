@@ -10,7 +10,7 @@ Know the command already? Run it straight away, like `circuit validate`. Same th
 
 <MenuDiagram />
 
-Circuit works on the project in your current folder, or the nearest folder above it with a `circuit.ts`. Use `--project <folder>` for another one (not with `circuit secrets`, which works in the project you're in). Leave out the device and Circuit lets you pick it from a list.
+Circuit works on the project in your current folder, or the nearest folder above it with a `circuit.ts`. To work on another project, `cd` into its folder. Leave out the device and Circuit lets you pick it from a list.
 
 ## Core
 

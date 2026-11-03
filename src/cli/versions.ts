@@ -115,7 +115,8 @@ export class Versions {
         if (process.env[Versions.RUNNING] || !Releases.binary()) return;
 
         let pinned = Versions.pinned(root) ?? VERSION;
-        const affected = Releases.affecting((await Releases.advisories()).advisories, pinned);
+        const { advisories } = await Ui.wait("Checking the project's Circuit for security problems", () => Releases.advisories());
+        const affected = Releases.affecting(advisories, pinned);
         if (affected.length) {
             if (!Ui.interactive)
                 Ui.fail(

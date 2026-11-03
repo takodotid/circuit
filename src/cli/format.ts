@@ -91,20 +91,22 @@ export class Format {
         const files = named.length ? named.map((file) => relative(root, resolve(process.cwd(), file))) : Format.files(root);
         const off: string[] = [];
 
-        for (const file of files) {
-            const path = join(root, file);
-            const before = readFileSync(path, "utf8");
-            let after: string;
-            try {
-                after = await Format.text(before, file, style);
-            } catch (error) {
-                Ui.fail(`${file}: ${(error as Error).message.split("\n")[0]}`);
-            }
+        await Ui.wait(`Reading ${files.length} file(s)`, async () => {
+            for (const file of files) {
+                const path = join(root, file);
+                const before = readFileSync(path, "utf8");
+                let after: string;
+                try {
+                    after = await Format.text(before, file, style);
+                } catch (error) {
+                    Ui.fail(`${file}: ${(error as Error).message.split("\n")[0]}`);
+                }
 
-            if (after === before) continue;
-            off.push(file);
-            if (!check) writeFileSync(path, after);
-        }
+                if (after === before) continue;
+                off.push(file);
+                if (!check) writeFileSync(path, after);
+            }
+        });
 
         if (check) {
             for (const file of off) Ui.warn(`${file} is not in the project's style`);

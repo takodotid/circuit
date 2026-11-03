@@ -98,7 +98,7 @@ Each project runs the Circuit version in its `.circuit/version`. `circuit update
 
 ## Commands
 
-Each reads the project in the working directory or the nearest folder above it, or in the folder `--project <folder>` names. Leave out the device and Circuit lists them to pick from.
+Each reads the project in the working directory or the nearest folder above it. Leave out the device and Circuit lists them to pick from.
 
 | Command                             | What it does                                                                                           |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -130,7 +130,7 @@ Each reads the project in the working directory or the nearest folder above it, 
 bun install
 bun run check       # typecheck, tests, and the binary
 bun run build       # dist/circuit, or dist/circuit.exe on Windows
-bun src/cli/index.ts validate --project <folder>   # run Circuit from the sources
+cd <project> && bun <circuit>/src/cli/index.ts validate   # run Circuit from the sources
 ```
 
 `AGENTS.md` has the rules for changing the code, for people and AI agents alike.

@@ -319,7 +319,7 @@ export class Remember {
     /** Start remembering for `minutes`. */
     private static async turnOn(minutes: number): Promise<boolean> {
         const until = Date.now() + minutes * 60_000;
-        if (!(await SecretsAgent.start(until))) {
+        if (!(await Ui.wait("Starting the process that remembers them", () => SecretsAgent.start(until)))) {
             Ui.warn("Circuit could not start the process that remembers secrets, so nothing is remembered.");
             return false;
         }

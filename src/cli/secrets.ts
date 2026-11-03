@@ -27,7 +27,7 @@ export class SecretCommands {
      * that can't be read still works on the file named.
      */
     static async open(file: string | undefined): Promise<SecretCommands> {
-        const root = ProjectCommands.find(undefined) ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it.");
+        const root = ProjectCommands.find() ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it.");
         Setup.prepare(root);
         Secrets.useRoot(root);
 

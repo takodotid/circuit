@@ -35,8 +35,13 @@ export class Ui {
         return Ui.paint("yellow", text, stream);
     }
 
+    private static magenta(text: string): string {
+        return Ui.paint("magenta", text);
+    }
+
     /** Print why Circuit stops, and stop. */
     static fail(message: string): never {
+        Ui.active?.halt();
         console.error(Ui.red(message, process.stderr));
         process.exit(1);
     }
@@ -53,21 +58,99 @@ export class Ui {
         console.log(`${Ui.green("✔")} ${message}`);
     }
 
-    /** Run `work` behind a spinner that says what Circuit waits for. The spinner turns into a tick when it is done, or a cross when it fails. */
-    static async step<T>(message: string, work: () => Promise<T>): Promise<T> {
-        if (!Ui.interactive) return work();
+    /** The spinner on screen now: drawn again after a line printed above it, and halted when Circuit stops. */
+    private static active: { draw: () => void; halt: () => void } | undefined;
 
-        const spinner = prompts.spinner({ indicator: "timer" });
-        spinner.start(message);
+    /**
+     * Run `work` behind a spinner that says what Circuit waits for, with the seconds it has taken. Lines printed meanwhile, such as a
+     * platform's progress, go above it. When done it leaves a line, ◇ when it worked or ■ when it failed.
+     */
+    static step<T>(message: string, work: () => Promise<T>): Promise<T> {
+        return Ui.spin(message, work, { leave: true, delay: 0 });
+    }
+
+    /**
+     * Wait for `work` with a spinner that leaves nothing behind, for a short wait such as the check before each command. It shows only
+     * after a moment, so a quick answer, such as one from the cache, shows nothing.
+     */
+    static wait<T>(message: string, work: () => Promise<T>): Promise<T> {
+        return Ui.spin(message, work, { leave: false, delay: 150 });
+    }
+
+    private static async spin<T>(message: string, work: () => Promise<T>, options: { leave: boolean; delay: number }): Promise<T> {
+        // In a script nothing spins; inside another spinner, that one keeps going.
+        if (!Ui.interactive || Ui.active) return work();
+
+        // One line only: a longer one would wrap, and could not be drawn over.
+        const width = Math.max(20, (process.stdout.columns ?? 80) - 12);
+        const text = message.length > width ? `${message.slice(0, width - 1)}…` : message;
+        const frames = ["◒", "◐", "◓", "◑"];
+        const started = Date.now();
+        let frame = 0;
+        let shown = false;
+
+        const seconds = () => {
+            const taken = Math.floor((Date.now() - started) / 1000);
+            return taken >= 1 ? Ui.dim(` [${taken}s]`) : "";
+        };
+        const draw = () => {
+            shown = true;
+            process.stdout.write(`\r${Ui.magenta(frames[frame++ % frames.length]!)}  ${text}${seconds()}\x1b[K`);
+        };
+        const clear = () => {
+            if (shown) process.stdout.write("\r\x1b[K");
+        };
+
+        // A line printed while the spinner is on goes above it, and the spinner is drawn again under it.
+        const printers = { log: console.log, info: console.info, warn: console.warn, error: console.error };
+        for (const name of Object.keys(printers) as (keyof typeof printers)[])
+            console[name] = (...args: unknown[]) => {
+                clear();
+                printers[name](...args);
+                if (shown) draw();
+            };
+
+        let ticker: ReturnType<typeof setInterval> | undefined;
+        const start = setTimeout(() => {
+            draw();
+            ticker = setInterval(draw, 100);
+        }, options.delay);
+
+        const halt = () => {
+            clearTimeout(start);
+            clearInterval(ticker);
+            Object.assign(console, printers);
+            clear();
+            Ui.active = undefined;
+        };
+        Ui.active = { draw: () => shown && draw(), halt };
 
         try {
             const result = await work();
-            spinner.stop(message);
+            const taken = seconds();
+            halt();
+            if (options.leave) console.log(`${Ui.green("◇")}  ${text}${taken}`);
             return result;
         } catch (error) {
-            spinner.error(message);
+            const taken = seconds();
+            halt();
+            if (options.leave) console.log(`${Ui.red("■")}  ${text}${taken}`);
             throw error;
         }
+    }
+
+    /**
+     * Say what Circuit waits for while it can't spin, such as while 1Password asks the person to unlock it. Gives back what takes the
+     * line away again, and brings back the spinner it covered.
+     */
+    static blocked(message: string): () => void {
+        if (!Ui.interactive) return () => {};
+
+        process.stdout.write(`\r${Ui.magenta("◒")}  ${message}\x1b[K`);
+        return () => {
+            process.stdout.write("\r\x1b[K");
+            Ui.active?.draw();
+        };
     }
 
     /** Stop when the person pressed Ctrl-C or Esc on a question. */
@@ -127,35 +210,6 @@ export class Ui {
             return;
         }
         console.log(`\n${Ui.LOGO.map((row) => `  ${Ui.bold(row)}`).join("\n")}\n\n  ${Ui.dim(line)}\n`);
-    }
-
-    /**
-     * Wait for `work` with a spinner that leaves nothing behind, for a short wait such as the check before each command. It shows only
-     * after a moment, so a quick answer, such as one from the cache, shows nothing.
-     */
-    static async wait<T>(message: string, work: () => Promise<T>): Promise<T> {
-        if (!Ui.interactive) return work();
-
-        const frames = ["◒", "◐", "◓", "◑"];
-        let frame = 0;
-        let drawn = false;
-        const draw = () => {
-            drawn = true;
-            process.stdout.write(`\r${Ui.dim(`${frames[frame++ % frames.length]} ${message}`)}\x1b[K`);
-        };
-        let ticker: ReturnType<typeof setInterval> | undefined;
-        const start = setTimeout(() => {
-            draw();
-            ticker = setInterval(draw, 100);
-        }, 150);
-
-        try {
-            return await work();
-        } finally {
-            clearTimeout(start);
-            if (ticker) clearInterval(ticker);
-            if (drawn) process.stdout.write("\r\x1b[K");
-        }
     }
 
     /** A heading for a run of questions, and the line that closes it. */

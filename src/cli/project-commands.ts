@@ -1,4 +1,4 @@
-// The commands that read a project: `validate`, `diff` and `apply`, and the utilities that reach a device, `exec`, `bgp` and `access-console`. Each reads the project in the folder `--project` names, or in the working directory or the nearest folder above it that holds `circuit.ts`.
+// The commands that read a project: `validate`, `diff` and `apply`, and the utilities that reach a device, `exec`, `bgp` and `access-console`. Each reads the project in the working directory, or the nearest folder above it that holds `circuit.ts`.
 
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
@@ -42,13 +42,8 @@ export class ProjectCommands {
         this.devices = project.networks.flatMap((network) => Object.values(network.devices));
     }
 
-    /** The project's folder: the one named, or the working directory or the nearest folder above it with `circuit.ts`. Undefined when there is none. */
-    static find(folder?: string): string | undefined {
-        if (folder) {
-            const root = resolve(process.cwd(), folder);
-            return existsSync(join(root, "circuit.ts")) ? root : undefined;
-        }
-
+    /** The project's folder: the working directory, or the nearest folder above it with `circuit.ts`. Undefined when there is none. */
+    static find(): string | undefined {
         let current = process.cwd();
         while (true) {
             if (existsSync(join(current, "circuit.ts"))) return current;
@@ -60,13 +55,11 @@ export class ProjectCommands {
     }
 
     /** Read the project. Stops with every reason when it can't be read. */
-    static async open(folder: string | undefined, flags: ReachFlags = {}): Promise<ProjectCommands> {
+    static async open(flags: ReachFlags = {}): Promise<ProjectCommands> {
         const root =
-            ProjectCommands.find(folder) ??
+            ProjectCommands.find() ??
             Ui.fail(
-                folder
-                    ? `No circuit.ts in ${resolve(process.cwd(), folder)}.`
-                    : "No Circuit project here: no circuit.ts in this folder or above it. Run circuit in a project's folder, or start one with circuit."
+                "No Circuit project here: no circuit.ts in this folder or above it. Run circuit in a project's folder, or start one with circuit."
             );
 
         Setup.prepare(root);
@@ -242,10 +235,13 @@ export class ProjectCommands {
         }
 
         // What the checks after the apply compare against, such as the BGP sessions up now, is read before anything is sent.
-        const health = await adapter.health?.(device, plan, this.optionsFor(device));
+        const health =
+            adapter.health &&
+            (await Ui.step(`Reading what to check on ${device.name} after the apply`, () =>
+                adapter.health!(device, plan, this.optionsFor(device))
+            ));
 
-        await adapter.apply(device, this.devices, plan, this.optionsFor(device));
-        Ui.done(`Sent to ${device.name}.`);
+        await Ui.step(`Sending the changes to ${device.name}`, () => adapter.apply(device, this.devices, plan, this.optionsFor(device)));
 
         if (!health) return;
 
@@ -400,7 +396,10 @@ export class ProjectCommands {
         const session = await Ui.step(`Connecting to ${device.name}`, () => adapter.session(device, this.optionsFor(device)));
 
         try {
-            const read = async () => (await adapter.bgpSessions!(device, session)).filter((neighbor) => shown.includes(neighbor.neighbor));
+            const read = () =>
+                Ui.step(`Reading ${device.name}'s BGP sessions`, async () =>
+                    (await adapter.bgpSessions!(device, session)).filter((neighbor) => shown.includes(neighbor.neighbor))
+                );
 
             if (flags.clearLimit) {
                 await ProjectCommands.clearLimits(adapter, session, read);
@@ -408,15 +407,18 @@ export class ProjectCommands {
             }
 
             const limits = { seconds: flags.max, every: BgpWait.COMMAND.every };
-            const sessions = await BgpWait.until(
-                read,
-                (sessions) => BgpWait.upCount(sessions) >= want,
-                limits,
-                (sessions) =>
-                    console.log(
-                        `${new Date().toLocaleTimeString()}: ${BgpWait.upCount(sessions)}/${want} up, checking again in ${limits.every}s`
-                    )
-            );
+            const until = () =>
+                BgpWait.until(
+                    read,
+                    (sessions) => BgpWait.upCount(sessions) >= want,
+                    limits,
+                    (sessions) =>
+                        console.log(
+                            `${new Date().toLocaleTimeString()}: ${BgpWait.upCount(sessions)}/${want} up, checking again in ${limits.every}s`
+                        )
+                );
+            // While it waits, one spinner covers the whole wait, and each read inside it shows none of its own.
+            const sessions = want ? await Ui.step(`Waiting for ${want} BGP session(s) of ${device.name} to come up`, until) : await until();
 
             ProjectCommands.printBgp(sessions);
             if (BgpWait.upCount(sessions) < want) process.exitCode = 1;
@@ -440,7 +442,7 @@ export class ProjectCommands {
         }
 
         for (const bgp of sessions) if (!bgp.limit) console.log(`${bgp.neighbor}: left alone, not closed on its limit`);
-        await adapter.bgpClearLimit!(session, closed);
+        await Ui.step(`Clearing ${closed.map((bgp) => bgp.neighbor).join(", ")}`, () => adapter.bgpClearLimit!(session, closed));
         console.log(
             `cleared ${closed.map((bgp) => bgp.neighbor).join(", ")}: each connects again, and closes again if it still sends too much\n`
         );
@@ -498,7 +500,9 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
 
     /** The device's BGP log lines from the last `minutes`, a message repeated folded into one line, secrets hidden. */
     private async printBgpLog(adapter: Platform, session: ReadSession, minutes: number): Promise<void> {
-        const lines = ProjectCommands.foldLog(await adapter.bgpLog!(session, minutes));
+        const lines = ProjectCommands.foldLog(
+            await Ui.step(`Reading the BGP log of the last ${minutes} min`, () => adapter.bgpLog!(session, minutes))
+        );
         const text = `\n--- BGP log, last ${minutes} min\n${lines.join("\n") || "(nothing)"}\n`;
 
         process.stdout.write(Secrets.scrub(text, { network: this.devices }));
@@ -535,7 +539,7 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
 
         let opened: ConsoleSession;
         try {
-            opened = await SerialConsole.open(serial, 1);
+            opened = await Ui.step(`Opening ${device.name}'s console, ${serial.port}`, () => SerialConsole.open(serial, 1));
         } catch (error) {
             const message = (error as Error).message;
             if (message.startsWith("busy:")) {
@@ -571,7 +575,9 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
 
         if (login) {
             try {
-                await SerialConsole.login(opened.channel, dialect, login.user, login.password, serial.password_only);
+                await Ui.step(`Logging in to ${device.name}'s console as ${login.user}`, () =>
+                    SerialConsole.login(opened.channel, dialect, login.user, login.password, serial.password_only)
+                );
             } catch (error) {
                 console.error(`${device.name}: ${(error as Error).message}`);
                 await leave(1);

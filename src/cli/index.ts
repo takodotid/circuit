@@ -3,7 +3,7 @@
 
 import { Command, InvalidArgumentError } from "@commander-js/extra-typings";
 import { spawnSync } from "node:child_process";
-import { SecretsFile } from "../core/secrets-file";
+import { OnePassword, SecretsFile } from "../core/secrets-file";
 import { BgpWait } from "../platforms/bgp-wait";
 import { App } from "./app";
 import { SecretCommands } from "./secrets";
@@ -19,11 +19,6 @@ import { type Choice, Ui } from "./ui";
 import { VERSION } from "./version";
 
 class Cli {
-    /** `--project`, which every command that reads a project takes. */
-    private static readonly PROJECT_FLAGS = "--project <folder>";
-    private static readonly PROJECT_HELP =
-        "the project's folder; by default the working directory, or the nearest folder above it with circuit.ts";
-
     /** Commands the manager runs itself, whatever version a project pins. */
     private static readonly APP_COMMANDS = new Set(["update", "uninstall", "new"]);
 
@@ -33,14 +28,14 @@ class Cli {
         // The process that keeps remembered secrets, started after a yes to remembering them.
         if (command === SecretsAgent.COMMAND) return SecretsAgent.serve();
         Releases.tidy();
+        OnePassword.waiting = (message) => Ui.blocked(message);
 
         // The manager keeps itself current before every command but `uninstall`. A version it started, or Studio's own reads, leave that to it.
         if (command !== "uninstall" && !Versions.started() && !process.env.CIRCUIT_LOCAL) await Releases.check(argv);
 
         if (!Cli.APP_COMMANDS.has(command ?? "")) {
             Cli.runLocal(argv);
-            const at = argv.indexOf("--project");
-            const root = ProjectCommands.find(at >= 0 ? argv[at + 1] : undefined);
+            const root = ProjectCommands.find();
             if (root) {
                 if (Releases.binary()) Versions.remember(root);
                 await Versions.run(root, argv);
@@ -65,8 +60,7 @@ class Cli {
     private static runLocal(argv: string[]): void {
         if (process.env.CIRCUIT_LOCAL || !Releases.binary()) return;
 
-        const at = argv.indexOf("--project");
-        const root = ProjectCommands.find(at >= 0 ? argv[at + 1] : undefined);
+        const root = ProjectCommands.find();
         const local = root && Setup.localCircuit(root);
         if (!local) return;
 
@@ -101,9 +95,8 @@ class Cli {
         program
             .command("validate")
             .description("check every file of the project, and every check in circuit.ts")
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
             .option("--experimental", "allow what a platform renders but has not proved on a device yet, as a warning")
-            .action(async (flags) => (await ProjectCommands.open(flags.project, flags)).validate());
+            .action(async (flags) => (await ProjectCommands.open(flags)).validate());
 
         program
             .command("diff")
@@ -111,9 +104,8 @@ class Cli {
             .argument("[device]", "picked from a list when left out")
             .option("--secrets", "plan as apply --secrets would, sending every secret again")
             .option("--console", "through the device's serial console on its jump host, instead of SSH")
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
             .option("--experimental", "allow what a platform renders but has not proved on a device yet, as a warning")
-            .action(async (device, flags) => (await ProjectCommands.open(flags.project, flags)).diff(device));
+            .action(async (device, flags) => (await ProjectCommands.open(flags)).diff(device));
 
         program
             .command("apply")
@@ -124,10 +116,9 @@ class Cli {
             .option("--rollback <minutes>", "minutes before a device that can restore itself does", Cli.whole("minutes", 10), 10)
             .option("--console", "through the device's serial console on its jump host, instead of SSH")
             .option("--force", "send even when the path to the device loses too much or is too slow")
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
             .option("--experimental", "allow what a platform renders but has not proved on a device yet, as a warning")
             .action(async (device, flags) =>
-                (await ProjectCommands.open(flags.project, flags)).apply(device, flags.confirm ?? false, flags.force ?? false)
+                (await ProjectCommands.open(flags)).apply(device, flags.confirm ?? false, flags.force ?? false)
             );
 
         program.commandsGroup("Utilities:");
@@ -141,9 +132,8 @@ class Cli {
             .option("--file <path>", "also each line of this file; blank lines and lines starting with # are skipped")
             .option("--timeout <seconds>", "how long each command may take", Cli.whole("seconds", 90), 90)
             .option("--console", "through the device's serial console, instead of SSH")
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
             .action(async (device, commands, flags) =>
-                (await ProjectCommands.open(flags.project, flags)).exec(device, commands, flags.file, flags.timeout)
+                (await ProjectCommands.open(flags)).exec(device, commands, flags.file, flags.timeout)
             );
 
         program
@@ -159,8 +149,7 @@ class Cli {
             .option("--max <seconds>", "how long --wait waits at most", Cli.whole("seconds", 90), BgpWait.COMMAND.seconds)
             .option("--log [minutes]", "also print the device's BGP log lines from the last minutes, 5 by default", Cli.whole("minutes", 5))
             .option("--clear-limit", "open again the neighbors shown that closed on their prefix limit; any other is left alone")
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (device, flags) => (await ProjectCommands.open(flags.project)).bgp(device, flags));
+            .action(async (device, flags) => (await ProjectCommands.open()).bgp(device, flags));
 
         program
             .command("access-console")
@@ -168,10 +157,7 @@ class Cli {
             .argument("[device]", "picked from a list when left out")
             .argument("[line...]", "lines to send, each in quotes; none joins the console to this terminal, Ctrl-] leaves")
             .option("--raw", "do not log in or out: only join the console, or send the lines")
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (device, lines, flags) =>
-                (await ProjectCommands.open(flags.project)).accessConsole(device, lines, flags.raw ?? false)
-            );
+            .action(async (device, lines, flags) => (await ProjectCommands.open()).accessConsole(device, lines, flags.raw ?? false));
 
         program
             .command("studio")
@@ -187,7 +173,6 @@ class Cli {
                 "names besides this machine's that requests may be addressed to, such as studio.example.com behind a proxy"
             )
             .option("--no-open", "do not open the browser")
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
             .action(async (flags) => Cli.studio(flags));
 
         program
@@ -198,20 +183,16 @@ class Cli {
             .option("--file", "also rename the file that writes the device")
             .option("--no-file", "leave the file's name as it is")
             .option("--confirm", "write without asking")
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (device, name, flags) =>
-                (await ProjectCommands.open(flags.project)).rename(device, name, flags.file, flags.confirm ?? false)
-            );
+            .action(async (device, name, flags) => (await ProjectCommands.open()).rename(device, name, flags.file, flags.confirm ?? false));
 
         program
             .command("fmt")
             .description("tidy the spacing and line breaks of the project's .ts files; what they say stays the same")
             .argument("[file...]", "every TypeScript file of the project when left out")
             .option("--check", "change nothing; fail when a file is not in the style")
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
             .action(async (files, flags) =>
                 Format.run(
-                    ProjectCommands.find(flags.project) ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it."),
+                    ProjectCommands.find() ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it."),
                     files,
                     flags.check ?? false
                 )
@@ -358,14 +339,8 @@ class Cli {
     }
 
     /** Serve Studio for the project until Ctrl+C, and open it in the browser. */
-    private static async studio(flags: {
-        port: number;
-        host: string;
-        allowHost?: string[];
-        open: boolean;
-        project?: string;
-    }): Promise<void> {
-        const root = ProjectCommands.find(flags.project) ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it.");
+    private static async studio(flags: { port: number; host: string; allowHost?: string[]; open: boolean }): Promise<void> {
+        const root = ProjectCommands.find() ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it.");
         Setup.prepare(root);
 
         // Studio carries its page, so it is loaded only when asked for.
@@ -430,7 +405,7 @@ class Cli {
         stop([SecretsFile.DEFAULT]);
         if (!ProjectCommands.find()) return;
 
-        const project = await ProjectCommands.open(undefined, { experimental: true });
+        const project = await ProjectCommands.open({ experimental: true });
         stop(project.secretsFiles());
         // A field not proved yet is a warning here: it stops `apply`, not a commit.
         project.validate();

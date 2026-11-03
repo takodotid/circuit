@@ -89,7 +89,7 @@ Docs, comments, commit messages and replies to the owner:
 
 - `bun run check` runs typecheck, tests and the build. The pre-commit hook runs `bun run typecheck` and `bun run test`.
 - `bun run build` writes `src/cli/editor-types.generated.ts` from the sources, builds Studio's page (`bun run studio`), then compiles `dist/circuit` (`dist/circuit.exe` on Windows) with Bun inside. `bun scripts/build.ts --target=bun-linux-x64` builds for another system. A test fails when `editor-types.generated.ts` is not current.
-- `bun src/cli/index.ts <command> --project <folder>` runs Circuit from the sources. Circuit writes a project's `.circuit/types` when it starts the project and whenever they are not its own; `bunx tsc --noEmit -p <folder>` then checks the project as the editor does.
+- `cd <folder> && bun <repo>/src/cli/index.ts <command>` runs Circuit from the sources, on the project in that folder. Circuit has no `--project`: it works on the project it runs in. Circuit writes a project's `.circuit/types` when it starts the project and whenever they are not its own; `bunx tsc --noEmit -p <folder>` then checks the project as the editor does.
 - A change to a platform keeps its golden test passing: every 0.x example renders as 0.x rendered it, byte for byte.
 
 ## Git and releases

@@ -5,7 +5,7 @@
 // After a yes, Circuit remembers the password typed and the values read from 1Password for 10 or 30 minutes, so the next commands don't ask: see src/cli/remember.ts. `hold` gives a run what is remembered.
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
-import { spawnSync } from "node:child_process";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { parseEnv } from "node:util";
@@ -21,6 +21,8 @@ export class OnePassword {
     private static readonly held = new Set<string>();
     /** Whether a remembered value was used in this run. */
     static usedHeld = false;
+    /** Says what Circuit waits for while `op` runs, such as for the person to unlock 1Password; gives back what clears it. The command line sets it. */
+    static waiting: ((message: string) => () => void) | undefined;
 
     static installed(): boolean {
         return !spawnSync("op", ["--version"], { encoding: "utf8" }).error;
@@ -59,7 +61,13 @@ export class OnePassword {
             return cached;
         }
 
-        const result = spawnSync("op", ["read", "--no-newline", reference], { encoding: "utf8" });
+        const done = OnePassword.waiting?.(`Reading ${reference} from 1Password`);
+        let result: SpawnSyncReturns<string>;
+        try {
+            result = spawnSync("op", ["read", "--no-newline", reference], { encoding: "utf8" });
+        } finally {
+            done?.();
+        }
         if (result.error) throw new Error(`${what} is in 1Password, and the 1Password CLI, op, is not installed`);
         if (result.status !== 0)
             throw new Error(`${what}: 1Password could not read ${reference}: ${result.stderr.trim() || `op exited with ${result.status}`}`);

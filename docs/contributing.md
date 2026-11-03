@@ -15,7 +15,7 @@ bun install
 bun run check       # typecheck, tests, format, and the binary
 bun run docs:dev    # this site, locally
 bun run docs:build  # this site, as it is published
-bun src/cli/index.ts validate --project <folder>   # Circuit from the sources
+cd <project> && bun <circuit>/src/cli/index.ts validate   # Circuit from the sources
 ```
 
 ## Example projects
