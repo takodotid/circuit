@@ -27,6 +27,19 @@ lib/checks.ts               the network's own checks
 
 Rule of thumb: write a value in the device first. Only when a second device needs it, move it to `site.ts` or `circuit.ts`.
 
+### The `.circuit` folder
+
+Circuit writes everything in it. Don't edit it: Circuit overwrites it, and `.circuit/DO_NOT_EDIT.md` says so.
+
+| Entry                       | What it is                                                                         | Simple | Full |
+| --------------------------- | ---------------------------------------------------------------------------------- | :----: | :--: |
+| `.circuit/version`          | The Circuit version the project runs. `circuit update` changes it. Committed.      |   ✅   |  ❌  |
+| `.circuit/types/`           | The editor's types. Written again when they aren't this Circuit's (`.written-by`). |   ✅   |  ❌  |
+| `.circuit/hooks/pre-commit` | The [commit check](/guide/secrets#the-commit-check).                               |   ✅   |  ✅  |
+| `.circuit/cache/`           | Temporary. Git ignores it.                                                         |   ✅   |  ✅  |
+
+In a [full install](/guide/install#full-install), `package.json` pins the version, and the types come from the Circuit package in `node_modules`.
+
 ## The network
 
 ```ts
