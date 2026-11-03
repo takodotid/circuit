@@ -276,6 +276,7 @@ export const as${setup.asn} = circuit({
             ".editorconfig": Format.EDITORCONFIG,
             ".vscode/settings.json": json({
                 "editor.formatOnSave": true,
+                "prettier.useEditorConfig": true,
                 "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
                 "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
                 "files.eol": "\n",
