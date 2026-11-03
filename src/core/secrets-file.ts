@@ -128,6 +128,11 @@ export class SecretsFile {
         return SecretsFile.held.get(resolve(path)) === password;
     }
 
+    /** A `circuit secrets` command for the file `name`, with `--file` when it isn't `.circuit/secrets`. */
+    static command(name: string, command: string): string {
+        return `circuit secrets ${command}${name === SecretsFile.DEFAULT ? "" : ` --file ${name}`}`;
+    }
+
     static isEncrypted(value: string): boolean {
         return value.startsWith(SecretsFile.ENCRYPTED);
     }
@@ -154,7 +159,8 @@ export class SecretsFile {
             } else if (SecretsFile.kindOf(value) === "not encrypted") plain.push(key);
         }
 
-        if (plain.length) problems.unshift(`${name} holds ${plain.join(", ")} in plain text. Encrypt it with circuit secrets encrypt.`);
+        if (plain.length)
+            problems.unshift(`${name} holds ${plain.join(", ")} in plain text. Encrypt it with ${SecretsFile.command(name, "encrypt")}.`);
         return problems;
     }
 
@@ -337,7 +343,7 @@ export class SecretsFile {
         if (kind === "1password") return OnePassword.read(value, name);
         if (kind === "empty") return value;
         if (kind === "not encrypted")
-            throw new Error(`${name} is in plain text in ${this.name}. Encrypt it first: circuit secrets encrypt`);
+            throw new Error(`${name} is in plain text in ${this.name}. Encrypt it first: ${SecretsFile.command(this.name, "encrypt")}`);
 
         try {
             return this.open(name, value, this.needPassword());
@@ -357,7 +363,9 @@ export class SecretsFile {
     /** Set a name: encrypted, or a 1Password reference as it is. The file must be open. */
     set(name: string, value: string): void {
         if (name === SecretsFile.PASSWORD)
-            throw new Error(`${name} holds the password's 1Password reference: write it with circuit secrets password.`);
+            throw new Error(
+                `${name} holds the password's 1Password reference: write it with ${SecretsFile.command(this.name, "password")}.`
+            );
         const stored = value.startsWith("op://") ? SecretsFile.reference(value) : this.seal(name, value, this.needPassword(), this.salt());
         this.write(SecretsFile.upsert(this.source(), name, stored));
     }

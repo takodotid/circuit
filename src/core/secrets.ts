@@ -114,7 +114,9 @@ export class Secrets {
         const fromFile = Secrets.stored()[reference];
         const fromEnvironment = process.env[reference];
         if (!fromEnvironment && fromFile === undefined)
-            throw new Error(`secret ${reference} is not set in ${Secrets.file().name}: set it with circuit secrets set ${reference}`);
+            throw new Error(
+                `secret ${reference} is not set in ${Secrets.file().name}: set it with ${SecretsFile.command(Secrets.file().name, `set ${reference}`)}`
+            );
 
         const revealed = fromEnvironment
             ? fromEnvironment.startsWith("op://")

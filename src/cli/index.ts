@@ -219,70 +219,65 @@ class Cli {
 
         program.commandsGroup("Secrets:");
 
-        const NETWORK_FLAGS = "--network <name>";
-        const NETWORK_HELP = "the network whose secrets, when the networks keep them in different files";
+        const FILE_FLAGS = "--file <path>";
+        const FILE_HELP = "the secrets file, when it isn't .circuit/secrets";
+        // `--file` after a command, such as `circuit secrets list --file x`, lands on `secrets` itself, so each command reads it from there too.
         const secrets = program
             .command("secrets")
             .alias("secret")
             .description("the project's secrets, each one encrypted: alone, in a terminal, opens every one in a text editor")
-            .option(NETWORK_FLAGS, NETWORK_HELP)
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
+            .option(FILE_FLAGS, FILE_HELP)
             .action(async (flags) => {
-                const commands = await SecretCommands.open(flags.project, flags.network);
+                const commands = await SecretCommands.open(flags.file);
                 if (Ui.interactive) await commands.edit();
                 else commands.list();
             });
         secrets
             .command("edit")
             .description("every secret, decrypted, in a text editor in the terminal; saved encrypted")
-            .option(NETWORK_FLAGS, NETWORK_HELP)
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (flags) => (await SecretCommands.open(flags.project, flags.network)).edit());
+            .option(FILE_FLAGS, FILE_HELP)
+            .action(async (flags) => (await SecretCommands.open(flags.file ?? secrets.opts().file)).edit());
         secrets
             .command("list")
             .description("every secret, how it is kept, and the ones the config needs that the file lacks")
-            .option(NETWORK_FLAGS, NETWORK_HELP)
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (flags) => (await SecretCommands.open(flags.project, flags.network)).list());
+            .option(FILE_FLAGS, FILE_HELP)
+            .action(async (flags) => (await SecretCommands.open(flags.file ?? secrets.opts().file)).list());
         secrets
             .command("get")
             .description("print one secret, decrypted")
             .argument("[name]")
-            .option(NETWORK_FLAGS, NETWORK_HELP)
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (name, flags) => (await SecretCommands.open(flags.project, flags.network)).get(name));
+            .option(FILE_FLAGS, FILE_HELP)
+            .action(async (name, flags) => (await SecretCommands.open(flags.file ?? secrets.opts().file)).get(name));
         secrets
             .command("set")
             .description("add or change a secret, encrypted; leave out the value to type it hidden")
             .argument("[name]")
             .argument("[value]", "an op://vault/item/field reference keeps the value in 1Password")
-            .option(NETWORK_FLAGS, NETWORK_HELP)
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (name, value, flags) => (await SecretCommands.open(flags.project, flags.network)).set(name, value));
+            .option(FILE_FLAGS, FILE_HELP)
+            .action(async (name, value, flags) => (await SecretCommands.open(flags.file ?? secrets.opts().file)).set(name, value));
         secrets
             .command("delete")
             .description("remove a secret")
             .argument("[name]")
             .option("--confirm", "delete without asking")
-            .option(NETWORK_FLAGS, NETWORK_HELP)
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (name, flags) => (await SecretCommands.open(flags.project, flags.network)).delete(name, flags.confirm ?? false));
+            .option(FILE_FLAGS, FILE_HELP)
+            .action(async (name, flags) =>
+                (await SecretCommands.open(flags.file ?? secrets.opts().file)).delete(name, flags.confirm ?? false)
+            );
         secrets
             .command("encrypt")
             .description("encrypt every value typed into the file in plain text")
-            .option(NETWORK_FLAGS, NETWORK_HELP)
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (flags) => (await SecretCommands.open(flags.project, flags.network)).encrypt());
+            .option(FILE_FLAGS, FILE_HELP)
+            .action(async (flags) => (await SecretCommands.open(flags.file ?? secrets.opts().file)).encrypt());
         secrets
             .command("password")
             .description("change the password; every secret is encrypted again and the old password stops working")
             .option("--1password <reference>", "read the password from 1Password instead of asking: op://vault/item/field")
             .option("--forget-1password", "stop reading it from 1Password, and ask for it")
             .option("--confirm", "change without asking; the new password comes from CIRCUIT_SECRETS_NEW_PASSWORD")
-            .option(NETWORK_FLAGS, NETWORK_HELP)
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
+            .option(FILE_FLAGS, FILE_HELP)
             .action(async (flags) =>
-                (await SecretCommands.open(flags.project, flags.network)).password({
+                (await SecretCommands.open(flags.file ?? secrets.opts().file)).password({
                     ...(flags["1password"] !== undefined ? { onePassword: flags["1password"] } : {}),
                     forgetOnePassword: flags.forget1password ?? false,
                     confirm: flags.confirm ?? false,

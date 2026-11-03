@@ -10,7 +10,7 @@ Know the command already? Run it straight away, like `circuit validate`. Same th
 
 <MenuDiagram />
 
-Circuit works on the project in your current folder, or the nearest folder above it with a `circuit.ts`. Use `--project <folder>` for another one. Leave out the device and Circuit lets you pick it from a list.
+Circuit works on the project in your current folder, or the nearest folder above it with a `circuit.ts`. Use `--project <folder>` for another one (not with `circuit secrets`, which works in the project you're in). Leave out the device and Circuit lets you pick it from a list.
 
 ## Core
 
@@ -146,7 +146,9 @@ Tidies the spacing, indents and line breaks of the `.ts` files. What the files s
 
 ## Secrets
 
-`circuit secrets` opens every secret, decrypted, in a text editor in the terminal. Ctrl+S saves them encrypted, Esc leaves. `list`, `get`, `set`, `delete`, `encrypt` and `password` do one thing each. `forget` drops the secrets Circuit remembers. `circuit secrets encrypt` encrypts only values in plain text: encrypted ones and `op://` references stay as they are. See [Secrets](/guide/secrets).
+`circuit secrets` opens every secret, decrypted, in a text editor in the terminal. Ctrl+S saves them encrypted, Esc leaves. `list`, `get`, `set`, `delete`, `encrypt` and `password` do one thing each. `forget` drops the secrets Circuit remembers. `circuit secrets encrypt` encrypts only values in plain text: encrypted ones and `op://` references stay as they are.
+
+They work on `.circuit/secrets` of the project you're in. For another secrets file, add `--file <path>`. A project whose networks keep their secrets only in other files needs it. See [Secrets](/guide/secrets).
 
 ## Projects and Circuit itself
 

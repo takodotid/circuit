@@ -3,6 +3,7 @@
 import { type SecretKind, OnePassword, SecretsFile } from "../core/secrets-file";
 import { Secrets } from "../core/secrets";
 import { ProjectError, readProject, secretsFileOf } from "../project/project";
+import { isAbsolute, normalize, relative, resolve, sep } from "node:path";
 import { ProjectCommands } from "./project-commands";
 import { Setup } from "./setup";
 import { SecretsPassword } from "./secrets-password";
@@ -21,52 +22,47 @@ export class SecretCommands {
     ) {}
 
     /**
-     * The secrets file to work on: the one of the network named, or the only one the project uses. Reading the project says which
-     * secrets the config needs; a project that can't be read falls back to `.circuit/secrets`.
+     * The secrets file to work on: the one `--file` names, relative to where the command runs, or `.circuit/secrets`. A project whose
+     * networks keep their secrets elsewhere has to name the file. Reading the project says which secrets the config needs; a project
+     * that can't be read still works on the file named.
      */
-    static async open(folder: string | undefined, network?: string): Promise<SecretCommands> {
-        const root = ProjectCommands.find(folder) ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it.");
+    static async open(file: string | undefined): Promise<SecretCommands> {
+        const root = ProjectCommands.find(undefined) ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it.");
         Setup.prepare(root);
         Secrets.useRoot(root);
 
-        let files: { file: string; networks: string[]; needed: Set<string> }[] = [];
+        const name = file === undefined ? SecretsFile.DEFAULT : SecretCommands.inProject(root, file);
+        const needed = new Set<string>();
         try {
             const read = await Ui.step("Reading the project", () => readProject(root));
-            for (const each of read.networks) {
-                const name = secretsFileOf(each);
-                const needed = Secrets.referencesIn([each.devices, each.settings.integrations]);
-                const known = files.find((entry) => entry.file === name);
-                if (known) {
-                    known.networks.push(each.name);
-                    for (const reference of needed) known.needed.add(reference);
-                } else files.push({ file: name, networks: [each.name], needed });
-            }
+            const files = [...new Set(read.networks.map(secretsFileOf))].map(SecretCommands.normal);
+            const using = read.networks.filter((network) => SecretCommands.normal(secretsFileOf(network)) === SecretCommands.normal(name));
 
-            if (network !== undefined) {
-                files = files.filter((entry) => entry.networks.includes(network));
-                if (!files.length) Ui.fail(`No network ${network}. The project has: ${read.networks.map((each) => each.name).join(", ")}`);
+            if (!using.length && files.length) {
+                if (file === undefined) Ui.fail(`This project keeps its secrets in ${files.join(", ")}. Name the file: --file ${files[0]}`);
+                Ui.warn(`No network uses ${name}. The project's secrets files: ${files.join(", ")}`);
             }
+            for (const network of using)
+                for (const reference of Secrets.referencesIn([network.devices, network.settings.integrations])) needed.add(reference);
         } catch (error) {
             if (!(error instanceof ProjectError)) throw error;
             Ui.warn("The project has errors, so this cannot say which secrets the config needs. Run circuit validate.");
-            files = [{ file: SecretsFile.DEFAULT, networks: [], needed: new Set() }];
         }
 
-        let chosen = files[0] ?? { file: SecretsFile.DEFAULT, networks: [], needed: new Set<string>() };
-        if (files.length > 1) {
-            if (!Ui.interactive)
-                Ui.fail(
-                    `The networks keep their secrets in different files, so name one: --network ${files.flatMap((entry) => entry.networks).join(" | ")}`
-                );
-            chosen = await Ui.select(
-                "Whose secrets?",
-                files.map((entry) => ({ value: entry, label: entry.networks.join(", "), hint: entry.file }))
-            );
-        }
+        Secrets.useFile(name);
+        return new SecretCommands(root, Secrets.file(), [...needed].filter((each) => !each.startsWith("file:")).sort());
+    }
 
-        Secrets.useFile(chosen.file);
-        const needed = [...chosen.needed].filter((name) => !name.startsWith("file:")).sort();
-        return new SecretCommands(root, Secrets.file(), needed);
+    /** A path as the project writes it: relative to its root, with forward slashes. */
+    private static normal(path: string): string {
+        return normalize(path).split(sep).join("/");
+    }
+
+    /** `--file`, given relative to where the command runs, as a path inside the project. */
+    private static inProject(root: string, file: string): string {
+        const path = relative(root, resolve(file));
+        if (!path || path.startsWith("..") || isAbsolute(path)) Ui.fail(`${file} is not inside the project, ${root}.`);
+        return SecretCommands.normal(path);
     }
 
     private static checkName(name: string): string {
@@ -102,7 +98,7 @@ export class SecretCommands {
         const rows = this.rows();
         const width = Math.max(4, ...rows.map((row) => row.name.length));
 
-        if (!rows.length) console.log("No secrets yet. Add one with circuit secrets set NAME.");
+        if (!rows.length) console.log(`No secrets yet. Add one with ${SecretsFile.command(this.file.name, "set NAME")}.`);
         for (const row of rows)
             console.log(
                 `  ${row.name.padEnd(width)}  ${process.env[row.name] ? Ui.dim("from the environment") : SecretCommands.describe(row.kind, row.value)}`
@@ -198,7 +194,7 @@ export class SecretCommands {
 
         if (!this.file.hasEncrypted()) {
             await SecretsPassword.ready(this.file);
-            Ui.done(`${this.file.name} has its password. Add a secret with circuit secrets set NAME.`);
+            Ui.done(`${this.file.name} has its password. Add a secret with ${SecretsFile.command(this.file.name, "set NAME")}.`);
             return;
         }
 
@@ -230,7 +226,7 @@ export class SecretCommands {
 
     /** Every secret, decrypted, in a text editor on the whole screen: change, add or delete lines, Ctrl+S to save, each value encrypted again. Nothing is written to disk in plain text. */
     async edit(): Promise<void> {
-        if (!Ui.interactive) Ui.fail("The editor needs a terminal. Use circuit secrets set NAME instead.");
+        if (!Ui.interactive) Ui.fail(`The editor needs a terminal. Use ${SecretsFile.command(this.file.name, "set NAME")} instead.`);
 
         try {
             await SecretsPassword.ready(this.file);

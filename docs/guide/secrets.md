@@ -94,7 +94,7 @@ export const as64500 = circuit({ asn: 64500, sites: { ... } }); // .circuit/secr
 export const lab = circuit({ sites: { lab: { description: "Lab rack" } }, secrets: { file: ".circuit/lab-secrets" } });
 ```
 
-`asn` is optional, so an office or home network without one works the same way. When the networks use different files, name one with `--network`: `circuit secrets set EDGE_01_PASSWORD --network lab`.
+`asn` is optional, so an office or home network without one works the same way. `circuit secrets` works on `.circuit/secrets`. For another file, name it with `--file`: `circuit secrets set EDGE_01_PASSWORD --file .circuit/lab-secrets`. A project whose networks all keep their secrets elsewhere needs `--file` every time.
 
 ## The commit check
 
