@@ -21,7 +21,7 @@ You keep one TypeScript file per device in a git repository. Circuit reads the f
 3. **The same words for every vendor.** You write `access_vlan` or `ssh`, and each device gets its own vendor's commands. When a device can't do what you wrote, `circuit validate` says so, and nothing is sent.
 4. **Names are checked as you type.** Every VLAN, interface, policy and port you name must exist on that device. A typo is an error in your editor.
 5. **Nothing is filled in for you.** Circuit writes no default and no description you didn't write. It may warn, never fill in.
-6. **Secrets are encrypted.** A password is `secret("NAME")` in the file. Its value is in `.env`, encrypted, and read only when a command is sent. See [Secrets](/guide/secrets).
+6. **Secrets are encrypted.** A password is `secret("NAME")` in the file. Its value is in `.circuit/secrets`, encrypted, and read only when a command is sent. See [Secrets](/guide/secrets).
 
 ## Which devices
 

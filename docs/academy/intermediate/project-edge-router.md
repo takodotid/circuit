@@ -86,7 +86,7 @@ Circuit cannot know that every session of yours must filter what it takes in, so
 
 ## Validate, diff and apply
 
-1. Set the router's password: `circuit secret set EDGE_01_PASSWORD`.
+1. Set the router's password: `circuit secrets set EDGE_01_PASSWORD`.
 2. Run `circuit validate`. On the example it prints `✔ 1 device(s), no errors.`
 3. Run `circuit diff edge-01`. It logs in to the router, reads what it runs now, and shows the plan. It changes nothing.
 4. Run `circuit apply edge-01`. It shows the plan again and asks. Read every line, and say yes only when it is what you want.

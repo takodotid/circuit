@@ -13,7 +13,7 @@ const entries = [
     { label: "Studio", hint: "the project in your browser" },
     { label: "Rename", hint: "give a device a new name everywhere" },
     { heading: "Secrets" },
-    { label: "Secrets", hint: "list, set or delete the secrets in .env" },
+    { label: "Secrets", hint: "look through and change the secrets, each one encrypted" },
     { heading: "Circuit" },
     { label: "Update Circuit" },
     { label: "Exit" },

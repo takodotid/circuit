@@ -5,7 +5,7 @@ description: Whoever can log in to a router controls the network. Decide who may
 
 # Keeping the keys
 
-Whoever can log in to a router or a switch controls your network: they can read what passes through it, open its firewall, or turn it off. So a device should answer logins only from the management network, only over SSH, and only for the users its file lists. Its passwords are kept outside the files, in `.env` or a password manager, and the files only give their names.
+Whoever can log in to a router or a switch controls your network: they can read what passes through it, open its firewall, or turn it off. So a device should answer logins only from the management network, only over SSH, and only for the users its file lists. Its passwords are kept outside the files, encrypted in `.circuit/secrets` or in a password manager, and the files only give their names.
 
 ## Three locks on the door
 
@@ -58,13 +58,13 @@ router: 1 command(s) in 1 step(s)
 The device files go into git, and git keeps every version forever, for everyone who can read the repository. So a password is never written in a file. You write `secret("ROUTER_PASSWORD")`, a name, and Circuit looks up the value only at the moment it sends a command to the device. It looks in two places, in this order:
 
 1. The environment, such as a variable set in your terminal or by an automated job.
-2. `.env`, in the project's folder, where each value is encrypted. The installer creates it, with the key that decrypts it kept out of git.
+2. `.circuit/secrets`, in the project's folder, where each value is encrypted. One password opens it, and the password is never in git.
 
 ```bash
-circuit secret set ROUTER_PASSWORD
+circuit secrets set ROUTER_PASSWORD
 ```
 
-Circuit asks for the password without showing it, encrypts it, and writes it to `.env`. Only the key that decrypts `.env` is kept out of git. A value can also point to a password manager instead, such as `op://Network/router/password` for 1Password. See [Secrets](/guide/secrets).
+Circuit asks for the password without showing it, encrypts it, and writes it to `.circuit/secrets`. The first time, it asks you to choose the password that opens the file. Keep that one in your password manager. A value can also point to a password manager instead, such as `op://Network/router/password` for 1Password. See [Secrets](/guide/secrets).
 
 The value is never in a plan. Where the password goes, the plan shows only its name:
 
@@ -78,23 +78,23 @@ And a password typed into the file as plain text is an error in your editor, bef
 Type 'string' is not assignable to type 'Secret'.
 ```
 
-`circuit secret` lists every secret the files use, and how each is kept, without printing any of them. With `ROUTER_PASSWORD` set and `SWITCH_PASSWORD` forgotten:
+`circuit secrets list` shows every secret the files use, and how each is kept, without printing any of them. With `ROUTER_PASSWORD` set and `SWITCH_PASSWORD` forgotten:
 
 ```text
   ROUTER_PASSWORD  encrypted
   SWITCH_PASSWORD  missing, the config needs it
 
-Key that decrypts .env: .env.keys
+Password of .circuit/secrets: typed when Circuit asks
 ```
 
-A device never shows its passwords back, so Circuit cannot see that one changed. To change a password, set it again with `circuit secret set ROUTER_PASSWORD`, then run `circuit apply router --secrets`.
+A device never shows its passwords back, so Circuit cannot see that one changed. To change a password, set it again with `circuit secrets set ROUTER_PASSWORD`, then run `circuit apply router --secrets`.
 
 <Quiz
   question="Where does the router’s password belong?"
-  :choices="['In router.ts, next to the user it belongs to', 'In .env, encrypted, and router.ts gives only its name, with secret', 'In .circuit/types, which Circuit writes']"
+  :choices="['In router.ts, next to the user it belongs to', 'In .circuit/secrets, encrypted, and router.ts gives only its name, with secret', 'In .circuit/types, which Circuit writes']"
   :answer="1"
   :why="['router.ts goes into git as you wrote it, and git keeps it forever for everyone who can read the repository. Your editor also marks a plain password as an error.', '', 'That folder holds what your editor reads. Circuit writes it again whenever it is updated, and it never holds a secret.']"
-  explain="The file gives only the name of the secret. Its value is in .env, encrypted, and only the key that decrypts it stays out of git. Circuit reads the value only when it sends a command."
+  explain="The file gives only the name of the secret. Its value is in .circuit/secrets, encrypted, and the password that opens it stays out of git. Circuit reads the value only when it sends a command."
 />
 
 ## Keep management off the wall sockets
@@ -184,6 +184,6 @@ What happens when the new login fails depends on the platform, as [How a change 
 ## In short
 
 - Whoever can log in to a device controls the network, so lock the door three ways: where from (`management.allow`), how (SSH only), and who (`users`, where anyone not listed is removed).
-- Passwords never go in the files: write `secret("NAME")`, and set the value with `circuit secret set NAME`, encrypted in `.env`.
+- Passwords never go in the files: write `secret("NAME")`, and set the value with `circuit secrets set NAME`, encrypted in `.circuit/secrets`.
 - A check of your own in `lib/checks.ts` keeps the management VLAN off access ports, and an error stops the change.
 - `validate` cannot always see a change that locks you out, so Circuit logs in again after every change, and keeps it only if that works.

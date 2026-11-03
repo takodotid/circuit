@@ -94,6 +94,12 @@ export type ResolvedNetwork = { readonly asn?: number; readonly prefixes: Prefix
  */
 export type Check = (network: ResolvedNetwork) => readonly Finding[];
 
+/** Where a network's secrets are: a file of `NAME="value"` lines, each value encrypted, changed with `circuit secrets`. */
+export type NetworkSecrets = {
+    /** The file, relative to the project, such as `.circuit/lab-secrets` for a lab network with its own password. Commit it. */
+    file: string;
+};
+
 /** Systems Circuit keeps in step with the config. */
 export type Integrations = {
     /** Keeps the network's PeeringDB record in step with the config: `circuit peeringdb`. Needs `asn`. */
@@ -169,4 +175,6 @@ export type NetworkSettings<
     checks?: Own & Checks<string> & { [K in Exclude<keyof Own, keyof Checks<string>>]: Check };
     /** Systems Circuit keeps in step with the config. */
     integrations?: Integrations;
+    /** Where the network's secrets are. `.circuit/secrets` when absent. */
+    secrets?: NetworkSecrets;
 };

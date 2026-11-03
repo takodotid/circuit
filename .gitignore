@@ -1,4 +1,4 @@
-# Secrets live in .env and nowhere else.
+# A local .env for trying things out stays out of git.
 .env
 *.key
 

@@ -5,7 +5,7 @@
 import type { CommunityScheme } from "./communities";
 import type { AnyDevice } from "./device";
 import type { FilterRule, NatRule } from "./firewall";
-import type { Checks, Integrations, NetworkSettings, Prefixes, Site } from "./network";
+import type { Checks, Integrations, NetworkSecrets, NetworkSettings, Prefixes, Site } from "./network";
 import type { CallRule, PolicyRule, RouteMatch, RouteRule, RouteSet, RoutingRule } from "./routing";
 import type { CommunitiesExport, CommunitiesImport } from "./communities";
 import type { AclRule } from "./switching";
@@ -364,6 +364,7 @@ export const NETWORK = {
         librenms: { url: 0, api_token: SECRET },
         netbox: { url: 0, api_token: SECRET },
     } satisfies ShapeOf<Integrations>,
+    secrets: { file: 0 } satisfies ShapeOf<NetworkSecrets>,
 } as const satisfies { readonly [K in keyof NetworkSettings<{}, number>]-?: Shape };
 
 // `satisfies` misses a key too many that comes from a spread or another constant. Each side assignable to the other doesn't: every key

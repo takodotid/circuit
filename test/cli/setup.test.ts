@@ -1,4 +1,4 @@
-// A new project, as the installer sets it up: its files, an encrypted .env with the key kept out of git, the git hook, and a project Circuit reads.
+// A new project, as the installer sets it up: its files, the git hook, the secrets file kept in git, and a project Circuit reads.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -9,7 +9,7 @@ import { Setup } from "../../src/cli/setup";
 import { EditorTypes } from "../../src/cli/editor-types";
 import { VERSION } from "../../src/cli/version";
 import { Versions } from "../../src/cli/versions";
-import { EnvFile } from "../../src/core/env-file";
+import { SecretsFile } from "../../src/core/secrets-file";
 import { readProject } from "../../src/project/project";
 
 // Inside a git hook, such as this repository's own, git's variables point every git command at this repository instead of the test's.
@@ -41,11 +41,9 @@ test("the project's files are written", () => {
         "circuit.ts",
         "tsconfig.json",
         ".gitignore",
-        ".env",
-        ".env.keys",
         "tenants/README.md",
         ".circuit/hooks/pre-commit",
-        ".circuit/VERSION",
+        ".circuit/version",
         ".circuit/DO_NOT_EDIT.md",
         ".editorconfig",
         ".vscode/settings.json",
@@ -59,14 +57,10 @@ test("the project's files are written", () => {
     expect(Versions.pinned(root)).toBe(VERSION);
 });
 
-test(".env is encrypted and committed; its key is kept out of git", () => {
-    const env = new EnvFile(root);
-    expect(env.publicKey()).toBeDefined();
-    expect(env.plaintext()).toEqual([]);
-
+test("the secrets file is kept in git", () => {
     const ignored = (file: string) => spawnSync("git", ["-C", root, "check-ignore", "-q", file], { env: process.env }).status === 0;
-    expect(ignored(".env.keys")).toBe(true);
-    expect(ignored(".env")).toBe(false);
+    expect(ignored(SecretsFile.DEFAULT)).toBe(false);
+    expect(ignored(".circuit/cache/x")).toBe(true);
 });
 
 test("git checks each commit with the project's hook", () => {

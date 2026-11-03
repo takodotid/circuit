@@ -89,7 +89,7 @@ This runs three containers: one keeps the copy of your repository pulled, one ru
 
 6. Run `docker compose up -d`, and open `https://studio.example.com`.
 
-Studio runs the version in the project's `.circuit/VERSION`. To move it, run `circuit update` in the project and push.
+Studio runs the version in the project's `.circuit/version`. To move it, run `circuit update` in the project and push.
 
 ## Without Docker
 

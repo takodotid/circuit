@@ -7,7 +7,6 @@
       "dependencies": {
         "@clack/prompts": "1.8.1",
         "@commander-js/extra-typings": "~15.0.0",
-        "@dotenvx/primitives": "4.3.0",
         "commander": "~15.0.0",
         "prettier": "3.9.10",
         "ssh2": "^1.17.0",
@@ -15,12 +14,13 @@
       "devDependencies": {
         "@commitlint/cli": "^21.2.4",
         "@commitlint/config-conventional": "^21.2.4",
+        "@noble/ciphers": "1.3.0",
+        "@noble/hashes": "1.8.0",
         "@types/bun": "^1.4.4",
         "@types/node": "^24.19.2",
         "@types/ssh2": "^1.15.6",
         "@vitejs/plugin-vue": "6.0.10",
         "cytoscape": "3.34.4",
-        "eciesjs": "0.5.0",
         "husky": "^9.1.7",
         "typescript": "^7.0.2",
         "typescript-6": "npm:typescript@6.0.3",
@@ -84,15 +84,9 @@
 
     "@conventional-changelog/template": ["@conventional-changelog/template@1.4.0", "", {}, "sha512-aalGyl7dbB5PArRebDIX43ZvBlXrYm9uWzGJ26t+4SzJVPsOuvfILGGbw5X4yX7i50YEmJ8zvbiWnqH/AAnZqg=="],
 
-    "@dotenvx/primitives": ["@dotenvx/primitives@4.3.0", "", {}, "sha512-yTtZaVQt7DYnOaCm9BzhoTytGDAL5j49HCoFd9Vt/UlEFVSbkTEPHd23QmlPARYEqsJSUZEx43Avw9oQrWJINg=="],
-
-    "@ecies/ciphers": ["@ecies/ciphers@0.2.6", "", { "peerDependencies": { "@noble/ciphers": "^1.0.0" } }, "sha512-patgsRPKGkhhoBjETV4XxD0En4ui5fbX0hzayqI3M8tvNMGUoUvmyYAIWwlxBc1KX5cturfqByYdj5bYGRpN9g=="],
-
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.6.0", "", {}, "sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw=="],
 
     "@noble/ciphers": ["@noble/ciphers@1.3.0", "", {}, "sha512-2I0gnIVPtfnMw9ee9h1dJG7tp81+8Ob3OJb3Mv37rx5L40/b0i7djjCVvGOVqc9AEIQyvyu1i6ypKdFw8R8gQw=="],
-
-    "@noble/curves": ["@noble/curves@1.9.7", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-gbKGcRUYIjA3/zCCNaWDciTMFI0dCkvou3TL8Zmy5Nc7sJ47a0jtOeZoTaMxkuqRo9cRhjOdZJXegxYE5FN/xw=="],
 
     "@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
 
@@ -239,8 +233,6 @@
     "cytoscape": ["cytoscape@3.34.4", "", {}, "sha512-msY99tMY8iWTg+sIPGfSqDcPNOt4xcj+v/K/7qUFaCUxxlqnMkUYLBjRUzn9W5CU/R2hrmtJa5+UtovrEM2ctg=="],
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
-
-    "eciesjs": ["eciesjs@0.5.0", "", { "dependencies": { "@ecies/ciphers": "^0.2.6", "@noble/ciphers": "^1.3.0", "@noble/curves": "^1.9.7", "@noble/hashes": "^1.8.0" } }, "sha512-s0J9SEVYAEPg7J63GFMApLYzPH9VNIQIyC6s15JpnqVc0TqcKWdbgFlnAweEBRyMmko2dcs2sfC83Hj4J43tuA=="],
 
     "emoji-regex": ["emoji-regex@10.6.0", "", {}, "sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A=="],
 

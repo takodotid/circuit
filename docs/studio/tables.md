@@ -33,7 +33,7 @@ A device's page, such as `#devices/edge-01`, has a tab for each part of it:
 | On the device now | What the device runs, read when you press **Read from the device now**, and what `apply` would send.              |
 | History           | The commits that changed the device's file. See [Reviewing changes](/studio/changes).                             |
 
-Studio keeps no copy of what a device runs. **Read from the device now** logs in, reads it, and shows it beside your files with the plan `circuit diff` would print. It only reads: nothing is sent. It needs the device's password, so it works where `circuit diff` works, with the key that decrypts `.env`.
+Studio keeps no copy of what a device runs. **Read from the device now** logs in, reads it, and shows it beside your files with the plan `circuit diff` would print. It only reads: nothing is sent. It needs the device's password, so it works when the secrets password comes from 1Password or `CIRCUIT_SECRETS_PASSWORD`. Otherwise run `circuit diff`, which asks for it.
 
 ## Saving
 

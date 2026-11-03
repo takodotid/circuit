@@ -10,7 +10,7 @@ import { Platforms } from "../platforms";
 import { Catalog } from "../platforms/catalog";
 import { Derive } from "../platforms/derive";
 import type { Finding } from "../platforms/finding";
-import { ProjectError, type ProjectRead, readProject } from "../project/project";
+import { ProjectError, type ProjectRead, readProject, secretsFileOf } from "../project/project";
 import type { AddressRow, Cable, Session, StudioData, StudioError } from "./types";
 
 export class StudioModel {
@@ -49,6 +49,10 @@ export class StudioModel {
                 ...(network.asn !== undefined ? { asn: network.asn } : {}),
                 sites: network.settings.sites ?? {},
                 devices: Object.keys(network.devices),
+                secretsFile: secretsFileOf(network),
+                secrets: [...Secrets.referencesIn([network.devices, network.settings.integrations])]
+                    .filter((name) => !name.startsWith("file:"))
+                    .sort(),
             })),
             devices,
             files: Object.fromEntries(read.networks.flatMap((network) => Object.entries(network.files))),

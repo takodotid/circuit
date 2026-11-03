@@ -24,7 +24,7 @@ writeFileSync(join(root, "src", "cli", "editor-types.generated.ts"), generated()
 const studio = spawnSync("bun", ["scripts/studio.ts"], { cwd: root, stdio: "inherit" });
 if (studio.status !== 0) process.exit(studio.status ?? 1);
 
-/** Compile one binary. Circuit reads a project's `.env` itself, from the project's folder, so Bun is told not to load one. */
+/** Compile one binary. Bun is told not to load a `.env` or `bunfig.toml` from where it runs: a project's secrets come only from its secrets file. */
 function compile(outfile: string, target?: string): void {
     const build = spawnSync(
         "bun",

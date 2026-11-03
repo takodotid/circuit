@@ -10,10 +10,11 @@ import { Platforms } from "../platforms";
 import { BgpWait } from "../platforms/bgp-wait";
 import type { Finding } from "../platforms/finding";
 import type { ApplyOptions, BgpLogLine, BgpSession, Plan, Platform, ReadSession } from "../platforms/platform";
-import { ProjectError, type ProjectRead, readProject } from "../project/project";
+import { ProjectError, type ProjectRead, readProject, secretsFileOf } from "../project/project";
 import { ConsoleScript, type ConsoleSession, SerialConsole } from "../transport/console";
 import { PathCheck } from "../transport/path-check";
 import { Rename, type RenamePlan } from "./rename";
+import { SecretsPassword } from "./secrets-password";
 import { Setup } from "./setup";
 import { Ui } from "./ui";
 
@@ -109,6 +110,19 @@ export class ProjectCommands {
         );
     }
 
+    /** The device, its secrets read from its network's file, the person asked for that file's password when nothing else gives it. */
+    private async withSecrets(device: Device): Promise<Device> {
+        const network = this.project.networks.find((each) => device.name in each.devices);
+        Secrets.useFile(network ? secretsFileOf(network) : undefined);
+        await SecretsPassword.unlock(Secrets.lockedFor(device));
+        return device;
+    }
+
+    /** Every secrets file the networks use, relative to the project. */
+    secretsFiles(): string[] {
+        return [...new Set(this.project.networks.map(secretsFileOf))];
+    }
+
     /** How a device is reached: through its console when `--console` asks, or when it has no management address. */
     private optionsFor(device: Device): ApplyOptions {
         return this.options.console || !device.connection.host ? { ...this.options, console: true } : this.options;
@@ -192,7 +206,7 @@ export class ProjectCommands {
 
     /** What `apply` would send, against what the device runs now. Exits 1 when something would change. */
     async diff(name: string | undefined): Promise<void> {
-        const device = await this.pick(name);
+        const device = await this.withSecrets(await this.pick(name));
         this.guard([device]);
 
         const adapter = this.adapterOf(device);
@@ -203,7 +217,7 @@ export class ProjectCommands {
 
     /** Plan against what the device runs, show the plan, and send it once the person says yes, or with `--confirm`. */
     async apply(name: string | undefined, confirmed: boolean, force: boolean): Promise<void> {
-        const device = await this.pick(name);
+        const device = await this.withSecrets(await this.pick(name));
         this.guard([device]);
         const adapter = this.adapterOf(device);
 
@@ -240,7 +254,7 @@ export class ProjectCommands {
 
     /** Run commands that only read, each under a header with how long it took. Every command is checked before anything connects. */
     async exec(name: string | undefined, given: string[], file: string | undefined, timeoutSeconds: number): Promise<void> {
-        const device = await this.pick(name);
+        const device = await this.withSecrets(await this.pick(name));
         const adapter = this.adapterOf(device);
 
         const fromFile = file ? readFileSync(resolve(process.cwd(), file), "utf8").split(/\r?\n/) : [];
@@ -353,7 +367,7 @@ export class ProjectCommands {
         deviceName: string | undefined,
         flags: { neighbors?: string; wait?: true | number; max: number; log?: true | number; clearLimit?: true }
     ): Promise<void> {
-        const device = await this.bgpDevice(deviceName);
+        const device = await this.withSecrets(await this.bgpDevice(deviceName));
         const pattern = flags.neighbors;
         const adapter = this.adapterOf(device);
 
@@ -511,7 +525,7 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
      * A device's console, for a person: logged in with the platform's own login, then joined to this terminal, or sent each line. Logs out when done, and lets the port go on Ctrl-C or when the terminal closes, so no other program finds it held.
      */
     async accessConsole(name: string | undefined, lines: string[], raw: boolean): Promise<void> {
-        const device = await this.pick(name);
+        const device = await this.withSecrets(await this.pick(name));
         const dialect = Platforms.find(device.platform)?.console ?? Ui.fail(`${device.platform} cannot be reached through a console yet`);
         const serial = device.connection.console ?? Ui.fail(`${device.name} has no connection.console`);
         const login = raw ? undefined : SerialConsole.of(device);

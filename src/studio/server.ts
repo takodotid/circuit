@@ -3,13 +3,13 @@
 import { execFile, spawn } from "node:child_process";
 import { watch } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { EnvFile } from "../core/env-file";
+import { SecretsFile } from "../core/secrets-file";
 import { Secrets } from "../core/secrets";
 import { Platforms } from "../platforms";
 import { Releases } from "../cli/releases";
 import { STUDIO_ASSETS } from "./assets.generated";
 import { Git } from "./git";
-import type { EnvEntry, EnvListing, LiveRead, StudioData } from "./types";
+import type { LiveRead, SecretEntry, SecretsFileListing, SecretsListing, StudioData } from "./types";
 
 export type StudioOptions = {
     /** The project's folder. */
@@ -85,30 +85,48 @@ export class StudioServer {
         child.unref();
     }
 
-    /** `.env` as the page may see it: names, how each is kept, ciphertexts. Never a value in plain text, and never the key. */
-    static envListing(root: string, needed: readonly string[]): EnvListing {
-        const env = new EnvFile(root);
-        const values = env.values();
-        const names = [...new Set([...env.names(), ...needed])].sort();
+    /** Each secrets file the networks use, as the page may see it: names, how each is kept, ciphertexts. Never a value in plain text, and never the password. */
+    static secretsListing(root: string, data: StudioData): SecretsListing {
+        const files = [...new Set(data.networks.map((network) => network.secretsFile))];
+        return {
+            files: files.map((file) =>
+                StudioServer.fileListing(
+                    root,
+                    file,
+                    data.networks.filter((network) => network.secretsFile === file)
+                )
+            ),
+        };
+    }
 
-        const entries = names.map((name): EnvEntry => {
-            const value = values[name];
-            const isNeeded = needed.includes(name);
-            if (value === undefined) return { name, kind: "missing", needed: isNeeded };
+    private static fileListing(root: string, name: string, networks: StudioData["networks"]): SecretsFileListing {
+        const file = SecretsFile.at(root, name);
+        const values = file.values();
+        const needed = [...new Set(networks.flatMap((network) => network.secrets))];
+        const names = [...new Set([...file.names(), ...needed])].sort();
 
-            const kind = EnvFile.kindOf(name, value);
-            if (kind === "encrypted") return { name, kind, ciphertext: value, needed: isNeeded };
+        const entries = names.map((entry): SecretEntry => {
+            const value = values[entry];
+            const isNeeded = needed.includes(entry);
+            if (value === undefined) return { name: entry, kind: "missing", needed: isNeeded };
+
+            const kind = SecretsFile.kindOf(value);
+            if (kind === "encrypted") return { name: entry, kind, ciphertext: value, needed: isNeeded };
             if (kind === "1password") {
                 const [vault = "", item = "", ...field] = value.slice("op://".length).split("/");
-                return { name, kind, onePassword: { vault, item, field: field.join("/") }, needed: isNeeded };
+                return { name: entry, kind, onePassword: { vault, item, field: field.join("/") }, needed: isNeeded };
             }
 
-            return { name, kind, needed: isNeeded };
+            return { name: entry, kind, needed: isNeeded };
         });
 
-        const publicKey = env.publicKey();
-        const keyLocation = env.keyLocation();
-        return { ...(publicKey ? { publicKey } : {}), ...(keyLocation ? { keyLocation } : {}), entries };
+        const passwordLocation = file.passwordLocation();
+        return {
+            file: name,
+            networks: networks.map((network) => network.name),
+            ...(passwordLocation ? { passwordLocation } : {}),
+            entries,
+        };
     }
 
     /** Read a device now and plan against what it runs, as `circuit diff` does. Nothing is kept. */
@@ -120,6 +138,12 @@ export class StudioServer {
         if (!adapter) throw new Error(`no platform ${device.platform}`);
 
         Secrets.useRoot(root);
+        Secrets.useFile(data.networks.find((network) => network.devices.includes(name))?.secretsFile);
+        const locked = Secrets.lockedFor(device);
+        if (locked)
+            throw new Error(
+                `${locked.name} is encrypted, and Studio has no password for it. Studio reads a device when the password comes from 1Password or ${SecretsFile.PASSWORD}; or run circuit diff ${name}, which asks for it.`
+            );
         const options = { secrets: false, rollback: 10, ...(device.connection.host ? {} : { console: true }) };
         const running = await adapter.read(device, data.devices, options);
         const rendered = adapter.render(device);
@@ -200,8 +224,8 @@ export class StudioServer {
                 return;
             }
 
-            if (path === "/api/env") {
-                void answer(response, async () => StudioServer.envListing(root, parsed().secrets));
+            if (path === "/api/secrets") {
+                void answer(response, async () => StudioServer.secretsListing(root, parsed()));
                 return;
             }
 

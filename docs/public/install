@@ -107,7 +107,7 @@ fi
 if [ "$installed" = "$version" ]; then
     printf 'Circuit %s is installed already.\n' "$version"
 elif [ -n "$installed" ]; then
-    # Updating the app changes no project: each runs the version in its .circuit/VERSION.
+    # Updating the app changes no project: each runs the version in its .circuit/version.
     if ask "Circuit $installed is installed. Update the app to $version? Your projects keep the version they pin." no; then
         download "$target"
         printf 'Circuit %s is installed.\n' "$version"

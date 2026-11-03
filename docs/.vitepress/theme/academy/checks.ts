@@ -275,7 +275,7 @@ export const checks: Check[] = [
             },
             {
                 question: "Which command shows what would change on a device, without sending anything?",
-                choices: ["circuit apply, answering yes", "circuit diff", "circuit update", "circuit secret"],
+                choices: ["circuit apply, answering yes", "circuit diff", "circuit update", "circuit secrets"],
                 answer: 1,
                 lesson: "/academy/elementary/writing-it-down",
             },
@@ -283,7 +283,7 @@ export const checks: Check[] = [
                 question: "How is a device's password written in a Circuit file?",
                 choices: [
                     "As the password itself",
-                    'As secret("NAME"), with the value kept in .env, encrypted',
+                    'As secret("NAME"), with the value kept in .circuit/secrets, encrypted',
                     "In a comment",
                     "It is not written anywhere",
                 ],

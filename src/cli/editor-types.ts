@@ -58,7 +58,7 @@ export class EditorTypes {
         }
     }
 
-    /** Whether the project's types are this Circuit's: every file as this Circuit writes it. No version is kept beside them: the project's version is `.circuit/VERSION`, and the files themselves say whether they are current. */
+    /** Whether the project's types are this Circuit's: every file as this Circuit writes it. No version is kept beside them: the project's version is `.circuit/version`, and the files themselves say whether they are current. */
     static current(root: string): boolean {
         const folder = join(root, EditorTypes.FOLDER);
         return Object.entries(EDITOR_FILES).every(([path, text]) => {

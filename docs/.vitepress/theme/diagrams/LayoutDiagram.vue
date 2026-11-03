@@ -7,9 +7,9 @@ const rows = [
     { file: "sites/site-1/edge-01.ts", note: "one device per file", git: "commit", lit: true },
     { file: "tenants/", note: "what each tenant adds to the devices", git: "commit" },
     { file: "lib/checks.ts", note: "your own checks", git: "commit" },
-    { file: ".env", note: "the secrets, each one encrypted", git: "commit" },
-    { file: ".env.keys", note: "the key that decrypts .env", git: "never" },
-    { file: ".gitignore", note: "keeps .env.keys out of git", git: "commit" },
+    { file: ".gitignore", note: "keeps .circuit/cache out of git", git: "commit" },
+    { file: ".circuit/secrets", note: "the secrets, each one encrypted", git: "commit" },
+    { file: ".circuit/version", note: "the Circuit version the project runs", git: "commit" },
     { file: ".circuit/types/", note: "the editor's types, written by Circuit", git: "commit" },
     { file: ".circuit/hooks/", note: "the check before each commit", git: "commit" },
     { file: "tsconfig.json", note: "points the editor at .circuit/types", git: "commit" },
@@ -21,7 +21,7 @@ const row = 34;
 <template>
     <figure class="circuit-diagram">
         <svg :viewBox="`0 0 1000 ${rows.length * row + 40}`" role="img" aria-labelledby="layout-title">
-            <title id="layout-title">The files of a project, what each holds, and that every one is committed but .env.keys.</title>
+            <title id="layout-title">The files of a project, what each holds, and that every one is committed.</title>
             <rect x="0" y="0" width="380" :height="rows.length * row + 40" class="code-box" />
             <g v-for="(entry, index) in rows" :key="entry.file" :transform="`translate(0, ${index * row + 34})`">
                 <text x="24" y="0" :class="entry.lit ? 'code-lit' : entry.git === 'never' ? 'code-dim' : 'code'">{{ entry.file }}</text>

@@ -1,10 +1,9 @@
-// Secrets are references in the config and values only at the moment a command is sent. A reference names a variable, set in the environment or in `.env` beside the config, or a file kept out of the repository. A value in `.env` is encrypted (see `EnvFile`), or a 1Password reference, `op://vault/item/field`, read with the 1Password CLI.
+// Secrets are references in the config and values only at the moment a command is sent. A reference names a variable, set in the environment or in the network's secrets file (see `SecretsFile`), or a file kept out of the repository. A value in the secrets file is encrypted, or a 1Password reference, `op://vault/item/field`, read with the 1Password CLI.
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseEnv } from "node:util";
 import type { Console, Device, IP, Secret } from "../model";
-import { EnvFile, OnePassword } from "./env-file";
+import { OnePassword, SecretsFile } from "./secrets-file";
 
 /** Anything that holds secret references, such as a network's devices. */
 type Network = object;
@@ -21,55 +20,58 @@ export type DeviceLogin = {
 };
 
 export class Secrets {
-    /** The directory of the config file. `.env` and secret files are found from here. */
+    /** The directory of the config file. The secrets file and secret files are found from here. */
     private static root = process.cwd();
+    /** The secrets file of the network being worked on, relative to `root`. */
+    private static fileName = SecretsFile.DEFAULT;
 
-    private static envFile: Record<string, string> | undefined;
-    private static encrypted: EnvFile | undefined;
+    private static values: Record<string, string> | undefined;
     /** Every value read in this run, so `scrub` can hide it. */
     private static readonly revealed = new Set<string>();
 
     /** What `scrub` puts where a secret was. */
     static readonly REDACTED = "<redacted>";
 
-    /** A value in `.env` shorter than this is not hidden: `.env` can hold settings that are not secrets, and hiding a short one would garble the text. */
-    private static readonly SHORTEST_DOTENV_VALUE = 6;
+    /** A value in plain text shorter than this is not hidden: hiding a short one would garble the text. */
+    private static readonly SHORTEST_PLAIN_VALUE = 6;
 
     /** A marker anywhere in a command. Its group is the reference. */
     static readonly MARKER = /<secret:([A-Za-z0-9_./:-]+)>/g;
 
-    /** Find `.env` and secret files from this directory, the config file's, instead of the working directory. */
+    /** Find the secrets file and secret files from this directory, the config file's, instead of the working directory. */
     static useRoot(directory: string): void {
         Secrets.root = directory;
-        Secrets.envFile = undefined;
-        Secrets.encrypted = undefined;
+        Secrets.useFile(SecretsFile.DEFAULT);
     }
 
-    /** `.env` beside the config, which decrypts its values. */
-    private static env(): EnvFile {
-        Secrets.encrypted ??= new EnvFile(Secrets.root);
-        return Secrets.encrypted;
+    /** Read secrets from this file, relative to the project: the one a network's `secrets.file` names, or `.circuit/secrets`. */
+    static useFile(name: string = SecretsFile.DEFAULT): void {
+        Secrets.fileName = name;
+        Secrets.values = undefined;
     }
 
-    /** `.env` beside the config, read once. Node and Bun read it the same way they load `.env` themselves: a `#` starts a comment unless the value is quoted. */
-    private static dotenv(): Record<string, string> {
-        if (Secrets.envFile) return Secrets.envFile;
-
-        const path = join(Secrets.root, ".env");
-        const text = existsSync(path) ? readFileSync(path, "utf8") : "";
-
-        Secrets.refuseCutValues(text);
-        Secrets.envFile = parseEnv(text) as Record<string, string>;
-        return Secrets.envFile;
+    /** The secrets file in use. */
+    static file(): SecretsFile {
+        return SecretsFile.at(Secrets.root, Secrets.fileName);
     }
 
-    /** An unquoted value is cut at a `#`. A `#` after a space is a comment, but one inside the value, as in `abc#def`, would cut a password short and send that to a device, so it stops the run and asks for quotes. */
-    private static refuseCutValues(text: string): void {
+    /** The secrets file's values as written, read once. A `#` starts a comment unless the value is quoted. */
+    private static stored(): Record<string, string> {
+        if (Secrets.values) return Secrets.values;
+
+        const file = Secrets.file();
+        Secrets.refuseCutValues(file.exists() ? readFileSync(file.path, "utf8") : "", file.name);
+        Secrets.values = file.values();
+        return Secrets.values;
+    }
+
+    /** An unquoted value is cut at a `#`. A `#` after a space is a comment, but one inside the value, as in `abc#def`, would cut a value short and send that to a device, so it stops the run and asks for quotes. */
+    private static refuseCutValues(text: string, name: string): void {
         for (const line of text.split(/\r?\n/)) {
-            const [, name, value] = /^\s*(?:export\s+)?([\w.-]+)\s*=\s*(.*)$/.exec(line) ?? [];
-            if (!name || !value || /^['"`]/.test(value) || !/\S#/.test(value)) continue;
+            const [, key, value] = /^\s*(?:export\s+)?([\w.-]+)\s*=\s*(.*)$/.exec(line) ?? [];
+            if (!key || !value || /^['"`]/.test(value) || !/\S#/.test(value)) continue;
 
-            throw new Error(`.env: the value of ${name} has a # in it, which starts a comment there; put the value in quotes`);
+            throw new Error(`${name}: the value of ${key} has a # in it, which starts a comment there; put the value in quotes`);
         }
     }
 
@@ -82,19 +84,16 @@ export class Secrets {
         return "secret" in secret ? secret.secret : `file:${secret.secret_file}`;
     }
 
-    /** Where a reference's value comes from, such as `.env` or `1Password, through .env`, without reading it. Undefined when it is set nowhere. */
+    /** Where a reference's value comes from, such as `.circuit/secrets, encrypted` or `1Password, through the environment`, without reading it. Undefined when it is set nowhere. */
     static sourceOf(reference: string): string | undefined {
         if (reference.startsWith("file:")) return existsSync(join(Secrets.root, reference.slice("file:".length))) ? "a file" : undefined;
 
-        const fromFile = Secrets.dotenv()[reference];
-        const value = process.env[reference] || fromFile;
+        const where = process.env[reference] ? "the environment" : Secrets.file().name;
+        const value = process.env[reference] || Secrets.stored()[reference];
         if (!value) return undefined;
 
-        // Bun loads `.env` into the environment when it starts in the same directory, so the same value in both came from `.env`.
-        const where = process.env[reference] && process.env[reference] !== fromFile ? "the environment" : ".env";
-
         if (value.startsWith("op://")) return `1Password, through ${where}`;
-        return EnvFile.isEncrypted(value) ? `${where}, encrypted` : where;
+        return SecretsFile.isEncrypted(value) ? `${where}, encrypted` : where;
     }
 
     /** The value behind a reference, as `referenceOf` writes it: one marker's reference, for a platform that takes a secret interactively. */
@@ -111,17 +110,24 @@ export class Secrets {
             return value;
         }
 
-        // `.env` is read first even when the environment has the value, so a value cut at a `#` is caught under Bun too, which loads `.env` itself.
-        const fromFile = Secrets.dotenv()[reference];
-        const value = process.env[reference] || fromFile;
-        if (!value) throw new Error(`secret ${reference} is not set in the environment or in .env`);
+        // The file is read first even when the environment has the value, so a value cut at a `#` is caught anyway.
+        const fromFile = Secrets.stored()[reference];
+        const fromEnvironment = process.env[reference];
+        if (!fromEnvironment && fromFile === undefined)
+            throw new Error(`secret ${reference} is not set in ${Secrets.file().name}: set it with circuit secrets set ${reference}`);
 
-        const revealed = value.startsWith("op://") ? OnePassword.read(value, `secret ${reference}`) : Secrets.env().decrypt(value);
+        const revealed = fromEnvironment
+            ? fromEnvironment.startsWith("op://")
+                ? OnePassword.read(fromEnvironment, `secret ${reference}`)
+                : fromEnvironment
+            : Secrets.file().decrypt(reference, fromFile!);
+        if (!revealed) throw new Error(`secret ${reference} is empty in ${Secrets.file().name}`);
+
         Secrets.revealed.add(revealed);
         return revealed;
     }
 
-    /** The value of a secret, or of a variable named directly: from the environment, `.env`, 1Password or a file. */
+    /** The value of a secret, or of a variable named directly: from the environment, the secrets file, 1Password or a file. */
     static reveal(secret: Secret | string): string {
         return Secrets.valueOf(typeof secret === "string" ? secret : Secrets.referenceOf(secret));
     }
@@ -136,16 +142,34 @@ export class Secrets {
     }
 
     /**
+     * The secrets file when a secret of `value`, such as a device, is encrypted in it and no password is at hand: the person has to type
+     * it before the work starts. Undefined when every secret can be read. A password in the environment or 1Password opens the file here.
+     */
+    static lockedFor(value: unknown): SecretsFile | undefined {
+        const file = Secrets.file();
+        const needed = [...Secrets.referencesIn(value)].some(
+            (reference) =>
+                !reference.startsWith("file:") && !process.env[reference] && SecretsFile.isEncrypted(Secrets.stored()[reference] ?? "")
+        );
+        return needed && !file.tryUnlock() ? file : undefined;
+    }
+
+    /**
      * Text with every secret value Circuit knows replaced by `<redacted>`, before it is printed. Devices echo what they are sent, passwords too.
      *
-     * Hidden are: each value in `.env` of at least six characters, each value read in this run (1Password reads and secret files among them), each secret of `network` that the environment, `.env` or a file holds, and `extra`. A 1Password reference not read in this run is not read for this.
+     * Hidden are: each value in plain text in the secrets file of at least six characters, each value read in this run (1Password reads and secret files among them), each secret of `network` that the environment, the secrets file or a file holds, and `extra`. A 1Password reference not read in this run is not read for this.
      */
     static scrub(text: string, options: { network?: Network; extra?: readonly string[] } = {}): string {
         const values = new Set<string>(options.extra ?? []);
 
         // An encrypted value or a reference is not the secret itself.
-        for (const [name, value] of Object.entries(Secrets.dotenv())) {
-            if (value.length >= Secrets.SHORTEST_DOTENV_VALUE && EnvFile.kindOf(name, value) === "not encrypted") values.add(value);
+        for (const [name, value] of Object.entries(Secrets.stored())) {
+            if (
+                name !== SecretsFile.PASSWORD &&
+                value.length >= Secrets.SHORTEST_PLAIN_VALUE &&
+                SecretsFile.kindOf(value) === "not encrypted"
+            )
+                values.add(value);
         }
 
         for (const value of Secrets.revealed) values.add(value);
@@ -160,19 +184,18 @@ export class Secrets {
         return ordered.reduce((out, value) => out.split(value).join(Secrets.REDACTED), text);
     }
 
-    /** The value behind a reference when it can be had without asking anyone: a 1Password reference only once read in this run, an encrypted value only with the key at hand. Undefined otherwise. */
+    /** The value behind a reference when it can be had without asking anyone: a 1Password reference only once read in this run, an encrypted value only with the file open. Undefined otherwise. */
     private static storedValueOf(reference: string): string | undefined {
         if (reference.startsWith("file:")) {
             const path = join(Secrets.root, reference.slice("file:".length));
             return existsSync(path) ? readFileSync(path, "utf8").trimEnd() : undefined;
         }
 
-        const value = process.env[reference] || Secrets.dotenv()[reference];
-        if (!value) return undefined;
-        if (value.startsWith("op://")) return OnePassword.cached(value);
-        if (!EnvFile.isEncrypted(value)) return value;
+        const fromEnvironment = process.env[reference];
+        if (fromEnvironment) return fromEnvironment.startsWith("op://") ? OnePassword.cached(fromEnvironment) : fromEnvironment;
 
-        return Secrets.env().keyAtHand() ? Secrets.env().decrypt(value) : undefined;
+        const value = Secrets.stored()[reference];
+        return value ? Secrets.file().revealIfOpen(reference, value) : undefined;
     }
 
     /** How Circuit logs in to a device: its address, port, connection user, that user's password revealed, and its console. */

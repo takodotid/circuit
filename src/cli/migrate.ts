@@ -3,8 +3,10 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { parseEnv } from "node:util";
 import { Validation } from "../checks";
-import { EnvFile } from "../core/env-file";
+import { OnePassword, SecretsFile } from "../core/secrets-file";
+import { SecretsPassword } from "./secrets-password";
 import { ProjectError, readProject } from "../project/project";
 import { EditorTypes } from "./editor-types";
 import { GITIGNORE, Setup } from "./setup";
@@ -381,8 +383,8 @@ export class Migrate {
         return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : JSON.stringify(key);
     }
 
-    /** Write the project into `out`, which must be empty or not there yet. `.env` is copied, encrypted, only when `copyEnv`. */
-    static write(out: string, migrated: Migrated, from: { root: string; copyEnv: boolean }): void {
+    /** Write the project into `out`, which must be empty or not there yet. 0.x's `.env` goes into `.circuit/secrets`, encrypted, only when a password is given. */
+    static write(out: string, migrated: Migrated, from: { root: string; password?: string }): void {
         if (existsSync(out) && readdirSync(out).length) Ui.fail(`${out} already holds files. Give an empty folder with --out.`);
 
         mkdirSync(join(out, "sites"), { recursive: true });
@@ -419,21 +421,24 @@ export class Migrate {
         EditorTypes.write(out);
         Setup.writeNotice(out);
 
-        Migrate.writeEnv(out, from);
+        Migrate.writeSecrets(out, from);
     }
 
-    /** A new encrypted `.env`, with 0.x's values copied in and encrypted at once when asked. No value is ever printed. */
-    private static writeEnv(out: string, from: { root: string; copyEnv: boolean }): void {
-        EnvFile.create(out);
-
+    /** 0.x's `.env` values in `.circuit/secrets`, each encrypted with `password`. A value 0.x had encrypted itself is left out, to set again. No value is ever printed. */
+    private static writeSecrets(out: string, from: { root: string; password?: string }): void {
         const source = join(from.root, ".env");
-        if (!from.copyEnv || !existsSync(source)) return;
+        if (from.password === undefined || !existsSync(source)) return;
 
-        const lines = readFileSync(source, "utf8")
-            .split(/\r?\n/)
-            .filter((line) => !/^\s*(export\s+)?DOTENV_(PUBLIC|PRIVATE)_KEY/.test(line));
-        writeFileSync(join(out, ".env"), `${readFileSync(join(out, ".env"), "utf8")}\n${lines.join("\n")}\n`);
-        new EnvFile(out).encryptAll();
+        const file = SecretsFile.at(out);
+        file.unlock(from.password);
+        const skipped: string[] = [];
+        for (const [name, value] of Object.entries(parseEnv(readFileSync(source, "utf8")) as Record<string, string>)) {
+            if (name.startsWith("DOTENV_") || name === SecretsFile.PASSWORD || !value) continue;
+            if (value.startsWith("encrypted:")) skipped.push(name);
+            else file.set(name, value);
+        }
+        if (skipped.length)
+            Ui.warn(`${skipped.join(", ")}: encrypted in 0.x's .env, so not copied. Set each with circuit secrets set NAME.`);
     }
 
     /** Files a `secretFile()` names, which a migration does not copy: they stay out of git, by hand. */
@@ -512,24 +517,35 @@ export class Migrate {
         if (existsSync(join(root, ".env"))) {
             if (options.yes) copyEnv = true;
             else if (Ui.interactive)
-                copyEnv = await Ui.confirm("Copy the 0.x project's .env into the new project? It is encrypted there at once.");
+                copyEnv = await Ui.confirm(
+                    "Copy the 0.x project's .env into the new project's secrets? Each value is encrypted there at once."
+                );
+        }
+
+        let password: string | undefined;
+        if (copyEnv) {
+            password = process.env[SecretsFile.PASSWORD];
+            if (password?.startsWith("op://")) password = OnePassword.read(password, "The secrets password");
+            password ||= await SecretsPassword.choose(SecretsFile.at(out), "a password for the new project's secrets");
         }
 
         await Ui.step(`Writing ${migrated.devices.length} device(s) to ${out}`, async () =>
-            Migrate.write(out, migrated, { root, copyEnv })
+            Migrate.write(out, migrated, { root, ...(password !== undefined ? { password } : {}) })
         );
 
         const found = await Ui.step("Checking the new project", () => Migrate.findings(out));
         writeFileSync(join(out, "MIGRATION.md"), Migrate.report(migrated, found));
 
-        Ui.done(`${basename(out)}: ${migrated.devices.length} device(s) moved${copyEnv ? ", .env copied and encrypted" : ""}.`);
+        Ui.done(
+            `${basename(out)}: ${migrated.devices.length} device(s) moved${copyEnv ? `, .env copied into ${SecretsFile.DEFAULT}, encrypted` : ""}.`
+        );
         Ui.note(
             [
                 `cd ${out}`,
                 "Read MIGRATION.md: what did not move, and what to fix.",
                 copyEnv
-                    ? "The key that decrypts .env is in .env.keys. Keep a copy in your password manager."
-                    : "Set each secret with circuit secret set NAME, or copy .env and run circuit secret encrypt.",
+                    ? `Keep the secrets password in your password manager. In 1Password, Circuit can read it: circuit secrets password --1password op://vault/item/field`
+                    : "Set each secret with circuit secrets set NAME.",
                 "circuit validate, then circuit diff <device> on each device.",
             ].join("\n"),
             "Next"

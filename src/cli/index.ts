@@ -3,10 +3,10 @@
 
 import { Command, InvalidArgumentError } from "@commander-js/extra-typings";
 import { spawnSync } from "node:child_process";
-import { EnvFile } from "../core/env-file";
+import { SecretsFile } from "../core/secrets-file";
 import { BgpWait } from "../platforms/bgp-wait";
 import { App } from "./app";
-import { SecretCommands } from "./secret";
+import { SecretCommands } from "./secrets";
 import { GitHooks } from "./git-hooks";
 import { Migrate } from "./migrate";
 import { ProjectCommands } from "./project-commands";
@@ -212,48 +212,69 @@ class Cli {
 
         program.commandsGroup("Secrets:");
 
-        const secret = program.command("secret").description("the project's secrets in .env, each one encrypted");
-        secret
-            .command("list", { isDefault: true })
-            .description("every secret, how it is kept, and the ones the config needs that .env lacks")
+        const NETWORK_FLAGS = "--network <name>";
+        const NETWORK_HELP = "the network whose secrets, when the networks keep them in different files";
+        const secrets = program
+            .command("secrets")
+            .alias("secret")
+            .description("the project's secrets, each one encrypted: alone, in a terminal, opens them to look through and change")
+            .option(NETWORK_FLAGS, NETWORK_HELP)
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (flags) => SecretCommands.open(flags.project).list());
-        secret
+            .action(async (flags) => {
+                const commands = await SecretCommands.open(flags.project, flags.network);
+                if (Ui.interactive) await commands.edit();
+                else commands.list();
+            });
+        secrets
+            .command("list")
+            .description("every secret, how it is kept, and the ones the config needs that the file lacks")
+            .option(NETWORK_FLAGS, NETWORK_HELP)
+            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
+            .action(async (flags) => (await SecretCommands.open(flags.project, flags.network)).list());
+        secrets
             .command("get")
             .description("print one secret, decrypted")
             .argument("[name]")
+            .option(NETWORK_FLAGS, NETWORK_HELP)
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action((name, flags) => SecretCommands.open(flags.project).get(name));
-        secret
+            .action(async (name, flags) => (await SecretCommands.open(flags.project, flags.network)).get(name));
+        secrets
             .command("set")
             .description("add or change a secret, encrypted; leave out the value to type it hidden")
             .argument("[name]")
             .argument("[value]", "an op://vault/item/field reference keeps the value in 1Password")
+            .option(NETWORK_FLAGS, NETWORK_HELP)
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (name, value, flags) => SecretCommands.open(flags.project).set(name, value));
-        secret
+            .action(async (name, value, flags) => (await SecretCommands.open(flags.project, flags.network)).set(name, value));
+        secrets
             .command("delete")
             .description("remove a secret")
             .argument("[name]")
             .option("--confirm", "delete without asking")
+            .option(NETWORK_FLAGS, NETWORK_HELP)
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (name, flags) => SecretCommands.open(flags.project).delete(name, flags.confirm ?? false));
-        secret
+            .action(async (name, flags) => (await SecretCommands.open(flags.project, flags.network)).delete(name, flags.confirm ?? false));
+        secrets
             .command("encrypt")
-            .description("encrypt every value written in plain text")
+            .description("encrypt every value typed into the file in plain text")
+            .option(NETWORK_FLAGS, NETWORK_HELP)
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action((flags) => SecretCommands.open(flags.project).encrypt());
-        secret
-            .command("key")
-            .description("where the key that decrypts .env is")
+            .action(async (flags) => (await SecretCommands.open(flags.project, flags.network)).encrypt());
+        secrets
+            .command("password")
+            .description("change the password; every secret is encrypted again and the old password stops working")
+            .option("--1password <reference>", "read the password from 1Password instead of asking: op://vault/item/field")
+            .option("--forget-1password", "stop reading it from 1Password, and ask for it")
+            .option("--confirm", "change without asking; the new password comes from CIRCUIT_SECRETS_NEW_PASSWORD")
+            .option(NETWORK_FLAGS, NETWORK_HELP)
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action((flags) => SecretCommands.open(flags.project).key());
-        secret
-            .command("rotate")
-            .description("a new key: every secret encrypted again, the old key stops working")
-            .option("--confirm", "rotate without asking")
-            .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (flags) => SecretCommands.open(flags.project).rotate(flags.confirm ?? false));
+            .action(async (flags) =>
+                (await SecretCommands.open(flags.project, flags.network)).password({
+                    ...(flags["1password"] !== undefined ? { onePassword: flags["1password"] } : {}),
+                    forgetOnePassword: flags.forget1password ?? false,
+                    confirm: flags.confirm ?? false,
+                })
+            );
 
         program.commandsGroup("Circuit:");
 
@@ -283,7 +304,10 @@ class Cli {
             .argument("<v0-folder>", "the 0.x project, with its packages installed")
             .option("--out <folder>", "an empty folder for the v1 project; <v0-folder>-v1 by default")
             .option("--config <file>", "0.x's config file in that folder", "circuit.config.ts")
-            .option("--yes", "copy the 0.x project's .env without asking; it is encrypted at once")
+            .option(
+                "--yes",
+                "copy the 0.x project's .env into the secrets without asking; the password comes from CIRCUIT_SECRETS_PASSWORD"
+            )
             .action(async (folder, flags) => Migrate.run(folder, { ...flags, yes: flags.yes ?? false }));
 
         program
@@ -376,19 +400,25 @@ class Cli {
         });
     }
 
-    /** Before a commit: no secret in plain text, no `.env.keys`, and a project that validates. */
+    /** Before a commit: every secret encrypted, and a project that validates. */
     private static async hook(name: string): Promise<void> {
         if (name !== "pre-commit") Ui.fail(`No hook ${name}.`);
 
-        const root = ProjectCommands.find() ?? process.cwd();
-        const problems = GitHooks.stagedProblems(root);
-        if (problems.length) {
+        const stop = (files: readonly string[]) => {
+            const problems = GitHooks.stagedProblems(ProjectCommands.find() ?? process.cwd(), files);
+            if (!problems.length) return;
             for (const problem of problems) Ui.error(problem);
             Ui.fail("\nThe commit was stopped, so no secret reaches git.");
-        }
+        };
 
+        // `.circuit/secrets` before the project is read, so a project with errors still has it checked; then the files the networks name.
+        stop([SecretsFile.DEFAULT]);
+        if (!ProjectCommands.find()) return;
+
+        const project = await ProjectCommands.open(undefined, { experimental: true });
+        stop(project.secretsFiles());
         // A field not proved yet is a warning here: it stops `apply`, not a commit.
-        if (ProjectCommands.find()) (await ProjectCommands.open(undefined, { experimental: true })).validate();
+        project.validate();
     }
 
     /** The menu `circuit` opens alone: pick what to do, answer what it needs, and get the command it runs. */
@@ -420,7 +450,7 @@ class Cli {
             { value: "rename", label: "Rename", hint: "give a device a new name everywhere" },
             { value: "fmt", label: "Tidy files", hint: "spacing and line breaks only; what the files say stays the same" },
             heading("Secrets"),
-            { value: "secret", label: "Secrets", hint: "list, set or delete the secrets in .env" },
+            { value: "secrets", label: "Secrets", hint: "look through and change the secrets, each one encrypted" },
             heading("Circuit"),
             { value: "update", label: "Update Circuit" },
             { value: "uninstall", label: "Uninstall Circuit", hint: "your projects stay" },
@@ -428,29 +458,7 @@ class Cli {
         ]);
 
         if (choice === "exit") process.exit(0);
-        if (choice !== "secret") return [choice];
-
-        const action = await Ui.select("Secrets", [
-            { value: "list", label: "List", hint: "every secret and how it is kept" },
-            { value: "set", label: "Set", hint: "add or change one, encrypted" },
-            { value: "get", label: "Show", hint: "print one, decrypted" },
-            { value: "delete", label: "Delete" },
-            { value: "encrypt", label: "Encrypt", hint: "every value written in plain text" },
-            { value: "key", label: "Where the key is" },
-            { value: "rotate", label: "Rotate the key" },
-        ]);
-        if (action !== "get" && action !== "delete") return ["secret", action];
-
-        const names = new EnvFile(ProjectCommands.find()!).names();
-        if (!names.length) Ui.fail("No secrets yet. Add one with circuit secret set NAME.");
-        return [
-            "secret",
-            action,
-            await Ui.select(
-                "Which secret?",
-                names.map((name) => ({ value: name, label: name }))
-            ),
-        ];
+        return [choice];
     }
 }
 

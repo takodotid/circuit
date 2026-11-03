@@ -3,11 +3,11 @@
 /**
  * A value kept out of the repository and resolved only when a device is applied.
  *
- * `secret("NAME")` reads a variable from the environment or `.env` beside the project; a value written as `op://vault/item/field` is read from 1Password. `secretFile("path")` reads a file, relative to the project root, for a value that spans lines such as a private key in PEM. Keep that file out of git.
+ * `secret("NAME")` reads a secret from the network's secrets file, `.circuit/secrets`, set with `circuit secrets`, or from the environment; a value written as `op://vault/item/field` is read from 1Password. `secretFile("path")` reads a file, relative to the project root, for a value that spans lines such as a private key in PEM. Keep that file out of git.
  */
 export type Secret =
     | {
-          /** Name of the value in the environment or in `.env`. */
+          /** Name of the secret, as `circuit secrets set NAME` sets it. */
           readonly secret: string;
       }
     | {

@@ -38,7 +38,7 @@ function withCertificateTexts(device: any, folder: string): any {
 beforeAll(() => {
     for (const [example, names] of examples) {
         const migrated = Migrate.convert({ asn: 64500, devices: names.map(v0), site: () => example });
-        Migrate.write(join(parent, example), migrated, { root: parent, copyEnv: false });
+        Migrate.write(join(parent, example), migrated, { root: parent });
     }
 });
 

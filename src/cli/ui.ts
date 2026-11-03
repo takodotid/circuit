@@ -104,9 +104,10 @@ export class Ui {
         );
     }
 
-    /** A value typed without showing it, such as a password. */
-    static async secret(message: string): Promise<string> {
-        return Ui.answered(await prompts.password({ message, validate: (value) => (value ? undefined : "Type a value.") }));
+    /** A value typed without showing it, such as a password. With `empty`, Enter alone gives "". */
+    static async secret(message: string, options: { empty?: boolean } = {}): Promise<string> {
+        const answer = await prompts.password({ message, validate: (value) => (value || options.empty ? undefined : "Type a value.") });
+        return Ui.answered(answer) ?? "";
     }
 
     /** A heading for a run of questions, and the line that closes it. */

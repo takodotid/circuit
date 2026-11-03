@@ -29,14 +29,15 @@ Rule of thumb: write a value in the device first. Only when a second device need
 
 ### The `.circuit` folder
 
-Circuit writes everything in it. Don't edit it: Circuit overwrites it, and `.circuit/DO_NOT_EDIT.md` says so.
+Circuit writes everything in it. Don't edit it by hand: use the command each entry names. `.circuit/DO_NOT_EDIT.md` says so.
 
-| Entry                       | What it is                                                                    | Simple | Full |
-| --------------------------- | ----------------------------------------------------------------------------- | :----: | :--: |
-| `.circuit/VERSION`          | The Circuit version the project runs. `circuit update` changes it. Committed. |   ✅   |  ❌  |
-| `.circuit/types/`           | The editor's types. After `circuit update`, the next run writes them again.   |   ✅   |  ❌  |
-| `.circuit/hooks/pre-commit` | The [commit check](/guide/secrets#the-commit-check).                          |   ✅   |  ✅  |
-| `.circuit/cache/`           | Temporary. Git ignores it.                                                    |   ✅   |  ✅  |
+| Entry                       | What it is                                                                                         | Simple | Full |
+| --------------------------- | -------------------------------------------------------------------------------------------------- | :----: | :--: |
+| `.circuit/version`          | The Circuit version the project runs. `circuit update` changes it. Committed.                      |   ✅   |  ❌  |
+| `.circuit/secrets`          | Your [secrets](/guide/secrets), each one encrypted. Change them with `circuit secrets`. Committed. |   ✅   |  ✅  |
+| `.circuit/types/`           | The editor's types. After `circuit update`, the next run writes them again.                        |   ✅   |  ❌  |
+| `.circuit/hooks/pre-commit` | The [commit check](/guide/secrets#the-commit-check).                                               |   ✅   |  ✅  |
+| `.circuit/cache/`           | Temporary. Git ignores it.                                                                         |   ✅   |  ✅  |
 
 In a [full install](/guide/install#full-install), `package.json` pins the version, and the types come from the Circuit package in `node_modules`.
 
@@ -71,13 +72,14 @@ export const as64500 = circuit({
 });
 ```
 
-| Field         | Is                                                                                |
-| ------------- | --------------------------------------------------------------------------------- |
-| `asn`         | Your AS. BGP uses it unless a device sets `routing.bgp.asn`.                      |
-| `prefixes`    | Your address blocks, with names. Devices use them by name.                        |
-| `communities` | Your BGP community scheme. See [Communities](/guide/communities).                 |
-| `sites`       | Each site's `description` (and `number`, if communities tag by site). That's all. |
-| `checks`      | Circuit's checks to turn on, and your own. See [Checks](/guide/checks).           |
+| Field         | Is                                                                                                                                                                                                             |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `asn`         | Your AS. BGP uses it unless a device sets `routing.bgp.asn`. Optional: an office network without one leaves it out.                                                                                            |
+| `prefixes`    | Your address blocks, with names. Devices use them by name.                                                                                                                                                     |
+| `communities` | Your BGP community scheme. See [Communities](/guide/communities).                                                                                                                                              |
+| `sites`       | Each site's `description` (and `number`, if communities tag by site). That's all.                                                                                                                              |
+| `checks`      | Circuit's checks to turn on, and your own. See [Checks](/guide/checks).                                                                                                                                        |
+| `secrets`     | Optional. `{ file: ".circuit/lab-secrets" }` keeps this network's secrets in their own file, with their own password. `.circuit/secrets` when left out. See [Lab and staging](/guide/secrets#lab-and-staging). |
 
 Name the network after its AS, like `as64500`. Got two networks? Write two `circuit()` calls, each exported under its own name.
 

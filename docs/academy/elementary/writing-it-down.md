@@ -52,16 +52,16 @@ export default as64500.device({
 
 You do not need to know TypeScript to read it. It is names and values inside braces. `as64500.device(...)` around them says "this is a device of the network `as64500`", which `circuit.ts` writes, and the `import` line at the top brings that network in. Here is what each part says:
 
-| Part                | What it says                                                                                                                                                                   |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `name`              | The router's name, which Circuit sets as its hostname.                                                                                                                         |
-| `site`              | Where the router is: one of the sites `circuit.ts` lists.                                                                                                                      |
-| `platform`, `model` | Which operating system the router runs and which hardware it is. Together they decide the commands Circuit sends and which ports exist.                                        |
-| `connection`        | How Circuit reaches the router: its address, and which user it logs in as.                                                                                                     |
-| `system.users`      | Who may log in, and what they may do. `secret("ROUTER_PASSWORD")` means the password is not in the file: Circuit reads it from `.env`, encrypted, only when it sends a change. |
-| `management`        | SSH is on, and only addresses in `192.168.10.0/24` may use it.                                                                                                                 |
-| `interfaces`        | What each port is for, and its IP address. Ports are named by speed and place: `25g-1` is the first 25G port. Circuit turns that into the router's own name for it.            |
-| `routing`           | The default route: anything not on the router's own networks goes to the provider at `203.0.113.1`.                                                                            |
+| Part                | What it says                                                                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`              | The router's name, which Circuit sets as its hostname.                                                                                                                                     |
+| `site`              | Where the router is: one of the sites `circuit.ts` lists.                                                                                                                                  |
+| `platform`, `model` | Which operating system the router runs and which hardware it is. Together they decide the commands Circuit sends and which ports exist.                                                    |
+| `connection`        | How Circuit reaches the router: its address, and which user it logs in as.                                                                                                                 |
+| `system.users`      | Who may log in, and what they may do. `secret("ROUTER_PASSWORD")` means the password is not in the file: Circuit reads it from `.circuit/secrets`, encrypted, only when it sends a change. |
+| `management`        | SSH is on, and only addresses in `192.168.10.0/24` may use it.                                                                                                                             |
+| `interfaces`        | What each port is for, and its IP address. Ports are named by speed and place: `25g-1` is the first 25G port. Circuit turns that into the router's own name for it.                        |
+| `routing`           | The default route: anything not on the router's own networks goes to the provider at `203.0.113.1`.                                                                                        |
 
 Your editor knows every field. Hover one to see what it means, and a name that does not exist, such as a port this model does not have, is underlined in red as you type.
 

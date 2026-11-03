@@ -11,6 +11,10 @@ export type StudioNetwork = {
     /** By name. */
     sites: Record<string, { description?: string; number?: number }>;
     devices: string[];
+    /** Where its secrets are, relative to the project. */
+    secretsFile: string;
+    /** The secrets its devices and integrations name with `secret("NAME")`. */
+    secrets: string[];
 };
 
 /** One address a device holds. */
@@ -98,11 +102,11 @@ export type Commit = {
     subject: string;
 };
 
-/** How one name in `.env` is kept. The value is sent only when it is encrypted: a value in plain text never leaves the server. */
-export type EnvEntry = {
+/** How one name in a secrets file is kept. The value is sent only when it is encrypted: a value in plain text never leaves the server. */
+export type SecretEntry = {
     name: string;
-    kind: "encrypted" | "1password" | "reference" | "empty" | "not encrypted" | "missing";
-    /** The `encrypted:...` value, for the page to decrypt with the key a person types. */
+    kind: "encrypted" | "1password" | "empty" | "not encrypted" | "missing";
+    /** The `encrypted:...` value, for the page to decrypt with the password a person types. */
     ciphertext?: string;
     /** Where 1Password keeps it. */
     onePassword?: { vault: string; item: string; field: string };
@@ -110,13 +114,17 @@ export type EnvEntry = {
     needed: boolean;
 };
 
-export type EnvListing = {
-    /** The key that encrypts, from `.env`. The page checks a typed private key against it. */
-    publicKey?: string;
-    /** Where the key that decrypts is kept, without its value. */
-    keyLocation?: string;
-    entries: EnvEntry[];
+/** One secrets file as the page may see it: names, how each is kept, ciphertexts. Never a value in plain text, and never the password. */
+export type SecretsFileListing = {
+    file: string;
+    /** The networks that keep their secrets here. */
+    networks: string[];
+    /** Where the password comes from, without its value. Absent when a person types it. */
+    passwordLocation?: string;
+    entries: SecretEntry[];
 };
+
+export type SecretsListing = { files: SecretsFileListing[] };
 
 /** What `Read from the device now` found: the device's own config, and the plan from it to the project's. */
 export type LiveRead = {

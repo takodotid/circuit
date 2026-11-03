@@ -12,7 +12,7 @@ import { type Before, type Clash, caller, innerCaller, made, mark, type Merged, 
 import { type CallRule, type PolicyRule, policyRuleProblem, type RouteRule, type RoutingRule } from "./routing";
 import type { AclRule } from "./switching";
 
-/** A value resolved by name when a device is applied, from the environment or `.env` beside the project, and through 1Password when that value is an `op://` reference. Never the value itself. */
+/** A secret by name, read when a device is applied from the network's secrets file or the environment, and through 1Password when that value is an `op://` reference. Never the value itself. */
 export const secret = (name: string): Secret => ({ secret: name });
 
 /** A value read from a file when a device is applied, such as a private key in PEM. The path is from the project root; keep the file out of git. */

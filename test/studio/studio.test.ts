@@ -1,16 +1,15 @@
-// Studio: what it gathers from a project, what its server answers and refuses, the page it carries, and `.env` decrypted in the browser as dotenvx encrypts it.
+// Studio: what it gathers from a project, what its server answers and refuses, the page it carries, and a secret decrypted in the browser as Circuit encrypts it.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { encrypt, keypair } from "@dotenvx/primitives";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { EnvFile } from "../../src/core/env-file";
+import { SecretsFile } from "../../src/core/secrets-file";
 import { STUDIO_ASSETS } from "../../src/studio/assets.generated";
 import { StudioModel } from "../../src/studio/data";
 import { StudioServer } from "../../src/studio/server";
-import type { EnvListing, StudioData } from "../../src/studio/types";
-import { EnvCrypto } from "../../src/studio/app/src/lib/ecies";
+import type { SecretsListing, StudioData } from "../../src/studio/types";
+import { SecretsCrypto } from "../../src/studio/app/src/lib/secrets-crypto";
 import { Fixtures } from "../fixtures";
 
 const folder = mkdtempSync(join(tmpdir(), "circuit-studio-"));
@@ -32,9 +31,10 @@ beforeAll(async () => {
         );
     }
 
-    EnvFile.create(folder);
-    new EnvFile(folder).set("EDGE_01_PASSWORD", "s3cret-value");
-    writeFileSync(join(folder, ".env"), `${await Bun.file(join(folder, ".env")).text()}PLAIN_ONE=never-sent\n`);
+    const secrets = SecretsFile.at(folder);
+    secrets.unlock("a password for the test");
+    secrets.set("EDGE_01_PASSWORD", "s3cret-value");
+    writeFileSync(secrets.path, `${await Bun.file(secrets.path).text()}PLAIN_ONE=never-sent\n`);
 
     await StudioServer.start({
         root: folder,
@@ -76,16 +76,17 @@ describe("the server", () => {
         expect(data.secrets).toContain("EDGE_01_PASSWORD");
     });
 
-    test("lists .env with ciphertexts only: a value in plain text never leaves", async () => {
-        const listing = (await (await get("/api/env")).json()) as EnvListing;
-        const byName = Object.fromEntries(listing.entries.map((entry) => [entry.name, entry]));
+    test("lists the secrets with ciphertexts only: a value in plain text never leaves", async () => {
+        const listing = (await (await get("/api/secrets")).json()) as SecretsListing;
+        expect(listing.files.map((file) => file.file)).toEqual([SecretsFile.DEFAULT]);
+        const byName = Object.fromEntries(listing.files[0]!.entries.map((entry) => [entry.name, entry]));
 
         expect(byName.EDGE_01_PASSWORD).toMatchObject({ kind: "encrypted", needed: true });
         expect(byName.EDGE_01_PASSWORD!.ciphertext).toStartWith("encrypted:");
         expect(byName.PLAIN_ONE).toEqual({ name: "PLAIN_ONE", kind: "not encrypted", needed: false });
         expect(JSON.stringify(listing)).not.toContain("never-sent");
         expect(JSON.stringify(listing)).not.toContain("s3cret-value");
-        expect(listing.keyLocation).toBe(".env.keys");
+        expect(listing.files[0]!.passwordLocation).toBeUndefined();
     });
 
     test("refuses a request addressed to another name", async () => {
@@ -110,17 +111,18 @@ test("the page carries every file its index names", () => {
     for (const file of named) expect(STUDIO_ASSETS[file]).toBeDefined();
 });
 
-describe("decrypting .env in the browser", () => {
-    test("reads what dotenvx encrypts", () => {
-        const pair = keypair();
-        const value = encrypt(pair.publicKey, "pässword with # and spaces");
+describe("decrypting a secret in the browser", () => {
+    const root = mkdtempSync(join(tmpdir(), "circuit-studio-crypto-"));
+    afterAll(() => rmSync(root, { recursive: true, force: true }));
 
-        expect(EnvCrypto.decrypt(pair.privateKey, value)).toBe("pässword with # and spaces");
-        expect(EnvCrypto.fits(pair.privateKey, pair.publicKey)).toBe(true);
-        expect(EnvCrypto.fits(keypair().privateKey, pair.publicKey)).toBe(false);
-    });
+    test("reads what Circuit encrypts, and only with the right password and name", async () => {
+        const file = SecretsFile.at(root);
+        file.unlock("correct horse battery staple");
+        file.set("A_PASSWORD", "pässword with # and spaces");
+        const value = file.values().A_PASSWORD!;
 
-    test("refuses a key that is not one", () => {
-        expect(() => EnvCrypto.decrypt("not-a-key", "encrypted:AAAA")).toThrow("64 hex characters");
+        expect(await new SecretsCrypto("correct horse battery staple").decrypt("A_PASSWORD", value)).toBe("pässword with # and spaces");
+        await expect(new SecretsCrypto("wrong password").decrypt("A_PASSWORD", value)).rejects.toThrow();
+        await expect(new SecretsCrypto("correct horse battery staple").decrypt("B_PASSWORD", value)).rejects.toThrow();
     });
 });

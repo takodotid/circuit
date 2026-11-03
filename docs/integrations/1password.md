@@ -1,54 +1,63 @@
 ---
-description: Keep the key that opens .env in 1Password, or the passwords themselves. Circuit reads op:// references by itself.
+description: Keep the password that opens your secrets in 1Password, or the secrets themselves. Circuit reads op:// references by itself.
 ---
 
 # 1Password
 
 Circuit reads from 1Password. It never creates or changes anything there.
 
-Any value in `.env` can be a 1Password reference, `op://vault/item/field`. Circuit sees the `op://` and reads it with the [1Password CLI](https://developer.1password.com/docs/cli/), `op`, by itself. No `op run`: you type the same `circuit` commands.
+Any value in a secrets file can be a 1Password reference, `op://vault/item/field`. Circuit sees the `op://` and reads it with the [1Password CLI](https://developer.1password.com/docs/cli/), `op`, by itself. No `op run`: you type the same `circuit` commands.
 
 You need `op` installed and signed in. It may ask you to unlock once a session (Touch ID, Windows Hello, or your password).
 
 Two ways. You can mix them.
 
-|              | A. The key in 1Password (recommended)             | B. Values in 1Password                  |
-| ------------ | ------------------------------------------------- | --------------------------------------- |
-| In git       | `.env`, every value encrypted                     | `.env`, with `op://` pointers           |
-| In 1Password | The one key that opens `.env`                     | Each password                           |
-| Pick it when | You want secrets in git, opened by one shared key | The passwords already live in 1Password |
+|              | A. The password in 1Password (recommended)             | B. Values in 1Password                      |
+| ------------ | ------------------------------------------------------ | ------------------------------------------- |
+| In git       | `.circuit/secrets`, every value encrypted              | `.circuit/secrets`, with `op://` references |
+| In 1Password | The one password that opens the file                   | Each password                               |
+| Pick it when | You want secrets in git, opened by one shared password | The passwords already live in 1Password     |
 
-## A. The key in 1Password
+## A. The password in 1Password
 
-1. Put the key into 1Password yourself: copy the value of `DOTENV_PRIVATE_KEY` from `.env.keys` into a 1Password field.
-2. Write its reference in `.env`:
+1. Put the password into a 1Password field yourself.
+2. Tell Circuit where it is:
 
     ```sh
-    # .env
-    DOTENV_PUBLIC_KEY="02b4…"
-    DOTENV_PRIVATE_KEY="op://Network/Circuit/key"
-    EDGE_01_PASSWORD="encrypted:BHx…"
+    circuit secrets password --1password "op://Network/Circuit/password"
     ```
 
-3. Delete `.env.keys`, and commit `.env`.
+    Circuit checks that it opens the file, then writes the reference in it:
 
-`circuit secret key` tells you where Circuit finds the key now.
+    ```sh
+    # .circuit/secrets
+    CIRCUIT_SECRETS_PASSWORD="op://Network/Circuit/password"
+    EDGE_01_PASSWORD="encrypted:AQx…"
+    ```
 
-**A teammate needs:** `op` signed in, with access to that vault. Nothing to pass around.
+3. Commit `.circuit/secrets`.
 
-**Rotating:** `circuit secret rotate` writes the new key to `.env.keys`. Put it into 1Password in place of the old one, then delete `.env.keys`.
+Only a reference may go there: a password written as itself is stopped by the commit check. `circuit secrets list` tells you where Circuit gets the password now.
+
+**A teammate needs:** `op` signed in, with access to that vault. Nothing to pass around, and Circuit never asks them for the password.
+
+**Changing the password:** `circuit secrets password`, then put the new one in the same 1Password field. Until you do, the reference still reads the old one.
+
+**Stop using 1Password:** `circuit secrets password --forget-1password`. Circuit asks for the password again.
+
+In CI, give `CIRCUIT_SECRETS_PASSWORD="op://..."` in the environment instead, with a 1Password service account.
 
 ## B. Values in 1Password
 
-A value in `.env` points at a 1Password field:
+A value in the secrets file points at a 1Password field:
 
 ```sh
-circuit secret set SNMP_COMMUNITY op://Network/SNMP/password
+circuit secrets set SNMP_COMMUNITY op://Network/SNMP/password
 ```
 
 ```sh
-# .env
+# .circuit/secrets
 SNMP_COMMUNITY="op://Network/SNMP/password"
 ```
 
-The pointer isn't encrypted: it isn't a secret, only where to find one. `circuit secret` shows where it lives, never the value.
+The reference isn't encrypted: it isn't a secret, only where to find one. `circuit secrets list` shows where it lives, never the value.

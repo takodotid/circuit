@@ -45,11 +45,11 @@ No. `circuit` has everything inside.
 
 ## Will updating Circuit break my project?
 
-No. Each project runs the version in its `.circuit/VERSION`. A project moves only when you run `circuit update` in it and say yes.
+No. Each project runs the version in its `.circuit/version`. A project moves only when you run `circuit update` in it and say yes.
 
 ## Can I run Circuit in CI?
 
-Yes. Install it with the same command, set `DOTENV_PRIVATE_KEY` from your CI's secrets, and run `circuit validate`. To apply from CI, add `--confirm`: without a terminal, `apply` won't send otherwise.
+Yes. Install it with the same command, set `CIRCUIT_SECRETS_PASSWORD` from your CI's secrets, and run `circuit validate`. To apply from CI, add `--confirm`: without a terminal, `apply` won't send otherwise.
 
 ## How do I remove Circuit?
 

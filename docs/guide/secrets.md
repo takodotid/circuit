@@ -1,5 +1,5 @@
 ---
-description: Passwords and keys live encrypted in .env, safe to commit. The key to open them never goes into git.
+description: Passwords and keys live encrypted in .circuit/secrets, safe to commit. One password opens them, and it never goes into git.
 ---
 
 # Secrets
@@ -12,10 +12,10 @@ Passwords never go in a device's file. The file only names them:
 users: { operator: { role: "admin", password: secret("EDGE_01_PASSWORD") } },
 ```
 
-The value goes in `.env`, encrypted:
+The value goes in `.circuit/secrets`, encrypted:
 
 ```sh
-circuit secret set EDGE_01_PASSWORD
+circuit secrets set EDGE_01_PASSWORD
 ```
 
 Circuit asks for the value without showing it. It only decrypts it when sending a command to the device. In any output, a secret shows as `<redacted>`.
@@ -24,50 +24,66 @@ Circuit asks for the value without showing it. It only decrypts it when sending 
 
 <SecretsDiagram />
 
-- **`.env` is encrypted**, value by value. Safe to commit, so your team shares secrets through git.
-- **The public key** (top of `.env`) can only lock. Anyone can add a secret.
-- **The private key** unlocks: `DOTENV_PRIVATE_KEY`. Circuit looks for it in this order, and takes the first it finds:
-    1. The environment, like in CI.
-    2. `.env.keys` in the project. `.gitignore` keeps it out of git.
-    3. `.env` itself, as a 1Password reference: `DOTENV_PRIVATE_KEY="op://vault/item/field"`. Committed, so the whole team gets it. A plain key there is refused by the commit check. See [1Password](/integrations/1password).
-- **Any value can be a 1Password reference** (`op://...`), the key too. Circuit reads it with the 1Password CLI by itself.
+- **`.circuit/secrets` is encrypted**, value by value. Each line is `NAME="encrypted:..."`: the names stay readable, so git shows which secret changed. Safe to commit, so your team shares secrets through git.
+- **One password opens the file.** It is never written in the file, and never in `circuit.ts`. Circuit gets it from the first of:
+    1. `CIRCUIT_SECRETS_PASSWORD` in the environment, like in CI. The password itself, or a 1Password reference.
+    2. `CIRCUIT_SECRETS_PASSWORD="op://vault/item/field"` in the file. Only a 1Password reference may go there, so the whole team gets the password through 1Password. See [1Password](/integrations/1password).
+    3. You. Circuit asks for it when a command needs a secret: `diff`, `apply`, `exec`, `bgp`, `access-console`, and reading or changing a secret.
+- **Any value can be a 1Password reference** (`op://...`). Circuit reads it with the 1Password CLI when it needs it.
 
-Keep a copy of the private key in your password manager. Lose it, and every secret has to be set again.
+Keep the password in your password manager. Lose it, and every secret has to be set again.
+
+## The first password
+
+The first `circuit secrets set` asks you to choose a password, of at least 12 characters. Leave it empty, and Circuit makes one (32 characters) and shows it once. Save it in your password manager right then: Circuit doesn't keep it.
 
 ## Commands
 
-| Command                      | Does                                                                                                    |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `circuit secret`             | Lists every secret and how it's kept. Flags ones the config needs but `.env` lacks. Never shows values. |
-| `circuit secret set NAME`    | Adds or changes one. Asks for the value, hidden.                                                        |
-| `circuit secret get NAME`    | Prints one, decrypted.                                                                                  |
-| `circuit secret delete NAME` | Removes one, after asking.                                                                              |
-| `circuit secret encrypt`     | Encrypts values typed into `.env` by hand. Already encrypted ones and `op://` pointers are left alone.  |
-| `circuit secret rotate`      | Makes a new key. The old one stops working.                                                             |
+`circuit secrets` alone, in a terminal, opens your secrets right there: pick one to show, change or delete it, add one, or change the password. No other program needed.
 
-Tip: `circuit secret set NAME value` works too, but then your shell history has the value. Better to let it ask.
+| Command                       | Does                                                                                                      |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `circuit secrets list`        | Lists every secret and how it's kept. Flags ones the config needs but the file lacks. Never shows values. |
+| `circuit secrets set NAME`    | Adds or changes one. Asks for the value, hidden.                                                          |
+| `circuit secrets get NAME`    | Prints one, decrypted.                                                                                    |
+| `circuit secrets delete NAME` | Removes one, after asking.                                                                                |
+| `circuit secrets encrypt`     | Encrypts values typed into the file by hand. Encrypted ones and `op://` references are left alone.        |
+| `circuit secrets password`    | Changes the password. Every value is encrypted again, and the old password stops working.                 |
 
-## 1Password
+Tip: `circuit secrets set NAME value` works too, but then your shell history has the value. Better to let it ask.
 
-Keep the key in 1Password, so nobody passes `.env.keys` around, or keep the passwords themselves there. See [1Password](/integrations/1password).
+## Changing the password
 
-## Rotating the key
+Do it when someone who knows it leaves, or it may have leaked.
 
-Do it when someone with the key leaves, or the key may have leaked.
+1. `circuit secrets password`. It asks for the old password, then the new one.
+2. Commit `.circuit/secrets`.
+3. Share the new password with your team. In 1Password? Put the new one in the same item.
 
-1. `circuit secret rotate`.
-2. Commit `.env`.
-3. Share the new key with your team. (In 1Password? Nothing to share.)
+The password opens the file. It isn't a device password. If a device password leaked, change it on the device: `circuit secrets set`, then `circuit apply <device> --secrets`.
 
-Rotating changes the key, not the passwords. If a password leaked, change it on the device: `circuit secret set`, then `circuit apply <device> --secrets`.
+In a script, `circuit secrets password --confirm` takes the new password from `CIRCUIT_SECRETS_NEW_PASSWORD`.
+
+## Lab and staging
+
+A lab or staging setup is usually other devices: a spare box or a virtual router. Write it as its own network, with its own file and its own password:
+
+```ts
+export const as64500 = circuit({ asn: 64500, sites: { ... } }); // .circuit/secrets
+export const lab = circuit({ sites: { lab: { description: "Lab rack" } }, secrets: { file: ".circuit/lab-secrets" } });
+```
+
+`asn` is optional, so an office or home network without one works the same way. When the networks use different files, name one with `--network`: `circuit secrets set EDGE_01_PASSWORD --network lab`.
 
 ## The commit check
 
 In a git project, Circuit adds a git hook. Before every commit, from the terminal, VS Code or GitHub Desktop, it stops the commit if:
 
-- `.env` has a value in plain text. Fix: `circuit secret encrypt`, then stage `.env` again.
-- `.env.keys` is about to be committed.
+- A secrets file has a value in plain text. Fix: `circuit secrets encrypt`, then stage the file again.
+- A secrets file holds its own password. Only `CIRCUIT_SECRETS_PASSWORD="op://..."` may be written there.
 - The project fails `circuit validate`.
+
+It checks every secrets file your networks use. `op://` references pass.
 
 It can't catch everything:
 
@@ -77,7 +93,9 @@ It can't catch everything:
 
 A plain-text password that reached a pushed commit is out. Deleting the commit doesn't help. Change the password on the device.
 
+Circuit refuses a value in plain text when it runs, too: it reads only encrypted values and `op://` references.
+
 ## Other ways
 
-- **Environment variable:** `EDGE_01_PASSWORD=... circuit apply edge-01`. It wins over `.env`.
+- **Environment variable:** `EDGE_01_PASSWORD=... circuit apply edge-01`. It wins over the file.
 - **A file:** `secretFile("keys/wg-edge-01.key")` reads a file in the project, like a private key. Keep that file out of git.

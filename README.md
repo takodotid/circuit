@@ -43,7 +43,7 @@
 - **Same words for every vendor.** MikroTik RouterOS 7, Huawei VRP, Raisecom ROS, Juniper Junos and Fortinet FortiOS each get their own commands. Anything a device can't do is an error before anything is sent.
 - **The file is the whole truth.** A port, user or service the file doesn't write is removed or turned off. Circuit fills in nothing you didn't write.
 - **See every change first.** `diff` and `apply` read the live device and show what would change; `apply` sends it only once you say yes.
-- **Secrets are encrypted.** Each value in `.env` is encrypted, so `.env` is committed; the key stays out of git, in `.env.keys` or 1Password. A git hook stops a commit with a secret in plain text.
+- **Secrets are encrypted.** Each value in `.circuit/secrets` is encrypted, so the file is committed; the one password that opens it stays out of git, in your password manager. A git hook stops a commit with a secret in plain text.
 
 ## A device
 
@@ -94,27 +94,27 @@ In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`
 2. Start a project: `circuit new network`. Open its folder in VS Code. Add a site in `circuit.ts`, then write each device in `sites/<site>/<device>.ts`.
 3. Run `circuit`. It opens a menu, or runs a command straight away, such as `circuit validate`.
 
-Each project runs the Circuit version in its `.circuit/VERSION`. `circuit update` moves it to the newest one, after a yes.
+Each project runs the Circuit version in its `.circuit/version`. `circuit update` moves it to the newest one, after a yes.
 
 ## Commands
 
 Each reads the project in the working directory or the nearest folder above it, or in the folder `--project <folder>` names. Leave out the device and Circuit lists them to pick from.
 
-| Command                             | What it does                                                                                 |
-| ----------------------------------- | -------------------------------------------------------------------------------------------- |
-| `validate`                          | Reads the project and checks it, then runs every check in `circuit.ts`.                      |
-| `diff [device]`                     | Reads the device and shows what `apply` would change.                                        |
-| `apply [device]`                    | Reads the device, shows what would change, and sends it once you say yes (`--confirm`).      |
-| `exec [device] [command...]`        | Runs commands that only read on the device, and prints the answer, secrets hidden.           |
-| `bgp [device]`                      | Each BGP neighbor next to its live session: up or down, prefixes, uptime.                    |
-| `access-console [device] [line...]` | Opens the device's serial console, logged in, or sends it lines.                             |
-| `studio`                            | Opens the project in your browser: the graph, every table, tools, compare and secrets.       |
-| `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.                |
-| `secret`                            | Lists the secrets in `.env`; `secret set`, `get`, `delete`, `encrypt` and `rotate` the rest. |
-| `fmt [file...]`                     | Tidies spacing and line breaks, as VS Code does on save. Nothing else changes.               |
-| `new [folder]`                      | Starts a project.                                                                            |
-| `update`                            | In a project: moves it to the newest version, after a yes. Outside: updates the app.         |
-| `uninstall`                         | Removes the Circuit app. Your projects stay.                                                 |
+| Command                             | What it does                                                                                         |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `validate`                          | Reads the project and checks it, then runs every check in `circuit.ts`.                              |
+| `diff [device]`                     | Reads the device and shows what `apply` would change.                                                |
+| `apply [device]`                    | Reads the device, shows what would change, and sends it once you say yes (`--confirm`).              |
+| `exec [device] [command...]`        | Runs commands that only read on the device, and prints the answer, secrets hidden.                   |
+| `bgp [device]`                      | Each BGP neighbor next to its live session: up or down, prefixes, uptime.                            |
+| `access-console [device] [line...]` | Opens the device's serial console, logged in, or sends it lines.                                     |
+| `studio`                            | Opens the project in your browser: the graph, every table, tools, compare and secrets.               |
+| `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.                        |
+| `secrets`                           | Opens the secrets to look through and change; `list`, `get`, `set`, `delete`, `encrypt`, `password`. |
+| `fmt [file...]`                     | Tidies spacing and line breaks, as VS Code does on save. Nothing else changes.                       |
+| `new [folder]`                      | Starts a project.                                                                                    |
+| `update`                            | In a project: moves it to the newest version, after a yes. Outside: updates the app.                 |
+| `uninstall`                         | Removes the Circuit app. Your projects stay.                                                         |
 
 ## Docs
 

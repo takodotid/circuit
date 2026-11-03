@@ -146,7 +146,7 @@ Tidies the spacing, indents and line breaks of the `.ts` files. What the files s
 
 ## Secrets
 
-`circuit secret` lists, sets and rotates the project's secrets. `circuit secret encrypt` encrypts only values in plain text: encrypted ones and `op://` pointers stay as they are. See [Secrets](/guide/secrets).
+`circuit secrets` opens the project's secrets in the terminal, to look through and change them. `list`, `get`, `set`, `delete`, `encrypt` and `password` do one thing each. `circuit secrets encrypt` encrypts only values in plain text: encrypted ones and `op://` references stay as they are. See [Secrets](/guide/secrets).
 
 ## Projects and the app
 
@@ -156,4 +156,4 @@ Tidies the spacing, indents and line breaks of the `.ts` files. What the files s
 | `circuit update`    | In a project: moves it to the newest version, after a yes. Outside, or with `--app`: updates the app. |
 | `circuit uninstall` | Removes the app. Asks first. Never touches your projects.                                             |
 
-Each project runs the version in its `.circuit/VERSION`. See [Install](/guide/install#each-project-pins-its-version).
+Each project runs the version in its `.circuit/version`. See [Install](/guide/install#each-project-pins-its-version).

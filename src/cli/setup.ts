@@ -1,9 +1,9 @@
-// A new project, started by the installer or from the menu: the folder, its files, the encrypted `.env`, git and its hook, and the editor's types. Also what Circuit keeps current in a project each time it runs in it.
+// A new project, started by the installer or from the menu: the folder, its files, git and its hook, and the editor's types. Also what Circuit keeps current in a project each time it runs in it.
 
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { EnvFile } from "../core/env-file";
+import { SecretsFile } from "../core/secrets-file";
 import { EditorTypes } from "./editor-types";
 import { GitHooks } from "./git-hooks";
 import { Ui } from "./ui";
@@ -13,21 +13,19 @@ import { Versions } from "./versions";
 
 export const GENERATED_README = `# Do not edit
 
-Circuit writes everything in this folder, and writes it again when it needs to: an edit here is lost, and changes nothing on a device. Change the project's own files instead.
+Circuit writes everything in this folder. Don't edit it by hand: change the project's own files, or use the command named below.
 
-- \`VERSION\`: the Circuit version this project runs. \`circuit update\` changes it. (Not in a full install: \`package.json\` pins the version.)
-- \`types/\`: what your editor reads to complete and check the project's files. (Not in a full install: the types come from the package in \`node_modules\`.)
-- \`hooks/\`: the git hook that checks each commit: no secret in plain text, no \`.env.keys\`, and a project that validates.
+- \`version\`: the Circuit version this project runs. \`circuit update\` changes it. (Not in a full install: \`package.json\` pins the version.)
+- \`secrets\`: the project's secrets, each value encrypted, so it is committed. Change them with \`circuit secrets\`.
+- \`types/\`: what your editor reads to complete and check the project's files. Written again on each update. (Not in a full install: the types come from the package in \`node_modules\`.)
+- \`hooks/\`: the git hook that checks each commit: every secret encrypted, and a project that validates.
 - \`cache/\`: temporary, ignored by git.
 `;
 
 /** The notice in `.circuit`. */
 export const NOTICE = "DO_NOT_EDIT.md";
 
-export const GITIGNORE = `# The key that decrypts .env. Never commit it.
-.env.keys
-
-node_modules/
+export const GITIGNORE = `node_modules/
 .circuit/cache/
 `;
 
@@ -74,8 +72,9 @@ export class Setup {
             Ui.done(`Pinned this project to Circuit ${VERSION} in ${Versions.FILE}. Commit it.`);
         }
 
-        const plain = new EnvFile(root).plaintext();
-        if (plain.length) Ui.warn(`.env holds ${plain.join(", ")} in plain text. Run circuit secret encrypt before you commit.`);
+        const plain = SecretsFile.at(root).plaintext();
+        if (plain.length)
+            Ui.warn(`${SecretsFile.DEFAULT} holds ${plain.join(", ")} in plain text. Run circuit secrets encrypt before you commit.`);
     }
 
     /** Ask how to set up a new project, then set it up. */
@@ -97,7 +96,7 @@ export class Setup {
         const kind =
             chosen ??
             (await Ui.select<ProjectSetup["kind"]>("How should this project run Circuit?", [
-                { value: "simple", label: "Simple (recommended)", hint: "the circuit app, its version pinned in .circuit/VERSION" },
+                { value: "simple", label: "Simple (recommended)", hint: "the circuit app, its version pinned in .circuit/version" },
                 { value: "full", label: "Full", hint: "Circuit as a package in the project, run with bun circuit" },
             ]));
 
@@ -176,7 +175,6 @@ export const as${setup.asn} = circuit({
             if (setup.kind === "simple") Versions.pin(root, VERSION);
             if (setup.kind === "simple") EditorTypes.write(root);
             Setup.writeNotice(root);
-            EnvFile.create(root);
 
             if (setup.kind === "full") {
                 writeFileSync(
@@ -211,19 +209,15 @@ export const as${setup.asn} = circuit({
 
     /** The steps after a new project, for the person to follow. */
     static nextSteps(root: string, setup: ProjectSetup): string {
-        const keyNote =
-            "The key that decrypts .env is in .env.keys. Keep it in your password manager, and share it with your team there. In 1Password, write its reference as DOTENV_PRIVATE_KEY in .env instead, and delete .env.keys.";
-
         const run = setup.kind === "full" ? "bun circuit" : "circuit";
         return [
             ...(setup.folder === "." ? [] : [`cd ${setup.folder}`]),
             "Add a site in circuit.ts, then a device in sites/<site>/<device>.ts. Your editor completes each field.",
-            `${run} secret set NAME  a secret, such as a device password, encrypted`,
+            `${run} secrets          your secrets, such as a device password, each encrypted`,
             `${run} validate         check the project`,
             `${run} diff <device>    what would change on the device`,
             `${run} apply <device>   make the device match`,
             "",
-            keyNote,
             `Read more at https://circuit.tako.id. Project: ${root}`,
         ].join("\n");
     }

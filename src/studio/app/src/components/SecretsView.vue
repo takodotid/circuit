@@ -1,49 +1,51 @@
-<!-- The secrets in `.env`: each name and how it is kept. To see the values, a person types the key that decrypts `.env`; they are decrypted here, in the browser, and the key is never sent or kept. -->
+<!-- The secrets, file by file: each name and how it is kept. To see the values, a person types the file's password; they are decrypted here, in the browser, and the password is never sent or kept. -->
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-import type { EnvListing } from "../../../types";
-import { EnvCrypto } from "../lib/ecies";
+import { onMounted, reactive, ref } from "vue";
+import type { SecretsFileListing, SecretsListing } from "../../../types";
+import { SecretsCrypto } from "../lib/secrets-crypto";
 import { api } from "../lib/store";
 
-const listing = ref<EnvListing>();
+const listing = ref<SecretsListing>();
 const loadError = ref("");
-const key = ref("");
-const keyError = ref("");
-const shown = ref<Record<string, string>>({});
+/** By file: the password being typed, why it failed, whether it is being tried, and the values it opened. */
+const typed = reactive<Record<string, string>>({});
+const failed = reactive<Record<string, string>>({});
+const busy = reactive<Record<string, boolean>>({});
+const shown = reactive<Record<string, Record<string, string>>>({});
 
 onMounted(async () => {
     try {
-        listing.value = await api<EnvListing>("/api/env");
+        listing.value = await api<SecretsListing>("/api/secrets");
     } catch (error) {
         loadError.value = (error as Error).message;
     }
 });
 
-const encrypted = computed(() => listing.value?.entries.filter((entry) => entry.kind === "encrypted") ?? []);
+const encryptedOf = (file: SecretsFileListing) => file.entries.filter((entry) => entry.kind === "encrypted");
 
-/** Decrypt every encrypted value with the typed key, then forget the key. */
-function reveal(): void {
-    keyError.value = "";
-    const typed = key.value.trim();
-    key.value = "";
+/** Decrypt every encrypted value of a file with the typed password, then forget the password. */
+async function reveal(file: SecretsFileListing): Promise<void> {
+    failed[file.file] = "";
+    const crypto = new SecretsCrypto(typed[file.file] ?? "");
+    typed[file.file] = "";
+    busy[file.file] = true;
 
     try {
-        if (listing.value?.publicKey && !EnvCrypto.fits(typed, listing.value.publicKey)) {
-            keyError.value = "That key does not decrypt this .env: it belongs to another .env, or the key was rotated.";
-            return;
-        }
-        shown.value = Object.fromEntries(encrypted.value.map((entry) => [entry.name, EnvCrypto.decrypt(typed, entry.ciphertext!)]));
-    } catch (error) {
-        keyError.value = (error as Error).message;
+        const values: Record<string, string> = {};
+        for (const entry of encryptedOf(file)) values[entry.name] = await crypto.decrypt(entry.name, entry.ciphertext!);
+        shown[file.file] = values;
+    } catch {
+        failed[file.file] = `That password does not open ${file.file}.`;
+    } finally {
+        busy[file.file] = false;
     }
 }
 
 const KIND: Record<string, string> = {
     encrypted: "encrypted",
     "1password": "kept in 1Password",
-    reference: "a reference",
     empty: "empty",
-    "not encrypted": "NOT ENCRYPTED: run circuit secret encrypt",
+    "not encrypted": "NOT ENCRYPTED: run circuit secrets encrypt",
     missing: "missing: the project needs it",
 };
 </script>
@@ -51,32 +53,34 @@ const KIND: Record<string, string> = {
 <template>
     <h2>Secrets</h2>
     <p class="muted">
-        Each secret in <code>.env</code>, and how it is kept. Add or change one with <code>circuit secret set NAME</code>. A value is never
-        sent to this page in plain text.
+        Each secret, and how it is kept. Add or change one with <code>circuit secrets</code>. A value is never sent to this page in plain
+        text.
     </p>
     <p v-if="loadError" class="verdict reject">{{ loadError }}</p>
 
-    <template v-if="listing">
-        <p class="muted">The key that decrypts <code>.env</code>: {{ listing.keyLocation ?? "not on this machine" }}.</p>
+    <section v-for="file in listing?.files ?? []" :key="file.file">
+        <h3>
+            <code>{{ file.file }}</code>
+        </h3>
+        <p class="muted">
+            {{ file.networks.length > 1 ? "Networks" : "Network" }} {{ file.networks.join(", ") }}. Its password:
+            {{ file.passwordLocation ?? "typed when Circuit asks" }}.
+        </p>
 
-        <form v-if="encrypted.length" class="tool-form" autocomplete="off" @submit.prevent="reveal">
+        <form v-if="encryptedOf(file).length" class="tool-form" autocomplete="off" @submit.prevent="reveal(file)">
             <label class="field"
-                >The key that decrypts .env
-                <input
-                    v-model="key"
-                    type="password"
-                    autocomplete="off"
-                    spellcheck="false"
-                    placeholder="DOTENV_PRIVATE_KEY, 64 hex characters"
-                />
+                >The password of {{ file.file }}
+                <input v-model="typed[file.file]" type="password" autocomplete="off" spellcheck="false" />
                 <small>Used here in the browser to decrypt, then forgotten. It is never sent anywhere or kept.</small>
             </label>
-            <button class="primary" type="submit">Show the values</button>
-            <button v-if="Object.keys(shown).length" type="button" @click="shown = {}">Hide them</button>
+            <button class="primary" type="submit" :disabled="busy[file.file]">
+                {{ busy[file.file] ? "Opening…" : "Show the values" }}
+            </button>
+            <button v-if="shown[file.file]" type="button" @click="delete shown[file.file]">Hide them</button>
         </form>
-        <p v-if="keyError" class="verdict reject">{{ keyError }}</p>
+        <p v-if="failed[file.file]" class="verdict reject">{{ failed[file.file] }}</p>
 
-        <p v-if="!listing.entries.length" class="muted">No secrets yet.</p>
+        <p v-if="!file.entries.length" class="muted">No secrets yet.</p>
         <table v-else class="data">
             <thead>
                 <tr>
@@ -86,7 +90,7 @@ const KIND: Record<string, string> = {
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="entry in listing.entries" :key="entry.name">
+                <tr v-for="entry in file.entries" :key="entry.name">
                     <td>
                         <code>{{ entry.name }}</code>
                     </td>
@@ -98,11 +102,11 @@ const KIND: Record<string, string> = {
                     </td>
                     <td>
                         <template v-if="entry.onePassword">vault {{ entry.onePassword.vault }}, item {{ entry.onePassword.item }}</template>
-                        <code v-else-if="shown[entry.name] !== undefined">{{ shown[entry.name] }}</code>
+                        <code v-else-if="shown[file.file]?.[entry.name] !== undefined">{{ shown[file.file]![entry.name] }}</code>
                         <span v-else class="muted">{{ entry.kind === "encrypted" ? "hidden" : "" }}</span>
                     </td>
                 </tr>
             </tbody>
         </table>
-    </template>
+    </section>
 </template>

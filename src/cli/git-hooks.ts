@@ -2,15 +2,15 @@
 
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
-import { EnvFile } from "../core/env-file";
+import { join } from "node:path";
+import { SecretsFile } from "../core/secrets-file";
 
 export class GitHooks {
     /** Where the hooks are, in the project. */
     static readonly FOLDER = ".circuit/hooks";
 
     static readonly PRE_COMMIT = `#!/bin/sh
-# Written by Circuit. Before each commit: no secret in plain text, no .env.keys, and a project that validates.
+# Written by Circuit. Before each commit: every secret encrypted, and a project that validates.
 if ! command -v circuit >/dev/null 2>&1; then
     echo "Circuit is not installed here, so this commit was not checked and was stopped. Install Circuit: https://circuit.tako.id" >&2
     exit 1
@@ -65,29 +65,15 @@ exec circuit hook pre-commit
         return changes.length ? changes.join(", ") : undefined;
     }
 
-    /** Problems with what is staged: `.env.keys`, and a `.env` with a value in plain text. Empty when the commit may go on. */
-    static stagedProblems(root: string): string[] {
+    /** Problems with the secrets files staged, `files` relative to the project: a value in plain text, or a password written as itself. Empty when the commit may go on. */
+    static stagedProblems(root: string, files: readonly string[]): string[] {
+        const top = GitHooks.git(root, ["rev-parse", "--show-toplevel"]).out.trim();
+        const prefix = GitHooks.git(root, ["rev-parse", "--show-prefix"]).out.trim();
+        const wanted = new Set(files.map((file) => `${prefix}${file.replace(/\\/g, "/")}`));
         const staged = GitHooks.git(root, ["diff", "--cached", "--name-only", "--diff-filter=ACMR"]).out.split("\n").filter(Boolean);
-        const problems: string[] = [];
 
-        for (const file of staged) {
-            const name = basename(file);
-
-            if (name === ".env.keys") {
-                problems.push(`${file} is the key that decrypts .env. Never commit it: unstage it with git restore --staged ${file}`);
-                continue;
-            }
-
-            if (name !== ".env" && !name.startsWith(".env.")) continue;
-
-            const text = GitHooks.git(root, ["show", `:${file}`]).out;
-            const plain = EnvFile.plaintextIn(text);
-            if (plain.length)
-                problems.push(
-                    `${file} holds ${plain.join(", ")} in plain text. Encrypt it with circuit secret encrypt, then stage ${file} again.`
-                );
-        }
-
-        return problems;
+        return staged
+            .filter((file) => wanted.has(file))
+            .flatMap((file) => SecretsFile.problemsIn(GitHooks.git(top || root, ["show", `:${file}`]).out, file));
     }
 }

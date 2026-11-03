@@ -53,7 +53,7 @@ So a teammate who clones your project runs the install command once, in that fol
 
 ## Each project pins its version
 
-A project keeps its Circuit version in `.circuit/VERSION`, committed with the rest:
+A project keeps its Circuit version in `.circuit/version`, committed with the rest:
 
 ```
 1.0.0-rc.1
@@ -92,7 +92,7 @@ The style is in `.editorconfig`: 4 spaces, lines up to 140, LF. Both the Prettie
 circuit update
 ```
 
-- **In a project:** shows the newest version and asks before moving the project to it. No is the default. Then it rewrites `.circuit/VERSION` and the editor types.
+- **In a project:** shows the newest version and asks before moving the project to it. No is the default. Then it rewrites `.circuit/version` and the editor types.
 - **Outside a project:** updates the app.
 - **Never across a major version.** 1.x stays on 1.x. Moving to 2.x is your choice.
 

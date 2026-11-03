@@ -11,7 +11,7 @@ Circuit never guesses what a device does. Prove it, then write what you learned 
 
 1. Get the owner's OK for this device, now. Say what you'll send and whether it changes anything.
 2. Read the platform's `TRAPS.md`.
-3. Secrets: `circuit secret set` in the scratch project. Never print one or write one into the repo.
+3. Secrets: `circuit secrets set` in the scratch project. Never print one or write one into the repo.
 
 ## Try syntax without applying
 

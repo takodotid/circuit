@@ -4,7 +4,7 @@
 // platforms read (`src/model.ts`). It fills in nothing but the network's AS on BGP, which the model needs.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { basename, resolve, sep } from "node:path";
+import { basename, isAbsolute, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { catalogue, schemeProblems, writeCommunities } from "../config/communities";
 import { BGP_NEIGHBORS, type Registered, registry } from "../config/define";
@@ -16,6 +16,7 @@ import { isOrdered, lineOf, source, userFrames, writtenAt } from "../config/merg
 import { NUMBERED_VLANS, portsOf, spell } from "../config/models";
 import { policyRuleProblem } from "../config/routing";
 import { Secrets } from "../core/secrets";
+import { SecretsFile } from "../core/secrets-file";
 import { Utils } from "../core/utils";
 import type { Device } from "../model";
 
@@ -36,6 +37,11 @@ export type ProjectNetwork = {
     /** The rest of `circuit()`: sites, checks, integrations. */
     settings: Json;
 };
+
+/** The secrets file of a network, relative to the project: the one `secrets.file` names, or `.circuit/secrets`. */
+export function secretsFileOf(network: Pick<ProjectNetwork, "settings">): string {
+    return ((network.settings.secrets as Json | undefined)?.file as string | undefined) ?? SecretsFile.DEFAULT;
+}
 
 /** What reading a project found: each network, and what Circuit tells but doesn't stop on. What stops it is thrown as `ProjectError`. */
 export type ProjectRead = { networks: ProjectNetwork[]; warnings: string[] };
@@ -126,6 +132,16 @@ export async function readProject(folder: string): Promise<ProjectRead> {
                 `${registered.at}: this network is not exported from circuit.ts. Export each network under its own name, after its AS: export const as64500 = circuit({ ... }).`
             );
         else networks.push({ name: name === "default" ? `as${network.asn}` : name, registered, network, devices: {} });
+    }
+    for (const { registered, network } of networks) {
+        const file = (network.secrets as Json | undefined)?.file;
+        if (
+            network.secrets !== undefined &&
+            (typeof file !== "string" || !file.trim() || isAbsolute(file) || file.split(/[\\/]/).includes(".."))
+        )
+            findings.push(
+                `${registered.at}: secrets.file is a path inside the project, such as ".circuit/lab-secrets". Leave secrets out for .circuit/secrets.`
+            );
     }
     if (!registry.networks.length)
         stop([

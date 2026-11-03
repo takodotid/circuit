@@ -1,13 +1,14 @@
 <script setup lang="ts">
-// Where a secret lives and where its key is: .env in git with the public key, the private key outside git, and the value only on its way to the device.
+// Where a secret lives and where its password is: .circuit/secrets in git, the password outside git, and the value only on its way to the device.
 </script>
 
 <template>
     <figure class="circuit-diagram">
         <svg viewBox="0 0 1000 300" role="img" aria-labelledby="secrets-title">
             <title id="secrets-title">
-                circuit secret set encrypts a value with the public key into .env, which git keeps. The private key, in .env.keys or
-                1Password, stays out of git. Circuit decrypts the value only when it sends a command to the device.
+                circuit secrets set encrypts a value with the password into .circuit/secrets, which git keeps. The password, in 1Password,
+                the environment or typed when asked, stays out of git. Circuit decrypts the value only when it sends a command to the
+                device.
             </title>
             <defs>
                 <marker id="secrets-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
@@ -20,27 +21,27 @@
             <circle cx="10" cy="40" r="15" class="dot" />
             <text x="10" y="45" class="dot-text">1</text>
             <text x="115" y="78" class="title">You</text>
-            <text x="115" y="104" class="mono">circuit secret set NAME</text>
+            <text x="115" y="104" class="mono">circuit secrets set NAME</text>
 
             <line x1="222" y1="85" x2="298" y2="85" class="arrow" marker-end="url(#secrets-arrow)" />
             <text x="260" y="72" class="note">encrypted</text>
 
-            <!-- 2: .env, committed -->
+            <!-- 2: .circuit/secrets, committed -->
             <rect x="300" y="20" width="330" height="130" class="code-box" />
             <circle cx="300" cy="20" r="15" class="dot" />
             <text x="300" y="25" class="dot-text">2</text>
-            <text x="322" y="56" class="code-dim">.env</text>
-            <text x="322" y="86" class="code">DOTENV_PUBLIC_KEY="02b4…"</text>
-            <text x="322" y="112" class="code">NAME="encrypted:BFNt…"</text>
+            <text x="322" y="56" class="code-dim">.circuit/secrets</text>
+            <text x="322" y="86" class="code">EDGE_01_PASSWORD="encrypted:AQx…"</text>
+            <text x="322" y="112" class="code">SNMP="op://Network/SNMP/password"</text>
             <rect x="322" y="124" width="84" height="20" class="action" />
             <text x="330" y="139" class="chip-text on-yellow">COMMITTED</text>
 
-            <!-- 3: the key, outside git -->
+            <!-- 3: the password, outside git -->
             <rect x="300" y="190" width="330" height="90" class="secret-box" />
             <circle cx="300" cy="190" r="15" class="dot" />
             <text x="300" y="195" class="dot-text">3</text>
-            <text x="465" y="225" class="title">The private key</text>
-            <text x="465" y="250" class="mono">.env.keys, or a 1Password reference</text>
+            <text x="465" y="225" class="title">The password</text>
+            <text x="465" y="250" class="mono">1Password, the environment, or typed</text>
             <rect x="322" y="258" width="140" height="18" class="chip-red" />
             <text x="330" y="272" class="chip-text">NEVER COMMITTED</text>
 
