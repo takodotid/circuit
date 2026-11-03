@@ -1,7 +1,7 @@
 // Which Circuit is current: versions compared as semver orders them, the version to update to, and the release file for each system.
 
 import { expect, test } from "bun:test";
-import { Releases } from "../../src/cli/releases";
+import { type Release, Releases } from "../../src/cli/releases";
 
 test("versions compare as semver orders them, a release candidate before its release", () => {
     const ordered = ["0.43.1", "1.0.0-rc.0", "1.0.0-rc.2", "1.0.0-rc.10", "1.0.0", "1.0.1", "1.1.0", "2.0.0"];
@@ -29,6 +29,24 @@ test("an update stays within the major version: the newest stable one, or the ne
     expect(Releases.target({ tags: { latest: "2.0.0" } }, "1.4.0")).toBeUndefined();
     expect(Releases.newerMajor({ tags: { latest: "2.0.0" } }, "1.4.0")).toBe("2.0.0");
     expect(Releases.newerMajor({ tags: { latest: "0.43.1" } }, "1.0.0-rc.1")).toBeUndefined();
+});
+
+test("update offers the newest few of the major version, newest first, never one deprecated as critical", () => {
+    const releases = ["0.43.1", "1.0.0-rc.1", "1.0.0", "1.0.1", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0-rc.1", "2.0.0"].map(
+        (version): Release => ({ version })
+    );
+    releases.find((release) => release.version === "1.3.0")!.deprecated = "critical: sends the wrong password";
+    releases.find((release) => release.version === "1.2.0")!.deprecated = "use 1.4.0";
+
+    const offered = (current: string, count?: number) => Releases.choices(releases, current, count).map((release) => release.version);
+
+    expect(offered("1.0.0")).toEqual(["1.4.0", "1.2.0", "1.1.0", "1.0.1"]);
+    expect(offered("1.0.0", 2)).toEqual(["1.4.0", "1.2.0"]);
+    // On a release candidate, candidates too.
+    expect(offered("1.0.0-rc.1", 3)).toEqual(["1.5.0-rc.1", "1.4.0", "1.2.0"]);
+    expect(offered("1.4.0")).toEqual([]);
+    expect(Releases.critical(releases.find((release) => release.version === "1.3.0"))).toBe(true);
+    expect(Releases.critical(releases.find((release) => release.version === "1.2.0"))).toBe(false);
 });
 
 test("each system has its release file", () => {

@@ -38,7 +38,10 @@ class Cli {
             Cli.runLocal(argv);
             const at = argv.indexOf("--project");
             const root = ProjectCommands.find(at >= 0 ? argv[at + 1] : undefined);
-            if (root) await Versions.runPinned(root, argv);
+            if (root) {
+                if (Releases.binary()) Versions.remember(root);
+                await Versions.runPinned(root, argv);
+            }
         }
         if (!command || !Cli.UNCHECKED.has(command)) await Releases.gate();
 
@@ -286,9 +289,11 @@ class Cli {
 
         program
             .command("update")
-            .description("in a project, move it to the newest Circuit of its major version; elsewhere, update the app")
+            .description(
+                "pick a newer Circuit, the newest first: in a project, for the project and the app with it; elsewhere, for the app"
+            )
             .option("--app", "update the installed app, even in a project")
-            .option("--confirm", "update without asking")
+            .option("--confirm", "update to the newest without asking")
             .action(async (flags) => Cli.update(flags.app ?? false, flags.confirm ?? false));
 
         program
@@ -376,12 +381,12 @@ class Cli {
         if (flags.open && local) StudioServer.openBrowser(url);
     }
 
-    /** Update this Circuit, then the one a full install pins in the project here, to the same version. */
-    /** In a project: move it to the newest version of its major, once the person says yes. Elsewhere, or with `--app`: update the app. */
+    /** In a project: move it to a version the person picks, and the app with it. Elsewhere, or with `--app`: update the app. Either way, versions no project pins any more are removed. */
     private static async update(app: boolean, confirmed: boolean): Promise<void> {
         const root = ProjectCommands.find();
         if (app || !root) {
-            await Releases.updateApp(confirmed);
+            const target = await Releases.updateApp(confirmed);
+            Versions.prune(target ?? VERSION);
             return;
         }
 
@@ -392,9 +397,8 @@ class Cli {
         }
 
         // A full install pins Circuit in package.json.
-        const target = await Releases.newer(packaged.replace(/^[\^~]/, ""));
-        if (!target) return Ui.done(`This project runs Circuit ${packaged}, the newest of its major version.`);
-        if (!confirmed && !(await Ui.confirm(`Move this project from Circuit ${packaged} to ${target}?`))) return;
+        const target = await Releases.pick(packaged.replace(/^[\^~]/, ""), confirmed, "This project");
+        if (!target) return;
 
         await Ui.step(`Pinning Circuit ${target} in package.json`, async () => {
             const result = spawnSync("bun", ["add", "--dev", "--exact", `${Setup.PACKAGE}@${target}`], {

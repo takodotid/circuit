@@ -150,10 +150,10 @@ Tidies the spacing, indents and line breaks of the `.ts` files. What the files s
 
 ## Projects and the app
 
-| Command             | Does                                                                                                  |
-| ------------------- | ----------------------------------------------------------------------------------------------------- |
-| `circuit new`       | Starts a project. See [Start a project](/guide/install#start-a-project).                              |
-| `circuit update`    | In a project: moves it to the newest version, after a yes. Outside, or with `--app`: updates the app. |
-| `circuit uninstall` | Removes the app. Asks first. Never touches your projects.                                             |
+| Command             | Does                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `circuit new`       | Starts a project. See [Start a project](/guide/install#start-a-project).                                                        |
+| `circuit update`    | Pick a newer version, the newest first. In a project: moves it, and the app with it. Outside, or with `--app`: updates the app. |
+| `circuit uninstall` | Removes the app. Asks first. Never touches your projects.                                                                       |
 
 Each project runs the version in its `.circuit/version`. See [Install](/guide/install#each-project-pins-its-version).

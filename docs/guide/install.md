@@ -92,9 +92,13 @@ The style is in `.editorconfig`: 4 spaces, lines up to 140, LF. Both the Prettie
 circuit update
 ```
 
-- **In a project:** shows the newest version and asks before moving the project to it. No is the default. Then it rewrites `.circuit/version` and the editor types.
-- **Outside a project:** updates the app.
+- **Pick a version.** Circuit lists the last few versions newer than yours, newest at the top, plus "Stay". `--confirm` takes the newest without asking.
+- **In a project:** moves the project to the version you picked, rewriting `.circuit/version` and the editor types. The app moves with it when that version is newer than the app, so the app is always the newest version one of your projects runs.
+- **Outside a project, or with `--app`:** updates the app only.
+- **A version with a critical problem is never offered.** If yours has one, "Stay" is gone too: you pick a safe one.
 - **Never across a major version.** 1.x stays on 1.x. Moving to 2.x is your choice.
+
+Each version a project pins is kept once on your machine, in `~/.circuit/versions`. When no project of yours uses a version any more, Circuit removes it, so old versions don't pile up.
 
 Circuit checks for a new version before each command, at most once a minute:
 

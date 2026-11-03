@@ -1,11 +1,14 @@
 // Which Circuit is current, and updating to it. Circuit asks the npm registry, at most once a minute: the dist-tag `latest` is the newest stable release, `rc` the newest release candidate. A release that fixes something critical is marked by deprecating the versions before it, with a message that starts with "critical"; such a version stops every command but `update`. An update stays within the major version, as `npm update` does: a new major version is a choice.
 
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { Ui } from "./ui";
 import { VERSION } from "./version";
+
+/** One published version, and why it is deprecated, when it is. */
+export type Release = { version: string; deprecated?: string };
 
 /** What Circuit learns from the registry. */
 export type Latest = {
@@ -25,9 +28,12 @@ export class Releases {
     /** How long Circuit waits for the registry before going on without it. */
     private static readonly TIMEOUT_MS = 3000;
 
-    /** Where Circuit keeps what it learned: `~/.circuit`. */
+    /** How many versions `circuit update` offers, newest first. */
+    static readonly OFFERED = 5;
+
+    /** Where Circuit keeps what it learned and the versions projects pin: `~/.circuit`, or `CIRCUIT_HOME` for a test. */
     static home(): string {
-        return join(homedir(), ".circuit");
+        return process.env.CIRCUIT_HOME || join(homedir(), ".circuit");
     }
 
     private static cachePath(): string {
@@ -168,11 +174,15 @@ export class Releases {
     /** Remove what an update on Windows left: the old binary, kept aside while it still ran. */
     static tidy(): void {
         const binary = Releases.binary();
-        // The old binary may still be running in another terminal, which locks it on Windows: it is removed on a later run.
-        if (binary)
+        if (!binary) return;
+
+        const folder = dirname(binary);
+        for (const name of readdirSync(folder).filter((file) => file.startsWith(`${basename(binary)}.old`))) {
+            // One still running in another terminal is locked on Windows: it goes on a later run.
             try {
-                rmSync(`${binary}.old`, { force: true });
+                rmSync(join(folder, name), { force: true });
             } catch {}
+        }
     }
 
     /** One release's binary for this system, checked against the release's SHA256SUMS. */
@@ -196,45 +206,113 @@ export class Releases {
         return file;
     }
 
-    /** The newest version of this major, from the registry, or a stop when the registry can't be read. Undefined when `current` is the newest. */
-    static async newer(current: string): Promise<string | undefined> {
-        const { latest, offline } = await Ui.step("Checking for a newer Circuit", () => Releases.latest(true));
-        if (!latest || offline)
-            Ui.fail("Could not reach the npm registry to learn the newest Circuit. Check the internet connection and try again.");
-
-        const target = Releases.target(latest, current);
-        return target && Releases.compare(current, target) < 0 ? target : undefined;
+    /** Whether a version is deprecated as critical: it must not run. */
+    static critical(release: Release | undefined): boolean {
+        return /^critical/i.test(release?.deprecated ?? "");
     }
 
-    /** Update the installed app, once the person says yes. Projects keep their own version (`.circuit/version`), so this changes none of them. */
-    static async updateApp(confirmed: boolean): Promise<string | undefined> {
-        const target = await Releases.newer(VERSION);
-        if (!target) {
-            Ui.done(`Circuit ${VERSION} is the newest.`);
+    /** Every published version, and which are deprecated. A stop when the registry can't be read. */
+    static async releases(): Promise<Release[]> {
+        try {
+            const packument = await Ui.step("Checking for a newer Circuit", async () => {
+                const response = await fetch(`${Releases.REGISTRY}/${Releases.PACKAGE}`, {
+                    signal: AbortSignal.timeout(Releases.TIMEOUT_MS * 3),
+                    // The short form npm itself installs from: each version and whether it is deprecated.
+                    headers: { accept: "application/vnd.npm.install-v1+json" },
+                });
+                if (!response.ok) throw new Error(`the registry answered ${response.status}`);
+                return (await response.json()) as { versions?: Record<string, { deprecated?: string }> };
+            });
+            return Object.entries(packument.versions ?? {}).map(([version, about]) => ({
+                version,
+                ...(about.deprecated ? { deprecated: about.deprecated } : {}),
+            }));
+        } catch {
+            return Ui.fail("Could not reach the npm registry to learn the newest Circuit. Check the internet connection and try again.");
+        }
+    }
+
+    /**
+     * The versions to offer after `current`, newest first, at most `count`: of its major version, never one deprecated as critical. A
+     * release candidate only while `current` is one.
+     */
+    static choices(releases: readonly Release[], current: string, count = Releases.OFFERED): Release[] {
+        return releases
+            .filter(
+                (release) =>
+                    Releases.major(release.version) === Releases.major(current) &&
+                    Releases.compare(release.version, current) > 0 &&
+                    !Releases.critical(release) &&
+                    (current.includes("-") || !release.version.includes("-"))
+            )
+            .sort((a, b) => Releases.compare(b.version, a.version))
+            .slice(0, count);
+    }
+
+    /**
+     * Which version `what` moves to: the person picks from the newest few, the newest at the top, or stays, unless the version it runs is
+     * deprecated as critical. With `confirmed`, the newest. Undefined when it stays.
+     */
+    static async pick(current: string, confirmed: boolean, what: string): Promise<string | undefined> {
+        const releases = await Releases.releases();
+        const choices = Releases.choices(releases, current);
+        const stuck = Releases.critical(releases.find((release) => release.version === current));
+
+        if (!choices.length) {
+            if (stuck)
+                Ui.fail(
+                    `${what} runs Circuit ${current}, deprecated as critical, and no safe version of ${Releases.major(current)}.x is out yet.`
+                );
+            Ui.done(`${what} runs Circuit ${current}, the newest of ${Releases.major(current)}.x.`);
             return undefined;
         }
+        if (confirmed) return choices[0]!.version;
+        if (!Ui.interactive) Ui.fail("Not updated. Without a person to answer, add --confirm, which takes the newest.");
 
+        Ui.note(
+            `${what} runs Circuit ${current}.${stuck ? " It has a critical problem: only safe versions are offered." : ""}\nWhat changed: https://github.com/takodotid/circuit/releases\nRun circuit validate and circuit diff after, before you apply.`,
+            "Update"
+        );
+        const picked = await Ui.select<string>("Which version?", [
+            ...choices.map((release, i) => ({
+                value: release.version,
+                label: release.version,
+                hint: [
+                    i === 0 ? "newest" : "",
+                    release.version.includes("-") ? "release candidate" : "",
+                    release.deprecated ? `deprecated: ${release.deprecated}` : "",
+                ]
+                    .filter(Boolean)
+                    .join(", "),
+            })),
+            ...(stuck ? [] : [{ value: "", label: `Stay on ${current}` }]),
+        ]);
+        return picked || undefined;
+    }
+
+    /** Update the installed app to a version the person picks. Gives back that version. */
+    static async updateApp(confirmed: boolean): Promise<string | undefined> {
         const binary =
             Releases.binary() ?? Ui.fail("This Circuit runs from its sources. Update it where it came from, such as with git pull.");
-        if (
-            !confirmed &&
-            !(await Ui.confirm(`Update the Circuit app from ${VERSION} to ${target}? Your projects keep the version they pin.`))
-        )
-            return undefined;
+        const target = await Releases.pick(VERSION, confirmed, "The Circuit app");
+        if (!target) return undefined;
 
-        const bytes = await Ui.step(`Downloading Circuit ${target}`, () => Releases.fetchBinary(target));
-        Releases.replace(binary, bytes);
+        Releases.replace(binary, await Ui.step(`Downloading Circuit ${target}`, () => Releases.fetchBinary(target)));
         Ui.done(`The Circuit app is ${target} now.`);
         return target;
     }
 
     /** Put `bytes` in place of the running binary. Windows does not let a running program be overwritten, but lets it be renamed, so the old one is moved aside and removed on the next run. */
-    private static replace(binary: string, bytes: Buffer): void {
+    static replace(binary: string, bytes: Buffer): void {
         const next = `${binary}.new`;
         writeFileSync(next, bytes);
 
         if (process.platform === "win32") {
-            if (existsSync(`${binary}.old`)) rmSync(`${binary}.old`, { force: true });
+            // An old one still running elsewhere can't be removed: the new one goes in beside it, under another name.
+            try {
+                rmSync(`${binary}.old`, { force: true });
+            } catch {}
+            if (existsSync(`${binary}.old`)) renameSync(`${binary}.old`, `${binary}.old-${Date.now()}`);
             renameSync(binary, `${binary}.old`);
             renameSync(next, binary);
             return;
