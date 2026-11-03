@@ -1,16 +1,13 @@
-// A project's `.env`, encrypted the way dotenvx encrypts it, so it can be committed. Each value is encrypted for the public key at the top of `.env`. The private key that decrypts them is never committed: it is in `.env.keys`, in the environment as `DOTENV_PRIVATE_KEY`, or in 1Password, where `CIRCUIT_ENV_KEY` in `.env` points. A value may also be a 1Password reference, `op://vault/item/field`, kept as it is.
+// A project's `.env`, each value encrypted (as dotenvx does), so it can be committed. Each value is encrypted for the public key at the top of `.env`. The private key that decrypts them is `DOTENV_PRIVATE_KEY`: in the environment, in `.env.keys`, or in `.env` itself as a 1Password reference. Any value, the key too, may be a 1Password reference, `op://vault/item/field`: Circuit reads it with the 1Password CLI when it needs it.
 
 import { decrypt, derive, encrypt, keypair, remove, upsert } from "@dotenvx/primitives";
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseEnv } from "node:util";
 
 /** What a value in `.env` is: encrypted, a reference to a password manager, empty, or plain text, which must not be committed. */
 export type EnvValueKind = "encrypted" | "1password" | "reference" | "empty" | "not encrypted";
-
-/** Where the private key that decrypts `.env` is kept. */
-export type KeyStore = { kind: "file" } | { kind: "1password"; vault: string; title: string };
 
 /** The 1Password CLI, `op`. */
 export class OnePassword {
@@ -39,49 +36,13 @@ export class OnePassword {
         OnePassword.cache.set(reference, result.stdout);
         return result.stdout;
     }
-
-    /** The vaults this person can write to. */
-    static vaults(): string[] {
-        const result = spawnSync("op", ["vault", "list", "--format=json"], { encoding: "utf8" });
-        if (result.status !== 0) throw new Error(`1Password could not list your vaults: ${result.stderr.trim()}`);
-
-        return (JSON.parse(result.stdout) as { name: string }[]).map((vault) => vault.name);
-    }
-
-    /** Save a new password item, and give back its reference. */
-    static create(vault: string, title: string, value: string): string {
-        const result = spawnSync(
-            "op",
-            ["item", "create", "--category=password", `--vault=${vault}`, `--title=${title}`, `password=${value}`],
-            {
-                encoding: "utf8",
-            }
-        );
-        if (result.status !== 0) throw new Error(`1Password could not save ${title} in ${vault}: ${result.stderr.trim()}`);
-
-        return `op://${vault}/${title}/password`;
-    }
-
-    /** Change the value a reference points at. */
-    static write(reference: string, value: string): void {
-        const parts = reference.slice("op://".length).split("/");
-        if (parts.length < 3) throw new Error(`${reference} is not a 1Password reference such as op://vault/item/field`);
-
-        const [vault, item, ...field] = parts as [string, string, ...string[]];
-        const result = spawnSync("op", ["item", "edit", item, `--vault=${vault}`, `${field.join(".")}=${value}`], { encoding: "utf8" });
-        if (result.status !== 0) throw new Error(`1Password could not change ${reference}: ${result.stderr.trim()}`);
-
-        OnePassword.cache.set(reference, value);
-    }
 }
 
 export class EnvFile {
     /** The key at the top of `.env` that encrypts each value. Public: it can only encrypt. */
     static readonly PUBLIC_KEY = "DOTENV_PUBLIC_KEY";
-    /** The key that decrypts, in `.env.keys` or in the environment. */
+    /** The key that decrypts: in the environment, in `.env.keys`, or in `.env` as a 1Password reference. */
     static readonly PRIVATE_KEY = "DOTENV_PRIVATE_KEY";
-    /** In `.env`: where in 1Password the private key is, when it is kept there. */
-    static readonly KEY_REFERENCE = "CIRCUIT_ENV_KEY";
 
     private static readonly ENCRYPTED = "encrypted:";
 
@@ -132,7 +93,7 @@ export class EnvFile {
 
     /** The project's own names: every name but the keys'. */
     names(): string[] {
-        return Object.keys(this.values()).filter((name) => name !== EnvFile.PUBLIC_KEY && name !== EnvFile.KEY_REFERENCE);
+        return Object.keys(this.values()).filter((name) => name !== EnvFile.PUBLIC_KEY && name !== EnvFile.PRIVATE_KEY);
     }
 
     plaintext(): string[] {
@@ -143,13 +104,26 @@ export class EnvFile {
         return this.values()[EnvFile.PUBLIC_KEY] || undefined;
     }
 
+    /** Where `DOTENV_PRIVATE_KEY` is written, the first of the environment, `.env.keys` and `.env` that has it, and its value: the key, or a 1Password reference to it. */
+    private keySource(): { where: string; value: string } | undefined {
+        const fromEnvironment = process.env[EnvFile.PRIVATE_KEY];
+        if (fromEnvironment) return { where: `the environment, ${EnvFile.PRIVATE_KEY}`, value: fromEnvironment };
+
+        const fromFile = this.keyFromFile();
+        if (fromFile) return { where: ".env.keys", value: fromFile };
+
+        const inEnv = this.values()[EnvFile.PRIVATE_KEY];
+        return inEnv ? { where: ".env", value: inEnv } : undefined;
+    }
+
     /** Where the private key comes from, without reading 1Password. Undefined when it is nowhere. */
     keyLocation(): string | undefined {
-        if (process.env[EnvFile.PRIVATE_KEY]) return `the environment, ${EnvFile.PRIVATE_KEY}`;
-        if (this.keyFromFile()) return ".env.keys";
+        return EnvFile.describe(this.keySource());
+    }
 
-        const reference = this.values()[EnvFile.KEY_REFERENCE];
-        return reference ? `1Password, ${reference}` : undefined;
+    private static describe(source: { where: string; value: string } | undefined): string | undefined {
+        if (!source) return undefined;
+        return source.value.startsWith("op://") ? `1Password, ${source.value} (named in ${source.where})` : source.where;
     }
 
     private keyFromFile(): string | undefined {
@@ -158,23 +132,27 @@ export class EnvFile {
         return (parseEnv(readFileSync(this.keysPath, "utf8")) as Record<string, string>)[EnvFile.PRIVATE_KEY] || undefined;
     }
 
-    /** The private key from the environment or `.env.keys`, or one read before in this run: never by asking 1Password. */
+    /** The private key without asking anyone: written out where it is, or read from 1Password before in this run. */
     keyAtHand(): string | undefined {
-        return this.privateKey_ ?? (process.env[EnvFile.PRIVATE_KEY] || this.keyFromFile());
+        if (this.privateKey_) return this.privateKey_;
+
+        const source = this.keySource();
+        if (!source) return undefined;
+        return source.value.startsWith("op://") ? OnePassword.cached(source.value) : source.value;
     }
 
-    /** The private key, from the environment, `.env.keys` or 1Password. It must fit the public key in `.env`. */
+    /** The private key, read from 1Password when that is where it points. It must fit the public key in `.env`. */
     privateKey(): string {
         if (this.privateKey_) return this.privateKey_;
 
-        const reference = this.values()[EnvFile.KEY_REFERENCE];
-        const key = this.keyAtHand() ?? (reference ? OnePassword.read(reference, "The key that decrypts .env") : undefined);
-
-        if (!key) {
+        const source = this.keySource();
+        if (!source) {
             throw new Error(
-                ".env is encrypted, and the key that decrypts it is not here. Put it in .env.keys as DOTENV_PRIVATE_KEY=..., or in the environment. Ask your team for it."
+                '.env is encrypted, and the key that decrypts it is not here. Put it in .env.keys as DOTENV_PRIVATE_KEY=..., in the environment, or as a 1Password reference in .env: DOTENV_PRIVATE_KEY="op://...". Ask your team for it.'
             );
         }
+
+        const key = source.value.startsWith("op://") ? OnePassword.read(source.value, "The key that decrypts .env") : source.value;
 
         const publicKey = this.publicKey();
         if (publicKey && derive(key) !== publicKey) {
@@ -242,67 +220,26 @@ export class EnvFile {
     }
 
     /**
-     * A new keypair: every value encrypted again for the new public key, and the new private key put where the old one was. The old key no longer decrypts `.env`. Gives back where the new key is.
+     * A new keypair: every value encrypted again for the new public key, and the old key no longer decrypts `.env`. The new private key goes in `.env.keys`; when the old one was elsewhere, such as in 1Password, the person puts the new one there. Gives back what to tell them.
      *
-     * `.env` is written last, from a copy made first, so a key that could not be saved changes nothing.
+     * `.env.keys` is written before `.env`, so a key that could not be saved changes nothing.
      */
     rotate(): string {
-        if (process.env[EnvFile.PRIVATE_KEY] && !this.keyFromFile()) {
-            throw new Error(
-                "The key comes from DOTENV_PRIVATE_KEY in the environment. Rotate it on a machine that has .env.keys, or where 1Password keeps it."
-            );
-        }
-
+        const source = this.keySource();
         const old = this.privateKey();
         const next = keypair();
-        let source = upsert(this.source(), EnvFile.PUBLIC_KEY, next.publicKey);
+        let text = upsert(this.source(), EnvFile.PUBLIC_KEY, next.publicKey);
 
         for (const [name, value] of Object.entries(this.values())) {
-            if (EnvFile.isEncrypted(value)) source = upsert(source, name, encrypt(next.publicKey, decrypt(old, value)));
+            if (EnvFile.isEncrypted(value)) text = upsert(text, name, encrypt(next.publicKey, decrypt(old, value)));
         }
 
-        const staged = `${this.path}.rotating`;
-        writeFileSync(staged, source);
-
-        const reference = this.values()[EnvFile.KEY_REFERENCE];
-        const inOnePassword = Boolean(reference) && !this.keyFromFile();
-
-        try {
-            if (inOnePassword) OnePassword.write(reference!, next.privateKey);
-            else EnvFile.writeKeys(this.root, next.privateKey);
-        } catch (error) {
-            rmSync(staged, { force: true });
-            throw error;
-        }
-
-        renameSync(staged, this.path);
+        EnvFile.writeKeys(this.root, next.privateKey);
+        writeFileSync(this.path, text);
         this.privateKey_ = next.privateKey;
 
-        return inOnePassword ? `1Password, ${reference}` : ".env.keys";
-    }
-
-    /** Move the key from `.env.keys` into a new 1Password item, and point `.env` at it. `.env.keys` goes only once 1Password gives the key back. Gives back the reference. */
-    moveKeyToOnePassword(vault: string, title: string): string {
-        if (!this.keyFromFile()) throw new Error("There is no .env.keys here to move. circuit secret key says where the key is.");
-
-        const key = this.privateKey();
-        const reference = OnePassword.create(vault, title, key);
-        if (OnePassword.read(reference, "The key that decrypts .env") !== key) {
-            throw new Error(`1Password gave back another value for ${reference}, so .env.keys was kept.`);
-        }
-
-        writeFileSync(this.path, upsert(this.source(), EnvFile.KEY_REFERENCE, reference));
-        rmSync(this.keysPath, { force: true });
-        return reference;
-    }
-
-    /** Move the key from 1Password into `.env.keys`, and take the reference out of `.env`. The 1Password item stays. */
-    moveKeyToFile(): void {
-        if (this.keyFromFile()) throw new Error("The key is in .env.keys already.");
-
-        const key = this.privateKey();
-        EnvFile.writeKeys(this.root, key);
-        writeFileSync(this.path, remove(this.source(), EnvFile.KEY_REFERENCE));
+        if (source?.where === ".env.keys" && !source.value.startsWith("op://")) return "The new key is in .env.keys.";
+        return `The new key is in .env.keys. Put it in place of the old one (${EnvFile.describe(source)}), then delete .env.keys.`;
     }
 
     private static writeKeys(root: string, privateKey: string): void {
@@ -312,23 +249,17 @@ export class EnvFile {
         );
     }
 
-    /** A new `.env` with a new keypair, its private key in `.env.keys` or in 1Password. */
-    static create(root: string, store: KeyStore): void {
+    /** A new `.env` with a new keypair, its private key in `.env.keys`. */
+    static create(root: string): void {
         const pair = keypair();
-        let reference = "";
-
-        if (store.kind === "1password") {
-            reference = `\n# The key that decrypts this file is in 1Password, here. Circuit reads it with the 1Password CLI, op.\n${EnvFile.KEY_REFERENCE}="${OnePassword.create(store.vault, store.title, pair.privateKey)}"\n`;
-        } else {
-            EnvFile.writeKeys(root, pair.privateKey);
-        }
+        EnvFile.writeKeys(root, pair.privateKey);
 
         writeFileSync(
             join(root, ".env"),
             `# The project's secrets, each one encrypted, so this file is safe to commit. Add or change one with: circuit secret set NAME
 # The public key below can only encrypt. The key that decrypts is never committed.
 ${EnvFile.PUBLIC_KEY}="${pair.publicKey}"
-${reference}`
+`
         );
     }
 }

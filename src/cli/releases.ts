@@ -202,7 +202,7 @@ export class Releases {
         return target && Releases.compare(current, target) < 0 ? target : undefined;
     }
 
-    /** Update the installed app, once the person says yes. Projects keep their own version (`.circuit/version`), so this changes none of them. */
+    /** Update the installed app, once the person says yes. Projects keep their own version (`.circuit/VERSION`), so this changes none of them. */
     static async updateApp(confirmed: boolean): Promise<string | undefined> {
         const target = await Releases.newer(VERSION);
         if (!target) {

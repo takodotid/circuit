@@ -1,10 +1,8 @@
 // The files a project's editor reads, in `.circuit/types/`: Circuit's functions and types, so a project's files complete and check with nothing installed.
 
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { EDITOR_FILES } from "./editor-types.generated";
-import { VERSION } from "./version";
 
 export class EditorTypes {
     /** Where they go, in the project. */
@@ -49,16 +47,6 @@ export class EditorTypes {
         4
     )}\n`;
 
-    /** What marks the files as this Circuit's: its version, and a hash of every file. */
-    private static stamp(): string {
-        const hash = createHash("sha256");
-        for (const [path, text] of Object.entries(EDITOR_FILES)) hash.update(`${path}\n${text}\n`);
-        return `${VERSION} ${hash.digest("hex").slice(0, 16)}\n`;
-    }
-
-    /** The file inside the types that records which Circuit wrote them. */
-    private static readonly WRITTEN_BY = ".written-by";
-
     /** Writes every file again, removing the old ones first. */
     static write(root: string): void {
         const folder = join(root, EditorTypes.FOLDER);
@@ -68,13 +56,14 @@ export class EditorTypes {
             mkdirSync(dirname(join(folder, path)), { recursive: true });
             writeFileSync(join(folder, path), text);
         }
-
-        writeFileSync(join(folder, EditorTypes.WRITTEN_BY), EditorTypes.stamp());
     }
 
-    /** Whether the project's files are this Circuit's. */
+    /** Whether the project's types are this Circuit's: every file as this Circuit writes it. No version is kept beside them: the project's version is `.circuit/VERSION`, and the files themselves say whether they are current. */
     static current(root: string): boolean {
-        const stamp = join(root, EditorTypes.FOLDER, EditorTypes.WRITTEN_BY);
-        return existsSync(stamp) && readFileSync(stamp, "utf8") === EditorTypes.stamp();
+        const folder = join(root, EditorTypes.FOLDER);
+        return Object.entries(EDITOR_FILES).every(([path, text]) => {
+            const file = join(folder, path);
+            return existsSync(file) && readFileSync(file, "utf8") === text;
+        });
     }
 }

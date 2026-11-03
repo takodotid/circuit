@@ -198,7 +198,7 @@ class Cli {
 
         program
             .command("fmt")
-            .description("write the project's files in Circuit's style (Prettier, set by .prettierrc.json)")
+            .description("write the project's files in its style: Prettier, set by .editorconfig")
             .argument("[file...]", "every TypeScript file of the project when left out")
             .option("--check", "change nothing; fail when a file is not in the style")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
@@ -245,12 +245,9 @@ class Cli {
             .action((flags) => SecretCommands.open(flags.project).encrypt());
         secret
             .command("key")
-            .description("where the key that decrypts .env is; or move it to 1password, or back to a file")
-            .argument("[to]", "1password or file")
-            .option("--vault <name>", "the 1Password vault, asked when left out")
-            .option("--confirm", "move without asking")
+            .description("where the key that decrypts .env is")
             .option(Cli.PROJECT_FLAGS, Cli.PROJECT_HELP)
-            .action(async (to, flags) => SecretCommands.open(flags.project).key(to, flags.vault, flags.confirm ?? false));
+            .action((flags) => SecretCommands.open(flags.project).key());
         secret
             .command("rotate")
             .description("a new key: every secret encrypted again, the old key stops working")

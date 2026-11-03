@@ -424,7 +424,7 @@ export class Migrate {
 
     /** A new encrypted `.env`, with 0.x's values copied in and encrypted at once when asked. No value is ever printed. */
     private static writeEnv(out: string, from: { root: string; copyEnv: boolean }): void {
-        EnvFile.create(out, { kind: "file" });
+        EnvFile.create(out);
 
         const source = join(from.root, ".env");
         if (!from.copyEnv || !existsSync(source)) return;

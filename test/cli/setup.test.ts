@@ -27,7 +27,6 @@ beforeAll(async () => {
             kind: "simple",
             asn: 64500,
             git: true,
-            keys: { kind: "file" },
             openInEditor: false,
         });
     } finally {
@@ -46,9 +45,8 @@ test("the project's files are written", () => {
         ".env.keys",
         "tenants/README.md",
         ".circuit/hooks/pre-commit",
-        ".circuit/version",
+        ".circuit/VERSION",
         ".circuit/DO_NOT_EDIT.md",
-        ".prettierrc.json",
         ".editorconfig",
         ".vscode/settings.json",
         ".vscode/extensions.json",

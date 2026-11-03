@@ -1,4 +1,4 @@
-// A project pins its Circuit in .circuit/version; the version kept for it lives in ~/.circuit/versions.
+// A project pins its Circuit in .circuit/VERSION; the version kept for it lives in ~/.circuit/VERSIONs.
 
 import { afterEach, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";

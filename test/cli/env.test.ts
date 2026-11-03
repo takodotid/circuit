@@ -17,7 +17,7 @@ let root: string;
 
 beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), "circuit-env-"));
-    EnvFile.create(root, { kind: "file" });
+    EnvFile.create(root);
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -77,12 +77,22 @@ describe("EnvFile", () => {
         expect(env.values().SNMP_COMMUNITY).toBe("op://Network/SNMP/password");
     });
 
-    test("the key moves only from where it is", () => {
+    test("the key may be written in .env as a 1Password reference, and is never listed as a secret", () => {
         const env = new EnvFile(root);
-        expect(() => env.moveKeyToFile()).toThrow("in .env.keys already");
-
         rmSync(env.keysPath);
-        expect(() => new EnvFile(root).moveKeyToOnePassword("Network", "Circuit key")).toThrow("no .env.keys here to move");
+        writeFileSync(env.path, `${readFileSync(env.path, "utf8")}DOTENV_PRIVATE_KEY="op://Network/Circuit/key"\n`);
+
+        const fresh = new EnvFile(root);
+        expect(fresh.keyLocation()).toBe("1Password, op://Network/Circuit/key (named in .env)");
+        expect(fresh.names()).toEqual([]);
+        expect(fresh.plaintext()).toEqual([]);
+    });
+
+    test("a key written in .env in plain text stops a commit", () => {
+        const env = new EnvFile(root);
+        writeFileSync(env.path, `${readFileSync(env.path, "utf8")}DOTENV_PRIVATE_KEY="abc123"\n`);
+
+        expect(new EnvFile(root).plaintext()).toEqual(["DOTENV_PRIVATE_KEY"]);
     });
 
     test("a .env without a key gets one when a value is set", () => {
@@ -103,7 +113,7 @@ describe("EnvFile", () => {
         const oldKey = keyIn(env.keysPath);
         const oldValue = env.values().A_PASSWORD!;
 
-        expect(env.rotate()).toBe(".env.keys");
+        expect(env.rotate()).toBe("The new key is in .env.keys.");
 
         const fresh = new EnvFile(root);
         expect(keyIn(fresh.keysPath)).not.toBe(oldKey);

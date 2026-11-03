@@ -96,7 +96,7 @@ if ($installed -eq $version) {
     Write-Host "Circuit $version is installed already."
 }
 elseif ($installed) {
-    # Updating the app changes no project: each runs the version in its .circuit/version.
+    # Updating the app changes no project: each runs the version in its .circuit/VERSION.
     if (Ask "Circuit $installed is installed. Update the app to $version? Your projects keep the version they pin." $false) {
         Get-Circuit $target
         Write-Host "Circuit $version is installed."

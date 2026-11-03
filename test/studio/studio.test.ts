@@ -32,7 +32,7 @@ beforeAll(async () => {
         );
     }
 
-    EnvFile.create(folder, { kind: "file" });
+    EnvFile.create(folder);
     new EnvFile(folder).set("EDGE_01_PASSWORD", "s3cret-value");
     writeFileSync(join(folder, ".env"), `${await Bun.file(join(folder, ".env")).text()}PLAIN_ONE=never-sent\n`);
 

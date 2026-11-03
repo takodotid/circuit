@@ -3,7 +3,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { EnvFile, type KeyStore, OnePassword } from "../core/env-file";
+import { EnvFile } from "../core/env-file";
 import { EditorTypes } from "./editor-types";
 import { GitHooks } from "./git-hooks";
 import { Ui } from "./ui";
@@ -15,7 +15,7 @@ export const GENERATED_README = `# Do not edit
 
 Circuit writes everything in this folder, and writes it again when it needs to: an edit here is lost, and changes nothing on a device. Change the project's own files instead.
 
-- \`version\`: the Circuit version this project runs. \`circuit update\` changes it. (Not in a full install: \`package.json\` pins the version.)
+- \`VERSION\`: the Circuit version this project runs. \`circuit update\` changes it. (Not in a full install: \`package.json\` pins the version.)
 - \`types/\`: what your editor reads to complete and check the project's files. (Not in a full install: the types come from the package in \`node_modules\`.)
 - \`hooks/\`: the git hook that checks each commit: no secret in plain text, no \`.env.keys\`, and a project that validates.
 - \`cache/\`: temporary, ignored by git.
@@ -38,7 +38,6 @@ export type ProjectSetup = {
     kind: "simple" | "full";
     asn: number;
     git: boolean;
-    keys: KeyStore;
     openInEditor: boolean;
 };
 
@@ -98,7 +97,7 @@ export class Setup {
         const kind =
             chosen ??
             (await Ui.select<ProjectSetup["kind"]>("How should this project run Circuit?", [
-                { value: "simple", label: "Simple (recommended)", hint: "the circuit app, its version pinned in .circuit/version" },
+                { value: "simple", label: "Simple (recommended)", hint: "the circuit app, its version pinned in .circuit/VERSION" },
                 { value: "full", label: "Full", hint: "Circuit as a package in the project, run with bun circuit" },
             ]));
 
@@ -122,25 +121,9 @@ export class Setup {
         if (GitHooks.gitInstalled()) git = await Ui.confirm("Start a git repository, so each change is kept and can be reviewed?", true);
         else Ui.warn("git is not installed, so the project is not a git repository. Install git, then run git init in the folder.");
 
-        let keys: KeyStore = { kind: "file" };
-        if (OnePassword.installed()) {
-            const where = await Ui.select("Where to keep the key that decrypts .env?", [
-                { value: "file", label: ".env.keys file (recommended)", hint: "in the folder, kept out of git" },
-                { value: "1password", label: "1Password", hint: "read with the 1Password CLI each time" },
-            ]);
-            if (where === "1password") {
-                const vaults = await Ui.step("Reading your 1Password vaults", async () => OnePassword.vaults());
-                const vault = await Ui.select(
-                    "Which vault?",
-                    vaults.map((vault) => ({ value: vault, label: vault }))
-                );
-                keys = { kind: "1password", vault, title: `Circuit ${name.trim()} env key` };
-            }
-        }
-
         const openInEditor = Setup.installed("code") && (await Ui.confirm("Open the project in VS Code?", true));
 
-        return { folder: name.trim(), kind, asn, git, keys, openInEditor };
+        return { folder: name.trim(), kind, asn, git, openInEditor };
     }
 
     /** Install Bun with its own installer, when the person agrees. */
@@ -193,7 +176,7 @@ export const as${setup.asn} = circuit({
             if (setup.kind === "simple") Versions.pin(root, VERSION);
             if (setup.kind === "simple") EditorTypes.write(root);
             Setup.writeNotice(root);
-            EnvFile.create(root, setup.keys);
+            EnvFile.create(root);
 
             if (setup.kind === "full") {
                 writeFileSync(
@@ -229,9 +212,7 @@ export const as${setup.asn} = circuit({
     /** The steps after a new project, for the person to follow. */
     static nextSteps(root: string, setup: ProjectSetup): string {
         const keyNote =
-            setup.keys.kind === "file"
-                ? "The key that decrypts .env is in .env.keys: keep a copy in your password manager, and share it with your team there."
-                : "The key that decrypts .env is in 1Password. Your team reads it from there.";
+            "The key that decrypts .env is in .env.keys. Keep it in your password manager, and share it with your team there. In 1Password, write its reference as DOTENV_PRIVATE_KEY in .env instead, and delete .env.keys.";
 
         const run = setup.kind === "full" ? "bun circuit" : "circuit";
         return [
@@ -288,13 +269,11 @@ export const as${setup.asn} = circuit({
         rmSync(join(root, ".circuit", "README.md"), { force: true });
     }
 
-    /** The editor's settings: Circuit's style for the formatter, and format on save in VS Code with the Prettier extension, the same style `circuit fmt` writes. A file the project has already is kept. */
+    /** The editor's settings: the style in `.editorconfig`, which the Prettier extension and `circuit fmt` both read, and format on save in VS Code. A file the project has already is kept. */
     static writeEditor(root: string): void {
         const json = (value: unknown) => `${JSON.stringify(value, null, 4)}\n`;
         const files: Record<string, string> = {
-            ".prettierrc.json": json(Format.STYLE),
-            ".editorconfig":
-                "root = true\n\n[*]\ncharset = utf-8\nend_of_line = lf\ninsert_final_newline = true\nindent_style = space\nindent_size = 4\n",
+            ".editorconfig": Format.EDITORCONFIG,
             ".vscode/settings.json": json({
                 "editor.formatOnSave": true,
                 "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },

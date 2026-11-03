@@ -1,4 +1,4 @@
-// `circuit fmt`: the project's files in Circuit's style. It is Prettier, carried inside Circuit, so nothing else is installed. A project's `.prettierrc.json` changes the style; VS Code's Prettier extension reads the same file, so saving in the editor and `circuit fmt` agree.
+// `circuit fmt`: the project's files in its style. It is Prettier, carried inside Circuit, so nothing else is installed. The style is Prettier's own, set by the project's `.editorconfig` (indent, line length, line ends), as VS Code's Prettier extension reads it, so saving in the editor and `circuit fmt` agree. A `.prettierrc.json`, when a project adds one, goes on top, for both.
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -10,25 +10,50 @@ import { format } from "prettier/standalone";
 import { Ui } from "./ui";
 
 export class Format {
-    /** Circuit's style, the one its own code is written in. */
-    static readonly STYLE = {
-        printWidth: 140,
-        tabWidth: 4,
-        semi: true,
-        trailingComma: "es5",
-        bracketSpacing: true,
-        arrowParens: "always",
-        endOfLine: "lf",
-    } as const;
+    /** What a new project's `.editorconfig` says: four spaces, lines up to 140, LF. */
+    static readonly EDITORCONFIG =
+        "root = true\n\n[*]\ncharset = utf-8\nend_of_line = lf\ninsert_final_newline = true\nindent_style = space\nindent_size = 4\nmax_line_length = 140\n";
 
     /** Folders that hold nothing of the project's own to format. */
     private static readonly SKIPPED = new Set(["node_modules", ".git", ".circuit", "dist"]);
 
-    /** The project's style: its `.prettierrc.json` over Circuit's. */
+    /** The settings of `.editorconfig` that apply to a TypeScript file: those under `[*]`, then under a section that names `.ts`. */
+    static editorconfig(text: string): Record<string, string> {
+        const settings: Record<string, string> = {};
+        let applies = false;
+
+        for (const raw of text.split(/\r?\n/)) {
+            const line = raw.replace(/[#;].*$/, "").trim();
+            const section = /^\[(.+)\]$/.exec(line);
+            if (section) {
+                applies = section[1] === "*" || /\bts\b/.test(section[1]!);
+                continue;
+            }
+
+            const [key, value] = line.split("=").map((part) => part.trim());
+            if (applies && key && value) settings[key.toLowerCase()] = value.toLowerCase();
+        }
+
+        return settings;
+    }
+
+    /** The project's style: Prettier's own, then what `.editorconfig` sets, as Prettier maps it, then a `.prettierrc.json` if the project has one. */
     static style(root: string): Options {
-        const path = join(root, ".prettierrc.json");
-        const own = existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as Options) : {};
-        return { ...Format.STYLE, ...own };
+        const style: Options = {};
+        const editorconfig = join(root, ".editorconfig");
+
+        if (existsSync(editorconfig)) {
+            const settings = Format.editorconfig(readFileSync(editorconfig, "utf8"));
+            if (settings.indent_style) style.useTabs = settings.indent_style === "tab";
+            const width = Number(settings.indent_size === "tab" ? settings.tab_width : (settings.indent_size ?? settings.tab_width));
+            if (width) style.tabWidth = width;
+            if (settings.max_line_length && settings.max_line_length !== "off") style.printWidth = Number(settings.max_line_length);
+            if (settings.end_of_line === "lf" || settings.end_of_line === "crlf" || settings.end_of_line === "cr")
+                style.endOfLine = settings.end_of_line;
+        }
+
+        const own = join(root, ".prettierrc.json");
+        return existsSync(own) ? { ...style, ...(JSON.parse(readFileSync(own, "utf8")) as Options) } : style;
     }
 
     /** Every TypeScript file of the project, relative to it. A JSON file is formatted only when named. */
