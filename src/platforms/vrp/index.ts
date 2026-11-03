@@ -115,7 +115,7 @@ export class Vrp extends Platform {
         }
 
         for (const [name, port] of Derive.ports(device)) {
-            for (const field of ["speed", "ingress_acl", "mtu", "addresses", "vrrp", "vrf"] as const) {
+            for (const field of ["speed", "ingress_acl", "mtu", "addresses", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
                 if (port[field] !== undefined) found.push(`interfaces.ethernet.${name}.${field}, ports are switched; use a VLAN interface`);
             }
 
@@ -139,6 +139,7 @@ export class Vrp extends Platform {
             if (kind === "lag" && (settings as Lag).ethertypes) found.push(`${where}.ethertypes, on a LAG is not proved`);
             if (settings.mtu !== undefined) found.push(`${where}.mtu`);
             if (settings.ipv6_ra) found.push(`${where}.ipv6_ra`);
+            if (settings.hardware_offload !== undefined) found.push(`${where}.hardware_offload, the switch chip forwards everything`);
             for (const group of settings.vrrp ?? []) if (Address.family(group.address) === "ipv6") found.push(`${where}.vrrp for IPv6`);
         }
 
@@ -151,6 +152,7 @@ export class Vrp extends Platform {
         if (routing?.bgp) found.push("routing.bgp");
         if (routing?.rpki) found.push("routing.rpki");
         if (routing?.ospf?.address_families?.includes("ipv6")) found.push("routing.ospf for IPv6");
+        if (routing?.router_id && !routing.ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");
 
         const bfd = routing?.bfd;
         if (bfd && !(Number.isInteger(bfd.interval) && bfd.interval >= 50 && bfd.interval <= 1000))

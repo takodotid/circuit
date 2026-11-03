@@ -219,6 +219,16 @@ export class RouterOs extends Platform {
             }
         }
 
+        // Routing in software is set per VLAN interface, on the switch chip that offloads.
+        for (const [name, port] of Derive.ports(device))
+            if (port.hardware_offload !== undefined) found.push(`interfaces.ethernet.${name}.hardware_offload, set on a VLAN interface`);
+        for (const { name, kind, settings } of Derive.interfaces(device)) {
+            if (settings.hardware_offload === undefined) continue;
+            if (kind !== "vlan_interface") found.push(`interfaces.${kind}.${name}.hardware_offload, set on a VLAN interface`);
+            else if (settings.hardware_offload && !device.system?.hardware_offload)
+                found.push(`interfaces.vlan_interface.${name}.hardware_offload true while system.hardware_offload is off`);
+        }
+
         for (const [name, lag] of RouterOsRender.entries(device.interfaces?.lag)) {
             if (lag.mac_limit !== undefined) found.push(`interfaces.lag.${name}.mac_limit, ${RouterOs.NO_MAC_LIMIT}`);
             if (lag.ethertypes !== undefined)
@@ -253,7 +263,9 @@ export class RouterOs extends Platform {
 
         for (const [name, user] of Object.entries(snmp?.users ?? {})) {
             if (user.auth !== "sha1") {
-                found.push(`monitoring.snmp.users.${name}.auth ${user.auth}, the platform authenticates with SHA1 or MD5`);
+                found.push(
+                    `monitoring.snmp.users.${name}.auth ${user.auth}: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not proved yet)`
+                );
             }
         }
 

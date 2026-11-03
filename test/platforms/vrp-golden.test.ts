@@ -107,3 +107,20 @@ test("a 0.x message is written with v1's paths and field names", () => {
     expect(inV1("system.logging.remote 2001:db8::1, IPv6 is not proved", device)).toBe("monitoring.syslog 2001:db8::1, IPv6 is not proved");
     expect(inV1("dhcp", device)).toBe("services.dhcp_server");
 });
+
+test("fields a VRP switch can't take are refused, not skipped", () => {
+    const tor = Fixtures.device("colocation--tor-01");
+    const [port] = Object.keys(tor.interfaces?.ethernet ?? {});
+    const device = {
+        ...tor,
+        interfaces: {
+            ...tor.interfaces,
+            ethernet: { ...tor.interfaces?.ethernet, [port!]: { ...tor.interfaces?.ethernet?.[port!], ipv6_ra: true } },
+        },
+        routing: { ...tor.routing, ospf: undefined, router_id: "192.0.2.1" },
+    } as Device;
+
+    const found = vrp.unsupported(device);
+    expect(found).toContain(`interfaces.ethernet.${port}.ipv6_ra, ports are switched; use a VLAN interface`);
+    expect(found).toContain("routing.router_id without routing.ospf, only OSPF uses it here");
+});

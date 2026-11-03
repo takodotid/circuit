@@ -98,7 +98,6 @@ export class RouterOsRender {
 
     private static readonly USER_GROUPS = { admin: "full", operator: "write", "read-only": "read" } as const;
 
-    private static readonly SNMP_AUTH = { sha1: "SHA1", sha256: "SHA1" } as const;
     private static readonly SNMP_PRIVACY = { aes128: "AES", des: "DES" } as const;
 
     /** Severity threshold to the topics the platform logs under, most severe first. */
@@ -1450,7 +1449,8 @@ export class RouterOsRender {
             this.add("/snmp community", "add", {
                 addresses: allow,
                 "authentication-password": Secrets.marker(user.auth_password),
-                "authentication-protocol": RouterOsRender.SNMP_AUTH[user.auth],
+                // SHA1 only: unsupported() refuses sha256, so it is never written as SHA1.
+                "authentication-protocol": "SHA1",
                 "encryption-password": Secrets.marker(user.privacy_password),
                 "encryption-protocol": RouterOsRender.SNMP_PRIVACY[user.privacy],
                 name,

@@ -150,7 +150,7 @@ export class RaisecomRos extends Platform {
         for (const [name, port] of Derive.ports(device)) {
             const where = `interfaces.ethernet.${name}`;
 
-            for (const field of ["speed", "ingress_acl", "mtu", "addresses", "vrrp", "vrf"] as const) {
+            for (const field of ["speed", "ingress_acl", "mtu", "addresses", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
                 if (port[field] !== undefined) found.push(`${where}.${field}`);
             }
 
@@ -169,7 +169,7 @@ export class RaisecomRos extends Platform {
         for (const [name, lag] of Object.entries(device.interfaces?.lag ?? {})) {
             if (!lag) continue;
 
-            for (const field of ["addresses", "vrrp", "vrf", "mtu", "storm_control", "stp"] as const) {
+            for (const field of ["addresses", "vrrp", "vrf", "mtu", "storm_control", "stp", "ipv6_ra", "hardware_offload"] as const) {
                 if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, a LAG here only switches`);
             }
             for (const field of ["mac_limit", "ethertypes"] as const) {
@@ -181,7 +181,7 @@ export class RaisecomRos extends Platform {
             if (!iface) continue;
             const where = `interfaces.vlan_interface.${name}`;
 
-            for (const field of ["vrf", "description", "mtu", "ipv6_ra"] as const) {
+            for (const field of ["vrf", "description", "mtu", "ipv6_ra", "hardware_offload"] as const) {
                 if (iface[field] !== undefined) found.push(`${where}.${field}`);
             }
 
@@ -207,6 +207,7 @@ export class RaisecomRos extends Platform {
         }
 
         const ospf = routing?.ospf;
+        if (routing?.router_id && !ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");
         if (ospf?.address_families?.includes("ipv6")) found.push("routing.ospf.address_families ipv6, OSPF runs for IPv4 here");
 
         for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {

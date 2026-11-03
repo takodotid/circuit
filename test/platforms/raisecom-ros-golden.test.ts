@@ -103,3 +103,20 @@ test("a v1 field 0.x did not have is refused unless it is Circuit's own, and pat
     const ports = { ...device.interfaces?.ethernet, "10g-1": { ingress_acl: "guests" } };
     expect(unsupported({ interfaces: { ...device.interfaces, ethernet: ports } })).toEqual(["interfaces.ethernet.10g-1.ingress_acl"]);
 });
+
+test("fields a Raisecom switch can't take are refused, not skipped", () => {
+    const core = Fixtures.device("platforms--example-core-switch");
+    const [port] = Object.keys(core.interfaces?.ethernet ?? {});
+    const device = {
+        ...core,
+        interfaces: {
+            ...core.interfaces,
+            ethernet: { ...core.interfaces?.ethernet, [port!]: { ...core.interfaces?.ethernet?.[port!], ipv6_ra: true } },
+        },
+        routing: { ...core.routing, ospf: undefined, router_id: "192.0.2.1" },
+    } as Device;
+
+    const found = platform.unsupported(device);
+    expect(found).toContain(`interfaces.ethernet.${port}.ipv6_ra`);
+    expect(found).toContain("routing.router_id without routing.ospf, only OSPF uses it here");
+});

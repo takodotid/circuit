@@ -112,6 +112,19 @@ test("what v1 writes and the platform does not render is refused, by its v1 path
     ]);
 });
 
+test("SNMP sha256 is refused, never written as SHA1", () => {
+    const edge = Fixtures.device("edge-router--edge-01");
+    const user = { auth_password: { secret: "SNMP_AUTH" }, privacy: "aes128", privacy_password: { secret: "SNMP_PRIVACY" } };
+    const device = {
+        ...edge,
+        monitoring: { ...edge.monitoring, snmp: { ...edge.monitoring?.snmp, users: { librenms: { ...user, auth: "sha256" } } } },
+    } as Device;
+
+    expect(platform.unsupported(device)).toContain(
+        "monitoring.snmp.users.librenms.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not proved yet)"
+    );
+});
+
 test("a session in its own table that would announce nothing names v1's fields", () => {
     const edge = Fixtures.device("edge-router--edge-01");
     const bgp = edge.routing!.bgp!;
@@ -140,4 +153,24 @@ test("0.x paths are written as v1's", () => {
     expect(toV1("routing.static 192.0.2.0/24 bfd, why", device)).toBe("routing.static_routes 192.0.2.0/24 bfd, why");
     expect(toV1("routing.bgp.neighbors.x.families, one", device)).toBe("routing.bgp.neighbors.x.address_families, one");
     expect(toV1("management.snmp.port", device)).toBe("monitoring.snmp.port");
+});
+
+test("hardware_offload is refused where RouterOS can't set it", () => {
+    const edge = Fixtures.device("edge-router--edge-01");
+    const device = {
+        ...edge,
+        system: { ...edge.system, hardware_offload: false },
+        interfaces: {
+            ...edge.interfaces,
+            loopback: { lo0: { addresses: ["192.0.2.1/32"], hardware_offload: false } },
+            vlan_interface: {
+                ...edge.interfaces?.vlan_interface,
+                transit: { ...edge.interfaces?.vlan_interface?.transit, hardware_offload: true },
+            },
+        },
+    } as Device;
+
+    const found = platform.unsupported(device);
+    expect(found).toContain("interfaces.loopback.lo0.hardware_offload, set on a VLAN interface");
+    expect(found).toContain("interfaces.vlan_interface.transit.hardware_offload true while system.hardware_offload is off");
 });

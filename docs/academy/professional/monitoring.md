@@ -75,7 +75,7 @@ monitoring: {
 This is `edge-01` from the [colocation example](/guide/examples#colocation-with-tenants), a RouterOS router. With `auth: "sha256"`, `circuit validate` stops and says why:
 
 ```
-  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256, the platform authenticates with SHA1 or MD5
+  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not proved yet)
 ```
 
 The example's VRP switch takes the same user but not its own `allow`: on that platform every service uses `management.allow`, and validate says that too.
