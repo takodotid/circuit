@@ -13,6 +13,7 @@ import type { ApplyOptions, BgpLogLine, BgpSession, Plan, Platform, ReadSession 
 import { ProjectError, type ProjectRead, readProject, secretsFileOf } from "../project/project";
 import { ConsoleScript, type ConsoleSession, SerialConsole } from "../transport/console";
 import { PathCheck } from "../transport/path-check";
+import { Remember } from "./remember";
 import { Rename, type RenamePlan } from "./rename";
 import { SecretsPassword } from "./secrets-password";
 import { Setup } from "./setup";
@@ -115,6 +116,7 @@ export class ProjectCommands {
         const network = this.project.networks.find((each) => device.name in each.devices);
         Secrets.useFile(network ? secretsFileOf(network) : undefined);
         await SecretsPassword.unlock(Secrets.lockedFor(device));
+        await Remember.offer();
         return device;
     }
 
@@ -212,6 +214,7 @@ export class ProjectCommands {
         const adapter = this.adapterOf(device);
         const changes = ProjectCommands.printPlan(device, await this.plan(device, adapter));
 
+        await Remember.offer();
         process.exit(changes ? 1 : 0);
     }
 

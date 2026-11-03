@@ -11,6 +11,7 @@ import { GitHooks } from "./git-hooks";
 import { Migrate } from "./migrate";
 import { ProjectCommands } from "./project-commands";
 import { Releases } from "./releases";
+import { Remember, SecretsAgent } from "./remember";
 import { Format } from "./format";
 import { Setup } from "./setup";
 import { Versions } from "./versions";
@@ -28,8 +29,10 @@ class Cli {
 
     /** Read the arguments and run the command they name, or open the menu. */
     static async main(argv: string[]): Promise<void> {
-        Releases.tidy();
         const command = argv[0];
+        // The process that keeps remembered secrets, started by `circuit secrets remember` or a yes after a command.
+        if (command === SecretsAgent.COMMAND) return SecretsAgent.serve();
+        Releases.tidy();
 
         // The manager keeps itself current before every command but `uninstall`. A version it started, or Studio's own reads, leave that to it.
         if (command !== "uninstall" && !Versions.started() && !process.env.CIRCUIT_LOCAL) await Releases.check(argv);
@@ -53,7 +56,9 @@ class Cli {
             argv = await Cli.menu();
         }
 
+        await Remember.load();
         await program.parseAsync(argv, { from: "user" });
+        await Remember.offer();
     }
 
     /** In a project with a full install, run the Circuit pinned in it instead of this one, so a team runs one version. */
@@ -283,6 +288,16 @@ class Cli {
                     confirm: flags.confirm ?? false,
                 })
             );
+
+        secrets
+            .command("remember")
+            .description("keep the values read from 1Password and the passwords typed, for 10 or 30 minutes, so commands don't ask again")
+            .argument("[minutes]", "10 or 30; picked from a list when left out", Cli.whole("minutes", 30))
+            .action(async (minutes) => Remember.remember(minutes));
+        secrets
+            .command("forget")
+            .description("forget every secret Circuit remembers, now")
+            .action(async () => Remember.forget());
 
         program.commandsGroup("Circuit:");
 

@@ -1,6 +1,7 @@
 // Getting a secrets file's password: from the environment or 1Password without asking, or typed by the person. A new password is chosen, or made by Circuit.
 
 import { SecretsFile } from "../core/secrets-file";
+import { Remember } from "./remember";
 import { Ui } from "./ui";
 
 /** Getting a secrets file's password from the person, when the environment and 1Password don't give it. */
@@ -20,6 +21,7 @@ export class SecretsPassword {
             const typed = await Ui.secret(`Password of ${file.name}`);
             try {
                 file.unlock(typed);
+                Remember.typedPassword(file, typed);
                 return;
             } catch (error) {
                 Ui.warn((error as Error).message);

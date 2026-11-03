@@ -10,6 +10,8 @@ Any value in a secrets file can be a 1Password reference, `op://vault/item/field
 
 You need `op` installed and signed in. It may ask you to unlock once a session (Touch ID, Windows Hello, or your password).
 
+So 1Password asks less often, Circuit can remember what it read for 10 or 30 minutes, only if you say yes. Read [Remembering for a while](/guide/secrets#remembering-for-a-while) first: while Circuit remembers, locking 1Password doesn't lock those values.
+
 Two ways. You can mix them.
 
 |              | A. The password in 1Password (recommended)             | B. Values in 1Password                      |

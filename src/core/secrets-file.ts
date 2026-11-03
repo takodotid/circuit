@@ -1,11 +1,13 @@
 // A network's secrets file, `.circuit/secrets` unless `circuit({ secrets: { file } })` names another: `NAME="value"` lines, as in a `.env`, each value encrypted, so the file is safe to commit. Names stay readable, so git shows which secret changed. A value is AES-256-GCM, with a key made from the file's password by scrypt, and the secret's name bound to it, so a value moved to another name no longer opens.
 //
 // The password is never in the file. It comes from `CIRCUIT_SECRETS_PASSWORD` in the environment, from `CIRCUIT_SECRETS_PASSWORD="op://..."` in the file, a 1Password reference, or from the person, who types it. A value may also be a 1Password reference itself.
+//
+// After a yes, Circuit remembers the password typed and the values read from 1Password for 10 or 30 minutes, so the next commands don't ask: see src/cli/remember.ts. `hold` gives a run what is remembered.
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { parseEnv } from "node:util";
 
 /** What a value in a secrets file is: encrypted, a 1Password reference, empty, or plain text, which Circuit refuses. */
@@ -15,6 +17,10 @@ export type SecretKind = "encrypted" | "1password" | "empty" | "not encrypted";
 export class OnePassword {
     /** Each reference read in this run, so 1Password asks once. */
     private static readonly cache = new Map<string, string>();
+    /** The references whose values Circuit remembers from an earlier run, with `circuit secrets remember`. */
+    private static readonly held = new Set<string>();
+    /** Whether a remembered value was used in this run. */
+    static usedHeld = false;
 
     static installed(): boolean {
         return !spawnSync("op", ["--version"], { encoding: "utf8" }).error;
@@ -25,10 +31,33 @@ export class OnePassword {
         return OnePassword.cache.get(reference);
     }
 
+    /** Values Circuit remembers, so this run reads them without asking 1Password. */
+    static hold(values: Readonly<Record<string, string>>): void {
+        for (const [reference, value] of Object.entries(values)) {
+            OnePassword.cache.set(reference, value);
+            OnePassword.held.add(reference);
+        }
+    }
+
+    /** The values read from 1Password itself in this run, which Circuit does not remember yet. */
+    static unheld(): Record<string, string> {
+        return Object.fromEntries([...OnePassword.cache].filter(([reference]) => !OnePassword.held.has(reference)));
+    }
+
+    /** Forget every value of this run, as a new run starts with none. */
+    static forget(): void {
+        OnePassword.cache.clear();
+        OnePassword.held.clear();
+        OnePassword.usedHeld = false;
+    }
+
     /** The value behind `op://vault/item/field`, read once per run. */
     static read(reference: string, what: string): string {
         const cached = OnePassword.cache.get(reference);
-        if (cached !== undefined) return cached;
+        if (cached !== undefined) {
+            if (OnePassword.held.has(reference)) OnePassword.usedHeld = true;
+            return cached;
+        }
 
         const result = spawnSync("op", ["read", "--no-newline", reference], { encoding: "utf8" });
         if (result.error) throw new Error(`${what} is in 1Password, and the 1Password CLI, op, is not installed`);
@@ -80,6 +109,23 @@ export class SecretsFile {
     /** Forget every password of this run, as a new run starts with none. */
     static forget(): void {
         SecretsFile.opened.clear();
+        SecretsFile.held.clear();
+        SecretsFile.usedHeld = false;
+    }
+
+    /** Passwords typed in an earlier run that Circuit remembers, with `circuit secrets remember`, by the file's full path. */
+    private static readonly held = new Map<string, string>();
+    /** Whether a remembered password was used in this run. */
+    static usedHeld = false;
+
+    /** Passwords Circuit remembers, by the file's full path, so this run opens those files without asking. */
+    static hold(passwords: Readonly<Record<string, string>>): void {
+        for (const [path, password] of Object.entries(passwords)) SecretsFile.held.set(resolve(path), password);
+    }
+
+    /** Whether Circuit already remembers this password for the file at `path`. */
+    static holds(path: string, password: string): boolean {
+        return SecretsFile.held.get(resolve(path)) === password;
     }
 
     static isEncrypted(value: string): boolean {
@@ -179,10 +225,25 @@ export class SecretsFile {
         if (this.unlocked()) return true;
 
         const source = this.passwordSource();
-        if (!source) return false;
+        if (!source) return this.unlockHeld();
 
         const password = source.value.startsWith("op://") ? OnePassword.read(source.value, `The password of ${this.name}`) : source.value;
         this.unlock(password, source.where);
+        return true;
+    }
+
+    /** Open the file with a password typed in an earlier run that Circuit remembers. One that no longer opens it is dropped. */
+    private unlockHeld(): boolean {
+        const password = SecretsFile.held.get(resolve(this.path));
+        if (password === undefined) return false;
+
+        try {
+            this.unlock(password);
+        } catch {
+            SecretsFile.held.delete(resolve(this.path));
+            return false;
+        }
+        SecretsFile.usedHeld = true;
         return true;
     }
 
