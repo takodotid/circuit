@@ -152,7 +152,9 @@ export class Releases {
      * manager started, it only checks.
      */
     static async check(argv: readonly string[]): Promise<void> {
-        const [{ latest, offline }, advisories] = await Promise.all([Releases.latest(), Releases.advisories()]);
+        const [{ latest, offline }, advisories] = await Ui.wait("Checking for a newer Circuit", () =>
+            Promise.all([Releases.latest(), Releases.advisories()])
+        );
 
         if (offline || advisories.offline)
             Ui.warn("Could not reach the npm registry or GitHub, so Circuit could not check that it is current and safe. Go carefully.");

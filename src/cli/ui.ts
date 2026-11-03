@@ -110,6 +110,54 @@ export class Ui {
         return Ui.answered(answer) ?? "";
     }
 
+    /** The CIRCUIT logotype, in the font of the one on the site, drawn with blocks. */
+    static readonly LOGO = [
+        " ▄██████▄   ██  ███████▄    ▄██████▄   ██     ██  ██  ████████",
+        "███    ███  ██  ██    ███  ███    ███  ██     ██  ██     ██",
+        "██          ██  ███████▀   ██          ██     ██  ██     ██",
+        "███    ███  ██  ██   ██▄   ███    ███  ███   ███  ██     ██",
+        " ▀██████▀   ██  ██    ██▄   ▀██████▀    ▀█████▀   ██     ██",
+    ];
+
+    /** The logotype and a line under it, in a terminal wide enough; elsewhere, the line alone. */
+    static logo(line: string): void {
+        if (!Ui.interactive) return;
+        if ((process.stdout.columns ?? 0) < 64) {
+            console.log(Ui.bold(line));
+            return;
+        }
+        console.log(`\n${Ui.LOGO.map((row) => `  ${Ui.bold(row)}`).join("\n")}\n\n  ${Ui.dim(line)}\n`);
+    }
+
+    /**
+     * Wait for `work` with a spinner that leaves nothing behind, for a short wait such as the check before each command. It shows only
+     * after a moment, so a quick answer, such as one from the cache, shows nothing.
+     */
+    static async wait<T>(message: string, work: () => Promise<T>): Promise<T> {
+        if (!Ui.interactive) return work();
+
+        const frames = ["◒", "◐", "◓", "◑"];
+        let frame = 0;
+        let drawn = false;
+        const draw = () => {
+            drawn = true;
+            process.stdout.write(`\r${Ui.dim(`${frames[frame++ % frames.length]} ${message}`)}\x1b[K`);
+        };
+        let ticker: ReturnType<typeof setInterval> | undefined;
+        const start = setTimeout(() => {
+            draw();
+            ticker = setInterval(draw, 100);
+        }, 150);
+
+        try {
+            return await work();
+        } finally {
+            clearTimeout(start);
+            if (ticker) clearInterval(ticker);
+            if (drawn) process.stdout.write("\r\x1b[K");
+        }
+    }
+
     /** A heading for a run of questions, and the line that closes it. */
     static intro(title: string): void {
         if (Ui.interactive) prompts.intro(Ui.bold(title));

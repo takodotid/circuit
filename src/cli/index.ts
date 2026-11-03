@@ -433,6 +433,7 @@ class Cli {
 
     /** The menu `circuit` opens alone: pick what to do, answer what it needs, and get the command it runs. */
     private static async menu(): Promise<string[]> {
+        Ui.logo(`Your network, written down. Circuit ${VERSION}`);
         Ui.intro(`Circuit ${VERSION}`);
 
         if (!ProjectCommands.find()) {
