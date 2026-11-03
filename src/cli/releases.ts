@@ -168,7 +168,11 @@ export class Releases {
     /** Remove what an update on Windows left: the old binary, kept aside while it still ran. */
     static tidy(): void {
         const binary = Releases.binary();
-        if (binary) rmSync(`${binary}.old`, { force: true });
+        // The old binary may still be running in another terminal, which locks it on Windows: it is removed on a later run.
+        if (binary)
+            try {
+                rmSync(`${binary}.old`, { force: true });
+            } catch {}
     }
 
     /** One release's binary for this system, checked against the release's SHA256SUMS. */
