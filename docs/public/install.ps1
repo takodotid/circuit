@@ -23,8 +23,15 @@ $repo = "takodotid/circuit"
 $asset = "circuit-windows-x64.exe"
 $folder = Join-Path $env:LOCALAPPDATA "Programs\Circuit"
 $target = Join-Path $folder "circuit.exe"
+# The release key, as ssh-keygen reads it: the key in src/cli/signing.ts, which signs each release's SHA256SUMS.
+$signers = 'circuit-release namespaces="circuit-release" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBFYvLbjJKwTIciNuNZgVLU0Du53aFUYxuywTEG5zshM'
 
 if (-not [Environment]::Is64BitOperatingSystem) { Stop-Install "Circuit needs 64-bit Windows." }
+
+# ssh-keygen checks the release's signature: Windows 10 and 11 carry it, as the OpenSSH Client.
+$sshKeygen = (Get-Command ssh-keygen -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+if (-not $sshKeygen -and (Test-Path "$env:WINDIR\System32\OpenSSH\ssh-keygen.exe")) { $sshKeygen = "$env:WINDIR\System32\OpenSSH\ssh-keygen.exe" }
+if (-not $sshKeygen) { Stop-Install "this needs ssh-keygen to check that the release is signed. Add OpenSSH Client in Settings > System > Optional features." }
 
 # The newest Circuit 1 or later, from npm: the stable release, or the newest release candidate while there is none.
 $version = $env:CIRCUIT_VERSION
@@ -52,7 +59,7 @@ function Ask($question, [bool]$default) {
     return $default
 }
 
-# Download circuit.exe to $destination, checked against the release's SHA256SUMS.
+# Download circuit.exe to $destination, checked against the release's SHA256SUMS, itself checked against the release key's signature.
 function Get-Circuit($destination) {
     $work = Join-Path ([IO.Path]::GetTempPath()) ("circuit-" + [Guid]::NewGuid())
     New-Item -ItemType Directory -Force $work | Out-Null
@@ -61,8 +68,15 @@ function Get-Circuit($destination) {
         try {
             Invoke-WebRequest -UseBasicParsing "$base/$asset" -OutFile (Join-Path $work $asset)
             Invoke-WebRequest -UseBasicParsing "$base/SHA256SUMS" -OutFile (Join-Path $work "SHA256SUMS")
+            Invoke-WebRequest -UseBasicParsing "$base/SHA256SUMS.sshsig" -OutFile (Join-Path $work "SHA256SUMS.sshsig")
         }
         catch { Stop-Install "could not download Circuit $version." }
+
+        # ssh-keygen reads SHA256SUMS from a file, byte for byte: a PowerShell pipe would change its line ends.
+        [IO.File]::WriteAllText((Join-Path $work "allowed_signers"), "$signers`n")
+        $verify = @("-Y", "verify", "-f", "`"$work\allowed_signers`"", "-I", "circuit-release", "-n", "circuit-release", "-s", "`"$work\SHA256SUMS.sshsig`"")
+        $check = Start-Process -FilePath $sshKeygen -ArgumentList $verify -RedirectStandardInput (Join-Path $work "SHA256SUMS") -RedirectStandardOutput (Join-Path $work "verify.out") -RedirectStandardError (Join-Path $work "verify.err") -NoNewWindow -Wait -PassThru
+        if ($check.ExitCode -ne 0) { Stop-Install "the release's SHA256SUMS is not signed with Circuit's release key." }
 
         $line = Get-Content (Join-Path $work "SHA256SUMS") | Where-Object { $_ -match " $([regex]::Escape($asset))$" } | Select-Object -First 1
         $expected = if ($line) { ($line -split "\s+")[0] } else { "" }

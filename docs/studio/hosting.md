@@ -50,7 +50,7 @@ This runs three containers: one keeps the copy of your repository pulled, one ru
             image: debian:stable-slim
             working_dir: /network
             command: >
-                sh -c "apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git &&
+                sh -c "apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git openssh-client &&
                 git config --global --add safe.directory '*' &&
                 curl -fsSL https://circuit.tako.id/install | CIRCUIT_NO_SETUP=1 sh &&
                 /root/.local/bin/circuit studio --host 0.0.0.0 --allow-host studio.example.com --no-open"

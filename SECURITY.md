@@ -41,10 +41,11 @@ Never unpublish a version: projects pin it. If a binary itself was tampered with
 
 ## Signed releases
 
-The release workflow signs each release's `SHA256SUMS` with Circuit's release key (Ed25519), kept as the repository secret `RELEASE_SIGNING_KEY`, and attaches the signature as `SHA256SUMS.sig`. Circuit installs a binary, when it updates itself, on `circuit update`, or when it downloads a project's version, only when `SHA256SUMS` is signed by a key in `src/cli/signing.ts` and the binary matches it.
+The release workflow signs each release's `SHA256SUMS` with Circuit's release key (Ed25519), kept as the repository secret `RELEASE_SIGNING_KEY`, and attaches the signature as `SHA256SUMS.sig`, and the same key's signature as `ssh-keygen` makes one as `SHA256SUMS.sshsig`. Circuit installs a binary, when it updates itself, on `circuit update`, or when it downloads a project's version, only when `SHA256SUMS` is signed by a key in `src/cli/signing.ts` and the binary matches it.
 
 - To change the key: add the new public key to `src/cli/signing.ts` beside the old one, release, then switch the secret to the new private key.
-- The install commands (`curl ... | sh`, `irm ... | iex`) check `SHA256SUMS` over HTTPS but can't check the signature: PowerShell 5.1 has no Ed25519, nor does macOS's `openssl`. Everything after the install is signature-checked.
+- The install commands (`curl ... | sh`, `irm ... | iex`) check `SHA256SUMS.sshsig` with `ssh-keygen -Y verify`, as PowerShell 5.1 has no Ed25519, nor does macOS's `openssl`. `ssh-keygen` comes with OpenSSH, which Windows 10 and 11, macOS and most Linux carry; without it the installers install nothing. The installers carry the key in `src/cli/signing.ts`, in the form `ssh-keygen` reads; a test checks they match.
+- 1.0.0-rc.1 was released before `SHA256SUMS.sshsig`: its installers check `SHA256SUMS` over HTTPS only.
 
 ## What counts
 
@@ -56,7 +57,7 @@ A flaw in Circuit itself. For example:
 - a secrets file that opens without its password, or a value that opens under another name;
 - Studio answering on a host name it wasn't told to allow, or reading a device when started with `--host`;
 - an apply that leaves a device unreachable without rolling back, where the platform's safe apply should have caught it;
-- Circuit installing a binary whose `SHA256SUMS` isn't signed with the release key, or that doesn't match it, or an installer installing one that doesn't match `SHA256SUMS`;
+- Circuit installing a binary whose `SHA256SUMS` isn't signed with the release key, or that doesn't match it, or an installer installing one whose `SHA256SUMS` isn't signed or that doesn't match it;
 - a version an advisory affects running a command, or being offered by `circuit update`;
 - a published package that doesn't match this repository. Every version on npm carries a provenance statement from this repository's GitHub Actions; one without it isn't ours.
 
