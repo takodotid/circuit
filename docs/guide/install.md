@@ -56,7 +56,7 @@ So a teammate who clones your project runs the install command once, in that fol
 A project keeps its Circuit version in `.circuit/version`, committed with the rest:
 
 ```
-1.0.0-rc.1
+1.0.0-rc.2
 ```
 
 Every command in the project runs that version. The first time, Circuit asks to download it, then keeps it once in `~/.circuit/versions/`. In CI, with nobody to ask, it just downloads. So:

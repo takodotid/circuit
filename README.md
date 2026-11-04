@@ -89,8 +89,8 @@ In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`
 ## Start
 
 1. Install Circuit. Circuit v1 is a release candidate, so its installers come from its GitHub release until circuit.tako.id serves v1:
-    - Linux and macOS: `curl -fsSL https://github.com/takodotid/circuit/releases/download/v1.0.0-rc.1/install | sh`
-    - Windows, in PowerShell: `irm https://github.com/takodotid/circuit/releases/download/v1.0.0-rc.1/install.ps1 | iex`
+    - Linux and macOS: `curl -fsSL https://github.com/takodotid/circuit/releases/download/v1.0.0-rc.2/install | sh`
+    - Windows, in PowerShell: `irm https://github.com/takodotid/circuit/releases/download/v1.0.0-rc.2/install.ps1 | iex`
 2. Start a project: `circuit new network`. Open its folder in VS Code. Add a site in `circuit.ts`, then write each device in `sites/<site>/<device>.ts`.
 3. Run `circuit`. It opens a menu, or runs a command straight away, such as `circuit validate`.
 
