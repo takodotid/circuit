@@ -1,10 +1,15 @@
-// Which Circuit is current: versions compared as semver orders them, the version to update to, and the release file for each system.
+// Which Circuit is current: versions compared as semver orders them, the version to update to, the release file for each system, and `circuit --version`.
 
 import { expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { generateKeyPairSync, sign } from "node:crypto";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { type Advisory, Advisories } from "../../src/cli/advisories";
 import { type Release, Releases } from "../../src/cli/releases";
 import { Signing } from "../../src/cli/signing";
+import { VERSION } from "../../src/cli/version";
 
 test("versions compare as semver orders them, a release candidate before its release", () => {
     const ordered = ["0.43.1", "1.0.0-rc.0", "1.0.0-rc.2", "1.0.0-rc.10", "1.0.0", "1.0.1", "1.1.0", "2.0.0"];
@@ -124,4 +129,19 @@ test("each system has its release file", () => {
     expect(Releases.asset("win32", "x64")).toBe("circuit-windows-x64.exe");
     expect(Releases.asset("win32", "arm64")).toBeUndefined();
     expect(Releases.asset("freebsd", "x64")).toBeUndefined();
+});
+
+test("circuit --version prints the version and nothing else: no registry asked, no update, as the installers read it", () => {
+    const home = mkdtempSync(join(tmpdir(), "circuit-home-"));
+    const { CIRCUIT_LOCAL: _, ...env } = process.env;
+    const run = spawnSync("bun", [join(import.meta.dir, "..", "..", "src", "cli", "index.ts"), "--version"], {
+        encoding: "utf8",
+        // A registry that can't be reached: asking it would warn.
+        env: { ...env, CIRCUIT_HOME: home, HTTPS_PROXY: "http://127.0.0.1:9", HTTP_PROXY: "http://127.0.0.1:9" },
+    });
+
+    expect(run.stdout).toBe(`${VERSION}\n`);
+    expect(run.stderr).toBe("");
+    expect(readdirSync(home)).toEqual([]);
+    rmSync(home, { recursive: true, force: true });
 });
