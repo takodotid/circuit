@@ -37,7 +37,8 @@ if (-not $version) {
 }
 
 $installed = ""
-if (Test-Path $target) { try { $installed = (& $target --version 2>$null | Select-Object -First 1) } catch {} }
+# The line that is a version: Circuit 1.0.0-rc.1 updates itself first and says so.
+if (Test-Path $target) { try { $installed = (& $target --version 2>$null | Where-Object { $_ -match '^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$' } | Select-Object -Last 1) } catch {} }
 
 $interactive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
 
