@@ -26,7 +26,7 @@ Only maintainers release, from GitHub:
 
 1. Bump `version` in `package.json` and `src/cli/version.ts` on `v1`, commit `chore(release): vX.Y.Z`, push.
 2. Create a GitHub release with the tag `vX.Y.Z` on `v1`. A candidate is `vX.Y.Z-rc.N`.
-3. `.github/workflows/release.yml` runs: tests, the binaries, `SHA256SUMS` and its signature `SHA256SUMS.sig` on the release with the installers, then npm.
+3. `.github/workflows/release.yml` runs: tests, the binaries, `SHA256SUMS` and its signatures, `SHA256SUMS.sig` for Circuit and `SHA256SUMS.sshsig` for the installers, on the release with the installers, then npm.
     - Stable: npm dist-tag `latest`, and the docs site is rebuilt.
     - Candidate: npm dist-tag `rc`; the site stays as it is.
     - Backport, a stable version older than npm's `latest` of the same major (`1.9.5` after `1.16.0`): npm dist-tag `latest-1.9`, the release is not marked Latest on GitHub, and the site stays as it is. Release it from a branch for its line.
