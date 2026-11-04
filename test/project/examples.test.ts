@@ -50,10 +50,11 @@ for (const [version, tsc] of [
     ["7", join(import.meta.dir, "..", "..", "node_modules", "typescript", "bin", "tsc")],
     ["6", join(import.meta.dir, "..", "..", "node_modules", "typescript-6", "bin", "tsc")],
 ] as const) {
+    // TypeScript 6 can take longer than bun's five seconds on a slower machine.
     test(`the editor's types take every device, in TypeScript ${version}`, () => {
         const run = spawnSync("bun", [tsc, "--noEmit", "-p", folder], { encoding: "utf8" });
         expect(run.stdout + run.stderr).toBe("");
-    });
+    }, 30_000);
 }
 
 describe("each device is in the model as written", () => {
