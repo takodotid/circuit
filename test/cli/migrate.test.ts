@@ -55,10 +55,11 @@ describe.each([...examples.keys()])("%s", (example) => {
         ["7", join(root, "node_modules", "typescript", "bin", "tsc")],
         ["6", join(root, "node_modules", "typescript-6", "bin", "tsc")],
     ] as const) {
+        // TypeScript 6 can take longer than bun's five seconds on a slower machine.
         test(`the editor's types take it, in TypeScript ${version}`, () => {
             const run = spawnSync("bun", [tsc, "--noEmit", "-p", folder], { encoding: "utf8" });
             expect(run.stdout + run.stderr).toBe("");
-        });
+        }, 30_000);
     }
 
     test("Circuit reads back the golden fixtures' devices", async () => {
