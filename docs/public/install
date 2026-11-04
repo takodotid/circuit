@@ -91,7 +91,8 @@ download() {
 
 target="$BIN_DIR/circuit"
 installed=""
-[ -x "$target" ] && installed="$("$target" --version 2>/dev/null || true)"
+# The line that is a version: Circuit 1.0.0-rc.1 updates itself first and says so.
+[ -x "$target" ] && installed="$("$target" --version 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' | tail -n 1 || true)"
 
 # A full install keeps Circuit inside one new project, run with Bun: nothing goes on PATH. Offered only where no app is installed and no project is.
 if [ -z "$installed" ] && [ ! -f circuit.ts ] && [ "${CIRCUIT_NO_SETUP:-}" != 1 ] && tty; then
