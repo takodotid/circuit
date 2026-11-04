@@ -42,11 +42,15 @@ export class App {
             App.removeFromWindowsPath(folder);
             spawnSync("reg", ["delete", App.UNINSTALL_KEY, "/f"], { stdio: "ignore" });
 
-            // Windows does not let a running program delete itself, so a separate process deletes it once this one has ended.
-            spawn("cmd", ["/c", `ping -n 3 127.0.0.1 >nul & del /f /q "${binary}" & del /f /q "${binary}.old" & rmdir "${folder}"`], {
+            // Windows does not let a running program delete itself, so a separate process deletes it once this one has ended: it tries
+            // again until the file goes, for about ten seconds. Only cmd's own commands: a program it started, such as ping to wait,
+            // would open a console window. The line goes to cmd as written; quoted the usual way, cmd can't read the paths.
+            const remove = `del /f /q "${binary}" "${binary}.old" 2>nul & if not exist "${binary}" (rmdir "${folder}" 2>nul & exit)`;
+            spawn("cmd", ["/d", "/c", `for /l %i in (1,1,10000) do @(${remove})`], {
                 detached: true,
                 stdio: "ignore",
                 windowsHide: true,
+                windowsVerbatimArguments: true,
             }).unref();
         } else {
             rmSync(binary, { force: true });

@@ -27,6 +27,8 @@ class Cli {
         const command = argv[0];
         // The process that keeps remembered secrets, started after a yes to remembering them.
         if (command === SecretsAgent.COMMAND) return SecretsAgent.serve();
+        // This binary's own version and nothing else: no update, no project's version. The installers read it to learn which Circuit is installed.
+        if (command === "--version" || command === "-V") return console.log(VERSION);
         Releases.tidy();
         OnePassword.waiting = (message) => Ui.blocked(message);
 

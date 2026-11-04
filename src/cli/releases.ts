@@ -344,7 +344,7 @@ export class Releases {
     static async updateApp(confirmed: boolean): Promise<string | undefined> {
         const binary =
             Releases.binary() ?? Ui.fail("This Circuit runs from its sources. Update it where it came from, such as with git pull.");
-        const target = await Releases.pick(VERSION, confirmed, "Circuit");
+        const target = await Releases.pick(VERSION, confirmed, "The app");
         if (!target) return undefined;
 
         Releases.replace(binary, await Ui.step(`Downloading Circuit ${target}`, () => Releases.fetchBinary(target)));
