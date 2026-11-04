@@ -14,6 +14,8 @@ set -eu
 REPO="takodotid/circuit"
 BIN_DIR="$HOME/.local/bin"
 MARKER="# Added by Circuit"
+# The release key, as ssh-keygen reads it: the key in src/cli/signing.ts, which signs each release's SHA256SUMS.
+SIGNERS='circuit-release namespaces="circuit-release" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBFYvLbjJKwTIciNuNZgVLU0Du53aFUYxuywTEG5zshM'
 
 fail() {
     printf 'Circuit was not installed: %s\n' "$1" >&2
@@ -21,6 +23,7 @@ fail() {
 }
 
 command -v curl >/dev/null 2>&1 || fail "this needs curl"
+command -v ssh-keygen >/dev/null 2>&1 || fail "this needs ssh-keygen, from OpenSSH, to check that the release is signed"
 
 case "$(uname -s)" in
     Linux) os=linux ;;
@@ -68,12 +71,17 @@ ask() {
     esac
 }
 
-# Download the binary for this system to $1, checked against the release's SHA256SUMS.
+# Download the binary for this system to $1, checked against the release's SHA256SUMS, itself checked against the release key's signature.
 download() {
     work="$(mktemp -d)"
     base="https://github.com/$REPO/releases/download/v$version"
     curl -fsSL --retry 3 -o "$work/$asset" "$base/$asset" || fail "could not download $asset for Circuit $version"
     curl -fsSL --retry 3 -o "$work/SHA256SUMS" "$base/SHA256SUMS" || fail "could not download the checksums of Circuit $version"
+    curl -fsSL --retry 3 -o "$work/SHA256SUMS.sshsig" "$base/SHA256SUMS.sshsig" || fail "could not download the signature of Circuit $version"
+
+    printf '%s\n' "$SIGNERS" >"$work/allowed_signers"
+    ssh-keygen -Y verify -f "$work/allowed_signers" -I circuit-release -n circuit-release -s "$work/SHA256SUMS.sshsig" <"$work/SHA256SUMS" >/dev/null 2>&1 ||
+        fail "the release's SHA256SUMS is not signed with Circuit's release key"
 
     expected="$(grep " $asset\$" "$work/SHA256SUMS" | cut -d ' ' -f 1)"
     if command -v sha256sum >/dev/null 2>&1; then

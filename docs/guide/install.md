@@ -120,7 +120,9 @@ A version with a security problem gets a [GitHub security advisory](https://gith
 
 ### Downloads are signed
 
-Every release's list of checksums is signed. Circuit installs a version only when the signature is Circuit's and the file matches it.
+Every release's list of checksums is signed. Circuit, and the install command, install a version only when the signature is Circuit's and the file matches it.
+
+The install command checks the signature with `ssh-keygen`, from OpenSSH. Windows 10 and 11, macOS and most Linux have it. On a minimal Linux, such as a container image, install `openssh-client` first.
 
 ### Old versions are cleaned up
 
