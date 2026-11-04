@@ -1,6 +1,6 @@
 name: release
 
-# A release published on GitHub, with a tag `vX.Y.Z` or `vX.Y.Z-rc.N`, gets everything from this workflow: the binaries, SHA256SUMS and its signature attached to it, and the package on npm, where `circuit` and the installers learn the newest version. A stable release goes under the dist-tag `latest` and builds the site again; a release candidate goes under `rc` and leaves the site alone. A backport, a fix for an older line released after a newer version, such as 1.9.5 after 1.16.0, goes under `latest-1.9`: `latest` stays on the newest, the GitHub release is not marked Latest, and the site is left alone.
+# A release published on GitHub, with a tag `vX.Y.Z` or `vX.Y.Z-rc.N`, gets everything from this workflow: the binaries, SHA256SUMS and its signature, and the installers attached to it, and the package on npm, where `circuit` and the installers learn the newest version. A stable release goes under the dist-tag `latest` and builds the site again; a release candidate goes under `rc` and leaves the site alone. A backport, a fix for an older line released after a newer version, such as 1.9.5 after 1.16.0, goes under `latest-1.9`: `latest` stays on the newest, the GitHub release is not marked Latest, and the site is left alone.
 #
 # SHA256SUMS is signed with the secret RELEASE_SIGNING_KEY; Circuit installs nothing whose SHA256SUMS isn't signed (src/cli/signing.ts). A version with a security problem is marked by a GitHub security advisory, not here: see SECURITY.md.
 #
@@ -60,11 +60,12 @@ jobs:
               env:
                   RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
               run: bun scripts/sign.ts dist/release/SHA256SUMS
-            - name: attach the binaries to the release
+            - name: attach the binaries and the installers to the release
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  gh release upload "$GITHUB_REF_NAME" dist/release/* --clobber
+                  # The installers too, so a release candidate installs from its release while the site still serves 0.x.
+                  gh release upload "$GITHUB_REF_NAME" dist/release/* docs/public/install docs/public/install.ps1 --clobber
                   # A backport leaves the newest release marked Latest on GitHub.
                   if [ "${{ steps.tag.outputs.backport }}" = "true" ]; then gh release edit "$GITHUB_REF_NAME" --latest=false; fi
 
