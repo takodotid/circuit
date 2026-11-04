@@ -1,0 +1,2 @@
+# Every text file has LF line ends, on every system: the golden fixtures and the installers are compared and served byte for byte.
+* text=auto eol=lf
