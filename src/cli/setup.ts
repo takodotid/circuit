@@ -47,6 +47,15 @@ export class Setup {
         return !spawnSync(command, ["--version"], { encoding: "utf8", shell: process.platform === "win32" }).error;
     }
 
+    /**
+     * A full install's package.json, before `bun add` puts Circuit in it. Its `circuit` script is what `bun circuit` runs: with no
+     * script of that name, Bun runs the project's own circuit.ts instead of the package's `circuit`.
+     */
+    static packageJson(folder: string): string {
+        const name = folder.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+        return `${JSON.stringify({ name, private: true, scripts: { circuit: "circuit" }, devDependencies: {} }, null, 4)}\n`;
+    }
+
     /** Circuit installed in the project as a package, by a full install: the file to run it from. */
     static localCircuit(root: string): string | undefined {
         const path = join(root, "node_modules", ...Setup.PACKAGE.split("/"), "src", "cli", "index.ts");
@@ -176,12 +185,7 @@ export const as${setup.asn} = circuit({
             if (setup.kind === "simple") EditorTypes.write(root);
             Setup.writeNotice(root);
 
-            if (setup.kind === "full") {
-                writeFileSync(
-                    join(root, "package.json"),
-                    `${JSON.stringify({ name: setup.folder.toLowerCase().replace(/[^a-z0-9-]+/g, "-"), private: true, devDependencies: {} }, null, 4)}\n`
-                );
-            }
+            if (setup.kind === "full") writeFileSync(join(root, "package.json"), Setup.packageJson(setup.folder));
         });
 
         if (setup.kind === "full") {

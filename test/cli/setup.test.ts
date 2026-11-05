@@ -2,7 +2,7 @@
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Setup } from "../../src/cli/setup";
@@ -71,4 +71,19 @@ test("git checks each commit with the project's hook", () => {
 test("Circuit reads the new project", async () => {
     const read = await readProject(root);
     expect(read.networks.map((network) => network.name)).toEqual(["as64500"]);
+});
+
+// Every project has a circuit.ts, and `bun circuit` with no script of that name runs it instead of the package's `circuit`. The
+// script runs whichever `circuit` it finds, the package's in a full install: here the app, or none, so it only must not be circuit.ts.
+test("in a full install, bun circuit runs the script, never the project's circuit.ts", () => {
+    const folder = join(parent, "full");
+    mkdirSync(folder);
+    writeFileSync(join(folder, "package.json"), Setup.packageJson("full"));
+    writeFileSync(join(folder, "circuit.ts"), 'console.log("the circuit.ts ran");\n');
+
+    // Should the app be on PATH, it updates nothing and keeps to this test's folder.
+    const env = { ...process.env, CIRCUIT_HOME: join(parent, "home"), CIRCUIT_UPDATED: "1" };
+    const run = spawnSync("bun", ["circuit", "--version"], { cwd: folder, encoding: "utf8", env });
+    expect(run.stderr).toContain("$ circuit --version");
+    expect(run.stdout + run.stderr).not.toContain("circuit.ts ran");
 });
