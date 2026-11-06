@@ -31,9 +31,9 @@ export class RouterOsPlan {
         "/interface bridge vlan",
         "/interface bridge filter",
         "/interface list",
-        // An interface's queue names its queue type.
+        // A queue tree names its queue type and the interface it shapes.
         "/queue type",
-        "/queue interface",
+        "/queue tree",
         "/ip vrf",
         // Routes, rules and BGP connections name a table, so it exists first.
         "/routing table",
@@ -217,6 +217,7 @@ export class RouterOsPlan {
 
             const clearedWith = RouterOsExport.CLEARED_WITH[wanted.menu]?.[property];
             if (clearedWith && !(clearedWith in want)) continue;
+            if (RouterOsExport.GENERATED[wanted.menu]?.includes(property)) continue;
 
             const fallback = RouterOsExport.defaultOf(wanted, property);
             if (fallback === undefined) {
