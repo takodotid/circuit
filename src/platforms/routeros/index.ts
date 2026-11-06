@@ -443,12 +443,13 @@ export class RouterOs extends Platform {
             throw new Error("apply failed and the backup is being restored");
         }
 
-        // A fresh login is the proof that access survived. Only then is the rollback removed, with the backup, which holds every credential.
+        // A fresh login is the proof that access survived. Only then is the rollback removed, with the backup, which holds every credential,
+        // and any an earlier apply left: one that failed restores its backup, which stays on the device.
         const proof = await session.fresh().catch(() => undefined);
         if (!proof) throw new Error(`could not log in again; the device restores ${backup} within ${options.rollback} minutes`);
 
         await proof.run(`/system scheduler remove [find name="${RouterOs.ROLLBACK_SCHEDULER}"]`);
-        await proof.run(`/file remove [find name="${backup}.backup"]`);
+        await proof.run(`/file remove [find name~"^pre-apply-[0-9]+.backup"]`);
         proof.end();
         console.log("  logged in again, rollback disarmed");
     }
