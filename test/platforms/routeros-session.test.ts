@@ -52,7 +52,7 @@ test("a read and an apply over SSH change only what differs, guarded by a backup
     expect(sent).toContain("/interface ethernet set [ find default-name=sfp28-1 ] comment=Switch");
     expect(sent.some((command) => command.startsWith("/system backup save name=pre-apply-"))).toBe(true);
     expect(sent.filter((command) => command === '/system scheduler remove [find name="apply-rollback"]')).toHaveLength(2);
-    expect(sent.at(-1)).toMatch(/^\/file remove \[find name="pre-apply-\d+\.backup"\]$/);
+    expect(sent.at(-1)).toBe('/file remove [find name~"^pre-apply-[0-9]+.backup"]');
 
     const again = platform.plan(platform.render(device), await platform.read(device, [device]), options);
     expect(again.steps).toEqual([]);
