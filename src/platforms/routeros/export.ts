@@ -52,6 +52,8 @@ export class RouterOsExport {
         // A blackhole route prints its distance, a route through a gateway doesn't (TRAPS.md).
         "/ip route": { distance: "1" },
         "/ipv6 route": { distance: "1" },
+        // An interface that is not a port has no queue of its own (CCR2216, 7.23.5), which shaping replaces.
+        "/queue interface": { queue: "no-queue" },
         "/routing bgp connection": { "use-bfd": "no" },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
