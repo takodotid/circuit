@@ -77,6 +77,9 @@ export class FortiOsRender {
         "firewall acl6",
     ] as const;
 
+    /** Sections rendered only when the config uses them, after every other, and read always, so what the device holds there is planned away when the config has none. */
+    static readonly OPTIONAL_SECTIONS = ["system proxy-arp"] as const;
+
     /** Sections `show` prints without what matters, which `show full-configuration` prints: a certificate's text. */
     static readonly FULL: readonly string[] = ["vpn certificate local", "vpn certificate ca"];
 
@@ -296,6 +299,8 @@ export class FortiOsRender {
         FortiOsRender.helpers(section("system session-helper"), device);
         FortiOsFirewall.render(root, device);
         FortiOsRender.managementVdom(root, device);
+        if (Object.values(device.interfaces?.vlan_interface ?? {}).some((iface) => iface?.proxy_arp?.length))
+            FortiOsRender.proxyArp(root.block("system proxy-arp"), device);
 
         return FortiOsTree.print(root);
     }
@@ -757,6 +762,20 @@ export class FortiOsRender {
     }
 
     /** Each route by its position. A route goes in the routing table of the interface it leaves through. A default route is the platform's default destination and is not printed. */
+    /** Each address a VLAN interface answers ARP for, one entry each, numbered in the config's order. */
+    private static proxyArp(block: FortiOsBlock, device: Device): void {
+        let number = 0;
+
+        for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {})) {
+            for (const address of iface?.proxy_arp ?? []) {
+                block
+                    .entry(++number)
+                    .set("interface", FortiOsTree.quote(FortiOsNames.nameOf(device, name)))
+                    .set("ip", address);
+            }
+        }
+    }
+
     private static staticRoutes(ipv4: FortiOsBlock, ipv6: FortiOsBlock, device: Device, routes: readonly StaticRoute[]): void {
         const counters = { ipv4: 0, ipv6: 0 };
 

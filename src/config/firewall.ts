@@ -111,6 +111,18 @@ export type NatRule<I extends string, AS extends string, IS extends string> = {
       }
 );
 
+/**
+ * One TCP MSS clamp, the condition first: `{ if: { out_interface: "tunnel-01" }, mss: "path_mtu" }`. It rewrites the maximum segment size in a TCP SYN the device routes, so the connection's packets fit a link with a smaller MTU on the way. No `if`: every routed SYN.
+ */
+export type TcpMssRule<I extends string, AS extends string, IS extends string> = {
+    /** Shown beside the rule on the device. */
+    description?: string;
+    /** Which SYNs are rewritten, besides being TCP SYNs. Every routed SYN when absent. */
+    if?: Omit<FilterMatch<I, AS, IS>, "protocol" | "tcp_flags" | "connection_state">;
+    /** The MSS written, in bytes, when the SYN offers more; or `path_mtu`: the MTU of the interface the SYN leaves through, less the IP and TCP headers. */
+    mss: number | "path_mtu";
+};
+
 /** Connection-tracking helpers that rewrite application payloads. None run unless listed. */
 export type Helper = "ftp" | "tftp" | "sip" | "h323" | "pptp" | "rtsp" | "irc";
 
@@ -139,6 +151,8 @@ export type Firewall<AS extends string, I extends string, IS extends string> = {
         /** Rewrites the destination of traffic on the way in. */
         destination?: Ordered<NatRule<I, NoInfer<AS>, NoInfer<IS>>>;
     };
+    /** TCP MSS clamps on routed SYNs, of both families. A list, not an ordered chain: each part adds its own, such as each tunnel's. None when absent. */
+    tcp_mss?: readonly TcpMssRule<I, NoInfer<AS>, NoInfer<IS>>[];
     /** Connection-tracking helpers that run. None when absent. */
     conntrack_helpers?: readonly Helper[];
     /**

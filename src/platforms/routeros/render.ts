@@ -414,6 +414,7 @@ export class RouterOsRender {
         this.bridge();
         this.ethernet();
         this.switchPorts();
+        this.eoip();
         this.lags();
         this.vlanInterfaces();
         this.tunnels();
@@ -424,6 +425,7 @@ export class RouterOsRender {
         this.bridgeFilters();
         this.interfaceLists();
         this.vrfs();
+        this.shaping();
     }
 
     /**
@@ -505,22 +507,62 @@ export class RouterOsRender {
         }
     }
 
-    /** A LAG is a bonding interface. Its members are named as the platform spells them. */
+    /** A LAG is a bonding interface. Its members, ports named as the platform spells them and then EoIP tunnels, are its slaves. */
     private lags(): void {
         for (const [name, lag] of RouterOsRender.entries(this.device.interfaces?.lag)) {
-            const members = Object.entries(this.ports)
+            const ports = Object.entries(this.ports)
                 .filter(([, port]) => port.in_lag === name)
                 .map(([port]) => this.name(port));
-            const mode = lag.mode === "static" ? "balance-xor" : "802.3ad";
+            const tunnels = RouterOsRender.entries(this.device.interfaces?.eoip)
+                .filter(([, tunnel]) => tunnel.in_lag === name)
+                .map(([tunnel]) => tunnel);
+            const roundRobin = lag.mode === "round_robin";
+            const check = lag.link_check;
+
             this.add("/interface bonding", "add", {
+                "arp-interval": check && `${check.interval_ms}ms`,
+                "arp-ip-targets": check?.arp_targets.join(","),
                 comment: lag.description,
-                mode,
+                "link-monitoring": check && "arp",
+                mode: roundRobin ? "balance-rr" : lag.mode === "static" ? "balance-xor" : "802.3ad",
                 mtu: lag.mtu,
                 name,
-                slaves: members.join(","),
-                "transmit-hash-policy": "layer-2-and-3",
+                slaves: [...ports, ...tunnels].join(","),
+                // Round robin sends each packet over the next member, whatever its flow.
+                "transmit-hash-policy": roundRobin ? undefined : "layer-2-and-3",
             });
         }
+    }
+
+    /** An EoIP tunnel. A member of a LAG is listed among its slaves (`lags()`). */
+    private eoip(): void {
+        for (const [name, tunnel] of RouterOsRender.entries(this.device.interfaces?.eoip)) {
+            this.add("/interface eoip", "add", {
+                comment: tunnel.description,
+                "local-address": Address.host(tunnel.local_address),
+                mtu: tunnel.mtu,
+                name,
+                "remote-address": tunnel.remote_address,
+                "tunnel-id": tunnel.tunnel_id,
+            });
+        }
+    }
+
+    /** CAKE on what leaves an interface: a queue type of its own, at the interface's rate, as the interface's queue. */
+    private shaping(): void {
+        for (const { name, settings } of this.interfaces) {
+            const shaping = settings.shaping;
+            if (!shaping) continue;
+
+            const queue = RouterOsRender.shapingQueue(name);
+            this.add("/queue type", "add", { "cake-bandwidth": `${shaping.mbps}.0Mbps`, kind: "cake", name: queue });
+            this.add("/queue interface", `set ${name}`, { queue });
+        }
+    }
+
+    /** The queue type that shapes what leaves an interface: the interface's name, then `-cake`. */
+    static shapingQueue(iface: string): string {
+        return `${iface}-cake`;
     }
 
     /**
@@ -875,6 +917,7 @@ export class RouterOsRender {
             this.untracked(family);
             this.filter(family);
             this.nat(family);
+            this.tcpMss(family);
         }
 
         this.helpers();
@@ -1023,6 +1066,28 @@ export class RouterOsRender {
                           };
                 this.add(menu, "add", { ...action, chain, comment: rule.description, ...this.matchProperties(rule.if, family) });
             }
+        }
+    }
+
+    /** A TCP MSS clamp rewrites a routed SYN, either way, in the mangle table's forward chain. A fixed MSS only lowers one that offers more. */
+    private tcpMss(family: Family): void {
+        const menu = family === "ipv4" ? "/ip firewall mangle" : "/ipv6 firewall mangle";
+
+        for (const rule of this.device.firewall?.tcp_mss ?? []) {
+            if (!this.families(rule.if).includes(family)) continue;
+
+            const fixed = rule.mss === "path_mtu" ? undefined : rule.mss;
+            const properties = {
+                action: "change-mss",
+                chain: "forward",
+                comment: rule.description,
+                ...this.matchProperties({ ...rule.if, protocol: "tcp", tcp_flags: { set: ["syn"] } }, family),
+                "new-mss": fixed ?? "clamp-to-pmtu",
+                passthrough: "yes",
+                "tcp-mss": fixed === undefined ? undefined : `${fixed + 1}-65535`,
+            };
+            // In the order the device exports them, so the rule reads back the same.
+            this.add(menu, "add", Object.fromEntries(Object.entries(properties).sort(([a], [b]) => a.localeCompare(b))));
         }
     }
 

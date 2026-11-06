@@ -77,7 +77,7 @@ export class DeviceChecks {
         DeviceChecks.interfaces(device, ports, report, ip);
         DeviceChecks.routing(device, report, cidr, ip);
         DeviceChecks.policies(device, report, cidr);
-        DeviceChecks.firewall(device, cidr);
+        DeviceChecks.firewall(device, report, cidr);
         DeviceChecks.services(device, report, cidr);
         DeviceChecks.certificates(device, report);
         DeviceChecks.vdoms(device, report, cidr, ip);
@@ -217,17 +217,53 @@ export class DeviceChecks {
             const where = `interfaces.${kind}.${name}`;
             if (ports.includes(name)) report(`${where} has the name of a port`);
 
-            if (kind === "gre" || kind === "vxlan") {
+            if (kind === "gre" || kind === "vxlan" || kind === "eoip") {
                 const tunnel = settings as Extract<Interface, { remote_address: string }>;
                 ip(where, tunnel.local_address);
                 ip(where, tunnel.remote_address);
             }
 
+            if (kind === "eoip") {
+                const id = (settings as Extract<Interface, { tunnel_id: number }>).tunnel_id;
+                if (!(Number.isInteger(id) && id >= 0 && id <= 65535))
+                    report(`${where}.tunnel_id ${id} is not a whole number from 0 to 65535`);
+
+                const same = Object.entries(device.interfaces?.eoip ?? {}).find(
+                    ([other, tunnel]) => other !== name && tunnel?.tunnel_id === id
+                );
+                if (same && same[0] > name) report(`${where}.tunnel_id ${id} is also interfaces.eoip.${same[0]}'s`);
+            }
+
+            if (settings.shaping && !(settings.shaping.mbps > 0)) report(`${where}.shaping.mbps ${settings.shaping.mbps} is not above 0`);
+
+            if (kind === "vlan_interface") {
+                const subnets = (settings.addresses ?? []).map((entry) => DeviceChecks.addressOf(entry));
+
+                for (const address of (settings as Extract<Interface, { vlan: string }>).proxy_arp ?? []) {
+                    ip(`${where}.proxy_arp`, address);
+                    if (!subnets.some((subnet) => Address.isCidr(subnet) && Address.contains(subnet, address)))
+                        report(`${where}.proxy_arp ${address} is in none of its subnets, so no host there asks for it`);
+                }
+            }
+
             if (kind === "lag") {
+                const lag = settings as Extract<Interface, { mode?: string }> & {
+                    link_check?: { arp_targets: readonly string[]; interval_ms: number };
+                };
                 DeviceChecks.frames(where, settings as Switched, report);
 
-                const members = Derive.ports(device).filter(([, port]) => port.in_lag === name);
-                if (!members.length) report(`${where} has no member ports`);
+                const ports = Derive.ports(device).filter(([, port]) => port.in_lag === name);
+                const tunnels = Object.entries(device.interfaces?.eoip ?? {}).filter(([, tunnel]) => tunnel?.in_lag === name);
+                if (!ports.length && !tunnels.length) report(`${where} has no members`);
+                if (tunnels.length && lag.mode !== "round_robin") report(`${where} has EoIP members, which only a round_robin LAG takes`);
+
+                const check = lag.link_check;
+                if (check) {
+                    if (!check.arp_targets.length) report(`${where}.link_check.arp_targets is empty`);
+                    for (const target of check.arp_targets) ip(`${where}.link_check.arp_targets`, target);
+                    if (!(Number.isInteger(check.interval_ms) && check.interval_ms > 0))
+                        report(`${where}.link_check.interval_ms ${check.interval_ms} is not a whole number above 0`);
+                }
             }
 
             if (kind === "bridge") {
@@ -355,7 +391,7 @@ export class DeviceChecks {
         for (const policy of Object.keys(policies)) visit(policy, []);
     }
 
-    private static firewall(device: Device, cidr: Checker): void {
+    private static firewall(device: Device, report: Report, cidr: Checker): void {
         const firewall = device.firewall;
 
         for (const [name, members] of Object.entries(firewall?.address_sets ?? {})) {
@@ -371,7 +407,14 @@ export class DeviceChecks {
             })),
             { where: "firewall.nat.source", rules: firewall?.nat?.source ?? [] },
             { where: "firewall.nat.destination", rules: firewall?.nat?.destination ?? [] },
+            { where: "firewall.tcp_mss", rules: firewall?.tcp_mss ?? [] },
         ];
+
+        (firewall?.tcp_mss ?? []).forEach((rule, index) => {
+            // 536 is the MSS every IPv4 host takes (RFC 879); 65495 is the largest IP packet less 40 bytes of headers.
+            if (rule.mss !== "path_mtu" && !(Number.isInteger(rule.mss) && rule.mss >= 536 && rule.mss <= 65495))
+                report(`firewall.tcp_mss[${index}].mss ${rule.mss} is not "path_mtu" or a whole number from 536 to 65495`);
+        });
 
         for (const { where, rules } of chains) {
             for (const rule of rules) {

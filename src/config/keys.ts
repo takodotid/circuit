@@ -4,7 +4,7 @@
 
 import type { CommunityScheme } from "./communities";
 import type { AnyDevice } from "./device";
-import type { FilterRule, NatRule } from "./firewall";
+import type { FilterRule, NatRule, TcpMssRule } from "./firewall";
 import type { Checks, Integrations, NetworkSecrets, NetworkSettings, Prefixes, Site } from "./network";
 import type { CallRule, PolicyRule, RouteMatch, RouteRule, RouteSet, RoutingRule } from "./routing";
 import type { CommunitiesExport, CommunitiesImport } from "./communities";
@@ -64,6 +64,8 @@ export const FILTER_RULE = { description: 0, if: FILTER_MATCH, then: 0, fast_pat
 export const NAT_RULE = { description: 0, if: FILTER_MATCH, then: 0, to_address: 0, to_port: 0 } as const satisfies ShapeOf<
     NatRule<string, string, string>
 >;
+const { protocol: _protocol, tcp_flags: _tcpFlags, connection_state: _state, ...TCP_MSS_MATCH } = FILTER_MATCH;
+export const TCP_MSS_RULE = { description: 0, if: TCP_MSS_MATCH, mss: 0 } as const satisfies ShapeOf<TcpMssRule<string, string, string>>;
 export const ACL_RULE = {
     description: 0,
     if: { family: 0, protocol: 0, src: 0, dst: 0, src_port: RANGE, dst_port: RANGE, vlan: 0 },
@@ -158,7 +160,7 @@ const SWITCHED = {
     mac_limit: 0,
     ethertypes: 0,
 } as const;
-const BASE = { ...ROUTED, description: 0, mtu: 0 } as const;
+const BASE = { ...ROUTED, description: 0, mtu: 0, shaping: { algorithm: 0, mbps: 0 } } as const;
 const NEIGHBOR_SETTINGS = {
     remote_as: 0,
     description: 0,
@@ -255,8 +257,8 @@ export const DEVICE = {
                 link: { device: 0, port: 0, through: 0 },
             },
         },
-        lag: { "*": { ...BASE, ...SWITCHED, mode: 0, id: 0 } },
-        vlan_interface: { "*": { ...BASE, vlan: 0, mac: 0 } },
+        lag: { "*": { ...BASE, ...SWITCHED, mode: 0, id: 0, link_check: { arp_targets: 0, interval_ms: 0 } } },
+        vlan_interface: { "*": { ...BASE, vlan: 0, mac: 0, proxy_arp: 0 } },
         bridge: { "*": { ...BASE, member_interfaces: 0 } },
         loopback: { "*": BASE },
         gre: { "*": { ...BASE, local_address: 0, remote_address: 0 } },
@@ -270,6 +272,7 @@ export const DEVICE = {
                 peers: [{ name: 0, public_key: 0, allowed_addresses: 0, endpoint: 0, keepalive: 0, client_allowed_addresses: 0 }],
             },
         },
+        eoip: { "*": { ...BASE, local_address: 0, remote_address: 0, tunnel_id: 0, in_lag: 0 } },
     },
     switching: {
         vlans: { "*": { id: 0, description: 0, untrusted: 0 } },
@@ -320,6 +323,7 @@ export const DEVICE = {
         interface_sets: { "*": 0 },
         filter: { input: CHAIN, forward: CHAIN, output: CHAIN },
         nat: { source: [NAT_RULE], destination: [NAT_RULE] },
+        tcp_mss: [TCP_MSS_RULE],
         conntrack_helpers: 0,
         untracked: 0,
     },

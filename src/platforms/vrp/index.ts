@@ -235,6 +235,7 @@ export class Vrp extends Platform {
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device, ["snmp"]));
         found.push(...Derive.unproved(device, ["alarm-severity", "bfd-timers", "static-route-bfd", "mac-limit", "ethertype-filter"]));
+        found.push(...Derive.unbuilt(device));
 
         const flow = monitoring.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);

@@ -227,6 +227,7 @@ export class FortiOs extends Platform {
         // Proved on a FG-3700D on FortiOS 6.2.2, in NAT mode. BFD on a multihop BGP session is refused in FortiOsRouting.gaps, for the reason the device showed.
         // A management VDOM is rendered but not proved: `experimental()` gives it.
         found.push(...Derive.unproved(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
+        found.push(...Derive.unbuilt(device, ["proxy-arp"]));
 
         return found;
     }
@@ -527,7 +528,7 @@ export class FortiOs extends Platform {
         if (/^Virtual domain configuration: (multiple|split-task)/m.test(status)) {
             parts.push(...(await FortiOs.readVdoms(cli, device, show)));
         } else {
-            for (const section of FortiOsRender.SECTIONS) parts.push(await show(section));
+            for (const section of [...FortiOsRender.SECTIONS, ...FortiOsRender.OPTIONAL_SECTIONS]) parts.push(await show(section));
         }
 
         const text = parts.join("\n");
@@ -562,10 +563,10 @@ export class FortiOs extends Platform {
             return FortiOsVdoms.listed(await cli.run("diagnose sys vd list"));
         });
 
-        await inVdom(
-            FortiOsVdoms.ROOT,
-            FortiOsRender.SECTIONS.filter((one) => !FortiOsVdoms.GLOBAL.has(one))
-        );
+        await inVdom(FortiOsVdoms.ROOT, [
+            ...FortiOsRender.SECTIONS.filter((one) => !FortiOsVdoms.GLOBAL.has(one)),
+            ...FortiOsRender.OPTIONAL_SECTIONS,
+        ]);
         if (listed.includes(management)) await inVdom(management, FortiOsVdoms.MANAGEMENT_SECTIONS);
 
         return parts;

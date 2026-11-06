@@ -291,6 +291,7 @@ export class RaisecomRos extends Platform {
         // SNMP takes its own access-list; SSH and telnet share the management one.
         found.push(...Derive.switchUnsupported(device, ["snmp"]));
         found.push(...Derive.unproved(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
+        found.push(...Derive.unbuilt(device));
 
         return found;
     }

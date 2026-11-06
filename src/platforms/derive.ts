@@ -8,7 +8,7 @@ import type { Device, Interface, InterfaceKind, Port } from "../model";
 export type NamedInterface = { name: string; kind: InterfaceKind; settings: Interface };
 
 /** The groups of `interfaces` besides `ethernet`, in the order Circuit reads them. */
-const KINDS: readonly InterfaceKind[] = ["lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "wireguard"];
+const KINDS: readonly InterfaceKind[] = ["lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "wireguard", "eoip"];
 
 /** A feature a platform renders once proved on one of its devices. */
 export type ProvedFeature =
@@ -20,6 +20,9 @@ export type ProvedFeature =
     | "ethertype-filter"
     | "management-vdom"
     | "routing-tables";
+
+/** A feature only some platforms build. */
+export type BuiltFeature = "eoip" | "round-robin-lag" | "link-check" | "shaping" | "tcp-mss" | "proxy-arp";
 
 export class Derive {
     /** Every interface that is not a port, group by group (`KINDS`), each in the order it is written. */
@@ -67,6 +70,32 @@ export class Derive {
 
     /** Fields a platform renders only once they are proved on one of its devices. */
     private static readonly UNPROVED_PORT_FIELDS = ["mac_limit", "ethertypes"] as const;
+
+    /** Fields of features a platform does not build, each refused by name. A platform names the ones it builds. */
+    static unbuilt(device: Device, built: readonly BuiltFeature[] = []): string[] {
+        const found: string[] = [];
+        const notBuilt = "which the platform does not build";
+        const has = (feature: BuiltFeature) => built.includes(feature);
+
+        if (!has("eoip")) for (const name of Object.keys(device.interfaces?.eoip ?? {})) found.push(`interfaces.eoip.${name}, ${notBuilt}`);
+
+        for (const [name, lag] of Object.entries(device.interfaces?.lag ?? {})) {
+            if (lag?.mode === "round_robin" && !has("round-robin-lag")) found.push(`interfaces.lag.${name}.mode round_robin, ${notBuilt}`);
+            if (lag?.link_check && !has("link-check")) found.push(`interfaces.lag.${name}.link_check, ${notBuilt}`);
+        }
+
+        if (!has("shaping"))
+            for (const { name, kind, settings } of Derive.interfaces(device))
+                if (settings.shaping) found.push(`interfaces.${kind}.${name}.shaping, ${notBuilt}`);
+
+        if (device.firewall?.tcp_mss && !has("tcp-mss")) found.push(`firewall.tcp_mss, ${notBuilt}`);
+
+        if (!has("proxy-arp"))
+            for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {}))
+                if (iface?.proxy_arp) found.push(`interfaces.vlan_interface.${name}.proxy_arp, ${notBuilt}`);
+
+        return found;
+    }
 
     /** Fields a platform refuses until it has proved them on a device. A platform names the ones it has proved, and the rest are refused. */
     static unproved(device: Device, proved: readonly ProvedFeature[] = []): string[] {

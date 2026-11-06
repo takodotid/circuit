@@ -3,6 +3,7 @@
 // A setting the render holds is set; one only the device holds is unset, which returns it to its default. A table entry only the device holds is deleted, except one the factory put there. Deletions of whole entries run last, in the reverse of the render's order, so an address goes only after the policies that named it.
 
 import type { ApplyOptions, Plan, Step } from "../platform";
+import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
 import { type Entry, FortiOsBlock, FortiOsTree } from "./tree";
 
@@ -196,6 +197,8 @@ export class FortiOsPlan {
         "firewall vip": { numbered: { keys: [["comment"], ["extintf", "extip", "protocol", "extport"]], prefix: "dnat-" } },
         "router static": FortiOsPlan.ROUTES,
         "router static6": FortiOsPlan.ROUTES,
+        // An entry has no description: it is known by its interface and address.
+        "system proxy-arp": { numbered: { keys: [["interface", "ip"]] } },
     };
 
     /** Settings the device keeps for itself: an object's UUID and an interface's SNMP index. */
@@ -873,6 +876,9 @@ export class FortiOsPlan {
         const want = FortiOsPlan.separateTunnels(FortiOsTree.parse(desired));
         const have = FortiOsPlan.separateTunnels(FortiOsTree.parse(FortiOsPlan.clean(current)));
         FortiOsPlan.keepFilled(want, have);
+        // A section the config doesn't use is still planned when the device has it, so its entries are removed.
+        for (const section of FortiOsRender.OPTIONAL_SECTIONS)
+            if (have.blocks.has(section) && !want.blocks.has(section)) want.blocks.set(section, new FortiOsBlock());
 
         const first: Step[] = [];
         const steps: Step[] = [];

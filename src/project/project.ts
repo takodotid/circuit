@@ -372,7 +372,7 @@ export async function readProject(folder: string): Promise<ProjectRead> {
 
     /** Every name a device refers to is one it declares. The editor checks the same; this catches what reaches the device as a plain `string`. */
     function names(name: string, d: Json) {
-        const kinds = ["ethernet", "lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "wireguard"];
+        const kinds = ["ethernet", "lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "wireguard", "eoip"];
 
         // An interface's name is one interface: a rule or a route that names it would otherwise not say which.
         const groupsOf = new Map<string, string[]>();
@@ -478,6 +478,7 @@ export async function readProject(folder: string): Promise<ProjectRead> {
             ...Object.entries<Json>(d.firewall?.filter ?? {}).map(([chain, c]) => [`firewall.filter.${chain}.rules`, c.rules] as const),
             ["firewall.nat.source", d.firewall?.nat?.source] as const,
             ["firewall.nat.destination", d.firewall?.nat?.destination] as const,
+            ["firewall.tcp_mss", d.firewall?.tcp_mss] as const,
         ];
         for (const [at, rules] of lists)
             (rules ?? []).forEach((r: Json, i: number) => {
@@ -550,6 +551,7 @@ export async function readProject(folder: string): Promise<ProjectRead> {
                 ...Object.values<Json>(d.firewall?.filter ?? {}).flatMap((c) => c.rules ?? []),
                 ...(d.firewall?.nat?.source ?? []),
                 ...(d.firewall?.nat?.destination ?? []),
+                ...(d.firewall?.tcp_mss ?? []),
             ];
             for (const rule of rules)
                 for (const way of ["in", "out"])
@@ -680,7 +682,7 @@ function written(d: Json, network: Json) {
     if (NUMBERED_VLANS.includes(d.platform)) for (const vlan of Object.values<Json>(d.switching?.vlans ?? {})) delete vlan.description;
 
     if (d.system?.ntp?.servers) d.system.ntp.servers = d.system.ntp.servers.map(alone);
-    for (const kind of ["gre", "vxlan"])
+    for (const kind of ["gre", "vxlan", "eoip"])
         for (const tunnel of Object.values<Json>(d.interfaces?.[kind] ?? {})) tunnel.local_address = alone(tunnel.local_address);
     for (const wg of Object.values<Json>(d.interfaces?.wireguard ?? {})) if (wg.endpoint) wg.endpoint = alone(wg.endpoint);
     for (const route of [
@@ -719,6 +721,7 @@ function primitive(device: AnyDevice, network: Json): Device {
             if (chain.rules) chain.rules = chain.rules.flatMap((r: Json) => filter(r, sets));
         for (const way of ["source", "destination"])
             if (d.firewall.nat?.[way]) d.firewall.nat[way] = d.firewall.nat[way].flatMap((r: Json) => filter(r, sets));
+        if (d.firewall.tcp_mss) d.firewall.tcp_mss = d.firewall.tcp_mss.flatMap((r: Json) => filter(r, sets));
         if (!Object.keys(d.firewall).length) delete d.firewall;
     }
     return d;

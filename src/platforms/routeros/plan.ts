@@ -18,6 +18,8 @@ export class RouterOsPlan {
         "/certificate",
         "/interface bridge",
         "/interface ethernet",
+        // A bonding interface names its EoIP slaves, so they exist first.
+        "/interface eoip",
         "/interface bonding",
         "/interface vlan",
         "/interface macvlan",
@@ -29,6 +31,9 @@ export class RouterOsPlan {
         "/interface bridge vlan",
         "/interface bridge filter",
         "/interface list",
+        // An interface's queue names its queue type.
+        "/queue type",
+        "/queue interface",
         "/ip vrf",
         // Routes, rules and BGP connections name a table, so it exists first.
         "/routing table",

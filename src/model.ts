@@ -50,13 +50,14 @@ export type Loopback = C.Loopback<string>;
 export type Gre = C.Gre<string>;
 export type Vxlan = C.Vxlan<string>;
 export type WireGuard = C.WireGuard<string>;
+export type Eoip = C.Eoip<string, string>;
 export type Bridge = C.Bridge<string, string>;
 
 /** Any interface that is not a port: what `interfaces` holds besides `ethernet`. */
-export type Interface = Lag | VlanInterface | Loopback | Gre | Vxlan | WireGuard | Bridge;
+export type Interface = Lag | VlanInterface | Loopback | Gre | Vxlan | WireGuard | Bridge | Eoip;
 
 /** The kinds of interface `interfaces` groups by, besides `ethernet`. */
-export type InterfaceKind = "lag" | "vlan_interface" | "loopback" | "gre" | "vxlan" | "wireguard" | "bridge";
+export type InterfaceKind = "lag" | "vlan_interface" | "loopback" | "gre" | "vxlan" | "wireguard" | "bridge" | "eoip";
 
 export type Switched = C.Switched<string>;
 export type Routed = C.Routed<string>;
@@ -65,6 +66,7 @@ export type Address = C.Address;
 export type FilterMatch = C.FilterMatch<string, string, string>;
 export type FilterRule = C.FilterRule<string, string, string>;
 export type NatRule = C.NatRule<string, string, string>;
+export type TcpMssRule = C.TcpMssRule<string, string, string>;
 export type AclRule = C.AclRule<string>;
 export type PolicyRule = C.PolicyRule<string, string>;
 export type RouteRule = C.RouteRule<string>;

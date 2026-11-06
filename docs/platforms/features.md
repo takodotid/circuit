@@ -30,15 +30,19 @@ A note in a cell means "works, with this limit".
 
 ## Interfaces
 
-| Feature                   | RouterOS | VRP  | Raisecom ROS | Junos | FortiOS |
-| ------------------------- | -------- | ---- | ------------ | ----- | ------- |
-| VLAN interface            | ✅       | ✅   | ✅           | ✅    | ✅      |
-| Routed port, loopback     | ✅       | ❌   | ❌           | ✅    | ✅      |
-| GRE                       | ✅       | ❌   | ❌           | ✅    | ✅      |
-| VXLAN                     | ✅       | ❌   | ❌           | ❌    | ✅      |
-| WireGuard                 | ✅       | ❌   | ❌           | ❌    | ❌      |
-| VRRP                      | ✅       | IPv4 | IPv4         | IPv4  | IPv4    |
-| IPv6 router advertisement | ✅       | ❌   | ❌           | ✅    | ✅      |
+| Feature                    | RouterOS | VRP  | Raisecom ROS | Junos | FortiOS |
+| -------------------------- | -------- | ---- | ------------ | ----- | ------- |
+| VLAN interface             | ✅       | ✅   | ✅           | ✅    | ✅      |
+| Routed port, loopback      | ✅       | ❌   | ❌           | ✅    | ✅      |
+| GRE                        | ✅       | ❌   | ❌           | ✅    | ✅      |
+| VXLAN                      | ✅       | ❌   | ❌           | ❌    | ✅      |
+| WireGuard                  | ✅       | ❌   | ❌           | ❌    | ❌      |
+| EoIP                       | ✅       | ❌   | ❌           | ❌    | ❌      |
+| Round-robin LAG, ARP check | ✅       | ❌   | ❌           | ❌    | ❌      |
+| Shaping (CAKE)             | ✅       | ❌   | ❌           | ❌    | ❌      |
+| Proxy ARP for an address   | ❌       | ❌   | ❌           | ❌    | ✅      |
+| VRRP                       | ✅       | IPv4 | IPv4         | IPv4  | IPv4    |
+| IPv6 router advertisement  | ✅       | ❌   | ❌           | ✅    | ✅      |
 
 ## Routing
 
@@ -60,6 +64,7 @@ A note in a cell means "works, with this limit".
 | --------------- | -------- | --------------- | ------------ | ----- | ------- |
 | Firewall filter | ✅       | ❌              | ❌           | ❌    | ✅      |
 | NAT             | ✅       | ❌              | ❌           | ❌    | IPv4    |
+| TCP MSS clamp   | ✅       | ❌              | ❌           | ❌    | ❌      |
 | DHCP server     | ✅       | ❌              | ❌           | IPv4  | ✅      |
 | DHCP relay      | ✅       | VLAN interfaces | ❌           | IPv4  | ✅      |
 | DNS server      | ✅       | ❌              | ❌           | ❌    | ✅      |
