@@ -860,7 +860,10 @@ test("a round-robin LAG of EoIP tunnels renders with its ARP check, its CAKE que
         'add arp-interval=200ms arp-ip-targets=10.0.3.2 link-monitoring=arp mode=balance-rr name=home-bond01 slaves="home-eoip01,home-eoip02"'
     );
     expect(lines).toContain("add kind=cake name=home-bond01-cake");
-    expect(lines).toContain("add max-limit=180M name=home-bond01-cake parent=home-bond01 queue=home-bond01-cake");
+    expect(lines).toContain("add max-limit=180M name=home-bond01-cake packet-mark=home-bond01-cake parent=global queue=home-bond01-cake");
+    const mark =
+        'add action=mark-packet chain=postrouting comment="Shaping of home-bond01" new-packet-mark=home-bond01-cake out-interface=home-bond01';
+    expect(lines.filter((line) => line === mark)).toHaveLength(2);
 
     const clamp =
         "add action=change-mss chain=forward comment=home new-mss=clamp-to-pmtu out-interface=home-bond01 protocol=tcp tcp-flags=syn";
