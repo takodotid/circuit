@@ -549,7 +549,7 @@ export class RouterOsRender {
     }
 
     /**
-     * CAKE on what leaves an interface: a queue tree on the interface holds it to the rate, CAKE as its queue. A virtual interface refuses a queue of its own that sets no rate (TRAPS.md).
+     * CAKE on what leaves an interface: what leaves it, of either family, is marked on its way out, and a queue tree under `global` holds the marked packets to the rate, CAKE as its queue. A virtual interface refuses a queue of its own that sets no rate, and a queue tree under the interface itself sees no packet (TRAPS.md).
      */
     private shaping(): void {
         for (const { name, settings } of this.interfaces) {
@@ -557,8 +557,17 @@ export class RouterOsRender {
             if (!shaping) continue;
 
             const queue = RouterOsRender.shapingQueue(name);
+            for (const menu of ["/ip firewall mangle", "/ipv6 firewall mangle"]) {
+                this.add(menu, "add", {
+                    action: "mark-packet",
+                    chain: "postrouting",
+                    comment: `Shaping of ${name}`,
+                    "new-packet-mark": queue,
+                    "out-interface": name,
+                });
+            }
             this.add("/queue type", "add", { kind: "cake", name: queue });
-            this.add("/queue tree", "add", { "max-limit": `${shaping.mbps}M`, name: queue, parent: name, queue });
+            this.add("/queue tree", "add", { "max-limit": `${shaping.mbps}M`, name: queue, "packet-mark": queue, parent: "global", queue });
         }
     }
 
