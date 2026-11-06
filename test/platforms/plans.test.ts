@@ -157,6 +157,28 @@ test("a blackhole route printed with its default distance plans nothing", () => 
     expect(plan.steps.flatMap((step) => step.show)).toEqual([]);
 });
 
+// A prefix set of both families: an IPv6 session's export must match it too. Taking the family of its first prefix once left every IPv6 export without the network's IPv6 block.
+test("a prefix set of both families is matched on each family's chain", () => {
+    const adapter = Platforms.get("routeros");
+    const routing = router.routing!;
+    const rendered = adapter.render({
+        ...router,
+        routing: {
+            ...routing,
+            prefix_sets: { ...routing.prefix_sets, ours: { prefixes: ["198.51.100.0/24", "2001:db8:100::/48"] } },
+            bgp: {
+                ...routing.bgp!,
+                neighbors: { ...routing.bgp!.neighbors, "upstream-1-v6": { address: "2001:db8:ffff::1", neighbor_group: "upstream" } },
+            },
+        },
+    });
+    const ours = (chain: string) =>
+        rendered.split("\n").filter((line) => line.includes(`chain=${chain} `) && line.includes("dst in ours"));
+
+    expect(ours("UPSTREAM-OUT-V4")).toHaveLength(1);
+    expect(ours("UPSTREAM-OUT-V6")).toHaveLength(1);
+});
+
 // A peer's name is unique on the device, so a new key for the same peer must change the peer, not add another under its name.
 test("a new WireGuard key for a peer is set on it", () => {
     const adapter = Platforms.get("routeros");
