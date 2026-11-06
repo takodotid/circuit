@@ -1194,7 +1194,7 @@ export class RouterOsRender {
         return this.settingsOf(neighbor).address_families ?? [Address.family(neighbor.address)];
     }
 
-    /** Does a rule belong on a family's chain? A rule naming a prefix, a family, or a prefix set of one family belongs only there. */
+    /** Does a rule belong on a family's chain? A rule naming a prefix, a family, or a prefix set with none of that family belongs elsewhere. A set of both families belongs on both. */
     private appliesTo(rule: PolicyRule, family: Family): boolean {
         const match = RouterOsRender.onRoutes(rule) ? rule.if : undefined;
         if (match?.family && match.family !== family) return false;
@@ -1205,9 +1205,9 @@ export class RouterOsRender {
             const set = this.device.routing?.prefix_sets?.[match.prefix_set];
             if (!set) return false;
 
-            const firstPrefix = RouterOsRender.prefixesOf(this.device, match.prefix_set)?.[0];
-            const setFamily = "source" in set ? set.source.family : firstPrefix && Address.family(Address.host(firstPrefix));
-            if (setFamily !== family) return false;
+            const prefixes = RouterOsRender.prefixesOf(this.device, match.prefix_set) ?? [];
+            const families = "source" in set ? [set.source.family] : prefixes.map((prefix) => Address.family(Address.host(prefix)));
+            if (!families.includes(family)) return false;
         }
 
         return true;
