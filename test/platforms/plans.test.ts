@@ -439,6 +439,37 @@ test("a FortiOS port joining a LAG is first freed of what names it", () => {
     expect(sent.indexOf('set member "port1"')).toBeLessThan(sent.indexOf('set device "uplink"'));
 });
 
+// Seen on a FG-3700D on 6.2.2: a new VLAN interface on the VLAN ID and parent of one the config renamed was refused, "vlanid and underlying interface must be a unique pair".
+test("a FortiOS VLAN interface renamed goes first, with what names it, and comes back under its new name", () => {
+    const vlan = (name: string) => [
+        `    edit "${name}"`,
+        '        set vdom "root"',
+        "        set ip 10.0.0.2 255.255.255.252",
+        '        set interface "lag1"',
+        "        set vlanid 3900",
+        "    next",
+    ];
+    const route = (device: string) => [
+        "config router static",
+        "    edit 1",
+        "        set gateway 10.0.0.1",
+        `        set device "${device}"`,
+        "    next",
+        "end",
+    ];
+
+    const desired = ["config system interface", ...vlan("p2p-new"), "end", ...route("p2p-new")];
+    const current = ["config system interface", ...vlan("transit"), "end", ...route("transit")];
+
+    const sent = fortiosPlan(desired, current).steps.flatMap((step) => step.send);
+    const deleted = sent.findIndex((line, i) => line === 'delete "transit"' && sent.slice(0, i).includes("config system interface"));
+
+    expect(deleted).toBeGreaterThan(-1);
+    expect(sent.indexOf("delete 1")).toBeLessThan(deleted);
+    expect(deleted).toBeLessThan(sent.indexOf('edit "p2p-new"'));
+    expect(sent.indexOf('edit "p2p-new"')).toBeLessThan(sent.indexOf('set device "p2p-new"'));
+});
+
 // The device refuses a static route the same as another, `Duplicated entry`: editing route 1 into what route 2 holds failed before route 2 moved on. A route the config keeps is found by what it holds, whatever its number, and one that changes is deleted before any is created.
 test("FortiOS leaves kept static routes alone, and deletes changing ones before it creates any", () => {
     const route = (id: number, dst: string, gateway: string, device: string) => [

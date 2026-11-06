@@ -708,6 +708,22 @@ export class FortiOsPlan {
             gone.add(key);
         }
 
+        // A VLAN interface whose VLAN ID and parent another entry takes under a new name, a rename: the device holds one entry per pair,
+        // so the old one goes first, with what names it.
+        const pair = (block: FortiOsBlock) => {
+            const vlan = block.settings.get("vlanid");
+            const parent = block.settings.get("interface");
+            return vlan && parent ? `${FortiOsTree.bare(parent)}|${vlan}` : undefined;
+        };
+        const taken = new Set([...wanted.entries.values()].map((entry) => pair(entry.block)).filter((key) => key !== undefined));
+        for (const [key, entry] of interfaces.entries) {
+            const held = pair(entry.block);
+            if (wanted.entries.has(key) || !held || !taken.has(held)) continue;
+
+            freed.add(key);
+            gone.add(key);
+        }
+
         let grew = true;
 
         while (grew) {
