@@ -145,6 +145,18 @@ test("a new BGP connection names its instance, and an existing one plans nothing
     expect(adapter.plan(rendered, exported, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.show)).toEqual([]);
 });
 
+// A CCR2216 on 7.23.5 prints `distance=1` on a blackhole route, the default, and nothing on a route through a gateway.
+test("a blackhole route printed with its default distance plans nothing", () => {
+    const adapter = Platforms.get("routeros");
+    const rendered = adapter.render(router);
+    const exported = rendered.replace(/^add blackhole (.*)$/gm, "add blackhole distance=1 $1");
+
+    expect(exported).not.toBe(rendered);
+    const plan = adapter.plan(rendered, exported, { secrets: false, rollback: 10 });
+    expect(plan.problems).toEqual([]);
+    expect(plan.steps.flatMap((step) => step.show)).toEqual([]);
+});
+
 // A peer's name is unique on the device, so a new key for the same peer must change the peer, not add another under its name.
 test("a new WireGuard key for a peer is set on it", () => {
     const adapter = Platforms.get("routeros");

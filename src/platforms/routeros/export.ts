@@ -49,6 +49,9 @@ export class RouterOsExport {
             "persistent-keepalive": "0s",
         },
         "/ipv6 address": { advertise: "yes" },
+        // A blackhole route prints its distance, a route through a gateway doesn't (TRAPS.md).
+        "/ip route": { distance: "1" },
+        "/ipv6 route": { distance: "1" },
         "/routing bgp connection": { "use-bfd": "no" },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
