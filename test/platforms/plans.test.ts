@@ -6,7 +6,7 @@ import { LineDiff } from "../../src/platforms/line-diff";
 import { FortiOsFirewall } from "../../src/platforms/fortios/firewall";
 import { FortiOs } from "../../src/platforms/fortios/index";
 import { FortiOsTree } from "../../src/platforms/fortios/tree";
-import type { Device } from "../../src/model";
+import type { Device, IP } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
 const router = Fixtures.device("platforms--example-router");
@@ -172,8 +172,7 @@ test("a prefix set of both families is matched on each family's chain", () => {
             },
         },
     });
-    const ours = (chain: string) =>
-        rendered.split("\n").filter((line) => line.includes(`chain=${chain} `) && line.includes("dst in ours"));
+    const ours = (chain: string) => rendered.split("\n").filter((line) => line.includes(`chain=${chain} `) && line.includes("dst in ours"));
 
     expect(ours("UPSTREAM-OUT-V4")).toHaveLength(1);
     expect(ours("UPSTREAM-OUT-V6")).toHaveLength(1);
@@ -829,4 +828,72 @@ test("VRP and Raisecom send every secret again with --secrets, and none without"
         const sent = adapter.plan(rendered, rendered, { secrets: true, rollback: 10 }).steps.flatMap((step) => step.send);
         for (const line of secretLines) expect(sent).toContain(line.trim());
     }
+});
+
+// A home router's bonding at the far end of two tunnels: EoIP inside each, a round-robin LAG of both with an ARP check, CAKE toward it and its TCP MSS clamped.
+test("a round-robin LAG of EoIP tunnels renders with its ARP check, its CAKE queue and an MSS clamp each family", () => {
+    const adapter = Platforms.get("routeros");
+    const rendered = adapter.render({
+        ...router,
+        interfaces: {
+            ...router.interfaces,
+            eoip: {
+                "home-eoip01": { local_address: "10.0.1.1", remote_address: "10.0.1.2", tunnel_id: 101, in_lag: "home-bond01" },
+                "home-eoip02": { local_address: "10.0.2.1", remote_address: "10.0.2.2", tunnel_id: 102, in_lag: "home-bond01" },
+            },
+            lag: {
+                ...router.interfaces?.lag,
+                "home-bond01": {
+                    mode: "round_robin",
+                    link_check: { arp_targets: ["10.0.3.2"], interval_ms: 200 },
+                    addresses: ["10.0.3.1/30"],
+                    shaping: { algorithm: "cake", mbps: 180 },
+                },
+            },
+        },
+        firewall: { ...router.firewall, tcp_mss: [{ description: "home", if: { out_interface: "home-bond01" }, mss: "path_mtu" }] },
+    });
+    const lines = rendered.split("\n");
+
+    expect(lines).toContain("add local-address=10.0.1.1 name=home-eoip01 remote-address=10.0.1.2 tunnel-id=101");
+    expect(lines).toContain(
+        'add arp-interval=200ms arp-ip-targets=10.0.3.2 link-monitoring=arp mode=balance-rr name=home-bond01 slaves="home-eoip01,home-eoip02"'
+    );
+    expect(lines).toContain("add cake-bandwidth=180.0Mbps kind=cake name=home-bond01-cake");
+    expect(lines).toContain("set home-bond01 queue=home-bond01-cake");
+
+    const clamp =
+        "add action=change-mss chain=forward comment=home new-mss=clamp-to-pmtu out-interface=home-bond01 passthrough=yes protocol=tcp tcp-flags=syn";
+    expect(lines.filter((line) => line === clamp)).toHaveLength(2);
+    expect(rendered.indexOf("/interface eoip")).toBeLessThan(rendered.indexOf("/interface bonding"));
+});
+
+// An address taken out of a FortiGate's subnet and routed elsewhere: the FortiGate answers ARP for it there, and stops when the config drops it.
+test("a FortiOS proxy ARP entry is rendered only when written, and removed when the config drops it", () => {
+    const adapter = Platforms.get("fortios");
+    const [name, iface] = Object.entries(firewall.interfaces!.vlan_interface!)[0]!;
+    const address = (iface!.addresses![0] as string).replace(/\/\d+$/, "") as IP;
+    const withProxy = adapter.render({
+        ...firewall,
+        interfaces: {
+            ...firewall.interfaces,
+            vlan_interface: { ...firewall.interfaces!.vlan_interface, [name]: { ...iface!, proxy_arp: [address] } },
+        },
+    });
+    const without = adapter.render(firewall);
+
+    expect(without).not.toContain("config system proxy-arp");
+    expect(withProxy).toContain("config system proxy-arp");
+    expect(withProxy).toContain(`set ip ${address}`);
+
+    const removal = adapter.plan(without, withProxy, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+    expect(removal).toContain("config system proxy-arp");
+    expect(removal).toContain("delete 1");
+});
+
+test("a platform that doesn't build EoIP, round robin, shaping, MSS clamps or proxy ARP refuses each by name", () => {
+    const junos = Platforms.get("junos");
+    const device = { ...aggregationSwitch, firewall: { tcp_mss: [{ mss: 1400 as const }] } };
+
+    expect(junos.unsupported(device)).toContain("firewall.tcp_mss, which the platform does not build");
 });

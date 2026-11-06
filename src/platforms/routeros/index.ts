@@ -280,6 +280,7 @@ export class RouterOs extends Platform {
         }
 
         found.push(...RouterOs.unsupportedShapes(device));
+        found.push(...Derive.unbuilt(device, ["eoip", "round-robin-lag", "link-check", "shaping", "tcp-mss"]));
 
         // BFD on a static route and a MAC limit are refused above, for the reason the device gave, and an ethertype filter on a LAG as unproved.
         found.push(

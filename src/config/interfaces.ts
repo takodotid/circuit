@@ -1,4 +1,4 @@
-// Every port and interface, by kind: `interfaces.ethernet`, `.lag`, `.vlan_interface`, `.bridge`, `.loopback`, `.gre`, `.vxlan`, `.wireguard`.
+// Every port and interface, by kind: `interfaces.ethernet`, `.lag`, `.vlan_interface`, `.bridge`, `.loopback`, `.gre`, `.vxlan`, `.wireguard`, `.eoip`.
 
 import type { HostAddress, IP, InterfaceAddress, MacAddress, Named, Prefix, Secret } from "./common";
 
@@ -139,12 +139,24 @@ export type Port<Vlan extends string, Acl extends string, Lag extends string, Vr
         link?: Link;
     };
 
+/**
+ * Traffic leaving through an interface, held to a rate by a queue. CAKE (RFC 8290's FQ-CoDel with its own shaper) keeps latency low under load when the rate is a little below the slowest link on the way.
+ */
+export type Shaping = {
+    /** The queue: `cake`. */
+    algorithm: "cake";
+    /** The most traffic leaves, in Mbit/s. */
+    mbps: number;
+};
+
 /** Settings every interface that is not a physical port shares. */
 export type Base<Vrf extends string> = Routed<Vrf> & {
     /** What the interface is for. */
     description?: string;
     /** Largest IP packet, in bytes. */
     mtu?: number;
+    /** Traffic leaving through it is held to a rate by a queue. Not shaped when absent. */
+    shaping?: Shaping;
 };
 
 /** A layer 3 interface on a VLAN. */
@@ -155,18 +167,36 @@ export type VlanInterface<Vlan extends string, Vrf extends string> = Base<Vrf> &
      * A MAC address of its own, instead of the one it shares with the device's other VLAN interfaces. A gateway in front of a transparent firewall needs one: frames to it come back on another VLAN, where the bridge would otherwise take a shared MAC for its own and keep them.
      */
     mac?: MacAddress;
+    /**
+     * Addresses of its subnet that live elsewhere, which it answers ARP for with its own MAC and then routes: an address taken out of the subnet and routed to another link, which the hosts on the subnet still take for a neighbor. None when absent.
+     */
+    proxy_arp?: readonly IP[];
 };
 
 /** An interface that is always up and is on no link, for addresses that must not depend on one. */
 export type Loopback<Vrf extends string> = Base<Vrf>;
 
-/** A link aggregation. Each member port points to it with `in_lag`. */
+/**
+ * How a LAG finds a member that no longer carries traffic: an ARP request to each target over every member, every `interval_ms`. A member that gets no reply leaves the LAG until it gets one again. For members whose own link stays up when the path behind it fails, such as tunnels.
+ */
+export type LinkCheck = {
+    /** The addresses asked, on the LAG's own subnet: the far end's address on the LAG. */
+    arp_targets: readonly IP[];
+    /** Milliseconds between requests. */
+    interval_ms: number;
+};
+
+/** A link aggregation. Each member port or EoIP tunnel points to it with `in_lag`. */
 export type Lag<Vlan extends string, Vrf extends string> = Base<Vrf> &
     Switched<Vlan> & {
-        /** LACP negotiates membership with the far end; `static` joins the ports without asking. LACP when absent. */
-        mode?: "lacp" | "static";
+        /**
+         * LACP negotiates membership with the far end; `static` joins the ports without asking; `round_robin` sends each packet over the next member in turn, so one flow uses every member (Linux's balance-rr), and takes no part in LACP. LACP when absent.
+         */
+        mode?: "lacp" | "static" | "round_robin";
         /** Number, on platforms where a LAG has a number instead of a name. Its position among the device's LAGs when absent. */
         id?: number;
+        /** Find a member that no longer carries traffic by ARP, and take it out. Each member's link state only when absent. */
+        link_check?: LinkCheck;
     };
 
 /** A GRE tunnel. */
@@ -189,6 +219,20 @@ export type Vxlan<Vrf extends string> = Base<Vrf> & {
     port?: number;
     /** Fixed MAC address, so a rebuild keeps the one the far side learned. */
     mac?: MacAddress;
+};
+
+/**
+ * An Ethernet tunnel over IP (EoIP, MikroTik's GRE carrying Ethernet frames, IP protocol 47): it carries layer 2 between two routers, so it can be a member of a LAG. Both ends write the same `tunnel_id`.
+ */
+export type Eoip<Lag extends string, Vrf extends string> = Base<Vrf> & {
+    /** Our tunnel endpoint, alone or with its length. */
+    local_address: HostAddress;
+    /** The far tunnel endpoint. */
+    remote_address: IP;
+    /** The tunnel's number, 0 to 65535, the same on both ends and unique among the device's EoIP tunnels. */
+    tunnel_id: number;
+    /** One of `interfaces.lag`: the LAG this tunnel is a member of. */
+    in_lag?: Lag;
 };
 
 /** A host and a UDP port, `host:port`, for example `203.0.113.10:51820` or `vpn.example.net:51820`. */
@@ -252,4 +296,6 @@ export type Interfaces<Ethernet, L extends string, VI extends string, T extends 
     vxlan?: Named<T, Vxlan<F>>;
     /** WireGuard interfaces, keyed by name. */
     wireguard?: Named<T, WireGuard<F>>;
+    /** Ethernet tunnels over IP, keyed by name. Each may be a member of a LAG with `in_lag`. */
+    eoip?: Named<T, Eoip<NoInfer<L>, F>>;
 };

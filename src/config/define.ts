@@ -85,7 +85,7 @@ type NamesOf<D> = {
     port: KeysAt<D, "interfaces", "ethernet">;
     lag: KeysAt<D, "interfaces", "lag">;
     vlanInterface: KeysAt<D, "interfaces", "vlan_interface">;
-    interface: KeysAt<D, "interfaces", "bridge" | "loopback" | "gre" | "vxlan" | "wireguard">;
+    interface: KeysAt<D, "interfaces", "bridge" | "loopback" | "gre" | "vxlan" | "wireguard" | "eoip">;
     vlan: KeysAt<D, "switching", "vlans">;
     acl: KeysAt<D, "switching", "acls">;
     policy: KeysAt<D, "routing", "policies">;
@@ -97,7 +97,11 @@ type NamesOf<D> = {
     interfaceSet: KeysAt<D, "firewall", "interface_sets">;
     user: KeysAt<D, "system", "users">;
     certificate: KeysAt<D, "system", "certificates">;
-    anyInterface: KeysAt<D, "interfaces", "ethernet" | "lag" | "vlan_interface" | "bridge" | "loopback" | "gre" | "vxlan" | "wireguard">;
+    anyInterface: KeysAt<
+        D,
+        "interfaces",
+        "ethernet" | "lag" | "vlan_interface" | "bridge" | "loopback" | "gre" | "vxlan" | "wireguard" | "eoip"
+    >;
 };
 
 /** The ports a device declares, each checked against its model. */

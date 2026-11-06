@@ -322,6 +322,7 @@ export class Junos extends Platform {
         }
 
         found.push(...Derive.unproved(device, Junos.PROVED));
+        found.push(...Derive.unbuilt(device));
 
         return found;
     }

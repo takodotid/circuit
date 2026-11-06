@@ -47,7 +47,7 @@ afterAll(() => fake.close());
 test("a read over SSH checks the version, then shows each section Circuit manages", async () => {
     const current = await platform.read(device, [device]);
 
-    const shows = FortiOsRender.SECTIONS.map(
+    const shows = [...FortiOsRender.SECTIONS, ...FortiOsRender.OPTIONAL_SECTIONS].map(
         (section) => `${FortiOsRender.FULL.includes(section) ? "show full-configuration" : "show"} ${section}`
     );
     expect(fake.commands).toEqual(["get system status", ...shows]);

@@ -57,7 +57,7 @@ export type Names = {
     lag: string;
     /** Keys of `interfaces.vlan_interface`. */
     vlanInterface: string;
-    /** Keys of `interfaces.bridge`, `.loopback`, `.gre`, `.vxlan` and `.wireguard`. */
+    /** Keys of `interfaces.bridge`, `.loopback`, `.gre`, `.vxlan`, `.wireguard` and `.eoip`. */
     interface: string;
     /** Keys of `switching.vlans`. */
     vlan: string;
@@ -96,7 +96,7 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     management?: Management<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["addressSet"]>>;
     /** What the box reports to collectors: snmp, syslog, flow export, optics. */
     monitoring?: Monitoring<NoInfer<N["anyInterface"]>>;
-    /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, wireguard. */
+    /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, wireguard, eoip. */
     interfaces?: Interfaces<Ethernet, N["lag"], N["vlanInterface"], N["interface"], NoInfer<N["vlan"]>, NoInfer<N["vrf"]>>;
     /** Layer 2 shared by ports: vlans, stp, lldp, acls. */
     switching?: Switching<N["vlan"], N["acl"], NoInfer<N["anyInterface"]>, Net["untrusted"]>;
