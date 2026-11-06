@@ -548,15 +548,17 @@ export class RouterOsRender {
         }
     }
 
-    /** CAKE on what leaves an interface: a queue type of its own, at the interface's rate, as the interface's queue. */
+    /**
+     * CAKE on what leaves an interface: a queue tree on the interface holds it to the rate, CAKE as its queue. A virtual interface refuses a queue of its own that sets no rate (TRAPS.md).
+     */
     private shaping(): void {
         for (const { name, settings } of this.interfaces) {
             const shaping = settings.shaping;
             if (!shaping) continue;
 
             const queue = RouterOsRender.shapingQueue(name);
-            this.add("/queue type", "add", { "cake-bandwidth": `${shaping.mbps}.0Mbps`, kind: "cake", name: queue });
-            this.add("/queue interface", `set ${name}`, { queue });
+            this.add("/queue type", "add", { kind: "cake", name: queue });
+            this.add("/queue tree", "add", { "max-limit": `${shaping.mbps}M`, name: queue, parent: name, queue });
         }
     }
 
@@ -1083,7 +1085,6 @@ export class RouterOsRender {
                 comment: rule.description,
                 ...this.matchProperties({ ...rule.if, protocol: "tcp", tcp_flags: { set: ["syn"] } }, family),
                 "new-mss": fixed ?? "clamp-to-pmtu",
-                passthrough: "yes",
                 "tcp-mss": fixed === undefined ? undefined : `${fixed + 1}-65535`,
             };
             // In the order the device exports them, so the rule reads back the same.

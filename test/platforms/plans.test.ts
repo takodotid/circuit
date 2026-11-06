@@ -859,11 +859,11 @@ test("a round-robin LAG of EoIP tunnels renders with its ARP check, its CAKE que
     expect(lines).toContain(
         'add arp-interval=200ms arp-ip-targets=10.0.3.2 link-monitoring=arp mode=balance-rr name=home-bond01 slaves="home-eoip01,home-eoip02"'
     );
-    expect(lines).toContain("add cake-bandwidth=180.0Mbps kind=cake name=home-bond01-cake");
-    expect(lines).toContain("set home-bond01 queue=home-bond01-cake");
+    expect(lines).toContain("add kind=cake name=home-bond01-cake");
+    expect(lines).toContain("add max-limit=180M name=home-bond01-cake parent=home-bond01 queue=home-bond01-cake");
 
     const clamp =
-        "add action=change-mss chain=forward comment=home new-mss=clamp-to-pmtu out-interface=home-bond01 passthrough=yes protocol=tcp tcp-flags=syn";
+        "add action=change-mss chain=forward comment=home new-mss=clamp-to-pmtu out-interface=home-bond01 protocol=tcp tcp-flags=syn";
     expect(lines.filter((line) => line === clamp)).toHaveLength(2);
     expect(rendered.indexOf("/interface eoip")).toBeLessThan(rendered.indexOf("/interface bonding"));
 });
@@ -896,4 +896,15 @@ test("a platform that doesn't build EoIP, round robin, shaping, MSS clamps or pr
     const device = { ...aggregationSwitch, firewall: { tcp_mss: [{ mss: 1400 as const }] } };
 
     expect(junos.unsupported(device)).toContain("firewall.tcp_mss, which the platform does not build");
+});
+
+// A CCR2216 on 7.23.5 gives an EoIP tunnel a random MAC when it is created, and exports it.
+test("an EoIP tunnel's MAC the device made up plans nothing", () => {
+    const adapter = Platforms.get("routeros");
+    const line = (mac: string) =>
+        `/interface eoip\nadd local-address=10.0.1.1 ${mac}name=home-eoip01 remote-address=10.0.1.2 tunnel-id=101\n`;
+    const plan = adapter.plan(line(""), line("mac-address=FE:D8:B5:B8:8F:13 "), { secrets: false, rollback: 10 });
+
+    expect(plan.problems).toEqual([]);
+    expect(plan.steps).toEqual([]);
 });
