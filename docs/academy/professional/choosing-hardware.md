@@ -91,13 +91,14 @@ The kind of device follows from two things: whether the work per packet fits in 
 
 In Circuit, a port's name is its speed class and its position in that class, the same way on every platform: `25g-1` is the first 25G port, `100g-2` the second 100G port. Each platform's `models.ts` lists how many ports of each speed a model has, and how the platform spells them. On the QFX5100 and the FortiGate, the two 1G ports are the out-of-band management ports:
 
-| Platform       | Model               | Ports                        | `100g-1` on the device       |
-| -------------- | ------------------- | ---------------------------- | ---------------------------- |
-| `routeros`     | CCR2216-1G-12XS-2XQ | 2 x 100G, 12 x 25G, 1 x 1G   | `qsfp28-1-1`                 |
-| `vrp`          | CE6855-48S6Q-HI     | 6 x 40G, 48 x 10G            | none; `40g-1` is `40GE1/0/1` |
-| `raisecom-ros` | RAX721-C-6C48       | 6 x 100G, 24 x 25G, 24 x 10G | `hundredgige 1/1/1`          |
-| `junos`        | QFX5100-48S-6Q      | 6 x 40G, 48 x 10G, 2 x 1G    | none; `40g-1` is `et-0/0/48` |
-| `fortios`      | FG-3700D            | 4 x 40G, 28 x 10G, 2 x 1G    | none; `40g-1` is `port1`     |
+| Platform       | Model               | Ports                        | `100g-1` on the device          |
+| -------------- | ------------------- | ---------------------------- | ------------------------------- |
+| `routeros`     | CCR2216-1G-12XS-2XQ | 2 x 100G, 12 x 25G, 1 x 1G   | `qsfp28-1-1`                    |
+| `routeros`     | RB5009UG+S+         | 1 x 10G, 1 x 2.5G, 7 x 1G    | none; `10g-1` is `sfp-sfpplus1` |
+| `vrp`          | CE6855-48S6Q-HI     | 6 x 40G, 48 x 10G            | none; `40g-1` is `40GE1/0/1`    |
+| `raisecom-ros` | RAX721-C-6C48       | 6 x 100G, 24 x 25G, 24 x 10G | `hundredgige 1/1/1`             |
+| `junos`        | QFX5100-48S-6Q      | 6 x 40G, 48 x 10G, 2 x 1G    | none; `40g-1` is `et-0/0/48`    |
+| `fortios`      | FG-3700D            | 4 x 40G, 28 x 10G, 2 x 1G    | none; `40g-1` is `port1`        |
 
 A port that does not exist is caught before anything is sent. In the file, the editor marks it; `circuit validate` says:
 

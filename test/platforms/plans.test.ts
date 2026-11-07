@@ -942,3 +942,136 @@ test("an EoIP tunnel's MAC the device made up plans nothing", () => {
     expect(plan.problems).toEqual([]);
     expect(plan.steps).toEqual([]);
 });
+
+// An RB5009 on 7.24.6 prints a service's sources as `available-from`, and still takes `address`, which the render writes.
+test("a service's available-from on RouterOS 7.24 is its address", () => {
+    const adapter = Platforms.get("routeros");
+    const desired = ["/ip service", "set ssh address=192.168.77.0/24"].join("\n");
+    const sameOnDevice = ["/ip service", "set ssh available-from=192.168.77.0/24"].join("\n");
+    const otherOnDevice = ["/ip service", "set ssh available-from=192.168.77.0/24,10.99.0.128/27"].join("\n");
+
+    const same = adapter.plan(desired, sameOnDevice, { secrets: false, rollback: 10 });
+    expect(same.problems).toEqual([]);
+    expect(same.steps).toEqual([]);
+
+    const other = adapter.plan(desired, otherOnDevice, { secrets: false, rollback: 10 });
+    expect(other.problems).toEqual([]);
+    expect(other.steps.flatMap((step) => step.send)).toEqual(["/ip service set ssh address=192.168.77.0/24"]);
+});
+
+// RouterOS 7.24 prints the default neighbor discovery entry with `advertise-dns=yes` on a device nobody changed, under a comment that it is not started.
+test("the default neighbor discovery entry printed with advertise-dns plans nothing", () => {
+    const adapter = Platforms.get("routeros");
+    const printed = [
+        "/ipv6 nd",
+        "# automatic dns option advertising is not started, re-apply dns config",
+        "set [ find default=yes ] advertise-dns=yes",
+    ].join("\n");
+
+    const plan = adapter.plan("", printed, { secrets: false, rollback: 10 });
+    expect(plan.problems).toEqual([]);
+    expect(plan.steps).toEqual([]);
+});
+
+// The default configuration of an RB5009 shares a USB disk on its bridge; Circuit writes none of it, so it is reset.
+test("an RB5009's disk sharing from its default configuration is reset", () => {
+    const adapter = Platforms.get("routeros");
+    const printed = ["/disk settings", "set auto-media-interface=bridge auto-media-sharing=yes auto-smb-sharing=yes"].join("\n");
+
+    const plan = adapter.plan("", printed, { secrets: false, rollback: 10 });
+    expect(plan.problems).toEqual([]);
+    expect(plan.steps.flatMap((step) => step.send)).toEqual([
+        "/disk settings set auto-media-interface=none auto-media-sharing=no auto-smb-sharing=no",
+    ]);
+});
+
+// A menu with chains that the config empties is removed chain by chain. Keeping no chain wrote `:local keep {}`, which RouterOS 7.24 refuses as a syntax error.
+test("a mangle table the config empties is removed chain by chain", () => {
+    const adapter = Platforms.get("routeros");
+    const printed = [
+        "/ip firewall mangle",
+        "add action=change-mss chain=forward new-mss=1338 out-interface=bond1 protocol=tcp tcp-flags=syn tcp-mss=1339-65535",
+        "add action=mark-packet chain=postrouting new-packet-mark=up out-interface=bond1",
+    ].join("\n");
+
+    const plan = adapter.plan("", printed, { secrets: false, rollback: 10 });
+    const sent = plan.steps.flatMap((step) => step.send);
+    expect(sent).toEqual([
+        '/ip firewall mangle remove [ find chain="forward" and !dynamic ]',
+        '/ip firewall mangle remove [ find chain="postrouting" and !dynamic ]',
+    ]);
+    expect(sent.join("\n")).not.toContain("{}");
+});
+
+// Entries without a name, as an RB5009 on 7.24.6 held them: a selector by name matches nothing, `bad parameter name`.
+test("UPnP interfaces are told apart by their interface", () => {
+    const adapter = Platforms.get("routeros");
+    const printed = ["/ip upnp interfaces", "add interface=bridge type=internal", "add interface=ether2 type=external"].join("\n");
+
+    const plan = adapter.plan("", printed, { secrets: false, rollback: 10 });
+    expect(plan.problems).toEqual([]);
+    expect(plan.steps.flatMap((step) => step.send)).toEqual([
+        "/ip upnp interfaces remove [ find interface=bridge ]",
+        "/ip upnp interfaces remove [ find interface=ether2 ]",
+    ]);
+});
+
+// On an RB5009 on 7.24.6, `find` matched a host route or an interface address only as a whole prefix, and a list such as `topics` only quoted, with `;` between its items.
+test("a selector writes a host as a prefix and a list with semicolons", () => {
+    const adapter = Platforms.get("routeros");
+    const printed = [
+        "/ip route",
+        "add dst-address=192.0.2.82/32 gateway=198.51.100.1 routing-table=tun1",
+        "/ip address",
+        "add address=203.0.113.60 interface=lo1 network=203.0.113.60",
+        "/system logging",
+        "add action=disk topics=warning",
+        "add action=disk topics=script,debug",
+    ].join("\n");
+
+    const sent = adapter.plan("", printed, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+    expect(sent).toContain('/ip route remove [ find dst-address="192.0.2.82/32" and routing-table=tun1 and !dynamic ]');
+    expect(sent).toContain('/ip address remove [ find address="203.0.113.60/32" and !dynamic ]');
+    expect(sent).toContain('/system logging remove [ find action=disk and topics="warning" ]');
+    expect(sent).toContain('/system logging remove [ find action=disk and topics="script;debug" ]');
+});
+
+// A menu not listed in the order went last, so it was removed first: a PPPoE client went before the interface list member naming it, which was then left pointing at nothing (RB5009, 7.24.6).
+test("a PPPoE client is removed after what names it, and its profile after it", () => {
+    const adapter = Platforms.get("routeros");
+    const printed = [
+        "/ppp profile",
+        "add name=wan-pppoe",
+        "/interface pppoe-client",
+        "add interface=ether2 name=pppoe-wan profile=wan-pppoe",
+        "/interface list",
+        "add name=WAN",
+        "/interface list member",
+        "add interface=pppoe-wan list=WAN",
+    ].join("\n");
+
+    const sent = adapter.plan("", printed, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+    expect(sent).toEqual([
+        "/interface list member remove [ find list=WAN and interface=pppoe-wan ]",
+        "/interface list remove [ find name=WAN ]",
+        "/interface pppoe-client remove [ find name=pppoe-wan ]",
+        "/ppp profile remove [ find name=wan-pppoe ]",
+    ]);
+});
+
+// An RB5009 has no serial console: RouterOS 7.24.6 takes `enter-setup-on` on it, then prints and keeps nothing, so the plan never empties.
+test("a model without a serial console gets no bootloader setup key", () => {
+    const adapter = Platforms.get("routeros");
+    const rb5009 = {
+        name: "rb5009",
+        site: "lab",
+        platform: "routeros",
+        model: "RB5009UG+S+",
+        connection: { host: "192.0.2.1", user: "admin" },
+    } as Device;
+    const withConsole = { ...rb5009, connection: { ...rb5009.connection, console: { port: "/dev/ttyUSB0", baud: 115200 } } } as Device;
+
+    expect(adapter.render(router)).toContain("enter-setup-on=delete-key");
+    expect(adapter.render(rb5009)).not.toContain("enter-setup-on");
+    expect(adapter.unsupported(withConsole)).toContain("connection.console, the RB5009UG+S+ has no serial console");
+});

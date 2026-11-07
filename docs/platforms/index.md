@@ -6,19 +6,19 @@ description: The device operating systems Circuit talks to, the versions, and wh
 
 A platform is the device's operating system. It decides which commands Circuit sends.
 
-| `platform`     | OS                | Version  | Tested on                          |
-| -------------- | ----------------- | -------- | ---------------------------------- |
-| `routeros`     | MikroTik RouterOS | 7        | CCR2216-1G-12XS-2XQ, RouterOS 7.23 |
-| `vrp`          | Huawei VRP        | V200R005 | CE6855-48S6Q-HI, V200R005C00SPC800 |
-| `raisecom-ros` | Raisecom ROS      | 6.5      | RAX721-C-6C48, ROS 6.5.2           |
-| `junos`        | Juniper Junos     | 21       | QFX5100-48S-6Q, Junos 21.4R3       |
-| `fortios`      | Fortinet FortiOS  | 6.2      | FG-3700D, FortiOS 6.2.2            |
+| `platform`     | OS                | Version  | Tested on                                                      |
+| -------------- | ----------------- | -------- | -------------------------------------------------------------- |
+| `routeros`     | MikroTik RouterOS | 7        | CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24 |
+| `vrp`          | Huawei VRP        | V200R005 | CE6855-48S6Q-HI, V200R005C00SPC800                             |
+| `raisecom-ros` | Raisecom ROS      | 6.5      | RAX721-C-6C48, ROS 6.5.2                                       |
+| `junos`        | Juniper Junos     | 21       | QFX5100-48S-6Q, Junos 21.4R3                                   |
+| `fortios`      | Fortinet FortiOS  | 6.2      | FG-3700D, FortiOS 6.2.2                                        |
 
 Good to know:
 
 - **One version per platform.** `routeros` means RouterOS 7. RouterOS 6 takes other commands, so it's not supported.
 - **Version check.** RouterOS, Junos and FortiOS stop `diff` and `apply` on another version. VRP and Raisecom don't check, so check it yourself before the first apply.
-- **One model each, for now.** The one it was tested on. Another model needs its port list added; see [Contributing](/contributing).
+- **The models it was tested on.** RouterOS has two, the CCR2216 and the RB5009; every other platform has one. Another model needs its port list added; see [Contributing](/contributing).
 
 The whole picture is in the [feature matrix](/platforms/features).
 
@@ -27,6 +27,8 @@ The whole picture is in the [feature matrix](/platforms/features).
 **Works:** switching, LAG, routed ports, GRE, VXLAN, WireGuard, VRRP, VRFs, policy routing, OSPF, BFD, BGP with policies, communities and RPKI, firewall, NAT, hardware ACLs, DHCP, DNS and NTP servers, NetFlow/IPFIX, `circuit bgp`, and a health check after each apply.
 
 **Doesn't:** MAC limit (RouterOS 7.23 has none), bridge interfaces, SNMPv3 with SHA-256, BFD on a static route.
+
+**Ports on the RB5009:** `2.5g-1` is `ether1`, `1g-1` to `1g-7` are `ether2` to `ether8`, and `10g-1` is `sfp-sfpplus1`. It has no serial console, so `connection.console` is refused.
 
 **Watch out:** the CCR2216 takes at most 8 ports in a LAG, and about 5 different port ranges in its hardware ACLs. `circuit validate` checks both. After an apply, check no switch rule is invalid:
 

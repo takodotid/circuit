@@ -16,6 +16,9 @@ export class RouterOsPlan {
     private static readonly ORDER = [
         // Certificates depend on nothing, and services name them.
         "/certificate",
+        // A PPP client names its profile, and every interface kind not listed below goes before what names it, such as a PPPoE client in an interface list. A menu not listed goes last, so it is removed first, and that once left an interface list member pointing at a removed PPPoE client (RB5009, 7.24.6).
+        "/ppp",
+        "/interface",
         "/interface bridge",
         "/interface ethernet",
         // A bonding interface names its EoIP slaves, so they exist first.
@@ -93,6 +96,9 @@ export class RouterOsPlan {
      */
     private static readonly RESTART_ON: Record<string, string[]> = { "/routing bgp connection": ["routing-table"] };
 
+    /** Properties holding a list, which a selector writes as one. */
+    private static readonly LISTS = new Set(["topics"]);
+
     /** The variable holding the old rules of an ordered menu while the new ones are added. Removed when the rewrite ends. */
     private static readonly OLD_RULES = "frameworkOldRules";
 
@@ -164,13 +170,16 @@ export class RouterOsPlan {
     }
 
     /** In a `find`, a quoted `yes` is a string and matches no boolean, while an unquoted slash matches nothing. Plain words go bare, anything else quoted. */
-    private static findValue(raw: string): string {
+    private static findValue(property: string, raw: string): string {
+        // A list matches quoted with `;` between its items, even with one: `topics="warning"`. Bare, or with commas, it matches nothing (RB5009, 7.24.6).
+        if (RouterOsPlan.LISTS.has(property)) return RouterOsPlan.quote(raw.split(",").join(";"));
+
         return /^[\w.:-]+$/.test(raw) ? raw : RouterOsPlan.quote(raw);
     }
 
     /** A selector for the entry with this identity. */
     private static find(menu: string, id: Record<string, string>): string {
-        const conditions = Object.entries(id).map(([property, raw]) => `${property}=${RouterOsPlan.findValue(raw)}`);
+        const conditions = Object.entries(id).map(([property, raw]) => `${property}=${RouterOsPlan.findValue(property, raw)}`);
         if (RouterOsPlan.DYNAMIC.has(menu)) conditions.push("!dynamic");
         return `[ find ${conditions.join(" and ")} ]`;
     }
@@ -301,7 +310,7 @@ export class RouterOsPlan {
                     current = namesake;
                 } else {
                     changeStep.show.push(`~ replace ${RouterOsExport.canonical(entry)}`);
-                    changeStep.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.identity(namesake))}`);
+                    changeStep.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.selector(namesake))}`);
                     changeStep.send.push(RouterOsPlan.line(menu, "add", "", entry.flags, entry.attrs));
                     continue;
                 }
@@ -317,7 +326,7 @@ export class RouterOsPlan {
             const flagsDiffer = [...entry.flags].sort().join() !== [...current.flags].sort().join();
             if (flagsDiffer) {
                 changeStep.show.push(`~ replace ${RouterOsExport.canonical(entry)}`);
-                removeStep.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.identity(current))}`);
+                removeStep.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.selector(current))}`);
                 changeStep.send.push(RouterOsPlan.line(menu, "add", "", entry.flags, entry.attrs));
                 continue;
             }
@@ -325,7 +334,7 @@ export class RouterOsPlan {
             const update = this.changes(entry, current, `${menu} ${entryKey}`);
             if (!Object.keys(update).length) continue;
 
-            const selector = RouterOsPlan.find(menu, RouterOsExport.identity(current));
+            const selector = RouterOsPlan.find(menu, RouterOsExport.selector(current));
             const restartsOn = (RouterOsPlan.RESTART_ON[menu] ?? []).filter((property) => property in update);
             if (restartsOn.length) {
                 changeStep.show.push(
@@ -360,7 +369,7 @@ export class RouterOsPlan {
             if (wholeLists.has(entry.attrs.list ?? "")) continue;
 
             removeStep.show.push(`- ${RouterOsExport.canonical(entry)}`);
-            removeStep.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.identity(entry))}`);
+            removeStep.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.selector(entry))}`);
         }
 
         if (changeStep.send.length) result.first.push(changeStep);
@@ -437,6 +446,24 @@ export class RouterOsPlan {
         const hasChains = [...wanted, ...existing].some((item) => item.attrs.chain !== undefined);
         const keptChains = new Set(wanted.map((item) => item.attrs.chain ?? ""));
         const droppedChains = [...new Set(existing.map((item) => item.attrs.chain ?? ""))].filter((chain) => !keptChains.has(chain));
+        const chainStep = (chain: string, show: string[]): Step => {
+            const selector = `[ find chain=${RouterOsPlan.quote(chain)}${RouterOsPlan.DYNAMIC.has(menu) ? " and !dynamic" : ""} ]`;
+            return { title: `${menu} chain ${chain}`, show, send: [`${menu} remove ${selector}`] };
+        };
+
+        // Nothing kept: each chain goes whole in the last phase. An empty array, `{}`, is a syntax error (RB5009, 7.24.6).
+        if (hasChains && !wanted.length) {
+            for (const chain of droppedChains) {
+                const rules = existing.filter((item) => (item.attrs.chain ?? "") === chain);
+                result.last.push(
+                    chainStep(
+                        chain,
+                        rules.map((item) => `- ${RouterOsExport.canonical(item)}`)
+                    )
+                );
+            }
+            return result;
+        }
 
         let removeOld = `${menu} remove $${oldRules}`;
         if (hasChains) {
@@ -458,10 +485,7 @@ export class RouterOsPlan {
         result.first.push({ title: `${menu}, in the order of the config`, show, send });
 
         if (hasChains) {
-            for (const chain of droppedChains) {
-                const selector = `[ find chain=${RouterOsPlan.quote(chain)}${RouterOsPlan.DYNAMIC.has(menu) ? " and !dynamic" : ""} ]`;
-                result.last.push({ title: `${menu} chain ${chain}`, show: [`- chain ${chain}`], send: [`${menu} remove ${selector}`] });
-            }
+            for (const chain of droppedChains) result.last.push(chainStep(chain, [`- chain ${chain}`]));
         }
 
         return result;

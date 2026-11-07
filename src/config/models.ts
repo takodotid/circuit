@@ -24,6 +24,8 @@ export type ModelSpec = {
     readonly spelling: Readonly<Record<string, string>>;
     /** What the hardware held, where a real device held less than its datasheet. */
     readonly limits?: ModelLimits;
+    /** `false` when the model has no serial console, such as the RB5009: nothing is set for one, and `connection.console` is refused. A model has one when absent. */
+    readonly serial_console?: false;
 };
 
 /** Every model of every platform: each platform's own list, in its folder under `src/platforms/`. */

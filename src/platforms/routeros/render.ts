@@ -1580,7 +1580,8 @@ export class RouterOsRender {
 
         this.add("/system package update", "set", { channel: system.release_channel ?? "stable" });
         // Bootloader setup only from a deliberate key on the console, so line noise on a serial cable cannot enter it.
-        this.add("/system routerboard settings", "set", { "enter-setup-on": "delete-key" });
+        if (Catalog.serialConsole(this.device.platform, this.device.model))
+            this.add("/system routerboard settings", "set", { "enter-setup-on": "delete-key" });
 
         this.flowExport();
     }
