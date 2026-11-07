@@ -21,6 +21,8 @@ export type ModelSpec = {
     ports: Readonly<Record<string, number>>;
     spelling: Readonly<Record<string, string>>;
     limits?: ModelLimits;
+    /** `false` when the model has no serial console, such as the RB5009: nothing is set for one, and `connection.console` is refused. A model has one when absent. */
+    serial_console?: false;
 };
 
 export class Catalog {
@@ -42,10 +44,16 @@ export class Catalog {
         return spec?.limits ?? {};
     }
 
+    /** Whether the model has a serial console. True for a model the catalog does not have. */
+    static serialConsole(platform: string, model: string): boolean {
+        const spec = (Catalog.MODELS as Record<string, Record<string, ModelSpec>>)[platform]?.[model];
+        return spec?.serial_console !== false;
+    }
+
     /** The platform's own name for a port. */
     static spell(platform: string, model: string, port: string): string {
         const spec = (Catalog.MODELS as Record<string, Record<string, ModelSpec>>)[platform]?.[model];
-        const parts = /^(\d+[gm])-(\d+)$/.exec(port);
+        const parts = /^(\d+(?:\.\d+)?[gm])-(\d+)$/.exec(port);
         const template = parts && spec?.spelling[parts[1]!];
         if (!template) throw new Error(`${model} has no port ${port}`);
 

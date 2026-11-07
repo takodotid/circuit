@@ -135,7 +135,7 @@ export class RouterOs extends Platform {
     readonly os: OsSupport = {
         name: "MikroTik RouterOS",
         versions: "7",
-        provedOn: "CCR2216-1G-12XS-2XQ, RouterOS 7.23",
+        provedOn: "CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24",
         checked: true,
     };
 
@@ -252,6 +252,8 @@ export class RouterOs extends Platform {
         const snmp = device.monitoring?.snmp;
 
         if (management?.console) found.push("management.console, the console uses the device's users");
+        if (device.connection.console && !Catalog.serialConsole(device.platform, device.model))
+            found.push(`connection.console, the ${device.model} has no serial console`);
         if (management?.interfaces) found.push("management.interfaces, which only FortiOS builds for now");
         if (management?.privilege_password) found.push("management.privilege_password, the platform has no privileged mode");
 

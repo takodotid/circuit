@@ -50,7 +50,7 @@ export class RouterOsExport {
         },
         "/ipv6 address": { advertise: "yes" },
         // A blackhole route prints its distance, a route through a gateway doesn't (TRAPS.md).
-        "/ip route": { distance: "1" },
+        "/ip route": { distance: "1", "pref-src": "" },
         "/ipv6 route": { distance: "1" },
         "/routing bgp connection": { "use-bfd": "no" },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
@@ -58,12 +58,17 @@ export class RouterOsExport {
         "/ip dhcp-server": { "lease-time": "30m" },
         "/ip dns": { servers: "", "allow-remote-requests": "no" },
         "/ip service": { address: "", certificate: "none" },
+        "/ip upnp": { enabled: "no" },
         "/ip ssh": { "strong-crypto": "no" },
         "/ip traffic-flow": { enabled: "no", interfaces: "all", "packet-sampling": "no" },
         "/tool mac-server": { "allowed-interface-list": "all" },
         "/tool mac-server mac-winbox": { "allowed-interface-list": "all" },
         "/tool mac-server ping": { enabled: "yes" },
         "/tool bandwidth-server": { enabled: "yes" },
+        // What `/tool sniffer reset` set them to on an RB5009 on 7.24.6.
+        "/tool sniffer": { "filter-direction": "any", "filter-interface": "", "memory-limit": "100KiB" },
+        // The default configuration of an RB5009 shares a USB disk on its bridge.
+        "/disk settings": { "auto-media-interface": "none", "auto-media-sharing": "no", "auto-smb-sharing": "no" },
         "/ip neighbor discovery-settings": { "discover-interface-list": "!dynamic", protocol: "cdp,lldp,mndp" },
         "/snmp": { enabled: "no", contact: "", location: "" },
         "/snmp community": {
@@ -80,7 +85,12 @@ export class RouterOsExport {
         "/system note": { note: "", "show-at-login": "yes" },
         "/system ntp client": { enabled: "no" },
         "/system ntp server": { enabled: "no" },
-        "/system logging action": { "disk-file-count": "2", "disk-lines-per-file": "1000" },
+        "/system logging action": {
+            "disk-file-count": "2",
+            "disk-lines-per-file": "1000",
+            "disk-file-name": "log",
+            "memory-lines": "1000",
+        },
         "/system package update": { channel: "stable" },
         "/system routerboard settings": { "enter-setup-on": "any-key" },
         "/interface ethernet switch": { "l3-hw-offloading": "no" },
@@ -99,6 +109,16 @@ export class RouterOsExport {
         api: "no",
         "api-ssl": "no",
     };
+
+    /**
+     * Defaults of one entry addressed by a selector, where they differ from the menu's. RouterOS 7.24 prints the default neighbor discovery entry as `set [ find default=yes ] advertise-dns=yes`, under `# automatic dns option advertising is not started`, on a device nobody changed it on.
+     */
+    private static readonly SELECTOR_DEFAULTS: Record<string, Record<string, Record<string, string>>> = {
+        "/ipv6 nd": { "[ find default=yes ]": { "advertise-dns": "yes" } },
+    };
+
+    /** Properties a newer RouterOS prints under another name, read as the name the render writes. RouterOS 7.24 prints a service's `address` as `available-from` and still takes `address`. */
+    private static readonly RENAMED: Record<string, Record<string, string>> = { "/ip service": { "available-from": "address" } };
 
     /** Helpers of `/ip firewall service-port` that ship disabled. The rest ship enabled. */
     private static readonly HELPER_DISABLED: Record<string, string> = { irc: "yes", rtsp: "yes" };
@@ -138,6 +158,9 @@ export class RouterOsExport {
         "/system ntp client servers": ["address"],
         "/system logging": ["action", "topics"],
         "/user ssh-keys": ["user", "key"],
+        "/ip upnp interfaces": ["interface"],
+        "/ipv6 nd": ["interface"],
+        "/ipv6 nd prefix": ["prefix", "interface"],
     };
 
     /** Menus whose entries are an ordered list without names. They are rewritten whole, in the order the render gives. */
@@ -223,6 +246,7 @@ export class RouterOsExport {
             }
 
             let name = word.slice(0, equals);
+            name = RouterOsExport.RENAMED[menu]?.[name] ?? name;
             if (name.startsWith(".")) name = group + name;
             else if (name.includes(".")) group = name.split(".")[0]!;
             attrs[name] = RouterOsExport.unquote(word.slice(equals + 1));
@@ -258,6 +282,9 @@ export class RouterOsExport {
         if (command.menu === "/ip firewall service-port" && property === "disabled") {
             return RouterOsExport.HELPER_DISABLED[command.selector] ?? "no";
         }
+
+        const ofSelector = RouterOsExport.SELECTOR_DEFAULTS[command.menu]?.[command.selector]?.[property];
+        if (ofSelector !== undefined) return ofSelector;
 
         return RouterOsExport.DEFAULTS[command.menu]?.[property] ?? RouterOsExport.DEFAULTS["*"]![property];
     }
@@ -336,6 +363,16 @@ export class RouterOsExport {
         }
 
         return result;
+    }
+
+    /**
+     * What a selector finds an entry by: its identity, with an IPv4 route's host destination written as a prefix. `find` takes a prefix whole: `dst-address="192.0.2.82/32" and !dynamic` matches the route, `dst-address=192.0.2.82 and !dynamic` nothing, and so does a bare address on an interface (RB5009, 7.24.6). A selector nothing matches removes nothing, silently.
+     */
+    static selector(command: Command): Record<string, string> {
+        const identity = RouterOsExport.identity(command);
+        const destination = identity["dst-address"];
+        if (command.menu === "/ip route" && destination && !destination.includes("/")) identity["dst-address"] = `${destination}/32`;
+        return identity;
     }
 
     /** One command as a string that is equal for equal commands. */

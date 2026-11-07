@@ -74,3 +74,20 @@ test("switch rules are counted as the render makes them, and more than a CCR2216
         "warning example-router: switching.acls use 6 distinct port ranges; a CCR2216-1G-12XS-2XQ held 5. A rule it cannot hold is invalid, and so is every rule after it",
     ]);
 });
+
+// As an RB5009UG+S+ on 7.24.6 printed them: ether1 is the 2.5G port, ether2 to ether8 are 1G, and the SFP+ cage is sfp-sfpplus1.
+test("an RB5009's ports are spelled as RouterOS prints them", () => {
+    const ports = Catalog.ports("routeros", "RB5009UG+S+");
+    expect(ports.map((port) => Catalog.spell("routeros", "RB5009UG+S+", port))).toEqual([
+        "sfp-sfpplus1",
+        "ether1",
+        "ether2",
+        "ether3",
+        "ether4",
+        "ether5",
+        "ether6",
+        "ether7",
+        "ether8",
+    ]);
+    expect(ports.slice(0, 3)).toEqual(["10g-1", "2.5g-1", "1g-1"]);
+});
