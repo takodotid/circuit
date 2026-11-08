@@ -523,6 +523,7 @@ export class RouterOsRender {
                 "arp-interval": check && `${check.interval_ms}ms`,
                 "arp-ip-targets": check?.arp_targets.join(","),
                 comment: lag.description,
+                "forced-mac-address": lag.mac?.toUpperCase(),
                 "link-monitoring": check && "arp",
                 mode: roundRobin ? "balance-rr" : lag.mode === "static" ? "balance-xor" : "802.3ad",
                 mtu: lag.mtu,
@@ -552,7 +553,8 @@ export class RouterOsRender {
      * CAKE on what leaves an interface: what leaves it, of either family, is marked on its way out, and a queue tree under `global` holds the marked packets to the rate, CAKE as its queue. A virtual interface refuses a queue of its own that sets no rate, and a queue tree under the interface itself sees no packet (TRAPS.md).
      */
     private shaping(): void {
-        for (const { name, settings } of this.interfaces) {
+        const ports = Object.entries(this.ports).map(([port, settings]) => ({ name: this.name(port), settings }));
+        for (const { name, settings } of [...ports, ...this.interfaces]) {
             const shaping = settings.shaping;
             if (!shaping) continue;
 
@@ -643,6 +645,21 @@ export class RouterOsRender {
                 name,
                 "private-key": Secrets.marker(iface.private_key),
             });
+
+            // The tunnel's own packets leave from its port: marked in the output chain, they are routed by the table alone.
+            if (iface.routing_table) {
+                for (const menu of ["/ip firewall mangle", "/ipv6 firewall mangle"]) {
+                    this.add(menu, "add", {
+                        action: "mark-routing",
+                        chain: "output",
+                        comment: `${name} by ${iface.routing_table}`,
+                        "new-routing-mark": iface.routing_table,
+                        passthrough: "no",
+                        protocol: "udp",
+                        "src-port": iface.listen_port,
+                    });
+                }
+            }
 
             for (const peer of iface.peers ?? []) {
                 const endpoint = peer.endpoint ? RouterOsRender.splitEndpoint(peer.endpoint) : undefined;
@@ -806,8 +823,11 @@ export class RouterOsRender {
 
     private addressing(): void {
         this.addresses();
+        this.routerAdvertisements();
+        this.dhcpClients();
         this.dhcp();
         this.dns();
+        this.upnp();
         this.addressLists();
     }
 
@@ -849,6 +869,38 @@ export class RouterOsRender {
         }
     }
 
+    /**
+     * Router advertisements only where the config sends them. The platform's default entry sends them on every interface, so it is turned off once one interface names its own. A device that names none keeps the platform's default.
+     */
+    private routerAdvertisements(): void {
+        const sending = this.routed().filter(({ settings }) => settings.ipv6_ra);
+        if (!sending.length) return;
+
+        this.add("/ipv6 nd", "set [ find default=yes ]", { disabled: "yes" });
+        for (const { name } of sending) this.add("/ipv6 nd", "add", { interface: name });
+    }
+
+    /** A port that takes its address by DHCP. The client is named after its port, and the server's DNS and time servers are never used. */
+    private dhcpClients(): void {
+        for (const [port, settings] of Object.entries(this.ports)) {
+            const client = settings.dhcp_client;
+            if (!client) continue;
+
+            const routes = client.default_routes;
+            const name = this.name(port);
+            this.add("/ip dhcp-client", "add", {
+                "add-default-route": routes && !routes.length ? "no" : undefined,
+                "default-route-tables": routes?.length
+                    ? routes.map((route) => `${route.routing_table ?? "main"}:${route.distance ?? 1}`).join(",")
+                    : undefined,
+                interface: name,
+                name,
+                "use-peer-dns": "no",
+                "use-peer-ntp": "no",
+            });
+        }
+    }
+
     private dhcp(): void {
         for (const [name, server] of Object.entries(this.device.services?.dhcp_server ?? {})) {
             const [first, last] = server.pool;
@@ -879,6 +931,20 @@ export class RouterOsRender {
         for (const [name, relay] of Object.entries(this.device.services?.dhcp_relay ?? {})) {
             this.add("/ip dhcp-relay", "add", { "dhcp-server": relay.servers.join(","), interface: this.name(relay.interface), name });
         }
+    }
+
+    /** UPnP: on, with where hosts ask and where the opened ports are reached from. */
+    private upnp(): void {
+        const upnp = this.device.services?.upnp;
+        if (!upnp) return;
+
+        this.add("/ip upnp", "set", { enabled: "yes" });
+        for (const iface of upnp.internal) this.add("/ip upnp interfaces", "add", { interface: this.name(iface), type: "internal" });
+        this.add("/ip upnp interfaces", "add", {
+            "forced-ip": upnp.external_address,
+            interface: this.name(upnp.external),
+            type: "external",
+        });
     }
 
     private dns(): void {
@@ -1017,6 +1083,7 @@ export class RouterOsRender {
         const inInterface = RouterOsRender.one(match?.in_interface);
         const outInterface = RouterOsRender.one(match?.out_interface);
         return {
+            "connection-nat-state": match?.connection_nat_state?.join(","),
             "connection-state": match?.connection_state?.join(","),
             "dst-address": RouterOsRender.one(match?.dst),
             "dst-address-list": match?.dst_address_set,
@@ -1484,7 +1551,12 @@ export class RouterOsRender {
 
         // A newer service with no neutral name. Off, as everything not stated is.
         this.add("/ip service", "set reverse-proxy", { disabled: "yes" });
-        this.add("/ip ssh", "set", { "strong-crypto": RouterOsRender.yesNo(!management.ssh?.weak_crypto) });
+        // A user with a key of its own may otherwise not log in by password, which is how Circuit logs in (RB5009, 7.24.6).
+        const keys = Object.values(this.device.system?.users ?? {}).some((user) => user?.ssh_keys?.length);
+        this.add("/ip ssh", "set", {
+            "password-authentication": keys ? "yes" : undefined,
+            "strong-crypto": RouterOsRender.yesNo(!management.ssh?.weak_crypto),
+        });
     }
 
     /** What works at layer 2: the platform's client over MAC, MAC ping, the bandwidth test server and neighbor discovery. */

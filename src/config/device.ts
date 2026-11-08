@@ -97,7 +97,15 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     /** What the box reports to collectors: snmp, syslog, flow export, optics. */
     monitoring?: Monitoring<NoInfer<N["anyInterface"]>>;
     /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, wireguard, eoip. */
-    interfaces?: Interfaces<Ethernet, N["lag"], N["vlanInterface"], N["interface"], NoInfer<N["vlan"]>, NoInfer<N["vrf"]>>;
+    interfaces?: Interfaces<
+        Ethernet,
+        N["lag"],
+        N["vlanInterface"],
+        N["interface"],
+        NoInfer<N["vlan"]>,
+        NoInfer<N["vrf"]>,
+        NoInfer<N["table"]>
+    >;
     /** Layer 2 shared by ports: vlans, stp, lldp, acls. */
     switching?: Switching<N["vlan"], N["acl"], NoInfer<N["anyInterface"]>, Net["untrusted"]>;
     /** What the box serves to hosts: dhcp server, dhcp relay, dns server, ntp server. */
@@ -149,7 +157,7 @@ export type Part<N extends Names, Ethernet, Net extends NetworkFacts = AnyFacts>
 type AnyNames = { [K in keyof Names]: string };
 
 /** A port as a part writes it, before the device it goes to checks its names. */
-export type AnyPort = Port<string, string, string, string>;
+export type AnyPort = Port<string, string, string, string, string>;
 
 /** Any device, as the network holds it. */
 export type AnyDevice = Device<string, string, string, AnyNames, Record<string, AnyPort>>;

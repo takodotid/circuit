@@ -55,6 +55,7 @@ export const FILTER_MATCH = {
     in_interface_set: 0,
     out_interface_set: 0,
     connection_state: 0,
+    connection_nat_state: 0,
     tcp_flags: { set: 0, unset: 0 },
 } as const;
 
@@ -255,9 +256,11 @@ export const DEVICE = {
                 ingress_acl: 0,
                 in_lag: 0,
                 link: { device: 0, port: 0, through: 0 },
+                dhcp_client: { default_routes: [{ routing_table: 0, distance: 0 }] },
+                shaping: { algorithm: 0, mbps: 0 },
             },
         },
-        lag: { "*": { ...BASE, ...SWITCHED, mode: 0, id: 0, link_check: { arp_targets: 0, interval_ms: 0 } } },
+        lag: { "*": { ...BASE, ...SWITCHED, mode: 0, id: 0, link_check: { arp_targets: 0, interval_ms: 0 }, mac: 0 } },
         vlan_interface: { "*": { ...BASE, vlan: 0, mac: 0, proxy_arp: 0 } },
         bridge: { "*": { ...BASE, member_interfaces: 0 } },
         loopback: { "*": BASE },
@@ -267,6 +270,7 @@ export const DEVICE = {
             "*": {
                 ...BASE,
                 listen_port: 0,
+                routing_table: 0,
                 endpoint: 0,
                 private_key: SECRET,
                 peers: [{ name: 0, public_key: 0, allowed_addresses: 0, endpoint: 0, keepalive: 0, client_allowed_addresses: 0 }],
@@ -295,6 +299,7 @@ export const DEVICE = {
         dhcp_relay: { "*": { interface: 0, servers: 0 } },
         dns_server: 0,
         ntp_server: 0,
+        upnp: { internal: 0, external: 0, external_address: 0 },
     },
     routing: {
         router_id: 0,

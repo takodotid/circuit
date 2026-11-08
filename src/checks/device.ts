@@ -340,6 +340,13 @@ export class DeviceChecks {
             const table = Utils.otherTable(neighbor.routing_table ?? group?.routing_table);
             if (table) installed.add(table);
         }
+        // A DHCP client installs the default route its server gives.
+        for (const port of Object.values(device.interfaces?.ethernet ?? {})) {
+            for (const route of port?.dhcp_client?.default_routes ?? []) {
+                const table = Utils.otherTable(route.routing_table);
+                if (table) installed.add(table);
+            }
+        }
 
         for (const name of Object.keys(routing?.tables ?? {})) {
             if (name === "main") report("routing.tables has main, the main table every device has; give the table another name");

@@ -64,6 +64,13 @@ export class RouterOs extends Platform {
     private static readonly EXPORT_TIMESTAMP = /^# \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} by RouterOS/m;
 
     /** Lists certificates in the form the renderer writes them, since an export does not include them. One line, because a script sent over exec runs as one. */
+    /** Each user's SSH keys, by fingerprint: the device never prints a key, and `/user export` leaves them out. */
+    private static readonly LIST_SSH_KEYS = [
+        ":foreach k in=[/user ssh-keys find] do={",
+        ':put ("add fingerprint=" . [/user ssh-keys get $k fingerprint] . " user=" . [/user ssh-keys get $k user])',
+        "}",
+    ].join(" ");
+
     private static readonly LIST_CERTIFICATES = [
         ":foreach c in=[/certificate find] do={",
         ':local key "no";',
@@ -282,7 +289,21 @@ export class RouterOs extends Platform {
         }
 
         found.push(...RouterOs.unsupportedShapes(device));
-        found.push(...Derive.unbuilt(device, ["eoip", "round-robin-lag", "link-check", "shaping", "tcp-mss"]));
+        found.push(
+            ...Derive.unbuilt(device, [
+                "eoip",
+                "round-robin-lag",
+                "link-check",
+                "shaping",
+                "port-shaping",
+                "tcp-mss",
+                "dhcp-client",
+                "lag-mac",
+                "wireguard-table",
+                "upnp",
+                "nat-state",
+            ])
+        );
 
         // BFD on a static route and a MAC limit are refused above, for the reason the device gave, and an ethertype filter on a LAG as unproved.
         found.push(
@@ -371,6 +392,7 @@ export class RouterOs extends Platform {
             const config = await session.run("/export", 300_000);
             const users = await session.run("/user export");
             const certificates = (await session.run(RouterOs.LIST_CERTIFICATES)).trim();
+            const keys = (await session.run(RouterOs.LIST_SSH_KEYS)).trim();
 
             const listed = certificates.split("\n").every((line) => line.trim().startsWith("add fingerprint="));
             if (certificates && !listed) {
@@ -380,7 +402,9 @@ export class RouterOs extends Platform {
             // The user dump repeats the export's header; only its menu is kept.
             const userMenu = users.slice(users.indexOf("\n/")).trim();
             const certificateMenu = certificates ? `/certificate\n${certificates}` : "";
-            const text = [config.trim(), userMenu, certificateMenu].filter(Boolean).join("\n");
+            const keyLines = keys.split("\n").filter((line) => line.trim().startsWith("add fingerprint="));
+            const keyMenu = keyLines.length ? `/user ssh-keys\n${keyLines.join("\n")}` : "";
+            const text = [config.trim(), userMenu, keyMenu, certificateMenu].filter(Boolean).join("\n");
             return RouterOs.withoutTimestamp(text) + "\n";
         } finally {
             session.end();

@@ -34,7 +34,12 @@ let advertisementReads: string[][];
 const fake = new FakeSshDevice(["operator", "operator+ct300w"], (command) => {
     if (command === ":put [/system resource get version]") return "7.23.5\n";
     if (command === "/export") return `# 2026-10-23 10:00:00 by RouterOS 7.23.5\n${running}`;
-    if (command === "/user export" || command.startsWith(":foreach c in=[/certificate find]")) return "";
+    if (
+        command === "/user export" ||
+        command.startsWith(":foreach c in=[/certificate find]") ||
+        command.startsWith(":foreach k in=[/user ssh-keys find]")
+    )
+        return "";
     if (command.startsWith(":put [:parse ")) return "(evaluate)\n";
     if (/^\/system (backup|scheduler)|^\/file remove/.test(command)) return "";
     if (command === COUNT_INVALID) return `${invalid}\n`;

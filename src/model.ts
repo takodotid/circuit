@@ -49,7 +49,7 @@ export type VlanInterface = C.VlanInterface<string, string>;
 export type Loopback = C.Loopback<string>;
 export type Gre = C.Gre<string>;
 export type Vxlan = C.Vxlan<string>;
-export type WireGuard = C.WireGuard<string>;
+export type WireGuard = C.WireGuard<string, string>;
 export type Eoip = C.Eoip<string, string>;
 export type Bridge = C.Bridge<string, string>;
 
