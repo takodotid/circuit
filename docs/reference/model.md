@@ -42,23 +42,26 @@ Every field and its meaning is in `src/config/`, as a doc comment: the editor sh
 
 Winbox was the reference, not the target. Circuit runs on five platforms, so a group is named for what it does, not for one vendor's menu.
 
-| Winbox                                                            | Circuit v1                                                                                          |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Interfaces (Ethernet, VLAN, Bonding, GRE, VXLAN, WireGuard, EoIP) | `interfaces.ethernet`, `.vlan_interface`, `.lag`, `.gre`, `.vxlan`, `.wireguard`, `.eoip`           |
-| Interfaces > Interface List                                       | `firewall.interface_sets` in the config (a FortiOS zone too); resolved into interfaces in the model |
-| Bridge (Ports, VLANs, Settings), Switch (Rules)                   | `switching.vlans`, `.stp`, `.acls`; a port's own VLANs on the port                                  |
-| IP > Addresses                                                    | on the interface: `addresses`. Junos, VRP and FortiOS put them there too.                           |
-| IP > Routes, Routing > Tables, Rules, BGP, OSPF, BFD, RPKI        | `routing.static_routes`, `.tables`, `.policy_routing`, `.bgp`, `.ospf`, `.bfd`, `.rpki`             |
-| Routing > Filters                                                 | `routing.policies`, `routing.prefix_sets`                                                           |
-| IP > Firewall (Filter, NAT, Raw, Address Lists, Service Ports)    | `firewall.filter`, `.nat`, `.untracked`, `.address_sets`, `.conntrack_helpers`                      |
-| IP > Firewall > Mangle (change MSS)                               | `firewall.tcp_mss`                                                                                  |
-| Queues (an interface's queue, CAKE)                               | `shaping` on the interface                                                                          |
-| IP > DHCP Server, DHCP Relay, DNS (allow remote), NTP Server      | `services`                                                                                          |
-| IP > Services, System > Users, Certificates                       | `management`; `system.users`, `system.certificates`                                                 |
-| IP > SNMP, System > Logging (remote), IP > Traffic Flow           | `monitoring.snmp`, `.syslog`, `.flow_export`                                                        |
-| System > Clock, NTP Client, Identity, Logging (disk), Packages    | `system.timezone`, `.ntp`, `.banner`, `.logging`, `.release_channel`                                |
-| IP > Neighbors (discovery)                                        | `switching.lldp`                                                                                    |
-| (none: FortiOS VDOMs, VRP alarms, optic readings)                 | `system.vdoms`, `system.alarms`, `monitoring.transceivers`                                          |
+| Winbox                                                             | Circuit v1                                                                                          |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Interfaces (Ethernet, VLAN, Bonding, GRE, VXLAN, WireGuard, EoIP)  | `interfaces.ethernet`, `.vlan_interface`, `.lag`, `.gre`, `.vxlan`, `.wireguard`, `.eoip`           |
+| Interfaces > Interface List                                        | `firewall.interface_sets` in the config (a FortiOS zone too); resolved into interfaces in the model |
+| Bridge (Ports, VLANs, Settings), Switch (Rules)                    | `switching.vlans`, `.stp`, `.acls`; a port's own VLANs on the port                                  |
+| IP > Addresses                                                     | on the interface: `addresses`. Junos, VRP and FortiOS put them there too.                           |
+| IP > Routes, Routing > Tables, Rules, BGP, OSPF, BFD, RPKI         | `routing.static_routes`, `.tables`, `.policy_routing`, `.bgp`, `.ospf`, `.bfd`, `.rpki`             |
+| Routing > Filters                                                  | `routing.policies`, `routing.prefix_sets`                                                           |
+| IP > Firewall (Filter, NAT, Raw, Address Lists, Service Ports)     | `firewall.filter`, `.nat`, `.untracked`, `.address_sets`, `.conntrack_helpers`                      |
+| IP > Firewall > Mangle (change MSS)                                | `firewall.tcp_mss`                                                                                  |
+| IP > Firewall > Mangle (mark routing of a tunnel's own packets)    | `routing_table` on the WireGuard interface                                                          |
+| Queues (an interface's queue, CAKE)                                | `shaping` on the interface                                                                          |
+| IP > DHCP Server, DHCP Relay, DNS (allow remote), NTP Server, UPnP | `services`                                                                                          |
+| IP > DHCP Client                                                   | `dhcp_client` on the port                                                                           |
+| IPv6 > ND (router advertisements)                                  | `ipv6_ra` on the interface                                                                          |
+| IP > Services, System > Users, Certificates                        | `management`; `system.users`, `system.certificates`                                                 |
+| IP > SNMP, System > Logging (remote), IP > Traffic Flow            | `monitoring.snmp`, `.syslog`, `.flow_export`                                                        |
+| System > Clock, NTP Client, Identity, Logging (disk), Packages     | `system.timezone`, `.ntp`, `.banner`, `.logging`, `.release_channel`                                |
+| IP > Neighbors (discovery)                                         | `switching.lldp`                                                                                    |
+| (none: FortiOS VDOMs, VRP alarms, optic readings)                  | `system.vdoms`, `system.alarms`, `monitoring.transceivers`                                          |
 
 ## Ordered rules
 

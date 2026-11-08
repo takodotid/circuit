@@ -2,7 +2,7 @@
 
 import { Address } from "../core/address";
 import { Utils } from "../core/utils";
-import type { Device, Interface, InterfaceKind, Port } from "../model";
+import type { Device, FilterRule, Interface, InterfaceKind, NatRule, Port } from "../model";
 
 /** One interface of a device, with the group it is in. */
 export type NamedInterface = { name: string; kind: InterfaceKind; settings: Interface };
@@ -22,7 +22,19 @@ export type ProvedFeature =
     | "routing-tables";
 
 /** A feature only some platforms build. */
-export type BuiltFeature = "eoip" | "round-robin-lag" | "link-check" | "shaping" | "tcp-mss" | "proxy-arp";
+export type BuiltFeature =
+    | "eoip"
+    | "round-robin-lag"
+    | "link-check"
+    | "shaping"
+    | "port-shaping"
+    | "tcp-mss"
+    | "proxy-arp"
+    | "dhcp-client"
+    | "lag-mac"
+    | "wireguard-table"
+    | "upnp"
+    | "nat-state";
 
 export class Derive {
     /** Every interface that is not a port, group by group (`KINDS`), each in the order it is written. */
@@ -89,6 +101,30 @@ export class Derive {
                 if (settings.shaping) found.push(`interfaces.${kind}.${name}.shaping, ${notBuilt}`);
 
         if (device.firewall?.tcp_mss && !has("tcp-mss")) found.push(`firewall.tcp_mss, ${notBuilt}`);
+
+        for (const [name, port] of Derive.ports(device)) {
+            if (port.dhcp_client && !has("dhcp-client")) found.push(`interfaces.ethernet.${name}.dhcp_client, ${notBuilt}`);
+            if (port.shaping && !has("port-shaping")) found.push(`interfaces.ethernet.${name}.shaping, ${notBuilt}`);
+        }
+        for (const [name, lag] of Object.entries(device.interfaces?.lag ?? {}))
+            if (lag?.mac && !has("lag-mac")) found.push(`interfaces.lag.${name}.mac, ${notBuilt}`);
+        for (const [name, wireguard] of Object.entries(device.interfaces?.wireguard ?? {}))
+            if (wireguard?.routing_table && !has("wireguard-table")) found.push(`interfaces.wireguard.${name}.routing_table, ${notBuilt}`);
+        if (device.services?.upnp && !has("upnp")) found.push(`services.upnp, ${notBuilt}`);
+
+        const chains: { where: string; rules: readonly (FilterRule | NatRule)[] | undefined }[] = [
+            ...Object.entries(device.firewall?.filter ?? {}).map(([chain, settings]) => ({
+                where: `firewall.filter.${chain}.rules`,
+                rules: settings?.rules,
+            })),
+            { where: "firewall.nat.source", rules: device.firewall?.nat?.source },
+            { where: "firewall.nat.destination", rules: device.firewall?.nat?.destination },
+        ];
+        if (!has("nat-state"))
+            for (const { where, rules } of chains)
+                (rules ?? []).forEach((rule, index) => {
+                    if (rule.if?.connection_nat_state) found.push(`${where}[${index}].if.connection_nat_state, ${notBuilt}`);
+                });
 
         if (!has("proxy-arp"))
             for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {}))

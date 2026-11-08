@@ -109,7 +109,7 @@ type EthernetOf<P extends Platform, M extends Model<P>, N extends Names> = Check
     N["port"],
     PortName<P, M>,
     M,
-    Port<NoInfer<N["vlan"]>, NoInfer<N["acl"]>, NoInfer<N["lag"]>, NoInfer<N["vrf"]>>
+    Port<NoInfer<N["vlan"]>, NoInfer<N["acl"]>, NoInfer<N["lag"]>, NoInfer<N["vrf"]>, NoInfer<N["table"]>>
 >;
 
 /** The names the device itself declares, which `device()` infers, and those its parts declare. */

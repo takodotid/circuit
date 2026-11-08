@@ -25,7 +25,12 @@ let running = platform.render(before);
 const fake = new FakeSshDevice("operator", (command) => {
     if (command === ":put [/system resource get version]") return `${version}\n`;
     if (command === "/export") return `# 2026-10-23 10:00:00 by RouterOS ${version}\n${running}`;
-    if (command === "/user export" || command.startsWith(":foreach c in=[/certificate find]")) return "";
+    if (
+        command === "/user export" ||
+        command.startsWith(":foreach c in=[/certificate find]") ||
+        command.startsWith(":foreach k in=[/user ssh-keys find]")
+    )
+        return "";
     if (command.startsWith(":put [:parse ")) return "(evaluate)\n";
     if (/^\/system (backup|scheduler)|^\/file remove/.test(command)) return "";
 

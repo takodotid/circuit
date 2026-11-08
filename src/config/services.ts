@@ -1,4 +1,4 @@
-// What the box serves to hosts: `services.dhcp_server`, `.dhcp_relay`, `.dns_server`, `.ntp_server`.
+// What the box serves to hosts: `services.dhcp_server`, `.dhcp_relay`, `.dns_server`, `.ntp_server`, `.upnp`.
 
 import type { IP, MacAddress, Prefix } from "./common";
 
@@ -38,6 +38,16 @@ export type DhcpRelay<I extends string> = {
     servers: readonly IP[];
 };
 
+/** UPnP for hosts behind the device's source NAT, such as game consoles: a host opens its own ports from outside, through the device. */
+export type Upnp<I extends string> = {
+    /** Some of the device's ports and interfaces: where hosts ask. */
+    internal: readonly I[];
+    /** One of the device's ports or interfaces: where the opened ports are reached from. */
+    external: I;
+    /** The address hosts are told is theirs outside, when it is not `external`'s own, such as the one source NAT gives everything leaving through it. `external`'s own when absent. */
+    external_address?: IP;
+};
+
 /** What the device serves to hosts. `I` is the device's ports and interfaces. */
 export type Services<I extends string> = {
     /** DHCP servers, keyed by name, one per network. */
@@ -48,4 +58,6 @@ export type Services<I extends string> = {
     dns_server?: true;
     /** Answer time queries from others. Off when absent. */
     ntp_server?: true;
+    /** Let hosts behind source NAT open their own ports. Off when absent. */
+    upnp?: Upnp<I>;
 };

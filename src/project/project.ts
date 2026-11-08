@@ -430,6 +430,10 @@ export async function readProject(folder: string): Promise<ProjectRead> {
                 need("LAG", x.in_lag, `${at}.in_lag`, written);
                 need("VRF", x.vrf, `${at}.vrf`, written);
                 need("VLAN interface", x.member_interfaces, `${at}.member_interfaces`, written);
+                need("table", x.routing_table, `${at}.routing_table`, written);
+                (x.dhcp_client?.default_routes ?? []).forEach((r: Json, n: number) =>
+                    need("table", r.routing_table, `${at}.dhcp_client.default_routes[${n}].routing_table`, written)
+                );
             }
         if (typeof d.switching?.lldp === "object") need("interface", d.switching.lldp.interfaces, "switching.lldp.interfaces");
         for (const [a, rules] of Object.entries<Json>(d.switching?.acls ?? {}))
@@ -440,6 +444,8 @@ export async function readProject(folder: string): Promise<ProjectRead> {
         for (const group of ["dhcp_server", "dhcp_relay"])
             for (const [s, x] of Object.entries<Json>(d.services?.[group] ?? {}))
                 need("interface", x.interface, `services.${group}.${s}.interface`, writtenAt(d.services[group], s, [group, s]));
+        need("interface", d.services?.upnp?.internal, "services.upnp.internal");
+        need("interface", d.services?.upnp?.external, "services.upnp.external");
 
         (d.routing?.static_routes ?? []).forEach((r: Json, i: number) => {
             need("interface", r.interface, `routing.static_routes[${i}].interface`);

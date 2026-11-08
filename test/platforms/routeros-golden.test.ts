@@ -22,6 +22,27 @@ const ORDER_ONLY: Record<string, string> = {
         "the loopback's and the tunnels' addresses come after every VLAN interface's in /ip address, the loopback's in /ipv6 address",
 };
 
+/**
+ * v1 sends router advertisements only on the interfaces that set `ipv6_ra`: it turns the platform's default entry off and gives each
+ * such interface its own. 0.x left the default entry, which sends them on every interface. That menu is left out of the comparison.
+ */
+function withoutRouterAdvertisements(text: string): string {
+    const lines = text.split("\n");
+    const start = lines.indexOf("/ipv6 nd");
+    if (start < 0) return text;
+
+    let end = start + 1;
+    while (end < lines.length && !(lines[end] ?? "").startsWith("/")) end++;
+    return [...lines.slice(0, start), ...lines.slice(end)].join("\n");
+}
+
+/** Whether any port or interface of the device sends router advertisements. */
+function advertises(device: Device): boolean {
+    return Object.values(device.interfaces ?? {}).some((group) =>
+        Object.values(group ?? {}).some((settings) => typeof settings === "object" && settings !== null && "ipv6_ra" in settings)
+    );
+}
+
 /** A 0.x path in an unsupported message and its v1 path, first match wins. `$<kind>` is the group of `interfaces` the named interface is in. */
 const PATHS: [RegExp, string][] = [
     [/^ports\./, "interfaces.ethernet."],
@@ -75,11 +96,16 @@ describe("RouterOS renders each 0.x device as 0.x did", () => {
                 return;
             }
 
-            // The same lines, and nothing for the plan to do between the two.
+            // The same lines, and nothing for the plan to do between the two, router advertisements aside.
+            if (advertises(device)) expect(rendered).toContain("/ipv6 nd\nset [ find default=yes ] disabled=yes");
+            // A user with a key keeps its password for SSH too, which Circuit logs in by. 0.x left the platform's default.
+            const keys = Object.values(device.system?.users ?? {}).some((user) => user?.ssh_keys?.length);
+            if (keys) expect(rendered).toContain("/ip ssh\nset password-authentication=yes ");
+            const compared = withoutRouterAdvertisements(rendered).replace("set password-authentication=yes ", "set ");
             expect(rendered).not.toBe(old);
-            expect(rendered.split("\n").sort()).toEqual(old.split("\n").sort());
+            expect(compared.split("\n").sort()).toEqual(old.split("\n").sort());
 
-            const plan = platform.plan(rendered, old, options);
+            const plan = platform.plan(compared, old, options);
             expect(plan.steps).toEqual([]);
             expect(plan.problems).toEqual([]);
         });

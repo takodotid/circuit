@@ -57,6 +57,8 @@ export type FilterMatch<I extends string, AS extends string, IS extends string> 
     out_interface_set?: IS;
     /** Connection tracking state, any of these. */
     connection_state?: readonly ConnectionState[];
+    /** How the connection was translated, any of these: `dstnat` for one a destination translation sent here, such as to a port a host opened by UPnP, `srcnat` for one whose source was translated. Either or none when absent. */
+    connection_nat_state?: readonly ("srcnat" | "dstnat")[];
     /** TCP flags that must be set, and flags that must not be. */
     tcp_flags?: {
         /** Flags that must be set. */

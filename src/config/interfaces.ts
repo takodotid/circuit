@@ -120,8 +120,28 @@ export type Link = {
     through?: string;
 };
 
+/** Where a DHCP client puts the default route its server gives: one table, at one distance. */
+export type DhcpDefaultRoute<Table extends string> = {
+    /** One of `routing.tables`, or `main`. `main` when absent. */
+    routing_table?: Table | "main";
+    /** Preference among routes to the same prefix, lower wins. 1 when absent. */
+    distance?: number;
+};
+
+/** An IPv4 address taken from a DHCP server on the link, such as an ISP's modem. The server's DNS and time servers are not used: `system.dns` and `system.ntp` are. */
+export type DhcpClient<Table extends string> = {
+    /** Where the default route the server gives goes, each table at its distance. The main table at distance 1 when absent; an empty list puts it nowhere. */
+    default_routes?: readonly DhcpDefaultRoute<Table>[];
+};
+
 /** A physical port, by its key `<speed>-<position>`, such as `10g-4`. Ports a device does not declare are shut down. */
-export type Port<Vlan extends string, Acl extends string, Lag extends string, Vrf extends string> = Routed<Vrf> &
+export type Port<
+    Vlan extends string,
+    Acl extends string,
+    Lag extends string,
+    Vrf extends string,
+    Table extends string = string,
+> = Routed<Vrf> &
     Switched<Vlan> & {
         /** What is plugged in. On a port with a `link`, the far end: `<far device> <far port as printed there>`. */
         description?: string;
@@ -137,6 +157,10 @@ export type Port<Vlan extends string, Acl extends string, Lag extends string, Vr
         in_lag?: Lag;
         /** Another of our devices at the other end of the cable. Circuit checks that it links back, and warns when `description` doesn't name it. */
         link?: Link;
+        /** Take an IPv4 address from a DHCP server on the link, besides any in `addresses`. None when absent. */
+        dhcp_client?: DhcpClient<Table>;
+        /** Traffic leaving through it is held to a rate by a queue. Not shaped when absent. */
+        shaping?: Shaping;
     };
 
 /**
@@ -197,6 +221,8 @@ export type Lag<Vlan extends string, Vrf extends string> = Base<Vrf> &
         id?: number;
         /** Find a member that no longer carries traffic by ARP, and take it out. Each member's link state only when absent. */
         link_check?: LinkCheck;
+        /** A fixed MAC address. A LAG of tunnels otherwise takes a member's, which a tunnel may make up anew each time the device starts, while the far end keeps the old one in its ARP table. A member's when absent. */
+        mac?: MacAddress;
     };
 
 /** A GRE tunnel. */
@@ -255,9 +281,11 @@ export type WireGuardPeer = {
 };
 
 /** A WireGuard interface. */
-export type WireGuard<Vrf extends string> = Base<Vrf> & {
+export type WireGuard<Vrf extends string, Table extends string = string> = Base<Vrf> & {
     /** UDP port peers connect to. */
     listen_port: number;
+    /** One of `routing.tables`: the table the tunnel's own packets to its peers are routed by, such as one that leaves through one uplink only, so the tunnel never moves to another. The main table when absent. */
+    routing_table?: Table;
     /** The address clients connect to, for generated client configs, alone or with its length. */
     endpoint?: HostAddress;
     /** This interface's private key. Its public key is derived from it. */
@@ -277,9 +305,17 @@ export type Bridge<VlanInterface extends string, Vrf extends string> = Base<Vrf>
 /**
  * Every port and interface, by kind, each keyed by its name. A port's key is `<speed>-<position>` from the model.
  *
- * The type parameters are the names the device declares: `Ethernet` the ports, `L` LAGs, `VI` VLAN interfaces, `T` the other interfaces, `V` VLANs, `A` ACLs, `F` VRFs.
+ * The type parameters are the names the device declares: `Ethernet` the ports, `L` LAGs, `VI` VLAN interfaces, `T` the other interfaces, `V` VLANs, `F` VRFs, `Table` routing tables.
  */
-export type Interfaces<Ethernet, L extends string, VI extends string, T extends string, V extends string, F extends string> = {
+export type Interfaces<
+    Ethernet,
+    L extends string,
+    VI extends string,
+    T extends string,
+    V extends string,
+    F extends string,
+    Table extends string = string,
+> = {
     /** Physical ports, keyed by `<speed>-<position>` from the model, such as `10g-4`. Ports not listed are shut down. */
     ethernet?: Ethernet;
     /** Link aggregations, keyed by name. Each member port names one with `in_lag`. */
@@ -295,7 +331,7 @@ export type Interfaces<Ethernet, L extends string, VI extends string, T extends 
     /** Point-to-point VXLAN tunnels, keyed by name. */
     vxlan?: Named<T, Vxlan<F>>;
     /** WireGuard interfaces, keyed by name. */
-    wireguard?: Named<T, WireGuard<F>>;
+    wireguard?: Named<T, WireGuard<F, Table>>;
     /** Ethernet tunnels over IP, keyed by name. Each may be a member of a LAG with `in_lag`. */
     eoip?: Named<T, Eoip<NoInfer<L>, F>>;
 };

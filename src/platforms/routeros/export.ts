@@ -1,5 +1,6 @@
 // Reading an export into commands, and normalising both sides so that only a real difference survives a comparison.
 
+import { createHash } from "node:crypto";
 import { Address } from "../../core/address";
 
 export type Command = {
@@ -56,10 +57,24 @@ export class RouterOsExport {
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
         "/ip dhcp-server": { "lease-time": "30m" },
+        // As an RB5009 on 7.24.6 printed a client made with nothing but its interface.
+        "/ip dhcp-client": {
+            "add-default-route": "yes",
+            "default-route-distance": "1",
+            "default-route-tables": "default",
+            "use-peer-dns": "yes",
+            "use-peer-ntp": "yes",
+            "check-gateway": "none",
+            "allow-reconfigure": "no",
+            "use-broadcast": "both",
+            "dhcp-options": "hostname,clientid",
+            script: "",
+        },
         "/ip dns": { servers: "", "allow-remote-requests": "no" },
         "/ip service": { address: "", certificate: "none" },
         "/ip upnp": { enabled: "no" },
-        "/ip ssh": { "strong-crypto": "no" },
+        // `yes-if-no-key` refuses the password of a user that has a key (RB5009, 7.24.6).
+        "/ip ssh": { "strong-crypto": "no", "password-authentication": "yes-if-no-key" },
         "/ip traffic-flow": { enabled: "no", interfaces: "all", "packet-sampling": "no" },
         "/tool mac-server": { "allowed-interface-list": "all" },
         "/tool mac-server mac-winbox": { "allowed-interface-list": "all" },
@@ -157,8 +172,11 @@ export class RouterOsExport {
         "/ip traffic-flow target": ["dst-address", "port"],
         "/system ntp client servers": ["address"],
         "/system logging": ["action", "topics"],
-        "/user ssh-keys": ["user", "key"],
+        // The device keeps a key's fingerprint, never the key: both sides compare by it.
+        "/user ssh-keys": ["user", "fingerprint"],
         "/ip upnp interfaces": ["interface"],
+        // One client per interface.
+        "/ip dhcp-client": ["interface"],
         "/ipv6 nd": ["interface"],
         "/ipv6 nd prefix": ["prefix", "interface"],
     };
@@ -321,11 +339,22 @@ export class RouterOsExport {
         return value;
     }
 
+    /** An OpenSSH public key's fingerprint as RouterOS prints it: SHA-256 of the key, base64 with its padding (RB5009, 7.24.6). */
+    static fingerprint(key: string): string {
+        const blob = key.trim().split(/\s+/)[1] ?? "";
+        return `SHA256:${createHash("sha256").update(Buffer.from(blob, "base64")).digest("base64")}`;
+    }
+
     /** A command's properties without defaults or secrets, in the form both sides compare in. */
     static normal(command: Command): Record<string, string> {
         const result: Record<string, string> = {};
 
         for (const [property, raw] of Object.entries(command.attrs)) {
+            if (command.menu === "/user ssh-keys" && property === "key") {
+                result.fingerprint = RouterOsExport.fingerprint(raw);
+                continue;
+            }
+
             if (RouterOsExport.SECRET_KEYS.has(property) || RouterOsExport.isSecretMarker(raw)) continue;
 
             const value = RouterOsExport.normalValue(command, property, raw);
