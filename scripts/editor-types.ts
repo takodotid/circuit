@@ -1,4 +1,4 @@
-// Writes src/cli/editor-types.generated.ts: every file a project's editor reads, so `circuit init` can write them into the project from the binary. `bun run build` runs it; a test checks it is current.
+// Writes src/cli/editor-types.generated.ts: every file a project's editor reads, so Circuit can write them into a project from the binary. `bun install`, `bun run typecheck`, `bun run test` and `bun run build` run it; git ignores what it writes.
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
