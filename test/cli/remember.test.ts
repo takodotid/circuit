@@ -65,8 +65,8 @@ describe("SecretsAgent", () => {
         expect(await raw(endpoint, JSON.stringify({ op: "get" }))).toBe("");
     }, 15_000);
 
-    test("never keeps longer than 30 minutes, and stops when the time is up", async () => {
-        expect(await SecretsAgent.start(Date.now() + 5 * 60 * 60_000)).toBe(true);
+    test("never keeps longer than 24 hours, and stops when the time is up", async () => {
+        expect(await SecretsAgent.start(Date.now() + 48 * 60 * 60_000)).toBe(true);
         const answer = await SecretsAgent.ask({ op: "get" });
         expect(answer!.until).toBeLessThanOrEqual(Date.now() + SecretsAgent.LONGEST * 60_000);
 
