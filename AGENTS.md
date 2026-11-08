@@ -50,6 +50,8 @@ Not in v1 yet: see the open issues (`gh issue list`), such as YAML projects (#16
 9. When unsure, ask.
 10. When the owner approves a new rule or decision, add it here, or to [design/decisions.md](design/decisions.md) with the next number, in the same change.
 11. Easy to learn beats clever. Someone who knows networking but not Circuit, and not any one vendor, must understand a project, and Circuit's own code, on first read. See "Easy to learn" below.
+12. Circuit 0.x is retired. Look at it only for what v1 doesn't have yet. For anything v1 already does, v1 is the only reference.
+13. Agents keep no memory outside the repo. What a later session needs goes here: a rule in this file, a device's surprise in its `TRAPS.md`, open work in an issue.
 
 ## Easy to learn
 
@@ -69,6 +71,7 @@ Circuit is declarative config for networks in general, across vendors. Keep what
 - A class in a platform folder starts with the platform's name (`RouterOsRender`), so no two modules export the same generic name.
 - The config language (`src/config/`) is functions by design: a project calls them as globals. Types stay plain `export type`.
 - Type values as tightly as is practical, so the editor suggests them and refuses a wrong one: a literal union for a fixed set, a template literal for a shape (`Prefix`, `StandardCommunity`). Plain `string` only for free text and names.
+- No type casts: no `as`, `as const` or `satisfies`. A value takes its type from where it is written, such as a typed variable or a function's typed parameter.
 - A key added to, renamed in or removed from a type in `src/config/` changes `keys.ts` too, or `tsc` fails.
 - Use a well-known, maintained, small library before writing your own (`commander` for the CLI, `ssh2`). Check who maintains it, how widely it's used and what it pulls in.
 - No folder for a single file, and no file for a tiny helper: small stand-alone helpers go on `Utils` in `src/core/utils.ts`.
