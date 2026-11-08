@@ -28,6 +28,7 @@ export type TcpFlag = "fin" | "syn" | "rst" | "psh" | "ack" | "urg";
  *
  * `src`, `dst`, `in_interface` and `out_interface` each take a list, and an interface set stands for its interfaces. Where the
  * platform has no list, Circuit writes one rule per combination: the interface outermost (`in` before `out`), then `src`, then `dst`.
+ * A `src` and a `dst` of different families match no packet, so that combination is left out; a rule with nothing else is an error.
  */
 export type FilterMatch<I extends string, AS extends string, IS extends string> = {
     /** Only packets of this family. */

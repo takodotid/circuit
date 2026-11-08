@@ -422,6 +422,24 @@ export class DeviceChecks {
                 for (const address of [rule.if?.src, rule.if?.dst].flat()) {
                     if (address) cidr(where, address);
                 }
+
+                // Reading the project leaves out each src and dst of different families, unless that was every one of the rule's.
+                const { src, dst } = rule.if ?? {};
+                if (typeof src === "string" && typeof dst === "string" && Address.family(src) !== Address.family(dst))
+                    report(
+                        `${where}${rule.description ? ` (${rule.description})` : ""}: src and dst differ in family, so no packet matches both`
+                    );
+            }
+        }
+
+        // The same for the switch's ACL rules.
+        for (const [name, rules] of Object.entries(device.switching?.acls ?? {})) {
+            for (const rule of rules ?? []) {
+                const { src, dst } = rule.if ?? {};
+                if (typeof src === "string" && typeof dst === "string" && Address.family(src) !== Address.family(dst))
+                    report(
+                        `switching.acls.${name}${rule.description ? ` (${rule.description})` : ""}: src and dst differ in family, so no packet matches both`
+                    );
             }
         }
     }

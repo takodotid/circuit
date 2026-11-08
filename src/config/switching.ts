@@ -24,7 +24,8 @@ export type Vlan<Untrusted extends boolean = true> = {
  * Which packets an ACL rule applies to. All must be true.
  *
  * `vlan`, `src` and `dst` each take a list. Where the platform has no list, Circuit writes one rule per combination: the VLAN
- * outermost, then `src`, then `dst`.
+ * outermost, then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so that combination is left out; a rule
+ * with nothing else is an error.
  */
 export type AclMatch<V extends string> = {
     /** Only packets of this family. */

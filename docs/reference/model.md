@@ -82,7 +82,7 @@ Every rule keeps the shape it is written in, the condition first:
 
 The config may write a few things in a shorter way. Circuit turns each into plain values before a platform reads the device, so a platform sees only the model:
 
-1. **A list in a match** becomes one rule per value. In a filter or NAT rule, `src`, `dst`, `in_interface` and `out_interface` take a list; in an ACL rule, `vlan`, `src` and `dst`. Circuit writes one rule per combination, each with the rule's description: the interface or VLAN outermost (`in` before `out`), then `src`, then `dst`.
+1. **A list in a match** becomes one rule per value. In a filter or NAT rule, `src`, `dst`, `in_interface` and `out_interface` take a list; in an ACL rule, `vlan`, `src` and `dst`. Circuit writes one rule per combination, each with the rule's description: the interface or VLAN outermost (`in` before `out`), then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so that combination is left out; a rule with nothing else is an error.
 2. **An interface set** becomes its interfaces. A filter or NAT rule's `in_interface_set` or `out_interface_set` becomes `in_interface` or `out_interface`, one rule per interface, and `firewall.interface_sets` is not in the model. A rule whose set has no interface is left out.
 3. **`bgpNeighbors()`** becomes the address set of every BGP neighbor address of the device.
 4. **`management.allow` naming an address set** becomes that set's addresses.
