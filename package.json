@@ -39,17 +39,18 @@
         "README.md"
     ],
     "scripts": {
-        "typecheck": "bunx tsc --noEmit && bunx tsc --noEmit -p src/studio/app",
-        "test": "bun test",
+        "typecheck": "bun run editor-types && bunx tsc --noEmit && bunx tsc --noEmit -p src/studio/app",
+        "test": "bun run editor-types && bun test",
         "build": "bun scripts/build.ts",
         "studio": "bun scripts/studio.ts",
+        "editor-types": "bun scripts/editor-types.ts",
         "format": "bunx prettier --write .",
         "format:check": "bunx prettier --check .",
         "docs:dev": "bun install --cwd docs && bun run --cwd docs dev",
         "docs:build": "bun install --cwd docs --frozen-lockfile && bun run --cwd docs build",
         "docs:preview": "bun run --cwd docs preview",
         "check": "bun run studio && bun run typecheck && bun run test && bun run format:check && bun run build",
-        "prepare": "bun run studio; husky || true"
+        "prepare": "bun run studio; bun run editor-types; husky || true"
     },
     "dependencies": {
         "@clack/prompts": "1.8.1",
