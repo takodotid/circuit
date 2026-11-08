@@ -64,14 +64,14 @@ Tip: `circuit secrets set NAME value` works too, but then your shell history has
 
 ## Remembering for a while
 
-After a command typed the password or read 1Password, Circuit asks whether to remember them: no, for 10 minutes, or for 30 minutes. Say yes, and the next commands don't ask again until then. It's off unless you say yes.
+After a command typed the password or read 1Password, Circuit asks whether to remember them: no, for 10 minutes, for 30 minutes, or for 24 hours. Say yes, and the next commands don't ask again until then. It's off unless you say yes.
 
 While Circuit remembers:
 
 - Any program running as you on this computer can get those secrets, and 1Password doesn't ask you.
 - Locking 1Password doesn't make Circuit forget them.
 
-They're kept in memory by a small Circuit process, never in a file. They're gone when the time is up, when the computer restarts, or with `circuit secrets forget`. A command that used them says so, with the time they're kept until. In a script, Circuit never asks.
+They're kept in memory by a small Circuit process, never in a file. They're gone when the time is up, when the computer restarts, or with `circuit secrets forget`. A command that used them says so, with the time they're kept until. In a script, Circuit never asks, but it uses what it already remembers, and keeps what it reads while it remembers.
 
 ## Changing the password
 

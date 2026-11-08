@@ -2,7 +2,7 @@
 //
 // The password is never in the file. It comes from `CIRCUIT_SECRETS_PASSWORD` in the environment, from `CIRCUIT_SECRETS_PASSWORD="op://..."` in the file, a 1Password reference, or from the person, who types it. A value may also be a 1Password reference itself.
 //
-// After a yes, Circuit remembers the password typed and the values read from 1Password for 10 or 30 minutes, so the next commands don't ask: see src/cli/remember.ts. `hold` gives a run what is remembered.
+// After a yes, Circuit remembers the password typed and the values read from 1Password for 10 minutes, 30 minutes or 24 hours, so the next commands don't ask: see src/cli/remember.ts. `hold` gives a run what is remembered.
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { type SpawnSyncReturns, spawnSync } from "node:child_process";

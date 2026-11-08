@@ -1,4 +1,4 @@
-// Remembering secrets between commands, only when the person opts in: values read from 1Password and passwords typed for a secrets file, kept for 10 or 30 minutes so the next commands don't ask again. Circuit asks after a command read them. A small Circuit process keeps them in its memory, never in a file, and stops when the time is up, when the computer restarts, or with `circuit secrets forget`. It is like ssh-agent: it answers only a program that shows the token in `~/.circuit/secrets-agent.json`, a file only its owner can read.
+// Remembering secrets between commands, only when the person opts in: values read from 1Password and passwords typed for a secrets file, kept for 10 minutes, 30 minutes or 24 hours, so the next commands don't ask again. Circuit asks after a command read them. A small Circuit process keeps them in its memory, never in a file, and stops when the time is up, when the computer restarts, or with `circuit secrets forget`. It is like ssh-agent: it answers only a program that shows the token in `~/.circuit/secrets-agent.json`, a file only its owner can read.
 
 import { spawn } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
@@ -20,8 +20,8 @@ type Info = { endpoint: string; token: string; until: number };
 export class SecretsAgent {
     /** The hidden command that starts the process. */
     static readonly COMMAND = "__secrets-agent";
-    /** The longest Circuit remembers, in minutes. */
-    static readonly LONGEST = 30;
+    /** The longest Circuit remembers, in minutes: 24 hours. */
+    static readonly LONGEST = 24 * 60;
     /** The largest request the process reads, so a stray program can't fill its memory. */
     private static readonly LARGEST = 1024 * 1024;
     /** What the process keeps of the environment it starts with: enough to run, and no secret given in a variable. */
@@ -236,8 +236,13 @@ export class Remember {
         SecretsFile.hold(answer.passwords ?? {});
     }
 
+    /** The time it stops, and its date when that isn't today. */
     private static time(until: number): string {
-        return new Date(until).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const end = new Date(until);
+        const time = end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        if (end.toDateString() === new Date().toDateString()) return time;
+
+        return `${end.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })} ${time}`;
     }
 
     /** What would be kept, said for the warning. */
@@ -301,7 +306,7 @@ export class Remember {
         }
     }
 
-    /** How long to remember: 10 or 30 minutes, or undefined for no. */
+    /** How long to remember: 10 minutes, 30 minutes or 24 hours, or undefined for no. */
     private static async choose(warning: string): Promise<number | undefined> {
         Ui.note(warning, "Remember secrets?");
         const minutes = await Ui.select(
@@ -310,6 +315,7 @@ export class Remember {
                 { value: 0, label: "No" },
                 { value: 10, label: "For 10 minutes" },
                 { value: 30, label: "For 30 minutes" },
+                { value: 24 * 60, label: "For 24 hours" },
             ],
             0
         );
