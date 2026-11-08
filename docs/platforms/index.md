@@ -18,7 +18,7 @@ Good to know:
 
 - **One version per platform.** `routeros` means RouterOS 7. RouterOS 6 takes other commands, so it's not supported.
 - **Version check.** RouterOS, Junos and FortiOS stop `diff` and `apply` on another version. VRP and Raisecom don't check, so check it yourself before the first apply.
-- **The models it was tested on.** RouterOS has two, the CCR2216 and the RB5009; every other platform has one. Another model needs its port list added; see [Contributing](/contributing).
+- **Only the models it was tested on.** Another model needs its port list added; see [Contributing](/contributing).
 
 The whole picture is in the [feature matrix](/platforms/features).
 
@@ -28,9 +28,7 @@ The whole picture is in the [feature matrix](/platforms/features).
 
 **Doesn't:** MAC limit (RouterOS 7.23 has none), bridge interfaces, SNMPv3 with SHA-256, BFD on a static route.
 
-**Ports on the RB5009:** `2.5g-1` is `ether1`, `1g-1` to `1g-7` are `ether2` to `ether8`, and `10g-1` is `sfp-sfpplus1`. It has no serial console, so `connection.console` is refused.
-
-**Watch out:** the CCR2216 takes at most 8 ports in a LAG, and about 5 different port ranges in its hardware ACLs. `circuit validate` checks both. After an apply, check no switch rule is invalid:
+**Watch out:** the CCR2216 takes at most 8 ports in a LAG, and about 5 different port ranges in its hardware ACLs. `circuit validate` checks both. The RB5009 has no serial console, so `connection.console` is refused there. After an apply, check no switch rule is invalid:
 
 ```text
 /interface ethernet switch rule print count-only where invalid
