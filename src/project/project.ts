@@ -15,6 +15,7 @@ import { ACTIONS, CHECKS, DEVICE, NETWORK, POLICY_RULE, closest, unknownKeyHelp,
 import { isOrdered, lineOf, source, userFrames, writtenAt } from "../config/merge";
 import { NUMBERED_VLANS, portsOf, spell } from "../config/models";
 import { policyRuleProblem } from "../config/routing";
+import { Address } from "../core/address";
 import { Secrets } from "../core/secrets";
 import { SecretsFile } from "../core/secrets-file";
 import { Utils } from "../core/utils";
@@ -631,12 +632,19 @@ export async function readProject(folder: string): Promise<ProjectRead> {
 
 // ---------- into the model's primitives ----------
 
-/** One rule per combination of the lists in its `if`, in the order of `fields`: the first outermost. */
+/**
+ * One rule per combination of the lists in its `if`, in the order of `fields`: the first outermost. A `src` and a `dst` of different
+ * families match no packet, so that combination is left out. When every combination is like that, they all stay, and the checks
+ * report the rule.
+ */
 function combinations(rule: Json, fields: [string, unknown[]][], drop: string[]): Json[] {
     const rest = Object.fromEntries(Object.entries<Json>(rule.if).filter(([k]) => !drop.includes(k)));
     let matches: Json[] = [rest];
     for (const [key, values] of fields) if (values.length) matches = matches.flatMap((m) => values.map((v) => ({ ...m, [key]: v })));
-    return matches.map((match) => ({ ...rule, if: match }));
+    const sameFamily = matches.filter(
+        (m) => typeof m.src !== "string" || typeof m.dst !== "string" || Address.family(m.src) === Address.family(m.dst)
+    );
+    return (sameFamily.length ? sameFamily : matches).map((match) => ({ ...rule, if: match }));
 }
 
 /** An ACL rule: the VLAN outermost, then `src`, then `dst`. */
