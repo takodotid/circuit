@@ -24,6 +24,7 @@ A note in a cell means "works, with this limit".
 | Storm control       | ✅ in percent | ✅ in percent | broadcast, in pps | ✅    | ❌                  |
 | MAC limit           | ❌            | ✅ ports      | ✅ ports          | ✅    | ❌                  |
 | Ethertype filter    | ✅ ports      | ✅ ports      | ✅ ports          | ✅    | ❌                  |
+| Port bound to hosts | ❌            | ❌            | ❌                | ✅    | ❌                  |
 | Hardware ACLs       | ✅            | ❌            | ❌                | ✅    | ✅ drop rules only  |
 | LLDP                | ✅            | ✅            | ✅                | ✅    | ✅                  |
 | Bridge interface    | ❌            | ❌            | ❌                | ❌    | ✅                  |

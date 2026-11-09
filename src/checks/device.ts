@@ -227,6 +227,47 @@ export class DeviceChecks {
         const kinds = settings.ethertypes;
         if (kinds && !kinds.length) report(`${where}.ethertypes is empty, so it would drop every frame`);
         if (kinds && new Set(kinds).size !== kinds.length) report(`${where}.ethertypes names a kind twice`);
+
+        if (settings.bound_to) DeviceChecks.bound(where, settings, report);
+    }
+
+    /** Six pairs of hex digits with colons between them. */
+    private static readonly MAC = /^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/i;
+
+    /** A bound port is an access port, with each host's MAC address and each address it sends from written once. */
+    private static bound(where: string, settings: Switched, report: Report): void {
+        const hosts = settings.bound_to ?? [];
+        if (!hosts.length) report(`${where}.bound_to is empty, so it would drop every frame`);
+        if (!settings.access_vlan) report(`${where}.bound_to is on a port that is not an access port: bind the hosts of one VLAN`);
+
+        const macs = new Set<string>();
+        const addresses = new Set<string>();
+
+        hosts.forEach((host, index) => {
+            const at = `${where}.bound_to[${index}]`;
+            const mac = host.mac.toLowerCase();
+
+            if (!DeviceChecks.MAC.test(mac)) report(`${at}.mac '${host.mac}' is not a MAC address, such as 02:00:00:00:00:01`);
+            else if (parseInt(mac.slice(0, 2), 16) & 1) report(`${at}.mac ${host.mac} is a multicast address, which no host sends from`);
+            if (macs.has(mac)) report(`${at}.mac ${host.mac} is listed twice`);
+            macs.add(mac);
+
+            for (const address of host.addresses) {
+                const prefix = address.includes("/");
+                if (prefix ? !Address.isCidr(address) : !Address.isValid(address)) {
+                    report(`${at}.addresses: '${address}' is neither an address nor a prefix`);
+                    continue;
+                }
+
+                const canonical = Address.canonical(address);
+                if (prefix && Address.prefixOf(address) !== canonical)
+                    report(`${at}.addresses ${address} has bits past its length: write ${Address.prefixOf(address)}`);
+                if (Address.contains("fe80::/10", address.split("/")[0]!))
+                    report(`${at}.addresses ${address} is link-local, which a bound host may always send from`);
+                if (addresses.has(canonical)) report(`${at}.addresses ${address} is listed twice on the port`);
+                addresses.add(canonical);
+            }
+        });
     }
 
     private static interfaces(device: Device, ports: readonly string[], report: Report, ip: Checker): void {

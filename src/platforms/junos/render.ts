@@ -199,6 +199,7 @@ export class JunosRender {
         render.routerAdvertisements();
         render.acls();
         render.ethertypeFilters();
+        render.boundFilters();
         JunosBgp.render(render.out, device);
         render.sflow();
 
@@ -445,6 +446,65 @@ export class JunosRender {
         }
 
         if (settings.ethertypes) this.out.set(family, "filter input", JunosRender.ethertypeFilter(settings.ethertypes));
+        if (settings.bound_to) this.out.set(family, "filter input", JunosRender.boundFilter(physical));
+    }
+
+    /** A bound port's filter, named after the port: `circuit-bound-xe-0-0-1`. */
+    private static boundFilter(physical: string): string {
+        return `circuit-bound-${physical.replaceAll("/", "-")}`;
+    }
+
+    /** Link-local addresses, and `::` while a host checks an address is free: IPv6 needs both, so every bound host sends from them. */
+    private static readonly IPV6_ALWAYS = ["fe80::/10", "::/128"];
+
+    /**
+     * For each host on a bound port, a term for each kind of packet it sends, all from its MAC address: IPv4 from its IPv4 addresses, IPv6
+     * from its IPv6 addresses and those every host needs, and ARP. Then nothing else. The device prints a MAC address with its length, `/48`.
+     */
+    private boundFilters(): void {
+        const holders: [string, Switched][] = [
+            ...Derive.ports(this.device).flatMap(([port, settings]): [string, Switched][] =>
+                settings.in_lag ? [] : [[this.names.port(port), settings]]
+            ),
+            ...this.lagSettings().map(([name, lag]): [string, Switched] => [this.names.physical(name), lag]),
+        ];
+
+        for (const [physical, settings] of holders) {
+            if (!settings.bound_to) continue;
+
+            const filter = `firewall family ethernet-switching filter ${JunosRender.boundFilter(physical)}`;
+
+            settings.bound_to.forEach((host, index) => {
+                const term = `${filter} term host-${index + 1}`;
+                const mac = `${host.mac.toLowerCase()}/48`;
+                const of = (family: Family) =>
+                    host.addresses.filter((address) => Address.family(address.split("/")[0]!) === family).map(JunosRender.withLength);
+
+                const ipv4 = of("ipv4");
+                if (ipv4.length) {
+                    this.out.set(`${term}-ipv4 from source-mac-address`, mac);
+                    for (const address of ipv4) this.out.set(`${term}-ipv4 from ip-source-address`, address);
+                    this.out.set(`${term}-ipv4 then accept`);
+                }
+
+                this.out.set(`${term}-ipv6 from source-mac-address`, mac);
+                for (const address of [...of("ipv6"), ...JunosRender.IPV6_ALWAYS])
+                    this.out.set(`${term}-ipv6 from ip-version ipv6 ip6-source-address`, address);
+                this.out.set(`${term}-ipv6 then accept`);
+
+                this.out.set(`${term}-arp from source-mac-address`, mac);
+                this.out.set(`${term}-arp from ether-type arp`);
+                this.out.set(`${term}-arp then accept`);
+            });
+
+            this.out.set(`${filter} term others then discard`);
+        }
+    }
+
+    /** An address or prefix as a filter matches it: with its length, `/32` or `/128` for one address, IPv6 as RFC 5952 writes it. */
+    private static withLength(address: string): string {
+        const canonical = Address.canonical(address);
+        return canonical.includes("/") ? canonical : `${canonical}/${Address.bits(Address.family(canonical))}`;
     }
 
     /** The filter that lets only these kinds of frame in, named after them: `circuit-ethertypes-ipv4-ipv6-arp`. */
