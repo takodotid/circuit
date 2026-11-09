@@ -3,6 +3,7 @@
 
 import { Command, InvalidArgumentError } from "@commander-js/extra-typings";
 import { spawnSync } from "node:child_process";
+import { relative } from "node:path";
 import { OnePassword, SecretsFile } from "../core/secrets-file";
 import { BgpWait } from "../platforms/bgp-wait";
 import { App } from "./app";
@@ -411,6 +412,19 @@ class Cli {
         stop(project.secretsFiles());
         // A field not proved yet is a warning here: it stops `apply`, not a commit.
         project.validate();
+
+        // A project inside this one, such as a customer's, is checked by its own Circuit: the version it pins, its secrets, its files.
+        const [command = process.execPath, ...args] = Releases.self();
+        const env: Record<string, string | undefined> = { ...process.env };
+        delete env[Versions.RUNNING];
+
+        for (const inner of GitHooks.innerProjects(project.root)) {
+            const name = relative(project.root, inner).replaceAll("\\", "/");
+            console.log(Ui.bold(`\nThe project in ${name}`));
+
+            const result = spawnSync(command, [...args, "hook", "pre-commit"], { cwd: inner, stdio: "inherit", env });
+            if (result.error || result.status !== 0) Ui.fail(`\nThe commit was stopped by the project in ${name}.`);
+        }
     }
 
     /** The menu `circuit` opens alone: pick what to do, answer what it needs, and get the command it runs. */

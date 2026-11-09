@@ -1,7 +1,7 @@
-// `circuit fmt`: the project's files in its style. It is Prettier, carried inside Circuit, so nothing else is installed. The style is Prettier's own, set by the project's `.editorconfig` (indent, line length, line ends), as VS Code's Prettier extension reads it, so saving in the editor and `circuit fmt` agree. A `.prettierrc.json`, when a project adds one, goes on top, for both.
+// `circuit fmt`: the project's files in its style. It is Prettier, carried inside Circuit, so nothing else is installed. The style is Prettier's own, set by `.editorconfig` (indent, line length, line ends), as VS Code's Prettier extension reads it, so saving in the editor and `circuit fmt` agree. A `.prettierrc.json`, when a project adds one, goes on top, for both. Both are looked up from each file's folder, as the editor does, so a project inside another project's folder takes the outer one's style.
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import * as estree from "prettier/plugins/estree";
 import * as typescript from "prettier/plugins/typescript";
 import * as babel from "prettier/plugins/babel";
@@ -37,13 +37,45 @@ export class Format {
         return settings;
     }
 
-    /** The project's style: Prettier's own, then what `.editorconfig` sets, mapped as Prettier's `editorConfigToPrettier` maps it, then a `.prettierrc.json` if the project has one. */
-    static style(root: string): Options {
-        const style: Options = {};
-        const editorconfig = join(root, ".editorconfig");
+    /** Whether an `.editorconfig` says `root = true` before its first section, so none above it counts. */
+    static isRoot(text: string): boolean {
+        for (const raw of text.split(/\r?\n/)) {
+            const line = raw.replace(/[#;].*$/, "").trim();
+            if (line.startsWith("[")) return false;
+            if (/^root\s*=\s*true$/i.test(line)) return true;
+        }
+        return false;
+    }
 
-        if (existsSync(editorconfig)) {
-            const settings = Format.editorconfig(readFileSync(editorconfig, "utf8"));
+    /**
+     * The style of the files in `folder`: Prettier's own, then what `.editorconfig` sets, mapped as Prettier's `editorConfigToPrettier`
+     * maps it, then a `.prettierrc.json`. As in the editor, every `.editorconfig` from the folder up counts, the nearest winning, up to
+     * one that says `root = true`; the nearest `.prettierrc.json` counts.
+     */
+    static style(folder: string): Options {
+        const style: Options = {};
+        const found: string[] = [];
+        let own: string | undefined;
+        let reachedRoot = false;
+
+        for (let current = resolve(folder); ;) {
+            const editorconfig = join(current, ".editorconfig");
+            if (!reachedRoot && existsSync(editorconfig)) {
+                const text = readFileSync(editorconfig, "utf8");
+                found.unshift(text);
+                reachedRoot = Format.isRoot(text);
+            }
+
+            const prettierrc = join(current, ".prettierrc.json");
+            if (own === undefined && existsSync(prettierrc)) own = prettierrc;
+
+            const parent = dirname(current);
+            if (parent === current || (reachedRoot && own !== undefined)) break;
+            current = parent;
+        }
+
+        if (found.length) {
+            const settings: Record<string, string> = Object.assign({}, ...found.map((text) => Format.editorconfig(text)));
             const whole = (value: string | undefined) => (value && /^[1-9]\d*$/.test(value) ? Number(value) : undefined);
 
             // What the EditorConfig library fills in before Prettier reads the settings.
@@ -67,8 +99,7 @@ export class Format {
                 style.endOfLine = settings.end_of_line;
         }
 
-        const own = join(root, ".prettierrc.json");
-        return existsSync(own) ? { ...style, ...(JSON.parse(readFileSync(own, "utf8")) as Options) } : style;
+        return own === undefined ? style : { ...style, ...(JSON.parse(readFileSync(own, "utf8")) as Options) };
     }
 
     /** Every TypeScript file of the project, relative to it. A JSON file is formatted only when named. */
@@ -87,7 +118,16 @@ export class Format {
 
     /** Format the files named, or every file of the project. With `check`, change nothing and exit 1 when a file is not in the style. */
     static async run(root: string, named: readonly string[], check: boolean): Promise<void> {
-        const style = Format.style(root);
+        const styles = new Map<string, Options>();
+        const styleOf = (path: string) => {
+            const folder = dirname(path);
+            const known = styles.get(folder);
+            if (known) return known;
+
+            const style = Format.style(folder);
+            styles.set(folder, style);
+            return style;
+        };
         const files = named.length ? named.map((file) => relative(root, resolve(process.cwd(), file))) : Format.files(root);
         const off: string[] = [];
 
@@ -97,7 +137,7 @@ export class Format {
                 const before = readFileSync(path, "utf8");
                 let after: string;
                 try {
-                    after = await Format.text(before, file, style);
+                    after = await Format.text(before, file, styleOf(path));
                 } catch (error) {
                     Ui.fail(`${file}: ${(error as Error).message.split("\n")[0]}`);
                 }

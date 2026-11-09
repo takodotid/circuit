@@ -1,7 +1,7 @@
 // The git hook a project runs before each commit, whatever makes the commit: a terminal, VS Code or GitHub Desktop. The hook is a file in `.circuit/hooks`, committed with the project, that calls `circuit hook pre-commit`. git finds it through `core.hooksPath`, a setting a clone does not carry, so Circuit sets it each time it runs in a project that lacks it.
 
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { SecretsFile } from "../core/secrets-file";
 
@@ -63,6 +63,22 @@ exec circuit hook pre-commit
         }
 
         return changes.length ? changes.join(", ") : undefined;
+    }
+
+    /** Folders that hold no project of their own. */
+    private static readonly SKIPPED = new Set(["node_modules", ".git", ".circuit", "dist"]);
+
+    /**
+     * The projects inside `root`'s folder, each a folder below it with its own `circuit.ts`, such as a customer's in `customers/<name>/`.
+     * A project inside one of those is that project's to check, so it isn't listed.
+     */
+    static innerProjects(root: string, folder = root): string[] {
+        return readdirSync(folder, { withFileTypes: true }).flatMap((entry) => {
+            if (!entry.isDirectory() || GitHooks.SKIPPED.has(entry.name)) return [];
+
+            const path = join(folder, entry.name);
+            return existsSync(join(path, "circuit.ts")) ? [path] : GitHooks.innerProjects(root, path);
+        });
     }
 
     /** Problems with the secrets files staged, `files` relative to the project: a value in plain text, or a password written as itself. Empty when the commit may go on. */

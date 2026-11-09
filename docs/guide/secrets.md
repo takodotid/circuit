@@ -106,6 +106,8 @@ In a git project, Circuit adds a git hook. Before every commit, from the termina
 
 It checks every secrets file your networks use. `op://` references pass.
 
+A project inside your project's folder, such as a customer's own project in `customers/acme/`, is checked too, with the Circuit version it pins.
+
 It can't catch everything:
 
 - `git commit --no-verify` skips it.

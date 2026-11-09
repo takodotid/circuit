@@ -194,6 +194,11 @@ export class Releases {
         return /^circuit(-[\w-]+)?(\.exe)?$/i.test(basename(process.execPath)) ? process.execPath : undefined;
     }
 
+    /** How this Circuit runs itself again: the installed binary, or Bun with these sources. */
+    static self(): string[] {
+        return Releases.binary() ? [process.execPath] : [process.execPath, join(import.meta.dir, "index.ts")];
+    }
+
     /** The release file for this system, such as `circuit-linux-x64`. Undefined on a system Circuit is not built for. */
     static asset(platform: string = process.platform, arch: string = process.arch): string | undefined {
         const systems: Record<string, string> = { linux: "linux", darwin: "darwin", win32: "windows" };

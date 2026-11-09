@@ -146,7 +146,7 @@ circuit fmt              # every .ts file of the project
 circuit fmt --check      # only says which files need tidying, for CI
 ```
 
-Tidies the spacing, indents and line breaks of the `.ts` files. What the files say stays the same: nothing is deleted. The style is in the project's `.editorconfig`, and it's the same tidy-up VS Code does each time you save. Use it in another editor or in CI.
+Tidies the spacing, indents and line breaks of the `.ts` files. What the files say stays the same: nothing is deleted. The style is in `.editorconfig`, looked up from each file's folder as VS Code does, so a project inside another project's folder takes the outer one's style. It's the same tidy-up VS Code does each time you save. Use it in another editor or in CI.
 
 ## Secrets
 
