@@ -54,6 +54,27 @@ test("a platform that has not proved them refuses a MAC limit and an ethertype f
     }
 });
 
+// Binding a port to its hosts is proved on Junos alone; every other platform refuses it rather than guess.
+test("a platform that has not proved it refuses a port bound to its hosts", () => {
+    for (const device of examples.filter((example) => example.platform !== "junos")) {
+        const [port, settings] = Object.entries(device.interfaces?.ethernet ?? {})[0]!;
+        const bound: Device = {
+            ...device,
+            interfaces: {
+                ...device.interfaces,
+                ethernet: {
+                    ...device.interfaces?.ethernet,
+                    [port]: { ...settings, bound_to: [{ mac: "02:00:00:00:00:01", addresses: ["192.0.2.10"] }] },
+                },
+            },
+        };
+
+        expect(Platforms.get(device.platform).unsupported(bound)).toContain(
+            `interfaces.ethernet.${port}.bound_to, not proved on a device yet`
+        );
+    }
+});
+
 test("a route through an AS is matched anywhere in its path", () => {
     const rule = { description: "Not through AS64496", if: { as_path_contains: 64496 }, then: "reject" as const };
 

@@ -71,6 +71,26 @@ A FortiGate's ACLs can only drop, so on a FortiGate the same check goes in its f
 
 The other direction is an ACL on the ports toward your transits and exchanges: traffic arriving from the internet that claims to come from your own space or a private range is dropped. The [edge router example](/guide/examples#an-edge-router) has both of its outside ports filtered this way, with its ACL `edge`.
 
+### Inside one subnet
+
+The gateway's check stops sources outside a subnet. Inside it, any server can still send as its neighbour: its address, its MAC address, or an answer to ARP in its name. The switch closes that gap at the port. `bound_to` lists the hosts on an access port, each with its MAC address and the addresses it sends from:
+
+```ts
+"10g-7": {
+    description: "Customer server",
+    access_vlan: "servers",
+    bound_to: [
+        { mac: "02:00:00:00:00:01", addresses: ["192.0.2.10", "2001:db8::10"] },
+        // Its management card shares the cable, with a MAC address of its own.
+        { mac: "02:00:00:00:00:02", addresses: ["192.0.2.11"] },
+    ],
+},
+```
+
+The port then takes IPv4 and IPv6 only from those MAC addresses with those sources, link-local IPv6 from them too, and ARP only from them. Anything else is dropped. A server whose virtual machines are bridged onto its cable lists each machine, so a new machine is a new entry before it can send. A port with another switch behind it can't be bound host by host; the gateway's check is what protects it.
+
+On Junos the switch can't read inside an ARP packet, so a bound host can still claim a neighbour's address in ARP. It can no longer send packets from that address.
+
 ## Shedding a flood
 
 On 28 February 2018 at 17:21 UTC, GitHub received a memcached reflection flood that peaked at 1.35 Tbit/s and 126.9 million packets a second. Its links to its transits could not carry it. At 17:26 GitHub withdrew its routes from its transits and announced them only over its links to Akamai, a DDoS protection provider, so the flood went to Akamai's network instead; after the routes settled, access control lists stopped the attack. By 17:30 the site was back. GitHub's own report tells the story.
@@ -183,6 +203,7 @@ A forward chain that drops by default must also accept the state `untracked`, si
 ## In short
 
 - Spoofed sources let one attacker reflect and amplify a flood off thousands of servers. BCP 38 stops it in the sender's network: drop customer traffic from outside the customer's space, by uRPF or, in Circuit, an ACL on the customer port.
+- Inside one subnet, `bound_to` ties an access port to its hosts' MAC addresses and the addresses they send from.
 - A flood larger than your links must be dropped upstream. Blackholing announces the target's /32 with a community; every upstream that takes it drops the flood in its own network. The target becomes unreachable, and everyone else is saved.
 - In Circuit, the community scheme in `circuit.ts` says which community asks for a blackhole, each upstream that takes it writes its own `blackhole` community, and a customer's import may keep the request with `accept_requests: ["blackhole"]`. Circuit has no flowspec.
 - Protect the router's CPU: an input chain that ends in drop, ACL drops in the switch chip, `untracked` for customer space, and SYN cookies.

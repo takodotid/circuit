@@ -110,6 +110,7 @@ export class Junos extends Platform {
         "multihop-bfd",
         "mac-limit",
         "ethertype-filter",
+        "port-binding",
     ];
 
     readonly name = "junos";
@@ -1026,7 +1027,7 @@ export class Junos extends Platform {
         const switched = settings.access_vlan || settings.trunk_vlans;
         const inLag = "in_lag" in settings && settings.in_lag;
 
-        for (const field of ["mac_limit", "ethertypes"] as const) {
+        for (const field of ["mac_limit", "ethertypes", "bound_to"] as const) {
             if (settings[field] === undefined) continue;
 
             if (inLag) found.push(`${where}.${field}, on a LAG member: set it on the LAG`);
@@ -1035,6 +1036,9 @@ export class Junos extends Platform {
 
         if (settings.ethertypes && "ingress_acl" in settings && settings.ingress_acl)
             found.push(`${where}.ethertypes with an ingress_acl, the port takes one filter`);
+        if (settings.bound_to && settings.ethertypes) found.push(`${where}.bound_to with ethertypes, the port takes one filter`);
+        if (settings.bound_to && "ingress_acl" in settings && settings.ingress_acl)
+            found.push(`${where}.bound_to with an ingress_acl, the port takes one filter`);
 
         return found;
     }

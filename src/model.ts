@@ -5,6 +5,7 @@
 import type * as C from "./config/index";
 
 export type {
+    BoundHost,
     Certificate,
     Ethertype,
     Exchange,

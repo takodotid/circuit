@@ -187,6 +187,97 @@ test("a MAC limit or an ethertype filter is refused where the switching family c
     );
 });
 
+// What the device printed after a commit of an access port bound to two hosts, one with an address of each family and one with a prefix. A
+// MAC address comes back with its length, `/48`; an IPv6 match sits under `ip-version ipv6`.
+const BOUND = [
+    "set interfaces xe-0/0/3 unit 0 family ethernet-switching interface-mode access",
+    "set interfaces xe-0/0/3 unit 0 family ethernet-switching vlan members servers",
+    "set interfaces xe-0/0/3 unit 0 family ethernet-switching filter input circuit-bound-xe-0-0-3",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv4 from source-mac-address 02:00:00:00:00:01/48",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv4 from ip-source-address 192.0.2.10/32",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv4 then accept",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv6 from source-mac-address 02:00:00:00:00:01/48",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv6 from ip-version ipv6 ip6-source-address 2001:db8::10/128",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv6 from ip-version ipv6 ip6-source-address fe80::/10",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv6 from ip-version ipv6 ip6-source-address ::/128",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv6 then accept",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-arp from source-mac-address 02:00:00:00:00:01/48",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-arp from ether-type arp",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-arp then accept",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv4 from source-mac-address 02:00:00:00:00:0a/48",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv4 from ip-source-address 198.51.100.8/29",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv4 then accept",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv6 from source-mac-address 02:00:00:00:00:0a/48",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv6 from ip-version ipv6 ip6-source-address fe80::/10",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv6 from ip-version ipv6 ip6-source-address ::/128",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv6 then accept",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-arp from source-mac-address 02:00:00:00:00:0a/48",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-arp from ether-type arp",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-arp then accept",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term others then discard",
+];
+
+const bound: Device = {
+    ...aggregationSwitch,
+    interfaces: {
+        ...aggregationSwitch.interfaces,
+        ethernet: {
+            ...ports,
+            "10g-4": {
+                access_vlan: "servers",
+                bound_to: [
+                    { mac: "02:00:00:00:00:01", addresses: ["192.0.2.10", "2001:DB8:0::10"] },
+                    { mac: "02:00:00:00:00:0A", addresses: ["198.51.100.8/29"] },
+                ],
+            },
+        },
+    },
+};
+
+test("a port bound to its hosts renders as the device printed it, and unbinding it deletes the filter", () => {
+    const rendered = platform.render(bound);
+
+    expect(rendered.split("\n").filter((line) => line.includes("xe-0/0/3 unit") || line.includes("circuit-bound-"))).toEqual(BOUND);
+    expect(platform.unsupported(bound)).toEqual([]);
+
+    const unbound: Device = {
+        ...bound,
+        interfaces: { ...bound.interfaces, ethernet: { ...bound.interfaces!.ethernet, "10g-4": { access_vlan: "servers" } } },
+    };
+    const sent = platform.plan(platform.render(unbound), rendered, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+
+    expect(sent).toEqual(
+        expect.arrayContaining([
+            "delete firewall family ethernet-switching filter circuit-bound-xe-0-0-3",
+            "delete interfaces xe-0/0/3 unit 0 family ethernet-switching filter input",
+        ])
+    );
+});
+
+test("a bound port is refused beside another filter, or on a LAG member", () => {
+    const host = [{ mac: "02:00:00:00:00:01", addresses: ["192.0.2.10"] }] as const;
+    const device: Device = {
+        ...aggregationSwitch,
+        interfaces: {
+            ...aggregationSwitch.interfaces,
+            ethernet: {
+                ...ports,
+                "10g-1": { ...ports["10g-1"], bound_to: host },
+                "10g-2": { ...ports["10g-2"], bound_to: host },
+                "40g-1": { ...ports["40g-1"], bound_to: host },
+            },
+        },
+    };
+
+    expect(platform.unsupported(device)).toEqual(
+        expect.arrayContaining([
+            "interfaces.ethernet.10g-1.bound_to with an ingress_acl, the port takes one filter",
+            "interfaces.ethernet.10g-2.bound_to with ethertypes, the port takes one filter",
+            "interfaces.ethernet.40g-1.bound_to, on a LAG member: set it on the LAG",
+        ])
+    );
+});
+
 // The device sends a port's SNMP index, `520`, as its LLDP port ID until told otherwise; after this line a Raisecom neighbor read `PortIdSubtype: ifName` and `PortId: et-0/0/52`.
 const PORT_ID_BY_NAME = "set protocols lldp port-id-subtype interface-name";
 

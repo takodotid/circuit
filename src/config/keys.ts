@@ -160,6 +160,7 @@ const SWITCHED = {
     storm_control: { broadcast: THRESHOLD, multicast: THRESHOLD, unknown_unicast: THRESHOLD },
     mac_limit: 0,
     ethertypes: 0,
+    bound_to: [{ mac: 0, addresses: 0 }],
 } as const;
 const BASE = { ...ROUTED, description: 0, mtu: 0, shaping: { algorithm: 0, mbps: 0 } } as const;
 const NEIGHBOR_SETTINGS = {

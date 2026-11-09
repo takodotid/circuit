@@ -52,7 +52,7 @@ The whole picture is in the [feature matrix](/platforms/features).
 
 ## Junos
 
-**Works:** switching, MAC limit, ethertype filter, hardware ACLs, LAG, routed ports, loopbacks, GRE, VRRP (IPv4), VRFs, OSPF, BFD, BGP with policies, communities and RPKI, DHCP (IPv4), sFlow, SSH keys.
+**Works:** switching, MAC limit, ethertype filter, ports bound to their hosts, hardware ACLs, LAG, routed ports, loopbacks, GRE, VRRP (IPv4), VRFs, OSPF, BFD, BGP with policies, communities and RPKI, DHCP (IPv4), sFlow, SSH keys.
 
 **Doesn't:** firewall filter and NAT, VXLAN, WireGuard, DNS server, BGP roles.
 

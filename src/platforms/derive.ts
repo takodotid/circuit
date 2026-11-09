@@ -18,6 +18,7 @@ export type ProvedFeature =
     | "alarm-severity"
     | "mac-limit"
     | "ethertype-filter"
+    | "port-binding"
     | "management-vdom"
     | "routing-tables";
 
@@ -81,7 +82,11 @@ export class Derive {
     }
 
     /** Fields a platform renders only once they are proved on one of its devices. */
-    private static readonly UNPROVED_PORT_FIELDS = ["mac_limit", "ethertypes"] as const;
+    private static readonly UNPROVED_PORT_FIELDS = [
+        ["mac_limit", "mac-limit"],
+        ["ethertypes", "ethertype-filter"],
+        ["bound_to", "port-binding"],
+    ] as const;
 
     /** Fields of features a platform does not build, each refused by name. A platform names the ones it builds. */
     static unbuilt(device: Device, built: readonly BuiltFeature[] = []): string[] {
@@ -181,14 +186,13 @@ export class Derive {
             }
         }
 
-        const holders: { where: string; settings: { mac_limit?: number; ethertypes?: readonly string[] } | undefined }[] = [
+        const holders: { where: string; settings: Pick<Port, (typeof Derive.UNPROVED_PORT_FIELDS)[number][0]> | undefined }[] = [
             ...Derive.ports(device).map(([name, settings]) => ({ where: `interfaces.ethernet.${name}`, settings })),
             ...Object.entries(device.interfaces?.lag ?? {}).map(([name, settings]) => ({ where: `interfaces.lag.${name}`, settings })),
         ];
 
         for (const { where, settings } of holders) {
-            for (const field of Derive.UNPROVED_PORT_FIELDS) {
-                const feature = field === "mac_limit" ? "mac-limit" : "ethertype-filter";
+            for (const [field, feature] of Derive.UNPROVED_PORT_FIELDS) {
                 if (settings?.[field] !== undefined && !has(feature)) found.push(`${where}.${field}, ${unproved}`);
             }
         }
