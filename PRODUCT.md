@@ -36,7 +36,6 @@ One file per device is the whole truth: what the file leaves out is removed or r
 ## Capabilities and Constraints
 
 - Vendor syntax lives only in `src/platforms/<platform>/`.
-- Circuit v1 is a release candidate until 1.0.0 and says so wherever it is installed.
 - Off is the absence of a field: no `enabled: false`.
 
 ## Brand Commitments

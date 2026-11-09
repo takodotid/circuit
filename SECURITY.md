@@ -19,7 +19,7 @@ We'll confirm we got it, tell you what we find, and credit you in the fix releas
 
 ## Supported versions
 
-The newest release of the current major version gets fixes: `latest` on npm, or the newest `rc` while Circuit 1 is a release candidate. A security fix can also be backported to an older line, such as 1.9.5 beside 1.16.0. Update with `circuit update` and check the problem is still there.
+The newest release of the current major version gets fixes: `latest` on npm. A security fix can also be backported to an older line, such as 1.9.5 beside 1.16.0. Update with `circuit update` and check the problem is still there.
 
 ## How a fix reaches users
 

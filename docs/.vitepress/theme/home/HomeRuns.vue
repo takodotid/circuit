@@ -31,15 +31,6 @@ import { HomeContent } from "./home-content";
                 </tbody>
             </table>
 
-            <aside class="caution" data-reveal>
-                <strong>Release candidate</strong>
-                <p>
-                    Circuit v1 is not released yet. The way you write a project can still change between candidates.
-                    <code>circuit update</code> says when a new one is out: read the
-                    <a :href="HomeContent.RELEASES">release notes</a> before you update.
-                </p>
-            </aside>
-
             <div class="users">
                 <p>In production at</p>
                 <a

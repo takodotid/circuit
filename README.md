@@ -11,7 +11,7 @@
 
 <p align="center">
     <a href="https://github.com/takodotid/circuit/actions/workflows/check.yml?query=branch%3Av1"><img src="https://github.com/takodotid/circuit/actions/workflows/check.yml/badge.svg?branch=v1" alt="check"></a>
-    <a href="https://github.com/takodotid/circuit/releases"><img src="https://img.shields.io/github/v/release/takodotid/circuit?include_prereleases&label=release&color=0a47b8" alt="release"></a>
+    <a href="https://github.com/takodotid/circuit/releases"><img src="https://img.shields.io/github/v/release/takodotid/circuit?label=release&color=0a47b8" alt="release"></a>
     <a href="https://www.npmjs.com/package/@takodotid/circuit"><img src="https://img.shields.io/npm/v/@takodotid/circuit?color=0a47b8" alt="npm"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSL%201.1-0a47b8" alt="license"></a>
     <a href="https://circuit.tako.id"><img src="https://img.shields.io/badge/docs-circuit.tako.id-f8e347" alt="docs"></a>
@@ -31,9 +31,6 @@
     <a href="https://circuit.tako.id/academy/">Academy</a> ·
     <a href="https://circuit.tako.id/studio/">Studio</a>
 </p>
-
-> [!WARNING]
-> Circuit v1 is not released yet. It is a rewrite of the config language, and every version is a release candidate, `1.0.0-rc.N`, until it is stable. The language, the model and the commands can still change between candidates. Circuit 0.x, the version in use today, is on the `main` branch.
 
 ## What it does
 
@@ -88,9 +85,9 @@ In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`
 
 ## Start
 
-1. Install Circuit. Circuit v1 is a release candidate, so its installers come from its GitHub release until circuit.tako.id serves v1:
-    - Linux and macOS: `curl -fsSL https://github.com/takodotid/circuit/releases/download/v1.0.0-rc.2/install | sh`
-    - Windows, in PowerShell: `irm https://github.com/takodotid/circuit/releases/download/v1.0.0-rc.2/install.ps1 | iex`
+1. Install Circuit:
+    - Linux and macOS: `curl -fsSL https://circuit.tako.id/install | sh`
+    - Windows, in PowerShell: `irm https://circuit.tako.id/install.ps1 | iex`
 2. Start a project: `circuit new network`. Open its folder in VS Code. Add a site in `circuit.ts`, then write each device in `sites/<site>/<device>.ts`.
 3. Run `circuit`. It opens a menu, or runs a command straight away, such as `circuit validate`.
 

@@ -4,9 +4,9 @@ description: "How to work on Circuit itself: its checks, the example projects, t
 
 # Contributing
 
-Circuit has to stay easy to learn: plain data, no hidden flow, names written out, and nothing a newcomer must memorise. The rules are in [AGENTS.md](https://github.com/takodotid/circuit/blob/v1/AGENTS.md), for people and AI agents alike.
+Circuit has to stay easy to learn: plain data, no hidden flow, names written out, and nothing a newcomer must memorise. The rules are in [AGENTS.md](https://github.com/takodotid/circuit/blob/main/AGENTS.md), for people and AI agents alike.
 
-Everyone in issues, pull requests and Discussions follows the [Code of Conduct](https://github.com/takodotid/circuit/blob/v1/CODE_OF_CONDUCT.md). A bug, a feature, a device to support or a documentation fix each has an [issue](https://github.com/takodotid/circuit/issues/new/choose); a question goes to [Discussions](https://github.com/takodotid/circuit/discussions), and a vulnerability to a [private report](https://github.com/takodotid/circuit/security/advisories/new).
+Everyone in issues, pull requests and Discussions follows the [Code of Conduct](https://github.com/takodotid/circuit/blob/main/CODE_OF_CONDUCT.md). A bug, a feature, a device to support or a documentation fix each has an [issue](https://github.com/takodotid/circuit/issues/new/choose); a question goes to [Discussions](https://github.com/takodotid/circuit/discussions), and a vulnerability to a [private report](https://github.com/takodotid/circuit/security/advisories/new).
 
 ## Checks
 
@@ -55,4 +55,4 @@ A release is made on GitHub. Its workflow builds `circuit` for each system, atta
 - **Release candidate** (`1.2.0-rc.1`): npm tag `rc`. The site stays as it is.
 - **Backport** (`1.9.5` after `1.16.0`): npm tag `latest-1.9`, not marked Latest on GitHub, and the site stays as it is.
 
-Every release's checksums are signed, and Circuit installs nothing unsigned. A version with a security problem gets a GitHub security advisory; see [SECURITY.md](https://github.com/takodotid/circuit/blob/v1/SECURITY.md). Every `circuit` learns about new versions from npm. An update never crosses a major version. Commits follow Conventional Commits, with a scope from `commitlint.config.js`.
+Every release's checksums are signed, and Circuit installs nothing unsigned. A version with a security problem gets a GitHub security advisory; see [SECURITY.md](https://github.com/takodotid/circuit/blob/main/SECURITY.md). Every `circuit` learns about new versions from npm. An update never crosses a major version. Commits follow Conventional Commits, with a scope from `commitlint.config.js`.

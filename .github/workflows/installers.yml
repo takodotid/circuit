@@ -6,7 +6,7 @@ name: installers
 
 on:
     push:
-        branches: [v1]
+        branches: [main]
         paths:
             - docs/public/install
             - .github/workflows/installers.yml

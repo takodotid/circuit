@@ -6,7 +6,7 @@ description: Four whole projects to copy from, tested on every change to Circuit
 
 Four whole projects. Pick the one closest to your network, copy it, and change it to yours.
 
-- They live in [`examples/`](https://github.com/takodotid/circuit/tree/v1/examples) and pass `circuit validate` on every change to Circuit.
+- They live in [`examples/`](https://github.com/takodotid/circuit/tree/main/examples) and pass `circuit validate` on every change to Circuit.
 - Providers and exchanges have real names, like Hurricane Electric (AS6939) and DE-CIX.
 - Your own network is AS64500, and every address is a documentation range, so nothing clashes with real space.
 
