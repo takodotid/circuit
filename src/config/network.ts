@@ -100,26 +100,33 @@ export type NetworkSecrets = {
     file: string;
 };
 
-/** Systems Circuit keeps in step with the config. */
+/** Systems Circuit keeps in step with the config, each with `circuit sync <target>`. */
 export type Integrations = {
-    /** Keeps the network's PeeringDB record in step with the config: `circuit peeringdb`. Needs `asn`. */
+    /** Keeps the network's exchange presence at PeeringDB in step with the config: `circuit sync peeringdb`. Needs `asn`. */
     peeringdb?: {
         /** An API key with write access to the network's record. */
         api_key: Secret;
     };
-    /** Keeps LibreNMS monitoring every device, under its name, with its SNMP credentials and location, and in a group for its site: `circuit librenms`. */
+    /** Keeps LibreNMS monitoring every device, under its name, with its SNMP credentials and location, and in a group for its site: `circuit sync librenms`. */
     librenms?: {
         /** Where LibreNMS is, such as `https://librenms.example.com`. */
         url: `http://${string}` | `https://${string}`;
         /** An API token that can add and change devices and device groups. */
         api_token: Secret;
     };
-    /** Keeps NetBox in step with the config: `circuit netbox`. Each device's `site` and `role` place it there. */
+    /** Keeps NetBox in step with the config: `circuit sync netbox`. Each device's `site` and `role` place it there, so every device needs a `role`. */
     netbox?: {
         /** Where NetBox is, such as `https://netbox.example.com`. */
         url: `http://${string}` | `https://${string}`;
         /** An API token that can write. */
         api_token: Secret;
+    };
+    /** Writes the files Prometheus and snmp_exporter read, in the project: `circuit sync prometheus`. Commit them, and deploy them as you deploy anything else. */
+    prometheus?: {
+        /** The targets file for Prometheus's `file_sd_configs`, relative to the project, such as `monitoring/targets.json`. One entry per device with SNMP. */
+        targets: string;
+        /** The `auths` file for snmp_exporter, relative to the project, such as `monitoring/snmp-auths.yml`. Each password is written `${NAME}`, the name of its secret, never its value. None when absent. */
+        auths?: string;
     };
 };
 

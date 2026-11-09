@@ -372,6 +372,7 @@ export const NETWORK = {
         peeringdb: { api_key: SECRET },
         librenms: { url: 0, api_token: SECRET },
         netbox: { url: 0, api_token: SECRET },
+        prometheus: { targets: 0, auths: 0 },
     } satisfies ShapeOf<Integrations>,
     secrets: { file: 0 } satisfies ShapeOf<NetworkSecrets>,
 } as const satisfies { readonly [K in keyof NetworkSettings<{}, number>]-?: Shape };

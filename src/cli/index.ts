@@ -1,13 +1,14 @@
 #!/usr/bin/env bun
 // The `circuit` command. Alone, it opens a menu; with a command, such as `circuit validate`, it runs that command. Before each command it checks that this Circuit is current (see `Releases`).
 
-import { Command, InvalidArgumentError } from "@commander-js/extra-typings";
+import { Command, InvalidArgumentError, Option } from "@commander-js/extra-typings";
 import { spawnSync } from "node:child_process";
 import { relative } from "node:path";
 import { OnePassword, SecretsFile } from "../core/secrets-file";
 import { BgpWait } from "../platforms/bgp-wait";
 import { Ssh } from "../transport/ssh";
 import { App } from "./app";
+import { COMMUNITY_FORMATS } from "./communities";
 import { SecretCommands } from "./secrets";
 import { GitHooks } from "./git-hooks";
 import { Migrate } from "./migrate";
@@ -156,6 +157,37 @@ class Cli {
             .option("--log [minutes]", "also print the device's BGP log lines from the last minutes, 5 by default", Cli.whole("minutes", 5))
             .option("--clear-limit", "open again the neighbors shown that closed on their prefix limit; any other is left alone")
             .action(async (device, flags) => (await ProjectCommands.open()).bgp(device, flags));
+
+        program
+            .command("addresses")
+            .description("what address space the project uses, and what is free")
+            .argument("[prefix]", "only what falls inside this prefix; the space the networks own when left out")
+            .option("--length <n>", "list the free prefixes of this length instead", Cli.whole("length", 24))
+            .addOption(new Option("--format <format>", "text, or json for a script").choices(["text", "json"] as const).default("text"))
+            .action(async (prefix, flags) => (await ProjectCommands.open()).addresses(prefix, flags.length, flags.format));
+
+        program
+            .command("sync")
+            .description(
+                "keep NetBox, LibreNMS, PeeringDB or Prometheus in step with the project: show what would change, then send it once you say yes"
+            )
+            .argument("[target]", "netbox, librenms, peeringdb or prometheus; picked from a list when left out")
+            .option("--confirm", "send without asking")
+            .action(async (target, flags) => (await ProjectCommands.open()).sync(target, flags.confirm ?? false));
+
+        program
+            .command("communities")
+            .description("what each BGP community of a network means, for a looking glass or bgp.tools")
+            .argument("[network]", "the network in circuit.ts; needed only when several have communities")
+            .addOption(
+                new Option(
+                    "--format <format>",
+                    "nlnog: community,description lines; alice: Alice-LG's [bgp_communities]; json: the IETF YANG model's"
+                )
+                    .choices(COMMUNITY_FORMATS)
+                    .default("nlnog")
+            )
+            .action(async (network, flags) => (await ProjectCommands.open()).communities(network, flags.format));
 
         program
             .command("access-console")
@@ -456,6 +488,9 @@ class Cli {
             { value: "exec", label: "Execute", hint: "run a command that only reads on a device" },
             { value: "bgp", label: "BGP", hint: "each BGP session of a device" },
             { value: "access-console", label: "Access console", hint: "a device's serial console" },
+            { value: "communities", label: "Communities", hint: "the list for a looking glass or bgp.tools" },
+            { value: "addresses", label: "Addresses", hint: "what address space is used and what is free" },
+            { value: "sync", label: "Sync", hint: "NetBox, LibreNMS, PeeringDB or Prometheus, from the project" },
             { value: "studio", label: "Studio", hint: "the project in your browser" },
             { value: "rename", label: "Rename", hint: "give a device a new name everywhere" },
             { value: "fmt", label: "Tidy files", hint: "spacing and line breaks only; what the files say stays the same" },

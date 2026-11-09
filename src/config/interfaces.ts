@@ -62,7 +62,7 @@ export type Routed<Vrf extends string> = {
     vrrp?: readonly Vrrp[];
     /** One of `routing.vrfs`: the VRF this interface routes in. The main table when absent. */
     vrf?: Vrf;
-    /** This interface is the network's presence at an internet exchange. Devices ignore it; `circuit peeringdb` publishes it. */
+    /** This interface is the network's presence at an internet exchange. Devices ignore it; `circuit sync peeringdb` publishes it. */
     exchange?: Exchange;
 };
 

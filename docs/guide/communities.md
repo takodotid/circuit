@@ -134,3 +134,5 @@ You don't write those. You see them in `circuit diff`.
 ## Show them to others
 
 Your scheme also lists every community with what it means, for a looking glass or bgp.tools. Add your own wording with `custom_descriptions`.
+
+`circuit communities` prints the list: NLNOG's `community,description` lines by default, or `--format alice` or `--format json`. See [the command](/guide/cli#communities).

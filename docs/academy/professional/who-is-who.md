@@ -91,7 +91,7 @@ interfaces: {
 },
 ```
 
-Devices ignore `exchange`. It records which exchange the interface is on, so your PeeringDB record can be checked against your files; Circuit will keep it in step in a later version.
+Devices ignore `exchange`. It records which exchange the interface is on, and `circuit sync peeringdb` keeps your PeeringDB record in step with it: each presence, its addresses, speed and route-server flag ([PeeringDB](/integrations/peeringdb)).
 
 ## Further reading
 

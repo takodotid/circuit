@@ -54,6 +54,18 @@ system: {
 
 The password keeps working over SSH beside the keys. On RouterOS, Circuit writes `/ip ssh password-authentication=yes` for that, since RouterOS turns password login off for a user once it has a key.
 
+## Prefix sets from a registry
+
+A prefix set with a `source` is fetched each time you run `diff` or `apply`, such as every prefix AS64501 announces, from RIPEstat:
+
+```ts
+prefix_sets: {
+    "customer-a-v4": { source: { registry: "ripe-stat", query: "AS64501", family: "ipv4" } },
+},
+```
+
+The plan adds the new prefixes and removes the old ones one by one, like any list, so the list is never empty on the way. An empty answer, an error, or more than 100,000 prefixes stops before anything is sent. To keep a list current, run `circuit apply <device> --confirm` on a schedule, such as nightly in CI with `CIRCUIT_SECRETS_PASSWORD` from a 1Password service account.
+
 ## Not locking you out
 
 The scariest change is one that cuts off Circuit's own way in. So after every change, Circuit logs in again in a fresh session. The change only stays if that works.

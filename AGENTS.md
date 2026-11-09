@@ -22,7 +22,8 @@ Every change to Circuit is weighed against these, set by the owner.
 - `src/project/`: reads a project: imports `circuit.ts` and each device file, checks what the types can't, and resolves the shorthands into the model.
 - `src/checks/`: validation and Circuit's built-in checks, on the model.
 - `src/platforms/<name>/`: one adapter per device OS (`routeros`, `vrp`, `raisecom-ros`, `junos`, `fortios`), the only place for vendor syntax. Its `models.ts` lists the models and their ports; its `TRAPS.md` lists what the device does that you wouldn't expect.
-- `src/core/`: addresses, secrets, cabling, registries, the network as a graph (`topology.ts`), and `Utils`.
+- `src/core/`: addresses and the address space (`address-space.ts`, for `circuit addresses`), secrets, cabling, registries, the network as a graph (`topology.ts`), and `Utils`.
+- `src/integrations/`: `circuit sync <target>`: NetBox, LibreNMS, PeeringDB and Prometheus, each planned, asked and sent the way `apply` does (`sync.ts`).
 - `src/transport/`: SSH and serial consoles.
 - `src/cli/`: the `circuit` command: its menu and commands (`index.ts`), the commands that read a project (`project-commands.ts`), `secrets` (`secrets.ts`, the password in `secrets-password.ts`), a new project (`setup.ts`), `rename` (`rename.ts`), `migrate`, a 0.x project written again in v1 (`migrate.ts`, which also holds the 0.x-to-v1 device conversion), the git hook (`git-hooks.ts`), updates from the npm registry (`releases.ts`), the install location and `uninstall` (`app.ts`), each project's pinned version in `.circuit/version` (`versions.ts`), `fmt` (`format.ts`, Prettier inside Circuit), and how it talks to a person (`ui.ts`, with `@clack/prompts`). `editor-types.generated.ts` is written by `scripts/editor-types.ts`: the files Circuit puts in a project's `.circuit/types`. Git ignores it; `bun install`, `bun run typecheck`, `bun run test` and `bun run build` write it.
 - `src/core/secrets-file.ts`: a network's secrets file, `.circuit/secrets` by default: `NAME="value"` lines, each value AES-256-GCM with a key from the file's password by scrypt (`node:crypto`; Studio decrypts with `@noble/ciphers` and `@noble/hashes`).
@@ -35,7 +36,7 @@ Every change to Circuit is weighed against these, set by the owner.
 
 - `DESIGN.md` (the look of the site and Studio), `PRODUCT.md` (who Circuit is for), `DEPLOYMENT.md` (branches and releases), `.claude/skills/` (implement, fix and prove a device; release).
 
-Not in v1 yet: see the open issues (`gh issue list`), such as YAML projects (#167), `circuit sync` (#170) and the remaining 0.x commands (#171).
+Not in v1 yet: see the open issues (`gh issue list`), such as YAML projects (#167).
 
 ## Rules
 
