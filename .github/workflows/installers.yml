@@ -24,6 +24,7 @@ jobs:
             matrix:
                 os: [ubuntu-latest, macos-latest]
         runs-on: ${{ matrix.os }}
+        timeout-minutes: 20
         env:
             # Two releases, an older one to update from and the one after it.
             OLDER: 1.0.0-rc.7
@@ -33,7 +34,9 @@ jobs:
             - uses: actions/checkout@v4
             - uses: oven-sh/setup-bun@v2
 
-            # The installer and Circuit read their answers from a terminal; `script` gives them one, fed from stdin.
+            # The installer and Circuit read their answers from a terminal; `script` gives them one, fed from stdin. Each answer comes
+            # a moment after its question, as a person's would: macOS's `script` loses what arrives before. Each answer comes
+            # a moment after the question, as a person's would: macOS's `script` loses what arrives before.
             - name: a terminal for the questions
               run: |
                   if [ "$RUNNER_OS" = macOS ]; then
@@ -42,24 +45,27 @@ jobs:
                       printf '#!/bin/sh\nexec script -qec "$*" /dev/null\n' | sudo tee /usr/local/bin/pty >/dev/null
                   fi
                   sudo chmod +x /usr/local/bin/pty
-                  echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
             - name: a fresh install asks app or project, then whether to start a project
               run: |
                   cd "$(mktemp -d)"
-                  printf 'y\nn\n' | CIRCUIT_VERSION=$OLDER pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
+                  # A runner may have ~/.local/bin on PATH already; a person's machine doesn't, so the installer adds it.
+                  export PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v '/.local/bin' | paste -sd: -)"
+                  { sleep 3; printf 'y\n'; sleep 30; printf 'n\n'; } | CIRCUIT_VERSION=$OLDER pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
+                  grep -q "Added $HOME/.local/bin to PATH" out.txt
                   grep -q "Install Circuit as an app" out.txt
                   grep -q "Set up a new project in this folder" out.txt
                   test "$("$HOME/.local/bin/circuit" --version)" = "$OLDER"
                   grep -q "# Added by Circuit" "$HOME/.bashrc" "$HOME/.bash_profile" 2>/dev/null
+                  echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
             - name: running it again asks before updating
               run: |
                   cd "$(mktemp -d)"
-                  printf 'n\n' | CIRCUIT_VERSION=$NEWER CIRCUIT_NO_SETUP=1 pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
+                  { sleep 3; printf 'n\n'; } | CIRCUIT_VERSION=$NEWER CIRCUIT_NO_SETUP=1 pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
                   grep -q "Kept Circuit $OLDER" out.txt
                   test "$(circuit --version)" = "$OLDER"
-                  printf 'y\n' | CIRCUIT_VERSION=$NEWER CIRCUIT_NO_SETUP=1 pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
+                  { sleep 3; printf 'y\n'; } | CIRCUIT_VERSION=$NEWER CIRCUIT_NO_SETUP=1 pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
                   grep -q "Circuit $NEWER is installed" out.txt
                   test "$(circuit --version)" = "$NEWER"
 
