@@ -9,7 +9,17 @@ The graph draws your network from your files, one layer at a time: which cable g
 2. Pick a device or a line to see what it is, on the right.
 3. Double-click a device to open its page.
 
-Drag a device to move it, drag the empty space to move the drawing, and scroll to zoom. **Fit** shows all of it, **Lay out again** lays the layer out again, and **Save image** saves the layer shown as a PNG.
+Drag a device to move it, drag the empty space to move the drawing, and scroll to zoom. **Fit** shows all of it, **Lay out again** lays the layer out again, **Save image** saves the layer shown as a PNG, and **Save SVG** saves it as an SVG drawing, which stays sharp at any size and opens in a drawing program.
+
+## Presenting
+
+**Present** (or the key P) shows the network on a big screen, such as a wall display in the NOC:
+
+1. The rails, the toolbar and the panel step aside, so the drawing fills the window, and the whole screen when the browser allows it.
+2. Every 6 seconds it moves on: first the whole layer, then its four busiest devices one at a time, each lit with the devices it has a line to. A caption names what is shown.
+3. Then it goes back to the whole layer, and on to the next layer that has lines.
+
+It waits while the pointer is on the drawing. **Stop presenting** or Esc stops it. The browser remembers it, so a screen that reloads keeps presenting.
 
 ## The layers
 

@@ -1,14 +1,17 @@
-<!-- Studio's tools: trace an address through the project, and find the cables that carry a VLAN between two devices. -->
+<!-- Studio's tools: trace an address through the project, find the cables that carry a VLAN between two devices, and test a packet against a firewall chain or a route against a route policy. -->
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { StudioData } from "../../../types";
 import { go, store } from "../lib/store";
 import { Tools } from "../lib/tools";
 import DataTable from "./DataTable.vue";
+import FirewallTest from "./FirewallTest.vue";
+import PolicyTest from "./PolicyTest.vue";
 
 const props = defineProps<{ data: StudioData }>();
 
-const tool = computed(() => (store.route.parts[0] === "vlan" ? "vlan" : "trace"));
+const TOOLS = ["trace", "vlan", "firewall", "policy"] as const;
+const tool = computed(() => TOOLS.find((name) => name === store.route.parts[0]) ?? "trace");
 
 // A trace has its own address, such as `#tools/trace/192.0.2.5`, to bookmark or send.
 const typed = ref(store.route.parts[0] === "trace" ? (store.route.parts[1] ?? "") : "");
@@ -31,9 +34,14 @@ const path = computed(() =>
     <div class="tabs">
         <button :aria-pressed="tool === 'trace'" @click="go('tools/trace')">Trace an address</button>
         <button :aria-pressed="tool === 'vlan'" @click="go('tools/vlan')">VLAN path</button>
+        <button :aria-pressed="tool === 'firewall'" @click="go('tools/firewall')">Test a firewall</button>
+        <button :aria-pressed="tool === 'policy'" @click="go('tools/policy')">Test a route policy</button>
     </div>
 
-    <template v-if="tool === 'trace'">
+    <FirewallTest v-if="tool === 'firewall'" :data="data" />
+    <PolicyTest v-else-if="tool === 'policy'" :data="data" />
+
+    <template v-else-if="tool === 'trace'">
         <p class="muted">
             Which device holds an address, how each device would reach it from what the project says, and every rule that names it. A route
             learned from BGP or OSPF is not in the project, so a device with no route here may still reach it.

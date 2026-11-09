@@ -3,6 +3,7 @@
 import { computed, ref, watch } from "vue";
 import type { Device } from "../../../../model";
 import type { Commit, LiveRead, StudioData } from "../../../types";
+import { FieldDocs } from "../lib/field-docs";
 import { Format } from "../lib/format";
 import { api, go, store } from "../lib/store";
 import DataTable, { type Row } from "./DataTable.vue";
@@ -69,6 +70,15 @@ const ports = computed<Row[]>(() => {
         };
     });
 });
+
+const portColumns = [
+    "Port",
+    FieldDocs.column("Description", "interfaces.ethernet.*.description"),
+    "Switching",
+    FieldDocs.column("Addresses", "interfaces.ethernet.*.addresses"),
+    FieldDocs.column("Link", "interfaces.ethernet.*.link"),
+    "Other settings",
+];
 
 const interfaces = computed(() => {
     const { ethernet: _ethernet, ...rest } = device.value?.interfaces ?? {};
@@ -160,21 +170,17 @@ watch(
 
             <template v-else-if="section === 'ports'">
                 <Faceplate :device="device" :ports="data.ports[device.name] ?? []" />
-                <DataTable
-                    :head="['Port', 'Description', 'Switching', 'Addresses', 'Link', 'Other settings']"
-                    :rows="ports"
-                    :csv="`${device.name}-ports`"
-                />
+                <DataTable :head="portColumns" :rows="ports" :csv="`${device.name}-ports`" />
             </template>
 
-            <Settings v-else-if="section === 'interfaces'" :value="interfaces" />
-            <Settings v-else-if="section === 'switching'" :value="device.switching" />
-            <Settings v-else-if="section === 'routing'" :value="device.routing" />
-            <Settings v-else-if="section === 'firewall'" :value="device.firewall" />
-            <Settings v-else-if="section === 'management'" :value="device.management" />
-            <Settings v-else-if="section === 'system'" :value="device.system" />
-            <Settings v-else-if="section === 'monitoring'" :value="device.monitoring" />
-            <Settings v-else-if="section === 'services'" :value="device.services" />
+            <Settings v-else-if="section === 'interfaces'" :value="interfaces" path="interfaces" />
+            <Settings v-else-if="section === 'switching'" :value="device.switching" path="switching" />
+            <Settings v-else-if="section === 'routing'" :value="device.routing" path="routing" />
+            <Settings v-else-if="section === 'firewall'" :value="device.firewall" path="firewall" />
+            <Settings v-else-if="section === 'management'" :value="device.management" path="management" />
+            <Settings v-else-if="section === 'system'" :value="device.system" path="system" />
+            <Settings v-else-if="section === 'monitoring'" :value="device.monitoring" path="monitoring" />
+            <Settings v-else-if="section === 'services'" :value="device.services" path="services" />
 
             <template v-else-if="section === 'config'">
                 <p class="muted">

@@ -2,10 +2,25 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { StudioData } from "../../../types";
+import { FieldDocs } from "../lib/field-docs";
 import DataTable, { type Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
 const devices = computed(() => new Set(props.data.devices.map((device) => device.name)));
+
+const neighbor = (field: string) => `routing.bgp.neighbors.*.${field}`;
+const columns = [
+    "Device",
+    FieldDocs.column("Neighbor", "routing.bgp.neighbors"),
+    FieldDocs.column("Address", neighbor("address")),
+    FieldDocs.column("Remote AS", neighbor("remote_as")),
+    FieldDocs.column("Role", neighbor("role")),
+    FieldDocs.column("Group", neighbor("neighbor_group")),
+    FieldDocs.column("Import", neighbor("import_policy")),
+    FieldDocs.column("Export", neighbor("export_policy")),
+    "Far end",
+    "Note",
+];
 
 const rows = computed<Row[]>(() =>
     props.data.sessions.map((session) => ({
@@ -27,9 +42,5 @@ const rows = computed<Row[]>(() =>
 
 <template>
     <h2>BGP sessions</h2>
-    <DataTable
-        :head="['Device', 'Neighbor', 'Address', 'Remote AS', 'Role', 'Group', 'Import', 'Export', 'Far end', 'Note']"
-        :rows="rows"
-        csv="bgp-sessions"
-    />
+    <DataTable :head="columns" :rows="rows" csv="bgp-sessions" />
 </template>

@@ -8,6 +8,7 @@ import CablesView from "./components/CablesView.vue";
 import CompareView from "./components/CompareView.vue";
 import DeviceView from "./components/DeviceView.vue";
 import DevicesView from "./components/DevicesView.vue";
+import FieldNote from "./components/FieldNote.vue";
 import GraphView from "./components/GraphView.vue";
 import ProblemsView from "./components/ProblemsView.vue";
 import SearchView from "./components/SearchView.vue";
@@ -92,4 +93,5 @@ watch(query, (text) => {
         </div>
     </main>
     <main v-else-if="!store.error" class="tables"><p class="muted">Reading the project…</p></main>
+    <FieldNote />
 </template>

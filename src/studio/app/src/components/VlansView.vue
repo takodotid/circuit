@@ -2,9 +2,18 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { StudioData } from "../../../types";
+import { FieldDocs } from "../lib/field-docs";
 import DataTable, { type Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
+
+const columns = [
+    FieldDocs.column("VLAN", "switching.vlans"),
+    FieldDocs.column("ID", "switching.vlans.*.id"),
+    FieldDocs.column("Description", "switching.vlans.*.description"),
+    "Devices",
+    "Ports and LAGs carrying it",
+];
 
 const rows = computed<Row[]>(() => {
     const byName = new Map<string, { ids: Set<number>; descriptions: Set<string>; devices: string[]; ports: string[] }>();
@@ -46,5 +55,5 @@ const rows = computed<Row[]>(() => {
 
 <template>
     <h2>VLANs</h2>
-    <DataTable :head="['VLAN', 'ID', 'Description', 'Devices', 'Ports and LAGs carrying it']" :rows="rows" csv="vlans" />
+    <DataTable :head="columns" :rows="rows" csv="vlans" />
 </template>

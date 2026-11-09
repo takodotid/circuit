@@ -2,10 +2,22 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { StudioData } from "../../../types";
+import { FieldDocs } from "../lib/field-docs";
 import DataTable, { type Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
 const devices = computed(() => new Set(props.data.devices.map((device) => device.name)));
+
+const columns = [
+    "Device",
+    "Port",
+    FieldDocs.column("Far device", "interfaces.ethernet.*.link.device"),
+    FieldDocs.column("Far port", "interfaces.ethernet.*.link.port"),
+    FieldDocs.column("Through", "interfaces.ethernet.*.link.through"),
+    "VLANs",
+    FieldDocs.column("Description", "interfaces.ethernet.*.description"),
+    "Note",
+];
 
 const rows = computed<Row[]>(() =>
     props.data.cables.map((cable) => ({
@@ -25,5 +37,5 @@ const rows = computed<Row[]>(() =>
 
 <template>
     <h2>Cables</h2>
-    <DataTable :head="['Device', 'Port', 'Far device', 'Far port', 'Through', 'VLANs', 'Description', 'Note']" :rows="rows" csv="cables" />
+    <DataTable :head="columns" :rows="rows" csv="cables" />
 </template>

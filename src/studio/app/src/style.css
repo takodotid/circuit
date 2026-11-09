@@ -816,26 +816,12 @@ svg.far .edge text {
     display: none;
 }
 
-/* Presenting: the network for a big screen. The panel steps aside, lines and dots are heavier, and the drawing drifts slowly. */
+/* Presenting: the network for a big screen, the whole window. The rails, the toolbar and the panel step aside; Cytoscape draws the heavier lines and the lit device. */
 
-.presenting #panel {
+body.presenting header,
+body.presenting .toolbar,
+body.presenting .stage aside {
     display: none;
-}
-
-.presenting .edge path:not(.hit) {
-    stroke-width: 3;
-}
-
-.presenting .edge.lit path:not(.hit) {
-    stroke-width: 5;
-}
-
-.presenting .edge .signal {
-    r: 4.5px;
-}
-
-.presenting .edge.lit .signal {
-    r: 6px;
 }
 
 .present-caption {
@@ -852,10 +838,6 @@ svg.far .edge text {
     pointer-events: none;
 }
 
-.present-caption[hidden] {
-    display: none;
-}
-
 .present-caption strong {
     font-size: 26px;
     letter-spacing: -0.015em;
@@ -867,25 +849,10 @@ svg.far .edge text {
     font-size: 14px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .presenting svg.canvas {
-        animation: drift 48s ease-in-out infinite alternate;
-    }
-
-    .presenting svg.canvas:hover,
-    .presenting svg.canvas.panning {
-        animation-play-state: paused;
-    }
-}
-
-@keyframes drift {
-    from {
-        transform: scale(1) translate(-1%, -0.6%);
-    }
-
-    to {
-        transform: scale(1.05) translate(1%, 0.6%);
-    }
+.present-exit {
+    position: absolute;
+    top: 18px;
+    right: 18px;
 }
 
 /* The side panel: what is selected, or the layer's legend. */
@@ -1141,10 +1108,29 @@ table.data thead th {
     white-space: nowrap;
 }
 
-table.data th[title] {
+/* A field with a doc: the dotted underline of a word that can be looked up, and its meaning in a small paper note. */
+[data-doc] {
     cursor: help;
-    text-decoration: underline dotted;
+    text-decoration: underline dotted var(--accent);
     text-underline-offset: 3px;
+}
+
+.field-note {
+    position: fixed;
+    z-index: 20;
+    max-width: 360px;
+    margin: 0;
+    padding: 8px 12px;
+    border: 2px solid var(--navy);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 1.45;
+    text-transform: none;
+    pointer-events: none;
 }
 
 /* Only the row under the pointer is washed, not every row that holds it, and the wash is a faint link tint well apart from the head's band. */
@@ -1395,6 +1381,19 @@ details.change summary {
 .field small {
     font-size: 11px;
     font-weight: 400;
+}
+
+/* A group of choices in a tool form, such as the TCP flags, laid out as one field. */
+fieldset.field {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+fieldset.field legend {
+    margin-bottom: 4px;
+    padding: 0;
 }
 
 .flags {

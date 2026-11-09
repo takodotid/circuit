@@ -2,9 +2,21 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { StudioData } from "../../../types";
+import { FieldDocs } from "../lib/field-docs";
 import DataTable, { type Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
+
+const columns = [
+    FieldDocs.column("Device", "name"),
+    FieldDocs.column("Site", "site"),
+    FieldDocs.column("Platform", "platform"),
+    FieldDocs.column("Model", "model"),
+    FieldDocs.column("Reached at", "connection.host"),
+    "Errors",
+    "Warnings",
+    "File",
+];
 
 const rows = computed<Row[]>(() =>
     props.data.devices.map((device) => {
@@ -28,5 +40,5 @@ const rows = computed<Row[]>(() =>
 
 <template>
     <h2>Devices</h2>
-    <DataTable :head="['Device', 'Site', 'Platform', 'Model', 'Reached at', 'Errors', 'Warnings', 'File']" :rows="rows" csv="devices" />
+    <DataTable :head="columns" :rows="rows" csv="devices" />
 </template>

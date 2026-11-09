@@ -1,10 +1,11 @@
-<!-- The network drawn, one layer at a time: cables, VLANs, address segments, BGP, OSPF and tunnels. Drawn with Cytoscape; a node or line picked shows what it is in the panel. -->
+<!-- The network drawn, one layer at a time: cables, VLANs, address segments, BGP, OSPF and tunnels. Drawn with Cytoscape; a node or line picked shows what it is in the panel. Present shows it on a big screen, going through every layer and lighting the busiest devices in turn. -->
 <script setup lang="ts">
-import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import cytoscape, { type Core, type ElementDefinition, type NodeSingular } from "cytoscape";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { GraphEdge, GraphNode, Layer } from "../../../../core/graph";
 import type { StudioData } from "../../../types";
 import { Export } from "../lib/csv";
+import { type Drawing, GraphSvg } from "../lib/graph-svg";
 import { go, store } from "../lib/store";
 
 const props = defineProps<{ data: StudioData }>();
@@ -129,6 +130,207 @@ function saveImage(): void {
     Export.save(`${props.data.project}-${layer.value}.png`, png);
 }
 
+/** Save the layer as an SVG, drawn from where each box and line is and how Cytoscape styles it. */
+function saveSvg(): void {
+    if (!graph) return;
+    const box = graph.elements().boundingBox({});
+    const size = (value: string) => parseFloat(value) || 0;
+
+    const drawing: Drawing = {
+        box: { x: box.x1, y: box.y1, width: box.w, height: box.h },
+        background: css("--bg"),
+        font: css("--font"),
+        nodes: graph.nodes().map((node) => ({
+            ...node.position(),
+            width: node.width(),
+            height: node.height(),
+            label: String(node.data("label")),
+            fill: node.style("background-color"),
+            stroke: node.style("border-color"),
+            strokeWidth: size(node.style("border-width")),
+            dashed: node.style("border-style") === "dashed",
+            color: node.style("color"),
+            fontSize: size(node.style("font-size")),
+            opacity: Number(node.style("opacity")),
+        })),
+        edges: graph.edges().map((edge) => {
+            const control = edge.controlPoints()?.[0];
+            return {
+                from: edge.sourceEndpoint(),
+                to: edge.targetEndpoint(),
+                ...(control ? { control } : {}),
+                middle: edge.midpoint(),
+                label: String(edge.data("label") ?? ""),
+                color: edge.style("line-color"),
+                width: size(edge.style("width")),
+                dashed: edge.style("line-style") === "dashed",
+                labelColor: edge.style("color"),
+                fontSize: size(edge.style("font-size")),
+                opacity: Number(edge.style("opacity")),
+            };
+        }),
+    };
+
+    Export.save(`${props.data.project}-${layer.value}.svg`, new Blob([GraphSvg.of(drawing)], { type: "image/svg+xml" }));
+}
+
+// Presenting: the network on a big screen, the whole window, going through every layer and lighting its busiest devices in turn. Kept in the browser, so a screen that reloads stays on it.
+
+const PRESENT_KEY = "circuit-studio-present";
+/** How many devices are lit on each layer, busiest first, before it moves on to the next layer. */
+const LIT_PER_LAYER = 4;
+
+const remembered = (): boolean => {
+    try {
+        return localStorage.getItem(PRESENT_KEY) === "on";
+    } catch {
+        return false;
+    }
+};
+
+const presenting = ref(remembered());
+const caption = ref<{ title: string; detail: string }>();
+let lit: NodeSingular | undefined;
+let tourStep = 0;
+let tour: ReturnType<typeof setInterval> | undefined;
+let leaving: ReturnType<typeof setTimeout> | undefined;
+let pointerOver = false;
+let resizing: ResizeObserver | undefined;
+
+const LINE_WORDS: Record<Layer, [string, string]> = {
+    l1: ["cable", "cables"],
+    l2: ["cable", "cables"],
+    l3: ["shared prefix", "shared prefixes"],
+    bgp: ["session", "sessions"],
+    ospf: ["adjacency", "adjacencies"],
+    tunnels: ["tunnel", "tunnels"],
+};
+
+function lines(count: number): string {
+    const [one, many] = LINE_WORDS[layer.value];
+    return `${count} ${count === 1 ? one : many}`;
+}
+
+/** Light one device with what it has a line to, and dim the rest; or light nothing. */
+function light(node: NodeSingular | undefined): void {
+    if (!graph) return;
+    lit = node;
+    graph.elements().removeClass("lit dim");
+
+    if (node) {
+        const near = node.closedNeighborhood();
+        graph.elements().not(near).addClass("dim");
+        node.addClass("lit");
+        near.edges().addClass("lit");
+        const detail = props.data.graph.nodes.find((candidate) => candidate.id === node.id())?.detail[0];
+        caption.value = {
+            title: String(node.data("label")),
+            detail: [detail, lines(node.connectedEdges().length)].filter(Boolean).join(", "),
+        };
+    } else {
+        const devices = graph.nodes('[kind = "device"]').length;
+        caption.value = {
+            title: LAYERS.find((item) => item.id === layer.value)?.label ?? "",
+            detail: `${devices} ${devices === 1 ? "device" : "devices"}, ${lines(graph.edges().length)}`,
+        };
+    }
+}
+
+/** Frame what is lit with its neighbours, or the whole layer: gliding there, or at once. */
+function frameLit(glide: boolean): void {
+    if (!graph) return;
+    const shown = lit ? lit.closedNeighborhood() : graph.elements();
+    if (glide) graph.animate({ fit: { eles: shown, padding: 90 } }, { duration: 1100, easing: "ease-in-out-cubic" });
+    else graph.fit(shown, 90);
+}
+
+/** The next layer with lines, after this one; this one when no other has any. */
+function nextLayer(): Layer {
+    const at = LAYERS.findIndex((item) => item.id === layer.value);
+    const after = [...LAYERS.slice(at + 1), ...LAYERS.slice(0, at + 1)];
+    return after.find((item) => counts.value[item.id])?.id ?? layer.value;
+}
+
+/** One turn: the whole layer, then its busiest devices one at a time, then on to the next layer. */
+function tourNext(): void {
+    if (!graph || document.hidden || pointerOver || leaving) return;
+
+    const devices = graph.nodes('[kind = "device"]').toArray() as NodeSingular[];
+    const busiest = devices
+        .filter((node) => node.degree(false) > 0)
+        .sort((a, b) => b.degree(false) - a.degree(false) || String(a.data("label")).localeCompare(String(b.data("label"))))
+        .slice(0, LIT_PER_LAYER);
+
+    tourStep += 1;
+    const next = busiest[tourStep - 1];
+    if (next || nextLayer() === layer.value) {
+        if (!next) tourStep = 0;
+        light(next);
+        frameLit(true);
+        return;
+    }
+
+    // Every busy device has had its turn: back out to the whole layer, then on to the next one.
+    tourStep = 0;
+    light(undefined);
+    frameLit(true);
+    const following = nextLayer();
+    leaving = setTimeout(() => {
+        leaving = undefined;
+        // Replacing the address keeps the history clean, so Back still leaves Studio's last place.
+        if (presenting.value) location.replace(`#graph/${following}`);
+    }, 2600);
+}
+
+/** Start the turns again, so the layer shown now has its full time. */
+function restartTour(): void {
+    clearInterval(tour);
+    clearTimeout(leaving);
+    leaving = undefined;
+    tourStep = 0;
+    if (presenting.value) tour = setInterval(tourNext, 6000);
+}
+
+/** The page as presenting wants it: the rails and the panel gone, heavier lines, a caption, and the turns running. Or back as it was. */
+function showPresenting(): void {
+    document.body.classList.toggle("presenting", presenting.value);
+    selected.value = {};
+    graph?.elements().removeClass("lit dim heavy");
+    lit = undefined;
+    caption.value = undefined;
+    restartTour();
+
+    // The drawing takes the window's size once the rails are gone, or back.
+    void nextTick(() => {
+        graph?.resize();
+        if (!presenting.value) return fit();
+        graph?.edges().addClass("heavy");
+        light(undefined);
+        frameLit(false);
+    });
+}
+
+/** Present, or stop. From a click, the whole screen too, where the browser allows it. */
+function togglePresenting(): void {
+    const on = !presenting.value;
+    if (on && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => undefined);
+    if (!on && document.fullscreenElement) document.exitFullscreen?.().catch(() => undefined);
+
+    presenting.value = on;
+    try {
+        localStorage.setItem(PRESENT_KEY, on ? "on" : "off");
+    } catch {
+        // A browser that keeps nothing still presents, until it reloads.
+    }
+    showPresenting();
+}
+
+function onKey(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("input, select, textarea") || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === "p" || (event.key === "Escape" && presenting.value)) togglePresenting();
+}
+
 onMounted(() => {
     graph = cytoscape({
         container: container.value,
@@ -183,6 +385,12 @@ onMounted(() => {
                 selector: ":selected",
                 style: { "border-color": css("--cobalt"), "line-color": css("--cobalt"), "border-width": 4, width: 4 },
             },
+            // Presenting: heavier lines, the lit device in the highlighter with a navy frame (a warning or error keeps its own), the rest dimmed.
+            { selector: "edge.heavy", style: { width: 3 } },
+            { selector: "edge.lit", style: { width: 5, "line-color": css("--cobalt") } },
+            { selector: "node.lit", style: { "background-color": css("--yellow"), color: "#11141b" } },
+            { selector: 'node.lit[level = ""]', style: { "border-color": css("--navy"), "border-width": 3 } },
+            { selector: ".dim", style: { opacity: 0.18 } },
         ],
     });
 
@@ -199,11 +407,35 @@ onMounted(() => {
     graph.on("dbltap", 'node[kind = "device"]', (event) => go(`devices/${event.target.data("label")}`));
     graph.on("dragfree", "node", remember);
 
+    // The turns wait while the pointer is on the drawing, so someone at the screen can look.
+    container.value?.addEventListener("mouseenter", () => (pointerOver = true));
+    container.value?.addEventListener("mouseleave", () => (pointerOver = false));
+    // The drawing follows the window's size; presenting keeps what it shows in view.
+    resizing = new ResizeObserver(() => {
+        graph?.resize();
+        if (presenting.value) frameLit(false);
+    });
+    if (container.value) resizing.observe(container.value);
+    addEventListener("keydown", onKey);
+
     draw();
+    if (presenting.value) showPresenting();
 });
 
-onBeforeUnmount(() => graph?.destroy());
-watch([layer, () => props.data], draw);
+onBeforeUnmount(() => {
+    clearInterval(tour);
+    clearTimeout(leaving);
+    resizing?.disconnect();
+    removeEventListener("keydown", onKey);
+    document.body.classList.remove("presenting");
+    graph?.destroy();
+});
+
+watch([layer, () => props.data], () => {
+    draw();
+    // A new layer while presenting is shown whole first, with its full time.
+    if (presenting.value) showPresenting();
+});
 
 const nodeFindings = computed(() =>
     props.data.findings.filter((finding) => selected.value.node && `device:${finding.device}` === selected.value.node.id)
@@ -222,10 +454,23 @@ const nodeFindings = computed(() =>
                 <button title="Fit the drawing to the window" @click="fit">Fit</button>
                 <button title="Forget where nodes were moved on this layer, and lay it out again" @click="layOut">Lay out again</button>
                 <button title="Save this layer as a PNG image" @click="saveImage">Save image</button>
+                <button title="Save this layer as an SVG drawing, sharp at any size" @click="saveSvg">Save SVG</button>
+                <button
+                    :aria-pressed="presenting"
+                    title="Show the network on a big screen, going through every layer (key P)"
+                    @click="togglePresenting"
+                >
+                    Present
+                </button>
             </div>
         </div>
         <div class="stage">
             <div ref="container" class="canvas" role="img" aria-label="The network"></div>
+            <p v-if="presenting && caption" class="present-caption">
+                <strong>{{ caption.title }}</strong
+                ><span>{{ caption.detail }}</span>
+            </p>
+            <button v-if="presenting" class="present-exit" title="Stop presenting (Esc)" @click="togglePresenting">Stop presenting</button>
             <aside>
                 <template v-if="selected.node">
                     <h2>{{ selected.node.label }}</h2>

@@ -37,7 +37,7 @@ Only your machine can reach it. Ctrl+C stops it.
 | [Addresses](/studio/tables) | Every address in use, and what is free.                                                               |
 | [BGP](/studio/tables)       | Every BGP session, and what is at its far end.                                                        |
 | [Cables](/studio/tables)    | Every cable, with the VLANs it carries.                                                               |
-| [Tools](/studio/tools)      | Trace an address, and find a VLAN's path.                                                             |
+| [Tools](/studio/tools)      | Trace an address, find a VLAN's path, and test a firewall or a route policy.                          |
 | [Compare](/studio/changes)  | Your files now beside another branch, tag or commit: what each device would run differently.          |
 | [Secrets](/studio/secrets)  | Every secret, and how it is kept. Its value only after you type the file's password.                  |
 | [Problems](/studio/tables)  | What `circuit validate` finds, and what only one end declares. The top bar counts them.               |

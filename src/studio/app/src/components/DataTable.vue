@@ -5,7 +5,8 @@ import { go } from "../lib/store";
 
 export type Cell = string | number | undefined | { device: string; label?: string } | { link: string; label: string };
 export type Row = { cells: Cell[]; muted?: boolean; id?: string };
-export type Column = string | { label: string; field?: boolean; title?: string };
+/** A column: its label, or a label with the doc of the device field it shows, read when the pointer is on it. */
+export type Column = string | { label: string; field?: boolean; doc?: string };
 
 const props = defineProps<{ head: Column[]; rows: Row[]; csv?: string }>();
 
@@ -30,7 +31,12 @@ function save(): void {
         <table class="data">
             <thead>
                 <tr>
-                    <th v-for="column in head" :key="labelOf(column)" :title="typeof column === 'string' ? undefined : column.title">
+                    <th
+                        v-for="column in head"
+                        :key="labelOf(column)"
+                        :data-doc="typeof column === 'string' ? undefined : column.doc"
+                        :tabindex="typeof column !== 'string' && column.doc ? 0 : undefined"
+                    >
                         <code v-if="typeof column !== 'string' && column.field">{{ column.label }}</code>
                         <template v-else>{{ labelOf(column) }}</template>
                     </th>
