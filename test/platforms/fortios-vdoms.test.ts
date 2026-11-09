@@ -1,4 +1,4 @@
-// A management VDOM on FortiOS: its interfaces and routes apart from `root`, each section read and sent where it lives, and what is left to an operator refused. The device's answers follow FortiOS 6.2's documented forms; no device has run it yet, so `vdoms` stays refused until one does.
+// A management VDOM on FortiOS: its interfaces and routes apart from `root`, each section read and sent where it lives, and what is left to an operator refused. Proved on a FG-3700D running FortiOS 6.2.2; the fake device answers as it did.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Device } from "../../src/model";
@@ -37,9 +37,8 @@ const firewall: Device = {
     routing: { static_routes: [{ prefix: "0.0.0.0/0", next_hop: "203.0.113.1", description: "Routed traffic out" }] },
 };
 
-test("a management VDOM is not root, has its own interfaces and routes, and is experimental until proved", () => {
+test("a management VDOM is not root, and has its own interfaces and routes", () => {
     expect(platform.unsupported(firewall)).toEqual([]);
-    expect(platform.experimental(firewall)).toEqual(["system.vdoms, a management VDOM"]);
     expect(platform.checks(firewall)).toEqual([]);
 
     const wrong: Device = {
@@ -55,14 +54,11 @@ test("a management VDOM is not root, has its own interfaces and routes, and is e
     ]);
 });
 
-test("validate stops on the management VDOM, and --experimental makes it a warning", () => {
-    const levels = (experimental: boolean) =>
-        Validation.run([firewall], undefined, { experimental })
-            .filter((finding) => finding.message.startsWith("system.vdoms, a management VDOM"))
-            .map((finding) => finding.level);
-
-    expect(levels(false)).toEqual(["error"]);
-    expect(levels(true)).toEqual(["warning"]);
+// Proved on tako-fwl-01 (FG-3700D, 6.2.2): multi-VDOM on and the management interface moved by hand, then the config applied and an
+// empty second plan.
+test("validate takes the management VDOM without --experimental", () => {
+    const found = Validation.run([firewall], undefined, {}).filter((finding) => finding.message.startsWith("system.vdoms"));
+    expect(found).toEqual([]);
 });
 
 test("the render puts each interface in its VDOM, and the management VDOM's routes and guards in sections of its own", () => {
@@ -112,7 +108,7 @@ test("turning multi-VDOM mode on, and moving an interface into another VDOM, are
     expect(platform.plan(desired, oneVdom, options)).toEqual({
         steps: [],
         problems: [
-            "the config has vdoms and the device runs one VDOM. Turn multi-VDOM mode on by hand, on the console: `config system global`, `set vdom-mode multi-vdom`, `end`. It moves everything into root and ends every session",
+            "the config has vdoms and the device runs one VDOM. Turn multi-VDOM mode on by hand: `config system global`, `set vdom-mode multi-vdom`, `end`, then `y`. It moves everything into root and logs every session out; the traffic keeps flowing",
         ],
     });
     expect(platform.plan(oneVdom, desired, options).problems).toEqual([
@@ -121,8 +117,29 @@ test("turning multi-VDOM mode on, and moving an interface into another VDOM, are
 
     const notMoved = desired.replace(/(edit "mgmt1"\n {8}set vdom )"mgmt"/, '$1"root"');
     expect(platform.plan(desired, notMoved, options).problems).toEqual([
-        "mgmt1 from root to mgmt: move an interface into another VDOM by hand, on the console, since it may carry the way in",
+        "mgmt1 from root to mgmt: move an interface into another VDOM by hand, from a session on another interface or the console, since it may carry the way in",
     ]);
+});
+
+// As tako-fwl-01 showed it in multi-VDOM mode: two links between VDOMs for each NP6 chip, which nobody wrote and nobody can delete.
+test("the links between VDOMs the device makes are left alone", () => {
+    const desired = platform.render(firewall);
+    const links = [0, 1, 2, 3]
+        .flatMap((chip) =>
+            [0, 1].map((link) => `    edit "npu${chip}_vlink${link}"\n        set vdom "root"\n        set type physical\n    next`)
+        )
+        .join("\n");
+    const current = desired.replace("config system interface\n", `config system interface\n${links}\n`);
+
+    expect(current).toContain("npu3_vlink1");
+    expect(platform.plan(desired, current, options).steps).toEqual([]);
+});
+
+test("certificates and disk logging belong to a VDOM, not to the device", () => {
+    for (const section of ["vpn certificate local", "vpn certificate ca", "log disk setting"])
+        expect(FortiOsVdoms.GLOBAL.has(section)).toBe(false);
+    for (const section of ["system global", "system interface", "system dns", "log syslogd setting", "system session-helper"])
+        expect(FortiOsVdoms.GLOBAL.has(section)).toBe(true);
 });
 
 test("tunnels and bridges are refused beside a management VDOM, and so is a route through its interface outside it", () => {

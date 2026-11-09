@@ -275,12 +275,14 @@ test("BFD on a multihop BGP session is taken and read back, but refused: the dev
     ]);
 });
 
-test("BFD on a route in a VRF is rendered but not proved: experimental", () => {
+// Proved on tako-fwl-01 (FG-3700D, 6.2.2): a loopback in VRF 1 and a route through it with BFD, applied, then an empty second plan;
+// `get router info routing-table all` listed it under VRF=1.
+test("BFD on a route in a VRF is built and proved", () => {
     const inVrf: Device = {
         ...firewall,
         routing: { ...firewall.routing, static_routes: [{ prefix: "0.0.0.0/0", next_hop: "198.51.100.98", vrf: "guests", bfd: true }] },
     };
 
-    expect(platform.unsupported(inVrf)).not.toContain(expect.stringContaining("BFD in a VRF"));
-    expect(platform.experimental(inVrf)).toEqual(["routing.static_routes 0.0.0.0/0.bfd, BFD in a VRF"]);
+    expect(platform.unsupported(inVrf)).not.toContain(expect.stringContaining("BFD"));
+    expect(platform.experimental).toBeUndefined();
 });

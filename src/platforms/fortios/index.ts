@@ -224,21 +224,10 @@ export class FortiOs extends Platform {
             if (vrf?.description) found.push(`routing.vrfs.${name}.description, the platform numbers a VRF and keeps no description`);
         }
 
-        // Proved on a FG-3700D on FortiOS 6.2.2, in NAT mode. BFD on a multihop BGP session is refused in FortiOsRouting.gaps, for the reason the device showed.
-        // A management VDOM is rendered but not proved: `experimental()` gives it.
+        // Proved on a FG-3700D on FortiOS 6.2.2, in NAT mode, the management VDOM and BFD on a route in a VRF too. BFD on a multihop BGP
+        // session is refused in FortiOsRouting.gaps, for the reason the device showed.
         found.push(...Derive.unproved(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
         found.push(...Derive.unbuilt(device, ["proxy-arp"]));
-
-        return found;
-    }
-
-    override experimental(device: Device): string[] {
-        const found: string[] = [];
-
-        if (device.system?.vdoms) found.push("system.vdoms, a management VDOM");
-        for (const route of device.routing?.static_routes ?? []) {
-            if (route.vrf && route.bfd) found.push(`routing.static_routes ${route.prefix}.bfd, BFD in a VRF`);
-        }
 
         return found;
     }
