@@ -299,10 +299,12 @@ export class Ssh {
             let output = "";
             let finished = false;
 
+            // The give-up timer is cleared once done, or a long one, such as a commit's, keeps Circuit from ending for its whole length.
             const finish = () => {
                 if (finished) return;
 
                 finished = true;
+                clearTimeout(giveUp);
                 channel.removeListener("data", onData);
                 resolve(output);
             };
@@ -313,7 +315,7 @@ export class Ssh {
             };
 
             channel.on("data", onData);
-            setTimeout(finish, timeout);
+            const giveUp = setTimeout(finish, timeout);
         });
     }
 
