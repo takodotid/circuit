@@ -60,10 +60,8 @@ The whole picture is in the [feature matrix](/platforms/features).
 
 ## FortiOS
 
-**Works:** VLAN interfaces, LAG, bridges, routed ports, GRE, VXLAN, VRRP (IPv4), VRFs, OSPF, BFD, BGP with policies and communities, firewall, NAT (IPv4), drop-only ACLs, DHCP, DNS and NTP servers, sFlow and NetFlow 9.
+**Works:** VLAN interfaces, LAG, bridges, routed ports, GRE, VXLAN, VRRP (IPv4), VRFs, OSPF, BFD (on a VRF's static route too), BGP with policies and communities, firewall, NAT (IPv4), drop-only ACLs, DHCP, DNS and NTP servers, sFlow and NetFlow 9, a management VDOM.
 
 **Doesn't:** STP, storm control, MAC limit (ports are routed), WireGuard, RPKI, large communities, BGP roles.
 
 **Not built yet:** policy routing.
-
-**Built, not proved yet** (needs `--experimental`): a management VDOM, BFD on a VRF's static route.

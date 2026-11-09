@@ -171,7 +171,8 @@ export class FortiOsPlan {
     private static readonly TABLES: Record<string, Table> = {
         // A new aggregate comes with device identification and LLDP of its own, a new VLAN interface, which names no type, with device identification and a role.
         "system interface": {
-            factory: ["modem", "ssl.root"],
+            // In multi-VDOM mode the device shows the links between VDOMs each NP6 chip has, two per chip.
+            factory: ["modem", "ssl.root", ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((chip) => [`npu${chip}_vlink0`, `npu${chip}_vlink1`])],
             created: (entry) => {
                 if (entry.settings.get("type") === "aggregate") return ["device-identification", "lldp-transmission"];
                 if (entry.settings.has("interface") && !entry.settings.has("type")) return ["device-identification", "role"];

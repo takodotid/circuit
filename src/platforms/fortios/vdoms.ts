@@ -14,11 +14,11 @@ export class FortiOsVdoms {
     static readonly ROOT = "root";
 
     /**
-     * Sections under `config global` in multi-VDOM mode, from FortiOS 6.2's CLI reference: the device's identity, logins, interfaces, name resolution, time, SNMP, logging targets, flow export and session helpers. Every other section belongs to a VDOM. Not proved on a device yet.
+     * Sections under `config global` in multi-VDOM mode, as a FG-3700D on FortiOS 6.2.2 has them: the device's identity, logins,
+     * interfaces, name resolution, time, SNMP, syslog, flow export and session helpers. Every other section belongs to a VDOM, the
+     * certificates and `log disk setting` too.
      */
     static readonly GLOBAL = new Set([
-        "vpn certificate local",
-        "vpn certificate ca",
         "system global",
         'system replacemsg admin "pre_admin-disclaimer-text"',
         "system accprofile",
@@ -29,7 +29,6 @@ export class FortiOsVdoms {
         "system snmp sysinfo",
         "system snmp community",
         "system snmp user",
-        "log disk setting",
         ...["", "2", "3", "4"].flatMap((number) => [`log syslogd${number} setting`, `log syslogd${number} filter`]),
         "system sflow",
         "system netflow",
@@ -116,7 +115,7 @@ export class FortiOsVdoms {
 
         if (wantMulti && !haveMulti) {
             return refused(
-                "the config has vdoms and the device runs one VDOM. Turn multi-VDOM mode on by hand, on the console: `config system global`, `set vdom-mode multi-vdom`, `end`. It moves everything into root and ends every session"
+                "the config has vdoms and the device runs one VDOM. Turn multi-VDOM mode on by hand: `config system global`, `set vdom-mode multi-vdom`, `end`, then `y`. It moves everything into root and logs every session out; the traffic keeps flowing"
             );
         }
         if (!wantMulti && haveMulti) {
@@ -129,7 +128,7 @@ export class FortiOsVdoms {
         const moved = FortiOsVdoms.moved(want, have);
         if (moved.length) {
             return refused(
-                `${moved.map(({ name, from, to }) => `${name} from ${from} to ${to}`).join(", ")}: move an interface into another VDOM by hand, on the console, since it may carry the way in`
+                `${moved.map(({ name, from, to }) => `${name} from ${from} to ${to}`).join(", ")}: move an interface into another VDOM by hand, from a session on another interface or the console, since it may carry the way in`
             );
         }
 
