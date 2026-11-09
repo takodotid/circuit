@@ -28,6 +28,21 @@ export function go(path: string): void {
         .join("/");
 }
 
+/**
+ * What a tool keeps in the address after its place, such as `device=edge-01&chain=input` after `#tools/firewall/`, so a test can be
+ * bookmarked or sent. Read again each time the address changes.
+ */
+export function placeParams(place: string): URLSearchParams {
+    void store.route;
+    const hash = location.hash.slice(1);
+    return new URLSearchParams(hash.startsWith(`${place}/`) ? hash.slice(place.length + 1) : "");
+}
+
+/** Go to a tool's place with what it keeps in the address. */
+export function goParams(place: string, params: URLSearchParams): void {
+    location.hash = `${place}/${params}`;
+}
+
 addEventListener("hashchange", () => {
     store.route = parseRoute();
 });

@@ -13,6 +13,8 @@ Beside the graph, the top bar has tables of everything in your files. You can re
 
 **Search** in the top bar finds a name, an address or any other value in any device, and opens the page that shows it.
 
+A field name with a dotted underline, such as `remote_as` on a device's Routing tab or **Remote AS** in the BGP table, shows what the field means when you point at it, the same text your editor shows for it.
+
 A secret shows as its name, such as `secret("EDGE_01_PASSWORD")`, never as its value. Studio only reads. To change something, edit the file, and Studio shows the change when you save it.
 
 ## A device's page
@@ -37,4 +39,4 @@ Studio keeps no copy of what a device runs. **Read from the device now** logs in
 
 ## Saving
 
-Each table can be saved for a spreadsheet with **Save as CSV** above it. On the graph, **Save image** saves the layer shown as a PNG.
+Each table can be saved for a spreadsheet with **Save as CSV** above it. On the graph, **Save image** saves the layer shown as a PNG, and **Save SVG** as an SVG drawing.

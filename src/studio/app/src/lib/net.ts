@@ -54,6 +54,13 @@ export class Net {
         return Boolean(a && b && a.family === b.family && a.first <= b.first && b.last <= a.last);
     }
 
+    /** The same prefix, however it is written: `2001:db8::/32` is `2001:0db8::/32`. */
+    static samePrefix(a: string, b: string): boolean {
+        const x = Net.parseRange(a);
+        const y = Net.parseRange(b);
+        return Boolean(x && y && x.family === y.family && x.first === y.first && x.length === y.length);
+    }
+
     /** The same address, however it is written. */
     static sameAddress(a: string, b: string): boolean {
         const x = Net.parseAddress(a.split("/")[0] ?? "");

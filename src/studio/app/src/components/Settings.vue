@@ -1,9 +1,15 @@
-<!-- Settings as a table of field and value. A value that holds named items, or a list of items, is a table inside; any other is one line of text. -->
+<!-- Settings as a table of field and value. A value that holds named items, or a list of items, is a table inside; any other is one line of text. Each field's name shows its doc on hover, found by its path in the device. -->
 <script setup lang="ts">
 import { computed } from "vue";
+import { FieldDocs } from "../lib/field-docs";
 import { Format } from "../lib/format";
 
-const props = defineProps<{ value: unknown }>();
+/** `path` is where `value` is in the device, such as `routing.bgp`: empty for the device itself. */
+const props = withDefaults(defineProps<{ value: unknown; path?: string }>(), { path: "" });
+
+/** The path of a field inside this value, and of a field of its items: `*` stands for any name or item. */
+const at = (key: string) => (props.path ? `${props.path}.${key}` : key);
+const docOf = (key: string, column?: string) => FieldDocs.find(column === undefined ? at(key) : `${at(key)}.*.${column}`);
 
 type Shown =
     | { kind: "text"; text: string }
@@ -38,7 +44,7 @@ const entries = computed(() =>
     Format.isObject(props.value)
         ? Object.entries(props.value)
               .filter(([, value]) => value !== undefined)
-              .map(([key, value]) => ({ key, item: shown(value) }))
+              .map(([key, value]) => ({ key, item: shown(value), doc: docOf(key) }))
         : []
 );
 </script>
@@ -47,19 +53,19 @@ const entries = computed(() =>
     <p v-if="!entries.length" class="muted">None.</p>
     <table v-else class="data settings">
         <tbody>
-            <tr v-for="{ key, item } in entries" :key="key">
+            <tr v-for="{ key, item, doc } in entries" :key="key">
                 <th>
-                    <code>{{ key }}</code>
+                    <code :data-doc="doc" :tabindex="doc ? 0 : undefined">{{ key }}</code>
                 </th>
                 <td>
                     <template v-if="item.kind === 'text'">{{ item.text }}</template>
-                    <Settings v-else-if="item.kind === 'settings'" :value="item.value" />
+                    <Settings v-else-if="item.kind === 'settings'" :value="item.value" :path="at(key)" />
                     <table v-else-if="item.kind === 'record'" class="data">
                         <thead>
                             <tr>
                                 <th>Name</th>
                                 <th v-for="column in item.head" :key="column">
-                                    <code>{{ column }}</code>
+                                    <code :data-doc="docOf(key, column)" :tabindex="docOf(key, column) ? 0 : undefined">{{ column }}</code>
                                 </th>
                             </tr>
                         </thead>
@@ -77,7 +83,7 @@ const entries = computed(() =>
                             <tr>
                                 <th>#</th>
                                 <th v-for="column in item.head" :key="column">
-                                    <code>{{ column }}</code>
+                                    <code :data-doc="docOf(key, column)" :tabindex="docOf(key, column) ? 0 : undefined">{{ column }}</code>
                                 </th>
                             </tr>
                         </thead>
