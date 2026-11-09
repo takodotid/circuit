@@ -71,7 +71,7 @@ Circuit is declarative config for networks in general, across vendors. Keep what
 - A class in a platform folder starts with the platform's name (`RouterOsRender`), so no two modules export the same generic name.
 - The config language (`src/config/`) is functions by design: a project calls them as globals. Types stay plain `export type`.
 - Type values as tightly as is practical, so the editor suggests them and refuses a wrong one: a literal union for a fixed set, a template literal for a shape (`Prefix`, `StandardCommunity`). Plain `string` only for free text and names.
-- No type casts: no `as`, `as const`, `satisfies` or `!`. A value takes its type from where it is written, such as a typed variable or a function's typed parameter; a value that may be missing is checked with `if`.
+- A project never needs a type cast (`as`, `as const`, `satisfies`, `!`): its users are not always programmers, so the language types every value behind the scenes (`literal`, `part`, typed parameters). A project that has to write one is a bug in the language. Circuit's own code may use them where a type can't be had another way.
 - A key added to, renamed in or removed from a type in `src/config/` changes `keys.ts` too, or `tsc` fails.
 - Use a well-known, maintained, small library before writing your own (`commander` for the CLI, `ssh2`). Check who maintains it, how widely it's used and what it pulls in.
 - No folder for a single file, and no file for a tiny helper: small stand-alone helpers go on `Utils` in `src/core/utils.ts`.
