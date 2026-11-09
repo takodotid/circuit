@@ -264,7 +264,7 @@ export class SerialConsole {
         const { console, user, password } = Secrets.loginOf(device);
         if (!console) throw new Error(`${device.name}: no connection.console`);
 
-        return { console, user, password };
+        return { console, user, password: password() };
     }
 
     /**

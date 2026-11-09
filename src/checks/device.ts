@@ -2,6 +2,7 @@
 // doesn't have, links that don't link back) is not checked again here.
 
 import { X509Certificate } from "node:crypto";
+import { utils } from "ssh2";
 import { Address } from "../core/address";
 import { Utils } from "../core/utils";
 import type { Device, Interface, InterfaceKind, Routed, Switched } from "../model";
@@ -81,6 +82,24 @@ export class DeviceChecks {
         DeviceChecks.services(device, report, cidr);
         DeviceChecks.certificates(device, report);
         DeviceChecks.vdoms(device, report, cidr, ip);
+        DeviceChecks.users(device, report);
+    }
+
+    /** Each SSH key is one public key line whose key reads back, never a private key. */
+    private static users(device: Device, report: Report): void {
+        for (const [name, user] of Object.entries(device.system?.users ?? {})) {
+            (user?.ssh_keys ?? []).forEach((line, index) => {
+                const where = `system.users.${name}.ssh_keys[${index}]`;
+                if (line.includes("PRIVATE KEY"))
+                    return report(`${where} is a private key: write the public key, the line in the .pub file`);
+
+                const key = utils.parseKey(line);
+                if (key instanceof Error || key.isPrivateKey())
+                    report(
+                        `${where} is not a public key line: copy the whole line of the .pub file, such as "ssh-ed25519 AAAAC3Nza... alice@laptop"`
+                    );
+            });
+        }
     }
 
     /** A management VDOM: FortiOS only, not `root`, with no LAG member listed apart from its LAG, and routes that leave through its own interfaces. */
