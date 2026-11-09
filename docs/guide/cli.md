@@ -66,6 +66,9 @@ More than 5% lost, or slower than 300 ms on average? It stops. Often it's your o
 | `exec [device] [command...]`        | Runs read-only commands on the device. Also `execute`.        |
 | `bgp [device]`                      | Each BGP neighbor next to its live session. RouterOS for now. |
 | `access-console [device] [line...]` | Opens the serial console, already logged in.                  |
+| `communities [network]`             | What each BGP community means, for a looking glass.           |
+| `addresses [prefix]`                | What address space is used, and what is free.                 |
+| `sync [target]`                     | Keeps NetBox, LibreNMS, PeeringDB or Prometheus in step.      |
 | `studio`                            | Opens [Circuit Studio](/studio/) in your browser.             |
 | `rename [device] [new-name]`        | Renames a device everywhere in the project.                   |
 | `fmt [file...]`                     | Tidies spacing and line breaks. Nothing else changes.         |
@@ -125,6 +128,61 @@ circuit access-console core-01 'display interface brief'  # send a line, print t
 - `@wait=N:` before a line waits N quiet seconds; `@if=TEXT=>` sends it only if the last output ends with TEXT.
 - `--raw` skips login, for a boot menu and the like.
 - Lines aren't checked like `exec`. A line that changes the device changes it.
+
+### communities
+
+```sh
+circuit communities                 # NLNOG's community,description lines
+circuit communities --format alice  # Alice-LG's [bgp_communities] section
+circuit communities --format json   # the IETF YANG model's JSON
+circuit communities > as64500.txt   # into a file
+```
+
+Prints what each community of your [scheme](/guide/communities) means. Name the network when several in `circuit.ts` have communities.
+
+| Format  | For                                                                                                                                                                  |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nlnog` | The NLNOG Looking Glass's `communities/asNNN.txt`, which bgp.tools reads too. `nnn` is any number, `$0` what it matched.                                             |
+| `alice` | The `[bgp_communities]` section of an Alice-LG config. `*` is any number, `$2` the third part.                                                                       |
+| `json`  | [draft-ietf-grow-yang-bgp-communities](https://datatracker.ietf.org/doc/draft-ietf-grow-yang-bgp-communities/), which the NLNOG Looking Glass also reads from a URL. |
+
+### addresses
+
+```sh
+circuit addresses                   # the space your networks own, what uses it, and what is free
+circuit addresses 198.51.100.0/24   # only inside this prefix
+circuit addresses --length 29       # the free /29s instead
+circuit addresses --format json     # for a script
+```
+
+The space you own is each prefix in `circuit({ prefixes })` and each one a device announces in `originated_prefixes`, labelled with where it came from. Under each one: every segment with how much is free and the next free address, then every use (interfaces, VRRP, DHCP pools and reservations, next hops, BGP neighbors, WireGuard peers), then blocks routed elsewhere, then the free space as the fewest prefixes. What is in use outside that space comes last.
+
+```
+198.51.100.0/24, prefixes ours.v4 in circuit.ts, originated by edge-01
+  198.51.100.8/29, 5 free, next 198.51.100.10
+      198.51.100.9  edge-01 netflix-internet
+  free: 198.51.100.0/29, 198.51.100.16/28, 198.51.100.32/27, 198.51.100.64/26, 198.51.100.128/25
+```
+
+It reads the project only, so an address a device gave out by itself, such as a DHCP lease, isn't known.
+
+### sync
+
+```sh
+circuit sync netbox               # shows what would change in NetBox, then asks
+circuit sync librenms --confirm   # sends without asking
+circuit sync                      # pick the target from a list
+```
+
+Keeps another system in step with the project: [NetBox](/integrations/netbox), [LibreNMS](/integrations/librenms), [PeeringDB](/integrations/peeringdb) or [Prometheus](/integrations/prometheus). Each is set in `circuit({ integrations })`; one that isn't is greyed out in the list. It reads only the project and that system, and never logs in to a device.
+
+1. Reads the project, and stops on an error, as `apply` does.
+2. Asks for your secrets' password if the target's token is encrypted and nothing else gives it.
+3. Reads the other system and shows the plan: `+` makes, `~` changes (each field before and after), `-` deletes. Then **Left alone**: everything it sees but won't touch, each with why. A secret's value never shows.
+4. Asks "Send these changes?", No by default.
+5. Sends, then reads and plans again. If something still differs, it shows what and exits 1.
+
+Nothing to change exits 0. Without a terminal and without `--confirm`, it shows the plan and exits 1 without sending, so `circuit sync <target>` in CI tells you when the other system has drifted. Networks of the project that name the same NetBox, the same LibreNMS, the same AS or the same files are planned together.
 
 ### rename
 

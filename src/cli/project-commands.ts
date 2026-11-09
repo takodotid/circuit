@@ -3,7 +3,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { Validation } from "../checks";
+import { Address } from "../core/address";
+import { AddressSpace } from "../core/address-space";
 import { Cabling } from "../core/cabling";
+import { Registries } from "../core/registries";
 import { Secrets } from "../core/secrets";
 import type { Device } from "../model";
 import { Platforms } from "../platforms";
@@ -13,6 +16,7 @@ import type { ApplyOptions, BgpLogLine, BgpSession, Plan, Platform, ReadSession 
 import { ProjectError, type ProjectRead, readProject, secretsFileOf } from "../project/project";
 import { ConsoleScript, type ConsoleSession, SerialConsole } from "../transport/console";
 import { PathCheck } from "../transport/path-check";
+import { Communities, type CommunityFormat } from "./communities";
 import { Remember } from "./remember";
 import { Rename, type RenamePlan } from "./rename";
 import { SecretsPassword } from "./secrets-password";
@@ -102,6 +106,68 @@ export class ProjectCommands {
             "Which device?",
             devices.map((device) => ({ value: device, label: device.name, hint: device.platform }))
         );
+    }
+
+    /** Keep NetBox, LibreNMS, PeeringDB or Prometheus in step with the project: plan, ask, send. Stops on validation errors first, as `apply` does. */
+    async sync(target: string | undefined, confirmed: boolean): Promise<void> {
+        this.guard(this.devices);
+
+        const { SyncCommand } = await import("./sync");
+        await SyncCommand.run(this.root, this.project, target, confirmed);
+    }
+
+    /** What address space the project uses and what is free, under the prefix given or the space every network owns. */
+    addresses(prefix: string | undefined, length: number | undefined, format: "text" | "json"): void {
+        if (prefix !== undefined && !Address.isCidr(prefix)) Ui.fail(`${prefix} is not a prefix, such as 192.0.2.0/24`);
+
+        const owned: Record<string, Record<string, string>> = {};
+        for (const network of this.project.networks) {
+            const prefixes: Record<string, Record<string, string>> = network.settings.prefixes ?? {};
+            const named = (group: string) => (this.project.networks.length > 1 ? `${network.name}.${group}` : group);
+            for (const [group, members] of Object.entries(prefixes)) owned[named(group)] = { ...members };
+        }
+
+        const report = AddressSpace.report(this.devices, owned, prefix);
+        process.stdout.write(format === "json" ? `${JSON.stringify(report, null, 2)}\n` : AddressSpace.text(report, length));
+    }
+
+    /** What each community of a network's scheme means, printed in `format`: the network named, or the only one with a scheme. */
+    async communities(name: string | undefined, format: CommunityFormat): Promise<void> {
+        const schemes = this.project.networks.filter((network) => network.communities.length);
+        if (!schemes.length) Ui.fail("No network of the project has communities in circuit.ts.");
+
+        const named = name === undefined ? undefined : this.project.networks.find((network) => network.name === name);
+        if (name !== undefined && !named)
+            Ui.fail(`No network ${name}. The project has: ${this.project.networks.map((network) => network.name).join(", ")}`);
+        if (named && !named.communities.length) Ui.fail(`${name} has no communities in circuit.ts.`);
+
+        const [only] = schemes;
+        const network =
+            named ??
+            (schemes.length === 1 && only
+                ? only
+                : Ui.interactive
+                  ? await Ui.select(
+                        "Which network?",
+                        schemes.map((each) => ({ value: each, label: each.name, hint: each.asn === undefined ? "" : `AS${each.asn}` }))
+                    )
+                  : Ui.fail(`Name the network: ${schemes.map((each) => each.name).join(", ")}.`));
+
+        process.stdout.write(Communities.text(network, format));
+    }
+
+    /** The device with the prefix sets a registry fills fetched now, so the plan holds them like any list written out. */
+    private async fetched(device: Device): Promise<Device> {
+        const sourced = Object.values(device.routing?.prefix_sets ?? {}).filter((set) => set && "source" in set).length;
+        if (!sourced) return device;
+
+        try {
+            return await Ui.step(`Fetching ${sourced} prefix set(s) from their registries`, () =>
+                Registries.resolve(device, (line) => console.log(Ui.dim(`   ${line}`)))
+            );
+        } catch (error) {
+            Ui.fail(error instanceof Error ? error.message : String(error));
+        }
     }
 
     /** The device, its secrets read from its network's file, the person asked for that file's password when nothing else gives it. */
@@ -201,7 +267,7 @@ export class ProjectCommands {
 
     /** What `apply` would send, against what the device runs now. Exits 1 when something would change. */
     async diff(name: string | undefined): Promise<void> {
-        const device = await this.withSecrets(await this.pick(name));
+        const device = await this.fetched(await this.withSecrets(await this.pick(name)));
         this.guard([device]);
 
         const adapter = this.adapterOf(device);
@@ -213,7 +279,7 @@ export class ProjectCommands {
 
     /** Plan against what the device runs, show the plan, and send it once the person says yes, or with `--confirm`. */
     async apply(name: string | undefined, confirmed: boolean, force: boolean): Promise<void> {
-        const device = await this.withSecrets(await this.pick(name));
+        const device = await this.fetched(await this.withSecrets(await this.pick(name)));
         this.guard([device]);
         const adapter = this.adapterOf(device);
 

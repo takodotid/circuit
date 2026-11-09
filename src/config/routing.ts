@@ -190,14 +190,17 @@ export type StandardCommunityPattern = `${number | "*"}:${number | "*"}`;
 /** A large community to remove. `*` stands for any value of a part, as in `64500:*:*`. */
 export type LargeCommunityPattern = `${number | "*"}:${number | "*"}:${number | "*"}`;
 
-/** Prefixes listed here, or fetched from a registry by `refresh` and never typed by hand. */
+/**
+ * Prefixes listed here, or fetched from a registry and never typed by hand. `circuit diff` and `circuit apply` fetch them each time,
+ * and the plan adds and removes them one by one like any list. `validate` and Studio don't fetch them.
+ */
 export type PrefixSet =
     | {
           /** The prefixes, of either family or both: a list, or a map of named prefixes, which gives every value. Where the platform keeps one list per family, Circuit writes one of each. */
           prefixes: readonly Prefix[] | Readonly<Record<string, Prefix>>;
       }
     | {
-          /** Where the prefixes are fetched from. */
+          /** Where the prefixes are fetched from, by `diff` and `apply`. An empty answer, or more than 100,000 prefixes, stops before anything is sent. */
           source: {
               /** The registry they come from. */
               registry: "ripe-stat";

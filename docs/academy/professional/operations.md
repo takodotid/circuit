@@ -108,7 +108,7 @@ You cannot run what you cannot find. A provider keeps three records besides the 
 
 Circuit already has part of this: the files know every device, port, cable (`link`), VLAN and address, and Circuit Studio lists every address in use and what is free.
 
-What Circuit does not know is the physical plant: racks, power, serial numbers, which building a device is in. Many networks keep that in [NetBox](https://netboxlabs.com/docs/netbox/), which describes itself as a source of truth that combines IPAM and DCIM. A way to keep NetBox in step with your config, one way, with Circuit writing and NetBox showing, is planned in [issue #24](https://github.com/takodotid/circuit/issues/24) but not built: NetBox needs a site, a role and a type for each device, which Circuit's config does not have yet.
+What Circuit does not know is the physical plant: racks, power, serial numbers, which building a device is in. Many networks keep that in [NetBox](https://netboxlabs.com/docs/netbox/), which describes itself as a source of truth that combines IPAM and DCIM. `circuit sync netbox` keeps it in step with your config, one way, with Circuit writing and NetBox showing: each device's `site` and `role` place it there ([NetBox](/integrations/netbox)).
 
 ## Further reading
 

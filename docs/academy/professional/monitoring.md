@@ -180,6 +180,6 @@ Everything else, such as a port in a quiet hour or a single failed login, belong
 
 - Port counters only go up. Traffic is the difference between two polls, times 8, divided by the seconds between them.
 - A 32-bit counter goes round every few seconds or minutes on a fast port; read the 64-bit `ifHCInOctets`.
-- MRTG drew the first five-minute graphs; LibreNMS and Prometheus do it today, and Circuit hands them every device with `circuit librenms` and `circuit prometheus`.
+- MRTG drew the first five-minute graphs; LibreNMS and Prometheus do it today, and Circuit hands them every device with `circuit sync librenms` and `circuit sync prometheus`.
 - Flow records, from NetFlow, IPFIX or sampled sFlow, say who sent what; `flow_export` turns them on.
 - Page a person only for what they must act on; the rest goes in a report.

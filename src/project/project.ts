@@ -236,7 +236,7 @@ export async function readProject(folder: string): Promise<ProjectRead> {
 
     // ---------- each network ----------
 
-    /** Each device's `site` is one of the network's sites, each site has a device, and each device a check names is one. */
+    /** Each device's `site` is one of the network's sites, each site has a device, each device has a `role` when NetBox is set, and each device a check names is one. */
     function places(network: Json, devices: Record<string, AnyDevice>, at: (name: string) => string) {
         const sites = keys(network.sites);
         for (const [name, d] of Object.entries(devices))
@@ -249,6 +249,13 @@ export async function readProject(folder: string): Promise<ProjectRead> {
         for (const site of sites)
             if (!Object.values(devices).some((d) => d.site === site))
                 findings.push(`sites.${site}: no device is at this site. Remove it, or add a device.`);
+        // NetBox places each device by its role, and Circuit never makes one up.
+        if (network.integrations?.netbox)
+            for (const [name, d] of Object.entries(devices))
+                if (!d.role)
+                    findings.push(
+                        `${at(name)}${name}: NetBox needs a role (integrations.netbox). Write role, such as role: "Edge router".`
+                    );
         const trust = network.checks?.untrusted_vlans;
         for (const [field, named] of [
             ["filtering_devices", trust?.filtering_devices],

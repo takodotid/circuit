@@ -13,7 +13,7 @@ communities    the catalogue: each community the scheme defines, with what it me
 sites          by name: a description, and a number for communities. Nothing more.
 devices        by hostname: one device each (below)
 checks         Circuit's checks, turned on by name with their settings, and the project's own
-integrations   peeringdb, librenms, netbox
+integrations   peeringdb, librenms, netbox, prometheus
 ```
 
 ## A device

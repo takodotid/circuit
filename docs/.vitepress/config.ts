@@ -30,6 +30,10 @@ const sidebar: DefaultTheme.SidebarItem[] = [
         items: [
             { text: "Overview", link: "/integrations/" },
             { text: "1Password", link: "/integrations/1password" },
+            { text: "NetBox", link: "/integrations/netbox" },
+            { text: "LibreNMS", link: "/integrations/librenms" },
+            { text: "PeeringDB", link: "/integrations/peeringdb" },
+            { text: "Prometheus", link: "/integrations/prometheus" },
         ],
     },
     {
