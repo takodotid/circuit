@@ -105,6 +105,33 @@ jobs:
                   HTTPS_PROXY=http://127.0.0.1:9 HTTP_PROXY=http://127.0.0.1:9 circuit validate 2>&1 | tee offline.txt || true
                   grep -q "Could not reach the npm registry or GitHub" offline.txt
 
+            # The release's files served from here, with one checksum changed: the installer must refuse them.
+            - name: a download whose checksums are not the signed ones is refused
+              run: |
+                  mirror="$(mktemp -d)" && cd "$mirror"
+                  asset="circuit-$( [ "$RUNNER_OS" = macOS ] && echo darwin || echo linux )-$( [ "$(uname -m)" = x86_64 ] && echo x64 || echo arm64 )"
+                  base="https://github.com/takodotid/circuit/releases/download/v$NEWER"
+                  for file in "$asset" SHA256SUMS SHA256SUMS.sshsig; do curl -fsSL --retry 3 -o "$file" "$base/$file"; done
+                  sed "s/^[0-9a-f]\{8\}/00000000/" SHA256SUMS > tampered && mv tampered SHA256SUMS
+                  (python3 -m http.server 8765 >/dev/null 2>&1 &) && sleep 2
+                  sed "s|https://github.com/\$REPO/releases/download/v\$version|http://127.0.0.1:8765|" "$GITHUB_WORKSPACE/docs/public/install" > install
+                  if CIRCUIT_VERSION=$NEWER CIRCUIT_NO_SETUP=1 HOME="$(mktemp -d)" sh install > out.txt 2>&1; then cat out.txt; exit 1; fi
+                  cat out.txt
+                  grep -q "not signed with Circuit's release key" out.txt
+
+            # A version a security advisory affects runs nothing until the project moves: the advisory is put in Circuit's cache of them.
+            - name: a project pinned to a version an advisory affects runs nothing
+              run: |
+                  project="$(mktemp -d)" && cd "$project"
+                  printf 'export const net = circuit({});\n' > circuit.ts
+                  mkdir -p .circuit && printf '%s\n' "$OLDER" > .circuit/version
+                  now="$(($(date +%s) * 1000))"
+                  printf '{"checked":%s,"advisories":[{"id":"GHSA-test-test-test","summary":"A test advisory","severity":"high","url":"https://example.com","affected":["= %s"],"patched":["%s"]}]}' "$now" "$OLDER" "$NEWER" > "$HOME/.circuit/advisories.json"
+                  if circuit validate > out.txt 2>&1; then cat out.txt; exit 1; fi
+                  cat out.txt
+                  grep -q "has a security problem" out.txt
+                  rm -f "$HOME/.circuit/advisories.json"
+
             - name: a full install puts nothing on PATH, and bun circuit runs the package's circuit
               run: |
                   cd "$(mktemp -d)"
