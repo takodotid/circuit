@@ -1,0 +1,116 @@
+name: installers
+
+# The installers, `circuit update`, the versions projects pin and `circuit uninstall`, end to end on Linux and macOS, against the
+# releases on GitHub (#174). The installer's questions are answered through a terminal that `script` gives it. Runs when they change, and
+# after each release.
+
+on:
+    push:
+        branches: [v1]
+        paths:
+            - docs/public/install
+            - .github/workflows/installers.yml
+            - src/cli/app.ts
+            - src/cli/releases.ts
+            - src/cli/versions.ts
+    release:
+        types: [published]
+    workflow_dispatch:
+
+jobs:
+    installers:
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest, macos-latest]
+        runs-on: ${{ matrix.os }}
+        env:
+            # Two releases, an older one to update from and the one after it.
+            OLDER: 1.0.0-rc.7
+            NEWER: 1.0.0-rc.8
+            SHELL: /bin/bash
+        steps:
+            - uses: actions/checkout@v4
+            - uses: oven-sh/setup-bun@v2
+
+            # The installer and Circuit read their answers from a terminal; `script` gives them one, fed from stdin.
+            - name: a terminal for the questions
+              run: |
+                  if [ "$RUNNER_OS" = macOS ]; then
+                      printf '#!/bin/sh\nexec script -q /dev/null "$@"\n' > /usr/local/bin/pty
+                  else
+                      printf '#!/bin/sh\nexec script -qec "$*" /dev/null\n' | sudo tee /usr/local/bin/pty >/dev/null
+                  fi
+                  sudo chmod +x /usr/local/bin/pty
+                  echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+            - name: a fresh install asks app or project, then whether to start a project
+              run: |
+                  cd "$(mktemp -d)"
+                  printf 'y\nn\n' | CIRCUIT_VERSION=$OLDER pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
+                  grep -q "Install Circuit as an app" out.txt
+                  grep -q "Set up a new project in this folder" out.txt
+                  test "$("$HOME/.local/bin/circuit" --version)" = "$OLDER"
+                  grep -q "# Added by Circuit" "$HOME/.bashrc" "$HOME/.bash_profile" 2>/dev/null
+
+            - name: running it again asks before updating
+              run: |
+                  cd "$(mktemp -d)"
+                  printf 'n\n' | CIRCUIT_VERSION=$NEWER CIRCUIT_NO_SETUP=1 pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
+                  grep -q "Kept Circuit $OLDER" out.txt
+                  test "$(circuit --version)" = "$OLDER"
+                  printf 'y\n' | CIRCUIT_VERSION=$NEWER CIRCUIT_NO_SETUP=1 pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
+                  grep -q "Circuit $NEWER is installed" out.txt
+                  test "$(circuit --version)" = "$NEWER"
+
+            - name: a fresh clone runs the version it pins, downloaded without a question in CI
+              run: |
+                  project="$(mktemp -d)" && cd "$project"
+                  git init -q
+                  printf 'export const net = circuit({});\n' > circuit.ts
+                  mkdir -p .circuit && printf '%s\n' "$OLDER" > .circuit/version
+                  circuit validate
+                  test -x "$HOME/.circuit/versions/$OLDER/circuit"
+                  echo "PROJECT=$project" >> "$GITHUB_ENV"
+
+            - name: circuit update moves the project, and a version no project pins is removed
+              run: |
+                  newest="$(curl -fsSL https://registry.npmjs.org/-/package/@takodotid/circuit/dist-tags | sed -n 's/.*"rc"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+                  cd "$PROJECT"
+                  circuit update --confirm
+                  test "$(cat .circuit/version)" = "$newest"
+                  circuit validate
+                  test ! -e "$HOME/.circuit/versions/$OLDER"
+                  circuit update --app --confirm
+                  test "$(circuit --version)" = "$newest"
+
+            - name: the installed circuit updates itself before a command, and warns when it is offline
+              run: |
+                  # Back to the older release: without a terminal the installer never updates, so it installs afresh.
+                  rm -f "$HOME/.local/bin/circuit"
+                  CIRCUIT_VERSION=$OLDER CIRCUIT_NO_SETUP=1 sh "$GITHUB_WORKSPACE/docs/public/install"
+                  test "$(circuit --version)" = "$OLDER"
+                  cd "$PROJECT"
+                  circuit validate
+                  newest="$(curl -fsSL https://registry.npmjs.org/-/package/@takodotid/circuit/dist-tags | sed -n 's/.*"rc"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+                  test "$(circuit --version)" = "$newest"
+                  # The checks it remembers for a while are forgotten, so it asks again, through a proxy that answers nothing.
+                  rm -f "$HOME/.circuit/latest.json" "$HOME/.circuit/advisories.json"
+                  HTTPS_PROXY=http://127.0.0.1:9 HTTP_PROXY=http://127.0.0.1:9 circuit validate 2>&1 | tee offline.txt || true
+                  grep -q "Could not reach the npm registry or GitHub" offline.txt
+
+            - name: a full install puts nothing on PATH, and bun circuit runs the package's circuit
+              run: |
+                  cd "$(mktemp -d)"
+                  bun init -y >/dev/null
+                  bun add "@takodotid/circuit@$NEWER" >/dev/null
+                  bun circuit --version | tee out.txt
+                  grep -q "$NEWER" out.txt
+
+            - name: circuit uninstall removes the program, the PATH line and ~/.circuit, and keeps the projects
+              run: |
+                  circuit uninstall --confirm
+                  test ! -e "$HOME/.local/bin/circuit"
+                  test ! -e "$HOME/.circuit"
+                  ! grep -qs "# Added by Circuit" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" "$HOME/.zshrc"
+                  test -f "$PROJECT/circuit.ts"
