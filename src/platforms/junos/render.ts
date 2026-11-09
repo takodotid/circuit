@@ -454,12 +454,15 @@ export class JunosRender {
         return `circuit-bound-${physical.replaceAll("/", "-")}`;
     }
 
+    /** `0.0.0.0`, which a host asking DHCP for an address sends from. */
+    private static readonly IPV4_ALWAYS = ["0.0.0.0/32"];
+
     /** Link-local addresses, and `::` while a host checks an address is free: IPv6 needs both, so every bound host sends from them. */
     private static readonly IPV6_ALWAYS = ["fe80::/10", "::/128"];
 
     /**
-     * For each host on a bound port, a term for each kind of packet it sends, all from its MAC address: IPv4 from its IPv4 addresses, IPv6
-     * from its IPv6 addresses and those every host needs, and ARP. Then nothing else. The device prints a MAC address with its length, `/48`.
+     * For each host on a bound port, a term for each kind of packet it sends, all from its MAC address: IPv4 and IPv6 from its own addresses
+     * and those every host needs, and ARP. Then nothing else. The device prints a MAC address with its length, `/48`.
      */
     private boundFilters(): void {
         const holders: [string, Switched][] = [
@@ -480,12 +483,10 @@ export class JunosRender {
                 const of = (family: Family) =>
                     host.addresses.filter((address) => Address.family(address.split("/")[0]!) === family).map(JunosRender.withLength);
 
-                const ipv4 = of("ipv4");
-                if (ipv4.length) {
-                    this.out.set(`${term}-ipv4 from source-mac-address`, mac);
-                    for (const address of ipv4) this.out.set(`${term}-ipv4 from ip-source-address`, address);
-                    this.out.set(`${term}-ipv4 then accept`);
-                }
+                this.out.set(`${term}-ipv4 from source-mac-address`, mac);
+                for (const address of [...of("ipv4"), ...JunosRender.IPV4_ALWAYS])
+                    this.out.set(`${term}-ipv4 from ip-source-address`, address);
+                this.out.set(`${term}-ipv4 then accept`);
 
                 this.out.set(`${term}-ipv6 from source-mac-address`, mac);
                 for (const address of [...of("ipv6"), ...JunosRender.IPV6_ALWAYS])

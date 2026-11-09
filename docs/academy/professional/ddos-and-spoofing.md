@@ -87,7 +87,7 @@ The gateway's check stops sources outside a subnet. Inside it, any server can st
 },
 ```
 
-The port then takes IPv4 and IPv6 only from those MAC addresses with those sources, link-local IPv6 from them too, and ARP only from them. Anything else is dropped. A server whose virtual machines are bridged onto its cable lists each machine, so a new machine is a new entry before it can send. A port with another switch behind it can't be bound host by host; the gateway's check is what protects it.
+The port then takes IPv4 and IPv6 only from those MAC addresses with those sources, plus what every host sends from (`0.0.0.0` while it asks DHCP for an address, link-local IPv6, and `::`), and ARP only from them. Anything else is dropped. A server whose virtual machines are bridged onto its cable lists each machine, so a new machine is a new entry before it can send. A port with another switch behind it can't be bound host by host; the gateway's check is what protects it.
 
 On Junos the switch can't read inside an ARP packet, so a bound host can still claim a neighbour's address in ARP. It can no longer send packets from that address.
 

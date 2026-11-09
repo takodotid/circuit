@@ -188,13 +188,15 @@ test("a MAC limit or an ethertype filter is refused where the switching family c
 });
 
 // What the device printed after a commit of an access port bound to two hosts, one with an address of each family and one with a prefix. A
-// MAC address comes back with its length, `/48`; an IPv6 match sits under `ip-version ipv6`.
+// MAC address comes back with its length, `/48`; an IPv6 match sits under `ip-version ipv6`. Bound on an iDRAC's port, the filter was
+// programmed in hardware and dropped a wrong address or MAC address at once.
 const BOUND = [
     "set interfaces xe-0/0/3 unit 0 family ethernet-switching interface-mode access",
     "set interfaces xe-0/0/3 unit 0 family ethernet-switching vlan members servers",
     "set interfaces xe-0/0/3 unit 0 family ethernet-switching filter input circuit-bound-xe-0-0-3",
     "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv4 from source-mac-address 02:00:00:00:00:01/48",
     "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv4 from ip-source-address 192.0.2.10/32",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv4 from ip-source-address 0.0.0.0/32",
     "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv4 then accept",
     "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv6 from source-mac-address 02:00:00:00:00:01/48",
     "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-ipv6 from ip-version ipv6 ip6-source-address 2001:db8::10/128",
@@ -206,6 +208,7 @@ const BOUND = [
     "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-1-arp then accept",
     "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv4 from source-mac-address 02:00:00:00:00:0a/48",
     "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv4 from ip-source-address 198.51.100.8/29",
+    "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv4 from ip-source-address 0.0.0.0/32",
     "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv4 then accept",
     "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv6 from source-mac-address 02:00:00:00:00:0a/48",
     "set firewall family ethernet-switching filter circuit-bound-xe-0-0-3 term host-2-ipv6 from ip-version ipv6 ip6-source-address fe80::/10",

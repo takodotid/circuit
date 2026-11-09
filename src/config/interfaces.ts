@@ -20,7 +20,7 @@ export type Ethertype = "ipv4" | "ipv6" | "arp";
 export type BoundHost = {
     /** The MAC address of the host's network card, or of a virtual machine bridged onto it, for example `02:00:00:00:00:01`. */
     mac: MacAddress;
-    /** The IPv4 and IPv6 addresses it sends from, each an address or a prefix routed to it. Its IPv6 link-local addresses, and `::` while it checks an address is free, are taken without being listed. */
+    /** The IPv4 and IPv6 addresses it sends from, each an address or a prefix routed to it. What every host sends from is taken without being listed: `0.0.0.0` while it asks DHCP for an address, its IPv6 link-local addresses, and `::` while it checks an address is free. */
     addresses: readonly (IP | Prefix)[];
 };
 
@@ -111,8 +111,8 @@ export type Switched<Vlan extends string> = {
     /** The only kinds of frame this port or LAG takes in; any other kind is dropped. An exchange takes `ipv4`, `ipv6` and `arp` on a member port. Every kind when absent. */
     ethertypes?: readonly Ethertype[];
     /**
-     * The only hosts on this access port: frames only from their MAC addresses, IP packets only from their own addresses, and ARP only
-     * from their MAC addresses. Anything else arriving on the port is dropped, so a host can't send as its neighbour. A server with a
+     * The only hosts on this access port: frames only from their MAC addresses, IP packets only from their own addresses (and what every
+     * host sends from: `0.0.0.0` for DHCP, IPv6 link-local and `::`), and ARP only from their MAC addresses. Anything else arriving on the port is dropped, so a host can't send as its neighbour. A server with a
      * management card on the same cable, or virtual machines bridged onto it, lists each MAC. Unbound when absent.
      */
     bound_to?: readonly BoundHost[];
