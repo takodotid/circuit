@@ -798,13 +798,14 @@ export class RouterOs extends Platform {
 
     /** Log in over SSH. `flags` go after the user, as RouterOS reads them: `+ct300w`. */
     private static async login(device: Device, flags = ""): Promise<Client> {
-        const { port, user, password } = Secrets.loginOf(device);
+        const { port, user, password, keys } = Secrets.loginOf(device);
 
         return Ssh.connect({
             host: Ssh.hostOf(device),
             port,
             user: `${user}${flags}`,
             password,
+            keys,
         });
     }
 

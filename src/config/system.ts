@@ -18,9 +18,23 @@ export type User = {
     password: Secret;
     /** Who the account is for. */
     description?: string;
-    /** Public keys accepted instead of the password over SSH. */
-    ssh_keys?: readonly string[];
+    /**
+     * Public keys that log in over SSH beside the password, each one line as `ssh-keygen` writes it in the `.pub` file, such as
+     * `ssh-ed25519 AAAAC3Nza... alice@laptop`. Never a private key. Circuit logs in with one of them too, when it is in an SSH agent
+     * (1Password's, or the system's) or in `~/.ssh/` on the computer it runs on, and with the password otherwise.
+     */
+    ssh_keys?: readonly SshPublicKey[];
 };
+
+/** An OpenSSH public key line: its type, the key, then an optional comment. */
+export type SshPublicKey = `${
+    | "ssh-ed25519"
+    | "ssh-rsa"
+    | "ecdsa-sha2-nistp256"
+    | "ecdsa-sha2-nistp384"
+    | "ecdsa-sha2-nistp521"
+    | "sk-ssh-ed25519@openssh.com"
+    | "sk-ecdsa-sha2-nistp256@openssh.com"} ${string}`;
 
 /** A certificate the device presents or trusts. */
 export type Certificate = {

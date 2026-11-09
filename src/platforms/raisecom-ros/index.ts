@@ -666,13 +666,14 @@ export class RaisecomRos extends Platform {
     }
 
     private static async sshShell(device: Device): Promise<Session> {
-        const { port, user, password } = Secrets.loginOf(device);
+        const { port, user, password, keys } = Secrets.loginOf(device);
 
         const client = await Ssh.connect({
             host: Ssh.hostOf(device),
             port,
             user,
             password,
+            keys,
             hostKeys: RaisecomRos.HOST_KEYS,
         });
         const channel = await Ssh.shell(client);

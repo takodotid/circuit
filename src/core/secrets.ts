@@ -14,8 +14,10 @@ export type DeviceLogin = {
     host?: IP;
     port: number;
     user: string;
-    /** The value, not a reference. Never print it. */
-    password: string;
+    /** Reveals the password: called only when it is needed, as SSH tries the user's keys first. Never print it. */
+    password: () => string;
+    /** The OpenSSH public keys the user takes (`ssh_keys`), which SSH tries before the password. */
+    keys: readonly string[];
     console?: Console;
 };
 
@@ -209,7 +211,8 @@ export class Secrets {
             ...(device.connection.host ? { host: device.connection.host } : {}),
             port: device.connection.port ?? 22,
             user: device.connection.user,
-            password: Secrets.reveal(user.password),
+            password: () => Secrets.reveal(user.password),
+            keys: user.ssh_keys ?? [],
             ...(device.connection.console ? { console: device.connection.console } : {}),
         };
     }

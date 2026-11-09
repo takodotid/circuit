@@ -30,6 +30,30 @@ Before changing anything, Circuit tests the plan where the platform allows:
 | Raisecom ROS | None. Runs each command and stops at the first one refused.                 |
 | FortiOS      | None. Runs each line; if one is refused, reloads the saved config.          |
 
+## How Circuit logs in
+
+Circuit logs in over SSH as `connection.user`. When that user has `ssh_keys`, it tries a key first:
+
+1. A key in your SSH agent: 1Password's, or the system's (`SSH_AUTH_SOCK`, or on Windows the OpenSSH agent's pipe).
+2. `~/.ssh/id_ed25519`, `id_ecdsa` or `id_rsa`, when its `.pub` file is one of the user's `ssh_keys` and it has no passphrase.
+3. The user's password, unlocked only now.
+
+Circuit offers only the keys in `ssh_keys`, since some devices lock an account after a few refused tries. It says which way it logged in. When a device refuses the key and Circuit falls back to the password, it warns, so a broken key never hides behind the password.
+
+```ts
+system: {
+    users: {
+        netops: {
+            role: "admin",
+            password: secret("NETOPS_PASSWORD"),
+            ssh_keys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGFuIGV4YW1wbGUga2V5LCBuZXZlciBhIHJlYWwgb25l alice@laptop"],
+        },
+    },
+},
+```
+
+The password keeps working over SSH beside the keys. On RouterOS, Circuit writes `/ip ssh password-authentication=yes` for that, since RouterOS turns password login off for a user once it has a key.
+
 ## Not locking you out
 
 The scariest change is one that cuts off Circuit's own way in. So after every change, Circuit logs in again in a fresh session. The change only stays if that works.

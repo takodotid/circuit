@@ -555,13 +555,14 @@ export class Vrp extends Platform {
     }
 
     private static async login(device: Device): Promise<Client> {
-        const { port, user, password } = Secrets.loginOf(device);
+        const { port, user, password, keys } = Secrets.loginOf(device);
 
         return Ssh.connect({
             host: Ssh.hostOf(device),
             port,
             user,
             password,
+            keys,
             hostKeys: Vrp.HOST_KEYS,
         });
     }
