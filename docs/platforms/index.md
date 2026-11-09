@@ -36,9 +36,9 @@ The whole picture is in the [feature matrix](/platforms/features).
 
 ## VRP
 
-**Works:** VLANs, LAG, VLAN interfaces, VRRP (IPv4), VRFs, static routes, OSPF (IPv4), BFD, DHCP relay, NTP, SNMP, syslog, sFlow, MAC limit and ethertype filter on ports.
+**Works:** VLANs, LAG, VLAN interfaces, VRRP (IPv4), VRFs, static routes, OSPF (IPv4), BFD, DHCP relay, NTP, SNMP, syslog, sFlow, MAC limit and ethertype filter on ports, one RSA SSH key per user.
 
-**Doesn't:** BGP, route policies, firewall, NAT, hardware ACLs, DHCP server, loopbacks and tunnels, SSH keys.
+**Doesn't:** BGP, route policies, firewall, NAT, hardware ACLs, DHCP server, loopbacks and tunnels, ed25519 or ECDSA SSH keys.
 
 **Not built yet:** policy routing, MAC limit and ethertype filter on a LAG.
 

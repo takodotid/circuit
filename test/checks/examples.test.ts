@@ -101,9 +101,14 @@ test("a field a platform renders nothing for is unsupported", () => {
                 // VRP and Raisecom ROS both give SNMP sources of their own, so neither refuses monitoring.snmp.allow.
                 "management.ssh.port",
                 "system.users.operator.description",
-                "system.users.operator.ssh_keys",
                 "system.ip_stack",
             ])
+        );
+        // Raisecom ROS takes no key; VRP takes RSA only, and this one is ed25519.
+        expect(unsupported(switchGaps(device))).toContain(
+            device.platform === "vrp"
+                ? "system.users.operator.ssh_keys[0], not RSA: the platform takes RSA keys only"
+                : "system.users.operator.ssh_keys"
         );
     }
 

@@ -76,7 +76,7 @@ A note in a cell means "works, with this limit".
 | Feature                | RouterOS         | VRP   | Raisecom ROS   | Junos    | FortiOS          |
 | ---------------------- | ---------------- | ----- | -------------- | -------- | ---------------- |
 | Users                  | ✅               | ✅    | admin role     | ✅       | ✅               |
-| SSH keys               | ✅               | ❌    | ❌             | ✅       | ✅               |
+| SSH keys               | ✅               | RSA   | ❌             | ✅       | ✅               |
 | SNMP v2c and v3        | ✅ v3 SHA1/MD5   | ✅    | ✅ v3 SHA1/MD5 | ✅       | ✅ v3 SHA1/MD5   |
 | Syslog                 | ✅               | ✅    | ✅             | ✅       | ✅ up to 4       |
 | Flow export            | NetFlow 9, IPFIX | sFlow | ❌             | sFlow    | sFlow, NetFlow 9 |

@@ -12,7 +12,7 @@ import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../catalog";
 import { Derive } from "../derive";
 import { LineDiff, type Dialect, type Group } from "../line-diff";
-import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
+import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
@@ -233,7 +233,18 @@ export class Vrp extends Platform {
         if (monitoring.transceivers !== undefined) found.push("monitoring.transceivers");
 
         // SNMP takes sources of its own here, in an ACL of its own.
-        found.push(...Derive.switchUnsupported(device, ["snmp"]));
+        found.push(...Derive.switchUnsupported(device, ["snmp"], true));
+        // One key per user, as `ssh user ... assign` takes one. RSA only: V200R005 has no ed25519, and ECDSA is not proved.
+        for (const [name, user] of Object.entries(device.system?.users ?? {})) {
+            const keys = user?.ssh_keys ?? [];
+            if (keys.length > 1) found.push(`system.users.${name}.ssh_keys, more than one: a user takes one key`);
+            keys.forEach((key, index) => {
+                if (!key.startsWith("ssh-rsa "))
+                    found.push(`system.users.${name}.ssh_keys[${index}], not RSA: the platform takes RSA keys only`);
+            });
+            if (keys.length && name.length > VrpRender.KEY_NAME)
+                found.push(`system.users.${name}.ssh_keys, a key named after a user over ${VrpRender.KEY_NAME} characters`);
+        }
         found.push(...Derive.unproved(device, ["alarm-severity", "bfd-timers", "static-route-bfd", "mac-limit", "ethertype-filter"]));
         found.push(...Derive.unbuilt(device));
 
@@ -296,6 +307,8 @@ export class Vrp extends Platform {
         Vrp.replaceRules(groups, current);
         Vrp.emptyAlarmView(groups, current);
         Vrp.keepReplacedWhole(groups);
+        const keys = Vrp.keySteps(groups, desired, current);
+        if (keys.problems.length) return { steps: [], problems: keys.problems };
 
         const top = groups.find((group) => group.path.length === 0);
         const removedBatch = top?.remove.find((line) => line.startsWith("vlan batch ")) ?? "";
@@ -327,7 +340,7 @@ export class Vrp extends Platform {
             planned.push({ title: "ACLs no longer used", show: lastRemovals.map((line) => `- ${line}`), send: lastRemovals.map(Vrp.undo) });
         }
 
-        return { steps: planned, problems: [] };
+        return { steps: [...keys.first, ...planned, ...keys.last], problems: [] };
     }
 
     async apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
@@ -442,6 +455,9 @@ export class Vrp extends Platform {
     private static undo(line: string): string {
         // A negated line is undone by stating it.
         if (line.startsWith("undo ")) return line.slice("undo ".length);
+        // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
+        const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);
+        if (assigned) return `undo ${assigned[1]}`;
         // An ACL rule is removed by its number.
         if (/^rule \d+/.test(line)) return `undo ${line.split(" ").slice(0, 2).join(" ")}`;
 
@@ -522,6 +538,67 @@ export class Vrp extends Platform {
             const added = new Set(group.add.map(kind).filter(Boolean));
             group.remove = group.remove.filter((line) => !added.has(kind(line)));
         }
+    }
+
+    /** Each SSH key block, `rsa peer-public-key <name> ...` with its lines, by name. */
+    private static keyBlocks(text: string): Map<string, string[]> {
+        const blocks = new Map<string, string[]>();
+        const lines = text.split(/\r?\n/);
+
+        lines.forEach((line, index) => {
+            const name = /^rsa peer-public-key (\S+)/.exec(line)?.[1];
+            if (!name) return;
+            const end = lines.findIndex((other, at) => at > index && other.trim() === "peer-public-key end");
+            blocks.set(
+                name,
+                lines.slice(index, end < 0 ? undefined : end + 1).map((each) => each.trim())
+            );
+        });
+
+        return blocks;
+    }
+
+    /**
+     * SSH keys are sent whole: a new key, every line of its block, before the lines that assign it to a user, and a key that goes, after
+     * them. Its lines leave the groups, which would send them apart. A key that changes is refused: the switch asks before replacing one.
+     */
+    private static keySteps(groups: Group[], desired: string, current: string): { first: Step[]; last: Step[]; problems: string[] } {
+        const wanted = Vrp.keyBlocks(desired);
+        const had = Vrp.keyBlocks(current);
+        const first: Step[] = [];
+        const last: Step[] = [];
+        const problems: string[] = [];
+
+        for (const group of groups) {
+            if (group.path[0]?.startsWith("rsa peer-public-key ")) {
+                group.add = [];
+                group.remove = [];
+            }
+            if (group.path.length === 0) {
+                group.add = group.add.filter((line) => !line.startsWith("rsa peer-public-key "));
+                group.remove = group.remove.filter((line) => !line.startsWith("rsa peer-public-key "));
+            }
+        }
+
+        for (const [name, lines] of wanted) {
+            const old = had.get(name);
+            if (!old) first.push({ title: `SSH key ${name}`, show: lines.map((line) => `+ ${line}`), send: VrpRender.keyLines(lines) });
+            else if (old.join("\n") !== lines.join("\n"))
+                problems.push(
+                    `the SSH key ${name} changes: the switch asks before it replaces a key, so remove it in one apply and add it in the next`
+                );
+        }
+
+        for (const name of had.keys()) {
+            if (!wanted.has(name))
+                last.push({
+                    title: `SSH key ${name}, removed`,
+                    show: [`- rsa peer-public-key ${name}`],
+                    send: [`undo rsa peer-public-key ${name}`],
+                });
+        }
+
+        return { first, last, problems };
     }
 
     /** `undo alarm` is not a command: the `alarm` view goes once each line in it is undone. */
