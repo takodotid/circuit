@@ -46,12 +46,21 @@ jobs:
                   fi
                   sudo chmod +x /usr/local/bin/pty
 
+            # The newest Circuit 1 or later, as the installer and `circuit update` pick it: the stable release, else the newest candidate.
+            - name: the newest release
+              run: |
+                  tags="$(curl -fsSL https://registry.npmjs.org/-/package/@takodotid/circuit/dist-tags)"
+                  tag() { printf '%s' "$tags" | sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"; }
+                  newest="$(tag latest)"
+                  case "$newest" in 0.*) newest="$(tag rc)" ;; esac
+                  echo "NEWEST=$newest" >> "$GITHUB_ENV"
+
             - name: a fresh install asks app or project, then whether to start a project
               run: |
                   cd "$(mktemp -d)"
                   # A runner may have ~/.local/bin on PATH already; a person's machine doesn't, so the installer adds it.
                   export PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v '/.local/bin' | paste -sd: -)"
-                  { sleep 3; printf 'y\n'; sleep 30; printf 'n\n'; } | CIRCUIT_VERSION=$OLDER pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
+                  { sleep 10; printf 'y\n'; sleep 40; printf 'n\n'; sleep 10; } | CIRCUIT_VERSION=$OLDER pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
                   grep -q "Added $HOME/.local/bin to PATH" out.txt
                   grep -q "Install Circuit as an app" out.txt
                   grep -q "Set up a new project in this folder" out.txt
@@ -62,10 +71,10 @@ jobs:
             - name: running it again asks before updating
               run: |
                   cd "$(mktemp -d)"
-                  { sleep 3; printf 'n\n'; } | CIRCUIT_VERSION=$NEWER CIRCUIT_NO_SETUP=1 pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
+                  { sleep 10; printf 'n\n'; sleep 10; } | CIRCUIT_VERSION=$NEWER CIRCUIT_NO_SETUP=1 pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
                   grep -q "Kept Circuit $OLDER" out.txt
                   test "$(circuit --version)" = "$OLDER"
-                  { sleep 3; printf 'y\n'; } | CIRCUIT_VERSION=$NEWER CIRCUIT_NO_SETUP=1 pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
+                  { sleep 10; printf 'y\n'; sleep 10; } | CIRCUIT_VERSION=$NEWER CIRCUIT_NO_SETUP=1 pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
                   grep -q "Circuit $NEWER is installed" out.txt
                   test "$(circuit --version)" = "$NEWER"
 
@@ -81,14 +90,13 @@ jobs:
 
             - name: circuit update moves the project, and a version no project pins is removed
               run: |
-                  newest="$(curl -fsSL https://registry.npmjs.org/-/package/@takodotid/circuit/dist-tags | sed -n 's/.*"rc"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
                   cd "$PROJECT"
                   circuit update --confirm
-                  test "$(cat .circuit/version)" = "$newest"
+                  test "$(cat .circuit/version)" = "$NEWEST"
                   circuit validate
                   test ! -e "$HOME/.circuit/versions/$OLDER"
                   circuit update --app --confirm
-                  test "$(circuit --version)" = "$newest"
+                  test "$(circuit --version)" = "$NEWEST"
 
             - name: the installed circuit updates itself before a command, and warns when it is offline
               run: |
@@ -98,8 +106,7 @@ jobs:
                   test "$(circuit --version)" = "$OLDER"
                   cd "$PROJECT"
                   circuit validate
-                  newest="$(curl -fsSL https://registry.npmjs.org/-/package/@takodotid/circuit/dist-tags | sed -n 's/.*"rc"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
-                  test "$(circuit --version)" = "$newest"
+                  test "$(circuit --version)" = "$NEWEST"
                   # The checks it remembers for a while are forgotten, so it asks again, through a proxy that answers nothing.
                   rm -f "$HOME/.circuit/latest.json" "$HOME/.circuit/advisories.json"
                   HTTPS_PROXY=http://127.0.0.1:9 HTTP_PROXY=http://127.0.0.1:9 circuit validate 2>&1 | tee offline.txt || true
