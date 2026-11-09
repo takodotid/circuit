@@ -83,11 +83,6 @@ export class SecretsAgent {
         });
     }
 
-    /** How this Circuit runs itself: the installed binary, or Bun with these sources. */
-    private static self(): string[] {
-        return Releases.binary() ? [process.execPath] : [process.execPath, join(import.meta.dir, "index.ts")];
-    }
-
     /** Start the process, to stop at `until`. False when it did not answer. */
     static async start(until: number): Promise<boolean> {
         const home = Releases.home();
@@ -103,7 +98,7 @@ export class SecretsAgent {
         const environment = Object.fromEntries(
             SecretsAgent.ENVIRONMENT.filter((name) => process.env[name] !== undefined).map((name) => [name, process.env[name]!])
         );
-        const [command, ...args] = SecretsAgent.self();
+        const [command, ...args] = Releases.self();
         const child = spawn(command!, [...args, SecretsAgent.COMMAND], {
             detached: true,
             windowsHide: true,

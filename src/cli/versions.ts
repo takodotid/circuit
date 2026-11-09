@@ -12,7 +12,7 @@ export class Versions {
     static readonly FILE = ".circuit/version";
 
     /** Set in the environment of a pinned Circuit this one started, so it doesn't start another. */
-    private static readonly RUNNING = "CIRCUIT_PINNED";
+    static readonly RUNNING = "CIRCUIT_PINNED";
 
     /** The version a project pins, or undefined when it pins none. */
     static pinned(root: string): string | undefined {
