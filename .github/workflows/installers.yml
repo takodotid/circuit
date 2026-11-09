@@ -31,7 +31,7 @@ jobs:
             NEWER: 1.0.0-rc.8
             SHELL: /bin/bash
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
             - uses: oven-sh/setup-bun@v2
 
             # The installer and Circuit read their answers from a terminal; `script` gives them one, fed from stdin. Each answer comes
