@@ -2,7 +2,7 @@
 
 Circuit turns one TypeScript file per network device into that device's config, shows what would change, then makes the device match. It holds no real network: each network lives in its own repo, as a Circuit project.
 
-This is Circuit v1, a rewrite of the config language, on the branch `v1`. It is not released: versions are `1.0.0-rc.N` until it is stable. Circuit 0.x is on `main`.
+This is Circuit v1, a rewrite of the config language, on `main`. Circuit 0.x is retired, on the branch `0.x`.
 
 ## Principles
 
@@ -51,7 +51,7 @@ Not in v1 yet: see the open issues (`gh issue list`), such as YAML projects (#16
 9. When unsure, ask.
 10. When the owner approves a new rule or decision, add it here, or to [design/decisions.md](design/decisions.md) with the next number, in the same change.
 11. Easy to learn beats clever. Someone who knows networking but not Circuit, and not any one vendor, must understand a project, and Circuit's own code, on first read. See "Easy to learn" below.
-12. Circuit 0.x is retired. Look at it only for what v1 doesn't have yet. For anything v1 already does, v1 is the only reference.
+12. Circuit 0.x is retired, on the branch `0.x`. v1 is the only reference.
 13. Agents keep no memory outside the repo. What a later session needs goes here: a rule in this file, a device's surprise in its `TRAPS.md`, open work in an issue.
 
 ## Easy to learn
@@ -98,10 +98,10 @@ Docs, comments, commit messages and replies to the owner:
 
 ## Git and releases
 
-- v1 lives on the branch `v1`.
+- Circuit lives on `main`. Circuit 0.x is on `0.x`, retired.
 - Conventional Commits, with a scope from `commitlint.config.js`: `repo`, `docs`, `config` (`src/config/` and `src/model.ts`), `project`, `checks`, `core`, `platforms`, `transport`, `cli`, `examples`, `release`.
 - Each commit does one thing, holds its tests and docs, and passes typecheck and tests on its own.
 - A GitHub release runs `.github/workflows/release.yml`: binaries, then npm (`latest` for stable, `rc` for a candidate). Only a stable release rebuilds the site. `[critical]` in the release title deprecates older versions of that major.
-- No release until the owner says so. Releases are `1.0.0-rc.N` until stable, then `1.0.0`. Say Circuit v1 is pre-release wherever it's installed.
+- No release until the owner says so. Versions follow semver: a candidate is `X.Y.Z-rc.N`, under npm's `rc` tag.
 - Use `gh` for GitHub. Planned work is an issue; a release target is a milestone.
 - License: BSL 1.1 by PT Hobimu Jadi Cuan (`LICENSE`), questions to legal@tako.id. Maintainers: Tako Network Engineering Team, noc@tako.id. Attribution stays modest: the license and the copyright line.
