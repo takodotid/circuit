@@ -121,6 +121,9 @@ export class Ssh {
         return process.env.SSH_AUTH_SOCK || (process.platform === "win32" ? "\\\\.\\pipe\\openssh-ssh-agent" : undefined);
     }
 
+    /** Where the person's own key files are: `~/.ssh`. */
+    static keyFolder = (): string => join(homedir(), ".ssh");
+
     /** The key itself, the second word of an OpenSSH public key line. */
     static blob(line: string): string {
         return line.trim().split(/\s+/)[1] ?? "";
@@ -163,7 +166,7 @@ export class Ssh {
         }
 
         for (const name of ["id_ed25519", "id_ecdsa", "id_rsa"]) {
-            const file = join(homedir(), ".ssh", name);
+            const file = join(Ssh.keyFolder(), name);
             if (!wanted.size || !existsSync(file) || !existsSync(`${file}.pub`)) continue;
             if (!wanted.has(Ssh.blob(readFileSync(`${file}.pub`, "utf8")))) continue;
 

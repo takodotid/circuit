@@ -13,7 +13,8 @@ import { Ssh } from "../../src/transport/ssh";
 import { Fixtures } from "../fixtures";
 
 const home = mkdtempSync(join(tmpdir(), "circuit-ssh-login-"));
-const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE, SSH_AUTH_SOCK: process.env.SSH_AUTH_SOCK };
+const saved = { SSH_AUTH_SOCK: process.env.SSH_AUTH_SOCK };
+const keyFolder = Ssh.keyFolder;
 
 const mine = utils.generateKeyPairSync("ed25519", { comment: "netops@laptop" });
 const other = utils.generateKeyPairSync("ed25519", { comment: "someone else" });
@@ -30,8 +31,7 @@ beforeAll(async () => {
     writeFileSync(join(home, ".ssh", "id_ed25519"), mine.private);
     writeFileSync(join(home, ".ssh", "id_ed25519.pub"), mine.public);
     // A home of its own, and an agent that isn't there, so the test never reaches the machine's own keys.
-    process.env.HOME = home;
-    process.env.USERPROFILE = home;
+    Ssh.keyFolder = () => join(home, ".ssh");
     process.env.SSH_AUTH_SOCK = join(home, "no-agent");
 
     server = new Server({ hostKeys: [utils.generateKeyPairSync("ed25519").private] }, (client) => {
@@ -70,6 +70,7 @@ beforeEach(() => {
 afterAll(() => {
     server.close();
     Ssh.report = undefined;
+    Ssh.keyFolder = keyFolder;
     for (const [name, value] of Object.entries(saved)) {
         if (value === undefined) delete process.env[name];
         else process.env[name] = value;
