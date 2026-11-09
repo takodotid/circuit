@@ -149,6 +149,34 @@ export class VrpRender {
         return this.text();
     }
 
+    /** The longest name a key takes. */
+    static readonly KEY_NAME = 30;
+
+    /** How long each line of a key's text is sent: the CLI refuses a whole RSA key on one line, and takes 200 characters. */
+    static readonly KEY_LINE = 200;
+
+    /** What the switch writes after a key that came without a comment. */
+    static readonly KEY_COMMENT = "rsa-key";
+
+    /** The lines that put a key block on the switch: its text sent in lines the CLI takes, without the comment the switch adds. */
+    static keyLines(block: readonly string[]): string[] {
+        const [header = "", , ...rest] = block;
+        const text = rest
+            .slice(0, -2)
+            .map((line) => line.trim())
+            .join("")
+            .replace(new RegExp(`\\s*${VrpRender.KEY_COMMENT}$`), "");
+        const [type = "", blob = ""] = text.split(/\s+/);
+        const whole = `${type} ${blob}`;
+        return [
+            header,
+            "public-key-code begin",
+            ...(whole.match(new RegExp(`.{1,${VrpRender.KEY_LINE}}`, "g")) ?? []),
+            "public-key-code end",
+            "peer-public-key end",
+        ];
+    }
+
     private line(text: string): void {
         this.lines.push(text);
     }
@@ -220,6 +248,21 @@ export class VrpRender {
         const ids = Object.values(this.vlans).flatMap((vlan) => (vlan ? [vlan.id] : []));
         if (ids.length) {
             this.line(`vlan batch ${VrpRender.vlanBatch(ids)}`);
+            this.separator();
+        }
+
+        // A user's key, named after the user, as the switch prints it: its text in lines of 80, ending with the name it gives it.
+        for (const [user, settings] of Object.entries(device.system?.users ?? {})) {
+            const [key] = settings?.ssh_keys ?? [];
+            if (!key) continue;
+
+            const [type, blob = ""] = key.trim().split(/\s+/);
+            const lines = `${type} ${blob}`.match(/.{1,80}/g) ?? [];
+            this.line(`rsa peer-public-key ${user} encoding-type openssh`);
+            this.line(" public-key-code begin");
+            lines.forEach((part, index) => this.line(`  ${part}${index === lines.length - 1 ? ` ${VrpRender.KEY_COMMENT}` : ""}`));
+            this.line(" public-key-code end");
+            this.line(" peer-public-key end");
             this.separator();
         }
 
@@ -591,10 +634,13 @@ export class VrpRender {
 
         this.line("stelnet server enable");
 
+        // A user with a key logs in with the key or the password, `all`.
         for (const [user, settings] of Object.entries(device.system?.users ?? {})) {
             if (!settings) continue;
+            const keyed = Boolean(settings.ssh_keys?.length);
             this.line(`ssh user ${user}`);
-            this.line(`ssh user ${user} authentication-type password`);
+            this.line(`ssh user ${user} authentication-type ${keyed ? "all" : "password"}`);
+            if (keyed) this.line(`ssh user ${user} assign rsa-key ${user}`);
             this.line(`ssh user ${user} service-type stelnet`);
         }
 
