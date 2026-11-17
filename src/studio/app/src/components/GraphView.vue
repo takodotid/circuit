@@ -20,8 +20,9 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import type { StudioData } from "../../../types";
 import { Export } from "../lib/csv";
 import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
+import { GraphLook } from "../lib/graph-look";
 import { type Drawing, GraphSvg } from "../lib/graph-svg";
-import { go, store } from "../lib/store";
+import { go, still, store } from "../lib/store";
 
 const props = defineProps<{ data: StudioData }>();
 
@@ -50,7 +51,6 @@ const css = (name: string) => getComputedStyle(document.documentElement).getProp
 
 /** How wide a node's tag is: as wide as its name. */
 const widthOf = (node: ShownNode) => node.label.length * 8.5 + 28;
-const HEIGHT = 34;
 
 /** Give every node of a layer a place. The cables layer comes first, as every other layer's new nodes start where they are on it. */
 function layOut(name: Layer): void {
@@ -118,22 +118,42 @@ function draw(moved: boolean): void {
     // A selection whose node or line is gone is dropped; a line's selection does not carry to another layer.
     const picked = selection.value;
     if (picked && cy.getElementById("node" in picked ? picked.node : picked.edge).empty()) select(undefined);
-    else mark();
+    else emphasize();
 }
 
 function select(next: typeof memory.selection): void {
     selection.value = next;
     memory.selection = next;
-    mark();
+    emphasize();
 }
 
-/** Mark what is selected on the drawing. */
-function mark(): void {
+/** The device under the pointer, and the one presenting lights. */
+let hovered: string | undefined;
+let touring: string | undefined;
+
+/**
+ * Light what the pointer is on, the device presenting lights, or what is selected: a node with its lines and the nodes at their ends,
+ * or a line with its two ends. The rest dims.
+ */
+function emphasize(): void {
     if (!graph) return;
+    const cy = graph;
 
     const picked = selection.value;
-    graph.elements().removeClass("picked");
-    if (picked) graph.getElementById("node" in picked ? picked.node : picked.edge).addClass("picked");
+    const focus = hovered ?? touring ?? (picked && "node" in picked ? picked.node : undefined);
+    const pickedEdge = picked && "edge" in picked ? cy.getElementById(picked.edge) : undefined;
+    const litEdges = focus ? cy.getElementById(focus).connectedEdges() : pickedEdge;
+    const litNodes = litEdges?.connectedNodes().union(focus ? cy.getElementById(focus) : cy.collection());
+
+    cy.batch(() => {
+        cy.elements().removeClass("lit dim picked touring");
+        if (picked) cy.getElementById("node" in picked ? picked.node : picked.edge).addClass("picked");
+        if (touring && !hovered) cy.getElementById(touring).addClass("touring");
+        if (!litEdges || !litNodes) return;
+
+        cy.elements().not(litEdges).not(litNodes).addClass("dim");
+        litEdges.not(".picked").addClass("lit");
+    });
 }
 
 /** Below this zoom a device's name is too small to read: a first view stops there, around the busiest device, and the reader pans for the rest. */
@@ -155,8 +175,8 @@ function framing(ids: readonly string[], padding: number, readable = false): Vie
 
     const left = Math.min(...boxes.map((box) => box.x - box.half));
     const right = Math.max(...boxes.map((box) => box.x + box.half));
-    const top = Math.min(...boxes.map((box) => box.y)) - HEIGHT / 2;
-    const bottom = Math.max(...boxes.map((box) => box.y)) + HEIGHT / 2;
+    const top = Math.min(...boxes.map((box) => box.y)) - GraphLook.HEIGHT / 2;
+    const bottom = Math.max(...boxes.map((box) => box.y)) + GraphLook.HEIGHT / 2;
 
     const width = graph.width();
     const height = graph.height();
@@ -241,7 +261,7 @@ function saveSvg(): void {
             fill: node.style("background-color"),
             stroke: node.style("border-color"),
             strokeWidth: size(node.style("border-width")),
-            dashed: node.style("border-style") === "dashed",
+            dashed: node.style("border-style") !== "solid",
             color: node.style("color"),
             fontSize: size(node.style("font-size")),
             opacity: Number(node.style("opacity")),
@@ -283,7 +303,6 @@ const remembered = (): boolean => {
 
 const presenting = ref(remembered());
 const caption = ref<{ title: string; detail: string }>();
-let lit: NodeSingular | undefined;
 let tourStep = 0;
 let tour: ReturnType<typeof setInterval> | undefined;
 let leaving: ReturnType<typeof setTimeout> | undefined;
@@ -293,14 +312,10 @@ let resizing: ResizeObserver | undefined;
 /** Light one device with what it has a line to, and dim the rest; or light nothing. */
 function light(node: NodeSingular | undefined): void {
     if (!graph) return;
-    lit = node;
-    graph.elements().removeClass("lit dim");
+    touring = node?.id();
+    emphasize();
 
     if (node) {
-        const near = node.closedNeighborhood();
-        graph.elements().not(near).addClass("dim");
-        node.addClass("lit");
-        near.edges().addClass("lit");
         const detail = props.data.graph.nodes.find((candidate) => candidate.id === node.id())?.detail[0];
         caption.value = {
             title: String(node.data("label")),
@@ -318,8 +333,9 @@ function light(node: NodeSingular | undefined): void {
 /** Frame what is lit with its neighbours, or the whole layer: gliding there, or at once. */
 function frameLit(glide: boolean): void {
     if (!graph) return;
-    const ids = lit
-        ? lit
+    const ids = touring
+        ? graph
+              .getElementById(touring)
               .closedNeighborhood()
               .nodes()
               .map((node) => node.id())
@@ -381,9 +397,9 @@ function restartTour(): void {
 /** The page as presenting wants it: the rails and the panel gone, heavier lines, a caption, and the turns running. Or back as it was. */
 function showPresenting(): void {
     document.body.classList.toggle("presenting", presenting.value);
+    touring = undefined;
     select(undefined);
-    graph?.elements().removeClass("lit dim heavy");
-    lit = undefined;
+    graph?.edges().removeClass("heavy");
     caption.value = undefined;
     restartTour();
 
@@ -424,62 +440,7 @@ onMounted(() => {
         minZoom: 0.2,
         maxZoom: 3,
         autounselectify: true,
-        style: [
-            {
-                selector: "node",
-                style: {
-                    shape: "round-rectangle",
-                    width: "data(width)",
-                    height: HEIGHT,
-                    "background-color": css("--surface"),
-                    "border-width": 2,
-                    "border-color": css("--text"),
-                    label: "data(label)",
-                    color: css("--text"),
-                    "font-family": css("--font"),
-                    "font-size": 13,
-                    "font-weight": 700,
-                    "text-valign": "center",
-                    "text-halign": "center",
-                },
-            },
-            {
-                selector: 'node[kind = "segment"]',
-                style: { "background-color": css("--yellow"), "border-color": css("--navy"), color: "#11141b" },
-            },
-            {
-                selector: 'node[kind = "outside"]',
-                style: { "border-style": "dashed", "border-color": css("--edge"), color: css("--muted") },
-            },
-            { selector: 'node[level = "warning"]', style: { "border-color": css("--warning"), "border-width": 3 } },
-            { selector: 'node[level = "error"]', style: { "border-color": css("--error"), "border-width": 3 } },
-            {
-                selector: "edge",
-                style: {
-                    width: 2,
-                    "line-color": css("--edge"),
-                    "curve-style": "bezier",
-                    label: "data(label)",
-                    "font-size": 11,
-                    color: css("--muted"),
-                    "text-background-color": css("--bg"),
-                    "text-background-opacity": 1,
-                    "text-background-padding": "2px",
-                    "font-family": css("--font"),
-                },
-            },
-            { selector: "edge[?oneSided]", style: { "line-style": "dashed", "line-color": css("--warning") } },
-            {
-                selector: ".picked",
-                style: { "border-color": css("--cobalt"), "line-color": css("--cobalt"), "border-width": 4, width: 4 },
-            },
-            // Presenting: heavier lines, the lit device in the highlighter with a navy frame (a warning or error keeps its own), the rest dimmed.
-            { selector: "edge.heavy", style: { width: 3 } },
-            { selector: "edge.lit", style: { width: 5, "line-color": css("--cobalt") } },
-            { selector: "node.lit", style: { "background-color": css("--yellow"), color: "#11141b" } },
-            { selector: 'node.lit[level = ""]', style: { "border-color": css("--navy"), "border-width": 3 } },
-            { selector: ".dim", style: { opacity: 0.18 } },
-        ],
+        style: GraphLook.style(GraphLook.colors(), still.matches),
     });
 
     graph.on("tap", "node", (event) => select({ node: event.target.id() }));
@@ -489,6 +450,18 @@ onMounted(() => {
     });
     graph.on("dbltap", 'node[kind = "device"]', (event) => go(`devices/${event.target.data("label")}`));
     graph.on("dragfree", "node", (event) => remember(event.target));
+
+    // Pointing at a node lights it with its lines, as selecting it does.
+    graph.on("mouseover", "node", (event) => {
+        hovered = event.target.id();
+        emphasize();
+        if (container.value) container.value.style.cursor = "pointer";
+    });
+    graph.on("mouseout", "node", () => {
+        hovered = undefined;
+        emphasize();
+        if (container.value) container.value.style.cursor = "";
+    });
 
     // The turns wait while the pointer is on the drawing, so someone at the screen can look.
     container.value?.addEventListener("mouseenter", () => (pointerOver = true));

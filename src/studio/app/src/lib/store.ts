@@ -47,6 +47,9 @@ addEventListener("hashchange", () => {
     store.route = parseRoute();
 });
 
+/** The reader's system asks for less motion: nothing moves for show, and changes happen at once. */
+export const still = matchMedia("(prefers-reduced-motion: reduce)");
+
 /** What the page keeps in the browser, such as where each device is on the graph. Storage can be missing or refuse, in a private window: the page works without it. */
 export class Saved {
     static get<T>(key: string): T | undefined {
