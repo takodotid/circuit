@@ -345,7 +345,9 @@ export function policyRuleProblem(rule: unknown): string | undefined {
             keys.filter((k) => k !== "communities"),
             takes
         );
-        return more.length ? `a communities ${r.communities} rule has no ${more.join(", ")}. It takes: ${takes.join(", ")}.` : undefined;
+        return more.length
+            ? `a communities ${r.communities as string} rule has no ${more.join(", ")}. It takes: ${takes.join(", ")}.`
+            : undefined;
     }
     if ("call" in r) {
         if (typeof r.call !== "string") return "call takes the name of a policy.";

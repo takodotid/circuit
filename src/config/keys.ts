@@ -41,7 +41,7 @@ const RANGE = { min: 0, max: 0 } as const;
 
 // ---------- rules, each kind on its own ----------
 
-export const FILTER_MATCH = {
+const FILTER_MATCH = {
     family: 0,
     protocol: 0,
     src: 0,
@@ -66,7 +66,7 @@ export const NAT_RULE = { description: 0, if: FILTER_MATCH, then: 0, to_address:
     NatRule<string, string, string>
 >;
 const { protocol: _protocol, tcp_flags: _tcpFlags, connection_state: _state, ...TCP_MSS_MATCH } = FILTER_MATCH;
-export const TCP_MSS_RULE = { description: 0, if: TCP_MSS_MATCH, mss: 0 } as const satisfies ShapeOf<TcpMssRule<string, string, string>>;
+const TCP_MSS_RULE = { description: 0, if: TCP_MSS_MATCH, mss: 0 } as const satisfies ShapeOf<TcpMssRule<string, string, string>>;
 export const ACL_RULE = {
     description: 0,
     if: { family: 0, protocol: 0, src: 0, dst: 0, src_port: RANGE, dst_port: RANGE, vlan: 0 },
@@ -124,10 +124,10 @@ export const ACTIONS = {
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 // Each list is exactly what its type's `then` takes: `tsc` fails here otherwise.
-true satisfies Same<(typeof ACTIONS.filter)[number], FilterRule<string, string, string>["then"]> &
-    Same<(typeof ACTIONS.nat)[number], NatRule<string, string, string>["then"]> &
-    Same<(typeof ACTIONS.acl)[number], AclRule<string>["then"]> &
-    Same<(typeof ACTIONS.policy)[number], NonNullable<RouteRule<string>["then"]>>;
+true satisfies Same<(typeof ACTIONS.filter)[number], FilterRule<string, string, string>["then"]>;
+true satisfies Same<(typeof ACTIONS.nat)[number], NatRule<string, string, string>["then"]>;
+true satisfies Same<(typeof ACTIONS.acl)[number], AclRule<string>["then"]>;
+true satisfies Same<(typeof ACTIONS.policy)[number], NonNullable<RouteRule<string>["then"]>>;
 
 // ---------- a device ----------
 
@@ -339,7 +339,7 @@ export const DEVICE = {
 
 const OPTION = { code: 0, description: 0 } as const;
 /** Every option of a community scheme. */
-export const COMMUNITIES = {
+const COMMUNITIES = {
     asn: 0,
     groups: { "*": { value: 0, description: 0 } },
     learned_from_group: OPTION,
@@ -380,21 +380,21 @@ export const NETWORK = {
 
 // `satisfies` misses a key too many that comes from a spread or another constant. Each side assignable to the other doesn't: every key
 // of a shape is required, so a shape with one more key, at any depth, is not the type's. `tsc` fails here then.
-true satisfies Same<typeof DEVICE, ShapeOf<AnyDevice>> &
-    Same<typeof FILTER_RULE, ShapeOf<FilterRule<string, string, string>>> &
-    Same<typeof NAT_RULE, ShapeOf<NatRule<string, string, string>>> &
-    Same<typeof ACL_RULE, ShapeOf<AclRule<string>>> &
-    Same<typeof ROUTING_RULE, ShapeOf<RoutingRule<string, string>>> &
-    Same<typeof ROUTE_RULE, ShapeOf<RouteRule<string>>> &
-    Same<typeof CALL_RULE, ShapeOf<CallRule<string>>> &
-    Same<typeof COMMUNITIES_IMPORT, ShapeOf<CommunitiesImport<string>>> &
-    Same<typeof COMMUNITIES_EXPORT, ShapeOf<CommunitiesExport>> &
-    Same<typeof COMMUNITIES, ShapeOf<CommunityScheme>> &
-    Same<typeof CHECKS, ShapeOf<Checks<string>>> &
-    Same<typeof NETWORK.integrations, ShapeOf<Integrations>> &
-    Same<typeof NETWORK.sites, ShapeOf<Readonly<Record<string, Site>>>> &
-    Same<typeof NETWORK.prefixes, ShapeOf<Prefixes>> &
-    Same<keyof typeof NETWORK, keyof NetworkSettings<{}, number>>;
+true satisfies Same<typeof DEVICE, ShapeOf<AnyDevice>>;
+true satisfies Same<typeof FILTER_RULE, ShapeOf<FilterRule<string, string, string>>>;
+true satisfies Same<typeof NAT_RULE, ShapeOf<NatRule<string, string, string>>>;
+true satisfies Same<typeof ACL_RULE, ShapeOf<AclRule<string>>>;
+true satisfies Same<typeof ROUTING_RULE, ShapeOf<RoutingRule<string, string>>>;
+true satisfies Same<typeof ROUTE_RULE, ShapeOf<RouteRule<string>>>;
+true satisfies Same<typeof CALL_RULE, ShapeOf<CallRule<string>>>;
+true satisfies Same<typeof COMMUNITIES_IMPORT, ShapeOf<CommunitiesImport<string>>>;
+true satisfies Same<typeof COMMUNITIES_EXPORT, ShapeOf<CommunitiesExport>>;
+true satisfies Same<typeof COMMUNITIES, ShapeOf<CommunityScheme>>;
+true satisfies Same<typeof CHECKS, ShapeOf<Checks<string>>>;
+true satisfies Same<typeof NETWORK.integrations, ShapeOf<Integrations>>;
+true satisfies Same<typeof NETWORK.sites, ShapeOf<Readonly<Record<string, Site>>>>;
+true satisfies Same<typeof NETWORK.prefixes, ShapeOf<Prefixes>>;
+true satisfies Same<keyof typeof NETWORK, keyof NetworkSettings<{}, number>>;
 
 // ---------- the check ----------
 

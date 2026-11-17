@@ -3,7 +3,7 @@
 import type { Device, Gre, Port, Routed, Switched, Vrrp, Vxlan, WireGuardPeer } from "../model";
 import { Derive } from "../platforms/derive";
 import { Address } from "./address";
-import type { CarriedVlan, Graph, GraphEdge, GraphNode, Layer } from "./graph";
+import type { CarriedVlan, Graph, GraphEdge, GraphNode } from "./graph";
 
 export type { CarriedVlan, Graph, GraphEdge, GraphNode, Layer } from "./graph";
 
@@ -42,8 +42,6 @@ class Builder {
 }
 
 export class Topology {
-    static readonly LAYERS: readonly Layer[] = ["l1", "l2", "l3", "bgp", "ospf", "tunnels"];
-
     static deviceId(name: string): string {
         return `device:${name}`;
     }

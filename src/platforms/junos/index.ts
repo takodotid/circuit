@@ -639,7 +639,7 @@ export class Junos extends Platform {
                 run: (command, timeout) => shell.run(command, timeout),
                 close: () => {
                     shell.logout();
-                    opened.close();
+                    void opened.close();
                 },
             };
         }
@@ -779,7 +779,7 @@ export class Junos extends Platform {
         try {
             await login();
         } catch (error) {
-            opened.close();
+            void opened.close();
             throw error;
         }
 
@@ -798,14 +798,14 @@ export class Junos extends Platform {
             opened.channel.write(`${Junos.CONSOLE.logout}\n`);
             return result;
         } finally {
-            opened.close();
+            void opened.close();
         }
     }
 
     /** An interactive CLI with paging off. Root lands in a shell and starts the CLI from there. */
     private static async openCli(channel: ClientChannel): Promise<void> {
         const banner = await Ssh.readUntil(channel, (text) => Junos.PROMPT.test(text.replace(/\r/g, "")), 20_000, 500);
-        if (/% $/.test(banner.replace(/\r/g, ""))) await Junos.run(channel, "cli");
+        if (banner.replace(/\r/g, "").endsWith("% ")) await Junos.run(channel, "cli");
 
         await Junos.run(channel, "set cli screen-length 0");
         await Junos.run(channel, "set cli screen-width 0");
@@ -908,7 +908,8 @@ export class Junos extends Platform {
             await Junos.edit(channel, "commit comment circuit-restore", 600_000).catch(() => undefined);
             await Junos.run(channel, "exit configuration-mode").catch(() => undefined);
             throw new Error(
-                `a fresh login failed (${(error as Error).message}); the previous configuration is restored, at the latest in ${minutes} minutes`
+                `a fresh login failed (${(error as Error).message}); the previous configuration is restored, at the latest in ${minutes} minutes`,
+                { cause: error }
             );
         }
 

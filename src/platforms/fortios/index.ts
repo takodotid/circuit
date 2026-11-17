@@ -416,7 +416,7 @@ export class FortiOs extends Platform {
         try {
             await login();
         } catch (error) {
-            opened.close();
+            void opened.close();
             throw error;
         }
 
@@ -435,7 +435,7 @@ export class FortiOs extends Platform {
             await FortiOs.consoleLogout(opened.cli);
             return result;
         } finally {
-            opened.close();
+            void opened.close();
         }
     }
 
@@ -687,7 +687,7 @@ export class FortiOs extends Platform {
             });
         } catch (error) {
             if (!(error instanceof Reloaded)) throw error;
-            throw new Error(`${error.message}\n    ${await FortiOs.settle(device, options)}`);
+            throw new Error(`${error.message}\n    ${await FortiOs.settle(device, options)}`, { cause: error });
         }
     }
 

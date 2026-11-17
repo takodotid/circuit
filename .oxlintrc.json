@@ -1,0 +1,59 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": ["typescript", "unicorn", "oxc", "import", "vue"],
+    "categories": {
+        "correctness": "error",
+        "suspicious": "error"
+    },
+    "options": {
+        "typeAware": true,
+        "denyWarnings": true,
+        "reportUnusedDisableDirectives": "error"
+    },
+    "rules": {
+        "typescript/no-deprecated": "error",
+
+        // Circuit's style: classes with static methods, `{ if, then }` rules, and casts where TypeScript can't see the type.
+        "typescript/no-extraneous-class": "off",
+        "unicorn/no-thenable": "off",
+        "typescript/no-unsafe-type-assertion": "off",
+        "typescript/unbound-method": "off",
+
+        // Wrong here: a cast that stops a literal widening, a function that ends in `Ui.fail()`, a copy taken before changing a map.
+        "typescript/no-unnecessary-type-assertion": "off",
+        "typescript/consistent-return": "off",
+        "unicorn/no-useless-spread": "off",
+
+        // Taste, not bugs.
+        "unicorn/consistent-function-scoping": "off",
+        "unicorn/no-array-sort": "off",
+        "unicorn/no-array-reverse": "off",
+        "eslint/no-shadow": "off",
+        "eslint/no-new": "off",
+        "eslint/no-control-regex": "off",
+        "typescript/no-unnecessary-type-arguments": "off",
+        "typescript/no-unnecessary-type-parameters": "off",
+        "typescript/no-generated-empty-object-type": "off",
+        "import/no-unassigned-import": "off",
+        "unicorn/require-module-specifiers": "off",
+        "eslint/no-underscore-dangle": "off"
+    },
+    "overrides": [
+        {
+            // Bun's types say `expect().rejects` returns nothing, but it returns a promise. Mocks turn their input into text.
+            "files": ["test/**"],
+            "rules": {
+                "typescript/await-thenable": "off",
+                "typescript/no-base-to-string": "off",
+                "typescript/restrict-template-expressions": "off"
+            }
+        }
+    ],
+    "ignorePatterns": [
+        "test/fixtures/**",
+        "**/*.generated.ts",
+        ".claude/worktrees/**",
+        "docs/.vitepress/cache/**",
+        "docs/.vitepress/dist/**"
+    ]
+}

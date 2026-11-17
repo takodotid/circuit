@@ -1,0 +1,25 @@
+{
+    "$schema": "https://unpkg.com/knip@6/schema.json",
+    "workspaces": {
+        ".": {
+            "entry": [
+                "src/config/index.ts",
+                "scripts/*.ts",
+                "src/studio/app/src/main.ts",
+                "src/studio/app/vite.config.ts",
+                "examples/**/*.ts"
+            ],
+            "project": ["src/**/*.{ts,vue}", "scripts/**/*.ts", "test/**/*.ts", "examples/**/*.ts"]
+        },
+        "docs": {
+            "entry": [".vitepress/theme/**/*.data.ts"],
+            "project": [".vitepress/**/*.ts"]
+        }
+    },
+    "ignoreDependencies": ["circuit"],
+    "ignoreBinaries": ["circuit", "op", "reg", "cloudflared", "hook", "vitepress"],
+    "rules": {
+        "types": "off"
+    },
+    "ignoreUnresolved": ["scripts/studio.ts"]
+}

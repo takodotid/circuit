@@ -34,7 +34,7 @@ function typescript(line: string): Token[] {
             if (/^\d/.test(text)) return { text, kind: "n" };
             if (KEYWORDS.has(text)) return { text, kind: "k" };
             if (/^\s*:/.test(all[index + 1] ?? "") && /^\w+$/.test(text)) return { text, kind: "p" };
-            if (/^\(/.test(all[index + 1] ?? "")) return { text, kind: "f" };
+            if ((all[index + 1] ?? "").startsWith("(")) return { text, kind: "f" };
             return { text, kind: "" };
         });
 

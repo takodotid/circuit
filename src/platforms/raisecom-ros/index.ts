@@ -705,7 +705,7 @@ export class RaisecomRos extends Platform {
         try {
             await SerialConsole.login(opened.channel, RaisecomRos.CONSOLE, user, password, console.password_only);
         } catch (error) {
-            opened.close();
+            void opened.close();
             throw error;
         }
 
@@ -713,7 +713,7 @@ export class RaisecomRos extends Platform {
             channel: opened.channel,
             close: () => {
                 opened.channel.write(`${RaisecomRos.CONSOLE.logout}\n`);
-                opened.close();
+                void opened.close();
             },
             fresh: async () => {
                 await SerialConsole.login(opened.channel, RaisecomRos.CONSOLE, user, password, console.password_only);

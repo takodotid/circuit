@@ -156,7 +156,7 @@ export class SerialConsole {
                 return await (console.jump ? SerialConsole.openOnJump(console, console.jump) : SerialConsole.openHere(console));
             } catch (error) {
                 const busy = /busy: .*/.exec((error as Error).message);
-                if (busy && attempt >= attempts) throw new Error(busy[0]);
+                if (busy && attempt >= attempts) throw new Error(busy[0], { cause: error });
                 if (!busy) throw error;
                 await new Promise((done) => setTimeout(done, 5_000));
             }

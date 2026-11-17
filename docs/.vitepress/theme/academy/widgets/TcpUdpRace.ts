@@ -57,12 +57,12 @@ export class Races {
         const trip = (draw: () => number) => 34 + Math.round(draw() * 14);
 
         // The same pieces are lost the first time on both lanes, so the two can be compared.
-        const lostFirst = [...WORD].map(() => lossDraw() < lossRate);
+        const lostFirst = WORD.split("").map(() => lossDraw() < lossRate);
         const flights: Flight[] = [];
 
         // UDP: every piece is sent once, straight away, and nothing is checked.
         const udpArrivals: { index: number; at: number }[] = [];
-        [...WORD].forEach((letter, index) => {
+        WORD.split("").forEach((letter, index) => {
             const start = index * GAP;
             const time = trip(udpDraw);
 
@@ -88,7 +88,7 @@ export class Races {
         const tcpArrived: number[] = [];
         let tcpResent = 0;
 
-        [...WORD].forEach((letter, index) => {
+        WORD.split("").forEach((letter, index) => {
             let start = ready + GAP * (index + 1);
 
             for (let attempt = 0; ; attempt++) {

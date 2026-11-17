@@ -346,10 +346,6 @@ export class Ssh {
         });
     }
 
-    static sleep(milliseconds: number): Promise<unknown> {
-        return new Promise((done) => setTimeout(done, milliseconds));
-    }
-
     /** Write a file to the device over SFTP. */
     static upload(client: Client, path: string, content: string | Buffer): Promise<void> {
         return new Promise((resolve, reject) => {

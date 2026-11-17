@@ -24,10 +24,6 @@ export class OnePassword {
     /** Says what Circuit waits for while `op` runs, such as for the person to unlock 1Password; gives back what clears it. The command line sets it. */
     static waiting: ((message: string) => () => void) | undefined;
 
-    static installed(): boolean {
-        return !spawnSync("op", ["--version"], { encoding: "utf8" }).error;
-    }
-
     /** A reference read before in this run, without asking 1Password. */
     static cached(reference: string): string | undefined {
         return OnePassword.cache.get(reference);
@@ -357,7 +353,12 @@ export class SecretsFile {
             return this.open(name, value, this.needPassword());
         } catch (error) {
             if ((error as Error).message.includes("Circuit has no password")) throw error;
-            throw new Error(`${name} in ${this.name} does not open with its password: it was changed by hand, or moved from another name.`);
+            throw new Error(
+                `${name} in ${this.name} does not open with its password: it was changed by hand, or moved from another name.`,
+                {
+                    cause: error,
+                }
+            );
         }
     }
 

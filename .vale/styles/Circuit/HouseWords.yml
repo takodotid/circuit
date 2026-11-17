@@ -1,0 +1,9 @@
+extends: substitution
+message: "Plain words: use '%s' instead of '%s'."
+level: warning
+ignorecase: true
+swap:
+  proved on: tested on
+  proves on: tests on
+  in step: in sync
+  keeps in step: keeps in sync

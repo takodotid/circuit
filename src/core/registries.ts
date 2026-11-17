@@ -32,7 +32,8 @@ export class Registries {
                 prefixes = await Registries.prefixes(registry, query, family);
             } catch (error) {
                 throw new Error(
-                    `routing.prefix_sets.${name}: ${registry} ${query}: ${error instanceof Error ? error.message : String(error)}`
+                    `routing.prefix_sets.${name}: ${registry} ${query}: ${error instanceof Error ? error.message : String(error)}`,
+                    { cause: error }
                 );
             }
             if (!prefixes.length)

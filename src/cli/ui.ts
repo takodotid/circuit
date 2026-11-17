@@ -8,6 +8,7 @@ export type Choice<T> = { value: T; label: string; hint?: string; disabled?: boo
 
 export class Ui {
     /** A person is at a terminal: Circuit may spin and ask. */
+    // oxlint-disable-next-line typescript/no-unnecessary-type-conversion -- off a terminal, isTTY is undefined, not false
     static readonly interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
 
     /** Colour only for a terminal, and never when NO_COLOR is set. */

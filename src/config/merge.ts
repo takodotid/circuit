@@ -213,7 +213,7 @@ export function made(items: readonly unknown[], file: string): object {
                 if (key !== "then")
                     Object.defineProperty(out, key, {
                         get: () => {
-                            throw new Error(clash);
+                            throw new Error(clash, { cause: error });
                         },
                     });
         }
@@ -248,7 +248,7 @@ export function resolve(value: unknown, path: string): unknown {
             try {
                 value = mergeAll(values, file, path);
             } catch (error) {
-                throw new Error(`${file}: merge: ${error instanceof Error ? error.message : String(error)}`);
+                throw new Error(`${file}: merge: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
             }
     }
     if (Array.isArray(value)) value.forEach((v, i) => (value[i] = resolve(v, `${path}[]`)));

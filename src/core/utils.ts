@@ -1,11 +1,7 @@
-// Small helpers that stand alone: combining records from several sources, reading a time zone's offset, and reading a file of the project.
+// Small helpers that stand alone.
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-
-type Merged<T extends readonly object[]> = T extends readonly [infer Head, ...infer Tail extends readonly object[]]
-    ? Head & Merged<Tail>
-    : unknown;
 
 export class Utils {
     /** The project's folder. A path in the config, such as a certificate's `certificate_file`, is from here. Circuit sets it when it reads a project. */
@@ -14,20 +10,6 @@ export class Utils {
     /** The text of a file of the project, by its path from the project's folder. */
     static projectFile(path: string): string {
         return readFileSync(join(Utils.root, path), "utf8");
-    }
-
-    /** Combine records into one, such as a device's own interfaces and those a module derives for it. Unlike spreading them, a name two of them hold is an error rather than one silently replacing the other. */
-    static merge<const T extends readonly Record<string, unknown>[]>(...records: T): Merged<T> {
-        const result: Record<string, unknown> = {};
-
-        for (const record of records) {
-            for (const [key, value] of Object.entries(record)) {
-                if (key in result) throw new Error(`Utils.merge: ${key} is declared twice`);
-                result[key] = value;
-            }
-        }
-
-        return result as Merged<T>;
     }
 
     /** The table a route or a BGP session is in, beside the main one: `undefined` for the main table, written `main` or left out. */

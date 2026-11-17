@@ -466,7 +466,7 @@ export class RouterOs extends Platform {
             await session.run(`/system backup load name=${backup} password=""`, 30_000).catch(() => undefined);
             session.end();
 
-            throw new Error("apply failed and the backup is being restored");
+            throw new Error("apply failed and the backup is being restored", { cause: error });
         }
 
         // A fresh login is the proof that access survived. Only then is the rollback removed, with the backup, which holds every credential,
@@ -829,7 +829,7 @@ export class RouterOs extends Platform {
         try {
             await SerialConsole.login(opened.channel, RouterOs.CONSOLE, user, password, console.password_only);
         } catch (error) {
-            opened.close();
+            void opened.close();
             throw error;
         }
 
@@ -843,7 +843,7 @@ export class RouterOs extends Platform {
             },
             end: () => {
                 shell.logout();
-                opened.close();
+                void opened.close();
             },
         };
 

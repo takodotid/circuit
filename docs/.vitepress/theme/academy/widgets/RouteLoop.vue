@@ -51,6 +51,7 @@ const destination = ref("198.51.100.200");
 type Hop = { at: "provider" | "yours"; ttl: number; entry?: Entry };
 
 /** Every router the packet passes, with the TTL it leaves with, until it is delivered or dropped. */
+// oxlint-disable-next-line vue/return-in-computed-property -- the loop below only ends by returning
 const journey = computed(() => {
     const address = RouteTable.parseIPv4(destination.value)!;
     const hops: Hop[] = [];

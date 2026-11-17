@@ -431,7 +431,7 @@ export class Vrp extends Platform {
                 run: (command, timeout) => shell.run(command, timeout),
                 close: () => {
                     shell.logout();
-                    opened.close();
+                    void opened.close();
                 },
             };
         }
@@ -675,7 +675,7 @@ export class Vrp extends Platform {
         try {
             await login();
         } catch (error) {
-            opened.close();
+            void opened.close();
             throw error;
         }
 
@@ -694,7 +694,7 @@ export class Vrp extends Platform {
             opened.channel.write(`${Vrp.CONSOLE.logout}\n`);
             return result;
         } finally {
-            opened.close();
+            void opened.close();
         }
     }
 

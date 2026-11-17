@@ -41,6 +41,10 @@
     "scripts": {
         "typecheck": "bun run editor-types && bunx tsc --noEmit && bunx tsc --noEmit -p src/studio/app",
         "test": "bun run editor-types && bun test",
+        "lint": "bun run lint:code && bun run lint:prose && bun run lint:unused",
+        "lint:code": "oxlint",
+        "lint:prose": "vale --minAlertLevel=error --glob='!**/node_modules/**' AGENTS.md README.md SECURITY.md DEPLOYMENT.md DESIGN.md PRODUCT.md .claude/skills design docs src examples",
+        "lint:unused": "knip",
         "build": "bun scripts/build.ts",
         "studio": "bun scripts/studio.ts",
         "editor-types": "bun scripts/editor-types.ts",
@@ -50,7 +54,7 @@
         "docs:build": "bun install --cwd docs --frozen-lockfile && bun run --cwd docs build",
         "docs:preview": "bun run --cwd docs preview",
         "check": "bun run studio && bun run typecheck && bun run test && bun run format:check && bun run build",
-        "prepare": "bun run studio; bun run editor-types; husky || true"
+        "prepare": "bun run studio; bun run editor-types; vale sync; husky || true"
     },
     "dependencies": {
         "@clack/prompts": "1.8.1",
@@ -68,12 +72,19 @@
         "@types/node": "^24.19.2",
         "@types/ssh2": "^1.15.6",
         "@vitejs/plugin-vue": "6.0.10",
+        "@vvago/vale": "3.25.1",
         "cytoscape": "3.34.4",
         "husky": "^9.1.7",
+        "knip": "6.45.1",
+        "oxlint": "1.94.0",
+        "oxlint-tsgolint": "7.0.2007",
         "typescript": "^7.0.2",
         "typescript-6": "npm:typescript@6.0.3",
         "vite": "8.3.5",
         "vue": "3.5.44"
     },
-    "packageManager": "bun@1.4.4"
+    "packageManager": "bun@1.4.4",
+    "trustedDependencies": [
+        "@vvago/vale"
+    ]
 }

@@ -11,7 +11,7 @@ import { Format } from "./format";
 import { VERSION } from "./version";
 import { Versions } from "./versions";
 
-export const GENERATED_README = `# Do not edit
+const GENERATED_README = `# Do not edit
 
 Circuit writes everything in this folder. Don't edit it by hand: change the project's own files, or use the command named below.
 
@@ -23,7 +23,7 @@ Circuit writes everything in this folder. Don't edit it by hand: change the proj
 `;
 
 /** The notice in `.circuit`. */
-export const NOTICE = "DO_NOT_EDIT.md";
+const NOTICE = "DO_NOT_EDIT.md";
 
 export const GITIGNORE = `node_modules/
 .circuit/cache/
