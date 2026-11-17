@@ -20,7 +20,7 @@ Two cases; find out which first.
 
 ## New model
 
-1. Add it to `src/platforms/<platform>/models.ts` (copy a model's shape). A limit below the datasheet goes in `limits`, only once a real device hit it.
+1. Add it to `src/platforms/<platform>/models.ts` (copy a model's shape). A limit below the datasheet goes in `limits`, but only after a real device hit it.
 2. `bun run typecheck`: a device using a port the model doesn't have must fail in the editor.
 3. Read the ports on the device (skill `prove-on-device`).
 
@@ -36,11 +36,9 @@ Read `src/platforms/platform.ts` (the contract) and the closest adapter: `router
 6. `plan()`: `show` for the reviewer, `send` for the device, `problems` for what can't converge.
 7. `apply()`: a change that can't lock anyone out (commit confirmed, revert timer, or self-restoring backup), then a fresh login before it sticks.
 8. Tests: plans in `test/platforms/plans.test.ts`; a session test over `test/platforms/fake-ssh.ts`.
-9. Prove it on the device: read, plan, apply, empty second plan. Surprises go in `TRAPS.md`.
+9. Test it on the device: read, plan, apply, empty second plan. Surprises go in `TRAPS.md`.
 10. Docs: the platforms page and the feature matrix in `docs/`, `README.md`, `PRODUCT.md`, a `package.json` keyword.
-
-A platform is one OS at the versions in `os.versions`. A new version widens it once proved, or is a new platform if its commands differ.
 
 ## Commit
 
-On a branch from `v1`: `feat(platforms): <OS> on the <model>, applied with <how it rolls back>`. Open a pull request. Never release on your own.
+On a branch from `main`: `feat(platforms): add <OS> on the <model>`. Open a pull request. Never release on your own.

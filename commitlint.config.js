@@ -1,4 +1,4 @@
-// Conventional Commits, with a scope naming the part of the repository a change touches.
+// Conventional Commits. The scope says which part of the repo a commit changes.
 
 export default {
     extends: ["@commitlint/config-conventional"],
@@ -8,17 +8,19 @@ export default {
             2,
             "always",
             [
-                "repo", // tooling and meta files
-                "docs", // README, AGENTS.md, docs/, TRAPS.md
-                "config", // src/config, the language a project is written in, and src/model.ts
-                "project", // src/project, reading a project
-                "checks", // src/checks, validation and built-in checks
-                "core", // src/core, addresses, secrets, cabling, registries
-                "platforms", // src/platforms, one adapter per device operating system
-                "transport", // src/transport, sessions to devices
+                "repo", // tooling, CI, AGENTS.md and other files at the root
+                "deps", // dependency updates
+                "docs", // the website in docs/
+                "config", // src/config and src/model.ts
+                "project", // src/project.ts
+                "checks", // src/checks
+                "core", // src/core
+                "platforms", // src/platforms, including TRAPS.md
+                "transport", // src/transport
+                "integrations", // src/integrations
                 "cli", // src/cli
-                "studio", // src/studio, Circuit Studio
-                "examples", // tests and fixtures
+                "studio", // src/studio
+                "examples", // examples/
                 "release", // version bumps
             ],
         ],

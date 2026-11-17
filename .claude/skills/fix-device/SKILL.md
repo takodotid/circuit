@@ -20,9 +20,9 @@ Ask for what's missing: platform, model, OS version; the exact command and its f
 1. A failing test first, from the device's real lines (secrets and real addresses removed): `test/platforms/plans.test.ts` or the platform's `*-proofs.test.ts`.
 2. Fix in `src/platforms/<platform>/`. Vendor syntax stays there.
 3. `bun run check`. The golden tests must still pass.
-4. Prove on the device when free: plan, apply, empty second plan.
+4. Test on the device when it is free: plan, apply, empty second plan.
 5. One line in `TRAPS.md`.
 
 ## 4. Commit
 
-On a branch from `v1`: `fix(platforms): <what works now>`, test, fix and `TRAPS.md` together. Open a pull request. Never release on your own.
+On a branch from `main`: `fix(platforms): <what you fixed>`, with the test, the fix and `TRAPS.md` in one commit. Open a pull request. Never release on your own.

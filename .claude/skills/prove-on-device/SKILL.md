@@ -1,11 +1,11 @@
 ---
 name: prove-on-device
-description: Prove what a real network device does before Circuit relies on it - try syntax without applying, read and plan against the device, apply and check it converges. Use when an adapter change depends on device behaviour, or when the owner asks to test on a device.
+description: Test what a real network device does before Circuit relies on it - try syntax without applying, read and plan against the device, apply and check it converges. Use when an adapter change depends on device behaviour, or when the owner asks to test on a device.
 ---
 
-# Prove it on a device
+# Test it on a device
 
-Circuit never guesses what a device does. Prove it, then write what you learned in `src/platforms/<platform>/TRAPS.md`.
+Circuit never guesses what a device does. Test it, then write what you learned in `src/platforms/<platform>/TRAPS.md`.
 
 ## Before
 
