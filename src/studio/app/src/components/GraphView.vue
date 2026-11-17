@@ -1,127 +1,220 @@
 <!-- The network drawn, one layer at a time: cables, VLANs, address segments, BGP, OSPF and tunnels. Drawn with Cytoscape; a node or line picked shows what it is in the panel. Present shows it on a big screen, going through every layer and lighting the busiest devices in turn. -->
+<script lang="ts">
+import type { Layer } from "../../../../core/graph";
+import { type Kept, GraphLayout } from "../lib/graph-layout";
+import { Saved } from "../lib/store";
+
+type View = { zoom: number; pan: { x: number; y: number } };
+
+/** Kept while the page is open, as the graph view comes and goes: where each node is, where the reader left each layer, and what is selected. */
+const memory = {
+    layouts: new GraphLayout(Saved.get<Kept>("layouts")),
+    views: new Map<Layer, View>(),
+    selection: undefined as { node: string } | { edge: string } | undefined,
+};
+</script>
+
 <script setup lang="ts">
 import cytoscape, { type Core, type ElementDefinition, type NodeSingular } from "cytoscape";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import type { GraphEdge, GraphNode, Layer } from "../../../../core/graph";
 import type { StudioData } from "../../../types";
 import { Export } from "../lib/csv";
+import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
 import { type Drawing, GraphSvg } from "../lib/graph-svg";
 import { go, store } from "../lib/store";
 
 const props = defineProps<{ data: StudioData }>();
 
-const LAYERS: { id: Layer; label: string; legend: string }[] = [
-    { id: "l1", label: "Cables", legend: "Each cable a port's link names. A LAG's cables are one line." },
-    { id: "l2", label: "VLANs", legend: "The VLANs each cable carries, from its port or LAG." },
-    {
-        id: "l3",
-        label: "Addresses",
-        legend: "Prefixes two devices hold addresses in. Three or more share a segment, drawn as its own box.",
-    },
-    { id: "bgp", label: "BGP", legend: "Sessions between our devices, matched by address, and to each AS outside." },
-    { id: "ospf", label: "OSPF", legend: "Interfaces in one area and one prefix, neither passive." },
-    { id: "tunnels", label: "Tunnels", legend: "GRE and VXLAN tunnels matched by their endpoints, and WireGuard peers." },
-];
+const LAYERS = GraphLayer.LAYERS.map((id) => ({ id, label: GraphLayer.NAMES[id], legend: GraphLayer.HELP[id] }));
 
-const layer = computed<Layer>(() => (LAYERS.some((item) => item.id === store.route.parts[0]) ? (store.route.parts[0] as Layer) : "l1"));
+const layer = computed<Layer>(() => (GraphLayer.isLayer(store.route.parts[0]) ? store.route.parts[0] : "l1"));
 const counts = computed(() =>
     Object.fromEntries(LAYERS.map((item) => [item.id, props.data.graph.edges.filter((edge) => edge.layer === item.id).length]))
 );
 
 const container = ref<HTMLElement>();
-const selected = ref<{ node?: GraphNode; edge?: GraphEdge }>({});
 let graph: Core | undefined;
 
-/** Where each node was on each layer, kept while the page is open, so a node moved stays moved. */
-const placed = new Map<string, Record<string, { x: number; y: number }>>();
+/** What the layer shown has, and what is selected in it. */
+const shown = ref<Shown>({ nodes: [], edges: [] });
+const selection = ref(memory.selection);
+const selected = computed<{ node?: ShownNode; edge?: ShownEdge }>(() => {
+    const picked = selection.value;
+    if (picked && "node" in picked) return { node: shown.value.nodes.find((node) => node.id === picked.node) };
+    if (picked && "edge" in picked) return { edge: shown.value.edges.find((edge) => edge.id === picked.edge) };
+    return {};
+});
 
+const layouts = memory.layouts;
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-function elements(): ElementDefinition[] {
-    const edges = props.data.graph.edges.filter((edge) => edge.layer === layer.value);
-    const ends = new Set(edges.flatMap((edge) => [edge.from, edge.to]));
-    const levelOf = (node: GraphNode) => {
-        const findings = props.data.findings.filter((finding) => `device:${finding.device}` === node.id);
-        return findings.some((finding) => finding.level === "error") ? "error" : findings.length ? "warning" : "";
-    };
+/** How wide a node's tag is: as wide as its name. */
+const widthOf = (node: ShownNode) => node.label.length * 8.5 + 28;
+const HEIGHT = 34;
 
-    return [
-        ...props.data.graph.nodes
-            .filter((node) => node.kind === "device" || ends.has(node.id))
-            .map((node) => ({
-                group: "nodes" as const,
-                // A box as wide as its name.
-                data: { id: node.id, label: node.label, kind: node.kind, level: levelOf(node), width: node.label.length * 8.5 + 28 },
-            })),
-        ...edges.map((edge, index) => ({
-            group: "edges" as const,
-            data: {
-                id: `edge-${index}`,
-                source: edge.from,
-                target: edge.to,
-                label: edge.label,
-                oneSided: edge.oneSided ? "yes" : "no",
-                index,
-            },
-        })),
-    ];
+/** Give every node of a layer a place. The cables layer comes first, as every other layer's new nodes start where they are on it. */
+function layOut(name: Layer): void {
+    if (name !== "l1") layOut("l1");
+
+    const { nodes, edges } = name === layer.value ? shown.value : GraphLayer.of(props.data, name);
+    const boxes = nodes.map((node) => ({ id: node.id, label: node.label, width: widthOf(node) }));
+    layouts.layOut(name, boxes, edges, name === "l1" ? undefined : layouts.places("l1"));
+    Saved.set("layouts", layouts.kept());
 }
 
-function draw(): void {
+function nodeData(node: ShownNode) {
+    return { id: node.id, label: node.label, kind: node.kind, level: node.level ?? "", width: widthOf(node) };
+}
+
+function edgeData(edge: ShownEdge) {
+    return { id: edge.id, source: edge.from, target: edge.to, label: edge.label, oneSided: Boolean(edge.oneSided) };
+}
+
+/**
+ * Show the layer: add what is new, drop what is gone and update the rest, so nodes keep their places and the selection stays. `moved`
+ * says the layer changed, so the nodes it shares with the last one go to their places on this one.
+ */
+function draw(moved: boolean): void {
     if (!graph) return;
-    const positions = placed.get(layer.value);
 
-    graph.elements().remove();
-    graph.add(elements());
-    selected.value = {};
+    shown.value = GraphLayer.of(props.data, layer.value);
+    layOut(layer.value);
+    const places = layouts.places(layer.value);
 
-    if (positions && graph.nodes().every((node) => positions[node.id()] !== undefined)) {
-        graph.nodes().forEach((node) => {
-            node.position(positions[node.id()]!);
-        });
-        fit();
-    } else {
-        layOut();
-    }
+    const nodeIds = new Set(shown.value.nodes.map((node) => node.id));
+    const edgeIds = new Set(shown.value.edges.map((edge) => edge.id));
+    const cy = graph;
+
+    cy.batch(() => {
+        cy.edges()
+            .filter((edge) => !edgeIds.has(edge.id()))
+            .remove();
+        cy.nodes()
+            .filter((node) => !nodeIds.has(node.id()))
+            .remove();
+
+        const added: ElementDefinition[] = [];
+
+        for (const node of shown.value.nodes) {
+            const existing = cy.getElementById(node.id);
+            if (existing.empty()) {
+                added.push({ group: "nodes", data: nodeData(node), position: { ...places.get(node.id)! } });
+                continue;
+            }
+
+            existing.data(nodeData(node));
+            if (moved) existing.position({ ...places.get(node.id)! });
+        }
+
+        cy.add(added);
+
+        for (const edge of shown.value.edges) {
+            const existing = cy.getElementById(edge.id);
+            if (existing.empty()) cy.add({ group: "edges", data: edgeData(edge) });
+            else existing.data(edgeData(edge));
+        }
+    });
+
+    // A selection whose node or line is gone is dropped; a line's selection does not carry to another layer.
+    const picked = selection.value;
+    if (picked && cy.getElementById("node" in picked ? picked.node : picked.edge).empty()) select(undefined);
+    else mark();
 }
 
-/** Fit the drawing to the window, but never larger than its own size: a network of two devices stays readable. */
+function select(next: typeof memory.selection): void {
+    selection.value = next;
+    memory.selection = next;
+    mark();
+}
+
+/** Mark what is selected on the drawing. */
+function mark(): void {
+    if (!graph) return;
+
+    const picked = selection.value;
+    graph.elements().removeClass("picked");
+    if (picked) graph.getElementById("node" in picked ? picked.node : picked.edge).addClass("picked");
+}
+
+/** Below this zoom a device's name is too small to read: a first view stops there, around the busiest device, and the reader pans for the rest. */
+const READABLE = 0.6;
+/** Above this zoom a small network would be drawn larger than it is. */
+const LARGEST = 1.2;
+
+/** The view that frames these nodes, by where they are placed on the layer. With `readable`, as much as stays readable, around the busiest of them. */
+function framing(ids: readonly string[], padding: number, readable = false): View | undefined {
+    if (!graph) return undefined;
+
+    const places = layouts.places(layer.value);
+    const boxes = ids.flatMap((id) => {
+        const point = places.get(id);
+        const node = shown.value.nodes.find((candidate) => candidate.id === id);
+        return point && node ? [{ ...point, half: widthOf(node) / 2 }] : [];
+    });
+    if (!boxes.length) return undefined;
+
+    const left = Math.min(...boxes.map((box) => box.x - box.half));
+    const right = Math.max(...boxes.map((box) => box.x + box.half));
+    const top = Math.min(...boxes.map((box) => box.y)) - HEIGHT / 2;
+    const bottom = Math.max(...boxes.map((box) => box.y)) + HEIGHT / 2;
+
+    const width = graph.width();
+    const height = graph.height();
+    const whole = Math.min((width - padding * 2) / (right - left), (height - padding * 2) / (bottom - top));
+    let zoom = Math.max(Math.min(whole, LARGEST), graph.minZoom());
+    let centre = { x: (left + right) / 2, y: (top + bottom) / 2 };
+
+    if (readable && zoom < READABLE) {
+        zoom = READABLE;
+        const degree = (id: string) => shown.value.edges.filter((edge) => edge.from === id || edge.to === id).length;
+        const hub = [...ids].sort((a, b) => degree(b) - degree(a))[0];
+        centre = (hub && places.get(hub)) || centre;
+    }
+
+    return { zoom, pan: { x: width / 2 - centre.x * zoom, y: height / 2 - centre.y * zoom } };
+}
+
+/** Show the whole layer, but never larger than its own size: a network of two devices stays readable. */
 function fit(): void {
-    if (!graph) return;
-    graph.fit(undefined, 60);
-    if (graph.zoom() > 1.2) {
-        graph.zoom(1.2);
-        graph.center();
-    }
+    const view = framing(
+        shown.value.nodes.map((node) => node.id),
+        60
+    );
+    if (view) graph?.viewport(view);
 }
 
-function layOut(): void {
-    // From a circle rather than random places, so the same network is drawn the same way each time.
-    graph?.layout({ name: "circle", animate: false, fit: false }).run();
-    // Boxes are wide, so they push hard and keep a gap, or they land on each other and on the lines' labels.
-    graph
-        ?.layout({
-            name: "cose",
-            animate: false,
-            fit: false,
-            randomize: false,
-            nodeRepulsion: () => 160000,
-            nodeOverlap: 40,
-            nodeDimensionsIncludeLabels: true,
-            idealEdgeLength: () => 55,
-            edgeElasticity: () => 200,
-            gravity: 2.5,
-            numIter: 3000,
-            componentSpacing: 140,
-        })
-        .run();
+/** Show the layer as the reader left it, or, the first time, framed so names can be read. */
+function frameLayer(): void {
+    const left = memory.views.get(layer.value);
+    const view =
+        left ??
+        framing(
+            shown.value.nodes.map((node) => node.id),
+            60,
+            true
+        );
+    if (view) graph?.viewport(view);
+}
+
+/** Keep where the reader left this layer. */
+function keepView(name: Layer): void {
+    if (graph && !presenting.value) memory.views.set(name, { zoom: graph.zoom(), pan: { ...graph.pan() } });
+}
+
+/** Forget where nodes were moved on this layer, and lay it out again. */
+function layOutAgain(): void {
+    layouts.forget(layer.value);
+    layOut(layer.value);
+    const places = layouts.places(layer.value);
+    graph?.nodes().forEach((node) => {
+        node.position({ ...places.get(node.id())! });
+    });
     fit();
-    remember();
 }
 
-function remember(): void {
-    if (!graph) return;
-    placed.set(layer.value, Object.fromEntries(graph.nodes().map((node) => [node.id(), { ...node.position() }])));
+function remember(node: NodeSingular): void {
+    layouts.places(layer.value).set(node.id(), { ...node.position() });
+    Saved.set("layouts", layouts.kept());
 }
 
 function saveImage(): void {
@@ -197,20 +290,6 @@ let leaving: ReturnType<typeof setTimeout> | undefined;
 let pointerOver = false;
 let resizing: ResizeObserver | undefined;
 
-const LINE_WORDS: Record<Layer, [string, string]> = {
-    l1: ["cable", "cables"],
-    l2: ["cable", "cables"],
-    l3: ["shared prefix", "shared prefixes"],
-    bgp: ["session", "sessions"],
-    ospf: ["adjacency", "adjacencies"],
-    tunnels: ["tunnel", "tunnels"],
-};
-
-function lines(count: number): string {
-    const [one, many] = LINE_WORDS[layer.value];
-    return `${count} ${count === 1 ? one : many}`;
-}
-
 /** Light one device with what it has a line to, and dim the rest; or light nothing. */
 function light(node: NodeSingular | undefined): void {
     if (!graph) return;
@@ -225,13 +304,13 @@ function light(node: NodeSingular | undefined): void {
         const detail = props.data.graph.nodes.find((candidate) => candidate.id === node.id())?.detail[0];
         caption.value = {
             title: String(node.data("label")),
-            detail: [detail, lines(node.connectedEdges().length)].filter(Boolean).join(", "),
+            detail: [detail, GraphLayer.count(layer.value, node.connectedEdges().length)].filter(Boolean).join(", "),
         };
     } else {
         const devices = graph.nodes('[kind = "device"]').length;
         caption.value = {
-            title: LAYERS.find((item) => item.id === layer.value)?.label ?? "",
-            detail: `${devices} ${devices === 1 ? "device" : "devices"}, ${lines(graph.edges().length)}`,
+            title: GraphLayer.NAMES[layer.value],
+            detail: `${devices} ${devices === 1 ? "device" : "devices"}, ${GraphLayer.count(layer.value, graph.edges().length)}`,
         };
     }
 }
@@ -239,16 +318,24 @@ function light(node: NodeSingular | undefined): void {
 /** Frame what is lit with its neighbours, or the whole layer: gliding there, or at once. */
 function frameLit(glide: boolean): void {
     if (!graph) return;
-    const shown = lit ? lit.closedNeighborhood() : graph.elements();
-    if (glide) graph.animate({ fit: { eles: shown, padding: 90 } }, { duration: 1100, easing: "ease-in-out-cubic" });
-    else graph.fit(shown, 90);
+    const ids = lit
+        ? lit
+              .closedNeighborhood()
+              .nodes()
+              .map((node) => node.id())
+        : shown.value.nodes.map((node) => node.id);
+    const view = framing(ids, 90);
+    if (!view) return;
+
+    if (glide) graph.animate(view, { duration: 1100, easing: "ease-in-out-cubic" });
+    else graph.viewport(view);
 }
 
 /** The next layer with lines, after this one; this one when no other has any. */
 function nextLayer(): Layer {
-    const at = LAYERS.findIndex((item) => item.id === layer.value);
-    const after = [...LAYERS.slice(at + 1), ...LAYERS.slice(0, at + 1)];
-    return after.find((item) => counts.value[item.id])?.id ?? layer.value;
+    const at = GraphLayer.LAYERS.indexOf(layer.value);
+    const after = [...GraphLayer.LAYERS.slice(at + 1), ...GraphLayer.LAYERS.slice(0, at + 1)];
+    return after.find((name) => counts.value[name]) ?? layer.value;
 }
 
 /** One turn: the whole layer, then its busiest devices one at a time, then on to the next layer. */
@@ -294,7 +381,7 @@ function restartTour(): void {
 /** The page as presenting wants it: the rails and the panel gone, heavier lines, a caption, and the turns running. Or back as it was. */
 function showPresenting(): void {
     document.body.classList.toggle("presenting", presenting.value);
-    selected.value = {};
+    select(undefined);
     graph?.elements().removeClass("lit dim heavy");
     lit = undefined;
     caption.value = undefined;
@@ -336,13 +423,14 @@ onMounted(() => {
         container: container.value,
         minZoom: 0.2,
         maxZoom: 3,
+        autounselectify: true,
         style: [
             {
                 selector: "node",
                 style: {
                     shape: "round-rectangle",
                     width: "data(width)",
-                    height: 34,
+                    height: HEIGHT,
                     "background-color": css("--surface"),
                     "border-width": 2,
                     "border-color": css("--text"),
@@ -380,9 +468,9 @@ onMounted(() => {
                     "font-family": css("--font"),
                 },
             },
-            { selector: 'edge[oneSided = "yes"]', style: { "line-style": "dashed", "line-color": css("--warning") } },
+            { selector: "edge[?oneSided]", style: { "line-style": "dashed", "line-color": css("--warning") } },
             {
-                selector: ":selected",
+                selector: ".picked",
                 style: { "border-color": css("--cobalt"), "line-color": css("--cobalt"), "border-width": 4, width: 4 },
             },
             // Presenting: heavier lines, the lit device in the highlighter with a navy frame (a warning or error keeps its own), the rest dimmed.
@@ -394,18 +482,13 @@ onMounted(() => {
         ],
     });
 
-    graph.on("tap", "node", (event) => {
-        selected.value = { node: props.data.graph.nodes.find((node) => node.id === event.target.id()) };
-    });
-    graph.on("tap", "edge", (event) => {
-        const index = event.target.data("index") as number;
-        selected.value = { edge: props.data.graph.edges.filter((edge) => edge.layer === layer.value)[index] };
-    });
+    graph.on("tap", "node", (event) => select({ node: event.target.id() }));
+    graph.on("tap", "edge", (event) => select({ edge: event.target.id() }));
     graph.on("tap", (event) => {
-        if (event.target === graph) selected.value = {};
+        if (event.target === graph) select(undefined);
     });
     graph.on("dbltap", 'node[kind = "device"]', (event) => go(`devices/${event.target.data("label")}`));
-    graph.on("dragfree", "node", remember);
+    graph.on("dragfree", "node", (event) => remember(event.target));
 
     // The turns wait while the pointer is on the drawing, so someone at the screen can look.
     container.value?.addEventListener("mouseenter", () => (pointerOver = true));
@@ -418,11 +501,13 @@ onMounted(() => {
     if (container.value) resizing.observe(container.value);
     addEventListener("keydown", onKey);
 
-    draw();
+    draw(false);
+    frameLayer();
     if (presenting.value) showPresenting();
 });
 
 onBeforeUnmount(() => {
+    keepView(layer.value);
     clearInterval(tour);
     clearTimeout(leaving);
     resizing?.disconnect();
@@ -431,11 +516,20 @@ onBeforeUnmount(() => {
     graph?.destroy();
 });
 
-watch([layer, () => props.data], () => {
-    draw();
+watch(layer, (_next, last) => {
+    keepView(last);
+    if (selection.value && "edge" in selection.value) select(undefined);
+    draw(true);
+    frameLayer();
     // A new layer while presenting is shown whole first, with its full time.
     if (presenting.value) showPresenting();
 });
+
+// The project changed: the drawing keeps its places, its view and what is selected.
+watch(
+    () => props.data,
+    () => draw(false)
+);
 
 const nodeFindings = computed(() =>
     props.data.findings.filter((finding) => selected.value.node && `device:${finding.device}` === selected.value.node.id)
@@ -452,7 +546,9 @@ const nodeFindings = computed(() =>
             </nav>
             <div class="actions">
                 <button title="Fit the drawing to the window" @click="fit">Fit</button>
-                <button title="Forget where nodes were moved on this layer, and lay it out again" @click="layOut">Lay out again</button>
+                <button title="Forget where nodes were moved on this layer, and lay it out again" @click="layOutAgain">
+                    Lay out again
+                </button>
                 <button title="Save this layer as a PNG image" @click="saveImage">Save image</button>
                 <button title="Save this layer as an SVG drawing, sharp at any size" @click="saveSvg">Save SVG</button>
                 <button
@@ -504,8 +600,8 @@ const nodeFindings = computed(() =>
                     </ul>
                 </template>
                 <template v-else>
-                    <h2>{{ LAYERS.find((item) => item.id === layer)?.label }}</h2>
-                    <p class="muted">{{ LAYERS.find((item) => item.id === layer)?.legend }}</p>
+                    <h2>{{ GraphLayer.NAMES[layer] }}</h2>
+                    <p class="muted">{{ GraphLayer.HELP[layer] }}</p>
                     <ul class="legend">
                         <li>A dashed line is declared at one end only.</li>
                         <li>A dashed box is outside the network.</li>

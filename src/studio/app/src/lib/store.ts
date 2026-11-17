@@ -47,6 +47,26 @@ addEventListener("hashchange", () => {
     store.route = parseRoute();
 });
 
+/** What the page keeps in the browser, such as where each device is on the graph. Storage can be missing or refuse, in a private window: the page works without it. */
+export class Saved {
+    static get<T>(key: string): T | undefined {
+        try {
+            const value = localStorage.getItem(`circuit-studio:${key}`);
+            return value === null ? undefined : (JSON.parse(value) as T);
+        } catch {
+            return undefined;
+        }
+    }
+
+    static set(key: string, value: unknown): void {
+        try {
+            localStorage.setItem(`circuit-studio:${key}`, JSON.stringify(value));
+        } catch {
+            // A browser that keeps nothing still works, until it reloads.
+        }
+    }
+}
+
 /** A request to the server. A request that reaches a device takes Studio's header and a POST. */
 export async function api<T>(path: string, reachesDevice = false): Promise<T> {
     const response = await fetch(path, reachesDevice ? { method: "POST", headers: { "x-circuit-studio": "1" } } : {});
