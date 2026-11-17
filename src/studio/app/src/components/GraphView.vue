@@ -21,6 +21,7 @@ import type { StudioData } from "../../../types";
 import { Export } from "../lib/csv";
 import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
 import { GraphLook } from "../lib/graph-look";
+import { GraphSignals } from "../lib/graph-signals";
 import { type Drawing, GraphSvg } from "../lib/graph-svg";
 import { go, still, store } from "../lib/store";
 
@@ -34,7 +35,9 @@ const counts = computed(() =>
 );
 
 const container = ref<HTMLElement>();
+const signalsCanvas = ref<HTMLCanvasElement>();
 let graph: Core | undefined;
+let signals: GraphSignals | undefined;
 
 /** What the layer shown has, and what is selected in it. */
 const shown = ref<Shown>({ nodes: [], edges: [] });
@@ -154,6 +157,18 @@ function emphasize(): void {
         cy.elements().not(litEdges).not(litNodes).addClass("dim");
         litEdges.not(".picked").addClass("lit");
     });
+}
+
+/** Dots in the link colour; on a lit line, the highlighter with a navy ring; on a line a comparison adds, green. */
+function signalColors() {
+    const colors = GraphLook.colors();
+    return { dot: colors.link, lit: colors.yellow, ring: colors.navy, added: colors.ok };
+}
+
+/** The dots move, or, when the reader asks for less motion, are not drawn at all. */
+function moveSignals(): void {
+    if (still.matches) signals?.stop();
+    else signals?.start();
 }
 
 /** Below this zoom a device's name is too small to read: a first view stops there, around the busiest device, and the reader pans for the rest. */
@@ -397,6 +412,7 @@ function restartTour(): void {
 /** The page as presenting wants it: the rails and the panel gone, heavier lines, a caption, and the turns running. Or back as it was. */
 function showPresenting(): void {
     document.body.classList.toggle("presenting", presenting.value);
+    if (signals) signals.presenting = presenting.value;
     touring = undefined;
     select(undefined);
     graph?.edges().removeClass("heavy");
@@ -474,6 +490,11 @@ onMounted(() => {
     if (container.value) resizing.observe(container.value);
     addEventListener("keydown", onKey);
 
+    // Dots travel the lines that work, unless the reader asks for less motion.
+    if (signalsCanvas.value) signals = new GraphSignals(graph, signalsCanvas.value, signalColors());
+    moveSignals();
+    still.addEventListener("change", moveSignals);
+
     draw(false);
     frameLayer();
     if (presenting.value) showPresenting();
@@ -485,6 +506,8 @@ onBeforeUnmount(() => {
     clearTimeout(leaving);
     resizing?.disconnect();
     removeEventListener("keydown", onKey);
+    still.removeEventListener("change", moveSignals);
+    signals?.stop();
     document.body.classList.remove("presenting");
     graph?.destroy();
 });
@@ -534,7 +557,10 @@ const nodeFindings = computed(() =>
             </div>
         </div>
         <div class="stage">
-            <div ref="container" class="canvas" role="img" aria-label="The network"></div>
+            <div class="board">
+                <div ref="container" class="canvas" role="img" aria-label="The network"></div>
+                <canvas ref="signalsCanvas" class="signals" aria-hidden="true"></canvas>
+            </div>
             <p v-if="presenting && caption" class="present-caption">
                 <strong>{{ caption.title }}</strong
                 ><span>{{ caption.detail }}</span>
@@ -588,9 +614,31 @@ const nodeFindings = computed(() =>
 </template>
 
 <style scoped>
-.canvas {
+/* The drawing, with the travelling dots on a canvas laid over it. */
+.board {
+    position: relative;
     flex: 1;
     min-width: 0;
+    min-height: 0;
+}
+
+.canvas,
+.signals {
+    position: absolute;
+    inset: 0;
+    width: 100%;
     height: 100%;
+}
+
+.signals {
+    pointer-events: none;
+}
+
+@media (max-width: 760px) {
+    .board {
+        flex: 1 1 auto;
+        width: 100%;
+        min-height: 320px;
+    }
 }
 </style>
