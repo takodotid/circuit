@@ -5,12 +5,11 @@ import { Validation } from "../checks";
 import { Address } from "../core/address";
 import { Secrets } from "../core/secrets";
 import { Topology } from "../core/topology";
-import type { Device } from "../model";
+import type { Device, Finding } from "../model";
 import { Platforms } from "../platforms";
-import { Catalog } from "../platforms/catalog";
+import { Catalog } from "../core/catalog";
 import { Derive } from "../platforms/derive";
-import type { Finding } from "../platforms/finding";
-import { ProjectError, type ProjectRead, readProject, secretsFileOf } from "../project/project";
+import { ProjectError, type ProjectRead, Project } from "../project";
 import type { AddressRow, Cable, Session, StudioData, StudioError } from "./types";
 
 export class StudioModel {
@@ -18,7 +17,7 @@ export class StudioModel {
     static async gather(root: string): Promise<StudioData | StudioError> {
         let read: ProjectRead;
         try {
-            read = await readProject(root);
+            read = await Project.read(root);
         } catch (error) {
             if (error instanceof ProjectError) return { error: error.lines.join("\n") };
             return { error: (error as Error).message };
@@ -49,7 +48,7 @@ export class StudioModel {
                 ...(network.asn !== undefined ? { asn: network.asn } : {}),
                 sites: network.settings.sites ?? {},
                 devices: Object.keys(network.devices),
-                secretsFile: secretsFileOf(network),
+                secretsFile: Project.secretsFile(network),
                 secrets: [...Secrets.referencesIn([network.devices, network.settings.integrations])]
                     .filter((name) => !name.startsWith("file:"))
                     .sort(),

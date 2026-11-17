@@ -23,7 +23,7 @@ import type {
     Severity,
     VlanInterface,
 } from "../../model";
-import { Catalog } from "../catalog";
+import { Catalog } from "../../core/catalog";
 import { Derive, type NamedInterface } from "../derive";
 
 /** A property value as a command takes it. `undefined` and `false` leave the property out. */

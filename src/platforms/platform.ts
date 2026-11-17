@@ -1,9 +1,8 @@
 import type { Neighbor } from "../core/cabling";
-import type { Finding } from "./finding";
-import type { Device, Family } from "../model";
+import type { Device, Family, Finding } from "../model";
 import type { ConsoleDialect } from "../transport/console";
 import type { WaitLimits } from "./bgp-wait";
-import type { PlatformName } from "./catalog";
+import type { Platform as PlatformName } from "../config/models";
 
 /** One part of a plan: what a reviewer reads, and what is sent. */
 export type Step = { title: string; show: string[]; send: string[] };

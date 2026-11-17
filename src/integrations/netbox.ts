@@ -7,7 +7,8 @@ import { AddressSpace } from "../core/address-space";
 import { type Holder, Topology } from "../core/topology";
 import type { Device, InterfaceKind, Port, Switched } from "../model";
 import { Platforms } from "../platforms";
-import { Catalog, type PlatformName } from "../platforms/catalog";
+import type { Platform as PlatformName } from "../config/models";
+import { Catalog } from "../core/catalog";
 import { Derive } from "../platforms/derive";
 import type { SyncChange, SyncNetwork, SyncPlan, SyncTarget } from "./sync";
 

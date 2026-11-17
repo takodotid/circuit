@@ -2,7 +2,7 @@
 
 import { Address } from "../../core/address";
 import type { Device, Family } from "../../model";
-import { Catalog } from "../catalog";
+import { Catalog } from "../../core/catalog";
 import { Derive, type NamedInterface } from "../derive";
 
 type Addressed = { addresses?: readonly (string | { address: string; peer_address?: string })[]; vrf?: string; in_lag?: string };

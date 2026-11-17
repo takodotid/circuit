@@ -10,7 +10,7 @@ import { EditorTypes } from "../../src/cli/editor-types";
 import { VERSION } from "../../src/cli/version";
 import { Versions } from "../../src/cli/versions";
 import { SecretsFile } from "../../src/core/secrets-file";
-import { readProject } from "../../src/project/project";
+import { Project } from "../../src/project";
 
 // Inside a git hook, such as this repository's own, git's variables point every git command at this repository instead of the test's.
 for (const name of Object.keys(process.env)) if (name.startsWith("GIT_")) delete process.env[name];
@@ -69,7 +69,7 @@ test("git checks each commit with the project's hook", () => {
 });
 
 test("Circuit reads the new project", async () => {
-    const read = await readProject(root);
+    const read = await Project.read(root);
     expect(read.networks.map((network) => network.name)).toEqual(["as64500"]);
 });
 

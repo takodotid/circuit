@@ -8,12 +8,11 @@ import { AddressSpace } from "../core/address-space";
 import { Cabling } from "../core/cabling";
 import { Registries } from "../core/registries";
 import { Secrets } from "../core/secrets";
-import type { Device } from "../model";
+import type { Device, Finding } from "../model";
 import { Platforms } from "../platforms";
 import { BgpWait } from "../platforms/bgp-wait";
-import type { Finding } from "../platforms/finding";
 import type { ApplyOptions, BgpLogLine, BgpSession, Plan, Platform, ReadSession } from "../platforms/platform";
-import { ProjectError, type ProjectRead, readProject, secretsFileOf } from "../project/project";
+import { ProjectError, type ProjectRead, Project } from "../project";
 import { ConsoleScript, type ConsoleSession, SerialConsole } from "../transport/console";
 import { PathCheck } from "../transport/path-check";
 import { Communities, type CommunityFormat } from "./communities";
@@ -71,7 +70,7 @@ export class ProjectCommands {
 
         let project: ProjectRead;
         try {
-            project = await Ui.step("Reading the project", () => readProject(root));
+            project = await Ui.step("Reading the project", () => Project.read(root));
         } catch (error) {
             if (error instanceof ProjectError) Ui.fail(`${error.lines.join("\n")}\n\n${error.lines.length} error(s).`);
             throw error;
@@ -173,7 +172,7 @@ export class ProjectCommands {
     /** The device, its secrets read from its network's file, the person asked for that file's password when nothing else gives it. */
     private async withSecrets(device: Device): Promise<Device> {
         const network = this.project.networks.find((each) => device.name in each.devices);
-        Secrets.useFile(network ? secretsFileOf(network) : undefined);
+        Secrets.useFile(network ? Project.secretsFile(network) : undefined);
         await SecretsPassword.unlock(Secrets.lockedFor(device));
         await Remember.offer();
         return device;
@@ -181,7 +180,7 @@ export class ProjectCommands {
 
     /** Every secrets file the networks use, relative to the project. */
     secretsFiles(): string[] {
-        return [...new Set(this.project.networks.map(secretsFileOf))];
+        return [...new Set(this.project.networks.map((network) => Project.secretsFile(network)))];
     }
 
     /** How a device is reached: through its console when `--console` asks, or when it has no management address. */

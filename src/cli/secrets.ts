@@ -2,7 +2,7 @@
 
 import { type SecretKind, OnePassword, SecretsFile } from "../core/secrets-file";
 import { Secrets } from "../core/secrets";
-import { ProjectError, readProject, secretsFileOf } from "../project/project";
+import { ProjectError, Project } from "../project";
 import { isAbsolute, normalize, relative, resolve, sep } from "node:path";
 import { ProjectCommands } from "./project-commands";
 import { Setup } from "./setup";
@@ -34,9 +34,11 @@ export class SecretCommands {
         const name = file === undefined ? SecretsFile.DEFAULT : SecretCommands.inProject(root, file);
         const needed = new Set<string>();
         try {
-            const read = await Ui.step("Reading the project", () => readProject(root));
-            const files = [...new Set(read.networks.map(secretsFileOf))].map(SecretCommands.normal);
-            const using = read.networks.filter((network) => SecretCommands.normal(secretsFileOf(network)) === SecretCommands.normal(name));
+            const read = await Ui.step("Reading the project", () => Project.read(root));
+            const files = [...new Set(read.networks.map((network) => Project.secretsFile(network)))].map(SecretCommands.normal);
+            const using = read.networks.filter(
+                (network) => SecretCommands.normal(Project.secretsFile(network)) === SecretCommands.normal(name)
+            );
 
             if (!using.length && files.length) {
                 if (file === undefined) Ui.fail(`This project keeps its secrets in ${files.join(", ")}. Name the file: --file ${files[0]}`);

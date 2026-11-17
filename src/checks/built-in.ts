@@ -3,9 +3,8 @@
 
 import { Address } from "../core/address";
 import type { Checks } from "../config/network";
-import type { Device, Interface, Switched } from "../model";
+import type { Device, Finding, Interface, Switched } from "../model";
 import { Derive } from "../platforms/derive";
-import type { Finding } from "../platforms/finding";
 import { DeviceChecks } from "./device";
 
 /** The built-in checks' settings, as `circuit()` takes them. */

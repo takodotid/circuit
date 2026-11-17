@@ -1,25 +1,22 @@
-// What Circuit does with a project: import its `circuit.ts`, then every device file under `sites/`, check what the types cannot, run the project's own
-// checks on the network resolved, and turn what the language adds (lists in a match, interface sets, `bgpNeighbors`, `{ communities }` rules, an
-// address with its length where the model keeps it alone, `management.allow` as an address set's name) into the model's plain values, which the
-// platforms read (`src/model.ts`). It fills in nothing but the network's AS on BGP, which the model needs.
+// Reads a project: imports `circuit.ts` and each device file under `sites/`, checks what the types can't, runs the project's own checks, and turns the language's shorthands into the plain model the platforms read (`src/model.ts`). It fills in nothing but the network's AS on BGP, which the model needs.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, isAbsolute, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { catalogue, schemeProblems, writeCommunities } from "../config/communities";
-import { BGP_NEIGHBORS, type Registered, registry } from "../config/define";
-import type { AnyDevice } from "../config/device";
-import type { Community, Finding, ResolvedNetwork } from "../config/network";
-import * as globals from "../config/index";
-import { ACTIONS, CHECKS, DEVICE, NETWORK, POLICY_RULE, closest, unknownKeyHelp, unknownKeys } from "../config/keys";
-import { isOrdered, lineOf, source, userFrames, writtenAt } from "../config/merge";
-import { NUMBERED_VLANS, portsOf, spell } from "../config/models";
-import { policyRuleProblem } from "../config/routing";
-import { Address } from "../core/address";
-import { Secrets } from "../core/secrets";
-import { SecretsFile } from "../core/secrets-file";
-import { Utils } from "../core/utils";
-import type { Device } from "../model";
+import { catalogue, schemeProblems, writeCommunities } from "./config/communities";
+import { BGP_NEIGHBORS, type Registered, registry } from "./config/define";
+import type { AnyDevice } from "./config/device";
+import type { Community, Finding, ResolvedNetwork } from "./config/network";
+import * as globals from "./config/index";
+import { ACTIONS, CHECKS, DEVICE, NETWORK, POLICY_RULE, closest, unknownKeyHelp, unknownKeys } from "./config/keys";
+import { isOrdered, lineOf, source, userFrames, writtenAt } from "./config/merge";
+import { NUMBERED_VLANS, portsOf, spell } from "./config/models";
+import { policyRuleProblem } from "./config/routing";
+import { Address } from "./core/address";
+import { Secrets } from "./core/secrets";
+import { SecretsFile } from "./core/secrets-file";
+import { Utils } from "./core/utils";
+import type { Device } from "./model";
 
 // The model's JSON, walked without its types.
 type Json = any;
@@ -38,11 +35,6 @@ export type ProjectNetwork = {
     /** The rest of `circuit()`: sites, checks, integrations. */
     settings: Json;
 };
-
-/** The secrets file of a network, relative to the project: the one `secrets.file` names, or `.circuit/secrets`. */
-export function secretsFileOf(network: Pick<ProjectNetwork, "settings">): string {
-    return ((network.settings.secrets as Json | undefined)?.file as string | undefined) ?? SecretsFile.DEFAULT;
-}
 
 /** What reading a project found: each network, and what Circuit tells but doesn't stop on. What stops it is thrown as `ProjectError`. */
 export type ProjectRead = { networks: ProjectNetwork[]; warnings: string[] };
@@ -90,7 +82,7 @@ async function load(file: string): Promise<Record<string, unknown>> {
  * Reads the project in `folder`: imports `circuit.ts` and each device file, checks the whole network, runs the project's own checks,
  * and gives each network's devices in the model. Throws `ProjectError` with every reason when the project can't be read.
  */
-export async function readProject(folder: string): Promise<ProjectRead> {
+async function read(folder: string): Promise<ProjectRead> {
     project = resolve(folder);
     findings = [];
     warnings = [];
@@ -135,7 +127,7 @@ export async function readProject(folder: string): Promise<ProjectRead> {
         else networks.push({ name: name === "default" ? `as${network.asn}` : name, registered, network, devices: {} });
     }
     for (const { registered, network } of networks) {
-        const file = (network.secrets as Json | undefined)?.file;
+        const file = (network.secrets as Json)?.file;
         if (
             network.secrets !== undefined &&
             (typeof file !== "string" || !file.trim() || isAbsolute(file) || file.split(/[\\/]/).includes(".."))
@@ -746,4 +738,16 @@ function primitive(device: AnyDevice, network: Json): Device {
         if (!Object.keys(d.firewall).length) delete d.firewall;
     }
     return d;
+}
+
+export class Project {
+    /** Reads the project in `folder`. Throws `ProjectError` with every reason it can't. */
+    static read(folder: string): Promise<ProjectRead> {
+        return read(folder);
+    }
+
+    /** A network's secrets file, from the project's folder: the one `secrets.file` gives, or `.circuit/secrets`. */
+    static secretsFile(network: Pick<ProjectNetwork, "settings">): string {
+        return ((network.settings.secrets as Json)?.file as string | undefined) ?? SecretsFile.DEFAULT;
+    }
 }

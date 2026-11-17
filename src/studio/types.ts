@@ -1,8 +1,7 @@
 // What Studio's server sends its page. Types only, so the page shares them without taking any of Circuit's code.
 
 import type { Graph } from "../core/graph";
-import type { Device } from "../model";
-import type { Finding } from "../platforms/finding";
+import type { Device, Finding } from "../model";
 
 /** One network of the project, without its devices. */
 export type StudioNetwork = {

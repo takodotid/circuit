@@ -6,9 +6,8 @@ import type { Client } from "ssh2";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
-import type { Finding } from "../finding";
+import type { Device, Family, Finding } from "../../model";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family } from "../../model";
 import { SerialConsole, type ConsoleDialect, ConsoleShell } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import {
@@ -26,7 +25,7 @@ import {
 } from "../platform";
 import { BgpWait, type WaitLimits } from "../bgp-wait";
 import { RouterOsPlan } from "./plan";
-import { Catalog } from "../catalog";
+import { Catalog } from "../../core/catalog";
 import { Derive } from "../derive";
 import { RouterOsRender } from "./render";
 

@@ -7,7 +7,7 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EditorTypes } from "../../src/cli/editor-types";
-import { type ProjectRead, readProject } from "../../src/project/project";
+import { type ProjectRead, Project } from "../../src/project";
 import { Fixtures } from "../fixtures";
 
 const folder = mkdtempSync(join(tmpdir(), "circuit-examples-"));
@@ -40,7 +40,7 @@ beforeAll(async () => {
 
     EditorTypes.write(folder);
     writeFileSync(join(folder, "tsconfig.json"), EditorTypes.TSCONFIG);
-    read = await readProject(folder);
+    read = await Project.read(folder);
 });
 
 afterAll(() => rmSync(folder, { recursive: true, force: true }));

@@ -4,7 +4,7 @@ import { Address } from "../../core/address";
 import { Cabling } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
 import type { AclRule, Device, Ethertype, Family, Interface, Lag, Port, Ports, Rate, Severity, Vrrp } from "../../model";
-import { Catalog } from "../catalog";
+import { Catalog } from "../../core/catalog";
 import { Derive } from "../derive";
 import { JunosBgp } from "./bgp";
 

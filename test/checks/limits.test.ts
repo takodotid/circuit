@@ -3,7 +3,7 @@
 import { expect, test } from "bun:test";
 import { Validation } from "../../src/checks";
 import type { AclRule, Device } from "../../src/model";
-import { Catalog } from "../../src/platforms/catalog";
+import { Catalog } from "../../src/core/catalog";
 import { Platforms } from "../../src/platforms";
 import { Fixtures } from "../fixtures";
 

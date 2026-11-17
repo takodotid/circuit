@@ -2,7 +2,7 @@ import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
 import type { Device, Ethertype, Port, Prefix, Severity, SnmpUser, Switched, Vrrp } from "../../model";
-import { Catalog } from "../catalog";
+import { Catalog } from "../../core/catalog";
 import { Derive } from "../derive";
 
 /** The configuration a Raisecom ROS device should run. */

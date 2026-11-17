@@ -3,9 +3,9 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { AddressSpace } from "../../src/core/address-space";
-import { readProject } from "../../src/project/project";
+import { Project } from "../../src/project";
 
-const colocation = await readProject(join(import.meta.dir, "..", "..", "examples", "colocation"));
+const colocation = await Project.read(join(import.meta.dir, "..", "..", "examples", "colocation"));
 const [network] = colocation.networks;
 if (!network) throw new Error("the colocation example has no network");
 const devices = Object.values(network.devices);

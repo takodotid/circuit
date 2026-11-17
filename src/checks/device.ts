@@ -5,10 +5,9 @@ import { X509Certificate } from "node:crypto";
 import { utils } from "ssh2";
 import { Address } from "../core/address";
 import { Utils } from "../core/utils";
-import type { Device, Interface, InterfaceKind, Routed, Switched } from "../model";
-import { Catalog } from "../platforms/catalog";
+import type { Device, Finding, Interface, InterfaceKind, Routed, Switched } from "../model";
+import { Catalog } from "../core/catalog";
 import { Derive } from "../platforms/derive";
-import type { Finding } from "../platforms/finding";
 import { Platforms } from "../platforms";
 
 type Report = (message: string) => void;

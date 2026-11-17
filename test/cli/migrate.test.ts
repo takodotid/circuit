@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Migrate } from "../../src/cli/migrate";
-import { readProject } from "../../src/project/project";
+import { Project } from "../../src/project";
 import { Fixtures } from "../fixtures";
 
 const parent = mkdtempSync(join(tmpdir(), "circuit-migrate-"));
@@ -63,7 +63,7 @@ describe.each([...examples.keys()])("%s", (example) => {
     }
 
     test("Circuit reads back the golden fixtures' devices", async () => {
-        const read = await readProject(folder);
+        const read = await Project.read(folder);
         const devices = read.networks[0]!.devices;
 
         for (const name of examples.get(example)!) {

@@ -7,7 +7,7 @@ import { NetBox } from "../integrations/netbox";
 import { PeeringDb } from "../integrations/peeringdb";
 import { Prometheus } from "../integrations/prometheus";
 import { Sync, type SyncNetwork, type SyncOutcome, type SyncTarget } from "../integrations/sync";
-import { type ProjectNetwork, type ProjectRead, secretsFileOf } from "../project/project";
+import { type ProjectNetwork, type ProjectRead, Project } from "../project";
 import { Remember } from "./remember";
 import { SecretsPassword } from "./secrets-password";
 import { type Choice, Ui } from "./ui";
@@ -123,7 +123,7 @@ export class SyncCommand {
                 name === "librenms" ? devices.map((device) => device.monitoring?.snmp) : [],
             ];
 
-            Secrets.useFile(secretsFileOf(network));
+            Secrets.useFile(Project.secretsFile(network));
             await SecretsPassword.unlock(Secrets.lockedFor(needed));
         }
 
@@ -132,7 +132,7 @@ export class SyncCommand {
 
     /** A network as the sync targets read it, its secrets read from its own file. */
     private static syncNetwork(network: ProjectNetwork): SyncNetwork {
-        const file = secretsFileOf(network);
+        const file = Project.secretsFile(network);
         const devices: Device[] = Object.values(network.devices);
 
         return {

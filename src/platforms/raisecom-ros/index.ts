@@ -9,7 +9,7 @@ import { Secrets } from "../../core/secrets";
 import type { Device } from "../../model";
 import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
-import { Catalog } from "../catalog";
+import { Catalog } from "../../core/catalog";
 import { Derive } from "../derive";
 import { LineDiff, type Dialect, type Group } from "../line-diff";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";

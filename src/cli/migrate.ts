@@ -7,7 +7,7 @@ import { parseEnv } from "node:util";
 import { Validation } from "../checks";
 import { OnePassword, SecretsFile } from "../core/secrets-file";
 import { SecretsPassword } from "./secrets-password";
-import { ProjectError, readProject } from "../project/project";
+import { ProjectError, Project } from "../project";
 import { EditorTypes } from "./editor-types";
 import { GITIGNORE, Setup } from "./setup";
 import { Ui } from "./ui";
@@ -489,7 +489,7 @@ export class Migrate {
     /** What Circuit v1 finds in the project just written: errors reading it, then each error and warning of the model's checks. */
     static async findings(out: string): Promise<string[]> {
         try {
-            const read = await readProject(out);
+            const read = await Project.read(out);
             return [
                 ...read.warnings.map((warning) => `warning: ${warning}`),
                 ...read.networks.flatMap((network) =>

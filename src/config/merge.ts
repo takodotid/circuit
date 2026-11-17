@@ -59,7 +59,7 @@ export const writtenIn = (map: object, key: string): string => (map as { [WRITTE
 /** The line in `lib/` a key was written through, or nothing. */
 const innerIn = (map: object, key: string): string | undefined => (map as { [INNER]?: Record<string, string> })[INNER]?.[key];
 
-/** Reads a file of the project as its lines. Circuit gives it when it reads a project (src/project/project.ts): the project's editor has no Node types, so this file reads none itself. */
+/** Reads a file of the project as its lines. Circuit gives it when it reads a project (src/project.ts): the project's editor has no Node types, so this file reads none itself. */
 export const source = { read: (_file: string): string => "" };
 
 /** Each file's lines, read once. */

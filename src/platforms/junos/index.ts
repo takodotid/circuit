@@ -9,7 +9,7 @@ import { Secrets } from "../../core/secrets";
 import type { Device, Family, Lag, Port, Routed } from "../../model";
 import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
-import { Catalog } from "../catalog";
+import { Catalog } from "../../core/catalog";
 import { Derive, type ProvedFeature } from "../derive";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
 import { JunosBgp } from "./bgp";

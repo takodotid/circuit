@@ -9,7 +9,7 @@ import { SyncCommand } from "../../src/cli/sync";
 import { NetBox } from "../../src/integrations/netbox";
 import type { SyncNetwork } from "../../src/integrations/sync";
 import type { Device } from "../../src/model";
-import { ProjectError, type ProjectNetwork, readProject } from "../../src/project/project";
+import { ProjectError, type ProjectNetwork, Project } from "../../src/project";
 import { Fixtures } from "../fixtures";
 
 type Json = { [field: string]: any };
@@ -299,7 +299,7 @@ test("validate stops on a device without a role when NetBox is set", async () =>
         `import { net } from "../../circuit";\n\nexport default net.device(${JSON.stringify(device, null, 4)});\n`
     );
 
-    const stopped = await readProject(folder).then(
+    const stopped = await Project.read(folder).then(
         () => [],
         (error: unknown) => (error instanceof ProjectError ? error.lines : [String(error)])
     );

@@ -6,12 +6,11 @@ import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { AclRule, Device, Family, FilterRule, Gre, Lag, VlanInterface, Vxlan } from "../../model";
+import type { AclRule, Device, Family, FilterRule, Finding, Gre, Lag, VlanInterface, Vxlan } from "../../model";
 import { SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
-import { Catalog } from "../catalog";
+import { Catalog } from "../../core/catalog";
 import { Derive } from "../derive";
-import type { Finding } from "../finding";
 
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
 import { FortiOsFirewall } from "./firewall";

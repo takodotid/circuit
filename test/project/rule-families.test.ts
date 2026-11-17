@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Validation } from "../../src/checks";
-import { type ProjectRead, readProject } from "../../src/project/project";
+import { type ProjectRead, Project } from "../../src/project";
 
 const folder = mkdtempSync(join(tmpdir(), "circuit-rule-families-"));
 let read: ProjectRead;
@@ -39,7 +39,7 @@ beforeAll(async () => {
         join(folder, "sites", "test", "r1.ts"),
         `import { net } from "../../circuit";\n\nexport default net.device(${JSON.stringify(router, null, 4)});\n`
     );
-    read = await readProject(folder);
+    read = await Project.read(folder);
 });
 
 afterAll(() => rmSync(folder, { recursive: true, force: true }));

@@ -192,7 +192,7 @@ test("a session in a table announces from it: none of originated_prefixes there 
     expect(errors(onlyInMain)).toContain(findings(onlyInMain)[0]!.slice("error ".length));
 });
 
-// A rule naming a table the device does not declare stops the project when it is read (`readProject`), so validation does not report it again.
+// A rule naming a table the device does not declare stops the project when it is read (`Project.read`), so validation does not report it again.
 test("validate: a table named main or like a VRF, one nothing installs in, a rule nothing reaches", () => {
     expect(errors(withBlockB())).toEqual([]);
 

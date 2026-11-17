@@ -2,9 +2,8 @@
 // is stopped on when the project is read, so a link that doesn't is skipped here.
 
 import { Address } from "../core/address";
-import type { Device, Gre, Prefix, Routed, Switched, Vrrp, Vxlan } from "../model";
+import type { Device, Finding, Gre, Prefix, Routed, Switched, Vrrp, Vxlan } from "../model";
 import { Derive } from "../platforms/derive";
-import type { Finding } from "../platforms/finding";
 import { DeviceChecks } from "./device";
 
 /** An address one of the devices holds on a port or interface. */

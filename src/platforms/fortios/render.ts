@@ -4,7 +4,7 @@ import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
 import type { Device, Gre, Helper, Severity, StaticRoute, Vxlan } from "../../model";
-import { Catalog } from "../catalog";
+import { Catalog } from "../../core/catalog";
 import { Derive } from "../derive";
 import { FortiOsFirewall } from "./firewall";
 import { FortiOsNames } from "./names";
