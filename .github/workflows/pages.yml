@@ -2,7 +2,7 @@ name: pages
 
 # Builds the documentation site in docs/ and publishes it to GitHub Pages, served at circuit.tako.id, with the installers beside it.
 #
-# It publishes only when run by hand or called by the release workflow, so the live site changes with a release. On a pull request or a push it only builds, to check the site still builds.
+# It publishes only when run by hand or called by the release workflow (whose event is `release`), so the live site changes with a release. On a pull request or a push it only builds.
 
 on:
     workflow_dispatch:
@@ -13,8 +13,6 @@ on:
 
 permissions:
     contents: read
-    pages: write
-    id-token: write
 
 concurrency:
     group: pages-${{ github.event_name }}-${{ github.ref }}
@@ -28,22 +26,25 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
-            - uses: oven-sh/setup-bun@v2
+            - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
               with:
                   bun-version: 1.4.4
             - run: bun install --frozen-lockfile
             # The installers are in docs/public, so the site serves them at /install and /install.ps1.
             - run: bun run docs:build
 
-            - if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || github.event_name == 'release'
+            - if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
               uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
               with:
                   path: docs/.vitepress/dist
 
     deploy:
         needs: build
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || github.event_name == 'release'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
         runs-on: ubuntu-latest
+        permissions:
+            pages: write
+            id-token: write
         environment:
             name: github-pages
             url: ${{ steps.deployment.outputs.page_url }}

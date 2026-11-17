@@ -13,9 +13,14 @@ on:
             - src/cli/app.ts
             - src/cli/releases.ts
             - src/cli/versions.ts
+            - src/cli/signing.ts
+            - src/cli/advisories.ts
     release:
         types: [published]
     workflow_dispatch:
+
+permissions:
+    contents: read
 
 jobs:
     installers:
@@ -31,12 +36,12 @@ jobs:
             NEWER: 1.0.0-rc.8
             SHELL: /bin/bash
         steps:
-            - uses: actions/checkout@v4
-            - uses: oven-sh/setup-bun@v2
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+              with:
+                  bun-version: 1.4.4
 
-            # The installer and Circuit read their answers from a terminal; `script` gives them one, fed from stdin. Each answer comes
-            # a moment after its question, as a person's would: macOS's `script` loses what arrives before. Each answer comes
-            # a moment after the question, as a person's would: macOS's `script` loses what arrives before.
+            # The installer and Circuit read their answers from a terminal; `script` gives them one, fed from stdin. Each answer comes a moment after its question, as a person's would, because macOS's `script` loses what arrives before.
             - name: a terminal for the questions
               run: |
                   if [ "$RUNNER_OS" = macOS ]; then
@@ -46,14 +51,12 @@ jobs:
                   fi
                   sudo chmod +x /usr/local/bin/pty
 
-            # The newest Circuit 1 or later, as the installer and `circuit update` pick it: the stable release, else the newest candidate.
+            # The newest stable release, as the installer and `circuit update` pick it.
             - name: the newest release
               run: |
                   tags="$(curl -fsSL https://registry.npmjs.org/-/package/@takodotid/circuit/dist-tags)"
                   tag() { printf '%s' "$tags" | sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"; }
-                  newest="$(tag latest)"
-                  case "$newest" in 0.*) newest="$(tag rc)" ;; esac
-                  echo "NEWEST=$newest" >> "$GITHUB_ENV"
+                  echo "NEWEST=$(tag latest)" >> "$GITHUB_ENV"
 
             - name: a fresh install asks app or project, then whether to start a project
               run: |
