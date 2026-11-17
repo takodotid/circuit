@@ -175,6 +175,23 @@ a:hover {
     text-decoration-style: solid;
 }
 
+/* An action that reads as a link, such as Save as CSV: a button, so the keyboard reaches it. */
+button.link {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font-weight: 600;
+    text-align: left;
+    text-decoration: underline dotted 1.5px;
+    text-underline-offset: 3px;
+}
+
+button.link:hover {
+    text-decoration-style: solid;
+}
+
 .muted {
     color: var(--muted);
 }

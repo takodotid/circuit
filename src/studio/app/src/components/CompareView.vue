@@ -4,7 +4,8 @@ import { computed, onMounted, ref, watch } from "vue";
 import type { GraphEdge } from "../../../../core/graph";
 import type { Commit, StudioData } from "../../../types";
 import { Format } from "../lib/format";
-import { api, go, store } from "../lib/store";
+import { GraphLayer } from "../lib/graph-layer";
+import { api, go, showInGraph, store } from "../lib/store";
 import LineDiff from "./LineDiff.vue";
 
 const props = defineProps<{ data: StudioData }>();
@@ -70,14 +71,22 @@ const edges = computed(() => {
 
     const before = new Set(then.graph.edges.map(edgeKey));
     const after = new Set(props.data.graph.edges.map(edgeKey));
-    const describe = (edge: GraphEdge) =>
-        `${edge.layer}: ${edge.from.replace(/^\w+:/, "")} to ${edge.to.replace(/^\w+:/, "")}, ${edge.label}`;
 
     return {
-        added: props.data.graph.edges.filter((edge) => !before.has(edgeKey(edge))).map(describe),
-        gone: then.graph.edges.filter((edge) => !after.has(edgeKey(edge))).map(describe),
+        added: props.data.graph.edges.filter((edge) => !before.has(edgeKey(edge))),
+        gone: then.graph.edges.filter((edge) => !after.has(edgeKey(edge))),
     };
 });
+
+const describe = (edge: GraphEdge) => `${edge.layer}: ${edge.from.replace(/^\w+:/, "")} to ${edge.to.replace(/^\w+:/, "")}, ${edge.label}`;
+
+/** Show the lines added and gone on the graph, on the first layer that changes. */
+function showChanges(): void {
+    if (!edges.value) return;
+    const changed = [...edges.value.added, ...edges.value.gone];
+    const first = GraphLayer.LAYERS.find((layer) => changed.some((edge) => edge.layer === layer)) ?? "l1";
+    showInGraph(first, { comparison: { name: store.route.parts[0] ?? "", added: edges.value.added, removed: edges.value.gone } });
+}
 
 const findingKey = (finding: { level: string; device?: string; message: string }) =>
     `${finding.level}|${finding.device ?? ""}|${finding.message}`;
@@ -137,9 +146,10 @@ const findings = computed(() => {
 
         <h3>The graph</h3>
         <p v-if="!edges.added.length && !edges.gone.length" class="muted">No line of the graph changes.</p>
+        <p v-else><button type="button" class="link" @click="showChanges">Show the changes in the graph</button></p>
         <ul class="findings">
-            <li v-for="line in edges.added" :key="`+${line}`"><span class="added">+</span> {{ line }}</li>
-            <li v-for="line in edges.gone" :key="`-${line}`"><span class="removed">−</span> {{ line }}</li>
+            <li v-for="edge in edges.added" :key="`+${describe(edge)}`"><span class="added">+</span> {{ describe(edge) }}</li>
+            <li v-for="edge in edges.gone" :key="`-${describe(edge)}`"><span class="removed">−</span> {{ describe(edge) }}</li>
         </ul>
 
         <h3>Found by <code>circuit validate</code></h3>

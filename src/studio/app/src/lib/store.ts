@@ -1,9 +1,22 @@
 // What the page knows: what the server gathered last, where the reader is, and whether the server is still there. The server tells the page when the project changed, and the page reads it again.
 
 import { reactive } from "vue";
+import type { Comparison } from "./graph-layer";
 import type { StudioData } from "../../../types";
 
 export type Route = { view: string; parts: string[] };
+
+/** What another view asks the graph to show. The graph reads it, and keeps a comparison until the reader stops it. */
+export type GraphFocus = {
+    /** Another commit's graph against this one: its lines added, and those gone, drawn back. */
+    comparison?: Comparison;
+    /** Light the cables that carry this VLAN, by its ID, on the VLANs layer. */
+    vlan?: number;
+    /** Light these lines, by `GraphLayer.keyOf`. */
+    path?: string[];
+    /** Select this device. */
+    device?: string;
+};
 
 function parseRoute(): Route {
     const parts = location.hash.slice(1).split("/").map(decodeURIComponent).filter(Boolean);
@@ -18,7 +31,14 @@ export const store = reactive({
     /** The project was read again just now. */
     beat: false,
     route: parseRoute(),
+    graphFocus: {} as GraphFocus,
 });
+
+/** Show something in the graph: set what it lights, then go to its layer. */
+export function showInGraph(layer: string, focus: GraphFocus): void {
+    store.graphFocus = { ...(store.graphFocus.comparison ? { comparison: store.graphFocus.comparison } : {}), ...focus };
+    go(`graph/${layer}`);
+}
 
 /** Go to a place in the page, such as `devices/edge-01/ports`. */
 export function go(path: string): void {

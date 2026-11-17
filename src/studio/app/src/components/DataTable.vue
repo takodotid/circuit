@@ -1,9 +1,15 @@
-<!-- A table of rows, each cell text or a link, that can be saved as CSV. -->
+<!-- A table of rows, each cell text, a link or an action, that can be saved as CSV. -->
 <script setup lang="ts">
 import { Export } from "../lib/csv";
 import { go } from "../lib/store";
 
-export type Cell = string | number | undefined | { device: string; label?: string } | { link: string; label: string };
+export type Cell =
+    | string
+    | number
+    | undefined
+    | { device: string; label?: string }
+    | { link: string; label: string }
+    | { action: () => void; label: string };
 export type Row = { cells: Cell[]; muted?: boolean; id?: string };
 /** A column: its label, or a label with the doc of the device field it shows, read when the pointer is on it. */
 export type Column = string | { label: string; field?: boolean; doc?: string };
@@ -13,12 +19,15 @@ const props = defineProps<{ head: Column[]; rows: Row[]; csv?: string }>();
 const labelOf = (column: Column) => (typeof column === "string" ? column : column.label);
 const textOf = (cell: Cell) =>
     cell === undefined ? "" : typeof cell === "object" ? ("device" in cell ? (cell.label ?? cell.device) : cell.label) : String(cell);
-const linkOf = (cell: Cell) => (typeof cell === "object" && cell ? ("device" in cell ? `devices/${cell.device}` : cell.link) : undefined);
+const linkOf = (cell: Cell) =>
+    typeof cell === "object" && cell ? ("device" in cell ? `devices/${cell.device}` : "link" in cell ? cell.link : undefined) : undefined;
+const actionOf = (cell: Cell) => (typeof cell === "object" && cell && "action" in cell ? cell.action : undefined);
 
+/** The table as CSV: each cell as the text it shows, without the actions. */
 function save(): void {
     const csv = Export.csv(
         props.head.map(labelOf),
-        props.rows.map((row) => row.cells.map(textOf))
+        props.rows.map((row) => row.cells.map((cell) => (actionOf(cell) ? "" : textOf(cell))))
     );
     Export.save(`${props.csv}.csv`, new Blob([csv], { type: "text/csv" }));
 }
@@ -27,13 +36,13 @@ function save(): void {
 <template>
     <p v-if="!rows.length" class="muted">None.</p>
     <div v-else class="table-block">
-        <p v-if="csv" class="table-actions"><a @click="save">Save as CSV</a></p>
+        <p v-if="csv" class="table-actions"><button type="button" class="link" @click="save">Save as CSV</button></p>
         <table class="data">
             <thead>
                 <tr>
                     <th
-                        v-for="column in head"
-                        :key="labelOf(column)"
+                        v-for="(column, index) in head"
+                        :key="index"
                         :data-doc="typeof column === 'string' ? undefined : column.doc"
                         :tabindex="typeof column !== 'string' && column.doc ? 0 : undefined"
                     >
@@ -46,6 +55,7 @@ function save(): void {
                 <tr v-for="(row, index) in rows" :id="row.id" :key="index" :class="{ muted: row.muted }">
                     <td v-for="(cell, at) in row.cells" :key="at">
                         <a v-if="linkOf(cell)" @click="go(linkOf(cell)!)">{{ textOf(cell) }}</a>
+                        <button v-else-if="actionOf(cell)" type="button" class="link" @click="actionOf(cell)!()">{{ textOf(cell) }}</button>
                         <template v-else>{{ textOf(cell) }}</template>
                     </td>
                 </tr>

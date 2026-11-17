@@ -3,9 +3,13 @@
 import { computed } from "vue";
 import type { StudioData } from "../../../types";
 import { FieldDocs } from "../lib/field-docs";
+import { showInGraph } from "../lib/store";
 import DataTable, { type Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
+
+/** The VLANs some cable carries, by ID: those the graph can light. */
+const onCables = computed(() => new Set(props.data.graph.edges.flatMap((edge) => (edge.vlans ?? []).map((vlan) => vlan.id))));
 
 const columns = [
     FieldDocs.column("VLAN", "switching.vlans"),
@@ -13,6 +17,7 @@ const columns = [
     FieldDocs.column("Description", "switching.vlans.*.description"),
     "Devices",
     "Ports and LAGs carrying it",
+    "",
 ];
 
 const rows = computed<Row[]>(() => {
@@ -48,6 +53,9 @@ const rows = computed<Row[]>(() => {
                 [...entry.descriptions].join(" / "),
                 entry.devices.join(", "),
                 entry.ports.length,
+                [...entry.ids].some((id) => onCables.value.has(id))
+                    ? { action: () => showInGraph("l2", { vlan: Math.min(...entry.ids) }), label: "cables in the graph" }
+                    : "",
             ],
         }));
 });

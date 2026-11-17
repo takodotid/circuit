@@ -17,7 +17,13 @@ const memory = {
 </script>
 
 <script setup lang="ts">
-import cytoscape, { type CollectionReturnValue, type Core, type ElementDefinition, type NodeSingular } from "cytoscape";
+import cytoscape, {
+    type CollectionReturnValue,
+    type Core,
+    type EdgeCollection,
+    type ElementDefinition,
+    type NodeSingular,
+} from "cytoscape";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { StudioData } from "../../../types";
 import { Export } from "../lib/csv";
@@ -72,7 +78,17 @@ function nodeData(node: ShownNode) {
 }
 
 function edgeData(edge: ShownEdge) {
-    return { id: edge.id, source: edge.from, target: edge.to, label: edge.label, oneSided: Boolean(edge.oneSided) };
+    return {
+        id: edge.id,
+        source: edge.from,
+        target: edge.to,
+        label: edge.label,
+        keys: edge.keys,
+        vlans: (edge.vlans ?? []).map((vlan) => vlan.id),
+        oneSided: Boolean(edge.oneSided),
+        added: Boolean(edge.added),
+        gone: Boolean(edge.gone),
+    };
 }
 
 /**
@@ -83,7 +99,8 @@ function edgeData(edge: ShownEdge) {
 function draw(arrival?: "network" | "layer"): void {
     if (!graph) return;
 
-    shown.value = GraphLayer.of(props.data, layer.value);
+    shown.value = GraphLayer.of(props.data, layer.value, store.graphFocus.comparison);
+    Saved.set("layer", layer.value);
     layOut(layer.value);
     const places = layouts.places(layer.value);
 
@@ -221,9 +238,12 @@ function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer"): voi
     if (signals) signals.showFrom = performance.now() + last;
 }
 
+/** Select a node or a line, or nothing. A selection ends a lit path; selecting something ends a lit VLAN too. */
 function select(next: typeof memory.selection): void {
     selection.value = next;
     memory.selection = next;
+    delete store.graphFocus.path;
+    if (next) delete store.graphFocus.vlan;
     emphasize();
 }
 
@@ -232,17 +252,23 @@ let hovered: string | undefined;
 let touring: string | undefined;
 
 /**
- * Light what the pointer is on, the device presenting lights, or what is selected: a node with its lines and the nodes at their ends,
- * or a line with its two ends. The rest dims.
+ * Light what the pointer is on, the device presenting lights, or what is selected: a node with its lines and the nodes at their ends.
+ * Else a path asked for, or the cables of a VLAN asked for, or the line selected, each with its ends. The rest dims.
  */
 function emphasize(): void {
     if (!graph) return;
     const cy = graph;
 
     const picked = selection.value;
+    const { path, vlan } = store.graphFocus;
     const focus = hovered ?? touring ?? (picked && "node" in picked ? picked.node : undefined);
-    const pickedEdge = picked && "edge" in picked ? cy.getElementById(picked.edge) : undefined;
-    const litEdges = focus ? cy.getElementById(focus).connectedEdges() : pickedEdge;
+    const pickedEdge = picked && "edge" in picked ? cy.edges().filter((edge) => edge.id() === picked.edge) : undefined;
+
+    let litEdges: EdgeCollection | undefined = pickedEdge;
+    if (focus) litEdges = cy.getElementById(focus).connectedEdges();
+    else if (path?.length) litEdges = cy.edges().filter((edge) => (edge.data("keys") as string[]).some((key) => path.includes(key)));
+    else if (vlan !== undefined && layer.value === "l2")
+        litEdges = cy.edges().filter((edge) => (edge.data("vlans") as number[]).includes(vlan));
     const litNodes = litEdges?.connectedNodes().union(focus ? cy.getElementById(focus) : cy.collection());
 
     cy.batch(() => {
@@ -611,8 +637,33 @@ onMounted(() => {
     draw(memory.arrived || !props.data.devices.length ? undefined : "network");
     memory.arrived = true;
     frameLayer();
+    showDevice();
     if (presenting.value) showPresenting();
 });
+
+/** A device another view asked for: select it, and bring it to the middle of the view. */
+function showDevice(): void {
+    const name = store.graphFocus.device;
+    if (!name || !graph) return;
+    delete store.graphFocus.device;
+
+    const node = graph.getElementById(`device:${name}`);
+    if (node.empty()) return;
+
+    select({ node: node.id() });
+    const view = {
+        zoom: graph.zoom(),
+        pan: { x: graph.width() / 2 - node.position().x * graph.zoom(), y: graph.height() / 2 - node.position().y * graph.zoom() },
+    };
+    graph.stop(true);
+    if (still.matches) graph.viewport(view);
+    else graph.animate(view, { duration: 700, easing: "ease-in-out-cubic" });
+}
+
+/** Stop showing a comparison. */
+function stopComparing(): void {
+    delete store.graphFocus.comparison;
+}
 
 onBeforeUnmount(() => {
     keepView(layer.value);
@@ -629,6 +680,10 @@ onBeforeUnmount(() => {
 watch(layer, (_next, last) => {
     keepView(last);
     if (selection.value && "edge" in selection.value) select(undefined);
+
+    // What was lit on the last layer is not lit on this one.
+    delete store.graphFocus.path;
+    delete store.graphFocus.vlan;
     draw("layer");
     frameLayer(true);
     // A new layer while presenting is shown whole first, with its full time.
@@ -639,6 +694,20 @@ watch(layer, (_next, last) => {
 watch(
     () => props.data,
     () => draw()
+);
+
+// What the graph is asked to light changes the drawing.
+watch(
+    () => [store.graphFocus.path, store.graphFocus.vlan],
+    () => emphasize()
+);
+watch(
+    () => store.graphFocus.comparison,
+    () => draw()
+);
+watch(
+    () => store.graphFocus.device,
+    () => showDevice()
 );
 
 const nodeFindings = computed(() =>
@@ -715,6 +784,13 @@ const nodeFindings = computed(() =>
                 <template v-else>
                     <h2>{{ GraphLayer.NAMES[layer] }}</h2>
                     <p class="muted">{{ GraphLayer.HELP[layer] }}</p>
+                    <template v-if="store.graphFocus.comparison">
+                        <h3>Compared with {{ store.graphFocus.comparison.name }}</h3>
+                        <p>
+                            <span class="added">Green lines</span> are new, <span class="removed">red dashed lines</span> are gone.
+                            <button type="button" class="link" @click="stopComparing">Stop comparing</button>
+                        </p>
+                    </template>
                     <ul class="legend">
                         <li>A dashed line is declared at one end only.</li>
                         <li>A dashed box is outside the network.</li>

@@ -2,7 +2,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { StudioData } from "../../../types";
-import { go, store } from "../lib/store";
+import { GraphLayer } from "../lib/graph-layer";
+import { go, showInGraph, store } from "../lib/store";
 import { Tools } from "../lib/tools";
 import DataTable from "./DataTable.vue";
 import FirewallTest from "./FirewallTest.vue";
@@ -27,6 +28,16 @@ const asked = ref(false);
 const path = computed(() =>
     asked.value && vlan.value && from.value && to.value ? Tools.vlanPath(props.data, vlan.value, from.value, to.value) : undefined
 );
+
+/** Light the path's cables on the VLANs layer: each line between two of its devices that carries the VLAN. */
+function showPath(): void {
+    const pairOf = (a: string, b: string) => [a, b].sort().join("|");
+    const pairs = new Set((path.value ?? []).map((hop) => pairOf(`device:${hop.device}`, `device:${hop.farDevice}`)));
+    const lines = props.data.graph.edges.filter(
+        (edge) => edge.layer === "l2" && pairs.has(pairOf(edge.from, edge.to)) && edge.vlans?.some((carried) => carried.name === vlan.value)
+    );
+    showInGraph("l2", { path: lines.map(GraphLayer.keyOf) });
+}
 </script>
 
 <template>
@@ -116,11 +127,13 @@ const path = computed(() =>
         <template v-if="asked && vlan && from && to">
             <p v-if="!path" class="verdict reject">No path of cables carries {{ vlan }} from {{ from }} to {{ to }}.</p>
             <p v-else-if="!path.length" class="muted">{{ from }} and {{ to }} are one device.</p>
-            <DataTable
-                v-else
-                :head="['From', 'Port', 'To', 'Port']"
-                :rows="path.map((hop) => ({ cells: [{ device: hop.device }, hop.port, { device: hop.farDevice }, hop.farPort] }))"
-            />
+            <template v-else>
+                <p><button type="button" class="link" @click="showPath">Show in the graph</button></p>
+                <DataTable
+                    :head="['From', 'Port', 'To', 'Port']"
+                    :rows="path.map((hop) => ({ cells: [{ device: hop.device }, hop.port, { device: hop.farDevice }, hop.farPort] }))"
+                />
+            </template>
         </template>
     </template>
 </template>

@@ -5,7 +5,7 @@ import type { Device } from "../../../../model";
 import type { Commit, LiveRead, StudioData } from "../../../types";
 import { FieldDocs } from "../lib/field-docs";
 import { Format } from "../lib/format";
-import { api, go, store } from "../lib/store";
+import { Saved, api, go, showInGraph, store } from "../lib/store";
 import DataTable, { type Row } from "./DataTable.vue";
 import Faceplate from "./Faceplate.vue";
 import LineDiff from "./LineDiff.vue";
@@ -102,6 +102,11 @@ async function readNow(): Promise<void> {
     }
 }
 
+/** Select the device on the graph, on the layer shown last. */
+function showOnGraph(): void {
+    showInGraph(Saved.get<string>("layer") ?? "l1", { device: props.name });
+}
+
 const commands = computed(() => live.value?.steps.reduce((count, step) => count + step.show.length, 0) ?? 0);
 
 const history = ref<Commit[]>();
@@ -131,7 +136,8 @@ watch(
                 <span v-if="findings.length - errors" class="badge warning">{{ Format.count(findings.length - errors, "warning") }}</span>
             </h2>
             <p class="muted">
-                {{ device.platform }} {{ device.model }} at {{ device.site }} · <code>{{ data.files[device.name] }}</code>
+                {{ device.platform }} {{ device.model }} at {{ device.site }} · <code>{{ data.files[device.name] }}</code> ·
+                <button type="button" class="link" @click="showOnGraph">show in the graph</button>
             </p>
 
             <div class="tabs">

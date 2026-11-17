@@ -6,10 +6,19 @@ import type { StudioData } from "../../../types";
 /** A node as drawn, with what `circuit validate` finds on its device. */
 export type ShownNode = GraphNode & { level?: "error" | "warning" };
 
-/** A line as drawn. */
-export type ShownEdge = GraphEdge & { id: string };
+/** A line as drawn: one of the graph's, or, in a comparison, one that is new or one that is gone, drawn back. */
+export type ShownEdge = GraphEdge & {
+    id: string;
+    /** The lines it stands for, by `keyOf`. */
+    keys: string[];
+    added?: true;
+    gone?: true;
+};
 
 export type Shown = { nodes: ShownNode[]; edges: ShownEdge[] };
+
+/** Another commit's graph against this one, as Compare finds it. */
+export type Comparison = { name: string; added: GraphEdge[]; removed: GraphEdge[] };
 
 export class GraphLayer {
     static readonly LAYERS: readonly Layer[] = ["l1", "l2", "l3", "bgp", "ospf", "tunnels"];
@@ -65,16 +74,32 @@ export class GraphLayer {
         return findings.length ? "warning" : undefined;
     }
 
-    static of(data: StudioData, layer: Layer): Shown {
-        const lines = data.graph.edges.filter((edge) => edge.layer === layer);
+    /** What a layer shows. With a comparison, its new lines are marked, and the lines it lost are drawn back where both ends still are. */
+    static of(data: StudioData, layer: Layer, comparison?: Comparison): Shown {
+        const added = new Set(comparison?.added.map(GraphLayer.keyOf));
+        const nodeIds = new Set(data.graph.nodes.map((node) => node.id));
+        const gone = (comparison?.removed ?? []).filter((edge) => edge.layer === layer && nodeIds.has(edge.from) && nodeIds.has(edge.to));
+
+        const lines = [
+            ...data.graph.edges.filter((edge) => edge.layer === layer).map((edge) => ({ edge, gone: false })),
+            ...gone.map((edge) => ({ edge, gone: true })),
+        ];
 
         // Two lines alike, such as two cables with the same label, are told apart by a number.
         const seen = new Map<string, number>();
-        const edges = lines.map((edge) => {
+        const edges = lines.map(({ edge, gone }) => {
             const key = GraphLayer.keyOf(edge);
-            const times = (seen.get(key) ?? 0) + 1;
-            seen.set(key, times);
-            return { ...edge, id: times === 1 ? key : `${key} (${times})` };
+            const id = `${gone ? "gone " : ""}${key}`;
+            const times = (seen.get(id) ?? 0) + 1;
+            seen.set(id, times);
+
+            return {
+                ...edge,
+                id: times === 1 ? id : `${id} (${times})`,
+                keys: [key],
+                ...(gone ? { gone: true as const } : {}),
+                ...(!gone && added.has(key) ? { added: true as const } : {}),
+            };
         });
 
         const ends = new Set(edges.flatMap((edge) => [edge.from, edge.to]));

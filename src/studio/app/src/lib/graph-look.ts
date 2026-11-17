@@ -125,6 +125,12 @@ export class GraphLook {
             // Presenting draws heavier lines.
             { selector: "edge.heavy", style: { width: 3 } },
             { selector: "edge.lit, edge.picked", style: { width: 4, "line-color": colors.link, color: colors.text } },
+            // A comparison: a new line is green, a line gone is red and dashed.
+            { selector: "edge[?added]", style: { width: 4, "line-color": colors.ok } },
+            {
+                selector: "edge[?gone]",
+                style: { width: 4, "line-color": colors.error, "line-style": "dashed", "line-dash-pattern": [10, 5] },
+            },
             { selector: "node.picked", style: { "background-color": colors.selected, "border-color": colors.cobalt, "border-width": 4 } },
             // The device presenting lights: the highlighter fill with a navy frame. A warning or error keeps its own frame.
             { selector: "node.touring", style: { "background-color": colors.yellow, color: "#11141b" } },
