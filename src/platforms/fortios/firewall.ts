@@ -2,7 +2,7 @@
 
 import { Address } from "../../core/address";
 import type { AclRule, Device, Family, FilterMatch, FilterRule, NatRule, Ports, Prefix, Protocol, Service } from "../../model";
-import { Derive } from "../derive";
+import { Derive } from "../../core/derive";
 import { FortiOsNames } from "./names";
 
 import { FortiOsBlock, FortiOsTree } from "./tree";

@@ -1,5 +1,4 @@
-// Rules one device has to satisfy, whatever its design. What reading the project already stops on (unknown keys, every name a device refers to, ports the model
-// doesn't have, links that don't link back) is not checked again here.
+// Rules one device has to satisfy, whatever its design. What reading the project already stops on (unknown keys, every name a device refers to, ports the model doesn't have, links that don't link back) is not checked again here.
 
 import { X509Certificate } from "node:crypto";
 import { utils } from "ssh2";
@@ -7,7 +6,7 @@ import { Address } from "../core/address";
 import { Utils } from "../core/utils";
 import type { Device, Finding, Interface, InterfaceKind, Routed, Switched } from "../model";
 import { Catalog } from "../core/catalog";
-import { Derive } from "../platforms/derive";
+import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
 
 type Report = (message: string) => void;

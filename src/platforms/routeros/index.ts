@@ -26,7 +26,7 @@ import {
 import { BgpWait, type WaitLimits } from "../bgp-wait";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../../core/catalog";
-import { Derive } from "../derive";
+import { Derive } from "../../core/derive";
 import { RouterOsRender } from "./render";
 
 /** Where commands run, one at a time, each returning what it printed: an SSH session, or the console. */
@@ -468,8 +468,7 @@ export class RouterOs extends Platform {
             throw new Error("apply failed and the backup is being restored", { cause: error });
         }
 
-        // A fresh login is the proof that access survived. Only then is the rollback removed, with the backup, which holds every credential,
-        // and any an earlier apply left: one that failed restores its backup, which stays on the device.
+        // A fresh login is the proof that access survived. Only then is the rollback removed, with the backup, which holds every credential, and any an earlier apply left: one that failed restores its backup, which stays on the device.
         const proof = await session.fresh().catch(() => undefined);
         if (!proof) throw new Error(`could not log in again; the device restores ${backup} within ${options.rollback} minutes`);
 

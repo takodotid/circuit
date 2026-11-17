@@ -1,5 +1,4 @@
-// A prefix set a registry fills is fetched by `diff` and `apply`, and then planned like any list written out: each prefix added or
-// removed, never the list emptied first. An answer that can't be right stops before anything is sent.
+// A prefix set a registry fills is fetched by `diff` and `apply`, and then planned like any list written out: each prefix added or removed, never the list emptied first. An answer that can't be right stops before anything is sent.
 
 import { afterEach, expect, test } from "bun:test";
 import { Registries } from "../../src/core/registries";

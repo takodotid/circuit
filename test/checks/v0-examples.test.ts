@@ -1,5 +1,4 @@
-// Circuit 0.x's examples, templates and use cases validated with no error, with the built-in checks each network turned on. Each still does in v1, what its
-// platform cannot express included. And a field a platform renders nothing for is an error, so it never goes missing without a word.
+// Circuit 0.x's examples, templates and use cases validated with no error, with the built-in checks each network turned on. Each still does in v1, what its platform cannot express included. And a field a platform renders nothing for is an error, so it never goes missing without a word.
 
 import { expect, test } from "bun:test";
 import { Validation, type NetworkChecks } from "../../src/checks";

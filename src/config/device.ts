@@ -86,8 +86,7 @@ export type Names = {
 };
 
 /**
- * The groups of a device, what a part may add to as well. `N` holds the names the device declares, `Ethernet` its ports. `Part` is true in a part, where BGP holds only what the part adds.
- * `Net` is what the network writes: whether it turns on the check `untrusted_vlans`, and its `communities`.
+ * The groups of a device, what a part may add to as well. `N` holds the names the device declares, `Ethernet` its ports. `Part` is true in a part, where BGP holds only what the part adds. `Net` is what the network writes: whether it turns on the check `untrusted_vlans`, and its `communities`.
  */
 export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net extends NetworkFacts = AnyFacts> = {
     /** The box itself: banner, time, DNS it uses, users, certificates, logs kept on it, software, hardware. */
@@ -119,8 +118,7 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
 /**
  * Everything one device runs. What is not written here is removed from the device or returned to its default.
  *
- * `N` holds the names it declares, so a reference to a name it does not declare is an error. `Ethernet` is its ports, checked against the model.
- * `Site` is the network's sites. `Net` is what the network writes: whether it turns on the check `untrusted_vlans`, and its `communities`.
+ * `N` holds the names it declares, so a reference to a name it does not declare is an error. `Ethernet` is its ports, checked against the model. `Site` is the network's sites. `Net` is what the network writes: whether it turns on the check `untrusted_vlans`, and its `communities`.
  */
 export type Device<
     Platform extends string,

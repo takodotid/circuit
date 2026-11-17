@@ -23,12 +23,9 @@ export type Ports = number | PortRange | readonly (number | PortRange)[];
 export type TcpFlag = "fin" | "syn" | "rst" | "psh" | "ack" | "urg";
 
 /**
- * Conditions on a packet. All must be true. A rule with addresses of one family applies to that family only. `I` is the device's
- * ports and interfaces, `AS` its address sets, `IS` its interface sets.
+ * Conditions on a packet. All must be true. A rule with addresses of one family applies to that family only. `I` is the device's ports and interfaces, `AS` its address sets, `IS` its interface sets.
  *
- * `src`, `dst`, `in_interface` and `out_interface` each take a list, and an interface set stands for its interfaces. Where the
- * platform has no list, Circuit writes one rule per combination: the interface outermost (`in` before `out`), then `src`, then `dst`.
- * A `src` and a `dst` of different families match no packet, so that combination is left out; a rule with nothing else is an error.
+ * `src`, `dst`, `in_interface` and `out_interface` each take a list, and an interface set stands for its interfaces. Where the platform has no list, Circuit writes one rule per combination: the interface outermost (`in` before `out`), then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so that combination is left out; a rule with nothing else is an error.
  */
 export type FilterMatch<I extends string, AS extends string, IS extends string> = {
     /** Only packets of this family. */
@@ -91,8 +88,7 @@ export type Chain<I extends string, AS extends string, IS extends string> = {
 };
 
 /**
- * One address translation, the condition first: `{ if: { src: "10.0.0.0/24", out_interface_set: "uplinks" }, then: "snat", to_address: "192.0.2.1" }`.
- * No `if`: every packet.
+ * One address translation, the condition first: `{ if: { src: "10.0.0.0/24", out_interface_set: "uplinks" }, then: "snat", to_address: "192.0.2.1" }`. No `if`: every packet.
  */
 export type NatRule<I extends string, AS extends string, IS extends string> = {
     /** Shown beside the rule on the device. */
@@ -134,8 +130,7 @@ export type Firewall<AS extends string, I extends string, IS extends string> = {
     /** Named groups of addresses and prefixes, of either family, that rules match on with `src_address_set` and `dst_address_set`. */
     address_sets?: Named<AS, readonly (IP | Prefix)[]>;
     /**
-     * Named groups of the device's ports and interfaces, that rules match on with `in_interface_set` and `out_interface_set`, like a
-     * RouterOS interface list or a FortiOS zone. A list: each part adds its own, such as each upstream its interface to `uplinks`.
+     * Named groups of the device's ports and interfaces, that rules match on with `in_interface_set` and `out_interface_set`, like a RouterOS interface list or a FortiOS zone. A list: each part adds its own, such as each upstream its interface to `uplinks`.
      */
     interface_sets?: Named<IS, readonly I[]>;
     /** Traffic to the device (`input`), through it (`forward`), and from it (`output`). */

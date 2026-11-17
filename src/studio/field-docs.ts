@@ -6,8 +6,7 @@ import type { FieldTree, PackedFieldDocs } from "./app/src/lib/field-docs.ts";
 
 export class FieldDocsReader {
     /**
-     * Every field of a device, by path, with its doc comment: `routing.bgp.neighbors.*.remote_as`. `*` stands for any name in a map
-     * keyed by name, and for any item of a list.
+     * Every field of a device, by path, with its doc comment: `routing.bgp.neighbors.*.remote_as`. `*` stands for any name in a map keyed by name, and for any item of a list.
      */
     static read(configFolder = join(import.meta.dirname, "..", "config")): Record<string, string> {
         const file = join(configFolder, "device.ts");

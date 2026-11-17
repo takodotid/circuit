@@ -3,7 +3,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Console, Device, IP, Secret } from "../model";
-import { OnePassword, SecretsFile } from "./secrets-file";
+import { OnePassword } from "./one-password";
+import { SecretsFile } from "./secrets-file";
 
 /** Anything that holds secret references, such as a network's devices. */
 type Network = object;
@@ -134,8 +135,7 @@ export class Secrets {
     }
 
     /**
-     * The secrets file when a secret of `value`, such as a device, is encrypted in it and no password is at hand: the person has to type
-     * it before the work starts. Undefined when every secret can be read. A password in the environment or 1Password opens the file here.
+     * The secrets file when a secret of `value`, such as a device, is encrypted in it and no password is at hand: the person has to type it before the work starts. Undefined when every secret can be read. A password in the environment or 1Password opens the file here.
      */
     static lockedFor(value: unknown): SecretsFile | undefined {
         const file = Secrets.file();

@@ -1,5 +1,4 @@
-// The flow every `circuit sync <target>` shares, on a fake target: nothing to change, the answer No, no person to answer without --confirm,
-// a send that leaves nothing, and a send that leaves something.
+// The flow every `circuit sync <target>` shares, on a fake target: nothing to change, the answer No, no person to answer without --confirm, a send that leaves nothing, and a send that leaves something.
 
 import { expect, test } from "bun:test";
 import { Sync, type SyncAnswers, type SyncPlan, type SyncTarget } from "../../src/integrations/sync";

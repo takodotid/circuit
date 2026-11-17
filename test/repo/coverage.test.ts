@@ -64,9 +64,7 @@ function shapeAt(path: string): Shape | undefined {
 }
 
 /**
- * The keys at or under `path` that no listed path covers, each as high up as nothing under it is listed. A listed path covers what is
- * under it, except a map of names whose entries hold keys (`interfaces.ethernet`, `system.users`): that one stands for the names alone,
- * and each entry's keys are written with `*`, such as `interfaces.ethernet.*.mtu`.
+ * The keys at or under `path` that no listed path covers, each as high up as nothing under it is listed. A listed path covers what is under it, except a map of names whose entries hold keys (`interfaces.ethernet`, `system.users`): that one stands for the names alone, and each entry's keys are written with `*`, such as `interfaces.ethernet.*.mtu`.
  */
 function unlisted(shape: Shape, path: string, listed: readonly string[]): string[] {
     const map = mapOf(shape);

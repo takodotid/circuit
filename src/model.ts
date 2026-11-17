@@ -1,6 +1,4 @@
-// The model as Circuit's own code reads it: a device as its project wrote it, after `src/project.ts` turned what the language adds into
-// plain values (a list in a match is one rule per value, an interface set its interfaces, `management.allow` its addresses). Each name is plain text
-// here: the project's types already checked it. The fields and their docs are those of `src/config/`, which a project writes.
+// The model as Circuit's own code reads it: a device as its project wrote it, after `src/project.ts` turned what the language adds into plain values (a list in a match is one rule per value, an interface set its interfaces, `management.allow` its addresses). Each name is plain text here: the project's types already checked it. The fields and their docs are those of `src/config/`, which a project writes.
 
 import type * as C from "./config/index";
 

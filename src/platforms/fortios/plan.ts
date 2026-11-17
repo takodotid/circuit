@@ -709,8 +709,7 @@ export class FortiOsPlan {
             gone.add(key);
         }
 
-        // A VLAN interface whose VLAN ID and parent another entry takes under a new name, a rename: the device holds one entry per pair,
-        // so the old one goes first, with what names it.
+        // A VLAN interface whose VLAN ID and parent another entry takes under a new name, a rename: the device holds one entry per pair, so the old one goes first, with what names it.
         const pair = (block: FortiOsBlock) => {
             const vlan = block.settings.get("vlanid");
             const parent = block.settings.get("interface");

@@ -1,5 +1,4 @@
-// Every address the project uses, by prefix, and what is still free: what `circuit addresses` prints. It reads the project only, so an
-// address a device gave out by itself, such as a DHCP lease, is not known.
+// Every address the project uses, by prefix, and what is still free: what `circuit addresses` prints. It reads the project only, so an address a device gave out by itself, such as a DHCP lease, is not known.
 
 import type { Device } from "../model";
 import { Address } from "./address";
@@ -126,16 +125,14 @@ export class AddressSpace {
     }
 
     /**
-     * Every address in use, by segment, under the space the network owns: each prefix of `owned`, from `circuit({ prefixes })`, and each
-     * prefix a device originates in BGP. With `within`, only what falls inside that prefix, as the one space.
+     * Every address in use, by segment, under the space the network owns: each prefix of `owned`, from `circuit({ prefixes })`, and each prefix a device originates in BGP. With `within`, only what falls inside that prefix, as the one space.
      */
     static report(devices: readonly Device[], owned: OwnedPrefixes = {}, within?: string): AddressReport {
         const segments = new Map<string, { uses: Use[]; taken: Taken[] }>();
         const blocks: Block[] = [];
         const segmentOf = (address: string) => [...segments.keys()].find((prefix) => Address.contains(prefix, address));
 
-        // Segments come from the addresses on ports and interfaces. A host route, such as a loopback's, or a point-to-point address, is
-        // a block of its own.
+        // Segments come from the addresses on ports and interfaces. A host route, such as a loopback's, or a point-to-point address, is a block of its own.
         for (const holder of Topology.holders(devices)) {
             const what = `${holder.device.name} ${holder.name}${holder.vrf ? `, VRF ${holder.vrf}` : ""}`;
 
@@ -171,8 +168,7 @@ export class AddressSpace {
             }
         }
 
-        // A use inside a segment is an address taken; outside every segment, it is a block of its own. An address one of the interfaces
-        // holds is listed once, as that interface.
+        // A use inside a segment is an address taken; outside every segment, it is a block of its own. An address one of the interfaces holds is listed once, as that interface.
         const take = (address: string, what: string, first = address, last = address) => {
             const prefix = segmentOf(first);
             const segment = prefix === undefined ? undefined : segments.get(prefix);
@@ -239,8 +235,7 @@ export class AddressSpace {
             }
         }
 
-        // A static route to a prefix no segment is in hands that block to whoever is at the next hop. A route covering segments or owned
-        // space, such as an aggregate or a default route, is no use.
+        // A static route to a prefix no segment is in hands that block to whoever is at the next hop. A route covering segments or owned space, such as an aggregate or a default route, is no use.
         for (const device of devices) {
             for (const route of device.routing?.static_routes ?? []) {
                 if (!Address.isCidr(route.prefix) || Address.split(route.prefix).len === 0) continue;

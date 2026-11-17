@@ -1,5 +1,4 @@
-// `circuit sync prometheus` writes the targets file and snmp_exporter's auths file in the project: one entry per device with SNMP, each
-// with its own auth, every password as `${NAME}` and never a value. What it leaves out is listed; a file changed by hand shows its lines.
+// `circuit sync prometheus` writes the targets file and snmp_exporter's auths file in the project: one entry per device with SNMP, each with its own auth, every password as `${NAME}` and never a value. What it leaves out is listed; a file changed by hand shows its lines.
 
 import { afterAll, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";

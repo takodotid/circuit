@@ -2,7 +2,6 @@
 
 import type { Family, IP, IPv4, IPv6, Prefix } from "../model";
 
-/** Address helpers, for checks of your own. */
 export class Address {
     /** IPv4 space another network cannot reach: this host, private, shared, loopback, link-local and documentation, after RFC 6890. */
     private static readonly NOT_GLOBAL_V4 = [

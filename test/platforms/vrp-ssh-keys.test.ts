@@ -1,5 +1,4 @@
-// A user's SSH key on VRP, as a CE6855 on V200R005 took it: RSA only, one per user, sent in lines of 200 and printed back in lines of
-// 80 with `rsa-key` after it, before the lines that assign it, and let go of before it goes.
+// A user's SSH key on VRP, as a CE6855 on V200R005 took it: RSA only, one per user, sent in lines of 200 and printed back in lines of 80 with `rsa-key` after it, before the lines that assign it, and let go of before it goes.
 
 import { expect, test } from "bun:test";
 import type { SshPublicKey } from "../../src/config/system";

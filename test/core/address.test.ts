@@ -1,4 +1,4 @@
-// The address arithmetic the checks rely on holds at the edges. 0.x's tests of `AddressSpace` (`circuit addresses`) wait for that module's port.
+// The address arithmetic the checks rely on holds at the edges.
 
 import { expect, test } from "bun:test";
 import { Address } from "../../src/core/address";

@@ -1,7 +1,7 @@
 // Virtual domains: a management VDOM beside `root`. In multi-VDOM mode some sections are the device's own, under `config global`, and the rest belong to one VDOM, under `config vdom` and `edit <name>`. The render and the read write a management VDOM's sections as `@<name> <section>`, so both sides compare like any other section; a plan is made for each scope on its own, and each of its steps sent in that scope.
 
 import type { Device } from "../../model";
-import { Derive } from "../derive";
+import { Derive } from "../../core/derive";
 import type { Plan, Step } from "../platform";
 import { FortiOsNames } from "./names";
 import { FortiOsBlock, FortiOsTree } from "./tree";
@@ -14,9 +14,7 @@ export class FortiOsVdoms {
     static readonly ROOT = "root";
 
     /**
-     * Sections under `config global` in multi-VDOM mode, as a FG-3700D on FortiOS 6.2.2 has them: the device's identity, logins,
-     * interfaces, name resolution, time, SNMP, syslog, flow export and session helpers. Every other section belongs to a VDOM, the
-     * certificates and `log disk setting` too.
+     * Sections under `config global` in multi-VDOM mode, as a FG-3700D on FortiOS 6.2.2 has them: the device's identity, logins, interfaces, name resolution, time, SNMP, syslog, flow export and session helpers. Every other section belongs to a VDOM, the certificates and `log disk setting` too.
      */
     static readonly GLOBAL = new Set([
         "system global",

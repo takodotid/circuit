@@ -48,9 +48,7 @@ export class Format {
     }
 
     /**
-     * The style of the files in `folder`: Prettier's own, then what `.editorconfig` sets, mapped as Prettier's `editorConfigToPrettier`
-     * maps it, then a `.prettierrc.json`. As in the editor, every `.editorconfig` from the folder up counts, the nearest winning, up to
-     * one that says `root = true`; the nearest `.prettierrc.json` counts.
+     * The style of the files in `folder`: Prettier's own, then what `.editorconfig` sets, mapped as Prettier's `editorConfigToPrettier` maps it, then a `.prettierrc.json`. As in the editor, every `.editorconfig` from the folder up counts, the nearest winning, up to one that says `root = true`; the nearest `.prettierrc.json` counts.
      */
     static style(folder: string): Options {
         const style: Options = {};

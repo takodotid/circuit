@@ -1,10 +1,9 @@
-// Circuit's built-in checks, which a network turns on by name in `checks` (`Checks` in src/config/network.ts). `same_vlan_ids` is run when the project is
-// read, so it is not here.
+// Circuit's built-in checks, which a network turns on by name in `checks` (`Checks` in src/config/network.ts). `same_vlan_ids` is run when the project is read, so it is not here.
 
 import { Address } from "../core/address";
 import type { Checks } from "../config/network";
 import type { Device, Finding, Interface, Switched } from "../model";
-import { Derive } from "../platforms/derive";
+import { Derive } from "../core/derive";
 import { DeviceChecks } from "./device";
 
 /** The built-in checks' settings, as `circuit()` takes them. */
@@ -148,8 +147,7 @@ export class BuiltInChecks {
     }
 
     /**
-     * `native_vlans_are_dead_ends`: a native VLAN is native on one trunk (a port or a LAG) of a device at most, and never an access VLAN or a tagged VLAN
-     * anywhere on that device.
+     * `native_vlans_are_dead_ends`: a native VLAN is native on one trunk (a port or a LAG) of a device at most, and never an access VLAN or a tagged VLAN anywhere on that device.
      */
     static nativeVlansAreDeadEnds(devices: readonly Device[]): Finding[] {
         const findings: Finding[] = [];
@@ -182,9 +180,7 @@ export class BuiltInChecks {
     }
 
     /**
-     * `untrusted_vlans`: traffic from outside reaches your own VLANs only through a filtering device. A port or LAG carrying an untrusted VLAN beside any other
-     * is on a filtering device or faces one, and only a filtering device gives an untrusted VLAN an address. The untrusted VLANs are those written
-     * `untrusted: true` on any device.
+     * `untrusted_vlans`: traffic from outside reaches your own VLANs only through a filtering device. A port or LAG carrying an untrusted VLAN beside any other is on a filtering device or faces one, and only a filtering device gives an untrusted VLAN an address. The untrusted VLANs are those written `untrusted: true` on any device.
      */
     static untrustedVlans(devices: readonly Device[], settings: NonNullable<NetworkChecks["untrusted_vlans"]>): Finding[] {
         const untrusted = new Set(

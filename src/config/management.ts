@@ -13,8 +13,7 @@ export type Service = {
 /** How the device is reached and managed. `I` is the device's ports and interfaces, `C` its certificates, `AS` its address sets. */
 export type Management<I extends string, C extends string, AS extends string = string> = {
     /**
-     * Sources allowed to every service that does not set its own: a list, or one of `firewall.address_sets` by name, so a device that
-     * filters on those sources too writes them once. Circuit writes the set's addresses here.
+     * Sources allowed to every service that does not set its own: a list, or one of `firewall.address_sets` by name, so a device that filters on those sources too writes them once. Circuit writes the set's addresses here.
      */
     allow?: readonly Prefix[] | AS;
     /** Some of the device's ports and interfaces: the ones the services answer on; every other one answers ping alone. Every one with an address when absent. */

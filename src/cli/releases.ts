@@ -147,9 +147,7 @@ export class Releases {
     }
 
     /**
-     * Before every command but `uninstall`: the manager updates itself to the newest release of its major and runs the command again
-     * as that version; it warns when it could not check, and when this version is deprecated. Run from the sources, or as a version a
-     * manager started, it only checks.
+     * Before every command but `uninstall`: the manager updates itself to the newest release of its major and runs the command again as that version; it warns when it could not check, and when this version is deprecated. Run from the sources, or as a version a manager started, it only checks.
      */
     static async check(argv: readonly string[]): Promise<void> {
         const [{ latest, offline }, advisories] = await Ui.wait("Checking for a newer Circuit", () =>
@@ -254,7 +252,7 @@ export class Releases {
     }
 
     /** Every published version, and which are deprecated. A stop when the registry can't be read. */
-    static async releases(): Promise<Release[]> {
+    static async all(): Promise<Release[]> {
         try {
             const packument = await Ui.step("Checking for a newer Circuit", async () => {
                 const response = await fetch(`${Releases.REGISTRY}/${Releases.PACKAGE}`, {
@@ -275,9 +273,7 @@ export class Releases {
     }
 
     /**
-     * The versions to offer after `current`, newest first, at most `count`: of its major version, never one an advisory affects. A
-     * release candidate only while `current` is one. The safe version closest to `current`, the fix that changes the least, is always
-     * among them.
+     * The versions to offer after `current`, newest first, at most `count`: of its major version, never one an advisory affects. A release candidate only while `current` is one. The safe version closest to `current`, the fix that changes the least, is always among them.
      */
     static choices(
         releases: readonly Release[],
@@ -302,11 +298,10 @@ export class Releases {
     }
 
     /**
-     * Which version `what` moves to: the person picks from the newest few, the newest at the top, or stays, unless an advisory affects
-     * the version it runs: then it must move. With `confirmed`, the newest. Undefined when it stays.
+     * Which version `what` moves to: the person picks from the newest few, the newest at the top, or stays, unless an advisory affects the version it runs: then it must move. With `confirmed`, the newest. Undefined when it stays.
      */
     static async pick(current: string, confirmed: boolean, what: string): Promise<string | undefined> {
-        const [releases, { advisories }] = await Promise.all([Releases.releases(), Releases.advisories(true)]);
+        const [releases, { advisories }] = await Promise.all([Releases.all(), Releases.advisories(true)]);
         const choices = Releases.choices(releases, current, advisories);
         const affected = Releases.affecting(advisories, current);
         const closest = choices.at(-1)?.version;

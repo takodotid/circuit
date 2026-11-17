@@ -1,5 +1,4 @@
-// `address`, a global beside `presets`: standard IP math for a project's own checks, IPv4 prefixes by RFC 4632 and IPv6 by RFC 4291,
-// each address written back in its standard form (RFC 5952 for IPv6). Each helper takes an address alone, a /32 or a /128, or with its length.
+// `address`, a global beside `presets`: standard IP math for a project's own checks, IPv4 prefixes by RFC 4632 and IPv6 by RFC 4291, each address written back in its standard form (RFC 5952 for IPv6). Each helper takes an address alone, a /32 or a /128, or with its length.
 
 import type { Family, IP, Prefix } from "./common";
 
@@ -59,8 +58,7 @@ function format(family: Family, n: bigint): IP {
 }
 
 /**
- * IP math for your own checks, by RFC 4632 (IPv4) and RFC 4291 (IPv6). Each takes an address alone (a /32 or a /128) or with its
- * length. An address it can't read is an error naming it.
+ * IP math for your own checks, by RFC 4632 (IPv4) and RFC 4291 (IPv6). Each takes an address alone (a /32 or a /128) or with its length. An address it can't read is an error naming it.
  */
 export const address = {
     /** Whether `inner` lies wholly inside `outer`, of the same family: `address.contains("10.0.0.0/8", "10.1.0.0/16")` is true. */

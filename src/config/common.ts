@@ -31,8 +31,7 @@ export type Prefix = `${IP}/${number}`;
 export type InterfaceAddress = `${IP}/${number}`;
 
 /**
- * One address, alone or with its length: `10.0.0.1` or `10.0.0.1/24`. A field that names one host takes either, so an address written
- * once with its length (on a site, for an interface) is used as it is. Circuit writes the address alone there.
+ * One address, alone or with its length: `10.0.0.1` or `10.0.0.1/24`. A field that names one host takes either, so an address written once with its length (on a site, for an interface) is used as it is. Circuit writes the address alone there.
  */
 export type HostAddress = IP | InterfaceAddress;
 
@@ -52,9 +51,7 @@ export type Severity = "emergency" | "alert" | "critical" | "error" | "warning" 
 export type PortNumber = number;
 
 /**
- * Rules where order decides: the first runs first. An ordered list is written whole in one place, the device or one part, and
- * places rules from other files where they go with `merge`: `merge([own_rule, tenants.rules.router_input, last_rule])`. The same list from two places
- * is an error naming both.
+ * Rules where order decides: the first runs first. An ordered list is written whole in one place, the device or one part, and places rules from other files where they go with `merge`: `merge([own_rule, tenants.rules.router_input, last_rule])`. The same list from two places is an error naming both.
  */
 export type Ordered<Rule> = readonly Rule[];
 

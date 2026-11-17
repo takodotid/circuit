@@ -11,9 +11,7 @@ export class Registries {
     static readonly MOST = 100_000;
 
     /**
-     * The device with each prefix set a registry fills fetched, as a set of the prefixes it gave, so `diff` and `apply` put them on
-     * the device like any other list: each prefix added or removed, never the list emptied first. `told` hears each set fetched.
-     * Stops on a registry that can't be reached, an empty answer, or too long a one, so a list is never emptied by mistake.
+     * The device with each prefix set a registry fills fetched, as a set of the prefixes it gave, so `diff` and `apply` put them on the device like any other list: each prefix added or removed, never the list emptied first. `told` hears each set fetched. Stops on a registry that can't be reached, an empty answer, or too long a one, so a list is never emptied by mistake.
      */
     static async resolve(device: Device, told: (line: string) => void = () => {}): Promise<Device> {
         const sets = device.routing?.prefix_sets;

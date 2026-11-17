@@ -48,8 +48,7 @@ export class Setup {
     }
 
     /**
-     * A full install's package.json, before `bun add` puts Circuit in it. Its `circuit` script is what `bun circuit` runs: with no
-     * script of that name, Bun runs the project's own circuit.ts instead of the package's `circuit`.
+     * A full install's package.json, before `bun add` puts Circuit in it. Its `circuit` script is what `bun circuit` runs: with no script of that name, Bun runs the project's own circuit.ts instead of the package's `circuit`.
      */
     static packageJson(folder: string): string {
         const name = folder.toLowerCase().replace(/[^a-z0-9-]+/g, "-");

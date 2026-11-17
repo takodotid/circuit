@@ -1,5 +1,4 @@
-// `circuit sync netbox` against a fake NetBox: what it makes on an empty one, that a second plan is empty, that it never touches what holds
-// no `circuit` tag, that networks sharing one NetBox are planned together, what it lists under Left alone, and that `validate` asks for a role.
+// `circuit sync netbox` against a fake NetBox: what it makes on an empty one, that a second plan is empty, that it never touches what holds no `circuit` tag, that networks sharing one NetBox are planned together, what it lists under Left alone, and that `validate` asks for a role.
 
 import { afterAll, afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";

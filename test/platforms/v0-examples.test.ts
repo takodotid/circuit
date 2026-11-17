@@ -1,5 +1,4 @@
-// Every fixture plans nothing against its own render. A plan that is not empty there means the reader and the renderer disagree on a form, which would show up as a change on every apply.
-// Validating the fixtures, and a field a platform renders nothing for, are in test/checks/examples.test.ts.
+// Every fixture plans nothing against its own render. A plan that is not empty there means the reader and the renderer disagree on a form, which would show up as a change on every apply. Validating the fixtures, and a field a platform renders nothing for, are in test/checks/v0-examples.test.ts.
 
 import { describe, expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";

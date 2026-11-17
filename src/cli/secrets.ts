@@ -1,6 +1,7 @@
 // `circuit secrets`: a network's secrets file, each value encrypted. Alone, in a terminal, it opens the secrets to look through and change them; its commands list them, read one, set, delete, encrypt what was typed in plain text, and change the password.
 
-import { type SecretKind, OnePassword, SecretsFile } from "../core/secrets-file";
+import { OnePassword } from "../core/one-password";
+import { type SecretKind, SecretsFile } from "../core/secrets-file";
 import { Secrets } from "../core/secrets";
 import { ProjectError, Project } from "../project";
 import { isAbsolute, normalize, relative, resolve, sep } from "node:path";
@@ -22,9 +23,7 @@ export class SecretCommands {
     ) {}
 
     /**
-     * The secrets file to work on: the one `--file` names, relative to where the command runs, or `.circuit/secrets`. A project whose
-     * networks keep their secrets elsewhere has to name the file. Reading the project says which secrets the config needs; a project
-     * that can't be read still works on the file named.
+     * The secrets file to work on: the one `--file` names, relative to where the command runs, or `.circuit/secrets`. A project whose networks keep their secrets elsewhere has to name the file. Reading the project says which secrets the config needs; a project that can't be read still works on the file named.
      */
     static async open(file: string | undefined): Promise<SecretCommands> {
         const root = ProjectCommands.find() ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it.");

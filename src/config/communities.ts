@@ -1,7 +1,4 @@
-// A network's BGP large communities, `asn:code:value` (RFC 8092), used as RFC 8195 describes. The scheme is written once, in
-// `circuit({ communities })`; a neighbor group says which groups it is in, and a policy places `{ communities: "import" }` or
-// `{ communities: "export" }`. Circuit writes the catalogue from the scheme, and each such rule as the rules it means for the neighbors
-// that use the policy.
+// A network's BGP large communities, `asn:code:value` (RFC 8092), used as RFC 8195 describes. The scheme is written once, in `circuit({ communities })`; a neighbor group says which groups it is in, and a policy places `{ communities: "import" }` or `{ communities: "export" }`. Circuit writes the catalogue from the scheme, and each such rule as the rules it means for the neighbors that use the policy.
 
 import type { Community } from "./network";
 import type { LargeCommunity, StandardCommunity } from "./routing";
@@ -23,8 +20,7 @@ export type CommunityGroup = {
 };
 
 /**
- * The network's large communities, `asn:code:value`. Write the options the network offers, and leave out the rest. Each option is an
- * object with its `code`, and may have its own `description` for the catalogue.
+ * The network's large communities, `asn:code:value`. Write the options the network offers, and leave out the rest. Each option is an object with its `code`, and may have its own `description` for the catalogue.
  */
 export type CommunityScheme = {
     /** The first number of every community. The network's `asn` when absent. */
@@ -59,8 +55,7 @@ export type RequestsOf<C> = C extends object ? Extract<keyof C, CommunityRequest
 export type GroupsOf<C> = C extends { readonly groups: infer G } ? keyof G & string : never;
 
 /**
- * The scheme as written, `C`, and an error at each option that needs what is not written: a `_group` option without `groups`, and
- * `learned_at_site` while no site has a `number` (`Numbered`). The editor still offers them. A key that is no option is an error too.
+ * The scheme as written, `C`, and an error at each option that needs what is not written: a `_group` option without `groups`, and `learned_at_site` while no site has a `number` (`Numbered`). The editor still offers them. A key that is no option is an error too.
  */
 export type SchemeCheck<C, Numbered extends boolean> = {
     [K in Exclude<keyof C, keyof CommunityScheme> & string]: `${K} is no option of communities`;
@@ -83,8 +78,7 @@ export type NeighborCommunities<G extends string> = {
 };
 
 /**
- * A route policy rule that Circuit writes out, in an import: it takes off the requests a neighbor may not send, and the tags only we
- * set, then tags the route with where it was learned. `R` is the requests the scheme offers.
+ * A route policy rule that Circuit writes out, in an import: it takes off the requests a neighbor may not send, and the tags only we set, then tags the route with where it was learned. `R` is the requests the scheme offers.
  */
 export type CommunitiesImport<R extends string> = {
     /** The rules for an import. */
@@ -98,8 +92,7 @@ export type CommunitiesImport<R extends string> = {
 };
 
 /**
- * A route policy rule that Circuit writes out, in an export, before the rules that accept: it does what routes ask (do not announce,
- * prepend, blackhole) toward the neighbor, then takes our communities off.
+ * A route policy rule that Circuit writes out, in an export, before the rules that accept: it does what routes ask (do not announce, prepend, blackhole) toward the neighbor, then takes our communities off.
  */
 export type CommunitiesExport = {
     /** The rules for an export. */
@@ -115,7 +108,7 @@ export type CommunitiesExport = {
 /** A route policy rule Circuit writes out from the scheme, when the network writes `communities`. */
 export type CommunitiesRule<R extends string> = CommunitiesImport<R> | CommunitiesExport;
 
-// ---------- what Circuit does with them ----------
+// What Circuit does with them.
 
 // The network and a device's JSON, walked without their types.
 type Json = any;
@@ -207,14 +200,12 @@ export function schemeProblems(network: Json): string[] {
 type Peer = { asn: number; groups: string[]; blackhole?: string; customer: boolean; ibgp: boolean };
 
 /**
- * The rules one communities rule is written as, toward one neighbor: `all` in place, for a policy one AS uses; for a policy several
- * ASes use, `own`, the rules of this AS, which run first in a policy of their own, and `shared`, the same for every AS.
+ * The rules one communities rule is written as, toward one neighbor: `all` in place, for a policy one AS uses; for a policy several ASes use, `own`, the rules of this AS, which run first in a policy of their own, and `shared`, the same for every AS.
  */
 type Written = { all: Json[]; own: Json[]; shared: Json[] };
 
 /**
- * An import: takes off the requests not accepted and the tags, adds the tags, and blackholes a route that asks, when accepted. A
- * customer's routes get no `learned_from_as` tag (decision 50), so the customers share one import policy.
+ * An import: takes off the requests not accepted and the tags, adds the tags, and blackholes a route that asks, when accepted. A customer's routes get no `learned_from_as` tag (decision 50), so the customers share one import policy.
  */
 function importRules(s: Json, asn: number, rule: Json, to: Peer, site: number | undefined, groupsShared: boolean): Written {
     const accepted: string[] = rule.accept_requests ?? [];
@@ -262,10 +253,7 @@ function importRules(s: Json, asn: number, rule: Json, to: Peer, site: number | 
 }
 
 /**
- * An export, before the rules that accept: a blackholed route rejected, or passed on to a neighbor that takes it; a route asked not to
- * go anywhere, to this AS or to one of its groups, rejected; the prepends it asks for; our communities taken off. Toward a customer, no
- * request about one AS (decision 39). Rejects come first, so "do not announce" always wins over a prepend. Toward iBGP, where our
- * other routers act on the requests themselves, only our communities taken off, unless `keep_ours`.
+ * An export, before the rules that accept: a blackholed route rejected, or passed on to a neighbor that takes it; a route asked not to go anywhere, to this AS or to one of its groups, rejected; the prepends it asks for; our communities taken off. Toward a customer, no request about one AS (decision 39). Rejects come first, so "do not announce" always wins over a prepend. Toward iBGP, where our other routers act on the requests themselves, only our communities taken off, unless `keep_ours`.
  */
 function exportRules(s: Json, asn: number, rule: Json, to: Peer, groupsShared: boolean): Written {
     const requests = codesOf(s, REQUESTS);
@@ -344,10 +332,7 @@ function neighborsOf(d: Json) {
 const isCommunities = (rule: Json) => !!rule && typeof rule === "object" && "communities" in rule;
 
 /**
- * Writes out each `{ communities }` rule of a device, for the neighbors that use its policy: their AS, their groups, their blackhole
- * community, and the device's site. A policy one AS uses gets the rules in place. A policy several ASes use keeps what they share, and
- * each AS with rules of its own gets a policy `<policy>-as<asn>` with them, which then calls it; its neighbors use that one. Then
- * takes the `communities` block off each neighbor and group: only Circuit reads it. Returns what is wrong, each starting with `at`.
+ * Writes out each `{ communities }` rule of a device, for the neighbors that use its policy: their AS, their groups, their blackhole community, and the device's site. A policy one AS uses gets the rules in place. A policy several ASes use keeps what they share, and each AS with rules of its own gets a policy `<policy>-as<asn>` with them, which then calls it; its neighbors use that one. Then takes the `communities` block off each neighbor and group: only Circuit reads it. Returns what is wrong, each starting with `at`.
  */
 export function writeCommunities(network: Json, d: Json, at: (map: object | undefined, kind: string, key: string) => string): string[] {
     const found: string[] = [];

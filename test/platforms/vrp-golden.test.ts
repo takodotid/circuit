@@ -2,7 +2,7 @@
 
 import { expect, test } from "bun:test";
 import type { Device } from "../../src/model";
-import { Derive } from "../../src/platforms/derive";
+import { Derive } from "../../src/core/derive";
 import { Vrp } from "../../src/platforms/vrp/index";
 import { Fixtures } from "../fixtures";
 

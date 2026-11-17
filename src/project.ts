@@ -64,8 +64,7 @@ let findings: string[] = [];
 let warnings: string[] = [];
 
 /**
- * Imports one file of the project. Its `merge` calls and devices run: a value written twice, or an ordered list from two places, stops it
- * there, naming both files. Anything else that stops it, such as a misspelt global, is said with the user's line it stopped at.
+ * Imports one file of the project. Its `merge` calls and devices run: a value written twice, or an ordered list from two places, stops it there, naming both files. Anything else that stops it, such as a misspelt global, is said with the user's line it stopped at.
  */
 async function load(file: string): Promise<Record<string, unknown>> {
     registry.reading = file;
@@ -79,8 +78,7 @@ async function load(file: string): Promise<Record<string, unknown>> {
 }
 
 /**
- * Reads the project in `folder`: imports `circuit.ts` and each device file, checks the whole network, runs the project's own checks,
- * and gives each network's devices in the model. Throws `ProjectError` with every reason when the project can't be read.
+ * Reads the project in `folder`: imports `circuit.ts` and each device file, checks the whole network, runs the project's own checks, and gives each network's devices in the model. Throws `ProjectError` with every reason when the project can't be read.
  */
 async function read(folder: string): Promise<ProjectRead> {
     project = resolve(folder);
@@ -103,8 +101,7 @@ async function read(folder: string): Promise<ProjectRead> {
     const root = await load(resolve(project, "circuit.ts"));
 
     /**
-     * Then every device file: each `.ts` under `sites/`, at any depth, but `site.ts`, which holds what a site's devices share. `lib/` and
-     * `tenants/` are imported only by the files that use them. A device file's `<network>.device(...)` registers it with that network.
+     * Then every device file: each `.ts` under `sites/`, at any depth, but `site.ts`, which holds what a site's devices share. `lib/` and `tenants/` are imported only by the files that use them. A device file's `<network>.device(...)` registers it with that network.
      */
     const sites = resolve(project, "sites");
     const files = existsSync(sites)
@@ -168,8 +165,7 @@ async function read(folder: string): Promise<ProjectRead> {
     const everyDevice = networks.flatMap((n) => Object.values(n.devices));
 
     /**
-     * Where a finding of the project's own check is, as `file:line: `: the line that writes the deepest key of `path` its device has, such
-     * as a port a tenant's file gives; with no path, or none of it found, the line that made the device.
+     * Where a finding of the project's own check is, as `file:line: `: the line that writes the deepest key of `path` its device has, such as a port a tenant's file gives; with no path, or none of it found, the line that made the device.
      */
     function foundAt(device: AnyDevice, path: string | undefined, registeredAt: string): string {
         const names: string[] = [];
@@ -193,7 +189,7 @@ async function read(folder: string): Promise<ProjectRead> {
             if (Object.hasOwn(set, BGP_NEIGHBORS)) sets[name] = Object.values<Json>(d.routing?.bgp?.neighbors ?? {}).map((n) => n.address);
     }
 
-    // ---------- what only Circuit can check: the whole network ----------
+    // What only Circuit can check: the whole network.
 
     /** Each hostname a source gives a part to is a device of the network of the device it is given to: a misspelt one would give its part to no one. */
     const reported = new Set<string>();
@@ -226,7 +222,7 @@ async function read(folder: string): Promise<ProjectRead> {
             );
     }
 
-    // ---------- each network ----------
+    // Each network.
 
     /** Each device's `site` is one of the network's sites, each site has a device, each device has a `role` when NetBox is set, and each device a check names is one. */
     function places(network: Json, devices: Record<string, AnyDevice>, at: (name: string) => string) {
@@ -259,8 +255,7 @@ async function read(folder: string): Promise<ProjectRead> {
     }
 
     /**
-     * `untrusted: true` on a VLAN is only for the check `untrusted_vlans`, so it needs the check on. A VLAN written so on one device is
-     * written so on every device that declares it.
+     * `untrusted: true` on a VLAN is only for the check `untrusted_vlans`, so it needs the check on. A VLAN written so on one device is written so on every device that declares it.
      */
     function untrusted(network: Json, devices: Record<string, AnyDevice>) {
         const flags = new Map<string, { on: string[]; off: string[] }>();
@@ -308,14 +303,13 @@ async function read(folder: string): Promise<ProjectRead> {
                 );
     }
 
-    // ---------- each device ----------
+    // Each device.
 
     /** The steps of a path that are keys, not list positions: `firewall.nat.source[0].if` is firewall, nat, source, if. */
     const steps = (path: string) => path.match(/[^.[\]]+/g)?.filter((s) => !/^\d+$/.test(s)) ?? [];
 
     /**
-     * Every key a device writes, its parts' included, is one Circuit takes there (`DEVICE`, from the types), and each filter, NAT and ACL
-     * rule's `then` is one its kind takes. A route policy rule is checked whole by `names`, as its kind decides what it may hold.
+     * Every key a device writes, its parts' included, is one Circuit takes there (`DEVICE`, from the types), and each filter, NAT and ACL rule's `then` is one its kind takes. A route policy rule is checked whole by `names`, as its kind decides what it may hold.
      */
     function known(name: string, device: AnyDevice, registeredAt: string) {
         for (const u of unknownKeys(device, DEVICE)) {
@@ -352,8 +346,7 @@ async function read(folder: string): Promise<ProjectRead> {
     }
 
     /**
-     * Every key `circuit()` is given is one it takes (`NETWORK`), and so is every setting of a built-in check. A check of the project's own
-     * has a name of its own. Returns whether `communities` has a key it doesn't take: the scheme is then not read further.
+     * Every key `circuit()` is given is one it takes (`NETWORK`), and so is every setting of a built-in check. A check of the project's own has a name of its own. Returns whether `communities` has a key it doesn't take: the scheme is then not read further.
      */
     function knownSettings(network: Json, at: string): boolean {
         const { device: _, checks, ...settings } = network;
@@ -501,8 +494,7 @@ async function read(folder: string): Promise<ProjectRead> {
     }
 
     /**
-     * Each port is one the model has, and each link names a device and port that link back. A linked port's description names the far end,
-     * `<far device> <far port as printed there>`: Circuit warns when it doesn't, and writes nothing. `devices` is the device's network.
+     * Each port is one the model has, and each link names a device and port that link back. A linked port's description names the far end, `<far device> <far port as printed there>`: Circuit warns when it doesn't, and writes nothing. `devices` is the device's network.
      */
     function links(name: string, device: AnyDevice, devices: Record<string, AnyDevice>) {
         const ports = portsOf(device.platform, device.model);
@@ -530,10 +522,7 @@ async function read(folder: string): Promise<ProjectRead> {
     }
 
     /**
-     * The network as the project's own checks read it: as its devices will run it, still in the language's shape (`ResolvedDevice`). A
-     * copy of each device: each neighbor with what it takes from its group; each policy with each `call` replaced by the called policy's
-     * rules (its `{ communities }` rules are written out already); `management.allow` written as an address set's name as that set's
-     * addresses; a rule's interface set as its interfaces.
+     * The network as the project's own checks read it: as its devices will run it, still in the language's shape (`ResolvedDevice`). A copy of each device: each neighbor with what it takes from its group; each policy with each `call` replaced by the called policy's rules (its `{ communities }` rules are written out already); `management.allow` written as an address set's name as that set's addresses; a rule's interface set as its interfaces.
      */
     function resolvedForChecks(network: Json, devices: Record<string, AnyDevice>): ResolvedNetwork {
         const resolved = Object.values(devices).map((device) => {
@@ -635,12 +624,10 @@ async function read(folder: string): Promise<ProjectRead> {
     };
 }
 
-// ---------- into the model's primitives ----------
+// Into the model's primitives.
 
 /**
- * One rule per combination of the lists in its `if`, in the order of `fields`: the first outermost. A `src` and a `dst` of different
- * families match no packet, so that combination is left out. When every combination is like that, they all stay, and the checks
- * report the rule.
+ * One rule per combination of the lists in its `if`, in the order of `fields`: the first outermost. A `src` and a `dst` of different families match no packet, so that combination is left out. When every combination is like that, they all stay, and the checks report the rule.
  */
 function combinations(rule: Json, fields: [string, unknown[]][], drop: string[]): Json[] {
     const rest = Object.fromEntries(Object.entries<Json>(rule.if).filter(([k]) => !drop.includes(k)));
@@ -685,9 +672,7 @@ const filter = (rule: Json, sets: Record<string, string[]>): Json[] => {
 const alone = (v: unknown) => (typeof v === "string" ? v.replace(/\/\d+$/, "") : v);
 
 /**
- * What the model keeps otherwise than a device writes it: an address set named in `management.allow` as its addresses; no VLAN
- * description where a VLAN is only its number (`NUMBERED_VLANS`), so a VLAN written whole once serves every platform; the address alone in each field that names one host (`HostAddress`), which a device may write with its length; and the network's AS on BGP,
- * which the model needs there. No default is written: what a device leaves out stays out.
+ * What the model keeps otherwise than a device writes it: an address set named in `management.allow` as its addresses; no VLAN description where a VLAN is only its number (`NUMBERED_VLANS`), so a VLAN written whole once serves every platform; the address alone in each field that names one host (`HostAddress`), which a device may write with its length; and the network's AS on BGP, which the model needs there. No default is written: what a device leaves out stays out.
  */
 function written(d: Json, network: Json) {
     // `management.allow` written as an address set's name is that set's addresses.
@@ -717,8 +702,7 @@ function written(d: Json, network: Json) {
 }
 
 /**
- * A device in the model the platforms read: a copy, with `written`'s changes, a list in a match as one rule per value, an interface set
- * as its interfaces, and a prefix set written as a map of named prefixes as its prefixes.
+ * A device in the model the platforms read: a copy, with `written`'s changes, a list in a match as one rule per value, an interface set as its interfaces, and a prefix set written as a map of named prefixes as its prefixes.
  */
 function primitive(device: AnyDevice, network: Json): Device {
     const d = JSON.parse(JSON.stringify(device));

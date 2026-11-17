@@ -1,6 +1,4 @@
-// `circuit sync librenms` against a fake LibreNMS: it adds what it doesn't monitor, changes what differs, keeps one static group per site,
-// lists what it leaves alone (a host the project doesn't have, a device without SNMP or without a management address, a dynamic group), and
-// never prints a secret.
+// `circuit sync librenms` against a fake LibreNMS: it adds what it doesn't monitor, changes what differs, keeps one static group per site, lists what it leaves alone (a host the project doesn't have, a device without SNMP or without a management address, a dynamic group), and never prints a secret.
 
 import { afterEach, expect, test } from "bun:test";
 import { LibreNms } from "../../src/integrations/librenms";

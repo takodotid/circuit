@@ -5,7 +5,7 @@ import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
 import type { Device, Gre, Helper, Severity, StaticRoute, Vxlan } from "../../model";
 import { Catalog } from "../../core/catalog";
-import { Derive } from "../derive";
+import { Derive } from "../../core/derive";
 import { FortiOsFirewall } from "./firewall";
 import { FortiOsNames } from "./names";
 import { FortiOsRouting } from "./routing";

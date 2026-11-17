@@ -73,8 +73,7 @@ test("Circuit reads the new project", async () => {
     expect(read.networks.map((network) => network.name)).toEqual(["as64500"]);
 });
 
-// Every project has a circuit.ts, and `bun circuit` with no script of that name runs it instead of the package's `circuit`. The
-// script runs whichever `circuit` it finds, the package's in a full install: here the app, or none, so it only must not be circuit.ts.
+// Every project has a circuit.ts, and `bun circuit` with no script of that name runs it instead of the package's `circuit`. The script runs whichever `circuit` it finds, the package's in a full install: here the app, or none, so it only must not be circuit.ts.
 test("in a full install, bun circuit runs the script, never the project's circuit.ts", () => {
     const folder = join(parent, "full");
     mkdirSync(folder);

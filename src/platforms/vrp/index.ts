@@ -10,7 +10,7 @@ import type { Device, Lag, VlanInterface } from "../../model";
 import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
-import { Derive } from "../derive";
+import { Derive } from "../../core/derive";
 import { LineDiff, type Dialect, type Group } from "../line-diff";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
 import { VrpRender } from "./render";
@@ -559,8 +559,7 @@ export class Vrp extends Platform {
     }
 
     /**
-     * SSH keys are sent whole: a new key, every line of its block, before the lines that assign it to a user, and a key that goes, after
-     * them. Its lines leave the groups, which would send them apart. A key that changes is refused: the switch asks before replacing one.
+     * SSH keys are sent whole: a new key, every line of its block, before the lines that assign it to a user, and a key that goes, after them. Its lines leave the groups, which would send them apart. A key that changes is refused: the switch asks before replacing one.
      */
     private static keySteps(groups: Group[], desired: string, current: string): { first: Step[]; last: Step[]; problems: string[] } {
         const wanted = Vrp.keyBlocks(desired);

@@ -1,5 +1,4 @@
-// The devices of Circuit 0.x's examples, written as a v1 project (one network per example, one file per device, each `<network>.device({...})`): the editor's types take
-// every one, Circuit reads the project, and each device comes out of it in the model exactly as written.
+// The devices of Circuit 0.x's examples, written as a v1 project (one network per example, one file per device, each `<network>.device({...})`): the editor's types take every one, Circuit reads the project, and each device comes out of it in the model exactly as written.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";

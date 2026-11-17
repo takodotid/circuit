@@ -111,16 +111,13 @@ export type Switched<Vlan extends string> = {
     /** The only kinds of frame this port or LAG takes in; any other kind is dropped. An exchange takes `ipv4`, `ipv6` and `arp` on a member port. Every kind when absent. */
     ethertypes?: readonly Ethertype[];
     /**
-     * The only hosts on this access port: frames only from their MAC addresses, IP packets only from their own addresses (and what every
-     * host sends from: `0.0.0.0` for DHCP, IPv6 link-local and `::`), and ARP only from their MAC addresses. Anything else arriving on the port is dropped, so a host can't send as its neighbour. A server with a
-     * management card on the same cable, or virtual machines bridged onto it, lists each MAC. Unbound when absent.
+     * The only hosts on this access port: frames only from their MAC addresses, IP packets only from their own addresses (and what every host sends from: `0.0.0.0` for DHCP, IPv6 link-local and `::`), and ARP only from their MAC addresses. Anything else arriving on the port is dropped, so a host can't send as its neighbour. A server with a management card on the same cable, or virtual machines bridged onto it, lists each MAC. Unbound when absent.
      */
     bound_to?: readonly BoundHost[];
 };
 
 /**
- * The other end of a cable: another of our devices and its port. Both ends must agree on how they are switched, and the far end must
- * link back. The port's own `description` names that end, `<far device> <far port as printed there>`, such as `fw-01 port6`:
+ * The other end of a cable: another of our devices and its port. Both ends must agree on how they are switched, and the far end must link back. The port's own `description` names that end, `<far device> <far port as printed there>`, such as `fw-01 port6`:
  * Circuit warns when it doesn't, and never writes it.
  */
 export type Link = {

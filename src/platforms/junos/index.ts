@@ -10,10 +10,11 @@ import type { Device, Family, Lag, Port, Routed } from "../../model";
 import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
-import { Derive, type ProvedFeature } from "../derive";
+import { Derive, type ProvedFeature } from "../../core/derive";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
 import { JunosBgp } from "./bgp";
-import { JunosNames, JunosRender } from "./render";
+import { JunosNames } from "./names";
+import { JunosRender } from "./render";
 
 /** How a commit that could cut access is guarded: it rolls back after `minutes` unless `prove` shows access survived. */
 export type Guard = { minutes: number; prove: () => Promise<void> };

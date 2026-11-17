@@ -1,5 +1,4 @@
-// Values every network writes the same way, each from a public standard it names. Plain data, in one `presets` object: pick from it, or
-// place its rules where they go in an ordered list with `merge`. Data is snake_case, like every field.
+// Values every network writes the same way, each from a public standard it names. Plain data, in one `presets` object: pick from it, or place its rules where they go in an ordered list with `merge`. Data is snake_case, like every field.
 
 import type { Prefix } from "./common";
 import type { FilterRule, Ports } from "./firewall";
@@ -80,8 +79,7 @@ const bad_tcp_flags: readonly FilterRule<never, never, never>[] = [
 /** Values every network writes the same way, each from a public standard. A global: write `presets.bogons`, with no import. */
 export const presets = {
     /**
-     * Address blocks that never appear as a source or destination on the internet: the IANA IPv4 and IPv6 Special-Purpose Address
-     * Registries (RFC 6890), each block with the RFC that reserves it. Pick the ones your filters need: `presets.bogons.ipv4.loopback`.
+     * Address blocks that never appear as a source or destination on the internet: the IANA IPv4 and IPv6 Special-Purpose Address Registries (RFC 6890), each block with the RFC that reserves it. Pick the ones your filters need: `presets.bogons.ipv4.loopback`.
      */
     bogons,
 
@@ -110,10 +108,7 @@ export const presets = {
     } as const satisfies Record<string, Ports>,
 
     /**
-     * Route policy rules rejecting what no neighbor should send, for an import, or as a policy every import calls (MANRS action 1,
-     * filtering). In order: IPv4 shorter than /8 and longer than /24, IPv6 shorter than /16 and longer than /48: too specific for the
-     * global table (RFC 7454, section 6.1.3), or wider than any block one network holds. Then routes RPKI finds invalid (RFC 6811).
-     * A policy of its own (`"common-sanity": presets.bgp_sanity`), or placed with `merge`: `merge([presets.bgp_sanity, own_rule])`.
+     * Route policy rules rejecting what no neighbor should send, for an import, or as a policy every import calls (MANRS action 1, filtering). In order: IPv4 shorter than /8 and longer than /24, IPv6 shorter than /16 and longer than /48: too specific for the global table (RFC 7454, section 6.1.3), or wider than any block one network holds. Then routes RPKI finds invalid (RFC 6811). A policy of its own (`"common-sanity": presets.bgp_sanity`), or placed with `merge`: `merge([presets.bgp_sanity, own_rule])`.
      */
     bgp_sanity,
 
@@ -121,9 +116,7 @@ export const presets = {
     bad_tcp_flags,
 
     /**
-     * UDP services that answer a small request with a much larger reply, which attackers use to reflect a flood at a victim: the ports
-     * of CISA's alert TA14-017A, "UDP-Based Amplification Attacks", plus six that are widely abused the same way but not in it: SLP,
-     * MS-SQL, ARD, CoAP, Ubiquiti and DVR. A reflected flood arrives from these. Pick the ports a rule needs by name: `src_port: [presets.udp_amplifiers.qotd, presets.udp_amplifiers.chargen]`.
+     * UDP services that answer a small request with a much larger reply, which attackers use to reflect a flood at a victim: the ports of CISA's alert TA14-017A, "UDP-Based Amplification Attacks", plus six that are widely abused the same way but not in it: SLP, MS-SQL, ARD, CoAP, Ubiquiti and DVR. A reflected flood arrives from these. Pick the ports a rule needs by name: `src_port: [presets.udp_amplifiers.qotd, presets.udp_amplifiers.chargen]`.
      */
     udp_amplifiers: {
         qotd: 17,

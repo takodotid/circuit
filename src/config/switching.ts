@@ -4,8 +4,7 @@ import type { Family, Named, OneOrMore, Ordered, Prefix, Rate } from "./common";
 import type { Ports, Protocol } from "./firewall";
 
 /**
- * A VLAN. Its key in `switching.vlans` is its name. `Untrusted` is whether the network turns on the check `untrusted_vlans`, which
- * `untrusted` needs.
+ * A VLAN. Its key in `switching.vlans` is its name. `Untrusted` is whether the network turns on the check `untrusted_vlans`, which `untrusted` needs.
  */
 export type Vlan<Untrusted extends boolean = true> = {
     /** The VLAN's number on the wire, 1 to 4094. Two VLANs on a device never share one. */
@@ -13,9 +12,7 @@ export type Vlan<Untrusted extends boolean = true> = {
     /** What the VLAN is for. Dropped on a platform where a VLAN is only its number (Raisecom, FortiOS), so a device takes a VLAN whole wherever it runs. */
     description?: string;
     /**
-     * The VLAN carries traffic straight from outside: a transit, an exchange, an ISP handoff, or such a one's native VLAN. Only Circuit
-     * reads it, for the check `untrusted_vlans`; the device never sees it. Write it on every device that declares the VLAN. Allowed only
-     * when the network's `circuit()` turns on `untrusted_vlans`: an error in the editor, and `circuit validate` stops.
+     * The VLAN carries traffic straight from outside: a transit, an exchange, an ISP handoff, or such a one's native VLAN. Only Circuit reads it, for the check `untrusted_vlans`; the device never sees it. Write it on every device that declares the VLAN. Allowed only when the network's `circuit()` turns on `untrusted_vlans`: an error in the editor, and `circuit validate` stops.
      */
     untrusted?: Untrusted extends true ? true : "allowed only when circuit.ts turns on the check untrusted_vlans";
 };
@@ -23,9 +20,7 @@ export type Vlan<Untrusted extends boolean = true> = {
 /**
  * Which packets an ACL rule applies to. All must be true.
  *
- * `vlan`, `src` and `dst` each take a list. Where the platform has no list, Circuit writes one rule per combination: the VLAN
- * outermost, then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so that combination is left out; a rule
- * with nothing else is an error.
+ * `vlan`, `src` and `dst` each take a list. Where the platform has no list, Circuit writes one rule per combination: the VLAN outermost, then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so that combination is left out; a rule with nothing else is an error.
  */
 export type AclMatch<V extends string> = {
     /** Only packets of this family. */

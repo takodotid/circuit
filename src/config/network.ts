@@ -26,8 +26,7 @@ export type Site = {
     /** What and where the site is. */
     description?: string;
     /**
-     * The site's number, the last part of the community `learned_at_site` tags a route with, such as `64500:2:0`. Only Circuit reads
-     * it: the resolved network leaves it out.
+     * The site's number, the last part of the community `learned_at_site` tags a route with, such as `64500:2:0`. Only Circuit reads it: the resolved network leaves it out.
      */
     number?: number;
 };
@@ -35,9 +34,7 @@ export type Site = {
 /** Circuit's built-in checks, by name. A check is on when it is here. `D` is the network's device names: `circuit validate` checks each is a device of the network. */
 export type Checks<D extends string> = {
     /**
-     * Where traffic from outside, before anything filters it, may go. The untrusted VLANs are those written `untrusted: true` in
-     * `switching.vlans`; every other VLAN is trusted, so a VLAN added later is protected without being listed. `untrusted: true` is
-     * allowed only while this check is on.
+     * Where traffic from outside, before anything filters it, may go. The untrusted VLANs are those written `untrusted: true` in `switching.vlans`; every other VLAN is trusted, so a VLAN added later is protected without being listed. `untrusted: true` is allowed only while this check is on.
      */
     untrusted_vlans?: {
         /** The devices that filter: the only ones that may give an untrusted VLAN an address, and the only ones a port carrying both kinds may face. */
@@ -54,15 +51,13 @@ export type Checks<D extends string> = {
     /** A GRE or VXLAN tunnel's local address is outside what the neighbors over it are offered, or their replies route back into the tunnel. */
     tunnels_outside_offered?: true;
     /**
-     * One VLAN name has one ID on every device of the network. Circuit runs it when it reads the project, and `circuit validate` stops on a VLAN
-     * with two IDs, naming both devices and where each is written. So the resolved network always passes it, and leaves it out.
+     * One VLAN name has one ID on every device of the network. Circuit runs it when it reads the project, and `circuit validate` stops on a VLAN with two IDs, naming both devices and where each is written. So the resolved network always passes it, and leaves it out.
      */
     same_vlan_ids?: true;
 };
 
 /**
- * What one of your own checks found: a sentence, and the device and path it is about, when it knows them. Circuit prints it with the
- * file and line that write that path, as for its own errors: `sites/site-a/switch-01.ts:21: tenants_dont_clash: switch-01: interfaces.ethernet.10g-2: ...`.
+ * What one of your own checks found: a sentence, and the device and path it is about, when it knows them. Circuit prints it with the file and line that write that path, as for its own errors: `sites/site-a/switch-01.ts:21: tenants_dont_clash: switch-01: interfaces.ethernet.10g-2: ...`.
  */
 export type Finding = {
     /** What is wrong, in a sentence. */
@@ -74,9 +69,7 @@ export type Finding = {
 };
 
 /**
- * A device as your own checks read it: as it will run. Each BGP neighbor holds what it takes from its group. Each policy is route rules
- * only: a `call` is the called policy's rules, and a `{ communities }` rule the rules it means there. `management.allow` written as an
- * address set's name is that set's addresses, and a rule's interface set is its interfaces. A copy: a check changes nothing.
+ * A device as your own checks read it: as it will run. Each BGP neighbor holds what it takes from its group. Each policy is route rules only: a `call` is the called policy's rules, and a `{ communities }` rule the rules it means there. `management.allow` written as an address set's name is that set's addresses, and a rule's interface set is its interfaces. A copy: a check changes nothing.
  */
 export type ResolvedDevice = Omit<AnyDevice, "routing" | "management"> & {
     readonly routing?: Omit<NonNullable<AnyDevice["routing"]>, "policies"> & {
@@ -89,8 +82,7 @@ export type ResolvedDevice = Omit<AnyDevice, "routing" | "management"> & {
 export type ResolvedNetwork = { readonly asn?: number; readonly prefixes: Prefixes; readonly devices: readonly ResolvedDevice[] };
 
 /**
- * A check of your own, beside Circuit's: it reads the network resolved, as its devices will run it, and returns what is wrong. Nothing
- * found is an empty list. `circuit validate` runs it; the resolved network never shows it.
+ * A check of your own, beside Circuit's: it reads the network resolved, as its devices will run it, and returns what is wrong. Nothing found is an empty list. `circuit validate` runs it; the resolved network never shows it.
  */
 export type Check = (network: ResolvedNetwork) => readonly Finding[];
 
@@ -131,8 +123,7 @@ export type Integrations = {
 };
 
 /**
- * What a device takes from its network, for the editor: whether `untrusted_vlans` is on, whether the network writes `communities`, and
- * the scheme's groups and requests.
+ * What a device takes from its network, for the editor: whether `untrusted_vlans` is on, whether the network writes `communities`, and the scheme's groups and requests.
  */
 export type NetworkFacts = { untrusted: boolean; communities: boolean; groups: string; requests: string };
 
@@ -147,9 +138,7 @@ export type Numbered<Sites> = true extends (
     : false;
 
 /**
- * What `circuit()` takes: the whole network but its devices, which register with it from their own files. `Sites` is its sites as
- * written. `Own` is the `checks` as written: a key that is not one of Circuit's is a check of your own. `C` is the `communities` as
- * written. `P` is the `prefixes` as written.
+ * What `circuit()` takes: the whole network but its devices, which register with it from their own files. `Sites` is its sites as written. `Own` is the `checks` as written: a key that is not one of Circuit's is a check of your own. `C` is the `communities` as written. `P` is the `prefixes` as written.
  */
 export type NetworkSettings<
     Sites extends Readonly<Record<string, Site>>,
@@ -161,23 +150,17 @@ export type NetworkSettings<
     /** The AS the network operates. A device's BGP runs it, unless the device writes `routing.bgp.asn`. */
     asn?: Asn;
     /**
-     * The network's own prefixes, in groups of your choosing, each a map of named prefixes: `{ region_a: { v4_1: "192.0.2.0/24" } }`.
-     * Devices use them by name, `as64500.prefixes.id01.v4_1`, and your own checks read them. The resolved network keeps them, for the
-     * commands that would use them: PeeringDB's prefix counts, and RPKI and IRR checks.
+     * The network's own prefixes, in groups of your choosing, each a map of named prefixes: `{ region_a: { v4_1: "192.0.2.0/24" } }`. Devices use them by name, `as64500.prefixes.id01.v4_1`, and your own checks read them. The resolved network keeps them, for the commands that would use them: PeeringDB's prefix counts, and RPKI and IRR checks.
      */
     prefixes?: P;
     /**
-     * The network's BGP large communities, `asn:code:value` (RFC 8092), used as RFC 8195 describes. Written once here: a neighbor group
-     * says which `groups` it is in, and a policy places `{ communities: "import" }` or `{ communities: "export" }`. Circuit writes the
-     * catalogue from it, for a looking glass or bgp.tools.
+     * The network's BGP large communities, `asn:code:value` (RFC 8092), used as RFC 8195 describes. Written once here: a neighbor group says which `groups` it is in, and a policy places `{ communities: "import" }` or `{ communities: "export" }`. Circuit writes the catalogue from it, for a looking glass or bgp.tools.
      */
     communities?: C & CommunityScheme & SchemeCheck<C, Numbered<Sites>>;
     /** Each site, by name: a data centre or an office. The NetBox site and LibreNMS group of that name. A device's `site` is one of these, and each has a device. */
     sites: Sites;
     /**
-     * Circuit's built-in checks, turned on by name, with their settings, and your own: any other name takes a function that reads the
-     * network and returns what it found (`Check`). `circuit validate` runs them all. `untrusted: true` on a VLAN is allowed only while
-     * `untrusted_vlans` is here.
+     * Circuit's built-in checks, turned on by name, with their settings, and your own: any other name takes a function that reads the network and returns what it found (`Check`). `circuit validate` runs them all. `untrusted: true` on a VLAN is allowed only while `untrusted_vlans` is here.
      */
     checks?: Own & Checks<string> & { [K in Exclude<keyof Own, keyof Checks<string>>]: Check };
     /** Systems Circuit keeps in step with the config. */

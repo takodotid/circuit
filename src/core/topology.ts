@@ -1,7 +1,7 @@
 // The network as a graph, read from the project alone: cables, the VLANs they carry, shared segments, BGP sessions, OSPF adjacencies and tunnels. `circuit studio` draws it.
 
 import type { Device, Gre, Port, Routed, Switched, Vrrp, Vxlan, WireGuardPeer } from "../model";
-import { Derive } from "../platforms/derive";
+import { Derive } from "./derive";
 import { Address } from "./address";
 import type { CarriedVlan, Graph, GraphEdge, GraphNode } from "./graph";
 

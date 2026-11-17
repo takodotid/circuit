@@ -1,77 +1,12 @@
-// A network's secrets file, `.circuit/secrets` unless `circuit({ secrets: { file } })` names another: `NAME="value"` lines, as in a `.env`, each value encrypted, so the file is safe to commit. Names stay readable, so git shows which secret changed. A value is AES-256-GCM, with a key made from the file's password by scrypt, and the secret's name bound to it, so a value moved to another name no longer opens.
-//
-// The password is never in the file. It comes from `CIRCUIT_SECRETS_PASSWORD` in the environment, from `CIRCUIT_SECRETS_PASSWORD="op://..."` in the file, a 1Password reference, or from the person, who types it. A value may also be a 1Password reference itself.
-//
-// After a yes, Circuit remembers the password typed and the values read from 1Password for 10 minutes, 30 minutes or 24 hours, so the next commands don't ask: see src/cli/remember.ts. `hold` gives a run what is remembered.
-
+// A network's secrets file, `.circuit/secrets` unless `circuit({ secrets: { file } })` gives another: `NAME="value"` lines, each value encrypted, so the file is safe to commit. A value is AES-256-GCM, with a key made from the file's password by scrypt and bound to the secret's name. The password is never in the file. See SECURITY.md.
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
-import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { parseEnv } from "node:util";
+import { OnePassword } from "./one-password";
 
 /** What a value in a secrets file is: encrypted, a 1Password reference, empty, or plain text, which Circuit refuses. */
 export type SecretKind = "encrypted" | "1password" | "empty" | "not encrypted";
-
-/** The 1Password CLI, `op`. */
-export class OnePassword {
-    /** Each reference read in this run, so 1Password asks once. */
-    private static readonly cache = new Map<string, string>();
-    /** The references whose values Circuit remembers from an earlier run, after a yes (src/cli/remember.ts). */
-    private static readonly held = new Set<string>();
-    /** Whether a remembered value was used in this run. */
-    static usedHeld = false;
-    /** Says what Circuit waits for while `op` runs, such as for the person to unlock 1Password; gives back what clears it. The command line sets it. */
-    static waiting: ((message: string) => () => void) | undefined;
-
-    /** A reference read before in this run, without asking 1Password. */
-    static cached(reference: string): string | undefined {
-        return OnePassword.cache.get(reference);
-    }
-
-    /** Values Circuit remembers, so this run reads them without asking 1Password. */
-    static hold(values: Readonly<Record<string, string>>): void {
-        for (const [reference, value] of Object.entries(values)) {
-            OnePassword.cache.set(reference, value);
-            OnePassword.held.add(reference);
-        }
-    }
-
-    /** The values read from 1Password itself in this run, which Circuit does not remember yet. */
-    static unheld(): Record<string, string> {
-        return Object.fromEntries([...OnePassword.cache].filter(([reference]) => !OnePassword.held.has(reference)));
-    }
-
-    /** Forget every value of this run, as a new run starts with none. */
-    static forget(): void {
-        OnePassword.cache.clear();
-        OnePassword.held.clear();
-        OnePassword.usedHeld = false;
-    }
-
-    /** The value behind `op://vault/item/field`, read once per run. */
-    static read(reference: string, what: string): string {
-        const cached = OnePassword.cache.get(reference);
-        if (cached !== undefined) {
-            if (OnePassword.held.has(reference)) OnePassword.usedHeld = true;
-            return cached;
-        }
-
-        const done = OnePassword.waiting?.(`Reading ${reference} from 1Password`);
-        let result: SpawnSyncReturns<string>;
-        try {
-            result = spawnSync("op", ["read", "--no-newline", reference], { encoding: "utf8" });
-        } finally {
-            done?.();
-        }
-        if (result.error) throw new Error(`${what} is in 1Password, and the 1Password CLI, op, is not installed`);
-        if (result.status !== 0)
-            throw new Error(`${what}: 1Password could not read ${reference}: ${result.stderr.trim() || `op exited with ${result.status}`}`);
-
-        OnePassword.cache.set(reference, result.stdout);
-        return result.stdout;
-    }
-}
 
 export class SecretsFile {
     /** Where a network's secrets are when `circuit()` names no file. */
@@ -433,8 +368,7 @@ export class SecretsFile {
     }
 
     /**
-     * Write the file from the text the editor holds: comments and blank lines as they are, each value encrypted, a value that did not
-     * change kept as it was encrypted, so git shows only what changed. Gives back why it can't be written, or undefined once written.
+     * Write the file from the text the editor holds: comments and blank lines as they are, each value encrypted, a value that did not change kept as it was encrypted, so git shows only what changed. Gives back why it can't be written, or undefined once written.
      */
     saveEditable(text: string): string | undefined {
         const before = new Map<string, { stored: string; value: string }>();

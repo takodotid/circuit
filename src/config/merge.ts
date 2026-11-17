@@ -1,4 +1,4 @@
-// `merge`, by MODEL.md's Merge rules for a language with import, and the types that check a merge in the editor. Each map remembers the file that wrote each of its keys, so an error names both.
+// `merge` (https://circuit.tako.id/guide/parts), and the types that check a merge in the editor. Each map remembers the file that wrote each of its keys, so an error names both.
 
 /** Where each key of a map was written, `file:line`. Not enumerable, so the JSON never shows it. */
 const WRITTEN = Symbol("written in");
@@ -19,8 +19,7 @@ const CIRCUIT = decodeURIComponent(new URL("..", import.meta.url).pathname)
 const isCircuit = (file: string) => file.replaceAll("\\", "/").toLowerCase().startsWith(CIRCUIT);
 
 /**
- * The user's frames on the stack of `error`, innermost first, each `file:line`. A frame of code outside any function, such as a device
- * file's own lines, is `at /path/file.ts:3:16` on Linux and macOS, with no brackets: the `at ` is not part of the file.
+ * The user's frames on the stack of `error`, innermost first, each `file:line`. A frame of code outside any function, such as a device file's own lines, is `at /path/file.ts:3:16` on Linux and macOS, with no brackets: the `at ` is not part of the file.
  */
 export function userFrames(error: Error = new Error()): string[] {
     return (error.stack ?? "")
@@ -31,8 +30,7 @@ export function userFrames(error: Error = new Error()): string[] {
 }
 
 /**
- * The user's file and line that called into Circuit: the outermost frame outside Circuit. A part a function in `lib/` builds is
- * named after the file that called that function, such as the tenant's file, which is the one to change.
+ * The user's file and line that called into Circuit: the outermost frame outside Circuit. A part a function in `lib/` builds is named after the file that called that function, such as the tenant's file, which is the one to change.
  */
 export const caller = (): string => userFrames().at(-1) ?? "?";
 
@@ -67,8 +65,7 @@ const lines = new Map<string, string[]>();
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
- * From `written`, `file:line`, the first line at or after it that writes each of `path` in turn, as `file:line`, or undefined when the last
- * of `path` is not found. A key not found before the last is skipped.
+ * From `written`, `file:line`, the first line at or after it that writes each of `path` in turn, as `file:line`, or undefined when the last of `path` is not found. A key not found before the last is skipped.
  */
 function find(written: string, path: string[]): string | undefined {
     const colon = written.lastIndexOf(":");
@@ -93,10 +90,7 @@ function find(written: string, path: string[]): string | undefined {
 }
 
 /**
- * Where `key` of `map` is written, as `file:line: `, or nothing when no file is known. `writtenIn` knows the line that made the map (a
- * network's `device()`, a `literal`, a `part`); from there, the file is read for the first line that writes each of `path` in turn,
- * `path` ending in the key: `["vlans", "exchange-a"]`. A key written through `lib/` is looked for there first. When the key is not found,
- * the line that made the map stays.
+ * Where `key` of `map` is written, as `file:line: `, or nothing when no file is known. `writtenIn` knows the line that made the map (a network's `device()`, a `literal`, a `part`); from there, the file is read for the first line that writes each of `path` in turn, `path` ending in the key: `["vlans", "exchange-a"]`. A key written through `lib/` is looked for there first. When the key is not found, the line that made the map stays.
  */
 export function writtenAt(map: unknown, key: string, path: string[] = [key]): string {
     const outer = writtenIn(map as object, key);
@@ -109,8 +103,7 @@ export function writtenAt(map: unknown, key: string, path: string[] = [key]): st
 export const lineOf = (written: string, path: string[]): string => `${find(written, path) ?? written}: `;
 
 /**
- * An ordered list, by its path: a chain's rules, NAT, an ACL, a route policy, policy routing. Under a source, the hostname comes
- * first (`edge-01.firewall.nat.source`). It is written whole in one place, never joined.
+ * An ordered list, by its path: a chain's rules, NAT, an ACL, a route policy, policy routing. Under a source, the hostname comes first (`edge-01.firewall.nat.source`). It is written whole in one place, never joined.
  */
 const ORDERED =
     /(^|\.)(firewall\.filter\.[^.]+\.rules|firewall\.nat\.(source|destination)|switching\.acls\.[^.]+|routing\.policies\.[^.]+|routing\.policy_routing)$/;
@@ -180,7 +173,7 @@ export function mergeAll(parts: readonly unknown[], file: string, path = ""): Ob
     return out;
 }
 
-// ---------- `merge([...])`: one list or one map, by where it lands ----------
+// `merge([...])`: one list or one map, by where it lands.
 
 /** What a `merge` call was given, flat, and the file that called it. Not enumerable, so nothing else sees it. */
 const MADE = Symbol("merge items");
@@ -191,8 +184,7 @@ const madeBy = (v: unknown) => (v && typeof v === "object" && Object.hasOwn(v, M
 const flat = (items: readonly unknown[]): unknown[] => items.flatMap((v) => (Array.isArray(v) ? flat(v) : [v]));
 
 /**
- * What `merge` returns before it lands: a list when an item is a list or no map, else the maps merged. The same rule the editor uses
- * for a `merge` that lands in no field. Where it lands decides (`resolve`).
+ * What `merge` returns before it lands: a list when an item is a list or no map, else the maps merged. The same rule the editor uses for a `merge` that lands in no field. Where it lands decides (`resolve`).
  */
 export function made(items: readonly unknown[], file: string): object {
     const values = flat(items);
@@ -205,9 +197,7 @@ export function made(items: readonly unknown[], file: string): object {
         try {
             out = mergeAll(values, file);
         } catch (error) {
-            // Maps that clash may be single rules, which a list field takes as they are: they stay a list until they land (`resolve`).
-            // A field of them read before, such as `tenants.parts` of two tenants with one VLAN name, says what clashed, naming both
-            // values and where each is written, not that the field is missing. Never `then`, which a promise reads.
+            // Maps that clash may be single rules, which a list field takes as they are: they stay a list until they land (`resolve`). A field of them read before, such as `tenants.parts` of two tenants with one VLAN name, says what clashed, naming both values and where each is written, not that the field is missing. Never `then`, which a promise reads.
             const clash = `${file}: merge: ${error instanceof Error ? error.message : String(error)}`;
             for (const key of new Set(values.flatMap((v) => Object.keys(v as object))))
                 if (key !== "then")
@@ -221,8 +211,7 @@ export function made(items: readonly unknown[], file: string): object {
 }
 
 /**
- * Lists of the model whose items are maps, besides the ordered ones: there, a merge of single maps is a list of them, never one map.
- * Taken from Circuit's schema (every array of objects under a device).
+ * Lists of the model whose items are maps, besides the ordered ones: there, a merge of single maps is a list of them, never one map. Taken from Circuit's schema (every array of objects under a device).
  */
 const MAP_LISTS =
     /(^|\.)(routing\.(static_routes|rpki)|monitoring\.(syslog|flow_export\.collectors)|system\.vdoms\.[^.]+\.static_routes|interfaces\.[^.]+\.[^.]+\.(addresses|peers|vrrp)|services\.dhcp_server\.[^.]+\.reservations)$/;
@@ -234,8 +223,7 @@ const MAP_LISTS =
  * - in a list of maps (`MAP_LISTS`), or when an item is no map (a VLAN name, a port), its items flat, the same item twice kept once;
  * - anywhere else, its items merged as maps, by `mergeAll`.
  *
- * So two single rules, `merge([rule_a, rule_b])`, are two rules in a chain and never one map: the chain's path says so. A source in a
- * device's `include` lands at the top, so it is a map, keyed by hostname. Changes maps and lists in place, so a rule keeps its identity.
+ * So two single rules, `merge([rule_a, rule_b])`, are two rules in a chain and never one map: the chain's path says so. A source in a device's `include` lands at the top, so it is a map, keyed by hostname. Changes maps and lists in place, so a rule keeps its identity.
  */
 export function resolve(value: unknown, path: string): unknown {
     const by = madeBy(value);
@@ -257,11 +245,10 @@ export function resolve(value: unknown, path: string): unknown {
     return value;
 }
 
-// ---------- the types: what the editor checks ----------
+// The types: what the editor checks.
 
 /**
- * Two parts merged as `merge` merges them: maps key by key, lists joined, anything else the later one. A key one side writes out keeps
- * its own type, even when the other side has an index signature.
+ * Two parts merged as `merge` merges them: maps key by key, lists joined, anything else the later one. A key one side writes out keeps its own type, even when the other side has an index signature.
  */
 export type Merge2<A, B> = [A] extends [readonly (infer X)[]]
     ? [B] extends [readonly (infer Y)[]]
@@ -311,8 +298,7 @@ type OrderedPath =
     | `${string}routing.policy_routing`;
 
 /**
- * Every place where part `B` clashes with what came before it, `A`, said in words: an ordered list both write, or another value at
- * one path. Any other list never clashes: it joins.
+ * Every place where part `B` clashes with what came before it, `A`, said in words: an ordered list both write, or another value at one path. Any other list never clashes: it joins.
  */
 type ClashPaths<B, A, Path extends string = ""> = {
     [K in Keys<B>]: K extends WrittenKeys<A>
@@ -331,8 +317,6 @@ type ClashPaths<B, A, Path extends string = ""> = {
 }[Keys<B>];
 
 /**
- * What part `B` must also be, after `A`: nothing more when nothing clashes, and else a property named after each clash that it lacks,
- * so the editor says `Property '"edge-01.firewall.nat.source is an ordered list written in two places"' is missing`. An
- * ordered list is written whole in one place. Any other value written twice must be the same.
+ * What part `B` must also be, after `A`: nothing more when nothing clashes, and else a property named after each clash that it lacks, so the editor says `Property '"edge-01.firewall.nat.source is an ordered list written in two places"' is missing`. An ordered list is written whole in one place. Any other value written twice must be the same.
  */
 export type Clash<B, A> = [ClashPaths<B, A>] extends [never] ? unknown : { [P in ClashPaths<B, A>]: true };

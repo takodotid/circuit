@@ -8,7 +8,7 @@ import { Topology } from "../core/topology";
 import type { Device, Finding } from "../model";
 import { Platforms } from "../platforms";
 import { Catalog } from "../core/catalog";
-import { Derive } from "../platforms/derive";
+import { Derive } from "../core/derive";
 import { ProjectError, type ProjectRead, Project } from "../project";
 import type { AddressRow, Cable, Session, StudioData, StudioError } from "./types";
 

@@ -65,8 +65,7 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     /** One of `routing.tables`: the table the routes learned are installed in. The main table when absent. On RouterOS the session also announces from that table, so each prefix of `originated_prefixes` it announces needs a route in the table too, and a running session takes a new table only when it restarts. */
     routing_table?: T | "main";
     /**
-     * The groups of the network's `communities` it is in, and its own blackhole community, for the `{ communities }` rules of its
-     * policies: `{ groups: ["transit"], blackhole: "64501:666" }`. Only Circuit reads it. Allowed only when the network writes `communities`.
+     * The groups of the network's `communities` it is in, and its own blackhole community, for the `{ communities }` rules of its policies: `{ groups: ["transit"], blackhole: "64501:666" }`. Only Circuit reads it. Allowed only when the network writes `communities`.
      */
     communities?: Net["communities"] extends true ? NeighborCommunities<Net["groups"]> : "allowed only when circuit.ts writes communities";
 };
@@ -191,8 +190,7 @@ export type StandardCommunityPattern = `${number | "*"}:${number | "*"}`;
 export type LargeCommunityPattern = `${number | "*"}:${number | "*"}:${number | "*"}`;
 
 /**
- * Prefixes listed here, or fetched from a registry and never typed by hand. `circuit diff` and `circuit apply` fetch them each time,
- * and the plan adds and removes them one by one like any list. `validate` and Studio don't fetch them.
+ * Prefixes listed here, or fetched from a registry and never typed by hand. `circuit diff` and `circuit apply` fetch them each time, and the plan adds and removes them one by one like any list. `validate` and Studio don't fetch them.
  */
 export type PrefixSet =
     | {

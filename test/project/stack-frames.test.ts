@@ -1,5 +1,4 @@
-// The user's file and line on the stack, as each operating system prints it: Windows always in brackets, Linux and macOS without them
-// for code outside any function, such as a device file's own lines.
+// The user's file and line on the stack, as each operating system prints it: Windows always in brackets, Linux and macOS without them for code outside any function, such as a device file's own lines.
 
 import { expect, test } from "bun:test";
 import { userFrames } from "../../src/config/merge";

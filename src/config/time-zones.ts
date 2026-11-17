@@ -1,4 +1,4 @@
-// Every IANA time zone name Circuit knows, copied from Circuit 0.43 (`src/schema/time-zones.ts`, generated from the runtime).
+// Every IANA time zone name Circuit knows.
 
 /** An IANA time zone name, such as `Asia/Jakarta`, or `UTC`. */
 export type TimeZone =

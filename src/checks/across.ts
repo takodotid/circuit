@@ -1,9 +1,8 @@
-// Rules that span devices: what one device declares about another has to agree with what the other declares. That a link's far end exists and links back
-// is stopped on when the project is read, so a link that doesn't is skipped here.
+// Rules that span devices: what one device declares about another has to agree with what the other declares. That a link's far end exists and links back is stopped on when the project is read, so a link that doesn't is skipped here.
 
 import { Address } from "../core/address";
 import type { Device, Finding, Gre, Prefix, Routed, Switched, Vrrp, Vxlan } from "../model";
-import { Derive } from "../platforms/derive";
+import { Derive } from "../core/derive";
 import { DeviceChecks } from "./device";
 
 /** An address one of the devices holds on a port or interface. */

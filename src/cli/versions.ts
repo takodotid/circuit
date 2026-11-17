@@ -58,8 +58,7 @@ export class Versions {
     }
 
     /**
-     * Remove each kept version no project pins any more: a project is one Circuit ran in that is still there, and its version is what its
-     * `.circuit/version` says now. The app's own version is never kept apart: the app runs it. Gives back the versions removed.
+     * Remove each kept version no project pins any more: a project is one Circuit ran in that is still there, and its version is what its `.circuit/version` says now. The app's own version is never kept apart: the app runs it. Gives back the versions removed.
      */
     static prune(app: string = VERSION): string[] {
         const projects = Versions.known().filter((root) => existsSync(join(root, "circuit.ts")));
@@ -107,9 +106,7 @@ export class Versions {
     }
 
     /**
-     * Before a command in a project: a version a security advisory affects never runs, so the person moves the project to a fixed one
-     * first. Then, when the project pins another version than this one, run that version with these arguments, and end with its exit
-     * code. Nothing to do when this Circuit is the one to run.
+     * Before a command in a project: a version a security advisory affects never runs, so the person moves the project to a fixed one first. Then, when the project pins another version than this one, run that version with these arguments, and end with its exit code. Nothing to do when this Circuit is the one to run.
      */
     static async run(root: string, argv: string[]): Promise<void> {
         if (process.env[Versions.RUNNING] || !Releases.binary()) return;

@@ -1,5 +1,4 @@
-// A project inside another project's folder, such as a customer's in `customers/<name>/`: the commit hook checks it with its own
-// Circuit, and `circuit fmt` gives its files the outer project's style.
+// A project inside another project's folder, such as a customer's in `customers/<name>/`: the commit hook checks it with its own Circuit, and `circuit fmt` gives its files the outer project's style.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";

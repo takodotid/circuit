@@ -1,7 +1,7 @@
-// Values more than one adapter derives from a device in the same way.
+// Values Circuit derives from a device the same way everywhere: in checks, adapters and integrations.
 
-import { Address } from "../core/address";
-import { Utils } from "../core/utils";
+import { Address } from "./address";
+import { Utils } from "./utils";
 import type { Device, FilterRule, Interface, InterfaceKind, NatRule, Port } from "../model";
 
 /** One interface of a device, with the group it is in. */

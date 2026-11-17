@@ -9,7 +9,7 @@ import type { Device, InterfaceKind, Port, Switched } from "../model";
 import { Platforms } from "../platforms";
 import type { Platform as PlatformName } from "../config/models";
 import { Catalog } from "../core/catalog";
-import { Derive } from "../platforms/derive";
+import { Derive } from "../core/derive";
 import type { SyncChange, SyncNetwork, SyncPlan, SyncTarget } from "./sync";
 
 /** NetBox's JSON, as it answers. Loose, since every kind of object has fields of its own. */

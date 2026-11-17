@@ -24,7 +24,7 @@ import type {
     VlanInterface,
 } from "../../model";
 import { Catalog } from "../../core/catalog";
-import { Derive, type NamedInterface } from "../derive";
+import { Derive, type NamedInterface } from "../../core/derive";
 
 /** A property value as a command takes it. `undefined` and `false` leave the property out. */
 export type Value = string | number | undefined | false;
