@@ -32,6 +32,7 @@ import { GraphLook } from "../lib/graph-look";
 import { GraphSignals } from "../lib/graph-signals";
 import { type Drawing, GraphSvg } from "../lib/graph-svg";
 import { go, still, store } from "../lib/store";
+import GraphPanel from "./GraphPanel.vue";
 
 const props = defineProps<{ data: StudioData }>();
 
@@ -660,11 +661,6 @@ function showDevice(): void {
     else graph.animate(view, { duration: 700, easing: "ease-in-out-cubic" });
 }
 
-/** Stop showing a comparison. */
-function stopComparing(): void {
-    delete store.graphFocus.comparison;
-}
-
 onBeforeUnmount(() => {
     keepView(layer.value);
     clearInterval(tour);
@@ -709,10 +705,6 @@ watch(
     () => store.graphFocus.device,
     () => showDevice()
 );
-
-const nodeFindings = computed(() =>
-    props.data.findings.filter((finding) => selected.value.node && `device:${finding.device}` === selected.value.node.id)
-);
 </script>
 
 <template>
@@ -749,56 +741,7 @@ const nodeFindings = computed(() =>
                 ><span>{{ caption.detail }}</span>
             </p>
             <button v-if="presenting" class="present-exit" title="Stop presenting (Esc)" @click="togglePresenting">Stop presenting</button>
-            <aside>
-                <template v-if="selected.node">
-                    <h2>{{ selected.node.label }}</h2>
-                    <p class="kind muted">
-                        {{
-                            selected.node.kind === "device"
-                                ? "a device"
-                                : selected.node.kind === "segment"
-                                  ? "a shared segment"
-                                  : "outside the network"
-                        }}
-                    </p>
-                    <ul>
-                        <li v-for="line in selected.node.detail" :key="line">{{ line }}</li>
-                    </ul>
-                    <ul v-if="nodeFindings.length" class="findings">
-                        <li v-for="(finding, index) in nodeFindings" :key="index">
-                            <span :class="['badge', finding.level]">{{ finding.level }}</span
-                            >{{ finding.message }}
-                        </li>
-                    </ul>
-                    <p v-if="selected.node.kind === 'device'">
-                        <a @click="go(`devices/${selected.node.label}`)">Open {{ selected.node.label }}</a>
-                    </p>
-                </template>
-                <template v-else-if="selected.edge">
-                    <h2>{{ selected.edge.label }}</h2>
-                    <p v-if="selected.edge.oneSided" class="badge warning">declared at one end only</p>
-                    <ul>
-                        <li v-for="line in selected.edge.detail" :key="line">{{ line }}</li>
-                    </ul>
-                </template>
-                <template v-else>
-                    <h2>{{ GraphLayer.NAMES[layer] }}</h2>
-                    <p class="muted">{{ GraphLayer.HELP[layer] }}</p>
-                    <template v-if="store.graphFocus.comparison">
-                        <h3>Compared with {{ store.graphFocus.comparison.name }}</h3>
-                        <p>
-                            <span class="added">Green lines</span> are new, <span class="removed">red dashed lines</span> are gone.
-                            <button type="button" class="link" @click="stopComparing">Stop comparing</button>
-                        </p>
-                    </template>
-                    <ul class="legend">
-                        <li>A dashed line is declared at one end only.</li>
-                        <li>A dashed box is outside the network.</li>
-                        <li>A box framed in orange or red has warnings or errors.</li>
-                        <li>Pick a box or a line to see what it is. Double-click a device to open it.</li>
-                    </ul>
-                </template>
-            </aside>
+            <GraphPanel :data="data" :layer="layer" :shown="shown" :selected="selected" @select="select" />
         </div>
     </section>
 </template>

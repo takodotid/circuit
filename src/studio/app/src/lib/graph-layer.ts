@@ -13,6 +13,8 @@ export type ShownEdge = GraphEdge & {
     keys: string[];
     added?: true;
     gone?: true;
+    /** The lines it is drawn for, when many between the same two nodes are drawn as one. */
+    members?: ShownEdge[];
 };
 
 export type Shown = { nodes: ShownNode[]; edges: ShownEdge[] };
@@ -102,7 +104,8 @@ export class GraphLayer {
             };
         });
 
-        const ends = new Set(edges.flatMap((edge) => [edge.from, edge.to]));
+        const drawn = GraphLayer.bundled(edges);
+        const ends = new Set(drawn.flatMap((edge) => [edge.from, edge.to]));
         const nodes = data.graph.nodes
             .filter((node) => node.kind === "device" || ends.has(node.id))
             .map((node) => {
@@ -110,6 +113,42 @@ export class GraphLayer {
                 return { ...node, ...(level ? { level } : {}) };
             });
 
-        return { nodes, edges };
+        return { nodes, edges: drawn };
+    }
+
+    /** Past this many lines between the same two nodes, they are drawn as one, which lists them all. */
+    static readonly MOST_APART = 3;
+
+    /** The lines to draw: each on its own, or, past a few between the same two nodes, one for all of them. */
+    private static bundled(edges: ShownEdge[]): ShownEdge[] {
+        const byPair = new Map<string, ShownEdge[]>();
+        for (const edge of edges) {
+            const pair = `${[edge.from, edge.to].sort().join(" ")}${edge.gone ? " gone" : ""}`;
+            byPair.set(pair, [...(byPair.get(pair) ?? []), edge]);
+        }
+
+        return [...byPair].flatMap(([pair, members]) => {
+            const first = members[0]!;
+            if (members.length <= GraphLayer.MOST_APART) return members;
+
+            const vlans = new Map(members.flatMap((member) => member.vlans ?? []).map((vlan) => [vlan.id, vlan]));
+
+            return [
+                {
+                    layer: first.layer,
+                    from: first.from,
+                    to: first.to,
+                    label: `${members.length} ${GraphLayer.LINES[first.layer][1]}`,
+                    detail: members.map((member) => member.label),
+                    id: `${first.layer} ${pair} bundle`,
+                    keys: members.flatMap((member) => member.keys),
+                    members,
+                    ...(members.some((member) => member.oneSided) ? { oneSided: true as const } : {}),
+                    ...(members.some((member) => member.added) ? { added: true as const } : {}),
+                    ...(first.gone ? { gone: true as const } : {}),
+                    ...(vlans.size ? { vlans: [...vlans.values()].sort((a, b) => a.id - b.id) } : {}),
+                },
+            ];
+        });
     }
 }

@@ -40,12 +40,17 @@ export function showInGraph(layer: string, focus: GraphFocus): void {
     go(`graph/${layer}`);
 }
 
-/** Go to a place in the page, such as `devices/edge-01/ports`. */
-export function go(path: string): void {
-    location.hash = path
+/** A place in the page as a link's address, such as `#devices/edge-01`, so the keyboard reaches it and it opens in a new tab. */
+export function href(path: string): string {
+    return `#${path
         .split("/")
         .map((part) => encodeURIComponent(part))
-        .join("/");
+        .join("/")}`;
+}
+
+/** Go to a place in the page, such as `devices/edge-01/ports`. */
+export function go(path: string): void {
+    location.hash = href(path);
 }
 
 /**

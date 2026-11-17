@@ -933,6 +933,28 @@ aside pre {
     overflow-wrap: anywhere;
 }
 
+/* A line drawn for several: each member's label, then its facts. */
+aside .members li {
+    display: grid;
+    padding: 5px 0;
+}
+
+aside .members span {
+    font-size: 13px;
+}
+
+/* A new view or a new selection fades in and rises a little. */
+.enter-enter-active {
+    transition:
+        opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.enter-enter-from {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
 .legend li {
     display: flex;
     align-items: center;
@@ -966,6 +988,11 @@ aside pre {
 .badge.warning {
     background: var(--warning-strong);
     color: #11141b;
+}
+
+.badge.added {
+    background: #11733b;
+    color: #ffffff;
 }
 
 .chips {
