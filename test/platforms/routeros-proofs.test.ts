@@ -65,7 +65,10 @@ beforeAll(async () => {
     device = { ...edge, connection: { host: "127.0.0.1", port: await fake.listen(), user: "operator" } };
 });
 
-afterAll(() => fake.close());
+afterAll(() => {
+    delete process.env.EDGE_01_PASSWORD;
+    fake.close();
+});
 
 test("circuit bgp reads the router's sessions: a renamed connection by its address, one never established as down", async () => {
     const session = await platform.session(device);

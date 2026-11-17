@@ -34,7 +34,10 @@ beforeAll(async () => {
     device = { ...edge, connection: { host: "127.0.0.1", port: await fake.listen(), user: "operator" } };
 });
 
-afterAll(() => fake.close());
+afterAll(() => {
+    delete process.env.EDGE_01_PASSWORD;
+    fake.close();
+});
 
 test("each configured neighbor gets a row: matched by address first, then by name, and down when there is no session", async () => {
     const session = await platform.session(device);

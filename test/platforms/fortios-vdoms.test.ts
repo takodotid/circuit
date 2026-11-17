@@ -191,7 +191,10 @@ beforeAll(async () => {
     device = { ...firewall, connection: { host: "127.0.0.1", port: await fake.listen(), user: "netops" } };
 });
 
-afterAll(() => fake.close());
+afterAll(() => {
+    delete process.env.EXAMPLE_NETOPS_PASSWORD;
+    fake.close();
+});
 
 test("a read of a multi-VDOM device shows each section where it lives, and plans nothing against the render", async () => {
     const current = await platform.read(device, [device]);

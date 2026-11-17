@@ -45,7 +45,10 @@ beforeAll(async () => {
     device = { ...desired, connection: { ...desired.connection, port: await fake.listen() } };
 });
 
-afterAll(() => fake.close());
+afterAll(() => {
+    delete process.env.ROUTER_PASSWORD;
+    fake.close();
+});
 
 test("a read and an apply over SSH change only what differs, guarded by a backup and a fresh login, and converge", async () => {
     const plan = platform.plan(platform.render(device), await platform.read(device, [device]), options);

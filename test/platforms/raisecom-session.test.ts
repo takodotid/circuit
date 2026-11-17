@@ -40,7 +40,10 @@ beforeAll(async () => {
     device = { ...coreSwitch, connection: { host: "127.0.0.1", port: await fake.listen(), user: "operator" } };
 });
 
-afterAll(() => fake.close());
+afterAll(() => {
+    delete process.env.EXAMPLE_OPERATOR_PASSWORD;
+    fake.close();
+});
 
 test("a read over SSH checks it is ROS, turns paging off, and waits through a stall for the whole dump", async () => {
     const current = await platform.read(device, [device]);

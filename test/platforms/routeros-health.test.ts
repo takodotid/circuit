@@ -80,7 +80,10 @@ beforeEach(() => {
     advertisementReads = [[]];
 });
 
-afterAll(() => fake.close());
+afterAll(() => {
+    delete process.env.EDGE_01_PASSWORD;
+    fake.close();
+});
 
 /** Plan against the fake, read the sessions, apply, and run the checks, as `circuit apply --confirm` does. */
 async function applyAndCheck(): Promise<string[]> {

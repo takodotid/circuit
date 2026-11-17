@@ -56,6 +56,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+    for (const name of ["ROUTER_PASSWORD", "EXAMPLE_OPERATOR_PASSWORD", "EXAMPLE_NETOPS_PASSWORD"]) delete process.env[name];
     for (const fake of [routerOs, vrp, fortiOs]) fake.close();
 });
 

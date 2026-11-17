@@ -30,7 +30,10 @@ beforeAll(async () => {
     device = { ...switchDevice, connection: { host: "127.0.0.1", port: await fake.listen(), user: "operator" } };
 });
 
-afterAll(() => fake.close());
+afterAll(() => {
+    delete process.env.EXAMPLE_OPERATOR_PASSWORD;
+    fake.close();
+});
 
 test("a read over SSH answers no to a new password, turns paging off, and plans nothing against the render", async () => {
     const current = await platform.read(device, [device]);
