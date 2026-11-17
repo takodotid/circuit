@@ -11,11 +11,13 @@ const memory = {
     layouts: new GraphLayout(Saved.get<Kept>("layouts")),
     views: new Map<Layer, View>(),
     selection: undefined as { node: string } | { edge: string } | undefined,
+    /** The network has been drawn in once; later views show it at once. */
+    arrived: false,
 };
 </script>
 
 <script setup lang="ts">
-import cytoscape, { type Core, type ElementDefinition, type NodeSingular } from "cytoscape";
+import cytoscape, { type CollectionReturnValue, type Core, type ElementDefinition, type NodeSingular } from "cytoscape";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { StudioData } from "../../../types";
 import { Export } from "../lib/csv";
@@ -74,10 +76,11 @@ function edgeData(edge: ShownEdge) {
 }
 
 /**
- * Show the layer: add what is new, drop what is gone and update the rest, so nodes keep their places and the selection stays. `moved`
- * says the layer changed, so the nodes it shares with the last one go to their places on this one.
+ * Show the layer: add what is new, drop what is gone and update the rest, so nodes keep their places and the selection stays.
+ * `arrival` says what is new to the eye: the whole network the first time it is shown, or a new layer, whose devices glide to their
+ * places on it while its lines come in. A project read again changes in place.
  */
-function draw(moved: boolean): void {
+function draw(arrival?: "network" | "layer"): void {
     if (!graph) return;
 
     shown.value = GraphLayer.of(props.data, layer.value);
@@ -86,8 +89,11 @@ function draw(moved: boolean): void {
 
     const nodeIds = new Set(shown.value.nodes.map((node) => node.id));
     const edgeIds = new Set(shown.value.edges.map((edge) => edge.id));
+    const moving = arrival !== undefined && !still.matches;
     const cy = graph;
+    let fresh = cy.collection();
 
+    settle();
     cy.batch(() => {
         cy.edges()
             .filter((edge) => !edgeIds.has(edge.id()))
@@ -106,22 +112,113 @@ function draw(moved: boolean): void {
             }
 
             existing.data(nodeData(node));
-            if (moved) existing.position({ ...places.get(node.id)! });
+            if (arrival === "layer" && moving) gliding.push(existing);
+            else if (arrival === "layer") existing.position({ ...places.get(node.id)! });
         }
 
-        cy.add(added);
+        fresh = fresh.union(cy.add(added));
 
         for (const edge of shown.value.edges) {
             const existing = cy.getElementById(edge.id);
-            if (existing.empty()) cy.add({ group: "edges", data: edgeData(edge) });
+            if (existing.empty()) fresh = fresh.union(cy.add({ group: "edges", data: edgeData(edge) }));
             else existing.data(edgeData(edge));
         }
+
+        // What arrives starts unseen.
+        if (moving) fresh.style({ opacity: 0, "text-opacity": 0 });
     });
+
+    // The devices on both layers glide to their places on this one, so the eye can follow each.
+    for (const node of gliding) node.animate({ position: { ...places.get(node.id())! } }, { duration: 700, easing: "ease-in-out-cubic" });
+    if (moving) arrive(fresh, arrival);
 
     // A selection whose node or line is gone is dropped; a line's selection does not carry to another layer.
     const picked = selection.value;
     if (picked && cy.getElementById("node" in picked ? picked.node : picked.edge).empty()) select(undefined);
     else emphasize();
+}
+
+/** The nodes gliding to a new layer's places. */
+let gliding: CollectionReturnValue[] = [];
+
+/** End a glide between layers: each node at its place on this layer, so a press moves it from there. */
+function settle(): void {
+    const places = layouts.places(layer.value);
+    for (const node of gliding) {
+        node.stop(true);
+        if (node.inside()) node.position({ ...places.get(node.id())! });
+    }
+    gliding = [];
+}
+
+/** The curve of an arrival: quick at first, settling at the end. */
+const ARRIVE = "ease-out-quint";
+
+/**
+ * Bring new parts in from the busiest device outward, a ring of neighbours at a time: nodes fade in, then the lines, then their labels.
+ * On the first view each line draws in from its nearer end; on a new layer its lines fade in. The dots follow once it is all in.
+ */
+function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer"): void {
+    if (!graph) return;
+    const cy = graph;
+
+    const hub = cy.nodes().max((node) => node.degree(false)).ele as NodeSingular | undefined;
+    const ring = new Map<string, number>(hub ? [[hub.id(), 0]] : []);
+    for (const queue: NodeSingular[] = hub ? [hub] : []; queue.length;) {
+        const here = queue.shift()!;
+        here.neighborhood()
+            .nodes()
+            .forEach((other) => {
+                if (ring.has(other.id())) return;
+                ring.set(other.id(), ring.get(here.id())! + 1);
+                queue.push(other);
+            });
+    }
+
+    // The whole drawing arrives within about a second, however many rings it has.
+    const farthest = Math.max(0, ...ring.values()) + 1;
+    const step = Math.min(110, 800 / farthest);
+    const ringOf = (node: NodeSingular) => ring.get(node.id()) ?? farthest;
+
+    fresh.nodes().forEach((node) => {
+        node.delay(ringOf(node) * step).animate(
+            { style: { opacity: 1, "text-opacity": 1 } },
+            { duration: 360, easing: ARRIVE, complete: () => node.removeStyle("opacity text-opacity") }
+        );
+    });
+
+    let last = 0;
+    fresh.edges().forEach((edge) => {
+        const from = ringOf(edge.source());
+        const to = ringOf(edge.target());
+        const delay = (Math.min(from, to) + 0.5) * step + (arrival === "layer" ? 200 : 0);
+        last = Math.max(last, delay + 860);
+
+        const done = () => edge.removeStyle("opacity text-opacity line-style line-dash-pattern line-dash-offset");
+
+        // A line both ends declare draws in from its nearer end: a dash as long as the line slides along it. A dashed line fades in.
+        if (arrival === "network" && !edge.data("oneSided")) {
+            const a = edge.sourceEndpoint();
+            const b = edge.targetEndpoint();
+            const length = Math.hypot(b.x - a.x, b.y - a.y) * 1.3 + 4;
+            edge.style({
+                opacity: 1,
+                "line-style": "dashed",
+                "line-dash-pattern": [length, length],
+                "line-dash-offset": from <= to ? length : -length,
+            });
+            edge.delay(delay)
+                .animate({ style: { "line-dash-offset": 0 } }, { duration: 560, easing: ARRIVE })
+                .animate({ style: { "text-opacity": 1 } }, { duration: 300, complete: done });
+            return;
+        }
+
+        edge.delay(delay)
+            .animate({ style: { opacity: 1 } }, { duration: 420, easing: ARRIVE })
+            .animate({ style: { "text-opacity": 1 } }, { duration: 300, complete: done });
+    });
+
+    if (signals) signals.showFrom = performance.now() + last;
 }
 
 function select(next: typeof memory.selection): void {
@@ -218,8 +315,10 @@ function fit(): void {
     if (view) graph?.viewport(view);
 }
 
-/** Show the layer as the reader left it, or, the first time, framed so names can be read. */
-function frameLayer(): void {
+/** Show the layer as the reader left it, or, the first time, framed so names can be read: gliding there, or at once. */
+function frameLayer(glide = false): void {
+    if (!graph) return;
+
     const left = memory.views.get(layer.value);
     const view =
         left ??
@@ -228,7 +327,11 @@ function frameLayer(): void {
             60,
             true
         );
-    if (view) graph?.viewport(view);
+    if (!view) return;
+
+    graph.stop(true);
+    if (glide && !still.matches) graph.animate(view, { duration: 1100, easing: "ease-in-out-cubic" });
+    else graph.viewport(view);
 }
 
 /** Keep where the reader left this layer. */
@@ -238,6 +341,7 @@ function keepView(name: Layer): void {
 
 /** Forget where nodes were moved on this layer, and lay it out again. */
 function layOutAgain(): void {
+    settle();
     layouts.forget(layer.value);
     layOut(layer.value);
     const places = layouts.places(layer.value);
@@ -358,7 +462,8 @@ function frameLit(glide: boolean): void {
     const view = framing(ids, 90);
     if (!view) return;
 
-    if (glide) graph.animate(view, { duration: 1100, easing: "ease-in-out-cubic" });
+    graph.stop(true);
+    if (glide && !still.matches) graph.animate(view, { duration: 1100, easing: "ease-in-out-cubic" });
     else graph.viewport(view);
 }
 
@@ -495,7 +600,16 @@ onMounted(() => {
     moveSignals();
     still.addEventListener("change", moveSignals);
 
-    draw(false);
+    // A press or a scroll stops a glide: the nodes are at their places at once, and the view stays where it is.
+    graph.on("tapstart", () => {
+        settle();
+        graph?.stop(true);
+    });
+    container.value?.addEventListener("wheel", () => graph?.stop(true), { capture: true, passive: true });
+
+    // The first view of the page draws the network in.
+    draw(memory.arrived || !props.data.devices.length ? undefined : "network");
+    memory.arrived = true;
     frameLayer();
     if (presenting.value) showPresenting();
 });
@@ -515,8 +629,8 @@ onBeforeUnmount(() => {
 watch(layer, (_next, last) => {
     keepView(last);
     if (selection.value && "edge" in selection.value) select(undefined);
-    draw(true);
-    frameLayer();
+    draw("layer");
+    frameLayer(true);
     // A new layer while presenting is shown whole first, with its full time.
     if (presenting.value) showPresenting();
 });
@@ -524,7 +638,7 @@ watch(layer, (_next, last) => {
 // The project changed: the drawing keeps its places, its view and what is selected.
 watch(
     () => props.data,
-    () => draw(false)
+    () => draw()
 );
 
 const nodeFindings = computed(() =>
