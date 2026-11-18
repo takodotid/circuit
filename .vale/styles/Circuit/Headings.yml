@@ -18,9 +18,11 @@ exceptions:
     - Circuit
     - CLI
     - Code
+    - Compose
     - Cytoscape
     - DHCP
     - DNS
+    - Docker
     - FortiOS
     - GitHub
     - I
@@ -41,6 +43,7 @@ exceptions:
     - Prometheus
     - Raisecom
     - RouterOS
+    - ROS
     - RPKI
     - SNMP
     - SSH
