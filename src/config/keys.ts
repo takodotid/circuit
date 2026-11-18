@@ -206,6 +206,12 @@ export const DEVICE = {
         logging: { local: { level: 0, files: 0, lines_per_file: 0 } },
         hardware_offload: 0,
         users: { "*": { role: 0, password: SECRET, description: 0, ssh_keys: 0 } },
+        aaa: {
+            tacacs: [{ address: 0, secret_key: SECRET, source_address: 0 }],
+            radius: [{ address: 0, secret_key: SECRET, source_address: 0, auth_port: 0, acct_port: 0 }],
+            remote_role: 0,
+            accounting_events: 0,
+        },
         certificates: { "*": { certificate_file: 0, private_key: SECRET } },
         // A VDOM's routes have no VRF.
         vdoms: {

@@ -19,6 +19,15 @@ export default as64500.device({
             root: { role: "admin", password: secret("EDGE_02_ROOT_PASSWORD") },
             netops: { role: "admin", password: secret("EDGE_02_PASSWORD") },
         },
+        // Each engineer logs in with their own name, which the TACACS+ servers check, and the servers keep each command they type. Circuit still logs in as netops, which the router checks itself.
+        aaa: {
+            tacacs: [
+                { address: "10.0.0.21", secret_key: secret("TACACS_KEY"), source_address: "10.0.1.1" },
+                { address: "10.0.0.22", secret_key: secret("TACACS_KEY"), source_address: "10.0.1.1" },
+            ],
+            remote_role: "operator",
+            accounting_events: ["login", "command"],
+        },
     },
     management: { allow: ["10.0.0.0/16"], ssh: {} },
 

@@ -32,6 +32,7 @@ export type {
     RpkiServer,
     OspfInterface,
     PrefixSet,
+    RadiusServer,
     RouteSet,
     User,
     Vlan,

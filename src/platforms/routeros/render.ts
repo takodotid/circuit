@@ -761,6 +761,7 @@ export class RouterOsRender {
         this.layerTwo();
         this.snmp();
         this.users();
+        this.aaa();
         this.certificates();
     }
 
@@ -855,6 +856,30 @@ export class RouterOsRender {
             });
             for (const key of user.ssh_keys ?? []) this.add("/user ssh-keys", "add", { key, user: name });
         }
+    }
+
+    /** RADIUS logins. Every group a server may name is excluded, so each user a server accepts gets the default group, `remote_role`. `unsupported()` refuses TACACS+. */
+    private aaa(): void {
+        const aaa = this.device.system?.aaa;
+        if (!aaa?.radius) return;
+
+        for (const server of aaa.radius) {
+            this.add("/radius", "add", {
+                "accounting-port": server.acct_port,
+                address: server.address,
+                "authentication-port": server.auth_port,
+                secret: Secrets.marker(server.secret_key),
+                service: "login",
+                "src-address": server.source_address,
+            });
+        }
+
+        this.add("/user aaa", "set", {
+            accounting: RouterOsSyntax.yesNo(aaa.accounting_events?.includes("login")),
+            "default-group": RouterOsRender.USER_GROUPS[aaa.remote_role],
+            "exclude-groups": Object.values(RouterOsRender.USER_GROUPS).sort().join(","),
+            "use-radius": "yes",
+        });
     }
 
     /** An export leaves certificates out, so the reader lists them in this same form: the name, the SHA-256 fingerprint, and whether the device holds the private key. A difference is installed from the config, not edited. */

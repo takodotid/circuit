@@ -10,6 +10,7 @@ export class JunosPlan {
         [/ (?:encrypted-password|plain-text-password-value) (?:"[^"]*"|\S+)/, " password <secret>"],
         [/ (?:authentication-key|authentication-password) (?:"[^"]*"|\S+)/, " authentication-key <secret>"],
         [/ (?:privacy-key|privacy-password) (?:"[^"]*"|\S+)/, " privacy-key <secret>"],
+        [/ secret (?:"[^"]*"|\S+)/, " secret <secret>"],
         [/^set snmp community (?:"[^"]*"|\S+)/, "set snmp community <secret>"],
     ];
 
@@ -234,7 +235,7 @@ export class JunosPlan {
         return path.slice(0, 2).join(" ");
     }
 
-    /** The ordered block a statement sits in, and its item there: a policy's or a filter's term, or one policy of an import or export chain. The device keeps their order, and `set` adds at the end. */
+    /** The ordered block a statement sits in, and its item there. Such a block is a policy's or a filter's terms, an import or export chain, or the ways to log in. The device keeps their order, and `set` adds at the end. */
     private static orderedBlockOf(path: string[]): { block: string[]; item: string } | undefined {
         if (path[0] === "policy-options" && path[1] === "policy-statement" && path[3] === "term") {
             return { block: path.slice(0, 3), item: path[4]! };
@@ -243,6 +244,9 @@ export class JunosPlan {
         if (path[0] === "firewall" && path[1] === "family" && path[3] === "filter" && path[5] === "term") {
             return { block: path.slice(0, 5), item: path[6]! };
         }
+
+        // The order logins are checked in.
+        if (path[0] === "system" && path[1] === "authentication-order") return { block: path.slice(0, 2), item: path[2]! };
 
         const chain = path.length - 2;
         if (path[0] === "protocols" && (path[chain] === "import" || path[chain] === "export")) {

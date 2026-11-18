@@ -22,6 +22,37 @@ export type User = {
     ssh_keys?: readonly SshPublicKey[];
 };
 
+/** A TACACS+ server (RFC 8907). */
+export type TacacsServer = {
+    address: IP;
+    /** The key the device and the server share. */
+    secret_key: Secret;
+    /** The device's own address it sends from. On FortiOS, every server's is the same, on an interface of the VDOM `root`. */
+    source_address?: IP;
+};
+
+/** A RADIUS server (RFC 2865, RFC 2866). */
+export type RadiusServer = TacacsServer & {
+    /** The UDP port for logins. 1812 when absent. On FortiOS, every server's is the same. */
+    auth_port?: number;
+    /** The UDP port for accounting. 1813 when absent. */
+    acct_port?: number;
+};
+
+/**
+ * Logins checked with TACACS+ or RADIUS servers. A name in `system.users` logs in on the device first. Any other name is checked with the servers, in order: the next one is asked only when one does not answer. Accounting goes to the same servers.
+ */
+export type Aaa = {
+    /** TACACS+ servers. Not with `radius`. */
+    tacacs?: readonly TacacsServer[];
+    /** RADIUS servers. Not with `tacacs`. */
+    radius?: readonly RadiusServer[];
+    /** The role of every user a server accepts. */
+    remote_role: User["role"];
+    /** What the device reports to the servers: each `login` and logout, and each `command` typed. Nothing when absent. */
+    accounting_events?: readonly ("login" | "command")[];
+};
+
 /** An OpenSSH public key line: its type, the key, then an optional comment. */
 export type SshPublicKey = `${
     | "ssh-ed25519"
@@ -106,6 +137,8 @@ export type System<U extends string, C extends string, I extends string> = {
     hardware_offload?: boolean;
     /** Logins, keyed by user name. Circuit removes users not listed here. */
     users?: Named<U, User>;
+    /** Logins checked with TACACS+ or RADIUS servers, for names not in `users`. */
+    aaa?: Aaa;
     /** Certificates the device presents or trusts, keyed by name. `management.https` and `management.api_tls` use one by name. */
     certificates?: Named<C, Certificate>;
     /** Virtual domains, on FortiOS only. Use them for a management VDOM apart from the routed traffic. */

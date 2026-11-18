@@ -29,7 +29,7 @@ device
 ├─ name, site, role      its hostname, where it is, and its role in NetBox
 ├─ platform, model       its OS and hardware. The model decides the port names.
 ├─ connection            how Circuit itself logs in
-├─ system                the box itself: banner, time, DNS it uses, users, certificates, logs kept on it, software, hardware
+├─ system                the box itself: banner, time, DNS it uses, users, logins through servers, certificates, logs kept on it, software, hardware
 ├─ management            how people and tools log in: ssh, https, api, native_protocol, console
 ├─ monitoring            what the box reports to collectors: snmp, syslog, flow export, optics
 ├─ interfaces            every port and interface, by kind:
