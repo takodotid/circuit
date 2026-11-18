@@ -85,14 +85,14 @@ The tabs at the top list everything in your files:
 
 | Tab       | What it lists                                                                                              |
 | --------- | ---------------------------------------------------------------------------------------------------------- |
-| Devices   | Every device, with its platform, model, site, ports declared and findings. Each opens the device's page.   |
+| Devices   | Every device, with its platform, model, site, ports declared, and findings. Each opens the device's page.  |
 | VLANs     | Every VLAN, its gateways, and the access and trunk ports on each device.                                   |
 | Addresses | Each address space with its segments, what is free and the next free address, and every address in use.    |
 | BGP       | Every session, what it takes from its group, and what is at the far end.                                   |
 | Cables    | Every cable, with the VLANs it carries.                                                                    |
 | Problems  | What `circuit validate` finds, and every line only one end declares. The count in the top bar is the same. |
 
-**Search** finds a name, an address or any other value in any device. It shows where each match is and how many there are, up to 200.
+**Search** finds a name, an address, or any other value in any device. It shows where each match is and how many there are, up to 200.
 
 Point at a field name with a dotted underline, such as `remote_as`, to see what it means. It is the same text your editor shows.
 
@@ -106,28 +106,28 @@ Every table has **Save as CSV**, for a spreadsheet.
 | ----------------- | ----------------------------------------------------------------------------------------------- |
 | Overview          | What `circuit validate` found on it, its role, and how Circuit connects to it.                  |
 | Ports             | Its front panel, colored by how each port is used, how many ports are declared, and every port. |
-| Interfaces        | Its LAGs, VLAN interfaces, loopbacks and tunnels.                                               |
-| Switching         | Its VLANs, spanning tree, LLDP and ACLs.                                                        |
-| Routing           | Its static routes, BGP, OSPF, policies and prefix sets.                                         |
-| Firewall          | Its filter chains, NAT and address sets.                                                        |
-| Services          | Its DHCP, DNS and other services.                                                               |
+| Interfaces        | Its LAGs, VLAN interfaces, loopbacks, and tunnels.                                              |
+| Switching         | Its VLANs, spanning tree, LLDP, and ACLs.                                                       |
+| Routing           | Its static routes, BGP, OSPF, policies, and prefix sets.                                        |
+| Firewall          | Its filter chains, NAT, and address sets.                                                       |
+| Services          | Its DHCP, DNS, and other services.                                                              |
 | Management        | How people and tools log in.                                                                    |
-| System            | Its users, time, DNS and logs.                                                                  |
-| Monitoring        | SNMP, syslog and flow export.                                                                   |
+| System            | Its users, time, DNS, and logs.                                                                 |
+| Monitoring        | SNMP, syslog, and flow export.                                                                  |
 | Config            | The config Circuit writes, in the vendor's own commands.                                        |
 | On the device now | What the device runs, and what `circuit apply` would send.                                      |
 | History           | The commits that changed the device's file.                                                     |
 
 Under the device's name are its platform, model, site, and file. **Show in the graph** there lights the device on the graph.
 
-**Read from the device now** logs in to the device and reads it, like `circuit diff`. Nothing is sent, and Studio keeps no copy. It needs the device's password, so it works only when the secrets password comes from 1Password, `CIRCUIT_SECRETS_PASSWORD` or a password Circuit remembers. Otherwise run `circuit diff`, which asks for it.
+**Read from the device now** logs in to the device and reads it, like `circuit diff`. Nothing is sent, and Studio keeps no copy. It needs the device's password, so it works only when the secrets password comes from 1Password, `CIRCUIT_SECRETS_PASSWORD`, or a password Circuit remembers. Otherwise run `circuit diff`, which asks for it.
 
 ## Review a change
 
-Studio compares your files now with a branch, a tag or a commit. Your project must be in git, which `circuit new` sets up.
+Studio compares your files now with a branch, a tag, or a commit. Your project must be in git, which `circuit new` sets up.
 
 1. Open **Compare** in the top bar.
-2. Pick a branch, tag or recent commit, or type one, such as `main` or `HEAD~3`.
+2. Pick a branch, tag, or recent commit, or type one, such as `main` or `HEAD~3`.
 3. Studio shows what differs:
     - devices added and removed, and each device whose config changes, line by line;
     - lines of the graph added and gone, layer by layer;

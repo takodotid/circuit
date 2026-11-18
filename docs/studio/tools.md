@@ -8,9 +8,9 @@ Each tool has its own address, to bookmark or send.
 
 Give an address, such as `192.0.2.5`, and Studio shows:
 
-- which device and interface hold it, and the segment, block or address space it is in, with what else uses that range;
+- which device and interface hold it, and the segment, block, or address space it is in, with what else uses that range;
 - how each device would reach it: its own address, an address in the same prefix, or a static route, picked by the longest prefix in each routing table;
-- every firewall rule, NAT rule and ACL that matches it, by address, prefix or address set.
+- every firewall rule, NAT rule, and ACL that matches it, by address, prefix, or address set.
 
 Routes a device learns from BGP or OSPF are not in your files, so a device with no route here may still reach the address. A trace's address is like `/tools/trace/192.0.2.5`.
 
@@ -20,7 +20,7 @@ Pick a VLAN and two devices, and Studio finds the fewest cables that carry the V
 
 ## Test a firewall
 
-1. Pick the device and its filter chain: `input`, `forward` or `output`.
+1. Pick the device and its filter chain: `input`, `forward`, or `output`.
 2. Describe the packet: protocol, source and destination, ports, the interface it arrives on and the one it leaves through, its connection state, how its connection was translated, and its TCP flags. Leave out what you don't know.
 3. Press **Test**.
 
