@@ -71,6 +71,9 @@ const ports = computed<Row[]>(() => {
     });
 });
 
+/** How many of the model's ports the project declares. */
+const declaredPorts = computed(() => Object.keys(device.value?.interfaces?.ethernet ?? {}).length);
+
 const portColumns = [
     "Port",
     FieldDocs.column("Description", "interfaces.ethernet.*.description"),
@@ -175,6 +178,7 @@ watch(
             </template>
 
             <template v-else-if="section === 'ports'">
+                <p class="muted">{{ declaredPorts }} of {{ Format.count(ports.length, "port") }} declared.</p>
                 <Faceplate :device="device" :ports="data.ports[device.name] ?? []" />
                 <DataTable :head="portColumns" :rows="ports" :csv="`${device.name}-ports`" />
             </template>
@@ -231,6 +235,7 @@ watch(
                 <DataTable
                     v-else
                     :head="['Commit', 'When', 'Who', 'What', '']"
+                    :csv="`${device.name}-history`"
                     :rows="
                         history.map((commit) => ({
                             cells: [

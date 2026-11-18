@@ -5,7 +5,8 @@ import type { GraphEdge } from "../../../../core/graph";
 import type { Commit, StudioData } from "../../../types";
 import { Format } from "../lib/format";
 import { GraphLayer } from "../lib/graph-layer";
-import { api, go, showInGraph, store } from "../lib/store";
+import { api, go, href, showInGraph, store } from "../lib/store";
+import DataTable, { type Badge, type Row } from "./DataTable.vue";
 import LineDiff from "./LineDiff.vue";
 
 const props = defineProps<{ data: StudioData }>();
@@ -78,7 +79,22 @@ const edges = computed(() => {
     };
 });
 
-const describe = (edge: GraphEdge) => `${edge.layer}: ${edge.from.replace(/^\w+:/, "")} to ${edge.to.replace(/^\w+:/, "")}, ${edge.label}`;
+/** The graph's lines added and gone, as a table, each with its layer and both ends by name. */
+const edgeRows = computed<Row[]>(() => {
+    const then = comparison.value?.network;
+    if (!then || !edges.value) return [];
+
+    const nodes = [...props.data.graph.nodes, ...then.graph.nodes];
+    const nameOf = (id: string) => nodes.find((node) => node.id === id)?.label ?? id;
+    const row = (edge: GraphEdge, change: Badge) => ({
+        cells: [GraphLayer.NAMES[edge.layer], { badges: [change] }, edge.label, nameOf(edge.from), nameOf(edge.to)],
+    });
+
+    return [
+        ...edges.value.added.map((edge) => row(edge, { level: "added", text: "added" })),
+        ...edges.value.gone.map((edge) => row(edge, { level: "error", text: "gone" })),
+    ];
+});
 
 /** Show the lines added and gone on the graph, on the first layer that changes. */
 function showChanges(): void {
@@ -105,10 +121,7 @@ const findings = computed(() => {
 
 <template>
     <h2>Compare</h2>
-    <p class="muted">
-        The project now against a branch, tag or commit, read by the Circuit running now: so it shows changes to your files, not to Circuit.
-        Before you merge a pull request, compare its branch with <code>main</code>.
-    </p>
+    <p class="muted">Compare the project with a branch, tag or commit.</p>
     <p v-if="refsError" class="verdict reject">{{ refsError }}</p>
     <form class="tool-form" @submit.prevent="typed.trim() && go(`compare/${typed.trim()}`)">
         <label class="field"
@@ -132,28 +145,31 @@ const findings = computed(() => {
         </p>
 
         <h3>Devices</h3>
-        <p v-if="!devices.added.length && !devices.removed.length && !devices.changed.length" class="muted">No device's config changes.</p>
+        <p v-if="!devices.added.length && !devices.removed.length && !devices.changed.length" class="muted">No changes.</p>
         <ul class="findings">
             <li v-for="name in devices.added" :key="`added ${name}`">
-                <span class="badge">added</span><a @click="go(`devices/${name}`)">{{ name }}</a>
+                <span class="badge added">added</span><a :href="href(`devices/${name}`)">{{ name }}</a>
             </li>
             <li v-for="name in devices.removed" :key="`removed ${name}`"><span class="badge error">removed</span>{{ name }}</li>
         </ul>
         <details v-for="change in devices.changed" :key="change.name" class="change">
-            <summary>{{ change.name }}: its config changes</summary>
+            <summary>{{ change.name }}</summary>
             <LineDiff :before="change.before" :after="change.after" />
         </details>
 
         <h3>The graph</h3>
-        <p v-if="!edges.added.length && !edges.gone.length" class="muted">No line of the graph changes.</p>
-        <p v-else><button type="button" class="link" @click="showChanges">Show the changes in the graph</button></p>
-        <ul class="findings">
-            <li v-for="edge in edges.added" :key="`+${describe(edge)}`"><span class="added">+</span> {{ describe(edge) }}</li>
-            <li v-for="edge in edges.gone" :key="`-${describe(edge)}`"><span class="removed">−</span> {{ describe(edge) }}</li>
-        </ul>
+        <p v-if="!edgeRows.length" class="muted">No changes.</p>
+        <template v-else>
+            <p><button type="button" class="link" @click="showChanges">Show the changes in the graph</button></p>
+            <DataTable
+                :head="['Layer', 'Change', 'What', 'From', 'To']"
+                :rows="edgeRows"
+                :csv="`compare-${comparison.commit.short}-graph`"
+            />
+        </template>
 
         <h3>Found by <code>circuit validate</code></h3>
-        <p v-if="!findings.added.length && !findings.gone.length" class="muted">Nothing new, and nothing gone.</p>
+        <p v-if="!findings.added.length && !findings.gone.length" class="muted">No changes.</p>
         <p v-else class="muted">
             {{ Format.count(findings.added.length, "new finding") }}, {{ Format.count(findings.gone.length, "finding") }} no longer.
         </p>
