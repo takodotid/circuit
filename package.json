@@ -39,7 +39,7 @@
         "README.md"
     ],
     "scripts": {
-        "typecheck": "bun run editor-types && bunx tsc --noEmit && bun scripts/vue-tsc.ts -p src/studio/app",
+        "typecheck": "bun run editor-types && bunx tsc --noEmit && bun scripts/vue-tsc.ts -p src/studio/app && bun scripts/vue-tsc.ts -p docs",
         "test": "bun run editor-types && bun test",
         "lint": "bun run lint:code && bun run lint:prose && bun run lint:unused",
         "lint:code": "oxlint",

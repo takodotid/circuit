@@ -25,6 +25,8 @@ jobs:
               with:
                   bun-version: 1.4.4
             - run: bun install --frozen-lockfile
+            # The docs are a package of their own, which the typecheck checks too.
+            - run: bun install --cwd docs --frozen-lockfile
             - run: bun run typecheck
             - run: bun run test
 

@@ -20,7 +20,7 @@ jobs:
               with:
                   bun-version: 1.4.4
             - run: bun install --frozen-lockfile
-            # The docs are a package of their own, which knip checks too.
+            # The docs are a package of their own, which knip and the typecheck check too.
             - run: bun install --cwd docs --frozen-lockfile
             # Vale's binary comes from GitHub's API, which refuses unsigned requests now and then: try again before giving up.
             - run: for try in 1 2 3; do bun run vale:install && exit 0; sleep 30; done; exit 1
