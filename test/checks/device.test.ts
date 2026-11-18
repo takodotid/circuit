@@ -257,3 +257,50 @@ test("OSPF areas, timers, and keys are checked, and a border router without a de
         "warning: routing.ospf.areas.0.0.0.2 is an NSSA without stub_default_cost, and this device is its border router. RouterOS and Junos then announce no default route into it, and other platforms one at a cost of their own. Write stub_default_cost, such as 10",
     ]);
 });
+
+test("an AS number is a whole number from 0 to 4294967295, and a range starts before it ends", () => {
+    const device: Device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            policies: {
+                ...router.routing?.policies,
+                checked: [
+                    { if: { first_as: -1, origin_as: [64501, { min: 65534, max: 64512 }], as_path_contains: 64500.5 }, then: "reject" },
+                ],
+            },
+        },
+    };
+
+    expect(messages(device)).toEqual(
+        expect.arrayContaining([
+            "routing.policies.checked[0].if.first_as: -1 is no AS number; write 0 to 4294967295",
+            "routing.policies.checked[0].if.origin_as: the range ends before it starts; write { min: 64512, max: 65534 }",
+            "routing.policies.checked[0].if.as_path_contains: 64500.5 is no AS number; write 0 to 4294967295",
+        ])
+    );
+});
+
+test("logins through servers name one kind of server, at least one, each once, sending from an address of its own family", () => {
+    const key = { secret: "AAA_KEY" };
+    const withAaa = (aaa: NonNullable<Device["system"]>["aaa"]): Device => ({ ...router, system: { ...router.system, aaa } });
+    const found = (device: Device) => messages(device).filter((message) => message.startsWith("system.aaa"));
+
+    expect(found(withAaa({ tacacs: [{ address: "192.0.2.10", secret_key: key }], radius: [], remote_role: "admin" }))).toEqual([
+        "system.aaa has both tacacs and radius: write one of them",
+    ]);
+    expect(found(withAaa({ radius: [], remote_role: "admin" }))).toEqual([
+        "system.aaa has no server: write tacacs or radius, with at least one server",
+    ]);
+
+    const radius = [
+        { address: "2001:db8::10", secret_key: key, source_address: "192.0.2.1" },
+        { address: "2001:db8:0::10", secret_key: key },
+        { address: "192.0.2.300", secret_key: key },
+    ] as const;
+    expect(found(withAaa({ radius, remote_role: "read-only" }))).toEqual([
+        "system.aaa.radius[0].source_address 192.0.2.1 and address 2001:db8::10 differ in family",
+        "system.aaa.radius[1]: 2001:db8:0::10 is listed twice",
+        "system.aaa.radius[2].address: '192.0.2.300' is not an address",
+    ]);
+});

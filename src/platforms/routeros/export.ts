@@ -93,6 +93,8 @@ export class RouterOsExport {
         // The default configuration of an RB5009 shares a USB disk on its bridge.
         "/disk settings": { "auto-media-interface": "none", "auto-media-sharing": "no", "auto-smb-sharing": "no" },
         "/ip neighbor discovery-settings": { "discover-interface-list": "!dynamic", protocol: "cdp,lldp,mndp" },
+        "/radius": { "authentication-port": "1812", "accounting-port": "1813", "src-address": "0.0.0.0" },
+        "/user aaa": { "use-radius": "no", accounting: "yes", "default-group": "read", "exclude-groups": "", "interim-update": "0s" },
         "/snmp": { enabled: "no", contact: "", location: "" },
         "/snmp community": {
             addresses: "::/0",
@@ -103,7 +105,7 @@ export class RouterOsExport {
             "read-access": "yes",
             "write-access": "no",
         },
-        "/ip settings": { "send-redirects": "yes", "tcp-syncookies": "no" },
+        "/ip settings": { "rp-filter": "no", "send-redirects": "yes", "tcp-syncookies": "no" },
         "/system clock": { "time-zone-autodetect": "yes", "time-zone-name": "manual" },
         "/system note": { note: "", "show-at-login": "yes" },
         "/system ntp client": { enabled: "no" },
@@ -166,6 +168,7 @@ export class RouterOsExport {
     static readonly SECRET_KEYS = new Set([
         "private-key",
         "password",
+        "secret",
         "tcp-md5-key",
         "auth-key",
         "authentication-password",
@@ -219,6 +222,8 @@ export class RouterOsExport {
         "/ipv6 firewall raw",
         "/interface bridge filter",
         "/interface ethernet switch rule",
+        // RADIUS servers are asked in this order.
+        "/radius",
     ]);
 
     /** Undo the line wrapping an export applies: a backslash at the end of a line continues it. */

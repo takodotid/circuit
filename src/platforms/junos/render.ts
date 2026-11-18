@@ -1,7 +1,21 @@
 import { Address } from "../../core/address";
 import { Cabling } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { AclRule, Device, Ethertype, Family, Interface, Lag, Port, Ports, Rate, Severity, Vrrp } from "../../model";
+import type {
+    AclRule,
+    Device,
+    Ethertype,
+    Family,
+    Interface,
+    Lag,
+    Port,
+    Ports,
+    RadiusServer,
+    Rate,
+    Routed,
+    Severity,
+    Vrrp,
+} from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { JunosBgp } from "./bgp";
@@ -13,6 +27,8 @@ type Switched = Port | Lag;
 /** The configuration as `set` statements, in the form `show configuration | display set` prints, so the plan compares them one by one. */
 export class JunosRender {
     private static readonly USER_CLASS = { admin: "super-user", operator: "operator", "read-only": "read-only" } as const;
+
+    private static readonly ACCOUNTING_EVENT = { login: "login", command: "interactive-commands" } as const;
 
     /** The statement for each kind of public key, by the key's own prefix. */
     static readonly KEY_STATEMENT: Record<string, string> = {
@@ -96,6 +112,7 @@ export class JunosRender {
 
         render.system();
         render.users();
+        render.aaa();
         render.services();
         render.snmp();
         render.vlans();
@@ -231,6 +248,33 @@ export class JunosRender {
             for (const key of user.ssh_keys ?? [])
                 this.out.set(login, JunosRender.KEY_STATEMENT[key.split(" ")[0]!]!, JunosStatements.quote(key));
         }
+    }
+
+    /** The device's own users log in first, then the servers. A user a server accepts takes the class of the template user `remote`. */
+    private aaa(): void {
+        const aaa = this.device.system?.aaa;
+        const servers: readonly RadiusServer[] | undefined = aaa?.tacacs ?? aaa?.radius;
+        if (!aaa || !servers) return;
+
+        const method = aaa.tacacs ? "tacplus" : "radius";
+        this.out.set("system authentication-order password");
+        this.out.set("system authentication-order", method);
+
+        for (const server of servers) {
+            const statement = `system ${method}-server ${server.address}`;
+            if (server.auth_port !== undefined) this.out.set(statement, "port", server.auth_port);
+            if (server.acct_port !== undefined) this.out.set(statement, "accounting-port", server.acct_port);
+            this.out.set(statement, "secret", Secrets.marker(server.secret_key));
+            if (server.source_address) this.out.set(statement, "source-address", server.source_address);
+        }
+
+        this.out.set("system login user remote class", JunosRender.USER_CLASS[aaa.remote_role]);
+
+        const events = aaa.accounting_events ?? [];
+        if (!events.length) return;
+
+        for (const event of events) this.out.set("system accounting events", JunosRender.ACCOUNTING_EVENT[event]);
+        this.out.set("system accounting destination", method);
     }
 
     private services(): void {
@@ -419,13 +463,17 @@ export class JunosRender {
     }
 
     /** Addresses and VRRP groups of a logical interface such as `irb.10`. */
-    private addressing(unit: string, settings: Port | Interface): void {
+    private addressing(unit: string, settings: Routed): void {
         const [physical, number] = unit.split(".");
         const prefix = `interfaces ${physical} unit ${number}`;
         const addresses = (settings.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
 
         for (const address of addresses)
             this.out.set(`${prefix} family ${Address.family(address) === "ipv4" ? "inet" : "inet6"} address`, address);
+
+        // Strict is the mode when none is written. `unsupported()` refuses loose.
+        for (const family of ["ipv4", "ipv6"] as const)
+            if (settings.urpf?.[family] === "strict") this.out.set(`${prefix} family ${family === "ipv4" ? "inet" : "inet6"} rpf-check`);
 
         for (const group of settings.vrrp ?? []) {
             const address = JunosRender.vrrpAddress(addresses, group);

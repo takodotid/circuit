@@ -4,13 +4,13 @@ description: The device operating systems Circuit works with, their versions, an
 
 # Platforms
 
-| `platform`     | OS                | Version  | Tested on                                                                          |
-| -------------- | ----------------- | -------- | ---------------------------------------------------------------------------------- |
-| `routeros`     | MikroTik RouterOS | 7        | CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24; CHR, RouterOS 7.24 |
-| `vrp`          | Huawei VRP        | V200R005 | CE6855-48S6Q-HI, V200R005C00SPC800                                                 |
-| `raisecom-ros` | Raisecom ROS      | 6.5      | RAX721-C-6C48, ROS 6.5.2                                                           |
-| `junos`        | Juniper Junos     | 21       | QFX5100-48S-6Q, Junos 21.4R3                                                       |
-| `fortios`      | Fortinet FortiOS  | 6.2      | FG-3700D, FortiOS 6.2.2                                                            |
+| `platform`     | OS                | Version    | Tested on                                                                          |
+| -------------- | ----------------- | ---------- | ---------------------------------------------------------------------------------- |
+| `routeros`     | MikroTik RouterOS | 7          | CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24; CHR, RouterOS 7.24 |
+| `vrp`          | Huawei VRP        | V200R005   | CE6855-48S6Q-HI, V200R005C00SPC800                                                 |
+| `raisecom-ros` | Raisecom ROS      | 6.5        | RAX721-C-6C48, ROS 6.5.2                                                           |
+| `junos`        | Juniper Junos     | 21.3, 21.4 | QFX5100-48S-6Q, Junos 21.4R3                                                       |
+| `fortios`      | Fortinet FortiOS  | 6.2        | FG-3700D, FortiOS 6.2.2                                                            |
 
 - **One version per platform.** `routeros` means RouterOS 7. RouterOS 6 takes other commands, so Circuit doesn't support it.
 - **Version check.** On RouterOS, Junos, and FortiOS, `diff` and `apply` stop if the device runs another version. VRP and Raisecom ROS don't check, so check the version yourself before the first apply.
@@ -47,19 +47,20 @@ A note in a cell means "works, with this limit".
 
 ### Interfaces
 
-| Feature                    | RouterOS | VRP  | Raisecom ROS | Junos | FortiOS |
-| -------------------------- | -------- | ---- | ------------ | ----- | ------- |
-| VLAN interface             | ✅       | ✅   | ✅           | ✅    | ✅      |
-| Routed port, loopback      | ✅       | ❌   | ❌           | ✅    | ✅      |
-| GRE                        | ✅       | ❌   | ❌           | ✅    | ✅      |
-| VXLAN                      | ✅       | ❌   | ❌           | ❌    | ✅      |
-| WireGuard                  | ✅       | ❌   | ❌           | ❌    | ❌      |
-| EoIP                       | ✅       | ❌   | ❌           | ❌    | ❌      |
-| Round-robin LAG, ARP check | ✅       | ❌   | ❌           | ❌    | ❌      |
-| Shaping (CAKE)             | ✅       | ❌   | ❌           | ❌    | ❌      |
-| Proxy ARP for an address   | ❌       | ❌   | ❌           | ❌    | ✅      |
-| VRRP                       | ✅       | IPv4 | IPv4         | IPv4  | IPv4    |
-| IPv6 router advertisement  | ✅       | ❌   | ❌           | ✅    | ✅      |
+| Feature                    | RouterOS                                                | VRP            | Raisecom ROS | Junos     | FortiOS                          |
+| -------------------------- | ------------------------------------------------------- | -------------- | ------------ | --------- | -------------------------------- |
+| VLAN interface             | ✅                                                      | ✅             | ✅           | ✅        | ✅                               |
+| Routed port, loopback      | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
+| GRE                        | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
+| VXLAN                      | ✅                                                      | ❌             | ❌           | ❌        | ✅                               |
+| WireGuard                  | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| EoIP                       | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| Round-robin LAG, ARP check | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| Shaping (CAKE)             | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| Proxy ARP for an address   | ❌                                                      | ❌             | ❌           | ❌        | ✅                               |
+| VRRP                       | ✅                                                      | IPv4           | IPv4         | IPv4      | IPv4                             |
+| IPv6 router advertisement  | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
+| uRPF (RFC 3704)            | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs | 🧪 loose, IPv4 | ❌           | ✅ strict | 🧪 strict, one mode for the VDOM |
 
 ### Routing
 
@@ -77,6 +78,7 @@ A note in a cell means "works, with this limit".
 | BGP                          | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | BGP communities              | ✅                      | ❌         | ❌                       | ✅                    | ✅ no large ones |
+| AS path matches              | ✅                      | ❌         | ❌                       | ✅ 21.3 or later      | 🧪 one per rule  |
 | RPKI                         | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
 | BGP roles (RFC 9234)         | ✅                      | ❌         | ❌                       | ❌                    | ❌               |
 | GTSM (RFC 5082)              | ✅ eBGP                 | ❌         | ❌                       | ❌                    | ❌               |
@@ -102,15 +104,16 @@ A note in a cell means "works, with this limit".
 
 ### Management and monitoring
 
-| Feature                | RouterOS         | VRP                  | Raisecom ROS      | Junos    | FortiOS          |
-| ---------------------- | ---------------- | -------------------- | ----------------- | -------- | ---------------- |
-| Users                  | ✅               | ✅                   | `admin` role only | ✅       | ✅               |
-| SSH keys               | ✅               | one RSA key per user | ❌                | ✅       | ✅               |
-| SNMP v2c and v3        | ✅ v3 SHA1 only  | ✅                   | ✅ v3 SHA1 only   | ✅       | ✅ v3 SHA1 only  |
-| Syslog                 | ✅               | ✅                   | ✅                | ✅       | ✅ up to 4       |
-| Flow export            | NetFlow 9, IPFIX | sFlow                | ❌                | sFlow    | sFlow, NetFlow 9 |
-| Web, API, certificates | ✅               | ❌                   | ❌                | web, API | ✅               |
-| Management VDOM        | ❌               | ❌                   | ❌                | ❌       | ✅               |
+| Feature                | RouterOS                      | VRP                  | Raisecom ROS      | Junos    | FortiOS                           |
+| ---------------------- | ----------------------------- | -------------------- | ----------------- | -------- | --------------------------------- |
+| Users                  | ✅                            | ✅                   | `admin` role only | ✅       | ✅                                |
+| SSH keys               | ✅                            | one RSA key per user | ❌                | ✅       | ✅                                |
+| Logins through servers | RADIUS, no command accounting | ❌                   | ❌                | ✅       | ✅ up to 3 servers, no accounting |
+| SNMP v2c and v3        | ✅ v3 SHA1 only               | ✅                   | ✅ v3 SHA1 only   | ✅       | ✅ v3 SHA1 only                   |
+| Syslog                 | ✅                            | ✅                   | ✅                | ✅       | ✅ up to 4                        |
+| Flow export            | NetFlow 9, IPFIX              | sFlow                | ❌                | sFlow    | sFlow, NetFlow 9                  |
+| Web, API, certificates | ✅                            | ❌                   | ❌                | web, API | ✅                                |
+| Management VDOM        | ❌                            | ❌                   | ❌                | ❌       | ✅                                |
 
 ### Circuit's own tools
 

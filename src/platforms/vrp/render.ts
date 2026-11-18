@@ -402,6 +402,9 @@ export class VrpRender {
             else lines.push(`ipv6 address ${address}`);
         }
 
+        // Loose, the CloudEngine command reference's only mode on a VLAN interface. `unsupported()` refuses the rest.
+        if (iface.urpf?.ipv4 === "loose") lines.push("ip urpf enable");
+
         for (const group of iface.vrrp ?? []) lines.push(...VrpRender.vrrpLines(group));
 
         const relays = Object.values(device.services?.dhcp_relay ?? {}).filter((relay) => relay.interface === name);

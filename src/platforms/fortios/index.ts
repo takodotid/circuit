@@ -90,6 +90,12 @@ export class FortiOs extends Platform {
         return FortiOsUnsupported.of(device);
     }
 
+    /** Not sent to a device yet: strict source checks, which change every interface of the VDOM, and AS path lists, which need a BGP neighbor to prove. */
+    override experimental(device: Device): string[] {
+        const check = FortiOsRender.sourceCheck(device);
+        return [...FortiOsRouting.experimental(device), ...(check.strict ? check.setting : [])];
+    }
+
     override render(device: Device): string {
         return FortiOsRender.of(device);
     }

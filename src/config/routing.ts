@@ -1,4 +1,4 @@
-import type { Family, HostAddress, IP, IPv4, Named, Ordered, Prefix, Secret } from "./common";
+import type { Family, HostAddress, IP, IPv4, Named, OneOrMore, Ordered, Prefix, Secret } from "./common";
 import type { CommunitiesRule, NeighborCommunities } from "./communities";
 import { ACTIONS, CALL_RULE, closest, COMMUNITIES_EXPORT, COMMUNITIES_IMPORT, ROUTE_MATCH, ROUTE_RULE, ROUTE_SET } from "./keys";
 import type { AnyFacts, NetworkFacts } from "./network";
@@ -252,6 +252,17 @@ export type StandardCommunityPattern = `${number | "*"}:${number | "*"}`;
 /** A large community to remove. `*` stands for any value of a part, as in `64500:*:*`. */
 export type LargeCommunityPattern = `${number | "*"}:${number | "*"}:${number | "*"}`;
 
+/** AS numbers from `min` to `max`, both included. */
+export type AsRange = {
+    /** The first AS number, 0 to 4294967295. */
+    min: number;
+    /** The last AS number, 0 to 4294967295, not below `min`. */
+    max: number;
+};
+
+/** An AS number, a range of AS numbers, or any of several. */
+export type AsNumbers = number | AsRange | readonly (number | AsRange)[];
+
 /**
  * A list of prefixes, written here or fetched from a registry. `circuit diff` and `circuit apply` fetch them each time, and the plan adds and removes them one by one, like any list. `circuit validate` and Studio don't fetch them.
  */
@@ -294,14 +305,18 @@ export type RouteMatch<S extends string> = {
         /** The longest path. */
         max?: number;
     };
-    /** The AS path has this AS anywhere, so the route came from it or through it. */
-    as_path_contains?: number;
+    /** The AS path has one of these ASes anywhere, so the route came from it or through it, such as `presets.bogon_asns`. */
+    as_path_contains?: AsNumbers;
+    /** The first AS of the path is one of these: the neighbor that sent the route. */
+    first_as?: AsNumbers;
+    /** The last AS of the path is one of these: the AS that originated the route (RFC 6811). */
+    origin_as?: AsNumbers;
     /** The route's RPKI origin validation state. */
     rpki?: "valid" | "invalid" | "not-found";
-    /** The route has this standard community, `asn:value`. */
-    standard_community?: StandardCommunity;
-    /** The route has this large community, `asn:function:parameter`. */
-    large_community?: LargeCommunity;
+    /** The route has this standard community, `asn:value`, or any of several. A part may be `*`, as in `64500:*`. */
+    standard_community?: OneOrMore<StandardCommunityPattern>;
+    /** The route has this large community, `asn:function:parameter`, or any of several. A part may be `*`, as in `64500:1:*`. */
+    large_community?: OneOrMore<LargeCommunityPattern>;
 };
 
 /** Changes to a route. In community lists to remove, `*` stands for any value of a part, as in `64500:*:*`. */

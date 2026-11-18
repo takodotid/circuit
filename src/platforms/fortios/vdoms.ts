@@ -31,6 +31,9 @@ export class FortiOsVdoms {
         "system session-helper",
     ]);
 
+    /** The global section of the administrators. */
+    private static readonly ADMINS = "system admin";
+
     /** What a management VDOM holds: its routes, and who reaches the device's own services through it, with the objects those name. */
     static readonly MANAGEMENT_SECTIONS = [
         "firewall address",
@@ -93,7 +96,7 @@ export class FortiOsVdoms {
     }
 
     /**
-     * In multi-VDOM mode each scope is planned on its own. The global steps go first, then each VDOM's, then the global removals, so an interface goes only once no VDOM names it. Turning multi-VDOM mode on or off, or moving an interface into another VDOM, is left to an operator. The first ends every session, and the second can cut the way in.
+     * In multi-VDOM mode each scope is planned on its own. The global steps go first, then each VDOM's, then the global removals, so an interface goes only once no VDOM names it. The administrators wait for what the VDOMs hold, below. Turning multi-VDOM mode on or off, or moving an interface into another VDOM, is left to an operator. The first ends every session, and the second can cut the way in.
      */
     static plan(desired: string, current: string, planOne: (desired: string, current: string) => Plan): Plan {
         const want = FortiOsTree.parse(desired);
@@ -153,12 +156,20 @@ export class FortiOsVdoms {
             plan.steps.map((step) => inScope(scope, { ...step, title: `${scope.kind === "vdom" ? scope.vdom : ""}: ${step.title}` }))
         );
 
+        // An administrator who logs in through servers names a group in root: it changes once the group exists, and goes before the group does.
+        const admins = (step: Step) => step.title.startsWith(FortiOsVdoms.ADMINS);
+        const inGlobal = (steps: Step[]) => steps.map((step) => inScope({ kind: "global" }, step));
+        const added = globalPlan.steps.filter((step) => !removal(step));
+        const removed = globalPlan.steps.filter(removal);
+
         return {
             problems: [...globalPlan.problems, ...vdomPlans.flatMap(({ plan }) => plan.problems)],
             steps: [
-                ...globalPlan.steps.filter((step) => !removal(step)).map((step) => inScope({ kind: "global" }, step)),
+                ...inGlobal(added.filter((step) => !admins(step))),
+                ...inGlobal(removed.filter(admins)),
                 ...vdomSteps,
-                ...globalPlan.steps.filter(removal).map((step) => inScope({ kind: "global" }, step)),
+                ...inGlobal(added.filter(admins)),
+                ...inGlobal(removed.filter((step) => !admins(step))),
             ],
         };
     }

@@ -1,5 +1,5 @@
 import { Address } from "../../core/address";
-import type { AclRule, Device, FilterRule, Gre, Lag, VlanInterface, Vxlan } from "../../model";
+import type { AclRule, Device, FilterRule, Gre, Lag, RadiusServer, VlanInterface, Vxlan } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { FortiOsFirewall } from "./firewall";
@@ -31,6 +31,7 @@ export class FortiOsUnsupported {
         found.push(...FortiOsUnsupported.systemGaps(device));
         found.push(...FortiOsUnsupported.managementGaps(device));
         found.push(...FortiOsUnsupported.interfaceGaps(device));
+        found.push(...FortiOsRender.sourceCheck(device).gaps);
         found.push(...FortiOsUnsupported.staticGaps(device));
         found.push(...FortiOsRouting.gaps(device));
         found.push(...FortiOsUnsupported.firewallGaps(device));
@@ -52,7 +53,7 @@ export class FortiOsUnsupported {
 
         // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, with the management VDOM and BFD on a route in a VRF. FortiOsRouting.gaps refuses BFD on a multihop BGP session.
         found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
-        found.push(...Derive.unbuilt(device, ["proxy-arp"]));
+        found.push(...Derive.unbuilt(device, ["proxy-arp", "urpf"]));
 
         return found;
     }
@@ -165,6 +166,40 @@ export class FortiOsUnsupported {
             if ((user?.ssh_keys?.length ?? 0) > FortiOsRender.SSH_KEYS)
                 found.push(`system.users.${name}.ssh_keys, at most ${FortiOsRender.SSH_KEYS}`);
         }
+
+        found.push(...FortiOsUnsupported.aaaGaps(device));
+        return found;
+    }
+
+    /** The servers share one entry: at most three, with one source address and one login port. FortiOS 6.2 sends no accounting for administrators. */
+    private static aaaGaps(device: Device): string[] {
+        const found: string[] = [];
+        const aaa = device.system?.aaa;
+        if (!aaa) return found;
+
+        const remote = FortiOsRender.AAA.remote;
+        if (device.system?.users?.[remote])
+            found.push(`system.users.${remote}, with system.aaa the platform keeps the name for the users a server accepts`);
+
+        const noAccounting = "FortiOS 6.2 sends no accounting for administrators";
+        if (aaa.accounting_events) found.push(`system.aaa.accounting_events, ${noAccounting}`);
+
+        const kind = aaa.tacacs ? "tacacs" : "radius";
+        const servers: readonly RadiusServer[] = aaa.tacacs ?? aaa.radius ?? [];
+        if (servers.length > FortiOsRender.AAA_SERVERS)
+            found.push(
+                `system.aaa.${kind}, more than ${FortiOsRender.AAA_SERVERS} servers: the platform asks at most ${FortiOsRender.AAA_SERVERS}`
+            );
+
+        const differ = (field: "source_address" | "auth_port") => new Set(servers.map((server) => server[field])).size > 1;
+        if (differ("source_address"))
+            found.push(`system.aaa.${kind} source_address, the platform sends to every server from one address: write the same on each`);
+        if (differ("auth_port"))
+            found.push(`system.aaa.${kind} auth_port, the platform sends to every server on one port: write the same on each`);
+
+        servers.forEach((server, index) => {
+            if (server.acct_port !== undefined) found.push(`system.aaa.${kind}[${index}].acct_port, ${noAccounting}`);
+        });
 
         return found;
     }

@@ -54,6 +54,11 @@ const router = {
                 { set: { local_pref: 100, remove_standard_communities: ["64500:*"] } },
             ],
             "customer-import": [{ if: { prefix_set: "customer" }, then: "accept" }],
+            "as-paths": [
+                { if: { as_path_contains: [23456, { min: 64512, max: 65534 }] }, then: "reject" },
+                { if: { first_as: 64496, origin_as: [64501, { min: 64502, max: 64505 }] }, then: "accept" },
+                { if: { large_community: ["64500:1:*", "64500:2:6939"] }, then: "accept" },
+            ],
             loop: [{ call: "loop" }, { then: "accept" }],
         },
     },
@@ -212,6 +217,17 @@ describe("a route through a route policy", () => {
         expect(Evaluate.policy(router, "customer-import", route("198.51.100.0/24", { inRegistrySets: ["customer"] })).decision).toBe(
             "accept"
         );
+    });
+
+    test("an AS anywhere in the path, the first, and the origin each match a number or a range", () => {
+        const at = (asPath: number[], largeCommunities: string[] = []) =>
+            Evaluate.policy(router, "as-paths", route("198.51.100.0/24", { asPath, largeCommunities })).by;
+
+        expect(at([64496, 65000, 64501])).toBe("rule 1 of as-paths");
+        expect(at([64496, 174, 64503])).toBe("rule 2 of as-paths");
+        expect(at([174, 64503])).toContain("no rule accepted it");
+        expect(at([174], ["64500:1:7"])).toBe("rule 3 of as-paths");
+        expect(Evaluate.policy(router, "as-paths", route("198.51.100.0/24")).needs).toEqual(["the AS path"]);
     });
 
     test("a policy that calls itself is not followed again", () => {
