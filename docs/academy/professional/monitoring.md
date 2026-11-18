@@ -79,7 +79,7 @@ monitoring: {
 This works on `edge-01`, the RouterOS router of the [colocation example](/guide/examples#colocation-with-tenants). With `auth: "sha256"`, `circuit validate` stops and says why:
 
 ```text
-  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not proved yet)
+  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not tested yet)
 ```
 
 ## Flow records: who sends what
