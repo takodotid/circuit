@@ -224,6 +224,15 @@ export class RouterOs extends Platform {
         return findings;
     }
 
+    /** Strict `rp-filter` beside VRFs or routing tables: MikroTik once warned that strict mode does not work with routing tables, and no test has shown it does. */
+    override experimental(device: Device): string[] {
+        const urpf = Derive.sharedUrpf(Derive.holders(device), "ipv4");
+        const tables = Object.keys(device.routing?.vrfs ?? {}).length + Object.keys(device.routing?.tables ?? {}).length;
+        return urpf.mode === "strict" && tables > 0
+            ? urpf.setting.map(({ where }) => `${where}.urpf.ipv4 strict, beside VRFs or routing tables`)
+            : [];
+    }
+
     override unsupported(device: Device): string[] {
         const found: string[] = [];
 

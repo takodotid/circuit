@@ -74,7 +74,7 @@ export type Routed<Vrf extends string> = {
     /**
      * Unicast reverse path forwarding (uRPF, RFC 3704): drop a packet that arrives here when its source fails the check. `strict` drops it unless the best route to its source leaves through this interface. `loose` drops it only when no route covers its source. A source routed to a blackhole fails both, so a blackhole route for an attacker's prefix also drops what it sends (source-based RTBH, RFC 5635). The device's own default when absent.
      *
-     * RouterOS checks IPv4 only, with one mode for the whole router: write the same `ipv4` on every interface with an IPv4 address. FortiOS checks feasible paths (RFC 3704) by default. There `strict` is one setting for a whole VDOM: write it for each family on every interface in the VDOM with an address of that family. A Junos QFX switch doesn't check a packet whose source has several equal-cost routes. On VRP, `loose` also drops a source whose only route is the default route.
+     * RouterOS checks IPv4 only, with one mode for the whole router: write the same `ipv4` on every interface with an IPv4 address. Its `strict` beside VRFs or routing tables is experimental. FortiOS checks feasible paths (RFC 3704) by default. There `strict` is one setting for a whole VDOM: write it for each family on every interface in the VDOM with an address of that family. A Junos QFX switch doesn't check a packet whose source has several equal-cost routes. On VRP, `loose` also drops a source whose only route is the default route.
      */
     urpf?: Urpf;
     /** Send IPv6 router advertisements on this interface. Off when absent. */

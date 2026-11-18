@@ -126,3 +126,13 @@ test("Raisecom ROS refuses uRPF, and a check refuses it where its family has no 
         "interfaces.vlan_interface.management has urpf.ipv6 but no IPv6 address: write it on the interface that holds the address"
     );
 });
+
+// MikroTik once warned that strict mode doesn't work with routing tables, and no device test has shown it does.
+test("RouterOS strict rp-filter beside a routing table is experimental, and loose is not", () => {
+    const routeros = Platforms.get("routeros");
+    const withTable = (device: Device): Device => ({ ...device, routing: { ...device.routing, tables: { "circuit-test": {} } } });
+
+    expect(routeros.experimental?.(withTable(checked("edge-router--edge-01", { ipv4: "strict" }))).length).toBeGreaterThan(0);
+    expect(routeros.experimental?.(withTable(checked("edge-router--edge-01", { ipv4: "loose" })))).toEqual([]);
+    expect(routeros.experimental?.(checked("edge-router--edge-01", { ipv4: "strict" }))).toEqual([]);
+});

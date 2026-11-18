@@ -47,20 +47,20 @@ A note in a cell means "works, with this limit".
 
 ### Interfaces
 
-| Feature                    | RouterOS                         | VRP            | Raisecom ROS | Junos     | FortiOS                          |
-| -------------------------- | -------------------------------- | -------------- | ------------ | --------- | -------------------------------- |
-| VLAN interface             | ✅                               | ✅             | ✅           | ✅        | ✅                               |
-| Routed port, loopback      | ✅                               | ❌             | ❌           | ✅        | ✅                               |
-| GRE                        | ✅                               | ❌             | ❌           | ✅        | ✅                               |
-| VXLAN                      | ✅                               | ❌             | ❌           | ❌        | ✅                               |
-| WireGuard                  | ✅                               | ❌             | ❌           | ❌        | ❌                               |
-| EoIP                       | ✅                               | ❌             | ❌           | ❌        | ❌                               |
-| Round-robin LAG, ARP check | ✅                               | ❌             | ❌           | ❌        | ❌                               |
-| Shaping (CAKE)             | ✅                               | ❌             | ❌           | ❌        | ❌                               |
-| Proxy ARP for an address   | ❌                               | ❌             | ❌           | ❌        | ✅                               |
-| VRRP                       | ✅                               | IPv4           | IPv4         | IPv4      | IPv4                             |
-| IPv6 router advertisement  | ✅                               | ❌             | ❌           | ✅        | ✅                               |
-| uRPF (RFC 3704)            | ✅ IPv4, one mode for the router | 🧪 loose, IPv4 | ❌           | ✅ strict | 🧪 strict, one mode for the VDOM |
+| Feature                    | RouterOS                                                | VRP            | Raisecom ROS | Junos     | FortiOS                          |
+| -------------------------- | ------------------------------------------------------- | -------------- | ------------ | --------- | -------------------------------- |
+| VLAN interface             | ✅                                                      | ✅             | ✅           | ✅        | ✅                               |
+| Routed port, loopback      | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
+| GRE                        | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
+| VXLAN                      | ✅                                                      | ❌             | ❌           | ❌        | ✅                               |
+| WireGuard                  | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| EoIP                       | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| Round-robin LAG, ARP check | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| Shaping (CAKE)             | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| Proxy ARP for an address   | ❌                                                      | ❌             | ❌           | ❌        | ✅                               |
+| VRRP                       | ✅                                                      | IPv4           | IPv4         | IPv4      | IPv4                             |
+| IPv6 router advertisement  | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
+| uRPF (RFC 3704)            | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs | 🧪 loose, IPv4 | ❌           | ✅ strict | 🧪 strict, one mode for the VDOM |
 
 ### Routing
 
