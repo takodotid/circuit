@@ -326,14 +326,15 @@ export class RouterOsExport {
         // A list whose order means nothing.
         if (property === "tagged" || property === "untagged" || property === "slaves") return raw.split(",").sort().join(",");
 
-        // A route is known by its destination and gateway, so an address spelled otherwise must not make it another route. An interface's name stays as it is.
+        // A route's gateway may name an interface, whose name stays as it is.
         const route = command.menu === "/ip route" || command.menu === "/ipv6 route";
         if (route && property === "gateway") return RouterOsExport.gateway(raw);
-        const value = route && property === "dst-address" ? Address.canonical(raw) : raw;
 
         const onInterface = property === "address" && (command.menu === "/ip address" || command.menu === "/ipv6 address");
         // An IP address property, which a MAC address is not.
         const isAddress = /(^|-)address$/.test(property) && !property.endsWith("mac-address");
+        // An address in one spelling, so one spelled otherwise is not another entry. The device prints `::ffff:0:0/96` as `::ffff:0.0.0.0/96` (TRAPS.md).
+        const value = isAddress ? Address.canonical(raw) : raw;
         // On an interface, a bare address is shorthand for /32 on IPv4 and /64 on IPv6.
         if (onInterface && !value.includes("/")) return `${value}/${value.includes(":") ? 64 : 32}`;
         // Elsewhere a host is printed bare on IPv4 and with /128 on IPv6.

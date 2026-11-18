@@ -17,6 +17,12 @@ test("Address.range and Address.prefixesBetween cover exactly what they are give
     expect(Address.prefixesBetween(v6.first + 1n, v6.last, "ipv6")).toEqual(["2001:db8::1/128", "2001:db8::2/127"]);
 });
 
+test("Address.canonical reads an IPv4 address at the end of an IPv6 one", () => {
+    expect(Address.canonical("::ffff:0.0.0.0/96")).toBe("::ffff:0:0/96");
+    expect(Address.canonical("2001:db8::192.0.2.1")).toBe("2001:db8::c000:201");
+    expect(Address.isValid("2001:db8:1:2:3:4:5:192.0.2.1")).toBe(false);
+});
+
 test("Address.isGlobal follows IANA's special-purpose registries, where the longest block decides", () => {
     // IETF assignments, multicast, reserved, the limited broadcast, benchmarking, RFC 9637 documentation, SRv6, and the older ranges.
     const local = [
