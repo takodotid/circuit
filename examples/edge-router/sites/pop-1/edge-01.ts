@@ -64,6 +64,8 @@ export default as64500.device({
                     description: "Hurricane Electric",
                     role: "provider",
                     max_prefixes: 1_200_000,
+                    // The transit is one hop away, so GTSM drops BGP packets from anywhere farther (RFC 5082).
+                    ttl_security: true,
                     import_policy: "transit-import",
                     export_policy: "export",
                     communities: { groups: ["transit"] },
