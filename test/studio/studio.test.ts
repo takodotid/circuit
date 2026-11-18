@@ -117,6 +117,10 @@ describe("the server", () => {
         expect(JSON.stringify(listing)).not.toContain("s3cret-value");
     });
 
+    test("says what to do when the project is not in git", async () => {
+        expect(await (await get("/api/refs")).json()).toEqual({ error: "The project is not in git. Run git init in its folder." });
+    });
+
     test("refuses a request addressed to another name", async () => {
         const answer = await fetch(`${url}/api/data`, { headers: { host: "evil.example" } });
         expect(answer.status).toBe(403);

@@ -245,7 +245,7 @@ export class StudioServer {
                 void answer(response, async () => {
                     const asked = url.searchParams.get("ref") ?? "";
                     const commit = await Git.commitOf(root, asked);
-                    if (!commit) throw new Error(`${asked} names no commit here`);
+                    if (!commit) throw new Error(`${asked} is not a branch, tag, or commit of the project.`);
 
                     if (!past.has(commit.commit)) past.set(commit.commit, Git.projectAt(root, commit.commit, gather));
                     const project = await past.get(commit.commit)!;
