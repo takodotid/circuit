@@ -31,12 +31,12 @@ export class Validation {
                         ? {
                               level: "warning",
                               device: device.name,
-                              message: `${field} is not proved on a device yet. Sent because of --experimental: try it on a lab device first.`,
+                              message: `${field} is not tested on a real device yet. Sent because of --experimental: try it on a lab device first.`,
                           }
                         : {
                               level: "error",
                               device: device.name,
-                              message: `${field} is not proved on a device yet. Add --experimental to use it anyway, at your own risk.`,
+                              message: `${field} is not tested on a real device yet. Add --experimental to send it anyway.`,
                           }
                 );
             }

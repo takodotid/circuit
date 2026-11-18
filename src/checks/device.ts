@@ -224,7 +224,7 @@ export class DeviceChecks {
 
         const kinds = settings.ethertypes;
         if (kinds && !kinds.length) report(`${where}.ethertypes is empty, so it would drop every frame`);
-        if (kinds && new Set(kinds).size !== kinds.length) report(`${where}.ethertypes names a kind twice`);
+        if (kinds && new Set(kinds).size !== kinds.length) report(`${where}.ethertypes lists a kind twice`);
 
         if (settings.bound_to) DeviceChecks.bound(where, settings, report);
     }

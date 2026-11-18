@@ -23,7 +23,7 @@ test("a MAC limit is a whole number above 0, and an ethertype filter lets each k
     expect(messages(device)).toEqual(
         expect.arrayContaining([
             `interfaces.ethernet.${port}.mac_limit 0 is not a whole number above 0`,
-            `interfaces.ethernet.${port}.ethertypes names a kind twice`,
+            `interfaces.ethernet.${port}.ethertypes lists a kind twice`,
             "interfaces.lag.members.mac_limit 1.5 is not a whole number above 0",
             "interfaces.lag.members.ethertypes is empty, so it would drop every frame",
         ])
