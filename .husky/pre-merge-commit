@@ -1,0 +1,2 @@
+# A merge commit gets the same checks as any other commit.
+. "$(dirname "$0")/pre-commit"
