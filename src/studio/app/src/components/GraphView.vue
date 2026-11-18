@@ -175,6 +175,9 @@ function draw(arrival?: "network" | "layer"): void {
     for (const node of gliding) node.animate({ position: { ...places.get(node.id())! } }, { duration: 700, easing: "ease-in-out-cubic" });
     if (moving) arrive(fresh, arrival);
 
+    // Presenting draws every line heavier, a line the project just added too.
+    if (presenting.value) cy.edges().addClass("heavy");
+
     // A selection whose node or line is gone is dropped; a line's selection does not carry to another layer.
     const picked = selection.value;
     if (picked && cy.getElementById("node" in picked ? picked.node : picked.edge).empty()) select(undefined);
@@ -489,7 +492,8 @@ const caption = ref<{ title: string; detail: string }>();
 let tourStep = 0;
 let tour: ReturnType<typeof setInterval> | undefined;
 let leaving: ReturnType<typeof setTimeout> | undefined;
-let pointerOver = false;
+/** A device is being dragged: the turns and the drift wait, as they do while a device is pointed at. */
+let dragging = false;
 let resizing: ResizeObserver | undefined;
 
 /** Light one device with what it has a line to, and dim the rest; or light nothing. */
@@ -497,6 +501,7 @@ function light(node: NodeSingular | undefined): void {
     if (!graph) return;
     touring = node?.id();
     emphasize();
+    pulse(node);
 
     if (node) {
         const detail = props.data.graph.nodes.find((candidate) => candidate.id === node.id())?.detail[0];
@@ -527,8 +532,60 @@ function frameLit(glide: boolean): void {
     if (!view) return;
 
     graph.stop(true);
-    if (glide && !still.matches) graph.animate(view, { duration: 1100, easing: "ease-in-out-cubic" });
-    else graph.viewport(view);
+    if (glide && !still.matches) {
+        graph.animate(view, { duration: 1100, easing: "ease-in-out-cubic", complete: drift });
+        return;
+    }
+    graph.viewport(view);
+    drift();
+}
+
+/** The device presenting lights now, with a ring that keeps leaving it, the way the docs drawing marks the changed device. */
+let pulsing: NodeSingular | undefined;
+
+function pulse(node: NodeSingular | undefined): void {
+    if (pulsing?.inside()) {
+        pulsing.stop(true);
+        pulsing.removeStyle("outline-offset outline-opacity");
+    }
+    pulsing = node;
+    if (!node || still.matches) return;
+
+    const ring = () => {
+        if (pulsing !== node || !node.inside()) return;
+        node.style({ "outline-offset": 4, "outline-opacity": 1 });
+        node.animate(
+            { style: { "outline-offset": 22, "outline-opacity": 0 } },
+            { duration: 1800, easing: "ease-out-quint", complete: ring }
+        );
+    };
+    ring();
+}
+
+/**
+ * While presenting, the view drifts slowly away from what it frames and back, so a wall screen does not stand still. It gives way to each
+ * turn of the tour, and waits while a device is pointed at or dragged. None with reduced motion.
+ */
+function drift(): void {
+    if (!graph || !presenting.value || still.matches || hovered || dragging) return;
+    const cy = graph;
+
+    const base = { zoom: cy.zoom(), pan: { ...cy.pan() } };
+    const angle = tourStep * 2.4 + layer.value.length;
+    const centre = { x: cy.width() / 2, y: cy.height() / 2 };
+    const away = {
+        zoom: base.zoom * 1.03,
+        pan: {
+            x: centre.x - (centre.x - base.pan.x) * 1.03 + Math.cos(angle) * 16,
+            y: centre.y - (centre.y - base.pan.y) * 1.03 + Math.sin(angle) * 10,
+        },
+    };
+
+    cy.animate(away, {
+        duration: 7000,
+        easing: "ease-in-out-sine",
+        complete: () => cy.animate(base, { duration: 7000, easing: "ease-in-out-sine", complete: drift }),
+    });
 }
 
 /** The next layer with lines, after this one; this one when no other has any. */
@@ -540,7 +597,7 @@ function nextLayer(): Layer {
 
 /** One turn: the whole layer, then its busiest devices one at a time, then on to the next layer. */
 function tourNext(): void {
-    if (!graph || document.hidden || pointerOver || leaving) return;
+    if (!graph || document.hidden || hovered || dragging || leaving) return;
 
     const devices = graph.nodes('[kind = "device"]').toArray() as NodeSingular[];
     const busiest = devices
@@ -583,6 +640,8 @@ function showPresenting(): void {
     document.body.classList.toggle("presenting", presenting.value);
     if (signals) signals.presenting = presenting.value;
     touring = undefined;
+    pulse(undefined);
+    graph?.stop(true);
     select(undefined);
     graph?.edges().removeClass("heavy");
     caption.value = undefined;
@@ -636,21 +695,24 @@ onMounted(() => {
     graph.on("dbltap", 'node[kind = "device"]', (event) => go(`devices/${event.target.data("label")}`));
     graph.on("dragfree", "node", (event) => remember(event.target));
 
-    // Pointing at a node lights it with its lines, as selecting it does.
+    // Pointing at a node lights it with its lines, as selecting it does. While presenting, the turns and the drift wait for it.
     graph.on("mouseover", "node", (event) => {
         hovered = event.target.id();
         emphasize();
+        if (presenting.value) graph?.stop(true);
         if (container.value) container.value.style.cursor = "pointer";
     });
     graph.on("mouseout", "node", () => {
         hovered = undefined;
         emphasize();
+        drift();
         if (container.value) container.value.style.cursor = "";
     });
-
-    // The turns wait while the pointer is on the drawing, so someone at the screen can look.
-    container.value?.addEventListener("mouseenter", () => (pointerOver = true));
-    container.value?.addEventListener("mouseleave", () => (pointerOver = false));
+    graph.on("grab", "node", () => (dragging = true));
+    graph.on("free", "node", () => {
+        dragging = false;
+        drift();
+    });
     // The drawing follows the window's size; presenting keeps what it shows in view.
     resizing = new ResizeObserver(() => {
         graph?.resize();

@@ -211,6 +211,10 @@ export class GraphLook {
             // The device presenting lights: the highlighter fill with a navy frame. A warning or error keeps its own frame.
             { selector: "node.touring", style: { "background-color": colors.yellow, color: "#11141b" } },
             { selector: 'node.touring[level = ""]', style: { "border-color": colors.navy, "border-width": 4 } },
+            {
+                selector: "node.touring",
+                style: { "outline-width": 3, "outline-color": colors.yellowDeep, "outline-offset": 4, "outline-opacity": 1 },
+            },
             { selector: ".dim", style: { opacity: 0.18 } },
         ];
     }

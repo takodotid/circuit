@@ -97,8 +97,24 @@ export class GraphSignals {
         const pan = this.cy.pan();
         context.setTransform(scale, 0, 0, scale, pan.x * scale, pan.y * scale);
 
+        // A line can pass under a tag: its dots hide there, as they would under the tag on paper.
+        const tags = this.cy.nodes().map((node) => {
+            const at = node.position();
+            const width = node.width() / 2;
+            const height = node.height() / 2;
+            return {
+                left: (at.x - width) * zoom,
+                right: (at.x + width) * zoom,
+                top: (at.y - height) * zoom,
+                bottom: (at.y + height) * zoom,
+            };
+        });
+        const underTag = (point: Point) =>
+            tags.some((tag) => point.x > tag.left && point.x < tag.right && point.y > tag.top && point.y < tag.bottom);
+
         this.cy.edges().forEach((edge) => {
             for (const dot of this.dotsOf(edge, now, appear, zoom)) {
+                if (underTag(dot.at)) continue;
                 context.globalAlpha = dot.opacity;
                 context.beginPath();
                 context.arc(dot.at.x, dot.at.y, (dot.lit ? 4.5 : 3.5) * zoom, 0, Math.PI * 2);
