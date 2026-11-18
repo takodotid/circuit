@@ -161,3 +161,38 @@ test("max_prefixes with both warn_only and restart_after is an error", () => {
         "routing.bgp.neighbors.cogent.max_prefixes has warn_only and restart_after. Keep warn_only to leave the session up, or restart_after to close it and open it again",
     ]);
 });
+
+// A route reflector's clients are iBGP neighbors (RFC 4456), and a role is what an eBGP neighbor is to us (RFC 9234).
+test("route_reflector_client on an eBGP neighbor is an error, once at a group that has both, and so is a role on an iBGP neighbor", () => {
+    const bgp = router.routing!.bgp!;
+    const device: Device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            bgp: {
+                ...bgp,
+                cluster_id: "192.0.2.256",
+                neighbor_groups: {
+                    ...bgp.neighbor_groups,
+                    clients: { remote_as: 64500, route_reflector_client: true },
+                    cogent: { remote_as: 174, route_reflector_client: true },
+                },
+                neighbors: {
+                    ...bgp.neighbors,
+                    "cogent-1": { address: "203.0.113.5", neighbor_group: "cogent" },
+                    as64501: { address: "203.0.113.6", neighbor_group: "upstream", route_reflector_client: true },
+                    "edge-02": { address: "192.0.2.2", neighbor_group: "clients" },
+                    "edge-03": { address: "192.0.2.3", neighbor_group: "clients", role: "peer" },
+                },
+            },
+        },
+    };
+
+    const found = messages(device).filter((message) => /route_reflector_client|cluster_id|has role/.test(message));
+    expect(found).toEqual([
+        "routing.bgp.cluster_id: '192.0.2.256' is not an IPv4 address, such as 192.0.2.1",
+        "routing.bgp.neighbor_groups.cogent has route_reflector_client, but AS174 is not ours, AS64500: a route reflector has iBGP clients only (RFC 4456). Remove route_reflector_client",
+        "routing.bgp.neighbors.as64501 has route_reflector_client, but AS64501 is not ours, AS64500: a route reflector has iBGP clients only (RFC 4456). Remove route_reflector_client",
+        "routing.bgp.neighbors.edge-03 has role, but AS64500 is ours, and a role is for eBGP neighbors (RFC 9234). Remove role",
+    ]);
+});

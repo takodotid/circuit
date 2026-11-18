@@ -33,6 +33,7 @@ export default as64500.device({
                 trunk_vlans: ["mgmt"],
                 link: { device: "tor-01", port: "40g-1" },
             },
+            "100g-2": { description: "Routers of halls 2 and 3", addresses: ["10.0.1.1/29"] },
         },
         vlan_interface: {
             mgmt: { vlan: "mgmt", addresses: [dc_1.addresses.router_on_switches] },
@@ -66,7 +67,24 @@ export default as64500.device({
         ],
         bgp: {
             originated_prefixes: [as64500.prefixes.ours.v4, as64500.prefixes.ours.v6],
+            // The router ID, written out so that a second reflector for the same clients can share it.
+            cluster_id: "203.0.113.2",
             neighbors: {
+                // Each hall's router announces its tenants' blocks to this router, which reflects them to the other halls. As route reflector clients, the halls need no session with each other (RFC 4456).
+                "hall-2": {
+                    address: "10.0.1.2",
+                    remote_as: 64500,
+                    route_reflector_client: true,
+                    import_policy: "halls",
+                    export_policy: "halls",
+                },
+                "hall-3": {
+                    address: "10.0.1.3",
+                    remote_as: 64500,
+                    route_reflector_client: true,
+                    import_policy: "halls",
+                    export_policy: "halls",
+                },
                 "hurricane-electric": {
                     address: "203.0.113.1",
                     remote_as: 6939,
@@ -117,6 +135,7 @@ export default as64500.device({
                 { description: "Our own space", if: { prefix_set: "ours" }, then: "accept" },
                 { description: "Nothing else leaves", then: "reject" },
             ],
+            halls: [{ description: "Tenants' blocks", if: { prefix_set: "ours" }, then: "accept" }, { then: "reject" }],
         },
     },
 

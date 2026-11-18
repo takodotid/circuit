@@ -2,7 +2,8 @@
 
 import type { ApplyOptions, Plan, Step } from "../platform";
 import { RouterOsExport } from "./export";
-import type { Command } from "./export";
+import type { Command, Parsed } from "./export";
+import { RouterOsSyntax } from "./syntax";
 
 /** What is planned for one menu: changes for the first phase, removals for the last. */
 type MenuPlan = { first: Step[]; last: Step[] };
@@ -10,6 +11,8 @@ type MenuPlan = { first: Step[]; last: Step[] };
 export class RouterOsPlan {
     /** A plan line the apply handles itself: upload a certificate and its key, and import them. */
     static readonly INSTALL_CERTIFICATE = "#install-certificate ";
+
+    private static readonly ETHERNET = "/interface ethernet";
 
     /** Dependency order. A menu not listed sorts after all of these. The longest matching prefix decides. */
     private static readonly ORDER = [
@@ -119,7 +122,7 @@ export class RouterOsPlan {
 
         // Entries of lists filled by `refresh` belong to it, not to the render.
         const owned = (command: Command) => !(command.menu.endsWith("address-list") && want.generated.has(command.attrs.list ?? ""));
-        const wantedByMenu = RouterOsPlan.byMenu(want.commands.filter(owned));
+        const wantedByMenu = RouterOsPlan.byMenu([...want.commands.filter(owned), ...RouterOsPlan.unnamedPorts(want, have)]);
         const existingByMenu = RouterOsPlan.byMenu(have.commands.filter(owned));
 
         const menus = [...new Set([...wantedByMenu.keys(), ...existingByMenu.keys()])].sort(
@@ -147,6 +150,18 @@ export class RouterOsPlan {
         }
 
         return { steps: [...first, ...last], problems: planner.problems };
+    }
+
+    /** A port the read lists and the render does not state is disabled, as the render disables a model's ports the config leaves out. Only a virtual router's read lists its ports. */
+    private static unnamedPorts(want: Parsed, have: Parsed): Command[] {
+        const stated = new Set(
+            want.commands.filter((command) => command.menu === RouterOsPlan.ETHERNET).map((command) => command.selector)
+        );
+
+        return have.ports
+            .map((port) => RouterOsSyntax.port(port))
+            .filter((selector) => !stated.has(selector))
+            .map((selector): Command => ({ menu: RouterOsPlan.ETHERNET, verb: "set", selector, flags: [], attrs: { disabled: "yes" } }));
     }
 
     private static rank(menu: string): number {
@@ -197,6 +212,15 @@ export class RouterOsPlan {
     private static line(menu: string, verb: string, selector: string, flags: string[], attrs: Record<string, string>): string {
         const properties = Object.entries(attrs).map(([property, raw]) => `${property}=${RouterOsPlan.value(raw)}`);
         return [menu, verb, selector, ...flags, ...properties].filter(Boolean).join(" ");
+    }
+
+    /** A `set` of the properties that change, and an `unset` of each one the device clears only that way. */
+    private static setLines(menu: string, selector: string, update: Record<string, string>): string[] {
+        const cleared = (RouterOsExport.UNSET[menu] ?? []).filter((property) => update[property] === "");
+        const values = Object.fromEntries(Object.entries(update).filter(([property]) => !cleared.includes(property)));
+        const set = Object.keys(values).length ? [RouterOsPlan.line(menu, "set", selector, [], values)] : [];
+
+        return [...set, ...cleared.map((property) => `${menu} unset ${selector} ${property}`)];
     }
 
     private static describe(attrs: Record<string, string>): string {
@@ -346,13 +370,13 @@ export class RouterOsPlan {
                 changeStep.show.push(
                     `~ ${entryKey} ${RouterOsPlan.describe(update)}, restarting the session: it takes a new ${restartsOn.join(" and ")} only when it restarts`
                 );
-                changeStep.send.push(RouterOsPlan.line(menu, "set", selector, [], { disabled: "yes", ...update }));
+                changeStep.send.push(...RouterOsPlan.setLines(menu, selector, { disabled: "yes", ...update }));
                 changeStep.send.push(RouterOsPlan.line(menu, "set", selector, [], { disabled: "no" }));
                 continue;
             }
 
             changeStep.show.push(`~ ${entryKey} ${RouterOsPlan.describe(update)}`);
-            changeStep.send.push(RouterOsPlan.line(menu, "set", selector, [], update));
+            changeStep.send.push(...RouterOsPlan.setLines(menu, selector, update));
         }
 
         const removed = existingEntries.filter((entry) => !kept.has(key(entry)));

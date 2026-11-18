@@ -49,9 +49,26 @@ A single reflector is a single point of failure: when it fails, its clients hear
 
 A reflector also changes what its clients see. It picks its own best route to each prefix and reflects only that one. So a client chooses its way out from the reflector's point of view, not its own. A client far from the reflector may then leave the network through an exit near the reflector but far from itself. The usual answer is to place reflectors so they see what their clients see. Put a pair in each point of presence for the routers there, with every reflector in a full mesh with the others.
 
-::: warning Circuit has no route reflector setting
-Circuit can't make a router a route reflector, mark a client, or set a cluster ID. A network written in Circuit runs iBGP as a full mesh. That is fine for a handful of routers.
-:::
+In Circuit, `route_reflector_client: true` on a neighbor makes the router a reflector, and the neighbor its client. `cluster_id` is the cluster's ID. Without it, the router uses its router ID, so write it on both reflectors of a pair. Junos needs it on every reflector. This is the first reflector of a pair, with two clients:
+
+```ts
+routing: {
+    router_id: "10.255.0.1",
+    bgp: {
+        cluster_id: "10.255.0.1",
+        neighbor_groups: {
+            ibgp: { remote_as: 64500, local_address: "10.255.0.1", import_policy: "ibgp-import", export_policy: "ibgp-export" },
+        },
+        neighbors: {
+            "rr-02": { address: "10.255.0.2", neighbor_group: "ibgp" },
+            "edge-a1": { address: "10.255.0.11", neighbor_group: "ibgp", route_reflector_client: true },
+            "edge-b1": { address: "10.255.0.12", neighbor_group: "ibgp", route_reflector_client: true },
+        },
+    },
+},
+```
+
+The other reflector, `rr-02`, is a non-client here, and writes the same `cluster_id`.
 
 <Quiz
   question="Two route reflectors serve 30 clients. Each client has a session with both reflectors, and the reflectors have a session with each other. How many iBGP sessions does the AS have?"

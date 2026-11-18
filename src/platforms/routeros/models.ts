@@ -14,4 +14,9 @@ export const models = {
         // It has no serial port: RouterOS 7.24.6 takes `enter-setup-on` on it, then prints and keeps nothing.
         serial_console: false,
     },
+    // Cloud Hosted Router: RouterOS as a virtual machine. A port is one of its network adapters, which report no speed: `virtual-1` is ether1.
+    CHR: {
+        spelling: { virtual: "ether{n}" },
+        virtual: true,
+    },
 } as const;

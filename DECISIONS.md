@@ -46,6 +46,7 @@ These decisions are binding. A change to one is a new decision with the next num
 - **117.** The docs show part of an example with a VitePress region include.
 - **119.** RouterOS writes a next hop with its interface as `gateway=<next_hop>%<interface>`, tested on a CCR2216 with RouterOS 7.24.6.
 - **120.** A BGP neighbor or neighbor group turns on GTSM (RFC 5082) with `ttl_security: true`, never with `multihop` ([#216](https://github.com/takodotid/circuit/issues/216)).
+- **121.** A route reflector marks each iBGP client with `route_reflector_client: true` on its neighbor or neighbor group, and states its cluster ID in `routing.bgp.cluster_id`. Circuit fills in no cluster ID ([#213](https://github.com/takodotid/circuit/issues/213)).
 - **123.** A BGP neighbor or neighbor group turns on graceful restart (RFC 4724) with `graceful_restart: true`. `max_prefixes` takes a number, which keeps the session closed, `{ limit, restart_after }` in seconds, or `{ limit, warn_only: true }`, never both ([#216](https://github.com/takodotid/circuit/issues/216)).
 
 ## BGP communities

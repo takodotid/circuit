@@ -1,4 +1,4 @@
-import type { Family, HostAddress, IP, Named, Ordered, Prefix, Secret } from "./common";
+import type { Family, HostAddress, IP, IPv4, Named, Ordered, Prefix, Secret } from "./common";
 import type { CommunitiesRule, NeighborCommunities } from "./communities";
 import { ACTIONS, CALL_RULE, closest, COMMUNITIES_EXPORT, COMMUNITIES_IMPORT, ROUTE_MATCH, ROUTE_RULE, ROUTE_SET } from "./keys";
 import type { AnyFacts, NetworkFacts } from "./network";
@@ -71,6 +71,8 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     multihop?: boolean;
     /** Send with TTL 255, and accept only BGP packets that arrive with TTL 255, so only from a directly connected neighbor (GTSM, RFC 5082). Not with `multihop`. */
     ttl_security?: boolean;
+    /** This router is a route reflector, and the neighbor is its client: the router passes on to it the routes it learns from its other iBGP neighbors (RFC 4456). For iBGP neighbors only. */
+    route_reflector_client?: boolean;
     /** TCP MD5 password shared with the neighbor. */
     password?: Secret;
     /** Close the session if the neighbor announces more prefixes than this. It stays closed until you clear it by hand. On RouterOS, use `/routing bgp session clear <session> flag=limit-exceeded`. Write `{ limit, restart_after }` to open it again after that many seconds, or `{ limit, warn_only: true }` to only log a message. */
@@ -111,6 +113,8 @@ export type Neighbor<P extends string, G extends string, T extends string, Net e
 export type Bgp<P extends string, G extends string, T extends string, Net extends NetworkFacts = AnyFacts> = {
     /** Our AS number. The network's `asn` when absent. */
     asn?: number;
+    /** The cluster ID of this route reflector (RFC 4456). Reflectors that serve the same clients share one. The router ID when absent. Junos needs it for `route_reflector_client`. */
+    cluster_id?: IPv4;
     /** Prefixes this device originates. Each needs a route, such as a static blackhole route. The export policies still decide who gets them. */
     originated_prefixes?: readonly Prefix[];
     /** Settings shared by several neighbors, keyed by group name. */

@@ -61,7 +61,7 @@ The switch writes only what is its own: its management VLAN, its uplink, and its
 
 <<< @/../examples/colocation/sites/dc-1/edge-01.ts
 
-The router is the edge router, with `include: [tenants.parts]` too. The tenants' ACL rules are placed with `merge`, after the router's own two in `edge`.
+The router is the edge router, with `include: [tenants.parts]` too. The tenants' ACL rules are placed with `merge`, after the router's own two in `edge`. It is also the [route reflector](/academy/professional/ibgp-at-scale#route-reflectors) of the routers in halls 2 and 3.
 
 <TryIt title="Send packets through the tenants' networks">
 

@@ -95,6 +95,8 @@ export class JunosBgp {
             if (settings.description) this.out.set(group, "description", JunosStatements.quote(settings.description));
             if (settings.local_address) this.out.set(group, "local-address", Address.host(settings.local_address));
             if (settings.multihop) this.out.set(group, "multihop");
+            // A neighbor in a group with a cluster ID is a client. `unsupported()` names a client without one.
+            if (settings.route_reflector_client && bgp.cluster_id) this.out.set(group, "cluster", bgp.cluster_id);
             if (settings.passive) this.out.set(group, "passive");
             if (settings.hold_time !== undefined) this.out.set(group, "hold-time", settings.hold_time);
             if (settings.password) this.out.set(group, "authentication-key", Secrets.marker(settings.password));

@@ -4,18 +4,19 @@ description: The device operating systems Circuit works with, their versions, an
 
 # Platforms
 
-| `platform`     | OS                | Version  | Tested on                                                      |
-| -------------- | ----------------- | -------- | -------------------------------------------------------------- |
-| `routeros`     | MikroTik RouterOS | 7        | CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24 |
-| `vrp`          | Huawei VRP        | V200R005 | CE6855-48S6Q-HI, V200R005C00SPC800                             |
-| `raisecom-ros` | Raisecom ROS      | 6.5      | RAX721-C-6C48, ROS 6.5.2                                       |
-| `junos`        | Juniper Junos     | 21       | QFX5100-48S-6Q, Junos 21.4R3                                   |
-| `fortios`      | Fortinet FortiOS  | 6.2      | FG-3700D, FortiOS 6.2.2                                        |
+| `platform`     | OS                | Version  | Tested on                                                                          |
+| -------------- | ----------------- | -------- | ---------------------------------------------------------------------------------- |
+| `routeros`     | MikroTik RouterOS | 7        | CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24; CHR, RouterOS 7.24 |
+| `vrp`          | Huawei VRP        | V200R005 | CE6855-48S6Q-HI, V200R005C00SPC800                                                 |
+| `raisecom-ros` | Raisecom ROS      | 6.5      | RAX721-C-6C48, ROS 6.5.2                                                           |
+| `junos`        | Juniper Junos     | 21       | QFX5100-48S-6Q, Junos 21.4R3                                                       |
+| `fortios`      | Fortinet FortiOS  | 6.2      | FG-3700D, FortiOS 6.2.2                                                            |
 
 - **One version per platform.** `routeros` means RouterOS 7. RouterOS 6 takes other commands, so Circuit doesn't support it.
 - **Version check.** On RouterOS, Junos, and FortiOS, `diff` and `apply` stop if the device runs another version. VRP and Raisecom ROS don't check, so check the version yourself before the first apply.
 - **Only the models it was tested on.** Another model needs its port list added. See [Contributing](/contributing).
 - **Model limits.** On the CCR2216, a LAG holds at most 8 ports, and the hardware ACLs hold about 5 different port ranges. `circuit validate` checks both. The RB5009 has no serial console, so Circuit refuses `connection.console` on it.
+- **CHR.** MikroTik's Cloud Hosted Router is RouterOS in a virtual machine. Its ports are the machine's network adapters, as many as it has: `virtual-1` is `ether1`, and so on. Circuit disables every adapter the config leaves out.
 
 ## Feature matrix
 
@@ -76,6 +77,7 @@ A note in a cell means "works, with this limit".
 | RPKI                         | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
 | BGP roles (RFC 9234)         | ✅                      | ❌         | ❌                       | ❌                    | ❌               |
 | GTSM (RFC 5082)              | ✅ eBGP                 | ❌         | ❌                       | ❌                    | ❌               |
+| Route reflection (RFC 4456)  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | Graceful restart (RFC 4724)  | ❌                      | ❌         | ❌                       | ✅ all or no sessions | ✅               |
 | Prefix limit that restarts   | ❌                      | ❌         | ❌                       | ✅ whole minutes      | ❌               |
 | Prefix limit that only warns | ❌                      | ❌         | ❌                       | ✅                    | ✅               |

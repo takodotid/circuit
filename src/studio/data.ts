@@ -60,7 +60,7 @@ export class StudioDataReader {
                 devices.map((device) => [
                     device.name,
                     StudioDataReader.attempt(
-                        () => Catalog.ports(device.platform, device.model),
+                        () => Catalog.devicePorts(device),
                         () => []
                     ),
                 ])
