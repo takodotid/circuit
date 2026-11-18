@@ -52,7 +52,7 @@ export class OnePassword {
         } finally {
             done?.();
         }
-        if (result.error) throw new Error(`${what} is in 1Password, and the 1Password CLI, op, is not installed`);
+        if (result.error) throw new Error(`${what} is in 1Password, but the 1Password CLI, op, is not installed. Install op first.`);
         if (result.status !== 0)
             throw new Error(`${what}: 1Password could not read ${reference}: ${result.stderr.trim() || `op exited with ${result.status}`}`);
 
