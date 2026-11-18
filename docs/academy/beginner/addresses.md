@@ -9,9 +9,9 @@ Every device on a network has two addresses. Its hardware address stays the same
 
 ## Two addresses on every device
 
-A device joins a network through its <Term means="The part of a device that joins it to a network: the socket for a cable, or the radio for Wi-Fi. A laptop often has one of each.">network card</Term>. When the card is made, its maker writes a <Term means="The address fixed in a network card, used to reach a device on the same local network.">hardware address</Term> into it, such as `3c:22:fb:0a:91:7e`. It is six pairs of characters, made of the digits 0 to 9 and the letters a to f. The first half says who made the card. The second half is a number the maker gives each card, so no two cards should have the same address. Settings screens usually call it the **MAC address**, short for media access control address.
+A device joins a network through its <Term means="The part of a device that joins it to a network: the socket a cable plugs into, or the radio that talks to Wi-Fi. A laptop often has one of each.">network card</Term>. When the card is made, its maker writes a <Term means="The address a network card is given when it is made. Devices on the same local network use it to deliver messages to each other.">hardware address</Term> into it, such as `3c:22:fb:0a:91:7e`. It is six pairs of characters, made of the digits 0 to 9 and the letters a to f. The first half says who made the card. The second half is a number the maker gives each card, so no two cards should have the same address. Settings screens usually call it the **MAC address**, short for media access control address.
 
-An <Term means="The address a network gives a device, used to reach it from anywhere.">IP address</Term> looks different: four numbers with dots between them, such as `192.168.1.23`. IP is short for <Term means="The rules every device on the internet follows to send packets to the others. A set of rules like this is called a protocol.">Internet Protocol</Term>. A device is not born with an IP address. The network it joins gives it one, usually without anyone noticing. [Counting like a computer](/academy/beginner/binary) and [Reading an IP address](/academy/beginner/ip-addresses) show how to read the four numbers.
+An <Term means="The address of a device on a network. Packets from any network find the device by it.">IP address</Term> looks different: four numbers with dots between them, such as `192.168.1.23`. IP is short for <Term means="The rules every device on the internet follows to send packets to each other. IP for short.">Internet Protocol</Term>. A device is not born with an IP address. The network it joins gives it one, usually without anyone noticing. [Counting like a computer](/academy/beginner/binary) and [Reading an IP address](/academy/beginner/ip-addresses) show how to read the four numbers.
 
 <TryIt title="Take a laptop for a walk">
 
@@ -54,7 +54,7 @@ So a packet carries both, like an envelope inside an envelope:
 - **The inner envelope** has the IP addresses: from the device that sent the packet, to the device it is for.
 - **The outer envelope** has the hardware addresses: from the device sending it now, to the next stop on the local network.
 
-Each step of the way, across one link from one device to the next, is called a <Term means="One step of a packet’s journey: across one link, from one device to the next. A packet that passes two routers on its way makes three hops.">hop</Term>.
+Each step of the way, across one link from one device to the next, is called a <Term means="One step on a packet's way, across one link: from a device to a router, or from one router to the next.">hop</Term>.
 
 <TryIt title="Follow a letter through two routers">
 

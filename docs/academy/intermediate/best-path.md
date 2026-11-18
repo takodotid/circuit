@@ -15,8 +15,8 @@ Every route that BGP carries has a few attributes besides its prefix. These are 
 
 - **Local preference**: a number your own routers give a route as it comes in. You set it, and it stays inside your AS.
 - **AS path**: the list of ASes the announcement passed through, as in [BGP](/academy/intermediate/bgp).
-- **Origin**: how the route first entered BGP. It is <Term means="The network that owns the prefix announced it into BGP itself. The usual case.">IGP</Term>, <Term means="It came from EGP, the protocol BGP replaced. You will almost never see it.">EGP</Term>, or <Term means="It was copied into BGP from another source, such as static routes, so BGP cannot say where it began.">incomplete</Term>.
-- **MED**: the <Term means="A number a neighboring AS puts on the routes it sends you, to say which of the links between you and it you should use. Lower is better.">multi-exit discriminator</Term>.
+- **<Term means="A BGP attribute that says how a route first entered BGP. IGP means the network announced it itself, and incomplete means it was copied in from another source, such as static routes. EGP, from the protocol before BGP, is almost never seen.">Origin</Term>**: how the route first entered BGP, written as IGP, EGP, or incomplete.
+- **MED**: the <Term means="Multi-exit discriminator: a number a neighboring AS puts on the routes it sends you, to say which of the links between you it wants you to use. Lower wins.">multi-exit discriminator</Term>.
 
 Only the routes that your import policy accepted take part. Of these, the router keeps the routes that are best on the first attribute. Then it compares only those by the next attribute, and so on, until one route is left:
 
@@ -25,7 +25,7 @@ Only the routes that your import policy accepted take part. Of these, the router
 3. The best origin, where IGP comes first, then EGP, then incomplete.
 4. Lowest MED.
 5. A route learned over eBGP, from another AS, before one learned over iBGP, from your own router.
-6. A tie-break: the lowest <Term means="A number, written like an IPv4 address, that a router is known by to its BGP neighbors. In Circuit it is router_id.">router ID</Term> of the neighbor that sent the route.
+6. A tie-break: the lowest <Term means="A number, written like an IPv4 address, that a router is known by to its BGP and OSPF neighbors.">router ID</Term> of the neighbor that sent the route.
 
 ::: warning This order is simplified
 Real routers follow a longer list, and platforms differ in the details. Some check a weight of their own before local preference. Most compare MED only between routes from the same neighboring AS, but this lesson compares it between all routes. Between steps 5 and 6, many routers prefer the route whose next hop is closest inside your network. Some prefer the route they have held longest. Read your platform's documentation before you rely on anything below the AS path.
@@ -94,7 +94,7 @@ Local preference travels between your own routers over iBGP. That is why the rou
 
 Traffic coming to you is a different matter. Each network on the way chooses its own best route to your prefix, with its own local preference, and you can't set that for them.
 
-What you can change is what you announce. <Term means="Adding your own AS number to the path several more times before you announce a route, so the path looks longer than it is.">AS path prepending</Term> makes the path through one neighbor look longer. A network that reaches you both ways, and decides by the length of the path, then prefers the other way in.
+What you can change is what you announce. <Term means="Adding your own AS number to the AS path several more times before you announce a route, so the path looks longer and less traffic comes in that way.">AS path prepending</Term> makes the path through one neighbor look longer. A network that reaches you both ways, and decides by the length of the path, then prefers the other way in.
 
 <TryIt title="Steer the traffic coming in">
 

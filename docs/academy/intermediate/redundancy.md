@@ -5,17 +5,17 @@ description: Join cables into a LAG, watch a broadcast storm grow in a loop of s
 
 # Staying up
 
-Anything your network has only one of, such as a cable, a switch, or a router, takes part of the network down when it fails. It is a <Term means="A part whose failure alone is enough to cut devices off. Having two of it, both able to do the job, removes it.">single point of failure</Term>. The cure is a second one.
+Anything your network has only one of, such as a cable, a switch, or a router, takes part of the network down when it fails. It is a <Term means="A part whose failure alone is enough to cut devices off. A second part that can do the same job removes the risk.">single point of failure</Term>. The cure is a second one.
 
 Two cables between the same two switches are joined into one LAG, so both carry traffic and either one can fail. A second path through other switches makes a loop. A loop needs spanning tree, or a single broadcast brings the network down.
 
 ## Two cables, one link: the LAG
 
-A <Term means="Several links joined into one, for more capacity and a spare.">LAG</Term> joins several ports into one link. Both switches treat the bundle as a single port. The VLANs are set on it, and spanning tree sees one link, not several.
+A <Term means="Link aggregation group: several links between the same two devices that act as one link. It gives more capacity, and a spare if one link fails. Some platforms call it a bond or a port channel.">LAG</Term> joins several ports into one link. Both switches treat the bundle as a single port. The VLANs are set on it, and spanning tree sees one link, not several.
 
 Traffic is shared per conversation, not per packet. Each switch picks a cable for each conversation from its addresses and ports. It keeps that conversation on that cable, so its packets never overtake each other. When a cable fails, its conversations move to the cables that still work.
 
-Both ends must agree which cables are in the bundle, and <Term means="Link Aggregation Control Protocol. The two ends of a LAG send each other messages to agree which cables belong to it, and keep out any cable that does not answer as expected.">LACP</Term> checks it. A cable plugged into the wrong port, or into a switch that is not set up for the LAG, stays out of the bundle instead of causing trouble. A static LAG bundles its cables without asking.
+Both ends must agree which cables are in the bundle, and <Term means="Link Aggregation Control Protocol: the two ends of a LAG send each other messages to agree which links belong to it. A link that does not answer as expected is kept out.">LACP</Term> checks it. A cable plugged into the wrong port, or into a switch that is not set up for the LAG, stays out of the bundle instead of causing trouble. A static LAG bundles its cables without asking.
 
 <TryIt title="Join two switches with several cables">
 
@@ -55,7 +55,7 @@ sw-02 has the same, pointing back at sw-01, so `circuit validate` can check that
 
 A LAG protects you from a broken cable, but not from a broken switch. For that, you join switches in a ring, so every switch has two ways to the others.
 
-The ring is also a loop, and Ethernet can't live with one. In [Switches](/academy/beginner/switches), a switch sent a broadcast out of every port except the one it came in on. In [Routers and the gateway](/academy/beginner/routers), a packet carried a TTL that runs out. A frame has no such counter, so in a loop, a broadcast goes round forever. With more than one loop, every switch makes extra copies as it floods. That is a <Term means="A broadcast going round a loop of switches without end, its copies multiplying.">broadcast storm</Term>.
+The ring is also a loop, and Ethernet can't live with one. In [Switches](/academy/beginner/switches), a switch sent a broadcast out of every port except the one it came in on. In [Routers and the gateway](/academy/beginner/routers), a packet carried a TTL that runs out. A frame has no such counter, so in a loop, a broadcast goes round forever. With more than one loop, every switch makes extra copies as it floods. That is a <Term means="A broadcast that loops between switches and multiplies, until the links are full and the network stops working.">broadcast storm</Term>.
 
 <TryIt title="Send a broadcast around a ring">
 
@@ -67,7 +67,7 @@ Without spanning tree, the triangle kept two copies going round for as long as y
 
 ## Spanning tree blocks one port
 
-<Term means="Spanning Tree Protocol. Switches exchange small messages, called BPDUs, to find the loops between them and block one port in each.">Spanning tree</Term> keeps the cables of a loop, but blocks one port so frames can't go round. It works like this:
+<Term means="Spanning Tree Protocol: switches send each other small messages, called BPDUs, to find the loops between them, and block one port in each loop. STP for short.">Spanning tree</Term> keeps the cables of a loop, but blocks one port so frames can't go round. It works like this:
 
 1. The switches elect a **root bridge**: the one with the lowest bridge priority, and among equals, the lowest MAC address.
 2. Every other switch picks its **root port**: the port with the cheapest path to the root. Faster links cost less.

@@ -17,7 +17,7 @@ That is a lot of writing, and it is easy to forget one. Worse, a router usually 
 
 ## How OSPF works
 
-OSPF is a <Term means="A kind of routing protocol in which every router learns every link in the network, then computes its own paths from that map.">link-state</Term> protocol. Every router has the same map of links, and each one works out its own routes from it.
+OSPF is a <Term means="A kind of routing protocol in which every router learns every link in the network, then works out its own paths from that map.">link-state</Term> protocol. Every router has the same map of links, and each one works out its own routes from it.
 
 <TryIt title="Watch routers build a map and recover">
 
@@ -49,7 +49,7 @@ Cut a link on the cheapest path, and watch the path move. Then change costs unti
 
 </TryIt>
 
-If you cut the link from R2 to R4, the path from R1 to R6 moves to R1, R3, R5, R6, at a cost of 40. R2 still has a link to R5, but that way costs 50. When two paths cost the same, OSPF can use both and share the traffic between them. That is called <Term means="Equal-cost multipath: when several paths cost the same, the router sends traffic over all of them, so it is shared.">ECMP</Term>.
+If you cut the link from R2 to R4, the path from R1 to R6 moves to R1, R3, R5, R6, at a cost of 40. R2 still has a link to R5, but that way costs 50. When two paths cost the same, OSPF can use both and share the traffic between them. That is called <Term means="Equal-cost multipath: when several paths cost the same, the router shares traffic across all of them.">ECMP</Term>.
 
 Each end of a link sets its own cost, for traffic that leaves through it. In the widget, both ends have the same cost. On real routers, set the same cost at both ends, unless you want traffic to take a different way back.
 
@@ -65,7 +65,7 @@ Each end of a link sets its own cost, for traffic that leaves through it. In the
 
 Every router in an area has the same map, and every change makes all of them compute again. In a large network, that map gets big. So OSPF lets you split the network into **areas**. The routers in an area have the full map of their own area only. A router in two areas passes on a summary of what each area can reach.
 
-Area 0 is the <Term means="Area 0, the area every other OSPF area must connect to. Traffic between two other areas crosses it.">backbone</Term>. Every other area connects to it, and traffic between two areas crosses it. Area numbers are written like IPv4 addresses, so area 0 is `0.0.0.0`. A network of a few dozen routers usually needs only area 0.
+Area 0 is the <Term means="The OSPF area that every other area must connect to, numbered 0. Traffic between two other areas crosses it.">backbone</Term>. Every other area connects to it, and traffic between two areas crosses it. Area numbers are written like IPv4 addresses, so area 0 is `0.0.0.0`. A network of a few dozen routers usually needs only area 0.
 
 ## OSPF in Circuit
 

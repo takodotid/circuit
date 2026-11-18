@@ -27,7 +27,7 @@ Now picture a counter whose wheels have only the digits 0 and 1. It counts in th
 
 </TryIt>
 
-Computers count with the two-digit counter. Inside a computer, everything is kept in tiny switches that are either off or on. Everything sent over a cable or through the air is a long row of off and on signals. So computers use 0 for off and 1 for on. A digit that can only be 0 or 1 is a <Term means="A digit that is 0 or 1; a byte is eight of them, a number from 0 to 255.">bit</Term>. Counting with two digits is called **binary**.
+Computers count with the two-digit counter. Inside a computer, everything is kept in tiny switches that are either off or on. Everything sent over a cable or through the air is a long row of off and on signals. So computers use 0 for off and 1 for on. A digit that can only be 0 or 1 is a <Term means="Short for binary digit: a single 0 or 1. It is the smallest piece of data, and everything a link carries is made of bits.">bit</Term>. Counting with two digits is called **binary**.
 
 ### What each wheel is worth
 
@@ -75,7 +75,7 @@ For 192: you need 192, which is at least 128. So turn on 128, and 64 is left. 64
 
 ## A byte: eight bits
 
-Eight bits together are a <Term means="A digit that is 0 or 1; a byte is eight of them, a number from 0 to 255.">byte</Term>. With all eight switches off, a byte is 0. With all of them on, it is 128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 255. So a byte can hold 256 different numbers, from 0 to 255.
+Eight bits together are a <Term means="Eight bits together. One byte holds a number from 0 to 255, or one letter of plain English text.">byte</Term>. With all eight switches off, a byte is 0. With all of them on, it is 128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 255. So a byte can hold 256 different numbers, from 0 to 255.
 
 To see why, count the patterns that a few switches can make.
 

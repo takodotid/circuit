@@ -16,7 +16,7 @@ Nobody runs the internet as a whole. A single page load crosses several networks
 - **Content networks** serve what people watch and read, such as video, software, and cloud services. Some of them give access providers servers to put inside their own networks. Then the most watched content is served from close by.
 - **Hosting companies** run the servers that websites live on, in data centers.
 
-The network you buy transit from is your <Term means="The network you buy transit from, and the networks that buy it from you.">upstream</Term>. The networks that buy transit from you are your downstream networks.
+The network you buy transit from is your <Term means="The network you buy transit from: your way to the rest of the internet.">upstream</Term>. The networks that buy transit from you are your downstream networks.
 
 A small group of very large networks reach every other network by peering with each other, without buying transit from anyone. They are called Tier 1 networks. No authority defines the term, and lists of who counts differ. Hurricane Electric, for example, is very large and peers widely, but buys transit to reach a few networks. So it is usually not counted.
 
@@ -42,9 +42,9 @@ Open each of the three, and step along the way your request travels.
 
 ## Where networks meet
 
-A network meets others at a <Term means="Point of presence: a place where a network has equipment and can hand over a connection.">PoP</Term>, a point of presence. Many PoPs are in **data centers**, where other networks already are. A colocation data center rents space, power, and cooling by the rack or the cage, to many networks at once.
+A network meets others at a <Term means="Point of presence: a place, usually a rack or a room in a data center, where a network has equipment and others connect to it.">PoP</Term>, a point of presence. Many PoPs are in **data centers**, where other networks already are. A colocation data center rents space, power, and cooling by the rack or the cage, to many networks at once.
 
-Two networks in the same data center still need a cable between them, and they can't run it through the building themselves. They order a <Term means="A cable a data center runs between two customers' racks; the room where those cables meet.">cross-connect</Term> from the data center operator. Each network has a cable from its cage to one room, where the cables of every network meet. The operator joins the two there.
+Two networks in the same data center still need a cable between them, and they can't run it through the building themselves. They order a <Term means="A cable the data center runs between two customers' racks, or between a customer and a network, in the same building.">cross-connect</Term> from the data center operator. Each network has a cable from its cage to the <Term means="The room in a data center where the cables of every network meet, so the operator can join any two of them.">meet-me room</Term>. The operator joins the two there.
 
 The same kind of cable joins a network to an exchange's switch, or to a transit provider's router in the same building. This is why networks gather in a few well-connected buildings. Once you are in, a new peer or a new upstream is a cross-connect away, with no cable to lay across the city.
 
@@ -61,8 +61,8 @@ The same kind of cable joins a network to an exchange's switch, or to a transit 
 Every address and AS number must belong to one network at a time, and be recorded. This way routes can be trusted, and the routing tables of the internet stay small. A chain of registries makes sure of this:
 
 1. **IANA**, the Internet Assigned Numbers Authority, keeps the whole pool. It gives large blocks to the five regional registries.
-2. Five <Term means="The registries that hand out addresses and AS numbers: APNIC for Asia and the Pacific, and national ones such as IDNIC in Indonesia.">regional internet registries</Term> each serve a part of the world. [Networks of networks](/academy/intermediate/autonomous-systems#as-numbers-and-address-blocks) lists them. APNIC serves Asia and the Pacific.
-3. <Term means="The registries that hand out addresses and AS numbers: APNIC for Asia and the Pacific, and national ones such as IDNIC in Indonesia.">National internet registries</Term> exist in a few countries. The APNIC region has seven, in Indonesia, China, India, Japan, South Korea, Taiwan, and Vietnam. Indonesia's is IDNIC, run by APJII.
+2. Five <Term means="Regional internet registry: one of five organizations that hand out addresses and AS numbers for a part of the world. APNIC is the one for Asia and the Pacific.">regional internet registries</Term> each serve a part of the world. [Networks of networks](/academy/intermediate/autonomous-systems#as-numbers-and-address-blocks) lists them. APNIC serves Asia and the Pacific.
+3. <Term means="National internet registry: an organization that hands out addresses and AS numbers in one country, under the policies of its RIR, such as IDNIC in Indonesia.">National internet registries</Term> exist in a few countries. The APNIC region has seven, in Indonesia, China, India, Japan, South Korea, Taiwan, and Vietnam. Indonesia's is IDNIC, run by APJII.
 4. **Providers** that have blocks hand smaller pieces to their customers.
 
 A network in Indonesia can get its own AS number and addresses from IDNIC or from APNIC. In most cases it chooses one of the two, and can't get number resources from both. A network in Singapore, which has no national registry, goes to APNIC.

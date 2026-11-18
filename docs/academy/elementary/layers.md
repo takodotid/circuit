@@ -25,7 +25,7 @@ Each layer uses only the layer under it, and does not care how that layer works.
 
 ## Wrapping on the way down
 
-Each layer adds a <Term means="A few bytes at the front of a message that say where it goes and how to handle it. Each layer adds its own.">header</Term> in front of whatever the layer over it hands down. The finished bundle, one header inside another, is like a letter in an envelope inside another envelope. This wrapping is called <Term means="Wrapping a message in one header per layer on the way down, so that each layer can read its own header on the way up.">encapsulation</Term>.
+Each layer adds a <Term means="A few bytes at the front of a message that say where it goes and how to handle it. Each layer adds its own.">header</Term> in front of whatever the layer over it hands down. The finished bundle, one header inside another, is like a letter in an envelope inside another envelope. This wrapping is called <Term means="Wrapping a message in one header per layer on the way down, so each layer can read its own header on the way up.">encapsulation</Term>.
 
 <TryIt title="Wrap a DNS question for the cable">
 
@@ -69,7 +69,7 @@ The router wrote a new frame header, with new hardware addresses. The IP address
 
 ## Layer 2, layer 3, and the OSI model
 
-People often say "layer 2" or "layer 3". The numbers come from an older model called <Term means="Open Systems Interconnection: a model from the 1980s that splits networking into seven layers. Its numbers are still used everywhere.">OSI</Term>, which has seven layers instead of five. Its bottom four are the same as in this lesson. Its top three are all part of the application layer here:
+People often say "layer 2" or "layer 3". The numbers come from an older model called <Term means="Open Systems Interconnection: a model from the 1980s that splits networking into seven layers. People still use its layer numbers.">OSI</Term>, which has seven layers instead of five. Its bottom four are the same as in this lesson. Its top three are all part of the application layer here:
 
 | This lesson | OSI                                      | What people say |
 | ----------- | ---------------------------------------- | --------------- |

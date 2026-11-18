@@ -5,13 +5,13 @@ description: How a provider reaches each customer, over fiber, copper, radio, or
 
 # Reaching the customer
 
-A provider joins each customer to its network with one link, from the provider's nearest building to the customer's. This link is the <Term means="The link from the provider's nearest point to the customer's building.">last mile</Term>, or the local loop, whatever its length. It is fiber, copper, radio, or a satellite.
+A provider joins each customer to its network with one link, from the provider's nearest building to the customer's. This link is the <Term means="The link between a provider's nearest point and the customer's building. Also called the local loop.">last mile</Term>, or the local loop, whatever its length. It is fiber, copper, radio, or a satellite.
 
 The choice sets two things the customer feels every day: how much the link carries each second, and how long each message takes to get there and back. A faster plan changes the first, never the second.
 
 ## Speed and delay are different things
 
-**Speed**, or bandwidth, is how many bits a link carries each second, such as 100 Mbit/s or 1 Gbit/s. **Delay**, or <Term means="The time a message takes to cross a link or a network, usually given as the round trip in milliseconds.">latency</Term>, is how long one bit takes to arrive. A wider road carries more cars, but each car still needs the same time to drive the same distance.
+**Speed**, or bandwidth, is how many bits a link carries each second, such as 100 Mbit/s or 1 Gbit/s. **Delay**, or <Term means="The time a message takes to cross a link or a network, usually counted there and back, in milliseconds.">latency</Term>, is how long one bit takes to arrive. A wider road carries more cars, but each car still needs the same time to drive the same distance.
 
 Delay comes mostly from distance. Light in fiber covers about 200 km each millisecond. So 1,000 km of fiber adds about 5 ms one way, and 10 ms there and back. Radio through the air is faster, at nearly the full speed of light. The equipment on the way adds a little, but over a long path most of the delay is distance.
 
@@ -19,13 +19,13 @@ Every link also has a second question: is it **shared**? Most links to homes are
 
 ## Fiber to the home with GPON
 
-Fiber all the way into a home is <Term means="Fiber to the home: an optical fiber all the way into the customer's home, instead of copper for the last part.">FTTH</Term>. A standard way to build it is <Term means="The common kind of fiber to the home, where one fiber from the provider is split between many homes; the OLT is the provider's end of it.">GPON</Term>, which has three parts:
+Fiber all the way into a home is <Term means="Fiber to the home: an optical fiber all the way into the customer's home.">FTTH</Term>. A standard way to build it is <Term means="Gigabit-capable passive optical network, the ITU-T G.984 standard. One fiber from the provider is split, with no power, between up to 64 or 128 homes, which share its capacity.">GPON</Term>, which has three parts:
 
 1. The OLT (optical line terminal), in the provider's building, sends light down one fiber.
-2. A <Term means="A small glass part that splits the light from one fiber into many. It needs no power.">splitter</Term>, in the street or the building, divides that light between 32 or 64 fibers, sometimes 128. It needs no power.
-3. An <Term means="The box at the customer's end of a fiber line, which turns light into a network port.">ONT</Term> in each home turns the light back into an Ethernet port.
+2. A <Term means="A small glass part that divides the light from one fiber into many. It needs no power, which is why the network is called passive.">splitter</Term>, in the street or the building, divides that light between 32 or 64 fibers, sometimes 128. It needs no power.
+3. An <Term means="Optical network terminal: the box where the fiber ends in the customer's home. It turns light into an Ethernet port, and is often in one case with the home router.">ONT</Term> in each home turns the light back into an Ethernet port.
 
-If your home internet comes in on a thin fiber cable to a small box, that box is an ONT. It is often in one case with the router. It belongs to the provider, so it is <Term means="Customer premises equipment: the provider's device at the customer's site, such as the ONT or a router.">CPE</Term>, customer premises equipment.
+If your home internet comes in on a thin fiber cable to a small box, that box is an ONT. It is often in one case with the router. It belongs to the provider, so it is <Term means="Customer premises equipment: the provider's equipment at the customer's site, such as an ONT or a router.">CPE</Term>, customer premises equipment.
 
 One GPON fiber carries about 2.5 Gbit/s toward the homes and 1.25 Gbit/s back. Every home on the splitter shares it, taking turns. A home can be up to about 20 km from the OLT. The newer XGS-PON carries 10 Gbit/s each way on the same fiber, beside GPON, so a provider can move homes over one at a time.
 
@@ -53,7 +53,7 @@ A business that needs a rate it can count on gets a fiber of its own. This <Term
 
 ## Copper: the old phone line
 
-Where no fiber has reached, the phone line still can. <Term means="Very high speed digital subscriber line 2: internet over a telephone copper pair, from a cabinet or exchange near the customer.">VDSL2</Term> sends internet over the same pair of copper wires as a telephone, from a cabinet in the street or from the phone exchange. Copper loses its signal quickly with length. VDSL2 reaches about 100 Mbit/s at 500 m from the cabinet, and about 50 Mbit/s at 1 km. A home far down the line gets much less than one next door.
+Where no fiber has reached, the phone line still can. <Term means="Very high speed digital subscriber line 2: internet over a telephone copper pair. It runs from a street cabinet or a telephone exchange near the customer.">VDSL2</Term> sends internet over the same pair of copper wires as a telephone, from a cabinet in the street or from the phone exchange. Copper loses its signal quickly with length. VDSL2 reaches about 100 Mbit/s at 500 m from the cabinet, and about 50 Mbit/s at 1 km. A home far down the line gets much less than one next door.
 
 ## Radio: fixed wireless
 
@@ -68,7 +68,7 @@ Some radios serve many customers from one tower. Those customers share it, the w
 
 Where nothing else reaches, such as an island, a ship, or a mining camp, a satellite can. There are two kinds, and they behave very differently.
 
-<Term means="Internet over a satellite dish, for places no cable reaches; geostationary links bring a long delay.">VSAT</Term> is internet over a dish that talks to a **geostationary** satellite, 35,786 km over the equator. At that height a satellite circles once a day, so it stays over the same spot and the dish never moves. But every message climbs 35,786 km and comes back down, and so does its reply. The distance alone makes the round trip over 480 ms, and measured round trips are around 600 ms or more. Calls feel awkward, and anything that waits for replies feels slow, whatever the plan's speed.
+<Term means="Very small aperture terminal: a satellite dish, usually 75 cm to 1.2 m across, linked to a geostationary satellite. A round trip over it takes more than half a second.">VSAT</Term> is internet over a dish that talks to a **geostationary** satellite, 35,786 km over the equator. At that height a satellite circles once a day, so it stays over the same spot and the dish never moves. But every message climbs 35,786 km and comes back down, and so does its reply. The distance alone makes the round trip over 480 ms, and measured round trips are around 600 ms or more. Calls feel awkward, and anything that waits for replies feels slow, whatever the plan's speed.
 
 A **low-orbit** satellite flies far lower. Starlink satellites fly about 550 km up. The trip up and down takes only a few milliseconds, and one study measured round trips of about 30 to 80 ms. Low satellites cross the sky fast, so the dish moves from one to the next about every 15 seconds in that study. The delay shifts each time. Users nearby share the capacity, and one study saw speeds several times higher off-peak than at the busiest hours.
 

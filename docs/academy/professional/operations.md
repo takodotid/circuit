@@ -43,7 +43,7 @@ Merge and then apply, or apply and then merge. Do both in the same window.
 
 ## Reviewing a change
 
-A reviewer isn't there to check the spelling of a VLAN name. `circuit validate` does that, and <Term means="Continuous integration: a service that runs checks, such as circuit validate, on every pull request and shows whether they passed.">CI</Term> can run it on every pull request. A reviewer reads the plan and asks what a computer can't:
+A reviewer isn't there to check the spelling of a VLAN name. `circuit validate` does that, and <Term means="Continuous integration: a service that runs checks, such as circuit validate, on every pull request. It shows whether they passed.">CI</Term> can run it on every pull request. A reviewer reads the plan and asks what a computer can't:
 
 - **Does validate pass?** If not, there is nothing to review yet.
 - **Does the plan do only what the request asks?** Look hardest at the lines that start with `-`, because something that exists now is going away.
@@ -86,7 +86,7 @@ That protects your access, not your customers. The way back for anything else is
 
 ## When it breaks
 
-Sooner or later something breaks anyway. A fiber is cut, a device fails, or a change does something nobody expected. Large networks keep a <Term means="Network operations center: the people who watch the network and answer when it breaks.">NOC</Term>, a team that watches the network around the clock. Smaller ones have an engineer <Term means="Being the person who must answer alerts and calls outside working hours, for a set week or shift.">on call</Term>. Either way, an outage goes better with a few rules agreed before it starts. The Google book on running large systems gives these:
+Sooner or later something breaks anyway. A fiber is cut, a device fails, or a change does something nobody expected. Large networks keep a <Term means="Network operations center: the people, often working in shifts, who watch the network and answer when it breaks.">NOC</Term>, a team that watches the network around the clock. Smaller ones have an engineer <Term means="Being the person who must answer alerts and calls outside working hours. People take turns by the week or by the shift.">on call</Term>. Either way, an outage goes better with a few rules agreed before it starts. The Google book on running large systems gives these:
 
 1. **Declare an incident early.** It is one if a second team must help, if customers can see it, or if an hour of focused work hasn't solved it. Closing a small one quickly costs little.
 2. **One person runs it**, the incident commander, who decides and hands out the work. The people fixing it are the only ones changing anything.
@@ -98,14 +98,14 @@ If a change went out just before the trouble began, undo it first, and ask why a
 
 A real outage shows how much the rest matters. On October 4, 2021, during routine maintenance, a command meant to assess the capacity of Facebook's backbone disconnected every link of it. A tool that audits such commands should have stopped it, but had a bug. Facebook's DNS servers stop announcing their routes when they can't reach the data centers. So they withdrew them, and nobody outside could find any of the company's services.
 
-The <Term means="A separate path to manage devices, such as a separate network or a console line, which keeps working when the main network does not.">out-of-band</Term> network was down too, so engineers had to travel to the data centers. They then brought services back in stages, because switching everything on at once could itself have overloaded power and systems. Every safeguard in this lesson appears in that story: a check before the change, a way in that doesn't depend on the network, and a careful way back.
+The <Term means="A separate path to manage devices, such as a separate network or a console line. It keeps working when the main network does not.">out-of-band</Term> network was down too, so engineers had to travel to the data centers. They then brought services back in stages, because switching everything on at once could itself have overloaded power and systems. Every safeguard in this lesson appears in that story: a check before the change, a way in that doesn't depend on the network, and a careful way back.
 
 ## Keeping the plant written down
 
 You can't run what you can't find. A provider keeps three records besides the configs:
 
-- **<Term means="Records of the physical plant (racks, power, cables), and of which addresses are used where.">DCIM</Term>** holds the racks, what is mounted in which unit, the power feeds, and every cable from end to end.
-- **<Term means="Records of the physical plant (racks, power, cables), and of which addresses are used where.">IPAM</Term>** holds every prefix and address, who has it, and what is free.
+- **<Term means="Data center infrastructure management: the record of racks, what is mounted where, power feeds, and every cable from one port to another.">DCIM</Term>** holds the racks, what is mounted in which unit, the power feeds, and every cable from end to end.
+- **<Term means="IP address management: the record of which prefixes and addresses are used where, and which are free.">IPAM</Term>** holds every prefix and address, who has it, and what is free.
 - **Capacity** says how full each port, link, and device is, from the monitoring in [Watching the network](/academy/professional/monitoring). Then an upgrade is ordered before a link fills, not after.
 
 Circuit already has part of this. The files know every device, port, cable (`link`), VLAN, and address. Studio and `circuit addresses` list every address in use, and what is free.

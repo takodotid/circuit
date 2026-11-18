@@ -18,7 +18,7 @@ On a small network, the DHCP server is usually the router, with one server for e
 | Gateway    | `192.168.20.1`            | Where to send everything else: the router's address in this VLAN |
 | DNS server | `192.168.20.1`            | Who turns names into addresses                                   |
 
-You could type these into every laptop, phone, and printer by hand, and some devices, such as servers, are still set up that way. But nobody types them into a phone that visits ten networks a week. And two people who type the same address by hand break each other's connection. So almost every network uses <Term means="How a device joining a network is given its address, gateway and DNS servers.">DHCP</Term> instead.
+You could type these into every laptop, phone, and printer by hand, and some devices, such as servers, are still set up that way. But nobody types them into a phone that visits ten networks a week. And two people who type the same address by hand break each other's connection. So almost every network uses <Term means="Dynamic Host Configuration Protocol: a device joining a network asks a server for an address, a gateway, and DNS servers, and the server gives them.">DHCP</Term> instead.
 
 Your home router has done this for you all along. When your phone joins the Wi-Fi at home, it gets all four from the home router in under a second. That is why [Opening a website](/academy/beginner/opening-a-website) could start with them already in place.
 
@@ -68,7 +68,7 @@ A short lease frees an address soon after its guest leaves. It costs nothing for
 
 ## The gateway, on a VLAN interface
 
-In [Trunks](/academy/elementary/trunks), the router reached every VLAN over one trunk port. It still needs an address in each VLAN, to be that VLAN's gateway. Since one port carries them all, the address cannot go on the port. It goes on a <Term means="An interface on a router or switch that sits on one VLAN instead of on a port. It gives the device an address in that VLAN.">VLAN interface</Term> instead: one for each VLAN, each with its own address.
+In [Trunks](/academy/elementary/trunks), the router reached every VLAN over one trunk port. It still needs an address in each VLAN, to be that VLAN's gateway. Since one port carries them all, the address cannot go on the port. It goes on a <Term means="An interface on a router or switch that sits on a VLAN instead of on a port. It gives the device an address in that VLAN.">VLAN interface</Term> instead: one for each VLAN, each with its own address.
 
 This is part of the router in Circuit's single-site example, which you build in the [last project](/academy/elementary/project-single-site) of this level:
 

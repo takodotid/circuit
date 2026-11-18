@@ -9,7 +9,7 @@ Internet products carry a customer's traffic to the rest of the internet. **Priv
 
 ## Choose by what you want to run
 
-The older, general word for all of these is a <Term means="A private circuit rented from a provider between two or more places, always on and kept for one customer.">leased line</Term>. Quotes still use it, sometimes for a line to the internet too. So ask what exactly is carried, and between which two points.
+The older, general word for all of these is a <Term means="A private circuit rented from a provider between two or more places, always on, and kept for one customer. Metro-E, IEPL, and IPLC are all kinds of leased line.">leased line</Term>. Quotes still use it, sometimes for a line to the internet too. So ask what exactly is carried, and between which two points.
 
 The lower the layer you buy, the more capacity you get, and the more you run yourself:
 
@@ -24,10 +24,10 @@ The lower the layer you buy, the more capacity you get, and the more you run you
 
 ## Ethernet across a city with Metro-E
 
-<Term means="Ethernet between sites within one city, carried by a provider.">Metro-E</Term> is Ethernet carried across a city by a provider. You plug a router into a port at each office, and the two behave as if a long cable joined them. The industry body MEF defined these services and their names. It is now called Mplify. The common one is the point-to-point line, which comes in two kinds:
+<Term means="Metro Ethernet: a provider's Ethernet service between sites in one city.">Metro-E</Term> is Ethernet carried across a city by a provider. You plug a router into a port at each office, and the two behave as if a long cable joined them. The industry body MEF defined these services and their names. It is now called Mplify. The common one is the point-to-point line, which comes in two kinds:
 
-- An <Term means="A provider carrying your Ethernet frames between two places, on a port of its own (EPL) or as one VLAN of several (EVPL).">EPL</Term>, Ethernet private line, takes the whole port. Every frame you send on it, tagged with any VLAN or not, arrives at the far end as it left. The provider never looks at your tags.
-- An <Term means="A provider carrying your Ethernet frames between two places, on a port of its own (EPL) or as one VLAN of several (EVPL).">EVPL</Term>, Ethernet virtual private line, is chosen by VLAN. One port can carry several EVPL circuits, each a VLAN that goes to a different place, such as VLAN 2010 to the branch and VLAN 2020 to the data center. You agree the VLAN numbers with the provider.
+- An <Term means="Ethernet private line: a point-to-point Ethernet circuit that takes the whole port. Everything sent on it, tagged or not, arrives at the far end as it was sent.">EPL</Term>, Ethernet private line, takes the whole port. Every frame you send on it, tagged with any VLAN or not, arrives at the far end as it left. The provider never looks at your tags.
+- An <Term means="Ethernet virtual private line: a point-to-point Ethernet circuit chosen by VLAN, so one port can carry several circuits to different places.">EVPL</Term>, Ethernet virtual private line, is chosen by VLAN. One port can carry several EVPL circuits, each a VLAN that goes to a different place, such as VLAN 2010 to the branch and VLAN 2020 to the data center. You agree the VLAN numbers with the provider.
 
 The same Ethernet services between cities are often sold as **L2 transport**, and they come as EPL or EVPL too.
 
@@ -51,7 +51,7 @@ Each circuit is a small network of two routers, usually a /30 or a /31. You rout
 
 ### Your VLANs inside theirs with QinQ
 
-An EPL carries your frames as they are, with their tags. A provider carries the EPL circuits of many customers across the same switches, and two customers may both use VLAN 20. So the provider can't use your tag to keep you apart. Instead, when your frame enters its network, the provider adds a tag of its own outside yours, and takes it off again at the far end. A frame with two tags, one inside the other, is called <Term means="Two VLAN tags on one frame: a provider's outer tag keeps customers apart, and the customer's own tag rides inside it. Also called 802.1ad.">QinQ</Term>, after 802.1Q in 802.1Q.
+An EPL carries your frames as they are, with their tags. A provider carries the EPL circuits of many customers across the same switches, and two customers may both use VLAN 20. So the provider can't use your tag to keep you apart. Instead, when your frame enters its network, the provider adds a tag of its own outside yours, and takes it off again at the far end. A frame with two tags, one inside the other, is called <Term means="Two VLAN tags on one frame, one inside the other. The provider's outer tag keeps customers apart, and the customer's own tag rides inside it untouched. The standard is IEEE 802.1ad.">QinQ</Term>, after 802.1Q in 802.1Q.
 
 - The **outer tag**, the service tag or S-tag, is the provider's. It says which customer, or which circuit, the frame is for.
 - The **inner tag**, the customer tag or C-tag, is yours. It is the ordinary 802.1Q tag from [Trunks](/academy/elementary/trunks), carried across untouched.
@@ -62,7 +62,7 @@ You don't write QinQ in your own files. At your port you send and receive ordina
 
 ## Routed for you with an IP VPN
 
-With an <Term means="A provider joining a company's sites into one private routed network.">IP VPN</Term>, the provider does the routing. The standard calls your router at each site the customer edge, and the provider's router the provider edge. Your router tells the provider's router which addresses are behind it, over BGP, OSPF, or static routes.
+With an <Term means="A provider joining a customer's sites into one private routed network. The customer's routers tell the provider their routes, and the provider routes between the sites.">IP VPN</Term>, the provider does the routing. The standard calls your router at each site the customer edge, and the provider's router the provider edge. Your router tells the provider's router which addresses are behind it, over BGP, OSPF, or static routes.
 
 The provider then carries packets between all your sites, from any site to any other. It keeps your routes apart from every other customer's, even if you both use the same private addresses. The standard for it is RFC 4364, often called MPLS L3VPN after the technology providers build it with. [Separate networks on one](/academy/professional/vrfs-and-overlays) shows how a provider keeps customers apart inside.
 
@@ -70,15 +70,15 @@ An IP VPN fits a company with many sites that must all reach each other, and tha
 
 ## Between countries with IPLC and IEPL
 
-An <Term means="Private circuits between countries: an IPLC is a dedicated line at a fixed capacity, an IEPL carries Ethernet.">IPLC</Term>, international private leased circuit, is a dedicated line between two sites in different countries. Its fixed capacity is reserved for the customer alone. It was first built on SONET and SDH, the older circuit technologies of telephone networks. It may be handed over on an interface that isn't Ethernet.
+An <Term means="International private leased circuit: a dedicated point-to-point circuit between two countries, at a fixed capacity kept for one customer.">IPLC</Term>, international private leased circuit, is a dedicated line between two sites in different countries. Its fixed capacity is reserved for the customer alone. It was first built on SONET and SDH, the older circuit technologies of telephone networks. It may be handed over on an interface that isn't Ethernet.
 
-An <Term means="Private circuits between countries: an IPLC is a dedicated line at a fixed capacity, an IEPL carries Ethernet.">IEPL</Term>, international Ethernet private line, is the same idea handed over as Ethernet, so it plugs into an ordinary router or switch port. Both are point to point. For many sites in many countries, an IP VPN usually fits better.
+An <Term means="International Ethernet private line: a dedicated point-to-point Ethernet line between two countries.">IEPL</Term>, international Ethernet private line, is the same idea handed over as Ethernet, so it plugs into an ordinary router or switch port. Both are point to point. For many sites in many countries, an IP VPN usually fits better.
 
 ## Light itself: dark fiber and wavelengths
 
-<Term means="Fiber rented with no equipment on it, which the customer lights with its own optics.">Dark fiber</Term> is a fiber already in the ground, rented with nothing on it. You put your own optics at both ends, and run it at whatever speed they support. When you need more, you change the optics. It is rented where spare fiber already runs. Most spare fiber is in cities and between data centers. It is often rented for a long term, under a contract called an <Term means="Indefeasible right of use: a long contract, often 20 to 30 years, that gives the right to use a fiber or capacity and can't be taken back.">IRU</Term>. The fiber is the provider's, and everything that lights it is yours, faults included.
+<Term means="A fiber already in the ground or on poles, rented with no equipment at either end. The customer lights it with its own optics.">Dark fiber</Term> is a fiber already in the ground, rented with nothing on it. You put your own optics at both ends, and run it at whatever speed they support. When you need more, you change the optics. It is rented where spare fiber already runs. Most spare fiber is in cities and between data centers. It is often rented for a long term, under a contract called an <Term means="Indefeasible right of use: a long contract that gives the right to use a fiber, or capacity on it, and cannot be taken back.">IRU</Term>. The fiber is the provider's, and everything that lights it is yours, faults included.
 
-One fiber can carry many links at once, each on its own wavelength, its own color of light. This is <Term means="Many links on one fiber, each on its own wavelength; CWDM spaces a few widely for cheap optics across a city, DWDM packs many closely for long distances.">WDM</Term>, wavelength division multiplexing. It comes in two common kinds:
+One fiber can carry many links at once, each on its own wavelength, its own color of light. This is <Term means="Wavelength division multiplexing: sending several links down one fiber at once, each on its own wavelength of light.">WDM</Term>, wavelength division multiplexing. It comes in two common kinds:
 
 - **CWDM**, coarse WDM, spaces its colors widely, with up to 18 channels 20 nanometers apart, from 1,270 to 1,610 nanometers (ITU-T G.694.2). The wide gaps let the optics be simple and cheap. But the light can't be amplified on the way, so CWDM suits distances across a city, a few tens of kilometers.
 - **DWDM**, dense WDM, packs its colors tightly, with 40 channels 100 GHz apart, or 80 channels 50 GHz apart, on the ITU-T G.694.1 grid. They sit in the band that optical amplifiers work in. So a DWDM line can run between cities and across countries, with an amplifier every 80 to 100 km.
@@ -87,7 +87,7 @@ So CWDM gets more out of your own dark fiber across a city, and long fiber route
 
 ## Over the internet with SD-WAN
 
-<Term means="Software that joins a company's sites over ordinary internet links, choosing a path for each kind of traffic.">SD-WAN</Term> joins sites with tunnels over the links they already have, such as broadband, DIA, or an IP VPN. The MEF defines it as a service that encrypts traffic between its edges, and sorts that traffic into flows by app. It then sends each flow over the link its policy picks, such as video calls over the steadiest link and backups over the cheapest. The company runs it from one place, or a provider sells it as a service.
+<Term means="Software-defined WAN: encrypted tunnels between a company's sites over the links it already has, mostly internet. Each kind of traffic is sent the best way, and everything is managed from one place.">SD-WAN</Term> joins sites with tunnels over the links they already have, such as broadband, DIA, or an IP VPN. The MEF defines it as a service that encrypts traffic between its edges, and sorts that traffic into flows by app. It then sends each flow over the link its policy picks, such as video calls over the steadiest link and backups over the cheapest. The company runs it from one place, or a provider sells it as a service.
 
 It costs far less than a private circuit to every site, and a site with two internet links survives one failing. But nothing under it is committed: the delay and the loss are whatever the internet gives that day. So it suits small sites well. A site that needs a promise keeps a private circuit or an IP VPN, which SD-WAN can then use as one of its links.
 

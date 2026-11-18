@@ -13,7 +13,7 @@ Both ends of a trunk must carry the same VLANs. If they do not, frames of the mi
 
 In [VLANs](/academy/elementary/vlans), the router needed one cable for each VLAN. Two switches on two floors have the same problem. If both floors have staff, guests, and cameras, one cable per VLAN takes three cables, and every new VLAN takes another.
 
-A <Term means="A port that carries several VLANs, each frame tagged with its VLAN number.">trunk</Term> carries them all on one. Here is what happens to a frame from a camera on the first floor to a recorder on the second:
+A <Term means="A port that carries several VLANs at once, with a tag on each frame that says which VLAN it is in. Trunks join switches to each other, and to routers.">trunk</Term> carries them all on one. Here is what happens to a frame from a camera on the first floor to a recorder on the second:
 
 1. The camera sends an ordinary frame to its access port, in VLAN 40. It knows nothing about VLANs.
 2. The first switch sends the frame out of its trunk port, and adds a tag that says "VLAN 40" as it goes.
@@ -26,7 +26,7 @@ The devices at the ends never see a tag. Only the trunk does.
 
 Network people describe a frame by whether it has that tag:
 
-- An <Term means="A frame with a VLAN tag in it, as on a trunk; a plain frame without one, as devices send and access ports send out.">untagged</Term> frame is a plain one, with no tag. Laptops, printers, and cameras send and receive only these, and an access port sends only these out.
+- An <Term means="A plain frame with no VLAN tag in it. Laptops, printers, and other devices send and receive untagged frames, and an access port sends them out.">untagged</Term> frame is a plain one, with no tag. Laptops, printers, and cameras send and receive only these, and an access port sends only these out.
 - A tagged frame carries a tag with its VLAN number. A trunk carries these, so the far end can tell the VLANs apart.
 
 So the same two kinds of port are often described by what goes over them:
@@ -39,7 +39,7 @@ So the same two kinds of port are often described by what goes over them:
 
 Vendors use both ways of speaking. Some ask whether a port is access or trunk. Others, such as a MikroTik router's bridge, ask VLAN by VLAN which ports carry it tagged and which carry it untagged. Both describe the same thing, and Circuit writes it in the form each device expects.
 
-The last row is for a device that sends some frames untagged on a trunk, such as a wireless access point. Its own management traffic comes untagged, and the Wi-Fi networks it offers arrive tagged. The <Term means="On a trunk, the one VLAN whose frames cross it untagged.">native VLAN</Term> is the VLAN those untagged frames go into. Leave it out unless the other end needs it. When you use it, both ends must agree on it.
+The last row is for a device that sends some frames untagged on a trunk, such as a wireless access point. Its own management traffic comes untagged, and the Wi-Fi networks it offers arrive tagged. The <Term means="On a trunk, the one VLAN whose frames cross it untagged. Every other VLAN on the trunk is tagged.">native VLAN</Term> is the VLAN those untagged frames go into. Leave it out unless the other end needs it. When you use it, both ends must agree on it.
 
 <Quiz
   question="A trunk carries VLANs 20 and 30 tagged, with VLAN 10 as its native VLAN. A frame arrives on it with no tag. Which VLAN is it in?"
@@ -69,7 +69,7 @@ When one end stops carrying a VLAN, nothing tells the camera. Its frames simply 
 
 ## The tag
 
-The tag is defined by a standard called <Term means="The standard that adds a VLAN tag to a frame. People often say dot1q, after its name, IEEE 802.1Q.">802.1Q</Term>. It is 4 bytes, put into the frame header right after the hardware address the frame is from. The VLAN ID is in its last 12 bits.
+The tag is defined by a standard called <Term means="The IEEE standard that adds a VLAN tag to an Ethernet frame. People often call it dot1q.">802.1Q</Term>. It is 4 bytes, put into the frame header right after the hardware address the frame is from. The VLAN ID is in its last 12 bits.
 
 Twelve bits can count from 0 to 4095, as you saw in [Counting like a computer](/academy/beginner/binary). The standard keeps two of those values back, which is why a VLAN ID is 1 to 4094. Try some numbers, including 0, 4095, and 5000:
 

@@ -5,7 +5,7 @@ description: The internet is tens of thousands of autonomous systems. Join one t
 
 # Networks of networks
 
-The internet is tens of thousands of separate networks, each run by one organization with its own rules. They are internet providers, content networks, universities, and companies. Each of them is an <Term means="A network with its own routing policy on the internet, and the number it is known by.">autonomous system</Term>, or AS. Each AS has its own number and its own blocks of addresses.
+The internet is tens of thousands of separate networks, each run by one organization with its own rules. They are internet providers, content networks, universities, and companies. Each of them is an <Term means="A network run by one organization. It has its own routing policy and its own AS number.">autonomous system</Term>, or AS. Each AS has its own number and its own blocks of addresses.
 
 ASes connect in two ways. With **transit**, a customer pays a provider to reach the whole internet. With **peering**, two networks swap traffic between their own customers, usually without paying each other. Many networks meet at **internet exchanges**, where one shared network lets a network peer with hundreds of others.
 
@@ -79,9 +79,9 @@ With only a peering link to Cogent, you reach Cogent and its customer, Netflix. 
 
 ## Internet exchanges
 
-Peering needs a cable between two networks. A separate cable to every network you peer with doesn't scale. So networks meet at an <Term means="A place where many networks connect to each other on one shared network.">internet exchange</Term>, an IX. The exchange runs one shared network, the peering LAN, often in a data center where many networks already have routers. Each member plugs one port into it and gets an address on it. Then it can reach every other member over that one port.
+Peering needs a cable between two networks. A separate cable to every network you peer with doesn't scale. So networks meet at an <Term means="A place where many networks connect to one shared network, so each can peer with any other over a single port.">internet exchange</Term>, an IX. The exchange runs one shared network, the peering LAN, often in a data center where many networks already have routers. Each member plugs one port into it and gets an address on it. Then it can reach every other member over that one port.
 
-Two members still need a <Term means="A connection two routers keep open to swap routes. The next lesson shows what goes over it.">session</Term> between their routers to tell each other their routes. Setting one up with every member, one by one, adds up fast. So most exchanges run a <Term means="A server at an exchange that takes the routes of every member and passes them on to every other member, so each member needs one session instead of hundreds.">route server</Term>. Each member keeps one session with it, and it passes every member's routes on to every other member.
+Two members still need a <Term means="A connection two routers keep open to exchange routes, such as a BGP session.">session</Term> between their routers to tell each other their routes. Setting one up with every member, one by one, adds up fast. So most exchanges run a <Term means="A server at an internet exchange that takes the routes of every member and passes them on to every other member. Each member then needs one session instead of hundreds.">route server</Term>. Each member keeps one session with it, and it passes every member's routes on to every other member.
 
 <TryIt title="Count the sessions at an exchange">
 

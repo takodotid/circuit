@@ -16,13 +16,13 @@ The answers decide whether it forwards in a chip or on a CPU, and how big a tabl
 
 ## Two ways to forward a packet
 
-Every router has a CPU that runs its software, such as the routing protocols, the logins, and the configuration. That part is called the <Term means="The part of a router that decides: it runs BGP and OSPF, builds the routing table, and takes logins. It runs on the CPU.">control plane</Term>. Moving each packet from one port to another is the <Term means="The part of a router that moves packets from port to port, by looking up each one in the forwarding table. It runs on the CPU or in a chip.">data plane</Term>, and a device does it in one of two places.
+Every router has a CPU that runs its software, such as the routing protocols, the logins, and the configuration. That part is called the <Term means="The part of a router that decides: it runs BGP and OSPF, builds the routing table, and handles logins. It runs on the CPU.">control plane</Term>. Moving each packet from one port to another is the <Term means="The part of a router that moves packets from port to port, by looking up each one in the forwarding table. It runs on the CPU or in a chip.">data plane</Term>, and a device does it in one of two places.
 
 **On the CPU.** Software handles each packet, so it can do anything to it. It can track connections for a stateful firewall or NAT, rewrite the packet, or count it. The routes it looks up live in the router's main memory, so the table can be very large. The cost is speed. The CPU does work for every packet, so its limit is in packets per second, and that limit drops as you ask more of each packet.
 
-**In a chip.** A switch or router can have a chip built only to forward packets, an <Term means="Application-specific integrated circuit: a chip built for one job. In a switch or router, the job is looking up and forwarding packets at the full speed of its ports.">ASIC</Term>, often called the switching chip. It looks up and forwards packets at the full speed of all its ports at once, which is called <Term means="Forwarding as fast as the ports can carry, even with the smallest packets on every port at once. Also called line rate.">wire speed</Term>. The chip can only do what it was built for. Its table of routes lives in a small, fast memory of fixed size, often a <Term means="Ternary content-addressable memory: fast memory in a chip that finds the matching entry for an address in one step. It is costly, so there is little of it.">TCAM</Term>.
+**In a chip.** A switch or router can have a chip built only to forward packets, an <Term means="A chip built for one job. In a switch or router, the job is to look up and forward packets at the full speed of its ports.">ASIC</Term>, often called the switching chip. It looks up and forwards packets at the full speed of all its ports at once, which is called <Term means="Forwarding as fast as the ports can carry, even with the smallest packets on every port at once. Also called line rate.">wire speed</Term>. The chip can only do what it was built for. Its table of routes lives in a small, fast memory of fixed size, often a <Term means="Ternary content-addressable memory: fast memory in a chip that finds the matching entry for an address in one step. It is costly, so a chip has little of it.">TCAM</Term>.
 
-The table a router builds from everything it has learned is the <Term means="Routing information base: every route the router knows, from BGP, OSPF, and static routes, with all their attributes. It lives in the router's main memory.">RIB</Term>. The table the data plane looks packets up in holds only the best route for each prefix, and is the <Term means="Forwarding information base: the best route for each prefix, copied from the RIB to wherever packets are forwarded, the chip or the CPU.">FIB</Term>. On a router that forwards in a chip, the FIB is copied into the chip, and the chip's memory is what limits it.
+The table a router builds from everything it has learned is the <Term means="Routing information base: every route the router knows, from BGP, OSPF, and static routes, with all their attributes. It is kept in the router's main memory.">RIB</Term>. The table the data plane looks packets up in holds only the best route for each prefix, and is the <Term means="Forwarding information base: the best route for each prefix, copied from the RIB to the chip or CPU that forwards packets.">FIB</Term>. On a router that forwards in a chip, the FIB is copied into the chip, and the chip's memory is what limits it.
 
 Many devices have both. The CCR2216, the router in Circuit's examples, has a CPU and a switching chip. Its maker's documentation says three things:
 
@@ -50,7 +50,7 @@ This router forwards in its chip, but sends traffic through the exchange interfa
 
 ## How many routes it must hold
 
-An edge router that takes the <Term means="Every route on the internet, as a transit provider sends it: a route to every prefix that anyone announces.">full table</Term> from a transit provider holds a route to every prefix on the internet. At the start of 2026 that was about 1,050,000 IPv4 routes and about 242,000 IPv6 routes, and both grow every year. A router that holds the full table needs no default route. The part of the internet where routers work that way is called the <Term means="Default-free zone: the routers of the internet that hold a route to every prefix and need no default route.">default-free zone</Term>.
+An edge router that takes the <Term means="Every route on the internet, as a transit provider sends it: one route for every prefix that anyone announces.">full table</Term> from a transit provider holds a route to every prefix on the internet. At the start of 2026 that was about 1,050,000 IPv4 routes and about 242,000 IPv6 routes, and both grow every year. A router that holds the full table needs no default route. The part of the internet where routers work that way is called the <Term means="The routers of the internet that hold a route to every prefix, so they need no default route. DFZ for short.">default-free zone</Term>.
 
 In a CPU's main memory, the full table isn't what limits a router. In a chip, it is. In August 2014, the IPv4 table passed 512,000 routes. Some switches and routers in wide use had room for 512,000 IPv4 routes in their chip by default. On those, the CPU forwarded the routes past the limit. It did so slowly, under a heavy load. This went on until the chip's memory was divided differently and the device restarted. The fix took space from IPv6, because the chip itself couldn't grow.
 
@@ -123,7 +123,7 @@ sites/pop-1/edge-01.ts:26: edge-01: interfaces.ethernet.25g-13: CCR2216-1G-12XS-
 
 ## Optics: the plug and the fiber
 
-A fast port on a switch or router is usually an empty cage. You put an <Term means="A module that slides into a cage on a switch or router and turns its signal into light on a fiber, and back.">optic</Term> into it, and the optic sets the kind of fiber and the distance. The cage's shape sets which optics fit. There are two families, <Term means="The families of modules and the cages they fit: SFP 1G, SFP+ 10G and SFP28 25G are one size; QSFP+ 40G and QSFP28 100G are wider.">SFP</Term> and the wider <Term means="The families of modules and the cages they fit: SFP 1G, SFP+ 10G and SFP28 25G are one size; QSFP+ 40G and QSFP28 100G are wider.">QSFP</Term>:
+A fast port on a switch or router is usually an empty cage. You put an <Term means="A small module that slides into a cage on a switch or router. It turns the electrical signal into light on a fiber, and back. Also called a transceiver.">optic</Term> into it, and the optic sets the kind of fiber and the distance. The cage's shape sets which optics fit. There are two families, <Term means="Small form-factor pluggable: the family of small cages and modules for 1 to 25 Gbit/s. SFP carries 1 Gbit/s, SFP+ 10 Gbit/s, and SFP28 25 Gbit/s, and all three are the same size.">SFP</Term> and the wider <Term means="Quad small form-factor pluggable: a wider family of cages and modules than SFP, with four lanes. QSFP+ carries 40 Gbit/s, and QSFP28 carries 100 Gbit/s.">QSFP</Term>:
 
 | Cage   | Speed | Lanes | Also takes |
 | ------ | ----- | ----- | ---------- |
@@ -137,8 +137,8 @@ SFP, SFP+, and SFP28 are the same size, so a 25G cage takes a 10G optic, which t
 
 Fiber comes in two kinds:
 
-- <Term means="Fiber with a wide core, 50 micrometers in OM3 and OM4, that carries light along many paths at once. The paths spread a pulse out, so it reaches only short distances, but the optics are simpler.">Multimode</Term> fiber, OM3 or OM4, is for short runs inside a room or a building.
-- <Term means="Fiber with a narrow core, about 9 micrometers in OS2, that carries light along one path. A pulse keeps its shape over many kilometers.">Single-mode</Term> fiber, OS2, reaches kilometers, and runs between buildings and cities.
+- <Term means="Fiber with a wide core: 50 micrometers across in OM3 and OM4. Light takes many paths through it and spreads each pulse out, so it reaches only a few hundred meters. Its optics cost less.">Multimode</Term> fiber, OM3 or OM4, is for short runs inside a room or a building.
+- <Term means="Fiber with a narrow core, about 9 micrometers across in OS2. Light takes one path through it, so a pulse keeps its shape over many kilometers.">Single-mode</Term> fiber, OS2, reaches kilometers, and runs between buildings and cities.
 
 An optic is made for one kind of fiber, and its name says which. **SR**, short range, is for multimode. **LR**, long reach, and **ER**, extended reach, are for single mode. A 4 at the end, as in SR4, means four lanes.
 
@@ -152,7 +152,7 @@ An optic is made for one kind of fiber, and its name says which. **SR**, short r
 | 40GBASE-LR4, 100GBASE-LR4 | OS2      | 10 km                           |
 | 100GBASE-ER4              | OS2      | 40 km                           |
 
-The SR4 optics send on eight fibers, four each way, through an MPO connector, one plug that holds them all. The other optics in the table use one pair of fibers. For a few meters inside one rack, a <Term means="Direct attach cable: a short copper cable with a module built onto each end, for a link inside one rack.">DAC</Term> replaces two optics and the fiber. A passive one for SFP+ reaches up to about 7 meters.
+The SR4 optics send on eight fibers, four each way, through an MPO connector, one plug that holds them all. The other optics in the table use one pair of fibers. For a few meters inside one rack, a <Term means="Direct attach cable: a short copper cable with a module built onto each end. It plugs into two cages in place of two optics and a fiber, for a link inside one rack.">DAC</Term> replaces two optics and the fiber. A passive one for SFP+ reaches up to about 7 meters.
 
 <TryIt title="Light four links of the two-site provider">
 

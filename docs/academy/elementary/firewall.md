@@ -57,7 +57,7 @@ The guest phone reached the printer because "Guests to anywhere" matched first. 
 
 A connection goes both ways. The laptop's request leaves through the router, and the website's answer comes back in from the internet. To a firewall, that answer looks like any other packet from outside.
 
-The router can still tell them apart, because it remembers every connection it has let through. This memory is called <Term means="The router’s list of the connections passing through it, so it can tell an answer from a packet that starts something new.">connection tracking</Term>. On many routers, the [translation table](/academy/elementary/nat) of NAT is kept in it too. It gives each packet a state:
+The router can still tell them apart, because it remembers every connection it has let through. This memory is called <Term means="A router keeping a list of the connections passing through it, so it can tell a reply from a packet that starts a new connection. The list is called the connection table.">connection tracking</Term>. On many routers, the [translation table](/academy/elementary/nat) of NAT is kept in it too. It gives each packet a state:
 
 - **new**: the packet starts a connection.
 - **established**: it belongs to a connection the router has already let through, such as the website's answer.
@@ -84,7 +84,7 @@ The second fails safe. A list of what is allowed is also short and easy to check
 
 ## To the router, or through it
 
-A router does not check every packet against one list. It has separate lists, called <Term means="A list of firewall rules with its own default. A packet is checked against one chain, picked by where the packet is going.">chains</Term>:
+A router does not check every packet against one list. It has separate lists, called <Term means="A list of firewall rules with its own default action. A packet is checked against one chain, chosen by where the packet is going.">chains</Term>:
 
 - **input**: packets for the router itself, such as an SSH login to it, or a DNS question it answers.
 - **forward**: packets passing through it, from one network to another, such as the laptop's request to a website.

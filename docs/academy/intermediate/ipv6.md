@@ -13,7 +13,7 @@ There are so many IPv6 addresses that every device can have its own public one. 
 
 IPv4 has 2<sup>32</sup> addresses, about 4.3 billion. That is fewer than the devices online today, so homes and offices share one public address through [NAT](/academy/elementary/nat). IPv6 has 2<sup>128</sup>, a number with 39 digits.
 
-The two run side by side. A router interface usually has an IPv4 address and an IPv6 address, which is called <Term means="Running IPv4 and IPv6 together on the same network and devices. A device uses IPv6 when the other end has it, and IPv4 otherwise.">dual stack</Term>. A device uses IPv6 to reach anything that has it.
+The two run side by side. A router interface usually has an IPv4 address and an IPv6 address, which is called <Term means="Running IPv4 and IPv6 side by side on the same network and devices. A device uses IPv6 when the other end has it, and IPv4 otherwise.">dual stack</Term>. A device uses IPv6 to reach anything that has it.
 
 ## Hexadecimal
 
@@ -38,7 +38,7 @@ Most addresses have long runs of zeros, so nobody writes them in full. Shorten a
 3. If two runs are equally long, shorten the first. A single `0` group stays `0`.
 4. Write the letters in lowercase.
 
-Every device reads an address with at most one `::`, whether it is written in full, half shortened, or in capitals. The four rules come from <Term means="The standard that gives every IPv6 address exactly one recommended way to be written.">RFC 5952</Term>. They give each address one standard short form, so the same address always looks the same in a log or a search.
+Every device reads an address with at most one `::`, whether it is written in full, half shortened, or in capitals. The four rules come from <Term means="The standard that gives every IPv6 address one recommended way to be written.">RFC 5952</Term>. They give each address one standard short form, so the same address always looks the same in a log or a search.
 
 <TryIt title="Shorten and expand addresses">
 
@@ -93,7 +93,7 @@ Try a number that is too big for a /56, or give two VLANs the same one.
 An IPv6 device has more than one address. It usually has at least these:
 
 - A **link-local address** in `fe80::/10`. Every interface makes one by itself as soon as IPv6 is on. It works only on that one link, because routers never pass it on. Devices use it to talk to their neighbors, and a router sends its announcements from it.
-- A **global address** in the network's /64. The router sends <Term means="Messages a router sends on a network to say which /64 it is and that it is the way out. Devices use them to make their own address and find their gateway.">router advertisements</Term>, and from them each device makes its own address and takes the router as its gateway. This is called <Term means="Stateless address autoconfiguration: a device builds its own global address from the /64 a router advertises, with no server handing it out.">SLAAC</Term>, and it is why a LAN must be a /64. A DHCP server for IPv6 can hand out addresses instead.
+- A **global address** in the network's /64. The router sends <Term means="A message a router sends on a network to say which /64 prefix the network uses, and that the router is a way out. Devices use it to make their own address and find their gateway.">router advertisements</Term>, and from them each device makes its own address and takes the router as its gateway. This is called <Term means="Stateless address autoconfiguration: a device makes its own address from the /64 a router advertises, with no server to hand it out.">SLAAC</Term>, and it is why a LAN must be a /64. A DHCP server for IPv6 can hand out addresses instead.
 - Often one or more **temporary addresses**. The device makes them and changes them from time to time, so the sites it visits can't follow it by its address.
 
 The device also answers to `::1`, which always means "this device".

@@ -12,7 +12,7 @@ A network bigger than one room is laid out in layers, and every device in it has
 - **Aggregation** gathers many access switches together.
 - **Access** is where servers and desks plug in.
 
-In a data center, a **leaf-spine** <Term means="The switches of a data center or an exchange, and the links between them, that carry traffic from any port to any other.">fabric</Term> of top-of-rack switches often takes the place of the access and aggregation layers.
+In a data center, a **leaf-spine** <Term means="The switches of a data center or an exchange, and the links between them, built to work as one network.">fabric</Term> of top-of-rack switches often takes the place of the access and aggregation layers.
 
 When every device has a role, its name can say the role and the place, such as `edge-a1`, the first edge router at site A. Anyone who reads that name in a log, a graph, or a Circuit file knows where to look.
 
@@ -36,13 +36,13 @@ Roles fix that, because each layer has one job:
 | Aggregation | Distribution                  | Gathers many access switches, and often routes between their VLANs   | The core over it, and access switches under it          |
 | Access      | Top of rack, in a data center | Where hosts plug in                                                  | Servers, desks, access points                           |
 
-The <Term means="The router where your network meets other networks, such as transit providers, exchanges, and peers. Also called a border router.">edge router</Term> faces outward, and every lesson of Intermediate was about it. Whether a network calls it edge or border, it keeps the word for that one role.
+The <Term means="The router where your network meets other networks: transit providers, exchanges, and peers. Also called a border router.">edge router</Term> faces outward, and every lesson of Intermediate was about it. Whether a network calls it edge or border, it keeps the word for that one role.
 
-**Core** means two things, and a provider meets both. Inside one site, it is the middle switch, or pair of switches, that the rest of the site hangs from. Across a whole provider network, it is the backbone. This is the routers and long links that join the provider's <Term means="Point of presence: a place where a network has equipment and can hand over a connection.">points of presence</Term> to each other, with no customer plugged into them. The standard for provider VPNs calls those **P routers**. It calls the routers that customers plug into **PE routers**, for provider edge.
+**Core** means two things, and a provider meets both. Inside one site, it is the middle switch, or pair of switches, that the rest of the site hangs from. Across a whole provider network, it is the backbone. This is the routers and long links that join the provider's <Term means="Point of presence: a place, usually a rack or a room in a data center, where a network has equipment and others connect to it.">points of presence</Term> to each other, with no customer plugged into them. The standard for provider VPNs calls those **P routers**. It calls the routers that customers plug into **PE routers**, for provider edge.
 
 The **aggregation** layer exists because a core switch has only so many ports. When a site has dozens of access switches, they join aggregation switches first, and only those join the core. A small site has nothing to aggregate, so one pair of switches does both jobs. That is called a <Term means="A design in which the core and the aggregation layer are the same switches, because the site is too small to need both.">collapsed core</Term>.
 
-**Access** is the bottom layer, where hosts plug in. In a data center the access switch sits at the top of each rack, so it is called a <Term means="The switch in each data center rack, and the layout that joins every one of them to every spine switch above it.">top-of-rack switch</Term>, or ToR.
+**Access** is the bottom layer, where hosts plug in. In a data center the access switch sits at the top of each rack, so it is called a <Term means="A switch at the top of a rack of servers. Every server in the rack is cabled to it, and it has a few uplinks to the next layer. ToR for short.">top-of-rack switch</Term>, or ToR.
 
 <TryIt title="Give each device of a provider its role">
 
@@ -66,7 +66,7 @@ The middle switches of both sites take two answers. Site A has a pair in the mid
 
 ## Names that say the role and the place
 
-A device's name shows up everywhere. You see it in the prompt when you log in, in every log line it sends, and in the graphs of your monitoring. The devices around it see it too, because <Term means="Link Layer Discovery Protocol: each device tells the devices on its cables its own name and the port the cable is on.">LLDP</Term> tells each neighbor the device's name. A name that says the role and the place answers the first question of every incident, "where is this?", before anyone opens a drawing.
+A device's name shows up everywhere. You see it in the prompt when you log in, in every log line it sends, and in the graphs of your monitoring. The devices around it see it too, because <Term means="Link Layer Discovery Protocol: each device tells the device at the other end of each cable its own name and the port the cable is on.">LLDP</Term> tells each neighbor the device's name. A name that says the role and the place answers the first question of every incident, "where is this?", before anyone opens a drawing.
 
 The network in the widget uses one rule for all ten devices: **role, a hyphen, the site's letter, and a number**.
 
@@ -99,7 +99,7 @@ The layers so far form a tree. Each access switch has uplinks to its aggregation
 - Traffic between two racks under different aggregation switches has to climb to the core and back down.
 - To add racks, the switches near the top need more ports, until bigger switches must replace them.
 
-Large data centers use a <Term means="The switch in each data center rack, and the layout that joins every one of them to every spine switch above it.">leaf-spine</Term> design instead. The leaves are the top-of-rack switches, and every leaf has one link to every spine. No leaf is joined to another leaf, and no spine to another spine.
+Large data centers use a <Term means="A network of switches in two layers. Every switch in the lower layer, a leaf, has a link to every switch in the upper layer, a spine. Also called a Clos network.">leaf-spine</Term> design instead. The leaves are the top-of-rack switches, and every leaf has one link to every spine. No leaf is joined to another leaf, and no spine to another spine.
 
 <TryIt title="Build a fabric, send flows, and fail a spine">
 
@@ -110,7 +110,7 @@ Large data centers use a <Term means="The switch in each data center rack, and t
 What you saw follows from the cabling:
 
 - **Every pair of racks is three switches apart**: leaf, spine, leaf. No path is longer than another.
-- **There are as many equal paths between two racks as there are spines.** Each leaf shares <Term means="The packets of one conversation, such as one download: same source and destination addresses and ports.">flows</Term> over all of them with <Term means="Equal-cost multipath: when several paths cost the same, the router sends traffic over all of them, so it is shared.">ECMP</Term>. A router picks the path for a packet from the fields that tell its flow apart, such as its addresses. So the packets of one flow keep to one spine and arrive in order, while different flows spread out.
+- **There are as many equal paths between two racks as there are spines.** Each leaf shares <Term means="The packets of one conversation, such as one download: the same source and destination addresses, ports, and protocol.">flows</Term> over all of them with <Term means="Equal-cost multipath: when several paths cost the same, the router shares traffic across all of them.">ECMP</Term>. A router picks the path for a packet from the fields that tell its flow apart, such as its addresses. So the packets of one flow keep to one spine and arrive in order, while different flows spread out.
 - **A failed spine takes away a share of the capacity, not the connection.** With four spines, losing one leaves three quarters. The leaves stop using it, and nothing else has to change.
 - **The fabric grows sideways.** A new rack is one more leaf, and one cable to each spine. Each spine needs one port per leaf, so the ports on a spine set how many racks the fabric can hold. More capacity between racks means one more spine.
 

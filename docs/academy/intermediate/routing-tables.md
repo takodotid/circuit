@@ -18,7 +18,7 @@ Here are two routes from the table of a small office router:
 | `10.0.10.0/24` | out of the `office` VLAN, to the device | The router has the address 10.0.10.1/24 on that VLAN |
 | `0.0.0.0/0`    | the router at 203.0.113.1               | Someone wrote it by hand                             |
 
-The address a route sends to is its <Term means="The next router on the way to a destination. It must be on one of this router's own networks, so the router can hand the packet straight to it.">next hop</Term>. The next hop doesn't know the whole way either. It has its own table and makes its own choice, so a packet travels hop by hop.
+The address a route sends to is its <Term means="The next router on a packet's way to its destination: the router that this router hands the packet to.">next hop</Term>. It must be on one of the router's own networks, so the router can hand the packet straight to it. The next hop doesn't know the whole way either. It has its own table and makes its own choice, so a packet travels hop by hop.
 
 Routes come from three places:
 
@@ -71,7 +71,7 @@ The widget lists the longest prefix first, but the order of a routing table deci
 
 ### The same prefix twice
 
-When two routes have exactly the same prefix, the length can't decide. The router then compares their <Term means="A preference number between routes to the same prefix. Lower wins. Each vendor has its own defaults.">distance</Term>, and the lower one wins. A connected route always beats a static one.
+When two routes have exactly the same prefix, the length can't decide. The router then compares their <Term means="A number that ranks two routes to exactly the same prefix. Lower wins. Each vendor gives each source of routes, such as static routes or OSPF, its own default.">distance</Term>, and the lower one wins. A connected route always beats a static one.
 
 A backup internet line is often a second default route with a higher distance. The router uses it only when the first route is gone, for example because its link went down.
 
@@ -87,7 +87,7 @@ Say your internet provider gives you the block `198.51.100.0/24`, and so far you
 
 </TryIt>
 
-The packet only stops when its <Term means="A counter on a packet that each router lowers by one, so a lost packet cannot loop forever. DNS uses the word too, for how long an answer may be remembered.">TTL</Term> runs out. Every trip crosses your link to the provider, which you pay for. With the blackhole route, your router drops the packet when it first arrives.
+The packet only stops when its <Term means="Time to live: a counter in every IP packet that each router lowers by one. At zero the packet is dropped, so it cannot loop forever.">TTL</Term> runs out. Every trip crosses your link to the provider, which you pay for. With the blackhole route, your router drops the packet when it first arrives.
 
 The office server still gets its packets, because `198.51.100.0/26` is longer than `198.51.100.0/24`. The blackhole catches only the addresses that no more specific route holds. That is the longest match working for you.
 

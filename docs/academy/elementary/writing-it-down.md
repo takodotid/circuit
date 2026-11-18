@@ -14,13 +14,13 @@ Circuit checks the file, shows you a plan of exactly what would change on the de
 Without a tool like Circuit, you change a router by logging in to it over SSH and typing commands. Each command takes effect as soon as you press Enter. Every network engineer works this way, but it has problems that grow with the network:
 
 - **No record.** The device keeps the result, not the story. A year later, nobody knows who turned on port 5, or why.
-- **Drift.** Someone turns something on to test it and forgets to turn it off. Two switches that should be set up the same slowly stop being the same. This slow change away from the plan is called <Term means="When what a device runs slowly stops matching what it was meant to run, through small changes nobody wrote down.">drift</Term>.
+- **Drift.** Someone turns something on to test it and forgets to turn it off. Two switches that should be set up the same slowly stop being the same. This slow change away from the plan is called <Term means="A device slowly moving away from what it was meant to run, through small changes that nobody wrote down.">drift</Term>.
 - **No review.** Nobody sees a change before it is made, so a typo is found when the network breaks.
 - **No way back.** To rebuild a broken device, someone has to remember everything it was set to do.
 
 ## One file per device
 
-In Circuit, each device is one <Term means="A programming language that is JavaScript with types. Circuit uses it so your editor can check each file as you type.">TypeScript</Term> file. Here is a whole router:
+In Circuit, each device is one <Term means="A programming language that adds types to JavaScript. Circuit uses it so your editor can check each file as you type.">TypeScript</Term> file. Here is a whole router:
 
 ```ts
 // sites/office/router.ts
@@ -122,7 +122,7 @@ A change to the network always takes the same steps. You run each command from y
 
 ## Git keeps the history
 
-<Term means="A tool that keeps every version of a set of files, with who changed each one, when, and a message saying why.">Git</Term> answers "who changed what, and why". Each time you commit, git keeps the new version of the file with your name, the time, and a message:
+<Term means="A tool that keeps every version of a set of files, with who changed each one, when, and why.">Git</Term> answers "who changed what, and why". Each time you commit, git keeps the new version of the file with your name, the time, and a message:
 
 ```sh
 git add sites/office/router.ts

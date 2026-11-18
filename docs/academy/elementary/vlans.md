@@ -13,9 +13,9 @@ Devices in different VLANs cannot reach each other through the switch at all. To
 
 Think of an office with one switch. Staff laptops, a printer, a Wi-Fi access point for guests, and some security cameras all plug into it. Without VLANs, they are all one local network: a guest's phone can find the printer, and the cameras can be reached from any laptop. Every broadcast from every device reaches every other device.
 
-You could buy a switch for each group, but VLANs do the same with one. A <Term means="A separate network on the same switches, told apart by a number from 1 to 4094.">VLAN</Term> has a number from 1 to 4094, called its ID, and people usually give it a name too, such as "guests". The [Trunks](/academy/elementary/trunks) lesson shows where that number comes from.
+You could buy a switch for each group, but VLANs do the same with one. A <Term means="Virtual LAN: a separate local network on the same switches, with a number from 1 to 4094. A device in one VLAN reaches another VLAN only through a router.">VLAN</Term> has a number from 1 to 4094, called its ID, and people usually give it a name too, such as "guests". The [Trunks](/academy/elementary/trunks) lesson shows where that number comes from.
 
-The simplest way to use a VLAN is an <Term means="A switch port that is in exactly one VLAN. The device plugged into it sends and receives ordinary frames, and does not know the VLAN exists.">access port</Term>: a port that is in one VLAN. The device plugged into it does not know VLANs exist. It sends and receives ordinary frames, exactly as before. Only the switch knows which VLAN each port is in, and it keeps a separate address table for each VLAN.
+The simplest way to use a VLAN is an <Term means="A switch port in exactly one VLAN. The device on it sends and receives untagged frames, and does not know the VLAN exists.">access port</Term>: a port that is in one VLAN. The device plugged into it does not know VLANs exist. It sends and receives ordinary frames, exactly as before. Only the switch knows which VLAN each port is in, and it keeps a separate address table for each VLAN.
 
 <TryIt title="Split a switch into VLANs">
 

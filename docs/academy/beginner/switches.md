@@ -9,13 +9,13 @@ A switch joins the devices in one place, such as the computers on one floor of a
 
 ## Ports and frames
 
-A switch has a row of sockets called <Term means="A socket on a switch or router for one cable. Ports are numbered, so you can say which cable is which.">ports</Term>, numbered 1, 2, 3, and so on. Each device's cable plugs into one port. The sockets on the back of a home router are a small switch.
+A switch has a row of sockets called <Term means="A socket on a switch or router for one cable. Each port has a name or number, so you can tell which cable is which.">ports</Term>, numbered 1, 2, 3, and so on. Each device's cable plugs into one port. The sockets on the back of a home router are a small switch.
 
 ::: tip One word, two meanings
 "Port" also means something different: a number that picks one program on a computer. You meet that kind in [Ports and protocols](/academy/beginner/ports). In this lesson, a port is always a socket.
 :::
 
-Inside one local network, messages travel in <Term means="A message on the local network: a packet wrapped with the hardware address of the device it is for and the one that sent it.">frames</Term>. A frame is a packet in an outer envelope. The envelope has two of the hardware addresses from [Addresses](/academy/beginner/addresses):
+Inside one local network, messages travel in <Term means="A message on the local network: a packet wrapped with the hardware addresses of the device it is for and the device that sent it.">frames</Term>. A frame is a packet in an outer envelope. The envelope has two of the hardware addresses from [Addresses](/academy/beginner/addresses):
 
 - **To**: the hardware address of the device the frame is for.
 - **From**: the hardware address of the device that sent it.
@@ -24,7 +24,7 @@ A switch reads only these two addresses. It does not look at the IP addresses in
 
 ## How a switch learns
 
-When a switch is turned on, it knows nothing about the devices plugged into it. Its <Term means="The list a switch keeps of which hardware address is behind which of its ports. It is also called the MAC address table.">address table</Term>, the list of which device is behind which port, is empty.
+When a switch is turned on, it knows nothing about the devices plugged into it. Its <Term means="The list a switch keeps of which hardware address is behind which of its ports. Also called the MAC address table.">address table</Term>, the list of which device is behind which port, is empty.
 
 <TryIt title="Teach a switch where everyone is">
 
@@ -37,7 +37,7 @@ Each time a frame arrives, the switch does four things:
 1. It reads the frame's **From** address. It writes in its table that this address is behind the port the frame came in on.
 2. It looks for the frame's **To** address in the same table.
 3. If it finds the address, it sends the frame out of that one port only.
-4. If it does not, it sends a copy out of every port except the one the frame came in on. This is called <Term means="Sending a copy of a frame out of every port except the one it came in on, because the switch does not know yet where the receiver is.">flooding</Term>. A device that gets a copy that is not addressed to it ignores it.
+4. If it does not, it sends a copy out of every port except the one the frame came in on. This is called <Term means="Sending a copy of a frame out of every port except the one it came in on. A switch floods a frame when it does not know yet where the receiver is.">flooding</Term>. A device that gets a copy that is not addressed to it ignores it.
 
 The switch learns only from the sender, never from the receiver. A frame **to** the printer teaches the switch nothing about the printer. Only a frame **from** the printer does.
 
@@ -59,11 +59,11 @@ So a device can move. Plug the laptop into another port, or carry it to a desk o
 
 ## Broadcasts: a frame for everyone
 
-Sometimes a device needs to ask every device on the network at once, because it does not know which one to ask. It sends a <Term means="A frame for every device on the local network. Its To address is ff:ff:ff:ff:ff:ff.">broadcast</Term>: a frame whose **To** address is `ff:ff:ff:ff:ff:ff`. This is the hardware address where every bit is 1, and it means "everyone".
+Sometimes a device needs to ask every device on the network at once, because it does not know which one to ask. It sends a <Term means="A frame for every device on the local network, sent to the hardware address ff:ff:ff:ff:ff:ff.">broadcast</Term>: a frame whose **To** address is `ff:ff:ff:ff:ff:ff`. This is the hardware address where every bit is 1, and it means "everyone".
 
 A switch sends a broadcast out of every port except the one it came in on, as it does when it floods. The difference is at the other end. Every device keeps a broadcast and reads it, because it is for all of them.
 
-A common broadcast asks "which of you has the IP address 192.168.1.30?". The device with that address answers with its hardware address. This question is called <Term means="How a device finds the hardware address behind an IP address on its own network, by asking everyone with a broadcast.">ARP</Term>, and you try it in the next lesson.
+A common broadcast asks "which of you has the IP address 192.168.1.30?". The device with that address answers with its hardware address. This question is called <Term means="Address Resolution Protocol: how a device finds the hardware address that belongs to an IP address on its own network. It asks every device at once, with a broadcast.">ARP</Term>, and you try it in the next lesson.
 
 <Quiz
   question="Which frames does a switch send out of every port except the one they came in on?"
@@ -81,7 +81,7 @@ A common broadcast asks "which of you has the IP address 192.168.1.30?". The dev
 
 ## One local network
 
-Everything a broadcast can reach is one local network, also called a <Term means="The local network of one place, joined by switches.">LAN</Term>, short for local area network. The devices in your home are one LAN. So are the computers on one floor of an office.
+Everything a broadcast can reach is one local network, also called a <Term means="Local area network: the devices in one place, such as a home or an office, joined by cables and Wi-Fi. They reach each other directly, without a router.">LAN</Term>, short for local area network. The devices in your home are one LAN. So are the computers on one floor of an office.
 
 A LAN can be bigger than one switch. Plug one switch into a port of another, and frames pass between them. Each switch writes in its table that every device on the other switch is behind the port that joins them. Both switches and every device on them are one LAN, and a broadcast from any device reaches all of it.
 

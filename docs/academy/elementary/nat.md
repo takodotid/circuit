@@ -5,7 +5,7 @@ description: How a whole home reaches the internet through one public address. O
 
 # Sharing one address: NAT
 
-Every device in your home has a private address, such as 192.168.20.10. The internet does not carry packets to private addresses, so the router swaps it. On the way out, the router replaces the private address and port of each connection with its own public address and a port of its own. It writes the pair down. When the reply comes back to that port, the router looks it up and swaps it back. This is <Term means="Rewriting addresses so many devices share one public address; CGNAT does it inside the provider, for many customers.">NAT</Term>.
+Every device in your home has a private address, such as 192.168.20.10. The internet does not carry packets to private addresses, so the router swaps it. On the way out, the router replaces the private address and port of each connection with its own public address and a port of its own. It writes the pair down. When the reply comes back to that port, the router looks it up and swaps it back. This is <Term means="Network address translation: rewriting the addresses in packets as they pass through a router, so that many devices can share one public address.">NAT</Term>.
 
 The list the router keeps is the whole trick. It is also why nobody outside can start a connection to a device at home, unless you add a rule that says where it should go.
 
@@ -22,7 +22,7 @@ Your internet provider gives your router one <Term means="An address that belong
 An address and a port are often written together with a colon, such as 192.168.20.10:51000. When the laptop opens a website:
 
 1. The laptop sends a packet from 192.168.20.10:51000 to the website at 198.51.100.7:443.
-2. The router replaces the sender with its public address and a port it picks, such as 203.0.113.2:40001. It writes a row in its <Term means="The list a router keeps of every connection it rewrote: which inside address and port became which outside port, and who is at the other end.">translation table</Term>: 192.168.20.10:51000 is 203.0.113.2:40001, talking to 198.51.100.7:443.
+2. The router replaces the sender with its public address and a port it picks, such as 203.0.113.2:40001. It writes a row in its <Term means="The list a NAT router keeps of every connection it rewrote: which inside address and port became which outside port, and who is at the other end.">translation table</Term>: 192.168.20.10:51000 is 203.0.113.2:40001, talking to 198.51.100.7:443.
 3. The website sees a packet from 203.0.113.2:40001, and answers it there.
 4. The answer reaches the router. The router finds port 40001 in its table, puts 192.168.20.10:51000 back as the receiver, and passes the packet in.
 

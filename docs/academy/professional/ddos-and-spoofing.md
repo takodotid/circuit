@@ -5,7 +5,7 @@ description: Stop forged sources at your edge, shed a flood by blackholing its t
 
 # Attacks on the network
 
-A <Term means="Distributed denial of service: an attack that sends a target more traffic than its links or its devices can take, from many sources at once.">DDoS</Term>, a distributed denial of service attack, sends a target more traffic than its links or its devices can take, from many sources at once. A provider meets it from both sides. Its customers are attacked, and its own network can be used to attack others.
+A <Term means="Distributed denial of service: an attack that sends a target more traffic than its links or devices can take, from many sources at once.">DDoS</Term>, a distributed denial of service attack, sends a target more traffic than its links or its devices can take, from many sources at once. A provider meets it from both sides. Its customers are attacked, and its own network can be used to attack others.
 
 Three defenses work at three different places:
 
@@ -17,7 +17,7 @@ Three defenses work at three different places:
 
 The sender of a packet writes its source address. Nothing on the way checks it, unless a router is set to. An attacker who forges, or <Term means="Writing a source address on a packet that is not the sender's own.">spoofs</Term>, a source can do something worse than hide. It can make other servers attack for it.
 
-Some services answer a small UDP request with a much larger reply. The attacker sends requests to thousands of such servers, called <Term means="A server that sends its answer to the source address written on a request, so an attacker can bounce traffic off it toward a victim.">reflectors</Term>, with the victim's address as the source. Every reply goes to the victim. CISA, the Cybersecurity and Infrastructure Security Agency of the United States, lists how many times larger the replies are:
+Some services answer a small UDP request with a much larger reply. The attacker sends requests to thousands of such servers, called <Term means="In an attack, a server that sends its answer to the source address written on a request. The attacker writes the victim's address there, so the answers flood the victim.">reflectors</Term>, with the victim's address as the source. Every reply goes to the victim. CISA, the Cybersecurity and Infrastructure Security Agency of the United States, lists how many times larger the replies are:
 
 - 28 to 54 times for DNS.
 - About 557 times for <Term means="Network Time Protocol: how devices ask a server for the time, over UDP port 123.">NTP</Term>.
@@ -33,7 +33,7 @@ The check that stopped the flood ran in the attacker's own network, AS64511. It 
 
 BCP 38 protects everyone else, never the network that runs it. So it only works when most networks do it, and that is why MANRS lists it as one of its actions.
 
-Routers can make the check automatic with <Term means="Unicast reverse path forwarding: a router accepts a packet only if its routing table would send traffic for the packet's source back out the same way, or at all.">uRPF</Term>, unicast reverse path forwarding, described in RFC 3704 (BCP 84):
+Routers can make the check automatic with <Term means="Unicast reverse path forwarding: a router accepts a packet only if its routing table has a route back to the packet's source. Strict mode also wants that route to go out the port the packet came in on.">uRPF</Term>, unicast reverse path forwarding, described in RFC 3704 (BCP 84):
 
 | Mode     | The router accepts a packet when                                         | Where it fits                                                                                    |
 | -------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -103,7 +103,7 @@ On February 28, 2018, at 17:21 UTC, GitHub received a memcached reflection flood
 
 The lesson is about where the flood is dropped. A filter on your own router acts only after the flood has crossed your links from your upstreams. When those links are full, everyone behind them loses packets, not only the target. So the flood has to be dropped on the far side of those links.
 
-**Remote triggered blackholing** is the tool every provider has for this. You announce the address under attack in BGP as a <Term means="A route for one single address: a /32 in IPv4, a /128 in IPv6.">host route</Term>, a /32 or a /128, with a <Term means="A community that asks the network receiving the route to drop all traffic toward it. RFC 7999 reserves 65535:666 for it.">blackhole community</Term>. The network receiving it drops all traffic toward that address. RFC 7999 reserves `65535:666` for it, and asks the receiver to keep the route inside its own network. Each upstream chooses whether it takes blackholes. One that does gives you the community to use.
+**Remote triggered blackholing** is the tool every provider has for this. You announce the address under attack in BGP as a <Term means="A route for one single address: a /32 in IPv4, or a /128 in IPv6.">host route</Term>, a /32 or a /128, with a <Term means="A BGP community that asks the network receiving a route to drop all traffic to it. RFC 7999 reserves 65535:666 for it.">blackhole community</Term>. The network receiving it drops all traffic toward that address. RFC 7999 reserves `65535:666` for it, and asks the receiver to keep the route inside its own network. Each upstream chooses whether it takes blackholes. One that does gives you the community to use.
 
 <TryIt title="Blackhole the target, and see who stops sending">
 
@@ -145,7 +145,7 @@ The import from a customer allowed to ask for a blackhole says so with `accept_r
 
 Circuit writes the rest from the scheme. The communities rule in Netflix's import keeps the blackhole request. `{ communities: "export" }` in the export to hurricane-electric passes the route on with `6939:666`, and the export to cogent drops it.
 
-Blackholing drops everything toward the address, the attack and the customers of that service alike. <Term means="BGP flow specification: rules carried in BGP that match traffic by addresses, protocol, ports, packet length, and more, and drop or rate-limit only what matches.">Flowspec</Term>, defined in RFC 8955, is the finer tool. It is a rule carried in BGP that matches the flood by protocol, ports, or packet length, and drops or rate-limits only that. Circuit has no field for flowspec.
+Blackholing drops everything toward the address, the attack and the customers of that service alike. <Term means="BGP flow specification: rules carried in BGP that match traffic by addresses, protocol, ports, packet length, and more. A router then drops or limits only the traffic that matches.">Flowspec</Term>, defined in RFC 8955, is the finer tool. It is a rule carried in BGP that matches the flood by protocol, ports, or packet length, and drops or rate-limits only that. Circuit has no field for flowspec.
 
 On your own edge, `presets.udp_amplifiers` lists the source ports of reflected floods, for a switch-chip rule that drops them. This saves your router, but not the link the flood arrived on.
 
@@ -164,8 +164,8 @@ Some floods reach the router's CPU, the same CPU that runs BGP. A flood aimed at
 In Circuit, that is the input chain, with `default_action: "drop"`, as the [edge router example](/guide/examples#an-edge-router) writes it. Three more things help on RouterOS, all found on a real router:
 
 - **Drop in the switch chip what you can recognize.** An ACL drop never reaches the CPU. A `rate` on a switch-chip rule didn't limit traffic the CPU routes, so drop instead of limiting.
-- **Keep floods out of the <Term means="The list a stateful firewall keeps of every connection passing through it, so it can recognize replies and established traffic.">connection table</Term>.** The connection table of a CCR2216, the router the RouterOS adapter was tested on, has room for 1,048,576 entries. A full table refuses every new connection through the router, not only the target's. A <Term means="A flood of TCP SYN packets, the first packet of a connection, from addresses that never finish the handshake, so the receiver keeps waiting on each.">SYN flood</Term> of 210,000 packets a second filled it in five seconds. Traffic to and from prefixes in `untracked` never enters it.
-- **Answer SYN floods with <Term means="A way to answer a TCP SYN without remembering it: the details are encoded in the reply, and checked only if the sender completes the handshake.">SYN cookies</Term>**, `system.ip_stack.syn_cookies`, so the router keeps no state for half-open connections to itself.
+- **Keep floods out of the <Term means="A router keeping a list of the connections passing through it, so it can tell a reply from a packet that starts a new connection. The list is called the connection table.">connection table</Term>.** The connection table of a CCR2216, the router the RouterOS adapter was tested on, has room for 1,048,576 entries. A full table refuses every new connection through the router, not only the target's. A <Term means="A flood of TCP SYN packets, the first packet of a connection, from addresses that never finish the handshake. The receiver keeps waiting on each one.">SYN flood</Term> of 210,000 packets a second filled it in five seconds. Traffic to and from prefixes in `untracked` never enters it.
+- **Answer SYN floods with <Term means="A way to answer a TCP SYN without remembering it. The details go into the reply, and are checked only if the sender completes the handshake.">SYN cookies</Term>**, `system.ip_stack.syn_cookies`, so the router keeps no state for half-open connections to itself.
 
 ```ts
 system: { ip_stack: { syn_cookies: true } },

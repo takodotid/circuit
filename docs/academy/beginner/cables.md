@@ -11,15 +11,15 @@ A message between two devices crosses one of three things. A copper cable carrie
 
 Every link has two numbers: how fast it is, and how far it reaches.
 
-Speed is counted in <Term means="A digit that is 0 or 1; a byte is eight of them, a number from 0 to 255.">bits</Term> a second. Network speeds are large, so they are usually counted in gigabits. One gigabit a second, written 1 Gbit/s, is a billion bits a second. People shorten it to **1G**. Switches show 10G, 25G, and 100G the same way.
+Speed is counted in <Term means="Short for binary digit: a single 0 or 1. It is the smallest piece of data, and everything a link carries is made of bits.">bits</Term> a second. Network speeds are large, so they are usually counted in gigabits. One gigabit a second, written 1 Gbit/s, is a billion bits a second. People shorten it to **1G**. Switches show 10G, 25G, and 100G the same way.
 
 A signal gets weaker the farther it goes, and electricity in copper also picks up noise. Past some distance, the device at the other end can no longer read the signal. So every kind of link has a limit.
 
 ## The copper cable
 
-Most people call it a "LAN cable". Its real name is <Term means="A copper LAN cable with four pairs of wires twisted together; UTP, unshielded twisted pair, is the common kind with no metal shield. It reaches up to 100 m.">twisted pair</Term> cable. It has four pairs of thin copper wires inside one jacket, and each pair is twisted around itself. The twists keep the pairs from disturbing each other. The common kind has no metal shield around the pairs, so it is also called **UTP**, for unshielded twisted pair.
+Most people call it a "LAN cable". Its real name is <Term means="A cable of thin copper wires twisted together in pairs. A LAN cable has four pairs and reaches up to 100 meters. UTP, unshielded twisted pair, is the common kind with no metal shield.">twisted pair</Term> cable. It has four pairs of thin copper wires inside one jacket, and each pair is twisted around itself. The twists keep the pairs from disturbing each other. The common kind has no metal shield around the pairs, so it is also called **UTP**, for unshielded twisted pair.
 
-At each end is a clear plastic plug with eight metal contacts and a small clip, called <Term means="The plug with eight contacts at each end of a LAN cable, and the square socket it clicks into.">RJ45</Term>. The socket on a laptop, on a home router, or on an office switch is an RJ45 socket.
+At each end is a clear plastic plug with eight metal contacts and a small clip, called <Term means="The plastic plug with eight contacts at each end of a LAN cable, and the square socket it clicks into. Its proper name is 8P8C, but everyone says RJ45.">RJ45</Term>. The socket on a laptop, on a home router, or on an office switch is an RJ45 socket.
 
 LAN cables are sold in **categories**, written "Cat" and a number. A higher category is made more carefully and carries more:
 
@@ -33,20 +33,20 @@ No LAN cable reaches more than 100 meters, from the switch to the device. If a d
 
 ## Fiber: light in glass
 
-A <Term means="A cable with a thread of glass that carries light. Multimode fiber reaches hundreds of meters, single-mode fiber kilometers.">fiber</Term> cable carries light instead of electricity. A laser or a small light at one end blinks very fast, and the other end reads the blinks as bits. Light in glass loses very little strength and picks up no electrical noise. So fiber reaches much farther than copper, from hundreds of meters to many kilometers. With the right equipment, it crosses countries and oceans. The thin cable from your internet provider into your home is often a fiber.
+A <Term means="A cable with a thread of glass inside, thinner than a hair, that carries pulses of light. It reaches much farther than copper, and electrical noise does not disturb it.">fiber</Term> cable carries light instead of electricity. A laser or a small light at one end blinks very fast, and the other end reads the blinks as bits. Light in glass loses very little strength and picks up no electrical noise. So fiber reaches much farther than copper, from hundreds of meters to many kilometers. With the right equipment, it crosses countries and oceans. The thin cable from your internet provider into your home is often a fiber.
 
 There are two kinds:
 
 - **Multimode** fiber has a wider core, and light bounces along it on many paths. It is for short runs inside a room or a building, up to a few hundred meters.
 - **Single-mode** fiber has a very narrow core, so light travels along one path and each pulse keeps its shape. It is for long runs, such as between two buildings or two cities.
 
-A fiber link usually uses two fibers, one for each direction. Their plug is a small square plug called <Term means="A small square plug for fiber. Two of them often sit side by side in one clip, one fiber for each direction.">LC</Term>.
+A fiber link usually uses two fibers, one for each direction. Their plug is a small square plug called <Term means="A small plug for fiber, usually two side by side, one for each direction. It is the usual fiber plug on switches and optics.">LC</Term>.
 
 ## Optic modules and cages
 
-A switch cannot take a fiber directly. It needs a part that turns its electrical signal into light, and back. That part is a small metal module called an <Term means="A module that slides into a cage on a switch or router and turns its signal into light on a fiber, and back.">optic</Term>, or a **transceiver**, because it both sends and receives. The optic slides into an empty slot on the switch, called a <Term means="An empty metal slot on a switch or router that takes an optic or a DAC. Its size decides which modules fit.">cage</Term>. The fiber's LC plug goes into the front of the optic.
+A switch cannot take a fiber directly. It needs a part that turns its electrical signal into light, and back. That part is a small metal module called an <Term means="A small module that slides into a cage on a switch or router. It turns the electrical signal into light on a fiber, and back. Also called a transceiver.">optic</Term>, or a **transceiver**, because it both sends and receives. The optic slides into an empty slot on the switch, called a <Term means="An empty slot on a switch or router that takes an optic or a DAC. Its shape decides which modules fit.">cage</Term>. The fiber's LC plug goes into the front of the optic.
 
-Cages and modules come in families. All of them are named after <Term means="The families of modules and the cages they fit: SFP 1G, SFP+ 10G, and SFP28 25G are one size; QSFP+ 40G and QSFP28 100G are wider.">SFP</Term>, short for small form-factor pluggable:
+Cages and modules come in families. All of them are named after <Term means="Small form-factor pluggable: the family of small cages and modules for 1 to 25 Gbit/s. SFP carries 1 Gbit/s, SFP+ 10 Gbit/s, and SFP28 25 Gbit/s, and all three are the same size.">SFP</Term>, short for small form-factor pluggable:
 
 | Name   | Speed      | Size                          |
 | ------ | ---------- | ----------------------------- |
@@ -64,7 +64,7 @@ Three rules decide whether a link works:
 2. Both ends must match. An optic works only with the same kind of optic at the far end, on the right kind of fiber.
 3. The run must be within the optic's reach. Each optic is made for a distance, such as 300 meters on multimode or 10 kilometers on single-mode.
 
-For a link of a few meters, to the next device in the same <Term means="A tall metal frame that holds switches and servers, one above another, in a network room or a data center.">rack</Term>, there is a simpler part: a <Term means="Direct attach cable: a short copper cable with a module built onto each end, for a link inside one rack.">DAC</Term>, short for direct attach cable. It is a copper cable with a module built onto each end, so it goes straight into two cages. It reaches about 5 to 7 meters, depending on its speed.
+For a link of a few meters, to the next device in the same <Term means="A tall metal frame that holds switches and servers stacked on top of each other.">rack</Term>, there is a simpler part: a <Term means="Direct attach cable: a short copper cable with a module built onto each end. It plugs into two cages in place of two optics and a fiber, for a link inside one rack.">DAC</Term>, short for direct attach cable. It is a copper cable with a module built onto each end, so it goes straight into two cages. It reaches about 5 to 7 meters, depending on its speed.
 
 Some switches have only RJ45 ports, like the small switch in a home router. Some have only cages, like many in a data center. An office switch often has both. It has RJ45 ports for the desks, and a few cages for a fast link to the next switch.
 
@@ -109,7 +109,7 @@ The pattern to remember:
 
 ## Wired and wireless standards
 
-All the cables, plugs, and optics in this lesson follow one standard, called <Term means="The standard for wired networks: the cables, plugs, and signals, and how each message is laid out. Wi-Fi carries the same messages over radio.">Ethernet</Term>. It says what each kind of cable must carry, what the signals look like, and how a message is laid out. So a switch from one maker and a laptop from another understand each other. That is why the RJ45 socket on a laptop is often called its Ethernet port.
+All the cables, plugs, and optics in this lesson follow one standard, called <Term means="The standard for wired networks: the cables and plugs, the signals on them, the speeds, and how each message is laid out. Almost every wired network uses it.">Ethernet</Term>. It says what each kind of cable must carry, what the signals look like, and how a message is laid out. So a switch from one maker and a laptop from another understand each other. That is why the RJ45 socket on a laptop is often called its Ethernet port.
 
 <Term means="The standard for networks over radio. It carries the same messages as Ethernet, so an access point can pass them between radio and cable.">Wi-Fi</Term> is a different standard, made to work with Ethernet. It carries the same messages over radio. An access point passes them between the radio and its cable to the switch. Radio is different from a cable in three ways:
 
@@ -127,9 +127,9 @@ All the cables, plugs, and optics in this lesson follow one standard, called <Te
 
 ## The largest piece a link carries
 
-In the [next lesson](/academy/beginner/packets), you see that a device never sends a long message in one go. It cuts the message into small pieces, called packets, and sends each one on its own. Each link has a limit on how big one piece can be, called its <Term means="Maximum transmission unit: the largest packet a link carries in one piece, 1,500 bytes on ordinary Ethernet.">MTU</Term>, short for maximum transmission unit.
+In the [next lesson](/academy/beginner/packets), you see that a device never sends a long message in one go. It cuts the message into small pieces, called packets, and sends each one on its own. Each link has a limit on how big one piece can be, called its <Term means="Maximum transmission unit: the largest single piece of data a link carries, in bytes. On ordinary Ethernet it is 1,500 bytes.">MTU</Term>, short for maximum transmission unit.
 
-On ordinary Ethernet, the MTU is 1,500 <Term means="A digit that is 0 or 1; a byte is eight of them, a number from 0 to 255.">bytes</Term>. One letter of plain text takes one byte, so that is about 1,500 letters.
+On ordinary Ethernet, the MTU is 1,500 <Term means="Eight bits together. One byte holds a number from 0 to 255, or one letter of plain English text.">bytes</Term>. One letter of plain text takes one byte, so that is about 1,500 letters.
 
 Inside data centers, the links between a network's own switches and servers often carry larger pieces, of about 9,000 bytes. These are called **jumbo frames**. Fewer, larger pieces mean less work for the same message. Both ends of a link must agree on the size. Links to the internet stay at 1,500.
 
