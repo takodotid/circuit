@@ -45,7 +45,19 @@ Routers can make the check automatic with <Term means="Unicast reverse path forw
 
 ## Anti-spoofing in Circuit
 
-Circuit has no field for uRPF. You write the same check as a list, in the router's switch chip, with an ACL on each customer port. The ACL accepts the customer's own space and its end of the link, and drops any other source.
+An interface checks sources with `urpf`, one mode for each family:
+
+```ts
+interfaces: {
+    ethernet: {
+        "10g-2": { description: "AS64501", addresses: ["198.51.100.129/30"], urpf: { ipv4: "strict" } },
+    },
+},
+```
+
+Some platforms have one mode for the whole router, or no IPv6 check. The [platform list](/reference/platforms#interfaces) shows which.
+
+You can also write the check as a list, in the router's switch chip, with an ACL on each customer port. The ACL accepts the customer's own space and its end of the link, and drops any other source.
 
 ```ts
 interfaces: {
@@ -139,6 +151,8 @@ The import from a customer allowed to ask for a blackhole says so with `accept_r
 ```
 
 Circuit writes the rest from the scheme. The communities rule in Netflix's import keeps the blackhole request. `{ communities: "export" }` in the export to hurricane-electric passes the route on with `6939:666`, and the export to cogent drops it.
+
+A blackhole route can also drop what an attacker sends, when the attack comes from a few sources. Route each source's prefix to a blackhole on a router whose interfaces check sources with `urpf`. A source routed to a blackhole fails the check in either mode, so the router drops everything it sends. RFC 5635 calls this source-based blackholing.
 
 Blackholing drops everything toward the address, the attack and the customers of that service alike. <Term means="BGP flow specification: rules carried in BGP that match traffic by addresses, protocol, ports, packet length, and more. A router then drops or limits only the traffic that matches.">Flowspec</Term>, defined in RFC 8955, is the finer tool. It is a rule carried in BGP that matches the flood by protocol, ports, or packet length, and drops or rate-limits only that. Circuit has no field for flowspec.
 

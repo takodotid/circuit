@@ -22,7 +22,11 @@ A switch-chip ACL drops them before they reach the router's CPU. The [edge route
 
 <<< @/../examples/edge-router/sites/pop-1/edge-01.ts#edge-acl
 
-`presets.rfc1918` holds the private ranges, and `presets.bogons` holds every special-purpose block. For a customer, an ACL on its port accepts its own space and drops the rest, as [Attacks on the network](/academy/professional/ddos-and-spoofing#anti-spoofing-in-circuit) shows. On Junos, `bound_to` also ties an access port to its hosts' MAC and IP addresses.
+`presets.rfc1918` holds the private ranges, and `presets.bogons` holds every special-purpose block. For a customer, `urpf` on its interface drops every source the router has no route back to through it. The example's second router checks its customer and its servers this way:
+
+<<< @/../examples/edge-router/sites/pop-2/edge-02.ts#urpf
+
+An ACL on the customer's port can do the same, as [Attacks on the network](/academy/professional/ddos-and-spoofing#anti-spoofing-in-circuit) shows. On Junos, `bound_to` also ties an access port to its hosts' MAC and IP addresses.
 
 ## Further reading
 
