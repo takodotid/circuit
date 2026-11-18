@@ -33,6 +33,8 @@ export class Junos extends Platform {
     };
 
     private static readonly SUPPORTED_MAJOR = 21;
+    /** The first 21.x that has `as-path-neighbors`, `as-path-origins`, and `as-path-transits`, which route policies use. */
+    private static readonly SUPPORTED_MINOR = 3;
 
     private static readonly COMMAND_TIMEOUT_MS = 60_000;
     private static readonly PROMPT_TIMEOUT_MS = 20_000;
@@ -84,7 +86,7 @@ export class Junos extends Platform {
 
     override readonly os: OsSupport = {
         name: "Juniper Junos",
-        versions: "21",
+        versions: "21.3, 21.4",
         testedOn: "QFX5100-48S-6Q, Junos 21.4R3",
         checked: true,
     };
@@ -509,9 +511,9 @@ export class Junos extends Platform {
         const release = /Junos: (\d+)\.(\S+)/.exec(version);
 
         if (!release) throw new Error(`${device.name} did not say which Junos it runs: ${version.slice(0, Junos.VERSION_CHARS)}`);
-        if (Number(release[1]) !== Junos.SUPPORTED_MAJOR) {
+        if (Number(release[1]) !== Junos.SUPPORTED_MAJOR || Number.parseInt(release[2]!, 10) < Junos.SUPPORTED_MINOR) {
             throw new Error(
-                `${device.name} runs Junos ${release[1]}.${release[2]}; this adapter renders for Junos ${Junos.SUPPORTED_MAJOR}`
+                `${device.name} runs Junos ${release[1]}.${release[2]}; this adapter renders for Junos ${Junos.SUPPORTED_MAJOR}.${Junos.SUPPORTED_MINOR} and later ${Junos.SUPPORTED_MAJOR}.x`
             );
         }
     }
