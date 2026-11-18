@@ -1,13 +1,15 @@
 name: devices
 
-# Circuit against an emulated device (#178): a RouterOS CHR boots in QEMU, and test/platforms/routeros-chr.test.ts applies to it.
+# Circuit against emulated devices (#178): two RouterOS CHRs boot in QEMU, the first's ether2 linked to the second's. test/platforms/routeros-chr.test.ts applies to the first, then test/platforms/routeros-chr-pair.test.ts runs BGP between both.
 
 on:
     pull_request:
         paths:
             - src/platforms/routeros/**
+            - src/platforms/bgp-wait.ts
+            - src/cli/project-commands.ts
             - src/transport/**
-            - test/platforms/routeros-chr.test.ts
+            - test/platforms/routeros-chr*.test.ts
             - examples/edge-router/**
             - .github/workflows/devices.yml
     workflow_dispatch:
@@ -23,12 +25,17 @@ jobs:
             # RouterOS's long-term release, and the checksum MikroTik publishes beside its CHR image.
             CHR_VERSION: 7.24.6
             CHR_SHA256: 692672e6cac9cfaa4f37c6334d07760d49e074b50befc61f0904270553f17126
-            # Where the runner forwards the CHR's SSH and its REST API. The test reads CIRCUIT_TEST_CHR.
+            # Where the runner forwards each CHR's SSH and its REST API. The tests read CIRCUIT_TEST_CHR and CIRCUIT_TEST_CHR_B.
             CIRCUIT_TEST_CHR: 127.0.0.1:2222
             CHR_REST: 127.0.0.1:8080
-            # The edge router example's user and management address.
+            CIRCUIT_TEST_CHR_B: 127.0.0.1:2223
+            CHR_B_REST: 127.0.0.1:8081
+            # The user, and each CHR's management address: the edge router example's, then cpe-01's in the pair test.
             CHR_USER: operator
             CHR_ADDRESS: 10.0.0.1/24
+            CHR_B_ADDRESS: 10.0.1.1/24
+            # The TCP port QEMU carries the link between the two CHRs over.
+            CHR_LINK: 127.0.0.1:10001
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -54,36 +61,51 @@ jobs:
                   echo "$CHR_SHA256  chr.img.zip" | sha256sum -c -
                   unzip -q chr.img.zip
                   mv "chr-$CHR_VERSION.img" chr.img
+                  cp chr.img chr-b.img
 
-            # Four adapters: the config names three, so Circuit disables the fourth. QEMU's user network serves ether1 the example's management address by DHCP and connects from 10.0.0.2.
-            - name: boot the CHR
+            # The first has four adapters: the edge router example names three, so Circuit disables the fourth. The second has two. QEMU's user network serves each ether1 its management address by DHCP, and connects from .2 of it.
+            # Each ether2 is one end of a TCP socket between the two QEMUs: the first listens, so it starts first. Every QEMU numbers its adapters' MACs alike, so the two ends get their own.
+            - name: boot the CHRs
               working-directory: ${{ runner.temp }}
               run: |
                   qemu-system-x86_64 -enable-kvm -m 512 -display none -daemonize -serial file:chr-console.log \
                       -drive file=chr.img,format=raw \
                       -netdev "user,id=ether1,net=10.0.0.0/24,host=10.0.0.2,dhcpstart=${CHR_ADDRESS%/*},hostfwd=tcp:$CIRCUIT_TEST_CHR-:22,hostfwd=tcp:$CHR_REST-:80" \
                       -device virtio-net-pci,netdev=ether1 \
-                      -netdev user,id=ether2,restrict=on -device virtio-net-pci,netdev=ether2 \
+                      -netdev "socket,id=ether2,listen=$CHR_LINK" -device virtio-net-pci,netdev=ether2,mac=52:54:00:00:0a:02 \
                       -netdev user,id=ether3,restrict=on -device virtio-net-pci,netdev=ether3 \
                       -netdev user,id=ether4,restrict=on -device virtio-net-pci,netdev=ether4
-                  for _ in $(seq 60); do curl -fsS -m 5 -u admin: "http://$CHR_REST/rest/system/resource" && exit 0; sleep 5; done
-                  exit 1
+                  qemu-system-x86_64 -enable-kvm -m 512 -display none -daemonize -serial file:chr-b-console.log \
+                      -drive file=chr-b.img,format=raw \
+                      -netdev "user,id=ether1,net=10.0.1.0/24,host=10.0.1.2,dhcpstart=${CHR_B_ADDRESS%/*},hostfwd=tcp:$CIRCUIT_TEST_CHR_B-:22,hostfwd=tcp:$CHR_B_REST-:80" \
+                      -device virtio-net-pci,netdev=ether1 \
+                      -netdev "socket,id=ether2,connect=$CHR_LINK" -device virtio-net-pci,netdev=ether2,mac=52:54:00:00:0b:02
+                  for rest in "$CHR_REST" "$CHR_B_REST"; do
+                      for _ in $(seq 60); do curl -fsS -m 5 -u admin: "http://$rest/rest/system/resource" && continue 2; sleep 5; done
+                      exit 1
+                  done
 
             # As a person readies a new router: a user for Circuit, and the address the DHCP client holds set by hand, the client going first (TRAPS.md). A fresh CHR's admin has no password. The reply to the move can be lost while the address moves, so the address is checked after.
-            - name: a user and a management address for Circuit
+            - name: a user and a management address for Circuit, on each CHR
               run: |
                   password="$(openssl rand -hex 16)"
                   echo "::add-mask::$password"
                   echo "CIRCUIT_TEST_CHR_PASSWORD=$password" >> "$GITHUB_ENV"
-                  curl -fsS -u admin: -X PUT "http://$CHR_REST/rest/user" -H "content-type: application/json" \
-                      -d "{\"name\":\"$CHR_USER\",\"group\":\"full\",\"password\":\"$password\"}"
-                  curl -sS -m 10 -u admin: -X POST "http://$CHR_REST/rest/execute" -H "content-type: application/json" \
-                      -d "{\"script\":\"/ip dhcp-client remove [find]; /ip address add address=$CHR_ADDRESS interface=ether1\"}" || true
-                  for _ in $(seq 12); do curl -fsS -m 5 -u admin: "http://$CHR_REST/rest/ip/address?dynamic=false" | grep -q "$CHR_ADDRESS" && exit 0; sleep 5; done
-                  exit 1
+                  ready() {
+                      local rest="$1" address="$2"
+                      curl -fsS -u admin: -X PUT "http://$rest/rest/user" -H "content-type: application/json" \
+                          -d "{\"name\":\"$CHR_USER\",\"group\":\"full\",\"password\":\"$password\"}"
+                      curl -sS -m 10 -u admin: -X POST "http://$rest/rest/execute" -H "content-type: application/json" \
+                          -d "{\"script\":\"/ip dhcp-client remove [find]; /ip address add address=$address interface=ether1\"}" || true
+                      for _ in $(seq 12); do curl -fsS -m 5 -u admin: "http://$rest/rest/ip/address?dynamic=false" | grep -q "$address" && return 0; sleep 5; done
+                      return 1
+                  }
+                  ready "$CHR_REST" "$CHR_ADDRESS"
+                  ready "$CHR_B_REST" "$CHR_B_ADDRESS"
 
             - run: bun test test/platforms/routeros-chr.test.ts
+            - run: bun test test/platforms/routeros-chr-pair.test.ts
 
-            - name: the CHR's console
+            - name: the CHRs' consoles
               if: failure()
-              run: cat "$RUNNER_TEMP/chr-console.log"
+              run: cat "$RUNNER_TEMP/chr-console.log" "$RUNNER_TEMP/chr-b-console.log"
