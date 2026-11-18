@@ -68,6 +68,19 @@ export class Address {
             return octets.reduce((value, octet) => (value << 8n) | BigInt(octet), 0n);
         }
 
+        // The last 32 bits may be written as an IPv4 address, as in `::ffff:192.0.2.1` (RFC 4291, section 2.2).
+        const lastColon = address.lastIndexOf(":");
+        const embedded = address.slice(lastColon + 1);
+        if (embedded.includes(".")) {
+            const ipv4 = Address.toNumber(embedded);
+            if (ipv4 === null) return null;
+
+            const groupBits = BigInt(Address.IPV6_GROUP_BITS);
+            const high = (ipv4 >> groupBits).toString(Address.HEX);
+            const low = (ipv4 & ((1n << groupBits) - 1n)).toString(Address.HEX);
+            return Address.toNumber(`${address.slice(0, lastColon + 1)}${high}:${low}`);
+        }
+
         const [before, after, extra] = address.split("::");
         if (extra !== undefined) return null;
 
