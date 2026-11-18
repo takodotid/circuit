@@ -459,8 +459,7 @@ export class Evaluate {
         };
 
         const outcome = run(policy, [policy]);
-        if (!outcome)
-            return { steps, decision: "reject", by: "no rule accepted it: a route no rule accepts is rejected", needs, attributes };
+        if (!outcome) return { steps, decision: "reject", by: "default: no rule accepted it", needs, attributes };
         if (outcome.decision === "unknown") return { steps, by: outcome.by, needs, attributes };
         return { steps, decision: outcome.decision, by: outcome.by, needs, attributes };
     }

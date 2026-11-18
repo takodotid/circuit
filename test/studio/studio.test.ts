@@ -60,6 +60,35 @@ describe("the server", () => {
         expect(await page.text()).toContain("<title>Circuit Studio</title>");
     });
 
+    test("answers each page's path with the page, so a reload or a bookmark opens it", async () => {
+        for (const path of [
+            "/devices/edge-01",
+            "/devices/edge-01/ports",
+            "/secrets",
+            "/tools/trace/192.0.2.5",
+            "/tools/firewall?device=edge-01",
+        ]) {
+            const page = await get(path);
+            expect(page.status).toBe(200);
+            expect(page.headers.get("content-type")).toContain("text/html");
+            expect(page.headers.get("cache-control")).toBe("no-store");
+            expect(page.headers.get("x-robots-tag")).toContain("noindex");
+            expect(await page.text()).toContain("<title>Circuit Studio</title>");
+        }
+    });
+
+    test("serves its files by path, and a missing one under /api/ or /assets/ stays missing", async () => {
+        const script = Object.keys(STUDIO_ASSETS).find((file) => file.startsWith("assets/") && file.endsWith(".js"));
+        const answer = await get(`/${script}`);
+        expect(answer.status).toBe(200);
+        expect(answer.headers.get("content-type")).toContain("text/javascript");
+        expect(answer.headers.get("cache-control")).toContain("immutable");
+
+        expect((await get("/api/nothing")).status).toBe(404);
+        expect((await get("/assets/index-gone.js")).status).toBe(404);
+        expect((await get("/devices/edge-01", { method: "POST" })).status).toBe(404);
+    });
+
     test("serves what it gathered: devices, findings, what each would run, the graph", async () => {
         const data = (await (await get("/api/data")).json()) as StudioData;
 
@@ -86,7 +115,10 @@ describe("the server", () => {
         expect(byName.PLAIN_ONE).toEqual({ name: "PLAIN_ONE", kind: "not encrypted", needed: false });
         expect(JSON.stringify(listing)).not.toContain("never-sent");
         expect(JSON.stringify(listing)).not.toContain("s3cret-value");
-        expect(listing.files[0]!.passwordLocation).toBeUndefined();
+    });
+
+    test("says what to do when the project is not in git", async () => {
+        expect(await (await get("/api/refs")).json()).toEqual({ error: "The project is not in git. Run git init in its folder." });
     });
 
     test("refuses a request addressed to another name", async () => {

@@ -1,6 +1,7 @@
 <!-- Every VLAN of the project: its ID, what it is for, the devices that have it, its gateways, and how many ports carry it on each device. -->
 <script setup lang="ts">
 import { computed } from "vue";
+import { useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
 import { FieldDocs } from "../lib/field-docs";
 import { Format } from "../lib/format";
@@ -8,6 +9,7 @@ import { showInGraph } from "../lib/store";
 import DataTable, { type Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
+const router = useRouter();
 
 /** The VLANs some cable carries, by ID: those the graph can light. */
 const onCables = computed(() => new Set(props.data.graph.edges.flatMap((edge) => (edge.vlans ?? []).map((vlan) => vlan.id))));
@@ -70,7 +72,7 @@ const rows = computed<Row[]>(() => {
                 entry.gateways.join("; "),
                 entry.ports.join("; "),
                 [...entry.ids].some((id) => onCables.value.has(id))
-                    ? { action: () => showInGraph("l2", { vlan: Math.min(...entry.ids) }), label: "cables in the graph" }
+                    ? { action: () => showInGraph(router, "l2", { vlan: Math.min(...entry.ids) }), label: "Show in the graph" }
                     : "",
             ],
         }));

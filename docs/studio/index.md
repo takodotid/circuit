@@ -26,7 +26,7 @@ Only your machine can reach it. Ctrl+C stops it.
 | `--allow-host <names>` | The names people use to reach it, behind a proxy.     |
 | `--no-open`            | Don't open the browser.                               |
 
-Every page has its own address, like `#devices/edge-01`, so the back button and bookmarks work.
+Every page has its own address, like `/devices/edge-01`, so the back button and bookmarks work.
 
 ## The graph
 
@@ -64,7 +64,7 @@ The buttons above the drawing:
 | ------------- | --------------------------------------------------------- |
 | Fit           | Shows the whole layer.                                    |
 | Lay out again | Forgets where you moved devices on this layer.            |
-| Save image    | Saves the layer as a PNG.                                 |
+| Save PNG      | Saves the layer as a PNG.                                 |
 | Save SVG      | Saves the layer as an SVG, which stays sharp at any size. |
 
 The graph shows what your files say, not what is plugged in. To check the cables, run `circuit diff` on the device: it compares what LLDP sees with each `link`.
@@ -85,14 +85,14 @@ The tabs at the top list everything in your files:
 
 | Tab       | What it lists                                                                                              |
 | --------- | ---------------------------------------------------------------------------------------------------------- |
-| Devices   | Every device, with its platform, model, site, ports declared and findings. Each opens the device's page.   |
+| Devices   | Every device, with its platform, model, site, ports declared, and findings. Each opens the device's page.  |
 | VLANs     | Every VLAN, its gateways, and the access and trunk ports on each device.                                   |
 | Addresses | Each address space with its segments, what is free and the next free address, and every address in use.    |
 | BGP       | Every session, what it takes from its group, and what is at the far end.                                   |
 | Cables    | Every cable, with the VLANs it carries.                                                                    |
 | Problems  | What `circuit validate` finds, and every line only one end declares. The count in the top bar is the same. |
 
-**Search** finds a name, an address or any other value in any device. It shows where each match is and how many there are, up to 200.
+**Search** finds a name, an address, or any other value in any device. It shows where each match is and how many there are, up to 200.
 
 Point at a field name with a dotted underline, such as `remote_as`, to see what it means. It is the same text your editor shows.
 
@@ -104,35 +104,35 @@ Every table has **Save as CSV**, for a spreadsheet.
 
 | Tab               | What it shows                                                                                   |
 | ----------------- | ----------------------------------------------------------------------------------------------- |
-| Overview          | Its platform, model, site and file, and what `circuit validate` found on it.                    |
+| Overview          | What `circuit validate` found on it, its role, and how Circuit connects to it.                  |
 | Ports             | Its front panel, colored by how each port is used, how many ports are declared, and every port. |
-| Interfaces        | Its LAGs, VLAN interfaces, loopbacks and tunnels.                                               |
-| Switching         | Its VLANs, spanning tree, LLDP and ACLs.                                                        |
-| Routing           | Its static routes, BGP, OSPF, policies and prefix sets.                                         |
-| Firewall          | Its filter chains, NAT and address sets.                                                        |
-| Services          | Its DHCP, DNS and other services.                                                               |
+| Interfaces        | Its LAGs, VLAN interfaces, loopbacks, and tunnels.                                              |
+| Switching         | Its VLANs, spanning tree, LLDP, and ACLs.                                                       |
+| Routing           | Its static routes, BGP, OSPF, policies, and prefix sets.                                        |
+| Firewall          | Its filter chains, NAT, and address sets.                                                       |
+| Services          | Its DHCP, DNS, and other services.                                                              |
 | Management        | How people and tools log in.                                                                    |
-| System            | Its users, time, DNS and logs.                                                                  |
-| Monitoring        | SNMP, syslog and flow export.                                                                   |
-| Config            | The config Circuit writes, in the vendor's own commands. Secrets show by name.                  |
+| System            | Its users, time, DNS, and logs.                                                                 |
+| Monitoring        | SNMP, syslog, and flow export.                                                                  |
+| Config            | The config Circuit writes, in the vendor's own commands.                                        |
 | On the device now | What the device runs, and what `circuit apply` would send.                                      |
 | History           | The commits that changed the device's file.                                                     |
 
-**show in the graph** on a device's Overview lights it on the graph.
+Under the device's name are its platform, model, site, and file. **Show in the graph** there lights the device on the graph.
 
-**Read from the device now** logs in to the device and reads it, like `circuit diff`. Nothing is sent, and Studio keeps no copy. It needs the device's password, so it works only when the secrets password comes from 1Password, `CIRCUIT_SECRETS_PASSWORD` or a password Circuit remembers. Otherwise run `circuit diff`, which asks for it.
+**Read from the device now** logs in to the device and reads it, like `circuit diff`. Nothing is sent, and Studio keeps no copy. It needs the device's password, so it works only when the secrets password comes from 1Password, `CIRCUIT_SECRETS_PASSWORD`, or a password Circuit remembers. Otherwise run `circuit diff`, which asks for it.
 
 ## Review a change
 
-Studio compares your files now with a branch, a tag or a commit. Your project must be in git, which `circuit new` sets up.
+Studio compares your files now with a branch, a tag, or a commit. Your project must be in git, which `circuit new` sets up.
 
 1. Open **Compare** in the top bar.
-2. Pick a branch, tag or recent commit, or type one, such as `main` or `HEAD~3`.
+2. Pick a branch, tag, or recent commit, or type one, such as `main` or `HEAD~3`.
 3. Studio shows what differs:
     - devices added and removed, and each device whose config changes, line by line;
     - lines of the graph added and gone, layer by layer;
     - what `circuit validate` finds now that it didn't before, and what it no longer finds.
-4. **Show the changes in the graph** draws new lines in green and removed lines in dashed red. **Stop comparing** goes back to the graph as it is.
+4. **Show in the graph** draws new lines in green and removed lines in dashed red. **Stop comparing** goes back to the graph as it is.
 
 Before you merge a pull request, compare its branch with `main`. You see what it changes in the network, not only in the files. Studio reads both sides with the Circuit you run now, so changes to Circuit itself don't show.
 

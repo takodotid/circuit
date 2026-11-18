@@ -37,7 +37,7 @@ export class GraphLayer {
     static readonly HELP: Record<Layer, string> = {
         l1: "Each cable a port's link names. A LAG's cables are one line.",
         l2: "The VLANs each cable carries. Pick a VLAN to light its cables.",
-        l3: "Prefixes two devices share. Three or more share a segment, drawn as a box.",
+        l3: "Prefixes that devices share.",
         bgp: "Sessions between our devices, and to each AS outside.",
         ospf: "Interfaces in one area and one prefix, neither passive.",
         tunnels: "GRE and VXLAN tunnels, and WireGuard peers.",

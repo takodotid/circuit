@@ -8,19 +8,19 @@ Each tool has its own address, to bookmark or send.
 
 Give an address, such as `192.0.2.5`, and Studio shows:
 
-- which device and interface hold it, and the segment, block or address space it is in, with what else uses that range;
+- which device and interface hold it, and the segment, block, or address space it is in, with what else uses that range;
 - how each device would reach it: its own address, an address in the same prefix, or a static route, picked by the longest prefix in each routing table;
-- every firewall rule, NAT rule and ACL that matches it, by address, prefix or address set.
+- every firewall rule, NAT rule, and ACL that matches it, by address, prefix, or address set.
 
-Routes a device learns from BGP or OSPF are not in your files, so a device with no route here may still reach the address. A trace's address is like `#tools/trace/192.0.2.5`.
+Routes a device learns from BGP or OSPF are not in your files, so a device with no route here may still reach the address. A trace's address is like `/tools/trace/192.0.2.5`.
 
 ## VLAN path
 
-Pick a VLAN and two devices, and Studio finds the fewest cables that carry the VLAN from one to the other. **Show in the graph** lights the path on the VLANs layer. A path's address is like `#tools/vlan/vlan=users&from=sw-01&to=sw-02`.
+Pick a VLAN and two devices, and Studio finds the fewest cables that carry the VLAN from one to the other. **Show in the graph** lights the path on the VLANs layer. A path's address is like `/tools/vlan?vlan=users&from=sw-01&to=sw-02`.
 
 ## Test a firewall
 
-1. Pick the device and its filter chain: `input`, `forward` or `output`.
+1. Pick the device and its filter chain: `input`, `forward`, or `output`.
 2. Describe the packet: protocol, source and destination, ports, the interface it arrives on and the one it leaves through, its connection state, how its connection was translated, and its TCP flags. Leave out what you don't know.
 3. Press **Test**.
 
@@ -28,7 +28,7 @@ Studio goes through the chain's rules in order and shows, for each one, whether 
 
 When a rule needs something you left empty, such as the destination port, Studio stops at that rule and says what it needs. A rule that fails on something you did give, such as the protocol, is passed over, even when it also names something you left empty.
 
-A rule written with a list, such as several sources or an interface set, is one rule per value in the table, as the device gets it. The test's address is like `#tools/firewall/device=edge-01&chain=input&protocol=tcp&src=203.0.113.1&dst_port=179&state=new`.
+A rule written with a list, such as several sources or an interface set, is one rule per value in the table, as the device gets it. The test's address is like `/tools/firewall?device=edge-01&chain=input&protocol=tcp&src=203.0.113.1&dst_port=179&state=new`.
 
 ## Test a route policy
 
@@ -45,4 +45,4 @@ Two things your files can't tell:
 - **A prefix set** holds a route when the route's prefix is one of the set's prefixes, or is inside one.
 - **A prefix set from a registry** (one with `source`) is fetched only by `circuit diff` and `circuit apply`, so tick the ones the route is in.
 
-The test's address is like `#tools/policy/device=edge-01&policy=transit-import&prefix=203.0.113.0%2F24&as_path=6939+64501&rpki=valid`.
+The test's address is like `/tools/policy?device=edge-01&policy=transit-import&prefix=203.0.113.0/24&as_path=6939+64501&rpki=valid`.

@@ -27,7 +27,7 @@ const found = computed<Row[]>(() => {
         rows.push({
             cells: [
                 { device },
-                { link: `devices/${device}/${sectionOf(path)}`, label: path.join(" › ") },
+                { link: { name: "device", params: { name: device, section: sectionOf(path) } }, label: path.join(" › ") },
                 text.length > 120 ? `${text.slice(0, 120)}…` : text,
             ],
         });
@@ -57,7 +57,10 @@ const found = computed<Row[]>(() => {
         rows.push({
             cells: [
                 { device: device.name },
-                { link: `devices/${device.name}/config`, label: `config, ${Format.count(lines.length, "line")}` },
+                {
+                    link: { name: "device", params: { name: device.name, section: "config" } },
+                    label: `config, ${Format.count(lines.length, "line")}`,
+                },
                 lines
                     .slice(0, 3)
                     .map((line) => line.trim())
@@ -72,7 +75,7 @@ const found = computed<Row[]>(() => {
 
 <template>
     <h2>Search: {{ query }}</h2>
-    <p v-if="!found.length" class="muted">Nothing in the project matches.</p>
+    <p v-if="!found.length" class="muted">No matches.</p>
     <template v-else>
         <p class="muted">
             {{ found.length >= MOST ? `The first ${MOST} matches.` : Format.count(found.length, "match", "matches") + "." }}

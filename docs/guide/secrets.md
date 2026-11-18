@@ -129,7 +129,7 @@ Studio's **Secrets** page lists each secret, file by file, like `circuit secrets
 
 1. Open **Secrets**.
 2. Type the file's password.
-3. Press **Show the values**, and **Hide** when you're done.
+3. Press **Show values**, and **Hide** when you're done.
 
 <img class="screenshot light" src="/screenshots/studio-secrets-light.png" alt="Studio's Secrets page: each secret's name and how it is stored, and the field for the password.">
 <img class="screenshot dark" src="/screenshots/studio-secrets-dark.png" alt="Studio's Secrets page: each secret's name and how it is stored, and the field for the password.">

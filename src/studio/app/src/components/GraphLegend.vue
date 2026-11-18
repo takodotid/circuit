@@ -12,7 +12,7 @@ defineProps<{ layer: Layer; comparing: boolean }>();
                 <line x1="2" y1="6" x2="32" y2="6" stroke-width="2" style="stroke: var(--edge)" />
                 <circle cx="20" cy="6" r="3" style="fill: var(--accent)" />
             </svg>
-            Both ends declare it. Dots travel it.
+            Both ends declare it.
         </li>
         <li>
             <svg width="34" height="12" aria-hidden="true">

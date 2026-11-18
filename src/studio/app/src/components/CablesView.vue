@@ -29,7 +29,7 @@ const rows = computed<Row[]>(() =>
             cable.through,
             cable.vlans.join(", "),
             cable.description,
-            cable.oneSided ? "the far end does not link back" : "",
+            cable.oneSided ? "no link back" : "",
         ],
     }))
 );

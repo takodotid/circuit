@@ -14,7 +14,7 @@ const mark = (kind: string) => (kind === "added" ? "+ " : kind === "removed" ? "
 
 <template>
     <p v-if="!lines" class="muted">They differ in too many lines to compare one by one.</p>
-    <p v-else-if="!changed" class="muted">They are the same, line for line.</p>
+    <p v-else-if="!changed" class="muted">No differences.</p>
     <div v-else>
         <p class="muted">{{ Format.count(changed, "line differs", "lines differ") }}.</p>
         <pre
