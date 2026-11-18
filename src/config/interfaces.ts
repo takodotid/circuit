@@ -307,7 +307,9 @@ export type WireGuard<Vrf extends string, Table extends string = string> = Base<
 /**
  * A layer 2 bridge between VLAN interfaces, each keeping its own VLAN. A frame that comes in on one member leaves another with that member's tag. A firewall filters the traffic that crosses it with its forward chain, without routing it.
  */
-export type Bridge<VlanInterface extends string, Vrf extends string> = Base<Vrf> & {
+export type Bridge<VlanInterface extends string, Vrf extends string> = Omit<Base<Vrf>, "description"> & {
+    /** What the bridge is for. On FortiOS it is documentation only: there a bridge is a forward domain, which has no place for it. */
+    description?: string;
     /** The VLAN interfaces it joins, from `interfaces.vlan_interface`. They have no addresses of their own. */
     member_interfaces: readonly VlanInterface[];
 };

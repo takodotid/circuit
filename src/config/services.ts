@@ -6,7 +6,7 @@ export type Reservation = {
     address: IP;
     /** The client's MAC address. */
     mac: MacAddress;
-    /** Whose address it is. */
+    /** Whose address it is. On Junos it is documentation only: a static binding there has no place for it. */
     description?: string;
 };
 
