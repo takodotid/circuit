@@ -1,6 +1,7 @@
 // A plan sends only what changed, in the form each device accepts: what it prints differently is no change, and what it keeps for itself is never touched.
 
 import { expect, test } from "bun:test";
+import { Validation } from "../../src/checks";
 import { Platforms } from "../../src/platforms";
 import { LineDiff } from "../../src/platforms/line-diff";
 import { FortiOsFirewall } from "../../src/platforms/fortios/firewall";
@@ -1117,9 +1118,72 @@ test("a route through an interface is found by its name, and an IPv6 gateway in 
     expect(written).toContain("gateway=2001:DB8:1:0::1");
     expect(routerOsSends(written, written.replace("gateway=2001:DB8:1:0::1", "gateway=2001:db8:1::1"))).toEqual([]);
 
-    // Circuit never writes a link-local gateway with its interface, but one the device holds is removed by it, quoted for its `%`.
+    // A gateway with its interface, which a person may have written on the device, is removed by it, quoted for its `%`.
     const linkLocal = ["/ipv6 route", "add dst-address=::/0 gateway=fe80::1%sfp28-1"].join("\n");
     expect(routerOsSends("", linkLocal)).toEqual([`/ipv6 route remove ${mainRoute("::/0", 'gateway="fe80::1%sfp28-1"')}`]);
+});
+
+// The destination is part of what a route is known by too. The render keeps the config's spelling, and the plan compares it in one.
+test("a route's destination in another spelling is the same route", () => {
+    const written = withRoutes([
+        { prefix: "2001:DB8:0::/32", blackhole: true },
+        { prefix: "2001:db8:1:0:0:0:0:1/128", next_hop: "2001:db8:1::2" },
+    ]);
+    expect(written).toContain("add blackhole dst-address=2001:DB8:0::/32\n");
+    expect(written).toContain("add dst-address=2001:db8:1:0:0:0:0:1/128 gateway=2001:db8:1::2\n");
+
+    const printed = written.replace("2001:DB8:0::/32", "2001:db8::/32").replace("2001:db8:1:0:0:0:0:1/128", "2001:db8:1::1/128");
+    expect(routerOsSends(written, printed)).toEqual([]);
+
+    expect(routerOsSends(withRoutes([]), written)).toEqual([
+        `/ipv6 route remove ${mainRoute("2001:db8::/32", "!gateway")}`,
+        `/ipv6 route remove ${mainRoute("2001:db8:1::1/128", "gateway=2001:db8:1::2")}`,
+    ]);
+});
+
+// A link-local next hop is reached through one interface, and RouterOS takes the two together: `gateway=fe80::1%ether1`. Built from the vendor's documentation, so experimental.
+test("a next hop with its interface is one gateway on RouterOS, experimental until tested", () => {
+    const routes: StaticRoute[] = [
+        { prefix: "::/0", next_hop: "FE80:0::1", interface: "25g-1" },
+        { prefix: "192.0.2.0/24", next_hop: "198.51.100.1", interface: "25g-2", distance: 2 },
+    ];
+    const written = withRoutes(routes);
+    expect(written).toContain('\nadd dst-address=::/0 gateway="FE80:0::1%sfp28-1"\n');
+    expect(written).toContain('\nadd distance=2 dst-address=192.0.2.0/24 gateway="198.51.100.1%sfp28-2"\n');
+
+    // The device prints the address in its own spelling; the interface's name is compared as it is.
+    const printed = written.replace('"FE80:0::1%sfp28-1"', "fe80::1%sfp28-1").replace('"198.51.100.1%sfp28-2"', "198.51.100.1%sfp28-2");
+    expect(routerOsSends(written, printed)).toEqual([]);
+    expect(routerOsSends(withRoutes([]), printed)).toEqual([
+        `/ipv6 route remove ${mainRoute("::/0", 'gateway="fe80::1%sfp28-1"')}`,
+        `/ip route remove ${mainRoute("192.0.2.0/24", 'gateway="198.51.100.1%sfp28-2"')}`,
+    ]);
+
+    // Another interface is another gateway: the new route is added before the old one goes.
+    const moved = withRoutes([{ prefix: "::/0", next_hop: "fe80::1", interface: "25g-2" }]);
+    expect(routerOsSends(moved, withRoutes([routes[0]!]))).toEqual([
+        '/ipv6 route add dst-address=::/0 gateway="fe80::1%sfp28-2"',
+        `/ipv6 route remove ${mainRoute("::/0", 'gateway="fe80::1%sfp28-1"')}`,
+    ]);
+
+    const device: Device = { ...router, routing: { ...router.routing, static_routes: routes } };
+    expect(Platforms.get("routeros").experimental?.(device)).toEqual([
+        "routing.static_routes ::/0 next_hop with interface",
+        "routing.static_routes 192.0.2.0/24 next_hop with interface",
+    ]);
+
+    const levels = (experimental: boolean) =>
+        Validation.run([device], undefined, { experimental })
+            .filter((finding) => finding.message.includes("next_hop with interface"))
+            .map((finding) => `${finding.level}: ${finding.message}`);
+    expect(levels(false)).toEqual([
+        "error: routing.static_routes ::/0 next_hop with interface is not tested on a real device yet. Add --experimental to send it anyway.",
+        "error: routing.static_routes 192.0.2.0/24 next_hop with interface is not tested on a real device yet. Add --experimental to send it anyway.",
+    ]);
+    expect(levels(true)).toEqual([
+        "warning: routing.static_routes ::/0 next_hop with interface is not tested on a real device yet. Sent because of --experimental: try it on a lab device first.",
+        "warning: routing.static_routes 192.0.2.0/24 next_hop with interface is not tested on a real device yet. Sent because of --experimental: try it on a lab device first.",
+    ]);
 });
 
 // RouterOS knows a route by its prefix, table, and gateway, so two routes alike in all three can't be told apart.
@@ -1132,6 +1196,10 @@ test("two routes to one prefix through one gateway in one table are refused on R
         { prefix: "198.51.100.0/24", blackhole: true, distance: 254 },
         { prefix: "2001:db8::/32", next_hop: "2001:db8:1::1" },
         { prefix: "2001:DB8::/32", next_hop: "2001:db8:1:0::1" },
+        // A next hop with its interface is a gateway of its own: one link-local address on two ports is two gateways.
+        { prefix: "::/0", next_hop: "fe80::1", interface: "25g-1" },
+        { prefix: "::/0", next_hop: "fe80::1", interface: "25g-2" },
+        { prefix: "::/0", next_hop: "FE80::1", interface: "25g-1", distance: 2 },
     ];
     const found = Platforms.get("routeros").unsupported({ ...router, routing: { ...router.routing, static_routes: routes } });
 
@@ -1139,6 +1207,7 @@ test("two routes to one prefix through one gateway in one table are refused on R
         "routing.static_routes[1] 0.0.0.0/0, with the table and gateway of routing.static_routes[0]: RouterOS tells routes to one prefix apart by their gateway. Remove one, or give it its own next_hop",
         "routing.static_routes[4] 198.51.100.0/24, with the table and gateway of routing.static_routes[3]: RouterOS tells routes to one prefix apart by their gateway. Remove one, or give it its own next_hop",
         "routing.static_routes[6] 2001:DB8::/32, with the table and gateway of routing.static_routes[5]: RouterOS tells routes to one prefix apart by their gateway. Remove one, or give it its own next_hop",
+        "routing.static_routes[9] ::/0, with the table and gateway of routing.static_routes[7]: RouterOS tells routes to one prefix apart by their gateway. Remove one, or give it its own next_hop",
     ]);
 });
 

@@ -156,7 +156,9 @@ export class RouterOsRouting {
             const menu = Address.family(Address.host(route.prefix)) === "ipv4" ? "/ip route" : "/ipv6 route";
             const verb = route.blackhole ? "add blackhole" : "add";
             const nextHop = route.next_hop && Address.host(route.next_hop);
-            const gateway = nextHop ?? (route.interface ? this.render.name(route.interface) : undefined);
+            const out = route.interface && this.render.name(route.interface);
+            // A next hop with its interface is written `fe80::1%ether1`, the form a link-local next hop needs. Experimental: not tested on a device yet.
+            const gateway = nextHop && out ? `${nextHop}%${out}` : (nextHop ?? out);
             this.render.add(menu, verb, {
                 comment: route.description,
                 distance: route.distance,
