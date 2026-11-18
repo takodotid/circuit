@@ -25,11 +25,11 @@ Good to know:
 
 What each platform can do today. The table comes from Circuit's code, not from datasheets. [Standards](/reference/standards) lists the RFC behind each feature.
 
-| Mark | Means                                                                                                                               |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| ✅   | Works, and tested on a real device.                                                                                                 |
-| ❌   | Not on this platform, or not built yet. Circuit stops you.                                                                          |
-| 🧪   | Built, but not tested on a real device yet. Circuit stops, unless you add `--experimental`. Then it's a warning, and yours to test. |
+| Mark | Means                                                                                                                                                               |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅   | Works, and tested on a real device.                                                                                                                                 |
+| ❌   | Not on this platform, or not built yet. Circuit stops you.                                                                                                          |
+| 🧪   | Built from the vendor's documentation, but not tested on a real device yet. Circuit stops, unless you add `--experimental`. Then it's a warning, and yours to test. |
 
 A note in a cell means "works, with this limit".
 
