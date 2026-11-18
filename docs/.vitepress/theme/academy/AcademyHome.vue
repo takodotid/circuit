@@ -4,6 +4,7 @@
 import { computed, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
 import { Academy } from "../../academy";
+import { checks } from "./checks";
 import { Progress } from "./progress";
 
 // What this browser remembers is only known once the page is in it, so the first paint shows a fresh start.
@@ -80,7 +81,8 @@ function clear() {
                 <p v-if="Progress.GATED.includes(level.slug)" class="gate" :class="{ closed: closed(level.slug) }">
                     <template v-if="closed(level.slug)">
                         <span class="lock">Locked</span>
-                        Opens with its <a :href="withBase(`/academy/checks/${level.slug}`)">entry check</a>: ten questions about
+                        Opens with its <a :href="withBase(`/academy/checks/${level.slug}`)">entry check</a>:
+                        {{ checks.find((check) => check.level === level.slug)?.asks }} questions about
                         {{ Academy.LEVELS[index - 1]?.name }}.
                     </template>
                     <span v-else class="lock open">Open</span>

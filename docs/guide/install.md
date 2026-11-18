@@ -37,9 +37,7 @@ Or run `circuit` in an empty folder and pick **Start a new project**. Circuit as
 | Start a git repository?      | Yes.                                                                                |
 | Open the project in VS Code? | Circuit asks only if you have VS Code.                                              |
 
-Once you add a site and a device, the project has this layout.
-
-<LayoutDiagram />
+[Your first project](/guide/project) shows the project's layout.
 
 ## Run the install command again
 

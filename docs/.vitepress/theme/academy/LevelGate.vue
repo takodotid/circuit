@@ -5,6 +5,7 @@
 import { computed } from "vue";
 import { withBase } from "vitepress";
 import { Academy } from "../../academy";
+import { checks } from "./checks";
 
 const props = defineProps<{ lesson: (typeof Academy.LESSONS)[number] }>();
 
@@ -16,7 +17,10 @@ const beforeStart = computed(() => Academy.link(before.value, before.value.lesso
     <aside class="level-gate" :aria-label="`${lesson.title} is locked`">
         <p class="chip">Locked</p>
         <h2 v-text="lesson.title" />
-        <p>{{ lesson.level.name }} opens when you pass its entry check: ten questions about {{ before.name }}.</p>
+        <p>
+            {{ lesson.level.name }} opens when you pass its entry check:
+            {{ checks.find((check) => check.level === lesson.level.slug)?.asks }} questions about {{ before.name }}.
+        </p>
         <p class="outcome">After this lesson, you can {{ lesson.outcome.replace(/^./, (letter) => letter.toLowerCase()) }}</p>
         <div class="actions">
             <a class="ac-button primary" :href="withBase(`/academy/checks/${lesson.level.slug}`)">Take the entry check</a>

@@ -15,7 +15,6 @@ import Term from "./academy/Term.vue";
 import TryIt from "./academy/TryIt.vue";
 import FlowDiagram from "./diagrams/FlowDiagram.vue";
 import InstallTabs from "./diagrams/InstallTabs.vue";
-import LayoutDiagram from "./diagrams/LayoutDiagram.vue";
 import MenuDiagram from "./diagrams/MenuDiagram.vue";
 import SecretsDiagram from "./diagrams/SecretsDiagram.vue";
 import Home from "./home/Home.vue";
@@ -54,7 +53,6 @@ export default {
             FlowDiagram,
             Graduates,
             InstallTabs,
-            LayoutDiagram,
             MenuDiagram,
             SecretsDiagram,
             LevelCheck,
