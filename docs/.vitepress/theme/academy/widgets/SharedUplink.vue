@@ -34,7 +34,7 @@ const said = computed(() => {
         return {
             kind: "good",
             word: "Full speed",
-            text: `${busy.value} ${busy.value === 1 ? "home is" : "homes are"} busy, needing ${busy.value * PLAN} Mbit/s, and ${SHARED} Mbit/s is there to share. Every busy home gets its full ${PLAN} Mbit/s. Bring more homes online.`,
+            text: `${busy.value} ${busy.value === 1 ? "home is" : "homes are"} busy, needing ${busy.value * PLAN} Mbit/s, and ${SHARED} Mbit/s is there to share. Every busy home gets its full ${PLAN} Mbit/s. Add more busy homes.`,
         };
 
     return {
@@ -48,7 +48,7 @@ const said = computed(() => {
 <template>
     <div class="shared-uplink">
         <label class="ac-field">
-            <span>Homes online and busy right now: {{ busy }} of {{ HOMES }}</span>
+            <span>Busy homes: {{ busy }} of {{ HOMES }}</span>
             <input v-model.number="busy" class="range" type="range" min="1" :max="HOMES" step="1" />
         </label>
 
