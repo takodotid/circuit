@@ -28,7 +28,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import type { StudioData } from "../../../types";
 import { Export } from "../lib/csv";
 import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
-import { GraphLook } from "../lib/graph-look";
+import { type Tag, GraphLook } from "../lib/graph-look";
 import { GraphSignals } from "../lib/graph-signals";
 import { type Drawing, GraphSvg } from "../lib/graph-svg";
 import { go, still, store } from "../lib/store";
@@ -61,8 +61,21 @@ const selected = computed<{ node?: ShownNode; edge?: ShownEdge }>(() => {
 const layouts = memory.layouts;
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-/** How wide a node's tag is: as wide as its name. */
-const widthOf = (node: ShownNode) => node.label.length * 8.5 + 28;
+/** Each node's tag, measured once in the colours and fonts it is drawn in, until they change. */
+let colors = GraphLook.colors();
+const tags = new Map<string, Tag>();
+
+function tagOf(node: ShownNode): Tag {
+    const key = `${node.id} ${node.label} ${node.detail[0] ?? ""}`;
+    let tag = tags.get(key);
+    if (!tag) {
+        tag = GraphLook.tag(node, colors);
+        tags.set(key, tag);
+    }
+    return tag;
+}
+
+const widthOf = (node: ShownNode) => tagOf(node).width;
 
 /** Give every node of a layer a place. The cables layer comes first, as every other layer's new nodes start where they are on it. */
 function layOut(name: Layer): void {
@@ -75,7 +88,19 @@ function layOut(name: Layer): void {
 }
 
 function nodeData(node: ShownNode) {
-    return { id: node.id, label: node.label, kind: node.kind, level: node.level ?? "", width: widthOf(node) };
+    const tag = tagOf(node);
+    return {
+        id: node.id,
+        label: node.label,
+        kind: node.kind,
+        level: node.level ?? "",
+        width: tag.width,
+        height: tag.height,
+        shift: tag.shift,
+        image: tag.image,
+        picked: tag.picked,
+        touring: tag.touring,
+    };
 }
 
 function edgeData(edge: ShownEdge) {
@@ -215,10 +240,11 @@ function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer"): voi
         const done = () => edge.removeStyle("opacity text-opacity line-style line-dash-pattern line-dash-offset");
 
         // A line both ends declare draws in from its nearer end: a dash as long as the line slides along it. A dashed line fades in.
-        if (arrival === "network" && !edge.data("oneSided")) {
-            const a = edge.sourceEndpoint();
-            const b = edge.targetEndpoint();
-            const length = Math.hypot(b.x - a.x, b.y - a.y) * 1.3 + 4;
+        // A line whose ends are not placed yet has no length, and fades in too.
+        const a = edge.sourceEndpoint();
+        const b = edge.targetEndpoint();
+        const length = Math.hypot(b.x - a.x, b.y - a.y) * 1.3 + 4;
+        if (arrival === "network" && !edge.data("oneSided") && Number.isFinite(length)) {
             edge.style({
                 opacity: 1,
                 "line-style": "dashed",
@@ -308,14 +334,14 @@ function framing(ids: readonly string[], padding: number, readable = false): Vie
     const boxes = ids.flatMap((id) => {
         const point = places.get(id);
         const node = shown.value.nodes.find((candidate) => candidate.id === id);
-        return point && node ? [{ ...point, half: widthOf(node) / 2 }] : [];
+        return point && node ? [{ ...point, half: widthOf(node) / 2, halfHeight: tagOf(node).height / 2 }] : [];
     });
     if (!boxes.length) return undefined;
 
     const left = Math.min(...boxes.map((box) => box.x - box.half));
     const right = Math.max(...boxes.map((box) => box.x + box.half));
-    const top = Math.min(...boxes.map((box) => box.y)) - GraphLook.HEIGHT / 2;
-    const bottom = Math.max(...boxes.map((box) => box.y)) + GraphLook.HEIGHT / 2;
+    const top = Math.min(...boxes.map((box) => box.y - box.halfHeight));
+    const bottom = Math.max(...boxes.map((box) => box.y + box.halfHeight));
 
     const width = graph.width();
     const height = graph.height();
@@ -411,6 +437,17 @@ function saveSvg(): void {
             color: node.style("color"),
             fontSize: size(node.style("font-size")),
             opacity: Number(node.style("opacity")),
+            ...(node.data("kind") === "device"
+                ? {
+                      device: {
+                          chassis: node.hasClass("touring") ? colors.navy : colors.cobalt,
+                          socket: node.hasClass("touring") || node.hasClass("picked") ? colors.yellow : "#ffffff",
+                          sub: props.data.graph.nodes.find((candidate) => candidate.id === node.id())?.detail[0] ?? "",
+                          subColor: node.hasClass("touring") ? "#2a3550" : colors.muted,
+                          mono: colors.mono,
+                      },
+                  }
+                : {}),
         })),
         edges: graph.edges().map((edge) => {
             const control = edge.controlPoints()?.[0];
@@ -588,7 +625,7 @@ onMounted(() => {
         minZoom: 0.2,
         maxZoom: 3,
         autounselectify: true,
-        style: GraphLook.style(GraphLook.colors(), still.matches),
+        style: GraphLook.style(colors, still.matches),
     });
 
     graph.on("tap", "node", (event) => select({ node: event.target.id() }));
@@ -637,6 +674,12 @@ onMounted(() => {
     // The first view of the page draws the network in.
     draw(memory.arrived || !props.data.devices.length ? undefined : "network");
     memory.arrived = true;
+
+    // Names are measured in Special Gothic: once it has loaded, the tags are measured again.
+    void document.fonts.ready.then(() => {
+        tags.clear();
+        draw();
+    });
     frameLayer();
     showDevice();
     if (presenting.value) showPresenting();
@@ -671,6 +714,7 @@ onBeforeUnmount(() => {
     signals?.stop();
     document.body.classList.remove("presenting");
     graph?.destroy();
+    graph = undefined;
 });
 
 watch(layer, (_next, last) => {

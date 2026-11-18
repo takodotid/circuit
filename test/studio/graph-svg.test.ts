@@ -23,6 +23,7 @@ describe("the graph as an SVG", () => {
                     color: "#11141b",
                     fontSize: 13,
                     opacity: 1,
+                    device: { chassis: "#0a47b8", socket: "#ffffff", sub: "routeros CCR2216", subColor: "#49536a", mono: "monospace" },
                 },
                 {
                     x: 180,
@@ -61,5 +62,10 @@ describe("the graph as an SVG", () => {
         expect(svg).toContain("AS6939 &lt;HE&gt;");
         expect(svg).toContain('stroke-dasharray="6 4"');
         expect(svg.indexOf("<path")).toBeLessThan(svg.indexOf("edge-01"));
+
+        // A device's tag carries its chassis mark, six sockets, and its platform and model under its name.
+        expect(svg).toContain('<rect x="6" y="35" width="34" height="30" rx="4" fill="#0a47b8"/>');
+        expect(svg.match(/width="6" height="6"/g)).toHaveLength(6);
+        expect(svg).toContain(">routeros CCR2216</text>");
     });
 });
