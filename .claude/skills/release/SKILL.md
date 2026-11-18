@@ -14,4 +14,4 @@ Only the owner decides. Confirm the exact version before anything: a release pub
 5. Watch it: `gh run list --limit 3`, `gh run watch <id>`. Check `SHA256SUMS.sig`, `SHA256SUMS.sshsig` and the installers are on the release. Report the result and the release link.
 6. A security fix: once every fixed version is out, the owner publishes a GitHub security advisory with the affected ranges and patched versions (SECURITY.md). Draft it for them; never publish it without their OK.
 
-`DEPLOYMENT.md` has what the workflow does with each kind of release.
+`CONTRIBUTING.md` has what the workflow does with each kind of release.

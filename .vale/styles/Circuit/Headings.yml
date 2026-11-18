@@ -1,0 +1,57 @@
+extends: capitalization
+message: "'%s' should use sentence-style capitalization."
+level: warning
+scope: heading
+match: $sentence
+exceptions:
+  - 1Password
+  - Academy
+  - Actions
+  - AGENTS.md
+  - API
+  - AS
+  - ASN
+  - BFD
+  - BGP
+  - Bun
+  - CI
+  - Circuit
+  - CLI
+  - Code
+  - Cytoscape
+  - DHCP
+  - DNS
+  - FortiOS
+  - GitHub
+  - I
+  - IPv4
+  - IPv6
+  - Junos
+  - LAG
+  - LibreNMS
+  - Linux
+  - LLDP
+  - macOS
+  - MikroTik
+  - NAT
+  - NetBox
+  - NTP
+  - OSPF
+  - PeeringDB
+  - Prometheus
+  - Raisecom
+  - RouterOS
+  - RPKI
+  - SNMP
+  - SSH
+  - Studio
+  - TypeScript
+  - VLAN
+  - VLANs
+  - VRF
+  - VRP
+  - VS
+  - Vue
+  - Windows
+  - Winbox
+  - YAML

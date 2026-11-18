@@ -3,8 +3,8 @@
     "extends": ["local>takodotid/renovate-config"],
     "packageRules": [
         {
-            "description": "typescript-6 is the TypeScript VS Code bundles, which the editor-types test checks against; it moves to 7 only when VS Code does.",
-            "matchPackageNames": ["typescript-6"],
+            "description": "typescript-6 is an npm alias of typescript, so it is matched by its dependency name. It is the TypeScript that VS Code bundles, which the editor-types test checks against. It moves to 7 only when VS Code does.",
+            "matchDepNames": ["typescript-6"],
             "allowedVersions": "<7"
         },
         {

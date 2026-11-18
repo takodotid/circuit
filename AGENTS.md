@@ -40,7 +40,7 @@ This repo is Circuit v1. Circuit 0.x is retired on the branch `0.x`. Never use i
 - `src/integrations/`: the targets of `circuit sync`.
 - `src/transport/`: SSH and serial consoles.
 - `src/cli/`: the `circuit` command.
-- `src/studio/`: `circuit studio`. The page is a Vue 3 app in `app/`, built by Vite. The graph uses Cytoscape.
+- `src/studio/`: `circuit studio`. The page is a Vue 3 app in `src/studio/app/`, built by Vite. The graph uses Cytoscape.
 - `scripts/`: the build, Studio's build, the editor types and release signing.
 - `test/`: mirrors `src/`. `test/repo/` checks this repo's own rules.
 - `docs/`: the website, built with VitePress. See `docs/AGENTS.md`.

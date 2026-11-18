@@ -26,7 +26,7 @@ Two cases; find out which first.
 
 ## New platform
 
-Read `src/platforms/platform.ts` (the contract) and the closest adapter: `routeros/` (commands), `junos/` (`set` lines), `vrp/` and `raisecom-ros/` (indented blocks, `LineDiff`), `fortios/` (`config`/`edit` blocks). Then, with `bun run check` passing after each step:
+Read `src/platforms/platform.ts` (the contract) and the closest adapter in `src/platforms/`: `routeros` (commands), `junos` (`set` lines), `vrp` and `raisecom-ros` (indented blocks, `LineDiff`), `fortios` (`config`/`edit` blocks). Then, with `bun run check` passing after each step:
 
 1. `models.ts`, added to `Catalog.MODELS`.
 2. `index.ts`: `class <Name> extends Platform` (`name`, `os`, `extension`, `console` if it has one), registered in `src/platforms/index.ts`. Other classes are `<Name><Job>`.

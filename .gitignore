@@ -15,33 +15,25 @@ Thumbs.db
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 
-# Built for Node by scripts/build.ts: published, never committed.
+# Built by scripts/build.ts and scripts/studio.ts: the binaries, which the release workflow attaches to the GitHub release, and Studio's page.
 /dist/
 # Studio's page, built by scripts/studio.ts into the binary: written on bun install and each build.
 /src/studio/assets.generated.ts
 # The files Circuit writes into a project's .circuit/types, by scripts/editor-types.ts: written on bun install, typecheck, test and each build.
 /src/cli/editor-types.generated.ts
 
-# Third-party skills and agents, installed on each machine from skills-lock.json with `bun run agents:setup`. Our own skills are committed.
-/.agents/
+# Skills a person installs for themselves stay on their machine. The project's own skills are listed here, so git keeps them.
 /.claude/skills/*
 !/.claude/skills/implement-device/
 !/.claude/skills/fix-device/
 !/.claude/skills/prove-on-device/
 !/.claude/skills/release/
-/.claude/agents/
 /.claude/settings.local.json
-/.github/agents/
-/.github/skills/
-
-# What scripts/golden.ts, scripts/lab.ts and scripts/shots.ts write.
-/.golden/
-/.lab/
-/.shots/
+# Claude Code's worktrees for agents.
+.claude/worktrees/
 
 # What bun build leaves when it cannot replace a binary that is running.
 *.bun-build
-.claude/worktrees/
 
 # Vale's Google style, downloaded by `vale sync` (bun install runs it).
 .vale/styles/Google/

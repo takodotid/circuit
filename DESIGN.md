@@ -1,6 +1,6 @@
 ---
 name: Circuit
-description: Cobalt fields, white planes and a highlighter yellow, set in one variable grotesk, for the docs site and Circuit Studio.
+description: Cobalt fields, white planes and a highlighter yellow, set in one variable sans-serif, for the docs site and Circuit Studio.
 colors:
     cobalt: "#0a47b8"
     cobalt-deep: "#08337f"
@@ -159,222 +159,290 @@ components:
         padding: "2px 8px"
 ---
 
-# Design System: Circuit
+# Circuit's design
+
+The look of the docs site and Circuit Studio. The tokens are in the front matter of this file.
 
 ## Overview
 
-**Creative North Star: "The Numbered Parts Plate"**
+The idea is "the numbered parts plate". Circuit is drawn the way a service manual draws a carburetor: a cobalt field, a flat drawing of the workflow, and white numbered callouts with thin leader lines. A legend below gives each part its name in Circuit's own words. Two references set the look:
 
-Circuit is drawn the way a service manual draws a carburetor: a cobalt field, a flat illustration of the workflow, white numbered callouts with thin leader lines, and a legend underneath that names each part in Circuit's own terms. The two references that pinned the world are a cobalt exploded-parts plate (numbered callouts paired with a parts list) and a yellow storybook page (dotted underlines under words that can be looked up, labels pinned to a drawing). The docs site and Circuit Studio share one palette, one variable typeface and one signature, the dotted cobalt underline.
+- a cobalt exploded-parts plate, whose numbered callouts pair with a parts list;
+- a yellow storybook page, with dotted underlines under words you can look up, and labels pinned to a drawing.
 
-The page alternates cobalt fields with clean white and mist planes. Near-black ink frames carry structure: 2px frames around notes, tools and screenshots. Table heads sit on a tinted band, never on a rule that could be read as a divider. Yellow is a highlighter, not a decoration: it marks the one action to take, the current thing, and selected text. Red is held back for removal, errors and the alpha caution; Studio adds orange for warnings and green for added. Code sits on navy in both themes, like the editor drawn in the home plate. The density is calm on the docs and working-tight in Studio, but both read as the same manual.
+The docs site and Studio share one palette, one variable typeface, and one signature: the dotted cobalt underline. The docs are calm. Studio is denser, because people work in it. Both read as the same manual.
 
-Both surfaces have a dark theme. The cobalt field, the navy code ground and the yellow highlighter stay the same in both; only the paper, ink, lines and link colour change.
+Both surfaces have a dark theme. Cobalt, the navy behind code, and yellow stay the same in both. Only the paper, ink, lines, and link color change.
 
-**Key Characteristics:**
+## Rules
 
-- Cobalt fields and white or mist planes, never a grey dashboard.
-- One typeface, Special Gothic, used across its width axis: wide caps for the wordmark and labels, normal width for reading, slightly condensed for the hero line. Monospace only for config and commands.
-- The dotted cobalt underline marks headings you can read further under, and links (dotted at rest, solid on hover).
-- Numbered white circle callouts with leader lines, paired one to one with a legend.
-- Square controls (2px radius), square note frames (0 radius), flat surfaces.
-- Yellow for action and selection, red for removal and caution, each paired with a second cue such as a word, a mark or a dash pattern.
+1. **Yellow is a highlighter.** It marks the one action to take in a view, the current item, and the selection. It never fills a decorative panel, except the close chapter on the docs home. Text on yellow is always navy or ink.
+2. **Red means gone.** Red is only for something removed or broken, and for DANGER notes. Studio's warnings are orange, never red.
+3. **Color never works alone.** Every color state also has a second cue: a word, a filled or hollow dot, or a dash pattern.
+4. **Code sits on navy** in both themes, with light text and a yellow `$` prompt.
+5. **One typeface.** Every word that isn't code is Special Gothic. Change its width and weight, never the typeface.
+6. **Uppercase only for short labels**, set wide (width 112% or more) and tracked (0.06em or more). Headings and reading text stay in sentence case.
+7. **No shadows on cards or panels.** A container that needs separation gets a 2px ink frame or a change of plane.
+8. **Square shapes.** Controls have a 2px radius, and frames have none.
+9. **Each numbered callout has a legend entry** with the same number, and the two light up together.
+10. **The dotted underline** marks a heading you can read further under. Links are dotted at rest and solid on hover.
+11. **Devices are drawn** with the chassis mark, never shown as a photograph.
+12. **A marketing page opens on a cobalt field** with white type. Paper and mist planes alternate below it.
 
 ## Colors
 
-A two-field palette: saturated cobalt and white, with a yellow highlighter and a few signal colours that always travel with a word or a mark.
-
 ### Primary
 
-- **Plate Cobalt** (cobalt): the field colour. The docs home opening and Studio chapter, the docs nav on the home page, the Studio header rail, pressed segmented buttons, the active tab bar under Studio tables, step number dots, the chassis mark on graph nodes, and the dotted heading underline in light themes. Also the link colour in light themes.
-- **Deep Cobalt** (cobalt-deep): inline code text in light docs and the hover tint for brand links.
+- **Plate Cobalt** (`cobalt`): the field color. On the docs home, it fills the opening, the Studio chapter, and the nav. In Studio, it fills the header rail, pressed segmented buttons, the bar under the active table tab, and the chassis mark on graph nodes. Step number dots are cobalt too. In light themes, links and the dotted heading underline are cobalt.
+- **Deep Cobalt** (`cobalt-deep`): inline code text in light docs, and the hover tint for brand links.
 
 ### Secondary
 
-- **Highlighter Yellow** (yellow): the one action colour and the selection colour. The Get started button, the yellow close chapter, the Studio tag beside the wordmark, the active bar under Studio view tabs, problem counts, lit callout dots, the current sidebar page (a highlighter band behind the text), text selection, search hit highlights and trunk ports on a device faceplate. Text on yellow is always navy or ink.
-- **Pressed Yellow** (yellow-deep): hover for yellow buttons and the outline of VLAN segment nodes.
+- **Highlighter Yellow** (`yellow`): the action color and the selection color. It marks the Get started button, the close chapter on the docs home, the STUDIO tag beside the wordmark, and the bar under the active Studio view tab. It also marks problem counts, lit callout dots, the current sidebar page (a band behind the text), selected text, search hits, and trunk ports on a device faceplate.
+- **Pressed Yellow** (`yellow-deep`): hover on yellow buttons, and the outline of VLAN segment nodes.
 
-### Tertiary
+### Signal colors
 
-- **Signal Red** (signal-red): the docs caution frame and its label chip (the alpha caution and DANGER blocks).
-- **Removal Red** (removed / night-removed): removed diff lines, errors, error node frames and the error badge in Studio.
-- **Warning Orange** (warning, warning-strong / night-warning): Studio warning text and node frames (dashed), one-sided cables (dashed) and the WARNING badge; on the docs, the frame and label chip of WARNING notes.
-- **Added Green** (added / night-added): added diff lines, added cables, the live indicator and linked ports.
+- **Signal Red** (`signal-red`): the frame and label chip of DANGER notes on the docs.
+- **Removal Red** (`removed`, `night-removed`): removed diff lines, errors, error node frames, and the error badge in Studio.
+- **Warning Orange** (`warning`, `warning-strong`, `night-warning`): in Studio, warning text, dashed warning node frames, dashed one-sided cables, and the WARNING badge. On the docs, the frame and label chip of WARNING notes.
+- **Added Green** (`added`, `night-added`): added diff lines, added cables, the live indicator, and linked ports.
 
-### Neutral
+### Neutrals
 
-- **Paper** (paper / night-paper): reading planes and Studio surfaces (panel, toolbar, status rail, tables).
-- **Mist** (mist / night-mist): the alternate docs chapter (How) and Studio's drawing board background and field inputs.
-- **Navy** (navy): code blocks in both themes, the docs footer, and the dark selected button in the close chapter's package switch.
-- **Ink** (ink / night-ink): text and every structural frame and rule.
-- **Soft Ink** (soft-ink / night-soft-ink): secondary text, file chips, captions.
-- **Line** (line / night-line): hairline row dividers and quiet borders.
-- **Head** (head / night-head): the band behind a table's head row, on the docs and in Studio. Studio's heads are a step stronger, #e1e7f3 light and #26325a dark, to stay well apart from its row hover and from the raised night surface its tables sit on. A hovered Studio row takes a faint link-coloured wash (hover: 4.5% cobalt, 5% night link), only on the innermost row under the pointer, so it never reads as a head.
-- **Edge** (edge): graph cable strokes and default control borders in Studio.
-- **On-Cobalt Soft** (on-cobalt-soft): inactive tabs, placeholder text and thin rules on cobalt.
-- **Selected Wash** (selected / night-selected): the fill of a selected graph node and a row that just flashed into view.
+- **Paper** (`paper`, `night-paper`): reading planes, and Studio's surfaces (panel, toolbar, status rail, tables).
+- **Mist** (`mist`, `night-mist`): the alternate docs chapter (How), Studio's drawing board, and field inputs.
+- **Navy** (`navy`): code blocks in both themes (#060c1a in dark docs), the docs footer, and the selected button of the package switch in the close chapter.
+- **Ink** (`ink`, `night-ink`): text, and every frame and rule that carries structure.
+- **Soft Ink** (`soft-ink`, `night-soft-ink`): secondary text, file chips, and captions.
+- **Line** (`line`, `night-line`): hairline row dividers and quiet borders.
+- **Head** (`head`, `night-head`): the band behind a table's head row. The docs and Studio both use it. Studio's heads are a step stronger, #e1e7f3 light and #26325a dark. This keeps them apart from the row hover and from the raised night surface under the tables.
+- **Edge** (`edge`): graph cable strokes and default control borders in Studio.
+- **On-Cobalt Soft** (`on-cobalt-soft`): inactive tabs, placeholder text, and thin rules on cobalt.
+- **Selected Wash** (`selected`, `night-selected`): the fill of a selected graph node, and of a row that just flashed into view.
 
-### Named Rules
-
-**The Highlighter Rule.** Yellow marks what to do or what is chosen: one primary action per view, the current item, the selection. It never fills a decorative panel except the single close chapter on the docs home, and text on it is always navy or ink.
-
-**The Red Means Gone Rule.** Red appears only for something removed, broken, or the alpha caution. Warnings in Studio are orange, never red, and every colour state carries a second cue (a word, a filled or hollow dot, a dash pattern).
-
-**The Navy Code Rule.** Code blocks and commands sit on navy (#0a1a36, or #060c1a in dark docs) in both themes, with light text and a yellow `$` prompt.
+A hovered Studio row takes a faint wash of the link color: 4.5% cobalt, or 5% night link. Only the innermost row under the pointer takes it, so it never looks like a head.
 
 ## Typography
 
-**Display Font:** Special Gothic, variable weight 400 to 700 and width 75% to 125% (with Segoe UI, system-ui, sans-serif)
-**Body Font:** Special Gothic (same stack)
-**Label/Mono Font:** Special Gothic in wide caps for labels; ui-monospace, Cascadia Code, SFMono-Regular, Menlo, Consolas for config and commands
+Special Gothic carries every word that isn't code. It is a variable font: weight 400 to 700, width 75% to 125%. Its fallbacks are Segoe UI, system-ui, and sans-serif. Width does the work that a second typeface does elsewhere: wide for the wordmark and caps labels, normal for reading, and slightly condensed for the hero line.
 
-**Character:** one heavy, tight grotesk carries everything. Width does the work other systems give to a second family: widen it for the wordmark and caps labels, keep it normal for reading, condense it slightly for the hero line. Self-hosted in both surfaces (docs/public/fonts and src/studio/app/public) so Studio works offline and falls back to system fonts.
+Code and commands use ui-monospace, Cascadia Code, SFMono-Regular, Menlo, and Consolas.
 
-### Hierarchy
+Both surfaces carry the font themselves, in `docs/public/fonts` and `src/studio/app/public`, so Studio works offline. Without it, they fall back to system fonts.
 
-- **Display** (700, about 124px at 1536 wide, scaled with the window; clamp(44px, 13.6vw, 72px) under 760px; 0.94; -0.035em; width 94%): the docs home title line only.
-- **Headline** (700, about 96px at 1536 wide, 52px narrow; 1.08; -0.04em): docs home chapter headings, each carrying the dotted underline.
-- **Title** (700; 46px docs page h1, 30px docs h2, clamp(30px, 3.2vw, 44px) Studio table heading, 26px Studio panel heading; -0.015em to -0.03em): page and panel titles.
-- **Body** (400; 16.5px / 1.75 on docs pages, 17px to 19px / 1.6 on the docs home, 15px / 1.5 in Studio; reading measure about 60ch to 720px): all reading text.
-- **Label** (700, 11px to 13px, letter-spacing 0.06em to 0.1em, width 112% to 120%, uppercase): nav links, Studio view tabs, sidebar group names, table heads, note chips, badges, panel section heads.
-- **Wordmark** (700, width 125%, uppercase, 0.02em to 0.05em): CIRCUIT in the docs nav and Studio rail.
-- **Mono** (400, 12px to 22px): code, commands, file names, VLAN segment labels, model numbers.
-
-### Named Rules
-
-**The One Family Rule.** Every non-code word is Special Gothic. Change width and weight, not family.
-
-**The Wide Caps Label Rule.** Uppercase is reserved for short labels set wide (width 112% or more) and tracked (0.06em or more). Headings and reading text stay in sentence case.
+| Style    | Weight | Size                                                                                                   | Line height                           | Tracking and width                  | Used for                                                                                               |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Display  | 700    | About 124px at 1536px wide, scaled with the window. `clamp(44px, 13.6vw, 72px)` under 760px.           | 0.94                                  | -0.035em, width 94%                 | The docs home title line only                                                                          |
+| Headline | 700    | About 96px at 1536px wide, 52px narrow                                                                 | 1.08                                  | -0.04em                             | Docs home chapter headings, each with the dotted underline                                             |
+| Title    | 700    | 46px docs h1, 30px docs h2, `clamp(30px, 3.2vw, 44px)` Studio table heading, 26px Studio panel heading | -                                     | -0.015em to -0.03em                 | Page and panel titles                                                                                  |
+| Body     | 400    | 16.5px on docs pages, 17px to 19px on the docs home, 15px in Studio                                    | 1.75 docs pages, 1.6 home, 1.5 Studio | -                                   | All reading text, about 60ch to 720px wide                                                             |
+| Label    | 700    | 11px to 13px, uppercase                                                                                | -                                     | 0.06em to 0.1em, width 112% to 120% | Nav links, Studio view tabs, sidebar group names, table heads, note chips, badges, panel section heads |
+| Wordmark | 700    | Uppercase                                                                                              | -                                     | 0.02em to 0.05em, width 125%        | CIRCUIT in the docs nav and the Studio rail                                                            |
+| Mono     | 400    | 12px to 22px                                                                                           | -                                     | -                                   | Code, commands, file names, VLAN segment labels, model numbers                                         |
 
 ## Layout
 
-The docs home is laid out against a 1536px drawing: lengths in the opening scale with the window (1px of the drawing is 0.0651vw), with a 3.65vw side gutter that becomes 16px under 760px. Chapters are a two-column grid: the heavy heading on the left (about 644 of 1536) and reading on the right (up to about 720 of 1536), collapsing to one column under 760px. Chapter planes alternate paper, mist, cobalt and finish on a full yellow field. The illustration plate runs edge to edge at 1536:426; under 760px it keeps a 900px stage and scrolls sideways in its own frame.
+### Docs home
 
-Docs reading pages use VitePress's layout with a 72px nav (64px to 84px on the home page, on cobalt).
+The home page is laid out on a drawing 1536px wide.
 
-Studio is a full-height column: the cobalt rail (52px tabs), a 38px white status rail, a 52px toolbar, then the drawing board with a 390px panel at the right. The search drops under the tabs below 1180px; below 760px tabs scroll sideways and the panel moves under the graph at 42% height. Tables sit in a padded column (clamp(16px, 4vw, 56px) sides). Studio's working rhythm steps 6px, 8px, 12px, 18px, 22px. The drawing board carries a 24px dot grid. Graph nodes keep at least 24px between tags horizontally and 96px between centres vertically.
+- Lengths in the opening scale with the window: 1px of the drawing is 0.0651vw.
+- The side gutter is 3.65vw, or 16px under 760px.
+- Each chapter has two columns: the heavy heading on the left (about 644 of 1536) and the reading on the right (up to about 720 of 1536). Under 760px it has one column.
+- Chapters alternate paper, mist, and cobalt, and the page ends on a full yellow field.
+- The illustration plate runs edge to edge at 1536:426. Under 760px it keeps a 900px stage and scrolls sideways in its own frame.
 
-## Elevation & Depth
+### Docs pages
 
-Flat. Depth comes from planes (cobalt against paper against mist) and from ink frames: 2px around note blocks, tool forms, faceplates, the proved-models table and screenshots; 1px hairlines between rows. A table's head is a tinted band (head), not a rule. The single shadow in the system is the dropdown under Studio's Save image menu.
+Reading pages use VitePress's layout, with a 72px nav. On the home page the nav is 64px to 84px tall, on cobalt.
 
-### Shadow Vocabulary
+### Studio
 
-- **Menu lift** (`box-shadow: 0 8px 20px rgba(10, 26, 54, 0.18)`): Studio dropdown menus only.
+Studio fills the window from top to bottom with:
 
-### Named Rules
+1. the cobalt rail, with 52px tabs;
+2. a 38px white status rail;
+3. a 52px toolbar;
+4. the drawing board, with a 390px panel on the right.
 
-**The Ink Frame Rule.** A container that needs separation gets a 2px ink frame or a plane change, not a shadow.
+The rest of Studio's layout:
+
+- Under 1180px, the search moves under the tabs. Under 760px, the tabs scroll sideways and the panel moves under the graph, at 42% of the height.
+- Tables sit in a column padded `clamp(16px, 4vw, 56px)` at the sides.
+- Spacing steps are 6px, 8px, 12px, 18px, and 22px.
+- The drawing board has a 24px dot grid.
+- Graph nodes keep at least 24px between tags side by side, and 96px between the centers of stacked tags.
+
+## Elevation and depth
+
+Surfaces are flat. Depth comes from planes (cobalt, paper, mist) and from ink frames:
+
+- 2px around note blocks, tool forms, faceplates, the table of tested models on the docs home, and screenshots;
+- 1px hairlines between rows.
+
+A table's head is a tinted band, not a rule. The only shadow is under Studio's dropdown menus, such as Save image: `box-shadow: 0 8px 20px rgba(10, 26, 54, 0.18)`.
 
 ## Motion
 
-Motion shows a change travelling, the way the plate does: written, planned, applied, drawn. Arrivals ease out on cubic-bezier(0.16, 1, 0.3, 1); routine state changes take 0.2s to 0.3s. Every animation has a reduced-motion path: nothing moves for show, and state changes happen at once.
+Motion shows a change as it travels, the way the plate does: written, planned, applied, drawn. Arrivals ease out on `cubic-bezier(0.16, 1, 0.3, 1)`. Routine state changes take 0.2 to 0.3 seconds. Every animation has a reduced-motion path: nothing moves for show, and state changes happen at once.
 
-- **Docs home opening:** the title line is wiped on left to right with a yellow caret that blinks three times and leaves; the plates rise in the order a change travels; the editor's code and the plan sheet print line by line; the commits appear left to right; then the callouts draw in. Every 7.5 seconds the drawing goes through another change to edge-b1: the editor writes it, the plan prints what the RouterOS adapter sends for it (changed lines on the selected wash), Apply is pressed, and its commit joins the history as the oldest leaves. The editor's caret keeps blinking and a white ring keeps leaving the changed device. All of it pauses when the opening is out of view; reduced motion keeps the first change.
-- **Docs home chapters:** each part arrives once as it scrolls into view, in a way that shows what it holds: headings surface from below a line, the ledger shows each cause and then its effect, steps and patterns arrive in order, the Studio screenshot slides in from the edge it runs off. A part already in view when the page opens does not move.
-- **Docs reading pages:** a page reached from another fades in and rises 8px.
-- **Studio graph:** the first view draws the network in from its busiest device, a ring of neighbours at a time, each cable from its nearer end. Each layer has a layout of its own: on a new layer the devices glide to their places on it over 0.7s while its lines draw in, and the view returns to where the reader left that layer, or glides to frame it the first time. Dots travel every cable both ends declare, in the link colour, turning yellow on a lit cable; a one-sided or removed cable carries none. Lighting a part dims the rest over 0.25s.
-- **Studio presenting (Present, key P):** the panel steps aside, lines and dots are heavier, and the tour pauses under the pointer. The drawing doesn't drift: on Cytoscape's canvas a drift throws off the pointer. Every 6 seconds it moves on: the whole layer, then its four busiest devices one at a time, the view gliding over 1.1s (ease in and out, zoom evenly) to frame each with its neighbours; the lit device takes the highlighter fill with a navy frame and lit sockets, while a warning or error keeps its own frame. Then it zooms back out to the whole layer and, 2.6 seconds later, moves on to the next layer with lines, which draws in and gets its full 6 seconds. A caption with a 2px ink frame names what is shown.
-- **Studio feedback:** the bar under a chosen view or tab grows from its middle; a new view and a new selection in the panel fade in and rise 6px; the live mark beats once in yellow when a changed config arrives. Nothing in the rails loops.
+### Docs home opening
+
+1. The title line wipes on from left to right, behind a yellow caret that blinks three times and leaves.
+2. The plates rise in the order a change travels. The editor's code and the plan sheet print line by line, and the commits appear from left to right.
+3. The callouts draw in.
+
+Then, every 7.5 seconds, the drawing makes another change to edge-b1:
+
+1. The editor writes the change.
+2. The plan prints what the RouterOS adapter sends for it, with changed lines on the selected wash.
+3. Apply is pressed, and the commit joins the history as the oldest one leaves.
+
+The editor's caret keeps blinking, and a white ring keeps leaving the changed device. It all pauses when the opening is out of view. With reduced motion, the drawing stays on the first change.
+
+### Docs home chapters
+
+Each part arrives once, as it scrolls into view, in a way that shows what it holds. Headings rise from below a line. The ledger shows each cause, then its effect. Steps and patterns arrive in order. The Studio screenshot slides in from the edge it runs off. A part that is already in view when the page opens doesn't move.
+
+### Docs pages
+
+A page reached from another page fades in and rises 8px.
+
+### Studio graph
+
+The first view draws the network from its busiest device outward, one ring of neighbors at a time. Each cable draws in from its nearer end.
+
+Each layer has its own layout. On a new layer, the devices glide to their places over 0.7 seconds while its lines draw in. The view goes back to where the reader left that layer, or glides to frame it the first time.
+
+Dots travel along every cable that both ends declare, in the link color. They turn yellow on a lit cable. A one-sided or removed cable has no dots. Lighting a part dims the rest over 0.25 seconds.
+
+### Studio presenting
+
+Press P, or choose Present. The panel steps aside, lines and dots get heavier, and the tour pauses under the pointer. The drawing doesn't drift, because a drift on Cytoscape's canvas throws off the pointer.
+
+1. Every 6 seconds the tour moves on: first the whole layer, then its four busiest devices, one at a time.
+2. The view glides over 1.1 seconds to frame each device with its neighbors. It eases in and out, and zooms evenly.
+3. The lit device takes the highlighter fill, a navy frame, and lit sockets. A device with a warning or an error keeps its own frame.
+4. The view zooms back out to the whole layer.
+5. After 2.6 seconds, the tour moves on to the next layer that has lines. That layer draws in and gets its full 6 seconds.
+
+A caption in a 2px ink frame says what is shown.
+
+### Studio feedback
+
+- The bar under a chosen view or tab grows from its middle.
+- A new view fades in and rises 6px. So does a new selection in the panel.
+- The live mark beats once in yellow when a changed config arrives.
+- Nothing in the rails loops.
 
 ## Shapes
 
-Square by default. Controls (buttons, inputs, menus, segmented controls, chips, badges, inline code) use a 2px radius. Note blocks, code blocks, screenshots, table frames and pager links have 0 radius. Circles appear only as numbered dots (callouts, legend, steps) and status dots. On Studio's drawing board, device tags have an 8px radius and VLAN segments 14px, so drawn parts read as labelled tags rather than controls. A device tag carries a drawn chassis mark: a 34 by 30 cobalt block with two rows of three white sockets (yellow when selected), never a photograph.
+- **2px radius:** controls, such as buttons, inputs, menus, segmented controls, chips, badges, and inline code.
+- **No radius:** note blocks, code blocks, screenshots, table frames, and pager links.
+- **Circles:** only numbered dots (callouts, legend, steps) and status dots.
+- **Studio's drawing board:** device tags have an 8px radius and VLAN segments 14px, so drawn parts look like labeled tags, not controls.
+
+A device tag carries a drawn chassis mark: a cobalt block 34 by 30, with two rows of three white sockets. The sockets turn yellow when the device is selected.
 
 ## Components
 
 ### Buttons
 
-- **Shape:** square, 2px radius.
-- **Primary:** highlighter yellow with navy text, 700 weight, with a drawn arrow. On the docs home it is 50px to 67px tall; in Studio it is the same 36px as other buttons with an ink border.
-- **Hover / Focus:** yellow-deep on paper; on the cobalt opening it turns white. The arrow nudges 3px right. Focus is a 3px outline offset 2px to 3px: the link colour on paper and mist, yellow on the cobalt nav and Studio rail, white inside the cobalt opening and Studio chapter.
-- **Default (Studio):** paper with a 1.5px edge border, 600 weight; hover turns border and text cobalt (or the night link colour).
-- **Pressed / Selected:** cobalt fill, white text. In segmented controls the group has one 1.5px ink frame and 1.5px line dividers.
+- **Primary:** highlighter yellow with navy text, weight 700, and a drawn arrow. On the docs home it is 50px to 67px tall. In Studio it is 36px tall, like the other buttons, with an ink border.
+- **Hover:** yellow-deep on paper, and white on the cobalt opening. The arrow moves 3px to the right.
+- **Focus:** a 3px outline, offset 2px to 3px. It is the link color on paper and mist, yellow on the cobalt nav and Studio rail, and white inside the cobalt opening and Studio chapter.
+- **Default (Studio):** paper with a 1.5px edge border, weight 600. On hover, the border and text turn cobalt, or the night link color.
+- **Pressed or selected:** cobalt fill and white text. A segmented control has one 1.5px ink frame around the group, and 1.5px line dividers.
 
 ### Command copy
 
-- **Style:** navy ground (or translucent navy on cobalt), mono command, a drawn copy icon at the right, 2px radius, 2px border. Click copies, and "Copied" appears in yellow. On the close chapter a package-manager switch sits beside it: a 2px navy frame whose selected segment is navy with yellow text.
+A mono command on navy, or on translucent navy over cobalt, with a 2px border, a 2px radius, and a drawn copy icon on the right. A click copies the command, and "Copied" appears in yellow. On the close chapter, a package-manager switch sits beside it: a 2px navy frame whose selected segment is navy with yellow text.
 
 ### Chips
 
-- **File chips:** mono, soft ink, 1px line border, 2px radius, 2px 8px padding. They list files, not actions.
-- **Studio chips:** small default buttons (28px tall) for picking a VLAN or layer item.
-- **Badges:** caps label chips, red with white for ERROR, orange with ink for WARNING.
+- **File chips:** mono, soft ink, a 1px line border, and 2px 8px padding. They list files, not actions.
+- **Studio chips:** small default buttons, 28px tall. They pick a VLAN or a layer item.
+- **Badges:** caps label chips. ERROR is red with white text, and WARNING is orange with ink text.
 
-### Cards / Containers
+### Cards and containers
 
-- **Corner Style:** 0 for note blocks and plates, 2px for Studio tool forms and faceplates.
-- **Background:** paper.
-- **Shadow Strategy:** none (see Elevation).
-- **Border:** 2px ink.
-- **Internal Padding:** 16px to 22px.
+Paper, with a 2px ink border and 16px to 22px of padding inside. Note blocks and plates have square corners. Studio's tool forms and faceplates have a 2px radius.
 
-### Notes and cautions
+### Notes
 
-A square 2px ink frame with its kind on a caps label chip at the top (ink chip with paper text for NOTE, cobalt for TIP and INFO, orange with white text for WARNING, signal red for DANGER and the alpha caution; WARNING and DANGER frames take their chip's colour).
+A square 2px ink frame, with the note's kind on a caps label chip at the top:
+
+| Kind         | Chip                        | Frame      |
+| ------------ | --------------------------- | ---------- |
+| NOTE         | Ink, with paper text        | Ink        |
+| TIP and INFO | Cobalt                      | Ink        |
+| WARNING      | Orange, with white text     | Orange     |
+| DANGER       | Signal red, with white text | Signal red |
 
 ### Academy lessons
 
-- **Try it frame:** a square 2px ink frame with a cobalt TRY IT chip and the task in bold, around a widget. Widgets draw devices with the same flat cobalt shapes on a paper ground (`SvgDevice`), cables in edge grey that turn link-coloured when lit, and packets as yellow dots with a navy outline.
-- **Check:** a quiz in a 2px ink frame with an ink CHECK chip. Choices are 44px rows with a lettered dot; a right pick turns green with a tick, a wrong one red and dashed with a cross, and a line under them says why in words.
-- **Looked-up word:** a word with the dotted link-coloured underline, the storybook reference made literal; hovering, focusing or tapping it opens its meaning in a small paper note with a 2px navy frame.
-- **Lesson end:** a 2px ink frame with the lesson's outcome and the one yellow action ("mark it done"); once done the frame and its chip turn green. Finished lessons carry a green tick in the sidebar and on the Academy page.
-- **Entry check and gate:** a level after the first opens with a check, its questions in 2px ink frames with 40px answer rows; a wrong answer's frame turns red and dashed and names the lesson to read again. A closed lesson shows a mist panel with an ink LOCKED chip and the one yellow action, the check, in place of the lesson.
+- **Try it:** a square 2px ink frame around a widget, with a cobalt TRY IT chip and the task in bold. Widgets draw devices with the same flat cobalt shapes on a paper ground (`SvgDevice`). Cables are edge gray and turn the link color when lit. Packets are yellow dots with a navy outline.
+- **Check:** a quiz in a 2px ink frame with an ink CHECK chip. Each choice is a 44px row with a lettered dot. A right choice turns green with a tick, and a wrong one turns red and dashed with a cross. A line under the choices says why, in words.
+- **Looked-up word:** a word with the dotted underline in the link color, from the storybook reference. Hovering, focusing, or tapping it opens its meaning in a small paper note with a 2px navy frame.
+- **Lesson end:** a 2px ink frame with the lesson's outcome and the one yellow action, "mark it done". Once it is done, the frame and its chip turn green. A finished lesson has a green tick in the sidebar and on the Academy page.
+- **Entry check and gate:** each level after the first opens with a check. Its questions sit in 2px ink frames with 40px answer rows. A wrong answer's frame turns red and dashed, and says which lesson to read again. A closed lesson shows a mist panel instead, with an ink LOCKED chip and the one yellow action: the check.
 - **Feedback line:** what a widget just did, in words, after a small caps chip: green DELIVERED, red DROPPED, orange CAREFUL, or a word of the widget's own.
 
-### Inputs / Fields
+### Inputs
 
-- **Style:** 36px tall, 1.5px edge border, 2px radius, mist ground, label above in 13px 600 soft ink.
-- **Focus:** border turns cobalt. The Studio search sits on cobalt with translucent navy fill and a soft-blue border; on focus the border goes white with a 3px yellow outline.
+Inputs are 36px tall, with a 1.5px edge border, a 2px radius, and a mist ground. The label is on top, in 13px soft ink, weight 600. On focus, the border turns cobalt.
+
+The Studio search sits on cobalt. It has a translucent navy fill and a soft blue border. On focus, the border turns white, with a 3px yellow outline.
 
 ### Navigation
 
-- **Docs nav:** wide caps wordmark; links in 13px caps, width 112%, 0.06em. Active link is link-coloured with a 2px dotted underline. On the home page the bar sits on cobalt with white links that turn yellow on hover.
-- **Docs sidebar:** group names in 12px wide caps; the current page carries a yellow highlighter band behind its text.
-- **Studio rail:** cobalt, CIRCUIT wordmark with the yellow STUDIO tag, nine caps view tabs in soft blue that go white, with a 4px yellow bar under the active one.
-- **Studio table tabs:** muted text, 4px cobalt bar under the active tab.
+- **Docs nav:** the wide caps wordmark, then links in 13px caps, width 112%, tracking 0.06em. The active link is in the link color, with a 2px dotted underline. On the home page, the bar sits on cobalt, with white links that turn yellow on hover.
+- **Docs sidebar:** group names in 12px wide caps. The current page has a yellow highlighter band behind its text.
+- **Studio rail:** the CIRCUIT wordmark and the yellow STUDIO tag, on cobalt. Ten view tabs follow, in soft blue caps that turn white. A 4px yellow bar sits under the active tab.
+- **Studio table tabs:** muted text, with a 4px cobalt bar under the active tab.
 
-### Dotted underline (signature)
+### Dotted underline
 
-A row of round cobalt dots under a heading, drawn as a repeating radial gradient (dots spaced 14px to 19px) that follows each line of the heading. It marks headings you can read further under: docs home chapter headings, Studio table titles and the Studio panel title. In dark themes the dots use the night link colour. Links use the same idea as a text underline: dotted 1.5px to 2px at rest, solid on hover. Docs reading pages mark h2 with a 3px ink rule above instead.
+The signature. A row of round cobalt dots under a heading, drawn as a repeating radial gradient, with the dots 14px to 19px apart. It follows each line of the heading. It marks docs home chapter headings, Studio table titles, and the Studio panel title. In dark themes the dots take the night link color.
 
-### Numbered callouts and legend (signature)
+Links use the same idea as a text underline: dotted, 1.5px to 2px, at rest, and solid on hover. Docs reading pages mark each h2 with a 3px ink rule over it instead.
 
-White circle dots with cobalt numerals sit over the illustration plate, each joined by a thin white leader line ending in a small white dot at its part. A legend below a thin soft-blue rule repeats the same numbers as white dots beside the part names. Hovering or focusing either side lights both: the dot turns yellow and grows to 1.12, the legend entry gets a dotted underline, and the callout shows a white tag with a navy frame. On arrival, once the drawing is in, leaders draw in and dots pop in legend order (0.09s apart, cubic-bezier(0.16, 1, 0.3, 1)); reduced motion turns this off. Steps lists reuse the dot as a cobalt circle with a white numeral.
+### Numbered callouts and legend
+
+The other signature. White dots with cobalt numbers sit over the illustration plate. A thin white leader line joins each dot to a small white dot on its part. Below a thin soft-blue rule, a legend repeats the numbers as white dots beside the part names.
+
+- Hovering or focusing either side lights both. The dot turns yellow and grows to 1.12 times its size, the legend entry gets a dotted underline, and the callout shows a white tag with a navy frame.
+- Once the drawing is in, the leaders draw in and the dots pop in, in legend order, 0.09 seconds apart, on `cubic-bezier(0.16, 1, 0.3, 1)`. Reduced motion turns this off.
+- A list of steps uses the same dot, as a cobalt circle with a white number.
 
 ### Status rail (Studio)
 
-A white bar of counts, each with a small dot: hollow for quiet counts, filled for errors and warnings, and a live indicator at the right (green when connected, orange otherwise).
+A white bar of counts, each with a small dot. The dot is hollow for quiet counts, and filled for errors and warnings. A live indicator sits on the right. It is green when connected, and orange otherwise.
 
 ### Graph nodes (Studio)
 
-Flat paper tags with a 2px ink frame, a drawn chassis mark and name over platform and model. Error frames are 4px red; warning frames 4px orange dashed; selected nodes take the selected wash with a 4px cobalt frame; VLAN segments are yellow-tinted with a yellow-deep outline and mono labels; outside nodes are dotted. Cables are 2px edge strokes, lit cables 4px in the link colour, added cables green, removed cables red and dashed. Dots travel the cables both ends declare (see Motion).
+Flat paper tags with a 2px ink frame, a drawn chassis mark, and the device name over its platform and model.
+
+| Node or cable | Look                                                 |
+| ------------- | ---------------------------------------------------- |
+| Error         | 4px red frame                                        |
+| Warning       | 4px orange frame, dashed                             |
+| Selected      | Selected wash, with a 4px cobalt frame               |
+| VLAN segment  | Yellow tint, a yellow-deep outline, and a mono label |
+| Outside node  | Dotted frame                                         |
+| Cable         | 2px edge stroke                                      |
+| Lit cable     | 4px, in the link color                               |
+| Added cable   | Green                                                |
+| Removed cable | Red, dashed                                          |
 
 ### Identity marks
 
-The docs favicon is a white page with two navy lines over a cobalt dotted underline, on a cobalt square. The Studio favicon is a cobalt chassis with six ports, one lit yellow, on a yellow square: the same chassis mark the graph nodes carry. They share the palette and tell reading from operating apart at a glance. In Studio the CIRCUIT wordmark and its yellow tag are a link back to the graph.
+- **Docs favicon:** a white page with two navy lines over a cobalt dotted underline, on a cobalt square.
+- **Studio favicon:** a cobalt chassis with six ports, one lit yellow, on a yellow square. It is the same chassis mark that graph nodes carry.
+
+The two share the palette, and at a glance tell reading apart from operating. In Studio, the CIRCUIT wordmark and its yellow tag link back to the graph.
 
 ### Illustration plates
 
-Flat illustration with bold outlines in two or three inks, depicting software (editor, plan sheet, network board, live-read card, git history) rather than hardware, shipped as transparent WebP plates on the cobalt field. Words in the plate are set in live type over the raster; the editor's code is bent onto the editor's four corners with a perspective transform, so it leans with the drawing.
-
-## Do's and Don'ts
-
-### Do:
-
-- **Do** put the opening of a marketing surface on a cobalt field with white type, and alternate paper and mist planes below it.
-- **Do** use yellow for the single primary action and for selection, with navy or ink text on it.
-- **Do** pair every numbered callout with a legend entry that has the same number, and light both together.
-- **Do** mark headings you can read further under with the dotted cobalt underline, and set links as dotted underlines that go solid on hover.
-- **Do** set code and commands on navy in both themes, with a yellow `$` prompt.
-- **Do** frame notes and cautions as square 2px boxes with a caps label chip.
-- **Do** keep controls square at 2px radius and give state a second cue beyond colour (a word, a dot shape, a dash pattern).
-- **Do** keep Special Gothic self-hosted beside each surface so Studio works offline.
-
-### Don't:
-
-- **Don't** use red for anything but removal, errors and the alpha caution; Studio warnings are orange.
-- **Don't** add shadows to cards or panels; separate with a plane or a 2px ink frame.
-- **Don't** introduce a second display or body family; vary Special Gothic's width and weight instead.
-- **Don't** use a product photograph or hardware picture for a device; draw the chassis mark.
-- **Don't** use em-dashes in any copy.
+Flat illustrations with bold outlines in two or three inks. They show software (the editor, the plan sheet, the network board, the live-read card, the git history), not hardware. Each plate is a transparent WebP on the cobalt field. Words in a plate are live type over the image. The editor's code is fitted to the editor's four corners with a perspective transform, so it leans with the drawing.
