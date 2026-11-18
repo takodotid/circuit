@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
+import { Address } from "../src/core/address";
 
 const root = join(import.meta.dir, "..");
 
@@ -348,6 +349,193 @@ describe("comments", () => {
             ),
             ...comments.flatMap((comment) => wrapped(comment.lines).map((index) => `${comment.file}:${comment.line + index}`)),
         ];
+
+        expect(wrong).toEqual([]);
+    });
+});
+
+// Samples use documentation addresses and AS numbers, as IETF's idnits asks of an Internet-Draft. A real network is written with its name.
+describe("samples", () => {
+    // test/fixtures/v0 holds projects converted from Circuit 0.x, kept as they were. This file holds the rules' own data.
+    const samples = files
+        .filter(
+            (file) =>
+                /^(docs|examples|src|test)\/.+\.(md|ts|vue|json|txt|html)$/.test(file) &&
+                !file.startsWith("test/fixtures/v0/") &&
+                file !== "test/repo.test.ts"
+        )
+        .map((file) => ({ file, lines: read(file).split("\n") }));
+
+    /** Each match of `patterns` in the samples, with its file, line, and the lines of its file. */
+    const found = (patterns: RegExp[]) =>
+        samples.flatMap(({ file, lines }) =>
+            lines.flatMap((text, index) =>
+                patterns.flatMap((pattern) => [...text.matchAll(pattern)].map((match) => ({ file, lines, index, match })))
+            )
+        );
+
+    test("a public address is a documentation address", () => {
+        // Whether another network can reach an address, by the longest block that holds it. From IANA's special-purpose registries (RFC 6890) and IPv6 address space, checked 2026-11-18, and IPv4 multicast (RFC 5771).
+        const REACHABLE: Record<string, boolean> = {
+            "0.0.0.0/0": true,
+            "0.0.0.0/8": false,
+            "10.0.0.0/8": false,
+            "100.64.0.0/10": false,
+            "127.0.0.0/8": false,
+            "169.254.0.0/16": false,
+            "172.16.0.0/12": false,
+            "192.0.0.0/24": false,
+            "192.0.0.9/32": true,
+            "192.0.0.10/32": true,
+            "192.0.2.0/24": false,
+            "192.88.99.2/32": false,
+            "192.168.0.0/16": false,
+            "198.18.0.0/15": false,
+            "198.51.100.0/24": false,
+            "203.0.113.0/24": false,
+            "224.0.0.0/4": false,
+            "240.0.0.0/4": false,
+            "::/0": false,
+            "64:ff9b::/96": true,
+            "2000::/3": true,
+            "2001::/23": false,
+            "2001:1::1/128": true,
+            "2001:1::2/128": true,
+            "2001:1::3/128": true,
+            "2001:3::/32": true,
+            "2001:4:112::/48": true,
+            "2001:20::/28": true,
+            "2001:30::/28": true,
+            "2001:db8::/32": false,
+            "3fff::/20": false,
+            "5f00::/16": false,
+        };
+        const DOCUMENTATION = {
+            ipv4: "192.0.2.0/24, 198.51.100.0/24, or 203.0.113.0/24 (RFC 5737)",
+            ipv6: "2001:db8::/32 (RFC 3849) or 3fff::/20 (RFC 9637)",
+        };
+        // Real addresses a page needs, by file.
+        const REAL: Record<string, string[]> = {
+            // A wrong answer in a quiz: a mask is not the prefix length written four times.
+            "docs/academy/beginner/ip-addresses.md": ["16.16.16.16"],
+            // The prefixes of the 2008 YouTube hijack.
+            "docs/academy/professional/routing-security.md": ["208.65.153.0/24", "208.65.152.0/22"],
+            // Cloudflare's public resolvers, as a home router uses them.
+            "examples/single-site/sites/home/router.ts": ["1.1.1.1", "1.0.0.1"],
+        };
+
+        const reachable = (address: string) => {
+            const blocks = Object.keys(REACHABLE).filter((block) => Address.contains(block, address));
+            const longest = blocks.reduce((best, block) => (Address.split(block).len > Address.split(best).len ? block : best));
+            return REACHABLE[longest];
+        };
+
+        // An address alone, with its length if written: not part of a version number, an OID, a MAC address, or a time.
+        const IPV4 = /(?<![\w.])\d{1,3}(?:\.\d{1,3}){3}(?:\/\d{1,2})?(?!\w|\.\d)/g;
+        const IPV6 = /(?<![\w:.])[\da-f]*:[\da-f:]*:[\da-f]*(?:\/\d{1,3})?(?![\w:]|\.\d)/gi;
+
+        const wrong = found([IPV4, IPV6]).flatMap(({ file, index, match: [value] }) => {
+            const prefix = Address.isCidr(value) ? value : `${value.split("/")[0]}/${Address.bits(Address.family(value))}`;
+            if (!Address.isCidr(prefix) || prefix in REACHABLE || REAL[file]?.includes(value)) return [];
+
+            const { first, last, family } = Address.range(prefix);
+            const ends = [first, last].map((end) => Address.fromNumber(end, family));
+            if (!ends.some(reachable)) return [];
+
+            return [`${file}:${index + 1}: ${value} is a real address. Use one from ${DOCUMENTATION[family]}.`];
+        });
+
+        expect(wrong).toEqual([]);
+    });
+
+    test("a real AS number is written with its network's name", () => {
+        // AS numbers no network holds, from IANA's special-purpose registry: reserved (RFC 7607, RFC 6793, RFC 7300), documentation (RFC 5398), and private use (RFC 6996).
+        const UNHELD: [number, number][] = [
+            [0, 0],
+            [23456, 23456],
+            [64496, 65551],
+            [4200000000, 4294967295],
+        ];
+        // Real networks the samples name, as RIPEstat gave their holders on 2026-11-18.
+        const NETWORKS: Record<number, string> = {
+            174: "Cogent",
+            701: "Verizon",
+            1299: "Arelion",
+            2906: "Netflix",
+            3491: "PCCW",
+            6695: "DE-CIX",
+            6939: "Hurricane Electric",
+            13335: "Cloudflare",
+            15169: "Google",
+            17557: "Pakistan Telecom",
+            20940: "Akamai",
+            33154: "DQE",
+            36561: "YouTube",
+            54113: "Fastly",
+            396531: "Allegheny",
+        };
+        // Where an AS number is written: AS6939, as6939, remote_as: 6939, peer-as 6939, and the first part of a community, 6939:666.
+        const ASN = [
+            /\bASN? ?(\d+)\b|\bas(\d+)\b/g,
+            /\b(?:[a-z]+[._-])?asn?["']?\s*[:=]\s*(\d+)\b/g,
+            /\b(?:[a-z]+-as|as-number|autonomous-system|router bgp|set as)\s+(\d+)\b/g,
+            /(?<![\w:.])(\d+):\d+(?::\d+)?(?![\w:]|\.\d)/g,
+        ];
+        // 18:47 is a time, and Docker's `ports: ["80:80"]` maps ports.
+        const notCommunity = (text: string, line: string) => /^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(text) || /\bports:/.test(line);
+        const squash = (text: string) => text.toLowerCase().replace(/[\s_-]+/g, " ");
+
+        /** The lines around a line up to a blank line: a paragraph, a table, or a neighbor in code. */
+        const blockOf = (lines: string[], index: number) => {
+            const start = lines.findLastIndex((line, at) => at < index && !line.trim()) + 1;
+            const end = lines.findIndex((line, at) => at > index && !line.trim());
+            return squash(lines.slice(start, end === -1 ? undefined : end).join(" "));
+        };
+
+        const real = found(ASN)
+            .map(({ file, lines, index, match: [text, first, second] }) => ({ file, lines, index, text, asn: Number(first ?? second) }))
+            .filter(({ asn }) => !UNHELD.some(([low, high]) => asn >= low && asn <= high))
+            .filter(({ lines, index, text }) => !/^\d/.test(text) || !notCommunity(text, lines[index]!));
+
+        // Once a file names a network in the same block as its AS number, the AS number may stand alone in that file.
+        const named = new Set(
+            real
+                .filter(({ lines, index, asn }) => NETWORKS[asn] && blockOf(lines, index).includes(squash(NETWORKS[asn])))
+                .map(({ file, asn }) => `${file} ${asn}`)
+        );
+
+        const wrong = real
+            .filter(({ file, asn }) => !named.has(`${file} ${asn}`))
+            .map(({ file, index, asn }) =>
+                NETWORKS[asn]
+                    ? `${file}:${index + 1}: AS${asn} is ${NETWORKS[asn]}'s. Write the name next to it once in this file.`
+                    : `${file}:${index + 1}: AS${asn} is no documentation or private AS number. Use AS64500 for your network, or one from AS64496 to AS64511 (RFC 5398) for another. For a real network, write its name next to it and add both to NETWORKS in test/repo.test.ts.`
+            );
+
+        expect(wrong).toEqual([]);
+    });
+
+    test("a name is real, not a placeholder", () => {
+        // A name that stands for another network, such as transit-a, isp1, or customer_b, and words that stand for nothing. Vale checks prose: Circuit.Placeholders.
+        const PLACEHOLDER =
+            /\b(?:(?:transit|customer|peer|isp|provider|upstream|downstream|carrier|member|tenant|exchange|partner)(?:[-_][a-z]|[-_]?\d+)|foo|foobar|baz|qux|quux)\b/gi;
+        // Tests whose neighbors still have such names. v0-examples.test.ts keeps the names of the 0.x projects in test/fixtures/v0.
+        const LEFT = [
+            "test/checks/built-in.test.ts",
+            "test/checks/v0-examples.test.ts",
+            "test/core/registries.test.ts",
+            "test/platforms/junos-golden.test.ts",
+            "test/platforms/routeros-plan.test.ts",
+            "test/platforms/routing-tables.test.ts",
+            "test/project/customer-router-names.test.ts",
+        ];
+
+        const wrong = found([PLACEHOLDER])
+            .filter(({ file }) => !LEFT.includes(file))
+            .map(
+                ({ file, index, match: [name] }) =>
+                    `${file}:${index + 1}: ${name} is a placeholder. Name a real network, such as hurricane-electric for AS6939.`
+            );
 
         expect(wrong).toEqual([]);
     });

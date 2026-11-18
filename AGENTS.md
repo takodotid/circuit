@@ -49,7 +49,7 @@ Tools check the mechanical rules (`bun run check`): Oxlint, Vale, knip, Prettier
 - Use a well-known, maintained, small library before you write your own.
 - A change to the language updates `docs/` and `examples/` in the same commit.
 - Everyday English for readers with English as a second language. No filler: write only what the reader needs and can't get from the code, git, the tools, or another page. Say each thing once.
-- Examples use real names with real ASNs (Hurricane Electric AS6939). Your network is AS64500; a network doing something wrong uses AS64496 to AS64511. Public addresses come from documentation ranges; RFC 1918 ranges only where the topic is a private network.
+- Examples use real names with real ASNs (Hurricane Electric AS6939). Your network is AS64500; a network doing something wrong uses AS64496 to AS64511. Use RFC 1918 ranges only where the topic is a private network.
 - Write the repo in English. Reply to the owner in their language, short. A proposal comes with a sample.
 
 ## Checks and git
