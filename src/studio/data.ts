@@ -1,16 +1,16 @@
-// What Studio shows, gathered from a project in one pass: each device as the model holds it, what each would run, what `validate` finds, the graph, the addresses, every BGP session and every cable.
-
 import { basename } from "node:path";
 import { Checks } from "../checks";
 import { Address } from "../core/address";
-import { AddressSpace, type OwnedPrefixes } from "../core/address-space";
+import { AddressSpace } from "../core/address-space";
+import type { OwnedPrefixes } from "../core/address-space";
 import { Secrets } from "../core/secrets";
 import { Topology } from "../core/topology";
 import type { Device, Finding } from "../model";
 import { Platforms } from "../platforms";
 import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
-import { ProjectError, type ProjectRead, Project } from "../project";
+import { ProjectError, Project } from "../project";
+import type { ProjectRead } from "../project";
 import type { AddressRow, Cable, Session, StudioData, StudioError } from "./types";
 
 export class StudioModel {

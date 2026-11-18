@@ -1,8 +1,9 @@
-// `circuit studio`: the project in the browser, on this machine, or on a server for a team. The page is built by Vite from `app/` and carried inside Circuit (`assets.generated.ts`). What it shows comes from /api/data: gathered by Circuit in a new process, so the project is always read fresh, and gathered again each time a file of the project changes.
+// `circuit studio`: the project in the browser, on this machine or on a team's server. Vite builds the page from `app/`, and Circuit carries it in `assets.generated.ts`. What it shows comes from /api/data, gathered by a new Circuit process each time a file of the project changes.
 
 import { execFile, spawn } from "node:child_process";
 import { watch } from "node:fs";
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer } from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { SecretsFile } from "../core/secrets-file";
 import { Secrets } from "../core/secrets";
 import { Platforms } from "../platforms";
@@ -12,7 +13,6 @@ import { Git } from "./git";
 import type { LiveRead, SecretEntry, SecretsFileListing, SecretsListing, StudioData } from "./types";
 
 export type StudioOptions = {
-    /** The project's folder. */
     root: string;
     port: number;
     /** The address to listen on: 127.0.0.1 on a machine of one's own, or a server's address. */
@@ -29,6 +29,14 @@ export class StudioServer {
 
     /** The header the page sends with a request that reaches a device, which a page on another site cannot send without asking first. */
     static readonly REQUEST_HEADER = "x-circuit-studio";
+
+    /** 256 MiB. */
+    private static readonly MAX_OUTPUT_BYTES = 268_435_456;
+    private static readonly CHANGE_SETTLE_MS = 300;
+
+    private static readonly OK = 200;
+    private static readonly FORBIDDEN = 403;
+    private static readonly NOT_FOUND = 404;
 
     /** Whether an address to listen on is this machine's own, which nothing else on the network can reach. */
     static isLoopback(host: string): boolean {
@@ -62,7 +70,7 @@ export class StudioServer {
             execFile(
                 command,
                 [...args, "studio-data", folder],
-                { maxBuffer: 256 * 1024 * 1024, env: { ...process.env, CIRCUIT_LOCAL: "1" } },
+                { maxBuffer: StudioServer.MAX_OUTPUT_BYTES, env: { ...process.env, CIRCUIT_LOCAL: "1" } },
                 (error, stdout, stderr) => {
                     if (!error) return done(stdout);
                     done(JSON.stringify({ error: (stderr || error.message).trim() }));
@@ -85,7 +93,7 @@ export class StudioServer {
         child.unref();
     }
 
-    /** Each secrets file the networks use, as the page may see it: names, how each is kept, ciphertexts. Never a value in plain text, and never the password. */
+    /** Each secrets file the networks use, as the page may see it. */
     static secretsListing(root: string, data: StudioData): SecretsListing {
         const files = [...new Set(data.networks.map((network) => network.secretsFile))];
         return {
@@ -179,7 +187,7 @@ export class StudioServer {
             } catch (error) {
                 body = JSON.stringify({ error: (error as Error).message });
             }
-            response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(body);
+            response.writeHead(StudioServer.OK, { "content-type": "application/json", "cache-control": "no-store" }).end(body);
         };
 
         const listeners = new Set<ServerResponse>();
@@ -192,7 +200,7 @@ export class StudioServer {
             response.setHeader("x-robots-tag", "noindex, nofollow, noarchive");
 
             if (!StudioServer.hostAllowed(request.headers.host, port, options.allowHosts)) {
-                response.writeHead(403).end();
+                response.writeHead(StudioServer.FORBIDDEN).end();
                 return;
             }
 
@@ -200,13 +208,13 @@ export class StudioServer {
             const path = url.pathname;
 
             if (path === "/api/data") {
-                response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(data);
+                response.writeHead(StudioServer.OK, { "content-type": "application/json", "cache-control": "no-store" }).end(data);
                 return;
             }
 
-            // Changes are told as they happen; a proxy such as nginx is asked not to hold them back.
+            // Changes are told as they happen, and a proxy such as nginx is asked not to hold them back.
             if (path === "/api/events") {
-                response.writeHead(200, {
+                response.writeHead(StudioServer.OK, {
                     "content-type": "text/event-stream",
                     "cache-control": "no-store",
                     connection: "keep-alive",
@@ -259,7 +267,7 @@ export class StudioServer {
             // Reading a device reaches the device, so it takes a POST with Studio's own header, which a page on another site cannot send unasked.
             if (path === "/api/read") {
                 if (request.method !== "POST" || request.headers[StudioServer.REQUEST_HEADER] !== "1") {
-                    response.writeHead(403).end();
+                    response.writeHead(StudioServer.FORBIDDEN).end();
                     return;
                 }
                 void answer(response, async () => {
@@ -271,26 +279,27 @@ export class StudioServer {
             }
 
             if (path === "/robots.txt") {
-                response.writeHead(200, { "content-type": "text/plain; charset=utf-8" }).end("User-agent: *\nDisallow: /\n");
+                response.writeHead(StudioServer.OK, { "content-type": "text/plain; charset=utf-8" }).end("User-agent: *\nDisallow: /\n");
                 return;
             }
 
-            // Every other path is a page of Studio, such as /devices/edge-01, so a reload or a bookmark opens it. A missing file under /api/ or
-            // /assets/ stays missing: a page in its place would break the script that asked for it.
+            // Every other path is a page of Studio, such as /devices/edge-01, so a reload or a bookmark opens it. A missing file under /api/ or /assets/ stays missing: a page in its place would break the script that asked for it.
             const page = (request.method === "GET" || request.method === "HEAD") && !/^\/(api|assets)\//.test(path);
             const asset = STUDIO_ASSETS[path.slice(1)] ?? (page ? STUDIO_ASSETS["index.html"] : undefined);
             if (!asset) {
-                response.writeHead(404).end();
+                response.writeHead(StudioServer.NOT_FOUND).end();
                 return;
             }
 
             const cache = path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "no-store";
-            response.writeHead(200, { "content-type": asset.type, "cache-control": cache }).end(Buffer.from(asset.body, "base64"));
+            response
+                .writeHead(StudioServer.OK, { "content-type": asset.type, "cache-control": cache })
+                .end(Buffer.from(asset.body, "base64"));
         };
 
         const server = createServer(handle);
 
-        // Several files often change at once, such as on a save or a checkout: the project is read again once they settle.
+        // Several files often change at once, such as on a save or a checkout, so the project is read again once they settle.
         let timer: NodeJS.Timeout | undefined;
         const watcher = watch(root, { recursive: true }, (_event, filename) => {
             if (filename && StudioServer.IGNORED.test(filename)) return;
@@ -299,7 +308,7 @@ export class StudioServer {
             timer = setTimeout(async () => {
                 data = await gather(root);
                 tell("changed");
-            }, 300);
+            }, StudioServer.CHANGE_SETTLE_MS);
         });
         server.on("close", () => watcher.close());
 
