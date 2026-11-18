@@ -100,7 +100,7 @@ Step through the bank's packet with VXLAN, then with MPLS labels. Then send the 
 
 </TryIt>
 
-Only the VNI, or the inner label, told the two packets apart, and only pe-02 read it. So the core stays the same size however many customers there are, and only the PEs have VRFs.
+Only the VNI, or the inner label, told the two packets apart, and only `pe-02` read it. So the core stays the same size however many customers there are, and only the PEs have VRFs.
 
 The wrapping costs bytes. VXLAN adds 50, and each MPLS label adds 4. So for a customer sending full 1,500-byte packets, the core links need an <Term means="Maximum transmission unit: the largest single piece of data a link carries, in bytes. On ordinary Ethernet it is 1,500 bytes.">MTU</Term> of at least 1,550 bytes for VXLAN. RFC 7348 says a tunnel end must not split a VXLAN packet into pieces.
 
