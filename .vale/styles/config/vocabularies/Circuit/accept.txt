@@ -95,6 +95,7 @@ VTEPs
 Vue
 Winbox
 camelCase
+containerlab
 dotenvx
 iDRAC('s)?
 iMaster
@@ -106,4 +107,5 @@ pps
 scrypt
 snake_case
 snmp_exporter
+subagent('s|s)?
 systemd('s)?
