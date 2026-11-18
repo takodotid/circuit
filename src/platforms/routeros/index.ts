@@ -289,6 +289,22 @@ export class RouterOs extends Platform {
                 found.push(`routing.static_routes ${route.prefix} bfd, a static route's check-gateway takes arp, none or ping on 7.23`);
         }
 
+        // The plan knows a route by its prefix, table, and gateway, as the render writes them. Two routes alike in all three can't be told apart.
+        const routes = new Map<string, number>();
+        (device.routing?.static_routes ?? []).forEach((route, index) => {
+            const gateway = route.next_hop ? Address.canonical(Address.host(route.next_hop)) : (route.interface ?? "");
+            const key = [Address.canonical(route.prefix), route.vrf ?? route.routing_table ?? "main", gateway].join(" ");
+            const first = routes.get(key);
+            if (first === undefined) {
+                routes.set(key, index);
+                return;
+            }
+
+            found.push(
+                `routing.static_routes[${index}] ${route.prefix}, with the table and gateway of routing.static_routes[${first}]: RouterOS tells routes to one prefix apart by their gateway. Remove one, or give it its own next_hop`
+            );
+        });
+
         found.push(...RouterOs.unsupportedShapes(device));
         found.push(
             ...Derive.unbuilt(device, [

@@ -6,7 +6,7 @@ import { LineDiff } from "../../src/platforms/line-diff";
 import { FortiOsFirewall } from "../../src/platforms/fortios/firewall";
 import { FortiOs } from "../../src/platforms/fortios/index";
 import { FortiOsTree } from "../../src/platforms/fortios/tree";
-import type { Device, IP } from "../../src/model";
+import type { Device, IP, StaticRoute } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
 const router = Fixtures.device("platforms--example-router");
@@ -1030,10 +1030,116 @@ test("a selector writes a host as a prefix and a list with semicolons", () => {
     ].join("\n");
 
     const sent = adapter.plan("", printed, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
-    expect(sent).toContain('/ip route remove [ find dst-address="192.0.2.82/32" and routing-table=tun1 and !dynamic ]');
+    expect(sent).toContain(
+        '/ip route remove [ find dst-address="192.0.2.82/32" and routing-table=tun1 and gateway=198.51.100.1 and !dynamic ]'
+    );
     expect(sent).toContain('/ip address remove [ find address="203.0.113.60/32" and !dynamic ]');
     expect(sent).toContain('/system logging remove [ find action=disk and topics="warning" ]');
     expect(sent).toContain('/system logging remove [ find action=disk and topics="script;debug" ]');
+});
+
+/** The example router with only these static routes, rendered. */
+const withRoutes = (routes: StaticRoute[]): string =>
+    Platforms.get("routeros").render({ ...router, routing: { ...router.routing, static_routes: routes } });
+
+/** What a RouterOS plan from `current` to `desired` sends, after checking it has no problem. */
+const routerOsSends = (desired: string, current: string): string[] => {
+    const plan = Platforms.get("routeros").plan(desired, current, { secrets: false, rollback: 10 });
+    expect(plan.problems).toEqual([]);
+    return plan.steps.flatMap((step) => step.send);
+};
+
+/** The selector of a route in the main table, as the plan writes it. */
+const mainRoute = (prefix: string, gateway: string) =>
+    `[ find dst-address="${prefix}" and (routing-table=main or !routing-table) and ${gateway} and !dynamic ]`;
+
+// RouterOS keeps several static routes to one prefix in one table, told apart by their gateway. Here the second link takes over at a higher distance when the first goes down. The plan once knew a route by its prefix and table only, so both set the one route the device had (#212).
+for (const [menu, prefix, link1, link2] of [
+    ["/ip route", "0.0.0.0/0", "192.0.2.1", "198.51.100.1"],
+    ["/ipv6 route", "::/0", "2001:db8:1::1", "2001:db8:2::1"],
+] as const) {
+    test(`${menu}: two routes to one prefix in one table, through two gateways, are two routes`, () => {
+        const first: StaticRoute = { prefix, next_hop: link1, description: "Through link 1" };
+        const second: StaticRoute = { prefix, next_hop: link2, distance: 2, description: "Through link 2" };
+        const both = withRoutes([first, second]);
+        const one = withRoutes([first]);
+
+        expect(routerOsSends(both, one)).toEqual([
+            `${menu} add comment="Through link 2" distance=2 dst-address=${prefix} gateway=${link2}`,
+        ]);
+        expect(routerOsSends(both, both)).toEqual([]);
+        expect(routerOsSends(one, both)).toEqual([`${menu} remove ${mainRoute(prefix, `gateway=${link2}`)}`]);
+    });
+}
+
+// A blackhole route has no gateway, so it is found by having none.
+test("a blackhole route and a route through a gateway to one prefix are two routes", () => {
+    const customer: StaticRoute = { prefix: "198.51.100.0/24", next_hop: "192.0.2.10", description: "Customer" };
+    const originate: StaticRoute = { prefix: "198.51.100.0/24", blackhole: true, distance: 254, description: "Originate" };
+    const both = withRoutes([customer, originate]);
+
+    expect(routerOsSends(both, withRoutes([customer]))).toEqual([
+        "/ip route add blackhole comment=Originate distance=254 dst-address=198.51.100.0/24",
+    ]);
+    expect(routerOsSends(both, both)).toEqual([]);
+    expect(routerOsSends(withRoutes([customer]), both)).toEqual([`/ip route remove ${mainRoute("198.51.100.0/24", "!gateway")}`]);
+    expect(routerOsSends(withRoutes([originate]), both)).toEqual([
+        `/ip route remove ${mainRoute("198.51.100.0/24", "gateway=192.0.2.10")}`,
+    ]);
+});
+
+// A new gateway is another route. The new one is added before the old one goes, so a default route is never missing, and neither is the session the apply runs over.
+test("a route whose gateway changes is added before the old one is removed", () => {
+    const before = withRoutes([
+        { prefix: "0.0.0.0/0", next_hop: "192.0.2.1" },
+        { prefix: "::/0", next_hop: "2001:db8:1::1" },
+    ]);
+    const after = withRoutes([
+        { prefix: "0.0.0.0/0", next_hop: "198.51.100.1" },
+        { prefix: "::/0", next_hop: "2001:db8:2::1" },
+    ]);
+
+    expect(routerOsSends(after, before)).toEqual([
+        "/ip route add dst-address=0.0.0.0/0 gateway=198.51.100.1",
+        "/ipv6 route add dst-address=::/0 gateway=2001:db8:2::1",
+        `/ipv6 route remove ${mainRoute("::/0", "gateway=2001:db8:1::1")}`,
+        `/ip route remove ${mainRoute("0.0.0.0/0", "gateway=192.0.2.1")}`,
+    ]);
+});
+
+// A gateway is an address or an interface's name. An address is compared in one spelling, so a next hop the device prints otherwise is the same route, not a new one.
+test("a route through an interface is found by its name, and an IPv6 gateway in another spelling is the same route", () => {
+    const throughPort = withRoutes([{ prefix: "192.0.2.0/24", interface: "25g-1" }]);
+    expect(throughPort).toContain("\nadd dst-address=192.0.2.0/24 gateway=sfp28-1\n");
+    expect(routerOsSends(withRoutes([]), throughPort)).toEqual([`/ip route remove ${mainRoute("192.0.2.0/24", "gateway=sfp28-1")}`]);
+
+    const written = withRoutes([{ prefix: "::/0", next_hop: "2001:DB8:1:0::1" }]);
+    expect(written).toContain("gateway=2001:DB8:1:0::1");
+    expect(routerOsSends(written, written.replace("gateway=2001:DB8:1:0::1", "gateway=2001:db8:1::1"))).toEqual([]);
+
+    // Circuit never writes a link-local gateway with its interface, but one the device holds is removed by it, quoted for its `%`.
+    const linkLocal = ["/ipv6 route", "add dst-address=::/0 gateway=fe80::1%sfp28-1"].join("\n");
+    expect(routerOsSends("", linkLocal)).toEqual([`/ipv6 route remove ${mainRoute("::/0", 'gateway="fe80::1%sfp28-1"')}`]);
+});
+
+// RouterOS knows a route by its prefix, table, and gateway, so two routes alike in all three can't be told apart.
+test("two routes to one prefix through one gateway in one table are refused on RouterOS", () => {
+    const routes: StaticRoute[] = [
+        { prefix: "0.0.0.0/0", next_hop: "192.0.2.1", description: "Through link 1" },
+        { prefix: "0.0.0.0/0", next_hop: "192.0.2.1/30", distance: 2, description: "Through link 2" },
+        { prefix: "0.0.0.0/0", next_hop: "192.0.2.1", vrf: "guests" },
+        { prefix: "198.51.100.0/24", blackhole: true },
+        { prefix: "198.51.100.0/24", blackhole: true, distance: 254 },
+        { prefix: "2001:db8::/32", next_hop: "2001:db8:1::1" },
+        { prefix: "2001:DB8::/32", next_hop: "2001:db8:1:0::1" },
+    ];
+    const found = Platforms.get("routeros").unsupported({ ...router, routing: { ...router.routing, static_routes: routes } });
+
+    expect(found.filter((message) => message.startsWith("routing.static_routes"))).toEqual([
+        "routing.static_routes[1] 0.0.0.0/0, with the table and gateway of routing.static_routes[0]: RouterOS tells routes to one prefix apart by their gateway. Remove one, or give it its own next_hop",
+        "routing.static_routes[4] 198.51.100.0/24, with the table and gateway of routing.static_routes[3]: RouterOS tells routes to one prefix apart by their gateway. Remove one, or give it its own next_hop",
+        "routing.static_routes[6] 2001:DB8::/32, with the table and gateway of routing.static_routes[5]: RouterOS tells routes to one prefix apart by their gateway. Remove one, or give it its own next_hop",
+    ]);
 });
 
 // A menu not listed in the order went last, so it was removed first: a PPPoE client went before the interface list member naming it, which was then left pointing at nothing (RB5009, 7.24.6).
