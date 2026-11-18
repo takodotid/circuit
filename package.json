@@ -39,7 +39,7 @@
         "README.md"
     ],
     "scripts": {
-        "typecheck": "bun run editor-types && bunx tsc --noEmit && bunx tsc --noEmit -p src/studio/app",
+        "typecheck": "bun run editor-types && bunx tsc --noEmit && bun scripts/vue-tsc.ts -p src/studio/app",
         "test": "bun run editor-types && bun test",
         "lint": "bun run lint:code && bun run lint:prose && bun run lint:unused",
         "lint:code": "oxlint",
@@ -83,7 +83,8 @@
         "typescript-6": "npm:typescript@6.0.3",
         "vite": "8.3.8",
         "vue": "3.5.45",
-        "vue-router": "4.6.5"
+        "vue-router": "4.6.5",
+        "vue-tsc": "3.3.14"
     },
     "packageManager": "bun@1.4.4",
     "trustedDependencies": [
