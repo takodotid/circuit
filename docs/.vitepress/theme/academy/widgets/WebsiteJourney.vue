@@ -28,7 +28,7 @@ const cables: [Place, Place][] = [
 type Layout = {
     viewBox: string;
     at: Record<Place, Point>;
-    /** Where each name is written; the note goes one line under it. */
+    /** Where each name is written. The note goes one line under it. */
     labels: Record<Place, Label>;
     home: { x: number; y: number; width: number; height: number; labelX: number; labelY: number; anchor: "start" | "end" };
 };
@@ -221,7 +221,7 @@ const step = computed(() => steps[index.value]!);
 const current = ref<Place[]>();
 
 const packets = [useTravel(300), useTravel(300), useTravel(300)];
-/** Which packets belong to the step on show; one left over from a step the reader moved away from is hidden. */
+/** Which packets belong to the step on show. A packet left over from a step the reader moved away from is hidden. */
 const shown = ref([false, false, false]);
 const pause = usePause();
 

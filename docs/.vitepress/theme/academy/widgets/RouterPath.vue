@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: routers and the gateway. The reader picks an address to send to from a laptop; the laptop decides to send directly or to its gateway, and each router passes the packet on by its routing table, lowering the TTL. With `loop`, a forgotten row sends a packet round in a circle until its TTL runs out.
+// Lesson: routers and the gateway. The reader picks an address for a laptop to send to. The laptop decides to send directly or to its gateway, and each router passes the packet on by its routing table, lowering the TTL. With `loop`, a forgotten row sends a packet round in a circle until its TTL runs out.
 
 import { computed, ref } from "vue";
 import { useTravel, type Point } from "../travel";

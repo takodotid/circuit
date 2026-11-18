@@ -1,4 +1,4 @@
-// Lesson: reading an IP address. Reading, splitting and writing IPv4 addresses, shared by PrefixSlider and SameNetwork.
+// Lesson: reading an IP address. Reading, splitting, and writing IPv4 addresses, shared by PrefixSlider and SameNetwork.
 
 export class Ipv4 {
     /** An IPv4 address as one whole number from 0 to 4294967295, or why the text is not one. */

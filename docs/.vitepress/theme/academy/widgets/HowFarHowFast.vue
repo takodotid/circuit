@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: cables, light and radio. The reader picks a distance and a speed, and sees which kinds of link reach that far at that speed, which do not, and why.
+// Lesson: cables, light, and radio. The reader picks a distance and a speed, and sees which kinds of link reach that far at that speed, which do not, and why.
 
 import { computed, ref } from "vue";
 

@@ -63,7 +63,7 @@ async function send() {
         : `203.0.113.80 is on another network, so the frame goes to the gateway, 192.168.1.1. The laptop never asks for the far server's hardware address.`;
 
     if (!known) {
-        // Everyone on the network hears the question; only the owner of the address answers.
+        // Everyone on the network hears the question, but only the owner of the address answers.
         shown.value = "ask";
         lit.value = ["printer", "phone", "router"];
         await travel(path("laptop", "switch"));

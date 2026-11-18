@@ -150,7 +150,7 @@ const commandLine = (command: PingCommand | TraceCommand) =>
 /** The TTL a device sets on a packet it sends. Many start at 64, others at 128. */
 const REPLY_TTL = 64;
 
-/** The three round-trip times tracert prints for each hop, in milliseconds; none for the silent router. */
+/** The three round-trip times tracert prints for each hop, in milliseconds, and none for the silent router. */
 const traceTimes: Record<number, number[] | undefined> = {
     1: [2, 1, 1],
     2: [8, 9, 8],

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: messages in pieces. A laptop sends a video and a phone a short chat message over one shared cable; the reader cuts them into packets or not, adds noise, and sees who waits and what must be sent again.
+// Lesson: messages in pieces. A laptop sends a video and a phone a short chat message over one shared cable. The reader cuts them into packets or not, adds noise, and sees who waits and what must be sent again.
 
 import { computed, onBeforeUnmount, ref } from "vue";
 
