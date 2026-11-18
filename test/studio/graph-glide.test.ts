@@ -1,15 +1,15 @@
-// How the graph glides: eased from where things are to where they go, on frames that a test gives, so a late frame never makes it jump.
+// How the graph glides: on frames that a test gives, so a late frame never makes it jump; eased from where things are to where they go; and, when one glide replaces another, at the speed things already have.
 
 import { describe, expect, test } from "bun:test";
-import { type GlideOptions, GraphGlide } from "../../src/studio/app/src/lib/graph-glide";
+import { type GlideOptions, type Motion, GraphGlide } from "../../src/studio/app/src/lib/graph-glide";
 
 /** A glide on frames the test gives: each call to `at` runs the next frame at that time. */
 function glide(options: GlideOptions = {}) {
-    const steps: number[] = [];
+    const shares: number[] = [];
     let next: ((now: number) => void) | undefined;
     let done = false;
     const running = new GraphGlide(
-        (t) => steps.push(t),
+        (s) => shares.push(s),
         (frame) => (next = frame),
         { ...options, done: () => (done = true) }
     );
@@ -19,70 +19,111 @@ function glide(options: GlideOptions = {}) {
         next = undefined;
         frame?.(now);
     };
-    return { running, steps, at, done: () => done };
+    return { running, shares, at, done: () => done };
 }
 
-describe("a glide", () => {
-    test("starts where things are, eases, and ends where they go", () => {
-        const { steps, at, done } = glide();
-        for (let now = 0; now <= GraphGlide.TIME + 20; now += 10) at(now);
+const TIME = GraphGlide.TIME;
+const point = (x: number, y: number) => ({ x, y, z: 0 });
 
-        expect(steps[0]).toBe(0);
-        expect(steps.at(-1)).toBe(1);
+describe("a glide's time", () => {
+    test("goes from 0 to 1 over the glide's time, then the glide is done", () => {
+        const { running, shares, at, done } = glide();
+        for (let now = 0; now <= TIME; now += 20) at(now);
+
+        expect(shares.slice(0, 3)).toEqual([0, 20 / TIME, 40 / TIME]);
+        expect(shares.at(-1)).toBe(1);
+        expect(running.share).toBe(1);
         expect(done()).toBe(true);
-        for (const [index, t] of steps.entries()) if (index) expect(t).toBeGreaterThanOrEqual(steps[index - 1]!);
-
-        // Slow at first, quick in the middle.
-        expect(steps[1]! - steps[0]!).toBeLessThan(steps[41]! - steps[40]!);
     });
 
     test("a frame that comes late counts as one frame, so the glide goes on from where it was", () => {
-        const { steps, at } = glide();
+        const { shares, at } = glide();
         at(0);
         at(16);
-        at(32);
-        at(32 + 2000);
+        at(16 + 2000);
 
-        const late = GraphGlide.EASE_IN_OUT((32 + GraphGlide.LONGEST_FRAME) / GraphGlide.TIME);
-        expect(steps.at(-1)).toBeCloseTo(late, 6);
-        expect(steps.at(-1)).toBeLessThan(0.01);
+        expect(shares.at(-1)).toBeCloseTo((16 + GraphGlide.LONGEST_FRAME) / TIME, 9);
     });
 
     test("stops where it is, and does not finish", () => {
-        const { running, steps, at, done } = glide();
+        const { running, shares, at, done } = glide();
         at(0);
         at(100);
         running.stop();
         at(200);
 
-        expect(steps).toHaveLength(2);
+        expect(shares).toHaveLength(2);
         expect(done()).toBe(false);
     });
 
-    test("takes the time it is given", () => {
-        const { steps, at, done } = glide({ time: 100, easing: GraphGlide.SINE });
-        for (let now = 0; now <= 100; now += 25) at(now);
+    test("goes on from the last frame of the glide it replaces, so its first frame moves too", () => {
+        const { shares, at } = glide({ since: 1000 });
+        at(1016);
 
-        expect(steps).toEqual([0, 0.25, 0.5, 0.75, 1].map(GraphGlide.SINE));
-        expect(done()).toBe(true);
+        expect(shares).toEqual([16 / TIME]);
+    });
+
+    test("takes the time it is given", () => {
+        const { shares, at } = glide({ time: 100 });
+        at(0);
+        at(25);
+
+        expect(shares).toEqual([0, 0.25]);
     });
 });
 
-describe("the view between two views", () => {
-    test("zooms evenly, and moves the point in the middle of the canvas in a straight line", () => {
+describe("a motion", () => {
+    test("from rest: slow at both ends, quick in the middle, and at rest where it goes", () => {
+        const motion: Motion = { from: point(0, 0), to: point(100, -50), speed: GraphGlide.AT_REST };
+
+        expect(GraphGlide.at(motion, 0, TIME)).toEqual(point(0, 0));
+        expect(GraphGlide.at(motion, 0.5, TIME)).toEqual(point(50, -25));
+        expect(GraphGlide.at(motion, 1, TIME)).toEqual(point(100, -50));
+        expect(GraphGlide.speedAt(motion, 0, TIME)).toEqual(GraphGlide.AT_REST);
+        expect(GraphGlide.speedAt(motion, 1, TIME).x).toBeCloseTo(0, 9);
+        expect(GraphGlide.at(motion, 0.1, TIME).x).toBeLessThan(GraphGlide.at(motion, 0.55, TIME).x - GraphGlide.at(motion, 0.45, TIME).x);
+    });
+
+    test("a glide that replaces another starts at its speed, then comes to rest where it goes", () => {
+        const first: Motion = { from: point(0, 0), to: point(300, 0), speed: GraphGlide.AT_REST };
+        const halfway = 0.4;
+        const next: Motion = {
+            from: GraphGlide.at(first, halfway, TIME),
+            to: point(0, 200),
+            speed: GraphGlide.speedAt(first, halfway, TIME),
+        };
+
+        expect(GraphGlide.speedAt(next, 0, TIME)).toEqual(GraphGlide.speedAt(first, halfway, TIME));
+        expect(GraphGlide.at(next, 1, TIME).x).toBeCloseTo(0, 9);
+        expect(GraphGlide.at(next, 1, TIME).y).toBeCloseTo(200, 9);
+        expect(GraphGlide.speedAt(next, 1, TIME).x).toBeCloseTo(0, 9);
+    });
+
+    test("its speed is how fast its place changes, per millisecond", () => {
+        const motion: Motion = { from: point(10, 0), to: point(-90, 40), speed: point(0.5, -0.2) };
+        for (const s of [0.1, 0.3, 0.5, 0.8]) {
+            const step = 1e-6;
+            const ahead = GraphGlide.at(motion, s + step, TIME);
+            const behind = GraphGlide.at(motion, s - step, TIME);
+            const speed = GraphGlide.speedAt(motion, s, TIME);
+            expect(speed.x).toBeCloseTo((ahead.x - behind.x) / (2 * step * TIME), 5);
+            expect(speed.y).toBeCloseTo((ahead.y - behind.y) / (2 * step * TIME), 5);
+        }
+    });
+});
+
+describe("a view's place", () => {
+    test("is the point in the middle of the canvas and the zoom's logarithm, so a view halfway is zoomed halfway evenly", () => {
         const size = { width: 800, height: 600 };
         const from = { zoom: 0.5, pan: { x: 100, y: 40 } };
         const to = { zoom: 2, pan: { x: -300, y: 200 } };
-        const middle = (view: typeof from) => ({ x: (400 - view.pan.x) / view.zoom, y: (300 - view.pan.y) / view.zoom });
 
-        expect(GraphGlide.viewBetween(from, to, 0, size)).toEqual(from);
-        expect(GraphGlide.viewBetween(from, to, 1, size).zoom).toBeCloseTo(to.zoom, 9);
-        expect(GraphGlide.viewBetween(from, to, 0.5, size).zoom).toBeCloseTo(1, 9);
+        const back = GraphGlide.viewAt(GraphGlide.placeOf(from, size), size);
+        expect(back.zoom).toBeCloseTo(from.zoom, 9);
+        expect(back.pan.x).toBeCloseTo(from.pan.x, 9);
+        expect(back.pan.y).toBeCloseTo(from.pan.y, 9);
 
-        for (const t of [0.25, 0.5, 1]) {
-            const now = middle(GraphGlide.viewBetween(from, to, t, size));
-            expect(now.x).toBeCloseTo(middle(from).x + (middle(to).x - middle(from).x) * t, 9);
-            expect(now.y).toBeCloseTo(middle(from).y + (middle(to).y - middle(from).y) * t, 9);
-        }
+        const motion: Motion = { from: GraphGlide.placeOf(from, size), to: GraphGlide.placeOf(to, size), speed: GraphGlide.AT_REST };
+        expect(GraphGlide.viewAt(GraphGlide.at(motion, 0.5, TIME), size).zoom).toBeCloseTo(1, 9);
     });
 });

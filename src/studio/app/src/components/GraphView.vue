@@ -30,7 +30,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
 import { Export } from "../lib/export";
-import { type GlideOptions, GraphGlide } from "../lib/graph-glide";
+import { type GlideOptions, type Motion, GraphGlide } from "../lib/graph-glide";
 import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
 import { type Tag, GraphLook } from "../lib/graph-look";
 import { GraphSignals } from "../lib/graph-signals";
@@ -191,52 +191,67 @@ function draw(arrival?: "network" | "layer"): void {
 }
 
 /** A glide, or, when the reader asks for less motion, its end at once. */
-function glide(step: (t: number) => void, options: GlideOptions = {}): GraphGlide | undefined {
+function glide(step: (s: number) => void, options: GlideOptions = {}): GraphGlide | undefined {
     if (!still.matches) return new GraphGlide(step, (next) => requestAnimationFrame(next), options);
     step(1);
     options.done?.();
     return undefined;
 }
 
-/** The nodes gliding to their places on the layer, by id, each from where it was when the glide began. A node being dragged leaves. */
-const gliding = new Map<string, { node: NodeSingular; from: Point; to: Point }>();
+/** The nodes gliding to their places on the layer, by id. A node being dragged leaves. */
+let gliding = new Map<string, { node: NodeSingular; motion: Motion }>();
 let nodeGlide: GraphGlide | undefined;
 
-/** Glide every node from where it is, even halfway through the last glide, to its place. */
+/** Glide every node from where it is, at the speed it has, even halfway through the last glide, to its place. */
 function glideNodes(places: ReadonlyMap<string, Point>): void {
     if (!graph) return;
     const cy = graph;
 
-    nodeGlide?.stop();
-    gliding.clear();
+    const last = nodeGlide;
+    last?.stop();
+    const moving = new Map<string, { node: NodeSingular; motion: Motion }>();
     cy.nodes().forEach((node) => {
         const to = places.get(node.id());
-        if (to) gliding.set(node.id(), { node, from: { ...node.position() }, to: { ...to } });
+        if (!to) return;
+        const was = gliding.get(node.id());
+        const speed = was && last ? GraphGlide.speedAt(was.motion, last.share, last.time) : GraphGlide.AT_REST;
+        moving.set(node.id(), { node, motion: { from: { ...node.position(), z: 0 }, to: { ...to, z: 0 }, speed } });
     });
+    gliding = moving;
 
-    nodeGlide = glide((t) =>
-        cy.batch(() => {
-            for (const { node, from, to } of gliding.values()) if (node.inside()) node.position(GraphGlide.between(from, to, t));
-        })
+    nodeGlide = glide(
+        (s) =>
+            cy.batch(() => {
+                for (const { node, motion } of moving.values()) {
+                    const { x, y } = GraphGlide.at(motion, s, GraphGlide.TIME);
+                    if (node.inside()) node.position({ x, y });
+                }
+            }),
+        { since: last?.lastFrame }
     );
 }
 
 /** The view's glide, and where it goes: a layer left halfway keeps where its view was going. */
-type ViewGlide = { glide?: GraphGlide; to: View };
+type ViewGlide = { glide?: GraphGlide; motion: Motion; to: View };
 let viewGlide: ViewGlide | undefined;
 
-/** Glide the view from where it is to `to`. */
+/** Glide the view from where it is, at the speed it has, to `to`. */
 function glideView(to: View, options: GlideOptions = {}): void {
     if (!graph) return;
     const cy = graph;
 
+    const last = viewGlide;
+    const speed = last?.glide ? GraphGlide.speedAt(last.motion, last.glide.share, last.glide.time) : GraphGlide.AT_REST;
     stopView();
-    const from = { zoom: cy.zoom(), pan: { ...cy.pan() } };
+
     const size = { width: cy.width(), height: cy.height() };
-    const going: ViewGlide = { to };
+    const time = options.time ?? GraphGlide.TIME;
+    const motion = { from: GraphGlide.placeOf({ zoom: cy.zoom(), pan: cy.pan() }, size), to: GraphGlide.placeOf(to, size), speed };
+    const going: ViewGlide = { motion, to };
     viewGlide = going;
-    going.glide = glide((t) => cy.viewport(GraphGlide.viewBetween(from, to, t, size)), {
-        ...options,
+    going.glide = glide((s) => cy.viewport(GraphGlide.viewAt(GraphGlide.at(motion, s, time), size)), {
+        time,
+        since: last?.glide?.lastFrame,
         done: () => {
             if (viewGlide === going) viewGlide = undefined;
             options.done?.();
@@ -636,8 +651,7 @@ function drift(): void {
         },
     };
 
-    const slowly = { time: DRIFT_TIME, easing: GraphGlide.SINE };
-    glideView(away, { ...slowly, done: () => glideView(base, { ...slowly, done: drift }) });
+    glideView(away, { time: DRIFT_TIME, done: () => glideView(base, { time: DRIFT_TIME, done: drift }) });
 }
 
 /** The next layer with lines, after this one; this one when no other has any. */
