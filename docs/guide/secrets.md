@@ -125,4 +125,15 @@ Circuit also refuses a value in plain text when it runs.
 
 ## In Studio
 
-Studio's [Secrets page](/studio/secrets) shows each secret and how it is stored. It decrypts values in your browser only.
+Studio's **Secrets** page lists each secret, file by file, like `circuit secrets list`: its name, how it is stored, and any secret the project needs that the file doesn't have. It shows no value until you ask:
+
+1. Open **Secrets**.
+2. Type the file's password.
+3. Press **Show the values**, and **Hide** when you're done.
+
+<img class="screenshot light" src="/screenshots/studio-secrets-light.png" alt="Studio's Secrets page: each secret's name and how it is stored, and the field for the password.">
+<img class="screenshot dark" src="/screenshots/studio-secrets-dark.png" alt="Studio's Secrets page: each secret's name and how it is stored, and the field for the password.">
+
+Your browser decrypts the values. The password never goes to the server, and Studio keeps nothing: after a reload you type it again. A 1Password value shows where it lives, never the value. A value in plain text shows **NOT ENCRYPTED**, with the command that fixes it.
+
+Studio only reads. To change a value, use `circuit secrets`.

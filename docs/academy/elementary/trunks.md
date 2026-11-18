@@ -146,7 +146,7 @@ The `link` says what is at the other end of the cable: `switch-b`, port `40g-1`.
 
 This is the most common trunk mistake there is. Someone adds a VLAN for a new team, puts it on the trunk of the switch on their own floor, and forgets the other end. The new VLAN works on one floor and nowhere else, and nobody sees an error, because each switch on its own is set up correctly. Only the two ends together are wrong, and only a check that reads both ends finds it.
 
-Without `link`, Circuit cannot know which ports face each other, so it cannot check them. Write it on both ends of every cable between two of your devices. [Circuit Studio](/studio/graph) draws your cables from the same links.
+Without `link`, Circuit cannot know which ports face each other, so it cannot check them. Write it on both ends of every cable between two of your devices. [Circuit Studio](/studio/#the-graph) draws your cables from the same links.
 
 ::: tip A native VLAN in Circuit
 `native_vlan` says which VLAN the untagged frames on a trunk go into: `{ trunk_vlans: ["guests", "home"], native_vlan: "mgmt" }`. `link` checks that both ends agree on it, as it does for the tagged VLANs.

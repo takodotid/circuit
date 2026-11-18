@@ -70,7 +70,7 @@ export class HomeDrawing {
         },
         {
             name: "Git history",
-            link: "/studio/changes",
+            link: "/studio/#review-a-change",
             meaning: "Every change, with its author and its reason, in your own repository.",
             callout: [1405, 567],
             target: [1319, 612],

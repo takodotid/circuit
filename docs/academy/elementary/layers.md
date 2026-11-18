@@ -119,7 +119,7 @@ interfaces: {
 routing: { static_routes: [{ prefix: "0.0.0.0/0", next_hop: "203.0.113.1" }] }, // 3: everything else goes to the provider
 ```
 
-[Circuit Studio](/studio/graph) draws your network from these files the same way, one layer at a time: which cable goes where, which VLANs each cable carries, and which devices share an address range.
+[Circuit Studio](/studio/#the-graph) draws your network from these files the same way, one layer at a time: which cable goes where, which VLANs each cable carries, and which devices share an address range.
 
 ## In short
 

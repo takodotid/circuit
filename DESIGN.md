@@ -319,7 +319,7 @@ Dots travel along every cable that both ends declare, in the link color. They tu
 
 ### Studio presenting
 
-Press P, or choose Present. The panel steps aside, lines and dots get heavier, and the tour pauses under the pointer. The drawing doesn't drift, because a drift on Cytoscape's canvas throws off the pointer.
+Press P, or choose Present. The panel steps aside, lines and dots get heavier, and the lit device gets a pulsing ring. The drawing drifts slowly, and the tour waits while a device is pointed at or dragged.
 
 1. Every 6 seconds the tour moves on: first the whole layer, then its four busiest devices, one at a time.
 2. The view glides over 1.1 seconds to frame each device with its neighbors. It eases in and out, and zooms evenly.

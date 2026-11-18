@@ -1,6 +1,6 @@
 # Tools
 
-Studio's **Tools** answer the questions that come up when something does not reach where it should. They read each field of your files as Circuit does. A device can still behave otherwise, so they say what your config means, not what a device did.
+Studio's **Tools** help when something doesn't reach where it should. They read your files as Circuit does, so they show what your config means, not what a device did.
 
 Each tool has its own address, to bookmark or send.
 
@@ -8,15 +8,15 @@ Each tool has its own address, to bookmark or send.
 
 Give an address, such as `192.0.2.5`, and Studio shows:
 
-- which device and interface hold it;
+- which device and interface hold it, and the segment, block or address space it is in, with what else uses that range;
 - how each device would reach it: its own address, an address in the same prefix, or a static route, picked by the longest prefix in each routing table;
-- every firewall rule, NAT rule and ACL that names it, by address, prefix or address set.
+- every firewall rule, NAT rule and ACL that matches it, by address, prefix or address set.
 
 Routes a device learns from BGP or OSPF are not in your files, so a device with no route here may still reach the address. A trace's address is like `#tools/trace/192.0.2.5`.
 
 ## VLAN path
 
-Pick a VLAN and two devices, and Studio finds the fewest cables that carry the VLAN from one to the other, from the ports' VLANs and links.
+Pick a VLAN and two devices, and Studio finds the fewest cables that carry the VLAN from one to the other. **Show in the graph** lights the path on the VLANs layer. A path's address is like `#tools/vlan/vlan=users&from=sw-01&to=sw-02`.
 
 ## Test a firewall
 
@@ -36,7 +36,7 @@ A rule written with a list, such as several sources or an interface set, is one 
 2. Describe the route: its prefix, its AS path as it arrives (each AS, prepends too, such as `6939 64501`), its RPKI state, and its communities and large communities.
 3. Press **Test**.
 
-Studio goes through the policy rule by rule. A `call` runs the policy it names: a route that policy accepts or rejects stops there, and any other goes on, with what that policy changed. Every other rule checks its `if`, then applies `set`, then `then` decides. Studio shows what matched, what changed and the decision, then what the route carries once accepted. A route no rule accepts is rejected.
+Studio goes through the policy rule by rule. A `call` runs the policy it points to: a route that policy accepts or rejects stops there, and any other goes on, with what that policy changed. Every other rule checks its `if`, then applies `set`, then `then` decides. Studio shows what matched, what changed and the decision, then what the route carries once accepted. A route no rule accepts is rejected.
 
 A `{ communities: "import" }` or `{ communities: "export" }` rule shows as the rules Circuit writes for it, since those are what the device runs.
 

@@ -76,6 +76,10 @@ const MOVED: Record<string, string> = {
     "platforms/index": "/reference/platforms",
     "platforms/features": "/reference/platforms#feature-matrix",
     credits: "/license#credits",
+    "studio/graph": "/studio/#the-graph",
+    "studio/tables": "/studio/#look-things-up",
+    "studio/changes": "/studio/#review-a-change",
+    "studio/secrets": "/guide/secrets#in-studio",
 };
 
 const redirect = (to: string) =>
