@@ -39,10 +39,14 @@ const route = computed(() => {
     const missing = [from.value, to.value === "website" ? "internet" : to.value].filter((id) => !plugged.value.includes(id));
     if (from.value === to.value) return { error: "A device does not need the network to talk to itself. Pick another one." };
     if (missing.length) {
-        const names = missing.map((id) => (id === "internet" ? "the home" : `the ${at(id).label.toLowerCase()}`)).join(" and ");
+        const names = missing
+            .map((id) => (id === "internet" ? "the cable from the home to the internet" : `the ${at(id).label.toLowerCase()}`))
+            .join(" and ");
         const verb = missing.length > 1 ? "are" : "is";
 
-        return { error: `${names.replace(/^./, (letter) => letter.toUpperCase())} ${verb} not connected yet, so there is no way through.` };
+        return {
+            error: `${names.replace(/^./, (letter) => letter.toUpperCase())} ${verb} not plugged in yet, so there is no way through.`,
+        };
     }
 
     return { path: to.value === "website" ? [from.value, "router", "internet", "website"] : [from.value, "router", to.value] };
@@ -63,7 +67,7 @@ async function send() {
         kind: "good",
         text:
             to.value === "website"
-                ? "The message left your home through the router, crossed the internet, and reached a computer you have never met."
+                ? "The message left your home through the router, crossed the internet, and reached the website."
                 : `The message went from the ${at(from.value).label.toLowerCase()} to the router, and the router passed it to the ${at(to.value).label.toLowerCase()}.`,
     };
 }
@@ -75,7 +79,7 @@ async function send() {
             class="ac-drawing"
             viewBox="0 0 700 290"
             role="img"
-            aria-label="A laptop, a phone and a printer around a home router, which can be joined to the internet and a website beyond it."
+            aria-label="A laptop, a phone, and a printer around a home router. The router can be joined to the internet, and a website is beyond it."
         >
             <line
                 v-for="id in pluggable"
