@@ -83,6 +83,8 @@ export class ProjectCommands {
 
         Setup.prepare(root);
         Secrets.useRoot(root);
+        // A device's answer can quote a secret, as in an error about the line that holds it.
+        Ui.filterOutput((text) => Secrets.scrub(text));
 
         let project: ProjectRead;
         try {
@@ -376,7 +378,7 @@ export class ProjectCommands {
                 const took = Date.now() - started;
                 const stoppedAtLimit = !failed && took >= timeout ? `\n(stopped at the ${timeoutSeconds} second limit)` : "";
                 const block = `${Ui.bold(`>>> ${command}`)}  ${Ui.dim(`(${(took / ProjectCommands.SECOND_MS).toFixed(1)}s)`)}\n${output.replace(/\r/g, "").trimEnd()}${stoppedAtLimit}\n\n`;
-                process.stdout.write(Secrets.scrub(block));
+                process.stdout.write(block);
 
                 // A shell or a console still runs a command that did not finish, so nothing more can be sent.
                 if (failed) break;
@@ -595,14 +597,14 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
         return `${session.reason}${over}${when}`;
     }
 
-    /** A message repeated is folded into one line, and secrets are hidden. */
+    /** A message repeated is folded into one line. */
     private static async printBgpLog(adapter: Platform, session: ReadSession, minutes: number): Promise<void> {
         const lines = ProjectCommands.foldLog(
             await Ui.step(`Reading the BGP log of the last ${minutes} min`, () => adapter.bgpLog!(session, minutes))
         );
         const text = `\n--- BGP log, last ${minutes} min\n${lines.join("\n") || "(nothing)"}\n`;
 
-        process.stdout.write(Secrets.scrub(text));
+        process.stdout.write(text);
     }
 
     /** A message repeated, such as one every 10 seconds, becomes one line with when it came first, when last, and how many times. */
@@ -682,7 +684,7 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
         }
 
         if (lines.length) {
-            await ConsoleScript.run(opened.channel, lines, (answer) => process.stdout.write(Secrets.scrub(answer)));
+            await ConsoleScript.run(opened.channel, lines, (answer) => process.stdout.write(answer));
             await leave(0);
             return;
         }

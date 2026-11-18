@@ -79,6 +79,28 @@ export class Ui {
         console.log(`${Ui.green("✔")} ${message}`);
     }
 
+    private static filtered = false;
+
+    /**
+     * From now on, every text Circuit prints passes through `filter` first, from wherever it is printed. Call it before a spinner starts, which puts back the printers it found. Bytes pass as they are, such as a console's live stream: a chunk can end in the middle of what the filter looks for.
+     */
+    static filterOutput(filter: (text: string) => string): void {
+        if (Ui.filtered) return;
+        Ui.filtered = true;
+
+        for (const stream of [process.stdout, process.stderr]) {
+            const write = stream.write.bind(stream) as (chunk: unknown, ...rest: unknown[]) => boolean;
+            stream.write = ((chunk: unknown, ...rest: unknown[]) =>
+                write(typeof chunk === "string" ? filter(chunk) : chunk, ...rest)) as typeof stream.write;
+        }
+
+        // Bun's console writes to the terminal itself, not through the streams above.
+        for (const name of ["log", "info", "warn", "error", "debug"] as const) {
+            const print = console[name];
+            console[name] = (...args: unknown[]) => print(...args.map((arg) => (typeof arg === "string" ? filter(arg) : arg)));
+        }
+    }
+
     /** The spinner on screen now: drawn again after a line printed above it, and halted when Circuit stops. */
     private static active: { draw: () => void; halt: () => void } | undefined;
 
