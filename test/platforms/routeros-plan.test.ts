@@ -536,6 +536,56 @@ test("a model without a serial console gets no bootloader setup key", () => {
     expect(adapter.unsupported(withConsole)).toContain("connection.console, the RB5009UG+S+ has no serial console");
 });
 
+// A CHR on 7.24.6 refuses `/system routerboard` with `bad command name routerboard`, and prints `disable-running-check=no` on every port as it ships.
+test("a CHR gets no bootloader setup key, and keeps its ports' running check", () => {
+    const adapter = Platforms.get("routeros");
+    const chr = {
+        name: "chr",
+        site: "lab",
+        platform: "routeros",
+        model: "CHR",
+        connection: { host: "192.0.2.1", user: "admin" },
+    } as Device;
+    const printed = ["/interface ethernet", "set [ find default-name=ether1 ] disable-running-check=no"].join("\n");
+
+    expect(adapter.render(chr)).not.toContain("routerboard");
+    expect(adapter.plan("", printed, { secrets: false, rollback: 10 })).toEqual({ steps: [], problems: [] });
+});
+
+// A CHR's ports are its machine's adapters, as many as it has. The read lists them, and the plan disables the ones the config leaves out.
+test("a CHR's adapters that the config does not name are disabled", () => {
+    const adapter = Platforms.get("routeros");
+    const chr = {
+        name: "chr",
+        site: "lab",
+        platform: "routeros",
+        model: "CHR",
+        connection: { host: "192.0.2.1", user: "admin" },
+        interfaces: { ethernet: { "virtual-1": { description: "Management" }, "virtual-3": {} } },
+    } as Device;
+    const printed = [
+        "/interface ethernet",
+        "set [ find default-name=ether1 ] comment=Management",
+        "# port ether1",
+        "# port ether2",
+        "# port ether3",
+    ];
+    const rendered = adapter.render(chr);
+
+    expect(rendered).toContain("set [ find default-name=ether3 ]\n");
+    expect(
+        adapter
+            .plan(rendered, printed.join("\n"), { secrets: false, rollback: 10 })
+            .steps.filter((step) => step.title === "/interface ethernet")
+    ).toEqual([
+        {
+            title: "/interface ethernet",
+            show: ["~ set [ find default-name=ether2 ] disabled=yes"],
+            send: ["/interface ethernet set [ find default-name=ether2 ] disabled=yes"],
+        },
+    ]);
+});
+
 // A CHR on 7.24.6 took `::ffff:0:0/96`, printed it as `::ffff:0.0.0.0/96`, and refused it again: `already have such entry`.
 test("an IPv6 address the device prints with an IPv4 address in it is the same address", () => {
     const adapter = Platforms.get("routeros");

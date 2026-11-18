@@ -19,6 +19,11 @@ export class RouterOsSyntax {
         return Array.isArray(prefixes) ? prefixes : Object.values(prefixes);
     }
 
+    /** The selector of a port by the name the platform gives it, as the export prints it: `[ find default-name=ether1 ]`. */
+    static port(name: string): string {
+        return `[ find default-name=${name} ]`;
+    }
+
     static yesNo(on: boolean | undefined): string {
         return on ? "yes" : "no";
     }
