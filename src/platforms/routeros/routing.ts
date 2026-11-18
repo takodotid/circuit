@@ -3,7 +3,7 @@ import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
-import type { AsNumbers, Device, Family, Neighbor, NeighborSettings, PolicyRule, RouteRule } from "../../model";
+import type { AsNumbers, Device, Family, Neighbor, NeighborSettings, OspfAuthentication, PolicyRule, RouteRule } from "../../model";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
 
@@ -29,6 +29,15 @@ export class RouterOsRouting {
         rs: "ebgp-rs-client",
         "rs-client": "ebgp-rs",
     } as const;
+
+    /** An interface template's `auth` for each algorithm. */
+    private static readonly OSPF_AUTH = {
+        md5: "md5",
+        "hmac-sha-1": "sha1",
+        "hmac-sha-256": "sha256",
+        "hmac-sha-384": "sha384",
+        "hmac-sha-512": "sha512",
+    } as const satisfies Record<OspfAuthentication["algorithm"], string>;
 
     private constructor(
         private readonly render: RouterOsRender,
@@ -396,14 +405,27 @@ export class RouterOsRouting {
 
             for (const [areaId, area] of Object.entries(ospf.areas)) {
                 const areaName = `${instance}-${areaId}`;
-                this.render.add("/routing ospf area", "add", { "area-id": areaId, instance, name: areaName });
+                // `no-summaries` is a flag, written without a value.
+                this.render.add("/routing ospf area", area.no_summaries ? "add no-summaries" : "add", {
+                    "area-id": areaId,
+                    "default-cost": area.stub_default_cost,
+                    instance,
+                    name: areaName,
+                    type: area.type,
+                });
 
                 for (const [iface, settings] of Object.entries(area.interfaces)) {
                     // `passive` is a flag, written without a value.
                     const verb = settings?.passive ? "add passive" : "add";
+                    const authentication = settings?.authentication;
                     this.render.add("/routing ospf interface-template", verb, {
                         area: areaName,
+                        auth: authentication && RouterOsRouting.OSPF_AUTH[authentication.algorithm],
+                        "auth-id": authentication?.key_id,
+                        "auth-key": authentication && Secrets.marker(authentication.key),
                         cost: settings?.cost,
+                        "dead-interval": settings?.dead_interval && RouterOsSyntax.duration(settings.dead_interval),
+                        "hello-interval": settings?.hello_interval && RouterOsSyntax.duration(settings.hello_interval),
                         interfaces: this.render.name(iface),
                         type: settings?.network === "point-to-point" ? "ptp" : undefined,
                         "use-bfd": settings?.bfd ? "yes" : undefined,

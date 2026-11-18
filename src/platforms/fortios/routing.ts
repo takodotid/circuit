@@ -3,7 +3,7 @@
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, PrefixSet, RouteMatch, RouteRule } from "../../model";
+import type { Device, Family, Neighbor, NeighborSettings, OspfArea, PolicyRule, PrefixSet, RouteMatch, RouteRule } from "../../model";
 import { FortiOsNames } from "./names";
 import type { FortiOsNode } from "./tree";
 import { FortiOsTree } from "./tree";
@@ -293,18 +293,26 @@ export class FortiOsRouting {
         let networks = 0;
 
         for (const [areaId, area] of Object.entries(ospf.areas)) {
-            block.block("area").entry(areaId, true);
+            FortiOsRouting.ospfArea(block.block("area").entry(areaId, true), area);
 
             for (const [name, settings] of Object.entries(area.interfaces)) {
                 const iface = FortiOsNames.of(device, name);
                 if (settings?.passive) passive.push(iface);
 
-                if (settings?.cost !== undefined || settings?.network === "point-to-point" || settings?.bfd) {
+                const { passive: _passive, ...own } = settings ?? {};
+                if (Object.keys(own).length) {
                     const entry = block.block("ospf-interface").entry(iface);
                     entry.set("interface", FortiOsTree.quote(iface));
-                    if (settings.cost !== undefined) entry.set("cost", settings.cost);
-                    if (settings.network === "point-to-point") entry.set("network-type", "point-to-point");
-                    if (settings.bfd) entry.set("bfd", "enable");
+                    if (own.cost !== undefined) entry.set("cost", own.cost);
+                    if (own.network === "point-to-point") entry.set("network-type", "point-to-point");
+                    if (own.hello_interval !== undefined) entry.set("hello-interval", own.hello_interval);
+                    if (own.dead_interval !== undefined) entry.set("dead-interval", own.dead_interval);
+                    // `unsupported()` refuses HMAC-SHA.
+                    if (own.authentication) {
+                        entry.set("authentication", "md5");
+                        entry.block("md5-keys").entry(own.authentication.key_id).set("key-string", Secrets.marker(own.authentication.key));
+                    }
+                    if (own.bfd) entry.set("bfd", "enable");
                 }
 
                 for (const prefix of FortiOsRouting.networksOf(device, name, "ipv4")) {
@@ -320,6 +328,23 @@ export class FortiOsRouting {
         for (const source of ospf.redistribute ?? []) block.block(`redistribute "${source}"`).set("status", "enable");
     }
 
+    /** A stub area or an NSSA, the same in OSPF and OSPFv3. A border router announces a default route into an NSSA with summaries only when told to (TRAPS.md). */
+    private static ospfArea(entry: FortiOsNode, area: OspfArea): void {
+        if (!area.type) return;
+
+        entry.set("type", area.type);
+        if (area.no_summaries) entry.set("stub-type", "no-summary");
+
+        const cost = area.stub_default_cost;
+        if (cost === undefined) return;
+        if (area.type === "stub" || area.no_summaries) {
+            entry.set("default-cost", cost);
+            return;
+        }
+        entry.set("nssa-default-information-originate", "always");
+        entry.set("nssa-default-information-originate-metric", cost);
+    }
+
     /** Every interface of an area has an entry of its own. */
     private static ospf6(root: FortiOsNode, device: Device): void {
         const ospf = device.routing?.ospf;
@@ -331,7 +356,7 @@ export class FortiOsRouting {
         const passive: string[] = [];
 
         for (const [areaId, area] of Object.entries(ospf.areas)) {
-            block.block("area").entry(areaId, true);
+            FortiOsRouting.ospfArea(block.block("area").entry(areaId, true), area);
 
             for (const [name, settings] of Object.entries(area.interfaces)) {
                 const iface = FortiOsNames.of(device, name);
@@ -342,6 +367,8 @@ export class FortiOsRouting {
                 if (areaId !== "0.0.0.0") entry.set("area-id", areaId);
                 if (settings?.cost !== undefined) entry.set("cost", settings.cost);
                 if (settings?.network === "point-to-point") entry.set("network-type", "point-to-point");
+                if (settings?.hello_interval !== undefined) entry.set("hello-interval", settings.hello_interval);
+                if (settings?.dead_interval !== undefined) entry.set("dead-interval", settings.dead_interval);
                 if (settings?.bfd) entry.set("bfd", "enable");
             }
         }
@@ -523,10 +550,16 @@ export class FortiOsRouting {
         const ospf = routing?.ospf;
         if (ospf?.address_families?.includes("ipv6") && !routing?.router_id) found.push("routing.ospf for IPv6 without routing.router_id");
 
-        for (const area of Object.values(ospf?.areas ?? {})) {
-            for (const name of Object.keys(area.interfaces)) {
+        for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
+            for (const [name, settings] of Object.entries(area.interfaces)) {
                 if (FortiOsNames.settingsOf(device, name)?.vrf)
                     found.push(`routing.ospf on ${name}, which routes in a VRF: OSPF runs in the default table`);
+
+                const authentication = settings?.authentication;
+                const where = `routing.ospf.areas.${areaId}.interfaces.${name}.authentication`;
+                if (authentication && authentication.algorithm !== "md5")
+                    found.push(`${where}.algorithm ${authentication.algorithm}, FortiOS 6.2 signs OSPF with md5 only`);
+                if (authentication?.key_id === 0) found.push(`${where}.key_id 0, FortiOS numbers keys from 1`);
 
                 const ipv4 = FortiOsNames.addressesOf(FortiOsNames.settingsOf(device, name)).some(
                     (address) => Address.family(Address.host(address)) === "ipv4"

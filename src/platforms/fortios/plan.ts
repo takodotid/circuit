@@ -217,6 +217,14 @@ export class FortiOsPlan {
     /** A policy denies unless told otherwise. */
     private static readonly DENY = { action: "deny" };
 
+    /** An OSPF area's and an interface's settings, as `show full-configuration` printed them on FortiOS 6.2.2. */
+    private static readonly OSPF_DEFAULTS = {
+        "default-cost": "10",
+        "nssa-default-information-originate-metric": "10",
+        "hello-interval": "10",
+        "dead-interval": "40",
+    };
+
     /** Defaults the device does not print, by section. A config may state one, such as SSH on port 22. The render states some because other settings exist only while they hold: `dns-server1` needs `dns-service specify`, and `send-deny-packet` needs `action deny`. */
     private static readonly DEFAULTS: Record<string, Record<string, string>> = {
         "system global": {
@@ -231,6 +239,8 @@ export class FortiOsPlan {
         "system snmp community": { "query-v2c-port": "161" },
         "system snmp user": { "query-port": "161" },
         "system dhcp server": { "dns-service": "specify" },
+        "router ospf": FortiOsPlan.OSPF_DEFAULTS,
+        "router ospf6": FortiOsPlan.OSPF_DEFAULTS,
         "firewall policy": FortiOsPlan.DENY,
         "firewall policy6": FortiOsPlan.DENY,
         "firewall local-in-policy": FortiOsPlan.DENY,

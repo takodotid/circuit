@@ -763,6 +763,15 @@ export class JunosRender {
 
         for (const protocol of protocols) {
             for (const [areaId, area] of Object.entries(ospf.areas)) {
+                if (area.type) {
+                    const type = `protocols ${protocol} area ${areaId} ${area.type}`;
+                    this.out.set(type);
+                    if (area.no_summaries) this.out.set(type, "no-summaries");
+                    // An NSSA's border router announces its default route only with `default-lsa`.
+                    const defaultRoute = area.type === "nssa" ? `${type} default-lsa` : type;
+                    if (area.stub_default_cost !== undefined) this.out.set(defaultRoute, "default-metric", area.stub_default_cost);
+                }
+
                 for (const [iface, settings] of Object.entries(area.interfaces)) {
                     if (!settings) continue;
 
@@ -772,6 +781,12 @@ export class JunosRender {
                     if (settings.cost !== undefined) this.out.set(statement, "metric", settings.cost);
                     if (settings.passive) this.out.set(statement, "passive");
                     if (settings.network === "point-to-point") this.out.set(statement, "interface-type p2p");
+                    if (settings.hello_interval !== undefined) this.out.set(statement, "hello-interval", settings.hello_interval);
+                    if (settings.dead_interval !== undefined) this.out.set(statement, "dead-interval", settings.dead_interval);
+                    // `unsupported()` refuses HMAC-SHA, and the device checks refuse authentication on OSPFv3.
+                    const authentication = settings.authentication;
+                    if (authentication)
+                        this.out.set(statement, `authentication md5 ${authentication.key_id} key`, Secrets.marker(authentication.key));
                     if (settings.bfd) this.out.bfd(statement, this.device.routing?.bfd);
                 }
             }

@@ -238,6 +238,16 @@ function withWireGuard(endpoint?: "203.0.113.1/24" | "203.0.113.2"): Device {
     return { ...edge, interfaces: { ...edge.interfaces, wireguard } };
 }
 
+test("an OSPF instance and its backbone plan nothing as the router prints them, without version=2 and area-id=0.0.0.0 (7.24.6)", () => {
+    const desired = platform.render(Fixtures.device("platforms--example-router"));
+    const printed = desired
+        .replace("add name=ospf-v2 router-id=192.0.2.255 version=2", "add name=ospf-v2 router-id=192.0.2.255")
+        .replace("add area-id=0.0.0.0 instance=ospf-v2", "add instance=ospf-v2");
+
+    expect(printed).not.toBe(desired);
+    expect(platform.plan(desired, printed, options).steps).toEqual([]);
+});
+
 test("a WireGuard interface without an MTU reads back as the router printed it, with mtu=1420 (7.24.6)", () => {
     const desired = platform.render(withWireGuard());
     const printed = desired.replace(

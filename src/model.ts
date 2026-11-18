@@ -32,6 +32,7 @@ export type {
     WireGuardPeer,
     Bfd,
     RpkiServer,
+    OspfAuthentication,
     OspfInterface,
     PrefixSet,
     RadiusServer,
@@ -85,6 +86,7 @@ export type DhcpRelay = C.DhcpRelay<string>;
 export type FlowExport = C.FlowExport<string>;
 export type SyslogServer = C.SyslogServer;
 export type Ospf = C.Ospf<string>;
+export type OspfArea = C.OspfArea<string>;
 
 /** Something wrong with a config, as `circuit validate` reports it. */
 export type Finding = {

@@ -263,9 +263,14 @@ export class Junos extends Platform {
                 found.push(`routing.static_routes ${route.prefix}, a blackhole beside another route to the same prefix`);
         }
 
-        for (const area of Object.values(routing?.ospf?.areas ?? {})) {
+        for (const [areaId, area] of Object.entries(routing?.ospf?.areas ?? {})) {
             for (const [iface, settings] of Object.entries(area.interfaces)) {
                 if (settings && Derive.settings(device, iface)?.vrf) found.push(`routing.ospf on ${iface}, which routes in a VRF`);
+                const algorithm = settings?.authentication?.algorithm;
+                if (algorithm && algorithm !== "md5")
+                    found.push(
+                        `routing.ospf.areas.${areaId}.interfaces.${iface}.authentication.algorithm ${algorithm}, Junos 21 signs OSPF with md5 only`
+                    );
             }
         }
 

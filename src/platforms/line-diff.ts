@@ -32,9 +32,9 @@ export type Group = { path: string[]; remove: string[]; add: string[] };
 export type Around = (group: Group) => { before: string[]; after: string[] };
 
 export class LineDiff {
-    /** What a switch prints in place of a secret: the cipher of a password, a community, or an SNMPv3 key, and a Raisecom community in clear. Never an algorithm list such as `ssh server cipher`. */
+    /** What a switch prints in place of a secret: the cipher of a password, a community, an SNMPv3 key, or an OSPF key, and a Raisecom community in clear. Never an algorithm list such as `ssh server cipher`. */
     private static readonly STORED_CREDENTIAL =
-        /((?:password|community read|-mode \S+) (?:irreversible-)?cipher|^snmp-server community)( +)\S+/gm;
+        /((?:password|community read|-mode \S+(?: \d+)?) (?:irreversible-)?cipher|^snmp-server community)( +)\S+/gm;
 
     private static indentOf(raw: string): number {
         return raw.length - raw.trimStart().length;

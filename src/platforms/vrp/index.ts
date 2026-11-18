@@ -4,7 +4,7 @@ import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { Device, Lag, VlanInterface } from "../../model";
+import type { Device, Lag, OspfAuthentication, VlanInterface } from "../../model";
 import { ConsoleShell, SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
@@ -56,7 +56,7 @@ export class Vrp extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+|mac-address limit)\b/;
+        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|stub|nssa|default-cost)\b/;
 
     /** Lines a new line of the same kind replaces whole, so the old one is not undone first. */
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
@@ -193,6 +193,12 @@ export class Vrp extends Platform {
         if (routing?.bgp) found.push("routing.bgp");
         if (routing?.rpki) found.push("routing.rpki");
         if (routing?.ospf?.address_families?.includes("ipv6")) found.push("routing.ospf for IPv6");
+
+        for (const { where, authentication } of Vrp.ospfAuthentications(device)) {
+            if (!VrpRender.OSPF_AUTH[authentication.algorithm])
+                found.push(`${where}.algorithm ${authentication.algorithm}, the platform signs OSPF with md5 or hmac-sha-256`);
+            if (authentication.key_id === 0) found.push(`${where}.key_id 0, the platform numbers keys from 1`);
+        }
         if (routing?.router_id && !routing.ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");
 
         const bfd = routing?.bfd;
@@ -316,11 +322,36 @@ export class Vrp extends Platform {
         return found;
     }
 
-    /** Built from Huawei's CloudEngine command reference for `ip urpf enable`. */
+    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. */
     override experimental(device: Device): string[] {
-        return Object.entries(device.interfaces?.vlan_interface ?? {})
+        const found = Object.entries(device.interfaces?.vlan_interface ?? {})
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
             .map(([name]) => `interfaces.vlan_interface.${name}.urpf.ipv4`);
+
+        for (const [areaId, area] of Object.entries(device.routing?.ospf?.areas ?? {})) {
+            const where = `routing.ospf.areas.${areaId}`;
+            for (const key of ["type", "no_summaries", "stub_default_cost"] as const)
+                if (area[key] !== undefined) found.push(`${where}.${key}`);
+
+            for (const [name, settings] of Object.entries(area.interfaces)) {
+                for (const key of ["hello_interval", "dead_interval", "authentication"] as const) {
+                    if (settings?.[key] !== undefined) found.push(`${where}.interfaces.${name}.${key}`);
+                }
+            }
+        }
+
+        return found;
+    }
+
+    /** Each OSPF interface's authentication, with where it is written. */
+    private static ospfAuthentications(device: Device): { where: string; authentication: OspfAuthentication }[] {
+        return Object.entries(device.routing?.ospf?.areas ?? {}).flatMap(([areaId, area]) =>
+            Object.entries(area.interfaces).flatMap(([name, settings]) =>
+                settings?.authentication
+                    ? [{ where: `routing.ospf.areas.${areaId}.interfaces.${name}.authentication`, authentication: settings.authentication }]
+                    : []
+            )
+        );
     }
 
     override render(device: Device): string {
@@ -525,7 +556,7 @@ export class Vrp extends Platform {
 
     /** Secrets the device prints as ciphers and the render writes as markers compare equal. */
     private static canon(line: string): string {
-        return line.replace(/((?:password|community read|-mode \S+) )(?:irreversible-)?cipher \S+/g, "$1cipher <secret>");
+        return line.replace(/((?:password|community read|-mode \S+(?: \d+)?) )(?:irreversible-)?cipher \S+/g, "$1cipher <secret>");
     }
 
     private static order(path: string[]): number {

@@ -23,6 +23,18 @@ export class DeviceChecks {
     private static readonly MIN_MSS = 536;
     /** The largest IP packet, less 40 bytes of headers. */
     private static readonly MAX_MSS = 65495;
+    /** The backbone area, which every other area attaches to (RFC 2328). */
+    private static readonly OSPF_BACKBONE = "0.0.0.0";
+    /** The largest metric of a summary LSA; 16777215 is LSInfinity (RFC 2328). */
+    private static readonly MAX_OSPF_DEFAULT_COST = 16_777_214;
+    /** A hello or dead interval, in seconds, that every platform takes. */
+    private static readonly MAX_OSPF_INTERVAL = 65_535;
+    /** The hello interval every platform uses when the config states none, in seconds. */
+    private static readonly OSPF_HELLO_INTERVAL = 10;
+    /** The usual dead interval, in hello intervals (RFC 2328, Appendix C.3). */
+    private static readonly OSPF_DEAD_HELLOS = 4;
+    /** An OSPF authentication key ID is one octet (RFC 2328). */
+    private static readonly MAX_OSPF_KEY_ID = 255;
     /** Six pairs of hex digits with colons between them. */
     private static readonly MAC = /^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/i;
     /** The highest 4-byte AS number (RFC 6793). */
@@ -40,7 +52,7 @@ export class DeviceChecks {
         const report: Report = (message) => findings.push({ level: "error", device: device.name, message });
 
         DeviceChecks.check(device, report);
-        findings.push(...DeviceChecks.limits(device));
+        findings.push(...DeviceChecks.limits(device), ...DeviceChecks.ospfWarnings(device));
 
         return findings;
     }
@@ -465,8 +477,86 @@ export class DeviceChecks {
                 report(`${where} has role, but AS${remoteAs} is ours, and a role is for eBGP neighbors (RFC 9234). Remove role`);
         }
 
-        for (const areaId of Object.keys(routing?.ospf?.areas ?? {})) {
+        DeviceChecks.ospf(device, report);
+    }
+
+    /** What platforms do differently when the config leaves it out: a border router's default route into a stub area or an NSSA, and a dead interval beside a hello interval. */
+    private static ospfWarnings(device: Device): Finding[] {
+        const areas = device.routing?.ospf?.areas ?? {};
+        const backbone = Object.values(areas[DeviceChecks.OSPF_BACKBONE]?.interfaces ?? {}).some(Boolean);
+        const warn = (message: string): Finding => ({ level: "warning", device: device.name, message });
+        const found: Finding[] = [];
+
+        for (const [areaId, area] of Object.entries(areas)) {
+            const where = `routing.ospf.areas.${areaId}`;
+            if (backbone && area.type && area.stub_default_cost === undefined && areaId !== DeviceChecks.OSPF_BACKBONE)
+                found.push(
+                    warn(
+                        `${where} is ${area.type === "stub" ? "a stub area" : "an NSSA"} without stub_default_cost, and this device is its border router. RouterOS and Junos then announce no default route into it, and other platforms one at a cost of their own. Write stub_default_cost, such as 10`
+                    )
+                );
+
+            for (const [name, settings] of Object.entries(area.interfaces)) {
+                const hello = settings?.hello_interval;
+                if (hello !== undefined && settings?.dead_interval === undefined)
+                    found.push(
+                        warn(
+                            `${where}.interfaces.${name} has hello_interval without dead_interval. Platforms differ in the dead interval they then use, and neighbors whose dead intervals differ never come up. Write dead_interval, such as ${hello * DeviceChecks.OSPF_DEAD_HELLOS}`
+                        )
+                    );
+            }
+        }
+
+        return found;
+    }
+
+    /** OSPF's areas and the settings of their interfaces, as RFC 2328 and RFC 3101 allow them. */
+    private static ospf(device: Device, report: Report): void {
+        const ospf = device.routing?.ospf;
+        const within = (value: number, min: number, max: number) => Number.isInteger(value) && value >= min && value <= max;
+
+        for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
+            const where = `routing.ospf.areas.${areaId}`;
             if (!/^\d+\.\d+\.\d+\.\d+$/.test(areaId)) report(`routing.ospf.areas '${areaId}' is not written as a dotted area ID`);
+
+            if (area.type && areaId === DeviceChecks.OSPF_BACKBONE)
+                report(`${where} has type ${area.type}, but the backbone is a normal area (RFC 2328). Remove type`);
+            for (const key of ["no_summaries", "stub_default_cost"] as const) {
+                if (area[key] !== undefined && !area.type)
+                    report(`${where} has ${key} without type: only a stub area or an NSSA takes it. Write type, or remove ${key}`);
+            }
+            if (area.stub_default_cost !== undefined && !within(area.stub_default_cost, 1, DeviceChecks.MAX_OSPF_DEFAULT_COST))
+                report(
+                    `${where}.stub_default_cost is ${area.stub_default_cost}: write a whole number from 1 to ${DeviceChecks.MAX_OSPF_DEFAULT_COST}`
+                );
+
+            for (const [name, settings] of Object.entries(area.interfaces)) {
+                if (!settings) continue;
+                const at = `${where}.interfaces.${name}`;
+
+                for (const key of ["hello_interval", "dead_interval"] as const) {
+                    const seconds = settings[key];
+                    if (seconds !== undefined && !within(seconds, 1, DeviceChecks.MAX_OSPF_INTERVAL))
+                        report(`${at}.${key} is ${seconds}: write a whole number of seconds from 1 to ${DeviceChecks.MAX_OSPF_INTERVAL}`);
+                }
+
+                const hello = settings.hello_interval ?? DeviceChecks.OSPF_HELLO_INTERVAL;
+                const dead = settings.dead_interval;
+                if (dead !== undefined && dead <= hello)
+                    report(
+                        `${at}.dead_interval ${dead} is not more than hello_interval ${hello}, so a neighbor would go down between two hellos. Write ${hello * DeviceChecks.OSPF_DEAD_HELLOS}, four times hello_interval`
+                    );
+
+                const authentication = settings.authentication;
+                if (authentication && !within(authentication.key_id, 0, DeviceChecks.MAX_OSPF_KEY_ID))
+                    report(
+                        `${at}.authentication.key_id is ${authentication.key_id}: write a whole number from 0 to ${DeviceChecks.MAX_OSPF_KEY_ID}`
+                    );
+                if (authentication && ospf?.address_families?.includes("ipv6"))
+                    report(
+                        `${at}.authentication with OSPFv3: Circuit signs OSPFv2 only, and each platform signs OSPFv3 its own way. Remove authentication, or ipv6 from routing.ospf.address_families`
+                    );
+            }
         }
     }
 
