@@ -46,12 +46,12 @@ const slots = computed<Slot[]>(() => {
     const videoQueue = Array.from({ length: VIDEO_LENGTH }, (_, index) => `V${index + 1}`);
     const chatQueue = Array.from({ length: CHAT_LENGTH }, (_, index) => `C${index + 1}`);
     const resend: string[] = [];
-    let last: Sender = "chat";
 
     while (videoQueue.length || chatQueue.length || resend.length) {
         const moment = result.length + 1;
         const chatReady = chatQueue.length > 0 && moment >= CHAT_READY_AT;
         const videoReady = videoQueue.length > 0 || resend.length > 0;
+        const last = result.at(-1)?.sender;
         const sender: Sender = chatReady && (!videoReady || last === "video") ? "chat" : "video";
 
         if (sender === "chat") {
@@ -64,7 +64,6 @@ const slots = computed<Slot[]>(() => {
 
         const sent = result[result.length - 1]!;
         if (sent.damaged) resend.push(sent.label);
-        last = sender;
     }
 
     return result;

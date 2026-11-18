@@ -24,7 +24,7 @@ Branch from `main`, and name the branch `feat/...`, `fix/...`, `docs/...`, or `c
 
 Only maintainers release. AI agents use the skill `release`.
 
-1. On `main`, change `version` in `package.json` and `src/cli/version.ts`. Commit it as `chore(release): vX.Y.Z` and push.
+1. On a branch, change `version` in `package.json` and `src/cli/version.ts`, and commit it as `chore(release): vX.Y.Z`. Open a pull request, and merge it when the checks pass.
 2. Create a GitHub release from `main` with the tag `vX.Y.Z`. A release candidate is `vX.Y.Z-rc.N`, marked as a pre-release. A backport is released from a branch for its line.
 3. `.github/workflows/release.yml` runs the typecheck and the tests, and builds a binary for each system. It signs their `SHA256SUMS`, attaches the binaries, the signatures, and the installers to the release, and publishes the package to npm.
 

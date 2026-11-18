@@ -23,6 +23,30 @@ import "./style.css";
 import "./academy/academy.css";
 import "./diagrams/diagram.css";
 
+// The components pages and widgets use by name, without importing them.
+const SHARED = {
+    AcademyHome,
+    CodeView,
+    FlowDiagram,
+    Graduates,
+    InstallTabs,
+    MenuDiagram,
+    SecretsDiagram,
+    LevelCheck,
+    Quiz,
+    StepThrough,
+    SvgDevice,
+    Term,
+    TryIt,
+};
+
+type Shared = typeof SHARED;
+
+// Typed for Vue, so vue-tsc checks the props a page or widget gives them.
+declare module "vue" {
+    interface GlobalComponents extends Shared {}
+}
+
 // Each lesson's own widgets, used in its page by file name, such as <PacketSplit />.
 const widgets = import.meta.glob<{ default: Component }>("./academy/widgets/*.vue", { eager: true });
 
@@ -48,21 +72,7 @@ export default {
     enhanceApp({ app, router }) {
         app.component("Home", Home);
 
-        for (const [name, component] of Object.entries({
-            AcademyHome,
-            CodeView,
-            FlowDiagram,
-            Graduates,
-            InstallTabs,
-            MenuDiagram,
-            SecretsDiagram,
-            LevelCheck,
-            Quiz,
-            StepThrough,
-            SvgDevice,
-            Term,
-            TryIt,
-        })) {
+        for (const [name, component] of Object.entries(SHARED)) {
             app.component(name, component);
         }
 

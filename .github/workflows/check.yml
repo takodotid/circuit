@@ -16,14 +16,22 @@ jobs:
               with:
                   # The whole history, so commitlint can read every commit of a pull request.
                   fetch-depth: 0
+                  persist-credentials: false
+            - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+              with:
+                  # The findings go to the log: uploading them to the Security tab needs a write permission.
+                  advanced-security: false
+            - uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+              with:
+                  args: -color
             - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
               with:
                   bun-version: 1.4.4
             - run: bun install --frozen-lockfile
-            # The docs are a package of their own, which knip checks too.
+            # The docs are a package of their own, which knip and the typecheck check too.
             - run: bun install --cwd docs --frozen-lockfile
             # Vale's binary comes from GitHub's API, which refuses unsigned requests now and then: try again before giving up.
-            - run: for try in 1 2 3; do bun run vale:install && exit 0; sleep 30; done; exit 1
+            - run: for _ in 1 2 3; do bun run vale:install && exit 0; sleep 30; done; exit 1
             - name: commit messages
               if: github.event_name == 'pull_request'
               run: bunx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}

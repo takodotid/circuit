@@ -37,9 +37,13 @@ jobs:
             SHELL: /bin/bash
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
             - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
               with:
                   bun-version: 1.4.4
+                  # A release runs this too, so it reads no cache, because another workflow could have written it.
+                  no-cache: true
 
             # The installer and Circuit read their answers from a terminal; `script` gives them one, fed from stdin. Each answer comes a moment after its question, as a person's would, because macOS's `script` loses what arrives before.
             - name: a terminal for the questions
@@ -62,7 +66,7 @@ jobs:
               run: |
                   cd "$(mktemp -d)"
                   # A runner may have ~/.local/bin on PATH already; a person's machine doesn't, so the installer adds it.
-                  export PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v '/.local/bin' | paste -sd: -)"
+                  PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v '/.local/bin' | paste -sd: -)"
                   { sleep 10; printf 'y\n'; sleep 40; printf 'n\n'; sleep 10; } | CIRCUIT_VERSION=$OLDER pty sh "$GITHUB_WORKSPACE/docs/public/install" | tee out.txt
                   grep -q "Added $HOME/.local/bin to PATH" out.txt
                   grep -q "Install Circuit as an app" out.txt
@@ -155,5 +159,5 @@ jobs:
                   circuit uninstall --confirm
                   test ! -e "$HOME/.local/bin/circuit"
                   test ! -e "$HOME/.circuit"
-                  ! grep -qs "# Added by Circuit" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" "$HOME/.zshrc"
+                  grep -qs "# Added by Circuit" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" "$HOME/.zshrc" && exit 1
                   test -f "$PROJECT/circuit.ts"
