@@ -20,7 +20,7 @@ function withBlockB(): Device {
             policies: {
                 ...routing.policies,
                 // What it announces: block B, and our own block, which its table then lacks.
-                "TRANSIT-P-OUT": [
+                "AS64510-OUT": [
                     { description: "Block B", if: { prefix: "2001:db8:200::/48" }, then: "accept" },
                     { description: "Our IPv6", if: { prefix: "2001:db8:100::/48" }, then: "accept" },
                     { description: "Nothing else", then: "reject" },
@@ -41,12 +41,12 @@ function withBlockB(): Device {
                 originated_prefixes: [...routing.bgp!.originated_prefixes!, "2001:db8:200::/48"],
                 neighbors: {
                     ...routing.bgp!.neighbors,
-                    "transit-p": {
+                    as64510: {
                         address: "2001:db8:fffe::1",
                         remote_as: 64510,
                         role: "provider",
                         import_policy: "TRANSIT-IN",
-                        export_policy: "TRANSIT-P-OUT",
+                        export_policy: "AS64510-OUT",
                         routing_table: "block-b",
                     },
                 },
@@ -83,7 +83,7 @@ test("a table, its rules, a route in it and a session installing in it render as
         ].join("\n")
     );
     expect(desired).toContain('add blackhole comment="Block B" dst-address=2001:db8:200::/48 routing-table=block-b\n');
-    expect(desired).toMatch(/add as=64500 .*name=transit-p .*remote.as=64510 routing-table=block-b\n/);
+    expect(desired).toMatch(/add as=64500 .*name=as64510 .*remote.as=64510 routing-table=block-b\n/);
 
     // The export as the router printed it: the flag between the properties, and the rules and routes as the render writes them.
     const printed = desired.replace(
@@ -134,7 +134,7 @@ test("the table comes first, its rules are rewritten in order, and removing it r
 test("a session moved to another table is restarted, since a running session takes a new routing-table only when it restarts", () => {
     const device = withBlockB();
     const neighbors = device.routing!.bgp!.neighbors!;
-    const { routing_table: _, ...inMain } = neighbors["transit-p"]!;
+    const { routing_table: _, ...inMain } = neighbors["as64510"]!;
     const moved: Device = {
         ...device,
         routing: {
@@ -142,7 +142,7 @@ test("a session moved to another table is restarted, since a running session tak
             tables: undefined,
             policy_routing: undefined,
             static_routes: edge.routing!.static_routes,
-            bgp: { ...device.routing!.bgp!, neighbors: { ...neighbors, "transit-p": inMain } },
+            bgp: { ...device.routing!.bgp!, neighbors: { ...neighbors, as64510: inMain } },
         },
     };
 
@@ -164,7 +164,7 @@ test("a session moved to another table is restarted, since a running session tak
         ...device,
         routing: {
             ...device.routing!,
-            bgp: { ...device.routing!.bgp!, neighbors: { ...neighbors, "transit-p": { ...neighbors["transit-p"]!, max_prefixes: 10 } } },
+            bgp: { ...device.routing!.bgp!, neighbors: { ...neighbors, as64510: { ...neighbors["as64510"]!, max_prefixes: 10 } } },
         },
     });
     expect(platform.plan(limited, platform.render(device), options).steps.flatMap((step) => step.send)).toEqual([
@@ -178,7 +178,7 @@ test("a session in a table announces from it: none of originated_prefixes there 
     const routing = device.routing!;
 
     expect(findings(device)).toEqual([
-        'warning routing.bgp.neighbors.transit-p does not announce 2001:db8:100::/48: On RouterOS a session announces from its own table, block-b, which has no route for it. If its export should announce it, add { prefix: "2001:db8:100::/48", blackhole: true, routing_table: "block-b" } to routing.static_routes',
+        'warning routing.bgp.neighbors.as64510 does not announce 2001:db8:100::/48: On RouterOS a session announces from its own table, block-b, which has no route for it. If its export should announce it, add { prefix: "2001:db8:100::/48", blackhole: true, routing_table: "block-b" } to routing.static_routes',
     ]);
 
     // The block's route only in main, as on the router where the session then announced nothing at all.
@@ -187,7 +187,7 @@ test("a session in a table announces from it: none of originated_prefixes there 
         routing: { ...routing, static_routes: routing.static_routes!.filter((route) => !route.routing_table) },
     };
     expect(findings(onlyInMain)).toEqual([
-        'error routing.bgp.neighbors.transit-p would announce nothing: On RouterOS a session announces from its own table, block-b, which has no route for any of originated_prefixes. Add the routes it announces to block-b too, such as { prefix: "2001:db8:100::/48", blackhole: true, routing_table: "block-b" } in routing.static_routes',
+        'error routing.bgp.neighbors.as64510 would announce nothing: On RouterOS a session announces from its own table, block-b, which has no route for any of originated_prefixes. Add the routes it announces to block-b too, such as { prefix: "2001:db8:100::/48", blackhole: true, routing_table: "block-b" } in routing.static_routes',
     ]);
     expect(errors(onlyInMain)).toContain(findings(onlyInMain)[0]!.slice("error ".length));
 });
@@ -223,7 +223,7 @@ test("validate: a table named main or like a VRF, one nothing installs in, a rul
         "routing.policy_routing[1]: src and dst differ in family, so no packet matches both",
         "routing.policy_routing[2] looks up main and has fallback; fallback is for another table, so remove it",
         // Its static routes replaced, block-b has no route for any of originated_prefixes.
-        'routing.bgp.neighbors.transit-p would announce nothing: On RouterOS a session announces from its own table, block-b, which has no route for any of originated_prefixes. Add the routes it announces to block-b too, such as { prefix: "2001:db8:100::/48", blackhole: true, routing_table: "block-b" } in routing.static_routes',
+        'routing.bgp.neighbors.as64510 would announce nothing: On RouterOS a session announces from its own table, block-b, which has no route for any of originated_prefixes. Add the routes it announces to block-b too, such as { prefix: "2001:db8:100::/48", blackhole: true, routing_table: "block-b" } in routing.static_routes',
     ]);
 });
 
@@ -236,7 +236,7 @@ test("a platform that has not tested routing tables refuses them, by the field",
         "routing.static_routes 2001:db8:200::/48 routing_table, a routing table beside the main one is not tested on a device yet",
         "routing.tables, a routing table beside the main one is not tested on a device yet",
         "routing.policy_routing, policy routing is not tested on a device yet",
-        "routing.bgp.neighbors.transit-p.routing_table, a routing table beside the main one is not tested on a device yet",
+        "routing.bgp.neighbors.as64510.routing_table, a routing table beside the main one is not tested on a device yet",
     ]);
     expect(platform.unsupported(withBlockB())).toEqual([]);
 });
@@ -244,7 +244,7 @@ test("a platform that has not tested routing tables refuses them, by the field",
 test("a table on a neighbor group installs its sessions in it, as a table on the session does", () => {
     const device = withBlockB();
     const routing = device.routing!;
-    const { "transit-p": _, ...neighbors } = routing.bgp!.neighbors!;
+    const { as64510: _, ...neighbors } = routing.bgp!.neighbors!;
     const grouped: Device = {
         ...device,
         routing: {
@@ -252,23 +252,23 @@ test("a table on a neighbor group installs its sessions in it, as a table on the
             bgp: {
                 ...routing.bgp!,
                 neighbor_groups: {
-                    "transit-p": {
+                    as64510: {
                         remote_as: 64510,
                         role: "provider",
                         import_policy: "TRANSIT-IN",
-                        export_policy: "TRANSIT-P-OUT",
+                        export_policy: "AS64510-OUT",
                         routing_table: "block-b",
                     },
                 },
                 neighbors: {
                     ...neighbors,
-                    "p-a": { neighbor_group: "transit-p", address: "2001:db8:fffe::1" },
-                    "q-a": {
+                    "as64510-1": { neighbor_group: "as64510", address: "2001:db8:fffe::1" },
+                    as64511: {
                         address: "2001:db8:fffd::1",
                         remote_as: 64511,
                         role: "provider",
                         import_policy: "TRANSIT-IN",
-                        export_policy: "TRANSIT-P-OUT",
+                        export_policy: "AS64510-OUT",
                         routing_table: "block-b",
                     },
                 },
@@ -277,8 +277,8 @@ test("a table on a neighbor group installs its sessions in it, as a table on the
     };
 
     const rendered = platform.render(grouped);
-    expect(rendered).toMatch(/add as=64500 .*name=p-a .*remote.as=64510 routing-table=block-b\n/);
-    expect(rendered).toMatch(/add as=64500 .*name=q-a .*remote.as=64511 routing-table=block-b\n/);
+    expect(rendered).toMatch(/add as=64500 .*name=as64510-1 .*remote.as=64510 routing-table=block-b\n/);
+    expect(rendered).toMatch(/add as=64500 .*name=as64511 .*remote.as=64511 routing-table=block-b\n/);
     expect(errors(grouped)).toEqual([]);
 });
 
@@ -327,7 +327,7 @@ test("a network the session's export rejects anyway needs no route in its table,
                 ...routing.bgp!,
                 neighbors: {
                     ...routing.bgp!.neighbors,
-                    "transit-p": { ...routing.bgp!.neighbors!["transit-p"]!, export_policy: "BLOCK-B-OUT" },
+                    as64510: { ...routing.bgp!.neighbors!["as64510"]!, export_policy: "BLOCK-B-OUT" },
                 },
             },
         },

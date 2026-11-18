@@ -93,7 +93,7 @@ In a git project, Circuit adds a git hook. It stops a commit, from any git progr
 - a secrets file holds its own password. Only `CIRCUIT_SECRETS_PASSWORD="op://..."` can be written there.
 - the project fails `circuit validate`.
 
-It also checks each project inside your project's folder, such as `customers/acme/`, with that project's Circuit version.
+It also checks each project inside your project's folder, such as `customers/netflix/`, with that project's Circuit version.
 
 The hook can't catch everything:
 

@@ -128,7 +128,7 @@ test("ttl_security with multihop is an error, once at a group that has both", ()
                     ...bgp.neighbors,
                     "controller-1": { address: "198.51.100.7", neighbor_group: "controllers" },
                     "controller-2": { address: "198.51.100.8", neighbor_group: "controllers", multihop: false },
-                    "upstream-2": { address: "203.0.113.5", neighbor_group: "upstream", multihop: true, ttl_security: true },
+                    cogent: { address: "203.0.113.5", neighbor_group: "upstream", multihop: true, ttl_security: true },
                 },
             },
         },
@@ -136,6 +136,6 @@ test("ttl_security with multihop is an error, once at a group that has both", ()
 
     expect(messages(device).filter((message) => message.includes("ttl_security"))).toEqual([
         "routing.bgp.neighbor_groups.controllers has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected",
-        "routing.bgp.neighbors.upstream-2 has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected",
+        "routing.bgp.neighbors.cogent has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected",
     ]);
 });

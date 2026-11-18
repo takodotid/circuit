@@ -32,7 +32,7 @@ const device: Device = {
     ...router,
     routing: {
         ...router.routing,
-        prefix_sets: { ...written, "customer-a-v4": { source: { registry: "ripe-stat", query: "AS64501", family: "ipv4" } } },
+        prefix_sets: { ...written, "as64501-v4": { source: { registry: "ripe-stat", query: "AS64501", family: "ipv4" } } },
     },
 };
 
@@ -43,9 +43,9 @@ test("a set a registry fills becomes the prefixes it gave, of its family only", 
     const fetched = await Registries.resolve(device, (line) => told.push(line));
 
     expect(asked).toEqual(["https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS64501"]);
-    expect(fetched.routing?.prefix_sets?.["customer-a-v4"]).toEqual({ prefixes: ["198.51.100.0/24", "203.0.113.0/24"] });
-    expect(told).toEqual(["customer-a-v4: 2 ipv4 prefix(es) from ripe-stat AS64501"]);
-    expect(device.routing?.prefix_sets?.["customer-a-v4"]).toEqual({ source: { registry: "ripe-stat", query: "AS64501", family: "ipv4" } });
+    expect(fetched.routing?.prefix_sets?.["as64501-v4"]).toEqual({ prefixes: ["198.51.100.0/24", "203.0.113.0/24"] });
+    expect(told).toEqual(["as64501-v4: 2 ipv4 prefix(es) from ripe-stat AS64501"]);
+    expect(device.routing?.prefix_sets?.["as64501-v4"]).toEqual({ source: { registry: "ripe-stat", query: "AS64501", family: "ipv4" } });
 });
 
 test("on RouterOS the fetched prefixes are entries of the list, which the plan adds one by one", async () => {
@@ -57,24 +57,24 @@ test("on RouterOS the fetched prefixes are entries of the list, which the plan a
         ...fetched,
         routing: {
             ...fetched.routing,
-            prefix_sets: { ...fetched.routing?.prefix_sets, "customer-a-v4": { prefixes: ["198.51.100.0/24"] } },
+            prefix_sets: { ...fetched.routing?.prefix_sets, "as64501-v4": { prefixes: ["198.51.100.0/24"] } },
         },
     });
     const plan = platform.plan(platform.render(fetched), before, { secrets: false, rollback: 10 });
     const sent = plan.steps.flatMap((step) => step.send).join("\n");
 
-    expect(sent).toContain("add address=203.0.113.0/24 list=customer-a-v4");
+    expect(sent).toContain("add address=203.0.113.0/24 list=as64501-v4");
     expect(sent).not.toContain("remove");
 });
 
 test("nothing to go on stops before anything is sent: no answer, an empty one, or too many prefixes", async () => {
     ripeStat([], 200);
     expect(Registries.resolve(device)).rejects.toThrow(
-        "routing.prefix_sets.customer-a-v4: ripe-stat gave no ipv4 prefix for AS64501, so nothing was sent"
+        "routing.prefix_sets.as64501-v4: ripe-stat gave no ipv4 prefix for AS64501, so nothing was sent"
     );
 
     ripeStat([], 503);
-    expect(Registries.resolve(device)).rejects.toThrow("routing.prefix_sets.customer-a-v4: ripe-stat AS64501: ripe-stat answered 503");
+    expect(Registries.resolve(device)).rejects.toThrow("routing.prefix_sets.as64501-v4: ripe-stat AS64501: ripe-stat answered 503");
 
     ripeStat(
         Array.from({ length: Registries.MAX_PREFIXES + 1 }, (_, index) => `10.${index >> 16}.${(index >> 8) & 255}.${index & 255}/32`)

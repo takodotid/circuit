@@ -94,7 +94,7 @@ function find(written: string, path: string[]): string | undefined {
 }
 
 /**
- * Where `key` of `map` is written, as `file:line: `, or nothing when no file is known. `writtenIn` knows the line that made the map, such as a network's `device()`, a `literal`, or a `part`. From there, the file is read for the first line that writes each of `path` in turn, ending in the key: `["vlans", "exchange-a"]`. A key written through `lib/` is looked for there first. When the key is not found, the line that made the map stays.
+ * Where `key` of `map` is written, as `file:line: `, or nothing when no file is known. `writtenIn` knows the line that made the map, such as a network's `device()`, a `literal`, or a `part`. From there, the file is read for the first line that writes each of `path` in turn, ending in the key: `["vlans", "exchange"]`. A key written through `lib/` is looked for there first. When the key is not found, the line that made the map stays.
  */
 export function writtenAt(map: unknown, key: string, path: string[] = [key]): string {
     const outer = writtenIn(map as object, key);

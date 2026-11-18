@@ -42,10 +42,20 @@ const bogons = {
         loopback: "::1/128",
         /** IPv4-mapped addresses, RFC 4291. */
         ipv4_mapped: "::ffff:0:0/96",
+        /** IPv4/IPv6 translation for local use, RFC 8215. */
+        translation_local: "64:ff9b:1::/48",
         /** Discard-only, RFC 6666. */
         discard_only: "100::/64",
+        /** Dummy prefix, RFC 9780. */
+        dummy: "100:0:0:1::/64",
+        /** Benchmarking, RFC 5180. */
+        benchmarking: "2001:2::/48",
         /** Documentation, RFC 3849. */
         documentation: "2001:db8::/32",
+        /** Documentation, RFC 9637. */
+        documentation2: "3fff::/20",
+        /** Segment Routing (SRv6) SIDs, RFC 9602. */
+        srv6_sids: "5f00::/16",
         /** Unique local, RFC 4193. */
         unique_local: "fc00::/7",
         /** Link-local, RFC 4291. */

@@ -107,7 +107,7 @@ test("a prefix set of both families is matched on each family's chain", () => {
             prefix_sets: { ...routing.prefix_sets, ours: { prefixes: ["198.51.100.0/24", "2001:db8:100::/48"] } },
             bgp: {
                 ...routing.bgp!,
-                neighbors: { ...routing.bgp!.neighbors, "upstream-1-v6": { address: "2001:db8:ffff::1", neighbor_group: "upstream" } },
+                neighbors: { ...routing.bgp!.neighbors, "as64501-v6": { address: "2001:db8:ffff::1", neighbor_group: "upstream" } },
             },
         },
     });

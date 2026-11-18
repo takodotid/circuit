@@ -55,14 +55,18 @@ test("RouterOS refuses GTSM on an iBGP session, whose TTL it does not check", ()
 });
 
 test("Junos and FortiOS refuse GTSM, and VRP and Raisecom ROS refuse BGP itself", () => {
-    const junos = withNeighbor("platforms--example-aggregation-switch", "transit-1", { ttl_security: true });
+    const junos = withNeighbor("platforms--example-aggregation-switch", "hurricane-electric", {
+        address: "203.0.113.1",
+        remote_as: 6939,
+        ttl_security: true,
+    });
     expect(Platforms.get("junos").unsupported(junos)).toContain(
-        "routing.bgp.neighbors.transit-1.ttl_security, Junos BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255"
+        "routing.bgp.neighbors.hurricane-electric.ttl_security, Junos BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255"
     );
 
-    const fortios = withNeighbor("platforms--example-firewall", "upstream-1", { ttl_security: true });
+    const fortios = withNeighbor("platforms--example-firewall", "arelion", { address: "203.0.113.9", remote_as: 1299, ttl_security: true });
     expect(Platforms.get("fortios").unsupported(fortios)).toContain(
-        "routing.bgp.neighbors.upstream-1.ttl_security, the platform's BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255"
+        "routing.bgp.neighbors.arelion.ttl_security, the platform's BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255"
     );
 
     const bgp: NonNullable<Device["routing"]>["bgp"] = {

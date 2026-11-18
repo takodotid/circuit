@@ -23,7 +23,7 @@ function data(edges: GraphEdge[], nodes: GraphNode[] = [device("edge-01"), devic
 
 describe("a layer of the graph", () => {
     test("shows every device and what its lines end at, each line by an id that stays", () => {
-        const outside: GraphNode = { id: "as:6939", kind: "outside", label: "AS6939", detail: [] };
+        const outside: GraphNode = { id: "as:6939", kind: "outside", label: "AS6939", detail: ["Hurricane Electric"] };
         const session: GraphEdge = { layer: "bgp", from: "device:edge-01", to: "as:6939", label: "transit", detail: [] };
         const shown = GraphLayer.of(
             data([session, cable("edge-01", "tor-01", "1 to 1")], [device("edge-01"), device("tor-01"), outside]),

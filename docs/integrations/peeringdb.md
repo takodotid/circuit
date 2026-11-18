@@ -52,7 +52,7 @@ vlan_interface: {
 },
 ```
 
-Write your real, global addresses. Circuit doesn't publish documentation addresses like these.
+Write your real, global addresses: Circuit publishes no other kind. On this page, documentation addresses stand in for them.
 
 Then set the key:
 
@@ -72,5 +72,5 @@ PeeringDB (AS64500): 2 change(s)
 
 Left alone:
   LINX LON1 (203.0.113.99) is on PeeringDB but not in the project. Remove it there by hand if you left.
-  edge-02 exchange-b: 10.255.0.5 is not a global address, so it is not published.
+  edge-02 nl-ix: 10.255.0.5 is not a global address, so it is not published.
 ```
