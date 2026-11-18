@@ -213,7 +213,7 @@ test("only what holds the tag is changed or deleted, and what doesn't is listed 
         ["edge-01/qsfp28-1-1", ['description: "edited by hand" to "tor-01"']],
     ]);
     expect(plan.deletes.map((change) => change.key)).toEqual(["old-router"]);
-    expect(plan.leftAlone).toContain("dcim/devices tor-01: in NetBox without the tag circuit, so it is used as it is.");
+    expect(plan.leftAlone).toContain("dcim/devices tor-01: in NetBox without the tag circuit, so Circuit uses it as it is.");
 
     fake.sent.length = 0;
     await new NetBox([network([edge, tor])]).send(plan);

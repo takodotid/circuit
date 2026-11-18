@@ -192,5 +192,5 @@ test("moves a device between site groups, and leaves a dynamic group alone", asy
 
     const dynamic = await new LibreNms([network([router, switchDevice])]).plan();
     expect(dynamic.changes).toEqual([]);
-    expect(dynamic.leftAlone).toEqual(["group dc-1 is a dynamic group in LibreNMS, so Circuit can't fill it, and leaves it as it is."]);
+    expect(dynamic.leftAlone).toEqual(["group dc-1 is a dynamic group in LibreNMS, so Circuit can't fill it and leaves it as it is."]);
 });

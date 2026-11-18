@@ -223,7 +223,7 @@ export class LibreNms implements SyncTarget<LibreNmsPlan> {
             }
 
             if (found.type !== "static") {
-                leftAlone.push(`group ${site} is a ${found.type} group in LibreNMS, so Circuit can't fill it, and leaves it as it is.`);
+                leftAlone.push(`group ${site} is a ${found.type} group in LibreNMS, so Circuit can't fill it and leaves it as it is.`);
                 continue;
             }
 
