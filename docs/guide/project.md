@@ -4,10 +4,6 @@ description: How a Circuit project is laid out, and what a network, a site, and 
 
 # Your first project
 
-A project is a folder of files that describe your network. It has one file per device, plus files for what several devices share.
-
-The files are TypeScript, but they read like data. You install nothing, because Circuit's functions are built in. Your editor reads their types from `.circuit/types`.
-
 This page builds one small project: a router and a switch at one site. It passes `circuit validate` as written. Bigger projects are in [Example projects](/guide/examples).
 
 ## Layout
@@ -44,7 +40,7 @@ In a [full install](/guide/install#full-install), `package.json` pins the versio
 
 ```ts
 // circuit.ts
-// The network, AS64500: what holds for all of it. Circuit reads this file first, then every device file under sites/.
+// The network, AS64500: what holds for all of it.
 
 export const as64500 = circuit({
     asn: 64500,
@@ -73,7 +69,7 @@ export const as64500 = circuit({
 | `asn`         | Your AS. BGP uses it unless a device sets `routing.bgp.asn`. Optional: an office network without one leaves it out.                                 |
 | `prefixes`    | Your address blocks, with names. Devices use them by name.                                                                                          |
 | `communities` | Your BGP community scheme. See [Communities](/guide/communities).                                                                                   |
-| `sites`       | Each site's `description` (and `number`, if communities tag by site). That's all.                                                                   |
+| `sites`       | Each site's `description` (and `number`, if communities tag by site).                                                                               |
 | `checks`      | Circuit's checks to turn on, and your own. See [Checks](/guide/checks).                                                                             |
 | `secrets`     | Optional. Another secrets file for this network, such as `{ file: ".circuit/lab-secrets" }`. See [Lab and staging](/guide/secrets#lab-and-staging). |
 
@@ -230,8 +226,6 @@ One device per file: `export default <network>.device({...})`.
 - **Ports** are `<speed>-<position>`, like `25g-1`. Circuit prints them the vendor's way, such as `sfp28-1` on RouterOS or `10GE1/0/1` on VRP. A port the model doesn't have is an error.
 - **Links go both ways.** Write `link` on both ends. The port's `description` should give the far end, like `switch-01 10GE1/0/1`. Circuit warns if it doesn't, but never writes it for you.
 
-Every name you use must exist on the device, and what you leave out is turned off. See [Principles](/guide/introduction#principles).
-
 The switch is shorter:
 
 ```ts
@@ -274,6 +268,8 @@ export default as64500.device({
 ```
 
 ## Globals
+
+These are built in, so a file uses them without an import.
 
 | Global                             | What                                                                                                                                      |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |

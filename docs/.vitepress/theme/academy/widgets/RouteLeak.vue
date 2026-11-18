@@ -71,7 +71,7 @@ async function send() {
         said.value = {
             kind: "bad",
             word: "Overloaded",
-            text: "AS64510 now reaches Google through you, and prefers that way. Like most providers, it gives the routes from its customers a higher local preference than other routes. Traffic from all its customers squeezes through your links to Hurricane Electric, and they fill up. That is a route leak.",
+            text: "AS64510 now reaches Google through you, and prefers that way, because you are its customer. Traffic from all its customers squeezes through your links to Hurricane Electric, and they fill up. That is a route leak.",
         };
     } else if (sessionDown.value) {
         said.value = {
@@ -214,7 +214,7 @@ const validate = computed(() =>
             Send the traffic with each choice. Then announce everything, and try the limit.
         </p>
 
-        <CodeView :code="code" title="edge-01.ts, the neighbor and its export" />
+        <CodeView :code="code" title="edge-01.ts, part of it" />
         <CodeView :code="validate" lang="shell" title="Terminal" />
     </div>
 </template>

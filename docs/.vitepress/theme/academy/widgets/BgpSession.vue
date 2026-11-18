@@ -154,7 +154,7 @@ const verdict = computed(() => {
     return {
         kind: "good",
         word: "Up",
-        text: "The session is up, routes come in through transit-import, and your block goes out through transit-export.",
+        text: "Routes come in through transit-import, and your block goes out through transit-export.",
     };
 });
 

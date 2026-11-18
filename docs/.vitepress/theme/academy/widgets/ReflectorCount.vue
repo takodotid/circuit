@@ -115,7 +115,7 @@ function toggleReflector() {
             : {
                   kind: "good",
                   word: "Still up",
-                  text: "Every client still has a session with RR2, which reflects every route on its own. This is why reflectors come in pairs.",
+                  text: "Every client still has a session with RR2, which reflects every route on its own.",
               };
 }
 

@@ -7,7 +7,7 @@
         <svg viewBox="0 0 1000 300" role="img" aria-labelledby="secrets-title">
             <title id="secrets-title">
                 circuit secrets set encrypts a value with the password into .circuit/secrets, which git keeps. The password, in 1Password,
-                the environment or typed when asked, stays out of git. Circuit decrypts the value only when it sends a command to the
+                the environment, or typed when asked, stays out of git. Circuit decrypts the value only when it sends a command to the
                 device.
             </title>
             <defs>

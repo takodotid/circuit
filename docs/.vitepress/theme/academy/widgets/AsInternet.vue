@@ -27,7 +27,7 @@ const ends = (link: AsLink): [string, string] => (link.kind === "transit" ? [lin
 
 function describe(link: AsLink): string {
     if (link.kind === "transit") return `${named(link.customer)} buys transit from ${named(link.provider)}.`;
-    return `${named(link.a)} and ${named(link.b)} peer. Nobody pays.`;
+    return `${named(link.a)} and ${named(link.b)} peer.`;
 }
 
 // Adding a link.
@@ -38,7 +38,7 @@ const formError = ref("");
 
 function add() {
     if (first.value === second.value) {
-        formError.value = "A network cannot link to itself. Pick two different networks.";
+        formError.value = "Pick two different networks.";
         return;
     }
 
@@ -227,7 +227,7 @@ function arrow(link: AsLink): string {
                         {{ network.name }}, AS{{ network.id }}
                     </option>
                 </select>
-                <button type="submit" class="ac-button primary">Add the link</button>
+                <button type="submit" class="ac-button primary">Add</button>
             </div>
             <p v-if="formError" class="ac-say bad" data-word="Not added" aria-live="polite">{{ formError }}</p>
         </form>

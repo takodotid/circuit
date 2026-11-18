@@ -5,28 +5,26 @@ description: The kinds of networks a page load crosses, where they meet, and whe
 
 # Who runs the internet
 
-Nobody runs the internet as a whole. A single page load crosses several networks, and a different organization runs each one. They meet in data centers, joined by cables the building runs between them. The addresses and AS numbers they all use come from a small chain of registries, from IANA down to the national registries.
+Nobody runs the internet as a whole. A single page load crosses several networks, and a different organization runs each one.
 
 ## The kinds of networks
 
-[Networks of networks](/academy/intermediate/autonomous-systems) showed transit and peering between ASes. In the industry, those ASes come in a few kinds:
+The ASes of [Networks of networks](/academy/intermediate/autonomous-systems) come in a few kinds:
 
 - **Access providers** sell to homes and businesses, such as the broadband and DIA of [What an ISP sells](/academy/professional/internet-products).
-- **Transit networks** sell transit to other networks across countries and continents. Hurricane Electric, AS6939, sells transit around the world. Its peering policy offers to peer with networks that meet it at an exchange. Arelion, AS1299, sells transit over one of the largest backbones in the world.
-- **Content networks** serve what people watch and read, such as video, software, and cloud services. Some of them give access providers servers to put inside their own networks. Then the most watched content is served from close by.
+- **Transit networks** sell transit to other networks across countries and continents. Hurricane Electric, AS6939, sells transit around the world, and offers to peer with networks that meet it at an exchange. Arelion, AS1299, runs one of the largest backbones in the world.
+- **Content networks** serve what people watch and read, such as video, software, and cloud services. Some give access providers servers to put inside their networks, so the most watched content is served from close by.
 - **Hosting companies** run the servers that websites live on, in data centers.
 
 The network you buy transit from is your <Term means="The network you buy transit from: your way to the rest of the internet.">upstream</Term>. The networks that buy transit from you are your downstream networks.
 
-A small group of very large networks reach every other network by peering with each other, without buying transit from anyone. They are called Tier 1 networks. No authority defines the term, and lists of who counts differ. Hurricane Electric, for example, is very large and peers widely, but buys transit to reach a few networks. So it is usually not counted.
+Tier 1 networks are a small group of very large networks that reach every other network by peering, without buying transit. No authority defines the term, and lists of who counts differ. Hurricane Electric peers widely but buys transit to reach a few networks, so it is usually not counted.
 
 ### National and regional exchanges
 
-An [internet exchange](/academy/intermediate/autonomous-systems#internet-exchanges) lets its members peer over one shared network. Many countries have a national exchange that keeps traffic between local networks inside the country. In Indonesia, APJII, the association of Indonesian internet providers, runs IIX, the Indonesia Internet Exchange, in Jakarta. It serves every internet provider licensed in Indonesia, and it is open to content networks and data centers. Regional exchanges bring together networks from several countries.
+An [internet exchange](/academy/intermediate/autonomous-systems#internet-exchanges) lets its members peer over one shared network. Many countries have a national exchange that keeps traffic between local networks inside the country. In Indonesia, APJII, the association of Indonesian internet providers, runs IIX, the Indonesia Internet Exchange, in Jakarta. It serves every licensed Indonesian internet provider, and is open to content networks and data centers. Regional exchanges join networks from several countries.
 
 <TryIt title="Follow a page load">
-
-Open each of the three, and step along the way your request travels.
 
 <PageLoadNetworks />
 
@@ -44,9 +42,9 @@ Open each of the three, and step along the way your request travels.
 
 A network meets others at a <Term means="Point of presence: a place, usually a rack or a room in a data center, where a network has equipment and others connect to it.">PoP</Term>, a point of presence. Many PoPs are in **data centers**, where other networks already are. A colocation data center rents space, power, and cooling by the rack or the cage, to many networks at once.
 
-Two networks in the same data center still need a cable between them, and they can't run it through the building themselves. They order a <Term means="A cable the data center runs between two customers' racks, or between a customer and a network, in the same building.">cross-connect</Term> from the data center operator. Each network has a cable from its cage to the <Term means="The room in a data center where the cables of every network meet, so the operator can join any two of them.">meet-me room</Term>. The operator joins the two there.
+Two networks in the same data center still need a cable between them, and they can't run it through the building themselves. They order a <Term means="A cable the data center runs between two customers' racks, or between a customer and a network, in the same building.">cross-connect</Term> from the data center operator. Each network has a cable from its cage to the <Term means="The room in a data center where the cables of every network meet, so the operator can join any two of them.">meet-me room</Term>, and the operator joins the two there.
 
-The same kind of cable joins a network to an exchange's switch, or to a transit provider's router in the same building. This is why networks gather in a few well-connected buildings. Once you are in, a new peer or a new upstream is a cross-connect away, with no cable to lay across the city.
+The same kind of cable joins a network to an exchange's switch, or to a transit provider's router in the same building. So networks gather in a few well-connected buildings, where a new peer or upstream is only a cross-connect away.
 
 <Quiz
   question="Your router is in a data center, and you sign up with a transit provider whose router is in the same building. How are the two joined?"
@@ -58,14 +56,14 @@ The same kind of cable joins a network to an exchange's switch, or to a transit 
 
 ## Where addresses and AS numbers come from
 
-Every address and AS number must belong to one network at a time, and be recorded. This way routes can be trusted, and the routing tables of the internet stay small. A chain of registries makes sure of this:
+Every address and AS number must belong to one network at a time, and be recorded, so routes can be trusted. A chain of registries makes sure of this:
 
 1. **IANA**, the Internet Assigned Numbers Authority, keeps the whole pool. It gives large blocks to the five regional registries.
 2. Five <Term means="Regional internet registry: one of five organizations that hand out addresses and AS numbers for a part of the world. APNIC is the one for Asia and the Pacific.">regional internet registries</Term> each serve a part of the world. [Networks of networks](/academy/intermediate/autonomous-systems#as-numbers-and-address-blocks) lists them. APNIC serves Asia and the Pacific.
 3. <Term means="National internet registry: an organization that hands out addresses and AS numbers in one country, under the policies of its RIR, such as IDNIC in Indonesia.">National internet registries</Term> exist in a few countries. The APNIC region has seven, in Indonesia, China, India, Japan, South Korea, Taiwan, and Vietnam. Indonesia's is IDNIC, run by APJII.
 4. **Providers** that have blocks hand smaller pieces to their customers.
 
-A network in Indonesia can get its own AS number and addresses from IDNIC or from APNIC. In most cases it chooses one of the two, and can't get number resources from both. A network in Singapore, which has no national registry, goes to APNIC.
+A network in Indonesia gets its own AS number and addresses from IDNIC or from APNIC, in most cases not from both. A network in Singapore, which has no national registry, goes to APNIC.
 
 <TryIt title="Who do you ask?">
 
@@ -102,11 +100,3 @@ Circuit writes nothing to the device for `exchange`. Instead, `circuit sync peer
 - [National Internet Registries](https://www.apnic.net/about-apnic/organization/apnic-region/national-internet-registries), APNIC: the seven national registries, and the choice between one of them and APNIC.
 - [IDNIC](https://idnic.net/), the national internet registry of Indonesia.
 - [Submarine cable FAQs](https://www2.telegeography.com/submarine-cable-faqs-frequently-asked-questions), TeleGeography: the cables between continents.
-
-## In short
-
-- A page load crosses access providers, exchanges, transit networks, content networks, and hosting companies. A different organization runs each one.
-- Transit networks such as Hurricane Electric and Arelion sell a way across the world. National exchanges such as IIX keep local traffic local.
-- Networks meet at PoPs in data centers, joined by cross-connects that the operator runs.
-- Addresses and AS numbers flow from IANA to five regional registries such as APNIC, then through national registries such as IDNIC, to networks.
-- In Circuit, `exchange` on an interface keeps your PeeringDB record matching your files.

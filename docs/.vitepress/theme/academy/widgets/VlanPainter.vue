@@ -118,13 +118,13 @@ async function send() {
     if (!senderVlan) {
         said.value = {
             kind: "bad",
-            text: `Port ${sender.port} is not in the file, so it is shut down. The switch does not hear the ${sender.label.toLowerCase()} at all.`,
+            text: `Port ${sender.port} is not in the file, so it is shut down.`,
         };
         return;
     }
 
     if (to.value === from.value) {
-        said.value = { kind: "warn", text: "A device does not need the network to talk to itself. Pick another one, or everyone." };
+        said.value = { kind: "warn", text: "Pick another device, or everyone." };
         return;
     }
 
@@ -139,12 +139,12 @@ async function send() {
         if (!targetVlan) {
             said.value = {
                 kind: "bad",
-                text: `Port ${target.port} is shut down, because the file does not list it. Nothing can reach the ${target.label.toLowerCase()}.`,
+                text: `Port ${target.port} is not in the file, so it is shut down.`,
             };
         } else if (targetVlan.id !== senderVlan.id) {
             said.value = {
                 kind: "bad",
-                text: `The ${sender.label.toLowerCase()} is in VLAN ${senderVlan.id} and the ${target.label.toLowerCase()} in VLAN ${targetVlan.id}. A switch passes a frame only to ports in the VLAN it came in on, so to cross from one VLAN to another you need a router.`,
+                text: `The ${sender.label.toLowerCase()} is in VLAN ${senderVlan.id} and the ${target.label.toLowerCase()} in VLAN ${targetVlan.id}. A switch never passes a frame from one VLAN to another. That takes a router.`,
             };
         } else {
             const index = ports.indexOf(target);
@@ -171,7 +171,7 @@ async function send() {
         said.value = {
             kind: "warn",
             word: "Nobody",
-            text: `No other port is in VLAN ${senderVlan.id}, so the broadcast went nowhere. The rest of the switch never saw it.`,
+            text: `No other port is in VLAN ${senderVlan.id}, so the broadcast went nowhere.`,
         };
         return;
     }
@@ -260,8 +260,7 @@ async function send() {
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            Every port is in VLAN 20, like a switch nobody has split yet. Send a broadcast from the guest Wi-Fi and see who hears it. Then
-            move ports into other VLANs and send it again.
+            Send a broadcast from the guest Wi-Fi. Then move ports into other VLANs and send it again.
         </p>
 
         <CodeView :code="file.text" lang="ts" title="switch.ts" :highlight="file.highlight" />

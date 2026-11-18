@@ -4,7 +4,7 @@ description: Your project in the browser. The network drawn, everything in table
 
 # Circuit Studio
 
-Studio shows your project in the browser: the network drawn as a graph, every device and VLAN in tables, tools to trace and test, and a compare view. Use it to find your way around a network, or to look something up without reading code.
+Studio shows your project in the browser: the network as a graph, everything in tables, tools to trace and test, and a compare view.
 
 Studio only reads your files. It touches a device only when you press **Read from the device now**, and then it only reads.
 
@@ -19,18 +19,18 @@ Studio only reads your files. It touches a device only when you press **Read fro
 
 Only your machine can reach it. Ctrl+C stops it.
 
-| Option                 | What it does                                          |
-| ---------------------- | ----------------------------------------------------- |
-| `--port <number>`      | The port. The default is `4600`.                      |
-| `--host <address>`     | Where it listens. See [Host Studio](/studio/hosting). |
-| `--allow-host <names>` | The names people use to reach it, behind a proxy.     |
-| `--no-open`            | Don't open the browser.                               |
+| Option                 | What it does                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `--port <number>`      | The port. The default is `4600`.                                                                                    |
+| `--host <address>`     | Where it listens. `0.0.0.0` is every address. The default is this machine only. See [Host Studio](/studio/hosting). |
+| `--allow-host <names>` | The names people use to reach it, behind a proxy. Studio refuses any other name.                                    |
+| `--no-open`            | Don't open the browser.                                                                                             |
 
-Every page has its own address, like `/devices/edge-01`, so the back button and bookmarks work.
+Every page has its own address, such as `/devices/edge-01`, to bookmark or send.
 
 ## The graph
 
-The graph draws your network one layer at a time. Pick a layer at the top of the drawing, or press 1 to 6. Each layer button shows how many lines it has.
+The graph draws your network one layer at a time. Pick a layer at the top of the drawing, or press 1 to 6.
 
 | Layer     | What it draws                                                                       |
 | --------- | ----------------------------------------------------------------------------------- |
@@ -41,41 +41,20 @@ The graph draws your network one layer at a time. Pick a layer at the top of the
 | OSPF      | Interfaces in one area and one prefix, where neither side is passive.               |
 | Tunnels   | GRE and VXLAN tunnels, matched by their endpoints, and WireGuard peers.             |
 
-- Point at a device to light it and its lines. Click a device or a line to see it in the side panel: a device with its lines, a line with its two ends. Esc clears the selection.
+- Click a device or a line to see it in the side panel. Esc clears the selection.
 - Double-click a device to open its page.
 - Drag a device to move it. Studio remembers where you put it, per layer, after a reload too.
 - Drag the empty space to move the drawing, and scroll to zoom.
 - Tab reaches the list of devices, for the keyboard.
-
-Each device shows its front panel, its name, and its platform and model. Dots travel along each line that both ends declare.
-
-| Mark                     | Means                                                                       |
-| ------------------------ | --------------------------------------------------------------------------- |
-| A dashed line            | Only one end declares it, such as a cable whose far port doesn't link back. |
-| A line marked "4 cables" | More than 3 lines between two devices, drawn as one. Click it for the list. |
-| A dotted box             | Something outside the network, such as another AS.                          |
-| An orange or red frame   | The device has warnings or errors, as `circuit validate` reports them.      |
-
-The buttons at the top of the drawing act on the layer you see.
-
-| Button        | What it does                                              |
-| ------------- | --------------------------------------------------------- |
-| Fit           | Shows the whole layer.                                    |
-| Lay out again | Forgets where you moved devices on this layer.            |
-| Save PNG      | Saves the layer as a PNG.                                 |
-| Save SVG      | Saves the layer as an SVG, which stays sharp at any size. |
+- More than 3 lines between two devices are drawn as one, such as "4 cables". Click it for the list.
 
 The graph shows what your files say, not what is plugged in. To check the cables, run `circuit diff` on the device: it compares what LLDP sees with each `link`.
 
 ### Present on a big screen
 
-**Present**, or the key P, shows the network on a wall screen, such as in a NOC.
+**Present**, or the key P, shows the network on a wall screen, such as in a NOC. Every 6 seconds it moves on: first the whole layer, then its four busiest devices one by one, then the next layer that has lines.
 
-1. The drawing fills the window, and the whole screen when the browser allows it.
-2. Every 6 seconds it moves on: first the whole layer, then its four busiest devices one by one. Each is lit with its neighbors and has a ring around it.
-3. Then it shows the whole layer again, and goes on to the next layer that has lines.
-
-The drawing drifts slowly while it presents. It waits while you point at a device or drag one. **Stop presenting** or Esc stops it. A screen that reloads keeps presenting.
+It waits while you point at a device or drag one. **Stop presenting** or Esc stops it. A screen that reloads keeps presenting.
 
 ## Look things up
 
@@ -90,33 +69,21 @@ The tabs at the top list everything in your files.
 | Cables    | Every cable, with the VLANs it carries.                                                                    |
 | Problems  | What `circuit validate` finds, and every line only one end declares. The count in the top bar is the same. |
 
-**Search** finds a name, an address, or any other value in any device. It shows where each match is and how many there are, up to 200.
+**Search** finds a name, an address, or any other value in any device, up to 200 matches.
 
-Point at a field name with a dotted underline, such as `remote_as`, to see what it means. It is the same text your editor shows.
+Point at a field name with a dotted underline, such as `remote_as`, to see what it means.
 
 A secret shows as its name, such as `secret("EDGE_01_PASSWORD")`, never as its value. To see the values, see [Secrets in Studio](/guide/secrets#in-studio).
 
-Every table has **Save as CSV**, for a spreadsheet.
-
 ### A device's page
 
-| Tab               | What it shows                                                                                   |
-| ----------------- | ----------------------------------------------------------------------------------------------- |
-| Overview          | What `circuit validate` found on it, its role, and how Circuit connects to it.                  |
-| Ports             | Its front panel, colored by how each port is used, how many ports are declared, and every port. |
-| Interfaces        | Its LAGs, VLAN interfaces, loopbacks, and tunnels.                                              |
-| Switching         | Its VLANs, spanning tree, LLDP, and ACLs.                                                       |
-| Routing           | Its static routes, BGP, OSPF, policies, and prefix sets.                                        |
-| Firewall          | Its filter chains, NAT, and address sets.                                                       |
-| Services          | Its DHCP, DNS, and other services.                                                              |
-| Management        | How people and tools log in.                                                                    |
-| System            | Its users, time, DNS, and logs.                                                                 |
-| Monitoring        | SNMP, syslog, and flow export.                                                                  |
-| Config            | The config Circuit writes, in the vendor's own commands.                                        |
-| On the device now | What the device runs, and what `circuit apply` would send.                                      |
-| History           | The commits that changed the device's file.                                                     |
+Most of its tabs follow the groups of the device's file, such as **Interfaces** and **Routing**. Three tabs are different.
 
-**Show in the graph**, under the device's name, lights the device on the graph.
+| Tab               | What it shows                                              |
+| ----------------- | ---------------------------------------------------------- |
+| Config            | The config Circuit writes, in the vendor's own commands.   |
+| On the device now | What the device runs, and what `circuit apply` would send. |
+| History           | The commits that changed the device's file, newest first.  |
 
 **Read from the device now** logs in to the device and reads it, like `circuit diff`. Nothing is sent, and Studio keeps no copy. It needs the device's password, so it works only when the secrets password comes from 1Password, `CIRCUIT_SECRETS_PASSWORD`, or a password Circuit remembers. Otherwise run `circuit diff`, which asks for it.
 
@@ -126,9 +93,9 @@ Studio compares your files now with a branch, a tag, or a commit. Your project m
 
 1. Open **Compare** in the top bar.
 2. Pick a branch, tag, or recent commit, or type one, such as `main` or `HEAD~3`.
-3. Studio shows the devices added and removed, and the config of each changed device, line by line. It shows the lines of the graph added and gone, layer by layer. It also shows what `circuit validate` finds now that it didn't before, and what it no longer finds.
-4. **Show in the graph** draws new lines in green and removed lines in dashed red. A device or AS that is gone is drawn pale, with a dashed frame. **Stop comparing** goes back to the graph as it is.
+3. Studio shows the devices added and removed, and the config of each changed device, line by line. It also shows the lines of the graph added and gone, and the findings of `circuit validate` that are new or gone.
+4. **Show in the graph** draws the changes on the graph. **Stop comparing** goes back to the graph as it is.
 
-Before you merge a pull request, compare its branch with `main`. You see what it changes in the network, not only in the files. Studio reads both sides with the Circuit you run now, so changes to Circuit itself don't show.
+Before you merge a pull request, compare its branch with `main`. Studio reads both sides with the Circuit you run now, so changes to Circuit itself don't show.
 
-A device's **History** tab lists the commits that changed its file, newest first. **compare with now** opens Compare at that commit.
+To compare from a commit in a device's **History** tab, press **compare with now**.

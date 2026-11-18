@@ -7,19 +7,19 @@ description: Turn SNMP counters into traffic, see who sends what with flow recor
 
 You watch a network in three ways:
 
-- **Counters** on every port say how much traffic passes. A monitoring server reads them every few minutes and draws graphs.
+- **Counters** on every port say how much traffic passes.
 - **Flow records** say who sent that traffic to whom.
 - **Logs** say what each device noticed about itself.
 
 On top of all three, **alerts** turn what is measured into a message to a person, but only when that person has something to do.
 
-Circuit doesn't watch anything itself. It writes the part of each device's config that lets the tools watch it. It also hands those tools the list of devices, with [`circuit sync librenms`](/integrations/librenms) and [`circuit sync prometheus`](/integrations/prometheus). So a device you add is watched without anyone typing it in twice.
+Circuit doesn't watch anything itself. It writes the part of each device's config that lets the tools watch it. It also hands those tools the list of devices, with [`circuit sync librenms`](/integrations/librenms) and [`circuit sync prometheus`](/integrations/prometheus), so nobody types a new device in twice.
 
 ## Counters: how much
 
 Every router and switch keeps counters for each port, such as bytes in, bytes out, packets, and errors. A monitoring server reads them with <Term means="Simple Network Management Protocol: how a monitoring server asks a device for its counters and settings. The device answers, and the server keeps the history.">SNMP</Term>. The device runs a small SNMP <Term means="The part of a device that answers SNMP requests about it.">agent</Term>. The monitoring server, the manager, asks it for named values from a <Term means="Management Information Base: the catalog of everything a device can be asked over SNMP, each value with its own name and number.">MIB</Term>. Asking again and again on a timer is called <Term means="Asking a device for a value at a fixed interval, such as every five minutes.">polling</Term>.
 
-The value for traffic is a port's byte counter, `ifInOctets` for bytes received. It only ever goes up, so one reading says nothing. The counter has counted since the device started, and the standard itself says a single value has no meaning. Two readings do. The traffic between them is:
+The value for traffic is a port's byte counter, `ifInOctets` for bytes received. It only ever goes up, from when the device started, so one reading says nothing. Two readings do. The traffic between them is:
 
 1. The second reading minus the first, the bytes that passed.
 2. Times 8, the bits.
@@ -45,7 +45,7 @@ That is why the standard for these counters requires the 64-bit ones, `ifHCInOct
 
 ## Graphs from the counters
 
-The tool that made this common was <Term means="A program from the 1990s that reads traffic counters over SNMP and draws graphs of them on web pages.">MRTG</Term>, the Multi Router Traffic Grapher. It began in 1994 as a quick way to graph a single 64 kbit/s line, and was first released in 1995. It polls every five minutes by default, and draws a graph for the day, the week, the month, and the year.
+The tool that made this common was <Term means="A program from the 1990s that reads traffic counters over SNMP and draws graphs of them on web pages.">MRTG</Term>, the Multi Router Traffic Grapher. It polls every five minutes by default, and draws a graph for the day, the week, the month, and the year.
 
 Today two kinds of tool do the same job, with more around it:
 
@@ -84,7 +84,7 @@ This works on `edge-01`, the RouterOS router of the [colocation example](/guide/
 
 ## Flow records: who sends what
 
-A counter says that the transit port is full. It doesn't say who is filling it. For that, the router describes the traffic itself. A <Term means="The packets of one conversation, such as one download: the same source and destination addresses, ports, and protocol.">flow</Term> is a run of packets that share their addresses, ports, and protocol. A flow record says how many packets and bytes the flow had. The router sends its records to a <Term means="A server that receives flow records or packet samples from devices, stores them, and answers questions such as who sent the most.">collector</Term>. The collector can then answer "who sent the most to this address in the last five minutes?"
+A counter says that the transit port is full, but not who is filling it. For that, the router describes the traffic itself. A <Term means="The packets of one conversation, such as one download: the same source and destination addresses, ports, and protocol.">flow</Term> is a run of packets that share their addresses, ports, and protocol. A flow record says how many packets and bytes the flow had. The router sends its records to a <Term means="A server that receives flow records or packet samples from devices, stores them, and answers questions such as who sent the most.">collector</Term>. The collector can then answer "who sent the most to this address in the last five minutes?"
 
 Three formats do this, each described in an <Term means="Request for Comments: the numbered documents that publish internet standards and common practice.">RFC</Term>:
 
@@ -94,7 +94,7 @@ Three formats do this, each described in an <Term means="Request for Comments: t
 | IPFIX     | The IETF standard, RFC 7011, built on NetFlow 9 | The same idea, as version 10                                                                                  |
 | sFlow     | RFC 3176                                        | Not flows: one packet in N, picked at random, with its headers copied to the collector, and the port counters |
 
-A busy router can't afford to look at every packet, so it usually <Term means="Looking at one packet in N, such as one in 1,000, and multiplying what was seen by N to estimate the whole.">samples</Term>. It looks at one packet in N, and the collector multiplies by N. The big flows come out right, but a flow of a few packets may never be picked at all. Sampling is for "who is filling the port?", not for proving that one packet passed.
+A busy router can't afford to look at every packet, so it usually <Term means="Looking at one packet in N, such as one in 1,000, and multiplying what was seen by N to estimate the whole.">samples</Term>: it looks at one packet in N, and the collector multiplies by N. The big flows come out right, but a flow of a few packets may never be picked at all. Sampling is for "who is filling the port?", not for proving that one packet passed.
 
 ### In Circuit
 
@@ -130,15 +130,13 @@ A graph is only useful while someone looks at it. An <Term means="A rule that se
 
 <TryIt title="Find the incident, then set the alert">
 
-The traffic is made up, and the same every time.
-
 <TrafficDay />
 
 </TryIt>
 
-The flood was obvious once you saw it, and the flow records showed its target at once. It was UDP from tens of thousands of addresses to one of the Netflix servers. [Attacks on the network](/academy/professional/ddos-and-spoofing) is about what to do next.
+[Attacks on the network](/academy/professional/ddos-and-spoofing) says what to do about a flood like this one.
 
-The alert is where judgment comes in. Ordinary traffic crosses a line at 8 Gbit/s every evening. On a wobbly line it crosses several times, so the alert pages again and again for nothing. The Google book on running large systems puts the rules plainly. Every page must be something a person can act on, and must need a person's thinking to answer. Pages that come too often get skimmed, then ignored, and one day the real one is ignored too.
+The alert is where judgment comes in. Ordinary traffic crosses 8 Gbit/s every evening, and on a wobbly line it crosses several times, so an alert at 8 pages again and again for nothing. The Google book on running large systems puts the rules plainly. Every page must be something a person can act on, and must need a person's thinking to answer. Pages that come too often get skimmed, then ignored, and one day the real one is ignored too.
 
 Good network alerts usually describe what customers feel, or are about to feel:
 
@@ -147,7 +145,7 @@ Good network alerts usually describe what customers feel, or are about to feel:
 - A device that stops answering its polls.
 - Errors climbing on a port.
 
-Everything else belongs in a report or a dashboard, not on someone's phone at 3 in the morning. This includes a port in a quiet hour, or a single failed login.
+Everything else, such as a single failed login, belongs in a report or a dashboard, not on someone's phone at 3 in the morning.
 
 <Quiz
   question="The transit port is full. Which tells you which of your customers the traffic is going to?"
@@ -177,11 +175,3 @@ Everything else belongs in a report or a dashboard, not on someone's phone at 3 
 - [RFC 3954](https://www.rfc-editor.org/rfc/rfc3954.html) on NetFlow 9, [RFC 7011](https://www.rfc-editor.org/rfc/rfc7011.html) on IPFIX, and [RFC 3176](https://www.rfc-editor.org/rfc/rfc3176.html) on sFlow.
 - [RFC 5424](https://www.rfc-editor.org/rfc/rfc5424.html), the syslog protocol: the eight severities.
 - [Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/), from the Google book on site reliability engineering: what deserves a page.
-
-## In short
-
-- Port counters only go up. Traffic is the difference between two polls, times 8, divided by the seconds between them.
-- A 32-bit counter goes round every few seconds or minutes on a fast port, so read the 64-bit `ifHCInOctets`.
-- MRTG drew the first five-minute graphs. LibreNMS and Prometheus do it today, and Circuit hands them every device with `circuit sync librenms` and `circuit sync prometheus`.
-- Flow records, from NetFlow, IPFIX, or sampled sFlow, say who sent what. `flow_export` turns them on.
-- Page a person only for what they must act on. The rest goes in a report.

@@ -83,7 +83,7 @@ const links: Link[] = [
         title: "edge-a1 to Hurricane Electric",
         meters: 2_000,
         fibers: ["OS2"],
-        why: "To the router of Hurricane Electric in another building, 2 km away. The fiber between the buildings is single mode.",
+        why: "To the router of Hurricane Electric in another building, 2 km away.",
         a: { device: "edge-a1", kind: "router", port: "25g-1", spelled: "sfp28-1", cage: "SFP28", gigabits: 25 },
         b: { device: "Hurricane Electric", kind: "router", spelled: "a 25G port", cage: "SFP28", gigabits: 25 },
     },

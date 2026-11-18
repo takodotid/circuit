@@ -86,12 +86,12 @@ async function send() {
         ? {
               kind: "good",
               word: "From the table",
-              text: `${decision} The hardware address was already in the ARP table, so the laptop sent the frame at once without asking.`,
+              text: `${decision} The hardware address was already in the ARP table, so the laptop did not ask.`,
           }
         : {
               kind: "warn",
               word: "Asked first",
-              text: `${decision} The laptop did not know ${ip}'s hardware address, so it broadcast "who has ${ip}?". Every device heard it, but only the ${places[hop].label.toLowerCase()} answered. The laptop wrote the answer into its ARP table before sending.`,
+              text: `${decision} The laptop did not know ${ip}'s hardware address, so it broadcast "who has ${ip}?". Every device heard it, but only the ${places[hop].label.toLowerCase()} answered.`,
           };
 
     busy.value = false;

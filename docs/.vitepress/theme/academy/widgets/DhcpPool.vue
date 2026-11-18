@@ -87,7 +87,7 @@ function arrive() {
         said.value = {
             kind: "bad",
             word: "No address",
-            text: `Every address in the pool is leased, so ${name} gets no offer. Most phones and laptops then make up an address starting with 169.254, which reaches nothing beyond their own network: no internet for ${name}.`,
+            text: `Every address in the pool is leased, so ${name} gets no offer. Most phones and laptops then make up an address starting with 169.254, which reaches nothing beyond their own network.`,
         };
         return;
     }
@@ -100,7 +100,7 @@ function arrive() {
     said.value = {
         kind: "good",
         word: "Leased",
-        text: `${name} got ${ip(free)} for ${lease.value.label}. ${freeCount.value} of ${size.value} addresses are still free.`,
+        text: `${name} got ${ip(free)} for ${lease.value.label}.`,
     };
 }
 
@@ -162,7 +162,7 @@ function wait(hours: number) {
     said.value = {
         kind: freed ? "good" : "warn",
         word: freed ? `${freed} freed` : "Nothing freed",
-        text: `It is now ${when(clock.value)}. ${keeping}${freeCount.value} of ${size.value} addresses are free.`,
+        text: `${keeping}${freeCount.value} of ${size.value} addresses are free.`,
     };
 }
 
@@ -228,9 +228,7 @@ const file = computed(() =>
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
-        <p v-else class="ac-say hint" aria-live="polite">
-            This is a guest Wi-Fi with a small pool and day-long leases. Let a few guests arrive, let some leave, and keep more arriving.
-        </p>
+        <p v-else class="ac-say hint" aria-live="polite">Let a few guests arrive, let some leave, and keep more arriving.</p>
 
         <ol v-if="log.length" class="log" aria-label="What the router did, newest first">
             <li v-for="line in log" :key="line">{{ line }}</li>

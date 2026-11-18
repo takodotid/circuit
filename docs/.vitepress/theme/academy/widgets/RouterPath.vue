@@ -303,7 +303,7 @@ async function send() {
             steps.value.push(`The ${routerNames[router]} lowers the TTL to 0 and drops the packet.`);
             said.value = {
                 kind: "bad",
-                text: `The packet went round between the two routers until its TTL reached 0, after ${hops} hops. Then the ${routerNames[router]} dropped it. Without the TTL, it would go round forever.`,
+                text: `The packet went round between the two routers until its TTL reached 0, after ${hops} hops. Then the ${routerNames[router]} dropped it.`,
             };
             break;
         }
@@ -342,7 +342,7 @@ async function send() {
             said.value = {
                 kind: "good",
                 word: "Passed on",
-                text: `The packet left through the provider after ${hops} router${hops > 1 ? "s" : ""} in this drawing. The provider’s routers pass it on the same way. Each one looks up ${text} in its own table and lowers the TTL by one.`,
+                text: `The packet left through the provider after ${hops} router${hops > 1 ? "s" : ""} in this drawing. The provider’s routers pass it on the same way.`,
             };
             break;
         }

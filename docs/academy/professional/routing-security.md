@@ -9,11 +9,7 @@ A **hijack** is a route announced by a network that doesn't hold the addresses. 
 
 A **route leak** is a real route passed on to networks that should never have received it. Traffic still reaches the holder, but the long way, through a network that can't carry it.
 
-BGP believes what neighbors tell it, so BGP itself stops neither. Three things stop them:
-
-- Signed records of who may originate your space, which others check with route origin validation.
-- Filters built from what each customer registered.
-- A set of norms, MANRS, that asks every network to do both.
+BGP believes what neighbors tell it, so BGP itself stops neither.
 
 ## Two incidents
 
@@ -95,8 +91,7 @@ What you saw is how the internet behaves:
 - **An equal hijack wins part of the internet**, the networks closer to the hijacker by preference or path. A more specific hijack wins all of it, because the longest match beats every preference, as it did for YouTube.
 - **Without your ROA, nothing is invalid.** Every network can validate, and your route is still not found. Your ROA is what makes other networks' validation protect you.
 - **Validation at one network isn't enough.** Against the /48, with only the east transit validating, the east transit refused the route. But its traffic still went to the west transit, which had accepted the /48, and so ended at AS64510. Against the /40, with only the east ISP validating, it dropped the one route the east transit offered. It was left with no route at all.
-- **A forged origin beats validation when `maxLength` allows the length.** With `max /40`, the forged /48 was invalid by length. With `max /48`, it was valid.
-- **A leak of your real route beats validation.** The route keeps your origin and your length, so it is valid. Only a filter on what AS64510 may send stops it. The 2019 leak was different in one way: the optimizer had made new, more specific routes, which tight ROAs make invalid.
+- **A leak of your real route beats validation**, because the route keeps your origin and your length. The 2019 leak was different: the optimizer had made new, more specific routes, which tight ROAs make invalid.
 
 <Quiz
   question="AS64510 leaks your route to the east transit. Every network drops RPKI invalid routes, and your ROA is right. Why does the leak still spread?"
@@ -165,7 +160,7 @@ Circuit doesn't do three things:
 3. **Coordination.** Keep your contact details in the routing databases current, so another network can reach you during an incident.
 4. **Global information.** Publish your routing data, in the IRR and as ROAs, so others can validate it.
 
-A network that joins commits to all four, and this lesson or the next shows you how to do each.
+A network that joins commits to all four.
 
 ## Further reading
 
@@ -181,11 +176,3 @@ A network that joins commits to all four, and this lesson or the next shows you 
 - [bgpq4](https://github.com/bgp/bgpq4), which builds prefix filters from the IRR.
 - [RIPEstat announced-prefixes](https://stat.ripe.net/docs/data-api/api-endpoints/announced-prefixes), the data behind `ripe-stat` prefix sets.
 - [MANRS for network operators](https://manrs.org/netops/) and its [implementation guide](https://manrs.org/netops/guide/).
-
-## In short
-
-- A hijack announces space that isn't the announcer's. A leak passes a real route beyond where it should go. Both pull traffic the wrong way, and BGP alone stops neither.
-- Publish minimal ROAs at your RIR. Route origin validation marks a route valid when a ROA matches its origin and length, invalid when ROAs cover it but none matches, and not found otherwise.
-- Validation protects you only where others drop invalid routes on the way. It never stops a leak, or a forged origin within `maxLength`.
-- Registry filters on every customer, `role`, and `max_prefixes` stop leaks and hijacks at the first provider.
-- In Circuit, put the validators in `routing.rpki`, `presets.bgp_sanity` first in every import, and each customer's registered space in `prefix_sets`. MANRS asks every network for these, plus anti-spoofing and current contacts.

@@ -14,7 +14,7 @@ This tenant from the [colocation example](/guide/examples#colocation-with-tenant
 
 <<< @/../examples/colocation/tenants/netflix.ts
 
-`literal` keeps the VLAN names as written, so the editor checks them where a device uses them. One file joins every tenant:
+One file joins every tenant:
 
 <<< @/../examples/colocation/tenants/index.ts
 
@@ -63,4 +63,4 @@ You never write `...`. What `merge` makes depends on the field it goes in:
 
 ## Keep it searchable
 
-Write each tenant's names, addresses, VLAN IDs, and secrets by hand in its own file, so a text search finds them. A function in `lib/` can build the parts of many tenants of the same shape, but then whoever changes it needs some TypeScript.
+Write each tenant's names, addresses, VLAN IDs, and secrets by hand in its own file, so a text search finds them. A function in `lib/` can build many tenants of the same shape, but then whoever changes it needs some TypeScript.

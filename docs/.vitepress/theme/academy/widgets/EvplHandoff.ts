@@ -39,7 +39,7 @@ export class Handoff {
 
         const services = SERVICES.filter((service) => bought.includes(service.id));
 
-        if (services.length === 0) return "// Buy at least one EVPL, and the port has something to carry.";
+        if (services.length === 0) return "// No EVPL bought, so the port carries nothing.";
 
         const names = services.map((service) => `"${service.name}"`).join(", ");
 

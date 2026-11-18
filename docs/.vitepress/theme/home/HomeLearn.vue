@@ -21,8 +21,8 @@ import { HomeContent } from "./home-content";
         </div>
         <div class="body">
             <p>
-                Circuit writes a network down, so it helps to know what a network is made of first. Circuit Academy starts from nothing and
-                gets you to running a provider network, with something to try in your browser in every lesson.
+                Circuit Academy starts from nothing and gets you to running a provider network, with something to try in your browser in
+                every lesson.
             </p>
             <ol class="levels" data-reveal>
                 <li v-for="(level, index) in HomeContent.LEVELS" :key="level.slug" :style="{ '--i': index }">

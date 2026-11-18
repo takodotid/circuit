@@ -46,7 +46,7 @@ const decisions: Decision[] = [
                 id: "overlap",
                 label: GATEWAYS.overlap,
                 verdict: "bad",
-                text: "Its block, 198.51.100.12/30, lies inside 198.51.100.8/29, the block of Netflix. Two tenants would answer for the same addresses. Circuit doesn't know what a tenant is, so the example's own check, blocks_apart, catches it.",
+                text: "Its block, 198.51.100.12/30, lies inside 198.51.100.8/29, the block of Netflix, so two tenants would answer for the same addresses. The example's own check, blocks_apart, catches it.",
             },
         ],
     },
@@ -59,7 +59,7 @@ const decisions: Decision[] = [
                 id: "10g-1",
                 label: "10g-1",
                 verdict: "bad",
-                text: "The file of Netflix already gives 10g-1 to its server 1. Two files that write one port with two values stop Circuit, which gives both files.",
+                text: "The file of Netflix already gives 10g-1 to its server 1. Circuit stops when two files write one port with two values.",
             },
         ],
     },
@@ -163,7 +163,7 @@ const outcome = computed(() => {
         return {
             kind: "bad",
             word: "Stopped",
-            text: "validate found errors, so diff and apply stop here. Each line says what clashes, and where: change that choice and run again.",
+            text: "validate found errors, so diff and apply stop here. Change the choice each line names, and run again.",
         };
     }
     return {
@@ -214,7 +214,7 @@ const outcome = computed(() => {
             <CodeView :code="terminal" lang="shell" title="Terminal" />
             <p class="ac-say" :class="outcome.kind" :data-word="outcome.word" aria-live="polite">{{ outcome.text }}</p>
         </template>
-        <p v-else class="ac-say quiet" aria-live="polite">Make the decisions, then run validate and diff to see what Circuit says.</p>
+        <p v-else class="ac-say quiet" aria-live="polite">Make the decisions, then run validate and diff.</p>
     </div>
 </template>
 

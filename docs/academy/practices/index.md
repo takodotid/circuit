@@ -6,8 +6,6 @@ discussion: false
 
 # Best practices
 
-Each page takes one practice that Circuit expects. It says what goes wrong without the practice, and which check, preset, or field states it in Circuit. They need no level, so read the one you need.
-
 ## Routing
 
 - [Exports end in a reject](/academy/practices/exports-end-in-reject): a BGP export accepts what you mean to announce, then rejects every other route.

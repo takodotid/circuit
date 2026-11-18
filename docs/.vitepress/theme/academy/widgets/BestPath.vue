@@ -183,7 +183,7 @@ const verdict = computed(() => {
 });
 
 function rowText(row: Row): string {
-    if (row.state === "unused") return "Not needed: the route is already chosen.";
+    if (row.state === "unused") return "Not needed.";
 
     const values = row.compared.map((route) => `${route.name} ${row.step.show(route)}`).join(", ");
     if (row.state === "tie") return `${values}. A tie, so on to the next step.`;
@@ -296,7 +296,7 @@ function reset() {
             <button type="button" class="ac-button small" @click="reset">Start over</button>
         </div>
 
-        <CodeView :code="code" title="edge-01.ts, the local preference you chose" :highlight="changedLines" />
+        <CodeView :code="code" title="edge-01.ts, part of it" :highlight="changedLines" />
     </div>
 </template>
 

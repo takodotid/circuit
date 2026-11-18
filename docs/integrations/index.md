@@ -4,7 +4,7 @@ description: How circuit sync keeps NetBox, LibreNMS, PeeringDB, and Prometheus 
 
 # How sync works
 
-`circuit sync` copies what your project says into another system, so nobody types it in twice. It goes one way, from your project to that system. It reads only the project and that system, and never logs in to a device.
+`circuit sync` copies what your project says into another system. It goes one way, from your project to that system. It reads only the project and that system, and never logs in to a device.
 
 | Target                                 | What Circuit writes there                                                            |
 | -------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -17,7 +17,7 @@ description: How circuit sync keeps NetBox, LibreNMS, PeeringDB, and Prometheus 
 
 ## Set up a target
 
-Write the target in `circuit({ integrations })`, in `circuit.ts`. Each target's page shows how. `circuit validate` checks the settings. Keep a token or an API key in your [secrets](/guide/secrets), with `secret("NAME")`.
+Write the target in `circuit({ integrations })`, in `circuit.ts`, as its page shows. Keep a token or an API key in your [secrets](/guide/secrets), with `secret("NAME")`.
 
 ## Run a sync
 
@@ -41,7 +41,7 @@ circuit sync                    # pick the target from a list
 
 ## Use it in CI
 
-If Circuit runs without a terminal, as in CI, and you didn't add `--confirm`, it shows the plan and exits 1 without sending. So `circuit sync <target>` in CI fails when the other system no longer matches the project. If nothing needs to change, it exits 0. See [Run in CI](/guide/ci).
+Without a terminal and without `--confirm`, `circuit sync <target>` sends nothing. It fails the job when the other system no longer matches the project. See [Run in CI](/guide/ci#exit-codes).
 
 ## Several networks in one project
 

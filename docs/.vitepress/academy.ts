@@ -172,7 +172,7 @@ export class Academy {
             name: "Professional",
             title: "Running a provider network",
             audience:
-                "For readers who can run an edge router. You learn what providers sell, the hardware, routing at scale, the security of routing, and how a network is run day to day.",
+                "For readers who can run an edge router. You learn what providers sell, their hardware, routing at scale, routing security, and running a network day to day.",
             illustration: "/illustrations/academy/level-4.webp",
             lessons: [
                 {

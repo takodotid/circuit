@@ -50,15 +50,3 @@ Circuit needs no other program, except for these features:
 | `op` (1Password CLI)   | Secrets and passwords kept in [1Password](/integrations/1password).        |
 | `cloudflared`          | A console jump host behind a Cloudflare Tunnel.                            |
 | Bun                    | A [full install](/guide/install#full-install).                             |
-
-## Updates
-
-Updating Circuit never changes a project. A project runs the version in its `.circuit/version` until you run `circuit update` in it. See [Updating](/guide/install#updating).
-
-## Run in CI
-
-See [Run in CI](/guide/ci).
-
-## Uninstall
-
-Run `circuit uninstall`. It never touches your projects. See [Uninstall](/guide/install#uninstall).

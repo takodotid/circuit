@@ -6,7 +6,7 @@ type Step = { title: string; text: string; code: string; lang: "shell" | "text" 
 const steps: Step[] = [
     {
         title: "Set the passwords",
-        text: "secrets set asks for each password without showing it, and keeps it encrypted in .circuit/secrets. secrets list checks that every password the files use is there.",
+        text: "secrets set keeps each password encrypted in .circuit/secrets. secrets list checks that every password the files use is there.",
         lang: "shell",
         code: [
             "$ circuit secrets set ROUTER_PASSWORD",
@@ -30,7 +30,7 @@ const steps: Step[] = [
     },
     {
         title: "See what would change",
-        text: "diff logs in to the device, reads what it runs now, and shows the plan. It changes nothing.",
+        text: "diff shows the plan against what the device runs now. It changes nothing.",
         lang: "shell",
         code: ["$ circuit diff switch", "$ circuit diff router"].join("\n"),
     },
@@ -57,7 +57,7 @@ const steps: Step[] = [
     },
     {
         title: "Apply it, and commit",
-        text: "Commit the file once the apply is done. Git then says who added the printer port, when, and why.",
+        text: "Commit the file once the apply is done.",
         lang: "shell",
         code: ["$ circuit apply switch", "$ git add sites/home/switch.ts", '$ git commit -m "Add a port for the printer"'].join("\n"),
     },

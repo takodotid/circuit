@@ -46,7 +46,7 @@ async function send() {
         said.value = {
             kind: "good",
             word: "Arrived",
-            text: `With an EPL the whole port is one circuit. ${tagText.value.replace(/^./, (letter) => letter.toUpperCase())} reaches the branch office as it left, tag and all. The provider does not look at the tag.`,
+            text: `With an EPL the whole port is one circuit. ${tagText.value.replace(/^./, (letter) => letter.toUpperCase())} reaches the branch office as it left, tag and all.`,
         };
         return;
     }
@@ -70,7 +70,7 @@ async function send() {
     said.value = {
         kind: "good",
         word: "Arrived",
-        text: `VLAN ${service.vlan} is the EVPL to ${service.place}, so the provider carries the frame there, and nowhere else. Each VLAN on the port is a circuit of its own.`,
+        text: `VLAN ${service.vlan} is the EVPL to ${service.place}, so the provider carries the frame there, and nowhere else.`,
     };
 }
 </script>

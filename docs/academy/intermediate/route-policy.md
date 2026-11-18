@@ -11,7 +11,7 @@ The rule for both is short: never accept everything, and never announce everythi
 
 ## How a policy is read
 
-In a device file, `routing.policies` holds named lists of rules. Each BGP neighbor says, by name, which list is its `import_policy` and which is its `export_policy`. The rules are read from the top, and a rule is one of three kinds.
+In a device file, `routing.policies` holds named lists of rules. Each BGP neighbor says, by name, which list is its `import_policy` and which is its `export_policy`. A rule is one of three kinds.
 
 A **call** runs another policy at that point, for every route: `{ call: "sanity" }`. A route that the called policy accepts or rejects stops there, and any other route goes on to the next rule. A call holds nothing else. To call a policy for some routes only, put the condition inside that policy.
 
@@ -66,7 +66,7 @@ routing: {
 
 Look at `203.0.113.128/25`. RPKI marks it invalid, but the length check rejected it, because that check comes first inside `sanity`. The first decision wins, so a later rule never sees the route.
 
-With `sanity` off, the default route, the /25, the /64, and `192.0.2.0/24` all get in. With the last rule off, nothing gets in at all, not even the good routes, because a route that no rule accepts is rejected. That is why every import ends in a rule with `then: "accept"`, after every rule that rejects.
+With `sanity` off, the default route, the /25, the /64, and `192.0.2.0/24` all get in. With the last rule off, nothing gets in at all, not even the good routes. That is why every import ends in a rule with `then: "accept"`, after every rule that rejects.
 
 <Quiz
   question="A transit sends you 192.168.40.0/22, and RPKI says not-found. Which rule of transit-import rejects it?"
@@ -132,11 +132,3 @@ A later rule can then match a `large_community`. For example, a customer may buy
   :why="['Removing a few tags saves almost nothing. The reason is trust.', '', 'A route can carry many communities. The example adds two to each route.']"
   explain="Your policies act on your own tags. If a neighbor could set them, it could make a transit route look like it came from an exchange, or ask for things you only allow trusted neighbors to ask."
 />
-
-## In short
-
-- A route policy is rules read from the top: a `call` to another policy, a communities rule, or a rule with `if`, `set`, and `then`. The first decision wins, and a route that no rule accepts is rejected.
-- On import, reject martians and private ranges, prefixes too long or too short, your own space coming back, and RPKI invalid routes. `presets.bgp_sanity` and two prefix sets cover them.
-- On export, accept only your own prefixes and your customers', and then reject everything else. Anything more can leak routes between two other networks.
-- `role` and `max_prefixes` on each neighbor, and the `exports_end_in_reject` check, guard against leaks.
-- Communities tag routes with where they came from, so later rules can treat them differently.

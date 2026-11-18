@@ -34,7 +34,7 @@ const levelDone = (slug: string) =>
     ready.value ? Academy.LESSONS.filter((lesson) => lesson.level.slug === slug && Progress.isDone(lesson.link)).length : 0;
 
 function clear() {
-    if (confirm("Clear every lesson you marked done, and every entry check you passed, in this browser?")) Progress.reset();
+    if (confirm("Clear every lesson marked done and every entry check passed?")) Progress.reset();
 }
 </script>
 
@@ -110,8 +110,8 @@ function clear() {
                 <p class="soon">Coming soon</p>
                 <h2 id="certify-title">Certification</h2>
                 <p>
-                    When you finish the levels, ask for a case: a network someone needs, which you write in Circuit. If your work passes
-                    review, you get a certificate that anyone can check.
+                    Finish the levels, ask for a network to build, and write it in Circuit. If your work passes review, you get a
+                    certificate anyone can check.
                 </p>
                 <div class="actions">
                     <a class="ac-button" :href="withBase('/academy/certification')">How it works</a>

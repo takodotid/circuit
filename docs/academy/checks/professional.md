@@ -6,7 +6,7 @@ discussion: false
 
 # Professional entry check
 
-Every Professional lesson builds on what Intermediate teaches: routing tables, IPv6, OSPF, autonomous systems, BGP and its policies, LAGs, and spanning tree. If some of it is new to you, start with [Intermediate](/academy/#intermediate) instead.
+Professional builds on Intermediate: routing tables, IPv6, OSPF, autonomous systems, BGP and its policies, LAGs, and spanning tree. If some of it is new to you, start with [Intermediate](/academy/#intermediate).
 
 Passing this check opens Elementary and Intermediate too.
 

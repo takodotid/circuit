@@ -44,9 +44,9 @@ const howNoticed = computed(() => {
 
 const sessionText = computed(() => {
     if (ends.value === "loopbacks")
-        return "The iBGP session runs between the loopbacks. Once OSPF finds the way through R3, the session's packets take it, long before the 90 s hold time runs out. The session never goes down, and no route is withdrawn.";
+        return `Once OSPF finds the way through R3, the session's packets take it, long before the ${HOLD_TIME} s hold time runs out. The session never goes down, and no route is withdrawn.`;
 
-    return `The iBGP session runs between the link's own addresses, and R2's address on the link can no longer be reached. The session goes down at the latest when the ${HOLD_TIME} s hold time runs out, and every route learned through it is withdrawn, to be sent again when the link returns.`;
+    return `R2's address on the link can no longer be reached. The session goes down at the latest when the ${HOLD_TIME} s hold time runs out, and every route learned through it is withdrawn, to be sent again when the link returns.`;
 });
 
 const { position, traveling, travel } = useTravel(300);

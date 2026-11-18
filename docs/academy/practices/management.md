@@ -13,7 +13,7 @@ Whoever logs in to a device controls the traffic through it. A login service tha
 
 In 2021, the Mēris botnet set a record of 21.8 million requests a second, with floods from tens of thousands of routers. Their vendor said most had been broken into in 2018, through a flaw in a management service. The flaw was patched that year, but updating didn't close a router whose stolen password was never changed. A router that answers management only from its own network can't be reached that way.
 
-A VLAN of its own keeps management off the ports anyone can plug into. A guest at a wall socket, or a customer on its port, never lands on the network that may log in.
+A VLAN of its own keeps management off the ports anyone can plug into, such as a wall socket or a customer's port.
 
 ## In Circuit
 

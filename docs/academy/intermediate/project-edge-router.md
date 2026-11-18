@@ -5,9 +5,7 @@ description: Build Circuit's edge router example step by step, from your AS numb
 
 # Project: an edge router
 
-In this project, you build the router that joins your network to the internet. It announces your own address space, under your own AS number, to a transit and at an internet exchange. It filters the routes it takes in and the routes it sends out. It also protects itself and your network from traffic that has no business there.
-
-It is Circuit's [edge router example](/guide/examples#an-edge-router), and every lesson of this level has a part in it.
+In this project, you build Circuit's [edge router example](/guide/examples#an-edge-router). It joins your network to the internet, and announces your own address space to a transit and at an internet exchange.
 
 ## Start the project
 
@@ -116,16 +114,8 @@ Before your routes travel far, your transit and the exchange's route servers mus
 
 ## Where to go from here
 
-The example is one router with one transit. It grows with what you learned in this level:
+The example is one router with one transit. To grow it, add:
 
 - A second transit, with prepending from [Choosing the best route](/academy/intermediate/best-path) to steer the traffic coming in.
 - A LAG to each provider, from [Staying up](/academy/intermediate/redundancy), so that one cable can fail.
 - A second edge router that shares routes with this one over iBGP, with OSPF from [Routers that talk: OSPF](/academy/intermediate/ospf) to find the way between them.
-
-## In short
-
-- Your AS, your prefixes, and your community scheme are in `circuit.ts`. The router is one file in `sites/`.
-- Blackhole routes keep your blocks in the routing table, and `originated_prefixes` announces them.
-- Every import runs `sanity`, refuses special-purpose blocks and your own space, tags the route, and sets a local preference, with the exchange at 200. The export accepts your blocks and rejects the rest.
-- The input firewall allows BGP only from the neighbors, and the edge ACL drops forged sources in the switch chip.
-- `validate` runs Circuit's checks and yours, `diff` shows the plan against the router, and `apply` sends it once you say yes.

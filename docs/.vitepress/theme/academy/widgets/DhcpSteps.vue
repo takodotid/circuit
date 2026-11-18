@@ -17,15 +17,15 @@ type Message = { name: string; from: string; to: string; says: string; path: Pla
 const steps = [
     {
         title: "A laptop joins, with nothing",
-        text: "The laptop is plugged into a port in VLAN 20. It has its hardware address, but no IP address, no gateway, and no DNS server. It cannot talk to anyone by IP yet.",
+        text: "The laptop is plugged into a port in VLAN 20. It has its hardware address, but no IP address, no gateway, and no DNS server.",
     },
     {
         title: "1. Discover",
-        text: "The laptop shouts to the whole VLAN: is there a DHCP server here? It has no address of its own to send from, and no idea where the server is, so it sends a broadcast. The switch passes it to every port in VLAN 20.",
+        text: "The laptop has no address of its own to send from, and no idea where the server is, so it sends a broadcast. The switch passes it to every port in VLAN 20.",
     },
     {
         title: "2. Offer",
-        text: "The router is the DHCP server for this VLAN. It picks a free address from its pool and offers it, with everything else the laptop needs. The printer heard the discover too, but it is not a DHCP server, so it said nothing.",
+        text: "The router, the DHCP server for this VLAN, offers a free address from its pool, with everything else the laptop needs. The printer heard the discover too, but it is not a DHCP server, so it said nothing.",
     },
     {
         title: "3. Request",
@@ -33,11 +33,11 @@ const steps = [
     },
     {
         title: "4. Acknowledge",
-        text: "The router confirms: the address is the laptop's for one day. It writes down the lease, this address for this hardware address, until this time.",
+        text: "The router confirms, and writes down the lease: this address, for this hardware address, for one day.",
     },
     {
         title: "The laptop is on the network",
-        text: "The laptop sets its address, mask, gateway, and DNS server, and can now reach anything. Halfway through the lease, it asks the router to renew it, so while it stays, it keeps the same address.",
+        text: "The laptop sets its address, mask, gateway, and DNS server, and can now reach anything.",
     },
 ];
 

@@ -135,7 +135,7 @@ async function send() {
     } else if (!carried.value[source.on].includes(vlan.id)) {
         said.value = {
             kind: "bad",
-            text: `${source.on} does not carry VLAN ${vlan.id} on its trunk port, so it has no way to send the frame on. It stays on ${source.on}.`,
+            text: `${source.on} does not carry VLAN ${vlan.id} on its trunk port, so the frame stays on ${source.on}.`,
         };
     } else {
         tag.value = `tagged: VLAN ${vlan.id}`;

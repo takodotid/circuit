@@ -160,9 +160,7 @@ const verdict = computed(() => {
                 <span v-if="last" class="final">You got {{ score }} of {{ pairs.length }} right.</span>
             </div>
         </template>
-        <p v-else class="ac-say hint" aria-live="polite">
-            Look at the first {{ pair.prefix }} bits of each address. Are they the same? Pick an answer.
-        </p>
+        <p v-else class="ac-say hint" aria-live="polite">Compare the first {{ pair.prefix }} bits of each address.</p>
     </div>
 </template>
 

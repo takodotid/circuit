@@ -4,12 +4,11 @@ description: Every circuit command and its options.
 
 # The `circuit` command
 
-Run `circuit` alone for a menu, and Circuit asks for the rest, such as the device. Or run a command straight away, such as `circuit validate`.
+Run `circuit` alone for a menu, or run a command straight away, such as `circuit validate`. If you leave out an argument, such as the device, Circuit asks for it.
 
 <MenuDiagram />
 
 - Circuit works on the project in the current folder, or in the nearest parent folder that has a `circuit.ts`.
-- If you leave out the device, you pick it from a list.
 - `circuit <command> --help` lists a command's options.
 - Without a terminal, Circuit asks nothing. See [Run in CI](/guide/ci).
 
@@ -99,8 +98,6 @@ circuit bgp edge-01 --log 10                       # plus 10 minutes of BGP log
 
 ### `access-console`
 
-Your way in when the management network is down. Circuit logs in for you.
-
 ```sh
 circuit access-console core-01                            # interactive, Ctrl-] to leave
 circuit access-console core-01 'display interface brief'  # send a line, print the answer
@@ -119,7 +116,7 @@ circuit communities --format json   # the IETF YANG model's JSON
 circuit communities > as64500.txt   # into a file
 ```
 
-It prints what each community of your [scheme](/guide/communities) means. If several networks have communities, give the network.
+If several networks have [communities](/guide/communities), give the network.
 
 | Format  | For                                                                                                                                                                  |
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -136,7 +133,7 @@ circuit addresses --length 29       # the free /29s instead
 circuit addresses --format json     # for a script
 ```
 
-Your space is each prefix in `circuit({ prefixes })` and in a device's `originated_prefixes`. Under each one, Circuit lists each segment with its next free address, every use of an address, the blocks routed elsewhere, and the free space. Addresses used outside your space come last.
+Your space is each prefix in `circuit({ prefixes })` and in a device's `originated_prefixes`. Addresses used outside your space come last.
 
 ```
 198.51.100.0/24, prefixes ours.v4 in circuit.ts, originated by edge-01
@@ -154,7 +151,7 @@ circuit sync netbox               # shows what would change in NetBox, then asks
 circuit sync librenms --confirm   # sends without asking
 ```
 
-The target is `netbox`, `librenms`, `peeringdb`, or `prometheus`. `--confirm` sends without asking. See [How sync works](/integrations/).
+The target is `netbox`, `librenms`, `peeringdb`, or `prometheus`. See [How sync works](/integrations/).
 
 ### `rename`
 
@@ -182,25 +179,23 @@ circuit fmt              # every .ts file of the project
 circuit fmt --check      # changes nothing, and fails if a file needs tidying
 ```
 
-It tidies the spacing and line breaks of the `.ts` files, as VS Code does when you save. What the files say stays the same.
-
 Both `circuit fmt` and VS Code's Prettier extension read the style from `.editorconfig`: 4 spaces, lines up to 140 characters, LF line endings. A `.prettierrc.json`, if you add one, goes on top.
 
 ## Secrets
 
-Each `secrets` command works on `.circuit/secrets`, or on another file with `--file <path>`. See [Secrets](/guide/secrets) for how they work.
+Each `secrets` command works on `.circuit/secrets`, or on another file with `--file <path>`. See [Secrets](/guide/secrets).
 
-| Command                      | Does                                                                                                     |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `secrets`                    | In a terminal, the same as `secrets edit`. Without one, the same as `secrets list`.                      |
-| `secrets edit`               | Opens every secret, decrypted, in a text editor in the terminal.                                         |
-| `secrets list`               | Lists every secret and how it is stored, and the ones the config needs but the file lacks.               |
-| `secrets get [name]`         | Prints one secret, decrypted.                                                                            |
-| `secrets set [name] [value]` | Adds or changes a secret. Leave out the value to type it hidden. An `op://` value keeps it in 1Password. |
-| `secrets delete [name]`      | Deletes a secret. `--confirm` skips the question.                                                        |
-| `secrets encrypt`            | Encrypts every value typed into the file in plain text.                                                  |
-| `secrets password`           | Changes the password of the secrets file. The old one stops working.                                     |
-| `secrets forget`             | Forgets every secret that Circuit remembers for a while.                                                 |
+| Command                      | Does                                                                                                                                     |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `secrets`                    | In a terminal, the same as `secrets edit`. Without one, the same as `secrets list`.                                                      |
+| `secrets edit`               | Opens every secret, decrypted, in a text editor in the terminal.                                                                         |
+| `secrets list`               | Lists every secret and how it is stored, and the ones the config needs but the file lacks. Shows no values.                              |
+| `secrets get [name]`         | Prints one secret, decrypted.                                                                                                            |
+| `secrets set [name] [value]` | Adds or changes a secret. Leave out the value to type it hidden, or your shell history keeps it. An `op://` value keeps it in 1Password. |
+| `secrets delete [name]`      | Deletes a secret. `--confirm` skips the question.                                                                                        |
+| `secrets encrypt`            | Encrypts every value typed into the file in plain text.                                                                                  |
+| `secrets password`           | Changes the password of the secrets file. Every value is encrypted again, and the old password stops working.                            |
+| `secrets forget`             | Forgets every secret that Circuit remembers for a while.                                                                                 |
 
 | `secrets password` option | Does                                                                                                               |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------ |

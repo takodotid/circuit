@@ -29,7 +29,7 @@ const SCENARIOS: { id: string; name: string; need: string; fits: Record<ProductI
                 "fits",
                 "This is what Metro-E is for: Ethernet across one city, at a committed rate. An EPL if the port carries only this, an EVPL if it also carries other circuits.",
             ],
-            l2: ["fits", "Inside one city, an EPL or EVPL is what the provider calls Metro-E. Same thing, same fit."],
+            l2: ["fits", "Inside one city, this is Metro-E under another name."],
             ipvpn: [
                 "works",
                 "It joins the offices, but the provider routes between them, so each office is its own subnet rather than one shared Ethernet.",
@@ -38,9 +38,9 @@ const SCENARIOS: { id: string; name: string; need: string; fits: Record<ProductI
             iepl: ["no", ACROSS_BORDERS],
             dark: [
                 "works",
-                "If a spare fiber runs between them, you light it with your own optics at any speed you like. It is more than 1 Gbit/s needs, and a break in it is yours to chase with the provider.",
+                "If a spare fiber runs between them, you light it with your own optics. That is more than 1 Gbit/s needs, and a break in it is yours to chase with the provider.",
             ],
-            wave: ["works", "It would carry it, but a whole wavelength for 1 Gbit/s between two offices is more than the need."],
+            wave: ["works", "It carries 1 Gbit/s, but a whole wavelength is more than the need."],
             sdwan: [
                 "works",
                 "Encrypted tunnels over each office's internet line work and cost little, but nothing commits a rate or a delay, and it is routed, not one Ethernet.",
@@ -66,13 +66,10 @@ const SCENARIOS: { id: string; name: string; need: string; fits: Record<ProductI
                 "fits",
                 "The same dedicated line between countries, handed over as Ethernet, so it plugs into an ordinary router or switch port.",
             ],
-            dark: [
-                "no",
-                "Dark fiber is rented where spare fiber already runs, mostly in and around cities. A fiber of your own across a sea, for 100 Mbit/s, is far beyond the need.",
-            ],
+            dark: ["no", "Spare fiber runs mostly in and around cities. A fiber of your own across a sea is far beyond the need."],
             wave: [
                 "no",
-                "Wavelengths are sold from 1 Gbit/s up, for large amounts of traffic between big sites. For 100 Mbit/s to an office, it is far beyond the need.",
+                "Wavelengths are sold from 1 Gbit/s up, for traffic between big sites. That is far beyond 100 Mbit/s to an office.",
             ],
             sdwan: [
                 "works",
@@ -95,7 +92,7 @@ const SCENARIOS: { id: string; name: string; need: string; fits: Record<ProductI
             iepl: ["no", ACROSS_BORDERS],
             dark: [
                 "fits",
-                "Light the fiber with your own DWDM equipment, and add wavelengths as the copies grow. The most capacity, and you run the equipment.",
+                "Light the fiber with your own DWDM equipment, and add wavelengths as the copies grow. You get the most capacity, and you run the equipment.",
             ],
             wave: [
                 "fits",
@@ -187,7 +184,7 @@ const said = computed(() => {
 const progress = computed(() =>
     found.value.length === fitting.value.length
         ? `You found every product that fits: ${fitting.value.map((product) => product.name).join(" and ")}. Try another need.`
-        : `${found.value.length} of ${fitting.value.length} products that fit found so far.`
+        : `Found ${found.value.length} of ${fitting.value.length} that fit.`
 );
 </script>
 

@@ -228,7 +228,7 @@ const cables: [Place, Place][] = [
             <button type="button" class="ac-button" :aria-pressed="blackhole" :disabled="busy" @click="toggle">
                 {{ blackhole ? "Blackhole route: on" : "Blackhole route: off" }}
             </button>
-            <button type="button" class="ac-button primary" :disabled="busy" @click="send">Send the packet</button>
+            <button type="button" class="ac-button primary" :disabled="busy" @click="send">Send</button>
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>

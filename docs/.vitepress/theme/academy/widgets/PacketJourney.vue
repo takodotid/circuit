@@ -184,10 +184,9 @@ async function send(seed: number) {
         await Promise.all(resends);
     }
 
-    const order = arrivals.value.map((packet) => packet.number).join(", ");
     said.value = {
         kind: "good",
-        text: `All ${packets.value.length} packets are in. They arrived in the order ${order}. The phone put them back in order by their numbers.`,
+        text: `All ${packets.value.length} packets are in. The phone put them back in order by their numbers.`,
     };
     running.value = false;
     finished.value = true;
@@ -272,10 +271,7 @@ const slots = computed(() =>
             </div>
         </div>
 
-        <p class="caption">
-            The message as {{ shown.length }} {{ shown.length === 1 ? "packet" : "packets" }}. Each one says who sent it, who it is for, and
-            its number.
-        </p>
+        <p class="caption">The message as {{ shown.length }} {{ shown.length === 1 ? "packet" : "packets" }}:</p>
         <ol class="cards">
             <li v-for="packet in shown" :key="packet.number" class="card" :class="packet.state">
                 <span class="number">No. {{ packet.number }} of {{ shown.length }}</span>
@@ -320,7 +316,7 @@ const slots = computed(() =>
         </svg>
 
         <div class="phone">
-            <p class="caption">What the friend’s phone has received, in the order it came:</p>
+            <p class="caption">Received, in the order it came:</p>
             <ol class="arrived">
                 <li v-for="packet in arrivals" :key="`${packet.number}-${packet.again}`" :class="{ again: packet.again }">
                     {{ packet.number }}<span v-if="packet.again" class="again-word"> again</span>
@@ -347,10 +343,10 @@ const slots = computed(() =>
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
-        <p v-else-if="running" class="ac-say hint" aria-live="polite">Run {{ run }}: the packets are on their way. Watch the busy way.</p>
+        <p v-else-if="running" class="ac-say hint" aria-live="polite">Run {{ run }}. Watch the busy way.</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            Send it once, then change the packet size or the loss and send it again. The ways and the losses are random, but the same run
-            number always gives the same ones.
+            Send it, then change the packet size or the loss and send it again. The ways and losses are random, but a run number always
+            gives the same ones.
         </p>
     </div>
 </template>

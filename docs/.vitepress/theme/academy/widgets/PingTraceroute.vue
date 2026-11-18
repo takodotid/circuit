@@ -493,7 +493,7 @@ const hint = computed(() =>
         />
 
         <p v-if="output.length" class="caption">
-            Printed the way Windows prints it. The times are examples, and on a real network they differ every time.
+            Printed the way Windows prints it. The times are examples.
             <template v-if="shownKind === 'trace'">
                 tracert sends three packets for each TTL, so each row has three times. On macOS and Linux the command is
                 <span class="ac-mono">traceroute -n</span>, and each row shows the address before the times, or just

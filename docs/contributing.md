@@ -17,7 +17,7 @@ In a bug report, give the Circuit version (`circuit --version`) and the device p
 
 ## Fix the docs
 
-Each page has an **Edit this page** link at the bottom, which opens the page on GitHub. To see the site on your computer, run `bun install`, then `bun run docs:dev`.
+Use **Edit this page** at the bottom of a page. To see the site on your computer, run `bun install`, then `bun run docs:dev`.
 
 - Write as [AGENTS.md](https://github.com/takodotid/circuit/blob/main/AGENTS.md#writing) says.
 - A word a reader may not know is explained where it first appears, or linked to the [Glossary](/reference/glossary).
@@ -25,7 +25,7 @@ Each page has an **Edit this page** link at the bottom, which opens the page on 
 
 ## Write an Academy lesson
 
-[Circuit Academy](/academy/) teaches networking from the start, then Circuit. The levels and lessons are listed in `docs/.vitepress/academy.ts`. Each lesson is a page in `docs/academy/<level>/`.
+The levels and lessons of [Circuit Academy](/academy/) are listed in `docs/.vitepress/academy.ts`. Each lesson is a page in `docs/academy/<level>/`.
 
 1. A lesson uses only words that earlier lessons taught. It explains each new word where it first appears, with `<Term means="...">word</Term>`.
 2. Every lesson has something to try: a widget from `docs/.vitepress/theme/academy/widgets/` inside `<TryIt>`. A few `<Quiz>` questions follow right after the idea they check.

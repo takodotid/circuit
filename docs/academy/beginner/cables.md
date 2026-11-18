@@ -5,11 +5,9 @@ description: A message crosses copper, glass fiber, or radio. Plug cables and op
 
 # Cables, light, and radio
 
-A message between two devices crosses one of three things. A copper cable carries electricity. A thin glass fiber carries light. Radio waves cross the air. Copper is simple, but it reaches only 100 meters. Fiber reaches many kilometers, at the highest speeds. Radio needs no cable, but it is slower, and devices near each other share it. Wi-Fi is radio.
+A message between two devices crosses one of three things. A copper cable carries electricity. A thin glass fiber carries light. Radio waves cross the air, and Wi-Fi is radio.
 
 ## How fast, and how far
-
-Every link has two numbers: how fast it is, and how far it reaches.
 
 Speed is counted in <Term means="Short for binary digit: a single 0 or 1. It is the smallest piece of data, and everything a link carries is made of bits.">bits</Term> a second. Network speeds are large, so they are usually counted in gigabits. One gigabit a second, written 1 Gbit/s, is a billion bits a second. People shorten it to **1G**. Switches show 10G, 25G, and 100G the same way.
 
@@ -60,7 +58,7 @@ Older equipment may have **XFP**, an earlier and larger module for 10 Gbit/s.
 
 Three rules decide whether a link works:
 
-1. The module must fit the cage. SFP, SFP+, and SFP28 are one size. QSFP+ and QSFP28 are wider. Most cages also take the slower module of their own size, which then runs at its own speed.
+1. The module must fit the cage. Most cages also take the slower module of their own size, which then runs at its own speed.
 2. Both ends must match. An optic works only with the same kind of optic at the far end, on the right kind of fiber.
 3. The run must be within the optic's reach. Each optic is made for a distance, such as 300 meters on multimode or 10 kilometers on single-mode.
 
@@ -85,8 +83,6 @@ Some switches have only RJ45 ports, like the small switch in a home router. Some
 ## How far each one goes
 
 <TryIt title="How far, how fast">
-
-Start at a desk, then move farther away, then go faster.
 
 <HowFarHowFast />
 
@@ -127,7 +123,7 @@ All the cables, plugs, and optics in this lesson follow one standard, called <Te
 
 ## The largest piece a link carries
 
-In the [next lesson](/academy/beginner/packets), you see that a device never sends a long message in one go. It cuts the message into small pieces, called packets, and sends each one on its own. Each link has a limit on how big one piece can be, called its <Term means="Maximum transmission unit: the largest single piece of data a link carries, in bytes. On ordinary Ethernet it is 1,500 bytes.">MTU</Term>, short for maximum transmission unit.
+A device cuts a long message into small pieces, called packets, as the [next lesson](/academy/beginner/packets) shows. Each link has a limit on how big one piece can be, called its <Term means="Maximum transmission unit: the largest single piece of data a link carries, in bytes. On ordinary Ethernet it is 1,500 bytes.">MTU</Term>, short for maximum transmission unit.
 
 On ordinary Ethernet, the MTU is 1,500 <Term means="Eight bits together. One byte holds a number from 0 to 255, or one letter of plain English text.">bytes</Term>. One letter of plain text takes one byte, so that is about 1,500 letters.
 
@@ -140,11 +136,3 @@ Inside data centers, the links between a network's own switches and servers ofte
   :why="['The MTU counts on every link, at home too. No piece larger than it crosses the link.', '', 'Long messages are sent all the time. They are cut into pieces that fit.']"
   explain="The MTU is the largest piece the link carries, so the message is cut into at least four pieces that each fit."
 />
-
-## In short
-
-- A LAN cable is a copper twisted pair cable with RJ45 plugs. Cat5e and Cat6 carry 1 Gbit/s up to 100 meters, and Cat6a carries 10 Gbit/s that far.
-- Fiber carries light: multimode inside a building, single-mode for kilometers. Its plug is LC.
-- Fast ports are cages for optic modules. The families are SFP 1G, SFP+ 10G, SFP28 25G, QSFP+ 40G, and QSFP28 100G. The module must fit, both ends must match, and the run must be within reach. A DAC joins two cages in one rack.
-- Ethernet is the standard all of these follow. Wi-Fi carries the same messages over radio, and it is shared, slower, and shorter.
-- The MTU is the largest piece a link carries: 1,500 bytes on ordinary Ethernet, and about 9,000 with jumbo frames inside data centers.

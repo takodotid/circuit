@@ -16,10 +16,7 @@ const beforeStart = computed(() => Academy.link(before.value, before.value.lesso
     <aside class="level-gate" :aria-label="`${lesson.title} is locked`">
         <p class="chip">Locked</p>
         <h2 v-text="lesson.title" />
-        <p>
-            This lesson is part of {{ lesson.level.name }}, which opens when you pass its entry check: ten questions about
-            {{ before.name }}.
-        </p>
+        <p>{{ lesson.level.name }} opens when you pass its entry check: ten questions about {{ before.name }}.</p>
         <p class="outcome">After this lesson, you can {{ lesson.outcome.replace(/^./, (letter) => letter.toLowerCase()) }}</p>
         <div class="actions">
             <a class="ac-button primary" :href="withBase(`/academy/checks/${lesson.level.slug}`)">Take the entry check</a>

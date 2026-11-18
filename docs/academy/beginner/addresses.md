@@ -58,8 +58,6 @@ Each step of the way, across one link from one device to the next, is called a <
 
 <TryIt title="Follow a letter through two routers">
 
-A laptop sends a letter to a server in another part of the office.
-
 <EnvelopeHops />
 
 </TryIt>
@@ -84,10 +82,3 @@ Your home router usually changes the "from" IP address of each packet that leave
   :why="['', 'Every router writes a new outer envelope, with its own hardware address and the next stop’s, so the hardware addresses change at every hop.', 'Only the inner envelope stays the same. The outer one is new at every router.', 'These routers never change the inner envelope. It still says which laptop sent it and which server it is for.']"
   explain="The IP addresses on the inner envelope say where the packet started and where it is going, so they stay the same all the way. The hardware addresses change at every hop."
 />
-
-## In short
-
-- Every device has a hardware address, or MAC address, set in its network card. It stays the same wherever the device goes.
-- A device also gets an IP address from the network it joins. The IP address changes when the device joins another network.
-- The hardware address reaches a device on the same local network. The IP address reaches it from anywhere.
-- A packet carries the IP addresses inside and the hardware addresses outside. The outer ones change at every hop, and the inner ones stay.

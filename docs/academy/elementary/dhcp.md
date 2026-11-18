@@ -5,9 +5,7 @@ description: Step through the four DHCP messages, watch a pool of addresses fill
 
 # Handing out addresses: DHCP
 
-A device that joins a network needs four things before it can talk to anything: an IP address, the size of its network, a gateway, and a DNS server. DHCP hands them out automatically. The device asks, and a DHCP server answers with a free address from its pool. The server lends the address for a set time, called the lease.
-
-On a small network, the DHCP server is usually the router, with one server for each VLAN. In Circuit, you write it in the router's file under `services.dhcp_server`.
+A device that joins a network needs four things before it can talk to anything. DHCP hands them out automatically: the device asks, and a DHCP server answers with a free address from its pool. The server lends the address for a set time, called the lease.
 
 ## What a device needs
 
@@ -20,7 +18,7 @@ On a small network, the DHCP server is usually the router, with one server for e
 
 You could type these into every laptop, phone, and printer by hand, and some devices, such as servers, are still set up that way. But nobody types them into a phone that visits ten networks a week. And two people who type the same address by hand break each other's connection. So almost every network uses <Term means="Dynamic Host Configuration Protocol: a device joining a network asks a server for an address, a gateway, and DNS servers, and the server gives them.">DHCP</Term> instead.
 
-Your home router has done this for you all along. When your phone joins the Wi-Fi at home, it gets all four from the home router in under a second. That is why [Opening a website](/academy/beginner/opening-a-website) could start with them already in place.
+Your home router has done this all along, which is why [Opening a website](/academy/beginner/opening-a-website) could start with all four in place.
 
 ## Four messages
 
@@ -68,7 +66,7 @@ A short lease frees an address soon after its guest leaves. It costs nothing for
 
 ## The gateway, on a VLAN interface
 
-In [Trunks](/academy/elementary/trunks), the router reached every VLAN over one trunk port. It still needs an address in each VLAN, to be that VLAN's gateway. Since one port carries them all, the address cannot go on the port. It goes on a <Term means="An interface on a router or switch that sits on a VLAN instead of on a port. It gives the device an address in that VLAN.">VLAN interface</Term> instead: one for each VLAN, each with its own address.
+In [Trunks](/academy/elementary/trunks), the router reached every VLAN over one trunk port. It still needs an address in each VLAN, to be that VLAN's gateway. Since one port carries them all, the address goes on a <Term means="An interface on a router or switch that sits on a VLAN instead of on a port. It gives the device an address in that VLAN.">VLAN interface</Term> instead: one for each VLAN, each with its own address.
 
 This is part of the router in Circuit's single-site example, which you build in the [last project](/academy/elementary/project-single-site) of this level:
 
@@ -139,11 +137,3 @@ reservations: [{ address: "192.168.20.20", mac: "00:00:5e:00:53:20", description
 ::: tip A DHCP server elsewhere
 A bigger network may run one DHCP server for every VLAN, on a server of its own. A broadcast cannot reach it across a router, so the router passes the requests on, with `services.dhcp_relay`. Hover it in your editor to see its fields.
 :::
-
-## In short
-
-- A device needs an address, a mask, a gateway, and DNS servers, and DHCP hands them out automatically.
-- It takes four messages: discover, offer, request, and acknowledge. The device broadcasts, because it has no address yet.
-- Addresses are lent from a pool for a lease time. Devices that stay renew halfway. Addresses of devices that left are freed when the lease ends.
-- The gateway of a VLAN is the router's address on a VLAN interface, written in Circuit in `interfaces.vlan_interface`.
-- Each VLAN gets a DHCP server in `services.dhcp_server`, with its `interface`, `network`, `gateway`, `dns`, `pool`, and `lease_time`.
