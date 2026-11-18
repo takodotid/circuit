@@ -6,15 +6,15 @@ import { computed, ref } from "vue";
 type Speed = 1 | 10 | 100;
 
 const distances = [
-    { metres: 3, name: "At a desk", spelled: "3 m" },
-    { metres: 60, name: "Across a floor", spelled: "60 m" },
-    { metres: 2_000, name: "Between two buildings", spelled: "2 km" },
-    { metres: 25_000, name: "Across a city", spelled: "25 km" },
+    { meters: 3, name: "At a desk", spelled: "3 m" },
+    { meters: 60, name: "Across a floor", spelled: "60 m" },
+    { meters: 2_000, name: "Between two buildings", spelled: "2 km" },
+    { meters: 25_000, name: "Across a city", spelled: "25 km" },
 ];
 
 const speeds: Speed[] = [1, 10, 100];
 
-const NO_COPPER_100 = "No LAN cable carries 100 Gbit/s. At this speed it is fibre, or a DAC inside a rack.";
+const NO_COPPER_100 = "No LAN cable carries 100 Gbit/s. Use fiber, or a DAC inside a rack.";
 const WIFI_RANGE = 20;
 const SHORT_FOR_40_KM = 2_000;
 
@@ -23,7 +23,7 @@ type Way = {
     name: string;
     /** Carries light, not electricity. */
     light?: boolean;
-    /** How far it reaches at each speed, in metres, or why it does not run at that speed. */
+    /** How far it reaches at each speed, in meters, or why it does not run at that speed. */
     reach: Record<Speed, number | string>;
 };
 
@@ -44,7 +44,7 @@ const ways: Way[] = [
         name: "DAC",
         reach: { 1: "At 1 Gbit/s, the ports are usually RJ45, so a LAN cable does this job.", 10: 7, 100: 5 },
     },
-    { id: "multimode", name: "Multimode fibre", light: true, reach: { 1: 550, 10: 400, 100: 100 } },
+    { id: "multimode", name: "Multimode fiber", light: true, reach: { 1: 550, 10: 400, 100: 100 } },
     { id: "single-10", name: "Single-mode, 10 km optics", light: true, reach: { 1: 10_000, 10: 10_000, 100: 10_000 } },
     { id: "single-40", name: "Single-mode, 40 km optics", light: true, reach: { 1: 40_000, 10: 40_000, 100: 40_000 } },
     {
@@ -52,8 +52,8 @@ const ways: Way[] = [
         name: "Wi-Fi",
         reach: {
             1: WIFI_RANGE,
-            10: "The highest Wi-Fi speeds are the best case, added up over all its antennas and shared by every device. A link that must carry this much all the time is a cable or a fibre.",
-            100: "No Wi-Fi comes close to 100 Gbit/s. This is a job for fibre.",
+            10: "Wi-Fi speeds this high are the best case, and every device on the access point shares them. A link that must carry this much all the time needs a cable or a fiber.",
+            100: "No Wi-Fi comes close to 100 Gbit/s. This is a job for fiber.",
         },
     },
 ];
@@ -61,14 +61,14 @@ const ways: Way[] = [
 const distance = ref(distances[0]!);
 const speed = ref<Speed>(1);
 
-const spell = (metres: number) => (metres >= 1000 ? `${metres / 1000} km` : `${metres} m`);
+const spell = (meters: number) => (meters >= 1000 ? `${meters / 1000} km` : `${meters} m`);
 
 type Verdict = { way: Way; reach?: number; status: "works" | "short" | "speed" | "careful"; text: string };
 
 const verdicts = computed<Verdict[]>(() =>
     ways.map((way) => {
         const reach = way.reach[speed.value];
-        const wanted = distance.value.metres;
+        const wanted = distance.value.meters;
 
         if (typeof reach === "string") return { way, status: "speed", text: reach };
 
@@ -84,7 +84,7 @@ const verdicts = computed<Verdict[]>(() =>
                 way,
                 reach,
                 status: "careful",
-                text: "Newer Wi-Fi is rated above 1 Gbit/s, but that is the best case, and every device on the access point shares it, taking turns. Expect less, and less again through a wall.",
+                text: "Newer Wi-Fi is rated above 1 Gbit/s, but that is the best case. Every device on the access point shares it, taking turns. Expect less, and less again through a wall.",
             };
         }
 
@@ -106,7 +106,7 @@ const verdicts = computed<Verdict[]>(() =>
                 way,
                 reach,
                 status: "careful",
-                text: "It reaches, but an optic made for 40 km sends light so strong that over a short run it can overload the far end. It may need a small part called an attenuator to dim it. A 10 km optic is the simpler choice here.",
+                text: "It reaches. But a 40 km optic sends light so strong that, over a short run, it can overload the far end. A small part called an attenuator can dim it. A 10 km optic is simpler here.",
             };
 
         return {
@@ -122,7 +122,8 @@ const working = computed(() => verdicts.value.filter((entry) => entry.status ===
 
 const summary = computed(() => {
     const names = working.value.map((entry) => entry.way.name);
-    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
+    const last = names[names.length - 1];
+    const list = names.length > 2 ? `${names.slice(0, -1).join(", ")}, and ${last}` : names.join(" and ");
     return `${distance.value.name}, ${distance.value.spelled}, at ${speed.value} Gbit/s: ${names.length} of ${ways.length} work. ${list}.`;
 });
 
@@ -139,7 +140,7 @@ const PER_TEN = 96;
 const TOP = 34;
 const ROW = 30;
 
-const across = (metres: number) => LEFT + Math.log10(metres) * PER_TEN;
+const across = (meters: number) => LEFT + Math.log10(meters) * PER_TEN;
 const rowY = (index: number) => TOP + index * ROW;
 const ticks = [1, 10, 100, 1_000, 10_000, 100_000];
 const bottom = TOP + ways.length * ROW;
@@ -152,10 +153,10 @@ const bottom = TOP + ways.length * ROW;
             <div class="ac-row" role="group" aria-label="How far">
                 <button
                     v-for="entry in distances"
-                    :key="entry.metres"
+                    :key="entry.meters"
                     type="button"
                     class="ac-button small"
-                    :aria-pressed="distance.metres === entry.metres"
+                    :aria-pressed="distance.meters === entry.meters"
                     @click="distance = entry"
                 >
                     {{ entry.name }}, {{ entry.spelled }}
@@ -203,8 +204,8 @@ const bottom = TOP + ways.length * ROW;
                 <text v-else class="none" :x="LEFT + 6" :y="rowY(index) + 4">not at this speed</text>
             </g>
 
-            <line class="distance" :x1="across(distance.metres)" :y1="TOP - 22" :x2="across(distance.metres)" :y2="bottom" />
-            <text class="distance-name" :x="across(distance.metres)" :y="TOP - 26" text-anchor="middle">{{ distance.spelled }}</text>
+            <line class="distance" :x1="across(distance.meters)" :y1="TOP - 22" :x2="across(distance.meters)" :y2="bottom" />
+            <text class="distance-name" :x="across(distance.meters)" :y="TOP - 26" text-anchor="middle">{{ distance.spelled }}</text>
         </svg>
 
         <p class="ac-say good" data-word="Works" aria-live="polite">{{ summary }}</p>
@@ -217,8 +218,8 @@ const bottom = TOP + ways.length * ROW;
         </ul>
 
         <p class="footnote">
-            Multimode reaches are for good, newer multimode fibre; older fibre reaches less. The 40 km optics at 1 Gbit/s are made by many
-            makers, but are not part of the Ethernet standard itself.
+            The multimode reaches are for newer, better multimode fiber. Older fiber reaches less. The 40 km optics at 1 Gbit/s are made by
+            many makers, but are not part of the Ethernet standard.
         </p>
     </div>
 </template>
