@@ -272,6 +272,9 @@ const shownChains: ChainName[] = props.part === "forward" ? ["forward"] : ["inpu
 
 const chainOf = (packet: Packet): ChainName => (packet.out ? "forward" : "input");
 
+/** What each chain is for, beside its name. */
+const CHAIN_WORDS: Record<ChainName, string> = { input: "to the router itself", forward: "through the router" };
+
 /** Whether an IPv4 address is inside a prefix such as 192.168.10.0/24. */
 function within(address: string, prefix: string): boolean {
     const [network, length] = prefix.split("/");
@@ -293,7 +296,7 @@ function mismatch(rule: Rule, packet: Packet): string | undefined {
     if (match.protocol && match.protocol !== packet.protocol)
         return `it is ${packet.protocol.toUpperCase()}, not ${match.protocol.toUpperCase()}`;
     if (match.dst_port !== undefined && match.dst_port !== packet.dstPort) return `it is for port ${packet.dstPort}, not ${match.dst_port}`;
-    if (match.state && !match.state.includes(packet.state)) return `it starts a new connection, it is not a reply`;
+    if (match.state && !match.state.includes(packet.state)) return "it starts a new connection";
 
     return undefined;
 }
@@ -605,10 +608,8 @@ const code = computed(() => {
                 class="chain"
                 :class="{ quiet: selected && selectedOutcome?.sent && selectedOutcome.chain !== name }"
             >
-                <h4>
-                    {{ name }}
-                    <span>{{ name === "input" ? "to the router itself" : "through the router" }}</span>
-                </h4>
+                <!-- v-text keeps the chain's name, a key in the file, out of the check for sentence case. -->
+                <h4><b v-text="name" /> <span v-text="CHAIN_WORDS[name]" /></h4>
 
                 <ol class="rules">
                     <li
@@ -840,6 +841,10 @@ h4 {
     margin: 0 0 8px !important;
     font-family: var(--circuit-mono);
     font-size: 16px;
+}
+
+h4 b {
+    font-weight: inherit;
 }
 
 h4 span {
