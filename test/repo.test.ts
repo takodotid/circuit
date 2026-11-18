@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 
-const root = join(import.meta.dir, "../..");
+const root = join(import.meta.dir, "..");
 
 /** Every file git tracks or would track, that is still on disk. */
 const files = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" })

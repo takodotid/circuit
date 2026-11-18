@@ -42,10 +42,10 @@ This repo is Circuit v1. Circuit 0.x is retired on the branch `0.x`. Never use i
 - `src/cli/`: the `circuit` command.
 - `src/studio/`: `circuit studio`. The page is a Vue 3 app in `src/studio/app/`, built by Vite. The graph uses Cytoscape.
 - `scripts/`: the build, Studio's build, the editor types and release signing.
-- `test/`: mirrors `src/`. `test/repo/` checks this repo's own rules.
+- `test/`: mirrors `src/`. `test/repo.test.ts` checks this repo's own rules.
 - `docs/`: the website, built with VitePress. See `docs/AGENTS.md`.
 - `examples/`: whole example projects. Tests check each one.
-- `design/`: `decisions.md` (the owner's decisions, binding), `coverage.md` (vendor features against the model) and `standards.md`.
+- `design/`: `decisions.md` (the owner's decisions, binding) and `standards.md`.
 - Generated and ignored by git: `src/cli/editor-types.generated.ts` and `src/studio/assets.generated.ts`. `bun install` and the checks write them.
 
 ## Code
@@ -55,7 +55,7 @@ This repo is Circuit v1. Circuit 0.x is retired on the branch `0.x`. Never use i
 - The language in `src/config/` is functions and plain `export type`s. A project calls the functions as globals.
 - Type values as tightly as you can: a literal union for a fixed set, a template literal for a shape. Use plain `string` only for free text and names.
 - A project never needs a type cast (`as`, `as const`, `satisfies`, `!`). If it does, the language has a bug.
-- If you add, rename or remove a key in `src/config/`, update `keys.ts` and its row in `design/coverage.md`. A check fails if you don't.
+- If you add, rename or remove a key in `src/config/`, update `keys.ts` too, or `tsc` fails.
 - A change to the language updates `docs/` and `examples/` in the same commit.
 - No folder for a single file. File and folder names are kebab-case. Vue components are PascalCase.
 - Use a well-known, maintained, small library before you write your own. Check who maintains it and what it pulls in.
@@ -78,7 +78,7 @@ This applies to docs, UI text, comments, commit messages and replies.
 
 - `bun run check` runs what CI runs. It must pass before every commit.
 - `bun run lint` runs Oxlint (code and deprecated APIs), Vale (writing) and knip (unused code).
-- `bun run test` runs the tests, including `test/repo/`.
+- `bun run test` runs the tests, including `test/repo.test.ts`.
 - The pre-commit hook runs lint, typecheck and tests. Never skip it.
 - To run Circuit from the sources on a project: `cd <project> && bun <repo>/src/cli/index.ts <command>`.
 
