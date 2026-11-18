@@ -144,7 +144,9 @@ function draw(arrival?: "network" | "layer"): void {
     const cy = graph;
     let fresh = cy.collection();
 
-    settle();
+    // A new layer's glide starts each node from where it is, even halfway through the last glide. Anything else ends a glide at its end.
+    if (arrival === "layer" && moving) halt();
+    else settle();
     cy.batch(() => {
         cy.edges()
             .filter((edge) => !edgeIds.has(edge.id()))
@@ -163,7 +165,7 @@ function draw(arrival?: "network" | "layer"): void {
             }
 
             existing.data(nodeData(node));
-            if (arrival === "layer" && moving) gliding.push(existing);
+            if (arrival === "layer" && moving) gliding.push({ node: existing, to: { ...places.get(node.id)! } });
             else if (arrival === "layer") existing.position({ ...places.get(node.id)! });
         }
 
@@ -180,7 +182,10 @@ function draw(arrival?: "network" | "layer"): void {
     });
 
     // The devices on both layers glide to their places on this one, so the eye can follow each.
-    for (const node of gliding) node.animate({ position: { ...places.get(node.id())! } }, { duration: 700, easing: "ease-in-out-cubic" });
+    for (const glide of gliding) {
+        const done = () => (gliding = gliding.filter((other) => other !== glide));
+        glide.node.animate({ position: { ...glide.to } }, { duration: 700, easing: "ease-in-out-cubic", complete: done });
+    }
     if (moving) arrive(fresh, arrival);
 
     // Presenting draws every line heavier, a line the project just added too.
@@ -192,16 +197,21 @@ function draw(arrival?: "network" | "layer"): void {
     else emphasize();
 }
 
-/** The nodes gliding to a new layer's places. */
-let gliding: CollectionReturnValue[] = [];
+/** The nodes gliding to a new layer's places, each with the place it glides to. A node leaves the list when it gets there. */
+let gliding: { node: CollectionReturnValue; to: { x: number; y: number } }[] = [];
 
-/** End a glide between layers: each node at its place on this layer, so a press moves it from there. */
+/** End a glide between layers: each node at the place it was gliding to, so a press moves it from there. */
 function settle(): void {
-    const places = layouts.places(layer.value);
-    for (const node of gliding) {
+    for (const { node, to } of gliding) {
         node.stop(true);
-        if (node.inside()) node.position({ ...places.get(node.id())! });
+        if (node.inside()) node.position({ ...to });
     }
+    gliding = [];
+}
+
+/** Stop a glide between layers where it is, for the next layer's glide to start from there. */
+function halt(): void {
+    for (const { node } of gliding) node.stop(true);
     gliding = [];
 }
 
