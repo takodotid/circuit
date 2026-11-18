@@ -17,7 +17,7 @@ type Message = { name: string; from: string; to: string; says: string; path: Pla
 const steps = [
     {
         title: "A laptop joins, with nothing",
-        text: "The laptop is plugged into a port in VLAN 20. It has its hardware address, but no IP address, no gateway and no DNS server. It cannot talk to anyone by IP yet.",
+        text: "The laptop is plugged into a port in VLAN 20. It has its hardware address, but no IP address, no gateway, and no DNS server. It cannot talk to anyone by IP yet.",
     },
     {
         title: "1. Discover",

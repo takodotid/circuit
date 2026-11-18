@@ -21,15 +21,15 @@ const steps = [
     },
     {
         title: "The switch reads only the frame header",
-        text: "The switch turns the signals back into a frame, reads the hardware address it is sent to, finds that address behind the port to the router, and sends the frame out there. It changes nothing.",
+        text: "The switch turns the signals back into a frame and reads the hardware address it is sent to. That address is behind the port to the router, so the switch sends the frame out there. It changes nothing.",
     },
     {
         title: "The router opens one layer more",
-        text: "The frame was addressed to the router, so it takes the frame header off. It reads the IP address the packet is going to, finds the way in its routing table, lowers the TTL, and wraps the packet in a new frame for the server.",
+        text: "The frame was addressed to the router, so it takes the frame header off. It reads the IP address the packet is going to, and finds the way in its routing table. It lowers the TTL, and wraps the packet in a new frame for the server.",
     },
     {
         title: "The server unwraps every layer",
-        text: "Each layer checks its header and hands what is inside up to the next: the frame is for this server, the packet is for this server, and port 53 is the DNS program, which finally reads the question.",
+        text: "Each layer checks its header and hands what is inside up to the next. The frame and the packet are both for this server, and port 53 is the DNS program, which reads the question.",
     },
 ];
 
@@ -81,7 +81,7 @@ const word: Record<State, string> = { made: "Added", read: "Read", changed: "Cha
             class="ac-drawing"
             viewBox="0 0 680 120"
             role="img"
-            :aria-label="`A laptop, a switch, a router and a DNS server in a row. The question is at the ${stops[step]?.label.toLowerCase()}.`"
+            :aria-label="`A laptop, a switch, a router, and a DNS server in a row. The question is at the ${stops[step]?.label.toLowerCase()}.`"
         >
             <line
                 v-for="(stop, index) in stops.slice(1)"

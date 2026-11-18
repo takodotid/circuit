@@ -20,17 +20,17 @@ type Mistake = {
 const mistakes: Mistake[] = [
     {
         id: "port",
-        label: "A port the router does not have",
+        label: "A port it lacks",
         from: '"25g-1": {',
         to: '"25g-13": {',
-        error: "sites/office/router.ts:21: router: interfaces.ethernet.25g-13: CCR2216-1G-12XS-2XQ has no port 25g-13",
+        error: "sites/office/router.ts:20: router: interfaces.ethernet.25g-13: CCR2216-1G-12XS-2XQ has no port 25g-13",
         typed: true,
         explain:
             "This model has twelve 25G ports. Circuit knows every model's ports, so a port that is not there is an error, not a command the router refuses halfway through a change.",
     },
     {
         id: "user",
-        label: "Log in as a user the file does not list",
+        label: "A user not listed",
         from: 'user: "operator"',
         to: 'user: "admin"',
         error: "router: connection.user: no user admin",
@@ -40,7 +40,7 @@ const mistakes: Mistake[] = [
     },
     {
         id: "length",
-        label: "An address without its length",
+        label: "No prefix length",
         from: '["192.168.10.1/24"]',
         to: '["192.168.10.1"]',
         error: "  error  router: interfaces.ethernet.25g-1: '192.168.10.1' is not an address with a length",
@@ -49,13 +49,12 @@ const mistakes: Mistake[] = [
     },
     {
         id: "gateway",
-        label: "A gateway that is not an address",
+        label: "A bad gateway",
         from: 'next_hop: "203.0.113.1"',
         to: 'next_hop: "203.0.113.300"',
         error: "  error  router: routing.static_routes 0.0.0.0/0: '203.0.113.300' is not an address",
         typed: false,
-        explain:
-            "Each part of an IPv4 address is 0 to 255, so 300 cannot be one. The editor sees only text here, and validate checks the address itself.",
+        explain: "Each part of an IPv4 address is 0 to 255, so 300 cannot be one.",
     },
 ];
 
@@ -107,11 +106,12 @@ function choose(id: string | undefined) {
 
         <p v-if="mistake" class="ac-say bad" data-word="Not sent" aria-live="polite">
             {{ mistake.explain }}
-            {{ mistake.typed ? "Your editor underlines this one as you type, too." : "Your editor cannot see this one; validate does." }}
+            {{
+                mistake.typed
+                    ? "Your editor underlines this one as you type, too."
+                    : "Your editor misses this one, but validate catches it."
+            }}
             While there is an error, <span class="ac-mono">diff</span> and <span class="ac-mono">apply</span> refuse to run.
-        </p>
-        <p v-else class="ac-say hint" aria-live="polite">
-            The file is fine, so validate finds no errors. Pick a mistake to make, and see what validate says.
         </p>
     </div>
 </template>
@@ -119,9 +119,5 @@ function choose(id: string | undefined) {
 <style scoped>
 .validate-catch :deep(.code-view) {
     margin: 12px 0 0;
-}
-
-.hint {
-    color: var(--circuit-soft);
 }
 </style>

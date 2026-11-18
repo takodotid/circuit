@@ -148,7 +148,7 @@ const validation = computed(() => {
         <p class="ac-say" :class="verdict.kind" :data-word="verdict.word" aria-live="polite">{{ verdict.text }}</p>
 
         <template v-if="id !== undefined">
-            <CodeView :code="file" lang="ts" title="switch.ts, the VLANs" :highlight="[3]" />
+            <CodeView :code="file" lang="ts" title="switch.ts, the VLANs" :highlight="[4]" />
             <CodeView :code="validation" lang="shell" title="Terminal" />
         </template>
     </div>

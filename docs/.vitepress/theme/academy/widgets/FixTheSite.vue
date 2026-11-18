@@ -50,7 +50,7 @@ const mistakes: Mistake[] = [
             {
                 label: "Add guests to the switch’s trunk_vlans",
                 right: true,
-                why: "Both ends now carry VLANs 10, 20 and 30, so the guest VLAN reaches its gateway on the router.",
+                why: "Both ends now carry VLANs 10, 20, and 30, so the guest VLAN reaches its gateway on the router.",
             },
             {
                 label: "Delete link from both ports",
