@@ -221,7 +221,7 @@ export type RouteMatch<S extends string> = {
     family?: Family;
     /** Exactly this prefix. */
     prefix?: Prefix;
-    /** The route's prefix is one of this set's prefixes, from `routing.prefix_sets`. */
+    /** The route's prefix is one of this set's prefixes, or a more specific prefix inside one, from `routing.prefix_sets`. A set that holds `10.0.0.0/8` also matches `10.1.0.0/16`. */
     prefix_set?: S;
     /** The prefix length is within this range, both ends included, 0 to 128. */
     prefix_length?: {
