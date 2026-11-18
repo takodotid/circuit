@@ -63,7 +63,7 @@ function check() {
         const typed = answer.value.trim();
         if (!/^\d+$/.test(typed)) return wrong("Type the number as digits first, such as 42.");
         if (Number(typed) === now.value) return right(`${Bits.text(now.value)} is ${Bits.sum(now.value)}, which is ${now.value}.`);
-        return wrong(`It is not ${typed}. Add up the numbers above the switches that are on.`);
+        return wrong(`It is not ${typed}. Add up the numbers on the switches that are on.`);
     }
 
     if (!possible(now.target)) {
@@ -93,9 +93,9 @@ const hint = ref(false);
 
 const hintText = computed(() => {
     const now = challenge.value;
-    if (now.kind === "read") return "Add up the numbers above the switches that are on. A switch that is off adds nothing.";
+    if (now.kind === "read") return "Add up the numbers on the switches that are on. A switch that is off adds nothing.";
     if (!possible(now.target)) return "Turn every switch on and look at the total. Is there anything left to turn on?";
-    return `Start from the left: turn on the biggest switch that is not more than ${now.target}, take its value away, and do the same with what is left until nothing is left.`;
+    return `Start from the left. Turn on each switch that is not more than what you still need, and take its value away. Stop when nothing is left of ${now.target}.`;
 });
 
 function go(next: number) {
@@ -162,9 +162,7 @@ function go(next: number) {
         <div v-if="solved" class="ac-row next">
             <button v-if="!finished" type="button" class="ac-button primary" @click="go(index + 1)">Next challenge</button>
             <template v-else>
-                <p class="finished">
-                    All {{ challenges.length }} done. You can read and write every number a group of eight bits can hold.
-                </p>
+                <p class="finished">All {{ challenges.length }} challenges done.</p>
                 <button type="button" class="ac-button" @click="go(0)">Start again</button>
             </template>
         </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: routers and the gateway. The reader picks an address to send to from a laptop; the laptop decides to send directly or to its gateway, and each router passes the packet on by its routing table, lowering the TTL. With `loop`, a forgotten row sends a packet round in a circle until its TTL runs out.
+// Lesson: routers and the gateway. The reader picks an address for a laptop to send to. The laptop decides to send directly or to its gateway, and each router passes the packet on by its routing table, lowering the TTL. With `loop`, a forgotten row sends a packet round in a circle until its TTL runs out.
 
 import { computed, ref } from "vue";
 import { useTravel, type Point } from "../travel";
@@ -215,7 +215,7 @@ async function go(way: NodeId[], fast = false) {
 const shownSteps = computed(() => {
     if (steps.value.length <= 8) return steps.value;
     const hidden = steps.value.length - 6;
-    return [...steps.value.slice(0, 4), `... the same again, ${hidden} more times ...`, ...steps.value.slice(-2)];
+    return [...steps.value.slice(0, 4), `(The same again, ${hidden} more times.)`, ...steps.value.slice(-2)];
 });
 
 function reset() {
@@ -254,7 +254,7 @@ async function send() {
         said.value = {
             kind: "bad",
             word: "Not this one",
-            text: "Addresses starting with 0, 127 or 224 and above are kept for special uses and are not given to a device. Try one of the buttons.",
+            text: "Addresses that start with 0, 127, or 224 and above are kept for special uses. They are not given to a device. Try one of the buttons.",
         };
         return;
     }
@@ -274,14 +274,14 @@ async function send() {
             address,
             "192.168.1.0",
             24,
-            `The laptop compares the network parts: ${text} is on its own network, 192.168.1.0/24, so it sends the packet straight there, through the switch.`
+            `The laptop compares the network parts. ${text} is on its own network, 192.168.1.0/24, so it sends the packet straight there, through the switch.`
         );
         busy.value = false;
         return;
     }
 
     steps.value.push(
-        `The laptop compares the network parts: ${text} is not on its network, 192.168.1.0/24, so it sends the packet to its gateway, the main router at 192.168.1.1.`
+        `The laptop compares the network parts. ${text} is not on its network, 192.168.1.0/24, so it sends the packet to its gateway, the main router at 192.168.1.1.`
     );
     await go(wayBetween("laptop", "main"));
 
@@ -303,7 +303,7 @@ async function send() {
             steps.value.push(`The ${routerNames[router]} lowers the TTL to 0 and drops the packet.`);
             said.value = {
                 kind: "bad",
-                text: `The packet went round between the two routers until its TTL reached 0, ${hops} hops later, and the ${routerNames[router]} dropped it. Without the TTL it would have gone round forever.`,
+                text: `The packet went round between the two routers until its TTL reached 0, after ${hops} hops. Then the ${routerNames[router]} dropped it. Without the TTL, it would go round forever.`,
             };
             break;
         }
@@ -342,7 +342,7 @@ async function send() {
             said.value = {
                 kind: "good",
                 word: "Passed on",
-                text: `The packet left through the provider, after ${hops} router${hops > 1 ? "s" : ""} on this drawing. The provider’s routers pass it on the same way, each looking up ${text} in its own table and lowering the TTL by one.`,
+                text: `The packet left through the provider after ${hops} router${hops > 1 ? "s" : ""} in this drawing. The provider’s routers pass it on the same way. Each one looks up ${text} in its own table and lowers the TTL by one.`,
             };
             break;
         }
@@ -496,7 +496,7 @@ async function finishDirect(from: NodeId, address: number, network: string, pref
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
         <p v-else-if="busy" class="ac-say hint" aria-live="polite">The packet is on its way.</p>
         <p v-else-if="loop" class="ac-say hint" aria-live="polite">
-            The main router has an old row for a reading room that was closed. Send a packet to the old reading room and watch the TTL.
+            Send a packet to the old reading room and watch the TTL. Then send one to the library desktop.
         </p>
         <p v-else class="ac-say hint" aria-live="polite">
             Send a packet to the printer, then to the library desktop, and compare what the laptop does with each.

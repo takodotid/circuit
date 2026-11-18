@@ -1,4 +1,4 @@
-// The race in the ports lesson, worked out in advance: when each piece of a message is sent, lost, resent and delivered over TCP and over UDP, from one loss pattern.
+// The race in the ports lesson, worked out in advance: when each piece of a message is sent, lost, resent, and delivered over TCP and over UDP, from one loss pattern.
 
 export type Flight = {
     lane: "tcp" | "udp";
@@ -83,7 +83,7 @@ export class Races {
         const ready = hello + helloBack;
         flights.push({ lane: "tcp", kind: "hello", text: "hello?", back: false, start: 0, end: hello, lost: false });
         flights.push({ lane: "tcp", kind: "hello", text: "hello!", back: true, start: hello, end: ready, lost: false });
-        flights.push({ lane: "tcp", kind: "hello", text: "ok", back: false, start: ready, end: ready + trip(tcpDraw), lost: false });
+        flights.push({ lane: "tcp", kind: "hello", text: "OK", back: false, start: ready, end: ready + trip(tcpDraw), lost: false });
 
         const tcpArrived: number[] = [];
         let tcpResent = 0;

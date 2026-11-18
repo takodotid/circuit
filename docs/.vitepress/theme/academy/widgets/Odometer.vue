@@ -32,7 +32,7 @@ function wheelsTurning(value: number, base: number) {
 function story(turning: number, last: string) {
     if (turning === 1) return "only the right wheel turned";
     const pushed = turning - 1;
-    return `the right wheel went past ${last}, back to 0, and pushed the next wheel${pushed > 1 ? `, which went round too: ${pushed} pushes in a row` : ""}`;
+    return `the right wheel went past ${last}, back to 0, and pushed the next wheel${pushed > 1 ? `. That wheel went round too: ${pushed} pushes in a row` : ""}`;
 }
 
 function step() {
@@ -54,7 +54,7 @@ function step() {
     said.value = {
         kind: "good",
         word: "One more",
-        text: `On the ten-digit counter ${story(ten, "9")}. On the two-digit counter ${story(two, "1")}.`,
+        text: `On the ten-digit counter, ${story(ten, "9")}. On the two-digit counter, ${story(two, "1")}.`,
     };
 }
 

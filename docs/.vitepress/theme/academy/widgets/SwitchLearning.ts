@@ -1,4 +1,4 @@
-// Shared by the widgets of the switches, routers, DNS, ports and website lessons: the devices on the lesson's switch, a narrow-screen flag and pauses that stop with the page.
+// Shared by the widgets of the switches, routers, DNS, ports, and website lessons: the devices on the lesson's switch, a narrow-screen flag, and pauses that stop with the page.
 
 import { onBeforeUnmount, onMounted, ref } from "vue";
 

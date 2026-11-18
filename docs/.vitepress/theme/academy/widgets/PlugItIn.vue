@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: cables, light and radio. The reader picks a cable or a module from a tray and a port on a switch, and is told whether it fits, and at what speed and distance the link comes up, or why it does not.
+// Lesson: cables, light, and radio. The reader picks a cable or a module from a tray and a port on a switch, and is told whether it fits, and at what speed and distance the link comes up, or why it does not.
 
 import { computed, ref } from "vue";
 
@@ -83,36 +83,36 @@ type Item = {
     name: string;
     shape: Shape;
     gigabits: number;
-    carrier: "copper" | "fibre" | "dac";
+    carrier: "copper" | "fiber" | "dac";
     /** How far the link reaches, said in words. */
     reach: string;
 };
 
 const items: Item[] = [
-    { id: "cat6", name: "Cat6 LAN cable", shape: "rj45", gigabits: 1, carrier: "copper", reach: "up to 100 metres" },
+    { id: "cat6", name: "Cat6 LAN cable", shape: "rj45", gigabits: 1, carrier: "copper", reach: "up to 100 meters" },
     {
         id: "sfp-plus-optic",
-        name: "SFP+ optic, 10G, with multimode fibre",
+        name: "SFP+ optic, 10G, with multimode fiber",
         shape: "sfp",
         gigabits: 10,
-        carrier: "fibre",
-        reach: "up to about 300 to 400 metres on multimode fibre, depending on its grade",
+        carrier: "fiber",
+        reach: "up to about 300 to 400 meters on multimode fiber, depending on its grade",
     },
     {
         id: "sfp28-optic",
-        name: "SFP28 optic, 25G, with single-mode fibre",
+        name: "SFP28 optic, 25G, with single-mode fiber",
         shape: "sfp",
         gigabits: 25,
-        carrier: "fibre",
-        reach: "up to 10 kilometres on single-mode fibre",
+        carrier: "fiber",
+        reach: "up to 10 kilometers on single-mode fiber",
     },
     {
         id: "qsfp28-optic",
-        name: "QSFP28 optic, 100G, with single-mode fibre",
+        name: "QSFP28 optic, 100G, with single-mode fiber",
         shape: "qsfp",
         gigabits: 100,
-        carrier: "fibre",
-        reach: "up to 10 kilometres on single-mode fibre",
+        carrier: "fiber",
+        reach: "up to 10 kilometers on single-mode fiber",
     },
     {
         id: "dac",
@@ -120,7 +120,7 @@ const items: Item[] = [
         shape: "sfp",
         gigabits: 10,
         carrier: "dac",
-        reach: "up to about 7 metres, so to a device in the same rack",
+        reach: "up to about 7 meters, so to a device in the same rack",
     },
 ];
 
@@ -134,7 +134,7 @@ type Verdict = { kind: "good" | "bad" | "warn"; word: string; text: string; insi
 
 function farEnd(chosen: Item) {
     if (chosen.carrier === "dac") return "The other end of a DAC is a module too, so it goes straight into the next device's cage.";
-    if (chosen.carrier === "fibre")
+    if (chosen.carrier === "fiber")
         return "The device at the far end needs the same kind of optic, or the two ends cannot understand each other.";
     return "The device at the far end needs an RJ45 port too.";
 }
@@ -149,25 +149,24 @@ const verdict = computed<Verdict | undefined>(() => {
             return {
                 kind: "bad",
                 word: "Does not fit",
-                text: "An RJ45 port is a socket for the plug of a LAN cable. A module needs a cage, and it does not go in here.",
+                text: "An RJ45 port takes the plug of a LAN cable. A module needs a cage.",
                 inside: false,
             };
 
         return {
             kind: "good",
             word: "Link up",
-            text: `The link comes up at 1 Gbit/s, ${chosen.reach}. A Cat6 cable can carry 10 Gbit/s for up to 55 metres, but this port runs at 1 Gbit/s, so the link does too. ${farEnd(chosen)}`,
+            text: `The link comes up at 1 Gbit/s, ${chosen.reach}. Cat6 could carry 10 Gbit/s for up to 55 meters, but this port runs at 1 Gbit/s. ${farEnd(chosen)}`,
             inside: true,
         };
     }
 
     if (chosen.shape === "rj45") {
-        const module =
-            into.shape === "sfp" ? " To use a LAN cable here, you would need a copper module with an RJ45 socket on its end." : "";
+        const module = into.shape === "sfp" ? " To use a LAN cable here, you need a copper module with an RJ45 socket on its end." : "";
         return {
             kind: "bad",
             word: "Does not fit",
-            text: `A cage takes a module, and the plug of a LAN cable is a different shape.${module}`,
+            text: `A cage takes a module, not the plug of a LAN cable.${module}`,
             inside: false,
         };
     }
@@ -176,7 +175,7 @@ const verdict = computed<Verdict | undefined>(() => {
         return {
             kind: "bad",
             word: "Does not fit",
-            text: "A QSFP cage is wider than an SFP-size module, so this one would sit loose and not connect.",
+            text: "A QSFP cage is wider than an SFP module, so the module would sit loose and not connect.",
             inside: false,
         };
 
@@ -192,13 +191,13 @@ const verdict = computed<Verdict | undefined>(() => {
         return {
             kind: "warn",
             word: "No link",
-            text: `It slides in, because SFP28 is the same size as SFP+. But this cage runs at ${into.gigabits} Gbit/s at most, and a ${chosen.gigabits}G optic is made for ${chosen.gigabits} Gbit/s, so the link usually does not come up. Use a 10G module here.`,
+            text: `It slides in, because SFP28 is the same size as SFP+. But this cage runs at ${into.gigabits} Gbit/s at most. A ${chosen.gigabits}G optic is made for ${chosen.gigabits} Gbit/s, so the link usually does not come up. Use a 10G module here.`,
             inside: true,
         };
 
     const slower =
         chosen.gigabits < into.gigabits
-            ? ` SFP+ and SFP28 are the same size, and most ${into.label} cages also run the slower module, at its ${chosen.gigabits} Gbit/s.`
+            ? ` SFP+ and SFP28 are the same size, and most ${into.label} cages also take the slower module.`
             : "";
 
     return {
@@ -215,7 +214,7 @@ const drawn = computed(() => {
     const into = port.value;
     if (!chosen || !into) return undefined;
 
-    const centre = into.x + into.width / 2;
+    const center = into.x + into.width / 2;
     const inside = verdict.value!.inside;
 
     const sizes: Record<Shape, { width: number; height: number }> = {
@@ -230,18 +229,18 @@ const drawn = computed(() => {
         kind: verdict.value!.kind,
         carrier: chosen.carrier,
         shape: chosen.shape,
-        x: centre - size.width / 2,
+        x: center - size.width / 2,
         y: top,
         width: size.width,
         height: size.height,
-        centre,
+        center,
         bottom: top + size.height,
         inside,
     };
 });
 
 const portsOf = (entry: Port) => Array.from({ length: entry.count }, (_, index) => entry.x + index * entry.gap);
-const groupCentre = (entry: Port) => (entry.x + (entry.count - 1) * entry.gap + entry.width + entry.x) / 2;
+const groupCenter = (entry: Port) => (entry.x + (entry.count - 1) * entry.gap + entry.width + entry.x) / 2;
 </script>
 
 <template>
@@ -250,13 +249,13 @@ const groupCentre = (entry: Port) => (entry.x + (entry.count - 1) * entry.gap + 
             class="ac-drawing"
             viewBox="0 0 700 230"
             role="img"
-            :aria-label="`The front of a switch with four RJ45 ports, two SFP+ cages, two SFP28 cages and two QSFP28 cages.${item && port ? ` A ${item.name} is ${drawn?.inside ? 'in' : 'held under'} the first ${port.name}.` : ''}`"
+            :aria-label="`The front of a switch with four RJ45 ports, two SFP+ cages, two SFP28 cages, and two QSFP28 cages.${item && port ? ` A ${item.name} is ${drawn?.inside ? 'in' : 'held under'} the first ${port.name}.` : ''}`"
         >
             <rect class="faceplate" x="20" y="24" width="664" height="104" />
 
             <g v-for="entry in ports" :key="entry.kind" :class="['group', { chosen: portKind === entry.kind }]">
-                <text class="group-name" :x="groupCentre(entry)" y="48" text-anchor="middle">{{ entry.label }}</text>
-                <text class="group-speed" :x="groupCentre(entry)" y="116" text-anchor="middle">{{ entry.gigabits }}G</text>
+                <text class="group-name" :x="groupCenter(entry)" y="48" text-anchor="middle">{{ entry.label }}</text>
+                <text class="group-speed" :x="groupCenter(entry)" y="116" text-anchor="middle">{{ entry.gigabits }}G</text>
 
                 <template v-for="(left, index) in portsOf(entry)" :key="index">
                     <path
@@ -278,16 +277,16 @@ const groupCentre = (entry: Port) => (entry.x + (entry.count - 1) * entry.gap + 
             </g>
 
             <g v-if="drawn" :class="['held', drawn.kind, { inside: drawn.inside }]">
-                <template v-if="drawn.carrier === 'fibre'">
-                    <line class="lead fibre" :x1="drawn.centre - 6" :y1="drawn.bottom" :x2="drawn.centre - 6" y2="226" />
-                    <line class="lead fibre" :x1="drawn.centre + 6" :y1="drawn.bottom" :x2="drawn.centre + 6" y2="226" />
+                <template v-if="drawn.carrier === 'fiber'">
+                    <line class="lead fiber" :x1="drawn.center - 6" :y1="drawn.bottom" :x2="drawn.center - 6" y2="226" />
+                    <line class="lead fiber" :x1="drawn.center + 6" :y1="drawn.bottom" :x2="drawn.center + 6" y2="226" />
                 </template>
-                <line v-else class="lead thick" :x1="drawn.centre" :y1="drawn.bottom" :x2="drawn.centre" y2="226" />
+                <line v-else class="lead thick" :x1="drawn.center" :y1="drawn.bottom" :x2="drawn.center" y2="226" />
 
                 <rect class="thing" :x="drawn.x" :y="drawn.y" :width="drawn.width" :height="drawn.height" />
-                <template v-if="drawn.carrier === 'fibre'">
-                    <circle class="hole" :cx="drawn.centre - 6" :cy="drawn.y + drawn.height / 2" r="3" />
-                    <circle class="hole" :cx="drawn.centre + 6" :cy="drawn.y + drawn.height / 2" r="3" />
+                <template v-if="drawn.carrier === 'fiber'">
+                    <circle class="hole" :cx="drawn.center - 6" :cy="drawn.y + drawn.height / 2" r="3" />
+                    <circle class="hole" :cx="drawn.center + 6" :cy="drawn.y + drawn.height / 2" r="3" />
                 </template>
                 <path
                     v-if="drawn.carrier === 'copper'"
@@ -315,7 +314,7 @@ const groupCentre = (entry: Port) => (entry.x + (entry.count - 1) * entry.gap + 
                             <rect x="34" y="6" width="20" height="12" class="part" />
                             <path d="M40 6v-3h8v3" class="wire" />
                         </template>
-                        <template v-else-if="entry.carrier === 'fibre'">
+                        <template v-else-if="entry.carrier === 'fiber'">
                             <line x1="2" y1="10" x2="20" y2="10" class="wire" />
                             <line x1="2" y1="14" x2="20" y2="14" class="wire" />
                             <rect
@@ -354,9 +353,7 @@ const groupCentre = (entry: Port) => (entry.x + (entry.count - 1) * entry.gap + 
         </div>
 
         <p v-if="verdict" class="ac-say" :class="verdict.kind" :data-word="verdict.word" aria-live="polite">{{ verdict.text }}</p>
-        <p v-else class="ac-say hint" aria-live="polite">
-            {{ item ? "Now pick a port to plug it into." : "Take something from the tray, then pick a port to plug it into." }}
-        </p>
+        <p v-else class="ac-say hint" aria-live="polite">Try each one in a port it fits, and in one it does not.</p>
     </div>
 </template>
 
@@ -435,7 +432,7 @@ const groupCentre = (entry: Port) => (entry.x + (entry.count - 1) * entry.gap + 
     stroke-width: 6;
 }
 
-.lead.fibre {
+.lead.fiber {
     stroke-width: 2.5;
 }
 

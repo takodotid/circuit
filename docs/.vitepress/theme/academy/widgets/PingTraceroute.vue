@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: routers and the gateway. The reader runs ping to four addresses and tracert to a far server from a laptop, and watches echo requests, replies and "time exceeded" notes travel, while the laptop prints what Windows would print.
+// Lesson: routers and the gateway. The reader runs ping to four addresses and tracert to a far server from a laptop, and watches echo requests, replies, and "time exceeded" notes travel, while the laptop prints what Windows would print.
 
 import { computed, ref } from "vue";
 import { useTravel, type Point } from "../travel";
@@ -150,7 +150,7 @@ const commandLine = (command: PingCommand | TraceCommand) =>
 /** The TTL a device sets on a packet it sends. Many start at 64, others at 128. */
 const REPLY_TTL = 64;
 
-/** The three round-trip times tracert prints for each hop, in milliseconds; none for the silent router. */
+/** The three round-trip times tracert prints for each hop, in milliseconds, and none for the silent router. */
 const traceTimes: Record<number, number[] | undefined> = {
     1: [2, 1, 1],
     2: [8, 9, 8],
@@ -251,12 +251,12 @@ async function runPing(ping: PingCommand) {
                 ? {
                       kind: "warn",
                       word: "No reply",
-                      text: "The shop server is on, and its website opens. But its firewall, a filter that decides which packets may come in, throws away every echo request. So ping sees the same silence as for an address nobody has: Request timed out does not prove that a device is off.",
+                      text: "The shop server is on, and its website opens. But its firewall throws away every echo request. So ping sees the same silence as for an address nobody has.",
                   }
                 : {
                       kind: "bad",
                       word: "No reply",
-                      text: `The far router asked its own network who has ${NOBODY_ADDRESS}, nobody answered, and it dropped the request. This router sends no note back, so the laptop only waits, and after a few seconds prints Request timed out. Some routers do send a note saying the address cannot be reached, and ping prints that instead.`,
+                      text: `The far router asked its own network who has ${NOBODY_ADDRESS}. Nobody answered, so it dropped the request. This router sends no note back, so the laptop waits a few seconds and prints Request timed out. Some routers send a note that the address cannot be reached, and ping prints that instead.`,
                   };
         return;
     }
@@ -296,12 +296,12 @@ async function runPing(ping: PingCommand) {
             ? {
                   kind: "good",
                   word: "Reply",
-                  text: `The main router answered all four in about ${average} ms there and back. TTL=${ttl}: it set ${REPLY_TTL} on its reply, and no router stood between it and the laptop to lower it. A quick reply from the gateway means the laptop's own network works.`,
+                  text: `The main router answered all four in about ${average} ms there and back. TTL=${ttl}, because it set ${REPLY_TTL} on its reply and no router between them lowered it. A quick reply from the gateway means the laptop's own network works.`,
               }
             : {
                   kind: "good",
                   word: "Reply",
-                  text: `The far server answered all four in about ${average} ms there and back. Its reply set off with TTL ${REPLY_TTL}, and ${routersBack} routers each lowered it by one on the way back, so it arrived with ${ttl}. The middle router passed the ping on like the others.`,
+                  text: `The far server answered all four in about ${average} ms there and back. Its reply left with TTL ${REPLY_TTL}, and ${routersBack} routers each lowered it by one on the way back, so it arrived with ${ttl}. The middle router passed the ping on like the others.`,
               };
 }
 
@@ -372,7 +372,7 @@ async function runTrace() {
     said.value = {
         kind: "good",
         word: "Trace complete",
-        text: "Five hops: four routers, then the server. Row 3 is * * * because the middle router dropped its packet without a note. The way through it is fine: the packets with TTL 4 and 5 went through it and got answers.",
+        text: "Five hops: four routers, then the server. Row 3 is * * * because the middle router dropped its packet without a note. The way through it works, because the packets with TTL 4 and 5 went through it and got answers.",
     };
 }
 
@@ -395,7 +395,7 @@ function hopLine(hop: number, times?: number[], address?: string) {
 const hint = computed(() =>
     ranTrace.value
         ? "Run any command again, or pick another one."
-        : "Pick a command and press Run. Start with ping to the gateway, then the far server, then the two that stay silent, and finish with tracert."
+        : "Start with ping to the gateway, then the far server, then the two that stay silent. Finish with tracert."
 );
 </script>
 
@@ -405,7 +405,7 @@ const hint = computed(() =>
             class="ac-drawing"
             :viewBox="layout.viewBox"
             role="img"
-            aria-label="A laptop joined through four routers in a row, the main router, a provider router, a middle router and a far router, to a far server. The far router also has a shop server and an address nobody has on its network."
+            aria-label="A laptop joined to a far server through four routers in a row: the main router, a provider router, a middle router, and a far router. The far router also has a shop server and an address nobody has on its network."
         >
             <line
                 v-for="[a, b] in cables"
@@ -493,7 +493,7 @@ const hint = computed(() =>
         />
 
         <p v-if="output.length" class="caption">
-            Printed the way Windows prints it. The times are made up for this drawing; on a real network they differ every time.
+            Printed the way Windows prints it. The times are examples, and on a real network they differ every time.
             <template v-if="shownKind === 'trace'">
                 tracert sends three packets for each TTL, so each row has three times. On macOS and Linux the command is
                 <span class="ac-mono">traceroute -n</span>, and each row shows the address before the times, or just

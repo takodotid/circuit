@@ -9,26 +9,26 @@ const jobs: { id: Job; name: string; home: string; office: string }[] = [
     {
         id: "line",
         name: "Talks to the provider's line",
-        home: "The socket for the line from your provider, a fibre or a phone line. The box turns the light or the signal on that line into messages, a job called a modem. Some providers give you this part as a small box of its own.",
-        office: "The provider's own box, where its line ends. In an office it usually stays a box of its own, owned by the provider.",
+        home: "The socket for the line from your provider, a fiber or a phone line. The box turns the light or signal on that line into messages. This job is called a modem. Some providers give you the modem as a small box of its own.",
+        office: "The provider's own box, where its line ends. The provider usually owns it.",
     },
     {
         id: "router",
         name: "Joins your home to the internet",
-        home: "The router inside the box. It joins your home network to your provider's network, and passes every message for the internet out, and every answer back in to the right device.",
+        home: "The router inside the box joins your home network to your provider's network. It passes each message for the internet out, and each answer back in to the right device.",
         office: "A router of its own, often with two lines from two providers, so the office stays online when one fails.",
     },
     {
         id: "switch",
         name: "Joins devices with a cable",
         home: "The few sockets on the back, usually four, are a small switch built into the box. A computer or a TV plugged into one of them is on the same network as everything else at home.",
-        office: "A switch of its own, with 24 or 48 sockets, or several of them, one on each floor. Every desk and printer has its cable to one.",
+        office: "A switch of its own, with 24 or 48 sockets. A bigger office has one on each floor. Each desk and printer has a cable to one.",
     },
     {
         id: "wifi",
         name: "Joins devices without a cable",
         home: "The antennas, or the radio hidden inside the box, are a Wi-Fi access point. Phones and laptops join the network through it, as if they had a cable to the switch.",
-        office: "Access points of their own, on the ceiling, one every few rooms, each joined to the switch by a cable.",
+        office: "Access points of their own on the ceiling, one every few rooms. Each one has a cable to the switch.",
     },
 ];
 

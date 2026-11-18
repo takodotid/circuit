@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: opening a website. The reader steps through everything that happens between typing circuit.tako.id and seeing the page, with each message travelling the hops it really takes.
+// Lesson: opening a website. The reader steps through everything that happens between typing circuit.tako.id and seeing the page, with each message traveling the hops it really takes.
 
 import { computed, ref } from "vue";
 import { useTravel, type Point } from "../travel";
@@ -28,7 +28,7 @@ const cables: [Place, Place][] = [
 type Layout = {
     viewBox: string;
     at: Record<Place, Point>;
-    /** Where each name is written; the note goes one line under it. */
+    /** Where each name is written. The note goes one line under it. */
     labels: Record<Place, Label>;
     home: { x: number; y: number; width: number; height: number; labelX: number; labelY: number; anchor: "start" | "end" };
 };
@@ -85,7 +85,7 @@ type Step = {
 const steps: Step[] = [
     {
         title: "What the laptop already knows",
-        text: "Your laptop joined the home network earlier and was given its own address, the size of its network, a gateway and a DNS resolver to ask. How it got them is a lesson of the Elementary level; here they are simply there.",
+        text: "Your laptop joined the home network earlier. It was given its own address, the size of its network, a gateway, and a DNS resolver to ask. The DHCP lesson in the Elementary level shows how.",
         legs: [],
         lit: ["laptop"],
         card: {
@@ -99,7 +99,7 @@ const steps: Step[] = [
     },
     {
         title: "You type the name",
-        text: "You type circuit.tako.id and press Enter. To send anything, the browser needs an IP address, and neither the browser nor the laptop remembers one for this name.",
+        text: "You type circuit.tako.id and press Enter. To send anything, the browser needs an IP address. Neither the browser nor the laptop remembers one for this name.",
         legs: [],
         lit: ["laptop"],
         card: {
@@ -112,7 +112,7 @@ const steps: Step[] = [
     },
     {
         title: "Ask the resolver",
-        text: "198.51.100.53 is not on the home network, so the DNS question goes to the gateway, and from there to the provider. On the way out, the home router writes the home’s one public address on it as the sender: the address the internet knows your home by. The router remembers to pass the reply back to your laptop. The Elementary level shows how.",
+        text: "198.51.100.53 is not on the home network, so the DNS question goes to the gateway, and on to the provider. On the way out, the home router writes the home’s one public address on the question as the sender. It remembers to pass the reply back to your laptop. The NAT lesson in the Elementary level shows how.",
         legs: [["laptop", "home", "provider", "resolver"]],
         card: {
             label: "The question, as it leaves the laptop",
@@ -125,7 +125,7 @@ const steps: Step[] = [
     },
     {
         title: "The answer comes back",
-        text: "The resolver does not remember the name, so it asks a root server, the servers for .id and the servers for tako.id, out on the internet, as in the DNS lesson. Then it answers the laptop, and both remember the answer.",
+        text: "The resolver does not remember the name. So it asks a root server, the servers for .id, and the servers for tako.id, as in the DNS lesson. Then it answers the laptop, and both remember the answer.",
         legs: [
             ["resolver", "provider", "internet"],
             ["internet", "provider", "resolver"],
@@ -156,7 +156,7 @@ const steps: Step[] = [
     },
     {
         title: "The handshake on port 443",
-        text: "The browser opens a TCP conversation with port 443, the locked web program, on 203.0.113.80. Three messages cross: hello?, hello!, ok. Every router on the way looks up the address in its routing table and lowers the TTL by one.",
+        text: "The browser opens a TCP conversation with port 443, the locked web program, on 203.0.113.80. Three messages cross: hello?, hello!, and OK. Every router on the way looks up the address in its routing table and lowers the TTL by one.",
         legs: [out, back, out],
         card: {
             label: "The first message",
@@ -169,7 +169,7 @@ const steps: Step[] = [
     },
     {
         title: "Lock the conversation",
-        text: "The browser and the server agree on a secret key that only the two of them know, and the server shows a certificate that proves it really is circuit.tako.id. From here on, everything they send is scrambled with the key. The routers on the way still pass it on, but cannot read it.",
+        text: "The browser and the server agree on a secret key that only the two of them know. The server shows a certificate that proves it really is circuit.tako.id. From here on, everything they send is scrambled with the key. The routers on the way still pass it on, but cannot read it.",
         legs: [out, back],
         card: {
             label: "What anyone on the way sees",
@@ -194,7 +194,7 @@ const steps: Step[] = [
     },
     {
         title: "The page comes back in packets",
-        text: "The page is too big for one packet, so it is cut into numbered pieces. They cross the same hops back, and TCP on the laptop puts them in order and makes sure any lost piece is sent again.",
+        text: "The page is too big for one packet, so it is cut into numbered pieces. They cross the same hops back. TCP on the laptop puts them in order and makes sure any lost piece is sent again.",
         legs: [back],
         burst: 3,
         card: {
@@ -208,7 +208,7 @@ const steps: Step[] = [
     },
     {
         title: "The browser draws the page",
-        text: "The browser reads the page. It lists more things to fetch, such as pictures and styles, and the browser asks for them in the same way, often over the same conversation. Then it draws the page. The lock beside the name says the conversation is locked and the server proved its name.",
+        text: "The browser reads the page. The page lists more things to fetch, such as pictures and styles. The browser asks for them in the same way, often over the same conversation. Then it draws the page. The lock beside the name says the conversation is locked and the server proved its name.",
         legs: [],
         lit: ["laptop"],
         browser: true,
@@ -221,7 +221,7 @@ const step = computed(() => steps[index.value]!);
 const current = ref<Place[]>();
 
 const packets = [useTravel(300), useTravel(300), useTravel(300)];
-/** Which packets belong to the step on show; one left over from a step the reader moved away from is hidden. */
+/** Which packets belong to the step on show. A packet left over from a step the reader moved away from is hidden. */
 const shown = ref([false, false, false]);
 const pause = usePause();
 
