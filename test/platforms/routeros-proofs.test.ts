@@ -1,9 +1,9 @@
-// What a CCR2216 on RouterOS 7.23.5 printed, with names and addresses replaced, fed to the adapter.
+// What a CCR2216 on RouterOS 7.23.5, or on 7.24.6 where a test says so, printed, with names and addresses replaced, fed to the adapter.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { BgpWait } from "../../src/platforms/bgp-wait";
 import { Platforms } from "../../src/platforms";
-import type { Device, Port } from "../../src/model";
+import type { Device, Neighbor, Port } from "../../src/model";
 import { Fixtures } from "../fixtures";
 import { FakeSshDevice } from "./fake-ssh";
 
@@ -186,6 +186,87 @@ test("BFD timers and multihop BFD are no longer refused; BFD on a static route i
 
     expect(platform.unsupported(device)).toEqual([
         "routing.static_routes 192.0.2.0/24 bfd, a static route's check-gateway takes arp, none or ping on 7.23",
+    ]);
+});
+
+/** The edge router with a neighbor in a group, each with the description given. */
+function withDescriptions(neighbor?: string, group?: string): Device {
+    const bgp = edge.routing!.bgp!;
+    const test: Neighbor = { address: "198.51.100.1", neighbor_group: "test", ...(neighbor ? { description: neighbor } : {}) };
+    const neighborGroups = { test: { remote_as: 64496, ...(group ? { description: group } : {}) } };
+
+    return {
+        ...edge,
+        routing: { ...edge.routing, bgp: { ...bgp, neighbor_groups: neighborGroups, neighbors: { ...bgp.neighbors, test } } },
+    };
+}
+
+test("a BGP neighbor's description, or else its group's, is its connection's comment, which reads back as the router printed it (7.24.6)", () => {
+    const desired = platform.render(withDescriptions("Circuit test neighbor", "Circuit test group"));
+    expect(desired).toContain(
+        'add as=64500 comment="Circuit test neighbor" input.filter=REJECT-ALL-V4 instance=default local.role=ebgp name=test '
+    );
+
+    const printed = desired.replace("REJECT-ALL-V4 output.network=", "REJECT-ALL-V4 .network=").replace(" remote.as=64496", " .as=64496");
+    expect(printed).toContain(".network=bgp-networks-v4 remote.address=198.51.100.1/32 .as=64496");
+    expect(platform.plan(desired, printed, options).steps).toEqual([]);
+});
+
+test('a new description is one set, and none is comment="" (7.24.6)', () => {
+    const sent = (desired: Device, current: Device) =>
+        platform.plan(platform.render(desired), platform.render(current), options).steps.flatMap((step) => step.send);
+
+    expect(
+        sent(withDescriptions(undefined, "Circuit test group"), withDescriptions("Circuit test neighbor", "Circuit test group"))
+    ).toEqual(['/routing bgp connection set [ find remote.address="198.51.100.1/32" ] comment="Circuit test group"']);
+    expect(sent(withDescriptions(), withDescriptions(undefined, "Circuit test group"))).toEqual([
+        '/routing bgp connection set [ find remote.address="198.51.100.1/32" ] comment=""',
+    ]);
+});
+
+/** The edge router with a WireGuard interface and one peer, and the interface's endpoint when given. */
+function withWireGuard(endpoint?: "203.0.113.1/24" | "203.0.113.2"): Device {
+    const peer = {
+        name: "client",
+        public_key: "BQEfqiXI2qhli4vtMsyLf2PA2zME9/H/LHUOb74xbKA=",
+        allowed_addresses: ["192.0.2.2/32"],
+    } as const;
+    const wireguard = {
+        "wg-test": { listen_port: 51899, ...(endpoint ? { endpoint } : {}), private_key: { secret: "WG_TEST_KEY" }, peers: [peer] },
+    };
+
+    return { ...edge, interfaces: { ...edge.interfaces, wireguard } };
+}
+
+test("a WireGuard interface without an MTU reads back as the router printed it, with mtu=1420 (7.24.6)", () => {
+    const desired = platform.render(withWireGuard());
+    const printed = desired.replace(
+        'add listen-port=51899 name=wg-test private-key="<secret:WG_TEST_KEY>"',
+        "add listen-port=51899 mtu=1420 name=wg-test"
+    );
+    expect(printed).toContain("mtu=1420");
+
+    const plan = platform.plan(desired, printed, options);
+    expect(plan.problems).toEqual([]);
+    expect(plan.steps).toEqual([]);
+});
+
+test("a WireGuard interface's endpoint is each peer's client-endpoint, which the router's client config ends with the listen port (7.24.6)", () => {
+    const desired = platform.render(withWireGuard("203.0.113.1/24"));
+    expect(desired).toContain(
+        'add allowed-address=192.0.2.2/32 client-endpoint=203.0.113.1 interface=wg-test name=wg-test-client public-key="BQEfqiXI2qhli4vtMsyLf2PA2zME9/H/LHUOb74xbKA="'
+    );
+    // The router printed `Endpoint = 203.0.113.1:51899` in the peer's client config.
+    expect(platform.plan(desired, desired.replace(/ private-key="[^"]*"/, " mtu=1420"), options).steps).toEqual([]);
+
+    const sent = (desired: Device, current: Device) =>
+        platform.plan(platform.render(desired), platform.render(current), options).steps.flatMap((step) => step.send);
+    expect(sent(withWireGuard("203.0.113.2"), withWireGuard("203.0.113.1/24"))).toEqual([
+        "/interface wireguard peers set [ find name=wg-test-client ] client-endpoint=203.0.113.2",
+    ]);
+    // Without one, the client config has no `Endpoint` line.
+    expect(sent(withWireGuard(), withWireGuard("203.0.113.2"))).toEqual([
+        '/interface wireguard peers set [ find name=wg-test-client ] client-endpoint=""',
     ]);
 });
 

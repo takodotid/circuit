@@ -292,6 +292,7 @@ export class RouterOsRouting {
                 // Only stated when the routes differ in family from the address they are carried over.
                 afi: addressFamily === family ? undefined : family === "ipv6" ? "ipv6" : "ip",
                 as: bgp.asn,
+                comment: settings.description,
                 connect: settings.passive ? "no" : undefined,
                 "hold-time": settings.hold_time ? RouterOsSyntax.duration(settings.hold_time) : undefined,
                 "input.filter": RouterOsRouting.chainName(settings.import_policy ?? RouterOsRouting.REJECT_ALL, family),

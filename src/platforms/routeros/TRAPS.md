@@ -12,6 +12,7 @@
     - a list is not quoted with `;` between its items, even with one item: `topics="warning"` and `topics="script;debug"` match, `topics=warning` and `topics="script,debug"` do not (RB5009, 7.24.6).
 - The plan quotes only values that are not plain words. A selector that matches nothing removes nothing, and the next `diff` shows what stayed.
 - `~` in `find` has no anchors. Match exactly.
+- `where comment!=""` also matches an entry without a comment: it counted 41 BGP connections that had none. `comment~"."` counts only those with one (CCR2216, 7.24.6).
 - A property of the same group is printed as a bare suffix, `output.filter-chain=X .network=Y`, which only reads back inside that command. The parser expands it before building a `set`.
 - A `/32` address gives no connected route, so a session over it never opens. Give the far end: `{ address, peer_address }` renders `network=<peer_address>`.
 - `/routing bgp connection add` without `local.role` is refused, so the render always writes one. On 7.23 one without `instance` is refused too, `missing value(s) of argument(s) instance`, although the export never prints `instance=default`.
@@ -24,6 +25,7 @@
 - `tcp-md5-key` set from the CLI has been seen discarded without an error, and a mismatch logs nothing. Confirm with `/tool sniffer quick port=179`.
 - Incoming GRE is subject to the input chain. Accept it before testing the tunnel.
 - A WireGuard peer's name is unique on the device, and a new key under the same name is refused as a new peer: `entry with this name already exists`. The plan finds a peer by name, so a new key is a `set`.
+- The export prints a WireGuard interface's `mtu=1420` although it is the default. Circuit counts it as the default (CCR2216, 7.24.6).
 - `monitor-traffic` on a VLAN interface counts only what the CPU handles, and not consistently. Measure on the physical port, `/interface ethernet print stats`, which the switch chip counts.
 - A VLAN interface on the bridge adds a dynamic bridge VLAN entry for its VLAN, "added by vlan on bridge", beside the static one. A selector by `vlan-ids` then finds both, and a `set` on the pair fails with `no such item`. Selectors on bridge VLANs skip dynamic entries.
 - Any rule using fasttrack adds a dynamic "special dummy rule to show fasttrack counters" to the filter and the raw table. It cannot be removed, `cannot remove builtin`, so every selector over those menus skips dynamic entries.
