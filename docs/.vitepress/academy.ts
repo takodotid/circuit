@@ -280,5 +280,24 @@ export class Academy {
                 ...level.lessons.map((lesson, index) => ({ text: `${index + 1}. ${lesson.title}`, link: Academy.link(level, lesson) })),
             ],
         })),
+        // One practice per page, with no entry check: a reader opens the one they need.
+        {
+            text: "Best practices",
+            link: "/academy/practices/",
+            collapsed: false,
+            items: [
+                { text: "Exports end in a reject", link: "/academy/practices/exports-end-in-reject" },
+                { text: "Imports filter, then decide", link: "/academy/practices/import-filters" },
+                { text: "A prefix limit on every session", link: "/academy/practices/max-prefixes" },
+                { text: "Tunnels start outside what they carry", link: "/academy/practices/tunnel-sources" },
+                { text: "Drop forged sources", link: "/academy/practices/anti-spoofing" },
+                { text: "Drop reflected floods", link: "/academy/practices/reflected-floods" },
+                { text: "Management on its own network", link: "/academy/practices/management" },
+                { text: "Untrusted VLANs end at a filter", link: "/academy/practices/untrusted-vlans" },
+                { text: "One VLAN name, one ID", link: "/academy/practices/vlan-ids" },
+                { text: "A native VLAN is a dead end", link: "/academy/practices/native-vlans" },
+                { text: "Links written at both ends", link: "/academy/practices/links" },
+            ],
+        },
     ];
 }
