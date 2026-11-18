@@ -61,7 +61,7 @@ The same kind of cable joins a network to an exchange's switch, or to a transit 
 Every address and AS number must belong to one network at a time, and be recorded. This way routes can be trusted, and the routing tables of the internet stay small. A chain of registries makes sure of this:
 
 1. **IANA**, the Internet Assigned Numbers Authority, keeps the whole pool. It gives large blocks to the five regional registries.
-2. Five <Term means="The registries that hand out addresses and AS numbers: APNIC for Asia and the Pacific, and national ones such as IDNIC in Indonesia.">regional internet registries</Term> each serve a part of the world. [Networks of networks](/academy/intermediate/autonomous-systems) lists them. APNIC serves Asia and the Pacific.
+2. Five <Term means="The registries that hand out addresses and AS numbers: APNIC for Asia and the Pacific, and national ones such as IDNIC in Indonesia.">regional internet registries</Term> each serve a part of the world. [Networks of networks](/academy/intermediate/autonomous-systems#as-numbers-and-address-blocks) lists them. APNIC serves Asia and the Pacific.
 3. <Term means="The registries that hand out addresses and AS numbers: APNIC for Asia and the Pacific, and national ones such as IDNIC in Indonesia.">National internet registries</Term> exist in a few countries. The APNIC region has seven, in Indonesia, China, India, Japan, South Korea, Taiwan, and Vietnam. Indonesia's is IDNIC, run by APJII.
 4. **Providers** that have blocks hand smaller pieces to their customers.
 
