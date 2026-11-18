@@ -1,5 +1,5 @@
 // The edge router: BGP with an IP transit and an internet exchange, filtered on the way in and on the way out.
-// hurricane-electric and de-cix stand for your own transit and exchange. The addresses are documentation ranges: use the ones your providers give you.
+// Hurricane Electric and DE-CIX stand for your own transit and exchange. The addresses are documentation ranges, so use the ones your providers give you.
 
 import { as64500 } from "../../circuit";
 
