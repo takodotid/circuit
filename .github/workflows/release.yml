@@ -13,6 +13,8 @@ permissions: {}
 jobs:
     release:
         runs-on: ubuntu-latest
+        # GitHub lets only tags v* run in this environment.
+        environment: release
         permissions:
             contents: write
             # npm Trusted Publishing proves the workflow's identity with an OIDC token.
