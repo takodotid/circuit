@@ -8,6 +8,7 @@
 (?i)cflowd
 (?i)colocation
 (?i)conntrack
+(?i)containerlab
 (?i)datasheets?('s)?
 (?i)decap
 (?i)defconf
@@ -39,6 +40,7 @@
 (?i)querier
 (?i)stelnet
 (?i)stpforward
+(?i)subagents?('s)?
 (?i)syncookies
 (?i)sysname
 (?i)traceroute
