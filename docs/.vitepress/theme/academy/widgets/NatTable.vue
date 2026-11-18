@@ -325,12 +325,10 @@ const forwardLines = computed(() => (forwardOn.value ? [4, 5, 6, 7, 8, 9, 10, 11
                     <tr v-for="(header, index) in headers" :key="index">
                         <td>{{ header.moment }}</td>
                         <td class="ac-mono">
-                            <mark v-if="header.changed === 'from'">{{ header.from }}</mark
-                            ><template v-else>{{ header.from }}</template>
+                            <mark v-if="header.changed === 'from'">{{ header.from }}</mark><template v-else>{{ header.from }}</template>
                         </td>
                         <td class="ac-mono">
-                            <mark v-if="header.changed === 'to'">{{ header.to }}</mark
-                            ><template v-else>{{ header.to }}</template>
+                            <mark v-if="header.changed === 'to'">{{ header.to }}</mark><template v-else>{{ header.to }}</template>
                         </td>
                     </tr>
                 </tbody>

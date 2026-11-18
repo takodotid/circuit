@@ -1,7 +1,7 @@
 // Decrypting a secrets file's value in the browser, as Circuit encrypts it: `encrypted:` and the base64 of the version, salt, IV, ciphertext and tag, AES-256-GCM with a key made from the password by scrypt, and the secret's name bound to it. The password a person types is used here and never leaves the page.
 
-import { gcm } from "@noble/ciphers/aes";
-import { scryptAsync } from "@noble/hashes/scrypt";
+import { gcm } from "@noble/ciphers/aes.js";
+import { scryptAsync } from "@noble/hashes/scrypt.js";
 
 export class SecretsCrypto {
     private static readonly PREFIX = "encrypted:";

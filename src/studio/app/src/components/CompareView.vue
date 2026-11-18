@@ -151,8 +151,8 @@ const findings = computed(() => {
 
     <template v-if="comparison && devices && edges && findings">
         <p>
-            Against <strong>{{ comparison.commit.short }}</strong
-            >, {{ comparison.commit.subject }}, by {{ comparison.commit.author }}, {{ new Date(comparison.commit.date).toLocaleString() }}.
+            Against <strong>{{ comparison.commit.short }}</strong>, {{ comparison.commit.subject }}, by {{ comparison.commit.author }},
+            {{ new Date(comparison.commit.date).toLocaleString() }}.
         </p>
 
         <h3>Devices</h3>

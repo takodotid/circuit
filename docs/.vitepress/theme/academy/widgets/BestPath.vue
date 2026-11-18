@@ -239,8 +239,7 @@ function reset() {
                     <span class="tag">{{ route.session }}</span>
                 </header>
                 <p class="facts">
-                    AS path <span class="ac-mono">{{ route.path.join(" ") }}</span
-                    ><br />
+                    AS path <span class="ac-mono">{{ route.path.join(" ") }}</span><br />
                     Router ID <span class="ac-mono">{{ route.routerId }}</span>
                 </p>
 
