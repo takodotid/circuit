@@ -305,6 +305,7 @@ export const DEVICE = {
         bgp: {
             asn: 0,
             originated_prefixes: 0,
+            aggregates: [{ prefix: 0, summary_only: 0 }],
             neighbor_groups: { "*": NEIGHBOR_SETTINGS },
             neighbors: { "*": { ...NEIGHBOR_SETTINGS, address: 0, neighbor_group: 0 } },
         },

@@ -265,6 +265,8 @@ export class RouterOs extends Platform {
 
         const bgp = device.routing?.bgp;
 
+        if (bgp?.aggregates) found.push("routing.bgp.aggregates, RouterOS 7 BGP has no aggregate routes");
+
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
             const families = neighbor.address_families ?? group?.address_families ?? [Address.family(neighbor.address)];

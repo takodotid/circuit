@@ -33,6 +33,8 @@ export default as64500.device({
     routing: {
         router_id: "203.0.113.6",
         bgp: {
+            // Our block, announced while the customer's block inside it is up. The customer's block stays inside our network.
+            aggregates: [{ prefix: as64500.prefixes.ours.v4, summary_only: true }],
             neighbors: {
                 "hurricane-electric": {
                     address: "203.0.113.5",

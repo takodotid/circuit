@@ -139,3 +139,29 @@ test("ttl_security with multihop is an error, once at a group that has both", ()
         "routing.bgp.neighbors.cogent has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected",
     ]);
 });
+
+// BGP announces an aggregate only while it holds a route inside it, and only where an export accepts it. A policy the config can't decide on is left alone.
+test("an aggregate no export accepts, or with nothing inside it, is an error", () => {
+    const device = Fixtures.device("platforms--example-aggregation-switch");
+    const bgp = device.routing!.bgp!;
+    const found = (changed: Device) => messages(changed).filter((message) => message.startsWith("routing.bgp.aggregates"));
+    const withAggregates = (aggregates: NonNullable<typeof bgp.aggregates>, neighbors = bgp.neighbors) =>
+        found({ ...device, routing: { ...device.routing, bgp: { ...bgp, aggregates, neighbors } } });
+    const noExport = (prefix: string) =>
+        `routing.bgp.aggregates ${prefix}: no neighbor's export_policy accepts it, so BGP announces it to no one. Add { if: { prefix: "${prefix}" }, then: "accept" } to the export_policy of each neighbor that should get it, before any rule that rejects it`;
+
+    // transit-out accepts what is inside 203.0.113.64/26, after a call that decides nothing. customer-out accepts only 0.0.0.0/0.
+    expect(withAggregates([{ prefix: "203.0.113.64/27" }])).toEqual([]);
+    expect(withAggregates([{ prefix: "203.0.113.0/24", summary_only: true }])).toEqual([noExport("203.0.113.0/24")]);
+
+    const collector = { address: "192.0.2.90" as const, remote_as: 64500, export_policy: "transit-out" };
+    expect(withAggregates([{ prefix: "198.51.100.0/24" }], { collector })).toEqual([
+        "routing.bgp.aggregates 198.51.100.0/24 has no route inside it to stand for: no prefix of originated_prefixes is inside it, and no neighbor that carries ipv4 has an import_policy. Add the prefixes inside it to originated_prefixes",
+        noExport("198.51.100.0/24"),
+    ]);
+
+    // An RPKI state is not known before the route exists.
+    const policies = { ...device.routing!.policies, "transit-out": [{ if: { rpki: "valid" as const }, then: "accept" as const }] };
+    const aggregates = [{ prefix: "203.0.113.0/24" as const }];
+    expect(found({ ...device, routing: { ...device.routing, policies, bgp: { ...bgp, aggregates } } })).toEqual([]);
+});

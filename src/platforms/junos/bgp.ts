@@ -9,8 +9,11 @@ export class JunosBgp {
     /** The policy of a session that states none, so it learns or announces nothing. */
     private static readonly REJECT_ALL = "circuit-reject-all";
 
-    /** The policy every export starts with. BGP's own routes and the prefixes the device originates go on to the session's policy. The device's other routes never reach it. */
+    /** The policy every export starts with. BGP's own routes, the prefixes the device originates, and its aggregates go on to the session's policy. The device's other routes never reach it. */
     private static readonly ORIGIN = "circuit-bgp-origin";
+
+    /** The routes an aggregate stands for: BGP's own routes and the prefixes the device originates, as on platforms whose aggregates count only BGP's routes. */
+    private static readonly CONTRIBUTORS = "circuit-aggregate-contributors";
 
     /** The policy that announces a default route to a session with `send_default_route`, before its own policy. */
     private static readonly DEFAULT_ROUTE = "circuit-default-route";
@@ -139,6 +142,7 @@ export class JunosBgp {
 
         if (exports) this.origin();
 
+        this.aggregates();
         for (const family of defaults) this.defaultRoute(family);
 
         for (const policy of [...used].sort()) this.policyStatement(policy);
@@ -146,11 +150,20 @@ export class JunosBgp {
 
     private origin(): void {
         const statement = `policy-options policy-statement ${JunosBgp.ORIGIN}`;
+        const aggregates = this.device.routing?.bgp?.aggregates ?? [];
+
+        // The routes inside an aggregate with `summary_only` stay with the device. Junos has no setting for it, so the export rejects them.
+        const summaries = aggregates.filter((aggregate) => aggregate.summary_only).map(({ prefix }) => prefix);
+        this.termsByFamily(statement, "summary-only", summaries, "longer", "reject");
+
         this.out.set(statement, "term bgp from protocol bgp");
         this.out.set(statement, "term bgp then next policy");
 
         // `networks` is 0.x's name for the term, kept so a device that holds it is not rewritten.
         this.termsByFamily(statement, "networks", this.device.routing?.bgp?.originated_prefixes ?? [], "exact", "next policy");
+
+        const prefixes = aggregates.map(({ prefix }) => prefix);
+        this.termsByFamily(statement, "aggregates", prefixes, "exact", "next policy", ["protocol aggregate"]);
 
         this.out.set(statement, "term others then reject");
     }
@@ -173,6 +186,25 @@ export class JunosBgp {
             for (const prefix of own) this.out.set(term, "from route-filter", prefix, match);
             this.out.set(term, "then", then);
         }
+    }
+
+    /** Each aggregate stands for BGP's routes and the originated prefixes inside it, as `CONTRIBUTORS` says. */
+    private aggregates(): void {
+        const bgp = this.device.routing!.bgp!;
+        if (!bgp.aggregates?.length) return;
+
+        for (const { prefix } of bgp.aggregates) {
+            const options = Address.family(Address.host(prefix)) === "ipv6" ? "routing-options rib inet6.0" : "routing-options";
+            this.out.set(`${options} aggregate route ${prefix} policy ${JunosBgp.CONTRIBUTORS}`);
+        }
+
+        const statement = `policy-options policy-statement ${JunosBgp.CONTRIBUTORS}`;
+        this.out.set(statement, "term bgp from protocol bgp");
+        this.out.set(statement, "term bgp then accept");
+
+        this.termsByFamily(statement, "networks", bgp.originated_prefixes ?? [], "exact", "accept");
+
+        this.out.set(statement, "term others then reject");
     }
 
     /** Junos has no setting that sends a neighbor a default route, so an aggregate makes one that is always there, `passive` even without a route under it. Its preference is the highest, so any other default route wins, and that one is announced instead. */

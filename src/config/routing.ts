@@ -90,12 +90,22 @@ export type Neighbor<P extends string, G extends string, T extends string, Net e
     neighbor_group?: G;
 };
 
+/** A prefix BGP announces in place of the more specific routes inside it (RFC 4271). */
+export type BgpAggregate = {
+    /** The aggregate. BGP announces it while it holds a more specific route inside it, learned from a neighbor or in `originated_prefixes`. Like any route, it reaches only the neighbors whose export policy accepts it. Traffic to an address inside it that no more specific route covers is dropped. */
+    prefix: Prefix;
+    /** Announce the aggregate alone, and none of the more specific routes inside it. */
+    summary_only?: true;
+};
+
 /** BGP on this device. `G` is the device's neighbor groups. */
 export type Bgp<P extends string, G extends string, T extends string, Net extends NetworkFacts = AnyFacts> = {
     /** Our AS number. The network's `asn` when absent. */
     asn?: number;
     /** Prefixes this device originates. Each needs a route, such as a static blackhole route. The export policies still decide who gets them. */
     originated_prefixes?: readonly Prefix[];
+    /** Aggregates BGP announces, such as `{ prefix: "198.51.100.0/24", summary_only: true }`. */
+    aggregates?: readonly BgpAggregate[];
     /** Settings shared by several neighbors, keyed by group name. */
     neighbor_groups?: Named<G, NeighborSettings<P, T, Net>>;
     /** BGP sessions, keyed by name. */

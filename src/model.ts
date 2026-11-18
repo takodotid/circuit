@@ -68,6 +68,7 @@ export type TcpMssRule = C.TcpMssRule<string, string, string>;
 export type AclRule = C.AclRule<string>;
 export type PolicyRule = C.PolicyRule<string, string>;
 export type RouteRule = C.RouteRule<string>;
+export type RouteMatch = C.RouteMatch<string>;
 export type CallRule = C.CallRule<string>;
 export type RoutingRule = C.RoutingRule<string, string>;
 export type StaticRoute = C.StaticRoute<string, string, string>;

@@ -371,6 +371,15 @@ export class FortiOsRouting {
             const entry = block.block(family === "ipv4" ? "network" : "network6").entry(++networks[family]);
             entry.set(family === "ipv4" ? "prefix" : "prefix6", FortiOsRouting.listPrefix(prefix, family));
         }
+
+        const aggregates = { ipv4: 0, ipv6: 0 };
+
+        for (const aggregate of bgp.aggregates ?? []) {
+            const family = FortiOsNames.familyOfPrefix(aggregate.prefix);
+            const entry = block.block(family === "ipv4" ? "aggregate-address" : "aggregate-address6").entry(++aggregates[family]);
+            entry.set(family === "ipv4" ? "prefix" : "prefix6", FortiOsRouting.listPrefix(aggregate.prefix, family));
+            if (aggregate.summary_only) entry.set("summary-only", "enable");
+        }
     }
 
     /** The family a rule is limited to, by its match: a family, a prefix, or a prefix set of one family. */
