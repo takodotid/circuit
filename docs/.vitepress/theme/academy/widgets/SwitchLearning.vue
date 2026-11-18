@@ -9,7 +9,7 @@ type Layout = {
     viewBox: string;
     /** Where the switch is drawn. */
     hub: Point;
-    /** Each port's device, in port order: its centre, and where its cable leaves it. */
+    /** Each port's device, in port order: its center, and where its cable leaves it. */
     spots: { x: number; y: number; edge: number }[];
     /** Where the switch's name is written, when it is not under the switch. */
     switchLabel?: Point;
@@ -145,7 +145,7 @@ async function send() {
         said.value = {
             kind: "good",
             word: "Broadcast",
-            text: `${learned} The frame was for ${Lan.BROADCAST}, the address that means everyone, so the switch sent a copy out of every other port, and every device kept it.`,
+            text: `${learned} The frame was for ${Lan.BROADCAST}, the address for everyone. So the switch sent a copy out of every other port, and every device kept it.`,
         };
     } else if (entry) {
         goals.value.direct = true;
@@ -160,13 +160,13 @@ async function send() {
         said.value = {
             kind: "good",
             word: "Flooded",
-            text: `${learned} It has no row for ${target!.mac} yet, so it flooded the frame: a copy out of every port except the one it came in on. The ${target!.label.toLowerCase()} kept it, and the other ${others} saw it was not for them and ignored it. Now send one back from the ${target!.label.toLowerCase()} to the ${sender.label.toLowerCase()}.`,
+            text: `${learned} It has no row for ${target!.mac} yet, so it flooded the frame out of every port except the one it came in on. The ${target!.label.toLowerCase()} kept it. The other ${others} saw it was not for them and ignored it. Now send one back from the ${target!.label.toLowerCase()} to the ${sender.label.toLowerCase()}.`,
         };
     }
 
     if (allKnownNow) {
         goals.value.everyone = true;
-        said.value.text += " The table now has all five devices: from here on, a frame between two of them goes out of one port only.";
+        said.value.text += " The table now has all five devices. From now on, a frame between two of them goes out of one port only.";
     }
 
     busy.value = false;
@@ -193,7 +193,7 @@ function clearTable() {
             class="ac-drawing"
             :viewBox="layout.viewBox"
             role="img"
-            aria-label="Five devices: a laptop, a desktop, a printer, a camera and a server, each joined by a cable to its own numbered port on one switch."
+            aria-label="Five devices: a laptop, a desktop, a printer, a camera, and a server. Each one has a cable to its own numbered port on one switch."
         >
             <line
                 v-for="host in Lan.HOSTS"
@@ -274,8 +274,7 @@ function clearTable() {
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
         <p v-else-if="busy" class="ac-say hint" aria-live="polite">The frame is on its way to the switch.</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            The switch has not seen a frame yet, so its table is empty. Send a frame from the laptop to the printer, and watch which ports
-            it goes out of.
+            The numbered squares are the switch's ports. Send a frame from the laptop to the printer, and watch which ports it goes out of.
         </p>
 
         <div class="panels">

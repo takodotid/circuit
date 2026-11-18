@@ -183,11 +183,10 @@ const finished = computed(() => index.value === rounds.length - 1 && result.valu
             aria-live="polite"
         >
             {{ result.text }}
-            <template v-if="finished"> That is all five: you switched every frame the way a switch does.</template>
         </p>
         <p v-else class="ac-say hint" aria-live="polite">
-            You are the switch. Pick the ports this frame goes out of, then press Check. You can see which device is plugged into each port;
-            the switch knows only what its table says.
+            Read the frame's To address, then look for it in the table. You can see which device is behind each port, but the switch knows
+            only its table.
         </p>
     </div>
 </template>
