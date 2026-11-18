@@ -3,7 +3,7 @@
 import { expect, test } from "bun:test";
 import { Validation } from "../../src/checks";
 import { BuiltInChecks } from "../../src/checks/built-in";
-import type { Device, PolicyRule } from "../../src/model";
+import type { Device, PolicyRule, PrefixSet } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
 const router = Fixtures.device("platforms--example-router");
@@ -157,6 +157,27 @@ test("tunnels_outside_offered finds a tunnel sourced from inside what a neighbor
             interfaces: { ...tunnelled.interfaces, gre: { tunnel: { ...tunnelled.interfaces!.gre!.tunnel!, local_address: "192.0.2.1" } } },
         })
     ).toEqual([]);
+});
+
+test("tunnels_outside_offered finds a tunnel sourced from inside a prefix set the export accepts", () => {
+    const tunnelled: Device = {
+        ...withExport([{ if: { prefix_set: "ours" }, then: "accept" }, { then: "reject" }]),
+        interfaces: {
+            ...router.interfaces,
+            gre: { tunnel: { local_address: "198.51.100.1", remote_address: "192.0.2.200", addresses: ["203.0.113.0/30"] } },
+        },
+    };
+    const withOurs = (ours: PrefixSet): Device => ({ ...tunnelled, routing: { ...tunnelled.routing, prefix_sets: { ours } } });
+    const run = (device: Device) => BuiltInChecks.run([device], { tunnels_outside_offered: true }).map((finding) => finding.message);
+
+    const finding =
+        "interfaces.gre.tunnel is sourced from 198.51.100.1, inside 198.51.100.0/24, which routing.bgp.neighbors.upstream-1 is offered";
+    expect(run(withOurs({ prefixes: ["2001:db8::/32", "198.51.100.0/24"] }))).toEqual([finding]);
+    expect(run(withOurs({ prefixes: { main: "198.51.100.0/24" } }))).toEqual([finding]);
+    expect(run(withOurs({ prefixes: ["192.0.2.0/24"] }))).toEqual([]);
+
+    // A set fetched from a registry is known only when diff runs.
+    expect(run(withOurs({ source: { registry: "ripe-stat", query: "AS64500", family: "ipv4" } }))).toEqual([]);
 });
 
 // The rules 0.x's `Bgp.announce` returned: an accept for each prefix at its length, then the reject.

@@ -13,7 +13,7 @@ export type NetworkChecks = Checks<string>;
 type NeighborPolicies = { name: string; address: string; role?: string; importPolicy?: string; exportPolicy?: string };
 
 /** A route policy rule as the checks read it: a route rule, or a call, which has neither `if` nor `then`. */
-type LooseRule = { if?: { prefix?: string }; then?: string; call?: string };
+type LooseRule = { if?: { prefix?: string; prefix_set?: string }; then?: string; call?: string };
 
 export class BuiltInChecks {
     /** Each check the network turns on. A name that is not one of Circuit's is the project's own, which reading the project ran. */
@@ -60,11 +60,18 @@ export class BuiltInChecks {
         return BuiltInChecks.lastRuleOf(device, last.call, seen);
     }
 
-    /** The prefixes an export policy accepts by name. */
+    /** The prefixes an export policy accepts, by `prefix` or by `prefix_set`. A set fetched from a registry is left out: its prefixes are known only when `diff` runs. */
     static offered(device: Device, policy: string | undefined): string[] {
-        return BuiltInChecks.rulesOf(device, policy)
-            .filter((rule) => rule.then === "accept" && rule.if?.prefix)
-            .map((rule) => rule.if!.prefix!);
+        const accepts = BuiltInChecks.rulesOf(device, policy).filter((rule) => rule.then === "accept");
+
+        return accepts.flatMap((rule) => {
+            if (rule.if?.prefix) return [rule.if.prefix];
+
+            const set = rule.if?.prefix_set ? device.routing?.prefix_sets?.[rule.if.prefix_set] : undefined;
+            if (!set || !("prefixes" in set)) return [];
+
+            return Array.isArray(set.prefixes) ? set.prefixes : Object.values(set.prefixes);
+        });
     }
 
     /** The VLANs a port or LAG carries, untagged or tagged. */
