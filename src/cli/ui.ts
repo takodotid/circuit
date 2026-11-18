@@ -79,25 +79,34 @@ export class Ui {
         console.log(`${Ui.green("✔")} ${message}`);
     }
 
-    private static filtered = false;
+    /** The filter every printer passes text through, and the mark on a printer that already does. */
+    private static filter: (text: string) => string = (text) => text;
+    private static readonly FILTERED = Symbol("filtered");
 
     /**
-     * From now on, every text Circuit prints passes through `filter` first, from wherever it is printed. Call it before a spinner starts, which puts back the printers it found. Bytes pass as they are, such as a console's live stream: a chunk can end in the middle of what the filter looks for.
+     * From now on, every text Circuit prints passes through `filter` first, from wherever it is printed. Call it before a spinner starts, which puts back the printers it found. Bytes pass as they are, such as a console's live stream: a chunk can end in the middle of what the filter looks for. A printer replaced since is wrapped on the next call.
      */
     static filterOutput(filter: (text: string) => string): void {
-        if (Ui.filtered) return;
-        Ui.filtered = true;
+        Ui.filter = filter;
+        const filtered = (printer: object) => Ui.FILTERED in printer;
 
         for (const stream of [process.stdout, process.stderr]) {
+            if (filtered(stream.write)) continue;
             const write = stream.write.bind(stream) as (chunk: unknown, ...rest: unknown[]) => boolean;
-            stream.write = ((chunk: unknown, ...rest: unknown[]) =>
-                write(typeof chunk === "string" ? filter(chunk) : chunk, ...rest)) as typeof stream.write;
+            stream.write = Object.assign(
+                (chunk: unknown, ...rest: unknown[]) => write(typeof chunk === "string" ? Ui.filter(chunk) : chunk, ...rest),
+                { [Ui.FILTERED]: true }
+            ) as typeof stream.write;
         }
 
         // Bun's console writes to the terminal itself, not through the streams above.
         for (const name of ["log", "info", "warn", "error", "debug"] as const) {
             const print = console[name];
-            console[name] = (...args: unknown[]) => print(...args.map((arg) => (typeof arg === "string" ? filter(arg) : arg)));
+            if (filtered(print)) continue;
+            console[name] = Object.assign(
+                (...args: unknown[]) => print(...args.map((arg) => (typeof arg === "string" ? Ui.filter(arg) : arg))),
+                { [Ui.FILTERED]: true }
+            );
         }
     }
 
