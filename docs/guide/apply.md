@@ -79,7 +79,7 @@ If a check fails, `apply` fails, but the change stays on the device. Fix the pro
 Circuit logs in over SSH as `connection.user`. If that user has `ssh_keys`, Circuit tries them in this order:
 
 1. A key in your SSH agent, such as 1Password's or the system's (`SSH_AUTH_SOCK`).
-2. `~/.ssh/id_ed25519`, `id_ecdsa` or `id_rsa`, if its `.pub` file is in `ssh_keys` and it has no passphrase.
+2. `~/.ssh/id_ed25519`, `id_ecdsa`, or `id_rsa`, if its `.pub` file is in `ssh_keys` and it has no passphrase.
 3. The user's password.
 
 Circuit offers only the keys in `ssh_keys`, because some devices lock an account after a few failed tries. If the device refuses the key, Circuit warns you and uses the password.

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: reaching the customer. The reader sets a GPON splitter's size, the homes' plan and how many homes are busy, and sees how the fiber's capacity is shared between them.
+// Lesson: reaching the customer. The reader sets a GPON splitter's size, the homes' plan, and how many homes are busy, and sees how the fiber's capacity is shared between them.
 
 import { computed, ref } from "vue";
 

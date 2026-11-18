@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: hijacks and leaks. The reader writes ROAs and a route, and sees route origin validation decide valid, invalid or not found, ROA by ROA.
+// Lesson: hijacks and leaks. The reader writes ROAs and a route, and sees route origin validation decide valid, invalid, or not found, ROA by ROA.
 
 import { computed, ref } from "vue";
 import { type Roa, Rov } from "./OriginCheck";

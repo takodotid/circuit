@@ -37,7 +37,7 @@ const steps = [
     },
     {
         title: "The laptop is on the network",
-        text: "The laptop sets its address, mask, gateway and DNS server, and can now reach anything. Halfway through the lease, it asks the router to renew it, so while it stays, it keeps the same address.",
+        text: "The laptop sets its address, mask, gateway, and DNS server, and can now reach anything. Halfway through the lease, it asks the router to renew it, so while it stays, it keeps the same address.",
     },
 ];
 

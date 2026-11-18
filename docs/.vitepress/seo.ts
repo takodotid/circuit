@@ -24,7 +24,7 @@ export class Seo {
         hasPart: { "@type": "WebPageElement", isAccessibleForFree: false, cssSelector: ".vp-doc" },
     };
 
-    /** A page's markdown, with each `<!--@include: file-->` replaced by the file it names. */
+    /** A page's markdown, with each `<!--@include: file-->` replaced by the file it points to. */
     private static source(file: string): string {
         const text = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
 
@@ -58,7 +58,7 @@ export class Seo {
             .map((block) => block.trim());
 
         for (const block of blocks) {
-            // Prose is not a heading, list, table, quote or markup.
+            // Prose is not a heading, list, table, quote, or markup.
             if (!block || /^(#|\||<|>|-|\*|!|\d+\.)/.test(block) || block.includes("{{")) continue;
 
             const code: string[] = [];

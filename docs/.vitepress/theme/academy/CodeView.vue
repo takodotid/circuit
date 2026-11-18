@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// Code that a widget writes as the reader plays: a device file, a plan or a terminal, on the same navy ground as every code block.
+// Code that a widget writes as the reader plays: a device file, a plan, or a terminal, on the same navy ground as every code block.
 
 import { computed } from "vue";
 
 const props = withDefaults(
     defineProps<{
         code: string;
-        /** `ts` for a Circuit file, `plan` for lines marked +, - and ~, `shell` for commands and what they print. */
+        /** `ts` for a Circuit file, `plan` for lines marked +, -, and ~, `shell` for commands and what they print. */
         lang?: "ts" | "plan" | "shell" | "text";
         /** The file's name, shown on a tab above the code. */
         title?: string;

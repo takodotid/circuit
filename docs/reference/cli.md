@@ -2,7 +2,7 @@
 description: Every circuit command and its options.
 ---
 
-# The circuit command
+# The `circuit` command
 
 Run `circuit` alone for a menu, and Circuit asks for the rest, such as the device. Or run a command straight away, such as `circuit validate`.
 
@@ -55,7 +55,7 @@ Circuit refuses any command that could change the device, before it connects.
 
 | Platform     | Allowed                                                                          |
 | ------------ | -------------------------------------------------------------------------------- |
-| RouterOS     | `print`, `monitor`, `ping`, `traceroute`, `torch`, `export` and the like         |
+| RouterOS     | `print`, `monitor`, `ping`, `traceroute`, `torch`, `export`, and the like        |
 | VRP          | `display ...`                                                                    |
 | Raisecom ROS | `show ...`                                                                       |
 | Junos        | `show ...`                                                                       |

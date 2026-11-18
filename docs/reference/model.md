@@ -14,8 +14,8 @@ Circuit only knows devices. It has no idea of a tenant, an upstream, or a custom
 
 ```
 asn            the network's AS
-prefixes       the network's own prefixes, in named groups, for devices, checks and integrations
-communities    the catalogue: each community the scheme defines, with what it means
+prefixes       the network's own prefixes, in named groups, for devices, checks, and integrations
+communities    the catalog: each community the scheme defines, with what it means
 sites          by name: a description, and a number for communities. Nothing more.
 devices        by hostname: one device each (below)
 checks         Circuit's checks, turned on by name with their settings, and the project's own
@@ -60,7 +60,7 @@ A platform may drop what it can't hold, and says so. For example, a VLAN on Rais
 
 ## Communities and checks
 
-`communities` in the model is the catalogue: every community the scheme defines, with what it means. `nnn` stands for any number.
+`communities` in the model is the catalog: every community the scheme defines, with what it means. `nnn` stands for any number.
 
 The built-in checks read the model. A project's own checks read each device in the config's shape. See [Your own checks](/guide/checks#your-own-checks).
 

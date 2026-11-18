@@ -25,10 +25,10 @@ Any other name in `checks` takes a function that gets the network and returns wh
 
 <<< @/../examples/edge-router/lib/checks.ts
 
-- Your check sees each device as the device runs it, with its parts merged in. Each `call`, `{ communities }` rule, interface set and `management.allow` is replaced by what it stands for. Each neighbor holds what it takes from its group.
+- Your check sees each device as the device runs it, with its parts merged in. Each `call`, `{ communities }` rule, interface set, and `management.allow` is replaced by what it stands for. Each neighbor holds what it takes from its group.
 - It gets a copy, so it can't change anything.
 - Return `device` and `path` with the message, and Circuit shows the file and line.
-- For IP math, use the global `address`: `.contains(outer, inner)`, `.overlaps(a, b)`, `.family(x)`, `.host(x)`, `.first(x)` and `.last(x)`.
+- For IP math, use the global `address`: `.contains(outer, inner)`, `.overlaps(a, b)`, `.family(x)`, `.host(x)`, `.first(x)`, and `.last(x)`.
 
 Only files in `lib/` import from Circuit, and only types.
 

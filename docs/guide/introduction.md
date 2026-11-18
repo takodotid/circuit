@@ -23,10 +23,10 @@ You keep one TypeScript file per device in a git repository. Circuit reads the f
 1. **The file is the whole truth.** A device runs exactly what its file says. Circuit turns off a port the file doesn't write, removes a user it doesn't list, and turns off a service it doesn't turn on.
 2. **Leave a field out to turn it off.** You write only what is on. There is no `enabled: false`.
 3. **The same words for every vendor.** You write `access_vlan` or `ssh`, and each device gets its own vendor's commands. If a device can't do what you wrote, `circuit validate` says so, and Circuit sends nothing.
-4. **Names are checked as you type.** Every VLAN, interface, policy and port you use must exist on that device. Your editor shows a typo as an error.
+4. **Names are checked as you type.** Every VLAN, interface, policy, and port you use must exist on that device. Your editor shows a typo as an error.
 5. **Nothing is filled in for you.** Circuit writes no default and no description that you didn't write. It may warn, but it never fills in.
 6. **Secrets are encrypted.** A password is `secret("NAME")` in the file. Its value is encrypted in `.circuit/secrets`, and Circuit reads it only when it sends a command. See [Secrets](/guide/secrets).
-7. **Standards first.** What Circuit ships, such as BGP roles or the bogon list, follows an RFC, IANA or another published source. See [Standards](/reference/standards). Your network's own choices stay in your project.
+7. **Standards first.** What Circuit ships, such as BGP roles or the bogon list, follows an RFC, IANA, or another published source. See [Standards](/reference/standards). Your network's own choices stay in your project.
 
 ## Which devices
 

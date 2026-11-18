@@ -2,7 +2,7 @@
 // A project's folder: each file on the editor's navy ground, with what it holds beside it, and which files git keeps.
 
 const rows = [
-    { file: "circuit.ts", note: "the network: its AS, sites and checks", git: "commit" },
+    { file: "circuit.ts", note: "the network: its AS, sites, and checks", git: "commit" },
     { file: "sites/site-1/site.ts", note: "what the site's devices share", git: "commit" },
     { file: "sites/site-1/edge-01.ts", note: "one device per file", git: "commit", lit: true },
     { file: "tenants/", note: "what each tenant adds to the devices", git: "commit" },

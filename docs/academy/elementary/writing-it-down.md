@@ -117,7 +117,7 @@ A change to the network always takes the same steps. You run each command from y
   :choices="['circuit validate', 'circuit diff router', 'circuit apply router, answering No', 'circuit apply router, answering Yes']"
   :answer="3"
   :why="['Validate only reads your files. It never logs in to a device.', 'Diff reads the router and shows the plan, then stops. Nothing is sent.', 'Apply sends nothing until you say yes.', '']"
-  explain="Only apply, once you say yes, sends the plan. Every other command reads, checks or shows, so you can run them as often as you like."
+  explain="Only apply, once you say yes, sends the plan. Every other command reads, checks, or shows, so you can run them as often as you like."
 />
 
 ## Git keeps the history

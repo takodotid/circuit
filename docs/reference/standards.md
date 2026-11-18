@@ -1,15 +1,15 @@
 ---
-description: The RFC, IANA list or published practice behind each feature Circuit writes or checks.
+description: The RFC, IANA list, or published practice behind each feature Circuit writes or checks.
 ---
 
 # Standards
 
 What Circuit ships follows a published standard. This page lists each feature Circuit writes or checks, and the standard behind it. The [feature matrix](/reference/platforms#feature-matrix) shows which platforms have each feature.
 
-- **In model** is the field, preset or check you write.
+- **In model** is the field, preset, or check you write.
 - **Practice** marks a published practice or an Informational RFC, not a standard.
 
-We checked each RFC's status at the RFC Editor on 2026-11-01.
+Each RFC's status is as the RFC Editor listed it on 2026-11-01.
 
 ## Routing
 
@@ -23,7 +23,7 @@ We checked each RFC's status at the RFC Editor on 2026-11-01.
 | Standard communities                                           | RFC 1997                                                                                                                  | policy `standard_community`, `*_standard_communities`             |
 | Large communities                                              | RFC 8092                                                                                                                  | policy `large_community`, `*_large_communities`                   |
 | Community scheme: tags and requests                            | Practice: RFC 8195 (Informational)                                                                                        | `circuit({ communities })`, `{ communities }` rules               |
-| Community catalogue for looking glasses                        | Practice: NLNOG Ring looking glass format                                                                                 | `network.communities`                                             |
+| Community catalog for looking glasses                          | Practice: NLNOG Ring looking glass format                                                                                 | `network.communities`                                             |
 | Blackhole on request                                           | Practice: RFC 3882 (Informational)                                                                                        | scheme `blackhole`, policy `set.blackhole`                        |
 | TCP MD5 on BGP sessions                                        | RFC 2385, obsoleted by RFC 5925 (TCP-AO), which the model does not offer                                                  | neighbor `password`                                               |
 | Route origin validation                                        | RFC 6811 (updated by RFC 8481 and RFC 8893)                                                                               | policy `rpki` match, `presets.bgp_sanity`                         |

@@ -60,7 +60,7 @@ All the VLANs on a trunk share its speed. If the guests on one floor download a 
 When one end stops carrying a VLAN, nothing tells the camera. Its frames simply never arrive. So both ends must agree, and a tool should check that they do.
 
 <Quiz
-  question="The camera on switch-a is in VLAN 40. switch-a carries 20, 30 and 40 on its trunk, but switch-b carries only 20 and 30. What happens to the camera’s frames for the recorder on switch-b?"
+  question="The camera on switch-a is in VLAN 40. switch-a carries 20, 30, and 40 on its trunk, but switch-b carries only 20 and 30. What happens to the camera’s frames for the recorder on switch-b?"
   :choices="['They arrive, because switch-a sent them', 'switch-b drops them, because it does not carry VLAN 40 on that port', 'switch-b puts them in VLAN 20 instead']"
   :answer="1"
   :why="['Sending is half of it. The far end also has to accept VLAN 40 on its trunk port.', '', 'A switch never moves a frame to another VLAN. A frame with a tag it does not carry is dropped.']"

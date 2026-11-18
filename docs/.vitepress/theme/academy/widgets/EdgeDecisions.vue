@@ -175,7 +175,7 @@ const code = computed(() => {
         "        input: {",
         `            default_action: "drop",`,
         "            rules: [",
-        "                // Replies, ping and the management network come first.",
+        "                // Replies, ping, and the management network come first.",
         bgpRule,
         "            ],",
         "        },",

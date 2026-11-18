@@ -1,5 +1,5 @@
 ---
-description: How a Circuit project is laid out, and what a network, a site and a device file look like.
+description: How a Circuit project is laid out, and what a network, a site, and a device file look like.
 ---
 
 # Your first project
@@ -222,7 +222,7 @@ One device per file: `export default <network>.device({...})`.
 | `include`    | Where it takes [parts](/guide/parts) from. Right after `name`.                                                                      |
 | `site`       | One of your sites. The editor suggests them.                                                                                        |
 | `role`       | Free text, like `Router`.                                                                                                           |
-| `platform`   | `routeros`, `vrp`, `raisecom-ros`, `junos` or `fortios`.                                                                            |
+| `platform`   | `routeros`, `vrp`, `raisecom-ros`, `junos`, or `fortios`.                                                                           |
 | `model`      | The hardware. It decides the port names.                                                                                            |
 | `connection` | How Circuit logs in: `host` and `user`.                                                                                             |
 | the rest     | `system`, `management`, `monitoring`, `interfaces`, `switching`, `services`, `routing`, `firewall`. Hover a field to read about it. |

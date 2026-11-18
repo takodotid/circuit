@@ -39,7 +39,7 @@ const options = computed(() => [
     },
 ]);
 
-/** The far network's choice, by the lesson's order: local preference, then AS path length, then the tie-break. Origin, MED and the session kind are the same for both. */
+/** The far network's choice, by the lesson's order: local preference, then AS path length, then the tie-break. Origin, MED, and the session kind are the same for both. */
 const choice = computed(() => {
     const a = options.value[0]!;
     const b = options.value[1]!;

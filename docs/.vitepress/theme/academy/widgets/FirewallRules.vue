@@ -457,14 +457,14 @@ const verdictText = computed(() => {
             ? `No rule matches it, so the default decides: ${outcome.verdict}.`
             : `Rule ${outcome.matched + 1}, ${outcome.lines[outcome.matched]!.rule.description}, is the first that matches, so it is ${outcome.verdict === "accept" ? "accepted" : "dropped"}. Rules below it are not read.`;
     const verdictMatches = outcome.verdict === packet.should;
-    const judgement = verdictMatches
+    const judgment = verdictMatches
         ? "That is what should happen."
         : `It should be ${packet.should === "accept" ? "accepted" : "dropped"}: change the rules.`;
 
     return {
         kind: outcome.verdict === "accept" ? "good" : "bad",
         word: outcome.verdict === "accept" ? "Accepted" : "Dropped",
-        text: `${chainWords} ${decided} ${judgement}`,
+        text: `${chainWords} ${decided} ${judgment}`,
     };
 });
 

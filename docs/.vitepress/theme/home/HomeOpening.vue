@@ -173,8 +173,9 @@ function nextChange() {
             <p class="swipe onward" aria-hidden="true">Swipe the drawing to see all six parts</p>
 
             <figcaption id="plate-caption" class="visually-hidden">
-                How a change travels: an engineer writes a device file, a teammate reads the plan it makes, Apply sends it, the network
-                drawing shows the changed device, Circuit reads it again to check it, and the git history records the change.
+                How a change travels. An engineer writes a device file, and a teammate reads the plan it makes. Apply sends it, and the
+                network drawing shows the changed device. Circuit reads the device again to check it, and the git history records the
+                change.
             </figcaption>
         </figure>
 
@@ -560,7 +561,7 @@ h1 {
     right: 1.6cqw;
 }
 
-/* The callout a reader points at rises above every other, so its tag is never covered by a neighbour's dot. */
+/* The callout a reader points at rises above every other, so its tag is never covered by a neighbor's dot. */
 .callout.lit,
 .callout:hover,
 .callout:focus-visible {
