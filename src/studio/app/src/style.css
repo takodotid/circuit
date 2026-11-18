@@ -1179,6 +1179,12 @@ button.primary:hover {
     color: #11141b;
 }
 
+/* A button that can't be pressed now, such as Show values before a password is typed, looks faded and doesn't answer the pointer. */
+button:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
 .verdict {
     font-weight: 700;
 }
