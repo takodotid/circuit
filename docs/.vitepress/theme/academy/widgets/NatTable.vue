@@ -352,7 +352,7 @@ const forwardLines = computed(() => (forwardOn.value ? [4, 5, 6, 7, 8, 9, 10, 11
                 </thead>
                 <tbody>
                     <tr v-if="!rows.length">
-                        <td colspan="4" class="empty">Empty. Open a connection to fill it.</td>
+                        <td colspan="4" class="empty">Empty.</td>
                     </tr>
                     <tr v-for="row in rows" :key="row.number" :class="{ lit: row.number === litRow }">
                         <td>{{ row.number }}{{ row.forwarded ? ", forwarded" : "" }}</td>
