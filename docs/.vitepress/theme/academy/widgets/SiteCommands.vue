@@ -1,45 +1,30 @@
 <script setup lang="ts">
-// Lesson: project, a single site. The reader steps through the commands from an empty folder to a change on a device, with what each one prints. Output is shown only where Circuit was run for real; commands that need a device show the command alone.
+// Lesson: project, a single site. The reader steps through the commands from the example's files to a change on a device, with what each one prints. Output is shown only where Circuit printed it for this example: a command that needs a device to answer shows the command alone. The printer's plan is what Circuit plans against a switch that runs the example.
 
 type Step = { title: string; text: string; code: string; lang: "shell" | "text" };
 
 const steps: Step[] = [
     {
-        title: "Install Circuit and start the project",
-        text: "One command installs Circuit. circuit new then asks a few questions: the folder, how to run Circuit, your AS number, git, and VS Code. Then copy the files of the single-site example into the project's folder.",
-        lang: "shell",
-        code: [
-            "$ curl -fsSL https://circuit.tako.id/install | sh",
-            "Circuit is installed: /home/you/.local/bin/circuit",
-            "Set up a new project in this folder? No",
-            "",
-            "$ circuit new my-network",
-            "┌  A new Circuit project",
-            "◇  How should this project run Circuit? Simple (recommended)",
-            "◇  Your network's AS number: 64500",
-            "◇  Start a git repository? Yes",
-            "└  The project is ready.",
-            "",
-            "Example files: https://circuit.tako.id/guide/examples#a-single-site",
-        ].join("\n"),
-    },
-    {
         title: "Set the passwords",
-        text: "circuit secrets set asks for each password without showing it, and writes it to .circuit/secrets, encrypted. The first time, it asks you to choose the password that opens the file. circuit secrets list shows every secret the files use, and says which are missing, without printing any of them.",
+        text: "secrets set asks for each password without showing it, and keeps it encrypted in .circuit/secrets. secrets list checks that every password the files use is there.",
         lang: "shell",
         code: [
             "$ circuit secrets set ROUTER_PASSWORD",
+            "✔ ROUTER_PASSWORD is set, encrypted, in .circuit/secrets.",
             "$ circuit secrets set SWITCH_PASSWORD",
+            "✔ SWITCH_PASSWORD is set, encrypted, in .circuit/secrets.",
             "$ circuit secrets list",
-            "  ROUTER_PASSWORD  encrypted",
-            "  SWITCH_PASSWORD  encrypted",
-            "",
-            "Password of .circuit/secrets: typed when Circuit asks",
+            "┌─────────────────┬────────────────┐",
+            "│ Name            │ How it is kept │",
+            "├─────────────────┼────────────────┤",
+            "│ ROUTER_PASSWORD │ encrypted      │",
+            "│ SWITCH_PASSWORD │ encrypted      │",
+            "└─────────────────┴────────────────┘",
         ].join("\n"),
     },
     {
         title: "Make the files your own, then validate",
-        text: "Change the addresses in site.ts and router.ts to yours, and the switch’s ports to what is plugged in where. validate checks every file, both ends of every cable, and your own checks.",
+        text: "Change the addresses in site.ts and router.ts to yours, and the switch’s ports to what is plugged in where.",
         lang: "shell",
         code: ["$ circuit validate", "✔ 2 device(s), no errors."].join("\n"),
     },
@@ -51,14 +36,9 @@ const steps: Step[] = [
     },
     {
         title: "Apply the switch, then the router",
-        text: "apply shows the same plan, then asks. The first plan of a device set up by hand is long, because whatever the file leaves out is removed. Read every line, add to the file what must stay, and only then answer yes.",
+        text: "A mistake on the router can cut you off from both, so the switch goes first. apply shows the same plan, and sends it only when you answer yes.",
         lang: "shell",
-        code: [
-            "$ circuit apply switch",
-            "◆  Send these changes to switch?  Yes",
-            "$ circuit apply router",
-            "◆  Send these changes to router?  Yes",
-        ].join("\n"),
+        code: ["$ circuit apply switch", "$ circuit apply router"].join("\n"),
     },
     {
         title: "Later: a port for a printer",
@@ -77,14 +57,9 @@ const steps: Step[] = [
     },
     {
         title: "Apply it, and commit",
-        text: "apply sends the change once you say yes. Commit the file: git now says who added the printer port, when, and why.",
+        text: "Commit the file once the apply is done. Git then says who added the printer port, when, and why.",
         lang: "shell",
-        code: [
-            "$ circuit apply switch",
-            "◆  Send these changes to switch?  Yes",
-            "$ git add sites/home/switch.ts",
-            '$ git commit -m "Add a port for the printer"',
-        ].join("\n"),
+        code: ["$ circuit apply switch", "$ git add sites/home/switch.ts", '$ git commit -m "Add a port for the printer"'].join("\n"),
     },
 ];
 </script>
