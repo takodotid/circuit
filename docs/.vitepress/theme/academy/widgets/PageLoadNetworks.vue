@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: who runs the internet. The reader picks what to open and steps along the way a request travels, each hop labelled with what it is and which network runs it.
+// Lesson: who runs the internet. The reader picks what to open and steps along the way a request travels, each hop labeled with what it is and which network runs it.
 
 import { computed, ref } from "vue";
 import { useNarrow } from "./SwitchLearning";
@@ -7,16 +7,16 @@ import { useNarrow } from "./SwitchLearning";
 type Kind = "laptop" | "router" | "switch" | "server" | "cloud";
 type Hop = { kind: Kind; label: string; network: string; title: string; text: string };
 
-/** Each network's name, and its AS number where it has one, on two lines. */
+/** Each network's name, and its AS number where the drawing shows it, on two lines. */
 const NETWORKS: Record<string, [string, string]> = {
     home: ["Your home", ""],
     provider: ["Your provider", "AS64500"],
     exchange: ["Exchange", ""],
-    host: ["Host", "AS64502"],
-    content: ["Content", "AS64505"],
-    transit: ["Transit", "AS64510"],
+    host: ["Host", ""],
+    content: ["Netflix", "AS2906"],
+    transit: ["Hurricane Electric", "AS6939"],
     abroad: ["Abroad", ""],
-    far: ["Host", "AS64503"],
+    far: ["Host", ""],
 };
 
 const HOME: Hop = {
@@ -24,7 +24,7 @@ const HOME: Hop = {
     label: "Laptop",
     network: "home",
     title: "Your home",
-    text: "Your laptop sends the request to the home router, and the ONT turns it into light on the fibre. The ONT and the router are the provider's CPE, customer premises equipment: its boxes, in your home.",
+    text: "Your laptop sends the request to the home router, and the ONT turns it into light on the fiber. The ONT and the router are the provider's CPE, its boxes in your home.",
 };
 
 const ACCESS: Hop = {
@@ -32,7 +32,7 @@ const ACCESS: Hop = {
     label: "OLT, BNG",
     network: "provider",
     title: "Your provider's access network",
-    text: "The OLT at the other end of the fibre gathers the splitters. Behind it is the BNG: your PPPoE session ends there, and the BNG gives you your address and runs the CGNAT if you share one.",
+    text: "The OLT at the other end of the fiber gathers the splitters. Behind it is the BNG: your PPPoE session ends there, and the BNG gives you your address and runs the CGNAT if you share one.",
 };
 
 const CORE: Hop = {
@@ -40,15 +40,15 @@ const CORE: Hop = {
     label: "PoP",
     network: "provider",
     title: "Your provider's core, to a PoP",
-    text: "The provider's core routers carry the request to a point of presence, a PoP: a building, often a data centre, where the provider has routers and meets other networks.",
+    text: "The provider's core routers carry the request to a point of presence, a PoP. It is a building, often a data center, where the provider has routers and meets other networks.",
 };
 
 const CROSS: Hop = {
     kind: "switch",
     label: "Cross-connect",
     network: "exchange",
-    title: "A cross-connect in the data centre",
-    text: "Inside the data centre, the provider's router is joined to the exchange's switch by a cross-connect: a cable the data centre runs between two customers, through its meet-me room.",
+    title: "A cross-connect in the data center",
+    text: "Inside the data center, a cross-connect joins the provider's router to the exchange's switch. It is a cable the data center runs between two customers.",
 };
 
 const EXCHANGE: Hop = {
@@ -80,7 +80,7 @@ const DESTINATIONS: { id: string; name: string; hops: Hop[] }[] = [
     },
     {
         id: "video",
-        name: "A video from a large content network",
+        name: "A video on Netflix",
         hops: [
             HOME,
             ACCESS,
@@ -90,7 +90,7 @@ const DESTINATIONS: { id: string; name: string; hops: Hop[] }[] = [
                 label: "Cache",
                 network: "content",
                 title: "A cache inside your provider",
-                text: "Some large content networks give providers servers of their own to place inside the provider's network, with copies of their videos on them. The video comes from a rack in your provider's PoP, and never crosses another network.",
+                text: "Netflix gives providers servers of its own to place inside their networks, with copies of its videos on them. The video comes from a rack in your provider's PoP, and never crosses another network.",
             },
         ],
     },
@@ -106,28 +106,28 @@ const DESTINATIONS: { id: string; name: string; hops: Hop[] }[] = [
                 label: "Upstream",
                 network: "transit",
                 title: "Your provider's upstream",
-                text: "No network at the national exchange carries this site's routes, so your provider sends the request to its upstream: a large transit network it pays, such as Hurricane Electric or RETN.",
+                text: "No network at the national exchange carries this site's routes. So your provider sends the request to its upstream, Hurricane Electric, a transit network it pays.",
             },
             {
                 kind: "cloud",
                 label: "Backbone",
                 network: "transit",
                 title: "Across the transit's backbone",
-                text: "The transit carries the request over its own long links, across undersea cables, to its routers in Europe. This is where most of the delay comes from: thousands of kilometres of fibre.",
+                text: "The transit network carries the request over its own long links, across undersea cables, to its routers in Europe. Most of the delay comes from here, from thousands of kilometers of fiber.",
             },
             {
                 kind: "switch",
                 label: "Exchange",
                 network: "abroad",
                 title: "Handed over in Europe",
-                text: "In a European data centre, the transit hands the request to the hosting company: at an exchange there, over a cross-connect, or because the hosting company buys transit from it.",
+                text: "In a European data center, the transit network hands the request to the hosting company. It does this at an exchange there, over a cross-connect, or because the hosting company buys transit from it.",
             },
             {
                 kind: "server",
                 label: "Web server",
                 network: "far",
                 title: "The hosting company abroad",
-                text: "The server answers, and the answer comes back across the same kinds of networks, though not always along the same path: each network chooses its own way back.",
+                text: "The server answers, and the answer comes back across the same kinds of networks. It doesn't always take the same path, because each network chooses its own way back.",
             },
         ],
     },
