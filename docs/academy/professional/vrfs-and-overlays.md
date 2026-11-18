@@ -75,7 +75,7 @@ A name that is not in `vrfs` is an error before anything reaches the router: `st
 
 The same idea keeps a network's own management apart: give each edge router a VRF such as `oob` for its out-of-band port, with a default route of its own, so the operators' way in never mixes with customer or internet traffic.
 
-Of the platforms Circuit supports, `routeros` and `junos` run VRFs, `vrp` runs them for IPv4, `fortios` runs up to 31 of them without a `description`, and `raisecom-ros` reports `vrfs` as an error; see [Platforms](/platforms/). Circuit has no field for running BGP inside a VRF, or for passing routes from one VRF to another, so routes in a VRF are static ones you write.
+Of the platforms Circuit supports, `routeros` and `junos` run VRFs, `vrp` runs them for IPv4, `fortios` runs up to 31 of them without a `description`, and `raisecom-ros` reports `vrfs` as an error; see [Platforms](/reference/platforms). Circuit has no field for running BGP inside a VRF, or for passing routes from one VRF to another, so routes in a VRF are static ones you write.
 
 ## Carrying a customer across the core
 

@@ -10,19 +10,11 @@
 <p align="center"><b>Your network, written down.</b><br>One TypeScript file per device. Circuit shows what would change, then makes the device match.</p>
 
 <p align="center">
-    <a href="https://github.com/takodotid/circuit/actions/workflows/check.yml?query=branch%3Av1"><img src="https://github.com/takodotid/circuit/actions/workflows/check.yml/badge.svg?branch=v1" alt="check"></a>
+    <a href="https://github.com/takodotid/circuit/actions/workflows/check.yml?query=branch%3Amain"><img src="https://github.com/takodotid/circuit/actions/workflows/check.yml/badge.svg?branch=main" alt="check"></a>
     <a href="https://github.com/takodotid/circuit/releases"><img src="https://img.shields.io/github/v/release/takodotid/circuit?label=release&color=0a47b8" alt="release"></a>
     <a href="https://www.npmjs.com/package/@takodotid/circuit"><img src="https://img.shields.io/npm/v/@takodotid/circuit?color=0a47b8" alt="npm"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSL%201.1-0a47b8" alt="license"></a>
     <a href="https://circuit.tako.id"><img src="https://img.shields.io/badge/docs-circuit.tako.id-f8e347" alt="docs"></a>
-</p>
-
-<p align="center">
-    <img src="https://img.shields.io/badge/MikroTik-RouterOS%207-0a1a36" alt="RouterOS 7">
-    <img src="https://img.shields.io/badge/Huawei-VRP-0a1a36" alt="VRP">
-    <img src="https://img.shields.io/badge/Raisecom-ROS-0a1a36" alt="Raisecom ROS">
-    <img src="https://img.shields.io/badge/Juniper-Junos-0a1a36" alt="Junos">
-    <img src="https://img.shields.io/badge/Fortinet-FortiOS-0a1a36" alt="FortiOS">
 </p>
 
 <p align="center">
@@ -32,15 +24,9 @@
     <a href="https://circuit.tako.id/studio/">Studio</a>
 </p>
 
-## What it does
+You write each network device in its own TypeScript file: its ports, VLANs, addresses, routing, firewall, and users. Your editor checks every name and every port as you type. Circuit reads what the device runs, shows you the difference, and sends the change once you say yes. [Introduction](https://circuit.tako.id/guide/introduction) explains how it works.
 
-- **One file per device.** Ports, VLANs, addresses, routing, BGP, firewall, users and services, written as plain data. Your editor checks every name and every port as you type.
-- **Plain TypeScript, nothing to install.** A project imports nothing from Circuit. Circuit's functions are globals, and the editor reads its types from `.circuit/types`, which Circuit writes.
-- **One binary, nothing else to install.** `circuit` reads the project, checks what the editor can't, and talks to the devices.
-- **Same words for every vendor.** MikroTik RouterOS 7, Huawei VRP, Raisecom ROS, Juniper Junos and Fortinet FortiOS each get their own commands. Anything a device can't do is an error before anything is sent.
-- **The file is the whole truth.** A port, user or service the file doesn't write is removed or turned off. Circuit fills in nothing you didn't write.
-- **See every change first.** `diff` and `apply` read the live device and show what would change; `apply` sends it only once you say yes.
-- **Secrets are encrypted.** Each value in `.circuit/secrets` is encrypted, so the file is committed; the one password that opens it stays out of git, in your password manager. A git hook stops a commit with a secret in plain text.
+Circuit works with MikroTik RouterOS 7, Huawei VRP, Raisecom ROS, Juniper Junos, and Fortinet FortiOS. [Platforms](https://circuit.tako.id/reference/platforms) shows what works on each.
 
 ## A device
 
@@ -72,7 +58,7 @@ export default as64500.device({
 });
 ```
 
-In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`, and so is `trunk_vlans: ["mgnt"]`: the device has no VLAN of that name. `circuit validate` says the same, with the file and line, and `Did you mean mgmt?`. [How to write a project](docs/guide/project.md) has the whole project: this switch in full, a router and a tenant.
+If you write the port `"10g-49"`, the editor shows an error, because this switch has no such port. A typo such as `trunk_vlans: ["mgnt"]` is an error too, and `circuit validate` asks `Did you mean mgmt?`. [How to write a project](https://circuit.tako.id/guide/project) shows the whole project.
 
 ## Circuit Studio
 
@@ -83,55 +69,22 @@ In the editor, `"10g-49"` is an error, `10g-49 is not a port of CE6855-48S6Q-HI`
     <img src="docs/public/screenshots/studio-light.png" alt="Circuit Studio's graph of an example network, beside the layer's details.">
 </picture>
 
-## Start
+## Install
 
-1. Install Circuit:
-    - Linux and macOS: `curl -fsSL https://circuit.tako.id/install | sh`
-    - Windows, in PowerShell: `irm https://circuit.tako.id/install.ps1 | iex`
-2. Start a project: `circuit new network`. Open its folder in VS Code. Add a site in `circuit.ts`, then write each device in `sites/<site>/<device>.ts`.
-3. Run `circuit`. It opens a menu, or runs a command straight away, such as `circuit validate`.
+- Linux and macOS: `curl -fsSL https://circuit.tako.id/install | sh`
+- Windows, in PowerShell: `irm https://circuit.tako.id/install.ps1 | iex`
 
-Each project runs the Circuit version in its `.circuit/version`. `circuit update` lists the newer versions, newest first, and moves the project to the one you pick. Circuit itself updates on its own, and a project on a version with a security problem has to move before anything runs.
+Then start a project with `circuit new network`, and open its folder in VS Code. Run `circuit` alone for a menu. [Install](https://circuit.tako.id/guide/install) has the details, and how updates work. [The circuit command](https://circuit.tako.id/reference/cli) lists every command.
 
-## Commands
-
-Each reads the project in the working directory or the nearest folder above it. Leave out the device and Circuit lists them to pick from.
-
-| Command                             | What it does                                                                                           |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `validate`                          | Reads the project and checks it, then runs every check in `circuit.ts`.                                |
-| `diff [device]`                     | Reads the device and shows what `apply` would change.                                                  |
-| `apply [device]`                    | Reads the device, shows what would change, and sends it once you say yes (`--confirm`).                |
-| `exec [device] [command...]`        | Runs commands that only read on the device, and prints the answer, secrets hidden.                     |
-| `bgp [device]`                      | Each BGP neighbor next to its live session: up or down, prefixes, uptime.                              |
-| `access-console [device] [line...]` | Opens the device's serial console, logged in, or sends it lines.                                       |
-| `studio`                            | Opens the project in your browser: the graph, every table, tools, compare and secrets.                 |
-| `rename [device] [new-name]`        | Gives a device a new name everywhere the project writes it, and its file too.                          |
-| `secrets`                           | Every secret in a text editor, saved encrypted; `list`, `get`, `set`, `delete`, `encrypt`, `password`. |
-| `fmt [file...]`                     | Tidies spacing and line breaks, as VS Code does on save. Nothing else changes.                         |
-| `new [folder]`                      | Starts a project.                                                                                      |
-| `update`                            | Pick a newer version for the project, newest first. Outside a project: Circuit's own.                  |
-| `uninstall`                         | Removes Circuit. Your projects stay.                                                                   |
-
-## Docs
-
-- [The documentation site](https://circuit.tako.id), whose pages are in `docs/`: install, writing a project, the `circuit` command, secrets, Studio, and Circuit Academy.
-- [How to write a project](docs/guide/project.md), then [rules](docs/guide/rules.md), [parts and merge](docs/guide/parts.md), [communities](docs/guide/communities.md) and [checks](docs/guide/checks.md).
-- [The model](docs/reference/model.md): what one device holds, and what Circuit resolves before a platform reads it.
-- [Decisions](design/decisions.md): what shaped v1, and why.
-- `src/config/`: every field, with its doc comment, which your editor shows on hover.
-
-## Working on Circuit
+## Contributing
 
 ```bash
 bun install
-bun run check       # typecheck, tests, and the binary
-bun run build       # dist/circuit, or dist/circuit.exe on Windows
-cd <project> && bun <circuit>/src/cli/index.ts validate   # run Circuit from the sources
+bun run check   # runs every check
 ```
 
-`AGENTS.md` has the rules for changing the code, for people and AI agents alike.
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how to change Circuit. [Decisions](design/decisions.md) says what shaped it, and why.
 
 ## License
 
-[Business Source License 1.1](LICENSE): free in production for an organization whose yearly revenue and funding, with its affiliates, are each under US$100,000. Above that, production use needs a commercial license from [legal@tako.id](mailto:legal@tako.id). Each version becomes Apache License 2.0 four years after it is published.
+Circuit is source-available under the [Business Source License 1.1](LICENSE). A small organization uses it in production for free, and a larger one needs a commercial license. Each version moves to the Apache License 2.0 four years after it is published. [License and credits](https://circuit.tako.id/license) gives the limits.

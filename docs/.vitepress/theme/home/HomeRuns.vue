@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// What it runs on: the proved models as a data plate, then the caution, then the networks that run Circuit.
+// What it runs on: the tested models as a data plate, then the networks that run Circuit.
 
 import { withBase } from "vitepress";
 import { HomeContent } from "./home-content";
@@ -22,7 +22,7 @@ import { HomeContent } from "./home-content";
                 <tbody>
                     <tr v-for="(entry, index) in HomeContent.PLATFORMS" :key="entry.platform" :style="{ '--i': index }">
                         <th scope="row">
-                            <a :href="withBase('/platforms/')">{{ entry.name }}</a>
+                            <a :href="withBase('/reference/platforms')">{{ entry.name }}</a>
                         </th>
                         <td>
                             <code v-for="model in entry.models" :key="model">{{ model }}</code>
@@ -99,25 +99,6 @@ import { HomeContent } from "./home-content";
     margin: 0 6px 4px 0;
 }
 
-.caution {
-    margin: 0 0 calc(40 * var(--px));
-    padding: calc(20 * var(--px)) calc(24 * var(--px)) calc(6 * var(--px));
-    border: 2px solid var(--circuit-red);
-}
-
-.caution strong {
-    display: inline-block;
-    margin-bottom: calc(10 * var(--px));
-    padding: 2px 8px;
-    background: var(--circuit-red);
-    color: #ffffff;
-    font-size: max(11px, calc(12 * var(--px)));
-    font-weight: 700;
-    font-stretch: 120%;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-}
-
 .users {
     display: flex;
     flex-wrap: wrap;
@@ -151,10 +132,6 @@ import { HomeContent } from "./home-content";
     .proved.shown tbody tr {
         animation: home-rise 0.65s var(--ease) backwards;
         animation-delay: calc(var(--i) * 0.12s);
-    }
-
-    .caution.shown {
-        animation: home-rise 0.7s var(--ease) 0.15s backwards;
     }
 }
 

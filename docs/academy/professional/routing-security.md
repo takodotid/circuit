@@ -133,7 +133,7 @@ Three things Circuit does not do, and you should know:
 
 - **It does not publish your ROAs.** You create them at your RIR, as above.
 - **It does not read the IRR.** You write each customer's prefixes yourself, after checking its route objects and ROAs.
-- **It runs RPKI on `routeros` and `junos` only.** `fortios` runs BGP without RPKI, so it refuses `routing.rpki` and any rule that matches `rpki`, the last rule of `presets.bgp_sanity` included. `vrp` and `raisecom-ros` run no BGP. See [Platforms](/platforms/).
+- **It runs RPKI on `routeros` and `junos` only.** `fortios` runs BGP without RPKI, so it refuses `routing.rpki` and any rule that matches `rpki`, the last rule of `presets.bgp_sanity` included. `vrp` and `raisecom-ros` run no BGP. See [Platforms](/reference/platforms).
 
 ## MANRS
 

@@ -1,37 +1,41 @@
 ---
-description: Every rule in Circuit is the same shape, if then then, for policies, filters, NAT and ACLs.
+description: Every rule in Circuit has the same shape, if this then that, for route policies, firewall filters, NAT and ACLs.
 ---
 
 # Rules
 
-Every rule has the same shape: **if** this, **then** that. No `if` means "every route" or "every packet". A short `description` is optional.
+Every rule has the same shape: **if** this, **then** that. A rule with no `if` applies to everything. Most rules can also have a `description`.
 
-| Rule                                                                       | Kind                                                                    |
-| -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `{ if: { prefix_set: "ours" }, then: "reject" }`                           | Route policy. `then` is `accept` or `reject`, and the route stops here. |
-| `{ if: { ... }, set: { local_pref: 200 }, then: "accept" }`                | Route policy that changes the route. No `then`? It moves on, changed.   |
-| `{ call: "common-import" }`                                                | Runs another policy.                                                    |
-| `{ communities: "import" }`                                                | Your community scheme's rules. See [Communities](/guide/communities).   |
-| `{ if: { protocol: "icmp" }, then: "accept" }`                             | Firewall filter: `accept`, `drop`, `reject`, or `fast_path`.            |
-| `{ if: { src: "...", out_interface_set: "uplinks" }, then: "masquerade" }` | NAT: `masquerade`, `snat` or `dnat`, with `to_address` / `to_port`.     |
-| `{ if: { vlan: "...", src: "..." }, then: "drop" }`                        | Switch ACL: `accept` or `drop`, plus `rate`.                            |
-| `{ match: { src: "..." }, routing_table: "..." }`                          | Policy routing.                                                         |
+| Rule                                                                       | Kind           | What it does                                                                                               |
+| -------------------------------------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------- |
+| `{ if: { protocol: "icmp" }, then: "accept" }`                             | Firewall       | `then` is `accept`, `drop` or `reject`. With `fast_path: true`, the rest of the flow skips the rules.      |
+| `{ if: { src: "...", out_interface_set: "uplinks" }, then: "masquerade" }` | NAT            | `then` is `masquerade`, `snat` or `dnat`. `snat` and `dnat` need a `to_address`, and can have a `to_port`. |
+| `{ if: { vlan: "...", src: "..." }, then: "drop" }`                        | Switch ACL     | `then` is `accept` or `drop`. A `rate` drops accepted traffic over that rate.                              |
+| `{ if: { prefix_set: "ours" }, then: "reject" }`                           | Route policy   | `then` is `accept` or `reject`, and the policy ends for that route.                                        |
+| `{ if: { ... }, set: { local_pref: 200 } }`                                | Route policy   | If a rule has no `then`, Circuit changes the route and goes to the next rule.                              |
+| `{ call: "common-import" }`                                                | Route policy   | Runs another policy. If that policy accepts or rejects the route, it stops there.                          |
+| `{ communities: "import" }`                                                | Route policy   | Your [community scheme](/guide/communities)'s rules.                                                       |
+| `{ match: { src: "..." }, routing_table: "..." }`                          | Policy routing | Matching traffic uses that routing table.                                                                  |
 
-## Order matters here
+## Rule order
 
-The first rule runs first in:
+In these lists, the first rule runs first:
 
-- each firewall chain's `rules`;
-- `firewall.nat.source` and `.destination`;
-- each route policy and `routing.policy_routing`;
-- each switch ACL.
+- each firewall chain's `rules`
+- `firewall.nat.source` and `firewall.nat.destination`
+- each route policy, and `routing.policy_routing`
+- each switch ACL
 
-No line numbers: the array order is the order. Each list is written in one place. Rules from another file come in with `merge`, so you can read the whole order in one spot. Every other list is just a set.
+Rules have no line numbers: the order of the list is the order on the device. You write each list in one place, and [`merge`](/guide/parts) brings in rules from other files, so you can read the whole order there.
+
+In other lists the order doesn't matter, except in DNS and NTP `servers`, which go in order of preference.
 
 ## Shortcuts
 
-- **Lists in a match.** `src: ["a", "b"]` matches either. Circuit writes one rule per value. Works for `src`, `dst`, `in_interface`, `out_interface` (filter, NAT) and `vlan`, `src`, `dst` (ACL).
-- **Interface sets.** `firewall.interface_sets.uplinks: ["25g-1", "25g-2"]`, then `in_interface_set: "uplinks"`. Parts can add to a set.
-- **`bgpNeighbors()`.** An address set with every BGP neighbor of the device. Add a neighbor, and the set follows.
-- **`management.allow`.** A list of prefixes, or the name of an address set, so you write sources once.
-- **`presets`.** Ready-made rules and values from public standards, like `presets.bgp_sanity` (RFC 7454 plus RPKI invalid) and `presets.rfc1918`. Plain data: use them with `merge`, or pick bits out.
+| Shortcut           | What it does                                                                                                                                                                                        |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A list in a match  | `src: ["a", "b"]` matches either one. Circuit writes one rule per value. Filter and NAT rules take lists in `src`, `dst`, `in_interface` and `out_interface`; ACL rules in `vlan`, `src` and `dst`. |
+| Interface sets     | `firewall.interface_sets.uplinks: ["25g-1", "25g-2"]`, then `in_interface_set: "uplinks"` in a rule. A part can add interfaces to a set.                                                            |
+| `bgpNeighbors()`   | An address set with every BGP neighbor of the device. It changes when you add a neighbor.                                                                                                           |
+| `management.allow` | A list of prefixes, or the name of an address set.                                                                                                                                                  |
+| `presets`          | Ready-made rules and values from public standards, such as `presets.bgp_sanity` (RFC 7454, plus RPKI invalid) and `presets.rfc1918`. Use one whole, or pick items.                                  |

@@ -6,7 +6,7 @@ discussion: false
 
 # Glossary
 
-Short meanings of the words the Academy uses, from the first lesson to the last, and of the words you meet in a provider's quote or contract. Where a lesson explains a word properly, it is linked. Words about Circuit itself are in the [documentation's glossary](/guide/glossary).
+Short meanings of the words the Academy uses, from the first lesson to the last, and of the words you meet in a provider's quote or contract. Where a lesson explains a word properly, it is linked. Words about Circuit itself are in the [documentation's glossary](/reference/glossary).
 
 ## Cables and links
 

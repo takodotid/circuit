@@ -147,7 +147,7 @@ firewall: {
 - `fast_path: true` on a rule that accepts sends the rest of the connection down a faster path inside the router, which skips the rules below. Put it on the rule for replies, which matches most of the traffic.
 - `home.addresses.management` is a value from the site's `site.ts`, which both devices share. It is `"192.168.10.0/24"`, the management network. The next lesson is about why only it may log in.
 
-A chain is an ordered list, so when it changes Circuit replaces it as a whole: the new rules go in first, and only then are the old ones removed, so the router is never without rules ([How a change is applied](/guide/apply)). An earlier version of this router had no default in its forward chain, and two rules keeping guests out. On a RouterOS router, `circuit diff router` for the change to the rules above ends like this, with the default written as a last rule:
+A chain is an ordered list, so when it changes Circuit replaces it as a whole: the new rules go in first, and only then are the old ones removed, so the router is never without rules ([Make a change](/guide/apply)). An earlier version of this router had no default in its forward chain, and two rules keeping guests out. On a RouterOS router, `circuit diff router` for the change to the rules above ends like this, with the default written as a last rule:
 
 ```text
     + add action=accept chain=forward comment=Home to the internet in-interface=home out-interface=ether1

@@ -133,7 +133,7 @@ OSPF talks directly over IP, not over TCP or UDP. If the router's input firewall
 To check who will become neighbors before you apply anything, open the OSPF layer of the graph in `circuit studio`.
 
 ::: warning Not every platform runs every part
-On `vrp`, OSPF runs for IPv4 only. On `raisecom-ros`, it runs for IPv4 only, on VLAN interfaces only, and without `bfd`. On `junos` and `fortios`, it runs only in the default table, so not on an interface in a VRF. `circuit validate` reports anything a platform cannot do. See [Platforms](/platforms/).
+On `vrp`, OSPF runs for IPv4 only. On `raisecom-ros`, it runs for IPv4 only, on VLAN interfaces only, and without `bfd`. On `junos` and `fortios`, it runs only in the default table, so not on an interface in a VRF. `circuit validate` reports anything a platform cannot do. See [Platforms](/reference/platforms).
 :::
 
 ## In short

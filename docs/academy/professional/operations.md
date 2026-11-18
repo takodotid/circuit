@@ -68,7 +68,7 @@ Studio helps the reviewer see the change as a network, not as text. Its [Compare
 
 A change that can touch customers goes out in a <Term means="A time agreed in advance, usually at night or early morning when traffic is low, when planned work may interrupt service.">maintenance window</Term>: a time when traffic is low, announced in advance to whoever can notice. How far in advance is a matter of contract. One exchange, for example, announces its windows at least seven days ahead, and plans them for off-peak hours, often late at night or early in the morning. An emergency, such as a fix for an outage in progress, skips the wait but is still written down and announced as one.
 
-In the window, apply one device at a time, starting where a mistake hurts least, and check each before the next. Circuit protects you while it applies (see [How a change is applied](/guide/apply)):
+In the window, apply one device at a time, starting where a mistake hurts least, and check each before the next. Circuit protects you while it applies (see [Make a change](/guide/apply)):
 
 1. It dry-runs the plan where the platform allows it: RouterOS compiles every command without running it, VRP loads every line into a candidate that is thrown away if the device refuses one, and Junos loads the plan into a candidate and checks it with `commit check` before anything changes. FortiOS and Raisecom ROS run each line as it is sent; if a FortiGate refuses one, Circuit has it reload its saved config, which undoes what was sent.
 2. After the change, it logs in again in a new session. The change is kept only once that login works.

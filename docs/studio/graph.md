@@ -25,7 +25,7 @@ It waits while the pointer is on the drawing. **Stop presenting** or Esc stops i
 
 | Layer     | What it draws                                                                                       |
 | --------- | --------------------------------------------------------------------------------------------------- |
-| Cables    | Each cable a port's `link` names. The cables of one [LAG](/guide/glossary#networking) are one line. |
+| Cables    | Each cable a port's `link` names. The cables of one [LAG](/reference/glossary#networking) are one line. |
 | VLANs     | The VLANs each cable carries, from its port or LAG.                                                 |
 | Addresses | Address ranges that devices share.                                                                  |
 | BGP       | Sessions between your devices, matched by address, and to each AS outside.                          |

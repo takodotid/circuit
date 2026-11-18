@@ -166,7 +166,7 @@ Step through how Circuit applies a change to a RouterOS router. Then pick the ch
 
 </TryIt>
 
-What happens when the new login fails depends on the platform, as [How a change is applied](/guide/apply) explains:
+What happens when the new login fails depends on the platform, as [Make a change](/guide/apply) explains:
 
 - A RouterOS router makes a backup before the change, and loads it on its own after 10 minutes, or the minutes you give `--rollback`.
 - A Junos switch applies the change with `commit confirmed`, which the switch undoes on its own unless Circuit confirms it. Circuit confirms only after the new login works. When the login fails, Circuit puts the old configuration back over the session that is still open. If it cannot, the switch goes back to the old configuration on its own after the same minutes.

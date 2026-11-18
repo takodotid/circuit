@@ -105,7 +105,7 @@ A change to the network always takes the same steps. You run each command from y
 2. Run `circuit validate`. It checks every file: names, addresses, and whether the device can do what you wrote. It never touches a device.
 3. Run `circuit diff router`. It logs in, reads what the router runs right now, and shows the plan against that. Nothing is sent.
 4. Run `circuit apply router`. It shows the same plan, and asks: **Send these changes to router?** The answer is No unless you choose Yes, so a stray Enter sends nothing.
-5. Say yes. Circuit sends the plan, then logs in again in a new session, and keeps the change for good only if that works, so a change that locks you out is not kept. [How a change is applied](/guide/apply) explains this.
+5. Say yes. Circuit sends the plan, then logs in again in a new session, and keeps the change for good only if that works, so a change that locks you out is not kept. [Make a change](/guide/apply) explains this.
 6. Commit the file with git.
 
 Validate is the step that catches mistakes, before any device sees them. Make some, and see what it says:

@@ -143,7 +143,7 @@ RouterOS takes every field above. The other platforms each refuse some:
 - On `junos`, no static route takes a `description`, and a blackhole route cannot have the same prefix as another route in its table.
 - On `fortios`, a blackhole route cannot be in a VRF, and a `via` must be on one of the router's own networks unless the route also has an `interface`.
 
-`circuit validate` reports anything a platform refuses as an error. See [Platforms](/platforms/).
+`circuit validate` reports anything a platform refuses as an error. See [Platforms](/reference/platforms).
 :::
 
 ## In short

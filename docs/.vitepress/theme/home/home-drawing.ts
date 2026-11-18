@@ -63,7 +63,7 @@ export class HomeDrawing {
         },
         {
             name: "Live read",
-            link: "/guide/cli#making-a-change",
+            link: "/guide/apply#making-the-plan",
             meaning: "Circuit reads what the device runs now, every time, so a plan is never out of date.",
             callout: [1452, 296],
             target: [1424, 355],

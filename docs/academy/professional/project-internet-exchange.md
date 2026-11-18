@@ -36,7 +36,7 @@ All four protections start on. Make member C misbehave and see what stops it, th
 Each protection keeps one member's trouble on that member's port. Without storm control, a loop in one member's network turns into a [broadcast storm](/academy/intermediate/redundancy) on the peering LAN, and reaches every router on the exchange.
 
 ::: tip Where these run
-One MAC address per port, `mac_limit`, and the ethertype filter, `ethertypes`, run on the platforms that proved them on a device: see [Platforms](/platforms/). `circuit validate` refuses them on any other.
+One MAC address per port, `mac_limit`, and the ethertype filter, `ethertypes`, run on the platforms that proved them on a device: see [Platforms](/reference/platforms). `circuit validate` refuses them on any other.
 :::
 
 <Quiz

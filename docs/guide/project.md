@@ -2,13 +2,13 @@
 description: How a Circuit project is laid out, and what a network, a site and a device file look like.
 ---
 
-# Write a project
+# Your first project
 
-A project is a folder of files that describe your network: one file per device, plus the bits several devices share.
+A project is a folder of files that describe your network. It has one file per device, plus files for what several devices share.
 
-It's TypeScript, but it reads like data. You don't install anything: Circuit's helpers are already there, and your editor gets their types from `.circuit/types`.
+The files are TypeScript, but they read like data. You install nothing, because Circuit's functions are built in. Your editor reads their types from `.circuit/types`.
 
-This page builds one small project: a router and a switch at one site, with one tenant. It passes `circuit validate` as written. Bigger ones are in [Example projects](/guide/examples).
+This page builds one small project: a router and a switch at one site. It passes `circuit validate` as written. Bigger projects are in [Example projects](/guide/examples).
 
 ## Layout
 
@@ -17,19 +17,18 @@ circuit.ts                  the network: its AS, prefixes, communities, sites an
 sites/site-a/site.ts        what more than one device at site-a writes
 sites/site-a/edge-01.ts     one device per file
 sites/site-a/switch-01.ts
-tenants/tenant-a.ts         what tenant A adds to each device
-tenants/index.ts            every tenant, merged
-lib/checks.ts               the network's own checks
+tenants/                    what each tenant adds to the devices, if you have tenants
+lib/                        the network's own checks, if you write any
 ```
 
-- Circuit reads `circuit.ts` first, then every `.ts` under `sites/` (except `site.ts`). Each of those is one device.
-- `tenants/` and `lib/` are only read by the files that import them. Other folders are yours.
+- Circuit reads `circuit.ts` first, then every `.ts` file under `sites/` except `site.ts`. Each of those files is one device.
+- Circuit reads `tenants/` and `lib/` only through the files that import them. Other folders are yours. See [Parts and merge](/guide/parts) and [Checks](/guide/checks).
 
-Rule of thumb: write a value in the device first. Only when a second device needs it, move it to `site.ts` or `circuit.ts`.
+Write a value in the device first. When a second device needs it, move it to `site.ts` or `circuit.ts`.
 
 ### The `.circuit` folder
 
-Circuit writes everything in it. Don't edit it by hand: use the command each entry names. `.circuit/DO_NOT_EDIT.md` says so.
+Circuit writes everything in it, so don't edit it by hand. Use the command that each entry gives.
 
 | Entry                       | What it is                                                                                         | Simple | Full |
 | --------------------------- | -------------------------------------------------------------------------------------------------- | :----: | :--: |
@@ -46,8 +45,6 @@ In a [full install](/guide/install#full-install), `package.json` pins the versio
 ```ts
 // circuit.ts
 // The network, AS64500: what holds for all of it. Circuit reads this file first, then every device file under sites/.
-
-import { neighborsDescribed } from "./lib/checks";
 
 export const as64500 = circuit({
     asn: 64500,
@@ -67,21 +64,20 @@ export const as64500 = circuit({
         exports_end_in_reject: true,
         imports_end_in_accept_or_reject: true,
         same_vlan_ids: true,
-        neighbors_described: neighborsDescribed,
     },
 });
 ```
 
-| Field         | Is                                                                                                                                                                                                             |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `asn`         | Your AS. BGP uses it unless a device sets `routing.bgp.asn`. Optional: an office network without one leaves it out.                                                                                            |
-| `prefixes`    | Your address blocks, with names. Devices use them by name.                                                                                                                                                     |
-| `communities` | Your BGP community scheme. See [Communities](/guide/communities).                                                                                                                                              |
-| `sites`       | Each site's `description` (and `number`, if communities tag by site). That's all.                                                                                                                              |
-| `checks`      | Circuit's checks to turn on, and your own. See [Checks](/guide/checks).                                                                                                                                        |
-| `secrets`     | Optional. `{ file: ".circuit/lab-secrets" }` keeps this network's secrets in their own file, with their own password. `.circuit/secrets` when left out. See [Lab and staging](/guide/secrets#lab-and-staging). |
+| Field         | Is                                                                                                                                                  |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `asn`         | Your AS. BGP uses it unless a device sets `routing.bgp.asn`. Optional: an office network without one leaves it out.                                 |
+| `prefixes`    | Your address blocks, with names. Devices use them by name.                                                                                          |
+| `communities` | Your BGP community scheme. See [Communities](/guide/communities).                                                                                   |
+| `sites`       | Each site's `description` (and `number`, if communities tag by site). That's all.                                                                   |
+| `checks`      | Circuit's checks to turn on, and your own. See [Checks](/guide/checks).                                                                             |
+| `secrets`     | Optional. Another secrets file for this network, such as `{ file: ".circuit/lab-secrets" }`. See [Lab and staging](/guide/secrets#lab-and-staging). |
 
-Name the network after its AS, like `as64500`. Got two networks? Write two `circuit()` calls, each exported under its own name.
+Name the network after its AS, like `as64500`. If you have two networks, write two `circuit()` calls, and export each under its own name.
 
 ## A site
 
@@ -103,22 +99,20 @@ export const site_a = literal({
 ```
 
 - `literal` keeps values exactly as written, so the editor can check them where they're used.
-- Write an address once, with its length (`192.0.2.1/25`). Where only a host fits, like a `next_hop`, Circuit drops the length for you.
+- Write an address once, with its length (`192.0.2.1/25`). Where only a host fits, like a `next_hop`, Circuit drops the length.
 - A device takes a VLAN whole: `vlans: { mgmt: site_a.vlans.mgmt }`.
 
 ## A device
 
 ```ts
 // sites/site-a/edge-01.ts
-// edge-01, the router: one transit, the management LAN, and tenant A behind it.
+// edge-01, the router: one transit and the management LAN.
 
 import { as64500 } from "../../circuit";
-import { tenants } from "../../tenants";
 import { site_a } from "./site";
 
 export default as64500.device({
     name: "edge-01",
-    include: [tenants.parts],
     site: "site-a",
     role: "Router",
     platform: "routeros",
@@ -197,15 +191,14 @@ export default as64500.device({
                 ],
             },
             forward: {
-                rules: merge([
+                rules: [
                     { if: { connection_state: ["established", "related"] }, then: "accept" },
-                    tenants.rules.edge_forward,
                     {
                         description: "Nothing new in from the internet",
                         if: { in_interface_set: "uplinks", connection_state: ["new"] },
                         then: "drop",
                     },
-                ]),
+                ],
             },
         },
         nat: {
@@ -234,27 +227,22 @@ One device per file: `export default <network>.device({...})`.
 | `connection` | How Circuit logs in: `host` and `user`.                                                                                             |
 | the rest     | `system`, `management`, `monitoring`, `interfaces`, `switching`, `services`, `routing`, `firewall`. Hover a field to read about it. |
 
-Things to know:
+- **Ports** are `<speed>-<position>`, like `25g-1`. Circuit prints them the vendor's way, such as `sfp28-1` on RouterOS or `10GE1/0/1` on VRP. A port the model doesn't have is an error.
+- **Links go both ways.** Write `link` on both ends. The port's `description` should give the far end, like `switch-01 10GE1/0/1`. Circuit warns if it doesn't, but never writes it for you.
 
-- **Ports** are `<speed>-<position>`, like `25g-1`. Circuit prints them the vendor's way (`sfp28-1` on RouterOS, `10GE1/0/1` on VRP). A port the model doesn't have is an error.
-- **Names must exist.** A VLAN, interface, address set or policy you refer to must be declared on that device. Typos show up in your editor.
-- **Not written = off.** Anything you leave out is removed or reset on the device. There's no `enabled: false`.
-- **Links go both ways.** Write `link` on both ends. The port's `description` should name the far end, like `switch-01 10GE1/0/1`. Circuit warns if it doesn't, but never writes it for you.
-- **Secrets** are `secret("NAME")`. See [Secrets](/guide/secrets).
+Every name you use must exist on the device, and what you leave out is turned off. See [Principles](/guide/introduction#principles).
 
 The switch is shorter:
 
 ```ts
 // sites/site-a/switch-01.ts
-// switch-01: the management VLAN to the router, and tenant A's servers.
+// switch-01: the management VLAN to the router.
 
 import { as64500 } from "../../circuit";
-import { tenants } from "../../tenants";
 import { site_a } from "./site";
 
 export default as64500.device({
     name: "switch-01",
-    include: [tenants.parts],
     site: "site-a",
     role: "Switch",
     platform: "vrp",

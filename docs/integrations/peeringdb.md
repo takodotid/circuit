@@ -1,36 +1,31 @@
 ---
-description: circuit sync peeringdb keeps your exchange presence at PeeringDB in step with the project.
+description: Keep your network's presence at each internet exchange on PeeringDB in sync with your project.
 ---
 
 # PeeringDB
 
-[PeeringDB](https://www.peeringdb.com) is where networks say which internet exchanges they are at, with which addresses, so others can peer with them.
+[PeeringDB](https://www.peeringdb.com) is where networks say which internet exchanges they are at, and with which addresses, so others can peer with them.
 
-`circuit sync peeringdb` keeps your network's presence at each exchange in step with your project: the speed, the IPv4 and IPv6 address, and whether you peer with the route servers.
+`circuit sync peeringdb` keeps your presence at each exchange in sync with your project: the speed, the IPv4 and IPv6 addresses, and whether you peer with the route servers. [How sync works](/integrations/) explains the plan, CI, and several networks.
 
 ## What it reads
 
 - `asn` in `circuit.ts`.
-- Each port or interface with an `exchange` that names a `peeringdb_ixlan`: its `name`, its `speed`, and its addresses.
-- Whether the device has a BGP neighbor with `role: "rs"` (its own or its group's) on that interface's subnet. That is the route server flag.
-- PeeringDB's public list of your presences, which needs no key.
+- The `name`, `speed`, and addresses of each port or interface with an `exchange` that has a `peeringdb_ixlan`.
+- Whether the device has a BGP neighbor with `role: "rs"` on that interface's subnet, set on the neighbor or its group. That is the route server flag.
+- Your presences on PeeringDB, from its public API, which needs no key.
 
 ## What it sends
 
-With your API key:
+With your API key, Circuit adds each new presence and changes each one that differs. It never deletes a presence, and never changes `operational`, because you decide outside the project when you leave an exchange. If PeeringDB has a presence that the project doesn't, the plan lists it under **Left alone**, so you can remove it by hand.
 
-- a new presence;
-- a changed IPv4, IPv6, speed or route server flag.
-
-It never deletes a presence, and never changes `operational`: leaving an exchange is decided outside the project. A presence PeeringDB has that the project doesn't is listed under **Left alone**, so you can remove it by hand.
-
-Only global addresses are published. An exchange reached over a tunnel often lands on private or shared space, and publishing it would point others at a dead end. An address that isn't global is listed under Left alone, and a presence with no global address at all is not sent.
+Circuit publishes only global addresses. A private or shared address, which a tunnel to an exchange often uses, would send other networks to a dead end. The plan lists such an address under Left alone, and Circuit doesn't send a presence without a global address.
 
 ## Before you start
 
-1. **Your network has a record at PeeringDB.** Circuit adds presences to it; it doesn't make the record.
-2. **Make an API key** at PeeringDB, under your profile, with write access to your network.
-3. **Find each exchange LAN's id** on the exchange's page at PeeringDB, the `ixlan_id`.
+1. **Your network has a record on PeeringDB.** Circuit adds presences to it, but doesn't make the record.
+2. **Make an API key** on PeeringDB, under your profile, with write access to your network.
+3. **Find the ID of each exchange LAN** on the exchange's page on PeeringDB. It is the `ixlan_id`.
 
 ## Set it up
 
@@ -58,7 +53,7 @@ vlan_interface: {
 },
 ```
 
-The documentation addresses on this page stand in for your real, global ones. Written as they are here, neither would be published.
+Write your real, global addresses. Circuit doesn't publish documentation addresses like these.
 
 Then keep the key in your secrets, encrypted:
 
@@ -66,7 +61,7 @@ Then keep the key in your secrets, encrypted:
 circuit secrets set PEERINGDB_API_KEY
 ```
 
-## Bring PeeringDB in step
+## Sync PeeringDB
 
 ```sh
 circuit sync peeringdb             # shows what would change, then asks
@@ -83,7 +78,3 @@ Left alone:
   LINX LON1 (203.0.113.99) is on PeeringDB but not in the project. Remove it there by hand if you left.
   edge-02 exchange-b: 10.255.0.5 is not a global address, so it is not published.
 ```
-
-Circuit asks for your secrets' password before it reads PeeringDB, as for the other targets, though only sending uses the key.
-
-Networks in one project with the same `asn` are planned together, so a presence one network writes is not listed as missing by the other.
