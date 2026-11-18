@@ -54,6 +54,8 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     multihop?: boolean;
     /** Send with TTL 255, and accept only BGP packets that arrive with TTL 255, so only from a directly connected neighbor (GTSM, RFC 5082). Not with `multihop`. */
     ttl_security?: boolean;
+    /** Announce a default route to the neighbor, in each address family the session carries, even when this device has none. The export policy does not apply to it. */
+    send_default_route?: boolean;
     /** TCP MD5 password shared with the neighbor. */
     password?: Secret;
     /** Close the session if the neighbor announces more prefixes than this. It stays closed until you clear it by hand. On RouterOS, use `/routing bgp session clear <session> flag=limit-exceeded`. */

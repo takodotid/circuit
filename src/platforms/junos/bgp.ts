@@ -1,3 +1,4 @@
+import { presets } from "../../config/presets";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, Prefix, PrefixSet, RouteRule } from "../../model";
@@ -10,6 +11,12 @@ export class JunosBgp {
 
     /** The policy every export starts with. BGP's own routes and the prefixes the device originates go on to the session's policy. The device's other routes never reach it. */
     private static readonly ORIGIN = "circuit-bgp-origin";
+
+    /** The policy that announces a default route to a session with `send_default_route`, before its own policy. */
+    private static readonly DEFAULT_ROUTE = "circuit-default-route";
+
+    /** The highest preference there is: every other default route wins over the one made for `send_default_route`, so forwarding never changes. */
+    private static readonly LAST_RESORT = 4294967295;
 
     private static readonly RPKI_GROUP = "circuit";
 
@@ -74,6 +81,7 @@ export class JunosBgp {
         this.out.set("routing-options autonomous-system", bgp.asn);
 
         const used = new Set<string>();
+        const defaults = new Set<Family>();
         let rejectAll = false;
         let exports = false;
 
@@ -96,6 +104,12 @@ export class JunosBgp {
 
             this.out.set(group, "import", settings.import_policy ?? JunosBgp.REJECT_ALL);
 
+            const families = settings.address_families ?? [Address.family(neighbor.address)];
+            if (settings.send_default_route) {
+                this.out.set(group, "export", JunosBgp.DEFAULT_ROUTE);
+                for (const family of families) defaults.add(family);
+            }
+
             if (settings.export_policy) {
                 exports = true;
                 this.out.set(group, "export", JunosBgp.ORIGIN);
@@ -107,7 +121,7 @@ export class JunosBgp {
                 else rejectAll = true;
             }
 
-            for (const family of settings.address_families ?? [Address.family(neighbor.address)]) {
+            for (const family of families) {
                 const nlri = `${group} family ${JunosBgp.FAMILY[family]} unicast`;
                 this.out.set(nlri);
 
@@ -124,6 +138,8 @@ export class JunosBgp {
         if (rejectAll) this.out.set(`policy-options policy-statement ${JunosBgp.REJECT_ALL} then reject`);
 
         if (exports) this.origin();
+
+        for (const family of defaults) this.defaultRoute(family);
 
         for (const policy of [...used].sort()) this.policyStatement(policy);
     }
@@ -157,6 +173,20 @@ export class JunosBgp {
             for (const prefix of own) this.out.set(term, "from route-filter", prefix, match);
             this.out.set(term, "then", then);
         }
+    }
+
+    /** Junos has no setting that sends a neighbor a default route, so an aggregate makes one that is always there, `passive` even without a route under it. Its preference is the highest, so any other default route wins, and that one is announced instead. */
+    private defaultRoute(family: Family): void {
+        const options = family === "ipv6" ? "routing-options rib inet6.0" : "routing-options";
+        const route = `${options} aggregate route ${presets.default_routes[family]}`;
+        this.out.set(route, "passive");
+        this.out.set(route, "preference", JunosBgp.LAST_RESORT);
+
+        // Another default route keeps its next hop, which can be the neighbor's own address (TRAPS.md).
+        const term = `policy-options policy-statement ${JunosBgp.DEFAULT_ROUTE} term ${family}`;
+        this.out.set(term, "from route-filter", presets.default_routes[family], "exact");
+        this.out.set(term, "then next-hop self");
+        this.out.set(term, "then accept");
     }
 
     private prefixSets(): void {

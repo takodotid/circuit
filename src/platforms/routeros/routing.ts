@@ -1,3 +1,4 @@
+import { presets } from "../../config/presets";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
@@ -12,6 +13,9 @@ export class RouterOsRouting {
 
     /** The chain a session without a policy uses, so that it learns or announces nothing. */
     private static readonly REJECT_ALL = "REJECT-ALL";
+
+    /** Names the output chain of a session with `send_default_route`, which accepts the default route and hands every other route to its export's chain. */
+    private static readonly WITH_DEFAULT = "DEFAULT";
 
     /** The TTL a session with GTSM sends with and requires on arrival, the highest there is (RFC 5082). */
     private static readonly GTSM_TTL = 255;
@@ -65,6 +69,12 @@ export class RouterOsRouting {
     /** The chain a policy is rendered as for one family. A policy can test prefix lengths that mean different things per family, so each family gets its own. */
     private static chainName(policy: string, family: Family): string {
         return `${policy}-${RouterOsRouting.familySuffix(family)}`;
+    }
+
+    /** A session's output chain. RouterOS sends its `default-originate` route through it (TRAPS.md), so a session with `send_default_route` gets a chain of its own that accepts the default route first. */
+    private static exportChain(settings: NeighborSettings, family: Family): string {
+        const policy = settings.export_policy ?? RouterOsRouting.REJECT_ALL;
+        return RouterOsRouting.chainName(settings.send_default_route ? `${policy}-${RouterOsRouting.WITH_DEFAULT}` : policy, family);
     }
 
     /** The conditions of a rule, as the platform's filter language writes them. */
@@ -234,6 +244,7 @@ export class RouterOsRouting {
         };
 
         let rejectAllNeeded = false;
+        const withDefault = new Map<string, Set<Family>>();
 
         for (const neighbor of Object.values(bgp.neighbors ?? {})) {
             const settings = this.settingsOf(neighbor);
@@ -242,6 +253,11 @@ export class RouterOsRouting {
                 for (const policy of [settings.import_policy, settings.export_policy]) {
                     if (policy) want(policy, family);
                     else rejectAllNeeded = true;
+                }
+
+                if (settings.send_default_route) {
+                    const policy = settings.export_policy ?? RouterOsRouting.REJECT_ALL;
+                    withDefault.set(policy, (withDefault.get(policy) ?? new Set()).add(family));
                 }
             }
         }
@@ -273,6 +289,16 @@ export class RouterOsRouting {
                     chain: RouterOsRouting.chainName(RouterOsRouting.REJECT_ALL, family),
                     rule: "reject",
                 });
+        }
+
+        for (const policy of [...withDefault.keys()].sort()) {
+            for (const family of ["ipv4", "ipv6"] as const) {
+                if (!withDefault.get(policy)!.has(family)) continue;
+
+                const chain = RouterOsRouting.chainName(`${policy}-${RouterOsRouting.WITH_DEFAULT}`, family);
+                this.render.add("/routing filter rule", "add", { chain, rule: `if (dst==${presets.default_routes[family]}) { accept }` });
+                this.render.add("/routing filter rule", "add", { chain, rule: `jump ${RouterOsRouting.chainName(policy, family)}` });
+            }
         }
     }
 
@@ -306,7 +332,8 @@ export class RouterOsRouting {
                 "local.ttl": settings.ttl_security ? RouterOsRouting.GTSM_TTL : undefined,
                 multihop: settings.multihop ? "yes" : undefined,
                 name,
-                "output.filter-chain": RouterOsRouting.chainName(settings.export_policy ?? RouterOsRouting.REJECT_ALL, family),
+                "output.default-originate": settings.send_default_route ? "always" : undefined,
+                "output.filter-chain": RouterOsRouting.exportChain(settings, family),
                 "output.network": originates ? RouterOsSyntax.NETWORKS[family] : undefined,
                 "remote.address": `${neighbor.address}/${addressFamily === "ipv4" ? 32 : 128}`,
                 "remote.as": settings.remote_as,

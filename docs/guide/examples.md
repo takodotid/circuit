@@ -26,13 +26,15 @@ A home, an office, or an internal network. It has a router, a switch, three VLAN
 
 ## An edge router
 
-Your own AS with one router. It has IP transit from Hurricane Electric, peering at DE-CIX, filters both ways, and BGP communities.
+Your own AS with two routers. The first has IP transit from Hurricane Electric, peering at DE-CIX, filters both ways, and BGP communities. The second, on Junos, sells transit to a customer that takes only a default route.
 
 ::: code-group
 
 <<< @/../examples/edge-router/circuit.ts
 
 <<< @/../examples/edge-router/sites/pop-1/edge-01.ts
+
+<<< @/../examples/edge-router/sites/pop-2/edge-02.ts
 
 :::
 

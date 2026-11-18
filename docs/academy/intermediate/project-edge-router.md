@@ -9,7 +9,7 @@ In this project, you build Circuit's [edge router example](/guide/examples#an-ed
 
 ## Start the project
 
-[Install Circuit](/guide/install), and start a project with `circuit new`, which asks for your AS number. Then copy the example's three files into the project:
+[Install Circuit](/guide/install), and start a project with `circuit new`, which asks for your AS number. Then copy three of the example's files into the project:
 
 - `circuit.ts`, with your AS, your prefixes, and your communities
 - `sites/pop-1/edge-01.ts`, with the router

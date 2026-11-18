@@ -349,6 +349,7 @@ export class FortiOsRouting {
 
             for (const family of families) {
                 const suffix = family === "ipv4" ? "" : "6";
+                if (settings.send_default_route) entry.set(`capability-default-originate${suffix}`, "enable");
                 if (settings.max_prefixes !== undefined) entry.set(`maximum-prefix${suffix}`, settings.max_prefixes);
                 entry.set(`route-map-in${suffix}`, FortiOsTree.quote(maps.of(settings.import_policy, family)));
                 entry.set(`route-map-out${suffix}`, FortiOsTree.quote(maps.of(settings.export_policy, family)));

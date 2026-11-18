@@ -76,6 +76,7 @@ A note in a cell means "works, with this limit".
 | RPKI                        | ✅                      | ❌         | ❌                       | ✅           | ❌               |
 | BGP roles (RFC 9234)        | ✅                      | ❌         | ❌                       | ❌           | ❌               |
 | GTSM (RFC 5082)             | ✅ eBGP                 | ❌         | ❌                       | ❌           | ❌               |
+| Default route to a neighbor | ✅                      | ❌         | ❌                       | ✅           | ✅               |
 
 ### Firewall and services
 

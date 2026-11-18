@@ -50,6 +50,7 @@ Seen on a FortiGate 3700D running FortiOS 6.2.2, without a license.
 - A loopback has no MTU of its own and runs no VRRP. An interface's name has at most 15 characters.
 - Multi-VDOM mode (`config system global`, `set vdom-mode multi-vdom`, `end`) asks `Do you want to continue? (y/n)` and logs every session out. Traffic keeps flowing: everything stays in `root`. From then on `system interface` lists `npu0_vlink0` to `npu3_vlink1`, two links between VDOMs for each NP6 chip, which cannot be deleted. Certificates (`vpn certificate local` and `ca`) and `log disk setting` belong to each VDOM, and are `command parse error` under `config global`. The system settings, interfaces, DNS, NTP, SNMP, syslog, sFlow, NetFlow, and session helpers are global, and are `command parse error` inside a VDOM.
 - An interface moves into another VDOM (`config global`, `config system interface`, `set vdom`) only once nothing in its VDOM points to it, such as a static route. A session that came in on it stops answering once it moves, so move it from a session on another interface.
+- `capability-default-originate` sends a default route of the device's own, even through a `route-map-out` that denies everything.
 - There is no WireGuard and no RPKI: `command parse error`. A route map has no large community, a BGP neighbor no role, and SNMPv3 no SHA256.
 - `execute backup config flash <comment>` keeps a revision on the device, and `execute restore config flash <id>` restores one.
 - The factory dedicates `mgmt1` and `mgmt2` to management, at `192.168.1.99` and `192.168.2.99`.

@@ -164,6 +164,7 @@ const NEIGHBOR_SETTINGS = {
     role: 0,
     multihop: 0,
     ttl_security: 0,
+    send_default_route: 0,
     password: SECRET,
     max_prefixes: 0,
     hold_time: 0,

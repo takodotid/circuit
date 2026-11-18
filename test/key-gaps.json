@@ -114,7 +114,6 @@
         "routing.ospf",
         "routing.bfd",
         "routing.rpki",
-        "routing.policies.*[].if.prefix",
         "routing.policies.*[].if.as_path_length",
         "routing.policies.*[].if.as_path_contains",
         "routing.policies.*[].if.standard_community",
