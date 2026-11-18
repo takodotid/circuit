@@ -56,7 +56,8 @@ const ports = computed<Row[]>(() => {
 
     return all.map((name) => {
         const port = own.interfaces?.ethernet?.[name];
-        if (!port) return { id: `port-${name}`, muted: true, cells: [name, "shut down", "", "", "", ""] };
+        // A port the project leaves out is shut down.
+        if (!port) return { id: `port-${name}`, muted: true, cells: [name, "shut down", "", "", "", "", ""] };
 
         const lag = port.in_lag ? own.interfaces?.lag?.[port.in_lag] : undefined;
         const carrier = lag ?? port;
@@ -71,6 +72,7 @@ const ports = computed<Row[]>(() => {
             id: `port-${name}`,
             cells: [
                 name,
+                "",
                 description ?? "",
                 [switching, in_lag ? `in LAG ${in_lag}` : ""].filter(Boolean).join(", "),
                 Format.compact(addresses),
@@ -86,6 +88,7 @@ const declaredPorts = computed(() => Object.keys(device.value?.interfaces?.ether
 
 const portColumns = [
     "Port",
+    "State",
     FieldDocs.column("Description", "interfaces.ethernet.*.description"),
     "Switching",
     FieldDocs.column("Addresses", "interfaces.ethernet.*.addresses"),

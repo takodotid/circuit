@@ -35,7 +35,7 @@ export class GraphLayer {
     };
 
     static readonly HELP: Record<Layer, string> = {
-        l1: "Each cable a port's link names. A LAG's cables are one line.",
+        l1: "One line per cable, from each port's link. A LAG's cables are one line.",
         l2: "The VLANs each cable carries. Pick a VLAN to light its cables.",
         l3: "Prefixes that devices share.",
         bgp: "Sessions between our devices, and to each AS outside.",

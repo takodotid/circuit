@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import type { SecretsFileListing, SecretsListing } from "../../../types";
 import { SecretsCrypto } from "../lib/secrets-crypto";
 import { api } from "../lib/store";
@@ -21,7 +21,6 @@ onMounted(async () => {
 });
 
 const encryptedOf = (file: SecretsFileListing) => file.entries.filter((entry) => entry.kind === "encrypted");
-const anyEncrypted = computed(() => (listing.value?.files ?? []).some((file) => encryptedOf(file).length));
 
 /** Decrypt every encrypted value of a file with the typed password, then forget the password. */
 async function reveal(file: SecretsFileListing): Promise<void> {
@@ -52,10 +51,7 @@ const KIND: Record<string, string> = {
 
 <template>
     <h2>Secrets</h2>
-    <p class="muted">
-        Edit secrets with <code>circuit secrets</code>.
-        <template v-if="anyEncrypted">Values are decrypted in this browser. The password is never sent.</template>
-    </p>
+    <p class="muted">Edit secrets with <code>circuit secrets</code>.</p>
     <p v-if="loadError" class="verdict reject">{{ loadError }}</p>
 
     <section v-for="file in listing?.files ?? []" :key="file.file">
