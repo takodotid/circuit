@@ -28,7 +28,10 @@ export class Format {
                 .join(", ");
         }
 
-        return String(value);
+        if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+            return String(value);
+        }
+        return JSON.stringify(value) ?? "";
     }
 
     /** "1 error", "2 errors". */

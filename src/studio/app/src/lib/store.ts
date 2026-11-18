@@ -124,11 +124,11 @@ export function connect(): void {
     void load();
 
     const events = new EventSource("/api/events");
-    events.onopen = () => (store.live = "live");
-    events.onerror = () => (store.live = "offline");
-    events.onmessage = async () => {
+    events.addEventListener("open", () => (store.live = "live"));
+    events.addEventListener("error", () => (store.live = "offline"));
+    events.addEventListener("message", async () => {
         await load();
         store.beat = true;
         setTimeout(() => (store.beat = false), 1200);
-    };
+    });
 }
