@@ -25,9 +25,9 @@ const vlans: Vlan[] = [
 
 const vlanNamed = (name: string) => vlans.find((vlan) => vlan.name === name)!;
 
-const switches: Record<SwitchId, { label: string; x: number; y: number; far: SwitchId; farLabel: string }> = {
-    "switch-a": { label: "switch-a", x: 160, y: 80, far: "switch-b", farLabel: "Switch B" },
-    "switch-b": { label: "switch-b", x: 520, y: 80, far: "switch-a", farLabel: "Switch A" },
+const switches: Record<SwitchId, { label: string; x: number; y: number; far: SwitchId }> = {
+    "switch-a": { label: "switch-a", x: 160, y: 80, far: "switch-b" },
+    "switch-b": { label: "switch-b", x: 520, y: 80, far: "switch-a" },
 };
 
 const ends: SwitchId[] = ["switch-a", "switch-b"];
@@ -76,13 +76,13 @@ function toggle(end: SwitchId, id: number) {
 
 const matched = computed(() => carried.value["switch-a"].join() === carried.value["switch-b"].join());
 
-/** The trunk port in one switch's file, as the reader has set it. */
+/** The trunk port in one switch's file, as the reader has set it. Its description gives the far end as that switch prints it, so validate does not warn. */
 function trunkPort(end: SwitchId) {
     const names = carried.value[end].map((id) => `"${vlans.find((vlan) => vlan.id === id)!.name}"`).join(", ");
 
     return [
         '"40g-1": {',
-        `    description: "${switches[end].farLabel}",`,
+        `    description: "${switches[end].far} 40GE1/0/1",`,
         `    trunk_vlans: [${names}],`,
         `    link: { device: "${switches[end].far}", port: "40g-1" },`,
         "},",
@@ -124,7 +124,7 @@ async function send() {
     if (target.vlan.id !== vlan.id) {
         said.value = {
             kind: "bad",
-            text: `The ${source.label} is in VLAN ${vlan.id} and the ${target.label} in VLAN ${target.vlan.id}. A trunk carries VLANs, it does not join them: crossing still needs a router.`,
+            text: `The ${source.label} is in VLAN ${vlan.id} and the ${target.label} in VLAN ${target.vlan.id}. A trunk carries VLANs but does not join them, so crossing still needs a router.`,
         };
     } else if (target.on === source.on) {
         await travel([switchPoint(source.on), hostPoint(target)]);
