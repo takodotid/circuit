@@ -20,11 +20,13 @@ export default as64500.device({
 
     interfaces: {
         ethernet: {
+            // #region trunk
             "10g-1": {
                 description: "router sfp28-1",
                 trunk_vlans: ["mgmt", "home", "guests"],
                 link: { device: "router", port: "25g-1" },
             },
+            // #endregion trunk
             "10g-2": { description: "Desk", access_vlan: "home", stp: { edge: true } },
             "10g-3": { description: "Living room", access_vlan: "home", stp: { edge: true } },
             "10g-4": { description: "Guest access point", access_vlan: "guests", stp: { edge: true } },

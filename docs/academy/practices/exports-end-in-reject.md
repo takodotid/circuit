@@ -21,13 +21,7 @@ Circuit already rejects a route that no rule accepts. The last rule says so wher
 
 The [edge router example](/guide/examples#an-edge-router) sends one export to its transit and to the exchange:
 
-```ts
-export: [
-    { communities: "export" },
-    { description: "Our own space", if: { prefix_set: "ours" }, then: "accept" },
-    { description: "Nothing else leaves", then: "reject" },
-],
-```
+<<< @/../examples/edge-router/sites/pop-1/edge-01.ts#export
 
 A neighbor without an `export_policy` is sent nothing. On RouterOS, `role` on each neighbor adds a second guard: both sides refuse a leaked route, as RFC 9234 describes.
 

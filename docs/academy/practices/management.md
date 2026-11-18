@@ -19,9 +19,7 @@ A VLAN of its own keeps management off the ports anyone can plug into. A guest a
 
 `management.allow` lists the sources that may reach every login service, as prefixes or as the name of an address set. A service can set its own `allow`, and a service you leave out is off. Each device of the [single site example](/guide/examples#a-single-site) allows only the management network, and turns on SSH alone:
 
-```ts
-management: { allow: [home.addresses.management], ssh: {} },
-```
+<<< @/../examples/single-site/sites/home/router.ts#management
 
 The management VLAN travels only on the trunk between the two devices. The example's own check fails on any access port in it:
 

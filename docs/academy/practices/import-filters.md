@@ -29,25 +29,7 @@ The last rule decides for every route that is left. An import that ends in a `se
 
 Here is the transit import of the [edge router example](/guide/examples#an-edge-router):
 
-```ts
-prefix_sets: {
-    ours: { prefixes: as64500.prefixes.ours },
-    "bogons-v4": { prefixes: presets.bogons.ipv4 },
-    "bogons-v6": { prefixes: presets.bogons.ipv6 },
-},
-policies: {
-    sanity: presets.bgp_sanity,
-    // A route from the exchange beats the same route from the transit: the higher local preference wins.
-    "transit-import": [
-        { call: "sanity" },
-        { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },
-        { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },
-        { if: { prefix_set: "ours" }, then: "reject" },
-        { communities: "import" },
-        { set: { local_pref: 100 }, then: "accept" },
-    ],
-},
-```
+<<< @/../examples/edge-router/sites/pop-1/edge-01.ts#imports
 
 A neighbor without an `import_policy` accepts nothing. [Route policies](/academy/intermediate/route-policy) runs routes through an import one by one, [Hijacks and leaks](/academy/professional/routing-security) explains RPKI, and [Standards](/reference/standards#routing) gives the RFC behind each preset.
 

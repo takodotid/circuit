@@ -30,10 +30,13 @@ export default as64500.device({
         },
     },
     switching: {
+        // #region outside-vlans
         vlans: {
             transit: { id: 300, description: "IP transit from Hurricane Electric, AS6939", untrusted: true },
             exchange: { id: 200, description: "DE-CIX peering LAN", untrusted: true },
         },
+        // #endregion outside-vlans
+        // #region edge-acl
         // In the switch chip, before a packet reaches the router's CPU: nothing from outside may claim our addresses or private ones.
         acls: {
             edge: [
@@ -41,6 +44,7 @@ export default as64500.device({
                 { description: "Private ranges", if: { vlan: ["transit", "exchange"], src: presets.rfc1918 }, then: "drop" },
             ],
         },
+        // #endregion edge-acl
     },
 
     routing: {
@@ -53,6 +57,7 @@ export default as64500.device({
         bgp: {
             originated_prefixes: [as64500.prefixes.ours.v4, as64500.prefixes.ours.v6],
             neighbors: {
+                // #region transit
                 "hurricane-electric": {
                     address: "203.0.113.1",
                     remote_as: 6939,
@@ -63,6 +68,7 @@ export default as64500.device({
                     export_policy: "export",
                     communities: { groups: ["transit"] },
                 },
+                // #endregion transit
                 "de-cix-rs-v4": {
                     address: "192.0.2.1",
                     remote_as: 6695,
@@ -85,6 +91,7 @@ export default as64500.device({
                 },
             },
         },
+        // #region imports
         prefix_sets: {
             ours: { prefixes: as64500.prefixes.ours },
             "bogons-v4": { prefixes: presets.bogons.ipv4 },
@@ -101,6 +108,7 @@ export default as64500.device({
                 { communities: "import" },
                 { set: { local_pref: 100 }, then: "accept" },
             ],
+            // #endregion imports
             "exchange-import": [
                 { call: "sanity" },
                 { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },
@@ -109,11 +117,13 @@ export default as64500.device({
                 { communities: "import" },
                 { set: { local_pref: 200 }, then: "accept" },
             ],
+            // #region export
             export: [
                 { communities: "export" },
                 { description: "Our own space", if: { prefix_set: "ours" }, then: "accept" },
                 { description: "Nothing else leaves", then: "reject" },
             ],
+            // #endregion export
         },
     },
 

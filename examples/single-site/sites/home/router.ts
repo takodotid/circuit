@@ -17,17 +17,21 @@ export default as64500.device({
         ntp: { servers: ["pool.ntp.org"] },
         users: { operator: { role: "admin", password: secret("ROUTER_PASSWORD") } },
     },
+    // #region management
     management: { allow: [home.addresses.management], ssh: {} },
+    // #endregion management
 
     interfaces: {
         ethernet: {
             "1g-1": { description: "Internet provider", addresses: ["203.0.113.2/30"] },
+            // #region trunk
             "25g-1": {
                 description: "switch 10GE1/0/1",
                 speed: "10g",
                 trunk_vlans: ["mgmt", "home", "guests"],
                 link: { device: "switch", port: "10g-1" },
             },
+            // #endregion trunk
         },
         // The gateway of each VLAN.
         vlan_interface: {
