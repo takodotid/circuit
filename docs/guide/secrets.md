@@ -19,7 +19,7 @@ The value goes in `.circuit/secrets`, encrypted:
 circuit secrets set EDGE_01_PASSWORD
 ```
 
-Circuit asks for the value without showing it. In all output, a secret of 6 characters or more shows as `<redacted>`, also where a device quotes it. Only a console you open in your terminal with `circuit access-console` shows the device's output as it is.
+Circuit asks for the value without showing it. In all output and in Studio, a secret of 6 characters or more shows as `<redacted>`, also where a device quotes it. Only a console you open in your terminal with `circuit access-console` shows the device's output as it is.
 
 ## How it works
 

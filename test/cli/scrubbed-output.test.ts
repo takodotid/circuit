@@ -7,13 +7,19 @@ import { join } from "node:path";
 import { ProjectCommands } from "../../src/cli/project-commands";
 import { Secrets } from "../../src/core/secrets";
 import { Platforms } from "../../src/platforms";
+import { StudioDataReader } from "../../src/studio/data";
+import { StudioServer } from "../../src/studio/server";
 import { PathCheck } from "../../src/transport/path-check";
 import { FakeSshDevice } from "../platforms/fake-ssh";
 
 const SECRET = FakeSshDevice.PASSWORD;
 const VERSION = "7.23.5";
+const STUDIO_PORT = 47000 + Math.floor(Math.random() * 1000);
 
+const example = join(import.meta.dir, "..", "..", "examples", "single-site");
 const folder = realpathSync(mkdtempSync(join(tmpdir(), "circuit-scrubbed-")));
+/** Studio reads its own copy: a project is read once in a process. */
+const studioFolder = realpathSync(mkdtempSync(join(tmpdir(), "circuit-scrubbed-studio-")));
 const before = process.cwd();
 const printed: string[] = [];
 const platform = Platforms.get("routeros");
@@ -41,7 +47,8 @@ let commands: ProjectCommands;
 let port: number;
 
 beforeAll(async () => {
-    cpSync(join(import.meta.dir, "..", "..", "examples", "single-site"), folder, { recursive: true });
+    cpSync(example, folder, { recursive: true });
+    cpSync(example, studioFolder, { recursive: true });
     process.chdir(folder);
     process.env.ROUTER_PASSWORD = SECRET;
     port = await fake.listen();
@@ -61,9 +68,10 @@ beforeAll(async () => {
 afterAll(() => {
     mock.restore();
     delete process.env.ROUTER_PASSWORD;
+    for (const server of StudioServer.servers) server.close();
     fake.close();
     process.chdir(before);
-    rmSync(folder, { recursive: true, force: true });
+    for (const copy of [folder, studioFolder]) rmSync(copy, { recursive: true, force: true });
 });
 
 /** What Circuit printed while `work` ran, and the error it stopped with, printed as the command line prints one. */
@@ -110,4 +118,29 @@ test("exec hides a secret the device prints", async () => {
     const text = await output(() => commands.exec("router", ["/ip address print"], undefined, 10));
     expect(text).toContain(`comment="password ${Secrets.REDACTED}"`);
     expect(text).not.toContain(SECRET);
+});
+
+test("Studio hides a secret in what it read from the device", async () => {
+    running = `${running}/ip address set [ find address=192.168.10.1/24 ] comment="password ${SECRET}"\n`;
+
+    await StudioServer.start({
+        root: studioFolder,
+        port: STUDIO_PORT,
+        host: "127.0.0.1",
+        allowHosts: [],
+        gather: async (root) => {
+            const data = await StudioDataReader.gather(root);
+            if ("error" in data) throw new Error(data.error);
+            for (const device of data.devices) if (device.name === "router") Object.assign(device.connection, { host: "127.0.0.1", port });
+            return JSON.stringify(data);
+        },
+    });
+
+    const answer = await fetch(`http://127.0.0.1:${STUDIO_PORT}/api/read?device=router`, {
+        method: "POST",
+        headers: { [StudioServer.REQUEST_HEADER]: "1" },
+    });
+    const body = await answer.text();
+    expect(body).toContain(`comment=\\"password ${Secrets.REDACTED}\\"`);
+    expect(body).not.toContain(SECRET);
 });
