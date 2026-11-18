@@ -11,8 +11,9 @@ How to change Circuit's code, from a branch to a release. To report a bug, ask a
 Install [Bun](https://bun.sh), then:
 
 ```bash
-bun install        # dependencies, Studio's page, the editor types, Vale's style and the git hooks
-bun run docs:dev   # the website, locally
+bun install             # dependencies, Studio's page, the editor types, Vale's style, and the git hooks
+bun install --cwd docs  # the website's own dependencies, which the checks read too
+bun run docs:dev        # the website, locally
 ```
 
 To run Circuit from the sources on a project:
