@@ -2,6 +2,10 @@
 
 export type Plate = "editor" | "plan" | "network";
 
+type Point = [x: number, y: number];
+type Corners = [topLeft: Point, topRight: Point, bottomRight: Point, bottomLeft: Point];
+type Part = { name: string; link: string; meaning: string; callout: Point; target: Point };
+
 export class HomeDrawing {
     // The drawing is laid out on a 1536-pixel-wide frame whose band starts 230 pixels down; everything in it scales with the band's width.
     private static readonly FRAME = 15.36;
@@ -23,7 +27,7 @@ export class HomeDrawing {
 
     // The editor in the drawing leans away to the right. Its words are set flat on a window of this size, then bent onto the editor's four corners in the drawing, so they lean with it.
     private static readonly WINDOW = { width: 870, height: 760 };
-    private static readonly EDITOR = [
+    private static readonly EDITOR: Corners = [
         [580, 92],
         [1450, 150],
         [1450, 850],
@@ -31,50 +35,52 @@ export class HomeDrawing {
     ];
 
     /** The parts of the drawing, each a numbered callout pointing at its place and an entry in the legend under it. */
-    static readonly PARTS = [
-        {
-            name: "Device file",
-            link: "/guide/project#a-device",
-            meaning: "One TypeScript file for each router or switch. Your editor checks every name as you type.",
-            callout: [117, 255],
-            target: [178, 290],
-        },
-        {
-            name: "Check",
-            link: "/guide/checks",
-            meaning: "A rule about your network that every change must pass, run on all devices together.",
-            callout: [1219, 267],
-            target: [1165, 312],
-        },
-        {
-            name: "Plan",
-            link: "/guide/apply#making-the-plan",
-            meaning: "Every command that would be sent, in the device's own language, before anything is sent.",
-            callout: [830, 266],
-            target: [778, 320],
-        },
-        {
-            name: "Apply",
-            link: "/guide/apply",
-            meaning: "Sends the plan only once you say yes, the safest way the device allows.",
-            callout: [1006, 303],
-            target: [968, 352],
-        },
-        {
-            name: "Live read",
-            link: "/guide/apply#making-the-plan",
-            meaning: "Circuit reads what the device runs now, every time, so a plan is never out of date.",
-            callout: [1452, 296],
-            target: [1424, 355],
-        },
-        {
-            name: "Git history",
-            link: "/studio/#review-a-change",
-            meaning: "Every change, with its author and its reason, in your own repository.",
-            callout: [1405, 567],
-            target: [1319, 612],
-        },
-    ].map((part, index) => {
+    static readonly PARTS = (
+        [
+            {
+                name: "Device file",
+                link: "/guide/project#a-device",
+                meaning: "One TypeScript file for each router or switch. Your editor checks every name as you type.",
+                callout: [117, 255],
+                target: [178, 290],
+            },
+            {
+                name: "Check",
+                link: "/guide/checks",
+                meaning: "A rule about your network that every change must pass, run on all devices together.",
+                callout: [1219, 267],
+                target: [1165, 312],
+            },
+            {
+                name: "Plan",
+                link: "/guide/apply#making-the-plan",
+                meaning: "Every command that would be sent, in the device's own language, before anything is sent.",
+                callout: [830, 266],
+                target: [778, 320],
+            },
+            {
+                name: "Apply",
+                link: "/guide/apply",
+                meaning: "Sends the plan only once you say yes, the safest way the device allows.",
+                callout: [1006, 303],
+                target: [968, 352],
+            },
+            {
+                name: "Live read",
+                link: "/guide/apply#making-the-plan",
+                meaning: "Circuit reads what the device runs now, every time, so a plan is never out of date.",
+                callout: [1452, 296],
+                target: [1424, 355],
+            },
+            {
+                name: "Git history",
+                link: "/studio/#review-a-change",
+                meaning: "Every change, with its author and its reason, in your own repository.",
+                callout: [1405, 567],
+                target: [1319, 612],
+            },
+        ] satisfies Part[]
+    ).map((part, index) => {
         const [x, y] = part.callout;
         const [tx, ty] = part.target;
 
@@ -248,9 +254,8 @@ export class HomeDrawing {
     }
 
     /** The CSS transform that bends a flat box of the window's size onto four corners, given clockwise from the top left. */
-    private static bend(corners: number[][]) {
+    private static bend([[x0, y0], [x1, y1], [x2, y2], [x3, y3]]: Corners) {
         const { WINDOW } = HomeDrawing;
-        const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = corners as [number, number][];
         const dx1 = x1 - x2;
         const dx2 = x3 - x2;
         const dx3 = x0 - x1 + x2 - x3;
@@ -277,12 +282,13 @@ export class HomeDrawing {
         const top = box.y - HomeDrawing.TOP + (box.h - 1024 * scale) / 2;
         const pixels = width / 1536;
 
-        const corners = HomeDrawing.EDITOR.map(([x, y]) => [(left + x * scale) * pixels, (top + y * scale) * pixels]);
+        const place = ([x, y]: Point): Point => [(left + x * scale) * pixels, (top + y * scale) * pixels];
+        const [topLeft, topRight, bottomRight, bottomLeft] = HomeDrawing.EDITOR;
 
         return {
             width: `${HomeDrawing.WINDOW.width}px`,
             height: `${HomeDrawing.WINDOW.height}px`,
-            transform: HomeDrawing.bend(corners),
+            transform: HomeDrawing.bend([place(topLeft), place(topRight), place(bottomRight), place(bottomLeft)]),
         };
     }
 
