@@ -139,7 +139,7 @@ async function send() {
             <SvgDevice kind="router" :x="PLACES.office.x" :y="PLACES.office.y" label="Your office" />
             <SvgDevice kind="cloud" :x="PLACES.provider.x" :y="PLACES.provider.y" label="The provider" />
             <SvgDevice kind="router" :x="PLACES.branch.x" :y="PLACES.branch.y" label="Branch office" :dim="!reaches('branch')" />
-            <SvgDevice kind="server" :x="PLACES.dc.x" :y="PLACES.dc.y" label="Data centre" :dim="!reaches('dc')" />
+            <SvgDevice kind="server" :x="PLACES.dc.x" :y="PLACES.dc.y" label="Data center" :dim="!reaches('dc')" />
 
             <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
