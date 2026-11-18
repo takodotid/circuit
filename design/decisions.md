@@ -83,6 +83,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **100.** The installed `circuit` is the manager. Before every command but `uninstall`, it checks npm, at most every 30 seconds, and updates itself to the newest release of its major, then runs the command as that version. Offline, it warns and goes on. A project's version never changes with it.
 - **101.** Every command in a project runs the version in `.circuit/version`. One not on the machine is downloaded after a yes, or without asking in CI.
 - **106.** Utilities also has `communities` (`--format nlnog`, `alice` or `json`) and `addresses`, and `sync` comes as #170 proposes. No `refresh`: `diff` and `apply` fetch a registry's prefix sets each time and plan them like any list. `wireguard` and `graph` are dropped (owner, 2026-11-09).
+- **114.** `--experimental` lets through a feature built from public documentation but not tested on a real device yet. It stays until Circuit can test on emulated devices (containerlab, [#178](https://github.com/takodotid/circuit/issues/178)).
 
 ## Secrets
 
@@ -96,6 +97,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 
 - **81.** Studio is a Vue 3 app built by Vite and carried in the binary; its graph is drawn with Cytoscape. Without snapshots (75), a device's page reads the device only when asked, "Read from the device now", as `circuit diff` does, and keeps nothing.
 - **82.** Studio's Secrets page shows how each value of each secrets file is kept. To see the values, a person types the file's password; the browser decrypts them, and the password is never sent or kept. A value in plain text never leaves the server. Studio reads a device only when the password comes from 1Password or the environment, and never on a server.
+- **115.** Studio's pages have plain paths, such as `/secrets`, not `#secrets`. The hash came from before Studio used a framework.
 
 ## Releases
 

@@ -13,6 +13,7 @@ This repo is Circuit v1. Circuit 0.x is retired on the branch `0.x`. Never use i
 5. Keep changes small and inside the existing structure. Do what was asked.
 6. Keep no memory outside the repo. A rule goes in this file, a device surprise in its `TRAPS.md`, and open work in a GitHub issue.
 7. When the owner approves a new rule or decision, add it here or to `design/decisions.md` in the same change.
+8. For work with several parts, act as the orchestrator. Give each part to a subagent with a brief: the context it needs, the files, and what done looks like. Run independent parts in parallel. Then review every result against the owner's request, fix it, and only then hand it on. Never pass on a subagent's work unchecked.
 
 ## Principles
 
@@ -68,9 +69,10 @@ This applies to docs, UI text, comments, commit messages and replies.
 - Use everyday English. Many readers have English as a second language.
 - Write full sentences that say who does what. One idea per sentence, about 20 words at most.
 - Use common words in their usual meaning: "tested", not "proved"; "uses", not "names". Keep the small words: if, because, so, that.
+- No filler. Every sentence, label and hint must help the reader act, or tell them something they can't already see. Don't repeat what a heading or the screen already shows. For example, Studio once showed "as64500 · password: typed when asked" under each secrets file's name: nobody needs it there.
 - Say each thing once, in one place, and link to it there.
 - Leave out what nobody needs: inner workings a reader can't act on, history, and notes that are out of date. Git keeps the history.
-- No em-dashes. No manual line wrapping.
+- Use the Oxford comma ("tests, docs, and examples"). No em-dashes or en-dashes as punctuation. No manual line wrapping.
 - Examples use real providers, exchanges and vendors with their real ASNs, such as Hurricane Electric AS6939 or Cloudflare AS13335. Your own network is AS64500. Addresses come only from documentation ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32). A network doing something wrong, such as a hijack or a leak, uses AS64496 to AS64511.
 - Write the repo in English. Reply to the owner in their language, short. A proposal comes with a sample.
 
