@@ -195,7 +195,7 @@ const code = computed(() => {
 
 /** What circuit validate printed for hurricane-electric without an import policy: the example's own check, and the policy no neighbor uses. Circuit stops on them while it reads the project, before its other checks. */
 const IMPORT_ERRORS = [
-    "sites/pop-1/edge-01.ts:102: edge-01: routing.policies.transit-import: no neighbor uses it as its import policy. Circuit writes a communities rule for the neighbors that use its policy, so it goes in a policy a neighbor names, not one another policy calls.",
+    "sites/pop-1/edge-01.ts:103: edge-01: routing.policies.transit-import: no neighbor uses it as its import policy. Circuit writes a communities rule for the neighbors that use its policy, so it goes in a policy a neighbor names, not one another policy calls.",
     "sites/pop-1/edge-01.ts:61: imports_filtered: edge-01: routing.bgp.neighbors.hurricane-electric: has no import_policy, so the router accepts no route from it. Write one.",
 ];
 

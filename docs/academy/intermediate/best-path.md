@@ -53,32 +53,9 @@ Now look at what it took to make Cogent win: one change of local preference, fro
 
 When a device in your network sends traffic to the internet, your routers choose the way out. Local preference is how you make that choice on purpose, instead of leaving it to the length of the AS path.
 
-You set it on import, per neighbor, with a `set` in a policy rule. The [edge router example](/guide/examples#an-edge-router) does it for its transit and its exchange. Here are its two import policies:
+You set it on import, per neighbor, with a `set` in a policy rule. The [edge router example](/guide/examples#an-edge-router) does it for its transit and its exchange. Here are its two import policies, in `routing.policies`:
 
-```ts
-routing: {
-    policies: {
-        sanity: presets.bgp_sanity,
-        // A route from the exchange beats the same route from the transit: the higher local preference wins.
-        "transit-import": [
-            { call: "sanity" },
-            { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },
-            { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },
-            { if: { prefix_set: "ours" }, then: "reject" },
-            { communities: "import" },
-            { set: { local_pref: 100 }, then: "accept" },
-        ],
-        "exchange-import": [
-            { call: "sanity" },
-            { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },
-            { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },
-            { if: { prefix_set: "ours" }, then: "reject" },
-            { communities: "import" },
-            { set: { local_pref: 200 }, then: "accept" },
-        ],
-    },
-},
-```
+<<< @/../examples/edge-router/sites/pop-1/edge-01.ts#local-pref
 
 Every route from the exchange gets 200, and the same route from the transit gets 100. So traffic to a network that is at both takes the exchange. You usually pay a transit for every bit it carries, while an exchange port usually costs a fixed fee. The networks there are often closer, too.
 
