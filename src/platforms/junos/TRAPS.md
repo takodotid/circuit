@@ -23,7 +23,7 @@ Seen on a QFX5100-48S-6Q running Junos 21.4R3.
 - Junos accepts and announces every route over eBGP unless a policy says otherwise: `Default eBGP mode: advertise - accept, receive - accept`. A session without a policy is given `circuit-reject-all`.
 - An export policy sees every active route, not only BGP's. Every export starts with `circuit-bgp-origin`, which passes on BGP's routes and the prefixes in `routing.bgp.originated_prefixes` and rejects the rest.
 - A policy's or a filter's terms are kept in order, and `set` adds a new term at the end. A change to one rewrites it whole.
-- One policy term cannot filter IPv4 and IPv6 prefixes together: `invalid prefix ::/0 for family inet`. A rule for both families becomes a term for each.
+- One policy term cannot filter IPv4 and IPv6 prefixes together: `invalid prefix ::/0 for family inet`. A rule for both families becomes a term for each, and so do the prefixes a policy of Circuit's own lists, such as `networks` and `networks-v6`.
 - A port filter cannot match the VLAN a frame is switched in: `learn-vlan-id not supported on ingress interface`.
 - IPv4 routes over an IPv6 session need a local IPv4 address under the family: `Local IPv4 address must be configured`.
 - A DHCP server and a DHCP relay cannot share an interface: `Interface irb.10 already configured`.

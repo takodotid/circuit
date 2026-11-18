@@ -134,11 +134,29 @@ export class JunosBgp {
         this.out.set(statement, "term bgp then next policy");
 
         // `networks` is 0.x's name for the term, kept so a device that holds it is not rewritten.
-        const originated = this.device.routing?.bgp?.originated_prefixes ?? [];
-        for (const prefix of originated) this.out.set(statement, "term networks from route-filter", prefix, "exact");
-        if (originated.length) this.out.set(statement, "term networks then next policy");
+        this.termsByFamily(statement, "networks", this.device.routing?.bgp?.originated_prefixes ?? [], "exact", "next policy");
 
         this.out.set(statement, "term others then reject");
+    }
+
+    /** A term that matches `prefixes` for each family they are in: `name` for IPv4, `name-v6` for IPv6. One term cannot filter both (TRAPS.md). */
+    private termsByFamily(
+        statement: string,
+        name: string,
+        prefixes: readonly Prefix[],
+        match: "exact" | "longer",
+        then: string,
+        from: string[] = []
+    ): void {
+        for (const family of ["ipv4", "ipv6"] as const) {
+            const own = prefixes.filter((prefix) => Address.family(Address.host(prefix)) === family);
+            if (!own.length) continue;
+
+            const term = `${statement} term ${family === "ipv4" ? name : `${name}-v6`}`;
+            for (const condition of from) this.out.set(term, "from", condition);
+            for (const prefix of own) this.out.set(term, "from route-filter", prefix, match);
+            this.out.set(term, "then", then);
+        }
     }
 
     private prefixSets(): void {

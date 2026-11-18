@@ -95,3 +95,21 @@ test("a Junos prefix list a registry fills keeps its entries", () => {
 
     expect(adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps).toEqual([]);
 });
+
+// A QFX5100 on 21.4 refused one term with both: `invalid prefix 2001:db8:217::/56 for family inet`.
+test("the originated prefixes of each family get a term of their own", () => {
+    const bgp = aggregationSwitch.routing!.bgp!;
+    const originated = ["203.0.113.64/26", "2001:db8:100::/48"] as const;
+    const device = { ...aggregationSwitch, routing: { ...aggregationSwitch.routing, bgp: { ...bgp, originated_prefixes: originated } } };
+    const origin = Platforms.get("junos")
+        .render(device)
+        .split("\n")
+        .filter((line) => line.includes("circuit-bgp-origin term networks"));
+
+    expect(origin).toEqual([
+        "set policy-options policy-statement circuit-bgp-origin term networks from route-filter 203.0.113.64/26 exact",
+        "set policy-options policy-statement circuit-bgp-origin term networks then next policy",
+        "set policy-options policy-statement circuit-bgp-origin term networks-v6 from route-filter 2001:db8:100::/48 exact",
+        "set policy-options policy-statement circuit-bgp-origin term networks-v6 then next policy",
+    ]);
+});
