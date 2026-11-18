@@ -182,12 +182,14 @@ export class RouterOsPlan {
 
     /** A selector for the entry with this identity. */
     private static find(menu: string, id: Record<string, string>): string {
-        const conditions = Object.entries(id).map(([property, raw]) =>
+        const conditions = Object.entries(id).map(([property, raw]) => {
+            const route = RouterOsPlan.ROUTES.has(menu);
             // A disabled route in the main table has no table at all, so `routing-table=main` misses it (RB5009, 7.24.6).
-            RouterOsPlan.ROUTES.has(menu) && property === "routing-table" && raw === "main"
-                ? "(routing-table=main or !routing-table)"
-                : `${property}=${RouterOsPlan.findValue(property, raw)}`
-        );
+            if (route && property === "routing-table" && raw === "main") return "(routing-table=main or !routing-table)";
+            // A blackhole route has no gateway.
+            if (route && property === "gateway" && raw === "") return "!gateway";
+            return `${property}=${RouterOsPlan.findValue(property, raw)}`;
+        });
         if (RouterOsPlan.DYNAMIC.has(menu)) conditions.push("!dynamic");
         return `[ find ${conditions.join(" and ")} ]`;
     }

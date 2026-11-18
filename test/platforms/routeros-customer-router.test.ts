@@ -156,9 +156,16 @@ test("a disabled route in the main table is found by a selector that allows no t
     ].join("\n");
     const desired = ["/ip route", "add dst-address=0.0.0.0/0 gateway=10.81.1.1"].join("\n");
 
+    // Another gateway is another route: the new one is added, then the old one removed.
     const sent = adapter.plan(desired, printed, options).steps.flatMap((step) => step.send);
     expect(sent).toEqual([
-        '/ip route set [ find dst-address="0.0.0.0/0" and (routing-table=main or !routing-table) and !dynamic ] gateway=10.81.1.1 comment="" disabled=no pref-src=""',
+        "/ip route add dst-address=0.0.0.0/0 gateway=10.81.1.1",
+        '/ip route remove [ find dst-address="0.0.0.0/0" and (routing-table=main or !routing-table) and gateway=10.101.3.1 and !dynamic ]',
+    ]);
+
+    const sameGateway = desired.replace("10.81.1.1", "10.101.3.1");
+    expect(adapter.plan(sameGateway, printed, options).steps.flatMap((step) => step.send)).toEqual([
+        '/ip route set [ find dst-address="0.0.0.0/0" and (routing-table=main or !routing-table) and gateway=10.101.3.1 and !dynamic ] comment="" disabled=no pref-src=""',
     ]);
 });
 

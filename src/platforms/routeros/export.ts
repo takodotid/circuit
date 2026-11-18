@@ -163,8 +163,9 @@ export class RouterOsExport {
         "/routing rpki": ["address"],
         "/routing ospf interface-template": ["area", "interfaces"],
         "/routing bfd configuration": ["interfaces"],
-        "/ip route": ["dst-address", "routing-table"],
-        "/ipv6 route": ["dst-address", "routing-table"],
+        // Several routes to one prefix in one table are told apart by their gateway (TRAPS.md). A blackhole route has none.
+        "/ip route": ["dst-address", "routing-table", "gateway"],
+        "/ipv6 route": ["dst-address", "routing-table", "gateway"],
         "/ip address": ["address"],
         "/ipv6 address": ["address"],
         "/ip dhcp-server network": ["address"],
@@ -325,6 +326,8 @@ export class RouterOsExport {
         if (property === "rule") return RouterOsExport.canonicalRule(value);
         // A list whose order means nothing.
         if (property === "tagged" || property === "untagged" || property === "slaves") return value.split(",").sort().join(",");
+        // A route's gateway is part of what it is known by, so an address spelled otherwise must not make it another route. An interface's name stays as it is.
+        if (property === "gateway" && (command.menu === "/ip route" || command.menu === "/ipv6 route")) return Address.canonical(value);
 
         const onInterface = property === "address" && (command.menu === "/ip address" || command.menu === "/ipv6 address");
         // An IP address property, which a MAC address is not.
