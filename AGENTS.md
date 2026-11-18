@@ -73,7 +73,9 @@ This applies to docs, UI text, comments, commit messages and replies.
 - Say each thing once, in one place, and link to it there.
 - Leave out what nobody needs: inner workings a reader can't act on, history, and notes that are out of date. Git keeps the history.
 - Use the Oxford comma ("tests, docs, and examples"). No em-dashes or en-dashes as punctuation. No manual line wrapping.
-- Examples use real providers, exchanges and vendors with their real ASNs, such as Hurricane Electric AS6939 or Cloudflare AS13335. Your own network is AS64500. Addresses come only from documentation ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32). A network doing something wrong, such as a hijack or a leak, uses AS64496 to AS64511.
+- Examples use real names with their real ASNs: providers, exchanges, vendors, and customers, such as Hurricane Electric AS6939 or Cloudflare AS13335. No "Transit A" or "Customer B". Your own network is AS64500. A network doing something wrong, such as a hijack or a leak, uses AS64496 to AS64511.
+- Public addresses come only from documentation ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32). Private ranges (RFC 1918) are fine where the topic is a private network, such as a home or office LAN, or NAT.
+- American spelling: fiber, neighbor, center, as Circuit's field names are.
 - Write the repo in English. Reply to the owner in their language, short. A proposal comes with a sample.
 
 ## Checks
