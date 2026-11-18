@@ -58,7 +58,8 @@ export class RouterOsExport {
         "/ipv6 route": { distance: "1" },
         "/routing bgp instance": { "cluster-id": "" },
         "/routing ospf instance": { version: "2" },
-        "/routing ospf area": { "area-id": "0.0.0.0" },
+        "/routing ospf area": { "area-id": "0.0.0.0", type: "default", "default-cost": "" },
+        "/routing ospf interface-template": { "hello-interval": "10s", "dead-interval": "40s", auth: "", "auth-id": "" },
         // TTLs never set send 255 and accept any, and cannot be unset (TRAPS.md).
         "/routing bgp connection": { "use-bfd": "no", "local.ttl": "255", "remote.ttl": "1", "output.default-originate": "never" },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
@@ -152,10 +153,24 @@ export class RouterOsExport {
     static readonly GENERATED: Record<string, readonly string[]> = { "/interface eoip": ["mac-address"] };
 
     /** Properties the device clears only with `unset`: it refuses them empty (TRAPS.md). */
-    static readonly UNSET: Record<string, readonly string[]> = { "/routing bgp instance": ["cluster-id"] };
+    static readonly UNSET: Record<string, readonly string[]> = {
+        "/routing bgp instance": ["cluster-id"],
+        "/routing ospf area": ["default-cost"],
+        "/routing ospf interface-template": ["auth", "auth-id"],
+    };
+
+    /** A secret the device takes only with another property: a template given `auth` without `auth-key` is refused (TRAPS.md). It is sent whenever that property changes. */
+    static readonly SECRET_WITH: Record<string, Record<string, string>> = { "/routing ospf interface-template": { auth: "auth-key" } };
 
     /** Properties whose value cannot be read back from the device. They are compared only by the presence of what holds them. */
-    static readonly SECRET_KEYS = new Set(["private-key", "password", "tcp-md5-key", "authentication-password", "encryption-password"]);
+    static readonly SECRET_KEYS = new Set([
+        "private-key",
+        "password",
+        "tcp-md5-key",
+        "auth-key",
+        "authentication-password",
+        "encryption-password",
+    ]);
 
     /** Properties that tell two `add` entries of a menu apart. `name` where the menu is not listed. */
     private static readonly IDENTITY: Record<string, string[]> = {

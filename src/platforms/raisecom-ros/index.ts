@@ -223,9 +223,15 @@ export class RaisecomRos extends Platform {
         if (ospf?.address_families?.includes("ipv6")) found.push("routing.ospf.address_families ipv6, OSPF runs for IPv4 here");
 
         for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
+            const where = `routing.ospf.areas.${areaId}`;
+            for (const key of ["type", "no_summaries", "stub_default_cost"] as const)
+                if (area[key] !== undefined) found.push(`${where}.${key}, not tested on the platform`);
+
             for (const [name, settings] of Object.entries(area.interfaces)) {
                 if (settings && !device.interfaces?.vlan_interface?.[name])
-                    found.push(`routing.ospf.areas.${areaId}.interfaces.${name}, OSPF runs on VLAN interfaces here`);
+                    found.push(`${where}.interfaces.${name}, OSPF runs on VLAN interfaces here`);
+                for (const key of ["hello_interval", "dead_interval", "authentication"] as const)
+                    if (settings?.[key] !== undefined) found.push(`${where}.interfaces.${name}.${key}, not tested on the platform`);
             }
         }
 

@@ -222,3 +222,38 @@ test("route_reflector_client on an eBGP neighbor is an error, once at a group th
         "routing.bgp.neighbors.edge-03 has role, but AS64500 is ours, and a role is for eBGP neighbors (RFC 9234). Remove role",
     ]);
 });
+
+// RFC 2328 and RFC 3101: the backbone is a normal area, and only a stub area or an NSSA takes a default cost.
+test("OSPF areas, timers, and keys are checked, and a border router without a default cost is warned", () => {
+    const key = { secret: "OSPF_KEY" };
+    const device: Device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            ospf: {
+                address_families: ["ipv4", "ipv6"],
+                areas: {
+                    "0.0.0.0": {
+                        type: "stub",
+                        interfaces: { uplink: { hello_interval: 60, authentication: { algorithm: "md5", key_id: 256, key } } },
+                    },
+                    "0.0.0.1": { no_summaries: true, stub_default_cost: 0, interfaces: {} },
+                    "0.0.0.2": { type: "nssa", interfaces: { management: { hello_interval: 10, dead_interval: 10 } } },
+                },
+            },
+        },
+    };
+
+    const findings = Checks.run([device], undefined).filter((finding) => finding.message.startsWith("routing.ospf"));
+    expect(findings.map(({ level, message }) => `${level}: ${message}`)).toEqual([
+        "error: routing.ospf.areas.0.0.0.0 has type stub, but the backbone is a normal area (RFC 2328). Remove type",
+        "error: routing.ospf.areas.0.0.0.0.interfaces.uplink.authentication.key_id is 256: write a whole number from 0 to 255",
+        "error: routing.ospf.areas.0.0.0.0.interfaces.uplink.authentication with OSPFv3: Circuit signs OSPFv2 only, and each platform signs OSPFv3 its own way. Remove authentication, or ipv6 from routing.ospf.address_families",
+        "error: routing.ospf.areas.0.0.0.1 has no_summaries without type: only a stub area or an NSSA takes it. Write type, or remove no_summaries",
+        "error: routing.ospf.areas.0.0.0.1 has stub_default_cost without type: only a stub area or an NSSA takes it. Write type, or remove stub_default_cost",
+        "error: routing.ospf.areas.0.0.0.1.stub_default_cost is 0: write a whole number from 1 to 16777214",
+        "error: routing.ospf.areas.0.0.0.2.interfaces.management.dead_interval 10 is not more than hello_interval 10, so a neighbor would go down between two hellos. Write 40, four times hello_interval",
+        "warning: routing.ospf.areas.0.0.0.0.interfaces.uplink has hello_interval without dead_interval. Platforms differ in the dead interval they then use, and neighbors whose dead intervals differ never come up. Write dead_interval, such as 240",
+        "warning: routing.ospf.areas.0.0.0.2 is an NSSA without stub_default_cost, and this device is its border router. RouterOS and Junos then announce no default route into it, and other platforms one at a cost of their own. Write stub_default_cost, such as 10",
+    ]);
+});

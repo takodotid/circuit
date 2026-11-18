@@ -314,7 +314,24 @@ export const DEVICE = {
         },
         ospf: {
             address_families: 0,
-            areas: { "*": { interfaces: { "*": { cost: 0, passive: 0, network: 0, bfd: 0 } } } },
+            areas: {
+                "*": {
+                    type: 0,
+                    no_summaries: 0,
+                    stub_default_cost: 0,
+                    interfaces: {
+                        "*": {
+                            cost: 0,
+                            passive: 0,
+                            network: 0,
+                            hello_interval: 0,
+                            dead_interval: 0,
+                            authentication: { algorithm: 0, key_id: 0, key: SECRET },
+                            bfd: 0,
+                        },
+                    },
+                },
+            },
             redistribute: 0,
         },
         bfd: { interval: 0, multiplier: 0 },

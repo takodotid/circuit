@@ -65,6 +65,8 @@ Every router in an area has the same map, and every change makes all of them com
 
 Area 0 is the <Term means="The OSPF area that every other area must connect to, numbered 0. Traffic between two other areas crosses it.">backbone</Term>. Every other area connects to it, and traffic between two areas crosses it. Area numbers are written like IPv4 addresses, so area 0 is `0.0.0.0`. A network of a few dozen routers usually needs only area 0.
 
+An area at the edge, such as a branch office with one way out, needs few routes. As a **stub area**, it takes no routes that were redistributed into OSPF, and its border router announces a default route into it instead. An **NSSA** (not-so-stubby area) is a stub area that may still redistribute routes of its own, such as a customer's static routes. With no summaries, the area doesn't take the other areas' routes either, only the default route.
+
 ## OSPF in Circuit
 
 OSPF is `routing.ospf`. Each area, under its ID, lists the interfaces that OSPF runs on:
@@ -105,6 +107,47 @@ routing: {
 | `bfd: true`                 | Notice a dead link in under a second, instead of after many seconds without hellos.                                                |
 | `redistribute`              | In `routing.ospf`: also announce routes from elsewhere, such as `["static"]`.                                                      |
 | `address_families`          | In `routing.ospf`: `["ipv4", "ipv6"]` runs OSPF for IPv6 too.                                                                      |
+
+This border router puts the branch in a totally stubby NSSA, and signs every OSPF packet on its uplink:
+
+```ts
+interfaces: {
+    vlan_interface: {
+        branch: { vlan: "branch", addresses: ["10.0.2.1/24"] },
+    },
+},
+
+routing: {
+    ospf: {
+        areas: {
+            "0.0.0.0": {
+                interfaces: {
+                    "25g-1": {
+                        network: "point-to-point",
+                        hello_interval: 10,
+                        dead_interval: 40,
+                        authentication: { algorithm: "hmac-sha-256", key_id: 1, key: secret("OSPF_CORE_KEY") },
+                    },
+                },
+            },
+            "0.0.0.10": {
+                type: "nssa",
+                no_summaries: true,
+                stub_default_cost: 10,
+                interfaces: { branch: { passive: true } },
+            },
+        },
+    },
+},
+```
+
+| Field                             | What it does                                                                                                                                   |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`                            | `stub` or `nssa`. Every router in the area writes the same.                                                                                    |
+| `no_summaries`                    | Keep the other areas' routes out too. Write it on the border router.                                                                           |
+| `stub_default_cost`               | The cost of the default route the border router announces into the area. Without it, RouterOS and Junos announce none.                         |
+| `hello_interval`, `dead_interval` | Seconds between hellos, and without a hello before the neighbor is down. Both ends of a link write the same.                                   |
+| `authentication`                  | Sign each packet with a key both ends share, so no other device can join. MD5 keys are 16 characters at most. OSPF for IPv6 takes no key here. |
 
 <Quiz
   question="Your router runs OSPF on its cable to another router. You add a guests VLAN, where only phones and laptops are. How should it appear in the OSPF area?"

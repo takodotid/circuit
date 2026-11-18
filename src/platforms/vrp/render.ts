@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Lag, Port, VlanInterface, Vrrp } from "../../model";
+import type { Device, Lag, OspfArea, OspfAuthentication, Port, VlanInterface, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 
@@ -48,6 +48,9 @@ export class VrpRender {
 
     /** One process per device. */
     private static readonly OSPF_PROCESS = 1;
+
+    /** `ospf authentication-mode` for each algorithm the platform has. */
+    static readonly OSPF_AUTH: Partial<Record<OspfAuthentication["algorithm"], string>> = { md5: "md5", "hmac-sha-256": "hmac-sha256" };
 
     /** The sFlow collectors are numbered from here, in the order the config lists them. */
     private static readonly FIRST_COLLECTOR = 1;
@@ -413,6 +416,13 @@ export class VrpRender {
 
             if (settings.cost !== undefined) lines.push(`ospf cost ${settings.cost}`);
             if (settings.network === "point-to-point") lines.push("ospf network-type p2p");
+            if (settings.hello_interval !== undefined) lines.push(`ospf timer hello ${settings.hello_interval}`);
+            if (settings.dead_interval !== undefined) lines.push(`ospf timer dead ${settings.dead_interval}`);
+            // `unsupported()` refuses the algorithms the platform lacks.
+            const authentication = settings.authentication;
+            const mode = authentication && VrpRender.OSPF_AUTH[authentication.algorithm];
+            if (authentication && mode)
+                lines.push(`ospf authentication-mode ${mode} ${authentication.key_id} cipher ${Secrets.marker(authentication.key)}`);
             if (settings.bfd) lines.push("ospf bfd enable", ...this.bfdTimers("ospf bfd"));
         }
 
@@ -496,6 +506,18 @@ export class VrpRender {
         return [`${prefix} min-tx-interval ${bfd.interval} min-rx-interval ${bfd.interval}${multiplier}`.trim()];
     }
 
+    /** A stub area or an NSSA, in the area's view. A border router announces a default route into an NSSA with summaries only with `default-route-advertise`. */
+    private static areaType(area: OspfArea): string[] {
+        if (!area.type) return [];
+
+        const cost = area.stub_default_cost;
+        const options = [
+            ...(area.type === "nssa" && !area.no_summaries && cost !== undefined ? ["default-route-advertise"] : []),
+            ...(area.no_summaries ? ["no-summary"] : []),
+        ];
+        return [` ${[area.type, ...options].join(" ")}`, ...(cost === undefined ? [] : [` default-cost ${cost}`])];
+    }
+
     /** An area announces the networks of its interfaces, and a passive interface is silent. `unsupported()` refuses IPv6. */
     private ospf(): void {
         const device = this.device;
@@ -509,7 +531,7 @@ export class VrpRender {
         const areaLines: string[] = [];
 
         for (const [areaId, area] of Object.entries(ospf.areas)) {
-            areaLines.push(`area ${areaId}`);
+            areaLines.push(`area ${areaId}`, ...VrpRender.areaType(area));
 
             for (const [iface, settings] of Object.entries(area.interfaces)) {
                 if (settings?.passive) lines.push(`silent-interface ${this.nameOf(iface)}`);

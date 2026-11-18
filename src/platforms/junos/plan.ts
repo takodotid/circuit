@@ -10,6 +10,7 @@ export class JunosPlan {
         [/ (?:encrypted-password|plain-text-password-value) (?:"[^"]*"|\S+)/, " password <secret>"],
         [/ (?:authentication-key|authentication-password) (?:"[^"]*"|\S+)/, " authentication-key <secret>"],
         [/ (?:privacy-key|privacy-password) (?:"[^"]*"|\S+)/, " privacy-key <secret>"],
+        [/ (authentication md5 \d+ key) (?:"[^"]*"|\S+)/, " $1 <secret>"],
         [/^set snmp community (?:"[^"]*"|\S+)/, "set snmp community <secret>"],
     ];
 

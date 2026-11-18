@@ -153,6 +153,16 @@ export type RpkiServer = {
     description?: string;
 };
 
+/** How OSPFv2 packets on a link are signed. Every router on the link uses the same algorithm, key ID, and key. */
+export type OspfAuthentication = {
+    /** `md5` (RFC 2328), or HMAC-SHA (RFC 5709). */
+    algorithm: "md5" | "hmac-sha-1" | "hmac-sha-256" | "hmac-sha-384" | "hmac-sha-512";
+    /** The key's ID, 0 to 255. */
+    key_id: number;
+    /** The key. With `md5`, 16 characters at most (RFC 2328). */
+    key: Secret;
+};
+
 /** OSPF on one interface. */
 export type OspfInterface = {
     /** Cost of sending through this interface, 1 to 65535. Lower is preferred. Derived from speed when absent. */
@@ -161,6 +171,12 @@ export type OspfInterface = {
     passive?: boolean;
     /** The OSPF network type of the link. `broadcast` when absent. */
     network?: "broadcast" | "point-to-point";
+    /** Seconds between hello packets, 1 to 65535. Every router on the link uses the same. 10 when absent. */
+    hello_interval?: number;
+    /** Seconds without a hello before a neighbor is down, more than `hello_interval` and up to 65535. Every router on the link uses the same. 40 when both are absent; write it with `hello_interval`, since platforms differ without it. */
+    dead_interval?: number;
+    /** Sign every packet, so the device ignores a router without the key. OSPFv2 only. */
+    authentication?: OspfAuthentication;
     /** Detect a dead neighbor in under a second with BFD. */
     bfd?: boolean;
 };
@@ -168,18 +184,24 @@ export type OspfInterface = {
 /** An OSPF area ID, four numbers with dots between them, for example `0.0.0.0` for the backbone. */
 export type OspfAreaId = `${number}.${number}.${number}.${number}`;
 
+/** One OSPF area of the device. */
+export type OspfArea<I extends string> = {
+    /** `stub` takes no external routes, those redistributed into OSPF (RFC 2328). `nssa` takes none from other areas, but may redistribute its own (RFC 3101). A normal area when absent. Not on the backbone, `0.0.0.0`. */
+    type?: "stub" | "nssa";
+    /** Announce no routes from other areas into the area, only a default route: a totally stubby area, or a totally NSSA. Only with `type`. */
+    no_summaries?: boolean;
+    /** The cost, 1 to 16777214, of the default route this device announces into the area as its border router (ABR). Only with `type`. Without it, RouterOS and Junos announce no default route. */
+    stub_default_cost?: number;
+    /** The device's ports and interfaces in this area, each with its OSPF settings. */
+    interfaces: Named<I, OspfInterface>;
+};
+
 /** OSPF, version 2 for IPv4 and version 3 for IPv6. */
 export type Ospf<I extends string> = {
     /** Which versions run: `ipv4` for OSPFv2, `ipv6` for OSPFv3. `ipv4` when absent. */
     address_families?: readonly Family[];
     /** Areas keyed by area ID, for example `0.0.0.0`, each with the interfaces in it. */
-    areas: Record<
-        OspfAreaId,
-        {
-            /** The device's ports and interfaces in this area, each with its OSPF settings. */
-            interfaces: Named<I, OspfInterface>;
-        }
-    >;
+    areas: Record<OspfAreaId, OspfArea<I>>;
     /** Routes from other sources announced into OSPF. */
     redistribute?: readonly ("connected" | "static")[];
 };

@@ -95,6 +95,9 @@ export class RouterOsPlan {
      */
     private static readonly CHANGED_IN_PLACE = new Set(["/interface vlan"]);
 
+    /** Menus whose flags a `set` changes in place: `set <entry> passive` and `set <entry> !passive`. Elsewhere, as with a route's `blackhole`, the entry is replaced. */
+    private static readonly FLAGS_SET = new Set(["/routing ospf area", "/routing ospf interface-template"]);
+
     /**
      * Properties a running entry takes only when it restarts. A BGP session given a new `routing-table` stops announcing at once, and keeps its routes in the old table until it restarts (TRAPS.md). So the plan disables the connection, changes it, and enables it again.
      */
@@ -214,13 +217,13 @@ export class RouterOsPlan {
         return [menu, verb, selector, ...flags, ...properties].filter(Boolean).join(" ");
     }
 
-    /** A `set` of the properties that change, and an `unset` of each one the device clears only that way. */
-    private static setLines(menu: string, selector: string, update: Record<string, string>): string[] {
+    /** An `unset` of each property the device clears only that way, then a `set` of the flags and properties that change. The unsets go first: an area's `default-cost` keeps it from becoming a normal area (TRAPS.md). */
+    private static setLines(menu: string, selector: string, update: Record<string, string>, flags: string[] = []): string[] {
         const cleared = (RouterOsExport.UNSET[menu] ?? []).filter((property) => update[property] === "");
         const values = Object.fromEntries(Object.entries(update).filter(([property]) => !cleared.includes(property)));
-        const set = Object.keys(values).length ? [RouterOsPlan.line(menu, "set", selector, [], values)] : [];
+        const set = Object.keys(values).length || flags.length ? [RouterOsPlan.line(menu, "set", selector, flags, values)] : [];
 
-        return [...set, ...cleared.map((property) => `${menu} unset ${selector} ${property}`)];
+        return [...cleared.map((property) => `${menu} unset ${selector} ${property}`), ...set];
     }
 
     private static describe(attrs: Record<string, string>): string {
@@ -272,6 +275,11 @@ export class RouterOsPlan {
             for (const [property, raw] of Object.entries(wanted.attrs)) {
                 if (RouterOsExport.SECRET_KEYS.has(property) || RouterOsExport.isSecretMarker(raw)) result[property] = raw;
             }
+        }
+
+        for (const [property, secret] of Object.entries(RouterOsExport.SECRET_WITH[wanted.menu] ?? {})) {
+            const raw = wanted.attrs[secret];
+            if (result[property] && raw !== undefined) result[secret] = raw;
         }
 
         return result;
@@ -354,7 +362,7 @@ export class RouterOsPlan {
 
             // A flag such as `blackhole` cannot be changed on an existing entry. It is replaced.
             const flagsDiffer = [...entry.flags].sort().join() !== [...current.flags].sort().join();
-            if (flagsDiffer) {
+            if (flagsDiffer && !RouterOsPlan.FLAGS_SET.has(menu)) {
                 changeStep.show.push(`~ replace ${RouterOsExport.canonical(entry)}`);
                 removeStep.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.selector(current))}`);
                 changeStep.send.push(RouterOsPlan.line(menu, "add", "", entry.flags, entry.attrs));
@@ -362,7 +370,11 @@ export class RouterOsPlan {
             }
 
             const update = this.changes(entry, current, `${menu} ${entryKey}`);
-            if (!Object.keys(update).length) continue;
+            const flags = [
+                ...entry.flags.filter((flag) => !current.flags.includes(flag)),
+                ...current.flags.filter((flag) => !entry.flags.includes(flag)).map((flag) => `!${flag}`),
+            ];
+            if (!Object.keys(update).length && !flags.length) continue;
 
             const selector = RouterOsPlan.find(menu, RouterOsExport.selector(current));
             const restartsOn = (RouterOsPlan.RESTART_ON[menu] ?? []).filter((property) => property in update);
@@ -375,8 +387,8 @@ export class RouterOsPlan {
                 continue;
             }
 
-            changeStep.show.push(`~ ${entryKey} ${RouterOsPlan.describe(update)}`);
-            changeStep.send.push(...RouterOsPlan.setLines(menu, selector, update));
+            changeStep.show.push(`~ ${entryKey} ${[...flags, RouterOsPlan.describe(update)].join(" ").trim()}`);
+            changeStep.send.push(...RouterOsPlan.setLines(menu, selector, update, flags));
         }
 
         const removed = existingEntries.filter((entry) => !kept.has(key(entry)));
