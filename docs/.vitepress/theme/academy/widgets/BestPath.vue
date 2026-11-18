@@ -159,10 +159,13 @@ const outcome = computed(() => {
     return { rows, winner: left[0]!, decidedAt };
 });
 
+/** A step's name inside a sentence: "Origin" becomes "origin", but "AS path length", "MED" and "eBGP or iBGP" keep their letters. */
+const inSentence = (name: string) => (/^[A-Z][a-z]/.test(name) ? name[0]!.toLowerCase() + name.slice(1) : name);
+
 /** Where a route was dropped, in words. */
 function droppedAt(route: Route): string {
     const row = outcome.value.rows.find((entry) => entry.dropped.some((dropped) => dropped.id === route.id));
-    return row ? `Out at step ${row.index + 1}, ${row.step.name.toLowerCase()}` : "";
+    return row ? `Out at step ${row.index + 1}, ${inSentence(row.step.name)}` : "";
 }
 
 const REASONS = [
@@ -176,7 +179,7 @@ const REASONS = [
 
 const verdict = computed(() => {
     const { winner, decidedAt } = outcome.value;
-    return `${winner.name} wins at step ${decidedAt + 1}, ${steps[decidedAt]!.name.toLowerCase()}: ${REASONS[decidedAt]!(winner)}.`;
+    return `${winner.name} wins at step ${decidedAt + 1}, ${inSentence(steps[decidedAt]!.name)}: ${REASONS[decidedAt]!(winner)}.`;
 });
 
 function rowText(row: Row): string {
