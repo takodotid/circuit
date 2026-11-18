@@ -31,6 +31,9 @@ export class JunosBgp {
 
     private static readonly VALIDATION = { valid: "valid", invalid: "invalid", "not-found": "unknown" } as const;
 
+    /** The highest AS number, which an AS list refuses, as it does AS 0 (TRAPS.md). */
+    private static readonly MAX_ASN = 4294967295;
+
     /** The device waits whole minutes before it opens a session closed on its prefix limit. */
     static readonly SECONDS_PER_MINUTE = 60;
     /** The longest it waits, in minutes. */
@@ -339,7 +342,12 @@ export class JunosBgp {
             from.push(["as-path", name]);
         }
 
-        if (match.as_path_contains !== undefined) {
+        // Two AS path regular expressions in one term match when either does, so an AS anywhere in the path is an AS list, which matches beside them. An AS list refuses AS 0 and AS 4294967295 (TRAPS.md).
+        if (match.as_path_contains !== undefined && JunosBgp.listable(match.as_path_contains)) {
+            const list = `circuit-as-${match.as_path_contains}`;
+            this.out.set(`policy-options as-list ${list} members`, match.as_path_contains);
+            from.push(["as-path-transits", "as-list", list]);
+        } else if (match.as_path_contains !== undefined) {
             const name = `circuit-through-${match.as_path_contains}`;
             this.out.set(`policy-options as-path ${name}`, JunosStatements.quote(`.* ${match.as_path_contains} .*`));
             from.push(["as-path", name]);
@@ -392,6 +400,11 @@ export class JunosBgp {
         for (const words of then) this.out.set(term, "then", ...words);
 
         if (!from.length && !then.length) this.out.set(term);
+    }
+
+    /** Whether an AS list can hold this AS. */
+    static listable(asn: number): boolean {
+        return asn > 0 && asn < JunosBgp.MAX_ASN;
     }
 
     /** A named community holding these members, named after them. */

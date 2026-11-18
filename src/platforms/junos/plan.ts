@@ -17,6 +17,7 @@ export class JunosPlan {
     private static readonly NAMED_LISTS = new Set([
         "address",
         "area",
+        "as-list",
         "as-path",
         "class",
         "collector",

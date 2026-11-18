@@ -96,8 +96,8 @@ test("a route through an AS is matched anywhere in its path", () => {
             },
         },
     });
-    expect(junos).toContain(`set policy-options as-path circuit-through-64496 ".* 64496 .*"`);
-    expect(junos).toContain("as-path circuit-through-64496");
+    expect(junos).toContain("set policy-options as-list circuit-as-64496 members 64496");
+    expect(junos).toContain("from as-path-transits as-list circuit-as-64496");
 });
 
 test("a transparent FortiGate takes one management address outside its bridges", () => {
