@@ -42,6 +42,7 @@ export const as64500 = circuit({
 On the interface that faces the exchange:
 
 ```ts
+// In interfaces
 vlan_interface: {
     "de-cix": {
         vlan: "de-cix",

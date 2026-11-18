@@ -15,9 +15,8 @@ description: Keep every device monitored in LibreNMS, with its name, SNMP settin
 
 ## Set it up
 
-In `circuit.ts`:
-
 ```ts
+// circuit.ts
 integrations: {
     librenms: { url: "https://librenms.example.com", api_token: secret("LIBRENMS_API_TOKEN") },
 },

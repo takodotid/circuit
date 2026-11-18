@@ -20,23 +20,9 @@ One file joins every tenant:
 
 Each device takes its parts with `include`, and places the tenants' rules in its own list with `merge`:
 
-```ts
-// sites/dc-1/edge-01.ts, the start and the ACL
-export default as64500.device({
-    name: "edge-01",
-    include: [tenants.parts],
-    // ...
-    switching: {
-        acls: {
-            edge: merge([
-                { description: "Our own space", if: { vlan: ["transit", "exchange"], src: as64500.prefixes.ours.v4 }, then: "drop" },
-                { description: "Private ranges", if: { vlan: ["transit", "exchange"], src: presets.rfc1918 }, then: "drop" },
-                tenants.rules.edge_acl,
-            ]),
-        },
-    },
-});
-```
+<<< @/../examples/colocation/sites/dc-1/edge-01.ts#include
+
+<<< @/../examples/colocation/sites/dc-1/edge-01.ts#acls
 
 ## How it fits together
 

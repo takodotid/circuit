@@ -127,6 +127,11 @@
             "rules": { "typescript/consistent-indexed-object-style": "off" }
         },
         {
+            // Vue's global components are typed by adding to its `GlobalComponents` interface, which a type can't do.
+            "files": ["docs/.vitepress/theme/index.ts"],
+            "rules": { "typescript/consistent-type-definitions": "off" }
+        },
+        {
             // A project never needs a cast. If it does, the language has a bug.
             "files": ["examples/**"],
             "rules": {
