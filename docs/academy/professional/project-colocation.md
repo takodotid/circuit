@@ -20,7 +20,7 @@ A data center rents out room in its racks, measured in <Term means="The height o
 
 - **Internet access**, carried by your edge router to your transit and your exchange.
 - **Public addresses**, a block from your own space, routed to the tenant's VLAN. Your router is the gateway, at the first address.
-- **Ports** on your <Term means="The switch in each data center rack, and the layout that joins every one of them to every spine switch over it.">top-of-rack</Term> switch, one per server.
+- **Ports** on your <Term means="The switch in each data center rack, and the layout that joins every one of them to every spine switch above it.">top-of-rack</Term> switch, one per server.
 - **A private network**, if the tenant wants its servers to talk to each other without going through the router or the internet.
 
 ## Start the project

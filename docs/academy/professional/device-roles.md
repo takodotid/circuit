@@ -12,7 +12,7 @@ A network bigger than one room is laid out in layers, and every device in it has
 - **Aggregation** gathers many access switches together.
 - **Access** is where servers and desks plug in.
 
-In a data center, a **leaf-spine** <Term means="The switches of a data center and the links between them, built so that every rack reaches every other rack the same way.">fabric</Term> of top-of-rack switches often takes the place of the access and aggregation layers.
+In a data center, a **leaf-spine** <Term means="The switches of a data center or an exchange, and the links between them, that carry traffic from any port to any other.">fabric</Term> of top-of-rack switches often takes the place of the access and aggregation layers.
 
 When every device has a role, its name can say the role and the place, such as `edge-a1`, the first edge router at site A. Anyone who reads that name in a log, a graph, or a Circuit file knows where to look.
 
@@ -42,7 +42,7 @@ The <Term means="The router where your network meets other networks, such as tra
 
 The **aggregation** layer exists because a core switch has only so many ports. When a site has dozens of access switches, they join aggregation switches first, and only those join the core. A small site has nothing to aggregate, so one pair of switches does both jobs. That is called a <Term means="A design in which the core and the aggregation layer are the same switches, because the site is too small to need both.">collapsed core</Term>.
 
-**Access** is the bottom layer, where hosts plug in. In a data center the access switch sits at the top of each rack, so it is called a <Term means="The switch in each data center rack, and the layout that joins every one of them to every spine switch over it.">top-of-rack switch</Term>, or ToR.
+**Access** is the bottom layer, where hosts plug in. In a data center the access switch sits at the top of each rack, so it is called a <Term means="The switch in each data center rack, and the layout that joins every one of them to every spine switch above it.">top-of-rack switch</Term>, or ToR.
 
 <TryIt title="Give each device of a provider its role">
 
@@ -99,7 +99,7 @@ The layers so far form a tree. Each access switch has uplinks to its aggregation
 - Traffic between two racks under different aggregation switches has to climb to the core and back down.
 - To add racks, the switches near the top need more ports, until bigger switches must replace them.
 
-Large data centers use a <Term means="The switch in each data center rack, and the layout that joins every one of them to every spine switch over it.">leaf-spine</Term> design instead. The leaves are the top-of-rack switches, and every leaf has one link to every spine. No leaf is joined to another leaf, and no spine to another spine.
+Large data centers use a <Term means="The switch in each data center rack, and the layout that joins every one of them to every spine switch above it.">leaf-spine</Term> design instead. The leaves are the top-of-rack switches, and every leaf has one link to every spine. No leaf is joined to another leaf, and no spine to another spine.
 
 <TryIt title="Build a fabric, send flows, and fail a spine">
 
