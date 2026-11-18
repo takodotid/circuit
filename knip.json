@@ -13,11 +13,11 @@
         },
         "docs": {
             "entry": [".vitepress/theme/**/*.data.ts"],
-            "project": [".vitepress/**/*.ts"]
+            "project": [".vitepress/**/*.{ts,vue}"]
         }
     },
     "ignoreDependencies": ["circuit"],
-    "ignoreBinaries": ["circuit", "op", "reg", "cloudflared", "hook", "vitepress"],
+    "ignoreBinaries": ["circuit", "op", "reg", "cloudflared", "hook"],
     "rules": {
         "types": "off"
     },

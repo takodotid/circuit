@@ -3,7 +3,7 @@
 // The subject is a command, as git and Conventional Commits write it: "add", "fix", "remove" (decision 109).
 const imperative = ({ subject }) => {
     const first = (subject ?? "").split(" ")[0].toLowerCase();
-    const descriptive = ["a", "an", "the", "each", "every"].includes(first) || /ed$/.test(first);
+    const descriptive = ["a", "an", "the", "each", "every"].includes(first) || first.endsWith("ed");
     return [!descriptive, 'write the subject as a command, such as "add ..." or "fix ...", not as a description'];
 };
 
