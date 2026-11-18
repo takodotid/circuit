@@ -340,12 +340,6 @@ export class RouterOs extends Platform {
     }
 
     /** A route with both `next_hop` and `interface` is written `gateway=fe80::1%ether1`, after the vendor's documentation, and not tested on a device yet. */
-    override experimental(device: Device): string[] {
-        return (device.routing?.static_routes ?? [])
-            .filter((route) => route.next_hop && route.interface)
-            .map((route) => `routing.static_routes ${route.prefix} next_hop with interface`);
-    }
-
     /** What the v1 model can write that the platform does not render: a list of values in one rule's match, an interface set, an address set named in `management.allow`, and a `{ communities }` rule. */
     private static unsupportedShapes(device: Device): string[] {
         const found: string[] = [];

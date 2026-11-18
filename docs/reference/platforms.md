@@ -69,7 +69,7 @@ A note in a cell means "works, with this limit".
 | Feature                     | RouterOS                | VRP        | Raisecom ROS             | Junos        | FortiOS          |
 | --------------------------- | ----------------------- | ---------- | ------------------------ | ------------ | ---------------- |
 | Static routes               | ✅                      | ✅         | IPv4 next hop            | ✅           | ✅               |
-| Next hop with its interface | 🧪                      | ❌         | ❌                       | ❌           | ✅               |
+| Next hop with its interface | ✅                      | ❌         | ❌                       | ❌           | ✅               |
 | VRFs                        | ✅                      | ✅         | ❌                       | ✅           | ✅               |
 | Policy routing, more tables | ✅                      | ❌ not yet | ❌ not yet               | ❌ not yet   | ❌ not yet       |
 | OSPF                        | ✅                      | IPv4       | IPv4                     | outside VRFs | outside VRFs     |

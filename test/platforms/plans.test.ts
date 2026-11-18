@@ -1141,8 +1141,8 @@ test("a route's destination in another spelling is the same route", () => {
     ]);
 });
 
-// A link-local next hop is reached through one interface, and RouterOS takes the two together: `gateway=fe80::1%ether1`. Built from the vendor's documentation, so experimental.
-test("a next hop with its interface is one gateway on RouterOS, experimental until tested", () => {
+// A link-local next hop is reached through one interface, and RouterOS takes the two together: `gateway=fe80::1%ether1` (tested on a CCR2216, 7.24.6).
+test("a next hop with its interface is one gateway on RouterOS", () => {
     const routes: StaticRoute[] = [
         { prefix: "::/0", next_hop: "FE80:0::1", interface: "25g-1" },
         { prefix: "192.0.2.0/24", next_hop: "198.51.100.1", interface: "25g-2", distance: 2 },
@@ -1167,23 +1167,8 @@ test("a next hop with its interface is one gateway on RouterOS, experimental unt
     ]);
 
     const device: Device = { ...router, routing: { ...router.routing, static_routes: routes } };
-    expect(Platforms.get("routeros").experimental?.(device)).toEqual([
-        "routing.static_routes ::/0 next_hop with interface",
-        "routing.static_routes 192.0.2.0/24 next_hop with interface",
-    ]);
-
-    const levels = (experimental: boolean) =>
-        Validation.run([device], undefined, { experimental })
-            .filter((finding) => finding.message.includes("next_hop with interface"))
-            .map((finding) => `${finding.level}: ${finding.message}`);
-    expect(levels(false)).toEqual([
-        "error: routing.static_routes ::/0 next_hop with interface is not tested on a real device yet. Add --experimental to send it anyway.",
-        "error: routing.static_routes 192.0.2.0/24 next_hop with interface is not tested on a real device yet. Add --experimental to send it anyway.",
-    ]);
-    expect(levels(true)).toEqual([
-        "warning: routing.static_routes ::/0 next_hop with interface is not tested on a real device yet. Sent because of --experimental: try it on a lab device first.",
-        "warning: routing.static_routes 192.0.2.0/24 next_hop with interface is not tested on a real device yet. Sent because of --experimental: try it on a lab device first.",
-    ]);
+    const findings = Validation.run([device], undefined, {}).filter((finding) => finding.message.includes("next_hop with interface"));
+    expect(findings).toEqual([]);
 });
 
 // VRP, Junos, and Raisecom ROS would write the next hop alone and lose the interface, so the two together are refused there.

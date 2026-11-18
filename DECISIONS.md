@@ -46,6 +46,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **90.** Project files import each other by relative path. The `circuit` path alias in `tsconfig.json` is for `import type` only: types are erased, and the binary doesn't read `tsconfig.json`.
 - **116.** A static route's `next_hop` is a plain address, and its interface goes in `interface`, never after `%`. RouterOS writes both as `gateway=<next_hop>%<interface>`, experimental until tested on a device. A platform that can't write both refuses them.
 - **117.** The docs show part of an example with a VitePress region include, so an excerpt can't drift from the example its test checks.
+- **119.** RouterOS's next hop with its interface is tested on a CCR2216 with RouterOS 7.24.6, so it is no longer experimental. Replaces that part of 116.
 
 ## BGP communities
 
