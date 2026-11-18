@@ -18,7 +18,7 @@ Here are two routes from the table of a small office router:
 | `10.0.10.0/24` | out of the `office` VLAN, to the device | The router has the address 10.0.10.1/24 on that VLAN |
 | `0.0.0.0/0`    | the router at 203.0.113.1               | Someone wrote it by hand                             |
 
-The address a route sends to is its <Term means="The next router on a packet's way to its destination: the router that this router hands the packet to.">next hop</Term>. It must be on one of the router's own networks, so the router can hand the packet straight to it. The next hop doesn't know the whole way either. It has its own table and makes its own choice, so a packet travels hop by hop.
+The address a route sends to is its <Term means="The next router on a packet's way to its destination: the router that this router hands the packet to.">next hop</Term>. It is usually on one of the router's own networks, so the router can hand the packet straight to it. The next hop doesn't know the whole way either. It has its own table and makes its own choice, so a packet travels hop by hop.
 
 Routes come from three places:
 
