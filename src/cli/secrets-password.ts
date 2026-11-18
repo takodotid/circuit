@@ -35,7 +35,7 @@ export class SecretsPassword {
         if (!Ui.interactive)
             Ui.fail(`${file.name} has no password yet. Run this in a terminal to choose one, or give it in ${SecretsFile.PASSWORD}.`);
 
-        const typed = await Ui.secret(`Choose ${what} (leave it empty and Circuit makes one)`, { empty: true });
+        const typed = await Ui.secret(`Choose ${what} (leave it empty for a generated one)`, { empty: true });
         if (!typed) {
             const made = SecretsFile.generatePassword();
             Ui.note(
@@ -46,8 +46,8 @@ export class SecretsPassword {
         }
 
         if (typed.length < SecretsPassword.SHORTEST)
-            Ui.fail(`Use at least ${SecretsPassword.SHORTEST} characters, or leave it empty and Circuit makes one. Nothing changed.`);
-        if ((await Ui.secret("Type it again")) !== typed) Ui.fail("The two differ. Nothing changed.");
+            Ui.fail(`Use at least ${SecretsPassword.SHORTEST} characters, or leave it empty for a generated one. Nothing changed.`);
+        if ((await Ui.secret("Type it again")) !== typed) Ui.fail("The passwords don't match. Nothing changed.");
         return typed;
     }
 

@@ -33,10 +33,10 @@ export class SyncCommand {
 
     /** Each target's name as people write it, and what it sends, for the list. */
     private static readonly LABELS: Record<SyncTargetName, { label: string; hint: string }> = {
-        netbox: { label: "NetBox", hint: "devices, ports, VLANs, addresses and cables" },
-        librenms: { label: "LibreNMS", hint: "every device monitored, with its SNMP settings and site" },
+        netbox: { label: "NetBox", hint: "devices, ports, VLANs, addresses, and cables" },
+        librenms: { label: "LibreNMS", hint: "the devices to monitor, with SNMP settings and sites" },
         peeringdb: { label: "PeeringDB", hint: "your exchange presence" },
-        prometheus: { label: "Prometheus", hint: "the targets and snmp_exporter auths files, in the project" },
+        prometheus: { label: "Prometheus", hint: "the targets and snmp_exporter auths files" },
     };
 
     /** How each target is set in `circuit.ts`, for a message. */
@@ -77,11 +77,11 @@ export class SyncCommand {
 
     /** The target named, or one a person picks; a script must name it. */
     private static async pick(project: ProjectRead, given: string | undefined): Promise<SyncTargetName> {
-        const all = SyncCommand.TARGETS.join(", ").replace(/, (\w+)$/, " or $1");
+        const all = SyncCommand.TARGETS.join(", ").replace(/, (\w+)$/, ", or $1");
         const isSet = (name: SyncTargetName) => project.networks.some((network) => network.settings.integrations?.[name]);
 
         if (given !== undefined) {
-            const name = SyncCommand.TARGETS.find((target) => target === given) ?? Ui.fail(`No target ${given}. Name the target: ${all}.`);
+            const name = SyncCommand.TARGETS.find((target) => target === given) ?? Ui.fail(`No target ${given}. Give one of: ${all}.`);
             if (!isSet(name))
                 Ui.fail(
                     `No network in circuit.ts sets integrations.${name}. Write it in circuit({ integrations }), such as ${SyncCommand.EXAMPLES[name]}.`
@@ -89,7 +89,7 @@ export class SyncCommand {
             return name;
         }
 
-        if (!Ui.interactive) Ui.fail(`Name the target: ${all}.`);
+        if (!Ui.interactive) Ui.fail(`Give the target: ${all}.`);
         if (!SyncCommand.TARGETS.some(isSet))
             Ui.fail(
                 `No network in circuit.ts sets integrations. Write them in circuit({ integrations }), such as ${SyncCommand.EXAMPLES.netbox}.`
@@ -135,13 +135,13 @@ export class SyncCommand {
         if (lines.length) console.log(`\n${lines.join("\n")}\n`);
 
         if (!plan.changes.length) {
-            Ui.done(`${target.name} already matches the project. Nothing to change.`);
+            Ui.done(`${target.name} already matches the project.`);
             return "matches";
         }
 
         if (!answers.confirmed) {
             if (!answers.interactive) {
-                console.error(Ui.red("Not sent. Without a person to answer, add --confirm to send.", process.stderr));
+                console.error(Ui.red("Not sent. Without a terminal, add --confirm to send.", process.stderr));
                 return "not-sent";
             }
             if (!(await answers.ask(`Send these changes to ${target.name}?`))) {
@@ -155,7 +155,7 @@ export class SyncCommand {
         const left = await Ui.step(`Reading ${target.where} again`, () => target.plan());
         if (left.changes.length) {
             console.log(`\n${SyncCommand.text(target.heading, left).join("\n")}\n`);
-            console.error(Ui.red(`Sent, but ${target.name} still differs from the project in what is shown above.`, process.stderr));
+            console.error(Ui.red(`Sent, but ${target.name} still differs from the project as shown above.`, process.stderr));
             return "left";
         }
 

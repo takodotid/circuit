@@ -100,7 +100,7 @@ const steps: Step[] = [
         file: "Terminal",
         lang: "shell",
         text: "Watch the port come up in your monitoring, and ask netflix to confirm the server answers. diff now plans nothing: the switch runs what main says.",
-        code: ["$ circuit diff tor-01", "✔ tor-01 already runs its config. Nothing to change."].join("\n"),
+        code: ["$ circuit diff tor-01", "✔ tor-01 already matches its config."].join("\n"),
     },
 ];
 </script>

@@ -82,9 +82,7 @@ Type 'string' is not assignable to type 'Secret'.
 
 ```text
   ROUTER_PASSWORD  encrypted
-  SWITCH_PASSWORD  missing, the config needs it
-
-Password of .circuit/secrets: typed when Circuit asks
+  SWITCH_PASSWORD  missing
 ```
 
 A device never shows its passwords back, so Circuit cannot see that one changed. To change a password, set it again with `circuit secrets set ROUTER_PASSWORD`, then run `circuit apply router --secrets`.

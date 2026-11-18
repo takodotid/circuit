@@ -59,7 +59,7 @@ test("the commit hook stops a secret in plain text in a project inside", () => {
     expect(stopped.status).toBe(1);
     expect(stopped.stdout).toContain("The project in customers/acme");
     expect(stopped.stderr).toContain("customers/acme/.circuit/secrets");
-    expect(stopped.stderr).toContain("The commit was stopped by the project in customers/acme.");
+    expect(stopped.stderr).toContain("Commit stopped by the project in customers/acme.");
 
     rmSync(join(inner, ".circuit", "secrets"));
     git("add", "-A");

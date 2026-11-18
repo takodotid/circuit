@@ -98,7 +98,7 @@ export class Remember {
         if ((OnePassword.usedHeld || SecretsFile.usedHeld) && Remember.until !== undefined && !Remember.told && Ui.interactive) {
             Remember.told = true;
             console.error(
-                Ui.dim(`Used secrets Circuit remembers until ${Remember.time(Remember.until)}. Forget them now: circuit secrets forget`)
+                Ui.dim(`Used secrets remembered until ${Remember.time(Remember.until)}. Forget them with circuit secrets forget.`)
             );
         }
     }
@@ -122,13 +122,13 @@ export class Remember {
     /** Start remembering for `minutes`. */
     private static async turnOn(minutes: number): Promise<boolean> {
         const until = Date.now() + minutes * 60_000;
-        if (!(await Ui.wait("Starting the process that remembers them", () => SecretsAgent.start(until)))) {
+        if (!(await Ui.wait("Remembering the secrets", () => SecretsAgent.start(until)))) {
             Ui.warn("Circuit could not start the process that remembers secrets, so nothing is remembered.");
             return false;
         }
 
         Remember.until = until;
-        Ui.done(`Circuit remembers until ${Remember.time(until)}. Forget now: circuit secrets forget`);
+        Ui.done(`Remembering secrets until ${Remember.time(until)}. Forget them with circuit secrets forget.`);
         return true;
     }
 
@@ -137,6 +137,6 @@ export class Remember {
         const stopped = await SecretsAgent.ask({ op: "stop" });
         rmSync(SecretsAgent.infoPath(), { force: true });
         Remember.until = undefined;
-        Ui.done(stopped ? "Circuit forgot every secret it remembered." : "Circuit remembered no secret.");
+        Ui.done(stopped ? "Forgot every remembered secret." : "No secret was remembered.");
     }
 }

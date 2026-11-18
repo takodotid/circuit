@@ -36,7 +36,7 @@ export class App {
         const folder = dirname(binary);
 
         if (!confirmed) {
-            if (!Ui.interactive) Ui.fail("Not removed. Without a person to answer, add --confirm.");
+            if (!Ui.interactive) Ui.fail("Not removed. Without a terminal, add --confirm.");
             Ui.note(`${binary}\n${Installation.home()}\nYour projects stay as they are.`, "This removes");
             if (!(await Ui.confirm("Uninstall Circuit?"))) return;
         }

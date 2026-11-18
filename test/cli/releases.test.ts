@@ -118,7 +118,7 @@ test("a download is trusted only with SHA256SUMS signed by a release key", () =>
         "not signed"
     );
     expect(() => Releases.expectedHash(sums, signature, "circuit-linux-x64")).toThrow("not signed");
-    expect(() => Releases.expectedHash(sums, signature, "circuit-darwin-arm64", keys)).toThrow("names no circuit-darwin-arm64");
+    expect(() => Releases.expectedHash(sums, signature, "circuit-darwin-arm64", keys)).toThrow("has no line for circuit-darwin-arm64");
     expect(Signing.KEYS.length).toBeGreaterThan(0);
 });
 

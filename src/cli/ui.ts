@@ -154,7 +154,7 @@ export class Ui {
     /** Stop when the person pressed Ctrl-C or Esc on a question. */
     private static answered<T>(value: T): Exclude<T, symbol> {
         if (prompts.isCancel(value)) {
-            prompts.cancel("Stopped, nothing changed.");
+            prompts.cancel("Stopped. Nothing changed.");
             process.exit(130);
         }
 

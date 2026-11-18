@@ -150,13 +150,13 @@ export class Releases {
         );
 
         if (offline || advisories.offline)
-            Ui.warn("Could not reach the npm registry or GitHub, so Circuit could not check that it is current and safe. Go carefully.");
+            Ui.warn("Circuit couldn't reach the npm registry or GitHub, so it couldn't check for updates and security advisories.");
         if (latest?.deprecated) Ui.warn(`Circuit ${VERSION} is deprecated: ${latest.deprecated}`);
 
         const major = latest && Releases.newerMajor(latest);
         if (major)
             Ui.warn(
-                `Circuit ${major} is out, a new major version. Circuit stays on ${Releases.major(VERSION)}.x; read what changed at https://circuit.tako.id before you move.`
+                `Circuit ${major}, a new major version, is out. This Circuit stays on ${Releases.major(VERSION)}.x. Read what changed at https://circuit.tako.id before you move.`
             );
 
         const target = latest && Releases.target(latest);
@@ -171,10 +171,10 @@ export class Releases {
         try {
             Releases.replace(binary, await Ui.step(`Updating Circuit to ${target}`, () => Releases.fetchBinary(target)));
         } catch (error) {
-            Ui.warn(`Circuit ${target} is out, and could not be installed: ${(error as Error).message}`);
+            Ui.warn(`Circuit ${target} is out, but Circuit couldn't install it: ${(error as Error).message}`);
             return;
         }
-        Ui.done(`Circuit is ${target} now. Your projects keep the version they pin.`);
+        Ui.done(`Updated Circuit to ${target}. Projects keep the version they pin.`);
 
         // The command runs on as the new version.
         const result = spawnSync(binary, argv, { stdio: "inherit", env: { ...process.env, [Releases.UPDATED]: "1" } });
@@ -215,7 +215,7 @@ export class Releases {
             .split("\n")
             .find((line) => line.trim().endsWith(` ${asset}`) || line.trim().endsWith(`*${asset}`))
             ?.split(/\s+/)[0];
-        if (!expected) throw new Error(`the release's SHA256SUMS names no ${asset}`);
+        if (!expected) throw new Error(`the release's SHA256SUMS has no line for ${asset}`);
         return expected;
     }
 
@@ -300,11 +300,11 @@ export class Releases {
             return undefined;
         }
         if (confirmed) return choices[0]!.version;
-        if (!Ui.interactive) Ui.fail("Not updated. Without a person to answer, add --confirm, which takes the newest.");
+        if (!Ui.interactive) Ui.fail("Not updated. Without a terminal, add --confirm to take the newest.");
 
         const problem = affected.map((advisory) => `${advisory.summary} (${advisory.severity}): ${advisory.url}`).join("\n");
         Ui.note(
-            `${what} runs Circuit ${current}.${affected.length ? `\nIt has a security problem, so it must move to a fixed version:\n${problem}` : ""}\nWhat changed: https://github.com/takodotid/circuit/releases\nRun circuit validate and circuit diff after, before you apply.`,
+            `${what} runs Circuit ${current}.${affected.length ? `\nIt has a security problem, so it must move to a fixed version:\n${problem}` : ""}\nWhat changed: https://github.com/takodotid/circuit/releases\nAfter the update, run circuit validate and circuit diff before you apply.`,
             affected.length ? "Update required" : "Update"
         );
         const picked = await Ui.select<string>(affected.length ? "Move to which fixed version?" : "Which version?", [
@@ -313,7 +313,7 @@ export class Releases {
                 label: release.version,
                 hint: [
                     i === 0 ? "newest" : "",
-                    release.version === closest && choices.length > 1 ? "closest to yours, the least that changes" : "",
+                    release.version === closest && choices.length > 1 ? "closest to yours, fewest changes" : "",
                     release.version.includes("-") ? "release candidate" : "",
                     release.deprecated ? `deprecated: ${release.deprecated}` : "",
                 ]
@@ -333,7 +333,7 @@ export class Releases {
         if (!target) return undefined;
 
         Releases.replace(binary, await Ui.step(`Downloading Circuit ${target}`, () => Releases.fetchBinary(target)));
-        Ui.done(`Circuit is ${target} now.`);
+        Ui.done(`Updated Circuit to ${target}.`);
         return target;
     }
 

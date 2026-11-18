@@ -17,7 +17,7 @@ const steps: Step[] = [
             "┌  A new Circuit project",
             "◇  How should this project run Circuit? Simple (recommended)",
             "◇  Your network's AS number: 64500",
-            "◇  Start a git repository? Yes",
+            "◇  Start a git repository to track changes? Yes",
             "└  The project is ready.",
             "",
             "Example files: https://circuit.tako.id/guide/examples#a-single-site",
@@ -33,8 +33,6 @@ const steps: Step[] = [
             "$ circuit secrets list",
             "  ROUTER_PASSWORD  encrypted",
             "  SWITCH_PASSWORD  encrypted",
-            "",
-            "Password of .circuit/secrets: typed when Circuit asks",
         ].join("\n"),
     },
     {

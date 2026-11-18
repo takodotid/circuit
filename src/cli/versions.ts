@@ -95,7 +95,7 @@ export class Versions {
             Ui.interactive &&
             !(await Ui.confirm(`This project runs Circuit ${version}, which is not on this machine yet. Download it?`, true))
         )
-            Ui.fail(`Not run. This project needs Circuit ${version}; or move it to another version with circuit update.`);
+            Ui.fail(`Not run. This project needs Circuit ${version}. To use another version, run circuit update.`);
 
         const bytes = await Ui.step(`Downloading Circuit ${version}`, () => Releases.fetchBinary(version));
         mkdirSync(join(path, ".."), { recursive: true });
