@@ -52,6 +52,7 @@ const TAKEN_OUT: Record<string, readonly string[]> = Object.fromEntries(
 /** Keys a platform has no place for, each with why. There they are documentation only, as their doc comments say: Studio and the NetBox integration show them, and the platform neither renders nor refuses them. */
 const DOCUMENTATION_ONLY: Partial<Record<PlatformName, Record<string, string>>> = {
     junos: { "services.dhcp_server.*.reservations[].description": "a static binding, `host` in an address pool, has no description" },
+    fortios: { "interfaces.bridge.*.description": "a bridge is a forward domain, a number set on each member" },
 };
 
 /** A key from another platform's device goes into at most this many of the platform's own devices. That is enough to land where it means something. */

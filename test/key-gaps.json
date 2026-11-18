@@ -203,7 +203,7 @@
             "untried": ["interfaces.gre.*.addresses[].peer_address"]
         },
         "fortios": {
-            "silent": ["interfaces.bridge.*.description"],
+            "silent": [],
             "untried": []
         }
     }
