@@ -22,6 +22,8 @@ jobs:
             - run: bun install --frozen-lockfile
             # The docs are a package of their own, which knip checks too.
             - run: bun install --cwd docs --frozen-lockfile
+            # Vale's binary comes from GitHub's API, which refuses unsigned requests now and then: try again before giving up.
+            - run: for try in 1 2 3; do bun run vale:install && exit 0; sleep 30; done; exit 1
             - name: commit messages
               if: github.event_name == 'pull_request'
               run: bunx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}

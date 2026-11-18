@@ -45,6 +45,7 @@
         "lint:code": "oxlint",
         "lint:prose": "vale --minAlertLevel=error --glob='!**/node_modules/**' AGENTS.md README.md SECURITY.md CONTRIBUTING.md DESIGN.md PRODUCT.md DECISIONS.md .claude/skills docs src examples",
         "lint:unused": "knip",
+        "vale:install": "node node_modules/@vvago/vale/dist/index.cjs && vale sync",
         "build": "bun scripts/build.ts",
         "studio": "bun scripts/studio.ts",
         "editor-types": "bun scripts/editor-types.ts",
@@ -54,7 +55,7 @@
         "docs:build": "bun install --cwd docs --frozen-lockfile && bun run --cwd docs build",
         "docs:preview": "bun run --cwd docs preview",
         "check": "bun run studio && bun run typecheck && bun run lint && bun run test && bun run format:check && bun run build",
-        "prepare": "bun run studio; bun run editor-types; vale sync; husky || true"
+        "prepare": "bun run studio; bun run editor-types; bun run vale:install || echo 'Vale is not installed yet: run bun run vale:install'; husky || true"
     },
     "dependencies": {
         "@clack/prompts": "1.8.1",
@@ -86,7 +87,6 @@
     },
     "packageManager": "bun@1.4.4",
     "trustedDependencies": [
-        "@vvago/vale",
         "cpu-features",
         "ssh2"
     ]

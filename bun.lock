@@ -35,7 +35,6 @@
     },
   },
   "trustedDependencies": [
-    "@vvago/vale",
     "ssh2",
     "cpu-features",
   ],
