@@ -2,7 +2,8 @@
 
 import { afterEach, expect, test } from "bun:test";
 import { LibreNms } from "../../src/integrations/librenms";
-import { Sync, type SyncNetwork } from "../../src/integrations/sync";
+import { SyncCommand } from "../../src/cli/sync";
+import type { SyncNetwork } from "../../src/integrations/sync";
 import type { Device, Secret } from "../../src/model";
 
 const realFetch = globalThis.fetch;
@@ -120,7 +121,7 @@ test("adds what it doesn't monitor, changes what differs, makes a group per site
     ]);
 
     // No secret's value in what is printed.
-    const printed = Sync.text(librenms.heading, plan).join("\n");
+    const printed = SyncCommand.text(librenms.heading, plan).join("\n");
     for (const value of Object.values(V3).filter((value) => value.endsWith("-value"))) expect(printed).not.toContain(value);
     expect(printed).not.toContain("public");
 

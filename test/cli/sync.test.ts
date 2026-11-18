@@ -1,7 +1,8 @@
 // The flow every `circuit sync <target>` shares, on a fake target: nothing to change, the answer No, no person to answer without --confirm, a send that leaves nothing, and a send that leaves something.
 
 import { expect, test } from "bun:test";
-import { Sync, type SyncAnswers, type SyncPlan, type SyncTarget } from "../../src/integrations/sync";
+import { type SyncAnswers, SyncCommand } from "../../src/cli/sync";
+import type { SyncPlan, SyncTarget } from "../../src/integrations/sync";
 
 /** A target whose plans come one after another from `plans`, and which counts what it was sent. */
 function fakeTarget(plans: SyncPlan[]): SyncTarget & { sent: SyncPlan[] } {
@@ -38,33 +39,33 @@ const answers = (overrides: Partial<SyncAnswers>): SyncAnswers => ({
 
 test("nothing to change: says so, asks nothing, sends nothing", async () => {
     const target = fakeTarget([nothing]);
-    expect(await Sync.run(target, answers({}))).toBe("matches");
+    expect(await SyncCommand.apply(target, answers({}))).toBe("matches");
     expect(target.sent).toEqual([]);
 });
 
 test("the answer No sends nothing; without a person and without --confirm, nothing is sent either", async () => {
     const asked: string[] = [];
     const declined = fakeTarget([something]);
-    expect(await Sync.run(declined, answers({ ask: async (question) => (asked.push(question), false) }))).toBe("declined");
+    expect(await SyncCommand.apply(declined, answers({ ask: async (question) => (asked.push(question), false) }))).toBe("declined");
     expect(asked).toEqual(["Send these changes to Fake?"]);
     expect(declined.sent).toEqual([]);
 
     const script = fakeTarget([something]);
-    expect(await Sync.run(script, answers({ interactive: false }))).toBe("not-sent");
+    expect(await SyncCommand.apply(script, answers({ interactive: false }))).toBe("not-sent");
     expect(script.sent).toEqual([]);
 });
 
 test("after sending it reads and plans again: nothing left is done, something left fails", async () => {
     const done = fakeTarget([something, nothing]);
-    expect(await Sync.run(done, answers({ confirmed: true, interactive: false }))).toBe("sent");
+    expect(await SyncCommand.apply(done, answers({ confirmed: true, interactive: false }))).toBe("sent");
     expect(done.sent).toEqual([something]);
 
     const stuck = fakeTarget([something, something]);
-    expect(await Sync.run(stuck, answers({ ask: async () => true }))).toBe("left");
+    expect(await SyncCommand.apply(stuck, answers({ ask: async () => true }))).toBe("left");
 });
 
 test("the plan reads + make, ~ change with each field, - delete, then the counts and what is left alone", () => {
-    const lines = Sync.text("NetBox", {
+    const lines = SyncCommand.text("NetBox", {
         changes: [
             { sign: "+", what: "dcim/devices edge-02", details: [] },
             { sign: "~", what: "dcim/interfaces edge-01/sfp28-2", details: ['description: null to "edge-02 25g-1"'] },
