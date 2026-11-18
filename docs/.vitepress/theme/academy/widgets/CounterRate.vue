@@ -269,7 +269,7 @@ const yearsToWrap64 = computed(() => (2 ** 64 * 8) / (speed.value * 1e6) / (365.
             counter.
         </p>
         <p v-else class="ac-say hint" aria-live="polite">
-            Work out the traffic from the two readings and type it in Mbit/s. Then try a faster port, a longer poll and the other counter.
+            Work out the traffic from the two readings and type it in Mbit/s. Then try a faster port, a longer poll, and the other counter.
         </p>
 
         <p v-if="width === 64 && (checked || working)" class="note">
