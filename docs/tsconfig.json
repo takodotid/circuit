@@ -15,5 +15,6 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true
     },
+    "vueCompilerOptions": { "strictTemplates": true, "dataAttributes": ["data-*"] },
     "include": [".vitepress/**/*.ts", ".vitepress/**/*.vue"]
 }

@@ -14,5 +14,6 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true
     },
+    "vueCompilerOptions": { "strictTemplates": true, "dataAttributes": ["data-*"] },
     "include": ["env.d.ts", "src/**/*.ts", "src/**/*.vue"]
 }
