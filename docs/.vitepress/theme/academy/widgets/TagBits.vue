@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: trunks. The reader types a VLAN ID and sees it as the twelve bits of an 802.1Q tag, finds where the range 1 to 4094 comes from, and sees what `circuit validate` says about each number.
+// Lesson: trunks. The reader types a VLAN ID and sees it as the twelve bits of an 802.1Q tag. They find where the range 1 to 4094 comes from, and what `circuit validate` says about each number.
 
 import { computed, ref } from "vue";
 

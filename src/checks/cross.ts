@@ -1,25 +1,11 @@
 // What one device declares about another has to agree with what the other declares.
 
 import { Address } from "../core/address";
-import type { Device, Finding, Gre, Prefix, Routed, Switched, Vrrp, Vxlan } from "../model";
+import type { Device, Finding, Gre, Prefix, Routed, Switched, Vxlan } from "../model";
 import { Derive } from "../core/derive";
 import { DeviceChecks } from "./device";
-
-/** An address one of the devices holds on a port or interface. */
-export type AddressHolder = {
-    device: Device;
-    /** The port or interface, as a path: `interfaces.ethernet.10g-1`, `interfaces.loopback.lo`. */
-    where: string;
-    /** Whether it is a loopback, which may hold an address another loopback holds, for anycast. */
-    loopback: boolean;
-    /** With its length. */
-    address: string;
-    /** The far end of a point-to-point address. */
-    peer?: string;
-    vrrp: readonly Vrrp[];
-    /** The VRF the address is in. The default table when absent. */
-    vrf?: string;
-};
+import { Topology } from "../core/topology";
+import type { Holder } from "../core/topology";
 
 /** What a port's settings are kept on, as a path: the LAG when the port is in one, otherwise the port. */
 type Carrier = { where: string; settings: Routed & Switched & { mtu?: number } };
@@ -33,14 +19,8 @@ export class CrossChecks {
     private static readonly VXLAN_PORT = 4789;
 
     static run(devices: readonly Device[]): Finding[] {
-        const holders = CrossChecks.holders(devices);
-
-        // Who holds each address. The first holder wins; a second is reported by `addresses`.
-        const owners = new Map<string, AddressHolder>();
-        for (const holder of holders) {
-            const key = CrossChecks.keyOf(Address.host(holder.address))!;
-            if (!owners.has(key)) owners.set(key, holder);
-        }
+        const holders = Topology.holders(devices);
+        const owners = Topology.owners(holders);
 
         return [
             ...CrossChecks.links(devices),
@@ -49,27 +29,6 @@ export class CrossChecks {
             ...CrossChecks.vrrp(holders),
             ...CrossChecks.tunnels(devices, owners),
         ];
-    }
-
-    /** An address as a key, so two spellings of one address compare equal. Undefined when it is not an address. */
-    static keyOf(address: string | undefined): string | undefined {
-        if (!address || !Address.isValid(address)) return undefined;
-        return `${Address.family(address)}:${Address.toNumber(address)}`;
-    }
-
-    /** Every valid address the devices hold. An invalid one is left for the device's own checks to report. */
-    static holders(devices: readonly Device[]): AddressHolder[] {
-        return devices.flatMap((device) =>
-            DeviceChecks.holders(device).flatMap(({ where, kind, settings }) =>
-                (settings.addresses ?? []).flatMap((entry) => {
-                    const address = DeviceChecks.addressOf(entry);
-                    if (!Address.isCidr(address)) return [];
-
-                    const peer = typeof entry === "string" ? undefined : entry.peer_address;
-                    return [{ device, where, loopback: kind === "loopback", address, peer, vrrp: settings.vrrp ?? [], vrf: settings.vrf }];
-                })
-            )
-        );
     }
 
     /** The VLAN ids a port or LAG carries, by how it carries them, so two ends can be compared across devices. */
@@ -132,10 +91,10 @@ export class CrossChecks {
         }
 
         // A point-to-point address names the far end's own address as its peer.
-        const farHosts = new Set((there.addresses ?? []).map((entry) => CrossChecks.keyOf(Address.host(DeviceChecks.addressOf(entry)))));
+        const farHosts = new Set((there.addresses ?? []).map((entry) => Topology.keyOf(Address.host(DeviceChecks.addressOf(entry)))));
 
         for (const entry of here.addresses ?? []) {
-            if (typeof entry === "string" || !CrossChecks.keyOf(entry.peer_address) || farHosts.has(CrossChecks.keyOf(entry.peer_address)))
+            if (typeof entry === "string" || !Topology.keyOf(entry.peer_address) || farHosts.has(Topology.keyOf(entry.peer_address)))
                 continue;
             return `${entry.address} gives peer ${entry.peer_address}, which ${far.name} ${farWhere} does not hold`;
         }
@@ -208,12 +167,12 @@ export class CrossChecks {
     }
 
     /** No address is held by two devices in one VRF. Two loopbacks may hold one on purpose, for anycast, so that is a warning. */
-    private static addresses(holders: AddressHolder[]): Finding[] {
+    private static addresses(holders: Holder[]): Finding[] {
         const findings: Finding[] = [];
-        const first = new Map<string, AddressHolder>();
+        const first = new Map<string, Holder>();
 
         for (const holder of holders) {
-            const key = `${holder.vrf ?? ""} ${CrossChecks.keyOf(Address.host(holder.address))!}`;
+            const key = `${holder.vrf ?? ""} ${Topology.keyOf(Address.host(holder.address))!}`;
             const earlier = first.get(key);
 
             if (!earlier) {
@@ -253,12 +212,12 @@ export class CrossChecks {
     }
 
     /** A BGP session to an address another of our devices holds needs that device's session back, in the AS it expects, from the address it uses. */
-    private static sessions(devices: readonly Device[], owners: Map<string, AddressHolder>): Finding[] {
+    private static sessions(devices: readonly Device[], owners: Map<string, Holder>): Finding[] {
         const findings: Finding[] = [];
 
         for (const device of devices) {
             for (const session of CrossChecks.sessionsOf(device)) {
-                const far = owners.get(CrossChecks.keyOf(session.address) ?? "")?.device;
+                const far = owners.get(Topology.keyOf(session.address) ?? "")?.device;
                 if (!far || far === device) continue;
 
                 const report = (message: string) =>
@@ -277,7 +236,7 @@ export class CrossChecks {
                 // Two routers often hold one session per family, and a session of the other family does not answer this one.
                 const back = CrossChecks.sessionsOf(far).find(
                     (other) =>
-                        owners.get(CrossChecks.keyOf(other.address) ?? "")?.device === device &&
+                        owners.get(Topology.keyOf(other.address) ?? "")?.device === device &&
                         Address.family(other.address) === Address.family(session.address)
                 );
                 if (!back) {
@@ -286,7 +245,7 @@ export class CrossChecks {
                 }
 
                 // The far end only accepts the session from the address it uses.
-                if (session.localAddress && CrossChecks.keyOf(session.localAddress) !== CrossChecks.keyOf(back.address)) {
+                if (session.localAddress && Topology.keyOf(session.localAddress) !== Topology.keyOf(back.address)) {
                     report(
                         `starts from ${session.localAddress}, and ${far.name}'s routing.bgp.neighbors.${back.name} expects ${back.address}`
                     );
@@ -298,15 +257,15 @@ export class CrossChecks {
     }
 
     /** On one segment, a VRRP id has one address and an address has one id, on every device. */
-    private static vrrp(holders: AddressHolder[]): Finding[] {
+    private static vrrp(holders: Holder[]): Finding[] {
         const findings: Finding[] = [];
-        const bySegment = new Map<string, { holder: AddressHolder; id: number; address: string }[]>();
+        const bySegment = new Map<string, { holder: Holder; id: number; address: string }[]>();
 
         for (const holder of holders) {
             const segment = Address.prefixOf(holder.address);
 
             for (const group of holder.vrrp) {
-                if (!CrossChecks.keyOf(group.address) || Address.family(group.address) !== Address.family(holder.address)) continue;
+                if (!Topology.keyOf(group.address) || Address.family(group.address) !== Address.family(holder.address)) continue;
                 if (!Address.contains(segment, group.address)) continue;
 
                 bySegment.set(segment, [...(bySegment.get(segment) ?? []), { holder, id: group.id, address: group.address }]);
@@ -319,7 +278,7 @@ export class CrossChecks {
                 const others = members.filter((other) => other.holder.device !== member.holder.device);
 
                 const sameId = others.find(
-                    (other) => other.id === member.id && CrossChecks.keyOf(other.address) !== CrossChecks.keyOf(member.address)
+                    (other) => other.id === member.id && Topology.keyOf(other.address) !== Topology.keyOf(member.address)
                 );
                 if (sameId) {
                     findings.push({
@@ -330,7 +289,7 @@ export class CrossChecks {
                 }
 
                 const sameAddress = others.find(
-                    (other) => CrossChecks.keyOf(other.address) === CrossChecks.keyOf(member.address) && other.id !== member.id
+                    (other) => Topology.keyOf(other.address) === Topology.keyOf(member.address) && other.id !== member.id
                 );
                 if (sameAddress) {
                     findings.push({
@@ -346,7 +305,7 @@ export class CrossChecks {
     }
 
     /** A GRE or VXLAN tunnel to another of our devices has a tunnel back there, with the endpoints mirrored and, for VXLAN, the same VNI and port. */
-    private static tunnels(devices: readonly Device[], owners: Map<string, AddressHolder>): Finding[] {
+    private static tunnels(devices: readonly Device[], owners: Map<string, Holder>): Finding[] {
         const findings: Finding[] = [];
 
         const ends: TunnelEnd[] = devices.flatMap((device) => [
@@ -358,11 +317,11 @@ export class CrossChecks {
             ),
         ]);
 
-        const same = (a: string, b: string) => CrossChecks.keyOf(a) !== undefined && CrossChecks.keyOf(a) === CrossChecks.keyOf(b);
+        const same = (a: string, b: string) => Topology.keyOf(a) !== undefined && Topology.keyOf(a) === Topology.keyOf(b);
         const vniOf = (end: TunnelEnd) => (end.kind === "vxlan" ? (end.tunnel as Vxlan).vni : undefined);
 
         for (const end of ends) {
-            const far = owners.get(CrossChecks.keyOf(end.tunnel.remote_address) ?? "")?.device;
+            const far = owners.get(Topology.keyOf(end.tunnel.remote_address) ?? "")?.device;
             if (!far || far === end.device) continue;
 
             const report = (message: string) =>

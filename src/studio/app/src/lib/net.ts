@@ -4,15 +4,22 @@ export type Family = "ipv4" | "ipv6";
 export type Range = { family: Family; first: bigint; last: bigint; length: number };
 
 export class Net {
+    private static readonly IPV4_BITS = 32;
+    private static readonly IPV6_BITS = 128;
+    private static readonly IPV4_OCTETS = 4;
+    private static readonly OCTET_MAX = 255;
+    private static readonly IPV6_GROUPS = 8;
+
     private static bits(family: Family): number {
-        return family === "ipv4" ? 32 : 128;
+        return family === "ipv4" ? Net.IPV4_BITS : Net.IPV6_BITS;
     }
 
     /** An address as a number, or undefined when the text is not one. */
     static parseAddress(text: string): { family: Family; value: bigint } | undefined {
         if (!text.includes(":")) {
             const octets = text.split(".");
-            if (octets.length !== 4 || !octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)) return undefined;
+            if (octets.length !== Net.IPV4_OCTETS || !octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= Net.OCTET_MAX))
+                return undefined;
             return { family: "ipv4", value: octets.reduce((value, octet) => (value << 8n) | BigInt(octet), 0n) };
         }
 
@@ -24,10 +31,10 @@ export class Net {
         const trailing = groupsOf(after);
 
         // `::` stands for as many zero groups as make eight.
-        const zeros = after === undefined ? 0 : 8 - leading.length - trailing.length;
+        const zeros = after === undefined ? 0 : Net.IPV6_GROUPS - leading.length - trailing.length;
         if (zeros < 0) return undefined;
         const groups = [...leading, ...Array<string>(zeros).fill("0"), ...trailing];
-        if (groups.length !== 8 || !groups.every((group) => /^[0-9a-fA-F]{1,4}$/.test(group))) return undefined;
+        if (groups.length !== Net.IPV6_GROUPS || !groups.every((group) => /^[0-9a-fA-F]{1,4}$/.test(group))) return undefined;
 
         return { family: "ipv6", value: groups.reduce((value, group) => (value << 16n) | BigInt(parseInt(group, 16)), 0n) };
     }

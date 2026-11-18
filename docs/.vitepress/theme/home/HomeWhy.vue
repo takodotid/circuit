@@ -32,7 +32,7 @@
                     </tr>
                 </tbody>
             </table>
-            <p>And git keeps every change, with its author and its reason.</p>
+            <p>And git keeps every change with its author and its reason.</p>
         </div>
     </section>
 </template>

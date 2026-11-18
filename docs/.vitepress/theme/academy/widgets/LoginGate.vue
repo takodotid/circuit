@@ -123,7 +123,7 @@ const code = computed(() => {
         ...(internListed.value ? ['        intern: { role: "admin", password: secret("INTERN_PASSWORD") },'] : []),
         "    },",
         "},",
-        `management: { allow: ["${allow.value}"]${services.length ? ", " + services.join(", ") : ""} },`,
+        `management: { allow: ["${allow.value}"]${services.length ? `, ${services.join(", ")}` : ""} },`,
     ];
     return lines.join("\n");
 });

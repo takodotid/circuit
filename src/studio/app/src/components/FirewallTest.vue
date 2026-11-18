@@ -4,7 +4,8 @@ import { computed, reactive, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { Protocol } from "../../../../model";
 import type { StudioData } from "../../../types";
-import { type ConnectionState, Evaluate, type Packet, type TcpFlag } from "../lib/evaluate";
+import { Evaluate } from "../lib/evaluate";
+import type { ConnectionState, Packet, TcpFlag } from "../lib/evaluate";
 import { Format } from "../lib/format";
 import { Net } from "../lib/net";
 import { queryOf } from "../lib/store";
@@ -76,11 +77,13 @@ const packet = computed<{ packet?: Packet; problems: string[] }>(() => {
         if (value && !Net.parseAddress(value)) problems.push(`The ${label} is not one address, such as 192.0.2.5 or 2001:db8::5.`);
         return value;
     };
+    const highestPort = 65535;
     const port = (key: string, label: string) => {
         const value = text(key);
-        if (value === undefined) return undefined;
+        if (value === undefined) return;
         const number = Number(value);
-        if (!Number.isInteger(number) || number < 0 || number > 65535) problems.push(`The ${label} is a number from 0 to 65535.`);
+        if (!Number.isInteger(number) || number < 0 || number > highestPort)
+            problems.push(`The ${label} is a number from 0 to ${highestPort}.`);
         return number;
     };
 

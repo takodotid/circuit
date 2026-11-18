@@ -2,7 +2,8 @@
 // Lesson: writing a network down. The reader edits a router's file with toggles, or changes the router by hand, and reads the plan Circuit makes.
 
 import { computed, reactive } from "vue";
-import { type Edits, RouterFile } from "./PlanEditor";
+import { RouterFile } from "./PlanEditor";
+import type { Edits } from "./PlanEditor";
 
 const edits = reactive<Edits>({ describe: false, removeIntern: false, dns: false, drift: false });
 

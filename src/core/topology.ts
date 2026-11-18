@@ -12,6 +12,10 @@ export type Holder = {
     device: Device;
     /** The port or interface. */
     name: string;
+    /** The port or interface, as a path: `interfaces.ethernet.10g-1`, `interfaces.loopback.lo`. */
+    where: string;
+    /** Whether it is a loopback, which may hold an address another loopback holds, for anycast. */
+    loopback: boolean;
     /** With its length. */
     address: string;
     /** The far end of a point-to-point address. */
@@ -73,7 +77,10 @@ export class Topology {
     /** Every valid address the devices hold. An invalid one is left for `validate` to report. */
     static holders(devices: readonly Device[]): Holder[] {
         return devices.flatMap((device) =>
-            Topology.routedOf(device).flatMap(([name, settings]) =>
+            [
+                ...Derive.ports(device).map(([name, settings]) => ({ name, kind: "ethernet", settings: settings as Routed })),
+                ...Derive.interfaces(device).map(({ name, kind, settings }) => ({ name, kind, settings: settings as Routed })),
+            ].flatMap(({ name, kind, settings }) =>
                 (settings.addresses ?? []).flatMap((entry) => {
                     const address = typeof entry === "string" ? entry : entry.address;
                     if (!Address.isCidr(address)) return [];
@@ -83,6 +90,8 @@ export class Topology {
                         {
                             device,
                             name,
+                            where: `interfaces.${kind}.${name}`,
+                            loopback: kind === "loopback",
                             address,
                             vrrp: settings.vrrp ?? [],
                             ...(peer ? { peer } : {}),

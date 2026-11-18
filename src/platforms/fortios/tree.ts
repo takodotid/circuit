@@ -27,10 +27,6 @@ export class FortiOsNode {
         if (!this.entries.has(key)) this.entries.set(key, { id: written, block: new FortiOsNode() });
         return this.entries.get(key)!.block;
     }
-
-    isEmpty(): boolean {
-        return !this.settings.size && !this.blocks.size && !this.entries.size;
-    }
 }
 
 export class FortiOsTree {

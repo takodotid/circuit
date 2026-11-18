@@ -2,7 +2,8 @@
 
 import DefaultTheme from "vitepress/theme";
 import type { Theme } from "vitepress";
-import { nextTick, type Component } from "vue";
+import { nextTick } from "vue";
+import type { Component } from "vue";
 import AcademyHome from "./academy/AcademyHome.vue";
 import AcademyLayout from "./academy/AcademyLayout.vue";
 import CodeView from "./academy/CodeView.vue";

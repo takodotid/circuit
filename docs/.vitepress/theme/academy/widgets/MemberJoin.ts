@@ -1,4 +1,4 @@
-// What circuit validate and circuit diff printed for each choice in MemberJoin.vue: the internet exchange example with a new member, Fastly, added to members/index.ts, run once per combination.
+// What circuit validate and circuit diff printed for each choice in MemberJoin.vue, run once per combination. Each run is the internet exchange example with a new member, Fastly, added to members/index.ts.
 // Each diff is planned against the example as it is, rendered, not against a device.
 
 export type Run = { validate: string; diff?: string };

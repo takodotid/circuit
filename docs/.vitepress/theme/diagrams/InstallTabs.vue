@@ -2,11 +2,14 @@
 // The install command, one tab per system. The tab open first is the visitor's own system, once the page is in the browser.
 
 import { onMounted, ref } from "vue";
-import { Install, type System } from "../install";
+import { Install } from "../install";
+import type { System } from "../install";
 
 const systems = Install.SYSTEMS;
 const chosen = ref<System>("unix");
 const copied = ref(false);
+/** How long the button says it copied. */
+const COPIED_TIME = 1600;
 
 onMounted(() => (chosen.value = Install.detect()));
 
@@ -15,7 +18,7 @@ const current = () => systems.find((system) => system.id === chosen.value)!;
 async function copy() {
     await navigator.clipboard.writeText(current().command);
     copied.value = true;
-    setTimeout(() => (copied.value = false), 1600);
+    setTimeout(() => (copied.value = false), COPIED_TIME);
 }
 </script>
 

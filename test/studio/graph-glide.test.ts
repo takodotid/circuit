@@ -1,7 +1,8 @@
-// How the graph glides: on frames that a test gives, so a late frame never makes it jump; eased from where things are to where they go; and, when one glide replaces another, at the speed things already have.
+// How the graph glides, on frames that a test gives. A late frame never makes it jump. A glide eases from where things are to where they go. A glide that replaces another starts at the speed things already have.
 
 import { describe, expect, test } from "bun:test";
-import { type GlideOptions, type Motion, GraphGlide } from "../../src/studio/app/src/lib/graph-glide";
+import { GraphGlide } from "../../src/studio/app/src/lib/graph-glide";
+import type { GlideOptions, Motion } from "../../src/studio/app/src/lib/graph-glide";
 
 /** A glide on frames the test gives: each call to `at` runs the next frame at that time. */
 function glide(options: GlideOptions = {}) {

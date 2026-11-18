@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: BGP inside a network. The reader breaks the link between two routers and sees on a time line how long traffic is lost, with and without BFD, and whether the iBGP session between them survives.
+// Lesson: BGP inside a network. The reader breaks the link between two routers and sees on a time line how long traffic is lost, with and without BFD. They also see whether the iBGP session between them survives.
 
 import { computed, ref, watch } from "vue";
 import { useTravel } from "../travel";

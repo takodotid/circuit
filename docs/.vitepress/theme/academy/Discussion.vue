@@ -6,7 +6,7 @@ import { onMounted, ref, watch } from "vue";
 import { useData, useRoute } from "vitepress";
 import circuit from "../../../../package.json";
 
-// giscus finds the repository and the category by these ids, from https://giscus.app once Discussions is on and the giscus app is installed.
+// Giscus finds the repository and the category by these ids, from https://giscus.app once Discussions is on and the giscus app is installed.
 // Until the category exists, readers are pointed to GitHub instead.
 const GISCUS = {
     repo: "takodotid/circuit",

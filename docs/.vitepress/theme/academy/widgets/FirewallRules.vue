@@ -2,7 +2,8 @@
 // Lesson: firewalls. The reader reorders, changes, removes, and adds rules, sends test packets through them, and sees which rule matched first, or the default, until every packet gets what it should.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 const props = withDefaults(
     defineProps<{

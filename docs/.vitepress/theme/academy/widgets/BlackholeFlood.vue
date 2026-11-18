@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: attacks on the network. A flood toward one customer address arrives over two transits and an exchange; the reader has the customer ask for a blackhole, writes the blackhole community of each upstream that takes one, and sees which links are freed and who stops sending.
+// Lesson: attacks on the network. A flood toward one customer address arrives over two transits and an exchange. The reader has the customer ask for a blackhole, and writes the blackhole community of each upstream that takes one. Then they see which links are freed and who stops sending.
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";

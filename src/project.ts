@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { basename, isAbsolute, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { catalog, schemeProblems, writeCommunities } from "./config/communities";
@@ -57,7 +57,8 @@ export class Project {
      * Imports `circuit.ts` and each device file, checks what the types can't, runs the project's own checks, and gives each network's devices in the model. It fills in only the network's AS on BGP. Throws `ProjectError` with every reason it can't.
      */
     static async read(folder: string): Promise<ProjectRead> {
-        Project.root = resolve(folder);
+        // Bun gives a file's real path in an error, so the root is a real path too. On macOS, /var is /private/var.
+        Project.root = existsSync(folder) ? realpathSync(folder) : resolve(folder);
         Project.findings = [];
         Project.warnings = [];
         registry.networks.length = 0;

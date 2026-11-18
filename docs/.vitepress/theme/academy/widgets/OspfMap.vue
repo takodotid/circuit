@@ -3,7 +3,8 @@
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
-import { type Link, Spf } from "./OspfMap";
+import { Spf } from "./OspfMap";
+import type { Link } from "./OspfMap";
 
 const routers = [
     { id: "R1", x: 70, y: 165 },

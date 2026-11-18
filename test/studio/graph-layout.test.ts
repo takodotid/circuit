@@ -1,7 +1,8 @@
-// Where the graph places its nodes: only new ones move, a new one starts beside a neighbour, devices with no line wait in a row, no two tags overlap, and each line is long enough to see.
+// Where the graph places its nodes. Only new ones move, and a new one starts beside a neighbor. Devices with no line wait in a row. No two tags overlap, and each line is long enough to see.
 
 import { describe, expect, test } from "bun:test";
-import { type Box, GraphLayout, type Point } from "../../src/studio/app/src/lib/graph-layout";
+import { GraphLayout } from "../../src/studio/app/src/lib/graph-layout";
+import type { Box, Point } from "../../src/studio/app/src/lib/graph-layout";
 
 const box = (id: string, width = 120): Box => ({ id, label: id.replace("device:", ""), width, height: 62 });
 
@@ -24,7 +25,7 @@ function shown(places: Map<string, Point>, a: Box, b: Box): number {
 }
 
 describe("laying out the graph", () => {
-    test("a node with a place keeps it, and a new one starts beside its neighbour", () => {
+    test("a node with a place keeps it, and a new one starts beside its neighbor", () => {
         const places = new Map<string, Point>([
             ["device:edge-01", { x: 0, y: 0 }],
             ["device:tor-01", { x: 300, y: 0 }],

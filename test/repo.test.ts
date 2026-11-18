@@ -16,9 +16,6 @@ const files = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-s
 const SET_ELSEWHERE = [".claude/skills/", ".github/", ".vale/", "docs/public/", "examples/", "test/fixtures/"];
 const setElsewhere = (path: string) => SET_ELSEWHERE.some((prefix) => `${path}/`.startsWith(prefix));
 
-/** Code still to follow the rules on code and comments: Studio's page and its tests, the website's theme, and the file test/studio imports by its name. */
-const NOT_YET = ["src/studio/app/", "test/studio/", "docs/.vitepress/", "src/studio/data.ts"];
-
 const read = (file: string) => readFileSync(join(root, file), "utf8");
 
 describe("layout", () => {
@@ -160,11 +157,7 @@ test("every region a page includes is in its example, and every region is includ
 describe("code", () => {
     // The language in src/config is functions and types, and Studio's page is Vue, so these rules skip them.
     const code = files.filter(
-        (file) =>
-            /^src\/.+\.ts$/.test(file) &&
-            !/^src\/(config|studio\/app)\//.test(file) &&
-            !file.endsWith(".generated.ts") &&
-            !NOT_YET.includes(file)
+        (file) => /^src\/.+\.ts$/.test(file) && !/^src\/(config|studio\/app)\//.test(file) && !file.endsWith(".generated.ts")
     );
     const squash = (name: string) => name.replace(/[^a-z0-9]/gi, "").toLowerCase();
 
@@ -265,11 +258,7 @@ describe("code", () => {
 
 describe("comments", () => {
     const code = files.filter(
-        (file) =>
-            /\.(ts|js|mjs|vue)$/.test(file) &&
-            !file.startsWith("test/fixtures/") &&
-            !file.endsWith(".generated.ts") &&
-            !NOT_YET.some((prefix) => file.startsWith(prefix))
+        (file) => /\.(ts|js|mjs|vue)$/.test(file) && !file.startsWith("test/fixtures/") && !file.endsWith(".generated.ts")
     );
 
     /** Each comment, with its file and line: `//` lines in a row are one, as is each `/* *\/` that starts a line. */

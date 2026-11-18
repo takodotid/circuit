@@ -342,7 +342,7 @@ header input[type="search"]:focus {
     outline-offset: 1px;
 }
 
-/* The status rail: the network's health in counts, each with a mark as well as a colour. */
+/* The status rail: the network's health in counts, each with a mark as well as a color. */
 
 .status-rail {
     order: 10;
@@ -677,7 +677,7 @@ aside .members span {
     flex: none;
 }
 
-/* Marks that pair a colour with a word. */
+/* Marks that pair a color with a word. */
 
 .badge {
     display: inline-block;
@@ -936,7 +936,7 @@ pre.code {
     white-space: pre;
 }
 
-/* A device's front panel: a square per port, by speed. Each use has its own fill and edge, not colour alone. */
+/* A device's front panel: a square per port, by speed. Each use has its own fill and edge, not color alone. */
 
 .faceplate {
     display: flex;

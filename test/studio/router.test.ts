@@ -2,7 +2,8 @@
 
 import { plugin } from "bun";
 import { afterAll, expect, test } from "bun:test";
-import { createMemoryHistory, type RouteLocationNormalizedLoaded, type Router, type RouterHistory } from "vue-router";
+import { createMemoryHistory } from "vue-router";
+import type { RouteLocationNormalizedLoaded, Router, RouterHistory } from "vue-router";
 import { OldAddress } from "../../src/studio/app/src/lib/old-address";
 
 // Only the paths are tested here, so each page's component loads as an empty one, and the page's store finds the one browser call it makes as it loads.

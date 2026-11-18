@@ -3,6 +3,12 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const note = ref<{ text: string; left: number; top: number; below: boolean }>();
+/** The room a note needs under the name, else it goes above. */
+const ROOM_BELOW = 160;
+/** The widest a note is, with room to the window's edge. */
+const WIDEST = 380;
+/** The gap between the name and its note. */
+const GAP = 6;
 
 function show(event: Event): void {
     const target = (event.target as Element | null)?.closest?.("[data-doc]");
@@ -11,8 +17,8 @@ function show(event: Event): void {
 
     // Below the name, or above it when the name is near the bottom of the window.
     const box = target.getBoundingClientRect();
-    const below = box.bottom < innerHeight - 160;
-    note.value = { text, left: Math.min(box.left, innerWidth - 380), top: below ? box.bottom + 6 : box.top - 6, below };
+    const below = box.bottom < innerHeight - ROOM_BELOW;
+    note.value = { text, left: Math.min(box.left, innerWidth - WIDEST), top: below ? box.bottom + GAP : box.top - GAP, below };
 }
 
 function hide(event: Event): void {

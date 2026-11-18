@@ -4,7 +4,8 @@ import { computed } from "vue";
 import type { StudioData } from "../../../types";
 import { FieldDocs } from "../lib/field-docs";
 import { Format } from "../lib/format";
-import DataTable, { type Badge, type Row } from "./DataTable.vue";
+import DataTable from "./DataTable.vue";
+import type { Badge, Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
 

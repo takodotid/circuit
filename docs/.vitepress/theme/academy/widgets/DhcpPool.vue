@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: DHCP. The reader sets a guest VLAN's pool and lease time, lets guests arrive and leave, moves the clock on, and watches the pool fill and empty, with the router's DHCP server written beside it.
+// Lesson: DHCP. The reader sets a guest VLAN's pool and lease time, lets guests arrive and leave, and moves the clock on. The pool fills and empties, with the router's DHCP server written beside it.
 
 import { computed, ref } from "vue";
 

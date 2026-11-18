@@ -95,6 +95,9 @@ async function load(): Promise<void> {
 }
 
 /** Read what the server gathered, and again each time it says the project changed. */
+/** How long the live mark beats when the project is read again. */
+const BEAT_TIME = 1200;
+
 export function connect(): void {
     void load();
 
@@ -104,6 +107,6 @@ export function connect(): void {
     events.addEventListener("message", async () => {
         await load();
         store.beat = true;
-        setTimeout(() => (store.beat = false), 1200);
+        setTimeout(() => (store.beat = false), BEAT_TIME);
     });
 }

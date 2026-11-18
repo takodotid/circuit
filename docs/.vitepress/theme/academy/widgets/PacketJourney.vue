@@ -2,7 +2,8 @@
 // Lesson: messages in pieces. The reader types a message, picks a packet size, and sends it. Packets take two ways and arrive out of order, some are lost and asked for again, and the phone puts them back in order.
 
 import { computed, onBeforeUnmount, ref, watch } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 const MAX_LETTERS = 40;
 const MAX_PACKETS = 10;

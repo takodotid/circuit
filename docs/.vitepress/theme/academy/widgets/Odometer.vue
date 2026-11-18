@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: counting like a computer. Two counters count up together, one with wheels of ten digits and one with wheels of two, so the reader sees the same push to the next wheel happen in both.
+// Lesson: counting like a computer. Two counters count up together, one with wheels of ten digits and one with wheels of two. The reader sees the same push to the next wheel happen in both.
 
 import { computed, onBeforeUnmount, ref } from "vue";
 

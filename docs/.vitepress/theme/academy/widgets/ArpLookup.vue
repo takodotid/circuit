@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Lesson: routers and the gateway. The reader sends from a laptop to a printer, the router, and a far server, and watches the laptop find each hardware address it needs with ARP: a broadcast question, one answer, and a line in its ARP table.
+// Lesson: routers and the gateway. The reader sends from a laptop to a printer, the router, and a far server. The laptop finds each hardware address it needs with ARP: a broadcast question, one answer, and a line in its ARP table.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 type Id = "laptop" | "switch" | "printer" | "phone" | "router" | "server";
 

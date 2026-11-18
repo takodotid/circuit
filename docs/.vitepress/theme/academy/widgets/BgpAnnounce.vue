@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Lesson: BGP. The reader announces a prefix from their AS and steps through the rounds as it spreads, the AS path growing at each hop and loops dropped; cutting links changes the paths.
+// Lesson: BGP. The reader announces a prefix from their AS and steps through the rounds as it spreads, the AS path growing at each hop and loops dropped. Cutting links changes the paths.
 
 import { computed, ref } from "vue";
-import { Announcement, type Arrival, type AsLink } from "./BgpAnnounce";
+import { Announcement } from "./BgpAnnounce";
+import type { Arrival, AsLink } from "./BgpAnnounce";
 
 const ORIGIN = 64500;
 const PREFIX = "198.51.100.0/24";

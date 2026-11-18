@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: choosing a device. The reader states what a device must do, how many routes, how much traffic, and whether it tracks connections, and sees the kind of device that fits, why, and how many packets a second that is.
+// Lesson: choosing a device. The reader states what a device must do: how many routes, how much traffic, and whether it tracks connections. The widget shows the kind of device that fits, why, and how many packets a second that is.
 
 import { computed, ref } from "vue";
 

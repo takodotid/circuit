@@ -25,10 +25,7 @@ export class GraphGlide {
     /** The speed of what is at rest. */
     static readonly AT_REST: Place = { x: 0, y: 0, z: 0 };
 
-    /**
-     * Where a motion is, a share `s` of the way through a glide of `time`. From rest it is slow at both ends and quick in the middle. With a
-     * speed at the start, it carries on at that speed and turns towards where it goes.
-     */
+    /** Where a motion is, a share `s` of the way through a glide of `time`. From rest it is slow at both ends and quick in the middle. With a speed at the start, it carries on at that speed and turns toward where it goes. */
     static at(motion: Motion, s: number, time: number): Place {
         const eased = s < 0.5 ? 4 * s ** 3 : 1 - (-2 * s + 2) ** 3 / 2;
         const carried = s * (1 - s) ** 2 * time;

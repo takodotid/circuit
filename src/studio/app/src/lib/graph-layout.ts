@@ -1,4 +1,4 @@
-// Where each node of the graph is, layer by layer. A layer is laid out once, then kept: a device moved stays moved, and a new device is placed beside one it has a line to, so the drawing does not jump when the project changes.
+// Where each node of the graph is, layer by layer. A layer is laid out once, then kept, so the drawing does not jump when the project changes. A device moved stays moved, and a new device starts beside one it has a line to.
 
 import type { Layer } from "../../../../core/graph";
 
@@ -15,10 +15,35 @@ export class GraphLayout {
     static readonly GAP = 24;
     /** The least distance between the centers of two tags one above the other. */
     static readonly ROW = 96;
-    /** The length a line pulls towards, from tag to tag: room to see the line and read its label. */
+    /** The length a line pulls toward, from tag to tag: room to see the line and read its label. */
     private static readonly IDEAL = 150;
     /** The shortest a line may be from tag to tag, so its label never covers all of it. */
     static readonly SHORTEST = 80;
+    /** FNV-1a's 32-bit offset basis and prime, for `hash`. */
+    private static readonly FNV_OFFSET = 2166136261;
+    private static readonly FNV_PRIME = 16777619;
+    /** How many values 32 bits hold. */
+    private static readonly UINT32_VALUES = 4294967296;
+    /** New nodes start on a circle whose radius is this times the square root of their count. */
+    private static readonly CIRCLE_STEP = 60;
+    /** How far from its neighbor a new node starts. */
+    private static readonly BESIDE = 90;
+    /** How many rounds the force layout runs, and how many when some nodes keep their place. */
+    private static readonly ROUNDS = 500;
+    private static readonly ROUNDS_KEPT = 200;
+    /** The farthest a node moves in the first round. It moves less each round after. */
+    private static readonly FIRST_STEP = 40;
+    /** Nodes farther apart than this many ideal lengths no longer push. */
+    private static readonly REACH = 3;
+    /** A push is measured from at least this gap, so two tags that touch do not fly apart. */
+    private static readonly NEAREST = 10;
+    /** How hard each node is pulled to the middle, as a share of its distance from it. */
+    private static readonly CENTER_PULL = 0.15;
+    /** How many rounds `separate` runs at most. */
+    private static readonly SEPARATE_ROUNDS = 80;
+    /** The least width of the rows of nodes with no line, and how far under the drawing they start. */
+    private static readonly PARKED_WIDTH = 900;
+    private static readonly PARKED_BELOW = 130;
 
     private readonly layers = new Map<Layer, Map<string, Point>>();
 
@@ -59,15 +84,12 @@ export class GraphLayout {
 
     /** A number from 0 to 1, always the same for the same text, so a layout comes out the same each time. */
     static hash(text: string): number {
-        let value = 2166136261;
-        for (const char of text) value = Math.imul(value ^ char.charCodeAt(0), 16777619);
-        return (value >>> 0) / 4294967296;
+        let value = GraphLayout.FNV_OFFSET;
+        for (const char of text) value = Math.imul(value ^ char.charCodeAt(0), GraphLayout.FNV_PRIME);
+        return (value >>> 0) / GraphLayout.UINT32_VALUES;
     }
 
-    /**
-     * How far apart two tags are, from the edge of one to the edge of the other, along the line between their centres; and that line's
-     * direction, from `b` to `a`. Two tags in one place are apart in a direction of their own.
-     */
+    /** How far apart two tags are from edge to edge, along the line between their centers, and that line's direction from `b` to `a`. Two tags in one place get a direction of their own. */
     private static between(a: Box, pa: Point, b: Box, pb: Point): { gap: number; x: number; y: number } {
         let dx = pa.x - pb.x;
         let dy = pa.y - pb.y;
@@ -85,12 +107,7 @@ export class GraphLayout {
         return { gap: distance - inside(a) - inside(b), x, y };
     }
 
-    /**
-     * Place nodes with a force layout: every node pushes every other away, and each line pulls its ends together, both measured from tag
-     * to tag. A node that has a place keeps it. A new one starts where `seed` has it, else beside a neighbour that has a place, else on a
-     * circle, and moves. A node with no line is parked in a row under the drawing, by name. At the end no two tags overlap, and each line
-     * is long enough to see beside its label.
-     */
+    /** Place nodes with a force layout: every node pushes every other away, and each line pulls its ends together. A node that has a place keeps it. A new one starts where `seed` has it, else beside a placed neighbor, else on a circle. At the end, no two tags overlap, and each line shows beside its label. */
     static arrange(
         boxes: readonly Box[],
         edges: readonly { from: string; to: string }[],
@@ -111,8 +128,7 @@ export class GraphLayout {
         const loose = edges.length ? boxes.filter((box) => !neighbors.has(box.id) && !places.has(box.id)) : [];
         const linked = boxes.filter((box) => !loose.includes(box));
 
-        // A new node starts beside a neighbour already placed, or on a circle.
-        const radius = 60 * Math.sqrt(linked.length + 1);
+        const radius = GraphLayout.CIRCLE_STEP * Math.sqrt(linked.length + 1);
 
         for (const box of linked) {
             if (places.has(box.id)) continue;
@@ -125,7 +141,7 @@ export class GraphLayout {
 
             const angle = GraphLayout.hash(box.id) * Math.PI * 2;
             const neighbor = [...(neighbors.get(box.id) ?? [])].map((id) => places.get(id)).find(Boolean);
-            const distance = neighbor ? 90 : radius;
+            const distance = neighbor ? GraphLayout.BESIDE : radius;
             const origin = neighbor ?? { x: 0, y: 0 };
             places.set(box.id, { x: origin.x + Math.cos(angle) * distance, y: origin.y + Math.sin(angle) * distance });
         }
@@ -142,7 +158,7 @@ export class GraphLayout {
 
         const moving = linked.filter((box) => !fixed.has(box.id));
         if (moving.length) {
-            GraphLayout.settle(linked, moving, pairs, places, fixed.size ? 200 : 500);
+            GraphLayout.settle(linked, moving, pairs, places, fixed.size ? GraphLayout.ROUNDS_KEPT : GraphLayout.ROUNDS);
             GraphLayout.separate(linked, pairs, fixed, places, half);
         }
 
@@ -161,7 +177,7 @@ export class GraphLayout {
         const at = (id: string) => places.get(id)!;
 
         for (let round = 0; round < rounds; round++) {
-            const heat = 40 * (1 - round / rounds) + 1;
+            const heat = GraphLayout.FIRST_STEP * (1 - round / rounds) + 1;
             const push = new Map(boxes.map((box) => [box.id, { x: 0, y: 0 }]));
             const pushOf = (id: string) => push.get(id)!;
 
@@ -170,9 +186,9 @@ export class GraphLayout {
                     const { gap, x, y } = GraphLayout.between(a, at(a.id), b, at(b.id));
 
                     // Nodes far apart no longer push, so parts that are not connected stay near each other.
-                    if (gap > ideal * 3) continue;
+                    if (gap > ideal * GraphLayout.REACH) continue;
 
-                    const force = (ideal * ideal) / Math.max(gap, 10);
+                    const force = (ideal * ideal) / Math.max(gap, GraphLayout.NEAREST);
                     pushOf(a.id).x += x * force;
                     pushOf(a.id).y += y * force;
                     pushOf(b.id).x -= x * force;
@@ -197,8 +213,8 @@ export class GraphLayout {
                 const force = pushOf(box.id);
 
                 // A pull to the middle keeps parts that are not connected from drifting away.
-                force.x -= point.x * 0.15;
-                force.y -= point.y * 0.15;
+                force.x -= point.x * GraphLayout.CENTER_PULL;
+                force.y -= point.y * GraphLayout.CENTER_PULL;
 
                 const length = Math.max(Math.hypot(force.x, force.y), 1);
                 const step = Math.min(length, heat);
@@ -208,10 +224,7 @@ export class GraphLayout {
         }
     }
 
-    /**
-     * No tag may cover another: two that overlap are pushed apart the shorter way out. Two tags a line joins are pushed apart along it
-     * until it is long enough to see. A node that kept its place stays.
-     */
+    /** No tag may cover another: two that overlap are pushed apart the shorter way out. Two tags a line joins are pushed apart along it until it is long enough to see. A node that kept its place stays. */
     private static separate(
         boxes: readonly Box[],
         pairs: readonly (readonly [Box, Box])[],
@@ -219,7 +232,7 @@ export class GraphLayout {
         places: Map<string, Point>,
         half: (box: Box) => number
     ): void {
-        for (let round = 0; round < 80; round++) {
+        for (let round = 0; round < GraphLayout.SEPARATE_ROUNDS; round++) {
             let overlapping = false;
 
             for (const [a, b] of pairs) {
@@ -279,9 +292,9 @@ export class GraphLayout {
 
         const placed = linked.flatMap((box) => places.get(box.id) ?? []);
         const left = placed.length ? Math.min(...placed.map((point) => point.x)) : 0;
-        const right = left + Math.max(placed.length ? Math.max(...placed.map((point) => point.x)) - left : 0, 900);
+        const right = left + Math.max(placed.length ? Math.max(...placed.map((point) => point.x)) - left : 0, GraphLayout.PARKED_WIDTH);
         let x = left;
-        let y = (placed.length ? Math.max(...placed.map((point) => point.y)) : 0) + 130;
+        let y = (placed.length ? Math.max(...placed.map((point) => point.y)) : 0) + GraphLayout.PARKED_BELOW;
 
         for (const box of [...loose].sort((a, b) => a.label.localeCompare(b.label))) {
             if (x > left && x + half(box) * 2 > right) {

@@ -402,11 +402,7 @@ export class Evaluate {
         return changed;
     }
 
-    /**
-     * A route through one of a device's route policies, rule by rule: a call runs the policy it names, and a route that policy accepts
-     * or rejects stops there; any other goes on, with what it set. A rule on routes checks its `if`, then applies `set`, then `then`
-     * decides. A route no rule accepts is rejected.
-     */
+    /** A route through one of a device's route policies, rule by rule. A call runs its policy, and a route that policy accepts or rejects stops there; any other goes on, with what it set. A rule on routes checks its `if`, then applies `set`, then `then` decides. A route no rule accepts is rejected. */
     static policy(device: Device, policy: string, route: Route): PolicyResult {
         const policies = (device.routing?.policies ?? {}) as Record<string, readonly PolicyRule[] | undefined>;
         const steps: PolicyStep[] = [];

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: watching the network. The reader looks for the incident in a day of traffic on the transit port, reads the flow records at that moment to see who sent it, then sets an alert rule and counts the pages it would send.
+// Lesson: watching the network. The reader looks for the incident in a day of traffic on the transit port, and reads the flow records at that moment to see who sent it. Then they set an alert rule and count the pages it would send.
 
 import { computed, ref } from "vue";
 

@@ -4,7 +4,8 @@
 import { computed, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
 import { Academy } from "../../academy";
-import { checks, type Question } from "./checks";
+import { checks } from "./checks";
+import type { Question } from "./checks";
 import { Progress } from "./progress";
 
 const props = defineProps<{ level: string }>();

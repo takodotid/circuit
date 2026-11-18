@@ -2,7 +2,8 @@
 // Lesson: VLANs. The reader puts each port of a switch in a VLAN, sends a broadcast or a message, and sees who gets it, with the switch's Circuit file written beside it.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 type VlanName = "home" | "guests" | "cameras";
 type Choice = VlanName | "off";

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Lesson: trunks. The reader chooses the VLANs each end of a trunk carries, sends frames between two switches, and watches the tag appear on the trunk and go again, with each end's Circuit port and what `circuit validate` says.
+// Lesson: trunks. The reader chooses the VLANs each end of a trunk carries, and sends frames between two switches. The tag appears on the trunk and goes again, with each end's Circuit port and what `circuit validate` says.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 type SwitchId = "switch-a" | "switch-b";
 

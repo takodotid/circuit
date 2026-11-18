@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Lesson: DHCP. The reader steps through the four DHCP messages between a laptop that has just joined VLAN 20 and the router, and reads what each message says.
 
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 type Place = "laptop" | "switch" | "router" | "printer";
 

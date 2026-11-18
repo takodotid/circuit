@@ -5,6 +5,10 @@ import { onBeforeUnmount, ref } from "vue";
 
 export type Point = [number, number];
 
+/** With reduced motion, how long the point stays at each place. */
+const STILL_STOP = 350;
+const SECOND = 1000;
+
 export function useTravel(pixelsPerSecond = 260) {
     const position = ref<Point>([0, 0]);
     const traveling = ref(false);
@@ -23,7 +27,7 @@ export function useTravel(pixelsPerSecond = 260) {
             return { start, end: point, length: Math.hypot(point[0] - start[0], point[1] - start[1]) };
         });
         const total = legs.reduce((sum, leg) => sum + leg.length, 0);
-        const duration = still ? legs.length * 350 : (total / pixelsPerSecond) * 1000;
+        const duration = still ? legs.length * STILL_STOP : (total / pixelsPerSecond) * SECOND;
 
         position.value = points[0]!;
         traveling.value = true;

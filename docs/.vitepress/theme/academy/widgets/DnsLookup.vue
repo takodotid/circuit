@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Lesson: DNS. The reader steps through a lookup of circuit.tako.id, from the laptop to the resolver, the root, the .id servers, and the tako.id servers, and compares it with a lookup someone already remembers.
+// Lesson: DNS. The reader steps through a lookup of circuit.tako.id, from the laptop to the resolver, the root, the .id servers, and the tako.id servers. Then they compare it with a lookup someone already remembers.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 import { useNarrow } from "./SwitchLearning";
 
 type Place = "laptop" | "resolver" | "root" | "tld" | "domain";

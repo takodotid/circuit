@@ -3,7 +3,8 @@
 import { computed } from "vue";
 import type { StudioData } from "../../../types";
 import { FieldDocs } from "../lib/field-docs";
-import DataTable, { type Row } from "./DataTable.vue";
+import DataTable from "./DataTable.vue";
+import type { Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
 const devices = computed(() => new Set(props.data.devices.map((device) => device.name)));
