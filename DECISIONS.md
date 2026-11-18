@@ -101,6 +101,7 @@ These decisions are binding. A change to one is a new decision with the next num
 - **94.** The password comes from `CIRCUIT_SECRETS_PASSWORD` in the environment, from `CIRCUIT_SECRETS_PASSWORD="op://..."` in the secrets file, or is typed when Circuit asks. The first `circuit secrets` asks to choose one. If it is left empty, Circuit makes one and shows it once.
 - **95.** `circuit secrets` alone, in a terminal, opens every secret decrypted in a text editor that is part of Circuit, nano-like: Ctrl+S saves encrypted, Esc or Ctrl+X leaves. A value that didn't change keeps its encryption. Values are never written to disk in plain text.
 - **105.** Circuit remembers secrets only after a yes: for 10 minutes, 30 minutes, or 24 hours, never longer, in the memory of a small Circuit process, never in a file. It answers only a program with its token. The question warns that any program run by the person can get them, and locking 1Password doesn't lock them. `circuit secrets forget` drops them.
+- **128.** Everything Circuit prints, and every answer Studio gives, shows each secret of 6 characters or more as `<redacted>`, including what a device quotes back. A shorter one would hide ordinary words and numbers too. The interactive `access-console` passes the device through as it is ([#259](https://github.com/takodotid/circuit/issues/259)).
 
 ## Studio
 
