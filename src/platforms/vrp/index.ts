@@ -146,7 +146,17 @@ export class Vrp extends Platform {
         }
 
         for (const [name, port] of Derive.ports(device)) {
-            for (const field of ["speed", "ingress_acl", "mtu", "addresses", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of [
+                "speed",
+                "ingress_acl",
+                "mtu",
+                "addresses",
+                "urpf",
+                "vrrp",
+                "vrf",
+                "ipv6_ra",
+                "hardware_offload",
+            ] as const) {
                 if (port[field] !== undefined) found.push(`interfaces.ethernet.${name}.${field}, ports are switched; use a VLAN interface`);
             }
 
@@ -281,7 +291,14 @@ export class Vrp extends Platform {
                 found.push(`system.users.${name}.ssh_keys, a key named after a user over ${VrpRender.KEY_NAME} characters`);
         }
         found.push(...Derive.untested(device, ["alarm-severity", "bfd-timers", "static-route-bfd", "mac-limit", "ethertype-filter"]));
-        found.push(...Derive.unbuilt(device));
+        found.push(...Derive.unbuilt(device, ["urpf"]));
+
+        for (const { where, kind, settings } of Derive.holders(device)) {
+            if (kind === "ethernet" || !settings.urpf) continue;
+            if (kind !== "vlan_interface") found.push(`${where}.urpf, only on a VLAN interface`);
+            else if (settings.urpf.ipv4 === "strict") found.push(`${where}.urpf.ipv4 strict, the CE6855 checks in loose mode only`);
+            if (settings.urpf.ipv6) found.push(`${where}.urpf.ipv6, which the platform does not build`);
+        }
 
         const flow = monitoring.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
@@ -296,6 +313,13 @@ export class Vrp extends Platform {
         }
 
         return found;
+    }
+
+    /** Built from Huawei's CloudEngine command reference for `ip urpf enable`. */
+    override experimental(device: Device): string[] {
+        return Object.entries(device.interfaces?.vlan_interface ?? {})
+            .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
+            .map(([name]) => `interfaces.vlan_interface.${name}.urpf.ipv4`);
     }
 
     override render(device: Device): string {

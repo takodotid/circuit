@@ -293,8 +293,18 @@ export class Junos extends Platform {
                 found.push(`monitoring.flow_export.interfaces ${name}, a management port`);
         }
 
+        for (const { where, kind, name, settings } of Derive.holders(device)) {
+            if (kind === "ethernet" && names.port(name).startsWith("em") && settings.urpf)
+                found.push(`${where}.urpf on a management port, which the platform does not build`);
+            if (kind === "gre" && settings.urpf) found.push(`${where}.urpf on a tunnel, which the platform does not build`);
+
+            for (const family of ["ipv4", "ipv6"] as const)
+                if (settings.urpf?.[family] === "loose")
+                    found.push(`${where}.urpf.${family} loose, which Juniper doesn't list for the QFX5100 (TRAPS.md): write strict`);
+        }
+
         found.push(...Derive.untested(device, Junos.TESTED));
-        found.push(...Derive.unbuilt(device));
+        found.push(...Derive.unbuilt(device, ["urpf"]));
 
         return found;
     }

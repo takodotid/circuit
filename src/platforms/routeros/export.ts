@@ -100,7 +100,7 @@ export class RouterOsExport {
             "read-access": "yes",
             "write-access": "no",
         },
-        "/ip settings": { "send-redirects": "yes", "tcp-syncookies": "no" },
+        "/ip settings": { "rp-filter": "no", "send-redirects": "yes", "tcp-syncookies": "no" },
         "/system clock": { "time-zone-autodetect": "yes", "time-zone-name": "manual" },
         "/system note": { note: "", "show-at-login": "yes" },
         "/system ntp client": { enabled: "no" },

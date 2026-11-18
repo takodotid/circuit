@@ -56,10 +56,27 @@ export type Address =
           peer_address: IP;
       };
 
+/** How a uRPF check decides (RFC 3704). */
+export type UrpfMode = "strict" | "loose";
+
+/** The uRPF check of each family. */
+export type Urpf = {
+    /** The check on IPv4 packets. */
+    ipv4?: UrpfMode;
+    /** The check on IPv6 packets. */
+    ipv6?: UrpfMode;
+};
+
 /** Layer 3 settings shared by every interface that can have an address. `Vrf` is the device's VRF names. */
 export type Routed<Vrf extends string> = {
     /** Addresses with their length. On a point-to-point link whose far end is outside the address's prefix, write `{ address, peer_address }`. */
     addresses?: readonly Address[];
+    /**
+     * Unicast reverse path forwarding (uRPF, RFC 3704): drop a packet that arrives here when its source fails the check. `strict` drops it unless the best route to its source leaves through this interface. `loose` drops it only when no route covers its source. A source routed to a blackhole fails both, so a blackhole route for an attacker's prefix also drops what it sends (source-based RTBH, RFC 5635). The device's own default when absent.
+     *
+     * RouterOS checks IPv4 only, with one mode for the whole router: write the same `ipv4` on every interface with an IPv4 address. FortiOS checks feasible paths (RFC 3704) by default. There `strict` is one setting for a whole VDOM: write it for each family on every interface in the VDOM with an address of that family. A Junos QFX switch doesn't check a packet whose source has several equal-cost routes. On VRP, `loose` also drops a source whose only route is the default route.
+     */
+    urpf?: Urpf;
     /** Send IPv6 router advertisements on this interface. Off when absent. */
     ipv6_ra?: boolean;
     /** Overrides `system.hardware_offload` for traffic routed through this interface. The firewall applies only to traffic forwarded in software. */
@@ -207,8 +224,8 @@ export type VlanInterface<Vlan extends string, Vrf extends string> = Base<Vrf> &
     proxy_arp?: readonly IP[];
 };
 
-/** An interface that is always up and is not on any link. Use it for addresses that must not depend on a link. */
-export type Loopback<Vrf extends string> = Base<Vrf>;
+/** An interface that is always up and is not on any link. Use it for addresses that must not depend on a link. No packet arrives on it, so it has no `urpf`. */
+export type Loopback<Vrf extends string> = Omit<Base<Vrf>, "urpf">;
 
 /**
  * How a LAG finds a member that no longer carries traffic. Every `interval_ms`, the LAG sends an ARP request to each target over every member. A member that gets no reply leaves the LAG until it gets one again. Use it for members whose link stays up when the path behind them fails, such as tunnels.
@@ -307,7 +324,7 @@ export type WireGuard<Vrf extends string, Table extends string = string> = Base<
 /**
  * A layer 2 bridge between VLAN interfaces, each keeping its own VLAN. A frame that comes in on one member leaves another with that member's tag. A firewall filters the traffic that crosses it with its forward chain, without routing it.
  */
-export type Bridge<VlanInterface extends string, Vrf extends string> = Omit<Base<Vrf>, "description"> & {
+export type Bridge<VlanInterface extends string, Vrf extends string> = Omit<Base<Vrf>, "description" | "urpf"> & {
     /** What the bridge is for. On FortiOS it is documentation only: there a bridge is a forward domain, which has no place for it. */
     description?: string;
     /** The VLAN interfaces it joins, from `interfaces.vlan_interface`. They have no addresses of their own. */

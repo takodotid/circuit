@@ -113,4 +113,20 @@ describe.skipIf(!chr)("a CHR", () => {
         },
         APPLY_MS
     );
+
+    test(
+        "uRPF, one mode for the whole router, goes from the example's loose to strict, then back to the default",
+        () => {
+            writeFileSync(deviceFile, replaced(example, /urpf: \{ ipv4: "loose" \}/g, 'urpf: { ipv4: "strict" }'));
+            expect(circuit("diff", "edge-01").output).toContain("rp-filter=strict");
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+
+            writeFileSync(deviceFile, replaced(example, /, urpf: \{ ipv4: "loose" \}/g, ""));
+            expect(circuit("diff", "edge-01").output).toContain("rp-filter=no");
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+        },
+        APPLY_MS
+    );
 });

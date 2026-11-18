@@ -284,5 +284,5 @@ test("BFD on a route in a VRF is built and proved", () => {
     };
 
     expect(platform.unsupported(inVrf)).not.toContain(expect.stringContaining("BFD"));
-    expect(platform.experimental).toBeUndefined();
+    expect(platform.experimental?.(inVrf)).toEqual([]);
 });

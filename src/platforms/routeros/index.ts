@@ -257,6 +257,20 @@ export class RouterOs extends Platform {
                 found.push(`interfaces.vlan_interface.${name}.hardware_offload true while system.hardware_offload is off`);
         }
 
+        const holders = Derive.holders(device);
+        for (const { where, settings } of holders)
+            if (settings.urpf?.ipv6) found.push(`${where}.urpf.ipv6, RouterOS checks IPv4 sources only`);
+
+        // `/ip settings rp-filter` is one mode for every interface.
+        const urpf = Derive.sharedUrpf(holders, "ipv4");
+        if (urpf.setting.length && !urpf.mode) {
+            const missing = urpf.missing.length ? ` (missing on ${urpf.missing.join(", ")})` : "";
+            for (const { where } of urpf.setting)
+                found.push(
+                    `${where}.urpf.ipv4, RouterOS has one mode for the whole router: write the same on every interface with an IPv4 address${missing}`
+                );
+        }
+
         for (const [name, lag] of RouterOsSyntax.entries(device.interfaces?.lag)) {
             if (lag.mac_limit !== undefined) found.push(`interfaces.lag.${name}.mac_limit, ${RouterOs.NO_MAC_LIMIT}`);
             if (lag.ethertypes !== undefined)
@@ -358,6 +372,7 @@ export class RouterOs extends Platform {
                 "wireguard-table",
                 "upnp",
                 "nat-state",
+                "urpf",
             ])
         );
 

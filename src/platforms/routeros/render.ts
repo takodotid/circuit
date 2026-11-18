@@ -871,7 +871,9 @@ export class RouterOsRender {
     private system(): void {
         const system = this.device.system ?? {};
 
+        // One mode for the whole router: `unsupported()` names the interfaces that don't share it.
         this.add("/ip settings", "set", {
+            "rp-filter": Derive.sharedUrpf(Derive.holders(this.device), "ipv4").mode,
             "send-redirects": RouterOsSyntax.yesNo(system.ip_stack?.icmp_redirects),
             "tcp-syncookies": RouterOsSyntax.yesNo(system.ip_stack?.syn_cookies),
         });

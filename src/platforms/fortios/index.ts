@@ -90,6 +90,12 @@ export class FortiOs extends Platform {
         return FortiOsUnsupported.of(device);
     }
 
+    /** Strict source checks are not sent to the test device: `strict-src-check` changes every interface of its VDOM, which other work shares. */
+    override experimental(device: Device): string[] {
+        const check = FortiOsRender.sourceCheck(device);
+        return check.strict ? check.setting : [];
+    }
+
     override render(device: Device): string {
         return FortiOsRender.of(device);
     }

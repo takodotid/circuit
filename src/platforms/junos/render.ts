@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Cabling } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { AclRule, Device, Ethertype, Family, Interface, Lag, Port, Ports, Rate, Severity, Vrrp } from "../../model";
+import type { AclRule, Device, Ethertype, Family, Interface, Lag, Port, Ports, Rate, Routed, Severity, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { JunosBgp } from "./bgp";
@@ -419,13 +419,17 @@ export class JunosRender {
     }
 
     /** Addresses and VRRP groups of a logical interface such as `irb.10`. */
-    private addressing(unit: string, settings: Port | Interface): void {
+    private addressing(unit: string, settings: Routed): void {
         const [physical, number] = unit.split(".");
         const prefix = `interfaces ${physical} unit ${number}`;
         const addresses = (settings.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
 
         for (const address of addresses)
             this.out.set(`${prefix} family ${Address.family(address) === "ipv4" ? "inet" : "inet6"} address`, address);
+
+        // Strict is the mode when none is written. `unsupported()` refuses loose.
+        for (const family of ["ipv4", "ipv6"] as const)
+            if (settings.urpf?.[family] === "strict") this.out.set(`${prefix} family ${family === "ipv4" ? "inet" : "inet6"} rpf-check`);
 
         for (const group of settings.vrrp ?? []) {
             const address = JunosRender.vrrpAddress(addresses, group);
