@@ -75,3 +75,32 @@ test("a static route with bfd needs next_hop, the address BFD watches", () => {
 
     expect(messages(viaInterface)).toContain("routing.static_routes 198.51.100.128/25 has bfd without next_hop, the address BFD watches");
 });
+
+// A blackhole route drops the traffic, so a next hop or an interface beside it says the opposite, on every platform.
+test("a blackhole route has neither next_hop nor interface", () => {
+    const routes: Device["routing"] = {
+        ...router.routing,
+        static_routes: [
+            { prefix: "198.51.100.0/24", blackhole: true, next_hop: "192.0.2.1" },
+            { prefix: "198.51.100.0/25", blackhole: true, interface: "uplink" },
+            { prefix: "2001:db8::/32", blackhole: true, next_hop: "2001:db8:1::1", interface: "uplink" },
+            { prefix: "203.0.113.0/24", blackhole: true },
+        ],
+    };
+    const firewall = Fixtures.device("platforms--example-firewall");
+    const management: NonNullable<Device["system"]>["vdoms"] = {
+        management: { name: "mgmt", interfaces: ["1g-1"], static_routes: [{ prefix: "0.0.0.0/0", blackhole: true, interface: "1g-1" }] },
+    };
+
+    const found = [
+        ...messages({ ...router, routing: routes }),
+        ...messages({ ...firewall, system: { ...firewall.system, vdoms: management } }),
+    ].filter((message) => message.includes("blackhole"));
+
+    expect(found).toEqual([
+        "routing.static_routes 198.51.100.0/24 has blackhole with next_hop. Remove next_hop to drop the traffic, or remove blackhole to forward it",
+        "routing.static_routes 198.51.100.0/25 has blackhole with interface. Remove interface to drop the traffic, or remove blackhole to forward it",
+        "routing.static_routes 2001:db8::/32 has blackhole with next_hop and interface. Remove next_hop and interface to drop the traffic, or remove blackhole to forward it",
+        "system.vdoms.management.static_routes 0.0.0.0/0 has blackhole with interface. Remove interface to drop the traffic, or remove blackhole to forward it",
+    ]);
+});
