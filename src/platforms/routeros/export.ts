@@ -329,7 +329,7 @@ export class RouterOsExport {
 
         // A route is known by its destination and gateway, so an address spelled otherwise must not make it another route. An interface's name stays as it is.
         const route = command.menu === "/ip route" || command.menu === "/ipv6 route";
-        if (route && property === "gateway") return Address.canonical(raw);
+        if (route && property === "gateway") return RouterOsExport.gateway(raw);
         const value = route && property === "dst-address" ? Address.canonical(raw) : raw;
 
         const onInterface = property === "address" && (command.menu === "/ip address" || command.menu === "/ipv6 address");
@@ -343,6 +343,14 @@ export class RouterOsExport {
         if (!onInterface && isAddress && value.includes(":") && !value.includes("/") && !value.includes(",")) return `${value}/128`;
 
         return value;
+    }
+
+    /** A route's gateway in one spelling: an address as `Address.canonical` writes it, and the interface after a `%`, as in `fe80::1%ether1`, as it is. An interface alone stays as it is. */
+    private static gateway(value: string): string {
+        const at = value.indexOf("%");
+        if (at < 0) return Address.canonical(value);
+
+        return `${Address.canonical(value.slice(0, at))}${value.slice(at)}`;
     }
 
     /** An OpenSSH public key's fingerprint as RouterOS prints it: SHA-256 of the key, base64 with its padding (RB5009, 7.24.6). */

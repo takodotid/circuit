@@ -76,6 +76,18 @@ test("a static route with bfd needs next_hop, the address BFD watches", () => {
     expect(messages(viaInterface)).toContain("routing.static_routes 198.51.100.128/25 has bfd without next_hop, the address BFD watches");
 });
 
+// The interface of a link-local next hop goes in `interface`, never after a `%` as some devices write it.
+test("a next hop with an interface after % says where the interface goes", () => {
+    const device: Device = {
+        ...router,
+        routing: { ...router.routing, static_routes: [{ prefix: "::/0", next_hop: "fe80::1%ether1" }] },
+    };
+
+    expect(messages(device)).toContain(
+        'routing.static_routes ::/0 next_hop fe80::1%ether1 has an interface after %. Write next_hop: "fe80::1", and the interface in interface'
+    );
+});
+
 // A blackhole route drops the traffic, so a next hop or an interface beside it says the opposite, on every platform.
 test("a blackhole route has neither next_hop nor interface", () => {
     const routes: Device["routing"] = {

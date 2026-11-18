@@ -348,7 +348,13 @@ export class DeviceChecks {
 
     /** A static route goes somewhere: to a next hop, out of an interface, or nowhere as a blackhole, which then has neither. */
     private static nextHop(where: string, route: StaticRoute, report: Report, ip: Checker): void {
-        if (route.next_hop) ip(where, route.next_hop);
+        // `fe80::1%ether1`, as some devices write a link-local next hop.
+        const [address, scope] = route.next_hop?.split("%") ?? [];
+        if (scope !== undefined)
+            report(
+                `${where} next_hop ${route.next_hop} has an interface after %. Write next_hop: "${address}", and the interface in interface`
+            );
+        else if (route.next_hop) ip(where, route.next_hop);
         if (!route.next_hop && !route.interface && !route.blackhole) report(`${where} has no next hop`);
 
         const forwards = [route.next_hop && "next_hop", route.interface && "interface"].filter(Boolean).join(" and ");

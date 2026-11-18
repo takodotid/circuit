@@ -292,7 +292,9 @@ export class RouterOs extends Platform {
         // The plan knows a route by its prefix, table, and gateway, as the render writes them. Two routes alike in all three can't be told apart.
         const routes = new Map<string, number>();
         (device.routing?.static_routes ?? []).forEach((route, index) => {
-            const gateway = route.next_hop ? Address.canonical(Address.host(route.next_hop)) : (route.interface ?? "");
+            // `fe80::1%ether1` with both: the render writes the next hop with its interface.
+            const nextHop = route.next_hop && Address.canonical(Address.host(route.next_hop));
+            const gateway = [nextHop, route.interface].filter(Boolean).join("%");
             const key = [Address.canonical(route.prefix), route.vrf ?? route.routing_table ?? "main", gateway].join(" ");
             const first = routes.get(key);
             if (first === undefined) {
@@ -335,6 +337,13 @@ export class RouterOs extends Platform {
         );
 
         return found;
+    }
+
+    /** A route with both `next_hop` and `interface` is written `gateway=fe80::1%ether1`, after the vendor's documentation, and not tested on a device yet. */
+    override experimental(device: Device): string[] {
+        return (device.routing?.static_routes ?? [])
+            .filter((route) => route.next_hop && route.interface)
+            .map((route) => `routing.static_routes ${route.prefix} next_hop with interface`);
     }
 
     /** What the v1 model can write that the platform does not render: a list of values in one rule's match, an interface set, an address set named in `management.allow`, and a `{ communities }` rule. */
