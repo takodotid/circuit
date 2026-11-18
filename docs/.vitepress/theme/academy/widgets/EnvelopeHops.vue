@@ -34,14 +34,14 @@ const inner = { from: "10.1.0.20", to: "10.3.0.50" };
 
 /** How many hops the letter has made: 0 is still at the laptop, 3 is at the server. */
 const hops = ref(0);
-const { position, travelling, travel } = useTravel(220);
+const { position, traveling, travel } = useTravel(220);
 
 const done = computed(() => hops.value === outers.length);
 const outer = computed(() => outers[Math.min(hops.value, outers.length - 1)]!);
 const fresh = computed(() => hops.value > 0 && !done.value);
 
 async function next() {
-    if (done.value || travelling.value) return;
+    if (done.value || traveling.value) return;
 
     await travel([
         [stops[hops.value]!.x, Y],
@@ -91,10 +91,10 @@ const say = computed(() => {
                 :y="Y"
                 :label="stop.label"
                 :note="stop.note"
-                :lit="!travelling && index === hops"
+                :lit="!traveling && index === hops"
             />
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="envelope outer" :class="{ fresh, opened: done }">
@@ -139,7 +139,7 @@ const say = computed(() => {
         </div>
 
         <div class="ac-row actions">
-            <button v-if="!done" type="button" class="ac-button primary" :disabled="travelling" @click="next">Send to the next stop</button>
+            <button v-if="!done" type="button" class="ac-button primary" :disabled="traveling" @click="next">Send to the next stop</button>
             <button v-else type="button" class="ac-button" @click="again">Start again</button>
         </div>
 

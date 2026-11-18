@@ -174,7 +174,7 @@ const ranTrace = ref(false);
 /** What made the output shown now, so its caption does not change when the reader picks another command. */
 const shownKind = ref<"ping" | "trace">();
 
-const { position, travelling, travel } = useTravel(320);
+const { position, traveling, travel } = useTravel(320);
 const pause = usePause();
 
 const command = computed(() => commands.find((item) => item.id === chosen.value)!);
@@ -464,7 +464,7 @@ const hint = computed(() =>
                 {{ marker.text }}
             </text>
 
-            <g v-if="travelling && packet" :transform="`translate(${position[0]} ${position[1]})`">
+            <g v-if="traveling && packet" :transform="`translate(${position[0]} ${position[1]})`">
                 <circle class="packet" :class="packet.kind" r="9" />
                 <text class="bubble" y="-16" text-anchor="middle">{{ packet.text }}</text>
             </g>

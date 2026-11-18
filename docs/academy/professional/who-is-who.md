@@ -97,7 +97,7 @@ Circuit writes nothing to the device for `exchange`. Instead, `circuit sync peer
 - [Tier 1 network](https://en.wikipedia.org/wiki/Tier_1_network): what the term means, and why nobody defines it.
 - [IIX-Jakarta](https://www.peeringdb.com/ix/210) on PeeringDB: the Indonesia Internet Exchange, run by APJII.
 - [Netflix Open Connect](https://openconnect.netflix.com/en/): a content network's servers inside providers' networks, and its open peering at exchanges.
-- [Point of presence](https://en.wikipedia.org/wiki/Point_of_presence), and the [room where the cables meet](https://en.wikipedia.org/wiki/Meet-me_room): where networks meet, and how a cross-connect is made.
+- [Point of presence](https://en.wikipedia.org/wiki/Point_of_presence), and the [meet-me room](https://en.wikipedia.org/wiki/Meet-me_room): where networks meet, and how a cross-connect is made.
 - [IANA number resources](https://www.iana.org/numbers) and [RFC 7020](https://www.rfc-editor.org/rfc/rfc7020): the registries, from IANA down.
 - [National Internet Registries](https://www.apnic.net/about-apnic/organization/apnic-region/national-internet-registries), APNIC: the seven national registries, and the choice between one of them and APNIC.
 - [IDNIC](https://idnic.net/), the national internet registry of Indonesia.

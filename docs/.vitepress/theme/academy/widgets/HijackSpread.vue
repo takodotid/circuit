@@ -120,7 +120,7 @@ function routeText(as: number) {
     return `${route.prefix}, path ${route.path.join(" ")}`;
 }
 
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 const sent = ref<number[]>([]);
 
 async function send() {
@@ -137,7 +137,7 @@ const isLit = (a: number, b: number) =>
     sent.value.some((as, index) => index > 0 && ((sent.value[index - 1] === a && as === b) || (sent.value[index - 1] === b && as === a)));
 
 const sentSay = computed(() => {
-    if (!sent.value.length || travelling.value) return undefined;
+    if (!sent.value.length || traveling.value) return undefined;
     const fate = fateOf(from.value);
     const path = sent.value.map((as) => place(as).label).join(", then ");
     return { fate, text: `Traffic to ${RouteSpread.TARGET} from ${place(from.value).label} went: ${path}.` };
@@ -250,7 +250,7 @@ const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
                 <text y="4" text-anchor="middle">{{ FATE_WORDS[fateOf(as)] }}</text>
             </g>
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <p class="ac-say" :class="summary.kind" :data-word="summary.word" aria-live="polite">{{ summary.text }}</p>
@@ -262,7 +262,7 @@ const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
                     <option v-for="as in watched" :key="as" :value="as">{{ place(as).label }}</option>
                 </select>
             </label>
-            <button type="button" class="ac-button primary" :disabled="travelling" @click="send">Send</button>
+            <button type="button" class="ac-button primary" :disabled="traveling" @click="send">Send</button>
         </div>
         <p v-if="sentSay" class="ac-say sent" :class="sentSay.fate" aria-live="polite">{{ sentSay.text }}</p>
 

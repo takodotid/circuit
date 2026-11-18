@@ -14,7 +14,7 @@ const flows = ref(0);
 const lastSpine = ref<number>();
 
 const said = ref<{ kind: "good" | "bad" | "warn"; word?: string; text: string }>();
-const { position, travelling, travel } = useTravel(320);
+const { position, traveling, travel } = useTravel(320);
 
 // Fewer spines or leaves than before: forget what no longer exists.
 watch([spineCount, leafCount], () => {
@@ -173,7 +173,7 @@ const facts = computed(() => [
                 :note="`rack ${leaf.number}`"
                 :lit="leaf.number === from || leaf.number === to"
             />
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="controls">
@@ -190,7 +190,7 @@ const facts = computed(() => [
                         <option v-for="leaf in leaves" :key="leaf.number" :value="leaf.number">rack {{ leaf.number }}</option>
                     </select>
                 </label>
-                <button type="button" class="ac-button primary" :disabled="travelling" @click="send">Send a flow</button>
+                <button type="button" class="ac-button primary" :disabled="traveling" @click="send">Send a flow</button>
             </div>
 
             <div class="ac-field">

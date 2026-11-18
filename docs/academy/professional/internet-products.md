@@ -74,7 +74,7 @@ The buyer gets the exchange's networks without joining the exchange. It needs no
 
 ## How transit is billed
 
-Transit is often sold with a <Term means="The rate a customer agrees to pay for every month, even when it uses less.">commit</Term>. The customer agrees to pay for, say, 200 Mbit/s every month, on a port that can carry far more. Traffic over the commit is <Term means="Traffic over the commit. The port allows it, and the contract bills it at its burst rate.">burst</Term>, billed at the burst rate in the contract. To measure the burst, providers usually bill the **ninety-fifth percentile**:
+Transit is often sold with a <Term means="The rate a customer agrees to pay for every month, even when it uses less.">commit</Term>. The customer agrees to pay for, say, 200 Mbit/s every month, on a port that can carry far more. Traffic over the commit is <Term means="Traffic over the commit. The port allows it, and the contract bills it at its burst rate.">burst</Term>, billed at the burst rate in the contract. To measure the burst, providers usually bill the **95th percentile**:
 
 1. Every five minutes, the provider records the port's average rate over those five minutes. A 30-day month has 8,640 samples.
 2. At the end of the month, the samples are sorted from the busiest down.
@@ -141,4 +141,4 @@ You also announce the IX transit customer's prefixes only at the exchange, not t
 - Broadband is shared and best effort, "up to" a speed. It sits behind the provider's BNG, often over PPPoE, and often behind CGNAT.
 - DIA commits to a rate, usually the same both ways. It comes with an SLA and fixed addresses from the provider.
 - IP transit is sold to networks with their own AS and addresses, over BGP. IX transit sells only the routes from the exchanges and the provider's customers.
-- Transit is often billed by a commit and the ninety-fifth percentile. Sort a month of five-minute samples, throw away the busiest 5 percent, and bill the highest one left.
+- Transit is often billed by a commit and the 95th percentile. Sort a month of five-minute samples, throw away the busiest 5 percent, and bill the highest one left.

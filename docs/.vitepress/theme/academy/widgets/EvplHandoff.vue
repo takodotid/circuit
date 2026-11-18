@@ -32,7 +32,7 @@ const reaches = (id: Service["id"]) => (mode.value === "epl" ? id === "branch" :
 const code = computed(() => Handoff.code(mode.value, bought.value));
 
 const said = ref<{ kind: string; word: string; text: string }>();
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 
 const tagText = computed(() => (tag.value === "none" ? "an untagged frame" : `a frame tagged ${tag.value}`));
 
@@ -141,7 +141,7 @@ async function send() {
             <SvgDevice kind="router" :x="PLACES.branch.x" :y="PLACES.branch.y" label="Branch office" :dim="!reaches('branch')" />
             <SvgDevice kind="server" :x="PLACES.dc.x" :y="PLACES.dc.y" label="Data center" :dim="!reaches('dc')" />
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="send">
@@ -152,7 +152,7 @@ async function send() {
                     <option v-for="vlan in [2010, 2020, 2030]" :key="vlan" :value="vlan">a frame tagged {{ vlan }}</option>
                 </select>
             </label>
-            <button type="button" class="ac-button primary" :disabled="travelling" @click="send">Send the frame</button>
+            <button type="button" class="ac-button primary" :disabled="traveling" @click="send">Send the frame</button>
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>

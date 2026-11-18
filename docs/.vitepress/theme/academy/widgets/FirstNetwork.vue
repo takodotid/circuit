@@ -32,7 +32,7 @@ const from = ref("laptop");
 const to = ref("printer");
 
 const said = ref<{ kind: "good" | "bad"; text: string }>();
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 
 /** The places a message passes, or why it cannot go. */
 const route = computed(() => {
@@ -103,7 +103,7 @@ async function send() {
                 :dim="pluggable.includes(place.id) && !plugged.includes(place.id)"
             />
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="controls">
@@ -136,7 +136,7 @@ async function send() {
                         <option v-for="id in receivers" :key="id" :value="id">{{ at(id).label }}</option>
                     </select>
                 </label>
-                <button type="button" class="ac-button primary" :disabled="travelling" @click="send">Send a message</button>
+                <button type="button" class="ac-button primary" :disabled="traveling" @click="send">Send a message</button>
             </div>
         </div>
 

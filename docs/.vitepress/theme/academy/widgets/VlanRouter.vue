@@ -19,7 +19,7 @@ const router = ref(false);
 const busy = ref(false);
 const decided = ref<string>();
 const said = ref<{ kind: "good" | "bad"; text: string }>();
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 
 function toggleRouter() {
     router.value = !router.value;
@@ -88,7 +88,7 @@ async function send() {
             <SvgDevice kind="laptop" :x="LAPTOP[0]" :y="LAPTOP[1]" label="Laptop, VLAN 20" note="192.168.20.10/24" />
             <SvgDevice kind="server" :x="RECORDER[0]" :y="RECORDER[1]" label="Recorder, VLAN 40" note="192.168.40.10/24" />
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="ac-row controls">

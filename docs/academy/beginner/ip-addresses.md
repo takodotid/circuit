@@ -109,9 +109,9 @@ Anyone may use these **private addresses** inside their own network, so millions
 
 <Quiz
   question="Which of these addresses is private?"
-  :choices="['172.20.1.5', '172.40.1.5', '193.168.1.5']"
+  :choices="['172.20.1.5', '198.51.100.5', '203.0.113.5']"
   :answer="0"
-  :why="['', 'The private block that starts with 172 runs from 172.16 to 172.31 only. 40 is outside it.', 'It looks like 192.168, but it starts with 193, which is not a private block.']"
+  :why="['', 'No private block starts with 198.', 'No private block starts with 203.']"
   explain="172.16.0.0/12 runs from 172.16.0.0 to 172.31.255.255, and 172.20 is inside it."
 />
 

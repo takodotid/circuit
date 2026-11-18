@@ -135,14 +135,14 @@ const laptopNote = (step: number) => (step >= 4 ? "192.168.20.100" : "no address
             <SvgDevice kind="printer" :x="at.printer[0]" :y="at.printer[1]" label="Printer" note="192.168.20.20" />
 
             <circle
-                v-if="toRouter.travelling.value"
+                v-if="toRouter.traveling.value"
                 class="packet"
                 :cx="toRouter.position.value[0]"
                 :cy="toRouter.position.value[1]"
                 r="9"
             />
             <circle
-                v-if="toPrinter.travelling.value"
+                v-if="toPrinter.traveling.value"
                 class="packet"
                 :cx="toPrinter.position.value[0]"
                 :cy="toPrinter.position.value[1]"

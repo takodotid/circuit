@@ -242,7 +242,7 @@ function clearTable() {
 
             <circle
                 v-for="(packet, index) in packets"
-                v-show="packet.travelling.value"
+                v-show="packet.traveling.value"
                 :key="`packet-${index}`"
                 class="packet"
                 :cx="packet.position.value[0]"

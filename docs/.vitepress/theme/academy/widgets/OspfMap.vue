@@ -98,7 +98,7 @@ const table = computed(() =>
         }))
 );
 
-const { position, travelling, travel } = useTravel(300);
+const { position, traveling, travel } = useTravel(300);
 
 async function send() {
     const path = cheapest.value[0];
@@ -147,7 +147,7 @@ const code = computed(() => {
                     <option v-for="id in ids" :key="id" :value="id">{{ id }}, {{ networkOf(id) }}</option>
                 </select>
             </label>
-            <button type="button" class="ac-button primary" :disabled="travelling || !cheapest.length || from === to" @click="send">
+            <button type="button" class="ac-button primary" :disabled="traveling || !cheapest.length || from === to" @click="send">
                 Send a packet
             </button>
         </div>
@@ -182,7 +182,7 @@ const code = computed(() => {
                 :note="networkOf(router.id)"
                 :lit="router.id === from || router.id === to"
             />
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <p class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>

@@ -68,7 +68,7 @@ const choice = computed(() => {
 });
 
 const said = ref<string>();
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 
 function setPrepend(which: "a" | "b", count: number) {
     if (which === "a") prependA.value = count;
@@ -142,7 +142,7 @@ const isLit = (from: string, to: string) => {
                 :note="place.note"
                 :lit="place.id === choice.winner.via"
             />
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="controls">
@@ -209,7 +209,7 @@ const isLit = (from: string, to: string) => {
         </div>
 
         <div class="ac-row send">
-            <button type="button" class="ac-button primary" :disabled="travelling" @click="send">Send traffic to you</button>
+            <button type="button" class="ac-button primary" :disabled="traveling" @click="send">Send traffic to you</button>
         </div>
 
         <p v-if="said" class="ac-say good" aria-live="polite">{{ said }}</p>

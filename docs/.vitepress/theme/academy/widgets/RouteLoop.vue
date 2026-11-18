@@ -76,7 +76,7 @@ const journey = computed(() => {
     }
 });
 
-const { position, travelling, travel } = useTravel(320);
+const { position, traveling, travel } = useTravel(320);
 const busy = ref(false);
 const ttlShown = ref(64);
 const said = ref<{ kind: "good" | "bad"; word?: string; text: string }>();
@@ -175,7 +175,7 @@ const cables: [Place, Place][] = [
                 :label="place.label"
                 :note="place.note"
             />
-            <g v-if="travelling">
+            <g v-if="traveling">
                 <circle class="packet" :cx="position[0]" :cy="position[1]" r="9" />
                 <text class="ttl" :x="position[0]" :y="position[1] - 16" text-anchor="middle">TTL {{ ttlShown }}</text>
             </g>

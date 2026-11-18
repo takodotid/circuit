@@ -31,13 +31,13 @@ const visits = ref([{ place: "home", address: at("home").address }]);
 const said = ref<string>();
 const changed = ref(false);
 
-const { position, travelling, travel } = useTravel(320);
+const { position, traveling, travel } = useTravel(320);
 
-const laptopX = computed(() => (travelling.value ? position.value[0] : at(here.value).x));
+const laptopX = computed(() => (traveling.value ? position.value[0] : at(here.value).x));
 const ipAddress = computed(() => at(here.value).address);
 
 async function go(id: string) {
-    if (id === here.value || travelling.value) return;
+    if (id === here.value || traveling.value) return;
 
     const before = ipAddress.value;
     said.value = undefined;
@@ -72,7 +72,7 @@ async function go(id: string) {
                     <rect class="area" :class="{ current: here === place.id }" :x="place.x - 85" y="8" width="170" height="270" />
                     <text class="area-name" :x="place.x" y="30" text-anchor="middle">{{ place.name }}</text>
                     <line
-                        v-if="here === place.id && !travelling"
+                        v-if="here === place.id && !traveling"
                         class="cable"
                         :class="{ wifi: place.kind === 'access-point' }"
                         :x1="place.x"
@@ -91,7 +91,7 @@ async function go(id: string) {
                 :x="laptopX"
                 :y="LAPTOP_Y"
                 label="Laptop"
-                :note="travelling ? '' : (ipAddress ?? 'no IP address')"
+                :note="traveling ? '' : (ipAddress ?? 'no IP address')"
                 lit
             />
         </svg>
@@ -105,7 +105,7 @@ async function go(id: string) {
                     type="button"
                     class="ac-button small"
                     :aria-pressed="here === place.id"
-                    :disabled="travelling"
+                    :disabled="traveling"
                     @click="go(place.id)"
                 >
                     {{ place.name }}

@@ -59,7 +59,7 @@ function toggleLimit() {
     lastPath.value = [];
 }
 
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 
 async function send() {
     said.value = undefined;
@@ -170,7 +170,7 @@ const validate = computed(() =>
                 :note="place.note || undefined"
                 :lit="place.id === 'you'"
             />
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="controls">
@@ -204,7 +204,7 @@ const validate = computed(() =>
         </div>
 
         <div class="ac-row send">
-            <button type="button" class="ac-button primary" :disabled="travelling" @click="send">
+            <button type="button" class="ac-button primary" :disabled="traveling" @click="send">
                 Send traffic from AS64510’s customers to Google
             </button>
         </div>

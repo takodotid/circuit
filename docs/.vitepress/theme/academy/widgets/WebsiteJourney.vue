@@ -314,7 +314,7 @@ const litPlaces = computed(() => {
 
                 <circle
                     v-for="(packet, order) in packets"
-                    v-show="shown[order] && packet.travelling.value"
+                    v-show="shown[order] && packet.traveling.value"
                     :key="`packet-${order}`"
                     class="packet"
                     :cx="packet.position.value[0]"

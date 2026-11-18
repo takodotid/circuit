@@ -105,7 +105,7 @@ const cables: [Place, Place][] = [
     ["yours", "victim"],
 ];
 
-const busy = computed(() => request.travelling.value || reply.travelling.value);
+const busy = computed(() => request.traveling.value || reply.traveling.value);
 </script>
 
 <template>
@@ -146,10 +146,10 @@ const busy = computed(() => request.travelling.value || reply.travelling.value);
             <SvgDevice kind="router" :x="points.yours[0]" :y="points.yours[1]" label="Your edge" />
             <SvgDevice kind="server" :x="points.victim[0]" :y="points.victim[1]" label="Victim" :note="VICTIM" />
 
-            <g v-if="request.travelling.value" class="small-packet">
+            <g v-if="request.traveling.value" class="small-packet">
                 <circle class="packet" :cx="request.position.value[0]" :cy="request.position.value[1]" r="6" />
             </g>
-            <circle v-if="reply.travelling.value" class="packet big" :cx="reply.position.value[0]" :cy="reply.position.value[1]" r="16" />
+            <circle v-if="reply.traveling.value" class="packet big" :cx="reply.position.value[0]" :cy="reply.position.value[1]" r="16" />
         </svg>
 
         <div class="controls">
