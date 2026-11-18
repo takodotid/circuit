@@ -139,3 +139,25 @@ test("ttl_security with multihop is an error, once at a group that has both", ()
         "routing.bgp.neighbors.cogent has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected",
     ]);
 });
+
+// Two parts merged can write both, which the editor refuses in one.
+test("max_prefixes with both warn_only and restart_after is an error", () => {
+    const bgp = router.routing!.bgp!;
+    const both = { limit: 1000, warn_only: true, restart_after: 300 };
+    const device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            bgp: {
+                ...bgp,
+                neighbor_groups: { ...bgp.neighbor_groups, transit: { max_prefixes: both } },
+                neighbors: { ...bgp.neighbors, cogent: { address: "203.0.113.5", remote_as: 174, max_prefixes: both } },
+            },
+        },
+    } as unknown as Device;
+
+    expect(messages(device).filter((message) => message.includes("has warn_only"))).toEqual([
+        "routing.bgp.neighbor_groups.transit.max_prefixes has warn_only and restart_after. Keep warn_only to leave the session up, or restart_after to close it and open it again",
+        "routing.bgp.neighbors.cogent.max_prefixes has warn_only and restart_after. Keep warn_only to leave the session up, or restart_after to close it and open it again",
+    ]);
+});

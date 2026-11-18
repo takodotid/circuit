@@ -1,5 +1,6 @@
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
+import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, RouteRule } from "../../model";
 import type { RouterOsRender } from "./render";
@@ -298,7 +299,7 @@ export class RouterOsRouting {
                 "input.filter": RouterOsRouting.chainName(settings.import_policy ?? RouterOsRouting.REJECT_ALL, family),
                 // The one instance bgpInstance adds. 7.23 refuses a new connection without it.
                 instance: "default",
-                [`input.limit-process-routes-${family}`]: settings.max_prefixes,
+                [`input.limit-process-routes-${family}`]: Derive.prefixLimit(settings)?.limit,
                 "keepalive-time": settings.keepalive ? RouterOsSyntax.duration(settings.keepalive) : undefined,
                 listen: settings.passive ? "yes" : undefined,
                 "local.address": settings.local_address && Address.host(settings.local_address),

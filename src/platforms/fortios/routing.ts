@@ -1,6 +1,7 @@
 // BGP's policies become route maps, prefix lists, and community lists.
 
 import { Address } from "../../core/address";
+import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, PrefixSet, RouteRule } from "../../model";
 import { FortiOsNames } from "./names";
@@ -347,9 +348,12 @@ export class FortiOsRouting {
             if (settings.description) entry.set("description", FortiOsTree.quote(settings.description));
             if (settings.remote_as !== undefined) entry.set("remote-as", settings.remote_as);
 
+            const limit = Derive.prefixLimit(settings);
+
             for (const family of families) {
                 const suffix = family === "ipv4" ? "" : "6";
-                if (settings.max_prefixes !== undefined) entry.set(`maximum-prefix${suffix}`, settings.max_prefixes);
+                if (limit) entry.set(`maximum-prefix${suffix}`, limit.limit);
+                if (limit?.warn_only) entry.set(`maximum-prefix-warning-only${suffix}`, "enable");
                 entry.set(`route-map-in${suffix}`, FortiOsTree.quote(maps.of(settings.import_policy, family)));
                 entry.set(`route-map-out${suffix}`, FortiOsTree.quote(maps.of(settings.export_policy, family)));
             }
@@ -448,6 +452,8 @@ export class FortiOsRouting {
                 found.push(
                     `${where}.bfd, FortiOS 6.2 runs single-hop BFD on a multihop session, which a peer running multihop BFD never answers`
                 );
+            if (Derive.prefixLimit(settings)?.restart_after !== undefined)
+                found.push(`${where}.max_prefixes.restart_after, FortiOS 6.2 keeps the session closed until it is cleared by hand`);
             if (settings.local_address && !FortiOsNames.holderOf(device, settings.local_address)) {
                 found.push(`${where}.local_address, no interface holds ${settings.local_address}`);
             }

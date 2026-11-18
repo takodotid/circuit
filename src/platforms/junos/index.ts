@@ -750,6 +750,13 @@ export class Junos extends Platform {
 
             if (settings.keepalive !== undefined)
                 found.push(`routing.bgp.neighbors.${name}.keepalive, the platform keeps it at a third of hold_time`);
+
+            const restart = Derive.prefixLimit(settings)?.restart_after;
+            const minutes = (restart ?? 0) / JunosBgp.SECONDS_PER_MINUTE;
+            if (restart !== undefined && (!Number.isInteger(minutes) || minutes < 1 || minutes > JunosBgp.MAX_IDLE_MINUTES))
+                found.push(
+                    `routing.bgp.neighbors.${name}.max_prefixes.restart_after ${restart}, Junos waits whole minutes, up to ${JunosBgp.MAX_IDLE_MINUTES}: write a multiple of ${JunosBgp.SECONDS_PER_MINUTE}`
+                );
         }
 
         for (const server of device.routing?.rpki ?? []) {

@@ -165,7 +165,7 @@ const NEIGHBOR_SETTINGS = {
     multihop: 0,
     ttl_security: 0,
     password: SECRET,
-    max_prefixes: 0,
+    max_prefixes: { limit: 0, restart_after: 0, warn_only: 0 },
     hold_time: 0,
     keepalive: 0,
     address_families: 0,

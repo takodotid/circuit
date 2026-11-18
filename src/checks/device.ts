@@ -4,7 +4,7 @@ import { X509Certificate } from "node:crypto";
 import { utils } from "ssh2";
 import { Address } from "../core/address";
 import { Utils } from "../core/utils";
-import type { Device, Finding, Interface, InterfaceKind, Routed, StaticRoute, Switched } from "../model";
+import type { Device, Finding, Interface, InterfaceKind, NeighborSettings, Routed, StaticRoute, Switched } from "../model";
 import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
@@ -394,8 +394,18 @@ export class DeviceChecks {
                 `${where} has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected`
             );
 
+        // The editor refuses both, but two parts merged can still write them.
+        const bothLimits = (where: string, settings: NeighborSettings | undefined) => {
+            const limit = Derive.prefixLimit(settings ?? {});
+            if (limit?.warn_only && limit.restart_after !== undefined)
+                report(
+                    `${where}.max_prefixes has warn_only and restart_after. Keep warn_only to leave the session up, or restart_after to close it and open it again`
+                );
+        };
+
         for (const [name, group] of Object.entries(bgp?.neighbor_groups ?? {})) {
             if (group?.ttl_security && group.multihop) ttlWithMultihop(`routing.bgp.neighbor_groups.${name}`);
+            bothLimits(`routing.bgp.neighbor_groups.${name}`, group);
         }
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
@@ -413,6 +423,7 @@ export class DeviceChecks {
             const ownChoice = neighbor.ttl_security !== undefined || neighbor.multihop !== undefined;
             if ((neighbor.ttl_security ?? group?.ttl_security) && (neighbor.multihop ?? group?.multihop) && ownChoice)
                 ttlWithMultihop(where);
+            bothLimits(where, neighbor);
         }
 
         for (const areaId of Object.keys(routing?.ospf?.areas ?? {})) {

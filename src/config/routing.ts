@@ -36,6 +36,23 @@ export type StaticRoute<I extends string, F extends string, T extends string> = 
  */
 export type BgpRole = "provider" | "customer" | "peer" | "rs" | "rs-client";
 
+/** A prefix limit that does not keep the session closed: it opens again after a time, or it never closes. */
+export type PrefixLimit =
+    | {
+          /** The most prefixes the neighbor may announce. */
+          limit: number;
+          /** Close the session, then open it again after this many seconds. */
+          restart_after: number;
+          warn_only?: never;
+      }
+    | {
+          /** The most prefixes the neighbor may announce. */
+          limit: number;
+          /** Keep the session up and only log a message. */
+          warn_only: true;
+          restart_after?: never;
+      };
+
 /** Settings a BGP neighbor can set itself or take from its group. `P` is the device's policies, `T` its tables, `Net` what the network writes. */
 export type NeighborSettings<P extends string, T extends string, Net extends NetworkFacts = AnyFacts> = {
     /** The neighbor's AS. If it is our own AS, the session is internal (iBGP). */
@@ -56,8 +73,8 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     ttl_security?: boolean;
     /** TCP MD5 password shared with the neighbor. */
     password?: Secret;
-    /** Close the session if the neighbor announces more prefixes than this. It stays closed until you clear it by hand. On RouterOS, use `/routing bgp session clear <session> flag=limit-exceeded`. */
-    max_prefixes?: number;
+    /** Close the session if the neighbor announces more prefixes than this. It stays closed until you clear it by hand. On RouterOS, use `/routing bgp session clear <session> flag=limit-exceeded`. Write `{ limit, restart_after }` to open it again after that many seconds, or `{ limit, warn_only: true }` to only log a message. */
+    max_prefixes?: number | PrefixLimit;
     /** Seconds without a message before the session goes down, 3 or more. */
     hold_time?: number;
     /** Seconds between keepalive messages. */
