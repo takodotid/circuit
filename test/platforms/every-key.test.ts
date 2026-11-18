@@ -5,6 +5,7 @@ import { Checks } from "../../src/checks";
 import { DEVICE } from "../../src/config/keys";
 import type { Shape } from "../../src/config/keys";
 import { MODELS, NUMBERED_VLANS, portsOf } from "../../src/config/models";
+import type { Platform as PlatformName } from "../../src/config/models";
 import { Utils } from "../../src/core/utils";
 import type { Device } from "../../src/model";
 import { Platforms } from "../../src/platforms";
@@ -15,8 +16,8 @@ import type { Held, Step } from "../key-paths";
 
 type ShapeMap = Readonly<Record<string, Shape>>;
 
-/** A platform's gaps: the keys it neither renders nor refuses, and those no device that validates could try yet. */
-type PlatformGaps = { silent: string[]; untried: string[] };
+/** A platform's gaps: the keys it neither renders nor refuses, and those no device that validates could try yet. `sent` holds its documentation-only keys it renders or refuses after all. */
+type PlatformGaps = { silent: string[]; untried: string[]; sent: string[] };
 
 /** Keys Circuit reads itself, which no platform renders, each with what reads it. In a pattern, `*` stands for one key and `**` for any keys. */
 const READ_BY_CIRCUIT: Record<string, string> = {
@@ -47,6 +48,11 @@ const WRITTEN_OUT: Record<string, string> = {
 const TAKEN_OUT: Record<string, readonly string[]> = Object.fromEntries(
     NUMBERED_VLANS.map((platform) => [platform, ["switching.vlans.*.description"]])
 );
+
+/** Keys a platform has no place for, each with why. There they are documentation only, as their doc comments say: Studio and the NetBox integration show them, and the platform neither renders nor refuses them. */
+const DOCUMENTATION_ONLY: Partial<Record<PlatformName, Record<string, string>>> = {
+    junos: { "services.dhcp_server.*.reservations[].description": "a static binding, `host` in an address pool, has no description" },
+};
 
 /** A key from another platform's device goes into at most this many of the platform's own devices. That is enough to land where it means something. */
 const BASES = 3;
@@ -275,10 +281,12 @@ function gapsOf(platform: Platform): PlatformGaps {
         else (result === false ? silent : untried).push(path);
     }
 
+    const documented = (path: string) => Object.keys(DOCUMENTATION_ONLY[platform.name] ?? {}).some((pattern) => matches(path, pattern));
     const silentAtTop = KeyPaths.topmost(silent.reverse());
     return {
-        silent: silentAtTop,
+        silent: silentAtTop.filter((path) => !documented(path)),
         untried: KeyPaths.topmost(untried.reverse()).filter((path) => !silentAtTop.some((outer) => KeyPaths.inside(path, outer))),
+        sent: [...handled].filter(documented),
     };
 }
 
@@ -298,6 +306,10 @@ for (const platform of Platforms.all()) {
                 `${list}.untried`,
                 `no device that validates on ${platform.name} holds it. Write it in an example on ${platform.name}.`
             ),
+            ...found.sent.map(
+                (path) =>
+                    `${path}: ${platform.name} renders or refuses it. Take it out of DOCUMENTATION_ONLY, and its platform out of its doc comment in src/config/.`
+            ),
         ]).toEqual([]);
     });
 }
@@ -311,8 +323,12 @@ test("each key a platform reads is written in some device, so it can be tried", 
     expect(unwritten.map((path) => `${path}: no device holds it. Write it in an example project in examples/.`)).toEqual([]);
 });
 
-test("each key Circuit reads itself or writes out is a key", () => {
-    const patterns = [...Object.keys(READ_BY_CIRCUIT), ...Object.keys(WRITTEN_OUT)];
+test("each key Circuit reads itself, writes out, or leaves as documentation is a key", () => {
+    const patterns = [
+        ...Object.keys(READ_BY_CIRCUIT),
+        ...Object.keys(WRITTEN_OUT),
+        ...Object.values(DOCUMENTATION_ONLY).flatMap((keys) => Object.keys(keys)),
+    ];
 
     expect(patterns.filter((pattern) => !paths.some((path) => matches(path, pattern)))).toEqual([]);
 });

@@ -199,7 +199,7 @@
             ]
         },
         "junos": {
-            "silent": ["services.dhcp_server.*.reservations[].description"],
+            "silent": [],
             "untried": ["interfaces.gre.*.addresses[].peer_address"]
         },
         "fortios": {
