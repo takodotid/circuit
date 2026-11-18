@@ -34,6 +34,21 @@ function withoutRouterAdvertisements(text: string): string {
     return [...lines.slice(0, start), ...lines.slice(end)].join("\n");
 }
 
+/** What v1 writes for a key 0.x dropped, by menu: a BGP neighbor's description. It is left out of the comparison. */
+const NEW_IN_V1: Record<string, string> = { "/routing bgp connection": "comment" };
+
+function withoutNewInV1(text: string): string {
+    let menu = "";
+    return text
+        .split("\n")
+        .map((line) => {
+            if (line.startsWith("/")) menu = line;
+            const property = NEW_IN_V1[menu];
+            return property ? line.replace(new RegExp(` ${property}=("(\\\\.|[^"\\\\])*"|\\S+)`), "") : line;
+        })
+        .join("\n");
+}
+
 function advertises(device: Device): boolean {
     return Object.values(device.interfaces ?? {}).some((group) =>
         Object.values(group ?? {}).some((settings) => typeof settings === "object" && settings !== null && "ipv6_ra" in settings)
@@ -97,7 +112,7 @@ describe("RouterOS renders each 0.x device as 0.x did", () => {
             // A user with a key keeps its password for SSH too, which Circuit logs in by. 0.x left the platform's default.
             const keys = Object.values(device.system?.users ?? {}).some((user) => user?.ssh_keys?.length);
             if (keys) expect(rendered).toContain("/ip ssh\nset password-authentication=yes ");
-            const compared = withoutRouterAdvertisements(rendered).replace("set password-authentication=yes ", "set ");
+            const compared = withoutNewInV1(withoutRouterAdvertisements(rendered)).replace("set password-authentication=yes ", "set ");
             expect(rendered).not.toBe(old);
             expect(compared.split("\n").sort()).toEqual(old.split("\n").sort());
 

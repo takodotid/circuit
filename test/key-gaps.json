@@ -182,11 +182,7 @@
     ],
     "platforms": {
         "routeros": {
-            "silent": [
-                "interfaces.wireguard.*.endpoint",
-                "routing.bgp.neighbor_groups.*.description",
-                "routing.bgp.neighbors.*.description"
-            ],
+            "silent": ["interfaces.wireguard.*.endpoint"],
             "untried": []
         },
         "vrp": {

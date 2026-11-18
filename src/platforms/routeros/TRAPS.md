@@ -12,6 +12,7 @@
     - a list is not quoted with `;` between its items, even with one item: `topics="warning"` and `topics="script;debug"` match, `topics=warning` and `topics="script,debug"` do not (RB5009, 7.24.6).
 - The plan quotes only values that are not plain words. A selector that matches nothing removes nothing, and the next `diff` shows what stayed.
 - `~` in `find` has no anchors. Match exactly.
+- `where comment!=""` also matches an entry without a comment: it counted 41 BGP connections that had none. `comment~"."` counts only those with one (CCR2216, 7.24.6).
 - A property of the same group is printed as a bare suffix, `output.filter-chain=X .network=Y`, which only reads back inside that command. The parser expands it before building a `set`.
 - A `/32` address gives no connected route, so a session over it never opens. Give the far end: `{ address, peer_address }` renders `network=<peer_address>`.
 - `/routing bgp connection add` without `local.role` is refused, so the render always writes one. On 7.23 one without `instance` is refused too, `missing value(s) of argument(s) instance`, although the export never prints `instance=default`.
