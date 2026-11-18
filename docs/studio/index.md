@@ -116,7 +116,7 @@ Every table has **Save as CSV**, for a spreadsheet.
 | On the device now | What the device runs, and what `circuit apply` would send.                                      |
 | History           | The commits that changed the device's file.                                                     |
 
-Under the device's name are its platform, model, site, and file. **Show in the graph** there lights the device on the graph.
+**Show in the graph**, under the device's name, lights the device on the graph.
 
 **Read from the device now** logs in to the device and reads it, like `circuit diff`. Nothing is sent, and Studio keeps no copy. It needs the device's password, so it works only when the secrets password comes from 1Password, `CIRCUIT_SECRETS_PASSWORD`, or a password Circuit remembers. Otherwise run `circuit diff`, which asks for it.
 

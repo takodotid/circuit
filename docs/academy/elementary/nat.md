@@ -73,7 +73,7 @@ Anyone on the internet who tries port 8443 reaches the camera, not only you. For
 Because nobody can start a connection in, NAT is often said to protect a home. On its own, it does not:
 
 - It decides nothing about what goes out. Any device at home can connect to anything.
-- It does not stop a packet sent straight to a private address. A computer in your provider's network can send a packet for 192.168.20.10 to your router's outside port. NAT has no row for it, and needs none: the router knows the way to 192.168.20.0/24, so it simply routes the packet in.
+- It does not stop a packet sent straight to a private address. A computer in your provider's network can send a packet for 192.168.20.10 to your router's outside port. NAT has no row for it, and needs none: the router knows the way to 192.168.20.0/24, so it routes the packet in.
 - It does nothing for the router itself. A login attempt to 203.0.113.2, port 22, is for the router, and NAT never touches it.
 
 Deciding what may pass is the job of a firewall, and that is the next lesson. In the single-site router, its forward chain is what drops that packet for 192.168.20.10.
