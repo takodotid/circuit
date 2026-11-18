@@ -224,6 +224,15 @@ export class RouterOs extends Platform {
         return findings;
     }
 
+    /** Strict `rp-filter` beside VRFs or routing tables: MikroTik once warned that strict mode does not work with routing tables, and no test has shown it does. */
+    override experimental(device: Device): string[] {
+        const urpf = Derive.sharedUrpf(Derive.holders(device), "ipv4");
+        const tables = Object.keys(device.routing?.vrfs ?? {}).length + Object.keys(device.routing?.tables ?? {}).length;
+        return urpf.mode === "strict" && tables > 0
+            ? urpf.setting.map(({ where }) => `${where}.urpf.ipv4 strict, beside VRFs or routing tables`)
+            : [];
+    }
+
     override unsupported(device: Device): string[] {
         const found: string[] = [];
 
@@ -255,6 +264,20 @@ export class RouterOs extends Platform {
             if (kind !== "vlan_interface") found.push(`interfaces.${kind}.${name}.hardware_offload, set on a VLAN interface`);
             else if (settings.hardware_offload && !device.system?.hardware_offload)
                 found.push(`interfaces.vlan_interface.${name}.hardware_offload true while system.hardware_offload is off`);
+        }
+
+        const holders = Derive.holders(device);
+        for (const { where, settings } of holders)
+            if (settings.urpf?.ipv6) found.push(`${where}.urpf.ipv6, RouterOS checks IPv4 sources only`);
+
+        // `/ip settings rp-filter` is one mode for every interface.
+        const urpf = Derive.sharedUrpf(holders, "ipv4");
+        if (urpf.setting.length && !urpf.mode) {
+            const missing = urpf.missing.length ? ` (missing on ${urpf.missing.join(", ")})` : "";
+            for (const { where } of urpf.setting)
+                found.push(
+                    `${where}.urpf.ipv4, RouterOS has one mode for the whole router: write the same on every interface with an IPv4 address${missing}`
+                );
         }
 
         for (const [name, lag] of RouterOsSyntax.entries(device.interfaces?.lag)) {
@@ -358,6 +381,7 @@ export class RouterOs extends Platform {
                 "wireguard-table",
                 "upnp",
                 "nat-state",
+                "urpf",
             ])
         );
 

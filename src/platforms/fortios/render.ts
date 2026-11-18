@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Gre, Helper, Severity, StaticRoute, Vxlan } from "../../model";
+import type { Device, Family, Gre, Helper, Severity, StaticRoute, Vxlan } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { FortiOsFirewall } from "./firewall";
@@ -21,6 +21,11 @@ type RoutedSettings = {
 };
 
 export class FortiOsRender {
+    private static readonly FAMILIES: readonly [Family, string][] = [
+        ["ipv4", "IPv4"],
+        ["ipv6", "IPv6"],
+    ];
+
     /** Where the pre-login banner's text is kept. */
     static readonly BANNER = 'system replacemsg admin "pre_admin-disclaimer-text"';
 
@@ -279,6 +284,7 @@ export class FortiOsRender {
         // SIP is otherwise rewritten by its proxy whatever the helpers say; this way only the `sip` helper does.
         section("system settings").set("default-voip-alg-mode", "kernel-helper-based");
         FortiOsRender.bfd(section("system settings"), device);
+        if (FortiOsRender.sourceCheck(device).strict) section("system settings").set("strict-src-check", "enable");
         FortiOsRender.users(section("system accprofile"), section("system admin"), device);
         FortiOsRender.interfaces(root, device);
         FortiOsRender.dns(section("system dns"), section("system dns-server"), device);
@@ -783,6 +789,38 @@ export class FortiOsRender {
             if (route.blackhole) entry.set("blackhole", "enable");
             if (route.bfd) entry.set("bfd", "enable");
         }
+    }
+
+    /** Strict source checks, `strict-src-check`, cover every interface of a VDOM and both families (TRAPS.md). So they are set only when every interface of the root VDOM with an address checks strict in each family it has. `gaps` says why not. */
+    static sourceCheck(device: Device): { strict: boolean; setting: string[]; gaps: string[] } {
+        const inRoot = (name: string) => FortiOsVdoms.of(device, name) === FortiOsVdoms.ROOT;
+        const holders = Derive.holders(device).filter(({ kind }) => kind !== "bridge" && kind !== "loopback");
+        const setting = holders.filter(({ settings }) => settings.urpf);
+        const root = setting.filter(({ name }) => inRoot(name));
+        const gaps = setting
+            .filter(({ name }) => !inRoot(name))
+            .map(({ where }) => `${where}.urpf in the management VDOM, whose settings Circuit leaves as they are`);
+
+        const loose = root.flatMap(({ where, settings }) =>
+            FortiOsRender.FAMILIES.filter(([family]) => settings.urpf?.[family] === "loose").map(
+                ([family]) => `${where}.urpf.${family} loose, FortiOS has no loose mode: it checks feasible paths unless strict`
+            )
+        );
+        const missing = FortiOsRender.FAMILIES.flatMap(([family, label]) => {
+            const names = holders
+                .filter(({ name, settings }) => inRoot(name) && Derive.hasFamily(settings, family) && settings.urpf?.[family] !== "strict")
+                .map(({ name }) => name);
+            return names.length ? [`${label} on ${names.join(", ")}`] : [];
+        });
+
+        gaps.push(...loose);
+        if (!loose.length && missing.length)
+            for (const { where } of root)
+                gaps.push(
+                    `${where}.urpf, FortiOS checks strict for the whole VDOM and both families: write strict for each family on every interface in it with an address of that family (missing: ${missing.join("; ")})`
+                );
+
+        return { strict: root.length > 0 && !gaps.length, setting: root.map(({ where }) => `${where}.urpf`), gaps };
     }
 
     /** BFD runs once a route or a session uses it, or the config sets its timers, which the device shows only while it runs. */

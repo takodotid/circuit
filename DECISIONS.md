@@ -49,6 +49,7 @@ These decisions are binding. A change to one is a new decision with the next num
 - **121.** A route reflector marks each iBGP client with `route_reflector_client: true` on its neighbor or neighbor group, and states its cluster ID in `routing.bgp.cluster_id`. Circuit fills in no cluster ID ([#213](https://github.com/takodotid/circuit/issues/213)).
 - **122.** A BGP neighbor or neighbor group gets a default route with `send_default_route: true` (OpenConfig `send-default-route`), whatever its export policy says. `routing.bgp.aggregates` lists `{ prefix, summary_only }` (OpenConfig local aggregates): an aggregate stands for the more specific routes BGP holds, and the export policy decides who gets it. RouterOS has no aggregates and refuses them ([#217](https://github.com/takodotid/circuit/issues/217)).
 - **123.** A BGP neighbor or neighbor group turns on graceful restart (RFC 4724) with `graceful_restart: true`. `max_prefixes` takes a number, which keeps the session closed, `{ limit, restart_after }` in seconds, or `{ limit, warn_only: true }`, never both ([#216](https://github.com/takodotid/circuit/issues/216)).
+- **125.** A routed interface checks sources with `urpf: { ipv4, ipv6 }`, each `"strict"` or `"loose"` (RFC 3704, OpenConfig `urpf/mode`). Without it, the device keeps its own default. Source-based RTBH (RFC 5635) is a blackhole route with uRPF on, with no field of its own. A platform with one setting for many interfaces writes it only when all of them agree ([#218](https://github.com/takodotid/circuit/issues/218)).
 
 ## BGP communities
 
