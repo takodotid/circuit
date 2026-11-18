@@ -1,5 +1,3 @@
-// Where this Circuit is on this machine: its own file when it runs as the installed binary, and the folder where it keeps what it learned. The command and Studio both read it.
-
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 

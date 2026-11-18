@@ -1,6 +1,7 @@
-// The 1Password CLI, `op`, which reads `op://vault/item/field` references.
+// Reads `op://vault/item/field` references with the 1Password CLI, `op`.
 
-import { type SpawnSyncReturns, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
+import type { SpawnSyncReturns } from "node:child_process";
 
 export class OnePassword {
     /** Each reference read in this run, so 1Password asks once. */
@@ -30,7 +31,7 @@ export class OnePassword {
         return Object.fromEntries([...OnePassword.cache].filter(([reference]) => !OnePassword.held.has(reference)));
     }
 
-    /** Forget every value of this run, as a new run starts with none. */
+    /** A new run starts with none. */
     static forget(): void {
         OnePassword.cache.clear();
         OnePassword.held.clear();
