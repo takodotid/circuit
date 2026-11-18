@@ -35,6 +35,8 @@ bun <repo>/src/cli/index.ts exec <device> '<show command>'
 
 Add `--console` to go through the serial console.
 
+Run Circuit through its CLI. A script that imports Circuit's modules calls `await Remember.load()` (`src/cli/remember.ts`) before it reads a secret; otherwise each run asks 1Password again.
+
 ## Proved means
 
 1. The plan shows exactly what you expect.
