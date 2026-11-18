@@ -1,6 +1,6 @@
 # Junos traps
 
-Behaviour that looks like something else. Each one has been hit on a QFX5100-48S-6Q running Junos 21.4R3.
+Behavior that is not what it seems. Each one was seen on a QFX5100-48S-6Q running Junos 21.4R3.
 
 - Changes stage in a candidate and apply at `commit`. `commit confirmed N` applies them and rolls them back after N minutes unless another `commit` confirms them. `commit` also saves: there is no separate save.
 - The device counts ports from 0, and the 40G ports follow the 10G ones: `10g-1` is `xe-0/0/0`, `10g-48` is `xe-0/0/47`, `40g-1` is `et-0/0/48`. The two management ports, `em0` and `em1`, are `1g-1` and `1g-2`.
@@ -16,7 +16,7 @@ Behaviour that looks like something else. Each one has been hit on a QFX5100-48S
 - A password set with `plain-text-password-value` prints as a `$6$` hash. SNMPv3 passwords print as `$9$` keys, which can be turned back into the password. The read redacts both.
 - An SNMP community prints in clear, and its value is also its name, so a new value is a second community. A new value is sent after the old communities are deleted, each by its name, which Circuit looks up during the apply and never prints.
 - A firewall filter name is unique across families. The filter guarding the device's services is `circuit-services` for IPv4 and `circuit-services-v6` for IPv6.
-- A VLAN interface's MTU above what its ports carry commits with only a warning, `mtu 9000 is bigger than member link`.
+- A VLAN interface's MTU higher than what its ports carry commits with only a warning, `mtu 9000 is bigger than member link`.
 - There is no `protocols stp`. Plain STP is RSTP limited with `force-version stp`.
 - sFlow interfaces print with their unit, `xe-0/0/0.0`.
 - The factory VLAN `default` can be deleted.
@@ -40,7 +40,7 @@ Behaviour that looks like something else. Each one has been hit on a QFX5100-48S
 - `set switch-options interface xe-0/0/1 interface-mac-limit 1 packet-action drop` is stored on the logical interface and in two statements: `... interface xe-0/0/1.0 interface-mac-limit 1` and `... interface-mac-limit packet-action drop`. The render writes those two.
 - An `ethernet-switching` filter takes `from ether-type ipv4`, `ipv6` and `arp` by name. Ethertypes and an `ingress_acl` would both be the port's `filter input`, so Circuit refuses the two on one port rather than merge them.
 - An `ethernet-switching` filter matches an IPv4 source as `from ip-source-address`, but an IPv6 one only under `from ip-version ipv6 ip6-source-address`; `from ip6-source-address` is a syntax error. A MAC address prints back with its length, `02:00:00:00:00:01/48`. A port bound to its hosts gets one filter, `circuit-bound-xe-0-0-1`, written in that form.
-- An `ethernet-switching` filter has no match on what an ARP packet says, only `arp-type` request or reply. A bound port takes ARP from its hosts' MAC addresses, but cannot stop one of them claiming a neighbour's address in it.
+- An `ethernet-switching` filter has no match on what an ARP packet says, only `arp-type` request or reply. A bound port takes ARP from its hosts' MAC addresses, but cannot stop one of them claiming a neighbor's address in it.
 - A filter on a port with no optic in it commits, but `show pfe filter hw filter-name <filter>` says `No hardware instance present` until the port exists. On a port in use it says `Programmed: YES`.
-- A bound port drops what doesn't match at once, proved on an iDRAC's port: its own MAC and address answer; a wrong address bound leaves its pings unanswered; a wrong MAC bound drops its ARP too, so the gateway answers `Destination host unreachable`.
+- A bound port drops what doesn't match at once. This was tested on an iDRAC's port. The iDRAC's own MAC and address answer. With a wrong address bound, its pings go unanswered. With a wrong MAC bound, its ARP is dropped too, so the gateway answers `Destination host unreachable`.
 - LLDP sends a port's SNMP index as its port ID, `PortIdSubtype: local`, `PortId: 520`, so a neighbor cannot tell which port it is. `set protocols lldp port-id-subtype interface-name` makes it send `et-0/0/52`, and the render sets it wherever LLDP runs.
