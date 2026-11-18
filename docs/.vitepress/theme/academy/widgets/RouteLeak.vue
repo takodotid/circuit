@@ -153,7 +153,7 @@ const validate = computed(() =>
                 v-for="[from, to] in cables"
                 :key="`${from}-${to}`"
                 class="cable"
-                :class="{ lit: isLit(from, to), down: sessionDown && ((from === 'you' && to === 'b') || (from === 'b' && to === 'you')) }"
+                :class="{ lit: isLit(from, to), down: sessionDown && from === 'you' && to === 'b' }"
                 :x1="at(from).x"
                 :y1="at(from).y"
                 :x2="at(to).x"

@@ -74,6 +74,7 @@ The other direction is an ACL on the ports toward your transits and exchanges. I
 The gateway's check stops sources outside a subnet. Inside it, any server can still send as its neighbor, with its address, its MAC address, or an answer to ARP in its name. The switch closes that gap at the port. `bound_to` lists the hosts on an access port, each with its MAC address and the addresses it sends from:
 
 ```ts
+// In interfaces.ethernet
 "10g-7": {
     description: "Customer server",
     access_vlan: "servers",
@@ -123,7 +124,7 @@ communities: {
 Each upstream that takes blackholes carries its own community:
 
 ```ts
-// edge-01.ts, the neighbors
+// edge-01.ts, in routing.bgp.neighbors
 // hurricane-electric drops traffic to a route it receives with 6939:666. cogent has no blackhole community here, so it never receives the route.
 "hurricane-electric": { address: "203.0.113.1", remote_as: 6939, role: "provider", import_policy: "transit-import", export_policy: "export", communities: { groups: ["transit"], blackhole: "6939:666" } },
 "cogent": { address: "203.0.113.129", remote_as: 174, role: "provider", import_policy: "transit-import", export_policy: "export", communities: { groups: ["transit"] } },
@@ -133,7 +134,7 @@ netflix: { address: "198.51.100.254", remote_as: 2906, role: "customer", import_
 The import from a customer allowed to ask for a blackhole says so with `accept_requests`:
 
 ```ts
-// edge-01.ts, the first rule of Netflix's import: Netflix may ask for a blackhole. The rest of the import accepts only Netflix's own space, so it can never blackhole someone else.
+// edge-01.ts, in routing.policies.netflix-import, the first rule: Netflix may ask for a blackhole. The rest of the import accepts only Netflix's own space, so it can never blackhole someone else.
 { communities: "import", accept_requests: ["blackhole"] },
 ```
 

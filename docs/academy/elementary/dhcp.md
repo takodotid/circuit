@@ -131,6 +131,7 @@ The mgmt VLAN has no DHCP server: the devices on it have addresses written in th
 Some devices, such as a printer, are easier to find when their address never changes. A reservation ties an address to one hardware address, and the server always lends that device the same one:
 
 ```ts
+// In services.dhcp_server.home
 reservations: [{ address: "192.168.20.20", mac: "00:00:5e:00:53:20", description: "Printer" }],
 ```
 

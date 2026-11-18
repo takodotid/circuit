@@ -108,6 +108,7 @@ flow_export: { protocol: "ipfix", collectors: [{ address: "10.0.0.20" }], sampli
 The switch runs VRP, which exports sFlow and samples one packet in 4,096 at most:
 
 ```ts
+// In monitoring
 flow_export: { protocol: "sflow", collectors: [{ address: "10.0.0.20" }], sampling: 4096 },
 ```
 

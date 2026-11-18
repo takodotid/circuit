@@ -106,32 +106,7 @@ If you changed "SSH from anywhere" to drop instead of removing it, your own logi
 
 The rules are written in the router's `firewall`, under `filter`, one chain each. This is the single-site router's:
 
-```ts
-firewall: {
-    filter: {
-        // Traffic to the router itself.
-        input: {
-            default_action: "drop",
-            rules: [
-                { description: "Replies", if: { connection_state: ["established", "related"] }, then: "accept" },
-                { description: "Ping", if: { protocol: "icmp" }, then: "accept" },
-                { description: "Management", if: { src: home.addresses.management }, then: "accept" },
-                { description: "DNS from home", if: { in_interface: "home", protocol: "udp", dst_port: 53 }, then: "accept" },
-                { description: "DNS from guests", if: { in_interface: "guests", protocol: "udp", dst_port: 53 }, then: "accept" },
-            ],
-        },
-        // Traffic through the router: home and guests reach the internet, and nothing else gets through.
-        forward: {
-            default_action: "drop",
-            rules: [
-                { description: "Replies", if: { connection_state: ["established", "related"] }, then: "accept", fast_path: true },
-                { description: "Home to the internet", if: { in_interface: "home", out_interface: "1g-1" }, then: "accept" },
-                { description: "Guests to the internet", if: { in_interface: "guests", out_interface: "1g-1" }, then: "accept" },
-            ],
-        },
-    },
-},
-```
+<<< @/../examples/single-site/sites/home/router.ts#filter
 
 - `default_action` says what happens to a packet that no rule matched. If you leave it out, it is accept, so both chains here write `drop`. There is no rule that keeps guests off the home network: nothing lets them there, so the default drops them.
 - Each rule is `if`, the packets it matches, and `then`, what happens to them: `accept`, `drop`, or `reject`, which drops the packet but tells the sender it was refused.

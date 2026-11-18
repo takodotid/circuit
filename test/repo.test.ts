@@ -119,12 +119,17 @@ describe("agent instructions", () => {
     });
 });
 
-test("GitHub Actions are pinned to a commit", () => {
+test("GitHub Actions are pinned to a commit, and Docker images to a digest", () => {
     const loose: string[] = [];
     for (const file of files.filter((file) => file.startsWith(".github/workflows/"))) {
-        for (const [, action, ref] of read(file).matchAll(/uses:\s*([^\s@]+)@(\S+)/g)) {
-            if (!/^[0-9a-f]{40}$/.test(ref!))
-                loose.push(`${file}: ${action}@${ref}. Pin it to a commit SHA, with the version in a comment.`);
+        for (const [, uses] of read(file).matchAll(/uses:\s*(\S+)/g)) {
+            if (uses!.startsWith("./")) continue;
+            if (uses!.startsWith("docker://")) {
+                if (!/:[^/@]+@sha256:[0-9a-f]{64}$/.test(uses!))
+                    loose.push(`${file}: ${uses}. Pin it to a tag and its digest, as docker://image:tag@sha256:<digest>.`);
+            } else if (!/@[0-9a-f]{40}$/.test(uses!)) {
+                loose.push(`${file}: ${uses}. Pin it to a commit SHA, with the version in a comment.`);
+            }
         }
     }
 
