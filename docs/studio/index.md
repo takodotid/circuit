@@ -127,7 +127,7 @@ Studio compares your files now with a branch, a tag, or a commit. Your project m
 1. Open **Compare** in the top bar.
 2. Pick a branch, tag, or recent commit, or type one, such as `main` or `HEAD~3`.
 3. Studio shows the devices added and removed, and the config of each changed device, line by line. It shows the lines of the graph added and gone, layer by layer. It also shows what `circuit validate` finds now that it didn't before, and what it no longer finds.
-4. **Show in the graph** draws new lines in green and removed lines in dashed red. **Stop comparing** goes back to the graph as it is.
+4. **Show in the graph** draws new lines in green and removed lines in dashed red. A device or AS that is gone is drawn pale, with a dashed frame. **Stop comparing** goes back to the graph as it is.
 
 Before you merge a pull request, compare its branch with `main`. You see what it changes in the network, not only in the files. Studio reads both sides with the Circuit you run now, so changes to Circuit itself don't show.
 
