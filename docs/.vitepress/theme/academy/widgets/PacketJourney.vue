@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: messages in pieces. The reader types a message, picks a packet size and sends it; packets take two ways, arrive out of order, some are lost and asked for again, and the phone puts them back in order.
+// Lesson: messages in pieces. The reader types a message, picks a packet size, and sends it. Packets take two ways and arrive out of order, some are lost and asked for again, and the phone puts them back in order.
 
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useTravel, type Point } from "../travel";
@@ -66,8 +66,8 @@ const finished = ref(false);
 const asking = ref(false);
 const said = ref<{ kind: "good" | "bad" | "warn"; word?: string; text: string }>();
 
-// One traveller per packet, so every packet can be on its way at once.
-const travellers = Array.from({ length: MAX_PACKETS }, () => useTravel());
+// One traveler per packet, so every packet can be on its way at once.
+const travelers = Array.from({ length: MAX_PACKETS }, () => useTravel());
 const request = useTravel();
 
 const timers = new Set<number>();
@@ -117,14 +117,14 @@ function prepare(seed: number): Packet[] {
 }
 
 const listOf = (numbers: number[]) =>
-    numbers.length === 1 ? `${numbers[0]}` : `${numbers.slice(0, -1).join(", ")} and ${numbers[numbers.length - 1]}`;
+    numbers.length > 2 ? `${numbers.slice(0, -1).join(", ")}, and ${numbers[numbers.length - 1]}` : numbers.join(" and ");
 
 async function journey(packet: Packet, index: number) {
-    const traveller = travellers[index]!;
+    const traveler = travelers[index]!;
     const middle = packet.way;
 
     packet.state = "moving";
-    await traveller.travel([point("laptop"), point("home"), point(middle)]);
+    await traveler.travel([point("laptop"), point("home"), point(middle)]);
 
     if (packet.lost) {
         packet.state = "lost";
@@ -137,14 +137,14 @@ async function journey(packet: Packet, index: number) {
         packet.state = "moving";
     }
 
-    await traveller.travel([point(middle), point("friend"), point("phone")]);
+    await traveler.travel([point(middle), point("friend"), point("phone")]);
     packet.state = "arrived";
     arrivals.value.push(packet);
 }
 
 async function send(seed: number) {
     if (!pieces.value.length) {
-        said.value = { kind: "bad", word: "Empty", text: "Type a message first: there is nothing to cut into packets." };
+        said.value = { kind: "bad", word: "Empty", text: "Type a message first." };
         return;
     }
 
@@ -187,7 +187,7 @@ async function send(seed: number) {
     const order = arrivals.value.map((packet) => packet.number).join(", ");
     said.value = {
         kind: "good",
-        text: `All ${packets.value.length} packets are in. They arrived in the order ${order}, and the phone put them back in order by their numbers.`,
+        text: `All ${packets.value.length} packets are in. They arrived in the order ${order}. The phone put them back in order by their numbers.`,
     };
     running.value = false;
     finished.value = true;
@@ -208,10 +208,10 @@ const shown = computed<Packet[]>(() =>
         : pieces.value.map((text, index) => ({ number: index + 1, text, way: "quiet", lost: false, state: "ready", again: false }))
 );
 
-/** The packets on their way, drawn where their traveller is now. */
+/** The packets on their way, drawn where their traveler is now. */
 const dots = computed(() =>
     packets.value
-        .map((packet, index) => ({ packet, position: travellers[index]!.position.value }))
+        .map((packet, index) => ({ packet, position: travelers[index]!.position.value }))
         .filter(({ packet }) => packet.state === "moving" || packet.state === "waiting")
 );
 
@@ -349,8 +349,8 @@ const slots = computed(() =>
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
         <p v-else-if="running" class="ac-say hint" aria-live="polite">Run {{ run }}: the packets are on their way. Watch the busy way.</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            Press Send the message. Which way each packet takes, and which ones get lost, is chosen at random. Each run has a number, and
-            sending the same run again gives the same result.
+            Send it once, then change the packet size or the loss and send it again. The ways and the losses are random, but the same run
+            number always gives the same ones.
         </p>
     </div>
 </template>

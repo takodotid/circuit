@@ -69,8 +69,7 @@ exec circuit hook pre-commit
     private static readonly SKIPPED = new Set(["node_modules", ".git", ".circuit", "dist"]);
 
     /**
-     * The projects inside `root`'s folder, each a folder below it with its own `circuit.ts`, such as a customer's in `customers/<name>/`.
-     * A project inside one of those is that project's to check, so it isn't listed.
+     * The projects inside `root`'s folder, each a folder below it with its own `circuit.ts`, such as a customer's in `customers/<name>/`. A project inside one of those is that project's to check, so it isn't listed.
      */
     static innerProjects(root: string, folder = root): string[] {
         return readdirSync(folder, { withFileTypes: true }).flatMap((entry) => {

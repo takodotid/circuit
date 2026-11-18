@@ -1,11 +1,11 @@
-// Hijacks and leaks lesson: one address block spreading through seven ASes, with a hijack or a leak from AS64510, and the defences that stop it.
+// Hijacks and leaks lesson: one address block spreading through seven ASes, with a hijack or a leak from AS64510, and the defenses that stop it.
 
 import { type Roa, Rov } from "./OriginCheck";
 
 export type Scenario = "normal" | "same" | "specific" | "forged" | "leak";
 export type RoaChoice = "none" | "40" | "48";
 
-export type Defences = {
+export type Defenses = {
     roa: RoaChoice;
     /** The ASes that drop RPKI invalid routes. */
     rov: number[];
@@ -93,19 +93,19 @@ export class RouteSpread {
     }
 
     /** Why an AS refuses a route, or undefined when it takes it. */
-    private static refusal(as: number, route: Route, defences: Defences): string | undefined {
+    private static refusal(as: number, route: Route, defenses: Defenses): string | undefined {
         if (route.path.includes(as)) return "its own AS is in the path";
         if (as === RouteSpread.YOU && Rov.inside(route.prefix, RouteSpread.YOUR_BLOCK)) return "it is your own space, coming back";
 
-        if (defences.rov.includes(as)) {
+        if (defenses.rov.includes(as)) {
             const origin = route.path[route.path.length - 1]!;
-            const state = Rov.validate(RouteSpread.roas(defences.roa), route.prefix, origin).state;
+            const state = Rov.validate(RouteSpread.roas(defenses.roa), route.prefix, origin).state;
             if (state === "invalid-origin") return "RPKI invalid: the ROA allows another origin";
             if (state === "invalid-length") return "RPKI invalid: longer than the ROA allows";
         }
 
         if (
-            defences.registry &&
+            defenses.registry &&
             route.relation === "customer" &&
             !(RouteSpread.REGISTERED[route.from] ?? []).some((block) => Rov.inside(route.prefix, block))
         ) {
@@ -127,7 +127,7 @@ export class RouteSpread {
      *
      * Each AS keeps the latest route each neighbor sent for each prefix, and uses the best of them. Whenever the one it uses changes, it tells every neighbor: the new route where it may pass it on, a withdrawal elsewhere.
      */
-    static run(scenario: Scenario, defences: Defences): Outcome {
+    static run(scenario: Scenario, defenses: Defenses): Outcome {
         const { YOU, OTHER, YOUR_BLOCK, MORE_SPECIFIC, ASES } = RouteSpread;
 
         const prefixes = scenario === "specific" || scenario === "forged" ? [YOUR_BLOCK, MORE_SPECIFIC] : [YOUR_BLOCK];
@@ -195,7 +195,7 @@ export class RouteSpread {
             const touched = new Map<string, { as: number; prefix: string }>();
 
             for (const { to, from, prefix, route } of arriving) {
-                const reason = route && RouteSpread.refusal(to, route, defences);
+                const reason = route && RouteSpread.refusal(to, route, defenses);
                 if (route && reason) refused.push({ at: to, route, reason });
 
                 const fromNeighbor = heard.get(to)!.get(prefix)!;

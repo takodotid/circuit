@@ -1,24 +1,35 @@
-// Conventional Commits, with a scope naming the part of the repository a change touches.
+// Conventional Commits. The scope says which part of the repo a commit changes.
+
+// The subject is a command, as git and Conventional Commits write it: "add", "fix", "remove" (decision 109).
+const imperative = ({ subject }) => {
+    const first = (subject ?? "").split(" ")[0].toLowerCase();
+    const descriptive = ["a", "an", "the", "each", "every"].includes(first) || first.endsWith("ed");
+    return [!descriptive, 'write the subject as a command, such as "add ..." or "fix ...", not as a description'];
+};
 
 export default {
     extends: ["@commitlint/config-conventional"],
+    plugins: [{ rules: { "subject-imperative": imperative } }],
     rules: {
+        "subject-imperative": [2, "always"],
         "scope-empty": [2, "never"],
         "scope-enum": [
             2,
             "always",
             [
-                "repo", // tooling and meta files
-                "docs", // README, AGENTS.md, docs/, TRAPS.md
-                "config", // src/config, the language a project is written in, and src/model.ts
-                "project", // src/project, reading a project
-                "checks", // src/checks, validation and built-in checks
-                "core", // src/core, addresses, secrets, cabling, registries
-                "platforms", // src/platforms, one adapter per device operating system
-                "transport", // src/transport, sessions to devices
+                "repo", // tooling, CI, AGENTS.md and other files at the root
+                "deps", // dependency updates
+                "docs", // the website in docs/
+                "config", // src/config and src/model.ts
+                "project", // src/project.ts
+                "checks", // src/checks
+                "core", // src/core
+                "platforms", // src/platforms, including TRAPS.md
+                "transport", // src/transport
+                "integrations", // src/integrations
                 "cli", // src/cli
-                "studio", // src/studio, Circuit Studio
-                "examples", // tests and fixtures
+                "studio", // src/studio
+                "examples", // examples/
                 "release", // version bumps
             ],
         ],

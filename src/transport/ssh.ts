@@ -1,8 +1,6 @@
 // SSH sessions to devices. Adapters choose how to talk to their platform; this holds what they share.
 //
-// Circuit logs in with a key first, then the password. It offers only the keys the connection user takes (`ssh_keys`), since some
-// devices lock an account after a few refused tries: those an SSH agent holds (1Password's, or the system's), then `~/.ssh/id_*`
-// whose `.pub` is one of them. The password is revealed only when no key logged in.
+// Circuit logs in with a key first, then the password. It offers only the keys the connection user takes (`ssh_keys`), since some devices lock an account after a few refused tries: those an SSH agent holds (1Password's, or the system's), then `~/.ssh/id_*` whose `.pub` is one of them. The password is revealed only when no key logged in.
 
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -42,8 +40,7 @@ type Way = { how: string; method: () => AnyAuthMethod; agent?: true };
 class AgentTimeout extends Error {}
 
 /**
- * An SSH agent that offers only some of the keys another agent holds. An agent such as 1Password's may ask the person to approve the
- * key first: past `SIGN_TIMEOUT` the key counts as refused, and the password is tried.
+ * An SSH agent that offers only some of the keys another agent holds. An agent such as 1Password's may ask the person to approve the key first: past `SIGN_TIMEOUT` the key counts as refused, and the password is tried.
  */
 class OnlyKeys extends BaseAgent<ParsedKey> {
     static readonly SIGN_TIMEOUT = 15_000;
@@ -344,10 +341,6 @@ export class Ssh {
             channel.on("data", onData);
             timer = setTimeout(finish, timeout);
         });
-    }
-
-    static sleep(milliseconds: number): Promise<unknown> {
-        return new Promise((done) => setTimeout(done, milliseconds));
     }
 
     /** Write a file to the device over SFTP. */

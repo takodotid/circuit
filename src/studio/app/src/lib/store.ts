@@ -1,14 +1,21 @@
-// What the page knows: what the server gathered last, where the reader is, and whether the server is still there. The server tells the page when the project changed, and the page reads it again.
+// What the page knows: what the server gathered last, what the graph is asked to show, and whether the server is still there. The server tells the page when the project changed, and the page reads it again.
 
 import { reactive } from "vue";
+import type { RouteLocationNormalizedLoaded, Router } from "vue-router";
+import type { Comparison } from "./graph-layer";
 import type { StudioData } from "../../../types";
 
-export type Route = { view: string; parts: string[] };
-
-function parseRoute(): Route {
-    const parts = location.hash.slice(1).split("/").map(decodeURIComponent).filter(Boolean);
-    return { view: parts[0] ?? "graph", parts: parts.slice(1) };
-}
+/** What another view asks the graph to show. The graph reads it, and keeps a comparison until the reader stops it. */
+export type GraphFocus = {
+    /** Another commit's graph against this one: its lines added, and those gone, drawn back. */
+    comparison?: Comparison;
+    /** Light the cables that carry this VLAN, by its ID, on the VLANs layer. */
+    vlan?: number;
+    /** Light these lines, by `GraphLayer.keyOf`. */
+    path?: string[];
+    /** Select this device. */
+    device?: string;
+};
 
 export const store = reactive({
     data: undefined as StudioData | undefined,
@@ -17,35 +24,51 @@ export const store = reactive({
     live: "connecting" as "connecting" | "live" | "offline",
     /** The project was read again just now. */
     beat: false,
-    route: parseRoute(),
+    graphFocus: {} as GraphFocus,
 });
 
-/** Go to a place in the page, such as `devices/edge-01/ports`. */
-export function go(path: string): void {
-    location.hash = path
-        .split("/")
-        .map((part) => encodeURIComponent(part))
-        .join("/");
+/** Show something in the graph: set what it lights, then go to its layer. */
+export function showInGraph(router: Router, layer: string, focus: GraphFocus): void {
+    store.graphFocus = { ...(store.graphFocus.comparison ? { comparison: store.graphFocus.comparison } : {}), ...focus };
+    void router.push({ name: "layer", params: { layer } });
 }
 
-/**
- * What a tool keeps in the address after its place, such as `device=edge-01&chain=input` after `#tools/firewall/`, so a test can be
- * bookmarked or sent. Read again each time the address changes.
- */
-export function placeParams(place: string): URLSearchParams {
-    void store.route;
-    const hash = location.hash.slice(1);
-    return new URLSearchParams(hash.startsWith(`${place}/`) ? hash.slice(place.length + 1) : "");
+/** One part of the path, such as the device in `/devices/edge-01`, as text: empty when the path leaves it out. */
+export function paramOf(route: RouteLocationNormalizedLoaded, name: string): string {
+    const value = route.params[name];
+    return Array.isArray(value) ? value.join("/") : (value ?? "");
 }
 
-/** Go to a tool's place with what it keeps in the address. */
-export function goParams(place: string, params: URLSearchParams): void {
-    location.hash = `${place}/${params}`;
+/** What the address asks after `?`, such as the packet of `/tools/firewall?device=edge-01&chain=input`, so a test can be bookmarked or sent. */
+export function queryOf(route: RouteLocationNormalizedLoaded): URLSearchParams {
+    const pairs = Object.entries(route.query).flatMap(([key, value]) =>
+        [value].flat().flatMap((item) => (item === null ? [] : [[key, item]]))
+    );
+    return new URLSearchParams(pairs);
 }
 
-addEventListener("hashchange", () => {
-    store.route = parseRoute();
-});
+/** The reader's system asks for less motion: nothing moves for show, and changes happen at once. */
+export const still = matchMedia("(prefers-reduced-motion: reduce)");
+
+/** What the page keeps in the browser, such as where each device is on the graph. Storage can be missing or refuse, in a private window: the page works without it. */
+export class Saved {
+    static get<T>(key: string): T | undefined {
+        try {
+            const value = localStorage.getItem(`circuit-studio:${key}`);
+            return value === null ? undefined : (JSON.parse(value) as T);
+        } catch {
+            return undefined;
+        }
+    }
+
+    static set(key: string, value: unknown): void {
+        try {
+            localStorage.setItem(`circuit-studio:${key}`, JSON.stringify(value));
+        } catch {
+            // A browser that keeps nothing still works, until it reloads.
+        }
+    }
+}
 
 /** A request to the server. A request that reaches a device takes Studio's header and a POST. */
 export async function api<T>(path: string, reachesDevice = false): Promise<T> {
@@ -76,11 +99,11 @@ export function connect(): void {
     void load();
 
     const events = new EventSource("/api/events");
-    events.onopen = () => (store.live = "live");
-    events.onerror = () => (store.live = "offline");
-    events.onmessage = async () => {
+    events.addEventListener("open", () => (store.live = "live"));
+    events.addEventListener("error", () => (store.live = "offline"));
+    events.addEventListener("message", async () => {
         await load();
         store.beat = true;
         setTimeout(() => (store.beat = false), 1200);
-    };
+    });
 }

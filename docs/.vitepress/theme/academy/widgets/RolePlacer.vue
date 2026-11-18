@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: roles in a network. The reader gives each device of the regional provider example a role from what is plugged into it, sees it take its place in the drawing, and sees the name and file that follow.
+// Lesson: roles in a network. The reader gives each device of a small provider with two sites a role from what is plugged into it, sees it take its place in the drawing, and sees the name and file that follow.
 
 import { computed, ref } from "vue";
 
@@ -7,13 +7,13 @@ type Role = "edge" | "core" | "aggregation" | "access";
 type Kind = "border" | "middle" | "rack";
 
 type Device = {
-    /** The name the regional provider example gives it. */
+    /** The name this network gives it. */
     example: string;
     site: "a" | "b";
-    /** Its number among devices of the same role at its site, in the example. */
+    /** Its number among devices of the same role at its site, in this network. */
     order: number;
     kind: Kind;
-    /** The roles that fit it. The first is the one the example uses. */
+    /** The roles that fit it. The first is the one this network uses. */
     fits: Role[];
     plugged: string;
     x: number;
@@ -48,7 +48,7 @@ const devices: Device[] = [
         kind: "border",
         fits: ["edge"],
         plugged:
-            "Site A, rack 1: transit provider A and the internet exchange, a cable to its twin, and a trunk down to one of the switches in the middle of the site.",
+            "Site A, rack 1: Hurricane Electric for transit, DE-CIX Frankfurt, a cable to its twin, and a trunk down to one of the switches in the middle of the site.",
         x: 170,
         y: 62,
     },
@@ -59,7 +59,7 @@ const devices: Device[] = [
         kind: "middle",
         fits: ["aggregation", "core"],
         plugged:
-            "Site B: a trunk up to the edge router, the office's printer and phones, customers' servers, and one rack switch below it.",
+            "Site B: a trunk up to the edge router, the office's printer and phones, customers' servers, and one rack switch under it.",
         x: 590,
         y: 180,
     },
@@ -90,7 +90,7 @@ const devices: Device[] = [
         order: 1,
         kind: "border",
         fits: ["edge"],
-        plugged: "Site B, rack 1: transit provider C, the leased line to site A, and a trunk down to the switch below it.",
+        plugged: "Site B, rack 1: Arelion for transit, the leased line to site A, and a trunk down to the switch under it.",
         x: 590,
         y: 62,
     },
@@ -122,7 +122,7 @@ const devices: Device[] = [
         kind: "border",
         fits: ["edge"],
         plugged:
-            "Site A, rack 2: transit provider B and the internet exchange, the leased line to site B, and a bundle down to the second switch in the middle of the site.",
+            "Site A, rack 2: Cogent for transit, DE-CIX Frankfurt, the leased line to site B, and a bundle down to the second switch in the middle of the site.",
         x: 380,
         y: 62,
     },
@@ -138,7 +138,7 @@ const devices: Device[] = [
     },
 ];
 
-// The cables of the example, by the names it uses.
+// The cables of this network, by the names it uses.
 const cables: [string, string][] = [
     ["edge-a1", "edge-a2"],
     ["edge-a1", "core-a1"],
@@ -157,7 +157,7 @@ const cables: [string, string][] = [
 
 const byExample = (name: string) => devices.find((device) => device.example === name)!;
 
-/** The role the reader gave each device, by its example name. */
+/** The role the reader gave each device, by the name this network gives it. */
 const chosen = ref<Record<string, Role>>({});
 const said = ref<{ kind: "good" | "bad" | "warn"; word: string; text: string }>();
 
@@ -167,11 +167,11 @@ function refusal(kind: Kind, role: Role): string {
         return "It has a link to a transit provider, so it is where your network meets other networks. That is the edge, whatever else it does.";
     if (role === "edge")
         return "Nothing on it leads to another network: everything around it is your own. The edge is where your network meets others.";
-    if (kind === "middle") return "Other switches hang below it, so it is more than a place where servers plug in.";
-    return "Nothing hangs below it: servers plug into it, and its cables only go up. The middle layers are what other switches hang from.";
+    if (kind === "middle") return "Other switches hang under it, so it is more than a place where servers plug in.";
+    return "Nothing hangs under it: servers plug into it, and its cables only go up. The middle layers are what other switches hang from.";
 }
 
-/** The name a placed device gets: its role's prefix, its site, and its number among the devices of that role at the site. A device not placed yet counts in the role the example gives it, so names do not shift as the reader goes. */
+/** The name a placed device gets: its role's prefix, its site, and its number among the devices of that role at the site. A device not placed yet counts in the role this network gives it, so names do not shift as the reader goes. */
 function nameOf(device: Device): string | undefined {
     const role = chosen.value[device.example];
     if (!role) return undefined;
@@ -195,11 +195,11 @@ function choose(device: Device, role: Role) {
 
     said.value =
         role === device.fits[0]
-            ? { kind: "good", word: "Placed", text: `It goes into its place in the drawing, and gets the name ${name}.` }
+            ? { kind: "good", word: "Placed", text: `It gets the name ${name}.` }
             : {
                   kind: "warn",
                   word: "Also fine",
-                  text: `It is named ${name}. The example calls it ${device.example}: in a site with only two layers of switches, the middle one does the work of both the core and aggregation, so either name fits, as long as every site follows the same rule.`,
+                  text: `It gets the name ${name}, and this network calls it ${device.example}. Either fits, as long as every site follows the same rule.`,
               };
 }
 
@@ -215,19 +215,19 @@ const shownCables = computed(() =>
     cables.filter(([a, b]) => chosen.value[a] && chosen.value[b]).map(([a, b]) => ({ a: byExample(a), b: byExample(b), key: `${a}-${b}` }))
 );
 
-/** Placed devices whose name differs from the example's. */
+/** Placed devices whose name differs from this network's. */
 const renamed = computed(() => placed.value.filter((device) => nameOf(device) !== device.example));
 
-/** The files a Circuit project of this network holds, one per placed device, in a directory per site. */
+/** The files a Circuit project of this network holds: one per placed device, in a folder per site with the site's shared facts. */
 const files = computed(() => {
-    const lines = ["circuit.config.ts", "network.ts", "edge.ts", "switches.ts"];
+    const lines = ["circuit.ts"];
 
     for (const site of ["a", "b"] as const) {
         const names = placed.value
             .filter((device) => device.site === site)
             .map((device) => nameOf(device)!)
             .sort();
-        lines.push(...names.map((name) => `site-${site}/${name}.ts`));
+        if (names.length) lines.push(`sites/site-${site}/site.ts`, ...names.map((name) => `sites/site-${site}/${name}.ts`));
     }
 
     return lines.join("\n");
@@ -236,11 +236,10 @@ const files = computed(() => {
 const summary = computed(() => {
     if (!done.value) return undefined;
 
-    if (!renamed.value.length)
-        return "Every device has a role, and every name matches the one the regional provider example uses. The edge is on top, the middle switches below it, and the racks at the bottom.";
+    if (!renamed.value.length) return "Every device has a role, and every name matches this network's own.";
 
     const changes = renamed.value.map((device) => `${device.example} is ${nameOf(device)}`).join(", ");
-    return `Every device has a role. Your names differ from the example's in ${renamed.value.length}: ${changes}. Both work; what matters is that every device is named by one rule.`;
+    return `Every device has a role. ${renamed.value.length} of your names differ from this network's: ${changes}. Both work if every device follows one rule.`;
 });
 </script>
 
@@ -250,7 +249,7 @@ const summary = computed(() => {
             class="ac-drawing"
             viewBox="0 0 700 410"
             role="img"
-            :aria-label="`A drawing of two sites in three layers: edge, core and aggregation, and access. ${placed.length} of ${devices.length} devices are placed.`"
+            :aria-label="`A drawing of two sites in three layers: edge, core and aggregation, and access. ${placed.length} of ${devices.length} devices have a role.`"
         >
             <g class="bands">
                 <text x="6" y="22" class="band">EDGE</text>

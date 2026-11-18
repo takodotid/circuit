@@ -48,7 +48,7 @@ const said = computed(() => {
     if (stage.value === 0)
         return {
             kind: "",
-            text: `One evening on a transit port, a sample every five minutes from 18:00: ${samples.value.length} samples. Drag your guess to where you think the bill lands, then sort the samples.`,
+            text: `One evening on a transit port, a sample every five minutes from 18:00. Drag your guess to where you think the bill lands, then sort the samples.`,
         };
     if (stage.value === 1)
         return {
@@ -80,10 +80,10 @@ const billText = computed(() => {
     const { burst: over, unused } = money.value;
 
     if (over > 0)
-        return `You committed to ${commit.value} Mbit/s, and pay for it whatever you use. The 95th percentile is ${billed} Mbit/s, so ${over} Mbit/s above the commit is billed as burst, at the burst rate in the contract.`;
+        return `You committed to ${commit.value} Mbit/s, and pay for it whatever you use. The billed rate is ${billed} Mbit/s, so ${over} Mbit/s over the commit is billed as burst.`;
     if (unused > 0)
-        return `The 95th percentile, ${billed} Mbit/s, is under your commit of ${commit.value} Mbit/s. You pay for the whole commit: ${unused} Mbit/s of it went unused.`;
-    return `The 95th percentile is exactly your commit of ${commit.value} Mbit/s. You pay for the commit and no burst.`;
+        return `The billed rate, ${billed} Mbit/s, is under your commit of ${commit.value} Mbit/s. You pay for the whole commit, and ${unused} Mbit/s of it went unused.`;
+    return `The billed rate is exactly your commit of ${commit.value} Mbit/s. You pay for the commit and no burst.`;
 });
 </script>
 
@@ -193,7 +193,7 @@ const billText = computed(() => {
                 </select>
             </label>
             <p v-if="stage >= 3" class="bill-text" aria-live="polite">{{ billText }}</p>
-            <p v-else class="bill-text hint" aria-live="polite">Work out the 95th percentile first, and the bill appears here.</p>
+            <p v-else class="bill-text hint" aria-live="polite">The bill appears after step 3.</p>
         </div>
     </div>
 </template>

@@ -1,8 +1,7 @@
 // What Studio's server sends its page. Types only, so the page shares them without taking any of Circuit's code.
 
 import type { Graph } from "../core/graph";
-import type { Device } from "../model";
-import type { Finding } from "../platforms/finding";
+import type { Device, Finding } from "../model";
 
 /** One network of the project, without its devices. */
 export type StudioNetwork = {
@@ -32,6 +31,38 @@ export type AddressRow = {
     vrf?: string;
 };
 
+/**
+ * Every address in use by space and segment, and what is free: `AddressReport` of `src/core/address-space.ts`, written out here so the
+ * page takes none of Circuit's code.
+ */
+export type AddressReport = {
+    spaces: {
+        prefix: string;
+        /** Where it comes from, such as `prefixes ours.v4 in circuit.ts`. */
+        owner: string;
+        segments: AddressSegment[];
+        blocks: AddressBlock[];
+        /** The fewest prefixes that cover what nothing uses. */
+        free: string[];
+    }[];
+    /** What is in use outside every space. */
+    elsewhere: { segments: AddressSegment[]; blocks: AddressBlock[] };
+};
+
+/** A prefix devices have addresses in. */
+export type AddressSegment = {
+    prefix: string;
+    /** Each address, or `first-last` range, and what holds it. */
+    uses: { address: string; what: string }[];
+    /** How many addresses no one uses, written out. */
+    free: string;
+    /** The lowest free address. */
+    next?: string;
+};
+
+/** A prefix in use without being a segment: a loopback's address, a point-to-point address, or a block routed elsewhere. */
+export type AddressBlock = { prefix: string; what: string };
+
 /** One BGP session, with what it takes from its neighbor group, and what is at its far end. */
 export type Session = {
     device: string;
@@ -49,7 +80,7 @@ export type Session = {
     oneSided?: true;
 };
 
-/** One cable, from the end that names it first. */
+/** One cable, from the end that uses it first. */
 export type Cable = {
     device: string;
     port: string;
@@ -83,6 +114,8 @@ export type StudioData = {
     findings: Finding[];
     graph: Graph;
     addresses: AddressRow[];
+    /** Every address in use by space and segment, and what is free, as `circuit addresses` prints it. */
+    addressSpace: AddressReport;
     sessions: Session[];
     cables: Cable[];
     /** Every secret the project names with `secret("NAME")`, by name. */
@@ -117,10 +150,6 @@ export type SecretEntry = {
 /** One secrets file as the page may see it: names, how each is kept, ciphertexts. Never a value in plain text, and never the password. */
 export type SecretsFileListing = {
     file: string;
-    /** The networks that keep their secrets here. */
-    networks: string[];
-    /** Where the password comes from, without its value. Absent when a person types it. */
-    passwordLocation?: string;
     entries: SecretEntry[];
 };
 

@@ -47,6 +47,7 @@ const hourTicks = [0, 3, 6, 9, 12, 15, 18, 21];
 /* 1. Finding the incident. */
 const cursor = ref(120);
 const current = computed(() => traffic[cursor.value] ?? 0);
+const moment = computed(() => timeOf(cursor.value));
 const verdict = ref<{ kind: "good" | "bad" | "warn"; word: string; text: string }>();
 
 const isFlood = (sample: number) => flood(sample) > 0;
@@ -85,16 +86,16 @@ const flows = computed(() => {
     const sample = cursor.value;
     const normal = ordinary(sample);
     const rows = [
-        { to: "198.51.100.10", who: "netflix server 1", protocol: "TCP", from: "many", gbit: normal * 0.42 },
-        { to: "198.51.100.11", who: "netflix server 2", protocol: "TCP", from: "many", gbit: normal * 0.27 },
-        { to: "198.51.100.18", who: "akamai server 1", protocol: "TCP", from: "many", gbit: normal * 0.19 },
+        { to: "198.51.100.10", who: "Netflix server 1", protocol: "TCP", from: "many", gbit: normal * 0.42 },
+        { to: "198.51.100.11", who: "Netflix server 2", protocol: "TCP", from: "many", gbit: normal * 0.27 },
+        { to: "198.51.100.18", who: "Akamai server 1", protocol: "TCP", from: "many", gbit: normal * 0.19 },
         { to: "other addresses", who: "", protocol: "mixed", from: "many", gbit: normal * 0.12 },
     ];
 
     if (isFlood(sample)) {
         rows.unshift({
             to: "198.51.100.10",
-            who: "netflix server 1",
+            who: "Netflix server 1",
             protocol: "UDP",
             from: "about 30,000 addresses",
             gbit: flood(sample),
@@ -216,7 +217,7 @@ const ruleVerdict = computed(() => {
             Move the slider along the day, or use the arrow keys on it, and mark the moment something went wrong.
         </p>
 
-        <h4 class="part">Flow records at {{ timeOf(cursor) }}</h4>
+        <h4 class="part">Flow records at {{ moment }}</h4>
         <div class="table-frame">
             <table class="ac-table">
                 <thead>

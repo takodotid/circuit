@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: keeping the keys. The reader changes the router's services, its allowed sources, its users and one switch port, and sees who can log in from where, with the device file written beside it.
+// Lesson: keeping the keys. The reader changes the router's services, its allowed sources, its users, and one switch port, and sees who can log in from where, with the device file written beside it.
 
 import { computed, ref } from "vue";
 
@@ -39,7 +39,7 @@ const attempts = computed<Attempt[]>(() => [
     { id: "monitor", who: "The monitoring server, as monitor", source: "192.168.10.30", service: "ssh", user: "monitor", should: "in" },
     {
         id: "intern",
-        who: "The intern who left last month, at the old desk in the server room, as intern",
+        who: "The intern who left last month, from the server room, as intern",
         source: "192.168.10.40",
         service: "ssh",
         user: "intern",
@@ -135,7 +135,7 @@ const switchCode = computed(
 // Real output of `circuit validate` on the single-site example with this one change.
 const VALIDATE_MGMT_PORT = [
     "$ circuit validate",
-    "sites/home/switch.ts:30: management_stays_on_trunks: switch: interfaces.ethernet.10g-4: gives management to whatever plugs in. Put the port in another VLAN.",
+    "sites/home/switch.ts:32: management_stays_on_trunks: switch: interfaces.ethernet.10g-4: gives management to whatever plugs in. Put the port in another VLAN.",
     "",
     "1 error(s).",
 ].join("\n");
@@ -168,9 +168,7 @@ const lockedOut = computed(() => !sshOn.value);
             <fieldset class="group">
                 <legend>Users in the file</legend>
                 <div class="ac-row">
-                    <button type="button" class="ac-button small" aria-pressed="true" disabled>
-                        operator, admin, Circuit logs in as it
-                    </button>
+                    <button type="button" class="ac-button small" aria-pressed="true" disabled>operator, admin (Circuit's login)</button>
                     <button type="button" class="ac-button small" :aria-pressed="monitorListed" @click="monitorListed = !monitorListed">
                         monitor, read-only
                     </button>
@@ -181,7 +179,7 @@ const lockedOut = computed(() => !sshOn.value);
             </fieldset>
 
             <label class="ac-field group">
-                <span>On the switch, port 10g-4 (the guest access point) is in VLAN</span>
+                <span>Switch port 10g-4, the guest access point, is in VLAN</span>
                 <select v-model="wallPortVlan" class="ac-select">
                     <option value="guests">guests</option>
                     <option value="mgmt">mgmt</option>

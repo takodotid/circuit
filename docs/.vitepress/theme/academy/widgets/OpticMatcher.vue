@@ -1,36 +1,36 @@
 <script setup lang="ts">
-// Lesson: choosing a device. For a link from the regional provider example, the reader picks an optic for each end and the fibre between them, and the link comes up or is refused with the reason.
+// Lesson: choosing a device. For a link of the two-site provider from the lesson on roles, the reader picks an optic for each end and the fiber between them, and the link comes up or is refused with the reason.
 
 import { computed, ref, watch } from "vue";
 
 type Cage = "SFP+" | "SFP28" | "QSFP+" | "QSFP28";
-type Fibre = "OM3" | "OM4" | "OS2";
+type Fiber = "OM3" | "OM4" | "OS2";
 
 type Optic = {
     name: string;
     form: Cage;
     gigabits: number;
     medium: "multimode" | "single mode";
-    /** How far it reaches on each kind of fibre, in metres. */
-    reach: Partial<Record<Fibre, number>>;
-    /** Fibres in the cable, both directions together. */
-    fibres: number;
+    /** How far it reaches on each kind of fiber, in meters. */
+    reach: Partial<Record<Fiber, number>>;
+    /** Fibers in the cable, both directions together. */
+    fibers: number;
 };
 
-// Reaches as Wikipedia's pages on 10, 25, 40 and 100 Gigabit Ethernet give them.
+// Reaches as Wikipedia's pages on 10, 25, 40, and 100 Gigabit Ethernet give them.
 const optics: Optic[] = [
-    { name: "10GBASE-SR", form: "SFP+", gigabits: 10, medium: "multimode", reach: { OM3: 300, OM4: 400 }, fibres: 2 },
-    { name: "10GBASE-LR", form: "SFP+", gigabits: 10, medium: "single mode", reach: { OS2: 10_000 }, fibres: 2 },
-    { name: "25GBASE-SR", form: "SFP28", gigabits: 25, medium: "multimode", reach: { OM3: 70, OM4: 100 }, fibres: 2 },
-    { name: "25GBASE-LR", form: "SFP28", gigabits: 25, medium: "single mode", reach: { OS2: 10_000 }, fibres: 2 },
-    { name: "40GBASE-SR4", form: "QSFP+", gigabits: 40, medium: "multimode", reach: { OM3: 100, OM4: 150 }, fibres: 8 },
-    { name: "40GBASE-LR4", form: "QSFP+", gigabits: 40, medium: "single mode", reach: { OS2: 10_000 }, fibres: 2 },
-    { name: "100GBASE-SR4", form: "QSFP28", gigabits: 100, medium: "multimode", reach: { OM3: 70, OM4: 100 }, fibres: 8 },
-    { name: "100GBASE-LR4", form: "QSFP28", gigabits: 100, medium: "single mode", reach: { OS2: 10_000 }, fibres: 2 },
-    { name: "100GBASE-ER4", form: "QSFP28", gigabits: 100, medium: "single mode", reach: { OS2: 40_000 }, fibres: 2 },
+    { name: "10GBASE-SR", form: "SFP+", gigabits: 10, medium: "multimode", reach: { OM3: 300, OM4: 400 }, fibers: 2 },
+    { name: "10GBASE-LR", form: "SFP+", gigabits: 10, medium: "single mode", reach: { OS2: 10_000 }, fibers: 2 },
+    { name: "25GBASE-SR", form: "SFP28", gigabits: 25, medium: "multimode", reach: { OM3: 70, OM4: 100 }, fibers: 2 },
+    { name: "25GBASE-LR", form: "SFP28", gigabits: 25, medium: "single mode", reach: { OS2: 10_000 }, fibers: 2 },
+    { name: "40GBASE-SR4", form: "QSFP+", gigabits: 40, medium: "multimode", reach: { OM3: 100, OM4: 150 }, fibers: 8 },
+    { name: "40GBASE-LR4", form: "QSFP+", gigabits: 40, medium: "single mode", reach: { OS2: 10_000 }, fibers: 2 },
+    { name: "100GBASE-SR4", form: "QSFP28", gigabits: 100, medium: "multimode", reach: { OM3: 70, OM4: 100 }, fibers: 8 },
+    { name: "100GBASE-LR4", form: "QSFP28", gigabits: 100, medium: "single mode", reach: { OS2: 10_000 }, fibers: 2 },
+    { name: "100GBASE-ER4", form: "QSFP28", gigabits: 100, medium: "single mode", reach: { OS2: 40_000 }, fibers: 2 },
 ];
 
-const fibreNames: Record<Fibre, string> = {
+const fiberNames: Record<Fiber, string> = {
     OM3: "OM3 multimode",
     OM4: "OM4 multimode",
     OS2: "OS2 single mode",
@@ -48,14 +48,14 @@ type End = {
     gigabits: number;
 };
 
-type Link = { id: string; title: string; metres: number; fibres: Fibre[]; why: string; a: End; b: End };
+type Link = { id: string; title: string; meters: number; fibers: Fiber[]; why: string; a: End; b: End };
 
 const links: Link[] = [
     {
         id: "edge-core",
         title: "edge-a1 to core-a1",
-        metres: 25,
-        fibres: ["OM3", "OM4", "OS2"],
+        meters: 25,
+        fibers: ["OM3", "OM4", "OS2"],
         why: "Across the room, from the router's 100G port to the switch's 40G port.",
         a: { device: "edge-a1", kind: "router", port: "100g-2", spelled: "qsfp28-2-1", cage: "QSFP28", gigabits: 100 },
         b: { device: "core-a1", kind: "switch", port: "40g-1", spelled: "40GE1/0/1", cage: "QSFP+", gigabits: 40 },
@@ -63,8 +63,8 @@ const links: Link[] = [
     {
         id: "edge2-core2",
         title: "edge-a2 to core-a2",
-        metres: 10,
-        fibres: ["OM3", "OM4", "OS2"],
+        meters: 10,
+        fibers: ["OM3", "OM4", "OS2"],
         why: "In the next rack, from the router's 25G port to the switch's 10G port.",
         a: { device: "edge-a2", kind: "router", port: "25g-3", spelled: "sfp28-3", cage: "SFP28", gigabits: 25 },
         b: { device: "core-a2", kind: "switch", port: "10g-1", spelled: "10GE1/0/1", cage: "SFP+", gigabits: 10 },
@@ -72,20 +72,20 @@ const links: Link[] = [
     {
         id: "tor-server",
         title: "tor-a3 to a server",
-        metres: 3,
-        fibres: ["OM3", "OM4", "OS2"],
+        meters: 3,
+        fibers: ["OM3", "OM4", "OS2"],
         why: "In the same rack, to a customer's server with a 25G card.",
         a: { device: "tor-a3", kind: "switch", port: "25g-1", spelled: "twenty-fivegige 1/2/1", cage: "SFP28", gigabits: 25 },
         b: { device: "Server", kind: "server", spelled: "a 25G card", cage: "SFP28", gigabits: 25 },
     },
     {
         id: "edge-transit",
-        title: "edge-a1 to transit A",
-        metres: 2_000,
-        fibres: ["OS2"],
-        why: "To transit provider A's router in another building, 2 km away. The fibre between the buildings is single mode.",
+        title: "edge-a1 to Hurricane Electric",
+        meters: 2_000,
+        fibers: ["OS2"],
+        why: "To the router of Hurricane Electric in another building, 2 km away. The fiber between the buildings is single mode.",
         a: { device: "edge-a1", kind: "router", port: "25g-1", spelled: "sfp28-1", cage: "SFP28", gigabits: 25 },
-        b: { device: "Transit A", kind: "router", spelled: "a 25G port", cage: "SFP28", gigabits: 25 },
+        b: { device: "Hurricane Electric", kind: "router", spelled: "a 25G port", cage: "SFP28", gigabits: 25 },
     },
 ];
 
@@ -94,17 +94,17 @@ const link = computed(() => links.find((entry) => entry.id === linkId.value)!);
 
 const opticA = ref("");
 const opticB = ref("");
-const fibre = ref<Fibre>("OM4");
+const fiber = ref<Fiber>("OM4");
 const tried = ref(false);
 
 watch(linkId, () => {
     opticA.value = "";
     opticB.value = "";
-    fibre.value = link.value.fibres.includes("OM4") ? "OM4" : link.value.fibres[0]!;
+    fiber.value = link.value.fibers.includes("OM4") ? "OM4" : link.value.fibers[0]!;
     tried.value = false;
 });
 
-watch([opticA, opticB, fibre], () => {
+watch([opticA, opticB, fiber], () => {
     tried.value = false;
 });
 
@@ -122,7 +122,7 @@ function cageProblem(end: End, optic: Optic): string {
     return `${optic.name} is a ${optic.gigabits}G ${optic.form} optic, and ${end.device}'s port is a ${end.gigabits}G ${end.cage} cage, which cannot run it. Use a ${end.gigabits}G optic there.`;
 }
 
-const metres = (value: number) => (value >= 1000 ? `${value / 1000} km` : `${value} m`);
+const meters = (value: number) => (value >= 1000 ? `${value / 1000} km` : `${value} m`);
 
 type Result = { ok: boolean; text: string; notes: string[] };
 
@@ -141,7 +141,7 @@ const result = computed<Result | undefined>(() => {
             a.gigabits !== b.gigabits
                 ? "They do not even run at the same speed."
                 : a.medium !== b.medium
-                  ? `One is made for ${a.medium} fibre and the other for ${b.medium}, and they send light differently.`
+                  ? `One is made for ${a.medium} fiber and the other for ${b.medium}, and they send light differently.`
                   : "They send light differently.";
         return {
             ok: false,
@@ -150,25 +150,25 @@ const result = computed<Result | undefined>(() => {
         };
     }
 
-    const reach = a.reach[fibre.value];
+    const reach = a.reach[fiber.value];
     if (reach === undefined) {
         const wanted = a.medium === "multimode" ? "multimode (OM3 or OM4)" : "single-mode (OS2)";
         return {
             ok: false,
-            text: `${a.name} is made for ${wanted} fibre, and this is ${fibreNames[fibre.value]}. The light does not travel in it the way the optic needs.`,
+            text: `${a.name} is made for ${wanted} fiber, and this is ${fiberNames[fiber.value]}. The light does not travel in it the way the optic needs.`,
             notes: [],
         };
     }
 
-    if (reach < link.value.metres)
+    if (reach < link.value.meters)
         return {
             ok: false,
-            text: `${a.name} reaches ${metres(reach)} on ${fibre.value}, and this run is ${metres(link.value.metres)}. Past its reach, the far end cannot read the signal reliably.`,
+            text: `${a.name} reaches ${meters(reach)} on ${fiber.value}, and this run is ${meters(link.value.meters)}. Past its reach, the far end cannot read the signal reliably.`,
             notes: [],
         };
 
     const notes: string[] = [];
-    if (a.fibres === 8) notes.push(`${a.name} sends on eight fibres, four each way, so the cable is an MPO trunk, not a duplex pair.`);
+    if (a.fibers === 8) notes.push(`${a.name} sends on eight fibers, four each way, so the cable is an MPO trunk, not a duplex pair.`);
 
     const slower = [endA, endB].filter((end) => end.gigabits > a.gigabits);
     for (const end of slower) {
@@ -181,7 +181,7 @@ const result = computed<Result | undefined>(() => {
 
     return {
         ok: true,
-        text: `The link comes up at ${a.gigabits} Gbit/s. ${a.name} reaches ${metres(reach)} on ${fibre.value}, and this run is ${metres(link.value.metres)}.`,
+        text: `The link comes up at ${a.gigabits} Gbit/s. ${a.name} reaches ${meters(reach)} on ${fiber.value}, and this run is ${meters(link.value.meters)}.`,
         notes,
     };
 });
@@ -233,10 +233,10 @@ const lightLink = () => (tried.value = true);
             class="ac-drawing"
             viewBox="0 0 700 190"
             role="img"
-            :aria-label="`${link.a.device}, a ${link.a.cage} cage, joined by ${metres(link.metres)} of fibre to ${link.b.device}, a ${link.b.cage} cage.`"
+            :aria-label="`${link.a.device}, a ${link.a.cage} cage, joined by ${meters(link.meters)} of fiber to ${link.b.device}, a ${link.b.cage} cage.`"
         >
             <line class="cable" :class="{ lit: said?.kind === 'good', broken: said?.kind === 'bad' }" x1="115" y1="70" x2="585" y2="70" />
-            <text x="350" y="58" text-anchor="middle" class="run">{{ metres(link.metres) }}, {{ fibreNames[fibre] }}</text>
+            <text x="350" y="58" text-anchor="middle" class="run">{{ meters(link.meters) }}, {{ fiberNames[fiber] }}</text>
 
             <rect class="optic" :class="{ empty: !opticA }" x="160" y="58" width="34" height="24" />
             <rect class="optic" :class="{ empty: !opticB }" x="506" y="58" width="34" height="24" />
@@ -268,9 +268,9 @@ const lightLink = () => (tried.value = true);
                 </select>
             </label>
             <label class="ac-field">
-                <span>Fibre</span>
-                <select v-model="fibre" class="ac-select">
-                    <option v-for="kind in link.fibres" :key="kind" :value="kind">{{ fibreNames[kind] }}</option>
+                <span>Fiber</span>
+                <select v-model="fiber" class="ac-select">
+                    <option v-for="kind in link.fibers" :key="kind" :value="kind">{{ fiberNames[kind] }}</option>
                 </select>
             </label>
             <label class="ac-field">
@@ -284,7 +284,7 @@ const lightLink = () => (tried.value = true);
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
-        <p v-else class="ac-say hint" aria-live="polite">Pick an optic for each end and the fibre, then light the link.</p>
+        <p v-else class="ac-say hint" aria-live="polite">Pick an optic for each end and the fiber, then light the link.</p>
         <ul v-if="said && result?.notes.length" class="notes">
             <li v-for="note in result.notes" :key="note">{{ note }}</li>
         </ul>

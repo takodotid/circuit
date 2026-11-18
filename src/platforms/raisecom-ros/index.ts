@@ -1,6 +1,6 @@
 // Raisecom ROS, as on the RAX700 series.
 //
-// An interface, an access-list or an OSPF process opens a block, `!` closes it, and `no` removes a line. Commands apply as they arrive and persist only on `write`. There is no rollback, so management is proved reachable in a fresh session before anything is written: a reboot then restores what was there before.
+// An interface, an access-list or an OSPF process opens a block, `!` closes it, and `no` removes a line. Commands apply as they arrive and persist only on `write`. There is no rollback, so a fresh session tests that management is reachable before anything is written: a reboot then restores what was there before.
 
 import type { ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
@@ -9,17 +9,17 @@ import { Secrets } from "../../core/secrets";
 import type { Device } from "../../model";
 import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
-import { Catalog } from "../catalog";
-import { Derive } from "../derive";
+import { Catalog } from "../../core/catalog";
+import { Derive } from "../../core/derive";
 import { LineDiff, type Dialect, type Group } from "../line-diff";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
 import { RaisecomRosRender } from "./render";
 
-/** A session, and how to prove access in a fresh login: a new SSH session, or logging out and in again on the console. */
+/** A session, and how to test access in a fresh login: a new SSH session, or logging out and in again on the console. */
 export type Session = { channel: ClientChannel; close: () => void; fresh: () => Promise<Session> };
 
 export class RaisecomRos extends Platform {
-    /** How the console asks for a login and shows its prompt. Not yet proved on a device: the RAX721's console was never cabled to a jump host. */
+    /** How the console asks for a login and shows its prompt. Not yet tested on a device: the RAX721's console was never cabled to a jump host. */
     static readonly CONSOLE: ConsoleDialect = {
         login: /login:\s*$/i,
         password: /password:\s*$/i,
@@ -87,7 +87,7 @@ export class RaisecomRos extends Platform {
                 .replace(/ track bfd-session (\d+)$/, " track bfd $1")
                 // An access group prints a notify view the render leaves to its default.
                 .replace(/^(snmp-server access \S+ read \S+) notify internet (usm \S+)$/, "$1 $2"),
-        // A LAG exists before a port joins it, and an OSPF process comes after the interfaces it names.
+        // A LAG exists before a port joins it, and an OSPF process comes after the interfaces it uses.
         order: (path) => {
             const header = path[0] ?? "";
             // A BFD session binds to a VLAN interface, so it comes after the interfaces. Only one session binds to a peer, so an old one goes first, with the routes at the top level; a route takes a session that does not exist yet.
@@ -126,7 +126,7 @@ export class RaisecomRos extends Platform {
     readonly os: OsSupport = {
         name: "Raisecom ROS",
         versions: "6.5",
-        provedOn: "RAX721-C-6C48, ROS 6.5.2",
+        testedOn: "RAX721-C-6C48, ROS 6.5.2",
         checked: false,
     };
 
@@ -156,7 +156,7 @@ export class RaisecomRos extends Platform {
 
             if (port.lldp === true) found.push(`${where}.lldp true, LLDP is turned on per device`);
             if (port.in_lag && (port.mac_limit !== undefined || port.ethertypes))
-                found.push(`${where}.mac_limit and ethertypes on a LAG member, proved on a port alone`);
+                found.push(`${where}.mac_limit and ethertypes on a LAG member, tested on a port alone`);
             if (port.mac_limit !== undefined && (port.mac_limit < 1 || port.mac_limit > RaisecomRosRender.MAC_LIMIT_MAX))
                 found.push(`${where}.mac_limit ${port.mac_limit}, port security takes 1 to ${RaisecomRosRender.MAC_LIMIT_MAX}`);
             if (typeof port.stp === "object" || port.stp === true) found.push(`${where}.stp other than false`);
@@ -173,7 +173,7 @@ export class RaisecomRos extends Platform {
                 if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, a LAG here only switches`);
             }
             for (const field of ["mac_limit", "ethertypes"] as const) {
-                if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, proved on a port alone`);
+                if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, tested on a port alone`);
             }
         }
 
@@ -223,6 +223,8 @@ export class RaisecomRos extends Platform {
             if (!route.next_hop || route.vrf || Address.family(route.prefix) === "ipv6") {
                 found.push(`${where}, only an IPv4 next_hop in the default table`);
             }
+
+            if (route.next_hop && route.interface) found.push(`${where} next_hop with interface, write the next_hop alone`);
 
             if (route.description || route.distance) found.push(`${where} description and distance`);
 
@@ -290,7 +292,7 @@ export class RaisecomRos extends Platform {
 
         // SNMP takes its own access-list; SSH and telnet share the management one.
         found.push(...Derive.switchUnsupported(device, ["snmp"]));
-        found.push(...Derive.unproved(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
+        found.push(...Derive.untested(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
         found.push(...Derive.unbuilt(device));
 
         return found;
@@ -598,7 +600,7 @@ export class RaisecomRos extends Platform {
             );
         await Ssh.send(proof.channel, "write", 60_000, 3000);
         proof.close();
-        console.log("  applied, login proved, written");
+        console.log("  applied, logged in again, written");
     }
 
     readOnly(command: string): boolean {
@@ -705,7 +707,7 @@ export class RaisecomRos extends Platform {
         try {
             await SerialConsole.login(opened.channel, RaisecomRos.CONSOLE, user, password, console.password_only);
         } catch (error) {
-            opened.close();
+            void opened.close();
             throw error;
         }
 
@@ -713,7 +715,7 @@ export class RaisecomRos extends Platform {
             channel: opened.channel,
             close: () => {
                 opened.channel.write(`${RaisecomRos.CONSOLE.logout}\n`);
-                opened.close();
+                void opened.close();
             },
             fresh: async () => {
                 await SerialConsole.login(opened.channel, RaisecomRos.CONSOLE, user, password, console.password_only);

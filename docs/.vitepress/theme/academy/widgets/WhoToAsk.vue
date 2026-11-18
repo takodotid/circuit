@@ -1,16 +1,16 @@
 <script setup lang="ts">
-// Lesson: who runs the internet. The reader matches each thing a network needs to the organisation that provides it: a registry, a data centre, an exchange, a transit provider or PeeringDB.
+// Lesson: who runs the internet. The reader matches each thing a network needs to the organization that provides it: a registry, a data center, an exchange, a transit provider, or PeeringDB.
 
 import { computed, ref } from "vue";
 
-type Who = "iana" | "apnic" | "idnic" | "transit" | "datacentre" | "exchange" | "peeringdb";
+type Who = "iana" | "apnic" | "idnic" | "transit" | "datacenter" | "exchange" | "peeringdb";
 
 const WHO: { id: Who; name: string }[] = [
     { id: "iana", name: "IANA" },
     { id: "apnic", name: "APNIC, the regional registry" },
     { id: "idnic", name: "IDNIC, Indonesia's national registry" },
     { id: "transit", name: "A transit provider" },
-    { id: "datacentre", name: "The data centre operator" },
+    { id: "datacenter", name: "The data center operator" },
     { id: "exchange", name: "The exchange operator" },
     { id: "peeringdb", name: "PeeringDB" },
 ];
@@ -20,7 +20,7 @@ const NEEDS: { id: string; need: string; right: Who[]; why: string; wrong: strin
         id: "asn-id",
         need: "A company in Indonesia wants an AS number and an IPv6 block of its own.",
         right: ["idnic", "apnic"],
-        why: "Both are right. In Indonesia a network can join IDNIC, the national registry run by APJII, or APNIC itself. In most cases it chooses one, and cannot get number resources from both.",
+        why: "Both are right. A network in Indonesia can join IDNIC or APNIC, but in most cases not both.",
         wrong: "AS numbers and address blocks come from a registry. Which registries serve Indonesia?",
     },
     {
@@ -39,23 +39,23 @@ const NEEDS: { id: string; need: string; right: Who[]; why: string; wrong: strin
     },
     {
         id: "cable",
-        need: "Your router and a transit provider's router are in the same data centre, in different cages. You need a cable between them.",
-        right: ["datacentre"],
-        why: "That cable is a cross-connect. You order it from the data centre operator, which runs it through its meet-me room.",
+        need: "Your router and a transit provider's router are in the same data center, in different cages. You need a cable between them.",
+        right: ["datacenter"],
+        why: "That cable is a cross-connect. You order it from the data center operator.",
         wrong: "Inside the building, only the operator runs cables between customers' cages.",
     },
     {
         id: "port",
         need: "A port on the national exchange's peering LAN, with an address on it.",
         right: ["exchange"],
-        why: "The exchange operator runs the peering LAN, gives each member its port and address, and runs the route servers. In the data centre, a cross-connect then joins your rack to its switch.",
+        why: "The exchange operator runs the peering LAN and the route servers, and gives each member its port and address. In the data center, a cross-connect then joins your rack to its switch.",
         wrong: "The peering LAN belongs to whoever runs the exchange.",
     },
     {
         id: "where",
         need: "Before asking a network to peer, you want to know which exchanges and buildings it is at.",
         right: ["peeringdb"],
-        why: "Networks list their exchanges, buildings and peering contacts on PeeringDB. Circuit's peeringdb command keeps your own record matching your files.",
+        why: "Networks list their exchanges, buildings, and peering contacts on PeeringDB. The command circuit sync peeringdb keeps your own record matching your files.",
         wrong: "There is one public database where networks list where they peer.",
     },
     {
@@ -98,11 +98,7 @@ const rows = computed(() => NEEDS.map((need) => ({ need, said: verdict(need) }))
             </li>
         </ol>
         <p class="ac-say" aria-live="polite">
-            {{
-                answered === 0
-                    ? "Pick who you would ask for each one."
-                    : `${right} of ${NEEDS.length} right${right === NEEDS.length ? ": you know who runs which part." : "."}`
-            }}
+            {{ answered === 0 ? "Pick who you would ask for each one." : `${right} of ${NEEDS.length} right.` }}
         </p>
     </div>
 </template>

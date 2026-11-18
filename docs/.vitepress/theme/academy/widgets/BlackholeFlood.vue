@@ -1,18 +1,18 @@
 <script setup lang="ts">
-// Lesson: attacks on the network. A flood toward one customer address arrives over two transits and an exchange; the reader has the customer ask for a blackhole, lists which transits take it, and sees which links are freed and who stops sending.
+// Lesson: attacks on the network. A flood toward one customer address arrives over two transits and an exchange; the reader has the customer ask for a blackhole, writes the blackhole community of each upstream that takes one, and sees which links are freed and who stops sending.
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
 
 const TARGET = "192.0.2.10";
 
-type UpstreamId = "a" | "b" | "ix";
+type UpstreamId = "he" | "cogent" | "ix";
 
 type Upstream = {
     id: UpstreamId;
     label: string;
     asn: number;
-    /** Its own blackhole community, when it takes blackholes from us. */
+    /** Its blackhole community, when the widget lets the reader write one for it. */
     community?: string;
     /** Gbit/s of the flood that arrives through it. */
     flood: number;
@@ -23,16 +23,16 @@ type Upstream = {
 };
 
 const upstreams: Upstream[] = [
-    { id: "a", label: "Transit A", asn: 64501, community: "65535:666", flood: 12, normal: 4, x: 250, y: 70 },
-    { id: "b", label: "Transit B", asn: 64502, community: "64502:666", flood: 9, normal: 3, x: 250, y: 200 },
-    { id: "ix", label: "The exchange", asn: 64504, flood: 3, normal: 2, x: 250, y: 330 },
+    { id: "he", label: "Hurricane Electric", asn: 6939, community: "6939:666", flood: 14, normal: 4, x: 250, y: 70 },
+    { id: "cogent", label: "Cogent", asn: 174, flood: 5, normal: 3, x: 250, y: 200 },
+    { id: "ix", label: "DE-CIX", asn: 6695, community: "65535:666", flood: 3, normal: 2, x: 250, y: 330 },
 ];
 
 /** Every link to an upstream, in Gbit/s. */
 const UPSTREAM_CAPACITY = 10;
 /** Netflix's link, in Gbit/s, and Netflix's own traffic on it. */
-const ACME_CAPACITY = 1;
-const ACME_NORMAL = 0.3;
+const NETFLIX_CAPACITY = 1;
+const NETFLIX_NORMAL = 0.3;
 
 const sources = { x: 70, y: 200 };
 const edge = { x: 450, y: 200 };
@@ -58,13 +58,13 @@ const loads = computed(() =>
 
 /** The flood that reaches your router, and what reaches Netflix's link. */
 const atEdge = computed(() => loads.value.reduce((sum, entry) => sum + entry.flood, 0));
-const acmeLoad = computed(() => ACME_NORMAL + (asked.value ? 0 : atEdge.value));
+const netflixLoad = computed(() => NETFLIX_NORMAL + (asked.value ? 0 : atEdge.value));
 
 const format = (gbits: number) => `${gbits.toLocaleString("en-US", { maximumFractionDigits: 1 })}`;
 
 const overloaded = computed(() => [
     ...loads.value.filter((entry) => entry.load > UPSTREAM_CAPACITY).map((entry) => entry.upstream.label),
-    ...(acmeLoad.value > ACME_CAPACITY ? ["Netflix's link"] : []),
+    ...(netflixLoad.value > NETFLIX_CAPACITY ? ["Netflix's link"] : []),
 ]);
 
 const summary = computed(() => {
@@ -92,7 +92,7 @@ const summary = computed(() => {
     return {
         kind: "good",
         word: "Shed",
-        text: `${stoppedText}What still arrives, ${format(atEdge.value)} Gbit/s through the exchange, your router drops. Every link has room again. The price: ${TARGET} is unreachable for everyone until the blackhole is withdrawn.`,
+        text: `${stoppedText}Your router drops the ${format(atEdge.value)} Gbit/s that still arrives. Every link has room again. The price: ${TARGET} is unreachable for everyone until the blackhole is withdrawn.`,
     };
 });
 
@@ -101,9 +101,9 @@ function toggleAsk() {
     sentOnce.value = false;
 }
 
-const travellers = upstreams.map(() => useTravel(300));
+const travelers = upstreams.map(() => useTravel(300));
 const sentOnce = ref(false);
-const busy = computed(() => travellers.some((traveller) => traveller.travelling.value));
+const busy = computed(() => travelers.some((traveler) => traveler.traveling.value));
 
 async function send() {
     sentOnce.value = true;
@@ -116,7 +116,7 @@ async function send() {
             ];
             if (!takesIt(upstream)) path.push([edge.x, edge.y]);
             if (!takesIt(upstream) && !asked.value) path.push([netflix.x, netflix.y]);
-            return travellers[index]!.travel(path);
+            return travelers[index]!.travel(path);
         })
     );
 }
@@ -126,21 +126,23 @@ const fates = computed(() =>
     upstreams.map((upstream) => {
         if (takesIt(upstream)) return `${upstream.label} drops it: it received ${TARGET}/32 with ${upstream.community}.`;
         if (asked.value) {
-            return upstream.community && !listed.value.includes(upstream.id)
-                ? `${upstream.label} sends it on: it would take blackholes, but it is not in your upstreams, so it never received the route. Your router drops it.`
-                : `${upstream.label} sends it on: it takes no blackholes, and never received the route. Your router drops it.`;
+            return `${upstream.label} sends it on: no blackhole community is written for it, so it never received the route. Your router drops it.`;
         }
         return `${upstream.label} sends it on, and your router passes it to Netflix.`;
     })
 );
 
+/** The neighbors in edge-01.ts, cut to what blackholing needs: a blackhole community on each upstream the reader wrote one for. */
 const code = computed(() => {
-    const entries = upstreams.filter((upstream) => upstream.community && listed.value.includes(upstream.id));
-    const blackhole = entries.length
-        ? `    blackhole: { function: 666, upstreams: { ${entries.map((upstream) => `${upstream.asn}: "${upstream.community}"`).join(", ")} } },`
-        : "    blackhole: { function: 666 },";
+    const NAMES: Record<UpstreamId, string> = { he: '"hurricane-electric"', cogent: "cogent", ix: '"de-cix-rs"' };
+    const GROUPS: Record<UpstreamId, string> = { he: "transit", cogent: "transit", ix: "exchange" };
 
-    return ["export const communities = Bgp.communityScheme({", "    asn: 64500,", blackhole, "});"].join("\n");
+    return upstreams
+        .map((upstream) => {
+            const blackhole = upstream.community && listed.value.includes(upstream.id) ? `, blackhole: "${upstream.community}"` : "";
+            return `${NAMES[upstream.id]}: { remote_as: ${upstream.asn}, communities: { groups: ["${GROUPS[upstream.id]}"]${blackhole} } },`;
+        })
+        .join("\n");
 });
 
 const meter = (load: number, capacity: number) => Math.min(100, (load / capacity) * 100);
@@ -152,7 +154,7 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
             class="ac-drawing"
             viewBox="0 0 700 400"
             role="img"
-            :aria-label="`A flood from many sources reaches your edge router through Transit A, Transit B and an exchange, toward Netflix's server ${TARGET}. ${summary.text}`"
+            :aria-label="`A flood from many sources reaches your edge router through Hurricane Electric, Cogent, and DE-CIX, toward Netflix's server ${TARGET}. ${summary.text}`"
         >
             <line
                 v-for="upstream in upstreams"
@@ -173,7 +175,14 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
                 :x2="edge.x"
                 :y2="edge.y"
             />
-            <line class="cable" :class="{ full: acmeLoad > ACME_CAPACITY }" :x1="edge.x" :y1="edge.y" :x2="netflix.x" :y2="netflix.y" />
+            <line
+                class="cable"
+                :class="{ full: netflixLoad > NETFLIX_CAPACITY }"
+                :x1="edge.x"
+                :y1="edge.y"
+                :x2="netflix.x"
+                :y2="netflix.y"
+            />
             <line class="cable" :x1="edge.x" :y1="edge.y" :x2="others.x" :y2="others.y" />
 
             <SvgDevice kind="cloud" :x="sources.x" :y="sources.y" label="Attack sources" note="thousands" />
@@ -191,12 +200,12 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
             <SvgDevice kind="server" :x="netflix.x" :y="netflix.y" label="Netflix's server" :note="TARGET" :dim="asked" />
             <SvgDevice kind="cloud" :x="others.x" :y="others.y" label="Other customers" />
 
-            <template v-for="(traveller, index) in travellers" :key="`p-${index}`">
+            <template v-for="(traveler, index) in travelers" :key="`p-${index}`">
                 <circle
-                    v-if="traveller.travelling.value"
+                    v-if="traveler.traveling.value"
                     class="packet"
-                    :cx="traveller.position.value[0]"
-                    :cy="traveller.position.value[1]"
+                    :cx="traveler.position.value[0]"
+                    :cy="traveler.position.value[1]"
                     r="8"
                 />
             </template>
@@ -210,7 +219,7 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
                 </button>
             </div>
             <div class="ac-field">
-                <span>2. Upstreams in your scheme's blackhole.upstreams</span>
+                <span>2. Blackhole communities you write</span>
                 <div class="ac-row" role="group" aria-label="Upstreams that receive the blackhole">
                     <button
                         v-for="upstream in upstreams.filter((entry) => entry.community)"
@@ -223,11 +232,11 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
                         {{ upstream.label }}, {{ upstream.community }}
                     </button>
                 </div>
-                <p class="quiet">The exchange takes no blackholes, so it cannot be listed.</p>
+                <p class="quiet">Cogent has no blackhole community here.</p>
             </div>
         </div>
 
-        <CodeView :code="code" title="routing.ts" />
+        <CodeView :code="code" title="edge-01.ts, the neighbors, shortened" />
 
         <div class="meters">
             <div v-for="entry in loads" :key="entry.upstream.id" class="meter" :class="{ full: entry.load > UPSTREAM_CAPACITY }">
@@ -237,11 +246,11 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
                     >{{ format(entry.load) }} of {{ UPSTREAM_CAPACITY }} Gbit/s{{ entry.load > UPSTREAM_CAPACITY ? ", full" : "" }}</span
                 >
             </div>
-            <div class="meter" :class="{ full: acmeLoad > ACME_CAPACITY }">
+            <div class="meter" :class="{ full: netflixLoad > NETFLIX_CAPACITY }">
                 <span class="name">Netflix's link</span>
-                <span class="bar"><span :style="{ width: `${meter(acmeLoad, ACME_CAPACITY)}%` }" /></span>
+                <span class="bar"><span :style="{ width: `${meter(netflixLoad, NETFLIX_CAPACITY)}%` }" /></span>
                 <span class="value"
-                    >{{ format(acmeLoad) }} of {{ ACME_CAPACITY }} Gbit/s{{ acmeLoad > ACME_CAPACITY ? ", full" : "" }}</span
+                    >{{ format(netflixLoad) }} of {{ NETFLIX_CAPACITY }} Gbit/s{{ netflixLoad > NETFLIX_CAPACITY ? ", full" : "" }}</span
                 >
             </div>
         </div>

@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { defineConfig, type DefaultTheme } from "vitepress";
 import circuit from "../../package.json";
 import { Academy } from "./academy.ts";
@@ -8,66 +10,80 @@ const repository = circuit.repository.url.replace(/^git\+/, "").replace(/\.git$/
 
 const sidebar: DefaultTheme.SidebarItem[] = [
     {
-        text: "Guide",
+        text: "Get started",
         items: [
             { text: "Introduction", link: "/guide/introduction" },
             { text: "Install", link: "/guide/install" },
-            { text: "Write a project", link: "/guide/project" },
+            { text: "Your first project", link: "/guide/project" },
+            { text: "Example projects", link: "/guide/examples" },
+        ],
+    },
+    {
+        text: "Write a project",
+        items: [
             { text: "Rules", link: "/guide/rules" },
             { text: "Parts and merge", link: "/guide/parts" },
             { text: "BGP communities", link: "/guide/communities" },
-            { text: "Checks and errors", link: "/guide/checks" },
+            { text: "Checks", link: "/guide/checks" },
             { text: "Secrets", link: "/guide/secrets" },
-            { text: "The circuit command", link: "/guide/cli" },
-            { text: "How a change is applied", link: "/guide/apply" },
-            { text: "Example projects", link: "/guide/examples" },
-            { text: "FAQ", link: "/guide/faq" },
-            { text: "Glossary", link: "/guide/glossary" },
+        ],
+    },
+    {
+        text: "Run it",
+        items: [
+            { text: "Make a change", link: "/guide/apply" },
+            { text: "Run in CI", link: "/guide/ci" },
+            { text: "Studio", link: "/studio/" },
+            { text: "Studio tools", link: "/studio/tools" },
+            { text: "Host Studio", link: "/studio/hosting" },
         ],
     },
     {
         text: "Integrations",
         items: [
-            { text: "Overview", link: "/integrations/" },
-            { text: "1Password", link: "/integrations/1password" },
+            { text: "How sync works", link: "/integrations/" },
             { text: "NetBox", link: "/integrations/netbox" },
             { text: "LibreNMS", link: "/integrations/librenms" },
             { text: "PeeringDB", link: "/integrations/peeringdb" },
             { text: "Prometheus", link: "/integrations/prometheus" },
-        ],
-    },
-    {
-        text: "Circuit Studio",
-        items: [
-            { text: "Overview", link: "/studio/" },
-            { text: "The graph", link: "/studio/graph" },
-            { text: "Looking things up", link: "/studio/tables" },
-            { text: "Tools", link: "/studio/tools" },
-            { text: "Reviewing changes", link: "/studio/changes" },
-            { text: "Secrets", link: "/studio/secrets" },
-            { text: "Hosting", link: "/studio/hosting" },
-        ],
-    },
-    {
-        text: "Platforms",
-        items: [
-            { text: "Overview", link: "/platforms/" },
-            { text: "Feature matrix", link: "/platforms/features" },
+            { text: "1Password", link: "/integrations/1password" },
         ],
     },
     {
         text: "Reference",
-        items: [{ text: "The model", link: "/reference/model" }],
+        items: [
+            { text: "The circuit command", link: "/reference/cli" },
+            { text: "Platforms", link: "/reference/platforms" },
+            { text: "Standards", link: "/reference/standards" },
+            { text: "Glossary", link: "/reference/glossary" },
+            { text: "FAQ", link: "/guide/faq" },
+            { text: "The model", link: "/reference/model" },
+        ],
     },
     {
-        text: "Project",
+        text: "About",
         items: [
             { text: "Contributing", link: "/contributing" },
-            { text: "Credits", link: "/credits" },
-            { text: "License", link: "/license" },
+            { text: "License and credits", link: "/license" },
         ],
     },
 ];
+
+/** Pages that moved, and where to. The build writes a page at each old address that sends the reader on. */
+const MOVED: Record<string, string> = {
+    "guide/cli": "/reference/cli",
+    "guide/glossary": "/reference/glossary",
+    "platforms/index": "/reference/platforms",
+    "platforms/features": "/reference/platforms#feature-matrix",
+    credits: "/license#credits",
+    "studio/graph": "/studio/#the-graph",
+    "studio/tables": "/studio/#look-things-up",
+    "studio/changes": "/studio/#review-a-change",
+    "studio/secrets": "/guide/secrets#in-studio",
+};
+
+const redirect = (to: string) =>
+    `<!doctype html><meta charset="utf-8"><title>Moved</title><meta name="robots" content="noindex"><link rel="canonical" href="${to}"><meta http-equiv="refresh" content="0; url=${to}"><script>location.replace(${JSON.stringify(to)} + (location.hash && !${JSON.stringify(to)}.includes("#") ? location.hash : ""))</script><a href="${to}">This page moved.</a>\n`;
 
 export default defineConfig({
     title: "Circuit",
@@ -99,6 +115,12 @@ export default defineConfig({
         if (description) pageData.description = description;
     },
 
+    buildEnd({ outDir }) {
+        for (const [from, to] of Object.entries(MOVED)) {
+            mkdirSync(dirname(join(outDir, from)), { recursive: true });
+            writeFileSync(join(outDir, `${from}.html`), redirect(to));
+        }
+    },
     transformHead: ({ pageData }) =>
         Seo.head(pageData, {
             hostname: circuit.homepage,
@@ -112,6 +134,15 @@ export default defineConfig({
     // Code is set on a navy ground in both themes, like the editor in the home page's drawing.
     markdown: {
         theme: { light: "github-dark", dark: "github-dark" },
+        // The examples mark the excerpts the practice pages include with `// #region name` lines. A whole file is shown without them. VitePress fills an included file's code in before this rule runs.
+        preConfig(md) {
+            const fence = md.renderer.rules.fence!;
+            md.renderer.rules.fence = (tokens, index, options, env, self) => {
+                const token = tokens[index]!;
+                token.content = token.content.replace(/^[ \t]*\/\/ #(?:end)?region [\w-]+\n/gm, "");
+                return fence(tokens, index, options, env, self);
+            };
+        },
     },
 
     themeConfig: {
@@ -119,8 +150,7 @@ export default defineConfig({
             { text: "Guide", link: "/guide/introduction" },
             { text: "Academy", link: "/academy/", activeMatch: "^/academy/" },
             { text: "Studio", link: "/studio/" },
-            { text: "Platforms", link: "/platforms/" },
-            { text: "Reference", link: "/reference/model" },
+            { text: "Reference", link: "/reference/cli" },
             { text: "Releases", link: `${repository}/releases` },
         ],
 

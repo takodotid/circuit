@@ -1,11 +1,9 @@
-// A customer's router on an RB5009: its uplink takes an address by DHCP, a tunnel to the data centre is tied to that uplink, a LAG of
-// tunnels keeps one MAC, consoles open ports by UPnP, and its LAN gets router advertisements. Each printed line below is how an RB5009
-// on RouterOS 7.24.6 printed what the render writes, so a device that runs the config plans nothing.
+// A customer's router on an RB5009: its uplink takes an address by DHCP, a tunnel to the data center is tied to that uplink, a LAG of tunnels keeps one MAC, consoles open ports by UPnP, and its LAN gets router advertisements. Each printed line below is how an RB5009 on RouterOS 7.24.6 printed what the render writes, so a device that runs the config plans nothing.
 
 import { expect, test } from "bun:test";
 import type { Device } from "../../src/model";
 import { Platforms } from "../../src/platforms";
-import { Derive } from "../../src/platforms/derive";
+import { Derive } from "../../src/core/derive";
 import { RouterOsExport } from "../../src/platforms/routeros/export";
 
 const adapter = Platforms.get("routeros");
@@ -158,9 +156,16 @@ test("a disabled route in the main table is found by a selector that allows no t
     ].join("\n");
     const desired = ["/ip route", "add dst-address=0.0.0.0/0 gateway=10.81.1.1"].join("\n");
 
+    // Another gateway is another route: the new one is added, then the old one removed.
     const sent = adapter.plan(desired, printed, options).steps.flatMap((step) => step.send);
     expect(sent).toEqual([
-        '/ip route set [ find dst-address="0.0.0.0/0" and (routing-table=main or !routing-table) and !dynamic ] gateway=10.81.1.1 comment="" disabled=no pref-src=""',
+        "/ip route add dst-address=0.0.0.0/0 gateway=10.81.1.1",
+        '/ip route remove [ find dst-address="0.0.0.0/0" and (routing-table=main or !routing-table) and gateway=10.101.3.1 and !dynamic ]',
+    ]);
+
+    const sameGateway = desired.replace("10.81.1.1", "10.101.3.1");
+    expect(adapter.plan(sameGateway, printed, options).steps.flatMap((step) => step.send)).toEqual([
+        '/ip route set [ find dst-address="0.0.0.0/0" and (routing-table=main or !routing-table) and gateway=10.101.3.1 and !dynamic ] comment="" disabled=no pref-src=""',
     ]);
 });
 

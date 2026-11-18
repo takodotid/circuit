@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// A device drawn inside a widget's <svg>, centred on its point, with its name under it. Every lesson draws devices with this, so a laptop or a router looks the same everywhere.
+// A device drawn inside a widget's <svg>, centered on its point, with its name under it. Every lesson draws devices with this, so a laptop or a router looks the same everywhere.
 
 defineProps<{
     kind: "laptop" | "desktop" | "phone" | "server" | "router" | "switch" | "cloud" | "printer" | "camera" | "access-point";
@@ -102,7 +102,7 @@ defineProps<{
     stroke-linejoin: round;
 }
 
-/* On the night ground a navy outline disappears, so devices are outlined in the night link colour. */
+/* On the night ground a navy outline disappears, so devices are outlined in the night link color. */
 .dark .body,
 .dark .halo,
 .dark .screen {

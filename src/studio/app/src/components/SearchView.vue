@@ -1,4 +1,4 @@
-<!-- What the search finds: devices, ports and interfaces by name or description, addresses, VLANs, BGP neighbors, and lines of each device's config. -->
+<!-- What the search finds: any field of any device, by its name or its value, with where it is and a link to the tab that shows it, and lines of each device's config. -->
 <script setup lang="ts">
 import { computed } from "vue";
 import type { StudioData } from "../../../types";
@@ -7,59 +7,66 @@ import DataTable, { type Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData; query: string }>();
 
+/** Past this many matches the search stops, so a short word does not fill the page. */
+const MOST = 200;
+
+/** The tab of a device's page that shows a field, by where the field is. */
+function sectionOf(path: readonly string[]): string {
+    if (path[0] === "interfaces") return path[1] === "ethernet" ? "ports" : "interfaces";
+    const sections = ["switching", "routing", "firewall", "management", "system", "monitoring", "services"];
+    return sections.includes(path[0] ?? "") ? path[0]! : "overview";
+}
+
 const found = computed<Row[]>(() => {
     const query = props.query.toLowerCase();
     if (!query) return [];
-    const has = (text: unknown) => typeof text === "string" && text.toLowerCase().includes(query);
+
     const rows: Row[] = [];
+    const add = (device: string, path: string[], text: string) => {
+        if (rows.length >= MOST || !text.toLowerCase().includes(query)) return;
+        rows.push({
+            cells: [
+                { device },
+                { link: { name: "device", params: { name: device, section: sectionOf(path) } }, label: path.join(" › ") },
+                text.length > 120 ? `${text.slice(0, 120)}…` : text,
+            ],
+        });
+    };
+
+    // Every field, however deep. A name a device gives, such as a port or a VLAN, matches too. A secret shows as the project writes it.
+    const walk = (device: string, path: string[], value: unknown): void => {
+        if (rows.length >= MOST || value === undefined || value === null) return;
+        if (Format.isSecret(value)) return add(device, path, Format.compact(value));
+        if (Array.isArray(value)) return value.forEach((item, index) => walk(device, [...path, String(index + 1)], item));
+        if (Format.isObject(value)) {
+            for (const [key, inner] of Object.entries(value)) {
+                if (path.length) add(device, [...path, key], key);
+                walk(device, [...path, key], inner);
+            }
+            return;
+        }
+        if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") add(device, path, String(value));
+    };
+
+    for (const device of props.data.devices) walk(device.name, [], device);
 
     for (const device of props.data.devices) {
-        if (has(device.name) || has(device.site) || has(device.model)) {
-            rows.push({ cells: [{ device: device.name }, "device", `${device.platform} ${device.model} at ${device.site}`] });
-        }
+        const lines = (props.data.rendered[device.name] ?? "").split("\n").filter((line) => line.toLowerCase().includes(query));
+        if (!lines.length || rows.length >= MOST) continue;
 
-        for (const [kind, group] of Object.entries(device.interfaces ?? {})) {
-            for (const [name, settings] of Object.entries((group ?? {}) as Record<string, { description?: string } | undefined>)) {
-                if (has(name) || has(settings?.description)) {
-                    rows.push({
-                        cells: [
-                            { device: device.name },
-                            kind === "ethernet" ? "port" : kind.replace("_", " "),
-                            `${name}${settings?.description ? `: ${settings.description}` : ""}`,
-                        ],
-                    });
-                }
-            }
-        }
-
-        for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {})) {
-            if (has(name) || has(vlan?.description) || has(String(vlan?.id)))
-                rows.push({ cells: [{ device: device.name }, "VLAN", `${name}, ID ${vlan?.id}`] });
-        }
-
-        for (const [name, neighbor] of Object.entries(device.routing?.bgp?.neighbors ?? {})) {
-            if (has(name) || has(neighbor?.description) || has(neighbor?.address)) {
-                rows.push({ cells: [{ device: device.name }, "BGP neighbor", `${name}, ${neighbor?.address}`] });
-            }
-        }
-
-        const lines = (props.data.rendered[device.name] ?? "").split("\n").filter(has);
-        if (lines.length) {
-            rows.push({
-                cells: [
-                    { link: `devices/${device.name}/config`, label: device.name },
-                    "config",
-                    `${Format.count(lines.length, "line")}: ${lines
-                        .slice(0, 3)
-                        .map((line) => line.trim())
-                        .join(" · ")}${lines.length > 3 ? " …" : ""}`,
-                ],
-            });
-        }
-    }
-
-    for (const row of props.data.addresses) {
-        if (has(row.address)) rows.push({ cells: [{ device: row.device }, "address", `${row.address} on ${row.holder}`] });
+        rows.push({
+            cells: [
+                { device: device.name },
+                {
+                    link: { name: "device", params: { name: device.name, section: "config" } },
+                    label: `config, ${Format.count(lines.length, "line")}`,
+                },
+                lines
+                    .slice(0, 3)
+                    .map((line) => line.trim())
+                    .join(" · ") + (lines.length > 3 ? " …" : ""),
+            ],
+        });
     }
 
     return rows;
@@ -68,5 +75,11 @@ const found = computed<Row[]>(() => {
 
 <template>
     <h2>Search: {{ query }}</h2>
-    <DataTable :head="['Device', 'What', 'Found']" :rows="found" />
+    <p v-if="!found.length" class="muted">No matches.</p>
+    <template v-else>
+        <p class="muted">
+            {{ found.length >= MOST ? `The first ${MOST} matches.` : Format.count(found.length, "match", "matches") + "." }}
+        </p>
+        <DataTable :head="['Device', 'Where', 'Found']" :rows="found" csv="search" />
+    </template>
 </template>

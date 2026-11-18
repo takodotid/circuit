@@ -18,41 +18,41 @@ type Outcome = { rule: Rule; safe: string; harm: string; spreads: boolean };
 const HAPPENINGS: { id: Happening; label: string; outcome: Outcome }[] = [
     {
         id: "loop",
-        label: "A loop inside member C's network",
+        label: "A loop inside the network of AS64511",
         outcome: {
             rule: "storm",
-            safe: "C's broadcasts multiply inside its own network and pour into its port. ix-sw-02 lets through 1% of the port's speed of broadcast, multicast and unknown unicast, and drops the rest. The other members see a trickle.",
-            harm: "C's broadcast storm pours onto the peering LAN: across the trunk, out of every member's port and into every member's router, until C finds its loop.",
+            safe: "Its broadcasts multiply inside its own network and pour into its port. ix-sw-02 lets through 1% of the port's speed of broadcast, multicast, and unknown unicast, and drops the rest. The other members see a trickle.",
+            harm: "Its broadcast storm pours onto the peering LAN: across the trunk, out of every member's port, and into every member's router, until AS64511 finds its loop.",
             spreads: true,
         },
     },
     {
         id: "bpdu",
-        label: "C's switch runs spanning tree",
+        label: "Its switch runs spanning tree",
         outcome: {
             rule: "stp",
-            safe: "The port takes no part in spanning tree, so nothing C's switch says can change which of the exchange's own ports are blocked.",
-            harm: "C's switch joins the exchange's spanning tree. With a low enough priority it wins the root election, and the exchange's switches work out their paths again around a member's switch, while every member's traffic waits.",
+            safe: "The port takes no part in spanning tree, so nothing its switch says can change which of the exchange's own ports are blocked.",
+            harm: "Its switch joins the exchange's spanning tree. With a low enough priority it wins the root election. Then the exchange's switches work out their paths again around a member's switch, while every member's traffic waits.",
             spreads: true,
         },
     },
     {
         id: "lldp",
-        label: "C's switch listens for LLDP",
+        label: "Its switch listens for LLDP",
         outcome: {
             rule: "lldp",
-            safe: "The port sends no LLDP, so C learns nothing about the exchange's own switches.",
-            harm: "ix-sw-02 tells C its name and the port's name, and often its model and software: a map of the exchange for anyone who wants to attack it.",
+            safe: "The port sends no LLDP, so AS64511 learns nothing about the exchange's own switches.",
+            harm: "ix-sw-02 tells AS64511 its name and the port's name, and often its model and software: a map of the exchange for anyone who wants to attack it.",
             spreads: false,
         },
     },
     {
         id: "mgmt",
-        label: "C tries the management VLAN",
+        label: "It tries the management VLAN",
         outcome: {
             rule: "vlan",
-            safe: "C's port is an access port in the peering VLAN, 100. Whatever C sends lands there; VLAN 10, where the switches are managed, is not on its port.",
-            harm: "If C's port also carried VLAN 10, C's router would sit on the switches' management network and could try to log in to them.",
+            safe: "Its port is an access port in the peering VLAN, 100. Whatever it sends lands there. VLAN 10, where the switches are managed, is not on its port.",
+            harm: "If its port also carried VLAN 10, its router would sit on the switches' management network, and could try to log in to them.",
             spreads: false,
         },
     },
@@ -74,9 +74,9 @@ const sw1 = { x: 230, y: 80 };
 const sw2 = { x: 470, y: 80 };
 const members = [
     { id: "rs1", kind: "server" as const, label: "rs1", note: "route server", x: 90, y: 220, on: sw1 },
-    { id: "a", kind: "router" as const, label: "Member A", note: "", x: 270, y: 220, on: sw1 },
-    { id: "b", kind: "router" as const, label: "Member B", note: "", x: 420, y: 220, on: sw2 },
-    { id: "c", kind: "switch" as const, label: "Member C", note: "its own switch", x: 600, y: 220, on: sw2 },
+    { id: "a", kind: "router" as const, label: "Cloudflare", note: "AS13335", x: 270, y: 220, on: sw1 },
+    { id: "b", kind: "router" as const, label: "Google", note: "AS15169", x: 420, y: 220, on: sw2 },
+    { id: "c", kind: "switch" as const, label: "AS64511", note: "its own switch", x: 600, y: 220, on: sw2 },
 ];
 </script>
 
@@ -86,7 +86,7 @@ const members = [
             class="ac-drawing"
             viewBox="0 0 700 290"
             role="img"
-            :aria-label="`Two exchange switches joined by a trunk, with a route server and members A, B and C. ${spreading ? 'The trouble from C is spreading across the exchange.' : 'The exchange is unaffected.'}`"
+            :aria-label="`Two exchange switches joined by a trunk, with a route server and three members: Cloudflare, Google, and AS64511. ${spreading ? 'The trouble from AS64511 is spreading across the exchange.' : 'The exchange is unaffected.'}`"
         >
             <line class="cable" :class="{ harm: spreading }" :x1="sw1.x" :y1="sw1.y" :x2="sw2.x" :y2="sw2.y" />
             <text class="cable-label" :x="(sw1.x + sw2.x) / 2" :y="sw1.y - 10" text-anchor="middle">trunk, 40g-5</text>
@@ -122,7 +122,7 @@ const members = [
         </svg>
 
         <fieldset class="group">
-            <legend>Member C's port does</legend>
+            <legend>The port of AS64511 does</legend>
             <div class="ac-row">
                 <button
                     v-for="rule in RULES"
@@ -160,8 +160,8 @@ const members = [
             {{ current.outcome.harm }} The protection that stops it: {{ ruleLabel }}.
         </p>
         <p v-else class="ac-say hint" aria-live="polite">
-            All four protections start on, as the Exchange.build helper writes them. Make C misbehave, then turn the protection that stopped
-            it off and try again.
+            All four protections start on, as member_port writes them. Make AS64511 misbehave, then turn the protection that stopped it off,
+            and try again.
         </p>
     </div>
 </template>

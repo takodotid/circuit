@@ -4,33 +4,14 @@ import { X509Certificate } from "node:crypto";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
-import type {
-    AclRule,
-    Device,
-    Ethertype,
-    Family,
-    FilterMatch,
-    Lag,
-    NatRule,
-    Neighbor,
-    NeighborSettings,
-    PolicyRule,
-    Port,
-    Ports,
-    Prefix,
-    RouteRule,
-    Service,
-    Severity,
-    VlanInterface,
-} from "../../model";
-import { Catalog } from "../catalog";
-import { Derive, type NamedInterface } from "../derive";
+import type { Device, Family, Lag, Port, Prefix, Service, Severity, VlanInterface } from "../../model";
+import { Catalog } from "../../core/catalog";
+import { Derive, type NamedInterface } from "../../core/derive";
+import { RouterOsFirewall } from "./firewall";
+import { RouterOsRouting } from "./routing";
 
 /** A property value as a command takes it. `undefined` and `false` leave the property out. */
 export type Value = string | number | undefined | false;
-
-/** One switch rule: the port it is on, the ACL rule it comes from, and the one source and destination port or range it takes. */
-export type SwitchRule = { port: string; rule: AclRule; srcPort?: string; dstPort?: string };
 
 type Speed = NonNullable<Port["speed"]>;
 
@@ -59,30 +40,7 @@ export class RouterOsRender {
     };
 
     /** Address lists holding the prefixes BGP originates. A session reads the one of its family. */
-    private static readonly NETWORKS: Record<Family, string> = { ipv4: "bgp-networks-v4", ipv6: "bgp-networks-v6" };
-
-    /** A kind of frame as a switch rule's `mac-protocol` names it. */
-    private static readonly MAC_PROTOCOLS: Record<Ethertype, string> = { ipv4: "ip", ipv6: "ipv6", arp: "arp" };
-
-    /** Helpers the platform has, all stated so that one the config does not list is off. */
-    private static readonly HELPERS = ["ftp", "tftp", "irc", "h323", "sip", "pptp", "rtsp"] as const;
-
-    private static readonly CHAINS = ["input", "forward", "output"] as const;
-
-    /** The validator group every RPKI server joins. */
-    private static readonly RPKI_GROUP = "rpki";
-
-    /** The chain a session without a policy uses, so that it learns or announces nothing. */
-    private static readonly REJECT_ALL = "REJECT-ALL";
-
-    // RouterOS takes our own role. The config states the neighbor's, so each becomes its opposite: a neighbor that is our provider makes us its customer.
-    private static readonly ROLES = {
-        provider: "ebgp-customer",
-        customer: "ebgp-provider",
-        peer: "ebgp-peer",
-        rs: "ebgp-rs-client",
-        "rs-client": "ebgp-rs",
-    } as const;
+    static readonly NETWORKS: Record<Family, string> = { ipv4: "bgp-networks-v4", ipv6: "bgp-networks-v6" };
 
     /** Neutral service name to the platform's. `native_protocol` is the platform's own desktop client. */
     private static readonly SERVICES = {
@@ -128,16 +86,6 @@ export class RouterOsRender {
         return Object.entries(map ?? {}).flatMap(([name, value]) => (value === undefined ? [] : [[name, value] as [string, V]]));
     }
 
-    /** A value of a match: the one written, or the only one of a list. `unsupported()` refuses a list of more. */
-    static one<T>(value: T | readonly T[] | undefined): T | undefined {
-        return Array.isArray(value) ? (value as readonly T[])[0] : (value as T | undefined);
-    }
-
-    /** A route policy rule on routes: not a call, and not a `{ communities }` rule, which `unsupported()` refuses. */
-    static onRoutes(rule: PolicyRule): rule is RouteRule {
-        return rule.call === undefined && rule.communities === undefined;
-    }
-
     /** A prefix set's prefixes, written as a list or as a map of named prefixes. Undefined for a set fetched from a registry. */
     static prefixesOf(device: Device, set: string): readonly Prefix[] | undefined {
         const declared = device.routing?.prefix_sets?.[set];
@@ -153,8 +101,8 @@ export class RouterOsRender {
 
         render.interfaceMenus();
         render.addressing();
-        render.firewall();
-        render.routing();
+        RouterOsFirewall.render(render, device);
+        RouterOsRouting.render(render, device);
         render.management();
         render.system();
 
@@ -195,29 +143,12 @@ export class RouterOsRender {
     }
 
     /** `yes` or `no`. */
-    private static yesNo(on: boolean | undefined): string {
+    static yesNo(on: boolean | undefined): string {
         return on ? "yes" : "no";
     }
 
-    /** `V4` or `V6`, the suffix of a chain rendered for one family. */
-    private static familySuffix(family: Family): string {
-        return family === "ipv4" ? "V4" : "V6";
-    }
-
-    /** Each port or range of ports as the platform writes it: `53`, `0-52`. */
-    private static eachPort(ports: Ports): string[] {
-        return [ports].flat().map((port) => (typeof port === "number" ? String(port) : `${port.min}-${port.max}`));
-    }
-
-    /** One port, a range, or a list of them, as `53,0-52`. */
-    private static portList(ports: Ports | undefined): string | undefined {
-        if (ports === undefined) return undefined;
-
-        return RouterOsRender.eachPort(ports).join(",");
-    }
-
     /** Seconds as the platform writes a duration: `3600` becomes `1h`, `90` becomes `1m30s`. */
-    private static duration(seconds: number): string {
+    static duration(seconds: number): string {
         const units = [
             ["w", 604800],
             ["d", 86400],
@@ -237,30 +168,6 @@ export class RouterOsRender {
         return text || "0s";
     }
 
-    /** A rate as the switch chip takes it: `2G` becomes `2.0Gbps`. */
-    private static bitrate(rate: string): string {
-        const match = /^([\d.]+)([kMG])$/.exec(rate);
-        if (!match) return rate;
-
-        const [, amount, unit] = match;
-        const suffix = unit === "k" ? "kbps" : `${unit}bps`;
-        return `${Number(amount).toFixed(1)}${suffix}`;
-    }
-
-    /** An IPv4 prefix with a dotted mask, as the switch chip takes it: `10.0.0.0/8` becomes `10.0.0.0/255.0.0.0`. */
-    private static dottedMask(cidr: string): string {
-        const { addr, len } = Address.split(cidr);
-        const mask = len === 0 ? 0 : (0xffffffff << (32 - len)) >>> 0;
-        const octets = [24, 16, 8, 0].map((shift) => (mask >>> shift) & 255);
-        return `${addr}/${octets.join(".")}`;
-    }
-
-    /** A community pattern with `*` as a regular expression the platform matches on: `64500:*:*` becomes `^64500:[0-9]+:[0-9]+$`. */
-    private static communityPattern(pattern: string): string {
-        const fields = pattern.split(":").map((field) => (field === "*" ? "[0-9]+" : field));
-        return `^${fields.join(":")}$`;
-    }
-
     /** The name of the VLAN interface under one with a MAC of its own, which takes the configured name itself. */
     private static underMacvlan(name: string): string {
         return `${name}-vlan`;
@@ -275,73 +182,6 @@ export class RouterOsRender {
     private static splitEndpoint(endpoint: string): { host: string; port: string } {
         const colon = endpoint.lastIndexOf(":");
         return { host: endpoint.slice(0, colon), port: endpoint.slice(colon + 1) };
-    }
-
-    /** The chain a policy is rendered as for one family. A policy can test prefix lengths that mean different things per family, so each family gets its own. */
-    private static chainName(policy: string, family: Family): string {
-        return `${policy}-${RouterOsRender.familySuffix(family)}`;
-    }
-
-    /** The conditions of a rule, as the platform's filter language writes them. */
-    private static conditions(rule: RouteRule): string[] {
-        const match = rule.if ?? {};
-        const tests: string[] = [];
-        if (match.prefix) tests.push(`dst==${match.prefix}`);
-        if (match.prefix_set) tests.push(`dst in ${match.prefix_set}`);
-        if (match.prefix_length?.min !== undefined) tests.push(`dst-len>${match.prefix_length.min - 1}`);
-        if (match.prefix_length?.max !== undefined) tests.push(`dst-len<${match.prefix_length.max + 1}`);
-        if (match.as_path_length?.min !== undefined) tests.push(`bgp-path-len>${match.as_path_length.min - 1}`);
-        if (match.as_path_length?.max !== undefined) tests.push(`bgp-path-len<${match.as_path_length.max + 1}`);
-        // The platform's AS path regexp matches each AS as a whole number, so a bare number is that AS anywhere in the path.
-        if (match.as_path_contains !== undefined) tests.push(`bgp-as-path ${match.as_path_contains}`);
-        if (match.rpki) tests.push(`rpki ${match.rpki}`);
-        if (match.standard_community) tests.push(`bgp-communities includes ${match.standard_community}`);
-        if (match.large_community) tests.push(`bgp-large-communities includes ${match.large_community}`);
-        return tests;
-    }
-
-    /** What a rule does to a matching route, then its decision. */
-    private static actions(rule: RouteRule, family: Family): string[] {
-        const set = rule.set ?? {};
-        const steps: string[] = [];
-        if (set.local_pref !== undefined) steps.push(`set bgp-local-pref ${set.local_pref}`);
-        if (set.med !== undefined) steps.push(`set bgp-med ${set.med}`);
-        if (set.prepend !== undefined) steps.push(`set bgp-path-prepend ${set.prepend}`);
-        for (const pattern of set.remove_standard_communities ?? []) {
-            steps.push(`delete bgp-communities regexp "${RouterOsRender.communityPattern(pattern)}"`);
-        }
-        if (set.standard_communities) steps.push(`set bgp-communities ${set.standard_communities.join(",")}`);
-        if (set.add_standard_communities) steps.push(`append bgp-communities ${set.add_standard_communities.join(",")}`);
-
-        for (const pattern of set.remove_large_communities ?? []) {
-            steps.push(`delete bgp-large-communities regexp "${RouterOsRender.communityPattern(pattern)}"`);
-        }
-
-        if (set.large_communities) steps.push(`set bgp-large-communities ${set.large_communities.join(",")}`);
-        if (set.add_large_communities) steps.push(`append bgp-large-communities ${set.add_large_communities.join(",")}`);
-        // An address only means something to routes of its own family.
-        if (set.next_hop && Address.family(set.next_hop) === family) steps.push(`set gw ${set.next_hop}`);
-        const preferredSource = set.preferred_source && Address.host(set.preferred_source);
-        if (preferredSource && Address.family(preferredSource) === family) steps.push(`set pref-src ${preferredSource}`);
-        if (set.blackhole) steps.push("set blackhole yes");
-        if (rule.then) steps.push(rule.then);
-        return steps;
-    }
-
-    /** One rule as the platform writes it: hand off, ask the validator, test, change, decide. */
-    private static ruleText(rule: PolicyRule, family: Family): string {
-        if (rule.call) return `jump ${RouterOsRender.chainName(rule.call, family)}`;
-        if (!RouterOsRender.onRoutes(rule)) return "";
-
-        const parts: string[] = [];
-        // An RPKI state is only known once the validator has been asked, per route, so the question goes on the same rule.
-        if (rule.if?.rpki) parts.push(`rpki-verify ${RouterOsRender.RPKI_GROUP}`);
-
-        const tests = RouterOsRender.conditions(rule);
-        const steps = RouterOsRender.actions(rule, family);
-        if (tests.length) parts.push(`if (${tests.join(" && ")})${steps.length ? ` { ${steps.join("; ")} }` : ""}`);
-        else parts.push(...steps);
-        return parts.join("; ");
     }
 
     /** SHA-256 of the certificate's DER encoding, lowercase hex, as the platform prints it. */
@@ -366,7 +206,7 @@ export class RouterOsRender {
     }
 
     /** Add a command to a menu. */
-    private add(menu: string, verb: string, properties: Record<string, Value>): void {
+    add(menu: string, verb: string, properties: Record<string, Value>): void {
         this.addLine(menu, RouterOsRender.command(verb, properties));
     }
 
@@ -377,14 +217,14 @@ export class RouterOsRender {
     }
 
     /** What the platform calls a port or an interface. A port is spelled by the model; an interface keeps its config name. */
-    private name(portOrInterface: string): string {
+    name(portOrInterface: string): string {
         if (this.interfaces.some((entry) => entry.name === portOrInterface)) return portOrInterface;
 
         return Catalog.spell(this.device.platform, this.device.model, portOrInterface);
     }
 
     /** The number of a VLAN, by its config name. */
-    private vlanId(vlan: string): number {
+    vlanId(vlan: string): number {
         const declared = this.device.switching?.vlans?.[vlan];
         if (!declared) throw new Error(`${this.device.name}: VLAN ${vlan} is not declared`);
         return declared.id;
@@ -870,7 +710,7 @@ export class RouterOsRender {
     }
 
     /**
-     * Router advertisements only where the config sends them. The platform's default entry sends them on every interface, so it is turned off once one interface names its own. A device that names none keeps the platform's default.
+     * Router advertisements only where the config sends them. The platform's default entry sends them on every interface, so it is turned off once one interface names its own. A device that uses none keeps the platform's default.
      */
     private routerAdvertisements(): void {
         const sending = this.routed().filter(({ settings }) => settings.ipv6_ra);
@@ -986,532 +826,6 @@ export class RouterOsRender {
 
                 this.add(menu, "add", { address, list });
             }
-        }
-    }
-
-    private firewall(): void {
-        for (const family of ["ipv4", "ipv6"] as const) {
-            this.untracked(family);
-            this.filter(family);
-            this.nat(family);
-            this.tcpMss(family);
-        }
-
-        this.helpers();
-        this.switchAcls();
-    }
-
-    /**
-     * Untracked prefixes skip connection tracking in the raw table, both ways, before a connection is ever made.
-     *
-     * An address NAT uses inside one stays tracked, by an `accept` in each direction before every `notrack`: a reply to it that skipped tracking would never be translated back.
-     */
-    private untracked(family: Family): void {
-        const menu = family === "ipv4" ? "/ip firewall raw" : "/ipv6 firewall raw";
-        const untracked = (this.device.firewall?.untracked ?? []).filter((prefix) => Address.family(prefix) === family);
-
-        for (const address of RouterOsRender.natAddresses(this.device)) {
-            if (Address.family(address) !== family || !untracked.some((prefix) => Address.contains(prefix, address))) continue;
-
-            for (const [direction, property] of [
-                ["to", "dst-address"],
-                ["from", "src-address"],
-            ] as const) {
-                this.add(menu, "add", {
-                    action: "accept",
-                    chain: "prerouting",
-                    comment: `Tracked for NAT, ${direction} ${address}`,
-                    [property]: address,
-                });
-            }
-        }
-
-        for (const prefix of untracked) {
-            for (const [direction, property] of [
-                ["to", "dst-address"],
-                ["from", "src-address"],
-            ] as const) {
-                this.add(menu, "add", {
-                    action: "notrack",
-                    chain: "prerouting",
-                    comment: `Untracked ${direction} ${prefix}`,
-                    [property]: prefix,
-                });
-            }
-        }
-    }
-
-    /** Every address NAT translates to or from: each translation's target, and the address a destination translation matches. Once each, in rule order. */
-    static natAddresses(device: Device): string[] {
-        const nat = device.firewall?.nat;
-        const translatedTo = (rule: NatRule) => (rule.then === "masquerade" ? [] : [Address.host(rule.to_address)]);
-        const addresses = [
-            ...(nat?.source ?? []).flatMap(translatedTo),
-            ...(nat?.destination ?? []).flatMap((rule) => {
-                const matched = RouterOsRender.one(rule.if?.dst);
-                return [...(matched ? [matched] : []), ...translatedTo(rule)];
-            }),
-        ];
-
-        return [...new Set(addresses)];
-    }
-
-    /**
-     * The families a rule applies to. An address in the rule decides it; otherwise it applies to both.
-     *
-     * A rule naming an address set applies only to the families the set has members in.
-     */
-    private families(match: FilterMatch | undefined): Family[] {
-        const sets = this.device.firewall?.address_sets ?? {};
-        const address = RouterOsRender.one(match?.src) ?? RouterOsRender.one(match?.dst);
-
-        let candidates: Family[] = ["ipv4", "ipv6"];
-        if (match?.family) candidates = [match.family];
-        else if (address) candidates = [Address.family(address)];
-
-        const setHas = (set: string | undefined, family: Family) =>
-            !set || (sets[set] ?? []).some((member) => Address.family(member) === family);
-        return candidates.filter((family) => setHas(match?.src_address_set, family) && setHas(match?.dst_address_set, family));
-    }
-
-    /** The match properties of a rule, as the platform names them. */
-    private matchProperties(match: FilterMatch | undefined, family: Family) {
-        const protocol = match?.protocol === "icmp" && family === "ipv6" ? "icmpv6" : match?.protocol;
-        const setFlags = match?.tcp_flags?.set ?? [];
-        const unsetFlags = (match?.tcp_flags?.unset ?? []).map((flag) => `!${flag}`);
-        const flags = match?.tcp_flags ? [...setFlags, ...unsetFlags].join(",") : undefined;
-        const inInterface = RouterOsRender.one(match?.in_interface);
-        const outInterface = RouterOsRender.one(match?.out_interface);
-        return {
-            "connection-nat-state": match?.connection_nat_state?.join(","),
-            "connection-state": match?.connection_state?.join(","),
-            "dst-address": RouterOsRender.one(match?.dst),
-            "dst-address-list": match?.dst_address_set,
-            "dst-port": RouterOsRender.portList(match?.dst_port),
-            "in-interface": inInterface && this.name(inInterface),
-            "out-interface": outInterface && this.name(outInterface),
-            protocol,
-            "src-address": RouterOsRender.one(match?.src),
-            "src-address-list": match?.src_address_set,
-            "src-port": RouterOsRender.portList(match?.src_port),
-            "tcp-flags": flags,
-        };
-    }
-
-    private filter(family: Family): void {
-        const menu = family === "ipv4" ? "/ip firewall filter" : "/ipv6 firewall filter";
-
-        for (const chain of RouterOsRender.CHAINS) {
-            const settings = this.device.firewall?.filter?.[chain];
-            if (!settings) continue;
-
-            for (const rule of settings.rules ?? []) {
-                if (!this.families(rule.if).includes(family)) continue;
-
-                const match = this.matchProperties(rule.if, family);
-                // The platform's fast path takes a flow only on IPv4. The accept below still applies on both.
-                if (rule.fast_path && family === "ipv4") {
-                    this.add(menu, "add", { action: "fasttrack-connection", chain, comment: rule.description, ...match });
-                }
-
-                this.add(menu, "add", { action: rule.then, chain, comment: rule.description, ...match });
-            }
-
-            if (settings.default_action === "drop") this.add(menu, "add", { action: "drop", chain, comment: "Default" });
-        }
-    }
-
-    private nat(family: Family): void {
-        const menu = family === "ipv4" ? "/ip firewall nat" : "/ipv6 firewall nat";
-        const chains: [string, readonly NatRule[] | undefined][] = [
-            ["srcnat", this.device.firewall?.nat?.source],
-            ["dstnat", this.device.firewall?.nat?.destination],
-        ];
-
-        for (const [chain, rules] of chains) {
-            for (const rule of rules ?? []) {
-                if (!this.families(rule.if).includes(family)) continue;
-                // A translation to an address belongs to that address's family.
-                if (rule.then !== "masquerade" && Address.family(rule.to_address) !== family) continue;
-
-                const action =
-                    rule.then === "masquerade"
-                        ? { action: "masquerade" }
-                        : {
-                              action: rule.then === "snat" ? "src-nat" : "dst-nat",
-                              "to-addresses": Address.host(rule.to_address),
-                              "to-ports": rule.to_port,
-                          };
-                this.add(menu, "add", { ...action, chain, comment: rule.description, ...this.matchProperties(rule.if, family) });
-            }
-        }
-    }
-
-    /** A TCP MSS clamp rewrites a routed SYN, either way, in the mangle table's forward chain. A fixed MSS only lowers one that offers more. */
-    private tcpMss(family: Family): void {
-        const menu = family === "ipv4" ? "/ip firewall mangle" : "/ipv6 firewall mangle";
-
-        for (const rule of this.device.firewall?.tcp_mss ?? []) {
-            if (!this.families(rule.if).includes(family)) continue;
-
-            const fixed = rule.mss === "path_mtu" ? undefined : rule.mss;
-            const properties = {
-                action: "change-mss",
-                chain: "forward",
-                comment: rule.description,
-                ...this.matchProperties({ ...rule.if, protocol: "tcp", tcp_flags: { set: ["syn"] } }, family),
-                "new-mss": fixed ?? "clamp-to-pmtu",
-                "tcp-mss": fixed === undefined ? undefined : `${fixed + 1}-65535`,
-            };
-            // In the order the device exports them, so the rule reads back the same.
-            this.add(menu, "add", Object.fromEntries(Object.entries(properties).sort(([a], [b]) => a.localeCompare(b))));
-        }
-    }
-
-    private helpers(): void {
-        const enabled = this.device.firewall?.conntrack_helpers ?? [];
-
-        for (const helper of RouterOsRender.HELPERS) {
-            this.add("/ip firewall service-port", `set ${helper}`, { disabled: RouterOsRender.yesNo(!enabled.includes(helper)) });
-        }
-    }
-
-    /**
-     * ACLs run in the switch chip on the port traffic arrives on. The chip matches addresses with a dotted mask on IPv4, drops by forwarding to no port, and limits by rate. A rule takes one port or range, so a list becomes one rule for each.
-     */
-    private switchAcls(): void {
-        for (const { port, rule, srcPort, dstPort } of RouterOsRender.switchRules(this.device)) {
-            const match = rule.if ?? {};
-            const src = RouterOsRender.one(match.src);
-            const dst = RouterOsRender.one(match.dst);
-            const vlan = RouterOsRender.one(match.vlan);
-            const ipv6 = match.family === "ipv6" || [src, dst].some((address) => address && Address.family(address) === "ipv6");
-            const address = (prefix: string | undefined) => (prefix && !ipv6 ? RouterOsRender.dottedMask(prefix) : prefix);
-
-            this.add("/interface ethernet switch rule", "add", {
-                comment: rule.description,
-                [ipv6 ? "dst-address6" : "dst-address"]: address(dst),
-                "dst-port": dstPort,
-                "mac-protocol": ipv6 ? "ipv6" : "ip",
-                "new-dst-ports": rule.then === "drop" ? "" : undefined,
-                ports: this.name(port),
-                protocol: match.protocol,
-                rate: rule.rate && RouterOsRender.bitrate(rule.rate),
-                [ipv6 ? "src-address6" : "src-address"]: address(src),
-                "src-port": srcPort,
-                switch: "switch1",
-                "vlan-id": vlan && this.vlanId(vlan),
-            });
-        }
-
-        this.ethertypeFilters();
-    }
-
-    /**
-     * A port that takes only some kinds of frame: a rule that lets each kind through, then one that drops the rest. The chip takes the first rule that matches on the port, so these come after the port's ACL, whose rules match only IPv4 or IPv6.
-     */
-    private ethertypeFilters(): void {
-        for (const { port, ethertypes } of RouterOsRender.ethertypeFilters(this.device)) {
-            const name = this.name(port);
-
-            for (const ethertype of ethertypes) {
-                this.add("/interface ethernet switch rule", "add", {
-                    comment: `${name} takes ${ethertype}`,
-                    "mac-protocol": RouterOsRender.MAC_PROTOCOLS[ethertype],
-                    ports: name,
-                    switch: "switch1",
-                });
-            }
-
-            this.add("/interface ethernet switch rule", "add", {
-                comment: `${name} takes nothing else`,
-                "new-dst-ports": "",
-                ports: name,
-                switch: "switch1",
-            });
-        }
-    }
-
-    /** The ports with an ethertype filter, with the kinds each takes. Each makes one switch rule per kind and one more. */
-    static ethertypeFilters(device: Device): { port: string; ethertypes: readonly Ethertype[] }[] {
-        return Derive.ports(device).flatMap(([port, settings]) => (settings.ethertypes ? [{ port, ethertypes: settings.ethertypes }] : []));
-    }
-
-    /** Every switch rule the device's hardware ACLs make, in order: one for each port with an ACL, each rule of it, and each source and destination port or range of the rule. */
-    static switchRules(device: Device): SwitchRule[] {
-        const each = (ports: Ports | undefined) => (ports === undefined ? [undefined] : RouterOsRender.eachPort(ports));
-        const rules: SwitchRule[] = [];
-
-        for (const [port, settings] of Derive.ports(device)) {
-            if (!settings.ingress_acl) continue;
-
-            for (const rule of device.switching?.acls?.[settings.ingress_acl] ?? []) {
-                for (const srcPort of each(rule.if?.src_port)) {
-                    for (const dstPort of each(rule.if?.dst_port)) rules.push({ port, rule, srcPort, dstPort });
-                }
-            }
-        }
-
-        return rules;
-    }
-
-    private routing(): void {
-        this.routingTables();
-        this.routingRules();
-        this.staticRoutes();
-        this.rpki();
-        if (this.device.routing?.bgp) {
-            this.bgpInstance();
-            this.policies();
-            this.bgpConnections();
-        }
-
-        this.ospf();
-        this.bfd();
-    }
-
-    /** A table beside the main one. `fib` puts its routes in the forwarding table, so traffic can be routed by them. */
-    private routingTables(): void {
-        for (const [name, table] of RouterOsRender.entries(this.device.routing?.tables)) {
-            this.add("/routing table", "add fib", { comment: table.description, name });
-        }
-    }
-
-    /** Rules in the order written. `lookup-only-in-table` drops what the table has no route for, and `lookup` falls back to the main table. */
-    private routingRules(): void {
-        for (const rule of this.device.routing?.policy_routing ?? []) {
-            const onlyInTable = rule.routing_table !== "main" && (rule.fallback ?? "none") === "none";
-            this.add("/routing rule", "add", {
-                action: onlyInTable ? "lookup-only-in-table" : "lookup",
-                comment: rule.description,
-                "dst-address": rule.match?.dst,
-                interface: rule.match?.in_interface && this.name(rule.match.in_interface),
-                "src-address": rule.match?.src,
-                table: rule.routing_table,
-            });
-        }
-    }
-
-    private staticRoutes(): void {
-        for (const route of this.device.routing?.static_routes ?? []) {
-            const menu = Address.family(Address.host(route.prefix)) === "ipv4" ? "/ip route" : "/ipv6 route";
-            const verb = route.blackhole ? "add blackhole" : "add";
-            const nextHop = route.next_hop && Address.host(route.next_hop);
-            const gateway = nextHop ?? (route.interface ? this.name(route.interface) : undefined);
-            this.add(menu, verb, {
-                comment: route.description,
-                distance: route.distance,
-                "dst-address": route.prefix,
-                gateway,
-                "routing-table": route.vrf ?? Utils.otherTable(route.routing_table),
-            });
-        }
-    }
-
-    private rpki(): void {
-        for (const server of this.device.routing?.rpki ?? []) {
-            this.add("/routing rpki", "add", {
-                address: server.address,
-                comment: server.description,
-                group: RouterOsRender.RPKI_GROUP,
-                port: server.port,
-            });
-        }
-    }
-
-    /** The default instance exists on every device; it is stated in the form the export prints it. */
-    private bgpInstance(): void {
-        const bgp = this.device.routing!.bgp!;
-        this.add("/routing bgp instance", "add", { as: bgp.asn, name: "default", "router-id": this.device.routing?.router_id });
-    }
-
-    /** A neighbor's settings with its group's beneath them. */
-    private settingsOf(neighbor: Neighbor): NeighborSettings {
-        const group = neighbor.neighbor_group ? this.device.routing?.bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
-        return { ...group, ...neighbor };
-    }
-
-    /** The families a neighbor exchanges: the ones it states, or its address's. */
-    private familiesOf(neighbor: Neighbor): readonly Family[] {
-        return this.settingsOf(neighbor).address_families ?? [Address.family(neighbor.address)];
-    }
-
-    /** Does a rule belong on a family's chain? A rule naming a prefix, a family, or a prefix set with none of that family belongs elsewhere. A set of both families belongs on both. */
-    private appliesTo(rule: PolicyRule, family: Family): boolean {
-        const match = RouterOsRender.onRoutes(rule) ? rule.if : undefined;
-        if (match?.family && match.family !== family) return false;
-
-        if (match?.prefix && Address.family(Address.host(match.prefix)) !== family) return false;
-
-        if (match?.prefix_set) {
-            const set = this.device.routing?.prefix_sets?.[match.prefix_set];
-            if (!set) return false;
-
-            const prefixes = RouterOsRender.prefixesOf(this.device, match.prefix_set) ?? [];
-            const families = "source" in set ? [set.source.family] : prefixes.map((prefix) => Address.family(Address.host(prefix)));
-            if (!families.includes(family)) return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Policies become filter chains, one per family a session uses, plus every chain those call.
-     *
-     * A chain a session uses directly ends in a reject when its last rule does not decide, so a route nothing accepted is rejected on any platform default. A chain only called returns to its caller instead.
-     */
-    private policies(): void {
-        const bgp = this.device.routing!.bgp!;
-        const policies = this.device.routing?.policies ?? {};
-
-        const wanted = new Map<string, Set<Family>>();
-        const want = (policy: string, family: Family) => {
-            const families = wanted.get(policy) ?? new Set();
-            if (families.has(family)) return;
-
-            families.add(family);
-            wanted.set(policy, families);
-            for (const rule of policies[policy] ?? []) if (rule.call && this.appliesTo(rule, family)) want(rule.call, family);
-        };
-
-        let rejectAllNeeded = false;
-
-        for (const neighbor of Object.values(bgp.neighbors ?? {})) {
-            const settings = this.settingsOf(neighbor);
-
-            for (const family of this.familiesOf(neighbor)) {
-                for (const policy of [settings.import_policy, settings.export_policy]) {
-                    if (policy) want(policy, family);
-                    else rejectAllNeeded = true;
-                }
-            }
-        }
-
-        const called = new Set(Object.values(policies).flatMap((rules) => (rules ?? []).flatMap((rule) => (rule.call ? [rule.call] : []))));
-
-        for (const policy of [...wanted.keys()].sort()) {
-            for (const family of ["ipv4", "ipv6"] as const) {
-                if (!wanted.get(policy)!.has(family)) continue;
-
-                const chain = RouterOsRender.chainName(policy, family);
-                const rules = (policies[policy] ?? []).filter((rule) => this.appliesTo(rule, family));
-
-                for (const rule of rules) {
-                    const text = RouterOsRender.ruleText(rule, family);
-                    const comment = RouterOsRender.onRoutes(rule) ? rule.description : undefined;
-                    if (text) this.add("/routing filter rule", "add", { chain, comment, rule: text });
-                }
-
-                const last = rules.at(-1);
-                const decides = last !== undefined && RouterOsRender.onRoutes(last) && !last.if && last.then !== undefined;
-                if (!called.has(policy) && !decides) this.add("/routing filter rule", "add", { chain, rule: "reject" });
-            }
-        }
-
-        if (rejectAllNeeded) {
-            for (const family of ["ipv4", "ipv6"] as const)
-                this.add("/routing filter rule", "add", {
-                    chain: RouterOsRender.chainName(RouterOsRender.REJECT_ALL, family),
-                    rule: "reject",
-                });
-        }
-    }
-
-    /** One connection per neighbor. The platform carries one family per connection. */
-    private bgpConnections(): void {
-        const bgp = this.device.routing!.bgp!;
-
-        for (const [name, neighbor] of Object.entries(bgp.neighbors ?? {})) {
-            const settings = this.settingsOf(neighbor);
-            const [family] = this.familiesOf(neighbor) as [Family];
-            const addressFamily = Address.family(neighbor.address);
-            const internal = settings.remote_as === bgp.asn;
-            const originates = bgp.originated_prefixes?.some((prefix) => Address.family(Address.host(prefix)) === family);
-            const role = settings.role ? RouterOsRender.ROLES[settings.role] : internal ? "ibgp" : "ebgp";
-
-            this.add("/routing bgp connection", "add", {
-                // Only stated when the routes differ in family from the address they are carried over.
-                afi: addressFamily === family ? undefined : family === "ipv6" ? "ipv6" : "ip",
-                as: bgp.asn,
-                connect: settings.passive ? "no" : undefined,
-                "hold-time": settings.hold_time ? RouterOsRender.duration(settings.hold_time) : undefined,
-                "input.filter": RouterOsRender.chainName(settings.import_policy ?? RouterOsRender.REJECT_ALL, family),
-                // The one instance bgpInstance adds. 7.23 refuses a new connection without it.
-                instance: "default",
-                [`input.limit-process-routes-${family}`]: settings.max_prefixes,
-                "keepalive-time": settings.keepalive ? RouterOsRender.duration(settings.keepalive) : undefined,
-                listen: settings.passive ? "yes" : undefined,
-                "local.address": settings.local_address && Address.host(settings.local_address),
-                "local.role": role,
-                multihop: settings.multihop ? "yes" : undefined,
-                name,
-                "output.filter-chain": RouterOsRender.chainName(settings.export_policy ?? RouterOsRender.REJECT_ALL, family),
-                "output.network": originates ? RouterOsRender.NETWORKS[family] : undefined,
-                "remote.address": `${neighbor.address}/${addressFamily === "ipv4" ? 32 : 128}`,
-                "remote.as": settings.remote_as,
-                "routing-table": Utils.otherTable(settings.routing_table),
-                "tcp-md5-key": settings.password && Secrets.marker(settings.password),
-                "use-bfd": settings.bfd ? "yes" : undefined,
-            });
-        }
-    }
-
-    /** One instance per OSPF version, an area per area and instance, and a template per interface. */
-    private ospf(): void {
-        const ospf = this.device.routing?.ospf;
-        if (!ospf) return;
-
-        for (const family of ospf.address_families ?? ["ipv4"]) {
-            const version = family === "ipv4" ? 2 : 3;
-            const instance = `ospf-v${version}`;
-            this.add("/routing ospf instance", "add", {
-                name: instance,
-                redistribute: ospf.redistribute?.join(","),
-                "router-id": this.device.routing?.router_id,
-                version,
-            });
-
-            for (const [areaId, area] of Object.entries(ospf.areas)) {
-                const areaName = `${instance}-${areaId}`;
-                this.add("/routing ospf area", "add", { "area-id": areaId, instance, name: areaName });
-
-                for (const [iface, settings] of Object.entries(area.interfaces)) {
-                    // `passive` is a flag, written without a value.
-                    const verb = settings?.passive ? "add passive" : "add";
-                    this.add("/routing ospf interface-template", verb, {
-                        area: areaName,
-                        cost: settings?.cost,
-                        interfaces: this.name(iface),
-                        type: settings?.network === "point-to-point" ? "ptp" : undefined,
-                        "use-bfd": settings?.bfd ? "yes" : undefined,
-                    });
-                }
-            }
-        }
-    }
-
-    /**
-     * BFD runs where a session or an OSPF interface asks for it, with the device's timers when it states them. One configuration covers every interface. A multihop session has no interface, and BFD for it is forbidden unless a configuration names its address, so each gets one of its own.
-     */
-    private bfd(): void {
-        const routing = this.device.routing;
-        const bgpBfd = Object.values(routing?.bgp?.neighbors ?? {}).filter((neighbor) => this.settingsOf(neighbor).bfd);
-        const multihop = bgpBfd.filter((neighbor) => this.settingsOf(neighbor).multihop);
-        const ospfWants = Object.values(routing?.ospf?.areas ?? {}).some((area) =>
-            Object.values(area.interfaces).some((iface) => iface?.bfd)
-        );
-        const timers = routing?.bfd;
-        const interval = timers ? `${timers.interval}ms` : undefined;
-        const timerProperties = { "min-rx": interval, "min-tx": interval, multiplier: timers?.multiplier };
-
-        const directWants = bgpBfd.length > multihop.length || ospfWants;
-        if (directWants || (timers && !multihop.length)) {
-            this.add("/routing bfd configuration", "add", { interfaces: "all", ...timerProperties });
-        }
-
-        for (const neighbor of multihop) {
-            const length = Address.family(neighbor.address) === "ipv4" ? 32 : 128;
-            this.add("/routing bfd configuration", "add", { addresses: `${neighbor.address}/${length}`, ...timerProperties });
         }
     }
 

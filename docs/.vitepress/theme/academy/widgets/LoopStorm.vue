@@ -202,7 +202,7 @@ function step() {
         said.value = {
             kind: "bad",
             word: "Storm",
-            text: `Over ${LIMIT_COPIES} copies after ${round.value} rounds, and still growing. Every one is the same frame. On a real network the links fill up, the switches’ address tables keep changing as the laptop’s address arrives from every side, and nothing else gets through.`,
+            text: `Over ${LIMIT_COPIES} copies of the same frame after ${round.value} rounds, and still growing. On a real network, the links fill up and nothing else gets through. The switches’ address tables keep changing, as the laptop’s address arrives from every side.`,
         };
         return;
     }
@@ -212,7 +212,7 @@ function step() {
         said.value = {
             kind: "warn",
             word: "Endless",
-            text: `After ${LIMIT_ROUNDS} rounds the copies are still going round, and they never stop: a frame has no counter like the TTL of a packet. The widget stopped them here. Every new broadcast would add more.`,
+            text: `After ${LIMIT_ROUNDS} rounds, the copies are still going round. They never stop, because a frame has no counter like a packet's TTL. The widget stopped them here, and every new broadcast would add more.`,
         };
     }
 }
@@ -252,7 +252,7 @@ const code = computed(() => {
             class="ac-drawing"
             viewBox="0 0 700 360"
             role="img"
-            aria-label="Three switches in a ring. A laptop hangs off sw-02 and a printer off sw-03. Blocked ports, cut cables and copies of the broadcast on each cable are marked."
+            aria-label="Three switches in a ring. A laptop hangs off sw-02 and a printer off sw-03. Blocked ports, cut cables, and copies of the broadcast on each cable are marked."
         >
             <line class="cable" :x1="60" :y1="300" :x2="sw('sw2').x" :y2="sw('sw2').y" />
             <line class="cable" :x1="640" :y1="300" :x2="sw('sw3').x" :y2="sw('sw3').y" />
@@ -306,10 +306,7 @@ const code = computed(() => {
                 >Round {{ round }}. Copies on the cables: {{ inFlight.length }}. The printer got the broadcast {{ printerGot }} times; the
                 laptop got its own broadcast back {{ laptopGotBack }} times.</template
             >
-            <template v-else
-                >The laptop will send one broadcast to everyone on the network, such as a question for whoever has a certain
-                address.</template
-            >
+            <template v-else>The laptop sends one broadcast, such as an ARP question, to everyone on the network.</template>
         </p>
 
         <div class="controls">
@@ -354,12 +351,13 @@ const code = computed(() => {
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
         <p v-else class="ac-say quiet" aria-live="polite">
-            Send a broadcast with spanning tree off. Then turn it on, send again, and cut the cable between sw-01 and sw-02.
+            Send a broadcast with spanning tree off. Add the second cable, and send again. Then turn spanning tree on, send, and cut the
+            cable between sw-01 and sw-02.
         </p>
         <p class="note">
             Each round, every copy crosses one cable. The widget counts rounds, not time. It opens a blocked port as soon as you cut a
-            cable; real switches first have to notice the cut, which takes a while, longer with the original STP than with RSTP. The MAC
-            addresses end in 01, 02 and 03, in the order of the switch names.
+            cable, but real switches first have to notice the cut. The MAC addresses end in 01, 02, and 03, in the order of the switch
+            names.
         </p>
 
         <CodeView :code="code" title="The switches’ files" />

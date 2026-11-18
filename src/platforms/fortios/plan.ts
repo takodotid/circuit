@@ -169,7 +169,7 @@ export class FortiOsPlan {
 
     /** Tables whose entries need more than a plain comparison, by section. */
     private static readonly TABLES: Record<string, Table> = {
-        // A new aggregate comes with device identification and LLDP of its own, a new VLAN interface, which names no type, with device identification and a role.
+        // A new aggregate comes with device identification and LLDP of its own, a new VLAN interface, which uses no type, with device identification and a role.
         "system interface": {
             // In multi-VDOM mode the device shows the links between VDOMs each NP6 chip has, two per chip.
             factory: ["modem", "ssl.root", ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((chip) => [`npu${chip}_vlink0`, `npu${chip}_vlink1`])],
@@ -219,7 +219,7 @@ export class FortiOsPlan {
     /** A policy denies unless told otherwise. */
     private static readonly DENY = { action: "deny" };
 
-    /** Defaults the device does not print, by section. A config may state one, such as SSH on port 22, and the render states some because other settings appear only once they hold: a DHCP server's resolvers show only while it names them itself, and a policy answers a denied sender only while it denies. */
+    /** Defaults the device does not print, by section. A config may state one, such as SSH on port 22, and the render states some because other settings appear only once they hold: a DHCP server's resolvers show only while it uses them itself, and a policy answers a denied sender only while it denies. */
     private static readonly DEFAULTS: Record<string, Record<string, string>> = {
         "system global": {
             "admin-ssh-port": "22",
@@ -281,7 +281,7 @@ export class FortiOsPlan {
     private static readonly INTERFACE_TABLES = new Set(["system interface", "system gre-tunnel", "system vxlan"]);
 
     /**
-     * Lists of interfaces that exist only while a setting is on, by the list. NTP serves only on interfaces it names, so its list cannot be emptied while it serves, `There aren't any interfaces with NTP server enabled`; turning it off hides the list and lets go of them.
+     * Lists of interfaces that exist only while a setting is on, by the list. NTP serves only on interfaces it uses, so its list cannot be emptied while it serves, `There aren't any interfaces with NTP server enabled`; turning it off hides the list and lets go of them.
      */
     private static readonly HELD_BY: Record<string, string> = { interface: "server-mode" };
 
@@ -396,7 +396,7 @@ export class FortiOsPlan {
         const gone = [...have.settings].filter(([key]) => !want.settings.has(key) && !FortiOsPlan.IGNORED.has(key));
         for (const [key, old] of gone) if (FortiOsPlan.FIRST.has(key)) unset(key, old);
 
-        // In reverse, so a list that names another, such as OSPF's networks naming its areas, goes first.
+        // In reverse, so a list that uses another, such as OSPF's networks naming its areas, goes first.
         for (const [header, child] of [...have.blocks].reverse()) if (!want.blocks.has(header)) nested(header, new FortiOsBlock(), child);
 
         // In reverse, so a setting that shows others, such as port forwarding, goes after them.
@@ -709,8 +709,7 @@ export class FortiOsPlan {
             gone.add(key);
         }
 
-        // A VLAN interface whose VLAN ID and parent another entry takes under a new name, a rename: the device holds one entry per pair,
-        // so the old one goes first, with what names it.
+        // A VLAN interface whose VLAN ID and parent another entry takes under a new name, a rename: the device holds one entry per pair, so the old one goes first, with what names it.
         const pair = (block: FortiOsBlock) => {
             const vlan = block.settings.get("vlanid");
             const parent = block.settings.get("interface");
@@ -746,7 +745,7 @@ export class FortiOsPlan {
     }
 
     /**
-     * The lines, inside one block, that release what names a freed interface: an entry that names one is deleted, and a list a block holds that names one is unset. The device's tree loses them too, so the plan creates or sets them again. An interface the release deletes itself is in `gone`.
+     * The lines, inside one block, that release what names a freed interface: an entry that uses one is deleted, and a list a block holds that uses one is unset. The device's tree loses them too, so the plan creates or sets them again. An interface the release deletes itself is in `gone`.
      */
     private static release(
         block: FortiOsBlock,
@@ -764,7 +763,7 @@ export class FortiOsPlan {
                 if (!FortiOsPlan.NAMES_INTERFACE.has(key) || !FortiOsTree.words(value).some((word) => freed.has(FortiOsTree.bare(word))))
                     continue;
 
-                // A list that exists only while a setting is on goes with it, and lets go of what it names.
+                // A list that exists only while a setting is on goes with it, and lets go of what it uses.
                 const holder = FortiOsPlan.HELD_BY[key];
                 if (holder && block.settings.has(holder)) {
                     send.push(`unset ${holder}`);

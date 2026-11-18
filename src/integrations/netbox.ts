@@ -1,4 +1,4 @@
-// `circuit sync netbox`: keeps NetBox in step with the project, one way: Circuit writes, NetBox shows. Each device goes in with its site, role, model and platform, every port of its model, its interfaces, VLANs, VRFs and addresses, and a cable for each `link`.
+// `circuit sync netbox`: keeps NetBox in sync with the project, one way: Circuit writes, NetBox shows. Each device goes in with its site, role, model and platform, every port of its model, its interfaces, VLANs, VRFs and addresses, and a cable for each `link`.
 //
 // Circuit tags what it makes `circuit`, and changes or deletes only objects with that tag. An object NetBox already holds without it, such as a site the team made, is used as it is, never changed, and listed under Left alone. Networks that name the same NetBox are planned together, so one never deletes what the other made.
 
@@ -7,8 +7,9 @@ import { AddressSpace } from "../core/address-space";
 import { type Holder, Topology } from "../core/topology";
 import type { Device, InterfaceKind, Port, Switched } from "../model";
 import { Platforms } from "../platforms";
-import { Catalog, type PlatformName } from "../platforms/catalog";
-import { Derive } from "../platforms/derive";
+import type { Platform as PlatformName } from "../config/models";
+import { Catalog } from "../core/catalog";
+import { Derive } from "../core/derive";
 import type { SyncChange, SyncNetwork, SyncPlan, SyncTarget } from "./sync";
 
 /** NetBox's JSON, as it answers. Loose, since every kind of object has fields of its own. */
@@ -224,7 +225,7 @@ export class NetBox implements SyncTarget<NetBoxPlan> {
                 }
 
                 if (kind !== "tag" && !NetBox.isTagged(found)) {
-                    untagged.push(`${path} ${key}: in NetBox without the tag ${NetBox.TAG}, so it is used as it is.`);
+                    untagged.push(`${path} ${key}: in NetBox without the tag ${NetBox.TAG}, so Circuit uses it as it is.`);
                     continue;
                 }
 
@@ -571,7 +572,7 @@ export class NetBox implements SyncTarget<NetBoxPlan> {
         const [example] = elsewhere;
         if (example)
             this.notes.push(
-                `${elsewhere.length} prefix(es) on no link of ours, such as ${example.prefix} (${example.what}): no interface of ours is on them, so they are not in NetBox.`
+                `${elsewhere.length} prefix(es) on no interface of ours, such as ${example.prefix} (${example.what}), so they are not in NetBox.`
             );
     }
 

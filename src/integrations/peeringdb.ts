@@ -1,4 +1,4 @@
-// `circuit sync peeringdb`: keeps a network's exchange presence at PeeringDB in step with the project. Each port or interface whose `exchange` names a `peeringdb_ixlan` is one record (a `netixlan`).
+// `circuit sync peeringdb`: keeps a network's exchange presence at PeeringDB in sync with the project. Each port or interface whose `exchange` names a `peeringdb_ixlan` is one record (a `netixlan`).
 //
 // It reads PeeringDB's public API, which needs no key, and sends with the network's API key. Only global addresses are published: an exchange reached over a tunnel often lands on private or shared space, and publishing it would point others at a dead end. A record the project doesn't hold is listed, never deleted, and `operational` is never changed: leaving an exchange is decided outside the project.
 

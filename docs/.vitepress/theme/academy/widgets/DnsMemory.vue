@@ -52,17 +52,20 @@ function lookUp() {
         memory.value.push({ name: entry.name, address: entry.address, forgetsAt: clock.value + entry.ttl });
         said.value = {
             word: "Looked up",
-            text: `The resolver did not remember ${entry.name}, so it asked a root server, the servers for .${top} and the servers for ${domain}: 4 questions, about ${milliseconds} ms. The answer, ${entry.address}, came with a TTL of ${entry.ttl} seconds, so it remembers it until ${time(clock.value + entry.ttl)}.`,
+            text: `The resolver did not remember ${entry.name}. So it asked a root server, the servers for .${top}, and the servers for ${domain}: 4 questions, about ${milliseconds} ms. The answer, ${entry.address}, came with a TTL of ${entry.ttl} seconds, so the resolver remembers it until ${time(clock.value + entry.ttl)}.`,
         };
         log.value.unshift({
             at: clock.value,
-            text: `${entry.name}: asked root, .${top} and ${domain}, 4 questions, about ${milliseconds} ms`,
+            text: `${entry.name}: asked the root, .${top}, and ${domain}: 4 questions, about ${milliseconds} ms`,
             remembered: false,
         });
     }
 
     log.value = log.value.slice(0, 6);
 }
+
+const listOf = (items: string[]) =>
+    items.length > 2 ? `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}` : items.join(" and ");
 
 function wait(seconds: number) {
     clock.value += seconds;
@@ -72,7 +75,7 @@ function wait(seconds: number) {
     said.value = {
         word: "Time passes",
         text: forgotten.length
-            ? `It is now ${time(clock.value)}. The TTL of ${forgotten.join(" and ")} ran out, so the resolver forgot ${forgotten.length > 1 ? "them" : "it"}.`
+            ? `It is now ${time(clock.value)}. The TTL of ${listOf(forgotten)} ran out, so the resolver forgot ${forgotten.length > 1 ? "them" : "it"}.`
             : `It is now ${time(clock.value)}. Nothing in the memory has run out yet.`,
     };
 }
@@ -152,7 +155,7 @@ const sortedMemory = computed(() => [...memory.value].sort((a, b) => a.forgetsAt
                         {{ entry.text }}
                     </li>
                 </ol>
-                <p v-else class="quiet">None yet.</p>
+                <p v-else class="quiet">None</p>
             </div>
         </div>
     </div>

@@ -6,9 +6,8 @@ import type { Client } from "ssh2";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
-import type { Finding } from "../finding";
+import type { Device, Family, Finding } from "../../model";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family } from "../../model";
 import { SerialConsole, type ConsoleDialect, ConsoleShell } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import {
@@ -26,16 +25,18 @@ import {
 } from "../platform";
 import { BgpWait, type WaitLimits } from "../bgp-wait";
 import { RouterOsPlan } from "./plan";
-import { Catalog } from "../catalog";
-import { Derive } from "../derive";
+import { Catalog } from "../../core/catalog";
+import { Derive } from "../../core/derive";
+import { RouterOsFirewall } from "./firewall";
 import { RouterOsRender } from "./render";
+import { RouterOsRouting } from "./routing";
 
 /** Where commands run, one at a time, each returning what it printed: an SSH session, or the console. */
 type Session = {
     run(command: string, timeout?: number): Promise<string>;
     /** Write a file to the device. Only SSH can. */
     upload?(path: string, content: string): Promise<void>;
-    /** A fresh login, which proves access survived: this session ends and a new SSH session opens, or the console logs out and in again. */
+    /** A fresh login, which tests that access survived: this session ends and a new SSH session opens, or the console logs out and in again. */
     fresh(): Promise<Session>;
     end(): void;
 };
@@ -142,7 +143,7 @@ export class RouterOs extends Platform {
     readonly os: OsSupport = {
         name: "MikroTik RouterOS",
         versions: "7",
-        provedOn: "CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24",
+        testedOn: "CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24",
         checked: true,
     };
 
@@ -170,7 +171,7 @@ export class RouterOs extends Platform {
             // What its export accepts by prefix: a prefix it would reject anyway needs no route in the table. Every prefix when the export names none.
             const exportPolicy = neighbor.export_policy ?? group?.export_policy;
             const accepted = (exportPolicy ? (device.routing?.policies?.[exportPolicy] ?? []) : [])
-                .flatMap((rule) => (RouterOsRender.onRoutes(rule) && rule.then === "accept" && rule.if?.prefix ? [rule.if.prefix] : []))
+                .flatMap((rule) => (RouterOsRouting.onRoutes(rule) && rule.then === "accept" && rule.if?.prefix ? [rule.if.prefix] : []))
                 .map((prefix) => Address.canonical(prefix));
             const announced = accepted.length ? originated.filter((prefix) => accepted.includes(Address.canonical(prefix))) : originated;
 
@@ -239,7 +240,7 @@ export class RouterOs extends Platform {
         for (const [name, lag] of RouterOsRender.entries(device.interfaces?.lag)) {
             if (lag.mac_limit !== undefined) found.push(`interfaces.lag.${name}.mac_limit, ${RouterOs.NO_MAC_LIMIT}`);
             if (lag.ethertypes !== undefined)
-                found.push(`interfaces.lag.${name}.ethertypes, on a LAG, which is not proved on a device yet`);
+                found.push(`interfaces.lag.${name}.ethertypes, on a LAG, which is not tested on a device yet`);
 
             for (const field of ["storm_control", "stp"] as const) {
                 if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, on a LAG`);
@@ -273,7 +274,7 @@ export class RouterOs extends Platform {
         for (const [name, user] of Object.entries(snmp?.users ?? {})) {
             if (user.auth !== "sha1") {
                 found.push(
-                    `monitoring.snmp.users.${name}.auth ${user.auth}: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not proved yet)`
+                    `monitoring.snmp.users.${name}.auth ${user.auth}: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not tested yet)`
                 );
             }
         }
@@ -287,6 +288,24 @@ export class RouterOs extends Platform {
             if (route.bfd)
                 found.push(`routing.static_routes ${route.prefix} bfd, a static route's check-gateway takes arp, none or ping on 7.23`);
         }
+
+        // The plan knows a route by its prefix, table, and gateway, as the render writes them. Two routes alike in all three can't be told apart.
+        const routes = new Map<string, number>();
+        (device.routing?.static_routes ?? []).forEach((route, index) => {
+            // `fe80::1%ether1` with both: the render writes the next hop with its interface.
+            const nextHop = route.next_hop && Address.canonical(Address.host(route.next_hop));
+            const gateway = [nextHop, route.interface].filter(Boolean).join("%");
+            const key = [Address.canonical(route.prefix), route.vrf ?? route.routing_table ?? "main", gateway].join(" ");
+            const first = routes.get(key);
+            if (first === undefined) {
+                routes.set(key, index);
+                return;
+            }
+
+            found.push(
+                `routing.static_routes[${index}] ${route.prefix}, with the table and gateway of routing.static_routes[${first}]: RouterOS tells routes to one prefix apart by their gateway. Remove one, or give it its own next_hop`
+            );
+        });
 
         found.push(...RouterOs.unsupportedShapes(device));
         found.push(
@@ -305,9 +324,9 @@ export class RouterOs extends Platform {
             ])
         );
 
-        // BFD on a static route and a MAC limit are refused above, for the reason the device gave, and an ethertype filter on a LAG as unproved.
+        // BFD on a static route and a MAC limit are refused above, for the reason the device gave, and an ethertype filter on a LAG as untested.
         found.push(
-            ...Derive.unproved(device, [
+            ...Derive.untested(device, [
                 "bfd-timers",
                 "multihop-bfd",
                 "static-route-bfd",
@@ -320,6 +339,7 @@ export class RouterOs extends Platform {
         return found;
     }
 
+    /** A route with both `next_hop` and `interface` is written `gateway=fe80::1%ether1`, after the vendor's documentation, and not tested on a device yet. */
     /** What the v1 model can write that the platform does not render: a list of values in one rule's match, an interface set, an address set named in `management.allow`, and a `{ communities }` rule. */
     private static unsupportedShapes(device: Device): string[] {
         const found: string[] = [];
@@ -373,9 +393,9 @@ export class RouterOs extends Platform {
     }
 
     override switchRules(device: Device): SwitchRules {
-        const rules = RouterOsRender.switchRules(device);
+        const rules = RouterOsFirewall.switchRules(device);
         const ranges = new Set(rules.flatMap(({ srcPort, dstPort }) => [srcPort, dstPort]).filter((port) => port?.includes("-")));
-        const filters = RouterOsRender.ethertypeFilters(device).reduce((count, { ethertypes }) => count + ethertypes.length + 1, 0);
+        const filters = RouterOsFirewall.ethertypeFilters(device).reduce((count, { ethertypes }) => count + ethertypes.length + 1, 0);
 
         return { count: rules.length + filters, ranges: ranges.size };
     }
@@ -466,11 +486,10 @@ export class RouterOs extends Platform {
             await session.run(`/system backup load name=${backup} password=""`, 30_000).catch(() => undefined);
             session.end();
 
-            throw new Error("apply failed and the backup is being restored");
+            throw new Error("apply failed and the backup is being restored", { cause: error });
         }
 
-        // A fresh login is the proof that access survived. Only then is the rollback removed, with the backup, which holds every credential,
-        // and any an earlier apply left: one that failed restores its backup, which stays on the device.
+        // A fresh login is the proof that access survived. Only then is the rollback removed, with the backup, which holds every credential, and any an earlier apply left: one that failed restores its backup, which stays on the device.
         const proof = await session.fresh().catch(() => undefined);
         if (!proof) throw new Error(`could not log in again; the device restores ${backup} within ${options.rollback} minutes`);
 
@@ -829,7 +848,7 @@ export class RouterOs extends Platform {
         try {
             await SerialConsole.login(opened.channel, RouterOs.CONSOLE, user, password, console.password_only);
         } catch (error) {
-            opened.close();
+            void opened.close();
             throw error;
         }
 
@@ -843,7 +862,7 @@ export class RouterOs extends Platform {
             },
             end: () => {
                 shell.logout();
-                opened.close();
+                void opened.close();
             },
         };
 

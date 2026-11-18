@@ -5,9 +5,10 @@ import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseEnv } from "node:util";
 import { Validation } from "../checks";
-import { OnePassword, SecretsFile } from "../core/secrets-file";
+import { OnePassword } from "../core/one-password";
+import { SecretsFile } from "../core/secrets-file";
 import { SecretsPassword } from "./secrets-password";
-import { ProjectError, readProject } from "../project/project";
+import { ProjectError, Project } from "../project";
 import { EditorTypes } from "./editor-types";
 import { GITIGNORE, Setup } from "./setup";
 import { Ui } from "./ui";
@@ -289,7 +290,7 @@ export class Migrate {
         const siteOf = (device: Json) => network.site?.(device) ?? Migrate.DEFAULT_SITE;
         if (!network.site)
             notes[""]!.push(
-                `0.x's network names no \`site\`, so every device is at \`${Migrate.DEFAULT_SITE}\`. Rename it in circuit.ts, and its folder under sites/.`
+                `0.x's network has no \`site\`, so every device is at \`${Migrate.DEFAULT_SITE}\`. Rename it in circuit.ts, and its folder under sites/.`
             );
 
         const devices = network.devices.map((d) => {
@@ -463,7 +464,7 @@ export class Migrate {
         const files = [...Migrate.secretFiles(migrated.devices.map((entry) => entry.device)), ...Migrate.secretFiles(migrated.settings)];
         if (files.length)
             migrated.notes[""]!.push(
-                `Copy the files \`secretFile()\` names into this folder, and keep them out of git: ${files.map((file) => `\`${file}\``).join(", ")}.`
+                `Copy the files that \`secretFile()\` uses into this folder, and keep them out of git: ${files.map((file) => `\`${file}\``).join(", ")}.`
             );
 
         if (migrated.notes[""]!.length)
@@ -489,9 +490,9 @@ export class Migrate {
     /** What Circuit v1 finds in the project just written: errors reading it, then each error and warning of the model's checks. */
     static async findings(out: string): Promise<string[]> {
         try {
-            const read = await readProject(out);
+            const read = await Project.read(out);
             return [
-                ...read.warnings.map((warning) => `warning: ${warning}`),
+                ...read.warnings.map((warning) => `warning: ${warning.message}`),
                 ...read.networks.flatMap((network) =>
                     Validation.run(Object.values(network.devices), network.settings.checks).map(
                         (finding) => `${finding.level}: ${finding.device ? `${finding.device}: ` : ""}${finding.message}`
@@ -516,10 +517,7 @@ export class Migrate {
         let copyEnv = false;
         if (existsSync(join(root, ".env"))) {
             if (options.yes) copyEnv = true;
-            else if (Ui.interactive)
-                copyEnv = await Ui.confirm(
-                    "Copy the 0.x project's .env into the new project's secrets? Each value is encrypted there at once."
-                );
+            else if (Ui.interactive) copyEnv = await Ui.confirm("Copy the 0.x project's .env into the new project's secrets, encrypted?");
         }
 
         let password: string | undefined;
@@ -546,7 +544,7 @@ export class Migrate {
                 copyEnv
                     ? `Keep the secrets password in your password manager. In 1Password, Circuit can read it: circuit secrets password --1password op://vault/item/field`
                     : "Set each secret with circuit secrets set NAME.",
-                "circuit validate, then circuit diff <device> on each device.",
+                "Run circuit validate, then circuit diff <device> on each device.",
             ].join("\n"),
             "Next"
         );

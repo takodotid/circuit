@@ -10,7 +10,7 @@ import { EditorTypes } from "../../src/cli/editor-types";
 import { VERSION } from "../../src/cli/version";
 import { Versions } from "../../src/cli/versions";
 import { SecretsFile } from "../../src/core/secrets-file";
-import { readProject } from "../../src/project/project";
+import { Project } from "../../src/project";
 
 // Inside a git hook, such as this repository's own, git's variables point every git command at this repository instead of the test's.
 for (const name of Object.keys(process.env)) if (name.startsWith("GIT_")) delete process.env[name];
@@ -69,12 +69,11 @@ test("git checks each commit with the project's hook", () => {
 });
 
 test("Circuit reads the new project", async () => {
-    const read = await readProject(root);
+    const read = await Project.read(root);
     expect(read.networks.map((network) => network.name)).toEqual(["as64500"]);
 });
 
-// Every project has a circuit.ts, and `bun circuit` with no script of that name runs it instead of the package's `circuit`. The
-// script runs whichever `circuit` it finds, the package's in a full install: here the app, or none, so it only must not be circuit.ts.
+// Every project has a circuit.ts, and `bun circuit` with no script of that name runs it instead of the package's `circuit`. The script runs whichever `circuit` it finds, the package's in a full install: here the app, or none, so it only must not be circuit.ts.
 test("in a full install, bun circuit runs the script, never the project's circuit.ts", () => {
     const folder = join(parent, "full");
     mkdirSync(folder);

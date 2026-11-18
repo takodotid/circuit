@@ -23,7 +23,7 @@ test("a MAC limit is a whole number above 0, and an ethertype filter lets each k
     expect(messages(device)).toEqual(
         expect.arrayContaining([
             `interfaces.ethernet.${port}.mac_limit 0 is not a whole number above 0`,
-            `interfaces.ethernet.${port}.ethertypes names a kind twice`,
+            `interfaces.ethernet.${port}.ethertypes lists a kind twice`,
             "interfaces.lag.members.mac_limit 1.5 is not a whole number above 0",
             "interfaces.lag.members.ethertypes is empty, so it would drop every frame",
         ])
@@ -74,4 +74,45 @@ test("a static route with bfd needs next_hop, the address BFD watches", () => {
     };
 
     expect(messages(viaInterface)).toContain("routing.static_routes 198.51.100.128/25 has bfd without next_hop, the address BFD watches");
+});
+
+// The interface of a link-local next hop goes in `interface`, never after a `%` as some devices write it.
+test("a next hop with an interface after % says where the interface goes", () => {
+    const device: Device = {
+        ...router,
+        routing: { ...router.routing, static_routes: [{ prefix: "::/0", next_hop: "fe80::1%ether1" }] },
+    };
+
+    expect(messages(device)).toContain(
+        'routing.static_routes ::/0 next_hop fe80::1%ether1 has an interface after %. Write next_hop: "fe80::1", and the interface in interface'
+    );
+});
+
+// A blackhole route drops the traffic, so a next hop or an interface beside it says the opposite, on every platform.
+test("a blackhole route has neither next_hop nor interface", () => {
+    const routes: Device["routing"] = {
+        ...router.routing,
+        static_routes: [
+            { prefix: "198.51.100.0/24", blackhole: true, next_hop: "192.0.2.1" },
+            { prefix: "198.51.100.0/25", blackhole: true, interface: "uplink" },
+            { prefix: "2001:db8::/32", blackhole: true, next_hop: "2001:db8:1::1", interface: "uplink" },
+            { prefix: "203.0.113.0/24", blackhole: true },
+        ],
+    };
+    const firewall = Fixtures.device("platforms--example-firewall");
+    const management: NonNullable<Device["system"]>["vdoms"] = {
+        management: { name: "mgmt", interfaces: ["1g-1"], static_routes: [{ prefix: "0.0.0.0/0", blackhole: true, interface: "1g-1" }] },
+    };
+
+    const found = [
+        ...messages({ ...router, routing: routes }),
+        ...messages({ ...firewall, system: { ...firewall.system, vdoms: management } }),
+    ].filter((message) => message.includes("blackhole"));
+
+    expect(found).toEqual([
+        "routing.static_routes 198.51.100.0/24 has blackhole with next_hop. Remove next_hop to drop the traffic, or remove blackhole to forward it",
+        "routing.static_routes 198.51.100.0/25 has blackhole with interface. Remove interface to drop the traffic, or remove blackhole to forward it",
+        "routing.static_routes 2001:db8::/32 has blackhole with next_hop and interface. Remove next_hop and interface to drop the traffic, or remove blackhole to forward it",
+        "system.vdoms.management.static_routes 0.0.0.0/0 has blackhole with interface. Remove interface to drop the traffic, or remove blackhole to forward it",
+    ]);
 });

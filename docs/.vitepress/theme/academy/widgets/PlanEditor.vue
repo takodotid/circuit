@@ -30,12 +30,12 @@ const meanings = computed(() => {
 
     if (edits.describe) {
         said.push(
-            "~ Port 25g-1, which this router calls sfp28-1, gets the comment Office. The router keeps a description on the port's address too, so one line of the file became two commands."
+            "~ Port 25g-1, which this router calls sfp28-1, gets the comment Office. Circuit puts the description on the port's address too, so one line of the file became two commands."
         );
     }
     if (edits.drift) {
         said.push(
-            "~ Port sfp28-5 is turned off again and its comment cleared. Someone turned it on by hand, but the file does not list port 25g-5, and a port the file leaves out is shut down."
+            "~ Port 25g-5, which this router calls sfp28-5, is turned off again. Someone turned it on by hand, but the file does not list it."
         );
     }
     if (edits.dns) said.push("~ The router's DNS setting changes to ask 203.0.113.53.");
@@ -64,10 +64,10 @@ const meanings = computed(() => {
         </div>
 
         <div class="ac-field by-hand">
-            <span>Or change the router without the file</span>
+            <span>Or change the router by hand</span>
             <div class="ac-row">
                 <button type="button" class="ac-button small" :aria-pressed="edits.drift" @click="edits.drift = !edits.drift">
-                    Someone turns on port 25g-5 by hand
+                    Turn on port 25g-5
                 </button>
             </div>
         </div>
@@ -78,13 +78,7 @@ const meanings = computed(() => {
         </div>
 
         <div aria-live="polite">
-            <template v-if="!changesMade">
-                <p class="ac-say hint">
-                    The router runs exactly what this file says, so the plan is empty: <span class="ac-mono">router: matches</span>. Change
-                    the file with a button above, and read the plan again.
-                </p>
-            </template>
-            <ul v-else class="meanings">
+            <ul v-if="changesMade" class="meanings">
                 <li v-for="line in meanings" :key="line">
                     <span class="mark" :class="line[0] === '-' ? 'removed' : 'changed'">{{ line[0] === "-" ? "Remove" : "Change" }}</span>
                     {{ line.slice(2) }}
@@ -107,11 +101,6 @@ const meanings = computed(() => {
 
 .views :deep(.code-view) {
     margin: 0 0 12px;
-}
-
-.hint {
-    margin: 0;
-    color: var(--circuit-soft);
 }
 
 .meanings {

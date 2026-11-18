@@ -27,7 +27,7 @@ export class Academy {
             slug: "beginner",
             name: "Beginner",
             title: "How networks talk",
-            audience: "For anyone who has never studied networking. No words you have not met before.",
+            audience: "For anyone who has never studied networking. Every word is explained when you first meet it.",
             illustration: "/illustrations/academy/level-1.webp",
             lessons: [
                 {
@@ -37,8 +37,8 @@ export class Academy {
                 },
                 {
                     slug: "cables",
-                    title: "Cables, light and radio",
-                    outcome: "Tell a LAN cable from a fibre and an optic module, and say how far and how fast each one goes.",
+                    title: "Cables, light, and radio",
+                    outcome: "Tell a LAN cable from a fiber and an optic, and say how far and how fast each one goes.",
                 },
                 {
                     slug: "packets",
@@ -65,7 +65,7 @@ export class Academy {
                 {
                     slug: "dns",
                     title: "Names and numbers: DNS",
-                    outcome: "Follow a name like circuit.tako.id to the address it stands for.",
+                    outcome: "Follow a name such as circuit.tako.id to the address it stands for.",
                 },
                 {
                     slug: "ports",
@@ -112,12 +112,12 @@ export class Academy {
                 {
                     slug: "management",
                     title: "Keeping the keys",
-                    outcome: "Lock down who may log in to a device, and keep its passwords out of the files.",
+                    outcome: "Control who may log in to a device, and keep its passwords encrypted.",
                 },
                 {
                     slug: "project-single-site",
                     title: "Project: a single site",
-                    outcome: "Write, check and apply a router and a switch for a small site.",
+                    outcome: "Write the files of a router and a switch for a small site, check them, and apply them.",
                 },
             ],
         },
@@ -133,11 +133,11 @@ export class Academy {
                     title: "Routing tables",
                     outcome: "Pick the route a router uses for an address, by the longest match.",
                 },
-                { slug: "ipv6", title: "IPv6", outcome: "Read, shorten and plan IPv6 addresses." },
+                { slug: "ipv6", title: "IPv6", outcome: "Read, shorten, and plan IPv6 addresses." },
                 {
                     slug: "ospf",
                     title: "Routers that talk: OSPF",
-                    outcome: "Explain how routers find the shortest path, and around a broken link.",
+                    outcome: "Explain how routers find the shortest path, and how they route around a broken link.",
                 },
                 {
                     slug: "autonomous-systems",
@@ -158,12 +158,12 @@ export class Academy {
                 {
                     slug: "redundancy",
                     title: "Staying up",
-                    outcome: "Join links into a LAG, and keep a loop of switches from melting down.",
+                    outcome: "Join links into a LAG, and stop a loop of switches from flooding the network.",
                 },
                 {
                     slug: "project-edge-router",
                     title: "Project: an edge router",
-                    outcome: "Run your own AS with a transit and an exchange, written in Circuit.",
+                    outcome: "Run your own AS with a transit provider and an exchange, written in Circuit.",
                 },
             ],
         },
@@ -179,17 +179,17 @@ export class Academy {
                     slug: "last-mile",
                     title: "Reaching the customer",
                     outcome:
-                        "Say how a customer is connected, over fibre, copper, radio or satellite, and what each does to speed and delay.",
+                        "Say how a customer is connected, over fiber, copper, radio, or satellite, and what each does to speed and delay.",
                 },
                 {
                     slug: "internet-products",
                     title: "What an ISP sells",
-                    outcome: "Tell broadband from DIA, and DIA from IP transit and IX transit, and read how each is billed.",
+                    outcome: "Tell broadband, DIA, IP transit, and IX transit apart, and read how each is billed.",
                 },
                 {
                     slug: "private-circuits",
                     title: "Carrying your own traffic",
-                    outcome: "Choose between Metro-E, L2 transport, IP VPN, IPLC, IEPL, dark fibre and a wavelength for a need.",
+                    outcome: "Choose Metro-E, L2 transport, IP VPN, IPLC, IEPL, dark fiber, or a wavelength to fit a need.",
                 },
                 {
                     slug: "who-is-who",
@@ -219,7 +219,7 @@ export class Academy {
                 {
                     slug: "routing-security",
                     title: "Hijacks and leaks",
-                    outcome: "Tell a hijack from a leak, and stop both with RPKI, IRR filters and MANRS.",
+                    outcome: "Tell a hijack from a leak, and stop both with RPKI, IRR filters, and MANRS.",
                 },
                 {
                     slug: "ddos-and-spoofing",
@@ -234,12 +234,12 @@ export class Academy {
                 {
                     slug: "operations",
                     title: "Running it day to day",
-                    outcome: "Change the network through review, handle an incident, and keep the plant written down.",
+                    outcome: "Change the network through review, handle an incident, and keep records of racks, cables, and addresses.",
                 },
                 {
                     slug: "project-colocation",
                     title: "Project: a colocation",
-                    outcome: "Host tenants with their own VLANs, addresses and ports, written in Circuit.",
+                    outcome: "Host tenants with their own VLANs, addresses, and ports, written in Circuit.",
                 },
                 {
                     slug: "project-internet-exchange",
@@ -280,5 +280,24 @@ export class Academy {
                 ...level.lessons.map((lesson, index) => ({ text: `${index + 1}. ${lesson.title}`, link: Academy.link(level, lesson) })),
             ],
         })),
+        // One practice per page, with no entry check: a reader opens the one they need.
+        {
+            text: "Best practices",
+            link: "/academy/practices/",
+            collapsed: false,
+            items: [
+                { text: "Exports end in a reject", link: "/academy/practices/exports-end-in-reject" },
+                { text: "Imports filter, then decide", link: "/academy/practices/import-filters" },
+                { text: "A prefix limit on every session", link: "/academy/practices/max-prefixes" },
+                { text: "Tunnels start outside what they carry", link: "/academy/practices/tunnel-sources" },
+                { text: "Drop forged sources", link: "/academy/practices/anti-spoofing" },
+                { text: "Drop reflected floods", link: "/academy/practices/reflected-floods" },
+                { text: "Management on its own network", link: "/academy/practices/management" },
+                { text: "Untrusted VLANs end at a filter", link: "/academy/practices/untrusted-vlans" },
+                { text: "One VLAN name, one ID", link: "/academy/practices/vlan-ids" },
+                { text: "A native VLAN is a dead end", link: "/academy/practices/native-vlans" },
+                { text: "Links written at both ends", link: "/academy/practices/links" },
+            ],
+        },
     ];
 }

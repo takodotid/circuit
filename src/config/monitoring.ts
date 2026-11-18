@@ -33,18 +33,18 @@ export type FlowExport<I extends string> = {
     collectors: readonly {
         /** Where the collector listens. */
         address: IP;
-        /** UDP port. When absent: 6343 for sFlow and 4739 for IPFIX (IANA), 2055 for NetFlow v9 (the usual one). */
+        /** The UDP port. When absent, 6343 for sFlow and 4739 for IPFIX (their IANA ports), or 2055 for NetFlow v9 (the common choice). */
         port?: number;
     }[];
-    /** Sample one packet in this many. Every packet when absent, on a platform that can export every packet. */
+    /** Sample one packet in this many. When absent, every packet, on a platform that can export every packet. */
     sampling?: number;
-    /** Some of the device's ports and interfaces: where traffic is observed. Every interface when absent. */
+    /** The ports and interfaces to watch. Every interface when absent. */
     interfaces?: readonly I[];
 };
 
 /** What the device reports to collectors. `I` is the device's ports and interfaces. */
 export type Monitoring<I extends string> = {
-    /** Polling by SNMP. */
+    /** SNMP polling. */
     snmp?: Service & {
         /** Read-only community for version 2c. Version 2c is off when absent. */
         community?: Secret;
@@ -59,6 +59,6 @@ export type Monitoring<I extends string> = {
     syslog?: readonly SyslogServer[];
     /** Flow records or packet samples sent to collectors. */
     flow_export?: FlowExport<I>;
-    /** Read optic temperature, power and voltage. */
+    /** Read the optics' temperature, power and voltage. */
     transceivers?: boolean;
 };

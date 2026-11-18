@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { SecretsFile } from "../core/secrets-file";
 import { Secrets } from "../core/secrets";
 import { Platforms } from "../platforms";
-import { Releases } from "../cli/releases";
+import { Installation } from "../core/installation";
 import { STUDIO_ASSETS } from "./assets.generated";
 import { Git } from "./git";
 import type { LiveRead, SecretEntry, SecretsFileListing, SecretsListing, StudioData } from "./types";
@@ -49,7 +49,7 @@ export class StudioServer {
 
     /** Circuit itself, to run again: the binary, or Bun with Circuit's sources. */
     private static self(): { command: string; args: string[] } {
-        return Releases.binary()
+        return Installation.binary()
             ? { command: process.execPath, args: [] }
             : { command: process.execPath, args: [...process.execArgv, process.argv[1]!] };
     }
@@ -120,13 +120,7 @@ export class StudioServer {
             return { name: entry, kind, needed: isNeeded };
         });
 
-        const passwordLocation = file.passwordLocation();
-        return {
-            file: name,
-            networks: networks.map((network) => network.name),
-            ...(passwordLocation ? { passwordLocation } : {}),
-            entries,
-        };
+        return { file: name, entries };
     }
 
     /** Read a device now and plan against what it runs, as `circuit diff` does. Nothing is kept. */
@@ -251,7 +245,7 @@ export class StudioServer {
                 void answer(response, async () => {
                     const asked = url.searchParams.get("ref") ?? "";
                     const commit = await Git.commitOf(root, asked);
-                    if (!commit) throw new Error(`${asked} names no commit here`);
+                    if (!commit) throw new Error(`${asked} is not a branch, tag, or commit of the project.`);
 
                     if (!past.has(commit.commit)) past.set(commit.commit, Git.projectAt(root, commit.commit, gather));
                     const project = await past.get(commit.commit)!;
@@ -281,7 +275,10 @@ export class StudioServer {
                 return;
             }
 
-            const asset = STUDIO_ASSETS[path === "/" ? "index.html" : path.slice(1)];
+            // Every other path is a page of Studio, such as /devices/edge-01, so a reload or a bookmark opens it. A missing file under /api/ or
+            // /assets/ stays missing: a page in its place would break the script that asked for it.
+            const page = (request.method === "GET" || request.method === "HEAD") && !/^\/(api|assets)\//.test(path);
+            const asset = STUDIO_ASSETS[path.slice(1)] ?? (page ? STUDIO_ASSETS["index.html"] : undefined);
             if (!asset) {
                 response.writeHead(404).end();
                 return;

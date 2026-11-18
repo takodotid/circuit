@@ -3,7 +3,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Console, Device, IP, Secret } from "../model";
-import { OnePassword, SecretsFile } from "./secrets-file";
+import { OnePassword } from "./one-password";
+import { SecretsFile } from "./secrets-file";
 
 /** Anything that holds secret references, such as a network's devices. */
 type Network = object;
@@ -86,18 +87,6 @@ export class Secrets {
         return "secret" in secret ? secret.secret : `file:${secret.secret_file}`;
     }
 
-    /** Where a reference's value comes from, such as `.circuit/secrets, encrypted` or `1Password, through the environment`, without reading it. Undefined when it is set nowhere. */
-    static sourceOf(reference: string): string | undefined {
-        if (reference.startsWith("file:")) return existsSync(join(Secrets.root, reference.slice("file:".length))) ? "a file" : undefined;
-
-        const where = process.env[reference] ? "the environment" : Secrets.file().name;
-        const value = process.env[reference] || Secrets.stored()[reference];
-        if (!value) return undefined;
-
-        if (value.startsWith("op://")) return `1Password, through ${where}`;
-        return SecretsFile.isEncrypted(value) ? `${where}, encrypted` : where;
-    }
-
     /** The value behind a reference, as `referenceOf` writes it: one marker's reference, for a platform that takes a secret interactively. */
     static valueOf(reference: string): string {
         if (reference.startsWith("file:")) {
@@ -146,8 +135,7 @@ export class Secrets {
     }
 
     /**
-     * The secrets file when a secret of `value`, such as a device, is encrypted in it and no password is at hand: the person has to type
-     * it before the work starts. Undefined when every secret can be read. A password in the environment or 1Password opens the file here.
+     * The secrets file when a secret of `value`, such as a device, is encrypted in it and no password is at hand: the person has to type it before the work starts. Undefined when every secret can be read. A password in the environment or 1Password opens the file here.
      */
     static lockedFor(value: unknown): SecretsFile | undefined {
         const file = Secrets.file();

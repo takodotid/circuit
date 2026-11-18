@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { Releases } from "./releases";
+import { Installation } from "../core/installation";
 import { Ui } from "./ui";
 
 export class App {
@@ -25,26 +25,29 @@ export class App {
             .join("\n");
     }
 
+    /** How this Circuit runs itself again: the installed binary, or Bun with these sources. */
+    static self(): string[] {
+        return Installation.binary() ? [process.execPath] : [process.execPath, join(import.meta.dir, "index.ts")];
+    }
+
     /** Take Circuit off this machine, once the person says yes, or with `--confirm`. */
     static async uninstall(confirmed: boolean): Promise<void> {
-        const binary = Releases.binary() ?? Ui.fail("This Circuit runs from its sources, so there is nothing installed to remove.");
+        const binary = Installation.binary() ?? Ui.fail("This Circuit runs from its sources, so there is nothing installed to remove.");
         const folder = dirname(binary);
 
         if (!confirmed) {
-            if (!Ui.interactive) Ui.fail("Not removed. Without a person to answer, add --confirm.");
-            Ui.note(`${binary}\n${Releases.home()}\nYour projects stay as they are.`, "This removes");
+            if (!Ui.interactive) Ui.fail("Not removed. Without a terminal, add --confirm.");
+            Ui.note(`${binary}\n${Installation.home()}\nYour projects stay as they are.`, "This removes");
             if (!(await Ui.confirm("Uninstall Circuit?"))) return;
         }
 
-        rmSync(Releases.home(), { recursive: true, force: true });
+        rmSync(Installation.home(), { recursive: true, force: true });
 
         if (process.platform === "win32") {
             App.removeFromWindowsPath(folder);
             spawnSync("reg", ["delete", App.UNINSTALL_KEY, "/f"], { stdio: "ignore" });
 
-            // Windows does not let a running program delete itself, so a separate process deletes it once this one has ended: it tries
-            // again until the file goes, for about ten seconds. Only cmd's own commands: a program it started, such as ping to wait,
-            // would open a console window. The line goes to cmd as written; quoted the usual way, cmd can't read the paths.
+            // Windows does not let a running program delete itself, so a separate process deletes it once this one has ended: it tries again until the file goes, for about ten seconds. Only cmd's own commands: a program it started, such as ping to wait, would open a console window. The line goes to cmd as written; quoted the usual way, cmd can't read the paths.
             const remove = `del /f /q "${binary}" "${binary}.old" 2>nul & if not exist "${binary}" (rmdir "${folder}" 2>nul & exit)`;
             spawn("cmd", ["/d", "/c", `for /l %i in (1,1,10000) do @(${remove})`], {
                 detached: true,

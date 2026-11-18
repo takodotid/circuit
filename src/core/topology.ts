@@ -1,9 +1,9 @@
 // The network as a graph, read from the project alone: cables, the VLANs they carry, shared segments, BGP sessions, OSPF adjacencies and tunnels. `circuit studio` draws it.
 
 import type { Device, Gre, Port, Routed, Switched, Vrrp, Vxlan, WireGuardPeer } from "../model";
-import { Derive } from "../platforms/derive";
+import { Derive } from "./derive";
 import { Address } from "./address";
-import type { CarriedVlan, Graph, GraphEdge, GraphNode, Layer } from "./graph";
+import type { CarriedVlan, Graph, GraphEdge, GraphNode } from "./graph";
 
 export type { CarriedVlan, Graph, GraphEdge, GraphNode, Layer } from "./graph";
 
@@ -42,8 +42,6 @@ class Builder {
 }
 
 export class Topology {
-    static readonly LAYERS: readonly Layer[] = ["l1", "l2", "l3", "bgp", "ospf", "tunnels"];
-
     static deviceId(name: string): string {
         return `device:${name}`;
     }
@@ -315,7 +313,7 @@ export class Topology {
         });
     }
 
-    /** `bgp`: sessions between our devices, matched by the address each names, and to every AS outside. */
+    /** `bgp`: sessions between our devices, matched by the address each uses, and to every AS outside. */
     private static sessions(devices: readonly Device[], owners: Map<string, Holder>, graph: Builder): void {
         const all = Topology.sessionsOf(devices);
         type Session = (typeof all)[number];
@@ -341,7 +339,7 @@ export class Topology {
             const far = ownerOf(session);
 
             if (far && far !== session.device) {
-                // The far device's session back: one of the same family that names an address this device holds.
+                // The far device's session back: one of the same family that uses an address this device holds.
                 const back = all.find(
                     (other) =>
                         other.device === far &&

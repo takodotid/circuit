@@ -1,6 +1,6 @@
 // Junos, as on the QFX series with its Enhanced Layer 2 Software.
 //
-// The configuration is read and written as `set` statements, one per line, the form `show configuration | display set` prints. A statement the render does not hold is deleted, at the shortest path that holds nothing the render wants. Changes stage in a candidate and take effect only at `commit`. `commit confirmed` rolls itself back unless confirmed, so access is proved by a fresh login before the commit is confirmed.
+// The configuration is read and written as `set` statements, one per line, the form `show configuration | display set` prints. A statement the render does not hold is deleted, at the shortest path that holds nothing the render wants. Changes stage in a candidate and take effect only at `commit`. `commit confirmed` rolls itself back unless confirmed, so a fresh login tests access before the commit is confirmed.
 
 import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
@@ -9,17 +9,19 @@ import { Secrets } from "../../core/secrets";
 import type { Device, Family, Lag, Port, Routed } from "../../model";
 import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
-import { Catalog } from "../catalog";
-import { Derive, type ProvedFeature } from "../derive";
-import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
+import { Catalog } from "../../core/catalog";
+import { Derive, type TestedFeature } from "../../core/derive";
+import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
 import { JunosBgp } from "./bgp";
-import { JunosNames, JunosRender } from "./render";
+import { JunosNames } from "./names";
+import { JunosPlan } from "./plan";
+import { JunosRender } from "./render";
 
 /** How a commit that could cut access is guarded: it rolls back after `minutes` unless `prove` shows access survived. */
 export type Guard = { minutes: number; prove: () => Promise<void> };
 
 export class Junos extends Platform {
-    /** How the console asks for a login. Root lands in a shell, `%`, every other user in the CLI, `>`; a session left in configuration mode, `#`, leaves it first. Not yet proved on a device. */
+    /** How the console asks for a login. Root lands in a shell, `%`, every other user in the CLI, `>`; a session left in configuration mode, `#`, leaves it first. Not yet tested on a device. */
     static readonly CONSOLE: ConsoleDialect = {
         // On a line of its own: the banner after a login says `Last login: ...`, and a chunk can end right after it.
         login: /(?:^|\n)login: $/,
@@ -29,64 +31,11 @@ export class Junos extends Platform {
         others: [[/# $/, "exit configuration-mode\n"]],
     };
 
-    /** The release this adapter renders for, and was proved on. */
+    /** The release this adapter renders for, and was tested on. */
     private static readonly SUPPORTED_MAJOR = 21;
-
-    /** Statements the device keeps for itself: the release it runs and the number it gives each user. */
-    private static readonly DEVICE_FACTS = [/^set version /, /^set system login user \S+ uid \d+$/];
 
     /** Names the platform keeps for its own system accounts. A user under one fails the commit check. */
     private static readonly SYSTEM_ACCOUNTS = new Set(["bind", "daemon", "kmem", "nobody", "operator", "sshd", "tty", "uucp"]);
-
-    /** A value the device keeps hashed or encrypted, and the render writes as a marker, as one word both sides share. Each keeps the number of words. */
-    private static readonly SECRETS: [RegExp, string][] = [
-        [/ (?:encrypted-password|plain-text-password-value) (?:"[^"]*"|\S+)/, " password <secret>"],
-        [/ (?:authentication-key|authentication-password) (?:"[^"]*"|\S+)/, " authentication-key <secret>"],
-        [/ (?:privacy-key|privacy-password) (?:"[^"]*"|\S+)/, " privacy-key <secret>"],
-        [/^set snmp community (?:"[^"]*"|\S+)/, "set snmp community <secret>"],
-    ];
-
-    /** Lists whose entries are named: a delete cannot stop at the list, `delete interfaces xe-0/0/1 unit`, only at an entry, `unit 0`. A leaf-list such as `vlan members` or `ciphers` can go whole. */
-    private static readonly NAMED_LISTS = new Set([
-        "address",
-        "area",
-        "as-path",
-        "class",
-        "collector",
-        "community",
-        "family",
-        "file",
-        "filter",
-        "group",
-        "host",
-        "interface",
-        "interfaces",
-        "neighbor",
-        "oid",
-        "policer",
-        "policy-statement",
-        "pool",
-        "prefix",
-        "prefix-list",
-        "qualified-next-hop",
-        "range",
-        "rib",
-        "route",
-        "security-level",
-        "security-model",
-        "security-name",
-        "server",
-        "server-group",
-        "session",
-        "storm-control-profiles",
-        "term",
-        "trap-group",
-        "unit",
-        "user",
-        "view",
-        "vlan",
-        "vrrp-group",
-    ]);
 
     /** A prompt at the end of what the device printed: `user@host> `, `user@host# `, or a shell's `% `. */
     private static readonly PROMPT = /[>#%] $/;
@@ -103,8 +52,8 @@ export class Junos extends Platform {
     /** Commands that only read. */
     private static readonly READS = /^show\s/;
 
-    /** Features `Derive.unproved` refuses until a platform proves them, proved here on a QFX5100-48S-6Q running Junos 21.4R3. */
-    private static readonly PROVED: readonly ProvedFeature[] = [
+    /** Features `Derive.untested` refuses until a platform tests them, tested here on a QFX5100-48S-6Q running Junos 21.4R3. */
+    private static readonly TESTED: readonly TestedFeature[] = [
         "bfd-timers",
         "static-route-bfd",
         "multihop-bfd",
@@ -118,7 +67,7 @@ export class Junos extends Platform {
     readonly os: OsSupport = {
         name: "Juniper Junos",
         versions: "21",
-        provedOn: "QFX5100-48S-6Q, Junos 21.4R3",
+        testedOn: "QFX5100-48S-6Q, Junos 21.4R3",
         checked: true,
     };
 
@@ -277,6 +226,9 @@ export class Junos extends Platform {
 
         for (const route of routing?.static_routes ?? []) {
             if (route.description) found.push(`routing.static_routes ${route.prefix} description`);
+            // The render writes the next hop alone, so the interface would be lost.
+            if (route.next_hop && route.interface)
+                found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
 
             const table = `${route.vrf ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
             tables.set(table, (tables.get(table) ?? 0) + 1);
@@ -322,7 +274,7 @@ export class Junos extends Platform {
                 found.push(`monitoring.flow_export.interfaces ${name}, a management port`);
         }
 
-        found.push(...Derive.unproved(device, Junos.PROVED));
+        found.push(...Derive.untested(device, Junos.TESTED));
         found.push(...Derive.unbuilt(device));
 
         return found;
@@ -412,154 +364,8 @@ export class Junos extends Platform {
         return text.replace(/&(amp|lt|gt|quot|apos);/g, (_, name: string) => entities[name]!);
     }
 
-    /**
-     * What changes, by section.
-     *
-     * A statement the render holds and the device does not is set. One the device holds and the render does not is deleted at the shortest path that holds nothing the render wants, so a removed port goes as a whole and a changed value goes alone. A hidden value ends a path by its name alone; a hidden name in a list, such as a community, stays `<redacted>` and the session names each entry when it sends the plan. A statement the device holds deactivated is activated when the render wants it.
-     *
-     * A policy, a filter or an import or export chain is ordered, so when anything in one changes it is deleted and set again whole, in the render's order. A path the render marks as generated, such as a prefix list `refresh` fills, keeps what the device holds.
-     */
     plan(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
-        const lines = (text: string, verb: string) => text.split("\n").filter((line) => line.startsWith(`${verb} `));
-
-        const wanted = lines(desired, "set");
-        const deactivated = lines(current, "deactivate");
-        const generated = desired
-            .split("\n")
-            .filter((line) => line.startsWith(JunosBgp.GENERATED))
-            .map((line) => Junos.wordsOf(line.slice(JunosBgp.GENERATED.length)).map(Junos.bare));
-
-        const printed = lines(current, "set").filter((line) => !Junos.DEVICE_FACTS.some((fact) => fact.test(line)));
-        const isGenerated = (line: string) =>
-            generated.some((path) => Junos.keyOf(line).length > path.length && Junos.startsWith(Junos.keyOf(line), path));
-        const existing = printed.filter((line) => !isGenerated(line));
-
-        const join = (path: string[]) => path.join("\u0000");
-        const wantedPaths = wanted.map(Junos.keyOf);
-        const wantedKeys = new Set(wantedPaths.map(join));
-        const existingKeys = new Set(existing.map((line) => join(Junos.keyOf(line))));
-
-        const wantedUnder = (path: string[]) => wantedPaths.filter((other) => Junos.startsWith(other, path));
-
-        const sections = new Map<string, { show: string[]; activate: string[]; remove: string[]; add: string[] }>();
-        const sectionFor = (path: string[]) => {
-            const name = Junos.sectionOf(path);
-            if (!sections.has(name)) sections.set(name, { show: [], activate: [], remove: [], add: [] });
-            return sections.get(name)!;
-        };
-
-        // Sections in the order the render lists them, then the ones only the device has.
-        for (const path of wantedPaths) sectionFor(path);
-
-        // Ordered blocks the render holds whose items or order differ from the device's are rewritten whole.
-        const rewritten: string[][] = [];
-        const blocks = new Map<string, string[]>();
-        for (const path of wantedPaths) {
-            const ordered = Junos.orderedBlockOf(path);
-            if (ordered) blocks.set(join(ordered.block), ordered.block);
-        }
-
-        for (const block of blocks.values()) {
-            const inBlock = (line: string) => Junos.startsWith(Junos.keyOf(line), block);
-            const order = (all: string[]) => [...new Set(all.filter(inBlock).map((line) => Junos.orderedBlockOf(Junos.keyOf(line))!.item))];
-            const keys = (all: string[]) =>
-                all
-                    .filter(inBlock)
-                    .map((line) => join(Junos.keyOf(line)))
-                    .sort()
-                    .join("\n");
-
-            const wantedHere = wanted.filter(inBlock);
-            const existingHere = existing.filter(inBlock);
-            if (join(order(wanted)) === join(order(existing)) && keys(wanted) === keys(existing)) continue;
-
-            rewritten.push(block);
-            const section = sectionFor(block);
-
-            if (existingHere.length)
-                section.remove.push(
-                    `delete ${Junos.wordsOf(existingHere[0]!)
-                        .slice(1, 1 + block.length)
-                        .join(" ")}`
-                );
-            section.show.push(...existingHere.map((line) => `- ${line}`), ...wantedHere.map((line) => `+ ${line}`));
-            section.add.push(...wantedHere);
-        }
-
-        const isRewritten = (line: string) => rewritten.some((block) => Junos.startsWith(Junos.keyOf(line), block));
-
-        const removed: string[][] = [];
-
-        for (const line of existing) {
-            if (isRewritten(line)) continue;
-
-            const path = Junos.keyOf(line);
-            if (wantedKeys.has(join(path))) continue;
-            // The render extends this statement, so setting the longer one replaces it.
-            if (wantedUnder(path).length) continue;
-
-            let length = 1;
-            while (wantedUnder(path.slice(0, length)).length) length++;
-            while (length < path.length && !Junos.canStopAt(path, length - 1)) length++;
-
-            const hidden = path.indexOf("<secret>");
-            if (hidden >= 0 && hidden < length && !Junos.NAMED_LISTS.has(path[hidden - 1]!)) length = hidden;
-
-            removed.push(Junos.wordsOf(line).slice(1, 1 + length));
-        }
-
-        // A path inside another removed path goes with it.
-        const isInside = (path: string[], other: string[]) =>
-            other.length < path.length && other.every((word, index) => Junos.bare(path[index]!) === Junos.bare(word));
-        const removals = removed.filter(
-            (path, index) =>
-                !removed.some((other) => isInside(path, other)) && removed.findIndex((other) => join(other) === join(path)) === index
-        );
-
-        const isRemoved = (line: string) => removals.some((path) => Junos.startsWith(Junos.keyOf(line), path.map(Junos.bare)));
-
-        for (const path of removals) {
-            const section = sectionFor(path.map(Junos.bare));
-            section.remove.push(`delete ${path.join(" ")}`);
-
-            const under = existing.filter((line) => Junos.startsWith(Junos.keyOf(line), path.map(Junos.bare)));
-            section.show.push(...under.map((line) => `- ${line}`));
-        }
-
-        for (const line of deactivated) {
-            const path = Junos.wordsOf(line).slice(1);
-            if (!wantedUnder(path.map(Junos.bare)).length) continue;
-
-            const section = sectionFor(path.map(Junos.bare));
-            section.activate.push(`activate ${path.join(" ")}`);
-            section.show.push(`+ activate ${path.join(" ")}`);
-        }
-
-        // A statement the device extends with one it keeps is there already: the device prints only the longest.
-        const extended = (path: string[]) => printed.some((line) => !isRemoved(line) && Junos.startsWith(Junos.keyOf(line), path));
-
-        for (const line of wanted) {
-            if (isRewritten(line)) continue;
-
-            const path = Junos.keyOf(line);
-            const isNew = !existingKeys.has(join(path)) && !extended(path);
-            const rotated = options.secrets && line.includes("<secret:");
-            if (!isNew && !rotated) continue;
-
-            const section = sectionFor(path);
-            section.add.push(line);
-            section.show.push(`+ ${line}`);
-
-            // A community is named by its value, so a new value is a second community. The device's go first.
-            const clear = "delete snmp community <redacted>";
-            if (rotated && line.startsWith("set snmp community ") && !section.remove.includes(clear)) section.remove.push(clear);
-        }
-
-        const steps: Step[] = [...sections]
-            .filter(([, section]) => section.show.length)
-            .map(([title, section]) => ({ title, show: section.show, send: [...section.activate, ...section.remove, ...section.add] }));
-
-        return { steps, problems: [] };
+        return JunosPlan.of(desired, current, options);
     }
 
     async apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
@@ -639,31 +445,13 @@ export class Junos extends Platform {
                 run: (command, timeout) => shell.run(command, timeout),
                 close: () => {
                     shell.logout();
-                    opened.close();
+                    void opened.close();
                 },
             };
         }
 
         const client = await Junos.login(device);
         return { run: (command, timeout) => Ssh.exec(client, command, timeout), close: () => client.end() };
-    }
-
-    /** A statement's words; a quoted value is one word with its quotes. */
-    private static wordsOf(statement: string): string[] {
-        return statement.match(/"(?:[^"\\]|\\.)*"|\S+/g) ?? [];
-    }
-
-    /** A word as the platform means it, without quotes or escapes, so a value quoted on one side and not on the other compares equal. */
-    private static bare(word: string): string {
-        return word.startsWith('"') ? word.slice(1, -1).replace(/\\(.)/g, "$1") : word;
-    }
-
-    /** A statement in the form both sides compare in: its words, secrets as one marker, quotes dropped. */
-    private static keyOf(statement: string): string[] {
-        let canonical = statement;
-        for (const [pattern, replacement] of Junos.SECRETS) canonical = canonical.replace(pattern, replacement);
-
-        return Junos.wordsOf(canonical).slice(1).map(Junos.bare);
     }
 
     /** The device prints a password as a hash, an SNMP key as a reversible cipher, and a community as itself. None leave the read. */
@@ -682,46 +470,9 @@ export class Junos extends Platform {
             .split("\n")
             .map((line) => line.trimEnd())
             .filter((line) => /^(set|deactivate) /.test(line))
-            .filter((line) => !Junos.DEVICE_FACTS.some((fact) => fact.test(line)));
+            .filter((line) => !JunosPlan.DEVICE_FACTS.some((fact) => fact.test(line)));
 
         return Junos.scrub(statements.join("\n") + "\n");
-    }
-
-    /** Whether a delete may stop after `path[index]`. Below the top level a named list may not; `vlan` names a list except in `vlan members`. */
-    private static canStopAt(path: string[], index: number): boolean {
-        if (index === 0 || !Junos.NAMED_LISTS.has(path[index]!)) return true;
-
-        return path[index] === "vlan" && path[index + 1] === "members";
-    }
-
-    /** The section a statement belongs to, for a reviewer: `interfaces xe-0/0/1`, `system login`, `snmp`. */
-    private static sectionOf(path: string[]): string {
-        return path.slice(0, 2).join(" ");
-    }
-
-    /**
-     * The ordered block a statement sits in, and its item there: a policy's or a filter's term, or one policy of an import or export chain. The device keeps their order, and `set` adds at the end.
-     */
-    private static orderedBlockOf(path: string[]): { block: string[]; item: string } | undefined {
-        if (path[0] === "policy-options" && path[1] === "policy-statement" && path[3] === "term") {
-            return { block: path.slice(0, 3), item: path[4]! };
-        }
-
-        if (path[0] === "firewall" && path[1] === "family" && path[3] === "filter" && path[5] === "term") {
-            return { block: path.slice(0, 5), item: path[6]! };
-        }
-
-        const chain = path.length - 2;
-        if (path[0] === "protocols" && (path[chain] === "import" || path[chain] === "export")) {
-            return { block: path.slice(0, chain + 1), item: path[chain + 1]! };
-        }
-
-        return undefined;
-    }
-
-    /** Whether a path starts with another. */
-    private static startsWith(path: string[], prefix: string[]): boolean {
-        return prefix.every((word, index) => path[index] === word);
     }
 
     private static async login(device: Device): Promise<Client> {
@@ -736,7 +487,7 @@ export class Junos extends Platform {
         });
     }
 
-    /** Refuse a device on a release this adapter was not proved on, before anything is read or sent. */
+    /** Refuse a device on a release this adapter was not tested on, before anything is read or sent. */
     private static async checkVersion(ask: (command: string) => Promise<string>, device: Device): Promise<void> {
         const version = await ask("show version | match Junos:");
         const release = /Junos: (\d+)\.(\S+)/.exec(version);
@@ -779,7 +530,7 @@ export class Junos extends Platform {
         try {
             await login();
         } catch (error) {
-            opened.close();
+            void opened.close();
             throw error;
         }
 
@@ -798,14 +549,14 @@ export class Junos extends Platform {
             opened.channel.write(`${Junos.CONSOLE.logout}\n`);
             return result;
         } finally {
-            opened.close();
+            void opened.close();
         }
     }
 
     /** An interactive CLI with paging off. Root lands in a shell and starts the CLI from there. */
     private static async openCli(channel: ClientChannel): Promise<void> {
         const banner = await Ssh.readUntil(channel, (text) => Junos.PROMPT.test(text.replace(/\r/g, "")), 20_000, 500);
-        if (/% $/.test(banner.replace(/\r/g, ""))) await Junos.run(channel, "cli");
+        if (banner.replace(/\r/g, "").endsWith("% ")) await Junos.run(channel, "cli");
 
         await Junos.run(channel, "set cli screen-length 0");
         await Junos.run(channel, "set cli screen-width 0");
@@ -816,7 +567,7 @@ export class Junos extends Platform {
      * A delete through a name the read redacted, `delete snmp community <redacted>`, as one delete for each entry the device holds there. The names stay in the session.
      */
     private static async named(channel: ClientChannel, line: string): Promise<string[]> {
-        const words = Junos.wordsOf(line).slice(1);
+        const words = JunosPlan.wordsOf(line).slice(1);
         const at = words.indexOf("<redacted>");
         if (at < 0) return [line];
 
@@ -827,7 +578,7 @@ export class Junos extends Platform {
         const names = new Set(
             shown
                 .split("\n")
-                .map(Junos.wordsOf)
+                .map(JunosPlan.wordsOf)
                 .filter(inList)
                 .map((statement) => statement[at + 1]!)
         );
@@ -836,7 +587,7 @@ export class Junos extends Platform {
     }
 
     /**
-     * Load the plan into an exclusive candidate and check it. With a guard, commit it to roll back after `minutes`, prove access, then confirm; without one, commit it outright.
+     * Load the plan into an exclusive candidate and check it. With a guard, commit it to roll back after `minutes`, test access, then confirm; without one, commit it outright.
      *
      * Deletions go before the statements that are set, so a path deleted and set again in one plan ends up set.
      */
@@ -898,7 +649,7 @@ export class Junos extends Platform {
             throw await discard(`commit failed, nothing was applied:\n    ${committed.trim().split("\n").slice(1, 20).join("\n    ")}`);
         }
 
-        console.log(`  committed; it rolls back in ${minutes} minutes unless access is proved`);
+        console.log(`  committed; it rolls back in ${minutes} minutes unless Circuit logs in again`);
 
         try {
             await prove();
@@ -908,14 +659,15 @@ export class Junos extends Platform {
             await Junos.edit(channel, "commit comment circuit-restore", 600_000).catch(() => undefined);
             await Junos.run(channel, "exit configuration-mode").catch(() => undefined);
             throw new Error(
-                `a fresh login failed (${(error as Error).message}); the previous configuration is restored, at the latest in ${minutes} minutes`
+                `a fresh login failed (${(error as Error).message}); the previous configuration is restored, at the latest in ${minutes} minutes`,
+                { cause: error }
             );
         }
 
         const confirmed = await Junos.edit(channel, "commit comment circuit-confirmed", 600_000);
         if (!/commit complete/.test(confirmed)) {
             throw new Error(
-                `access was proved but the confirmation failed; the device rolls back in ${minutes} minutes:\n    ${confirmed.trim().slice(0, 300)}`
+                `Circuit logged in again, but the confirmation failed; the device rolls back in ${minutes} minutes:\n    ${confirmed.trim().slice(0, 300)}`
             );
         }
 

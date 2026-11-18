@@ -2,24 +2,23 @@
 
 import type { Prefix, Secret } from "./common";
 
-/** A way into the device. Absent means turned off. */
+/** A way into the device. Leave it out to turn it off. */
 export type Service = {
-    /** Sources allowed. `management.allow` when absent. */
+    /** The sources allowed to use it. `management.allow` when absent. */
     allow?: readonly Prefix[];
-    /** TCP or UDP port. The protocol's own when absent. */
+    /** The TCP or UDP port. The protocol's standard port when absent. */
     port?: number;
 };
 
 /** How the device is reached and managed. `I` is the device's ports and interfaces, `C` its certificates, `AS` its address sets. */
 export type Management<I extends string, C extends string, AS extends string = string> = {
     /**
-     * Sources allowed to every service that does not set its own: a list, or one of `firewall.address_sets` by name, so a device that
-     * filters on those sources too writes them once. Circuit writes the set's addresses here.
+     * The sources allowed to every service that doesn't set its own `allow`. Write a list, or the name of one of `firewall.address_sets`, so a device that also filters on those sources writes them once.
      */
     allow?: readonly Prefix[] | AS;
-    /** Some of the device's ports and interfaces: the ones the services answer on; every other one answers ping alone. Every one with an address when absent. */
+    /** The ports and interfaces the services answer on. Every other one answers only ping. Every port and interface with an address when absent. */
     interfaces?: readonly I[];
-    /** Secure shell. */
+    /** Secure shell (SSH). */
     ssh?: Service & {
         /** Also offer legacy ciphers, MACs and key exchanges. Off when absent. */
         weak_crypto?: boolean;
@@ -46,12 +45,12 @@ export type Management<I extends string, C extends string, AS extends string = s
     };
     /** File transfer, unencrypted. */
     ftp?: Service;
-    /** The platform's own management protocol, such as Winbox. `interfaces` also allows it at layer 2 on those interfaces. */
+    /** The platform's own management protocol, such as Winbox. With `interfaces`, it also works at layer 2 on those interfaces. */
     native_protocol?: Service & {
-        /** Some of the device's ports and interfaces. */
+        /** The ports and interfaces where it also works at layer 2. */
         interfaces?: readonly I[];
     };
-    /** Console login uses this password. The device's users when absent. */
+    /** A password for console login. When absent, the device's users log in on the console. */
     console?: {
         /** The console password. */
         password: Secret;

@@ -65,7 +65,10 @@ beforeAll(async () => {
     device = { ...edge, connection: { host: "127.0.0.1", port: await fake.listen(), user: "operator" } };
 });
 
-afterAll(() => fake.close());
+afterAll(() => {
+    delete process.env.EDGE_01_PASSWORD;
+    fake.close();
+});
 
 test("circuit bgp reads the router's sessions: a renamed connection by its address, one never established as down", async () => {
     const session = await platform.session(device);
@@ -216,7 +219,7 @@ test("a MAC limit stays refused, for the reason the router gave, and an ethertyp
     expect(platform.unsupported(device)).toEqual([
         "interfaces.ethernet.25g-2.mac_limit, the platform has no MAC learning limit on a bridge port or a switch port on 7.23",
         "interfaces.lag.members.mac_limit, the platform has no MAC learning limit on a bridge port or a switch port on 7.23",
-        "interfaces.lag.members.ethertypes, on a LAG, which is not proved on a device yet",
+        "interfaces.lag.members.ethertypes, on a LAG, which is not tested on a device yet",
     ]);
 });
 

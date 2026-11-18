@@ -3,22 +3,35 @@
 
 import { computed, ref } from "vue";
 
+/** The networks that join, in this order. */
+const NETWORKS = [
+    { name: "You", as: 64500 },
+    { name: "Cloudflare", as: 13335 },
+    { name: "Google", as: 15169 },
+    { name: "Netflix", as: 2906 },
+    { name: "Akamai", as: 20940 },
+    { name: "Fastly", as: 54113 },
+    { name: "Hurricane Electric", as: 6939 },
+    { name: "Cogent", as: 174 },
+    { name: "Arelion", as: 1299 },
+];
+
 const count = ref(6);
 const routeServer = ref(false);
 
-const CENTRE = [350, 170] as const;
+const CENTER = [350, 170] as const;
 const RADIUS = 115;
 
 const members = computed(() =>
-    Array.from({ length: count.value }, (_, index) => {
+    NETWORKS.slice(0, count.value).map((network, index) => {
         const angle = (index / count.value) * Math.PI * 2 - Math.PI / 2;
-        return { as: `AS${64496 + index}`, x: CENTRE[0] + Math.cos(angle) * RADIUS * 1.8, y: CENTRE[1] + Math.sin(angle) * RADIUS };
+        return { ...network, x: CENTER[0] + Math.cos(angle) * RADIUS * 1.8, y: CENTER[1] + Math.sin(angle) * RADIUS };
     })
 );
 
 /** Every session: between each pair of members, or between each member and the route server. */
 const sessions = computed(() => {
-    if (routeServer.value) return members.value.map((member) => ({ x1: member.x, y1: member.y, x2: CENTRE[0], y2: CENTRE[1] }));
+    if (routeServer.value) return members.value.map((member) => ({ x1: member.x, y1: member.y, x2: CENTER[0], y2: CENTER[1] }));
 
     return members.value.flatMap((member, index) =>
         members.value.slice(index + 1).map((other) => ({ x1: member.x, y1: member.y, x2: other.x, y2: other.y }))
@@ -30,8 +43,8 @@ const total = computed(() => sessions.value.length);
 
 const said = computed(() =>
     routeServer.value
-        ? `Each network keeps 1 session, with the route server: ${total.value} in all. A network that joins reaches every other member at once.`
-        : `Each network keeps ${each.value} sessions, one with every other member: ${total.value} in all. A network that joins has to set up ${count.value} new sessions, each agreed with another network.`
+        ? "A network that joins needs one session, with the route server, and reaches every other member at once."
+        : `A network that joins next has to set up ${count.value} new sessions, each agreed with another network.`
 );
 </script>
 
@@ -40,7 +53,7 @@ const said = computed(() =>
         <div class="ac-row controls">
             <label class="ac-field">
                 <span>Networks at the exchange: {{ count }}</span>
-                <input v-model.number="count" class="range" type="range" min="2" max="12" step="1" />
+                <input v-model.number="count" class="range" type="range" min="2" :max="NETWORKS.length" step="1" />
             </label>
             <button type="button" class="ac-button" :aria-pressed="routeServer" @click="routeServer = !routeServer">
                 {{ routeServer ? "Route server: on" : "Route server: off" }}
@@ -49,12 +62,12 @@ const said = computed(() =>
 
         <svg
             class="ac-drawing"
-            viewBox="0 0 700 340"
+            viewBox="0 0 700 360"
             role="img"
-            :aria-label="`${count} networks at an exchange, with ${total} sessions drawn between them.`"
+            :aria-label="`${count} networks at DE-CIX Frankfurt, with ${total} sessions drawn between them.`"
         >
-            <rect class="lan" x="20" y="10" width="660" height="320" />
-            <text class="lan-name" x="34" y="32">The exchange: one shared network</text>
+            <rect class="lan" x="20" y="10" width="660" height="340" />
+            <text class="lan-name" x="34" y="32">DE-CIX Frankfurt, one shared network</text>
             <line
                 v-for="(session, index) in sessions"
                 :key="index"
@@ -64,8 +77,16 @@ const said = computed(() =>
                 :x2="session.x2"
                 :y2="session.y2"
             />
-            <SvgDevice v-if="routeServer" kind="server" :x="CENTRE[0]" :y="CENTRE[1]" label="Route server" lit />
-            <SvgDevice v-for="member in members" :key="member.as" kind="router" :x="member.x" :y="member.y" :label="member.as" />
+            <SvgDevice v-if="routeServer" kind="server" :x="CENTER[0]" :y="CENTER[1]" label="Route server" note="AS6695" lit />
+            <SvgDevice
+                v-for="member in members"
+                :key="member.as"
+                kind="router"
+                :x="member.x"
+                :y="member.y"
+                :label="member.name"
+                :note="`AS${member.as}`"
+            />
         </svg>
 
         <dl class="numbers">

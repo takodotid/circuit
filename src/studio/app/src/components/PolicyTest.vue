@@ -1,19 +1,21 @@
-<!-- Test a route policy: a route a person describes, through one of a device's route policies, rule by rule and into each policy a rule calls. The route is in the page's address, such as `#tools/policy/device=edge-01&policy=transit-import&prefix=198.51.100.0%2F24`, to bookmark or send. -->
+<!-- Test a route policy: a route a person describes, through one of a device's route policies, rule by rule and into each policy a rule calls. The route is in the page's address, such as `/tools/policy?device=edge-01&policy=transit-import&prefix=198.51.100.0/24`, to bookmark or send. -->
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
 import { type Attributes, Evaluate, type Route } from "../lib/evaluate";
 import { Format } from "../lib/format";
 import { Net } from "../lib/net";
-import { goParams, placeParams } from "../lib/store";
+import { queryOf } from "../lib/store";
 import DataTable from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
+const page = useRoute();
+const router = useRouter();
 
-const PLACE = "tools/policy";
 const FIELDS = ["device", "policy", "prefix", "as_path", "rpki", "communities", "large_communities", "registry_sets"] as const;
 
-const asked = computed(() => placeParams(PLACE));
+const asked = computed(() => queryOf(page));
 
 const withPolicies = computed(() => props.data.devices.filter((device) => Object.keys(device.routing?.policies ?? {}).length));
 const form = reactive(Object.fromEntries(FIELDS.map((field) => [field, ""])) as Record<(typeof FIELDS)[number], string>);
@@ -56,8 +58,8 @@ function test(): void {
         .filter((set) => ticked[set.name])
         .map((set) => set.name)
         .join(",");
-    const params = new URLSearchParams(FIELDS.filter((field) => form[field].trim()).map((field) => [field, form[field].trim()]));
-    goParams(PLACE, params);
+    const query = Object.fromEntries(FIELDS.filter((field) => form[field].trim()).map((field) => [field, form[field].trim()]));
+    void router.push({ name: "policy", query });
 }
 
 /** Words in a list written with spaces or commas between them. */
@@ -118,11 +120,6 @@ function carried(attributes: Attributes): string[] {
 </script>
 
 <template>
-    <p class="muted">
-        Describe a route, and Studio walks the policy rule by rule, into each policy a rule calls, and shows what matched, what changed and
-        the decision. A route no rule accepts is rejected. A prefix set holds a route whose prefix is one of the set's prefixes, or inside
-        one.
-    </p>
     <form class="tool-form" @submit.prevent="test">
         <label class="field"
             >Device
@@ -139,7 +136,7 @@ function carried(attributes: Attributes): string[] {
             </select>
         </label>
         <label class="field">Prefix <input v-model="form.prefix" placeholder="198.51.100.0/24" /></label>
-        <label class="field">AS path <input v-model="form.as_path" placeholder="6939 64501" /><small>each AS, prepends too</small></label>
+        <label class="field">AS path <input v-model="form.as_path" placeholder="6939 64501" /><small>with prepends</small></label>
         <label class="field"
             >RPKI
             <select v-model="form.rpki">
@@ -171,7 +168,7 @@ function carried(attributes: Attributes): string[] {
         <p v-if="tested.decision" :class="['verdict', tested.decision]">
             {{ tested.decision === "accept" ? "Accepted" : "Rejected" }}, by {{ tested.by }}.
         </p>
-        <p v-else class="verdict unknown">Stopped at {{ tested.by }}: it needs {{ tested.needs.join(", and ") }}. Fill that in to go on.</p>
+        <p v-else class="verdict unknown">Stopped at {{ tested.by }}: needs {{ tested.needs.join(", ") }}.</p>
         <template v-if="tested.decision === 'accept'">
             <h3>The route as the policy leaves it</h3>
             <ul class="findings">

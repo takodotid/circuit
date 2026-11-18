@@ -1,6 +1,4 @@
-// `circuit communities`: what each community of a network's scheme means, for a looking glass or bgp.tools to show. The catalogue is
-// written by `catalogue()` in `src/config/communities.ts`, in NLNOG's notation: `nnn` for any number, `$0` for what it matched. Each
-// format here is a published one:
+// `circuit communities`: what each community of a network's scheme means, for a looking glass or bgp.tools to show. The catalogue is written by `catalogue()` in `src/config/communities.ts`, in NLNOG's notation: `nnn` for any number, `$0` for what it matched. Each format here is a published one:
 //
 // - `nlnog`: `community,description`, one per line, as the NLNOG Looking Glass reads its `communities/asNNN.txt` and bgp.tools takes it.
 // - `alice`: the `[bgp_communities]` section of Alice-LG's config, `community = description`, `*` for any number and `$N` for part N.

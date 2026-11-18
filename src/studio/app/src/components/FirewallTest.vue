@@ -1,17 +1,19 @@
-<!-- Test a firewall: a packet a person describes, through one of a device's filter chains, rule by rule. The packet is in the page's address, such as `#tools/firewall/device=edge-01&chain=input&protocol=tcp&dst_port=22`, to bookmark or send. -->
+<!-- Test a firewall: a packet a person describes, through one of a device's filter chains, rule by rule. The packet is in the page's address, such as `/tools/firewall?device=edge-01&chain=input&protocol=tcp&dst_port=22`, to bookmark or send. -->
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import type { Protocol } from "../../../../model";
 import type { StudioData } from "../../../types";
 import { type ConnectionState, Evaluate, type Packet, type TcpFlag } from "../lib/evaluate";
 import { Format } from "../lib/format";
 import { Net } from "../lib/net";
-import { goParams, placeParams } from "../lib/store";
+import { queryOf } from "../lib/store";
 import DataTable from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
+const route = useRoute();
+const router = useRouter();
 
-const PLACE = "tools/firewall";
 const CHAINS = ["input", "forward", "output"] as const;
 const PROTOCOLS: Protocol[] = ["tcp", "udp", "icmp", "gre", "esp", "ah", "ospf", "vrrp"];
 const STATES: ConnectionState[] = ["new", "established", "related", "untracked", "invalid"];
@@ -32,7 +34,7 @@ const FIELDS = [
     "flags",
 ] as const;
 
-const asked = computed(() => placeParams(PLACE));
+const asked = computed(() => queryOf(route));
 
 const withChains = computed(() => props.data.devices.filter((device) => device.firewall?.filter));
 const form = reactive(Object.fromEntries(FIELDS.map((field) => [field, ""])) as Record<(typeof FIELDS)[number], string>);
@@ -53,8 +55,8 @@ watch(
 
 function test(): void {
     form.flags = FLAGS.filter((flag) => flags[flag]).join(",");
-    const params = new URLSearchParams(FIELDS.filter((field) => form[field].trim()).map((field) => [field, form[field].trim()]));
-    goParams(PLACE, params);
+    const query = Object.fromEntries(FIELDS.filter((field) => form[field].trim()).map((field) => [field, form[field].trim()]));
+    void router.push({ name: "firewall", query });
 }
 
 const device = computed(() => props.data.devices.find((candidate) => candidate.name === form.device));
@@ -114,11 +116,6 @@ const VERDICTS = { accept: "Accepted", drop: "Dropped", reject: "Rejected" } as 
 </script>
 
 <template>
-    <p class="muted">
-        Describe a packet, and Studio walks the chain's rules in order and shows whether each one matches it and why not. The first rule
-        that matches decides; when none does, the chain's <code>default_action</code> does, and a chain with none accepts. A rule written
-        with a list, such as several sources or an interface set, is one rule per value here, as the device gets it.
-    </p>
     <form class="tool-form" @submit.prevent="test">
         <label class="field"
             >Device
@@ -153,8 +150,8 @@ const VERDICTS = { accept: "Accepted", drop: "Dropped", reject: "Rejected" } as 
         <label class="field">Destination <input v-model="form.dst" placeholder="192.0.2.1" /></label>
         <label class="field">Source port <input v-model="form.src_port" inputmode="numeric" placeholder="51000" /></label>
         <label class="field">Destination port <input v-model="form.dst_port" inputmode="numeric" placeholder="22" /></label>
-        <label class="field">Arrives on <input v-model="form.in" list="firewall-interfaces" placeholder="an interface" /> </label>
-        <label class="field">Leaves through <input v-model="form.out" list="firewall-interfaces" placeholder="an interface" /> </label>
+        <label class="field">Arrives on <input v-model="form.in" list="firewall-interfaces" /></label>
+        <label class="field">Leaves through <input v-model="form.out" list="firewall-interfaces" /></label>
         <datalist id="firewall-interfaces">
             <option v-for="name in interfaces" :key="name" :value="name" />
         </datalist>
@@ -189,9 +186,9 @@ const VERDICTS = { accept: "Accepted", drop: "Dropped", reject: "Rejected" } as 
     </ul>
 
     <template v-if="tested">
-        <p v-if="!tested.has" class="muted">{{ tested.device.name }} has no {{ tested.chain }} chain in the project.</p>
+        <p v-if="!tested.has" class="muted">{{ tested.device.name }} has no {{ tested.chain }} chain.</p>
         <p v-if="tested.verdict" :class="['verdict', tested.verdict]">{{ VERDICTS[tested.verdict] }}, by {{ tested.by }}.</p>
-        <p v-else class="verdict unknown">Stopped at {{ tested.by }}: it needs {{ tested.needs.join(", and ") }}. Fill that in to go on.</p>
+        <p v-else class="verdict unknown">Stopped at {{ tested.by }}: needs {{ tested.needs.join(", ") }}.</p>
         <DataTable
             v-if="tested.steps.length"
             :head="['Rule', 'Description', 'If', 'Then', 'Matches']"

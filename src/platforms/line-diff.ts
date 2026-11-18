@@ -83,7 +83,7 @@ export class LineDiff {
         return result;
     }
 
-    /** The part of a line that names what it sets: `rule 5`, a free-text keyword, or the line up to its value. Two lines with one head are one setting with two values. */
+    /** The part of a line that uses what it sets: `rule 5`, a free-text keyword, or the line up to its value. Two lines with one head are one setting with two values. */
     static head(line: string): string {
         const rule = /^rule \d+/.exec(line);
         if (rule) return rule[0];

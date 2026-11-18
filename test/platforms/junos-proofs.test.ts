@@ -187,9 +187,7 @@ test("a MAC limit or an ethertype filter is refused where the switching family c
     );
 });
 
-// What the device printed after a commit of an access port bound to two hosts, one with an address of each family and one with a prefix. A
-// MAC address comes back with its length, `/48`; an IPv6 match sits under `ip-version ipv6`. Bound on an iDRAC's port, the filter was
-// programmed in hardware and dropped a wrong address or MAC address at once.
+// What the device printed after a commit of an access port bound to two hosts, one with an address of each family and one with a prefix. A MAC address comes back with its length, `/48`; an IPv6 match sits under `ip-version ipv6`. Bound on an iDRAC's port, the filter was programmed in hardware and dropped a wrong address or MAC address at once.
 const BOUND = [
     "set interfaces xe-0/0/3 unit 0 family ethernet-switching interface-mode access",
     "set interfaces xe-0/0/3 unit 0 family ethernet-switching vlan members servers",

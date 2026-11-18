@@ -1,5 +1,4 @@
-// A project inside another project's folder, such as a customer's in `customers/<name>/`: the commit hook checks it with its own
-// Circuit, and `circuit fmt` gives its files the outer project's style.
+// A project inside another project's folder, such as a customer's in `customers/<name>/`: the commit hook checks it with its own Circuit, and `circuit fmt` gives its files the outer project's style.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -60,7 +59,7 @@ test("the commit hook stops a secret in plain text in a project inside", () => {
     expect(stopped.status).toBe(1);
     expect(stopped.stdout).toContain("The project in customers/acme");
     expect(stopped.stderr).toContain("customers/acme/.circuit/secrets");
-    expect(stopped.stderr).toContain("The commit was stopped by the project in customers/acme.");
+    expect(stopped.stderr).toContain("Commit stopped by the project in customers/acme.");
 
     rmSync(join(inner, ".circuit", "secrets"));
     git("add", "-A");

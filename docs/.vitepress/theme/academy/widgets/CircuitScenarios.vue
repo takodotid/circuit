@@ -12,7 +12,7 @@ const PRODUCTS: { id: ProductId; name: string }[] = [
     { id: "ipvpn", name: "IP VPN" },
     { id: "iplc", name: "IPLC" },
     { id: "iepl", name: "IEPL" },
-    { id: "dark", name: "Dark fibre" },
+    { id: "dark", name: "Dark fiber" },
     { id: "wave", name: "A DWDM wavelength" },
     { id: "sdwan", name: "SD-WAN over internet links" },
 ];
@@ -38,7 +38,7 @@ const SCENARIOS: { id: string; name: string; need: string; fits: Record<ProductI
             iepl: ["no", ACROSS_BORDERS],
             dark: [
                 "works",
-                "If a spare fibre runs between them, you light it with your own optics at any speed you like. It is more than 1 Gbit/s needs, and a break in it is yours to chase with the provider.",
+                "If a spare fiber runs between them, you light it with your own optics at any speed you like. It is more than 1 Gbit/s needs, and a break in it is yours to chase with the provider.",
             ],
             wave: ["works", "It would carry it, but a whole wavelength for 1 Gbit/s between two offices is more than the need."],
             sdwan: [
@@ -68,7 +68,7 @@ const SCENARIOS: { id: string; name: string; need: string; fits: Record<ProductI
             ],
             dark: [
                 "no",
-                "Dark fibre is rented where spare fibre already runs, mostly in and around cities. A fibre of your own across a sea, for 100 Mbit/s, is far beyond the need.",
+                "Dark fiber is rented where spare fiber already runs, mostly in and around cities. A fiber of your own across a sea, for 100 Mbit/s, is far beyond the need.",
             ],
             wave: [
                 "no",
@@ -82,12 +82,12 @@ const SCENARIOS: { id: string; name: string; need: string; fits: Record<ProductI
     },
     {
         id: "dcs",
-        name: "Two data centres",
-        need: "Two data centres 30 km apart copy storage between them at 100 Gbit/s now, and more next year.",
+        name: "Two data centers",
+        need: "Two data centers 30 km apart copy storage between them at 100 Gbit/s now, and more next year.",
         fits: {
             metro: [
                 "works",
-                "It may carry it, but over the provider's shared Ethernet network. A fibre or a wavelength gives you the whole capacity.",
+                "It may carry it, but over the provider's shared Ethernet network. A fiber or a wavelength gives you the whole capacity.",
             ],
             l2: ["works", "Same as Metro-E here: possible, but shared with the provider's other customers inside its network."],
             ipvpn: ["no", "A routed service for joining sites, not a pipe for 100 Gbit/s of storage copies."],
@@ -95,7 +95,7 @@ const SCENARIOS: { id: string; name: string; need: string; fits: Record<ProductI
             iepl: ["no", ACROSS_BORDERS],
             dark: [
                 "fits",
-                "Light the fibre with your own DWDM equipment, and add wavelengths as the copies grow. The most capacity, and you run the equipment.",
+                "Light the fiber with your own DWDM equipment, and add wavelengths as the copies grow. The most capacity, and you run the equipment.",
             ],
             wave: [
                 "fits",
@@ -117,8 +117,8 @@ const SCENARIOS: { id: string; name: string; need: string; fits: Record<ProductI
             ],
             iplc: ["no", ACROSS_BORDERS],
             iepl: ["no", ACROSS_BORDERS],
-            dark: ["no", "Nobody lays fibre to forty shops for this."],
-            wave: ["no", "Wavelengths join big sites such as data centres, not shops."],
+            dark: ["no", "Nobody lays fiber to forty shops for this."],
+            wave: ["no", "Wavelengths join big sites such as data centers, not shops."],
             sdwan: [
                 "fits",
                 "Tunnels over the broadband lines the shops already have, managed from one place, with each kind of traffic sent the best way. The cheapest fit.",
@@ -141,7 +141,7 @@ const SCENARIOS: { id: string; name: string; need: string; fits: Record<ProductI
             ],
             iplc: ["no", ACROSS_BORDERS],
             iepl: ["no", ACROSS_BORDERS],
-            dark: ["no", "Fibre between six cities, and running it, is far beyond the need."],
+            dark: ["no", "Fiber between six cities, and running it, is far beyond the need."],
             wave: ["no", "Wavelengths between offices are far more than the need, and you would still run the routing."],
             sdwan: [
                 "works",

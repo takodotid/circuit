@@ -9,8 +9,7 @@ const platform = Platforms.get("routeros");
 const options = { secrets: false, rollback: 10 };
 
 /**
- * Fixtures whose render differs from 0.x's only in order, inside menus the plan treats as unordered. v1 groups interfaces by kind, and the
- * loopback comes after the VLAN interfaces, so its addresses move down `/ip address` and `/ipv6 address`, which are keyed by address.
+ * Fixtures whose render differs from 0.x's only in order, inside menus the plan treats as unordered. v1 groups interfaces by kind, and the loopback comes after the VLAN interfaces, so its addresses move down `/ip address` and `/ipv6 address`, which are keyed by address.
  */
 const ORDER_ONLY: Record<string, string> = {
     "platforms--example-router": "the loopback's address comes after every VLAN interface's in /ip address",
@@ -23,8 +22,7 @@ const ORDER_ONLY: Record<string, string> = {
 };
 
 /**
- * v1 sends router advertisements only on the interfaces that set `ipv6_ra`: it turns the platform's default entry off and gives each
- * such interface its own. 0.x left the default entry, which sends them on every interface. That menu is left out of the comparison.
+ * v1 sends router advertisements only on the interfaces that set `ipv6_ra`: it turns the platform's default entry off and gives each such interface its own. 0.x left the default entry, which sends them on every interface. That menu is left out of the comparison.
  */
 function withoutRouterAdvertisements(text: string): string {
     const lines = text.split("\n");
@@ -147,7 +145,7 @@ test("SNMP sha256 is refused, never written as SHA1", () => {
     } as Device;
 
     expect(platform.unsupported(device)).toContain(
-        "monitoring.snmp.users.librenms.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not proved yet)"
+        "monitoring.snmp.users.librenms.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not tested yet)"
     );
 });
 

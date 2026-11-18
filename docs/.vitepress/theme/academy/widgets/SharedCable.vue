@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: messages in pieces. A laptop sends a video and a phone a short chat message over one shared cable; the reader cuts them into packets or not, adds noise, and sees who waits and what must be sent again.
+// Lesson: messages in pieces. A laptop sends a video and a phone a short chat message over one shared cable. The reader cuts them into packets or not, adds noise, and sees who waits and what must be sent again.
 
 import { computed, onBeforeUnmount, ref } from "vue";
 
@@ -131,7 +131,7 @@ const result = computed(() => {
         ? `The video was through at moment ${video}.`
         : cut.value
           ? `Noise at moment ${NOISE_AT} damaged one packet, ${damaged.label}. Only that packet was sent again, so the video was through at moment ${video}.`
-          : `Noise at moment ${NOISE_AT} damaged the video, and because it was one big piece, all ${VIDEO_LENGTH} moments of it were sent again. It was through at moment ${video}.`;
+          : `Noise at moment ${NOISE_AT} damaged the video. It was one big piece, so all ${VIDEO_LENGTH} moments of it were sent again. It was through at moment ${video}.`;
 
     return `${waiting} ${lost}`;
 });
@@ -191,7 +191,7 @@ const result = computed(() => {
         <p v-if="played" class="ac-say good" data-word="Done" aria-live="polite">{{ result }}</p>
         <p v-else-if="playing" class="ac-say hint" aria-live="polite">Sending…</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            Press Send both with packets off, then turn them on and send again. Watch when the chat message gets through.
+            Send both with packets off, then on. Then turn on the noise and try both again. Watch when the chat message gets through.
         </p>
     </div>
 </template>

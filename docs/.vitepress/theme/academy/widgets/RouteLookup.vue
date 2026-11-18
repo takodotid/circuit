@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: routing tables. The reader looks up destination addresses in an office router's table, adds and removes static routes, and sees the matching rows, the winner and the Circuit file.
+// Lesson: routing tables. The reader looks up destination addresses in an office router's table, adds and removes static routes, and sees the matching rows, the winner, and the Circuit file.
 
 import { computed, ref } from "vue";
 import { type Prefix, type Route, RouteTable } from "./RouteLookup";
@@ -62,7 +62,7 @@ function verdict(route: Row): string {
 }
 
 const said = computed(() => {
-    if (!destination.value.trim()) return { kind: "hint", text: "Pick an address above, or type one, to look it up in the table." };
+    if (!destination.value.trim()) return { kind: "hint", text: "Pick an address above, or type one." };
     if (address.value === undefined)
         return {
             kind: "bad",

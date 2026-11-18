@@ -1,0 +1,6 @@
+extends: occurrence
+message: "Split this sentence. It has more than 45 words."
+level: error
+scope: sentence
+max: 45
+token: '\b(\w+)\b'

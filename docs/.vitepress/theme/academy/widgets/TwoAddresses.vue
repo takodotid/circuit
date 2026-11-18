@@ -31,13 +31,13 @@ const visits = ref([{ place: "home", address: at("home").address }]);
 const said = ref<string>();
 const changed = ref(false);
 
-const { position, travelling, travel } = useTravel(320);
+const { position, traveling, travel } = useTravel(320);
 
-const laptopX = computed(() => (travelling.value ? position.value[0] : at(here.value).x));
+const laptopX = computed(() => (traveling.value ? position.value[0] : at(here.value).x));
 const ipAddress = computed(() => at(here.value).address);
 
 async function go(id: string) {
-    if (id === here.value || travelling.value) return;
+    if (id === here.value || traveling.value) return;
 
     const before = ipAddress.value;
     said.value = undefined;
@@ -54,8 +54,8 @@ async function go(id: string) {
 
     const place = at(id);
     said.value = place.address
-        ? `The laptop joined the ${place.name.toLowerCase()} network, and that network gave it the IP address ${place.address}. Its hardware address is still ${HARDWARE_ADDRESS}.`
-        : `Off the network, the laptop has no IP address at all: nobody has given it one. Its hardware address is still ${HARDWARE_ADDRESS}, because that lives in the network card.`;
+        ? `The ${place.name.toLowerCase()} network gave the laptop the IP address ${place.address}. Its hardware address is still ${HARDWARE_ADDRESS}.`
+        : `Off the network, nobody gives the laptop an IP address, so it has none. Its hardware address is still ${HARDWARE_ADDRESS}, because it is part of the network card.`;
 }
 </script>
 
@@ -65,14 +65,14 @@ async function go(id: string) {
             class="ac-drawing"
             viewBox="0 0 700 300"
             role="img"
-            :aria-label="`Three networks, a home, a café and an office, and a laptop that is now ${here === 'off' ? 'off the network' : `at the ${at(here).name.toLowerCase()}`}.`"
+            :aria-label="`Three networks: a home, a café, and an office. The laptop is now ${here === 'off' ? 'off the network' : `at the ${at(here).name.toLowerCase()}`}.`"
         >
             <template v-for="place in places" :key="place.id">
                 <template v-if="place.address">
                     <rect class="area" :class="{ current: here === place.id }" :x="place.x - 85" y="8" width="170" height="270" />
                     <text class="area-name" :x="place.x" y="30" text-anchor="middle">{{ place.name }}</text>
                     <line
-                        v-if="here === place.id && !travelling"
+                        v-if="here === place.id && !traveling"
                         class="cable"
                         :class="{ wifi: place.kind === 'access-point' }"
                         :x1="place.x"
@@ -91,7 +91,7 @@ async function go(id: string) {
                 :x="laptopX"
                 :y="LAPTOP_Y"
                 label="Laptop"
-                :note="travelling ? '' : (ipAddress ?? 'no IP address')"
+                :note="traveling ? '' : (ipAddress ?? 'no IP address')"
                 lit
             />
         </svg>
@@ -105,7 +105,7 @@ async function go(id: string) {
                     type="button"
                     class="ac-button small"
                     :aria-pressed="here === place.id"
-                    :disabled="travelling"
+                    :disabled="traveling"
                     @click="go(place.id)"
                 >
                     {{ place.name }}
@@ -148,9 +148,7 @@ async function go(id: string) {
         </div>
 
         <p v-if="said" class="ac-say good" data-word="Moved" aria-live="polite">{{ said }}</p>
-        <p v-else class="ac-say hint" aria-live="polite">
-            The laptop is at home. Take it to the café, then to the office, and watch both addresses.
-        </p>
+        <p v-else class="ac-say hint" aria-live="polite">Visit each place, then come back home. Watch which address changes.</p>
     </div>
 </template>
 

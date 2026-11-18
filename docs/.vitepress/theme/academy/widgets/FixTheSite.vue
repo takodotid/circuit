@@ -50,7 +50,7 @@ const mistakes: Mistake[] = [
             {
                 label: "Add guests to the switch’s trunk_vlans",
                 right: true,
-                why: "Both ends now carry VLANs 10, 20 and 30, so the guest VLAN reaches its gateway on the router.",
+                why: "Both ends now carry VLANs 10, 20, and 30, so the guest VLAN reaches its gateway on the router.",
             },
             {
                 label: "Delete link from both ports",
@@ -80,7 +80,7 @@ const mistakes: Mistake[] = [
         line: 3,
         output: [
             "$ circuit validate",
-            "sites/home/switch.ts:30: management_stays_on_trunks: switch: interfaces.ethernet.10g-4: gives management to whatever plugs in. Put the port in another VLAN.",
+            "sites/home/switch.ts:32: management_stays_on_trunks: switch: interfaces.ethernet.10g-4: gives management to whatever plugs in. Put the port in another VLAN.",
             "",
             "1 error(s).",
         ].join("\n"),
@@ -111,7 +111,7 @@ const mistakes: Mistake[] = [
         editor: `Type '"guest"' is not assignable to type '"guests" | "home" | "mgmt" | undefined'. Did you mean '"guests"'?`,
         output: [
             "$ circuit validate",
-            "sites/home/switch.ts:30: switch: interfaces.ethernet.10g-4.access_vlan: no VLAN guest. Did you mean guests?",
+            "sites/home/switch.ts:32: switch: interfaces.ethernet.10g-4.access_vlan: no VLAN guest. Did you mean guests?",
             "",
             "1 error(s).",
         ].join("\n"),
@@ -173,7 +173,7 @@ const mistakes: Mistake[] = [
         line: 2,
         output: [
             "$ circuit validate",
-            '  warn   sites/home/switch.ts:23: switch: interfaces.ethernet.10g-1.description: "Router", which doesn\'t name the far end of its link as printed there: router sfp28-1.',
+            '  warn   sites/home/switch.ts:24: switch: interfaces.ethernet.10g-1.description: "Router". Write the far end in it: router sfp28-1.',
             "✔ 2 device(s), no errors.",
         ].join("\n"),
         fixes: [

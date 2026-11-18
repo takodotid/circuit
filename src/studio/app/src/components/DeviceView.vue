@@ -1,17 +1,20 @@
 <!-- One device: what validate finds on it, each group of its settings, what it would run, what it runs now when asked, and the commits that changed its file. -->
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import type { Device } from "../../../../model";
 import type { Commit, LiveRead, StudioData } from "../../../types";
 import { FieldDocs } from "../lib/field-docs";
 import { Format } from "../lib/format";
-import { api, go, store } from "../lib/store";
+import { Saved, api, showInGraph } from "../lib/store";
 import DataTable, { type Row } from "./DataTable.vue";
 import Faceplate from "./Faceplate.vue";
 import LineDiff from "./LineDiff.vue";
-import Settings from "./Settings.vue";
+import SettingsTable from "./SettingsTable.vue";
 
-const props = defineProps<{ data: StudioData; name: string }>();
+/** `section` is the tab the path names, such as `ports` in `/devices/edge-01/ports`. */
+const props = defineProps<{ data: StudioData; name: string; section: string }>();
+const router = useRouter();
 
 const device = computed<Device | undefined>(() => props.data.devices.find((candidate) => candidate.name === props.name));
 const findings = computed(() => props.data.findings.filter((finding) => finding.device === props.name));
@@ -35,7 +38,14 @@ const SECTIONS = [
 ] as const;
 
 const sections = computed(() => (device.value ? SECTIONS.filter((section) => section.has(device.value!)) : []));
-const section = computed(() => store.route.parts[1] ?? "overview");
+const section = computed(() => props.section);
+
+/** A tab's address: the overview is the device's own path. */
+const tabLink = (id: string) => ({ name: "device", params: { name: props.name, ...(id === "overview" ? {} : { section: id }) } });
+
+// Another tab starts at the top of the page.
+const page = ref<HTMLElement>();
+watch(section, () => page.value?.scrollTo(0, 0));
 
 const ports = computed<Row[]>(() => {
     const own = device.value;
@@ -46,7 +56,8 @@ const ports = computed<Row[]>(() => {
 
     return all.map((name) => {
         const port = own.interfaces?.ethernet?.[name];
-        if (!port) return { id: `port-${name}`, muted: true, cells: [name, "shut down", "", "", "", ""] };
+        // A port the project leaves out is shut down.
+        if (!port) return { id: `port-${name}`, muted: true, cells: [name, "shut down", "", "", "", "", ""] };
 
         const lag = port.in_lag ? own.interfaces?.lag?.[port.in_lag] : undefined;
         const carrier = lag ?? port;
@@ -61,6 +72,7 @@ const ports = computed<Row[]>(() => {
             id: `port-${name}`,
             cells: [
                 name,
+                "",
                 description ?? "",
                 [switching, in_lag ? `in LAG ${in_lag}` : ""].filter(Boolean).join(", "),
                 Format.compact(addresses),
@@ -71,8 +83,12 @@ const ports = computed<Row[]>(() => {
     });
 });
 
+/** How many of the model's ports the project declares. */
+const declaredPorts = computed(() => Object.keys(device.value?.interfaces?.ethernet ?? {}).length);
+
 const portColumns = [
     "Port",
+    "State",
     FieldDocs.column("Description", "interfaces.ethernet.*.description"),
     "Switching",
     FieldDocs.column("Addresses", "interfaces.ethernet.*.addresses"),
@@ -102,6 +118,11 @@ async function readNow(): Promise<void> {
     }
 }
 
+/** Select the device on the graph, on the layer shown last. */
+function showOnGraph(): void {
+    showInGraph(router, Saved.get<string>("layer") ?? "l1", { device: props.name });
+}
+
 const commands = computed(() => live.value?.steps.reduce((count, step) => count + step.show.length, 0) ?? 0);
 
 const history = ref<Commit[]>();
@@ -121,9 +142,9 @@ watch(
 </script>
 
 <template>
-    <div class="tables">
-        <p class="crumbs"><a @click="go('devices')">Devices</a> /</p>
-        <p v-if="!device" class="muted">No device {{ name }} in the project.</p>
+    <div ref="page" class="tables">
+        <p class="crumbs"><RouterLink to="/devices">Devices</RouterLink> /</p>
+        <p v-if="!device" class="muted">No device {{ name }}.</p>
         <template v-else>
             <h2>
                 {{ device.name }}
@@ -131,19 +152,20 @@ watch(
                 <span v-if="findings.length - errors" class="badge warning">{{ Format.count(findings.length - errors, "warning") }}</span>
             </h2>
             <p class="muted">
-                {{ device.platform }} {{ device.model }} at {{ device.site }} · <code>{{ data.files[device.name] }}</code>
+                {{ device.platform }} {{ device.model }} at {{ device.site }} · <code>{{ data.files[device.name] }}</code> ·
+                <button type="button" class="link" @click="showOnGraph">Show in the graph</button>
             </p>
 
-            <div class="tabs">
-                <button
+            <nav class="tabs" aria-label="Sections">
+                <RouterLink
                     v-for="item in sections"
                     :key="item.id"
-                    :aria-pressed="section === item.id"
-                    @click="go(`devices/${device.name}/${item.id}`)"
+                    :to="tabLink(item.id)"
+                    :aria-current="section === item.id ? 'page' : undefined"
                 >
                     {{ item.title }}
-                </button>
-            </div>
+                </RouterLink>
+            </nav>
 
             <template v-if="section === 'overview'">
                 <template v-if="findings.length">
@@ -156,44 +178,28 @@ watch(
                     </ul>
                 </template>
                 <h3>Device</h3>
-                <Settings
-                    :value="{
-                        name: device.name,
-                        site: device.site,
-                        role: device.role,
-                        platform: device.platform,
-                        model: device.model,
-                        connection: device.connection,
-                    }"
-                />
+                <SettingsTable :value="{ role: device.role, connection: device.connection }" />
             </template>
 
             <template v-else-if="section === 'ports'">
+                <p class="muted">{{ declaredPorts }} of {{ Format.count(ports.length, "port") }} declared.</p>
                 <Faceplate :device="device" :ports="data.ports[device.name] ?? []" />
                 <DataTable :head="portColumns" :rows="ports" :csv="`${device.name}-ports`" />
             </template>
 
-            <Settings v-else-if="section === 'interfaces'" :value="interfaces" path="interfaces" />
-            <Settings v-else-if="section === 'switching'" :value="device.switching" path="switching" />
-            <Settings v-else-if="section === 'routing'" :value="device.routing" path="routing" />
-            <Settings v-else-if="section === 'firewall'" :value="device.firewall" path="firewall" />
-            <Settings v-else-if="section === 'management'" :value="device.management" path="management" />
-            <Settings v-else-if="section === 'system'" :value="device.system" path="system" />
-            <Settings v-else-if="section === 'monitoring'" :value="device.monitoring" path="monitoring" />
-            <Settings v-else-if="section === 'services'" :value="device.services" path="services" />
+            <SettingsTable v-else-if="section === 'interfaces'" :value="interfaces" path="interfaces" />
+            <SettingsTable v-else-if="section === 'switching'" :value="device.switching" path="switching" />
+            <SettingsTable v-else-if="section === 'routing'" :value="device.routing" path="routing" />
+            <SettingsTable v-else-if="section === 'firewall'" :value="device.firewall" path="firewall" />
+            <SettingsTable v-else-if="section === 'management'" :value="device.management" path="management" />
+            <SettingsTable v-else-if="section === 'system'" :value="device.system" path="system" />
+            <SettingsTable v-else-if="section === 'monitoring'" :value="device.monitoring" path="monitoring" />
+            <SettingsTable v-else-if="section === 'services'" :value="device.services" path="services" />
 
-            <template v-else-if="section === 'config'">
-                <p class="muted">
-                    What the device should run, as Circuit writes it for {{ device.platform }}. A secret shows as its name, never its value.
-                </p>
-                <pre class="code">{{ data.rendered[device.name] }}</pre>
-            </template>
+            <pre v-else-if="section === 'config'" class="code">{{ data.rendered[device.name] }}</pre>
 
             <template v-else-if="section === 'now'">
-                <p class="muted">
-                    Circuit reads the device now, the same way <code>circuit diff</code> does, and shows what
-                    <code>circuit apply</code> would send. Nothing is kept: read it again to see it again.
-                </p>
+                <p class="muted">Reads the device like <code>circuit diff</code>, and changes nothing.</p>
                 <p>
                     <button class="primary" :disabled="reading" @click="readNow">
                         {{ reading ? "Reading the device…" : "Read from the device now" }}
@@ -203,9 +209,7 @@ watch(
                 <template v-if="live">
                     <p class="muted">Read at {{ new Date(live.readAt).toLocaleString() }}.</p>
                     <h3>What apply would send</h3>
-                    <p v-if="!commands && !live.problems.length" class="verdict accept">
-                        The device already runs its config. Nothing to change.
-                    </p>
+                    <p v-if="!commands && !live.problems.length" class="verdict accept">Nothing to change.</p>
                     <template v-for="step in live.steps" :key="step.title">
                         <h4>{{ step.title }}</h4>
                         <pre class="code">{{ step.show.join("\n") }}</pre>
@@ -221,10 +225,11 @@ watch(
             <template v-else-if="section === 'history'">
                 <p v-if="historyError" class="muted">{{ historyError }}</p>
                 <p v-else-if="!history" class="muted">Reading the history…</p>
-                <p v-else-if="!history.length" class="muted">No commit changed {{ data.files[device.name] }} yet.</p>
+                <p v-else-if="!history.length" class="muted">None.</p>
                 <DataTable
                     v-else
                     :head="['Commit', 'When', 'Who', 'What', '']"
+                    :csv="`${device.name}-history`"
                     :rows="
                         history.map((commit) => ({
                             cells: [
@@ -232,7 +237,7 @@ watch(
                                 new Date(commit.date).toLocaleString(),
                                 commit.author,
                                 commit.subject,
-                                { link: `compare/${commit.commit}`, label: 'compare with now' },
+                                { link: { name: 'compare', params: { ref: commit.commit } }, label: 'compare with now' },
                             ],
                         }))
                     "

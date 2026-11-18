@@ -3,7 +3,8 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, Prefix, PrefixSet, RouteRule } from "../../model";
-import { JunosRender, type JunosStatements } from "./render";
+import { JunosRender } from "./render";
+import type { JunosStatements } from "./statements";
 
 /** BGP sessions, the policies they use, prefix sets and RPKI servers, added to one device's statements. */
 export class JunosBgp {

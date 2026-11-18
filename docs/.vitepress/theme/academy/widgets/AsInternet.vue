@@ -6,21 +6,19 @@ import { AsPaths, type AsLink } from "./AsInternet";
 
 const networks = [
     { id: "64500", name: "Your network", x: 350, y: 235 },
-    { id: "64501", name: "Transit A", x: 200, y: 60 },
-    { id: "64502", name: "Transit B", x: 500, y: 60 },
-    { id: "64503", name: "Regional provider", x: 95, y: 200 },
-    { id: "64504", name: "Video site", x: 605, y: 200 },
-    { id: "64505", name: "School", x: 95, y: 330 },
+    { id: "6939", name: "Hurricane Electric", x: 200, y: 60 },
+    { id: "174", name: "Cogent", x: 500, y: 60 },
+    { id: "20940", name: "Akamai", x: 95, y: 200 },
+    { id: "2906", name: "Netflix", x: 605, y: 200 },
 ];
 
 const at = (id: string) => networks.find((network) => network.id === id)!;
-const named = (id: string) => `AS${id}`;
+const named = (id: string) => at(id).name;
 
 const starting: AsLink[] = [
-    { kind: "peering", a: "64501", b: "64502" },
-    { kind: "transit", customer: "64503", provider: "64501" },
-    { kind: "transit", customer: "64505", provider: "64503" },
-    { kind: "transit", customer: "64504", provider: "64502" },
+    { kind: "peering", a: "6939", b: "174" },
+    { kind: "transit", customer: "20940", provider: "6939" },
+    { kind: "transit", customer: "2906", provider: "174" },
 ];
 
 const links = ref<AsLink[]>(starting.map((link) => ({ ...link })));
@@ -28,14 +26,14 @@ const links = ref<AsLink[]>(starting.map((link) => ({ ...link })));
 const ends = (link: AsLink): [string, string] => (link.kind === "transit" ? [link.customer, link.provider] : [link.a, link.b]);
 
 function describe(link: AsLink): string {
-    if (link.kind === "transit") return `${named(link.customer)} buys transit from ${named(link.provider)}. ${named(link.customer)} pays.`;
+    if (link.kind === "transit") return `${named(link.customer)} buys transit from ${named(link.provider)}.`;
     return `${named(link.a)} and ${named(link.b)} peer. Nobody pays.`;
 }
 
 // Adding a link.
 const first = ref("64500");
 const relation = ref<"transit" | "peering">("transit");
-const second = ref("64501");
+const second = ref("6939");
 const formError = ref("");
 
 function add() {
@@ -74,7 +72,7 @@ function reset() {
 
 // Looking from one network.
 const from = ref("64500");
-const to = ref("64504");
+const to = ref("2906");
 
 const reach = computed(() =>
     networks
@@ -100,15 +98,9 @@ const said = computed(() => {
         return {
             kind: "bad",
             word: "No route",
-            text: `${named(from.value)} has no links at all yet. Give it a transit provider, or a peer.`,
+            text: `${named(from.value)} has no links yet. Give it a transit provider or a peer.`,
         };
-    if (!route) {
-        return {
-            kind: "bad",
-            word: "No route",
-            text: `No network on the way would carry it. A network passes on routes from its customers to everyone, but routes from its providers and peers only to its own customers.`,
-        };
-    }
+    if (!route) return { kind: "bad", word: "No route", text: "No network on the way would carry it." };
 
     const why =
         route.length === 2
@@ -147,7 +139,7 @@ function arrow(link: AsLink): string {
             class="ac-drawing"
             viewBox="0 0 700 380"
             role="img"
-            :aria-label="`Six networks joined by transit and peering links. ${path ? 'The way from ' + named(from) + ' to ' + named(to) + ' is lit.' : ''}`"
+            :aria-label="`Five networks joined by transit and peering links. ${path ? 'The way from ' + named(from) + ' to ' + named(to) + ' is lit.' : ''}`"
         >
             <g v-for="(link, index) in links" :key="index">
                 <line
@@ -166,8 +158,8 @@ function arrow(link: AsLink): string {
                 kind="cloud"
                 :x="network.x"
                 :y="network.y"
-                :label="named(network.id)"
-                :note="network.name"
+                :label="network.name"
+                :note="`AS${network.id}`"
                 :lit="network.id === from || network.id === to"
                 :dim="network.id !== from && !reach.find((entry) => entry.id === network.id)?.path"
             />
@@ -185,7 +177,7 @@ function arrow(link: AsLink): string {
                 <span>Look from</span>
                 <select v-model="from" class="ac-select">
                     <option v-for="network in networks" :key="network.id" :value="network.id">
-                        {{ named(network.id) }}, {{ network.name }}
+                        {{ network.name }}, AS{{ network.id }}
                     </option>
                 </select>
             </label>
@@ -193,7 +185,7 @@ function arrow(link: AsLink): string {
                 <span>to</span>
                 <select v-model="to" class="ac-select">
                     <option v-for="network in networks" :key="network.id" :value="network.id">
-                        {{ named(network.id) }}, {{ network.name }}
+                        {{ network.name }}, AS{{ network.id }}
                     </option>
                 </select>
             </label>
@@ -205,13 +197,13 @@ function arrow(link: AsLink): string {
             <table class="ac-table">
                 <thead>
                     <tr>
-                        <th>From {{ named(from) }} to</th>
+                        <th>To</th>
                         <th>The way</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-for="entry in reach" :key="entry.id" :class="{ lit: entry.id === to }">
-                        <td>{{ named(entry.id) }}, {{ entry.name }}</td>
+                        <td>{{ entry.name }}, AS{{ entry.id }}</td>
                         <td>{{ entry.path ? entry.path.map(named).join(", ") : "no route" }}</td>
                     </tr>
                 </tbody>
@@ -223,7 +215,7 @@ function arrow(link: AsLink): string {
             <div class="ac-row">
                 <select v-model="first" class="ac-select" aria-label="First network">
                     <option v-for="network in networks" :key="network.id" :value="network.id">
-                        {{ named(network.id) }}, {{ network.name }}
+                        {{ network.name }}, AS{{ network.id }}
                     </option>
                 </select>
                 <select v-model="relation" class="ac-select" aria-label="Kind of link">
@@ -232,7 +224,7 @@ function arrow(link: AsLink): string {
                 </select>
                 <select v-model="second" class="ac-select" aria-label="Second network">
                     <option v-for="network in networks" :key="network.id" :value="network.id">
-                        {{ named(network.id) }}, {{ network.name }}
+                        {{ network.name }}, AS{{ network.id }}
                     </option>
                 </select>
                 <button type="submit" class="ac-button primary">Add the link</button>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: firewalls. The reader reorders, changes, removes and adds rules, sends test packets through them, and sees which rule matched first, or the default, until every packet gets what it should.
+// Lesson: firewalls. The reader reorders, changes, removes, and adds rules, sends test packets through them, and sees which rule matched first, or the default, until every packet gets what it should.
 
 import { computed, ref } from "vue";
 import { useTravel, type Point } from "../travel";
@@ -272,6 +272,9 @@ const shownChains: ChainName[] = props.part === "forward" ? ["forward"] : ["inpu
 
 const chainOf = (packet: Packet): ChainName => (packet.out ? "forward" : "input");
 
+/** What each chain is for, beside its name. */
+const CHAIN_WORDS: Record<ChainName, string> = { input: "to the router itself", forward: "through the router" };
+
 /** Whether an IPv4 address is inside a prefix such as 192.168.10.0/24. */
 function within(address: string, prefix: string): boolean {
     const [network, length] = prefix.split("/");
@@ -293,7 +296,7 @@ function mismatch(rule: Rule, packet: Packet): string | undefined {
     if (match.protocol && match.protocol !== packet.protocol)
         return `it is ${packet.protocol.toUpperCase()}, not ${match.protocol.toUpperCase()}`;
     if (match.dst_port !== undefined && match.dst_port !== packet.dstPort) return `it is for port ${packet.dstPort}, not ${match.dst_port}`;
-    if (match.state && !match.state.includes(packet.state)) return `it starts a new connection, it is not a reply`;
+    if (match.state && !match.state.includes(packet.state)) return "it starts a new connection";
 
     return undefined;
 }
@@ -363,7 +366,7 @@ const spots: Record<Interface | "router", Point> = {
 
 const sides: Interface[] = ["mgmt", "home", "guests", "1g-1"];
 
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 const arrived = ref(false);
 
 async function send(packet: Packet) {
@@ -454,14 +457,14 @@ const verdictText = computed(() => {
             ? `No rule matches it, so the default decides: ${outcome.verdict}.`
             : `Rule ${outcome.matched + 1}, ${outcome.lines[outcome.matched]!.rule.description}, is the first that matches, so it is ${outcome.verdict === "accept" ? "accepted" : "dropped"}. Rules below it are not read.`;
     const verdictMatches = outcome.verdict === packet.should;
-    const judgement = verdictMatches
+    const judgment = verdictMatches
         ? "That is what should happen."
         : `It should be ${packet.should === "accept" ? "accepted" : "dropped"}: change the rules.`;
 
     return {
         kind: outcome.verdict === "accept" ? "good" : "bad",
         word: outcome.verdict === "accept" ? "Accepted" : "Dropped",
-        text: `${chainWords} ${decided} ${judgement}`,
+        text: `${chainWords} ${decided} ${judgment}`,
     };
 });
 
@@ -508,7 +511,7 @@ const code = computed(() => {
             class="ac-drawing"
             viewBox="0 0 700 300"
             role="img"
-            :aria-label="`A router with four networks: management, home and guests on one side, the internet on its port 1g-1 on the other.${selected ? ' Showing: ' + selected.title + '.' : ''}`"
+            :aria-label="`A router with four networks: management, home, and guests on one side, and the internet on its port 1g-1 on the other.${selected ? ' Showing: ' + selected.title + '.' : ''}`"
         >
             <line
                 v-for="side in sides"
@@ -545,7 +548,7 @@ const code = computed(() => {
                 <text y="3" text-anchor="middle">DROPPED</text>
             </g>
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="frame">
@@ -564,7 +567,7 @@ const code = computed(() => {
                 <tbody>
                     <tr v-for="packet in packets" :key="packet.id" :class="{ lit: packet.id === selectedId }">
                         <td>
-                            <button type="button" class="send" :disabled="travelling" @click="send(packet)">{{ packet.title }}</button>
+                            <button type="button" class="send" :disabled="traveling" @click="send(packet)">{{ packet.title }}</button>
                             <span class="detail ac-mono"
                                 >{{ packet.src }} to {{ packet.dst }}, {{ packet.protocol }} port {{ packet.dstPort
                                 }}{{ packet.state === "new" ? "" : ", a reply" }}</span
@@ -605,10 +608,8 @@ const code = computed(() => {
                 class="chain"
                 :class="{ quiet: selected && selectedOutcome?.sent && selectedOutcome.chain !== name }"
             >
-                <h4>
-                    {{ name }}
-                    <span>{{ name === "input" ? "to the router itself" : "through the router" }}</span>
-                </h4>
+                <!-- v-text keeps the chain's name, a key in the file, out of the check for sentence case. -->
+                <h4><b v-text="name" /> <span v-text="CHAIN_WORDS[name]" /></h4>
 
                 <ol class="rules">
                     <li
@@ -840,6 +841,10 @@ h4 {
     margin: 0 0 8px !important;
     font-family: var(--circuit-mono);
     font-size: 16px;
+}
+
+h4 b {
+    font-weight: inherit;
 }
 
 h4 span {

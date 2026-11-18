@@ -1,4 +1,4 @@
-// What circuit validate and circuit diff printed for each choice in TenantJoin.vue: the colocation example with a second tenant, akamai, run once per combination.
+// What circuit validate and circuit diff printed for each choice in TenantJoin.vue: the colocation example with a second tenant, akamai, added to tenants/index.ts, run once per combination.
 // Each diff is planned against the example as it is, rendered, not against a device.
 
 export type Run = { validate: string; diff?: string };
@@ -15,11 +15,11 @@ export const RUNS: Record<string, Run> = {
     },
     "1002|free|10g-1|internet": {
         validate:
-            'tenants/index.ts:4: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+            'tenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
     },
     "1002|free|10g-1|both": {
         validate:
-            'tenants/index.ts:4: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+            'tenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
     },
     "1002|overlap|10g-3|internet": {
         validate:
@@ -31,11 +31,11 @@ export const RUNS: Record<string, Run> = {
     },
     "1002|overlap|10g-1|internet": {
         validate:
-            'tenants/index.ts:4: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+            'tenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
     },
     "1002|overlap|10g-1|both": {
         validate:
-            'tenants/index.ts:4: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+            'tenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
     },
     "1001|free|10g-3|internet": {
         validate:
@@ -47,11 +47,11 @@ export const RUNS: Record<string, Run> = {
     },
     "1001|free|10g-1|internet": {
         validate:
-            'tenants/index.ts:4: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+            'tenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
     },
     "1001|free|10g-1|both": {
         validate:
-            'tenants/index.ts:4: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+            'tenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
     },
     "1001|overlap|10g-3|internet": {
         validate:
@@ -63,10 +63,10 @@ export const RUNS: Record<string, Run> = {
     },
     "1001|overlap|10g-1|internet": {
         validate:
-            'tenants/index.ts:4: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+            'tenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
     },
     "1001|overlap|10g-1|both": {
         validate:
-            'tenants/index.ts:4: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+            'tenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
     },
 };

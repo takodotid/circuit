@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: project, an internet exchange. The reader admits a new member to the exchange example from its application, picks its AS and its port, then runs validate and diff. Every output is Circuit's own, from MemberJoin.ts.
+// Lesson: project, an internet exchange. The reader admits a new member to the exchange example from its request to join, picks its AS and its port, then runs validate and diff. Every output is Circuit's own, from MemberJoin.ts.
 
 import { computed, ref } from "vue";
 import { RUNS } from "./MemberJoin";
@@ -10,8 +10,8 @@ type DecisionId = "asn" | "port";
 type Decision = { id: DecisionId; question: string; choices: Choice[] };
 
 const MEMBERS = [
-    { member: "cloudflare", asn: "AS64510", port: "ix-sw-01 40g-1" },
-    { member: "google", asn: "AS64511", port: "ix-sw-02 40g-1" },
+    { member: "Cloudflare", asn: "AS13335", port: "ix-sw-01 40g-1" },
+    { member: "Google", asn: "AS15169", port: "ix-sw-02 40g-1" },
 ];
 
 const decisions: Decision[] = [
@@ -21,7 +21,7 @@ const decisions: Decision[] = [
         choices: [
             {
                 id: "54113",
-                label: "54113, from its application",
+                label: "54113, from its request",
                 verdict: "good",
                 text: "The AS the member gave, and no other member has it.",
             },
@@ -29,7 +29,7 @@ const decisions: Decision[] = [
                 id: "13335",
                 label: "13335",
                 verdict: "bad",
-                text: "A slip of the keyboard: that is cloudflare's AS. Here it is only in the port's description, so Circuit cannot tell it is wrong, but the NOC would look up the wrong network. Check it against the application.",
+                text: "A slip of the keyboard: that is the AS of Cloudflare. Here it is only in the port's description, so Circuit can't tell it is wrong, but the NOC would look up the wrong network. Check it against the request.",
             },
         ],
     },
@@ -42,7 +42,7 @@ const decisions: Decision[] = [
                 id: "40g-1",
                 label: "40g-1",
                 verdict: "bad",
-                text: "google's port. Two members cannot share one port: the newcomer's router would have nowhere to plug in.",
+                text: "The port of Google. Two members can't share one port: the newcomer's router would have nowhere to plug in.",
             },
             {
                 id: "40g-5",
@@ -79,7 +79,7 @@ const file = computed(() =>
         "export const fastly = {",
         "    parts: {",
         '        "ix-sw-02": part("device", {',
-        `            interfaces: { ethernet: { "${chosen.value.port}": { ...ix_1.member_port, description: "fastly, AS${chosen.value.asn}" } } },`,
+        `            interfaces: { ethernet: { "${chosen.value.port}": { ...ix_1.member_port, description: "Fastly, AS${chosen.value.asn}" } } },`,
         "        }),",
         "    },",
         "};",
@@ -101,7 +101,7 @@ const outcome = computed(() => {
         return {
             kind: "bad",
             word: "Stopped",
-            text: "Circuit stops while reading the files: two files give one port two descriptions, and it names both. Nothing is checked or planned until it is fixed.",
+            text: "Circuit stops while reading the files: two files give one port two descriptions, and it gives both. Nothing is checked or planned until it is fixed.",
         };
     }
     return {
@@ -132,7 +132,7 @@ const outcome = computed(() => {
                 </tbody>
             </table>
         </div>
-        <p class="note">On ix-sw-02, google has 40g-1, and 40g-5 is the trunk to ix-sw-01.</p>
+        <p class="note">On ix-sw-02, Google has 40g-1, and 40g-5 is the trunk to ix-sw-01.</p>
 
         <p class="progress">{{ decidedCount }} of {{ decisions.length }} decided</p>
 

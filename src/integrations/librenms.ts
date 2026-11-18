@@ -192,7 +192,8 @@ export class LibreNms implements SyncTarget<LibreNmsPlan> {
         if (current.display !== member.device.name) fields.display_template = member.device.name;
 
         const credentials = this.credentials(member);
-        if (credentials && Object.entries(credentials).some(([field, value]) => String(current[field] ?? "") !== value))
+        const text = (value: unknown) => (typeof value === "string" || typeof value === "number" ? String(value) : "");
+        if (credentials && Object.entries(credentials).some(([field, value]) => text(current[field]) !== value))
             fields = { ...fields, ...credentials };
 
         // LibreNMS reads the location from the device too; setting it now shows it before the next poll.
@@ -222,7 +223,7 @@ export class LibreNms implements SyncTarget<LibreNmsPlan> {
             }
 
             if (found.type !== "static") {
-                leftAlone.push(`group ${site} is a ${found.type} group in LibreNMS, so Circuit can't fill it, and leaves it as it is.`);
+                leftAlone.push(`group ${site} is a ${found.type} group in LibreNMS, so Circuit can't fill it and leaves it as it is.`);
                 continue;
             }
 

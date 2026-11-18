@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: DHCP. The reader sets a guest VLAN's pool and lease time, lets guests arrive and leave, moves the clock on, and watches the pool fill and empty, with the router's dhcp block written beside it.
+// Lesson: DHCP. The reader sets a guest VLAN's pool and lease time, lets guests arrive and leave, moves the clock on, and watches the pool fill and empty, with the router's DHCP server written beside it.
 
 import { computed, ref } from "vue";
 
@@ -166,10 +166,10 @@ function wait(hours: number) {
     };
 }
 
-/** The router's dhcp block, as the reader has set it. */
+/** The router's DHCP server for guests, as the reader has set it. */
 const file = computed(() =>
     [
-        "dhcp: {",
+        "dhcp_server: {",
         "    guests: {",
         '        interface: "guests",',
         '        network: "192.168.30.0/24",',

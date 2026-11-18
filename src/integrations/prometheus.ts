@@ -173,7 +173,7 @@ export class Prometheus implements SyncTarget<PrometheusPlan> {
         const b = after.trimEnd().split("\n");
 
         // The longest run of lines both keep, counted from the end.
-        const kept = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+        const kept = Array.from({ length: a.length + 1 }, () => Array.from({ length: b.length + 1 }, () => 0));
         for (let i = a.length - 1; i >= 0; i--)
             for (let j = b.length - 1; j >= 0; j--)
                 kept[i]![j] = a[i] === b[j] ? kept[i + 1]![j + 1]! + 1 : Math.max(kept[i + 1]![j]!, kept[i]![j + 1]!);

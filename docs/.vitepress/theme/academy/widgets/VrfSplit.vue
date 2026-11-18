@@ -4,14 +4,14 @@
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
 
-type Customer = "a" | "b";
+type Customer = "bank" | "school";
 type Office = { id: string; customer: Customer; label: string; port: string; lan: string; next: string; x: number; y: number };
 
 const offices: Office[] = [
-    { id: "a1", customer: "a", label: "Customer A, office 1", port: "25g-1", lan: "10.1.1.0/24", next: "172.16.0.2", x: 95, y: 75 },
-    { id: "a2", customer: "a", label: "Customer A, office 2", port: "25g-2", lan: "10.1.2.0/24", next: "172.16.0.6", x: 605, y: 75 },
-    { id: "b1", customer: "b", label: "Customer B, office 1", port: "25g-3", lan: "10.1.1.0/24", next: "172.16.0.2", x: 95, y: 305 },
-    { id: "b2", customer: "b", label: "Customer B, office 2", port: "25g-4", lan: "10.1.2.0/24", next: "172.16.0.6", x: 605, y: 305 },
+    { id: "a1", customer: "bank", label: "Bank, office 1", port: "25g-1", lan: "10.1.1.0/24", next: "172.16.0.2", x: 95, y: 75 },
+    { id: "a2", customer: "bank", label: "Bank, office 2", port: "25g-2", lan: "10.1.2.0/24", next: "172.16.0.6", x: 605, y: 75 },
+    { id: "b1", customer: "school", label: "School, office 1", port: "25g-3", lan: "10.1.1.0/24", next: "172.16.0.2", x: 95, y: 305 },
+    { id: "b2", customer: "school", label: "School, office 2", port: "25g-4", lan: "10.1.2.0/24", next: "172.16.0.6", x: 605, y: 305 },
 ];
 
 const PE = { x: 350, y: 190 };
@@ -37,7 +37,8 @@ const said = ref<{ kind: "good" | "bad"; word: string; text: string }>();
 const lastPath = ref<string[]>([]);
 const matched = ref<string>();
 
-const vrfOf = (customer: Customer) => `cust-${customer}`;
+/** Each customer's VRF has the customer's name. */
+const vrfOf = (customer: Customer) => customer;
 
 type Row = { key: string; table: string; prefix: string; via: string; office: Office };
 
@@ -51,11 +52,11 @@ const tables = computed(() => {
         office,
     }));
 
-    const names = mode.value === "one" ? ["main"] : ["cust-a", "cust-b"];
+    const names = mode.value === "one" ? ["main"] : ["bank", "school"];
     return names.map((name) => ({ name, rows: rows.filter((row) => row.table === name) }));
 });
 
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 
 function choose(next: "one" | "vrfs") {
     mode.value = next;
@@ -115,7 +116,7 @@ const code = computed(() => {
         "},",
         "",
         "routing: {",
-        ...(mode.value === "vrfs" ? ["    vrfs: {", '        "cust-a": {},', '        "cust-b": {},', "    },"] : []),
+        ...(mode.value === "vrfs" ? ["    vrfs: {", "        bank: {},", "        school: {},", "    },"] : []),
         "    static_routes: [",
         ...offices.map((office) => `        { prefix: "${office.lan}", next_hop: "${office.next}"${vrf(office.customer)} },`),
         "    ],",
@@ -143,12 +144,12 @@ const code = computed(() => {
             class="ac-drawing"
             viewBox="0 0 700 380"
             role="img"
-            aria-label="One provider router, pe-01, with two offices of Customer A above and two offices of Customer B below. Both customers use 10.1.1.0/24 in office 1 and 10.1.2.0/24 in office 2."
+            aria-label="One provider router, pe-01, with the two offices of a bank on top and the two offices of a school at the bottom. Both customers use 10.1.1.0/24 in office 1 and 10.1.2.0/24 in office 2."
         >
             <rect v-if="mode === 'vrfs'" class="zone" x="20" y="18" width="660" height="127" />
             <rect v-if="mode === 'vrfs'" class="zone" x="20" y="255" width="660" height="117" />
-            <text v-if="mode === 'vrfs'" class="zone-name" x="350" y="38" text-anchor="middle">VRF cust-a</text>
-            <text v-if="mode === 'vrfs'" class="zone-name" x="350" y="275" text-anchor="middle">VRF cust-b</text>
+            <text v-if="mode === 'vrfs'" class="zone-name" x="350" y="38" text-anchor="middle">VRF bank</text>
+            <text v-if="mode === 'vrfs'" class="zone-name" x="350" y="275" text-anchor="middle">VRF school</text>
 
             <line
                 v-for="office in offices"
@@ -160,14 +161,7 @@ const code = computed(() => {
                 :x2="office.x"
                 :y2="office.y"
             />
-            <SvgDevice
-                kind="router"
-                :x="PE.x"
-                :y="PE.y"
-                label="pe-01"
-                :note="mode === 'one' ? 'one table' : 'two VRFs'"
-                :lit="travelling"
-            />
+            <SvgDevice kind="router" :x="PE.x" :y="PE.y" label="pe-01" :note="mode === 'one' ? 'one table' : 'two VRFs'" :lit="traveling" />
             <SvgDevice
                 v-for="office in offices"
                 :key="`d-${office.id}`"
@@ -178,18 +172,18 @@ const code = computed(() => {
                 :note="office.lan"
                 :lit="office.id === from"
             />
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="send">
             <label class="ac-field">
                 <span>Send to {{ DESTINATION }}, office 2, from</span>
                 <select v-model="from" class="ac-select" @change="((said = undefined), (lastPath = []), (matched = undefined))">
-                    <option value="a1">Customer A, office 1</option>
-                    <option value="b1">Customer B, office 1</option>
+                    <option value="a1">Bank, office 1</option>
+                    <option value="b1">School, office 1</option>
                 </select>
             </label>
-            <button type="button" class="ac-button primary" :disabled="travelling" @click="send">Send a packet</button>
+            <button type="button" class="ac-button primary" :disabled="traveling" @click="send">Send a packet</button>
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>

@@ -25,31 +25,31 @@ const key = (link: { a: string; b: string }) => `${link.a}-${link.b}`;
 const steps = [
     {
         title: "Neighbors say hello",
-        text: "Each router sends a hello message out of every interface OSPF runs on. When two routers hear each other, they become neighbors. They keep saying hello every few seconds.",
+        text: "Each router sends a hello message out of every interface that OSPF runs on. Two routers that hear each other become neighbors. They keep saying hello every few seconds.",
     },
     {
         title: "Each router describes its own links",
-        text: "Each router writes down the links it has and their costs, in a message called a link-state advertisement. So far, each one only knows its own links.",
+        text: "Each router lists its links and their costs, in a message called a link-state advertisement, or LSA. So far, each router knows only its own links.",
     },
     {
         title: "They flood what they learn",
-        text: "Each router sends its description to its neighbors, and passes on every description it receives. Soon every router has the same map of every link: the link-state database.",
+        text: "Each router sends its description to its neighbors, and passes on every description it gets. Soon every router has the same map of every link, called the link-state database.",
     },
     {
         title: "Each router computes its paths",
-        text: "Each router runs the shortest path first calculation over the map, with itself at the start, and puts the result in its routing table. R1 reaches R4 through R2, at a cost of 20.",
+        text: "Each router runs the shortest path first calculation over the map, with itself at the start. It puts the results in its routing table. R1 reaches R4 through R2, at a cost of 20.",
     },
     {
         title: "A link fails",
-        text: "The cable between R2 and R4 breaks. They stop hearing each other's hellos. Many routers wait about 40 seconds of silence before they give up on a neighbor; with BFD it takes less than a second.",
+        text: "The cable between R2 and R4 breaks, and the two stop hearing each other's hellos. Many routers wait about 40 seconds of silence before they give up on a neighbor. With BFD, it takes less than a second.",
     },
     {
         title: "They flood the change",
-        text: "R2 and R4 each send a new description of their links, without the broken one. It is flooded like before, so every router removes the link from its map.",
+        text: "R2 and R4 each send a new description of their links, without the broken one. It is flooded as before, so every router removes the link from its map.",
     },
     {
         title: "Everyone computes again",
-        text: "Each router runs the calculation again over the new map. R1 now reaches R4 through R3, at a cost of 40. Nobody touched a routing table by hand.",
+        text: "Each router runs the calculation again over the new map. R1 now reaches R4 through R3, at a cost of 40. Nobody changed a routing table by hand.",
     },
 ];
 

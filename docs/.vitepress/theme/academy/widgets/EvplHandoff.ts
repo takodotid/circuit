@@ -17,7 +17,7 @@ export type Service = {
 export class Handoff {
     static readonly SERVICES: readonly Service[] = [
         { id: "branch", place: "the branch office", vlan: 2010, name: "to-branch", address: "10.255.0.1/30" },
-        { id: "dc", place: "the data centre", vlan: 2020, name: "to-dc", address: "10.255.0.5/30" },
+        { id: "dc", place: "the data center", vlan: 2020, name: "to-dc", address: "10.255.0.5/30" },
     ];
 
     /** The port the provider's circuit is handed over on. */

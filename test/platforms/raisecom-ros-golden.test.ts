@@ -3,7 +3,7 @@
 import { expect, test } from "bun:test";
 import type { Device } from "../../src/model";
 import { Platforms } from "../../src/platforms";
-import { Derive } from "../../src/platforms/derive";
+import { Derive } from "../../src/core/derive";
 import { Fixtures } from "../fixtures";
 
 const platform = Platforms.get("raisecom-ros");

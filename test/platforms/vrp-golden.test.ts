@@ -2,7 +2,7 @@
 
 import { expect, test } from "bun:test";
 import type { Device } from "../../src/model";
-import { Derive } from "../../src/platforms/derive";
+import { Derive } from "../../src/core/derive";
 import { Vrp } from "../../src/platforms/vrp/index";
 import { Fixtures } from "../fixtures";
 
@@ -98,13 +98,13 @@ test("a 0.x message is written with v1's paths and field names", () => {
         "interfaces.ethernet.10g-1.ingress_acl, ports are switched; use a VLAN interface"
     );
     expect(inV1("interfaces.lo, a loopback", device)).toBe("interfaces.loopback.lo, a loopback");
-    expect(inV1("interfaces.uplink.ethertypes, on a LAG is not proved", device)).toBe(
-        "interfaces.lag.uplink.ethertypes, on a LAG is not proved"
+    expect(inV1("interfaces.uplink.ethertypes, on a LAG is not tested", device)).toBe(
+        "interfaces.lag.uplink.ethertypes, on a LAG is not tested"
     );
     expect(inV1("routing.static 198.51.100.0/24 bfd, needs an IPv4 via", device)).toBe(
         "routing.static_routes 198.51.100.0/24 bfd, needs an IPv4 next_hop"
     );
-    expect(inV1("system.logging.remote 2001:db8::1, IPv6 is not proved", device)).toBe("monitoring.syslog 2001:db8::1, IPv6 is not proved");
+    expect(inV1("system.logging.remote 2001:db8::1, IPv6 is not tested", device)).toBe("monitoring.syslog 2001:db8::1, IPv6 is not tested");
     expect(inV1("dhcp", device)).toBe("services.dhcp_server");
 });
 

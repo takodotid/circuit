@@ -15,36 +15,36 @@ type Incoming = {
 };
 
 const incoming: Incoming[] = [
-    { prefix: "203.0.113.0/24", path: "64510 64505", rpki: "valid", note: "An ordinary route to another network.", belongs: true },
+    { prefix: "203.0.113.0/24", path: "64510 13335", rpki: "valid", note: "A route to Cloudflare, AS13335.", belongs: true },
     {
         prefix: "10.20.0.0/16",
         path: "64510 64509",
         rpki: "not-found",
-        note: "Private space, announced by someone by mistake.",
+        note: "Private space, announced by AS64509 by mistake.",
         belongs: false,
     },
     {
         prefix: "203.0.113.128/25",
         path: "64510 64505",
         rpki: "invalid",
-        note: "Half of the first route. Most networks take nothing longer than a /24.",
+        note: "Half of Cloudflare's route, announced by AS64505. Most networks take nothing longer than a /24.",
         belongs: false,
     },
     {
         prefix: "198.51.100.0/24",
         path: "64510 64509",
         rpki: "not-found",
-        note: "Your own space, announced by AS64509. You have not published a ROA for it yet.",
+        note: "Your own space, announced by AS64509. You haven't published a ROA for it yet.",
         belongs: false,
     },
     {
         prefix: "192.0.2.0/24",
         path: "64510 64507",
         rpki: "invalid",
-        note: "Its ROA allows only AS64506, but AS64507 announces it.",
+        note: "Its ROA allows only Google, AS15169, but AS64507 announces it.",
         belongs: false,
     },
-    { prefix: "2001:db8:4000::/48", path: "64510 64505", rpki: "valid", note: "An ordinary IPv6 route.", belongs: true },
+    { prefix: "2001:db8:4000::/48", path: "64510 15169", rpki: "valid", note: "A route to Google, AS15169.", belongs: true },
     {
         prefix: "169.254.0.0/16",
         path: "64510 64509",
@@ -52,7 +52,13 @@ const incoming: Incoming[] = [
         note: "Link-local addresses, which never belong on the internet.",
         belongs: false,
     },
-    { prefix: "2001:db8:4000:10::/64", path: "64510 64505", rpki: "invalid", note: "One LAN inside the IPv6 route above.", belongs: false },
+    {
+        prefix: "2001:db8:4000:10::/64",
+        path: "64510 64505",
+        rpki: "invalid",
+        note: "One LAN inside Google's route, announced by AS64505.",
+        belongs: false,
+    },
     {
         prefix: "0.0.0.0/0",
         path: "64510",
@@ -86,10 +92,23 @@ function inside(route: string, set: readonly string[]): boolean {
     });
 }
 
-const BOGONS = ["127.0.0.0/8", "169.254.0.0/16", "0.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"];
+/** `presets.bogons.ipv4` without the documentation ranges, which stand for real networks in this widget. */
+const BOGONS = [
+    "0.0.0.0/8",
+    "10.0.0.0/8",
+    "100.64.0.0/10",
+    "127.0.0.0/8",
+    "169.254.0.0/16",
+    "172.16.0.0/12",
+    "192.0.0.0/24",
+    "192.168.0.0/16",
+    "198.18.0.0/15",
+    "224.0.0.0/4",
+    "240.0.0.0/4",
+];
 const OURS = ["198.51.100.0/24"];
 
-/** The rules Bgp.sanity() makes, in its order. */
+/** The rules of `presets.bgp_sanity`, in its order. */
 const sanity = [
     { label: "IPv4 shorter than /8", test: (route: Incoming) => !isIpv6(route.prefix) && lengthOf(route.prefix) < 8 },
     { label: "IPv4 longer than /24", test: (route: Incoming) => !isIpv6(route.prefix) && lengthOf(route.prefix) > 24 },
@@ -130,7 +149,7 @@ function decide(route: Incoming): Decision {
 
         if (rule.id === "sanity") {
             const hit = sanity.find((check) => check.test(route));
-            if (hit) return { accepted: false, rule: "sanity", detail: `Rejected inside SANITY: ${hit.label}.` };
+            if (hit) return { accepted: false, rule: "sanity", detail: `Rejected inside sanity: ${hit.label}.` };
         }
 
         if (rule.id === "bogons" && inside(route.prefix, BOGONS))
@@ -173,13 +192,13 @@ function toggle(id: RuleId) {
 const code = computed(() => {
     const lines = [
         "prefix_sets: {",
-        "    bogons: { prefixes: [...Filters.MARTIANS, ...Filters.PRIVATE_RANGES] },",
+        "    bogons: { prefixes: presets.bogons.ipv4 },",
         `    ours: { prefixes: ["198.51.100.0/24"] },`,
         "},",
         "",
         "policies: {",
-        "    SANITY: Bgp.sanity(),",
-        `    "TRANSIT-IN": [`,
+        "    sanity: presets.bgp_sanity,",
+        `    "transit-import": [`,
     ];
     const lineOf: Partial<Record<RuleId, number>> = {};
 
@@ -216,7 +235,7 @@ function verdictWord(route: Incoming, decision: Decision) {
     <div class="policy-filter">
         <div class="layout">
             <div>
-                <p class="heading">TRANSIT-IN, read from the top</p>
+                <p class="heading">The policy transit-import, read from the top</p>
                 <ol class="rules">
                     <li
                         v-for="(rule, index) in rules"
@@ -246,7 +265,7 @@ function verdictWord(route: Incoming, decision: Decision) {
             </div>
 
             <div>
-                <p class="heading">Routes from Transit A, AS64510</p>
+                <p class="heading">Routes from AS64510, a careless transit</p>
                 <div v-if="current" class="card">
                     <p class="ac-mono prefix">{{ current.route.prefix }}</p>
                     <p class="quiet">
@@ -255,7 +274,7 @@ function verdictWord(route: Incoming, decision: Decision) {
                     </p>
                     <p>{{ current.route.note }}</p>
                 </div>
-                <p v-else class="card quiet">No route yet. Press Next route.</p>
+                <p v-else class="card quiet">No route yet.</p>
 
                 <div class="ac-row actions">
                     <button type="button" class="ac-button primary" :disabled="shown === incoming.length" @click="next">Next route</button>

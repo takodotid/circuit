@@ -6,20 +6,20 @@ description: One command installs Circuit like an app. Then start a project, or 
 
 <img class="illustration" src="/illustrations/guide/install.webp" alt="A laptop with a terminal open, one line highlighted, leading to a new project folder with its files and a key." width="1536" height="1024">
 
-Open a terminal and run:
+Open a terminal and run the command for your system.
 
 <InstallTabs />
 
-It installs `circuit` like an app and adds it to your `PATH`:
+The command installs `circuit` like an app and adds it to your `PATH`.
 
-- **Windows:** `%LOCALAPPDATA%\Programs\Circuit\circuit.exe`, listed in **Settings > Apps**.
-- **macOS and Linux:** `~/.local/bin/circuit`.
+- On Windows, it goes in `%LOCALAPPDATA%\Programs\Circuit\circuit.exe`, and **Settings > Apps** lists it.
+- On macOS and Linux, it goes in `~/.local/bin/circuit`.
 
-First it asks whether to install Circuit as an app. Say no for a [full install](#full-install).
+On a first install, it asks whether to install Circuit as an app. Say no for a [full install](#full-install). Then it asks whether to set up a new project in this folder. No is the default, and you can start one later with `circuit new`.
 
-Then it asks: **Set up a new project in this folder?** No is the default. You can always start one later with `circuit new`.
+Afterwards, open a new terminal and restart VS Code, so both find `circuit`.
 
-Open a new terminal afterwards, and restart VS Code, so both find `circuit`.
+To check each download's signature, the command needs `ssh-keygen` from OpenSSH. On a minimal Linux, such as a container image, install `openssh-client` first. For CI, see [Run in CI](/guide/ci).
 
 ## Start a project
 
@@ -27,53 +27,47 @@ Open a new terminal afterwards, and restart VS Code, so both find `circuit`.
 circuit new network
 ```
 
-Or run `circuit` in an empty folder and pick **Start a new project**.
+Or run `circuit` in an empty folder and pick **Start a new project**. Circuit asks a few questions.
 
-| Question                | Pick                                                                     |
-| ----------------------- | ------------------------------------------------------------------------ |
-| Project folder          | Any name. `network` by default.                                          |
-| How to run Circuit      | **Simple** (recommended): the app. **Full**: see [below](#full-install). |
-| Your AS number          | Yours, or keep `64500` for now and change it later in `circuit.ts`.      |
-| Start a git repository? | Yes. Git keeps every change and who made it.                             |
-| Open in VS Code?        | Only asked if you have VS Code.                                          |
+| Question                     | Answer                                                                              |
+| ---------------------------- | ----------------------------------------------------------------------------------- |
+| Project folder               | Any name.                                                                           |
+| How to run Circuit           | **Simple** (recommended) runs the app. **Full** is a [full install](#full-install). |
+| Your network's AS number     | Yours. Or keep `64500`, and change it later in `circuit.ts`.                        |
+| Start a git repository?      | Yes. Git keeps every change and who made it.                                        |
+| Open the project in VS Code? | Circuit asks only if you have VS Code.                                              |
 
-Once you add a site and a device, the project looks like this:
+Once you add a site and a device, the project has this layout.
 
 <LayoutDiagram />
 
-## Running the install command again
+Next, write [your first project](/guide/project).
 
-| Where you run it                              | What happens                                                    |
-| --------------------------------------------- | --------------------------------------------------------------- |
-| Anywhere, with Circuit installed              | Asks before updating Circuit. No is the default.                |
-| In a project folder, like a fresh `git clone` | Sets that project up, no questions: editor types, the git hook. |
-| In any other folder                           | Asks whether to set up a new project there.                     |
+## Run the install command again
+
+| Where you run it                           | What happens                                                       |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| Anywhere, with Circuit installed           | It asks before it updates Circuit. No is the default.              |
+| In a project folder, such as a fresh clone | It sets up that project without questions: editor types, git hook. |
+| In any other folder                        | It asks whether to set up a new project there.                     |
 
 So a teammate who clones your project runs the install command once, in that folder, and is ready.
 
 ## Each project pins its version
 
-A project keeps its Circuit version in `.circuit/version`, committed with the rest:
+A project keeps its Circuit version, such as `1.0.0`, in `.circuit/version`. You commit that file, and every command in the project runs that version. So two projects on two versions never clash, and everyone on the team runs the same version.
 
-```
-1.0.0
-```
-
-Every command in the project runs that version. The first time, Circuit asks to download it, then keeps it once in `~/.circuit/versions/`. In CI, with nobody to ask, it just downloads. So:
-
-- Two projects on two versions never clash.
-- Circuit updating itself never changes a project.
-- Everyone on the team runs the same version.
-
-The installed `circuit` itself only manages: it starts projects (`circuit new`), keeps itself up to date, gets each project its version, and runs it.
+The first time, Circuit asks before it downloads the version. It keeps each version once, in `~/.circuit/versions/`, and removes it when no project uses it any more.
 
 ## Full install
 
-Circuit as a package in the project, pinned in its `package.json`. Nothing goes on your `PATH`: you run it with Bun, as `bun circuit <command>`. Say no to "install as an app" in the installer, or pick **Full** in `circuit new`.
+A full install keeps Circuit inside one project, as a package pinned in its `package.json`. Nothing goes on your `PATH`. You run Circuit with Bun, as `bun circuit <command>`.
+
+To get one, say no to "Install Circuit as an app?" in the installer, or pick **Full** in `circuit new`. If Bun is missing, Circuit offers to install it.
 
 ## Your editor
 
-Your editor completes every field and flags every wrong name as you type, from the project's `tsconfig.json` and `.circuit/types`.
+Your editor completes every field and marks every wrong name as you type, with the types in `.circuit/types`.
 
 | Editor                           | You install                                                 |
 | -------------------------------- | ----------------------------------------------------------- |
@@ -84,9 +78,7 @@ Your editor completes every field and flags every wrong name as you type, from t
 | Neovim, Helix, Sublime Text      | A TypeScript language server, set up by hand.               |
 | Notepad++ and plain editors      | No live checks. `circuit validate` still checks everything. |
 
-We recommend VS Code. A new project comes with `.editorconfig`, `.vscode/settings.json` and `.vscode/extensions.json`: VS Code asks to install the Prettier extension, and then tidies each file's spacing and line breaks as you save it. `circuit fmt` does the same from the terminal, for other editors and CI.
-
-The style is in `.editorconfig`: 4 spaces, lines up to 140, LF. Both the Prettier extension and `circuit fmt` read it; everything else is Prettier's own defaults. A `.prettierrc.json`, if you add one, goes on top, for both.
+VS Code is the recommended editor. In a new project, VS Code offers the Prettier extension, which tidies each file when you save. In other editors, run [`circuit fmt`](/reference/cli#fmt).
 
 ## Updating
 
@@ -94,39 +86,11 @@ The style is in `.editorconfig`: 4 spaces, lines up to 140, LF. Both the Prettie
 circuit update
 ```
 
-In a project, it moves the project to a newer version:
+In a project, Circuit lists up to five newer versions, newest first. Pick one, then commit `.circuit/version` so your team gets it too. A project never moves to a new major version by itself, so 1.x stays on 1.x.
 
-- **Pick a version.** Circuit lists the last five versions newer than the project's, newest at the top, plus "Stay". `--confirm` takes the newest without asking.
-- Then it rewrites `.circuit/version` and the editor types. Commit `.circuit/version`, and your team gets the same version.
-- **Never across a major version.** 1.x stays on 1.x. Moving to 2.x is your choice.
+Circuit also updates itself before each command, so you rarely need `circuit update --app`. Your projects keep their own versions.
 
-### Circuit updates itself
-
-Before every command but `uninstall`, Circuit checks for a newer release, at most every 30 seconds:
-
-- **Newer one out:** Circuit updates itself, then runs your command. Your projects keep their own version.
-- **Offline:** a warning, and your command runs.
-- **New major version out:** only a warning.
-
-`circuit update` outside a project, or with `--app`, picks the version of Circuit itself. You rarely need it.
-
-### Security fixes
-
-A version with a security problem gets a [GitHub security advisory](https://github.com/takodotid/circuit/security/advisories). Circuit reads them, at most every 2 minutes:
-
-- **Your project's version is affected:** nothing runs until you move it. Circuit shows the problem and offers only fixed versions, no "Stay". The fix closest to your version is always in the list: it changes the least.
-- **In CI:** the command stops and names the fixed versions.
-- An affected version is never offered, and Circuit never updates itself to one.
-
-### Downloads are signed
-
-Every release's list of checksums is signed. Circuit, and the install command, install a version only when the signature is Circuit's and the file matches it.
-
-The install command checks the signature with `ssh-keygen`, from OpenSSH. Windows 10 and 11, macOS and most Linux have it. On a minimal Linux, such as a container image, install `openssh-client` first.
-
-### Old versions are cleaned up
-
-Each version is kept once in `~/.circuit/versions`. Circuit remembers the projects it ran in. When none of them uses a version any more, Circuit removes it, so old versions don't pile up.
+If a [security advisory](https://github.com/takodotid/circuit/security/advisories) affects your project's version, Circuit runs nothing until you move the project to a fixed version. [SECURITY.md](https://github.com/takodotid/circuit/blob/main/SECURITY.md) explains advisories and signed releases.
 
 ## Uninstall
 
@@ -134,4 +98,4 @@ Each version is kept once in `~/.circuit/versions`. Circuit remembers the projec
 circuit uninstall
 ```
 
-It asks first. Then it removes Circuit, its `PATH` entry, the **Settings > Apps** entry on Windows, and `~/.circuit`. Your projects are never touched.
+It asks first. Then it removes Circuit, its `PATH` entry, the **Settings > Apps** entry on Windows, and `~/.circuit`. It never touches your projects.

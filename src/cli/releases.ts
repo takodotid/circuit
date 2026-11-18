@@ -3,8 +3,8 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { Installation } from "../core/installation";
 import { type Advisory, Advisories } from "./advisories";
 import { Signing } from "./signing";
 import { Ui } from "./ui";
@@ -36,13 +36,8 @@ export class Releases {
     /** How many versions `circuit update` offers, newest first. */
     static readonly OFFERED = 5;
 
-    /** Where Circuit keeps what it learned and the versions projects pin: `~/.circuit`, or `CIRCUIT_HOME` for a test. */
-    static home(): string {
-        return process.env.CIRCUIT_HOME || join(homedir(), ".circuit");
-    }
-
     private static cachePath(): string {
-        return join(Releases.home(), "latest.json");
+        return join(Installation.home(), "latest.json");
     }
 
     /** Below 0 when `a` is older than `b`, 0 when the same, above 0 when newer. Versions as semver writes them, such as `1.0.0-rc.2`. */
@@ -127,7 +122,7 @@ export class Releases {
             };
 
             try {
-                mkdirSync(Releases.home(), { recursive: true });
+                mkdirSync(Installation.home(), { recursive: true });
                 writeFileSync(Releases.cachePath(), JSON.stringify({ checked: Date.now(), version: VERSION, latest }));
             } catch {}
             return { latest, offline: false };
@@ -138,7 +133,7 @@ export class Releases {
 
     /** The security advisories, from the cache when read in the last two minutes. */
     static advisories(fresh = false): Promise<{ advisories: Advisory[]; offline: boolean }> {
-        return Advisories.read(Releases.home(), fresh);
+        return Advisories.read(Installation.home(), fresh);
     }
 
     /** The advisories that affect `version`. */
@@ -147,9 +142,7 @@ export class Releases {
     }
 
     /**
-     * Before every command but `uninstall`: the manager updates itself to the newest release of its major and runs the command again
-     * as that version; it warns when it could not check, and when this version is deprecated. Run from the sources, or as a version a
-     * manager started, it only checks.
+     * Before every command but `uninstall`: the manager updates itself to the newest release of its major and runs the command again as that version; it warns when it could not check, and when this version is deprecated. Run from the sources, or as a version a manager started, it only checks.
      */
     static async check(argv: readonly string[]): Promise<void> {
         const [{ latest, offline }, advisories] = await Ui.wait("Checking for a newer Circuit", () =>
@@ -157,19 +150,19 @@ export class Releases {
         );
 
         if (offline || advisories.offline)
-            Ui.warn("Could not reach the npm registry or GitHub, so Circuit could not check that it is current and safe. Go carefully.");
+            Ui.warn("Circuit couldn't reach the npm registry or GitHub, so it couldn't check for updates and security advisories.");
         if (latest?.deprecated) Ui.warn(`Circuit ${VERSION} is deprecated: ${latest.deprecated}`);
 
         const major = latest && Releases.newerMajor(latest);
         if (major)
             Ui.warn(
-                `Circuit ${major} is out, a new major version. Circuit stays on ${Releases.major(VERSION)}.x; read what changed at https://circuit.tako.id before you move.`
+                `Circuit ${major}, a new major version, is out. This Circuit stays on ${Releases.major(VERSION)}.x. Read what changed at https://circuit.tako.id before you move.`
             );
 
         const target = latest && Releases.target(latest);
         if (!target || Releases.compare(VERSION, target) >= 0 || Releases.affecting(advisories.advisories, target).length) return;
 
-        const binary = Releases.binary();
+        const binary = Installation.binary();
         if (!binary || process.env[Releases.UPDATED]) {
             Ui.warn(`Circuit ${target} is out, and this is ${VERSION}.`);
             return;
@@ -178,25 +171,15 @@ export class Releases {
         try {
             Releases.replace(binary, await Ui.step(`Updating Circuit to ${target}`, () => Releases.fetchBinary(target)));
         } catch (error) {
-            Ui.warn(`Circuit ${target} is out, and could not be installed: ${(error as Error).message}`);
+            Ui.warn(`Circuit ${target} is out, but Circuit couldn't install it: ${(error as Error).message}`);
             return;
         }
-        Ui.done(`Circuit is ${target} now. Your projects keep the version they pin.`);
+        Ui.done(`Updated Circuit to ${target}. Projects keep the version they pin.`);
 
         // The command runs on as the new version.
         const result = spawnSync(binary, argv, { stdio: "inherit", env: { ...process.env, [Releases.UPDATED]: "1" } });
         if (result.error) Ui.fail(`Circuit ${target} could not start: ${result.error.message}`);
         process.exit(result.status ?? 1);
-    }
-
-    /** This Circuit's own file, when it runs as the installed binary rather than from its sources. */
-    static binary(): string | undefined {
-        return /^circuit(-[\w-]+)?(\.exe)?$/i.test(basename(process.execPath)) ? process.execPath : undefined;
-    }
-
-    /** How this Circuit runs itself again: the installed binary, or Bun with these sources. */
-    static self(): string[] {
-        return Releases.binary() ? [process.execPath] : [process.execPath, join(import.meta.dir, "index.ts")];
     }
 
     /** The release file for this system, such as `circuit-linux-x64`. Undefined on a system Circuit is not built for. */
@@ -210,7 +193,7 @@ export class Releases {
 
     /** Remove what an update on Windows left: the old binary, kept aside while it still ran. */
     static tidy(): void {
-        const binary = Releases.binary();
+        const binary = Installation.binary();
         if (!binary) return;
 
         const folder = dirname(binary);
@@ -222,7 +205,7 @@ export class Releases {
         }
     }
 
-    /** The file of a release's SHA256SUMS that names `asset`, when the signature is the release key's. Throws otherwise. */
+    /** The file of a release's SHA256SUMS that uses `asset`, when the signature is the release key's. Throws otherwise. */
     static expectedHash(sums: Buffer, signature: string, asset: string, keys: readonly string[] = Signing.KEYS): string {
         if (!Signing.verify(sums, signature, keys))
             throw new Error("the release's SHA256SUMS is not signed with Circuit's release key, so nothing was installed");
@@ -232,7 +215,7 @@ export class Releases {
             .split("\n")
             .find((line) => line.trim().endsWith(` ${asset}`) || line.trim().endsWith(`*${asset}`))
             ?.split(/\s+/)[0];
-        if (!expected) throw new Error(`the release's SHA256SUMS names no ${asset}`);
+        if (!expected) throw new Error(`the release's SHA256SUMS has no line for ${asset}`);
         return expected;
     }
 
@@ -254,7 +237,7 @@ export class Releases {
     }
 
     /** Every published version, and which are deprecated. A stop when the registry can't be read. */
-    static async releases(): Promise<Release[]> {
+    static async all(): Promise<Release[]> {
         try {
             const packument = await Ui.step("Checking for a newer Circuit", async () => {
                 const response = await fetch(`${Releases.REGISTRY}/${Releases.PACKAGE}`, {
@@ -275,9 +258,7 @@ export class Releases {
     }
 
     /**
-     * The versions to offer after `current`, newest first, at most `count`: of its major version, never one an advisory affects. A
-     * release candidate only while `current` is one. The safe version closest to `current`, the fix that changes the least, is always
-     * among them.
+     * The versions to offer after `current`, newest first, at most `count`: of its major version, never one an advisory affects. A release candidate only while `current` is one. The safe version closest to `current`, the fix that changes the least, is always among them.
      */
     static choices(
         releases: readonly Release[],
@@ -302,11 +283,10 @@ export class Releases {
     }
 
     /**
-     * Which version `what` moves to: the person picks from the newest few, the newest at the top, or stays, unless an advisory affects
-     * the version it runs: then it must move. With `confirmed`, the newest. Undefined when it stays.
+     * Which version `what` moves to: the person picks from the newest few, the newest at the top, or stays, unless an advisory affects the version it runs: then it must move. With `confirmed`, the newest. Undefined when it stays.
      */
     static async pick(current: string, confirmed: boolean, what: string): Promise<string | undefined> {
-        const [releases, { advisories }] = await Promise.all([Releases.releases(), Releases.advisories(true)]);
+        const [releases, { advisories }] = await Promise.all([Releases.all(), Releases.advisories(true)]);
         const choices = Releases.choices(releases, current, advisories);
         const affected = Releases.affecting(advisories, current);
         const closest = choices.at(-1)?.version;
@@ -320,11 +300,11 @@ export class Releases {
             return undefined;
         }
         if (confirmed) return choices[0]!.version;
-        if (!Ui.interactive) Ui.fail("Not updated. Without a person to answer, add --confirm, which takes the newest.");
+        if (!Ui.interactive) Ui.fail("Not updated. Without a terminal, add --confirm to take the newest.");
 
         const problem = affected.map((advisory) => `${advisory.summary} (${advisory.severity}): ${advisory.url}`).join("\n");
         Ui.note(
-            `${what} runs Circuit ${current}.${affected.length ? `\nIt has a security problem, so it must move to a fixed version:\n${problem}` : ""}\nWhat changed: https://github.com/takodotid/circuit/releases\nRun circuit validate and circuit diff after, before you apply.`,
+            `${what} runs Circuit ${current}.${affected.length ? `\nIt has a security problem, so it must move to a fixed version:\n${problem}` : ""}\nWhat changed: https://github.com/takodotid/circuit/releases\nAfter the update, run circuit validate and circuit diff before you apply.`,
             affected.length ? "Update required" : "Update"
         );
         const picked = await Ui.select<string>(affected.length ? "Move to which fixed version?" : "Which version?", [
@@ -333,7 +313,7 @@ export class Releases {
                 label: release.version,
                 hint: [
                     i === 0 ? "newest" : "",
-                    release.version === closest && choices.length > 1 ? "closest to yours, the least that changes" : "",
+                    release.version === closest && choices.length > 1 ? "closest to yours, fewest changes" : "",
                     release.version.includes("-") ? "release candidate" : "",
                     release.deprecated ? `deprecated: ${release.deprecated}` : "",
                 ]
@@ -348,12 +328,12 @@ export class Releases {
     /** Update the installed manager to a version the person picks. Gives back that version. */
     static async updateApp(confirmed: boolean): Promise<string | undefined> {
         const binary =
-            Releases.binary() ?? Ui.fail("This Circuit runs from its sources. Update it where it came from, such as with git pull.");
+            Installation.binary() ?? Ui.fail("This Circuit runs from its sources. Update it where it came from, such as with git pull.");
         const target = await Releases.pick(VERSION, confirmed, "The app");
         if (!target) return undefined;
 
         Releases.replace(binary, await Ui.step(`Downloading Circuit ${target}`, () => Releases.fetchBinary(target)));
-        Ui.done(`Circuit is ${target} now.`);
+        Ui.done(`Updated Circuit to ${target}.`);
         return target;
     }
 

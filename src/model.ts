@@ -1,6 +1,4 @@
-// The model as Circuit's own code reads it: a device as its project wrote it, after `src/project/project.ts` turned what the language adds into
-// plain values (a list in a match is one rule per value, an interface set its interfaces, `management.allow` its addresses). Each name is plain text
-// here: the project's types already checked it. The fields and their docs are those of `src/config/`, which a project writes.
+// The model as Circuit's own code reads it: a device as its project wrote it, after `src/project.ts` turned what the language adds into plain values (a list in a match is one rule per value, an interface set its interfaces, `management.allow` its addresses). Each name is plain text here: the project's types already checked it. The fields and their docs are those of `src/config/`, which a project writes.
 
 import type * as C from "./config/index";
 
@@ -84,3 +82,13 @@ export type DhcpRelay = C.DhcpRelay<string>;
 export type FlowExport = C.FlowExport<string>;
 export type SyslogServer = C.SyslogServer;
 export type Ospf = C.Ospf<string>;
+
+/** Something wrong with a config, as `circuit validate` reports it. */
+export type Finding = {
+    /** An error stops `diff` and `apply`. A warning is only reported. */
+    level: "error" | "warning";
+    /** The device it is about, when it is about one. */
+    device?: string;
+    /** What is wrong, in a sentence. */
+    message: string;
+};

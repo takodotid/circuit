@@ -1,5 +1,4 @@
-// `circuit sync peeringdb` against a fake PeeringDB, never the real one: it adds a presence, changes one that differs, lists one only
-// PeeringDB has and an address that isn't global, sends with the key only, and never deletes or changes `operational`.
+// `circuit sync peeringdb` against a fake PeeringDB, never the real one: it adds a presence, changes one that differs, lists one only PeeringDB has and an address that isn't global, sends with the key only, and never deletes or changes `operational`.
 
 import { afterEach, expect, test } from "bun:test";
 import { Address } from "../../src/core/address";

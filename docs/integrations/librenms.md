@@ -1,19 +1,19 @@
 ---
-description: circuit sync librenms keeps every device monitored in LibreNMS, with its name, SNMP settings, location and a group per site.
+description: Keep every device monitored in LibreNMS, with its name, SNMP settings, location, and a device group for each site.
 ---
 
 # LibreNMS
 
-[LibreNMS](https://www.librenms.org) monitors network devices over SNMP: traffic graphs, port status, alerts when something goes down.
+[LibreNMS](https://www.librenms.org) monitors network devices over SNMP. It draws traffic graphs, shows port status, and alerts you when something goes down.
 
-`circuit sync librenms` keeps LibreNMS in step with your project. It adds every device LibreNMS doesn't monitor yet, and changes one whose name, SNMP credentials or location differ. A device you add to the project is monitored with one command, instead of being typed into LibreNMS by hand.
+`circuit sync librenms` keeps LibreNMS in sync with your project. It adds every device that LibreNMS doesn't monitor yet. It changes a device whose name, SNMP credentials, or location differ. So nobody types a new device into LibreNMS by hand. [How sync works](/integrations/) explains the plan, CI, and several networks.
 
 ## Before you start
 
 1. **Use LibreNMS 26.5 or later.** Older versions can't change a device's name through the API.
-2. **Turn SNMP on** in each device's file, with `monitoring.snmp`. A device without it is not added, and the plan says so.
-3. **Let LibreNMS reach SNMP**: its address in `management.allow`, or in `monitoring.snmp.allow` for SNMP alone.
-4. **Make an API token** in LibreNMS, under your user's settings, API Settings, for a user who can add and change devices and device groups.
+2. **Turn SNMP on** in each device's file, with `monitoring.snmp`. Circuit doesn't add a device without it, and the plan says so.
+3. **Let LibreNMS reach SNMP.** Put its address in `management.allow`, or in `monitoring.snmp.allow` for SNMP only.
+4. **Make an API token** in LibreNMS, under your user's settings, API Settings. The user needs the right to add and change devices and device groups.
 
 ## Set it up
 
@@ -31,7 +31,7 @@ Then keep the token in your secrets, encrypted:
 circuit secrets set LIBRENMS_API_TOKEN
 ```
 
-## Bring LibreNMS in step
+## Sync LibreNMS
 
 ```sh
 circuit sync librenms             # shows what would change, then asks
@@ -41,38 +41,34 @@ circuit sync librenms --confirm   # sends without asking
 ```
 LibreNMS: 3 change(s)
   ~ tor-01
-      display_template: "10.0.99.2" to "tor-01"
+      display_template: "192.0.2.12" to "tor-01"
       location: null to "Rack 1"
-  + edge-02, 10.0.0.2, SNMP v3 user monitor
+  + edge-02, 192.0.2.2, SNMP v3 user monitor
   ~ group dc-1
       add edge-02
 
 Left alone:
-  LibreNMS monitors 10.0.0.9, which no device in the project has. Remove it there by hand if it is gone.
+  LibreNMS monitors 192.0.2.9, which no device in the project has. Remove it there by hand if it is gone.
   sw-03 has no monitoring.snmp, so LibreNMS can't poll it.
   console-01 has no connection.host, so LibreNMS has nothing to poll.
 ```
 
-It never shows a password or a community: a secret that differs shows as `differs (not shown)`.
+For each device, Circuit sends:
 
-For each device:
+- **The address**, from `connection.host`. Circuit also finds the device in LibreNMS by this address. If a device moves to a new address, the plan adds it as a new device and lists the old address under Left alone.
+- **The name**, from `name`.
+- **The credentials** of its first SNMP version 3 user, or else its version 2c community.
+- **The location**, from `monitoring.snmp.location`, if it has one.
 
-- **The address** is its management address, `connection.host`. That is also how Circuit knows a device is already there. A device that moves to a new address shows up as one new device, and its old address as one LibreNMS has that the project doesn't.
-- **The name** shown in LibreNMS is the device's `name`.
-- **The credentials** are its first SNMP version 3 user, with authentication and encryption. Without a user, its version 2c community. Change a password in the project, apply it to the device, then run `circuit sync librenms` so LibreNMS polls with the new one.
-- **The location** is its `monitoring.snmp.location`, when it has one. LibreNMS also reads it from the device; Circuit sets it so it shows before the next poll.
+If you change an SNMP password, apply it to the device first. Then run `circuit sync librenms`, so LibreNMS polls with the new one.
 
-LibreNMS checks it can reach a device over SNMP before it adds it. If it can't, it refuses, and Circuit shows LibreNMS's reason.
+LibreNMS checks that it can reach a device over SNMP before it adds it. If it can't, it refuses, and Circuit shows LibreNMS's reason. Circuit never deletes a device from LibreNMS.
 
-A device LibreNMS monitors that is not in your project is listed, never deleted. Remove it in LibreNMS yourself if it is really gone.
+## A group for each site
 
-## A group per site
+Circuit keeps a static device group in LibreNMS for each site, with the site's name:
 
-Circuit keeps a static device group in LibreNMS for each site, named after it:
-
-- A site without a group gets a new static group with its devices.
-- A device missing from its site's group is added to it, and a device in another site's group is taken out of that one.
-- Devices that are not in your project stay in a group, and Circuit never deletes a group.
-- A group of that name that is dynamic, with rules instead of a list of devices, is left alone, and the plan says so.
-
-Networks in one project that name the same LibreNMS `url` are planned together. [NetBox](/integrations/netbox) puts each device on the same site.
+- If the group is missing, Circuit makes it.
+- Circuit adds a device that is missing from its site's group, and takes it out of any other site's group.
+- Devices that are not in your project stay in their group. Circuit never deletes a group.
+- If a group with that name is dynamic, with rules instead of a list of devices, Circuit leaves it alone.

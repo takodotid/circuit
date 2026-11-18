@@ -1,2 +1,7 @@
-bun run typecheck
-bun run test
+# Every commit is linted and formatted. Typecheck and tests run unless the commit only changes the website or Markdown, which they don't read.
+bun run lint
+bun run format:check
+if git diff --cached --name-only | grep -qvE '^docs/|\.md$'; then
+    bun run typecheck
+    bun run test
+fi

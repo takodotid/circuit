@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: routers and the gateway. The reader sends from a laptop to a printer, the router and a far server, and watches the laptop find each hardware address it needs with ARP: a broadcast question, one answer, and a line in its ARP table.
+// Lesson: routers and the gateway. The reader sends from a laptop to a printer, the router, and a far server, and watches the laptop find each hardware address it needs with ARP: a broadcast question, one answer, and a line in its ARP table.
 
 import { computed, ref } from "vue";
 import { useTravel, type Point } from "../travel";
@@ -37,7 +37,7 @@ const lit = ref<Id[]>([]);
 const said = ref<{ kind: "good" | "warn"; word: string; text: string }>();
 const busy = ref(false);
 
-const { position, travelling, travel } = useTravel(320);
+const { position, traveling, travel } = useTravel(320);
 const shown = ref<"ask" | "answer" | "frame">();
 
 /** The devices on the laptop's own network, each with a cable to the switch. */
@@ -63,7 +63,7 @@ async function send() {
         : `203.0.113.80 is on another network, so the frame goes to the gateway, 192.168.1.1. The laptop never asks for the far server's hardware address.`;
 
     if (!known) {
-        // Everyone on the network hears the question; only the owner of the address answers.
+        // Everyone on the network hears the question, but only the owner of the address answers.
         shown.value = "ask";
         lit.value = ["printer", "phone", "router"];
         await travel(path("laptop", "switch"));
@@ -86,12 +86,12 @@ async function send() {
         ? {
               kind: "good",
               word: "From the table",
-              text: `${decision} Its hardware address was already in the ARP table, so the laptop sent the frame at once, with no question.`,
+              text: `${decision} The hardware address was already in the ARP table, so the laptop sent the frame at once without asking.`,
           }
         : {
               kind: "warn",
               word: "Asked first",
-              text: `${decision} The laptop did not know ${ip}'s hardware address, so it broadcast "who has ${ip}?". Every device heard it, only the ${places[hop].label.toLowerCase()} answered, and the laptop wrote the answer into its ARP table before sending.`,
+              text: `${decision} The laptop did not know ${ip}'s hardware address, so it broadcast "who has ${ip}?". Every device heard it, but only the ${places[hop].label.toLowerCase()} answered. The laptop wrote the answer into its ARP table before sending.`,
           };
 
     busy.value = false;
@@ -109,7 +109,7 @@ function forget() {
             class="ac-drawing"
             viewBox="0 0 720 330"
             role="img"
-            aria-label="A laptop, a printer, a phone and a router on one switch, and a far server behind the router."
+            aria-label="A laptop, a printer, a phone, and a router on one switch, and a far server behind the router."
         >
             <line
                 v-for="id in local"
@@ -142,7 +142,7 @@ function forget() {
                 :lit="lit.includes(id)"
             />
 
-            <g v-if="travelling" :transform="`translate(${position[0]} ${position[1]})`">
+            <g v-if="traveling" :transform="`translate(${position[0]} ${position[1]})`">
                 <circle class="packet" :class="shown" r="10" />
                 <text class="bubble" y="-16" text-anchor="middle">
                     {{ shown === "ask" ? "who has?" : shown === "answer" ? "it's me" : "frame" }}
@@ -158,7 +158,7 @@ function forget() {
                 </select>
             </label>
             <button type="button" class="ac-button primary" :disabled="busy" @click="send">Send</button>
-            <button type="button" class="ac-button" :disabled="busy || !table.length" @click="forget">Empty the ARP table</button>
+            <button type="button" class="ac-button" :disabled="busy || !table.length" @click="forget">Clear the table</button>
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
@@ -182,7 +182,7 @@ function forget() {
                     <td>{{ row.who }}</td>
                 </tr>
                 <tr v-if="!table.length">
-                    <td colspan="3">Empty. The laptop has not asked anyone yet.</td>
+                    <td colspan="3">Empty</td>
                 </tr>
             </tbody>
         </table>

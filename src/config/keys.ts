@@ -1,6 +1,4 @@
-// Every key Circuit takes, at run time, so `circuit validate` stops on one it doesn't know. One source: the types. Each shape here is typed
-// `ShapeOf<the type>`, which needs every key of the type and allows no other, so a key added to, renamed in or removed from a type
-// fails `tsc` until its shape says the same. The two can't drift.
+// Every key Circuit takes, at run time, so `circuit validate` stops on one it doesn't know. One source: the types. Each shape here is typed `ShapeOf<the type>`, which needs every key of the type and allows no other, so a key added to, renamed in or removed from a type fails `tsc` until its shape says the same. The two can't drift.
 
 import type { CommunityScheme } from "./communities";
 import type { AnyDevice } from "./device";
@@ -11,8 +9,7 @@ import type { CommunitiesExport, CommunitiesImport } from "./communities";
 import type { AclRule } from "./switching";
 
 /**
- * Where keys may be: `0` holds none Circuit checks (a number, a name, a list of names); a map lists its keys, each with its own shape;
- * `{ "*": shape }` takes any key, such as a VLAN's name; `[shape]` is a list of that item.
+ * Where keys may be: `0` holds none Circuit checks (a number, a name, a list of names); a map lists its keys, each with its own shape; `{ "*": shape }` takes any key, such as a VLAN's name; `[shape]` is a list of that item.
  */
 export type Shape = 0 | readonly [Shape] | { readonly [key: string]: Shape };
 
@@ -39,9 +36,9 @@ export type ShapeOf<T> = [Exclude<T, Prim>] extends [never]
 const SECRET = { secret: 0, secret_file: 0 } as const;
 const RANGE = { min: 0, max: 0 } as const;
 
-// ---------- rules, each kind on its own ----------
+// Rules, each kind on its own.
 
-export const FILTER_MATCH = {
+const FILTER_MATCH = {
     family: 0,
     protocol: 0,
     src: 0,
@@ -66,7 +63,7 @@ export const NAT_RULE = { description: 0, if: FILTER_MATCH, then: 0, to_address:
     NatRule<string, string, string>
 >;
 const { protocol: _protocol, tcp_flags: _tcpFlags, connection_state: _state, ...TCP_MSS_MATCH } = FILTER_MATCH;
-export const TCP_MSS_RULE = { description: 0, if: TCP_MSS_MATCH, mss: 0 } as const satisfies ShapeOf<TcpMssRule<string, string, string>>;
+const TCP_MSS_RULE = { description: 0, if: TCP_MSS_MATCH, mss: 0 } as const satisfies ShapeOf<TcpMssRule<string, string, string>>;
 export const ACL_RULE = {
     description: 0,
     if: { family: 0, protocol: 0, src: 0, dst: 0, src_port: RANGE, dst_port: RANGE, vlan: 0 },
@@ -124,12 +121,12 @@ export const ACTIONS = {
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 // Each list is exactly what its type's `then` takes: `tsc` fails here otherwise.
-true satisfies Same<(typeof ACTIONS.filter)[number], FilterRule<string, string, string>["then"]> &
-    Same<(typeof ACTIONS.nat)[number], NatRule<string, string, string>["then"]> &
-    Same<(typeof ACTIONS.acl)[number], AclRule<string>["then"]> &
-    Same<(typeof ACTIONS.policy)[number], NonNullable<RouteRule<string>["then"]>>;
+true satisfies Same<(typeof ACTIONS.filter)[number], FilterRule<string, string, string>["then"]>;
+true satisfies Same<(typeof ACTIONS.nat)[number], NatRule<string, string, string>["then"]>;
+true satisfies Same<(typeof ACTIONS.acl)[number], AclRule<string>["then"]>;
+true satisfies Same<(typeof ACTIONS.policy)[number], NonNullable<RouteRule<string>["then"]>>;
 
-// ---------- a device ----------
+// A device.
 
 const SERVICE = { allow: 0, port: 0 } as const;
 const STATIC_ROUTE = {
@@ -335,11 +332,11 @@ export const DEVICE = {
     },
 } as const satisfies ShapeOf<AnyDevice>;
 
-// ---------- the network ----------
+// The network.
 
 const OPTION = { code: 0, description: 0 } as const;
 /** Every option of a community scheme. */
-export const COMMUNITIES = {
+const COMMUNITIES = {
     asn: 0,
     groups: { "*": { value: 0, description: 0 } },
     learned_from_group: OPTION,
@@ -378,32 +375,30 @@ export const NETWORK = {
     secrets: { file: 0 } satisfies ShapeOf<NetworkSecrets>,
 } as const satisfies { readonly [K in keyof NetworkSettings<{}, number>]-?: Shape };
 
-// `satisfies` misses a key too many that comes from a spread or another constant. Each side assignable to the other doesn't: every key
-// of a shape is required, so a shape with one more key, at any depth, is not the type's. `tsc` fails here then.
-true satisfies Same<typeof DEVICE, ShapeOf<AnyDevice>> &
-    Same<typeof FILTER_RULE, ShapeOf<FilterRule<string, string, string>>> &
-    Same<typeof NAT_RULE, ShapeOf<NatRule<string, string, string>>> &
-    Same<typeof ACL_RULE, ShapeOf<AclRule<string>>> &
-    Same<typeof ROUTING_RULE, ShapeOf<RoutingRule<string, string>>> &
-    Same<typeof ROUTE_RULE, ShapeOf<RouteRule<string>>> &
-    Same<typeof CALL_RULE, ShapeOf<CallRule<string>>> &
-    Same<typeof COMMUNITIES_IMPORT, ShapeOf<CommunitiesImport<string>>> &
-    Same<typeof COMMUNITIES_EXPORT, ShapeOf<CommunitiesExport>> &
-    Same<typeof COMMUNITIES, ShapeOf<CommunityScheme>> &
-    Same<typeof CHECKS, ShapeOf<Checks<string>>> &
-    Same<typeof NETWORK.integrations, ShapeOf<Integrations>> &
-    Same<typeof NETWORK.sites, ShapeOf<Readonly<Record<string, Site>>>> &
-    Same<typeof NETWORK.prefixes, ShapeOf<Prefixes>> &
-    Same<keyof typeof NETWORK, keyof NetworkSettings<{}, number>>;
+// `satisfies` misses a key too many that comes from a spread or another constant. Each side assignable to the other doesn't: every key of a shape is required, so a shape with one more key, at any depth, is not the type's. `tsc` fails here then.
+true satisfies Same<typeof DEVICE, ShapeOf<AnyDevice>>;
+true satisfies Same<typeof FILTER_RULE, ShapeOf<FilterRule<string, string, string>>>;
+true satisfies Same<typeof NAT_RULE, ShapeOf<NatRule<string, string, string>>>;
+true satisfies Same<typeof ACL_RULE, ShapeOf<AclRule<string>>>;
+true satisfies Same<typeof ROUTING_RULE, ShapeOf<RoutingRule<string, string>>>;
+true satisfies Same<typeof ROUTE_RULE, ShapeOf<RouteRule<string>>>;
+true satisfies Same<typeof CALL_RULE, ShapeOf<CallRule<string>>>;
+true satisfies Same<typeof COMMUNITIES_IMPORT, ShapeOf<CommunitiesImport<string>>>;
+true satisfies Same<typeof COMMUNITIES_EXPORT, ShapeOf<CommunitiesExport>>;
+true satisfies Same<typeof COMMUNITIES, ShapeOf<CommunityScheme>>;
+true satisfies Same<typeof CHECKS, ShapeOf<Checks<string>>>;
+true satisfies Same<typeof NETWORK.integrations, ShapeOf<Integrations>>;
+true satisfies Same<typeof NETWORK.sites, ShapeOf<Readonly<Record<string, Site>>>>;
+true satisfies Same<typeof NETWORK.prefixes, ShapeOf<Prefixes>>;
+true satisfies Same<keyof typeof NETWORK, keyof NetworkSettings<{}, number>>;
 
-// ---------- the check ----------
+// The check.
 
 /** A key Circuit doesn't take: where it is, dot by dot (`firewall.filter.input.rules[3].if`), the key, and the keys taken there. */
 export type UnknownKey = { path: string; key: string; known: string[] };
 
 /**
- * Every key in `value` that `shape` doesn't take. A list met where the shape is a map is a list of such maps (a port range, or several).
- * A plain value met where the shape is a map is one the type allows beside it, such as an address written alone.
+ * Every key in `value` that `shape` doesn't take. A list met where the shape is a map is a list of such maps (a port range, or several). A plain value met where the shape is a map is one the type allows beside it, such as an address written alone.
  */
 export function unknownKeys(value: unknown, shape: Shape, path = ""): UnknownKey[] {
     if (shape === 0 || !value || typeof value !== "object") return [];
@@ -418,6 +413,21 @@ export function unknownKeys(value: unknown, shape: Shape, path = ""): UnknownKey
     return Object.entries(value).flatMap(([k, v]) =>
         Object.hasOwn(map, k) ? unknownKeys(v, map[k]!, at(k)) : [{ path, key: k, known: Object.keys(map) }]
     );
+}
+
+/** Every path in `value` where `shape` takes a secret but plain text is written, such as `system.users.operator.password`. */
+export function plainSecrets(value: unknown, shape: Shape, path = ""): string[] {
+    if (shape === SECRET) return value !== undefined && (typeof value !== "object" || value === null) ? [path] : [];
+    if (shape === 0 || !value || typeof value !== "object") return [];
+    if (Array.isArray(value)) {
+        const item: Shape = Array.isArray(shape) ? (shape as readonly [Shape])[0] : shape;
+        return value.flatMap((v, i) => plainSecrets(v, item, `${path}[${i}]`));
+    }
+    if (Array.isArray(shape)) return [];
+    const map = shape as { readonly [key: string]: Shape };
+    const at = (key: string) => (path ? `${path}.${key}` : key);
+    if (Object.hasOwn(map, "*")) return Object.entries(value).flatMap(([k, v]) => plainSecrets(v, map["*"]!, at(k)));
+    return Object.entries(value).flatMap(([k, v]) => (Object.hasOwn(map, k) ? plainSecrets(v, map[k]!, at(k)) : []));
 }
 
 /** The closest of `names`, for "Did you mean": at most two letters off, or a quarter of a long name. */

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: reaching the customer. The reader sets a GPON splitter's size, the homes' plan and how many homes are busy, and sees how the fibre's capacity is shared between them.
+// Lesson: reaching the customer. The reader sets a GPON splitter's size, the homes' plan, and how many homes are busy, and sees how the fiber's capacity is shared between them.
 
 import { computed, ref } from "vue";
 
@@ -45,13 +45,13 @@ const said = computed(() => {
         return {
             kind: "good",
             word: "Full plan",
-            text: `${busyNow.value} busy ${busyNow.value === 1 ? "home asks" : "homes ask"} for ${asked} Mbit/s down, and the fibre carries about ${DOWN}. Each gets its full ${plan.value} Mbit/s.`,
+            text: `${busyNow.value} busy ${busyNow.value === 1 ? "home asks" : "homes ask"} for ${asked} Mbit/s down, and the fiber carries about ${DOWN}. Each gets its full ${plan.value} Mbit/s.`,
         };
 
     return {
         kind: "warn",
         word: "Shared",
-        text: `${busyNow.value} busy homes ask for ${asked} Mbit/s down, more than the ${DOWN} the fibre carries. Shared evenly, each gets at most ${shown(down.value)} Mbit/s, until some of them finish.`,
+        text: `${busyNow.value} busy homes ask for ${asked} Mbit/s down, more than the ${DOWN} the fiber carries. Shared evenly, each gets at most ${shown(down.value)} Mbit/s, until some of them finish.`,
     };
 });
 </script>
@@ -90,7 +90,7 @@ const said = computed(() => {
             class="ac-drawing"
             viewBox="0 0 700 330"
             role="img"
-            :aria-label="`A GPON tree: the OLT, one fibre to a 1 to ${split} splitter, and ${split} homes, ${busyNow} of them busy.`"
+            :aria-label="`A GPON tree: the OLT, one fiber to a 1 to ${split} splitter, and ${split} homes, ${busyNow} of them busy.`"
         >
             <line
                 v-for="home in homes"
@@ -103,7 +103,7 @@ const said = computed(() => {
                 :y2="home.y"
             />
             <line class="cable lit" x1="90" :y1="SPLITTER[1]" :x2="SPLITTER[0]" :y2="SPLITTER[1]" />
-            <text class="caption" x="170" :y="SPLITTER[1] - 12" text-anchor="middle">one fibre</text>
+            <text class="caption" x="170" :y="SPLITTER[1] - 12" text-anchor="middle">one fiber</text>
 
             <SvgDevice kind="router" :x="60" :y="SPLITTER[1]" label="OLT" note="at the provider" />
             <path class="splitter" :d="`M${SPLITTER[0] - 14} ${SPLITTER[1] - 18}v36l28 -18z`" />

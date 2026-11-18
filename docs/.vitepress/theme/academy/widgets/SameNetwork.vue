@@ -67,7 +67,7 @@ const groupsOf = <T,>(cells: T[]) => [0, 1, 2, 3].map((group) => cells.slice(gro
 
 const verdict = computed(() => {
     const prefix = pair.value.prefix;
-    const networks = `With ${sizeText.value}, the first ${prefix} bits are the network. The laptop’s network is ${Ipv4.format(firstNetwork.value)}, the printer’s is ${Ipv4.format(secondNetwork.value)}.`;
+    const networks = `With ${sizeText.value}, the first ${prefix} bits are the network. The laptop’s network is ${Ipv4.format(firstNetwork.value)}, and the printer’s is ${Ipv4.format(secondNetwork.value)}.`;
     return same.value
         ? `${networks} They match, so they are on the same network.`
         : `${networks} They differ, so they are on different networks.`;

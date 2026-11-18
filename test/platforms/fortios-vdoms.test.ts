@@ -54,8 +54,7 @@ test("a management VDOM is not root, and has its own interfaces and routes", () 
     ]);
 });
 
-// Proved on tako-fwl-01 (FG-3700D, 6.2.2): multi-VDOM on and the management interface moved by hand, then the config applied and an
-// empty second plan.
+// Proved on tako-fwl-01 (FG-3700D, 6.2.2): multi-VDOM on and the management interface moved by hand, then the config applied and an empty second plan.
 test("validate takes the management VDOM without --experimental", () => {
     const found = Validation.run([firewall], undefined, {}).filter((finding) => finding.message.startsWith("system.vdoms"));
     expect(found).toEqual([]);
@@ -191,7 +190,10 @@ beforeAll(async () => {
     device = { ...firewall, connection: { host: "127.0.0.1", port: await fake.listen(), user: "netops" } };
 });
 
-afterAll(() => fake.close());
+afterAll(() => {
+    delete process.env.EXAMPLE_NETOPS_PASSWORD;
+    fake.close();
+});
 
 test("a read of a multi-VDOM device shows each section where it lives, and plans nothing against the render", async () => {
     const current = await platform.read(device, [device]);

@@ -2,55 +2,63 @@
 description: Quick answers to the questions people ask first.
 ---
 
-# FAQ
+# Frequently asked questions
 
-## How do I rename a device?
+## Rename a device
 
-`circuit rename <device> <new-name>`. It shows every change, writes once you say yes. Then `circuit apply` the device so it gets its new hostname. See [rename](/guide/cli#rename).
+Run `circuit rename <device> <new-name>`, then `circuit apply` the device so it gets its new hostname. See [rename](/reference/cli#rename).
 
-## How do I rename a site?
+## Rename a site
 
-1. Change it in `circuit.ts`, under `sites`.
-2. Change `site` in each device. The editor flags the ones you missed.
-3. Rename the folder under `sites/`, and fix imports into it.
+1. Change its name under `sites` in `circuit.ts`.
+2. Change `site` in each of its devices. The editor marks the ones you missed.
+3. Rename its folder under `sites/`, and fix the imports into it.
 
-No device changes: a site is just a name to Circuit.
+Nothing changes on the devices. If you sync NetBox or LibreNMS, run `circuit sync` again.
 
-## My network has more than one AS number. What do I do?
+## More than one AS number
 
-- **Some routers use another AS?** One network is enough. Set `routing.bgp.asn` on those routers.
-- **Separate networks, with their own prefixes and communities?** Write one `circuit()` each in `circuit.ts`, like `as64500` and `as64501`. See [The network](/guide/project#the-network).
-- **Run by different teams?** One repo per network, so each team has its own history, secrets and access.
+- **Some routers use another AS:** set `routing.bgp.asn` on those routers.
+- **Separate networks, each with its own prefixes and communities:** write one `circuit()` for each in `circuit.ts`. See [The network](/guide/project#the-network).
+- **Networks run by different teams:** use one repository per network, so each team has its own history, secrets, and access.
 
-## My device shows something the file does not have. Will Circuit remove it?
+## Things the device makes by itself
 
-Only if it's configuration. Things the device makes by itself, like RouterOS's dynamic fasttrack rule, are left alone.
+Circuit removes only configuration that your file doesn't have. It leaves alone what the device makes by itself, such as the dynamic fasttrack rule on RouterOS.
 
-## Can I use Circuit on a device that is already in production?
+## Start on a device in production
 
-Yes, carefully. The first plan removes everything your file doesn't have yet. So:
+The first plan removes everything that your file doesn't have yet. So:
 
-1. Look at what it runs: `circuit exec`, like `/export` on RouterOS or `display current-configuration` on VRP.
+1. See what the device runs with `circuit exec`, such as `/export` on RouterOS.
 2. Write the file to match what should stay.
-3. `circuit diff <device>` until the plan shows only what you want.
-4. Then `circuit apply <device>`.
+3. Run `circuit diff <device>` until the plan shows only what you want.
+4. Then run `circuit apply <device>`.
 
-## Do I need to learn TypeScript?
+## How much TypeScript you need
 
-Not really. A project is plain data: names, numbers, lists. Your editor fills in fields and flags mistakes as you type. Only your own checks in `lib/` need a bit of TypeScript.
+Very little. A project is plain data, and your editor fills in the fields. Only your own checks in `lib/` need a bit of TypeScript.
 
-## Do I need to install anything else?
+## Other programs you may need
 
-No. `circuit` has everything inside.
+Circuit needs no other program, except for these features:
 
-## Will updating Circuit break my project?
+| Program                | Used for                                                                   |
+| ---------------------- | -------------------------------------------------------------------------- |
+| `ssh-keygen` (OpenSSH) | The install command, to check that a download is signed.                   |
+| `git`                  | The [commit check](/guide/secrets#the-commit-check), and Studio's history. |
+| `op` (1Password CLI)   | Secrets and passwords kept in [1Password](/integrations/1password).        |
+| `cloudflared`          | A console jump host behind a Cloudflare Tunnel.                            |
+| Bun                    | A [full install](/guide/install#full-install).                             |
 
-No. Each project runs the version in its `.circuit/version`. A project moves only when you run `circuit update` in it and say yes.
+## Updates
 
-## Can I run Circuit in CI?
+Updating Circuit never changes a project. A project runs the version in its `.circuit/version` until you run `circuit update` in it. See [Updating](/guide/install#updating).
 
-Yes. Install it with the same command, set `CIRCUIT_SECRETS_PASSWORD` from your CI's secrets, and run `circuit validate`. To apply from CI, add `--confirm`: without a terminal, `apply` won't send otherwise.
+## Run in CI
 
-## How do I remove Circuit?
+See [Run in CI](/guide/ci).
 
-`circuit uninstall`. It asks first, and never touches your projects.
+## Uninstall
+
+Run `circuit uninstall`. It never touches your projects. See [Uninstall](/guide/install#uninstall).

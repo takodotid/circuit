@@ -1,13 +1,11 @@
-// A firewall rule whose `src` and `dst` lists hold both families: each src and dst of different families matches no packet, so reading the
-// project leaves that combination out. A rule that has nothing else is reported. RouterOS refuses an IPv6 dst on its IPv4 filter, and a
-// refused command mid-apply restores the backup and reboots the router.
+// A firewall rule whose `src` and `dst` lists hold both families: each src and dst of different families matches no packet, so reading the project leaves that combination out. A rule that has nothing else is reported. RouterOS refuses an IPv6 dst on its IPv4 filter, and a refused command mid-apply restores the backup and reboots the router.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Validation } from "../../src/checks";
-import { type ProjectRead, readProject } from "../../src/project/project";
+import { type ProjectRead, Project } from "../../src/project";
 
 const folder = mkdtempSync(join(tmpdir(), "circuit-rule-families-"));
 let read: ProjectRead;
@@ -39,7 +37,7 @@ beforeAll(async () => {
         join(folder, "sites", "test", "r1.ts"),
         `import { net } from "../../circuit";\n\nexport default net.device(${JSON.stringify(router, null, 4)});\n`
     );
-    read = await readProject(folder);
+    read = await Project.read(folder);
 });
 
 afterAll(() => rmSync(folder, { recursive: true, force: true }));

@@ -1,5 +1,4 @@
-// Circuit 0.x's example devices moved into the v1 model, for the golden tests, with `Migrate.device`, as `circuit migrate` moves a project's.
-// `bun scripts/from-v0.ts <folder>` converts each `<name>.v0.json` there into `<name>.v1.json`, and each certificate into a `.pem` beside it.
+// Circuit 0.x's example devices moved into the v1 model, for the golden tests, with `Migrate.device`, as `circuit migrate` moves a project's. `bun scripts/from-v0.ts <folder>` converts each `<name>.v0.json` there into `<name>.v1.json`, and each certificate into a `.pem` beside it.
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

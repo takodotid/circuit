@@ -13,12 +13,14 @@ export class Git {
         return Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")));
     }
 
-    /** Run git in a folder, and give what it printed, or fail with what it said. */
+    /** Run git in a folder, and give what it printed, or fail with what it said: in words a person can act on when the folder is in no repository. */
     private static run(cwd: string, args: string[]): Promise<string> {
         return new Promise((done, fail) => {
             execFile("git", args, { cwd, env: Git.environment(), maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
-                if (error) fail(new Error((stderr || error.message).trim()));
-                else done(stdout);
+                const said = (stderr || error?.message || "").trim();
+                if (!error) done(stdout);
+                else if (said.includes("not a git repository")) fail(new Error("The project is not in git. Run git init in its folder."));
+                else fail(new Error(said));
             });
         });
     }
@@ -67,7 +69,7 @@ export class Git {
         return { names, commits: Git.commitsOf(await Git.run(folder, ["log", "-n30", Git.FORMAT])) };
     }
 
-    /** A branch, tag or commit, as the commit it names, or undefined when it names none. Only the characters a git name can hold are taken. */
+    /** A branch, tag or commit, as the commit it uses, or undefined when it uses none. Only the characters a git name can hold are taken. */
     static async commitOf(folder: string, name: string): Promise<Commit | undefined> {
         if (!/^[A-Za-z0-9][\w./@^~-]*$/.test(name)) return undefined;
 

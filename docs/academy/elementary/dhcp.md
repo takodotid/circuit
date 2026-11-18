@@ -5,9 +5,9 @@ description: Step through the four DHCP messages, watch a pool of addresses fill
 
 # Handing out addresses: DHCP
 
-A device that joins a network needs four things before it can talk to anything: an IP address, the size of its network, a gateway and a DNS server. DHCP hands them out automatically. The device asks, a DHCP server answers with a free address from its pool, and lends it for a set time, called the lease.
+A device that joins a network needs four things before it can talk to anything: an IP address, the size of its network, a gateway, and a DNS server. DHCP hands them out automatically. The device asks, and a DHCP server answers with a free address from its pool. The server lends the address for a set time, called the lease.
 
-On a small network, the DHCP server is usually the router, with one server for each VLAN. In Circuit, you write it in the router's file under `dhcp`.
+On a small network, the DHCP server is usually the router, with one server for each VLAN. In Circuit, you write it in the router's file under `services.dhcp_server`.
 
 ## What a device needs
 
@@ -18,9 +18,9 @@ On a small network, the DHCP server is usually the router, with one server for e
 | Gateway    | `192.168.20.1`            | Where to send everything else: the router's address in this VLAN |
 | DNS server | `192.168.20.1`            | Who turns names into addresses                                   |
 
-You could type these into every laptop, phone and printer by hand, and some devices, such as servers, are still set up that way. But a phone that visits ten networks a week cannot be, and two people who type the same address by hand break each other's connection. So almost every network uses <Term means="Dynamic Host Configuration Protocol: the way a device joining a network asks for an address, a gateway and DNS servers, and gets them from a server.">DHCP</Term> instead.
+You could type these into every laptop, phone, and printer by hand, and some devices, such as servers, are still set up that way. But nobody types them into a phone that visits ten networks a week. And two people who type the same address by hand break each other's connection. So almost every network uses <Term means="Dynamic Host Configuration Protocol: a device joining a network asks a server for an address, a gateway, and DNS servers, and the server gives them.">DHCP</Term> instead.
 
-Your home router has done this for you all along. When your phone joins the Wi-Fi at home, it gets all four from the home router in under a second, which is why [Opening a website](/academy/beginner/opening-a-website) could start with them already in place.
+Your home router has done this for you all along. When your phone joins the Wi-Fi at home, it gets all four from the home router in under a second. That is why [Opening a website](/academy/beginner/opening-a-website) could start with them already in place.
 
 ## Four messages
 
@@ -32,9 +32,9 @@ Getting an address takes four messages between the device and the DHCP server. P
 
 </TryIt>
 
-The first and third messages were broadcasts. The laptop has no address of its own to send from and does not know where the server is, so it asks everyone in its VLAN. That is also why DHCP works per VLAN: a broadcast stays inside its VLAN, so each VLAN needs a DHCP server of its own that can hear it.
+The discover and the request are broadcasts, and a broadcast stays inside its VLAN. So each VLAN needs a DHCP server of its own that can hear it.
 
-It also means anyone in the VLAN can answer. If a second DHCP server is plugged in by mistake, such as a spare home router, devices take whichever offer arrives first, and some of them get the wrong gateway and lose the internet. When some devices on a network work and others do not, a second DHCP server is worth looking for.
+It also means anyone in the VLAN can answer. A spare home router plugged in by mistake answers too. Devices take whichever offer arrives first, so some of them get the wrong gateway and lose the internet. When some devices on a network work and others do not, look for a second DHCP server.
 
 <Quiz
   question="Why does the laptop send its discover message to everyone in the VLAN?"
@@ -46,11 +46,9 @@ It also means anyone in the VLAN can answer. If a second DHCP server is plugged 
 
 ## The pool and the lease
 
-The server does not hand out just any address. It lends from its <Term means="The range of addresses a DHCP server may lend to devices, from a first to a last address.">pool</Term>, a range such as `192.168.20.100` to `192.168.20.200`, and keeps the rest of the network, such as `.1` to `.99`, for the router and for devices whose address is set by hand.
+The server does not hand out just any address. It lends from its <Term means="The range of addresses a DHCP server may lend to devices, from a first to a last address.">pool</Term>, a range such as `192.168.20.100` to `192.168.20.200`. The rest of the network, such as `.1` to `.99`, is kept for the router and for devices whose address is set by hand.
 
 Each address is lent for a lease time. A device that stays asks to renew its lease when half of it has passed, so it keeps its address. A device that leaves usually does not say so, and the server keeps its address for it until the lease runs out.
-
-Try a guest Wi-Fi with a small pool. Here, as in real life, guests arrive and leave as you choose, and nothing happens at random.
 
 <TryIt title="Fill a pool, and let leases end">
 
@@ -58,7 +56,7 @@ Try a guest Wi-Fi with a small pool. Here, as in real life, guests arrive and le
 
 </TryIt>
 
-With day-long leases, the pool filled with addresses kept for guests who had already gone home, and the next guest got nothing. A shorter lease frees an address soon after its guest leaves, and costs nothing for the guests who stay, because they renew. That is why guest networks use short leases, an hour or so, and an office where the same laptops come every day can use long ones.
+A short lease frees an address soon after its guest leaves. It costs nothing for the guests who stay, because they renew. So guest networks use short leases of about an hour. An office where the same laptops come every day can use long ones.
 
 <Quiz
   question="A café’s guest Wi-Fi has 50 addresses and day-long leases. About 200 guests pass through each day, each staying an hour. What goes wrong?"
@@ -70,9 +68,9 @@ With day-long leases, the pool filled with addresses kept for guests who had alr
 
 ## The gateway, on a VLAN interface
 
-In [Trunks](/academy/elementary/trunks), the router reached every VLAN over one trunk port. It still needs an address in each VLAN, to be that VLAN's gateway. Since one port carries them all, the address cannot go on the port. It goes on a <Term means="An interface on a router or switch that sits on one VLAN instead of on a port. It gives the device an address in that VLAN.">VLAN interface</Term> instead: one for each VLAN, each with its own address.
+In [Trunks](/academy/elementary/trunks), the router reached every VLAN over one trunk port. It still needs an address in each VLAN, to be that VLAN's gateway. Since one port carries them all, the address cannot go on the port. It goes on a <Term means="An interface on a router or switch that sits on a VLAN instead of on a port. It gives the device an address in that VLAN.">VLAN interface</Term> instead: one for each VLAN, each with its own address.
 
-This is the router from Circuit's single-site example, which you build in the [last project](/academy/elementary/project-single-site) of this level:
+This is part of the router in Circuit's single-site example, which you build in the [last project](/academy/elementary/project-single-site) of this level:
 
 ```ts
 interfaces: {
@@ -124,10 +122,12 @@ Each entry in `interfaces.vlan_interface` sits on the VLAN in its `vlan` field, 
 | `pool`       | The first and last address it lends.                                        |
 | `lease_time` | How long a lease lasts, in seconds. 3600 is one hour, short, for guests.    |
 
-The mgmt VLAN has no DHCP server: the devices on it have addresses written in their own files. Circuit checks that the gateway and the pool are inside the network. A pool that ends at `192.168.21.5` stops `circuit validate` with:
+The mgmt VLAN has no DHCP server: the devices on it have addresses written in their own files. Circuit checks that the gateway and the pool are inside the network. A pool that ends at `192.168.21.5` stops `circuit validate`:
 
 ```text
-  error  router: DHCP home: 192.168.21.5 is outside 192.168.20.0/24
+  error  router: services.dhcp_server.home: 192.168.21.5 is outside 192.168.20.0/24
+
+1 error(s).
 ```
 
 Some devices, such as a printer, are easier to find when their address never changes. A reservation ties an address to one hardware address, and the server always lends that device the same one:
@@ -142,8 +142,8 @@ A bigger network may run one DHCP server for every VLAN, on a server of its own.
 
 ## In short
 
-- A device needs an address, a mask, a gateway and DNS servers, and DHCP hands them out automatically.
-- It takes four messages, discover, offer, request and acknowledge, and the device broadcasts because it has no address yet.
-- Addresses are lent from a pool for a lease time. Devices that stay renew halfway; addresses of devices that left are freed when the lease ends.
+- A device needs an address, a mask, a gateway, and DNS servers, and DHCP hands them out automatically.
+- It takes four messages: discover, offer, request, and acknowledge. The device broadcasts, because it has no address yet.
+- Addresses are lent from a pool for a lease time. Devices that stay renew halfway. Addresses of devices that left are freed when the lease ends.
 - The gateway of a VLAN is the router's address on a VLAN interface, written in Circuit in `interfaces.vlan_interface`.
-- Each VLAN gets a DHCP server in `services.dhcp_server`, with its `interface`, `network`, `gateway`, `dns`, `pool` and `lease_time`.
+- Each VLAN gets a DHCP server in `services.dhcp_server`, with its `interface`, `network`, `gateway`, `dns`, `pool`, and `lease_time`.

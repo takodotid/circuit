@@ -11,7 +11,7 @@ import { Format } from "./format";
 import { VERSION } from "./version";
 import { Versions } from "./versions";
 
-export const GENERATED_README = `# Do not edit
+const GENERATED_README = `# Do not edit
 
 Circuit writes everything in this folder. Don't edit it by hand: change the project's own files, or use the command named below.
 
@@ -23,7 +23,7 @@ Circuit writes everything in this folder. Don't edit it by hand: change the proj
 `;
 
 /** The notice in `.circuit`. */
-export const NOTICE = "DO_NOT_EDIT.md";
+const NOTICE = "DO_NOT_EDIT.md";
 
 export const GITIGNORE = `node_modules/
 .circuit/cache/
@@ -48,8 +48,7 @@ export class Setup {
     }
 
     /**
-     * A full install's package.json, before `bun add` puts Circuit in it. Its `circuit` script is what `bun circuit` runs: with no
-     * script of that name, Bun runs the project's own circuit.ts instead of the package's `circuit`.
+     * A full install's package.json, before `bun add` puts Circuit in it. Its `circuit` script is what `bun circuit` runs: with no script of that name, Bun runs the project's own circuit.ts instead of the package's `circuit`.
      */
     static packageJson(folder: string): string {
         const name = folder.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
@@ -98,7 +97,7 @@ export class Setup {
                 check: (value) => {
                     if (!value.trim()) return "Type a folder name.";
                     const path = resolve(process.cwd(), value.trim());
-                    return existsSync(path) && readdirSync(path).length ? "That folder already holds files. Pick another." : undefined;
+                    return existsSync(path) && readdirSync(path).length ? "That folder isn't empty. Pick another." : undefined;
                 },
             }));
 
@@ -121,12 +120,12 @@ export class Setup {
         const asn = Number(
             await Ui.text("Your network's AS number", {
                 initial: "64500",
-                check: (value) => (/^\d+$/.test(value.trim()) ? undefined : "Type a number, such as 64500. Change it later in circuit.ts."),
+                check: (value) => (/^\d+$/.test(value.trim()) ? undefined : "Type a number, such as 64500."),
             })
         );
 
         let git = false;
-        if (GitHooks.gitInstalled()) git = await Ui.confirm("Start a git repository, so each change is kept and can be reviewed?", true);
+        if (GitHooks.gitInstalled()) git = await Ui.confirm("Start a git repository to track changes?", true);
         else Ui.warn("git is not installed, so the project is not a git repository. Install git, then run git init in the folder.");
 
         const openInEditor = Setup.installed("code") && (await Ui.confirm("Open the project in VS Code?", true));
@@ -136,7 +135,7 @@ export class Setup {
 
     /** Install Bun with its own installer, when the person agrees. */
     private static async offerBun(): Promise<void> {
-        if (!(await Ui.confirm("Bun is not installed. Install it now, with Bun's own installer from bun.sh?", true))) {
+        if (!(await Ui.confirm("Bun is not installed. Install it now from bun.sh?", true))) {
             Ui.fail("A full install needs Bun. Install it from https://bun.sh, or pick Simple.");
         }
 
@@ -217,9 +216,9 @@ export const as${setup.asn} = circuit({
         return [
             ...(setup.folder === "." ? [] : [`cd ${setup.folder}`]),
             "Add a site in circuit.ts, then a device in sites/<site>/<device>.ts. Your editor completes each field.",
-            `${run} secrets          your secrets, such as a device password, each encrypted`,
+            `${run} secrets          add secrets, such as a device password`,
             `${run} validate         check the project`,
-            `${run} diff <device>    what would change on the device`,
+            `${run} diff <device>    see what would change on the device`,
             `${run} apply <device>   make the device match`,
             "",
             `Read more at https://circuit.tako.id. Project: ${root}`,

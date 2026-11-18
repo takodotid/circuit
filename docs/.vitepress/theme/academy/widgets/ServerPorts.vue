@@ -16,8 +16,8 @@ const programs: Program[] = [
     { port: 22, name: "Remote login (SSH)", said: "the remote login program, SSH" },
     { port: 25, name: "Mail delivery", said: "the mail program, which takes mail from other mail servers" },
     { port: 53, name: "DNS answers", said: "the DNS program, which answers questions about names" },
-    { port: 80, name: "Web pages", said: "the web program, sending pages without a lock" },
-    { port: 443, name: "Web pages, locked", said: "the web program, sending pages locked" },
+    { port: 80, name: "Web pages", said: "the web program, which sends pages without a lock" },
+    { port: 443, name: "Web pages, locked", said: "the web program, which sends locked pages" },
 ];
 
 type Layout = {
@@ -59,7 +59,7 @@ const lastRequest = ref<{ from: number; to: number }>();
 const litIndex = ref<number>();
 const said = ref<{ kind: "good" | "bad"; word?: string; text: string }>();
 
-const { position, travelling, travel } = useTravel(320);
+const { position, traveling, travel } = useTravel(320);
 
 function choose(value: number) {
     port.value = String(value);
@@ -67,13 +67,13 @@ function choose(value: number) {
 }
 
 async function send() {
-    if (travelling.value) return;
+    if (traveling.value) return;
 
     const text = port.value.trim();
     const number = Number(text);
 
     if (!/^\d+$/.test(text) || number > 65535) {
-        said.value = { kind: "bad", word: "Not a port", text: "A port is a whole number from 0 to 65535. Try 443, 22 or 53." };
+        said.value = { kind: "bad", word: "Not a port", text: "A port is a whole number from 0 to 65535. Try 443, 22, or 53." };
         litIndex.value = undefined;
         return;
     }
@@ -105,7 +105,7 @@ async function send() {
     said.value = {
         kind: "good",
         word: "Answered",
-        text: `Port ${number} on 203.0.113.80 reached ${programs[index]!.said}. It answered to port ${ownPort.value} on the laptop, the port the laptop picked for this conversation.`,
+        text: `Port ${number} on 203.0.113.80 reached ${programs[index]!.said}. The program answered to port ${ownPort.value}, which the laptop picked for this conversation.`,
     };
 }
 </script>
@@ -120,7 +120,7 @@ async function send() {
         >
             <line
                 class="cable"
-                :class="{ lit: travelling || litIndex !== undefined }"
+                :class="{ lit: traveling || litIndex !== undefined }"
                 :x1="layout.laptop[0]"
                 :y1="layout.laptop[1]"
                 :x2="layout.door[0]"
@@ -140,7 +140,7 @@ async function send() {
                 <text class="name" :x="layout.box.x + 88" :y="layout.rows[index] + 5">{{ program.name }}</text>
             </g>
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="send">
@@ -155,7 +155,7 @@ async function send() {
                     @keydown.enter="send"
                 />
             </label>
-            <button type="button" class="ac-button primary" :disabled="travelling" @click="send">Send</button>
+            <button type="button" class="ac-button primary" :disabled="traveling" @click="send">Send</button>
         </div>
         <div class="ac-row shortcuts">
             <button
@@ -163,7 +163,7 @@ async function send() {
                 :key="value"
                 type="button"
                 class="ac-button small"
-                :disabled="travelling"
+                :disabled="traveling"
                 @click="choose(value)"
             >
                 Port {{ value }}
@@ -176,7 +176,7 @@ async function send() {
         </p>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
-        <p v-else-if="travelling" class="ac-say hint" aria-live="polite">The request is on its way.</p>
+        <p v-else-if="traveling" class="ac-say hint" aria-live="polite">The request is on its way.</p>
         <p v-else class="ac-say hint" aria-live="polite">
             Send a request to port 443, then 22, then to a port with nothing on it, such as 8080.
         </p>

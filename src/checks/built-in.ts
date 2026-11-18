@@ -1,11 +1,9 @@
-// Circuit's built-in checks, which a network turns on by name in `checks` (`Checks` in src/config/network.ts). `same_vlan_ids` is run when the project is
-// read, so it is not here.
+// Circuit's built-in checks, which a network turns on by name in `checks` (`Checks` in src/config/network.ts). `same_vlan_ids` is run when the project is read, so it is not here.
 
 import { Address } from "../core/address";
 import type { Checks } from "../config/network";
-import type { Device, Interface, Switched } from "../model";
-import { Derive } from "../platforms/derive";
-import type { Finding } from "../platforms/finding";
+import type { Device, Finding, Interface, Switched } from "../model";
+import { Derive } from "../core/derive";
 import { DeviceChecks } from "./device";
 
 /** The built-in checks' settings, as `circuit()` takes them. */
@@ -15,7 +13,7 @@ export type NetworkChecks = Checks<string>;
 type NeighborPolicies = { name: string; address: string; role?: string; importPolicy?: string; exportPolicy?: string };
 
 /** A route policy rule as the checks read it: a route rule, or a call, which has neither `if` nor `then`. */
-type LooseRule = { if?: { prefix?: string }; then?: string; call?: string };
+type LooseRule = { if?: { prefix?: string; prefix_set?: string }; then?: string; call?: string };
 
 export class BuiltInChecks {
     /** Each check the network turns on. A name that is not one of Circuit's is the project's own, which reading the project ran. */
@@ -62,11 +60,18 @@ export class BuiltInChecks {
         return BuiltInChecks.lastRuleOf(device, last.call, seen);
     }
 
-    /** The prefixes an export policy accepts by name. */
+    /** The prefixes an export policy accepts, by `prefix` or by `prefix_set`. A set fetched from a registry is left out: its prefixes are known only when `diff` runs. */
     static offered(device: Device, policy: string | undefined): string[] {
-        return BuiltInChecks.rulesOf(device, policy)
-            .filter((rule) => rule.then === "accept" && rule.if?.prefix)
-            .map((rule) => rule.if!.prefix!);
+        const accepts = BuiltInChecks.rulesOf(device, policy).filter((rule) => rule.then === "accept");
+
+        return accepts.flatMap((rule) => {
+            if (rule.if?.prefix) return [rule.if.prefix];
+
+            const set = rule.if?.prefix_set ? device.routing?.prefix_sets?.[rule.if.prefix_set] : undefined;
+            if (!set || !("prefixes" in set)) return [];
+
+            return Array.isArray(set.prefixes) ? set.prefixes : Object.values(set.prefixes);
+        });
     }
 
     /** The VLANs a port or LAG carries, untagged or tagged. */
@@ -149,8 +154,7 @@ export class BuiltInChecks {
     }
 
     /**
-     * `native_vlans_are_dead_ends`: a native VLAN is native on one trunk (a port or a LAG) of a device at most, and never an access VLAN or a tagged VLAN
-     * anywhere on that device.
+     * `native_vlans_are_dead_ends`: a native VLAN is native on one trunk (a port or a LAG) of a device at most, and never an access VLAN or a tagged VLAN anywhere on that device.
      */
     static nativeVlansAreDeadEnds(devices: readonly Device[]): Finding[] {
         const findings: Finding[] = [];
@@ -183,9 +187,7 @@ export class BuiltInChecks {
     }
 
     /**
-     * `untrusted_vlans`: traffic from outside reaches your own VLANs only through a filtering device. A port or LAG carrying an untrusted VLAN beside any other
-     * is on a filtering device or faces one, and only a filtering device gives an untrusted VLAN an address. The untrusted VLANs are those written
-     * `untrusted: true` on any device.
+     * `untrusted_vlans`: traffic from outside reaches your own VLANs only through a filtering device. A port or LAG carrying an untrusted VLAN beside any other is on a filtering device or faces one, and only a filtering device gives an untrusted VLAN an address. The untrusted VLANs are those written `untrusted: true` on any device.
      */
     static untrustedVlans(devices: readonly Device[], settings: NonNullable<NetworkChecks["untrusted_vlans"]>): Finding[] {
         const untrusted = new Set(

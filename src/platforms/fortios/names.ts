@@ -2,8 +2,8 @@
 
 import { Address } from "../../core/address";
 import type { Device, Family } from "../../model";
-import { Catalog } from "../catalog";
-import { Derive, type NamedInterface } from "../derive";
+import { Catalog } from "../../core/catalog";
+import { Derive, type NamedInterface } from "../../core/derive";
 
 type Addressed = { addresses?: readonly (string | { address: string; peer_address?: string })[]; vrf?: string; in_lag?: string };
 
@@ -81,7 +81,7 @@ export class FortiOsNames {
         ];
     }
 
-    /** The sources `management.allow` names: its prefixes, or the members of the address set it names. */
+    /** The sources `management.allow` names: its prefixes, or the members of the address set it uses. */
     static allowed(device: Device): readonly string[] {
         const allow = device.management?.allow;
         if (typeof allow !== "string") return allow ?? [];

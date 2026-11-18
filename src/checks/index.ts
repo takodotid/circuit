@@ -1,8 +1,6 @@
-// What `circuit validate` finds in a network read with `readProject`: each device's own rules, what its platform cannot express or does otherwise, what its
-// model's hardware holds, the rules across devices, and the built-in checks the network turns on. What reading the project stops on is not checked again.
+// What `circuit validate` finds in a network read with `Project.read`: each device's own rules, what its platform cannot express or does otherwise, what its model's hardware holds, the rules across devices, and the built-in checks the network turns on. What reading the project stops on is not checked again.
 
-import type { Device } from "../model";
-import type { Finding } from "../platforms/finding";
+import type { Device, Finding } from "../model";
 import { Platforms } from "../platforms";
 import { CrossChecks } from "./across";
 import { BuiltInChecks, type NetworkChecks } from "./built-in";
@@ -33,12 +31,12 @@ export class Validation {
                         ? {
                               level: "warning",
                               device: device.name,
-                              message: `${field} is not proved on a device yet. Sent because of --experimental: try it on a lab device first.`,
+                              message: `${field} is not tested on a real device yet. Sent because of --experimental: try it on a lab device first.`,
                           }
                         : {
                               level: "error",
                               device: device.name,
-                              message: `${field} is not proved on a device yet. Add --experimental to use it anyway, at your own risk.`,
+                              message: `${field} is not tested on a real device yet. Add --experimental to send it anyway.`,
                           }
                 );
             }

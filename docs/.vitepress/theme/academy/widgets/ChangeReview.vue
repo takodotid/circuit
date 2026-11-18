@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: running it day to day. The reader reviews three pull requests against the colocation example, asks a reviewer's questions of each, and approves or asks for changes. Every validate and diff output is Circuit's own, run on the template; diff compares against the template's build, which stands in for the device.
+// Lesson: running it day to day. The reader reviews three pull requests against the colocation example, asks a reviewer's questions of each, and approves or asks for changes. Every validate and diff output is Circuit's own, run on the example; diff compares against the example's own render, which stands in for the device.
 
 import { computed, ref } from "vue";
 
@@ -26,8 +26,8 @@ const QUESTIONS: { id: Question; label: string }[] = [
 
 const pulls: Pull[] = [
     {
-        title: "Give netflix a port for server 3",
-        request: "netflix asked for a third server port, with the same networks as servers 1 and 2.",
+        title: "Give Netflix a port for server 3",
+        request: "Netflix asked for a third server port, with the same networks as servers 1 and 2.",
         file: "tenants/netflix.ts",
         change: [
             "ethernet: {",
@@ -51,19 +51,19 @@ const pulls: Pull[] = [
         ].join("\n"),
         answers: {
             ci: "Yes: no errors.",
-            scope: "Yes. One port, 10GE1/0/3, stops being shut down and carries netflix's VLANs 1001 and 2001. The router has nothing to change.",
-            who: "Only netflix, whose new server comes up. Nothing else on the switch is touched, so it can go out in the next window.",
+            scope: "Yes. One port, 10GE1/0/3, stops being shut down, and carries VLANs 1001 and 2001 of Netflix. The router has nothing to change.",
+            who: "Only Netflix, whose new server comes up. Nothing else on the switch is touched, so it can go out in the next window.",
             undo: "Revert the commit and apply: the plan shuts the port again.",
         },
         approve: true,
         verdict: {
-            approve: "Right: the plan is one port, the one netflix asked for, and nothing else moves.",
-            changes: "There is nothing to change here. The plan touches one free port and only netflix's VLANs.",
+            approve: "Right: the plan is one port, the one Netflix asked for, and nothing else moves.",
+            changes: "There is nothing to change here. The plan touches one free port, and only the VLANs of Netflix.",
         },
     },
     {
-        title: "First server for akamai",
-        request: "A new tenant, akamai, with one server on its public network.",
+        title: "First server for Akamai",
+        request: "A new tenant, Akamai, with one server on its public network.",
         file: "tenants/akamai.ts",
         change: [
             '"tor-01": part("device", {',
@@ -77,17 +77,18 @@ const pulls: Pull[] = [
             "}),",
         ].join("\n"),
         highlight: [6],
-        ci: '$ circuit validate\ntenants/index.ts:4: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
-        plan: '$ circuit diff tor-01\ntenants/index.ts:4: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+        ci: '$ circuit validate\ntenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:9. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+        plan: '$ circuit diff tor-01\ntenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:9. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
         answers: {
-            ci: "No. Circuit stops while reading the files: netflix's file and akamai's both write port 10g-1 on tor-01, with two descriptions. It is netflix server 1's port.",
-            scope: "There is no plan yet: an error stops diff and apply. Had it gone out, 10GE1/0/1 would have lost netflix's VLANs, and netflix server 1 its networks.",
+            ci: "No. Circuit stops while reading the files: the files of Netflix and Akamai both write port 10g-1 on tor-01, with two descriptions. It is the port of Netflix's server 1.",
+            scope: "There is no plan yet: an error stops diff and apply. Had it gone out, Netflix's server 1 would have lost its networks.",
             who: "Nobody, until it is fixed. Nothing can reach a device while validate fails.",
-            undo: "Nothing to undo. Ask for a free port for akamai, such as 10g-3.",
+            undo: "Nothing to undo. Ask for a free port for Akamai, such as 10g-3.",
         },
         approve: false,
         verdict: {
-            approve: "validate fails: 10g-1 is netflix server 1's port. Approving it would only leave a change that cannot be applied.",
+            approve:
+                "validate fails: 10g-1 is the port of Netflix's server 1. Approving it would only leave a change that cannot be applied.",
             changes:
                 "Right. Circuit caught a port written by two tenants before anyone had to read a plan: ask for a free port, such as 10g-3.",
         },
@@ -112,13 +113,13 @@ const pulls: Pull[] = [
         highlight: [5],
         ci: [
             "$ circuit validate",
-            "  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256, the platform authenticates with SHA1 or MD5",
+            "  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not tested yet)",
             "",
             "1 error(s).",
         ].join("\n"),
         plan: [
             "$ circuit diff edge-01",
-            "  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256, the platform authenticates with SHA1 or MD5",
+            "  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not tested yet)",
             "",
             "1 error(s).",
         ].join("\n"),
@@ -175,7 +176,7 @@ function go(index: number) {
             </button>
         </div>
 
-        <h4 class="title">#{{ current + 1 }}: {{ pull.title }}</h4>
+        <h4 class="title">Pull request {{ current + 1 }}: {{ pull.title }}</h4>
         <p class="request"><strong>The request:</strong> {{ pull.request }}</p>
 
         <CodeView :code="pull.change" :title="pull.file" :highlight="pull.highlight" />
@@ -220,7 +221,7 @@ function go(index: number) {
         >
             {{ decision ? pull.verdict.approve : pull.verdict.changes }}
         </p>
-        <p v-else class="ac-say hint" aria-live="polite">Read the request, the file and the plan, ask your questions, then decide.</p>
+        <p v-else class="ac-say hint" aria-live="polite">Read the request, the file, and the plan, ask your questions, then decide.</p>
 
         <div class="ac-row next">
             <button v-if="right && current < pulls.length - 1" type="button" class="ac-button primary" @click="go(current + 1)">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: ports and protocols. The reader races one message over TCP and over UDP across a link that loses packets, and sees TCP shake hands, resend and keep order while UDP is faster but keeps holes and disorder.
+// Lesson: ports and protocols. The reader races one message over TCP and over UDP across a link that loses packets. TCP shakes hands, resends, and keeps order, while UDP is faster but keeps holes and disorder.
 
 import { computed, onBeforeUnmount, ref } from "vue";
 import { Motion } from "./SwitchLearning";
@@ -116,8 +116,11 @@ const summary = computed(() => {
     const lost = letters.length - delivered;
 
     const tcp = `TCP: all ${letters.length} letters, in order, at ${ms(result.tcpDone)}${result.tcpResent ? `, after sending ${result.tcpResent} piece${result.tcpResent > 1 ? "s" : ""} again` : ""}.`;
-    const udpParts = [lost ? `${lost} never arrived` : "", mixed ? "some came in the wrong order" : ""].filter(Boolean);
-    const udp = `UDP: ${delivered} of ${letters.length} at ${ms(result.udpDone)}${udpParts.length ? `; ${udpParts.join(", and ")}` : ", all in order this time"}.`;
+    const udpParts = [
+        lost ? `${lost} ${lost === 1 ? "letter" : "letters"} never arrived` : "",
+        mixed ? "some came in the wrong order" : "",
+    ].filter(Boolean);
+    const udp = `UDP: ${delivered} of ${letters.length} at ${ms(result.udpDone)}${udpParts.length ? `. ${udpParts.join(", and ").replace(/^./, (letter) => letter.toUpperCase())}` : ", all in order this time"}.`;
 
     return `${tcp} ${udp}`;
 });
@@ -225,11 +228,11 @@ const summary = computed(() => {
 
         <p v-if="done" class="ac-say good" data-word="Finished" aria-live="polite">{{ summary }}</p>
         <p v-else-if="race" class="ac-say hint" aria-live="polite">
-            The race is on. A dashed letter on the TCP side has arrived, but waits until every letter before it is there.
+            A dashed letter on the TCP side has arrived, but it waits until every letter before it is there.
         </p>
         <p v-else class="ac-say hint" aria-live="polite">
-            The laptop sends the word NETWORKING to a server, one letter per packet: once over TCP, once over UDP. Which packets the link
-            loses is chosen at random; the pattern number lets you run the same race again.
+            The laptop sends the word NETWORKING to a server, one letter per packet, once over TCP and once over UDP. Start with some loss,
+            then try heavy loss and no loss. The lost packets are random, but the same pattern number loses the same ones.
         </p>
     </div>
 </template>

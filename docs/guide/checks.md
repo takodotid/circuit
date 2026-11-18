@@ -1,55 +1,36 @@
 ---
-description: Circuit's built-in checks, writing your own, and what circuit validate tells you.
+description: Circuit's built-in checks, how to write your own, and what circuit validate tells you.
 ---
 
 # Checks and errors
 
-`checks` in `circuit.ts` turns on Circuit's checks, and adds your own.
+`checks` in `circuit.ts` turns on Circuit's built-in checks and adds your own. `circuit validate` runs them all.
 
 ## Built-in checks
 
-| Check                             | Makes sure                                                                        |
-| --------------------------------- | --------------------------------------------------------------------------------- |
-| `untrusted_vlans`                 | A VLAN marked `untrusted: true` only gets an address on your `filtering_devices`. |
-| `exports_end_in_reject`           | Every BGP export ends with "reject everything else" (customers excepted).         |
-| `imports_end_in_accept_or_reject` | Every BGP import ends with a rule that decides for every route.                   |
-| `native_vlans_are_dead_ends`      | A native VLAN is native on one trunk per device, and has no other members.        |
-| `tunnels_outside_offered`         | A tunnel's own address isn't inside what you announce over it.                    |
-| `same_vlan_ids`                   | One VLAN name has the same ID on every device.                                    |
+| Check                             | Makes sure that                                                                              |
+| --------------------------------- | -------------------------------------------------------------------------------------------- |
+| `untrusted_vlans`                 | A VLAN marked `untrusted: true` only gets an address on your `filtering_devices`.            |
+| `exports_end_in_reject`           | Every BGP export ends with a rule that rejects everything else. Customers are left out.      |
+| `imports_end_in_accept_or_reject` | Every BGP import ends with a rule that decides for every route.                              |
+| `native_vlans_are_dead_ends`      | A native VLAN is native on at most one trunk per device, and no other port there carries it. |
+| `tunnels_outside_offered`         | A tunnel's own address isn't inside what you announce over it.                               |
+| `same_vlan_ids`                   | One VLAN name has the same ID on every device.                                               |
 
-`untrusted: true` on a VLAN only works while `untrusted_vlans` is on.
+You can only write `untrusted: true` on a VLAN while `untrusted_vlans` is on.
 
 ## Your own checks
 
-Any other name takes a function. It gets the network and returns what it found:
+Any other name in `checks` takes a function that gets the network and returns what it found. This one is from the [edge router example](/guide/examples#an-edge-router), where `circuit.ts` turns it on with `checks: { imports_filtered: importsFiltered }`:
 
-```ts
-// lib/checks.ts
-import type { Check } from "circuit";
+<<< @/../examples/edge-router/lib/checks.ts
 
-/** Every BGP neighbor says who it is. */
-export const neighborsDescribed: Check = (network) =>
-    network.devices.flatMap((device) =>
-        Object.entries(device.routing?.bgp?.neighbors ?? {})
-            .filter(([, neighbor]) => !neighbor.description)
-            .map(([name]) => ({
-                device: device.name,
-                path: `routing.bgp.neighbors.${name}`,
-                message: "says nothing about who it is: write a description.",
-            }))
-    );
-```
+- Your check sees each device as the device runs it, with its parts merged in. Each `call`, `{ communities }` rule, interface set, and `management.allow` is replaced by what it stands for. Each neighbor holds what it takes from its group.
+- It gets a copy, so it can't change anything.
+- Return `device` and `path` with the message, and Circuit shows the file and line.
+- For IP math, use the global `address`: `.contains(outer, inner)`, `.overlaps(a, b)`, `.family(x)`, `.host(x)`, `.first(x)`, and `.last(x)`.
 
-```ts
-// circuit.ts
-checks: { neighbors_described: neighborsDescribed },
-```
-
-- Your check sees the network as the devices will run it: parts merged, `call`s and community rules written out, sets filled in. It's a copy, so it can't change anything.
-- Return `device` and `path` with the message, and Circuit points at the exact file and line.
-- Need IP math? Use `address`: `address.contains(outer, inner)`, `.overlaps(a, b)`, `.family(x)`, `.host(x)`, `.first(x)`, `.last(x)`.
-
-`lib/` is the only place that imports from Circuit, and only types: `import type { Check } from "circuit"`.
+Only files in `lib/` import from Circuit, and only types.
 
 ## What validate tells you
 
@@ -62,20 +43,21 @@ tenants/tenant-a.ts:21: switch-01: interfaces.ethernet.10g-5.descripton: no such
 
 It **stops** on:
 
-- an unknown key, or a name the device doesn't have;
-- a port the model doesn't have;
-- a link that doesn't link back;
-- one value written twice with two different values;
-- an ordered list written in two places, or rules placed nowhere;
-- a device file with no device, or two;
-- the same hostname twice;
-- `untrusted: true` with its check off.
+- an unknown key, or a name the device doesn't have
+- a port the device's model doesn't have
+- a link that doesn't link back
+- one value written twice with two different values
+- an ordered list written in two places, or rules that no device places
+- a device file with no device, or with two
+- the same hostname twice
+- a site with no device, or a part for a hostname that isn't a device
+- `untrusted: true` while its check is off
 
-It **warns** (and goes on) when a linked port's description doesn't name the far end.
+It **warns** and goes on when a linked port's description doesn't give the device and port at the other end.
 
 ## Where the editor falls short
 
-- A typo in a key inside a part's map (like a port in a tenant file) is only caught by `circuit validate`.
-- `address_sets: merge([a, b])` in a device file hides those names from the editor, so you see false errors. Circuit reads it fine. Write the map out, or bring it in with `include`.
-- `const two = merge([rule_a, rule_b])` confuses the editor (`then is written twice`). Write `part("filter", [rule_a, rule_b])`.
+- Only `circuit validate` catches a typo in a key inside a part's map, such as a port in a tenant file.
+- `address_sets: merge([a, b])` in a device file hides those names from the editor, so it shows false errors. Write the map out, or bring it in with `include`.
+- For `const two = merge([rule_a, rule_b])`, the editor says `then is written twice`. Write `part("filter", [rule_a, rule_b])` instead.
 - `bgpNeighbors()` is a whole set. Merged with other addresses, it adds nothing.

@@ -1,133 +1,446 @@
 <!-- The network drawn, one layer at a time: cables, VLANs, address segments, BGP, OSPF and tunnels. Drawn with Cytoscape; a node or line picked shows what it is in the panel. Present shows it on a big screen, going through every layer and lighting the busiest devices in turn. -->
+<script lang="ts">
+import type { Layer } from "../../../../core/graph";
+import { type Kept, GraphLayout } from "../lib/graph-layout";
+import { Saved } from "../lib/store";
+
+type View = { zoom: number; pan: { x: number; y: number } };
+
+// Places saved under an older layout are cramped: the version starts every graph fresh once.
+const LAYOUTS_KEY = "layouts-2";
+
+/** Kept while the page is open, as the graph view comes and goes: where each node is, where the reader left each layer, and what is selected. */
+const memory = {
+    layouts: new GraphLayout(Saved.get<Kept>(LAYOUTS_KEY)),
+    views: new Map<Layer, View>(),
+    selection: undefined as { node: string } | { edge: string } | undefined,
+    /** The network has been drawn in once; later views show it at once. */
+    arrived: false,
+};
+</script>
+
 <script setup lang="ts">
-import cytoscape, { type Core, type ElementDefinition, type NodeSingular } from "cytoscape";
+import cytoscape, {
+    type CollectionReturnValue,
+    type Core,
+    type EdgeCollection,
+    type ElementDefinition,
+    type NodeSingular,
+} from "cytoscape";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import type { GraphEdge, GraphNode, Layer } from "../../../../core/graph";
+import { useRoute, useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
-import { Export } from "../lib/csv";
+import { Export } from "../lib/export";
+import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
+import { type Tag, GraphLook } from "../lib/graph-look";
+import { GraphSignals } from "../lib/graph-signals";
 import { type Drawing, GraphSvg } from "../lib/graph-svg";
-import { go, store } from "../lib/store";
+import { paramOf, still, store } from "../lib/store";
+import GraphPanel from "./GraphPanel.vue";
 
 const props = defineProps<{ data: StudioData }>();
+const route = useRoute();
+const router = useRouter();
 
-const LAYERS: { id: Layer; label: string; legend: string }[] = [
-    { id: "l1", label: "Cables", legend: "Each cable a port's link names. A LAG's cables are one line." },
-    { id: "l2", label: "VLANs", legend: "The VLANs each cable carries, from its port or LAG." },
-    {
-        id: "l3",
-        label: "Addresses",
-        legend: "Prefixes two devices hold addresses in. Three or more share a segment, drawn as its own box.",
-    },
-    { id: "bgp", label: "BGP", legend: "Sessions between our devices, matched by address, and to each AS outside." },
-    { id: "ospf", label: "OSPF", legend: "Interfaces in one area and one prefix, neither passive." },
-    { id: "tunnels", label: "Tunnels", legend: "GRE and VXLAN tunnels matched by their endpoints, and WireGuard peers." },
-];
+const LAYERS = GraphLayer.LAYERS.map((id) => ({ id, label: GraphLayer.NAMES[id] }));
 
-const layer = computed<Layer>(() => (LAYERS.some((item) => item.id === store.route.parts[0]) ? (store.route.parts[0] as Layer) : "l1"));
+// The layer the path names, such as `bgp` in `/graph/bgp`, or the one shown last.
+const layer = computed<Layer>(() => {
+    const asked = paramOf(route, "layer");
+    const last = Saved.get<string>("layer");
+    return GraphLayer.isLayer(asked) ? asked : GraphLayer.isLayer(last) ? last : "l1";
+});
 const counts = computed(() =>
     Object.fromEntries(LAYERS.map((item) => [item.id, props.data.graph.edges.filter((edge) => edge.layer === item.id).length]))
 );
 
 const container = ref<HTMLElement>();
-const selected = ref<{ node?: GraphNode; edge?: GraphEdge }>({});
+const signalsCanvas = ref<HTMLCanvasElement>();
 let graph: Core | undefined;
+let signals: GraphSignals | undefined;
 
-/** Where each node was on each layer, kept while the page is open, so a node moved stays moved. */
-const placed = new Map<string, Record<string, { x: number; y: number }>>();
+/** What the layer shown has, and what is selected in it. */
+const shown = ref<Shown>({ nodes: [], edges: [] });
+const selection = ref(memory.selection);
+const selected = computed<{ node?: ShownNode; edge?: ShownEdge }>(() => {
+    const picked = selection.value;
+    if (picked && "node" in picked) return { node: shown.value.nodes.find((node) => node.id === picked.node) };
+    if (picked && "edge" in picked) return { edge: shown.value.edges.find((edge) => edge.id === picked.edge) };
+    return {};
+});
 
+const layouts = memory.layouts;
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-function elements(): ElementDefinition[] {
-    const edges = props.data.graph.edges.filter((edge) => edge.layer === layer.value);
-    const ends = new Set(edges.flatMap((edge) => [edge.from, edge.to]));
-    const levelOf = (node: GraphNode) => {
-        const findings = props.data.findings.filter((finding) => `device:${finding.device}` === node.id);
-        return findings.some((finding) => finding.level === "error") ? "error" : findings.length ? "warning" : "";
+/** Each node's tag, measured once in the colours and fonts it is drawn in, until they change. */
+let colors = GraphLook.colors();
+const tags = new Map<string, Tag>();
+
+function tagOf(node: ShownNode): Tag {
+    const key = `${node.id} ${node.label} ${node.detail[0] ?? ""}`;
+    let tag = tags.get(key);
+    if (!tag) {
+        tag = GraphLook.tag(node, colors);
+        tags.set(key, tag);
+    }
+    return tag;
+}
+
+const widthOf = (node: ShownNode) => tagOf(node).width;
+
+/** Give every node of a layer a place. The cables layer comes first, as every other layer's new nodes start where they are on it. */
+function layOut(name: Layer): void {
+    if (name !== "l1") layOut("l1");
+
+    const { nodes, edges } = name === layer.value ? shown.value : GraphLayer.of(props.data, name);
+    const boxes = nodes.map((node) => ({ id: node.id, label: node.label, width: widthOf(node), height: tagOf(node).height }));
+    layouts.layOut(name, boxes, edges, name === "l1" ? undefined : layouts.places("l1"));
+    Saved.set(LAYOUTS_KEY, layouts.kept());
+}
+
+function nodeData(node: ShownNode) {
+    const tag = tagOf(node);
+    return {
+        id: node.id,
+        label: node.label,
+        kind: node.kind,
+        level: node.level ?? "",
+        gone: Boolean(node.gone),
+        width: tag.width,
+        height: tag.height,
+        shift: tag.shift,
+        image: tag.image,
+        picked: tag.picked,
+        touring: tag.touring,
     };
-
-    return [
-        ...props.data.graph.nodes
-            .filter((node) => node.kind === "device" || ends.has(node.id))
-            .map((node) => ({
-                group: "nodes" as const,
-                // A box as wide as its name.
-                data: { id: node.id, label: node.label, kind: node.kind, level: levelOf(node), width: node.label.length * 8.5 + 28 },
-            })),
-        ...edges.map((edge, index) => ({
-            group: "edges" as const,
-            data: {
-                id: `edge-${index}`,
-                source: edge.from,
-                target: edge.to,
-                label: edge.label,
-                oneSided: edge.oneSided ? "yes" : "no",
-                index,
-            },
-        })),
-    ];
 }
 
-function draw(): void {
+function edgeData(edge: ShownEdge) {
+    return {
+        id: edge.id,
+        source: edge.from,
+        target: edge.to,
+        label: edge.label,
+        keys: edge.keys,
+        vlans: (edge.vlans ?? []).map((vlan) => vlan.id),
+        oneSided: Boolean(edge.oneSided),
+        added: Boolean(edge.added),
+        gone: Boolean(edge.gone),
+    };
+}
+
+/**
+ * Show the layer: add what is new, drop what is gone and update the rest, so nodes keep their places and the selection stays.
+ * `arrival` says what is new to the eye: the whole network the first time it is shown, or a new layer, whose devices glide to their
+ * places on it while its lines come in. A project read again changes in place.
+ */
+function draw(arrival?: "network" | "layer"): void {
     if (!graph) return;
-    const positions = placed.get(layer.value);
 
-    graph.elements().remove();
-    graph.add(elements());
-    selected.value = {};
+    shown.value = GraphLayer.of(props.data, layer.value, store.graphFocus.comparison);
+    Saved.set("layer", layer.value);
+    layOut(layer.value);
+    const places = layouts.places(layer.value);
 
-    if (positions && graph.nodes().every((node) => positions[node.id()] !== undefined)) {
-        graph.nodes().forEach((node) => {
-            node.position(positions[node.id()]!);
-        });
-        fit();
-    } else {
-        layOut();
+    const nodeIds = new Set(shown.value.nodes.map((node) => node.id));
+    const edgeIds = new Set(shown.value.edges.map((edge) => edge.id));
+    const moving = arrival !== undefined && !still.matches;
+    const cy = graph;
+    let fresh = cy.collection();
+
+    // A new layer's glide starts each node from where it is, even halfway through the last glide. Anything else ends a glide at its end.
+    if (arrival === "layer" && moving) halt();
+    else settle();
+    cy.batch(() => {
+        cy.edges()
+            .filter((edge) => !edgeIds.has(edge.id()))
+            .remove();
+        cy.nodes()
+            .filter((node) => !nodeIds.has(node.id()))
+            .remove();
+
+        const added: ElementDefinition[] = [];
+
+        for (const node of shown.value.nodes) {
+            const existing = cy.getElementById(node.id);
+            if (existing.empty()) {
+                added.push({ group: "nodes", data: nodeData(node), position: { ...places.get(node.id)! } });
+                continue;
+            }
+
+            existing.data(nodeData(node));
+            if (arrival === "layer" && moving) gliding.push({ node: existing, to: { ...places.get(node.id)! } });
+            else if (arrival === "layer") existing.position({ ...places.get(node.id)! });
+        }
+
+        fresh = fresh.union(cy.add(added));
+
+        for (const edge of shown.value.edges) {
+            const existing = cy.getElementById(edge.id);
+            if (existing.empty()) fresh = fresh.union(cy.add({ group: "edges", data: edgeData(edge) }));
+            else existing.data(edgeData(edge));
+        }
+
+        // What arrives starts unseen.
+        if (moving) fresh.style({ opacity: 0, "text-opacity": 0 });
+    });
+
+    // The devices on both layers glide to their places on this one, so the eye can follow each.
+    for (const glide of gliding) {
+        const done = () => (gliding = gliding.filter((other) => other !== glide));
+        glide.node.animate({ position: { ...glide.to } }, { duration: 700, easing: "ease-in-out-cubic", complete: done });
     }
+    if (moving) arrive(fresh, arrival);
+
+    // Presenting draws every line heavier, a line the project just added too.
+    if (presenting.value) cy.edges().addClass("heavy");
+
+    // A selection whose node or line is gone is dropped; a line's selection does not carry to another layer.
+    const picked = selection.value;
+    if (picked && cy.getElementById("node" in picked ? picked.node : picked.edge).empty()) select(undefined);
+    else emphasize();
 }
 
-/** Fit the drawing to the window, but never larger than its own size: a network of two devices stays readable. */
+/** The nodes gliding to a new layer's places, each with the place it glides to. A node leaves the list when it gets there. */
+let gliding: { node: CollectionReturnValue; to: { x: number; y: number } }[] = [];
+
+/** End a glide between layers: each node at the place it was gliding to, so a press moves it from there. */
+function settle(): void {
+    for (const { node, to } of gliding) {
+        node.stop(true);
+        if (node.inside()) node.position({ ...to });
+    }
+    gliding = [];
+}
+
+/** Stop a glide between layers where it is, for the next layer's glide to start from there. */
+function halt(): void {
+    for (const { node } of gliding) node.stop(true);
+    gliding = [];
+}
+
+/** The curve of an arrival: quick at first, settling at the end. */
+const ARRIVE = "ease-out-quint";
+
+/**
+ * Bring new parts in from the busiest device outward, a ring of neighbours at a time: nodes fade in, then the lines, then their labels.
+ * On the first view each line draws in from its nearer end; on a new layer its lines fade in. The dots follow once it is all in.
+ */
+function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer"): void {
+    if (!graph) return;
+    const cy = graph;
+
+    const hub = cy.nodes().max((node) => node.degree(false)).ele as NodeSingular | undefined;
+    const ring = new Map<string, number>(hub ? [[hub.id(), 0]] : []);
+    for (const queue: NodeSingular[] = hub ? [hub] : []; queue.length;) {
+        const here = queue.shift()!;
+        here.neighborhood()
+            .nodes()
+            .forEach((other) => {
+                if (ring.has(other.id())) return;
+                ring.set(other.id(), ring.get(here.id())! + 1);
+                queue.push(other);
+            });
+    }
+
+    // The whole drawing arrives within about a second, however many rings it has.
+    const farthest = Math.max(0, ...ring.values()) + 1;
+    const step = Math.min(110, 800 / farthest);
+    const ringOf = (node: NodeSingular) => ring.get(node.id()) ?? farthest;
+
+    fresh.nodes().forEach((node) => {
+        node.delay(ringOf(node) * step).animate(
+            { style: { opacity: 1, "text-opacity": 1 } },
+            { duration: 360, easing: ARRIVE, complete: () => node.removeStyle("opacity text-opacity") }
+        );
+    });
+
+    let last = 0;
+    fresh.edges().forEach((edge) => {
+        const from = ringOf(edge.source());
+        const to = ringOf(edge.target());
+        const delay = (Math.min(from, to) + 0.5) * step + (arrival === "layer" ? 200 : 0);
+        last = Math.max(last, delay + 860);
+
+        const done = () => edge.removeStyle("opacity text-opacity line-style line-dash-pattern line-dash-offset");
+
+        // A line both ends declare draws in from its nearer end: a dash as long as the line slides along it. A dashed line fades in.
+        // A line whose ends are not placed yet has no length, and fades in too.
+        const a = edge.sourceEndpoint();
+        const b = edge.targetEndpoint();
+        const length = Math.hypot(b.x - a.x, b.y - a.y) * 1.3 + 4;
+        if (arrival === "network" && !edge.data("oneSided") && Number.isFinite(length)) {
+            edge.style({
+                opacity: 1,
+                "line-style": "dashed",
+                "line-dash-pattern": [length, length],
+                "line-dash-offset": from <= to ? length : -length,
+            });
+            edge.delay(delay)
+                .animate({ style: { "line-dash-offset": 0 } }, { duration: 560, easing: ARRIVE })
+                .animate({ style: { "text-opacity": 1 } }, { duration: 300, complete: done });
+            return;
+        }
+
+        edge.delay(delay)
+            .animate({ style: { opacity: 1 } }, { duration: 420, easing: ARRIVE })
+            .animate({ style: { "text-opacity": 1 } }, { duration: 300, complete: done });
+    });
+
+    if (signals) signals.showFrom = performance.now() + last;
+}
+
+/** Select a node or a line, or nothing. A selection ends a lit path; selecting something ends a lit VLAN too. */
+function select(next: typeof memory.selection): void {
+    selection.value = next;
+    memory.selection = next;
+    delete store.graphFocus.path;
+    if (next) delete store.graphFocus.vlan;
+    emphasize();
+}
+
+/** The device under the pointer, and the one presenting lights. */
+let hovered: string | undefined;
+let touring: string | undefined;
+
+/**
+ * Light what the pointer is on, the device presenting lights, or what is selected: a node with its lines and the nodes at their ends.
+ * Else a path asked for, or the cables of a VLAN asked for, or the line selected, each with its ends. The rest dims.
+ */
+function emphasize(): void {
+    if (!graph) return;
+    const cy = graph;
+
+    const picked = selection.value;
+    const { path, vlan } = store.graphFocus;
+    const focus = hovered ?? touring ?? (picked && "node" in picked ? picked.node : undefined);
+    const pickedEdge = picked && "edge" in picked ? cy.edges().filter((edge) => edge.id() === picked.edge) : undefined;
+
+    let litEdges: EdgeCollection | undefined = pickedEdge;
+    if (focus) litEdges = cy.getElementById(focus).connectedEdges();
+    else if (path?.length) litEdges = cy.edges().filter((edge) => (edge.data("keys") as string[]).some((key) => path.includes(key)));
+    else if (vlan !== undefined && layer.value === "l2")
+        litEdges = cy.edges().filter((edge) => (edge.data("vlans") as number[]).includes(vlan));
+    const litNodes = litEdges?.connectedNodes().union(focus ? cy.getElementById(focus) : cy.collection());
+
+    cy.batch(() => {
+        cy.elements().removeClass("lit dim picked touring");
+        if (picked) cy.getElementById("node" in picked ? picked.node : picked.edge).addClass("picked");
+        if (touring && !hovered) cy.getElementById(touring).addClass("touring");
+        if (!litEdges || !litNodes) return;
+
+        cy.elements().not(litEdges).not(litNodes).addClass("dim");
+        litEdges.not(".picked").addClass("lit");
+    });
+}
+
+/** Dots in the link colour; on a lit line, the highlighter with a navy ring; on a line a comparison adds, green. */
+function signalColors() {
+    const colors = GraphLook.colors();
+    return { dot: colors.link, lit: colors.yellow, ring: colors.navy, added: colors.ok };
+}
+
+/** The dots move, or, when the reader asks for less motion, are not drawn at all. */
+function moveSignals(): void {
+    if (still.matches) signals?.stop();
+    else signals?.start();
+}
+
+/** Below this zoom a device's name is too small to read: a first view stops there, around the busiest device, and the reader pans for the rest. */
+const READABLE = 0.6;
+/** Above this zoom a small network would be drawn larger than it is. */
+const LARGEST = 1.2;
+
+/** The view that frames these nodes, by where they are placed on the layer. With `readable`, as much as stays readable, around the busiest of them. */
+function framing(ids: readonly string[], padding: number, readable = false): View | undefined {
+    if (!graph) return undefined;
+
+    const places = layouts.places(layer.value);
+    const boxes = ids.flatMap((id) => {
+        const point = places.get(id);
+        const node = shown.value.nodes.find((candidate) => candidate.id === id);
+        return point && node ? [{ ...point, half: widthOf(node) / 2, halfHeight: tagOf(node).height / 2 }] : [];
+    });
+    if (!boxes.length) return undefined;
+
+    const left = Math.min(...boxes.map((box) => box.x - box.half));
+    const right = Math.max(...boxes.map((box) => box.x + box.half));
+    const top = Math.min(...boxes.map((box) => box.y - box.halfHeight));
+    const bottom = Math.max(...boxes.map((box) => box.y + box.halfHeight));
+
+    const width = graph.width();
+    const height = graph.height();
+    const whole = Math.min((width - padding * 2) / (right - left), (height - padding * 2) / (bottom - top));
+    let zoom = Math.max(Math.min(whole, LARGEST), graph.minZoom());
+    let center = { x: (left + right) / 2, y: (top + bottom) / 2 };
+
+    if (readable && zoom < READABLE) {
+        zoom = READABLE;
+        const degree = (id: string) => shown.value.edges.filter((edge) => edge.from === id || edge.to === id).length;
+        const hub = [...ids].sort((a, b) => degree(b) - degree(a))[0];
+        center = (hub && places.get(hub)) || center;
+    }
+
+    return { zoom, pan: { x: width / 2 - center.x * zoom, y: height / 2 - center.y * zoom } };
+}
+
+/** Show the whole layer, but never larger than its own size: a network of two devices stays readable. */
 function fit(): void {
-    if (!graph) return;
-    graph.fit(undefined, 60);
-    if (graph.zoom() > 1.2) {
-        graph.zoom(1.2);
-        graph.center();
-    }
+    const view = framing(
+        shown.value.nodes.map((node) => node.id),
+        60
+    );
+    if (view) graph?.viewport(view);
 }
 
-function layOut(): void {
-    // From a circle rather than random places, so the same network is drawn the same way each time.
-    graph?.layout({ name: "circle", animate: false, fit: false }).run();
-    // Boxes are wide, so they push hard and keep a gap, or they land on each other and on the lines' labels.
-    graph
-        ?.layout({
-            name: "cose",
-            animate: false,
-            fit: false,
-            randomize: false,
-            nodeRepulsion: () => 160000,
-            nodeOverlap: 40,
-            nodeDimensionsIncludeLabels: true,
-            idealEdgeLength: () => 55,
-            edgeElasticity: () => 200,
-            gravity: 2.5,
-            numIter: 3000,
-            componentSpacing: 140,
-        })
-        .run();
+/** Show the layer as the reader left it, or, the first time, framed so names can be read: gliding there, or at once. */
+function frameLayer(glide = false): void {
+    if (!graph) return;
+
+    const left = memory.views.get(layer.value);
+    const view =
+        left ??
+        framing(
+            shown.value.nodes.map((node) => node.id),
+            60,
+            true
+        );
+    if (!view) return;
+
+    graph.stop(true);
+    if (glide && !still.matches) graph.animate(view, { duration: 1100, easing: "ease-in-out-cubic" });
+    else graph.viewport(view);
+}
+
+/** Keep where the reader left this layer. */
+function keepView(name: Layer): void {
+    if (graph && !presenting.value) memory.views.set(name, { zoom: graph.zoom(), pan: { ...graph.pan() } });
+}
+
+/** Forget where nodes were moved on this layer, and lay it out again. */
+function layOutAgain(): void {
+    settle();
+    layouts.forget(layer.value);
+    layOut(layer.value);
+    const places = layouts.places(layer.value);
+    graph?.nodes().forEach((node) => {
+        node.position({ ...places.get(node.id())! });
+    });
     fit();
-    remember();
 }
 
-function remember(): void {
-    if (!graph) return;
-    placed.set(layer.value, Object.fromEntries(graph.nodes().map((node) => [node.id(), { ...node.position() }])));
+function remember(node: NodeSingular): void {
+    layouts.places(layer.value).set(node.id(), { ...node.position() });
+    Saved.set(LAYOUTS_KEY, layouts.kept());
 }
+
+/** A saved file's name, by the project and the layer as the toolbar names it, such as `colocation-cables.png`. */
+const fileName = (extension: string) => `${props.data.project}-${GraphLayer.NAMES[layer.value].toLowerCase()}.${extension}`;
 
 function saveImage(): void {
     if (!graph) return;
     const png = graph.png({ output: "blob", full: true, scale: 2, bg: css("--bg") }) as unknown as Blob;
-    Export.save(`${props.data.project}-${layer.value}.png`, png);
+    Export.save(fileName("png"), png);
 }
 
 /** Save the layer as an SVG, drawn from where each box and line is and how Cytoscape styles it. */
@@ -135,6 +448,9 @@ function saveSvg(): void {
     if (!graph) return;
     const box = graph.elements().boundingBox({});
     const size = (value: string) => parseFloat(value) || 0;
+    // Cytoscape draws a dotted stroke one on, one off, and a dashed one in its pattern, such as "4 2".
+    const dashOf = (style: string, pattern: string) =>
+        style === "dotted" ? [1, 1] : style === "dashed" ? pattern.split(/\s+/).map(size) : [];
 
     const drawing: Drawing = {
         box: { x: box.x1, y: box.y1, width: box.w, height: box.h },
@@ -148,10 +464,23 @@ function saveSvg(): void {
             fill: node.style("background-color"),
             stroke: node.style("border-color"),
             strokeWidth: size(node.style("border-width")),
-            dashed: node.style("border-style") === "dashed",
+            dash: dashOf(node.style("border-style"), node.style("border-dash-pattern")),
             color: node.style("color"),
             fontSize: size(node.style("font-size")),
+            fontFamily: node.style("font-family"),
+            fontWeight: node.style("font-weight"),
             opacity: Number(node.style("opacity")),
+            ...(node.data("kind") === "device"
+                ? {
+                      device: {
+                          chassis: node.hasClass("touring") ? colors.navy : colors.cobalt,
+                          socket: node.hasClass("touring") || node.hasClass("picked") ? colors.yellow : "#ffffff",
+                          sub: shown.value.nodes.find((candidate) => candidate.id === node.id())?.detail[0] ?? "",
+                          subColor: node.hasClass("touring") ? "#2a3550" : colors.muted,
+                          mono: colors.mono,
+                      },
+                  }
+                : {}),
         })),
         edges: graph.edges().map((edge) => {
             const control = edge.controlPoints()?.[0];
@@ -163,7 +492,7 @@ function saveSvg(): void {
                 label: String(edge.data("label") ?? ""),
                 color: edge.style("line-color"),
                 width: size(edge.style("width")),
-                dashed: edge.style("line-style") === "dashed",
+                dash: dashOf(edge.style("line-style"), edge.style("line-dash-pattern")),
                 labelColor: edge.style("color"),
                 fontSize: size(edge.style("font-size")),
                 opacity: Number(edge.style("opacity")),
@@ -171,7 +500,7 @@ function saveSvg(): void {
         }),
     };
 
-    Export.save(`${props.data.project}-${layer.value}.svg`, new Blob([GraphSvg.of(drawing)], { type: "image/svg+xml" }));
+    Export.save(fileName("svg"), new Blob([GraphSvg.of(drawing)], { type: "image/svg+xml" }));
 }
 
 // Presenting: the network on a big screen, the whole window, going through every layer and lighting its busiest devices in turn. Kept in the browser, so a screen that reloads stays on it.
@@ -190,48 +519,31 @@ const remembered = (): boolean => {
 
 const presenting = ref(remembered());
 const caption = ref<{ title: string; detail: string }>();
-let lit: NodeSingular | undefined;
 let tourStep = 0;
 let tour: ReturnType<typeof setInterval> | undefined;
 let leaving: ReturnType<typeof setTimeout> | undefined;
-let pointerOver = false;
+/** A device is being dragged: the turns and the drift wait, as they do while a device is pointed at. */
+let dragging = false;
 let resizing: ResizeObserver | undefined;
-
-const LINE_WORDS: Record<Layer, [string, string]> = {
-    l1: ["cable", "cables"],
-    l2: ["cable", "cables"],
-    l3: ["shared prefix", "shared prefixes"],
-    bgp: ["session", "sessions"],
-    ospf: ["adjacency", "adjacencies"],
-    tunnels: ["tunnel", "tunnels"],
-};
-
-function lines(count: number): string {
-    const [one, many] = LINE_WORDS[layer.value];
-    return `${count} ${count === 1 ? one : many}`;
-}
 
 /** Light one device with what it has a line to, and dim the rest; or light nothing. */
 function light(node: NodeSingular | undefined): void {
     if (!graph) return;
-    lit = node;
-    graph.elements().removeClass("lit dim");
+    touring = node?.id();
+    emphasize();
+    pulse(node);
 
     if (node) {
-        const near = node.closedNeighborhood();
-        graph.elements().not(near).addClass("dim");
-        node.addClass("lit");
-        near.edges().addClass("lit");
         const detail = props.data.graph.nodes.find((candidate) => candidate.id === node.id())?.detail[0];
         caption.value = {
             title: String(node.data("label")),
-            detail: [detail, lines(node.connectedEdges().length)].filter(Boolean).join(", "),
+            detail: [detail, GraphLayer.count(layer.value, node.connectedEdges().length)].filter(Boolean).join(", "),
         };
     } else {
-        const devices = graph.nodes('[kind = "device"]').length;
+        const devices = graph.nodes('[kind = "device"][!gone]').length;
         caption.value = {
-            title: LAYERS.find((item) => item.id === layer.value)?.label ?? "",
-            detail: `${devices} ${devices === 1 ? "device" : "devices"}, ${lines(graph.edges().length)}`,
+            title: GraphLayer.NAMES[layer.value],
+            detail: `${devices} ${devices === 1 ? "device" : "devices"}, ${GraphLayer.count(layer.value, graph.edges().length)}`,
         };
     }
 }
@@ -239,23 +551,85 @@ function light(node: NodeSingular | undefined): void {
 /** Frame what is lit with its neighbours, or the whole layer: gliding there, or at once. */
 function frameLit(glide: boolean): void {
     if (!graph) return;
-    const shown = lit ? lit.closedNeighborhood() : graph.elements();
-    if (glide) graph.animate({ fit: { eles: shown, padding: 90 } }, { duration: 1100, easing: "ease-in-out-cubic" });
-    else graph.fit(shown, 90);
+    const ids = touring
+        ? graph
+              .getElementById(touring)
+              .closedNeighborhood()
+              .nodes()
+              .map((node) => node.id())
+        : shown.value.nodes.map((node) => node.id);
+    const view = framing(ids, 90);
+    if (!view) return;
+
+    graph.stop(true);
+    if (glide && !still.matches) {
+        graph.animate(view, { duration: 1100, easing: "ease-in-out-cubic", complete: drift });
+        return;
+    }
+    graph.viewport(view);
+    drift();
+}
+
+/** The device presenting lights now, with a ring that keeps leaving it, the way the docs drawing marks the changed device. */
+let pulsing: NodeSingular | undefined;
+
+function pulse(node: NodeSingular | undefined): void {
+    if (pulsing?.inside()) {
+        pulsing.stop(true);
+        pulsing.removeStyle("outline-offset outline-opacity");
+    }
+    pulsing = node;
+    if (!node || still.matches) return;
+
+    const ring = () => {
+        if (pulsing !== node || !node.inside()) return;
+        node.style({ "outline-offset": 4, "outline-opacity": 1 });
+        node.animate(
+            { style: { "outline-offset": 22, "outline-opacity": 0 } },
+            { duration: 1800, easing: "ease-out-quint", complete: ring }
+        );
+    };
+    ring();
+}
+
+/**
+ * While presenting, the view drifts slowly away from what it frames and back, so a wall screen does not stand still. It gives way to each
+ * turn of the tour, and waits while a device is pointed at or dragged. None with reduced motion.
+ */
+function drift(): void {
+    if (!graph || !presenting.value || still.matches || hovered || dragging) return;
+    const cy = graph;
+
+    const base = { zoom: cy.zoom(), pan: { ...cy.pan() } };
+    const angle = tourStep * 2.4 + layer.value.length;
+    const center = { x: cy.width() / 2, y: cy.height() / 2 };
+    const away = {
+        zoom: base.zoom * 1.03,
+        pan: {
+            x: center.x - (center.x - base.pan.x) * 1.03 + Math.cos(angle) * 16,
+            y: center.y - (center.y - base.pan.y) * 1.03 + Math.sin(angle) * 10,
+        },
+    };
+
+    cy.animate(away, {
+        duration: 7000,
+        easing: "ease-in-out-sine",
+        complete: () => cy.animate(base, { duration: 7000, easing: "ease-in-out-sine", complete: drift }),
+    });
 }
 
 /** The next layer with lines, after this one; this one when no other has any. */
 function nextLayer(): Layer {
-    const at = LAYERS.findIndex((item) => item.id === layer.value);
-    const after = [...LAYERS.slice(at + 1), ...LAYERS.slice(0, at + 1)];
-    return after.find((item) => counts.value[item.id])?.id ?? layer.value;
+    const at = GraphLayer.LAYERS.indexOf(layer.value);
+    const after = [...GraphLayer.LAYERS.slice(at + 1), ...GraphLayer.LAYERS.slice(0, at + 1)];
+    return after.find((name) => counts.value[name]) ?? layer.value;
 }
 
 /** One turn: the whole layer, then its busiest devices one at a time, then on to the next layer. */
 function tourNext(): void {
-    if (!graph || document.hidden || pointerOver || leaving) return;
+    if (!graph || document.hidden || hovered || dragging || leaving) return;
 
-    const devices = graph.nodes('[kind = "device"]').toArray() as NodeSingular[];
+    const devices = graph.nodes('[kind = "device"][!gone]').toArray() as NodeSingular[];
     const busiest = devices
         .filter((node) => node.degree(false) > 0)
         .sort((a, b) => b.degree(false) - a.degree(false) || String(a.data("label")).localeCompare(String(b.data("label"))))
@@ -278,7 +652,7 @@ function tourNext(): void {
     leaving = setTimeout(() => {
         leaving = undefined;
         // Replacing the address keeps the history clean, so Back still leaves Studio's last place.
-        if (presenting.value) location.replace(`#graph/${following}`);
+        if (presenting.value) void router.replace({ name: "layer", params: { layer: following } });
     }, 2600);
 }
 
@@ -294,9 +668,12 @@ function restartTour(): void {
 /** The page as presenting wants it: the rails and the panel gone, heavier lines, a caption, and the turns running. Or back as it was. */
 function showPresenting(): void {
     document.body.classList.toggle("presenting", presenting.value);
-    selected.value = {};
-    graph?.elements().removeClass("lit dim heavy");
-    lit = undefined;
+    if (signals) signals.presenting = presenting.value;
+    touring = undefined;
+    pulse(undefined);
+    graph?.stop(true);
+    select(undefined);
+    graph?.edges().removeClass("heavy");
     caption.value = undefined;
     restartTour();
 
@@ -325,91 +702,78 @@ function togglePresenting(): void {
     showPresenting();
 }
 
+/** P presents or stops, Esc stops presenting or clears the selection, and the keys 1 to 6 pick a layer. */
 function onKey(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null;
     if (target?.closest("input, select, textarea") || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === "p" || (event.key === "Escape" && presenting.value)) togglePresenting();
+
+    if (event.key === "p" || (event.key === "Escape" && presenting.value)) return togglePresenting();
+    if (event.key === "Escape") return select(undefined);
+
+    const chosen = GraphLayer.LAYERS[Number(event.key) - 1];
+    if (chosen) void router.push({ name: "layer", params: { layer: chosen } });
 }
+
+/** The page's colours changed, with the system's light or dark, or the reader asked for less motion: draw it all again in them. */
+function restyle(): void {
+    if (!graph) return;
+    colors = GraphLook.colors();
+    tags.clear();
+    graph.style(GraphLook.style(colors, still.matches));
+    draw();
+    signals?.recolor(signalColors());
+    moveSignals();
+}
+
+const scheme = matchMedia("(prefers-color-scheme: dark)");
+
+/** Select a device from the list the keyboard reaches, and bring it to the middle of the view. */
+function pick(id: string): void {
+    store.graphFocus.device = id.replace(/^device:/, "");
+}
+
+/** The devices on the layer, by name, for the keyboard: a drawing on a canvas has no element to reach. */
+const deviceList = computed(() =>
+    shown.value.nodes.filter((node) => node.kind === "device" && !node.gone).sort((a, b) => a.label.localeCompare(b.label))
+);
 
 onMounted(() => {
     graph = cytoscape({
         container: container.value,
         minZoom: 0.2,
         maxZoom: 3,
-        style: [
-            {
-                selector: "node",
-                style: {
-                    shape: "round-rectangle",
-                    width: "data(width)",
-                    height: 34,
-                    "background-color": css("--surface"),
-                    "border-width": 2,
-                    "border-color": css("--text"),
-                    label: "data(label)",
-                    color: css("--text"),
-                    "font-family": css("--font"),
-                    "font-size": 13,
-                    "font-weight": 700,
-                    "text-valign": "center",
-                    "text-halign": "center",
-                },
-            },
-            {
-                selector: 'node[kind = "segment"]',
-                style: { "background-color": css("--yellow"), "border-color": css("--navy"), color: "#11141b" },
-            },
-            {
-                selector: 'node[kind = "outside"]',
-                style: { "border-style": "dashed", "border-color": css("--edge"), color: css("--muted") },
-            },
-            { selector: 'node[level = "warning"]', style: { "border-color": css("--warning"), "border-width": 3 } },
-            { selector: 'node[level = "error"]', style: { "border-color": css("--error"), "border-width": 3 } },
-            {
-                selector: "edge",
-                style: {
-                    width: 2,
-                    "line-color": css("--edge"),
-                    "curve-style": "bezier",
-                    label: "data(label)",
-                    "font-size": 11,
-                    color: css("--muted"),
-                    "text-background-color": css("--bg"),
-                    "text-background-opacity": 1,
-                    "text-background-padding": "2px",
-                    "font-family": css("--font"),
-                },
-            },
-            { selector: 'edge[oneSided = "yes"]', style: { "line-style": "dashed", "line-color": css("--warning") } },
-            {
-                selector: ":selected",
-                style: { "border-color": css("--cobalt"), "line-color": css("--cobalt"), "border-width": 4, width: 4 },
-            },
-            // Presenting: heavier lines, the lit device in the highlighter with a navy frame (a warning or error keeps its own), the rest dimmed.
-            { selector: "edge.heavy", style: { width: 3 } },
-            { selector: "edge.lit", style: { width: 5, "line-color": css("--cobalt") } },
-            { selector: "node.lit", style: { "background-color": css("--yellow"), color: "#11141b" } },
-            { selector: 'node.lit[level = ""]', style: { "border-color": css("--navy"), "border-width": 3 } },
-            { selector: ".dim", style: { opacity: 0.18 } },
-        ],
+        autounselectify: true,
+        style: GraphLook.style(colors, still.matches),
     });
 
-    graph.on("tap", "node", (event) => {
-        selected.value = { node: props.data.graph.nodes.find((node) => node.id === event.target.id()) };
-    });
-    graph.on("tap", "edge", (event) => {
-        const index = event.target.data("index") as number;
-        selected.value = { edge: props.data.graph.edges.filter((edge) => edge.layer === layer.value)[index] };
-    });
+    graph.on("tap", "node", (event) => select({ node: event.target.id() }));
+    graph.on("tap", "edge", (event) => select({ edge: event.target.id() }));
     graph.on("tap", (event) => {
-        if (event.target === graph) selected.value = {};
+        if (event.target === graph) select(undefined);
     });
-    graph.on("dbltap", 'node[kind = "device"]', (event) => go(`devices/${event.target.data("label")}`));
-    graph.on("dragfree", "node", remember);
+    graph.on("dbltap", 'node[kind = "device"][!gone]', (event) => {
+        void router.push({ name: "device", params: { name: String(event.target.data("label")) } });
+    });
+    graph.on("dragfree", "node", (event) => remember(event.target));
 
-    // The turns wait while the pointer is on the drawing, so someone at the screen can look.
-    container.value?.addEventListener("mouseenter", () => (pointerOver = true));
-    container.value?.addEventListener("mouseleave", () => (pointerOver = false));
+    // Pointing at a node lights it with its lines, as selecting it does. While presenting, the turns and the drift wait for it.
+    graph.on("mouseover", "node", (event) => {
+        hovered = event.target.id();
+        emphasize();
+        if (presenting.value) graph?.stop(true);
+        if (container.value) container.value.style.cursor = "pointer";
+    });
+    graph.on("mouseout", "node", () => {
+        hovered = undefined;
+        emphasize();
+        drift();
+        if (container.value) container.value.style.cursor = "";
+    });
+    graph.on("grab", "node", () => (dragging = true));
+    graph.on("free", "node", () => {
+        dragging = false;
+        drift();
+    });
     // The drawing follows the window's size; presenting keeps what it shows in view.
     resizing = new ResizeObserver(() => {
         graph?.resize();
@@ -418,27 +782,97 @@ onMounted(() => {
     if (container.value) resizing.observe(container.value);
     addEventListener("keydown", onKey);
 
-    draw();
+    // Dots travel the lines that work, unless the reader asks for less motion.
+    if (signalsCanvas.value) signals = new GraphSignals(graph, signalsCanvas.value, signalColors());
+    moveSignals();
+    still.addEventListener("change", restyle);
+    scheme.addEventListener("change", restyle);
+
+    // A press or a scroll stops a glide: the nodes are at their places at once, and the view stays where it is.
+    graph.on("tapstart", () => {
+        settle();
+        graph?.stop(true);
+    });
+    container.value?.addEventListener("wheel", () => graph?.stop(true), { capture: true, passive: true });
+
+    // The first view of the page draws the network in.
+    draw(memory.arrived || !props.data.devices.length ? undefined : "network");
+    memory.arrived = true;
+
+    // Names are measured in Special Gothic: once it has loaded, the tags are measured again.
+    void document.fonts.ready.then(() => {
+        tags.clear();
+        draw();
+    });
+    frameLayer();
+    showDevice();
     if (presenting.value) showPresenting();
 });
 
+/** A device another view asked for: select it, and bring it to the middle of the view. */
+function showDevice(): void {
+    const name = store.graphFocus.device;
+    if (!name || !graph) return;
+    delete store.graphFocus.device;
+
+    const node = graph.getElementById(`device:${name}`);
+    if (node.empty()) return;
+
+    select({ node: node.id() });
+    const view = {
+        zoom: graph.zoom(),
+        pan: { x: graph.width() / 2 - node.position().x * graph.zoom(), y: graph.height() / 2 - node.position().y * graph.zoom() },
+    };
+    graph.stop(true);
+    if (still.matches) graph.viewport(view);
+    else graph.animate(view, { duration: 700, easing: "ease-in-out-cubic" });
+}
+
 onBeforeUnmount(() => {
+    keepView(layer.value);
     clearInterval(tour);
     clearTimeout(leaving);
     resizing?.disconnect();
     removeEventListener("keydown", onKey);
+    still.removeEventListener("change", restyle);
+    scheme.removeEventListener("change", restyle);
+    signals?.stop();
     document.body.classList.remove("presenting");
     graph?.destroy();
+    graph = undefined;
 });
 
-watch([layer, () => props.data], () => {
-    draw();
+watch(layer, (_next, last) => {
+    keepView(last);
+    if (selection.value && "edge" in selection.value) select(undefined);
+
+    // What was lit on the last layer is not lit on this one.
+    delete store.graphFocus.path;
+    delete store.graphFocus.vlan;
+    draw("layer");
+    frameLayer(true);
     // A new layer while presenting is shown whole first, with its full time.
     if (presenting.value) showPresenting();
 });
 
-const nodeFindings = computed(() =>
-    props.data.findings.filter((finding) => selected.value.node && `device:${finding.device}` === selected.value.node.id)
+// The project changed: the drawing keeps its places, its view and what is selected.
+watch(
+    () => props.data,
+    () => draw()
+);
+
+// What the graph is asked to light changes the drawing.
+watch(
+    () => [store.graphFocus.path, store.graphFocus.vlan],
+    () => emphasize()
+);
+watch(
+    () => store.graphFocus.comparison,
+    () => draw()
+);
+watch(
+    () => store.graphFocus.device,
+    () => showDevice()
 );
 </script>
 
@@ -446,82 +880,114 @@ const nodeFindings = computed(() =>
     <section class="view">
         <div class="toolbar">
             <nav aria-label="Layers">
-                <button v-for="item in LAYERS" :key="item.id" :aria-pressed="layer === item.id" @click="go(`graph/${item.id}`)">
+                <RouterLink
+                    v-for="(item, index) in LAYERS"
+                    :key="item.id"
+                    :to="{ name: 'layer', params: { layer: item.id } }"
+                    :aria-current="layer === item.id ? 'page' : undefined"
+                    :title="`Press ${index + 1}`"
+                >
                     {{ item.label }} <small>{{ counts[item.id] }}</small>
-                </button>
+                </RouterLink>
             </nav>
             <div class="actions">
-                <button title="Fit the drawing to the window" @click="fit">Fit</button>
-                <button title="Forget where nodes were moved on this layer, and lay it out again" @click="layOut">Lay out again</button>
-                <button title="Save this layer as a PNG image" @click="saveImage">Save image</button>
-                <button title="Save this layer as an SVG drawing, sharp at any size" @click="saveSvg">Save SVG</button>
-                <button
-                    :aria-pressed="presenting"
-                    title="Show the network on a big screen, going through every layer (key P)"
-                    @click="togglePresenting"
-                >
-                    Present
-                </button>
+                <button @click="fit">Fit</button>
+                <button title="Forgets where you moved devices on this layer" @click="layOutAgain">Lay out again</button>
+                <button @click="saveImage">Save PNG</button>
+                <button @click="saveSvg">Save SVG</button>
+                <button :aria-pressed="presenting" title="Press P" @click="togglePresenting">Present</button>
             </div>
         </div>
         <div class="stage">
-            <div ref="container" class="canvas" role="img" aria-label="The network"></div>
+            <div class="board">
+                <div ref="container" class="canvas" role="img" :aria-label="`The network, ${GraphLayer.NAMES[layer]} layer`"></div>
+                <canvas ref="signalsCanvas" class="signals" aria-hidden="true"></canvas>
+                <nav class="device-list" aria-label="Devices on this layer">
+                    <p>Devices</p>
+                    <button
+                        v-for="node in deviceList"
+                        :key="node.id"
+                        type="button"
+                        :aria-pressed="selected.node?.id === node.id"
+                        @click="pick(node.id)"
+                    >
+                        {{ node.label }}
+                    </button>
+                </nav>
+            </div>
             <p v-if="presenting && caption" class="present-caption">
                 <strong>{{ caption.title }}</strong
                 ><span>{{ caption.detail }}</span>
             </p>
-            <button v-if="presenting" class="present-exit" title="Stop presenting (Esc)" @click="togglePresenting">Stop presenting</button>
-            <aside>
-                <template v-if="selected.node">
-                    <h2>{{ selected.node.label }}</h2>
-                    <p class="kind muted">
-                        {{
-                            selected.node.kind === "device"
-                                ? "a device"
-                                : selected.node.kind === "segment"
-                                  ? "a shared segment"
-                                  : "outside the network"
-                        }}
-                    </p>
-                    <ul>
-                        <li v-for="line in selected.node.detail" :key="line">{{ line }}</li>
-                    </ul>
-                    <ul v-if="nodeFindings.length" class="findings">
-                        <li v-for="(finding, index) in nodeFindings" :key="index">
-                            <span :class="['badge', finding.level]">{{ finding.level }}</span
-                            >{{ finding.message }}
-                        </li>
-                    </ul>
-                    <p v-if="selected.node.kind === 'device'">
-                        <a @click="go(`devices/${selected.node.label}`)">Open {{ selected.node.label }}</a>
-                    </p>
-                </template>
-                <template v-else-if="selected.edge">
-                    <h2>{{ selected.edge.label }}</h2>
-                    <p v-if="selected.edge.oneSided" class="badge warning">declared at one end only</p>
-                    <ul>
-                        <li v-for="line in selected.edge.detail" :key="line">{{ line }}</li>
-                    </ul>
-                </template>
-                <template v-else>
-                    <h2>{{ LAYERS.find((item) => item.id === layer)?.label }}</h2>
-                    <p class="muted">{{ LAYERS.find((item) => item.id === layer)?.legend }}</p>
-                    <ul class="legend">
-                        <li>A dashed line is declared at one end only.</li>
-                        <li>A dashed box is outside the network.</li>
-                        <li>A box framed in orange or red has warnings or errors.</li>
-                        <li>Pick a box or a line to see what it is. Double-click a device to open it.</li>
-                    </ul>
-                </template>
-            </aside>
+            <button v-if="presenting" class="present-exit" title="Press Esc" @click="togglePresenting">Stop presenting</button>
+            <GraphPanel :data="data" :layer="layer" :shown="shown" :selected="selected" @select="select" />
         </div>
     </section>
 </template>
 
 <style scoped>
-.canvas {
+/* The drawing, with the travelling dots on a canvas laid over it. */
+.board {
+    position: relative;
     flex: 1;
     min-width: 0;
+    min-height: 0;
+}
+
+.canvas,
+.signals {
+    position: absolute;
+    inset: 0;
+    width: 100%;
     height: 100%;
+}
+
+.signals {
+    pointer-events: none;
+}
+
+/* The devices as buttons, for the keyboard: out of sight until one has the focus, then a list at the drawing's top left. */
+.device-list {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: grid;
+    gap: 4px;
+    max-height: calc(100% - 24px);
+    overflow: auto;
+    padding: 10px;
+    border: 2px solid var(--text);
+    border-radius: 2px;
+    background: var(--surface);
+    clip-path: inset(50%);
+    opacity: 0;
+}
+
+.device-list:focus-within {
+    clip-path: none;
+    opacity: 1;
+}
+
+.device-list p {
+    margin: 0 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    font-stretch: 115%;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.device-list button {
+    min-height: 30px;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+@media (max-width: 760px) {
+    .board {
+        flex: 1 1 auto;
+        width: 100%;
+        min-height: 320px;
+    }
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: hijacks and leaks. The reader writes ROAs and a route, and sees route origin validation decide valid, invalid or not found, ROA by ROA.
+// Lesson: hijacks and leaks. The reader writes ROAs and a route, and sees route origin validation decide valid, invalid, or not found, ROA by ROA.
 
 import { computed, ref } from "vue";
 import { type Roa, Rov } from "./OriginCheck";
@@ -17,12 +17,13 @@ const cases: Case[] = [
     { label: "No ROA for it", roas: [yourRoa], prefix: "2001:db8:b00::/40", path: "64497 64510" },
     {
         label: "Two ROAs",
+        // Your block, and Cloudflare allowed to announce it too, as its DDoS protection does.
         roas: [
             { prefix: "192.0.2.0/24", maxLength: "24", asn: "64500" },
-            { prefix: "192.0.2.0/24", maxLength: "24", asn: "64505" },
+            { prefix: "192.0.2.0/24", maxLength: "24", asn: "13335" },
         ],
         prefix: "192.0.2.0/24",
-        path: "64496 64505",
+        path: "13335",
     },
 ];
 
@@ -118,25 +119,25 @@ const said = computed(() => {
             return {
                 kind: "good",
                 word: "Valid",
-                text: `${route} is valid: the ROA for ${verdict.value.matching[0]!.prefix} has AS${origin.value} as the origin and allows up to /${verdict.value.matching[0]!.maxLength}. SANITY lets it on to the rest of the import.`,
+                text: `${route} is valid: the ROA for ${verdict.value.matching[0]!.prefix} has AS${origin.value} as the origin and allows up to /${verdict.value.matching[0]!.maxLength}. presets.bgp_sanity lets it on to the rest of the import.`,
             };
         case "invalid-origin":
             return {
                 kind: "bad",
                 word: "Invalid",
-                text: `${route} is invalid: a ROA covers it, but none has AS${origin.value} as the origin. SANITY rejects it.`,
+                text: `${route} is invalid: a ROA covers it, but none has AS${origin.value} as the origin. presets.bgp_sanity rejects it.`,
             };
         case "invalid-length":
             return {
                 kind: "bad",
                 word: "Invalid",
-                text: `${route} is invalid: the ROA has AS${origin.value} as the origin, but allows nothing longer than /${Math.max(...verdict.value.covering.filter((roa) => roa.asn === origin.value).map((roa) => roa.maxLength))}, and this is a /${length.value}. SANITY rejects it.`,
+                text: `${route} is invalid: the ROA has AS${origin.value} as the origin, but allows nothing longer than /${Math.max(...verdict.value.covering.filter((roa) => roa.asn === origin.value).map((roa) => roa.maxLength))}, and this is a /${length.value}. presets.bgp_sanity rejects it.`,
             };
         default:
             return {
                 kind: "warn",
                 word: "Not found",
-                text: `No ROA covers ${prefix.value.trim()}, so origin validation cannot tell anything about it. SANITY lets it on, like most routes on the internet today.`,
+                text: `No ROA covers ${prefix.value.trim()}, so origin validation can't tell anything about it. presets.bgp_sanity lets it on.`,
             };
     }
 });
@@ -162,7 +163,7 @@ const mark = (value: boolean | undefined) => (value === undefined ? "not asked" 
             </div>
         </div>
 
-        <p class="heading">ROAs the validator has</p>
+        <p class="heading">What the validator holds</p>
         <div v-for="(row, index) in roas" :key="index" class="roa">
             <label class="ac-field">
                 <span>Prefix</span>

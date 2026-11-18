@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// Code that a widget writes as the reader plays: a device file, a plan or a terminal, on the same navy ground as every code block.
+// Code that a widget writes as the reader plays: a device file, a plan, or a terminal, on the same navy ground as every code block.
 
 import { computed } from "vue";
 
 const props = withDefaults(
     defineProps<{
         code: string;
-        /** `ts` for a Circuit file, `plan` for lines marked +, - and ~, `shell` for commands and what they print. */
+        /** `ts` for a Circuit file, `plan` for lines marked +, -, and ~, `shell` for commands and what they print. */
         lang?: "ts" | "plan" | "shell" | "text";
         /** The file's name, shown on a tab above the code. */
         title?: string;
@@ -20,7 +20,7 @@ type Token = { text: string; kind: string };
 
 const KEYWORDS = new Set(["import", "from", "export", "default", "const", "as", "satisfies", "true", "false", "type"]);
 
-/** A line of TypeScript, split into the parts its colours mark. */
+/** A line of TypeScript, split into the parts its colors mark. */
 function typescript(line: string): Token[] {
     const comment = line.indexOf("//");
     const code = comment >= 0 && !/"[^"]*\/\/[^"]*"/.test(line) ? line.slice(0, comment) : line;
@@ -34,7 +34,7 @@ function typescript(line: string): Token[] {
             if (/^\d/.test(text)) return { text, kind: "n" };
             if (KEYWORDS.has(text)) return { text, kind: "k" };
             if (/^\s*:/.test(all[index + 1] ?? "") && /^\w+$/.test(text)) return { text, kind: "p" };
-            if (/^\(/.test(all[index + 1] ?? "")) return { text, kind: "f" };
+            if ((all[index + 1] ?? "").startsWith("(")) return { text, kind: "f" };
             return { text, kind: "" };
         });
 

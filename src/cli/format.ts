@@ -17,7 +17,7 @@ export class Format {
     /** Folders that hold nothing of the project's own to format. */
     private static readonly SKIPPED = new Set(["node_modules", ".git", ".circuit", "dist"]);
 
-    /** The settings of `.editorconfig` that apply to a TypeScript file: those under `[*]`, then under a section that names `.ts`. */
+    /** The settings of `.editorconfig` that apply to a TypeScript file: those under `[*]`, then under a section that uses `.ts`. */
     static editorconfig(text: string): Record<string, string> {
         const settings: Record<string, string> = {};
         let applies = false;
@@ -48,9 +48,7 @@ export class Format {
     }
 
     /**
-     * The style of the files in `folder`: Prettier's own, then what `.editorconfig` sets, mapped as Prettier's `editorConfigToPrettier`
-     * maps it, then a `.prettierrc.json`. As in the editor, every `.editorconfig` from the folder up counts, the nearest winning, up to
-     * one that says `root = true`; the nearest `.prettierrc.json` counts.
+     * The style of the files in `folder`: Prettier's own, then what `.editorconfig` sets, mapped as Prettier's `editorConfigToPrettier` maps it, then a `.prettierrc.json`. As in the editor, every `.editorconfig` from the folder up counts, the nearest winning, up to one that says `root = true`; the nearest `.prettierrc.json` counts.
      */
     static style(folder: string): Options {
         const style: Options = {};
@@ -131,7 +129,7 @@ export class Format {
         const files = named.length ? named.map((file) => relative(root, resolve(process.cwd(), file))) : Format.files(root);
         const off: string[] = [];
 
-        await Ui.wait(`Reading ${files.length} file(s)`, async () => {
+        await Ui.wait(`${check ? "Checking" : "Tidying"} ${files.length} file(s)`, async () => {
             for (const file of files) {
                 const path = join(root, file);
                 const before = readFileSync(path, "utf8");
@@ -149,16 +147,12 @@ export class Format {
         });
 
         if (check) {
-            for (const file of off) Ui.warn(`${file} is not in the project's style`);
-            if (off.length) Ui.fail(`\n${off.length} file(s) to tidy: run circuit fmt.`);
-            Ui.done(`${files.length} file(s), all in style.`);
+            for (const file of off) Ui.warn(`${file} needs tidying`);
+            if (off.length) Ui.fail(`\n${off.length} file(s) need tidying. Run circuit fmt.`);
+            Ui.done(`${files.length} file(s), all tidy.`);
             return;
         }
 
-        Ui.done(
-            off.length
-                ? `Tidied ${off.length} of ${files.length} file(s): spacing and line breaks only.`
-                : `${files.length} file(s), all in style already.`
-        );
+        Ui.done(off.length ? `Tidied ${off.length} of ${files.length} file(s).` : `${files.length} file(s), all tidy already.`);
     }
 }

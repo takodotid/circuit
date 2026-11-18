@@ -4,8 +4,8 @@ import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
 import type { Device, Gre, Helper, Severity, StaticRoute, Vxlan } from "../../model";
-import { Catalog } from "../catalog";
-import { Derive } from "../derive";
+import { Catalog } from "../../core/catalog";
+import { Derive } from "../../core/derive";
 import { FortiOsFirewall } from "./firewall";
 import { FortiOsNames } from "./names";
 import { FortiOsRouting } from "./routing";
@@ -461,7 +461,7 @@ export class FortiOsRender {
             FortiOsRender.routed(entry, device, name, iface, access);
         }
 
-        // A tunnel's interface is created by its own table, which names the interface it leaves through.
+        // A tunnel's interface is created by its own table, which uses the interface it leaves through.
         for (const { name, kind, settings } of FortiOsNames.interfacesOf(device)) {
             if (kind !== "gre" && kind !== "vxlan") continue;
 

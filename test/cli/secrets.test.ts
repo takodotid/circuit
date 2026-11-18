@@ -97,7 +97,7 @@ describe("SecretsFile", () => {
         file.setPasswordReference("op://Network/Circuit/password");
 
         expect(file.values()[SecretsFile.PASSWORD]).toBe("op://Network/Circuit/password");
-        expect(file.passwordLocation()).toBe("1Password, op://Network/Circuit/password (named in .circuit/secrets)");
+        expect(file.passwordLocation()).toBe("1Password, op://Network/Circuit/password (set in .circuit/secrets)");
         expect(file.names()).toEqual([]);
         expect(file.problems()).toEqual([]);
     });

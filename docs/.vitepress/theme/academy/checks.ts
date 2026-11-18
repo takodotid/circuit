@@ -51,13 +51,13 @@ export const checks: Check[] = [
                 lesson: "/academy/beginner/switches",
             },
             {
-                question: "A laptop is 192.168.1.20/24. Which of these is on the same network?",
+                question: "A laptop has the address 192.168.1.20/24. Which of these addresses is on the same network?",
                 choices: ["192.168.2.20", "192.168.1.200", "10.168.1.20", "192.169.1.20"],
                 answer: 1,
                 lesson: "/academy/beginner/ip-addresses",
             },
             {
-                question: "How many addresses does a /24 hold?",
+                question: "How many addresses does a /24 hold in total?",
                 choices: ["24", "254", "256", "65,536"],
                 answer: 2,
                 lesson: "/academy/beginner/ip-addresses",
@@ -74,19 +74,19 @@ export const checks: Check[] = [
                 lesson: "/academy/beginner/ip-addresses",
             },
             {
-                question: "Which of these is a private address, used inside homes and offices?",
-                choices: ["8.8.8.8", "10.20.30.40", "203.0.113.9", "1.1.1.1"],
+                question: "Which of these is a private address, for use inside homes and offices?",
+                choices: ["198.51.100.7", "10.20.30.40", "203.0.113.9", "192.0.2.1"],
                 answer: 1,
                 lesson: "/academy/beginner/ip-addresses",
             },
             {
-                question: "What number is 11000000 in bits?",
+                question: "Which number do the bits 11000000 stand for?",
                 choices: ["110", "192", "128", "3"],
                 answer: 1,
                 lesson: "/academy/beginner/binary",
             },
             {
-                question: "What is the biggest number one byte can hold?",
+                question: "What is the largest number one byte can hold?",
                 choices: ["128", "255", "256", "1,000"],
                 answer: 1,
                 lesson: "/academy/beginner/binary",
@@ -103,7 +103,7 @@ export const checks: Check[] = [
                 lesson: "/academy/beginner/routers",
             },
             {
-                question: "What stops a packet from going round between two routers forever?",
+                question: "What stops a packet from going around between two routers forever?",
                 choices: [
                     "The switch",
                     "The TTL, which each router lowers by one until it reaches 0",
@@ -114,7 +114,7 @@ export const checks: Check[] = [
                 lesson: "/academy/beginner/routers",
             },
             {
-                question: "A letter goes from a laptop through two routers to a server. Which addresses on it change at every router?",
+                question: "A laptop sends a packet to a server through two routers. Which addresses on it change at every router?",
                 choices: ["The IP addresses", "The hardware addresses", "Both", "Neither"],
                 answer: 1,
                 lesson: "/academy/beginner/addresses",
@@ -131,7 +131,7 @@ export const checks: Check[] = [
                 lesson: "/academy/beginner/dns",
             },
             {
-                question: "You look up the same name twice, and the second answer is instant. Why?",
+                question: "You look up the same name twice, and the second answer comes at once. Why?",
                 choices: [
                     "The website moved closer",
                     "The answer was remembered, for as long as its TTL allows",
@@ -186,8 +186,13 @@ export const checks: Check[] = [
                 lesson: "/academy/elementary/vlans",
             },
             {
-                question: "A laptop in VLAN 20 sends to a recorder in VLAN 40 on the same switch. What does it need?",
-                choices: ["Nothing, they share a switch", "A router with an address in each VLAN", "A longer cable", "A second switch"],
+                question: "A laptop in VLAN 20 sends to a printer in VLAN 40 on the same switch. What is needed?",
+                choices: [
+                    "Nothing, because they share a switch",
+                    "A router with an address in each VLAN",
+                    "A longer cable",
+                    "A second switch",
+                ],
                 answer: 1,
                 lesson: "/academy/elementary/vlans",
             },
@@ -218,7 +223,7 @@ export const checks: Check[] = [
                 question: "With NAT, why can a stranger on the internet not open a connection to your laptop at home?",
                 choices: [
                     "NAT encrypts everything",
-                    "The router has no row in its table that says which device at home it is for",
+                    "The router's translation table has no entry that says which device at home it is for",
                     "Private addresses are secret",
                     "The laptop has no IP address",
                 ],
@@ -227,10 +232,10 @@ export const checks: Check[] = [
             },
             {
                 question:
-                    "A forward chain drops by default, and its only rule accepts home to the internet. The laptop opens a website. What happens?",
+                    "A forward chain drops by default, and its only rule accepts traffic from home to the internet. The laptop opens a website. What happens?",
                 choices: [
                     "The page loads",
-                    "The request goes out, but the answer is dropped, since no rule accepts it",
+                    "The request goes out, but the answer is dropped, because no rule accepts it",
                     "The request is dropped",
                     "The router asks what to do",
                 ],
@@ -239,13 +244,13 @@ export const checks: Check[] = [
             },
             {
                 question:
-                    "Rules are read from the top. Rule 1 accepts everything from guests; rule 2 drops guests to the home network. A guest opens the printer at home. What happens?",
-                choices: ["It is dropped by rule 2", "It is accepted by rule 1", "Both rules apply", "The default decides"],
+                    "Rules are read from the top. Rule 1 accepts everything from guests. Rule 2 drops traffic from guests to the home network. A guest opens the printer at home. What happens?",
+                choices: ["Rule 2 drops it", "Rule 1 accepts it", "Both rules apply", "The default decides"],
                 answer: 1,
                 lesson: "/academy/elementary/firewall",
             },
             {
-                question: "You log in to the router itself over SSH. Which chain decides?",
+                question: "You log in to the router itself over SSH. Which chain decides whether you get in?",
                 choices: ["forward", "input", "nat", "Both input and forward"],
                 answer: 1,
                 lesson: "/academy/elementary/firewall",
@@ -262,20 +267,20 @@ export const checks: Check[] = [
                 lesson: "/academy/elementary/layers",
             },
             {
-                question: "In Circuit, what happens to a port the device's file does not mention?",
-                choices: ["It is left as it is", "It is shut down", "It joins VLAN 1", "Circuit asks what to do"],
+                question: "In Circuit, what happens to a port that the device's file does not write?",
+                choices: ["It is left as it is", "It is turned off", "It joins VLAN 1", "Circuit asks what to do"],
                 answer: 1,
                 lesson: "/academy/elementary/writing-it-down",
             },
             {
                 question: "In Circuit, how do you turn a setting off?",
-                choices: ["Write enabled: false", "Leave the field out", "Write null", "Comment it out and keep it"],
+                choices: ["Write enabled: false", "Leave the field out", "Write null", "Comment it out"],
                 answer: 1,
                 lesson: "/academy/elementary/writing-it-down",
             },
             {
-                question: "Which command shows what would change on a device, without sending anything?",
-                choices: ["circuit apply, answering yes", "circuit diff", "circuit update", "circuit secrets"],
+                question: "Which command shows what would change on a device, and sends nothing?",
+                choices: ["circuit apply --confirm", "circuit diff", "circuit update", "circuit secrets"],
                 answer: 1,
                 lesson: "/academy/elementary/writing-it-down",
             },
@@ -283,7 +288,7 @@ export const checks: Check[] = [
                 question: "How is a device's password written in a Circuit file?",
                 choices: [
                     "As the password itself",
-                    'As secret("NAME"), with the value kept in .circuit/secrets, encrypted',
+                    'As secret("NAME"), with the value encrypted in .circuit/secrets',
                     "In a comment",
                     "It is not written anywhere",
                 ],
@@ -292,18 +297,23 @@ export const checks: Check[] = [
             },
             {
                 question: "What does management.allow decide?",
-                choices: ["Which VLANs exist", "Which addresses may log in to the device", "Which ports are on", "Which users exist"],
+                choices: [
+                    "Which VLANs exist",
+                    "Which addresses may reach its management services, such as SSH",
+                    "Which ports are on",
+                    "Which users exist",
+                ],
                 answer: 1,
                 lesson: "/academy/elementary/management",
             },
             {
                 question:
-                    "Two switches are joined by a trunk. One end carries VLANs 10 and 20, the other only 10. What does circuit validate do?",
+                    "Two switches are joined by a trunk. One end carries VLANs 10 and 20, the other only VLAN 10. What does circuit validate do?",
                 choices: [
-                    "Nothing, VLAN 10 works",
-                    "Reports an error from both ends, before anything is sent",
-                    "Adds VLAN 20 to the other end",
-                    "Removes VLAN 20",
+                    "Nothing, because VLAN 10 works",
+                    "It reports an error at both ends, before anything is sent",
+                    "It adds VLAN 20 to the other end",
+                    "It removes VLAN 20",
                 ],
                 answer: 1,
                 lesson: "/academy/elementary/trunks",
@@ -318,16 +328,21 @@ export const checks: Check[] = [
         questions: [
             {
                 question:
-                    "A router has routes for 0.0.0.0/0 via A, 10.0.0.0/8 via B and 10.1.0.0/16 via C. Where does it send a packet for 10.1.2.3?",
-                choices: ["A, the default route", "B", "C, the longest match", "All three"],
+                    "A router has three routes: 0.0.0.0/0 through the transit, 198.51.100.0/24 through core-01, and 198.51.100.128/25 through core-02. Where does it send a packet for 198.51.100.200?",
+                choices: [
+                    "Through the transit, by the default route",
+                    "Through core-01, by the /24",
+                    "Through core-02, by the /25",
+                    "Through all three in turn",
+                ],
                 answer: 2,
                 lesson: "/academy/intermediate/routing-tables",
             },
             {
-                question: "Why does an edge router have a blackhole route for the block it announces?",
+                question: "Why does an edge router keep a blackhole route for the whole block it announces?",
                 choices: [
-                    "To drop every packet for it",
-                    "So the block is in its routing table, and announced, even when nothing inside it is up",
+                    "To drop every packet for the block, used or not",
+                    "So the block stays in its routing table, and BGP keeps announcing it, even when nothing inside it is up",
                     "To hide the block from BGP",
                     "To save memory",
                 ],
@@ -335,13 +350,13 @@ export const checks: Check[] = [
                 lesson: "/academy/intermediate/routing-tables",
             },
             {
-                question: "What is 2001:0db8:0000:0000:0000:0000:0000:0001 written short?",
+                question: "How is 2001:0db8:0000:0000:0000:0000:0000:0001 written in short form?",
                 choices: ["2001:db8::1", "2001:db8:0:1", "2001:0db8::0001", "2001::db8::1"],
                 answer: 0,
                 lesson: "/academy/intermediate/ipv6",
             },
             {
-                question: "How big is the IPv6 network one LAN usually gets?",
+                question: "How large is the IPv6 prefix that one LAN usually gets?",
                 choices: ["/24", "/48", "/64", "/128"],
                 answer: 2,
                 lesson: "/academy/intermediate/ipv6",
@@ -367,7 +382,7 @@ export const checks: Check[] = [
                 question: "What is the difference between IP transit and peering?",
                 choices: [
                     "Transit is faster",
-                    "With transit a customer pays a provider to reach the whole internet; with peering two networks exchange their own routes, usually without paying",
+                    "With transit, a customer pays a provider to reach the whole internet. With peering, two networks exchange their own routes, usually without paying.",
                     "Peering needs BGP and transit does not",
                     "There is no difference",
                 ],
@@ -376,13 +391,18 @@ export const checks: Check[] = [
             },
             {
                 question: "What does a route server at an internet exchange save you?",
-                choices: ["Buying transit", "A session with each member: one session to it reaches many", "Your AS number", "Running BGP"],
+                choices: [
+                    "Buying transit",
+                    "A session with each member, because one session to it reaches many",
+                    "Your AS number",
+                    "Running BGP",
+                ],
                 answer: 1,
                 lesson: "/academy/intermediate/autonomous-systems",
             },
             {
-                question: "A router gets a BGP announcement whose AS path already has its own AS number in it. What does it do?",
-                choices: ["Prefers it", "Drops it, so routes cannot loop", "Sends it back", "Lowers its local preference"],
+                question: "A router gets a BGP announcement whose AS path already has the router's own AS number in it. What does it do?",
+                choices: ["It prefers it", "It drops it, so routes cannot loop", "It sends it back", "It lowers its local preference"],
                 answer: 1,
                 lesson: "/academy/intermediate/bgp",
             },
@@ -393,7 +413,7 @@ export const checks: Check[] = [
                 lesson: "/academy/intermediate/bgp",
             },
             {
-                question: "In the simplified order the Academy teaches, what does BGP compare first between two routes for one prefix?",
+                question: "In the simplified order the Academy teaches, what does BGP compare first between two routes to one prefix?",
                 choices: ["The shortest AS path", "The highest local preference", "The lowest MED", "The oldest route"],
                 answer: 1,
                 lesson: "/academy/intermediate/best-path",
@@ -401,7 +421,7 @@ export const checks: Check[] = [
             {
                 question: "Your exchange and your transit both reach a network. How do you send your traffic for it through the exchange?",
                 choices: [
-                    "Prepend your AS towards the exchange",
+                    "Prepend your AS toward the exchange",
                     "Give routes learned from the exchange a higher local preference",
                     "Lower the MED of the transit",
                     "Remove the transit",
@@ -410,7 +430,7 @@ export const checks: Check[] = [
                 lesson: "/academy/intermediate/best-path",
             },
             {
-                question: "What does AS path prepending towards one provider do?",
+                question: "What does AS path prepending toward one provider do?",
                 choices: [
                     "Makes your route through it look longer to others, so less traffic comes in that way",
                     "Makes your route shorter",
@@ -438,10 +458,10 @@ export const checks: Check[] = [
                 lesson: "/academy/intermediate/route-policy",
             },
             {
-                question: "Two switches are joined by two cables, with spanning tree off. A broadcast is sent. What happens?",
+                question: "Two switches are joined by two cables, and spanning tree is off. A broadcast is sent. What happens?",
                 choices: [
                     "It is delivered once",
-                    "It goes round the loop without end, the copies multiplying: a broadcast storm",
+                    "It goes around the loop without end, and its copies multiply: a broadcast storm",
                     "The second cable is ignored",
                     "The switches join the cables into a LAG",
                 ],

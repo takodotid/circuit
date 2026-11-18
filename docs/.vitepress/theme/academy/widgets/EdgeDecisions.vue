@@ -16,19 +16,19 @@ const decisions: Decision[] = [
                 id: "sanity",
                 label: "What passes sanity, tagged",
                 verdict: "good",
-                text: "Routes that should never be on the internet are refused, and every other route is tagged as learned from the transit before it is accepted.",
+                text: "The routes that sanity refuses, private and other special-purpose blocks, and your own space stay out. Every other route is tagged as learned from the transit, and accepted.",
             },
             {
                 id: "all",
                 label: "Everything it sends",
                 verdict: "warn",
-                text: "validate passes: the file is valid, and Circuit cannot know what you meant. But private ranges, routes longer than /24 and RPKI invalid routes would all reach your table.",
+                text: "validate passes, because the file is valid and Circuit can't know what you meant. But routes longer than /24, private ranges, your own space, and RPKI invalid routes would all reach your table.",
             },
             {
                 id: "none",
                 label: "Leave import out",
                 verdict: "bad",
-                text: "Without an import, every route from the transit is refused, so the session would bring nothing in. The example's own check in lib/checks.ts catches it.",
+                text: "Without an import policy, the session refuses every route from the transit, so it brings nothing in. The example's own check, in lib/checks.ts, catches it.",
             },
         ],
     },
@@ -46,13 +46,13 @@ const decisions: Decision[] = [
                 id: "all",
                 label: "Everything we know",
                 verdict: "bad",
-                text: "A route leak: the transit's routes would go to the exchange, and the exchange's to the transit. Checks.exportsEndInReject stops it before it reaches the router.",
+                text: "A route leak: the transit's routes would go to the exchange, and the exchange's to the transit. The check exports_end_in_reject stops it before it reaches the router.",
             },
             {
                 id: "noreject",
                 label: "Our two blocks, and stop there",
                 verdict: "warn",
-                text: "Circuit rejects a route no rule accepts, so this announces the same today. The check still wants the end written down, and diff and apply stop until it is.",
+                text: "Circuit rejects a route that no rule accepts, so this announces the same. But the check wants the end written down, and diff and apply stop until it is.",
             },
         ],
     },
@@ -125,11 +125,20 @@ const code = computed(() => {
     const transitPref = prefer === "transit" ? 200 : 100;
     const exchangePref = prefer === "ix" || prefer === undefined ? 200 : 100;
 
-    const ours = `{ if: { prefix_set: "ours" }, then: "reject" }, { communities: "import" }`;
+    const filtered = (name: string, pref: number) => [
+        `    "${name}": [`,
+        `        { call: "sanity" },`,
+        `        { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },`,
+        `        { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },`,
+        `        { if: { prefix_set: "ours" }, then: "reject" },`,
+        `        { communities: "import" },`,
+        `        { set: { local_pref: ${pref} }, then: "accept" },`,
+        `    ],`,
+    ];
     const transitIn =
         imported === "all"
-            ? `    "transit-import": [{ set: { local_pref: ${transitPref} }, then: "accept" }],`
-            : `    "transit-import": [{ call: "sanity" }, ${ours}, { set: { local_pref: ${transitPref} }, then: "accept" }],`;
+            ? [`    "transit-import": [{ set: { local_pref: ${transitPref} }, then: "accept" }],`]
+            : filtered("transit-import", transitPref);
 
     const out =
         exported === "all"
@@ -164,8 +173,8 @@ const code = computed(() => {
         "",
         "policies: {",
         "    sanity: presets.bgp_sanity,",
-        transitIn,
-        `    "exchange-import": [{ call: "sanity" }, ${ours}, { set: { local_pref: ${exchangePref} }, then: "accept" }],`,
+        ...transitIn,
+        ...filtered("exchange-import", exchangePref),
         ...out,
         "},",
         "",
@@ -175,7 +184,7 @@ const code = computed(() => {
         "        input: {",
         `            default_action: "drop",`,
         "            rules: [",
-        "                // Replies, ping and the management network come first.",
+        "                // Replies, ping, and the management network come first.",
         bgpRule,
         "            ],",
         "        },",
@@ -186,8 +195,8 @@ const code = computed(() => {
 
 /** What circuit validate printed for hurricane-electric without an import policy: the example's own check, and the policy no neighbor uses. Circuit stops on them while it reads the project, before its other checks. */
 const IMPORT_ERRORS = [
-    "sites/pop-1/edge-01.ts:93: edge-01: routing.policies.transit-import: no neighbor uses it as its import policy. Circuit writes a communities rule for the neighbors that use its policy, so it goes in a policy a neighbor names, not one another policy calls.",
-    "sites/pop-1/edge-01.ts:56: imports_filtered: edge-01: routing.bgp.neighbors.hurricane-electric: takes every route it is sent: write an import_policy.",
+    "sites/pop-1/edge-01.ts:103: edge-01: routing.policies.transit-import: no neighbor uses it as its import policy. Circuit writes a communities rule for the neighbors that use its policy, so it goes in a policy a neighbor names, not one another policy calls.",
+    "sites/pop-1/edge-01.ts:61: imports_filtered: edge-01: routing.bgp.neighbors.hurricane-electric: has no import_policy, so the router accepts no route from it. Write one.",
 ];
 
 /** What circuit validate printed for each combination, run on the example with these choices. */
@@ -206,7 +215,7 @@ const validate = computed(() => {
         );
     }
 
-    const output = lines.length ? [...lines, "", `${lines.length} error(s).`] : ["1 device(s), no errors."];
+    const output = lines.length ? [...lines, "", `${lines.length} error(s).`] : ["✔ 1 device(s), no errors."];
     return ["$ circuit validate", ...output].join("\n");
 });
 
@@ -241,7 +250,7 @@ const allGood = computed(() => decisions.every((decision) => choiceOf(decision)?
         <CodeView :code="validate" lang="shell" title="Terminal" />
 
         <p v-if="decided < decisions.length" class="ac-say quiet" aria-live="polite">
-            Make all four decisions. The file above already shows the example's own choice wherever you have not picked yet.
+            Where you haven't picked yet, the file shows the example's choice.
             <button type="button" class="ac-button small" @click="bestOfAll">Show the example's choices</button>
         </p>
         <p v-else-if="allGood" class="ac-say good" data-word="Ready" aria-live="polite">

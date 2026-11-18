@@ -5,8 +5,9 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SecretsAgent } from "../../src/cli/remember";
-import { OnePassword, SecretsFile } from "../../src/core/secrets-file";
+import { SecretsAgent } from "../../src/cli/secrets-agent";
+import { OnePassword } from "../../src/core/one-password";
+import { SecretsFile } from "../../src/core/secrets-file";
 
 let home = "";
 const before = process.env.CIRCUIT_HOME;

@@ -8,9 +8,9 @@ type Place = { id: string; kind: "router" | "cloud"; label: string; note: string
 
 const places: Place[] = [
     { id: "you", kind: "router", label: "Your network", note: "AS64500", x: 90, y: 140 },
-    { id: "a", kind: "router", label: "Transit A", note: "AS64510", x: 350, y: 55 },
-    { id: "b", kind: "router", label: "Transit B", note: "AS64511", x: 350, y: 225 },
-    { id: "far", kind: "cloud", label: "A far network", note: "AS64520", x: 610, y: 140 },
+    { id: "a", kind: "router", label: "Hurricane Electric", note: "AS6939", x: 350, y: 55 },
+    { id: "b", kind: "router", label: "Cogent", note: "AS174", x: 350, y: 225 },
+    { id: "far", kind: "cloud", label: "Arelion", note: "AS1299", x: 610, y: 140 },
 ];
 
 const at = (id: string) => places.find((place) => place.id === id)!;
@@ -29,17 +29,17 @@ const COUNTS = [0, 1, 2, 3];
 
 /** The two routes the far network holds for your prefix. */
 const options = computed(() => [
-    { via: "a", name: "Transit A", path: [64510, ...Array(1 + prependA.value).fill(64500)], localPref: 100, routerId: "192.0.2.1" },
+    { via: "a", name: "Hurricane Electric", path: [6939, ...Array(1 + prependA.value).fill(64500)], localPref: 100, routerId: "192.0.2.1" },
     {
         via: "b",
-        name: "Transit B",
-        path: [64511, ...Array(1 + prependB.value).fill(64500)],
+        name: "Cogent",
+        path: [174, ...Array(1 + prependB.value).fill(64500)],
         localPref: farPrefersB.value ? 200 : 100,
         routerId: "192.0.2.2",
     },
 ]);
 
-/** The far network's choice, by the lesson's order: local preference, then AS path length, then the tie-break. Origin, MED and the session kind are the same for both. */
+/** The far network's choice, by the lesson's order: local preference, then AS path length, then the tie-break. Origin, MED, and the session kind are the same for both. */
 const choice = computed(() => {
     const a = options.value[0]!;
     const b = options.value[1]!;
@@ -48,7 +48,7 @@ const choice = computed(() => {
         const winner = a.localPref > b.localPref ? a : b;
         return {
             winner,
-            why: `AS64520 gives routes from ${winner.name} local preference ${winner.localPref}. That is checked before the AS path, so your prepends do not change its mind.`,
+            why: `Arelion gives routes from ${winner.name} local preference ${winner.localPref}. That is checked before the AS path, so your prepends don't change its mind.`,
         };
     }
 
@@ -61,11 +61,14 @@ const choice = computed(() => {
         };
     }
 
-    return { winner: a, why: `Both paths are ${a.path.length} ASes long, so the tie-break decides: Transit A has the lower router ID.` };
+    return {
+        winner: a,
+        why: `Both paths are ${a.path.length} ASes long, so the tie-break decides: Hurricane Electric has the lower router ID.`,
+    };
 });
 
 const said = ref<string>();
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 
 function setPrepend(which: "a" | "b", count: number) {
     if (which === "a") prependA.value = count;
@@ -117,7 +120,7 @@ const isLit = (from: string, to: string) => {
             class="ac-drawing"
             viewBox="0 0 700 300"
             role="img"
-            aria-label="Your network joined to Transit A and Transit B, which both reach a far network. The path the far network uses to reach you is lit."
+            aria-label="Your network joined to Hurricane Electric and Cogent, which both reach Arelion. The path Arelion uses to reach you is lit."
         >
             <line
                 v-for="[from, to] in cables"
@@ -139,13 +142,13 @@ const isLit = (from: string, to: string) => {
                 :note="place.note"
                 :lit="place.id === choice.winner.via"
             />
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="controls">
             <div class="ac-field">
-                <span>Prepend toward Transit A</span>
-                <div class="ac-row" role="group" aria-label="Prepend toward Transit A">
+                <span>Prepend toward Hurricane Electric</span>
+                <div class="ac-row" role="group" aria-label="Prepend toward Hurricane Electric">
                     <button
                         v-for="count in COUNTS"
                         :key="count"
@@ -159,8 +162,8 @@ const isLit = (from: string, to: string) => {
                 </div>
             </div>
             <div class="ac-field">
-                <span>Prepend toward Transit B</span>
-                <div class="ac-row" role="group" aria-label="Prepend toward Transit B">
+                <span>Prepend toward Cogent</span>
+                <div class="ac-row" role="group" aria-label="Prepend toward Cogent">
                     <button
                         v-for="count in COUNTS"
                         :key="count"
@@ -174,9 +177,9 @@ const isLit = (from: string, to: string) => {
                 </div>
             </div>
             <div class="ac-field">
-                <span>What AS64520 itself prefers</span>
+                <span>What Arelion itself prefers</span>
                 <button type="button" class="ac-button small" :aria-pressed="farPrefersB" @click="togglePreference">
-                    Local preference 200 for Transit B
+                    Local preference 200 for Cogent
                 </button>
             </div>
         </div>
@@ -184,7 +187,7 @@ const isLit = (from: string, to: string) => {
         <div class="table-frame">
             <table class="ac-table">
                 <caption>
-                    The routes AS64520 has for your 198.51.100.0/24
+                    The routes Arelion has for your 198.51.100.0/24
                 </caption>
                 <thead>
                     <tr>
@@ -206,12 +209,12 @@ const isLit = (from: string, to: string) => {
         </div>
 
         <div class="ac-row send">
-            <button type="button" class="ac-button primary" :disabled="travelling" @click="send">Send traffic to you</button>
+            <button type="button" class="ac-button primary" :disabled="traveling" @click="send">Send traffic to you</button>
         </div>
 
         <p v-if="said" class="ac-say good" aria-live="polite">{{ said }}</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            Send traffic first. Then prepend toward the transit it came over, and send again.
+            Send traffic first. Then prepend toward the transit it came over, and send again. Last, give Arelion a preference of its own.
         </p>
 
         <CodeView :code="code" title="edge-01.ts, your exports" :highlight="changedLines" />

@@ -163,8 +163,9 @@ export class RouterOsExport {
         "/routing rpki": ["address"],
         "/routing ospf interface-template": ["area", "interfaces"],
         "/routing bfd configuration": ["interfaces"],
-        "/ip route": ["dst-address", "routing-table"],
-        "/ipv6 route": ["dst-address", "routing-table"],
+        // Several routes to one prefix in one table are told apart by their gateway (TRAPS.md). A blackhole route has none.
+        "/ip route": ["dst-address", "routing-table", "gateway"],
+        "/ipv6 route": ["dst-address", "routing-table", "gateway"],
         "/ip address": ["address"],
         "/ipv6 address": ["address"],
         "/ip dhcp-server network": ["address"],
@@ -321,10 +322,15 @@ export class RouterOsExport {
     }
 
     /** One property value in the form both sides compare in. */
-    private static normalValue(command: Command, property: string, value: string): string {
-        if (property === "rule") return RouterOsExport.canonicalRule(value);
+    private static normalValue(command: Command, property: string, raw: string): string {
+        if (property === "rule") return RouterOsExport.canonicalRule(raw);
         // A list whose order means nothing.
-        if (property === "tagged" || property === "untagged" || property === "slaves") return value.split(",").sort().join(",");
+        if (property === "tagged" || property === "untagged" || property === "slaves") return raw.split(",").sort().join(",");
+
+        // A route is known by its destination and gateway, so an address spelled otherwise must not make it another route. An interface's name stays as it is.
+        const route = command.menu === "/ip route" || command.menu === "/ipv6 route";
+        if (route && property === "gateway") return RouterOsExport.gateway(raw);
+        const value = route && property === "dst-address" ? Address.canonical(raw) : raw;
 
         const onInterface = property === "address" && (command.menu === "/ip address" || command.menu === "/ipv6 address");
         // An IP address property, which a MAC address is not.
@@ -337,6 +343,14 @@ export class RouterOsExport {
         if (!onInterface && isAddress && value.includes(":") && !value.includes("/") && !value.includes(",")) return `${value}/128`;
 
         return value;
+    }
+
+    /** A route's gateway in one spelling: an address as `Address.canonical` writes it, and the interface after a `%`, as in `fe80::1%ether1`, as it is. An interface alone stays as it is. */
+    private static gateway(value: string): string {
+        const at = value.indexOf("%");
+        if (at < 0) return Address.canonical(value);
+
+        return `${Address.canonical(value.slice(0, at))}${value.slice(at)}`;
     }
 
     /** An OpenSSH public key's fingerprint as RouterOS prints it: SHA-256 of the key, base64 with its padding (RB5009, 7.24.6). */

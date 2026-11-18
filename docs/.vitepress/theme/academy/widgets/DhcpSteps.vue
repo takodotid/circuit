@@ -17,7 +17,7 @@ type Message = { name: string; from: string; to: string; says: string; path: Pla
 const steps = [
     {
         title: "A laptop joins, with nothing",
-        text: "The laptop is plugged into a port in VLAN 20. It has its hardware address, but no IP address, no gateway and no DNS server. It cannot talk to anyone by IP yet.",
+        text: "The laptop is plugged into a port in VLAN 20. It has its hardware address, but no IP address, no gateway, and no DNS server. It cannot talk to anyone by IP yet.",
     },
     {
         title: "1. Discover",
@@ -37,7 +37,7 @@ const steps = [
     },
     {
         title: "The laptop is on the network",
-        text: "The laptop sets its address, mask, gateway and DNS server, and can now reach anything. Halfway through the lease, it asks the router to renew it, so while it stays, it keeps the same address.",
+        text: "The laptop sets its address, mask, gateway, and DNS server, and can now reach anything. Halfway through the lease, it asks the router to renew it, so while it stays, it keeps the same address.",
     },
 ];
 
@@ -135,14 +135,14 @@ const laptopNote = (step: number) => (step >= 4 ? "192.168.20.100" : "no address
             <SvgDevice kind="printer" :x="at.printer[0]" :y="at.printer[1]" label="Printer" note="192.168.20.20" />
 
             <circle
-                v-if="toRouter.travelling.value"
+                v-if="toRouter.traveling.value"
                 class="packet"
                 :cx="toRouter.position.value[0]"
                 :cy="toRouter.position.value[1]"
                 r="9"
             />
             <circle
-                v-if="toPrinter.travelling.value"
+                v-if="toPrinter.traveling.value"
                 class="packet"
                 :cx="toPrinter.position.value[0]"
                 :cy="toPrinter.position.value[1]"

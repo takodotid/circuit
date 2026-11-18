@@ -1,12 +1,11 @@
-// A DHCP client's default routes and a WireGuard interface's own packets name routing tables, and UPnP names interfaces: each name is
-// one the device declares, and a table a DHCP client fills counts as filled.
+// A DHCP client's default routes and a WireGuard interface's own packets name routing tables, and UPnP names interfaces: each name is one the device declares, and a table a DHCP client fills counts as filled.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Validation } from "../../src/checks";
-import { ProjectError, readProject } from "../../src/project/project";
+import { ProjectError, Project } from "../../src/project";
 
 const folder = mkdtempSync(join(tmpdir(), "circuit-customer-router-"));
 let stopped: string[] = [];
@@ -34,7 +33,7 @@ beforeAll(async () => {
         join(folder, "sites", "home", "cpe-01.ts"),
         `import { net } from "../../circuit";\n\nexport default net.device(${JSON.stringify(router(["isp1"]), null, 4)});\n`
     );
-    stopped = await readProject(folder).then(
+    stopped = await Project.read(folder).then(
         () => [],
         (error: unknown) => (error instanceof ProjectError ? error.lines : [String(error)])
     );

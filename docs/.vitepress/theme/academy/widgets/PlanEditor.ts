@@ -1,5 +1,5 @@
 // The router file the PlanEditor widget edits, and the plan Circuit made for each set of edits.
-// Each plan is the real output of `circuit diff router` for that file, against what the router ran before the edits.
+// Each plan is what Circuit's RouterOS adapter planned for that file, against the router running the file without edits.
 
 export type Edits = {
     /** Give port 25g-1 a description. */
@@ -69,21 +69,21 @@ export class RouterFile {
 
     /** What `circuit diff router` printed for each set of edits. */
     static readonly PLANS: Record<string, string> = {
-        "0000": "✔ router already runs its config. Nothing to change.\n",
-        "0001": "router: 1 command(s) in 1 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-5 ] disabled=yes comment=\n",
+        "0000": "✔ router already matches its config.\n",
+        "0001": "router: 1 command(s) in 1 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-5 ] disabled=yes\n",
         "0010": "router: 1 command(s) in 1 step(s)\n  /ip dns\n    ~ set servers=203.0.113.53\n",
-        "0011": "router: 2 command(s) in 2 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-5 ] disabled=yes comment=\n  /ip dns\n    ~ set servers=203.0.113.53\n",
+        "0011": "router: 2 command(s) in 2 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-5 ] disabled=yes\n  /ip dns\n    ~ set servers=203.0.113.53\n",
         "0100": "router: 1 command(s) in 1 step(s)\n  /user\n    - add group=read name=intern\n",
-        "0101": "router: 2 command(s) in 2 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-5 ] disabled=yes comment=\n  /user\n    - add group=read name=intern\n",
+        "0101": "router: 2 command(s) in 2 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-5 ] disabled=yes\n  /user\n    - add group=read name=intern\n",
         "0110": "router: 2 command(s) in 2 step(s)\n  /ip dns\n    ~ set servers=203.0.113.53\n  /user\n    - add group=read name=intern\n",
-        "0111": "router: 3 command(s) in 3 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-5 ] disabled=yes comment=\n  /ip dns\n    ~ set servers=203.0.113.53\n  /user\n    - add group=read name=intern\n",
+        "0111": "router: 3 command(s) in 3 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-5 ] disabled=yes\n  /ip dns\n    ~ set servers=203.0.113.53\n  /user\n    - add group=read name=intern\n",
         "1000": 'router: 2 command(s) in 2 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n',
-        "1001": 'router: 3 command(s) in 2 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n    ~ set [ find default-name=sfp28-5 ] disabled=yes comment=\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n',
+        "1001": 'router: 3 command(s) in 2 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n    ~ set [ find default-name=sfp28-5 ] disabled=yes\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n',
         "1010": 'router: 3 command(s) in 3 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n  /ip dns\n    ~ set servers=203.0.113.53\n',
-        "1011": 'router: 4 command(s) in 3 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n    ~ set [ find default-name=sfp28-5 ] disabled=yes comment=\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n  /ip dns\n    ~ set servers=203.0.113.53\n',
+        "1011": 'router: 4 command(s) in 3 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n    ~ set [ find default-name=sfp28-5 ] disabled=yes\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n  /ip dns\n    ~ set servers=203.0.113.53\n',
         "1100": 'router: 3 command(s) in 3 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n  /user\n    - add group=read name=intern\n',
-        "1101": 'router: 4 command(s) in 3 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n    ~ set [ find default-name=sfp28-5 ] disabled=yes comment=\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n  /user\n    - add group=read name=intern\n',
+        "1101": 'router: 4 command(s) in 3 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n    ~ set [ find default-name=sfp28-5 ] disabled=yes\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n  /user\n    - add group=read name=intern\n',
         "1110": 'router: 4 command(s) in 4 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n  /ip dns\n    ~ set servers=203.0.113.53\n  /user\n    - add group=read name=intern\n',
-        "1111": 'router: 5 command(s) in 4 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n    ~ set [ find default-name=sfp28-5 ] disabled=yes comment=\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n  /ip dns\n    ~ set servers=203.0.113.53\n  /user\n    - add group=read name=intern\n',
+        "1111": 'router: 5 command(s) in 4 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-1 ] comment=Office\n    ~ set [ find default-name=sfp28-5 ] disabled=yes\n  /ip address\n    ~ {"address":"192.168.10.1/24"} comment=Office\n  /ip dns\n    ~ set servers=203.0.113.53\n  /user\n    - add group=read name=intern\n',
     };
 }

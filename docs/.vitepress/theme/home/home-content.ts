@@ -1,7 +1,7 @@
-// What the home page lists below its opening: the steps of a change, the example projects, the platforms, the Academy's levels and the networks that run Circuit.
+// What the home page lists below its opening: the steps of a change, the example projects, the platforms, the Academy's levels, and the networks that run Circuit.
 
 import circuit from "../../../../package.json";
-import { Catalog } from "../../../../src/platforms/catalog";
+import { MODELS } from "../../../../src/config/models";
 import { Academy } from "../../academy";
 import { data as exampleFiles } from "../examples.data";
 
@@ -39,7 +39,7 @@ export class HomeContent {
             name: "A single site",
             id: "single-site",
             anchor: "a-single-site",
-            text: "A home, an office or an internal network. A router and a switch, no BGP.",
+            text: "A home, an office, or an internal network. A router and a switch, no BGP.",
         },
         {
             name: "An edge router",
@@ -51,7 +51,7 @@ export class HomeContent {
             name: "Colocation with tenants",
             id: "colocation",
             anchor: "colocation-with-tenants",
-            text: "Customers who each get their own VLANs, addresses and ports.",
+            text: "Customers who each get their own VLANs, addresses, and ports.",
         },
         {
             name: "An internet exchange",
@@ -65,7 +65,9 @@ export class HomeContent {
         { name: "MikroTik RouterOS 7", platform: "routeros" },
         { name: "Huawei VRP", platform: "vrp" },
         { name: "Raisecom ROS", platform: "raisecom-ros" },
-    ].map((entry) => ({ ...entry, models: Object.keys(Catalog.MODELS[entry.platform as keyof typeof Catalog.MODELS]) }));
+        { name: "Juniper Junos", platform: "junos" },
+        { name: "Fortinet FortiOS", platform: "fortios" },
+    ].map((entry) => ({ ...entry, models: Object.keys(MODELS[entry.platform as keyof typeof MODELS]) }));
 
     // Circuit Academy's levels, each with the first lessons it teaches.
     static readonly LEVELS = Academy.LEVELS.map((level) => ({

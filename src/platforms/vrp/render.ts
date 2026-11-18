@@ -4,8 +4,8 @@ import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
 import type { Device, Lag, Port, VlanInterface, Vrrp } from "../../model";
-import { Catalog } from "../catalog";
-import { Derive } from "../derive";
+import { Catalog } from "../../core/catalog";
+import { Derive } from "../../core/derive";
 
 /** Builds the configuration as blocks: a header line, its indented lines, then `#`. */
 export class VrpRender {

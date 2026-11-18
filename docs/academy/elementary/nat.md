@@ -5,24 +5,24 @@ description: How a whole home reaches the internet through one public address. O
 
 # Sharing one address: NAT
 
-Every device in your home has a private address, such as 192.168.20.10, and the internet does not carry packets to private addresses. So the router swaps it. On the way out, it replaces the private address and port of each connection with its own public address and a port of its own, and writes the pair down. When the reply comes back to that port, the router looks it up and swaps it back. This is <Term means="Network address translation: rewriting the addresses in packets as they pass through a router.">NAT</Term>.
+Every device in your home has a private address, such as 192.168.20.10. The internet does not carry packets to private addresses, so the router swaps it. On the way out, the router replaces the private address and port of each connection with its own public address and a port of its own. It writes the pair down. When the reply comes back to that port, the router looks it up and swaps it back. This is <Term means="Network address translation: rewriting the addresses in packets as they pass through a router, so that many devices can share one public address.">NAT</Term>.
 
 The list the router keeps is the whole trick. It is also why nobody outside can start a connection to a device at home, unless you add a rule that says where it should go.
 
 ## Why one address is shared
 
-An IPv4 address is 32 bits, so there are about 4.3 billion of them. There are more devices in the world than that, and many addresses are set aside for other uses, so not every device can have one of its own.
+An IPv4 address is 32 bits, so there are about 4.3 billion of them. There are more devices in the world than that. Many addresses are also set aside for other uses, so not every device can have one of its own.
 
-The private ranges from [Reading an IP address](/academy/beginner/ip-addresses) are the way out: 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16. Any home or office may use them, so millions of homes use 192.168.1.0/24 at the same time. That is exactly why they cannot be used on the internet: a reply to 192.168.20.10 could be meant for any of those homes, so routers on the internet have no routes to private addresses at all.
+The private ranges from [Reading an IP address](/academy/beginner/ip-addresses) are the way out: `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`. Any home or office may use them, so millions of homes use `192.168.1.0/24` at the same time. That is why they cannot be used on the internet: a reply to 192.168.20.10 could be meant for any of those homes. Routers on the internet have no routes to private addresses at all.
 
-Your internet provider gives your router one <Term means="An address that belongs to one place on the whole internet, so a reply to it can find its way back. Your internet provider gives you one.">public address</Term>. In the single-site network you will build in this level, it is 203.0.113.2, on the router's port to the provider. Every device at home shares it.
+Your internet provider gives your router one <Term means="An address that belongs to one place on the whole internet, so a reply to it can find its way back. Your internet provider gives you one.">public address</Term>. In the single-site network of this level's project, it is 203.0.113.2, on the router's port to the provider. Every device at home shares it.
 
 ## What the router rewrites
 
 An address and a port are often written together with a colon, such as 192.168.20.10:51000. When the laptop opens a website:
 
 1. The laptop sends a packet from 192.168.20.10:51000 to the website at 198.51.100.7:443.
-2. The router replaces the sender with its public address and a port it picks, such as 203.0.113.2:40001. It writes a row in its <Term means="The list a router keeps of every connection it rewrote: which inside address and port became which outside port, and who is at the other end.">translation table</Term>: 192.168.20.10:51000 is 203.0.113.2:40001, talking to 198.51.100.7:443.
+2. The router replaces the sender with its public address and a port it picks, such as 203.0.113.2:40001. It writes a row in its <Term means="The list a NAT router keeps of every connection it rewrote: which inside address and port became which outside port, and who is at the other end.">translation table</Term>: 192.168.20.10:51000 is 203.0.113.2:40001, talking to 198.51.100.7:443.
 3. The website sees a packet from 203.0.113.2:40001, and answers it there.
 4. The answer reaches the router. The router finds port 40001 in its table, puts 192.168.20.10:51000 back as the receiver, and passes the packet in.
 
@@ -36,7 +36,7 @@ Open a connection from the laptop, then one from the phone, and watch the table 
 
 </TryIt>
 
-The website never learned the laptop's address: it only ever saw 203.0.113.2. Look at the phone's row too. The phone picked port 51000, the same as the laptop, and the router told the two apart by giving each its own outside port. Some routers keep the device's own port when no other connection is using it, and pick a new one only when they must. The router in the widget always picks a new one, so the two sides are easy to tell apart.
+The router in the widget picks a new outside port for every connection, so the two sides are easy to tell apart. Some routers keep the device's own port when no other connection uses it, and pick a new one only when they must.
 
 The table does not grow forever. A row is removed when its connection ends, or after it has been quiet for a while.
 
@@ -50,11 +50,11 @@ The table does not grow forever. A row is removed when its connection ends, or a
 
 ## Nobody can start a connection in
 
-Every row in the table is written by a packet going out. A packet that arrives from the internet for a port that is in no row has nowhere to go: the router cannot know which of the devices at home it is meant for, so it stops there.
+Every row in the table is written by a packet going out. A packet from the internet for a port that is in no row has nowhere to go. The router cannot know which device at home it is for, so the packet stops there.
 
-A port that is in the table does not help a stranger either. The row also remembers who is at the other end, and the stranger is not the website the laptop talked to. Some home routers are looser and let anyone use a row once it exists, but the idea is the same: the row was opened from inside.
+A row also remembers who is at the other end, so a port in the table does not help a stranger either. Some home routers are looser and let anyone use a row once it exists. Either way, the row was opened from inside.
 
-To let a connection in on purpose, you add a <Term means="A rule that sends everything arriving at one port of the public address to one device inside. Also called destination NAT.">port forward</Term>: "whatever arrives at 203.0.113.2, port 8443, goes to the camera at 192.168.20.50, port 443". It is also called destination NAT, because it rewrites the receiver of a packet. The rewriting so far changed the sender. With it turned on, the stranger in the widget reached the camera, and the router wrote a row for that connection too, so the camera's answers go back out the same way.
+To let a connection in on purpose, you add a <Term means="A rule that sends everything arriving at one port of the public address to one device inside. Also called destination NAT.">port forward</Term>: "whatever arrives at 203.0.113.2, port 8443, goes to the camera at 192.168.20.50, port 443". It is also called destination NAT, because it rewrites the receiver of a packet. The rewriting so far changed the sender.
 
 ::: warning A port forward is open to everyone
 Anyone on the internet who tries port 8443 reaches the camera, not only you. Forward only what must be reachable from outside, and remove a forward you no longer need.
@@ -73,7 +73,7 @@ Anyone on the internet who tries port 8443 reaches the camera, not only you. For
 Because nobody can start a connection in, NAT is often said to protect a home. On its own, it does not:
 
 - It decides nothing about what goes out. Any device at home can connect to anything.
-- It does not stop a packet sent straight to a private address. A computer in your provider's network can send a packet for 192.168.20.10 to your router's outside port. NAT has no row for it, and needs none: the router knows the way to 192.168.20.0/24, so it simply routes the packet in.
+- It does not stop a packet sent straight to a private address. A computer in your provider's network can send a packet for 192.168.20.10 to your router's outside port. NAT has no row for it, and needs none: the router knows the way to 192.168.20.0/24, so it routes the packet in.
 - It does nothing for the router itself. A login attempt to 203.0.113.2, port 22, is for the router, and NAT never touches it.
 
 Deciding what may pass is the job of a firewall, and that is the next lesson. In the single-site router, its forward chain is what drops that packet for 192.168.20.10.
@@ -103,9 +103,9 @@ firewall: {
 - `if: { out_interface: "1g-1" }` limits the rule to packets leaving through `1g-1`, the port to the provider. Traffic between the VLANs at home keeps its own addresses.
 - `then: "masquerade"` means: use the address of the port the packet leaves through, whatever it is now. If your provider changes your public address, the rule still works. With a fixed address, `then: "snat"` and `to_address: "203.0.113.2"` write it out instead.
 
-A port forward goes in `destination`, with `then: "dnat"`, the address to send it to in `to_address`, and `to_port`. On a router whose forward chain drops by default, as the single-site router's does, the forwarded connection also needs a rule there that accepts it: the next lesson is about those rules. Turn on the port forward in the widget to see it written. Hover a field in your editor to read what it does.
+A port forward goes in `destination`, with `then: "dnat"`, `to_address`, and `to_port`. The widget writes one when you turn the port forward on. If the router's forward chain drops by default, as the single-site router's does, the forwarded connection also needs a rule there that accepts it. The next lesson writes such rules.
 
-Circuit turns the rule into each vendor's own command. For the router in the example, a RouterOS router, the plan has this line for it:
+Circuit turns each rule into the vendor's own command. The single-site router runs RouterOS, so Circuit writes this command for it:
 
 ```text
 add action=masquerade chain=srcnat comment="Share the public address" out-interface=ether1

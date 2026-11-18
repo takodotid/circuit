@@ -175,6 +175,23 @@ a:hover {
     text-decoration-style: solid;
 }
 
+/* An action that reads as a link, such as Save as CSV: a button, so the keyboard reaches it. */
+button.link {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font-weight: 600;
+    text-align: left;
+    text-decoration: underline dotted 1.5px;
+    text-underline-offset: 3px;
+}
+
+button.link:hover {
+    text-decoration-style: solid;
+}
+
 .muted {
     color: var(--muted);
 }
@@ -237,12 +254,20 @@ header > nav {
     padding-inline: 6px;
 }
 
-header > nav button {
+/* Links that look like tabs: the views, a device's sections, the tools, and the graph's layers. Links, so each opens in a new tab too. */
+header > nav a,
+.toolbar nav a,
+.tabs a {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    text-decoration: none;
+}
+
+header > nav a {
     position: relative;
     min-height: 52px;
     padding: 0 11px;
-    border: 0;
-    border-radius: 0;
     background: transparent;
     color: var(--on-cobalt-soft);
     font-size: 12.5px;
@@ -252,17 +277,17 @@ header > nav button {
     text-transform: uppercase;
 }
 
-header > nav button:hover {
+header > nav a:hover {
     color: #ffffff;
     background: rgba(255, 255, 255, 0.08);
 }
 
-header > nav button[aria-pressed="true"] {
+header > nav a[aria-current="page"] {
     color: #ffffff;
     background: transparent;
 }
 
-header > nav button[aria-pressed="true"]::after {
+header > nav a[aria-current="page"]::after {
     content: "";
     position: absolute;
     right: 9px;
@@ -368,19 +393,13 @@ header input[type="search"]:focus {
     color: var(--error);
 }
 
-.summary-item.warning,
-.summary-item.changed {
+.summary-item.warning {
     color: var(--warning);
 }
 
 .summary-item.error::before,
-.summary-item.warning::before,
-.summary-item.changed::before {
+.summary-item.warning::before {
     background: currentColor;
-}
-
-.summary-item.changed::before {
-    border-radius: 1px;
 }
 
 .summary-item.quiet {
@@ -474,26 +493,29 @@ main {
     border-radius: 2px;
 }
 
-.toolbar nav button {
+.toolbar nav a {
+    gap: 4px;
     min-height: 32px;
     padding: 4px 12px;
-    border: 0;
-    border-radius: 0;
     background: transparent;
+    color: inherit;
     font-size: 13px;
 }
 
-.toolbar nav button + button {
+.toolbar nav a:hover {
+    color: var(--accent);
+}
+
+.toolbar nav a + a {
     border-left: 1.5px solid var(--line);
 }
 
-.toolbar nav button[aria-pressed="true"] {
+.toolbar nav a[aria-current="page"] {
     background: var(--cobalt);
     color: #ffffff;
 }
 
-.toolbar nav button .count,
-.toolbar nav button small {
+.toolbar nav a small {
     background: none;
     color: inherit;
     opacity: 0.7;
@@ -504,66 +526,10 @@ main {
     gap: 6px;
 }
 
-.toolbar .actions button,
-.menu summary {
+.toolbar .actions button {
     min-height: 34px;
     padding: 4px 12px;
     font-size: 13px;
-}
-
-.menu {
-    position: relative;
-}
-
-.menu summary {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border: 1.5px solid var(--edge);
-    border-radius: 2px;
-    background: var(--surface);
-    font-weight: 600;
-    list-style: none;
-    cursor: pointer;
-}
-
-.menu summary::-webkit-details-marker {
-    display: none;
-}
-
-.menu summary::after {
-    content: "";
-    width: 7px;
-    height: 7px;
-    margin-top: -4px;
-    border-right: 1.5px solid currentColor;
-    border-bottom: 1.5px solid currentColor;
-    transform: rotate(45deg);
-}
-
-.menu summary:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-
-.menu-items {
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 0;
-    z-index: 5;
-    display: grid;
-    min-width: 120px;
-    padding: 4px;
-    border: 1.5px solid var(--text);
-    border-radius: 2px;
-    background: var(--surface);
-    box-shadow: 0 8px 20px rgba(10, 26, 54, 0.18);
-}
-
-.menu-items button {
-    justify-content: flex-start;
-    border: 0;
-    text-align: left;
 }
 
 /* The drawing board. */
@@ -577,243 +543,6 @@ main {
     background-color: var(--bg);
     background-image: radial-gradient(circle, var(--dots) 1.2px, transparent 1.6px);
     background-size: 24px 24px;
-}
-
-svg.canvas {
-    flex: 1;
-    min-width: 0;
-    height: 100%;
-    cursor: grab;
-    touch-action: none;
-    user-select: none;
-}
-
-svg.canvas.panning {
-    cursor: grabbing;
-}
-
-.edge path {
-    fill: none;
-    stroke: var(--edge);
-    stroke-width: 2;
-    transition:
-        stroke 0.2s,
-        stroke-width 0.2s;
-}
-
-/* Lighting one part dims the rest gently, so the eye follows what changed. */
-.edge,
-.node {
-    transition: opacity 0.25s ease-out;
-}
-
-/* Dots travelling a cable both ends declare: traffic where the link works. On a lit cable they turn to the highlighter. */
-.edge .signal {
-    fill: var(--accent);
-    pointer-events: none;
-}
-
-.edge.lit .signal,
-.edge.selected .signal {
-    r: 4.5px;
-    fill: var(--yellow);
-    stroke: var(--navy);
-    stroke-width: 1.5;
-}
-
-.edge.added .signal {
-    fill: var(--ok);
-}
-
-.edge text {
-    font-size: 12.5px;
-    fill: var(--muted);
-    paint-order: stroke;
-    stroke: var(--bg);
-    stroke-width: 5px;
-    stroke-linejoin: round;
-}
-
-.edge .hit {
-    stroke: transparent;
-    stroke-width: 12;
-    cursor: pointer;
-}
-
-.edge.one-sided path:not(.hit) {
-    stroke: var(--warning);
-    stroke-width: 3;
-    stroke-dasharray: 4 4;
-}
-
-.edge.selected path:not(.hit),
-.edge.lit path:not(.hit) {
-    stroke: var(--accent);
-    stroke-width: 4;
-}
-
-.edge.selected text,
-.edge.lit text {
-    fill: var(--text);
-}
-
-.edge.added path:not(.hit) {
-    stroke: var(--ok);
-    stroke-width: 4;
-}
-
-.edge.gone path:not(.hit) {
-    stroke: var(--error);
-    stroke-width: 4;
-    stroke-dasharray: 10 5;
-}
-
-.node {
-    cursor: pointer;
-}
-
-.node > rect {
-    fill: var(--surface);
-    stroke: var(--text);
-    stroke-width: 2;
-}
-
-.node.segment > rect {
-    fill: var(--segment);
-    stroke: var(--yellow-deep);
-}
-
-.node.outside > rect {
-    fill: var(--bg);
-    stroke: var(--edge);
-    stroke-dasharray: 2 4;
-}
-
-.node.error > rect {
-    stroke: var(--error);
-    stroke-width: 4;
-}
-
-.node.warning > rect {
-    stroke: var(--warning);
-    stroke-width: 4;
-    stroke-dasharray: 10 3;
-}
-
-.node.selected > rect {
-    fill: var(--selected);
-    stroke: var(--cobalt);
-    stroke-width: 4;
-}
-
-.node .chassis > rect:first-child {
-    fill: var(--cobalt);
-    stroke: none;
-}
-
-.node .chassis .socket {
-    fill: #ffffff;
-    stroke: none;
-}
-
-.node.selected .chassis .socket {
-    fill: var(--yellow);
-}
-
-/* The device presenting lights now: a highlighter fill, lit sockets, and a ring around it that keeps leaving it, the way the docs drawing marks the changed device. A warning or error keeps its own frame. */
-.node .beacon {
-    display: none;
-}
-
-.node.touring .beacon {
-    display: inline;
-}
-
-.node .beacon rect {
-    fill: none;
-    stroke: var(--yellow-deep);
-    stroke-width: 3;
-}
-
-.node.touring > rect {
-    fill: var(--yellow);
-}
-
-.node.touring:not(.error):not(.warning) > rect {
-    stroke: #0a1a36;
-    stroke-width: 4;
-}
-
-.node.touring text.name {
-    fill: #11141b;
-}
-
-.node.touring text.sub {
-    fill: #2a3550;
-}
-
-.node.touring .chassis > rect:first-child {
-    fill: #0a1a36;
-}
-
-.node.touring .chassis .socket {
-    fill: var(--yellow);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-    .node.touring .beacon rect {
-        transform-box: fill-box;
-        transform-origin: center;
-        animation: beacon 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-    }
-}
-
-@keyframes beacon {
-    from {
-        opacity: 1;
-        transform: scale(0.96);
-    }
-
-    to {
-        opacity: 0;
-        transform: scale(1.18);
-    }
-}
-
-.node text {
-    fill: var(--text);
-    font-size: 14px;
-    text-anchor: middle;
-    dominant-baseline: central;
-    pointer-events: none;
-}
-
-.node.device text {
-    text-anchor: start;
-}
-
-.node text.name {
-    font-size: 18px;
-    font-weight: 700;
-}
-
-.node text.sub {
-    fill: var(--muted);
-    font-size: 13px;
-}
-
-.node.segment text,
-.node.outside text {
-    font-family: var(--mono);
-    font-size: 12px;
-}
-
-.dim {
-    opacity: 0.18;
-}
-
-svg.far .edge text {
-    display: none;
 }
 
 /* Presenting: the network for a big screen, the whole window. The rails, the toolbar and the panel step aside; Cytoscape draws the heavier lines and the lit device. */
@@ -916,6 +645,28 @@ aside pre {
     overflow-wrap: anywhere;
 }
 
+/* A line drawn for several: each member's label, then its facts. */
+aside .members li {
+    display: grid;
+    padding: 5px 0;
+}
+
+aside .members span {
+    font-size: 13px;
+}
+
+/* A new view or a new selection fades in and rises a little. */
+.enter-enter-active {
+    transition:
+        opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.enter-enter-from {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
 .legend li {
     display: flex;
     align-items: center;
@@ -949,6 +700,11 @@ aside pre {
 .badge.warning {
     background: var(--warning-strong);
     color: #11141b;
+}
+
+.badge.added {
+    background: #11733b;
+    color: #ffffff;
 }
 
 .chips {
@@ -1029,7 +785,8 @@ aside pre {
     border-bottom: 1.5px solid var(--line);
 }
 
-.tabs button {
+.tabs button,
+.tabs a {
     position: relative;
     min-height: 40px;
     padding: 8px 12px 10px;
@@ -1038,19 +795,23 @@ aside pre {
     background: transparent;
     color: var(--muted);
     font-size: 14px;
+    font-weight: 600;
 }
 
-.tabs button:hover {
+.tabs button:hover,
+.tabs a:hover {
     color: var(--text);
     background: var(--surface-raised);
 }
 
-.tabs button[aria-pressed="true"] {
+.tabs button[aria-pressed="true"],
+.tabs a[aria-current="page"] {
     background: transparent;
     color: var(--text);
 }
 
-.tabs button[aria-pressed="true"]::after {
+.tabs button[aria-pressed="true"]::after,
+.tabs a[aria-current="page"]::after {
     content: "";
     position: absolute;
     right: 8px;
@@ -1284,13 +1045,11 @@ pre.code {
 
 /* A line diff: removed lines, added lines, and runs of the same folded away. */
 
-pre.diff .removed,
-p .removed {
+pre.diff .removed {
     color: var(--error);
 }
 
-pre.diff .added,
-p .added {
+pre.diff .added {
     color: var(--ok);
 }
 
@@ -1420,6 +1179,12 @@ button.primary:hover {
     color: #11141b;
 }
 
+/* A button that can't be pressed now, such as Show values before a password is typed, looks faded and doesn't answer the pointer. */
+button:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
 .verdict {
     font-weight: 700;
 }
@@ -1459,7 +1224,7 @@ button.primary:hover {
         flex-wrap: nowrap;
     }
 
-    header > nav button {
+    header > nav a {
         flex: none;
     }
 
@@ -1482,18 +1247,12 @@ button.primary:hover {
         overflow-x: auto;
     }
 
-    .toolbar nav button {
+    .toolbar nav a {
         flex: none;
     }
 
     .stage {
         flex-direction: column;
-    }
-
-    svg.canvas {
-        flex: 1 1 auto;
-        width: 100%;
-        min-height: 320px;
     }
 
     aside {

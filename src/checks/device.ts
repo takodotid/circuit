@@ -1,14 +1,12 @@
-// Rules one device has to satisfy, whatever its design. What reading the project already stops on (unknown keys, every name a device refers to, ports the model
-// doesn't have, links that don't link back) is not checked again here.
+// Rules one device has to satisfy, whatever its design. What reading the project already stops on (unknown keys, every name a device refers to, ports the model doesn't have, links that don't link back) is not checked again here.
 
 import { X509Certificate } from "node:crypto";
 import { utils } from "ssh2";
 import { Address } from "../core/address";
 import { Utils } from "../core/utils";
-import type { Device, Interface, InterfaceKind, Routed, Switched } from "../model";
-import { Catalog } from "../platforms/catalog";
-import { Derive } from "../platforms/derive";
-import type { Finding } from "../platforms/finding";
+import type { Device, Finding, Interface, InterfaceKind, Routed, StaticRoute, Switched } from "../model";
+import { Catalog } from "../core/catalog";
+import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
 
 type Report = (message: string) => void;
@@ -119,8 +117,7 @@ export class DeviceChecks {
         for (const route of management.static_routes ?? []) {
             const where = `system.vdoms.management.static_routes ${route.prefix}`;
             cidr(where, route.prefix);
-            if (route.next_hop) ip(where, route.next_hop);
-            if (!route.next_hop && !route.interface && !route.blackhole) report(`${where} has no next hop`);
+            DeviceChecks.nextHop(where, route, report, ip);
             if (route.interface && !management.interfaces.includes(route.interface))
                 report(`${where} leaves through ${route.interface}, which is not in the VDOM`);
         }
@@ -226,7 +223,7 @@ export class DeviceChecks {
 
         const kinds = settings.ethertypes;
         if (kinds && !kinds.length) report(`${where}.ethertypes is empty, so it would drop every frame`);
-        if (kinds && new Set(kinds).size !== kinds.length) report(`${where}.ethertypes names a kind twice`);
+        if (kinds && new Set(kinds).size !== kinds.length) report(`${where}.ethertypes lists a kind twice`);
 
         if (settings.bound_to) DeviceChecks.bound(where, settings, report);
     }
@@ -349,14 +346,29 @@ export class DeviceChecks {
         }
     }
 
+    /** A static route goes somewhere: to a next hop, out of an interface, or nowhere as a blackhole, which then has neither. */
+    private static nextHop(where: string, route: StaticRoute, report: Report, ip: Checker): void {
+        // `fe80::1%ether1`, as some devices write a link-local next hop.
+        const [address, scope] = route.next_hop?.split("%") ?? [];
+        if (scope !== undefined)
+            report(
+                `${where} next_hop ${route.next_hop} has an interface after %. Write next_hop: "${address}", and the interface in interface`
+            );
+        else if (route.next_hop) ip(where, route.next_hop);
+        if (!route.next_hop && !route.interface && !route.blackhole) report(`${where} has no next hop`);
+
+        const forwards = [route.next_hop && "next_hop", route.interface && "interface"].filter(Boolean).join(" and ");
+        if (route.blackhole && forwards)
+            report(`${where} has blackhole with ${forwards}. Remove ${forwards} to drop the traffic, or remove blackhole to forward it`);
+    }
+
     private static routing(device: Device, report: Report, cidr: Checker, ip: Checker): void {
         const routing = device.routing;
 
         for (const route of routing?.static_routes ?? []) {
             const where = `routing.static_routes ${route.prefix}`;
             cidr("routing.static_routes", route.prefix);
-            if (!route.next_hop && !route.interface && !route.blackhole) report(`${where} has no next hop`);
-            if (route.next_hop) ip(where, route.next_hop);
+            DeviceChecks.nextHop(where, route, report, ip);
             if (route.bfd && !route.next_hop) report(`${where} has bfd without next_hop, the address BFD watches`);
             if (route.vrf && Utils.otherTable(route.routing_table))
                 report(`${where} has both vrf and routing_table; a route is in one of them`);

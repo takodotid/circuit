@@ -1,9 +1,19 @@
-<!-- A table of rows, each cell text or a link, that can be saved as CSV. -->
+<!-- A table of rows, each cell text, a link, several device links, badges or an action, that can be saved as CSV. -->
 <script setup lang="ts">
-import { Export } from "../lib/csv";
-import { go } from "../lib/store";
+import type { RouteLocationRaw } from "vue-router";
+import { Export } from "../lib/export";
 
-export type Cell = string | number | undefined | { device: string; label?: string } | { link: string; label: string };
+export type Badge = { level: "error" | "warning" | "added"; text: string };
+
+export type Cell =
+    | string
+    | number
+    | undefined
+    | { device: string; label?: string }
+    | { link: RouteLocationRaw; label: string }
+    | { devices: string[] }
+    | { badges: Badge[] }
+    | { action: () => void; label: string };
 export type Row = { cells: Cell[]; muted?: boolean; id?: string };
 /** A column: its label, or a label with the doc of the device field it shows, read when the pointer is on it. */
 export type Column = string | { label: string; field?: boolean; doc?: string };
@@ -11,9 +21,22 @@ export type Column = string | { label: string; field?: boolean; doc?: string };
 const props = defineProps<{ head: Column[]; rows: Row[]; csv?: string }>();
 
 const labelOf = (column: Column) => (typeof column === "string" ? column : column.label);
-const textOf = (cell: Cell) =>
-    cell === undefined ? "" : typeof cell === "object" ? ("device" in cell ? (cell.label ?? cell.device) : cell.label) : String(cell);
-const linkOf = (cell: Cell) => (typeof cell === "object" && cell ? ("device" in cell ? `devices/${cell.device}` : cell.link) : undefined);
+
+/** What a cell says, as the CSV has it. An action says nothing there. */
+function textOf(cell: Cell): string {
+    if (cell === undefined) return "";
+    if (typeof cell !== "object") return String(cell);
+    if ("device" in cell) return cell.label ?? cell.device;
+    if ("devices" in cell) return cell.devices.join(", ");
+    if ("badges" in cell) return cell.badges.map((badge) => badge.text).join(", ");
+    if ("action" in cell) return "";
+    return cell.label;
+}
+
+const deviceLink = (name: string): RouteLocationRaw => ({ name: "device", params: { name } });
+
+const linkOf = (cell: Cell): RouteLocationRaw | undefined =>
+    typeof cell === "object" && cell ? ("device" in cell ? deviceLink(cell.device) : "link" in cell ? cell.link : undefined) : undefined;
 
 function save(): void {
     const csv = Export.csv(
@@ -27,13 +50,13 @@ function save(): void {
 <template>
     <p v-if="!rows.length" class="muted">None.</p>
     <div v-else class="table-block">
-        <p v-if="csv" class="table-actions"><a @click="save">Save as CSV</a></p>
+        <p v-if="csv" class="table-actions"><button type="button" class="link" @click="save">Save as CSV</button></p>
         <table class="data">
             <thead>
                 <tr>
                     <th
-                        v-for="column in head"
-                        :key="labelOf(column)"
+                        v-for="(column, index) in head"
+                        :key="index"
                         :data-doc="typeof column === 'string' ? undefined : column.doc"
                         :tabindex="typeof column !== 'string' && column.doc ? 0 : undefined"
                     >
@@ -45,7 +68,18 @@ function save(): void {
             <tbody>
                 <tr v-for="(row, index) in rows" :id="row.id" :key="index" :class="{ muted: row.muted }">
                     <td v-for="(cell, at) in row.cells" :key="at">
-                        <a v-if="linkOf(cell)" @click="go(linkOf(cell)!)">{{ textOf(cell) }}</a>
+                        <RouterLink v-if="linkOf(cell)" :to="linkOf(cell)!">{{ textOf(cell) }}</RouterLink>
+                        <template v-else-if="typeof cell === 'object' && 'devices' in cell">
+                            <template v-for="(name, place) in cell.devices" :key="name"
+                                ><template v-if="place">, </template><RouterLink :to="deviceLink(name)">{{ name }}</RouterLink></template
+                            >
+                        </template>
+                        <template v-else-if="typeof cell === 'object' && 'badges' in cell">
+                            <span v-for="badge in cell.badges" :key="badge.text" :class="['badge', badge.level]">{{ badge.text }}</span>
+                        </template>
+                        <button v-else-if="typeof cell === 'object' && 'action' in cell" type="button" class="link" @click="cell.action()">
+                            {{ cell.label }}
+                        </button>
                         <template v-else>{{ textOf(cell) }}</template>
                     </td>
                 </tr>

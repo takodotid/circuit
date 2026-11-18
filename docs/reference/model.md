@@ -1,15 +1,21 @@
+---
+description: What Circuit holds after it reads a project, and what the platforms read. For people who work on Circuit itself.
+---
+
 # The model
 
-The model is what Circuit holds once it has read a project: each network and its devices, as the devices will run them. The platforms read only the model. Its types are in `src/model.ts`: the config's own types (`src/config/`), with plain names.
+This page is for people who work on Circuit's code. To write a project, start with [Your first project](/guide/project).
 
-Circuit is primitive: it knows devices and what one device runs. It has no idea of a tenant, an upstream or a customer. A project builds those itself, as parts it gives its devices ([How to write a project](/guide/parts)).
+The model is what Circuit holds after it reads a project: each network and its devices, as the devices run them. The platforms read only the model. Its types are in `src/model.ts`. They are the types of `src/config/`, with each name as plain text.
+
+Circuit only knows devices. It has no idea of a tenant, an upstream, or a customer. A project builds those as [parts](/guide/parts) that it gives its devices.
 
 ## The network
 
 ```
 asn            the network's AS
-prefixes       the network's own prefixes, in named groups, for devices, checks and integrations
-communities    the catalogue: each community the scheme defines, with what it means
+prefixes       the network's own prefixes, in named groups, for devices, checks, and integrations
+communities    the catalog: each community the scheme defines, with what it means
 sites          by name: a description, and a number for communities. Nothing more.
 devices        by hostname: one device each (below)
 checks         Circuit's checks, turned on by name with their settings, and the project's own
@@ -18,7 +24,7 @@ integrations   peeringdb, librenms, netbox, prometheus
 
 ## A device
 
-Each group has one rule. A new feature goes in the group whose rule it fits.
+Each group has one job. A new feature goes in the group whose job it fits. Winbox was a reference, not the target, so each group is named for what it does, not for one vendor's menu.
 
 ```
 device
@@ -36,118 +42,38 @@ device
 └─ firewall              which packets pass and how they are rewritten: address sets, filter, nat, tcp_mss, untracked, conntrack_helpers
 ```
 
-Every field and its meaning is in `src/config/`, as a doc comment: the editor shows it on hover.
+Each field's doc comment in `src/config/` says what it means. The editor shows it on hover.
 
-### Against Winbox
+## What gets resolved
 
-Winbox was the reference, not the target. Circuit runs on five platforms, so a group is named for what it does, not for one vendor's menu.
+The model keeps each rule in the shape it is written in, and each [ordered list](/guide/rules#rule-order) as a plain array. Before a platform reads a device, Circuit turns the config's shortcuts into plain values:
 
-| Winbox                                                             | Circuit v1                                                                                          |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| Interfaces (Ethernet, VLAN, Bonding, GRE, VXLAN, WireGuard, EoIP)  | `interfaces.ethernet`, `.vlan_interface`, `.lag`, `.gre`, `.vxlan`, `.wireguard`, `.eoip`           |
-| Interfaces > Interface List                                        | `firewall.interface_sets` in the config (a FortiOS zone too); resolved into interfaces in the model |
-| Bridge (Ports, VLANs, Settings), Switch (Rules)                    | `switching.vlans`, `.stp`, `.acls`; a port's own VLANs on the port                                  |
-| IP > Addresses                                                     | on the interface: `addresses`. Junos, VRP and FortiOS put them there too.                           |
-| IP > Routes, Routing > Tables, Rules, BGP, OSPF, BFD, RPKI         | `routing.static_routes`, `.tables`, `.policy_routing`, `.bgp`, `.ospf`, `.bfd`, `.rpki`             |
-| Routing > Filters                                                  | `routing.policies`, `routing.prefix_sets`                                                           |
-| IP > Firewall (Filter, NAT, Raw, Address Lists, Service Ports)     | `firewall.filter`, `.nat`, `.untracked`, `.address_sets`, `.conntrack_helpers`                      |
-| IP > Firewall > Mangle (change MSS)                                | `firewall.tcp_mss`                                                                                  |
-| IP > Firewall > Mangle (mark routing of a tunnel's own packets)    | `routing_table` on the WireGuard interface                                                          |
-| Queues (an interface's queue, CAKE)                                | `shaping` on the interface                                                                          |
-| IP > DHCP Server, DHCP Relay, DNS (allow remote), NTP Server, UPnP | `services`                                                                                          |
-| IP > DHCP Client                                                   | `dhcp_client` on the port                                                                           |
-| IPv6 > ND (router advertisements)                                  | `ipv6_ra` on the interface                                                                          |
-| IP > Services, System > Users, Certificates                        | `management`; `system.users`, `system.certificates`                                                 |
-| IP > SNMP, System > Logging (remote), IP > Traffic Flow            | `monitoring.snmp`, `.syslog`, `.flow_export`                                                        |
-| System > Clock, NTP Client, Identity, Logging (disk), Packages     | `system.timezone`, `.ntp`, `.banner`, `.logging`, `.release_channel`                                |
-| IP > Neighbors (discovery)                                         | `switching.lldp`                                                                                    |
-| (none: FortiOS VDOMs, VRP alarms, optic readings)                  | `system.vdoms`, `system.alarms`, `monitoring.transceivers`                                          |
+- The [shortcuts in rules](/guide/rules#shortcuts) become rules and addresses. Circuit expands the interface or VLAN first (`in` before `out`), then `src`, then `dst`. It leaves out a `src` and a `dst` of different families.
+- A `{ communities }` rule becomes route rules, split by [neighbor AS](/guide/communities#one-policy-many-neighbors). Each neighbor's `communities` is then taken out.
+- An address with its length becomes the address alone, in a field that holds one host, such as `next_hop` or `local_address`. So a site can write each address once.
+- A prefix set written as a map becomes a list.
+- BGP without an `asn` gets the network's `asn`.
 
-## Ordered rules
+Nothing else is filled in: no default, no main table, no description. If the model leaves something out, the platform removes it from the device or resets it.
 
-Where order decides, the first rule runs first:
+A platform may drop what it can't hold, and says so. For example, a VLAN on Raisecom and FortiOS is only a number, so they drop its description. A field that a platform can't express at all is an error before anything is sent. `untrusted: true` on a VLAN is only for its check, so no platform writes it.
 
-- `firewall.filter.<input|forward|output>.rules`
-- `firewall.nat.source`, `firewall.nat.destination`
-- `routing.policies.<name>`
-- `routing.policy_routing`
-- `switching.acls.<name>`
+## Communities and checks
 
-Each is a plain array, with no numbers, in the model as in the config. Every other list is a set: its order means nothing (`static_routes`, `addresses`, `trunk_vlans`, BGP neighbors), except `servers`, in order of preference.
+`communities` in the model is the catalog: every community the scheme defines, with what it means. `nnn` stands for any number.
 
-Every rule keeps the shape it is written in, the condition first:
-
-- A filter, NAT or ACL rule is `{ if, then }`, with its own fields: `fast_path` on a filter rule, `to_address` and `to_port` on a NAT rule, `rate` on an ACL rule.
-- A route policy rule is `{ if, set, then }`, or `{ call }` alone.
-- A policy routing rule keeps `match`, and always has its `routing_table`: choosing the table is what the rule is for.
-
-## What Circuit resolves
-
-The config may write a few things in a shorter way. Circuit turns each into plain values before a platform reads the device, so a platform sees only the model:
-
-1. **A list in a match** becomes one rule per value. In a filter or NAT rule, `src`, `dst`, `in_interface` and `out_interface` take a list; in an ACL rule, `vlan`, `src` and `dst`. Circuit writes one rule per combination, each with the rule's description: the interface or VLAN outermost (`in` before `out`), then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so that combination is left out; a rule with nothing else is an error.
-2. **An interface set** becomes its interfaces. A filter or NAT rule's `in_interface_set` or `out_interface_set` becomes `in_interface` or `out_interface`, one rule per interface, and `firewall.interface_sets` is not in the model. A rule whose set has no interface is left out.
-3. **`bgpNeighbors()`** becomes the address set of every BGP neighbor address of the device.
-4. **`management.allow` naming an address set** becomes that set's addresses.
-5. **An address written with its length, where the field names one host**, becomes the address alone: a static route's `next_hop`, a GRE, VXLAN or BGP `local_address`, a WireGuard `endpoint`, a NAT rule's `to_address`, a route policy's `preferred_source`, an NTP server. So a site writes each address once, with its length, for its interfaces too.
-6. **A prefix set written as a map of named prefixes** becomes the list of its prefixes. A set may hold both families; where the platform keeps one list per family, the renderer writes one of each.
-7. **A `{ communities }` route policy rule** becomes the route rules the network's scheme means there, for the neighbors that use the policy. A policy several ASes use keeps what they share, and each AS with rules of its own gets `<policy>-as<asn>`, which holds them and then calls the shared one. Each neighbor's `communities` is then taken off: only Circuit reads it.
-8. **BGP without `asn`** gets the network's `asn`. The model needs an AS there, and this is the network's own, not a guess.
-
-Nothing else is filled in. A default is not written, by the project or by Circuit: no main table, no distance 1, no description. What a device leaves out stays out, and the platform then removes it from the device or sets it back to its default.
-
-A renderer may still leave out what its platform can't hold, and says so: a VLAN's description on Raisecom and FortiOS, where a VLAN is only its number, is dropped there, so a device takes a VLAN whole wherever it runs. A field a platform can't express at all is an error before anything is sent.
-
-`untrusted: true` on a VLAN stays in the model for the check `untrusted_vlans`, and no platform renders it.
-
-## Communities
-
-`communities` in the model is the catalogue: every community the scheme defines, `nnn` for any number, with what it means. The scheme itself, and how a neighbor and a policy use it, is in [How to write a project](/guide/communities).
-
-## Checks
-
-Circuit's own checks read the model. A check of the project's own reads the network as its devices will run it, still in the config's shape: its `asn` and `prefixes`, and each device with each neighbor holding what it takes from its group, each `call` replaced by the called policy's rules, `{ communities }` rules written out, `management.allow` as its addresses, and each rule's interface set as its interfaces. It gets a copy: the project doesn't change. [How to write a project](/guide/checks) lists the checks and how to write one.
+The built-in checks read the model. A project's own checks read each device in the config's shape. See [Your own checks](/guide/checks#your-own-checks).
 
 ## From Circuit 0.x
 
-A 0.x device holds the same values in other places and under other names. `scripts/from-v0.ts` moves a 0.x device into the model.
+`circuit migrate <v0-folder>` writes a 0.x project again as a v1 project. It moves each field into v1's groups, and renames fields so each name says what it is. What it can't move, it lists in `MIGRATION.md`. The renames people meet most:
 
-| Circuit 0.x                                                       | v1                                                                          |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `site: (device) => string` in `defineNetwork`                     | `site` on the device; `sites` in `circuit()` holds each site's description  |
-| `netbox.device(device).role`                                      | `role` on the device                                                        |
-| `asn`, `communities`, `peeringdb`, `librenms`, `netbox`           | `circuit({ asn, communities, integrations })`                               |
-| `checks: Check[]`                                                 | `checks`, by name, in `circuit()`                                           |
-| `ports`                                                           | `interfaces.ethernet`                                                       |
-| `interfaces.<name>` with `type: T`                                | `interfaces.<T>.<name>`, without `type`; `vlan` is `vlan_interface`         |
-| `vlans`, `stp`, `lldp`, `acls`                                    | `switching.*`                                                               |
-| `dhcp`, `dhcp_relay`                                              | `services.dhcp_server`, `services.dhcp_relay`                               |
-| `system.dns.serve`, `system.ntp.serve`                            | `services.dns_server`, `services.ntp_server`                                |
-| `system.logging.remote`                                           | `monitoring.syslog`                                                         |
-| `management.snmp`, `flow_export`, `system.transceiver_monitoring` | `monitoring.snmp`, `.flow_export`, `.transceivers`                          |
-| `users`, `certificates`, `hardware_offload`, `vdoms`              | `system.*`                                                                  |
-| `certificates.<name>.certificate`, the PEM                        | `system.certificates.<name>.certificate_file`, a path from the project root |
-| `vrfs`, `policies`, `prefix_sets`                                 | `routing.*`                                                                 |
-
-Then the renames, so each field name says what it is:
-
-| Circuit 0.x                                                        | v1                                                                                      |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| a rule's `match`, `action` (filter, NAT, ACL, route policy)        | `if`, `then`                                                                            |
-| filter `offload`; NAT `to`                                         | `fast_path`; `to_address`                                                               |
-| filter match `src_set`, `dst_set`, `state`                         | `src_address_set`, `dst_address_set`, `connection_state`                                |
-| route match `through_as`, `community`                              | `as_path_contains`, `standard_community`                                                |
-| route set `communities`, `add_communities`, `remove_communities`   | `standard_communities`, `add_standard_communities`, `remove_standard_communities`       |
-| `routing.static`, its `via`, `table`                               | `routing.static_routes`, `next_hop`, `routing_table`                                    |
-| `routing.rules`, its `table`                                       | `routing.policy_routing`, `routing_table`                                               |
-| BGP `groups`, `networks`                                           | `neighbor_groups`, `originated_prefixes`                                                |
-| a neighbor's `import`, `export`, `families`, `table`, `group`      | `import_policy`, `export_policy`, `address_families`, `routing_table`, `neighbor_group` |
-| OSPF `families`                                                    | `address_families`                                                                      |
-| a port's or interface's `lag`, `acl`, `local`, `remote`, `members` | `in_lag`, `ingress_acl`, `local_address`, `remote_address`, `member_interfaces`         |
-| an address's `peer`                                                | `peer_address`                                                                          |
-| `system.ip`; `management.native`                                   | `system.ip_stack`; `management.native_protocol`                                         |
-| a filter chain's `default`; `firewall.helpers`                     | `default_action`; `conntrack_helpers`                                                   |
-| a VDOM's `static`                                                  | `static_routes`                                                                         |
-| `connection.console.passwordOnly`                                  | `password_only`                                                                         |
-
-A 0.x call rule's description has no place in v1: a call rule holds nothing but `call`.
+| Circuit 0.x                                                   | v1                                                                                      |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `ports`                                                       | `interfaces.ethernet`                                                                   |
+| a rule's `match`, `action`                                    | `if`, `then`                                                                            |
+| filter `offload`, `src_set`, `dst_set`, `state`; NAT `to`     | `fast_path`, `src_address_set`, `dst_address_set`, `connection_state`; `to_address`     |
+| `routing.static`, its `via`, `table`                          | `routing.static_routes`, `next_hop`, `routing_table`                                    |
+| `routing.rules`                                               | `routing.policy_routing`                                                                |
+| a neighbor's `import`, `export`, `families`, `table`, `group` | `import_policy`, `export_policy`, `address_families`, `routing_table`, `neighbor_group` |
+| a port's `lag`, `acl`                                         | `in_lag`, `ingress_acl`                                                                 |

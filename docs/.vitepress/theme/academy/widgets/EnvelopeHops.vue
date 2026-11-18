@@ -8,8 +8,8 @@ type Stop = { id: string; kind: "laptop" | "router" | "server"; label: string; n
 
 const stops: Stop[] = [
     { id: "laptop", kind: "laptop", label: "Laptop", note: "10.1.0.20", x: 60 },
-    { id: "a", kind: "router", label: "Router A", x: 255 },
-    { id: "b", kind: "router", label: "Router B", x: 450 },
+    { id: "floor", kind: "router", label: "Floor router", x: 255 },
+    { id: "server-room", kind: "router", label: "Server room router", x: 450 },
     { id: "server", kind: "server", label: "Server", note: "10.3.0.50", x: 640 },
 ];
 
@@ -19,26 +19,29 @@ type Label = { who: string; address: string };
 
 /** The outer envelope written for each hop: from the hardware address of the one sending it, to the hardware address of the next stop. */
 const outers: { from: Label; to: Label }[] = [
-    { from: { who: "Laptop", address: "3c:22:fb:0a:91:7e" }, to: { who: "Router A, left side", address: "00:1a:2b:3c:4d:01" } },
+    { from: { who: "Laptop", address: "3c:22:fb:0a:91:7e" }, to: { who: "Floor router, laptop side", address: "00:1a:2b:3c:4d:01" } },
     {
-        from: { who: "Router A, right side", address: "00:1a:2b:3c:4d:02" },
-        to: { who: "Router B, left side", address: "00:5e:7f:11:22:01" },
+        from: { who: "Floor router, server side", address: "00:1a:2b:3c:4d:02" },
+        to: { who: "Server room router, laptop side", address: "00:5e:7f:11:22:01" },
     },
-    { from: { who: "Router B, right side", address: "00:5e:7f:11:22:02" }, to: { who: "Server", address: "a4:5e:60:d1:33:08" } },
+    {
+        from: { who: "Server room router, server side", address: "00:5e:7f:11:22:02" },
+        to: { who: "Server", address: "a4:5e:60:d1:33:08" },
+    },
 ];
 
 const inner = { from: "10.1.0.20", to: "10.3.0.50" };
 
 /** How many hops the letter has made: 0 is still at the laptop, 3 is at the server. */
 const hops = ref(0);
-const { position, travelling, travel } = useTravel(220);
+const { position, traveling, travel } = useTravel(220);
 
 const done = computed(() => hops.value === outers.length);
 const outer = computed(() => outers[Math.min(hops.value, outers.length - 1)]!);
 const fresh = computed(() => hops.value > 0 && !done.value);
 
 async function next() {
-    if (done.value || travelling.value) return;
+    if (done.value || traveling.value) return;
 
     await travel([
         [stops[hops.value]!.x, Y],
@@ -53,12 +56,12 @@ function again() {
 
 const say = computed(() => {
     if (hops.value === 0)
-        return "The laptop has put its letter for the server in an inner envelope with both IP addresses, and that in an outer envelope for the first stop, Router A. Press Send to the next stop.";
+        return "The laptop put its letter in an inner envelope with both IP addresses. It put that in an outer envelope for the first stop, the floor router.";
     if (done.value)
-        return "The server opened the outer envelope, then the inner one, and read the letter. The outer envelope was new on every hop; the inner one never changed.";
+        return "The server opened the outer envelope, then the inner one, and read the letter. The outer envelope was new on every hop, and the inner one never changed.";
     const router = stops[hops.value]!.label;
-    const following = stops[hops.value + 1]!.label;
-    return `${router} threw away the outer envelope, read the IP address on the inner one, and put it in a new outer envelope for the next stop, ${following}. The inner envelope is untouched.`;
+    const following = stops[hops.value + 1]!.label.toLowerCase();
+    return `The ${router.toLowerCase()} threw away the outer envelope and read the IP address on the inner one. It put the inner envelope in a new outer envelope for the next stop, the ${following}.`;
 });
 </script>
 
@@ -68,7 +71,7 @@ const say = computed(() => {
             class="ac-drawing"
             viewBox="0 0 700 140"
             role="img"
-            aria-label="A laptop, Router A, Router B and a server in a row, joined by three cables. The letter travels along them one hop at a time."
+            aria-label="A laptop, the floor router, the server room router, and a server in a row, joined by three cables. The letter travels along them one hop at a time."
         >
             <line
                 v-for="(stop, index) in stops.slice(1)"
@@ -88,10 +91,10 @@ const say = computed(() => {
                 :y="Y"
                 :label="stop.label"
                 :note="stop.note"
-                :lit="!travelling && index === hops"
+                :lit="!traveling && index === hops"
             />
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="envelope outer" :class="{ fresh, opened: done }">
@@ -136,7 +139,7 @@ const say = computed(() => {
         </div>
 
         <div class="ac-row actions">
-            <button v-if="!done" type="button" class="ac-button primary" :disabled="travelling" @click="next">Send to the next stop</button>
+            <button v-if="!done" type="button" class="ac-button primary" :disabled="traveling" @click="next">Send to the next stop</button>
             <button v-else type="button" class="ac-button" @click="again">Start again</button>
         </div>
 
@@ -152,7 +155,7 @@ const say = computed(() => {
                 </thead>
                 <tbody>
                     <tr v-for="(crossed, index) in outers.slice(0, hops)" :key="index">
-                        <td>{{ stops[index]?.label }} to {{ stops[index + 1]?.label }}</td>
+                        <td>{{ stops[index]?.label }} to {{ stops[index + 1]?.label.toLowerCase() }}</td>
                         <td class="ac-mono">{{ crossed.from.address }} → {{ crossed.to.address }}</td>
                         <td class="ac-mono">{{ inner.from }} → {{ inner.to }}</td>
                     </tr>

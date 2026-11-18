@@ -63,14 +63,14 @@ export class HomeDrawing {
         },
         {
             name: "Live read",
-            link: "/guide/cli#making-a-change",
+            link: "/guide/apply#making-the-plan",
             meaning: "Circuit reads what the device runs now, every time, so a plan is never out of date.",
             callout: [1452, 296],
             target: [1424, 355],
         },
         {
             name: "Git history",
-            link: "/studio/changes",
+            link: "/studio/#review-a-change",
             meaning: "Every change, with its author and its reason, in your own repository.",
             callout: [1405, 567],
             target: [1319, 612],
@@ -290,7 +290,7 @@ export class HomeDrawing {
         };
     }
 
-    /** A line of the editor's code, split into the parts its colours mark. */
+    /** A line of the editor's code, split into the parts its colors mark. */
     static tokens(line: string) {
         return line
             .split(/("[^"]*"|export default|as64500\.device|\b\d+\b)/)

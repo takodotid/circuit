@@ -1,10 +1,8 @@
-// Rules that span devices: what one device declares about another has to agree with what the other declares. That a link's far end exists and links back
-// is stopped on when the project is read, so a link that doesn't is skipped here.
+// Rules that span devices: what one device declares about another has to agree with what the other declares. That a link's far end exists and links back is stopped on when the project is read, so a link that doesn't is skipped here.
 
 import { Address } from "../core/address";
-import type { Device, Gre, Prefix, Routed, Switched, Vrrp, Vxlan } from "../model";
-import { Derive } from "../platforms/derive";
-import type { Finding } from "../platforms/finding";
+import type { Device, Finding, Gre, Prefix, Routed, Switched, Vrrp, Vxlan } from "../model";
+import { Derive } from "../core/derive";
 import { DeviceChecks } from "./device";
 
 /** An address one of the devices holds on a port or interface. */
@@ -137,7 +135,7 @@ export class CrossChecks {
         for (const entry of here.addresses ?? []) {
             if (typeof entry === "string" || !CrossChecks.keyOf(entry.peer_address) || farHosts.has(CrossChecks.keyOf(entry.peer_address)))
                 continue;
-            return `${entry.address} names peer ${entry.peer_address}, which ${far.name} ${farWhere} does not hold`;
+            return `${entry.address} gives peer ${entry.peer_address}, which ${far.name} ${farWhere} does not hold`;
         }
 
         return undefined;
@@ -252,7 +250,7 @@ export class CrossChecks {
         });
     }
 
-    /** A BGP session to an address another of our devices holds needs that device's session back, in the AS it expects, from the address it names. */
+    /** A BGP session to an address another of our devices holds needs that device's session back, in the AS it expects, from the address it uses. */
     private static sessions(devices: readonly Device[], owners: Map<string, AddressHolder>): Finding[] {
         const findings: Finding[] = [];
 
@@ -285,7 +283,7 @@ export class CrossChecks {
                     continue;
                 }
 
-                // The far end only accepts the session from the address it names.
+                // The far end only accepts the session from the address it uses.
                 if (session.localAddress && CrossChecks.keyOf(session.localAddress) !== CrossChecks.keyOf(back.address)) {
                     report(
                         `starts from ${session.localAddress}, and ${far.name}'s routing.bgp.neighbors.${back.name} expects ${back.address}`

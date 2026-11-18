@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: DNS. The reader steps through a lookup of circuit.tako.id, from the laptop to the resolver, the root, the .id servers and the tako.id servers, and compares it with a lookup someone already remembers.
+// Lesson: DNS. The reader steps through a lookup of circuit.tako.id, from the laptop to the resolver, the root, the .id servers, and the tako.id servers, and compares it with a lookup someone already remembers.
 
 import { computed, ref } from "vue";
 import { useTravel, type Point } from "../travel";
@@ -80,7 +80,7 @@ const scripts: Record<Mode, Step[]> = {
         },
         {
             title: "Ask the resolver",
-            text: "The laptop sends one question to its resolver. The resolver will do the rest of the work, and first looks in its own memory. Nothing there either.",
+            text: "The laptop sends one question to its resolver. The resolver does the rest of the work. First it looks in its own memory, and there is nothing there either.",
             legs: [["laptop", "resolver"]],
             ask: "What is the address of circuit.tako.id?",
             questions: 1,
@@ -89,7 +89,7 @@ const scripts: Record<Mode, Step[]> = {
         },
         {
             title: "Ask a root server",
-            text: "The resolver starts at the top. A root server does not know circuit.tako.id, but it knows which servers look after every name that ends in .id, and points the resolver to them.",
+            text: "The resolver starts at the top. A root server does not know circuit.tako.id. But it knows which servers look after every name that ends in .id, and it points the resolver to them.",
             legs: [
                 ["resolver", "root"],
                 ["root", "resolver"],
@@ -102,7 +102,7 @@ const scripts: Record<Mode, Step[]> = {
         },
         {
             title: "Ask the servers for .id",
-            text: "The servers for .id do not know every name under .id either, but they know who looks after tako.id, and point the resolver there.",
+            text: "The servers for .id do not know every name under .id either. But they know who looks after tako.id, and they point the resolver there.",
             legs: [
                 ["resolver", "tld"],
                 ["tld", "resolver"],
@@ -156,7 +156,7 @@ const scripts: Record<Mode, Step[]> = {
         },
         {
             title: "The resolver remembers",
-            text: "Someone else asked the resolver for this name a minute ago, and the answer is still in its memory. It answers at once: no root, no .id, no tako.id. One question instead of four.",
+            text: "Someone else asked the resolver for this name a minute ago, and the answer is still in its memory. It answers at once, with no root, no .id, and no tako.id. One question instead of four.",
             legs: [["resolver", "laptop"]],
             answer: "circuit.tako.id is 203.0.113.80. Remember it for the 240 seconds that are left.",
             questions: 1,
@@ -175,7 +175,7 @@ const scripts: Record<Mode, Step[]> = {
         },
         {
             title: "No question at all",
-            text: "Nothing goes over the network for the name. The laptop can send packets to 203.0.113.80 straight away, which is why opening a site the second time feels instant.",
+            text: "Nothing goes over the network for the name. The laptop can send packets to 203.0.113.80 at once. So opening a site the second time feels instant.",
             legs: [],
             questions: 0,
             laptopKnows: true,
@@ -195,7 +195,7 @@ const index = ref(0);
 const steps = computed(() => scripts[mode.value]);
 const step = computed(() => steps.value[index.value]!);
 
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 const leg = ref<[Place, Place]>();
 
 function pick(next: Mode) {
@@ -268,7 +268,7 @@ const litPlace = computed(() => {
                         {{ place.note }}
                     </text>
                 </g>
-                <circle v-if="travelling && leg" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+                <circle v-if="traveling && leg" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
             </svg>
 
             <div class="talk">

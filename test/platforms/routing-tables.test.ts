@@ -192,7 +192,7 @@ test("a session in a table announces from it: none of originated_prefixes there 
     expect(errors(onlyInMain)).toContain(findings(onlyInMain)[0]!.slice("error ".length));
 });
 
-// A rule naming a table the device does not declare stops the project when it is read (`readProject`), so validation does not report it again.
+// A rule naming a table the device does not declare stops the project when it is read (`Project.read`), so validation does not report it again.
 test("validate: a table named main or like a VRF, one nothing installs in, a rule nothing reaches", () => {
     expect(errors(withBlockB())).toEqual([]);
 
@@ -233,10 +233,10 @@ test("a platform that has not proved routing tables refuses them, by the field",
         .filter((field) => /table|policy_routing/.test(field));
 
     expect(refused).toEqual([
-        "routing.static_routes 2001:db8:200::/48 routing_table, a routing table beside the main one is not proved on a device yet",
-        "routing.tables, a routing table beside the main one is not proved on a device yet",
-        "routing.policy_routing, policy routing is not proved on a device yet",
-        "routing.bgp.neighbors.transit-p.routing_table, a routing table beside the main one is not proved on a device yet",
+        "routing.static_routes 2001:db8:200::/48 routing_table, a routing table beside the main one is not tested on a device yet",
+        "routing.tables, a routing table beside the main one is not tested on a device yet",
+        "routing.policy_routing, policy routing is not tested on a device yet",
+        "routing.bgp.neighbors.transit-p.routing_table, a routing table beside the main one is not tested on a device yet",
     ]);
     expect(platform.unsupported(withBlockB())).toEqual([]);
 });

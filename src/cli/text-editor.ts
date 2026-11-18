@@ -173,8 +173,7 @@ export class TextEditor {
     }
 
     /**
-     * Edit `text` on the whole screen until the person leaves. `save` gets the text on Ctrl+S and gives back why it can't be saved, or
-     * undefined once saved. `note` shows at the bottom until the first key. Leaving with changes not saved asks to leave a second time.
+     * Edit `text` on the whole screen until the person leaves. `save` gets the text on Ctrl+S and gives back why it can't be saved, or undefined once saved. `note` shows at the bottom until the first key. Leaving with changes not saved asks to leave a second time.
      */
     static async open(options: {
         title: string;

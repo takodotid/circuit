@@ -93,7 +93,7 @@ test("the two ends of a cable agree on prefix, MTU and speed", () => {
     expect(speeds).toContain("error r1: interfaces.ethernet.100g-1.link: speed 100g, and r2 interfaces.ethernet.100g-1 is 40g");
 });
 
-// Two ends naming another carrier stop the project when it is read (`readProject`), so validation does not report it again.
+// Two ends naming another carrier stop the project when it is read (`Project.read`), so validation does not report it again.
 test("both ends of a cable name the same carrier, or none", () => {
     const [r1, r2] = routers();
     const through = (device: Device, carrier: string): Device => {

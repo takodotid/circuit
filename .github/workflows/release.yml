@@ -1,10 +1,8 @@
 name: release
 
-# A release published on GitHub, with a tag `vX.Y.Z` or `vX.Y.Z-rc.N`, gets everything from this workflow: the binaries, SHA256SUMS and its signatures, and the installers attached to it, and the package on npm, where `circuit` and the installers learn the newest version. A stable release goes under the dist-tag `latest` and builds the site again; a release candidate goes under `rc` and leaves the site alone. A backport, a fix for an older line released after a newer version, such as 1.9.5 after 1.16.0, goes under `latest-1.9`: `latest` stays on the newest, the GitHub release is not marked Latest, and the site is left alone.
+# A published GitHub release builds the binaries, signs SHA256SUMS, attaches them and the installers to the release, and publishes to npm. A stable release also rebuilds the site. CONTRIBUTING.md explains the kinds of release and their dist-tags; SECURITY.md explains the signing.
 #
-# SHA256SUMS is signed with the secret RELEASE_SIGNING_KEY, twice: SHA256SUMS.sig, which Circuit checks, and SHA256SUMS.sshsig, which the installers check with ssh-keygen. Circuit installs nothing whose SHA256SUMS isn't signed (src/cli/signing.ts). A version with a security problem is marked by a GitHub security advisory, not here: see SECURITY.md.
-#
-# npm publish takes no token: the package trusts this workflow, npm Trusted Publishing. Each step skips what is already done, so a failed run can be run again.
+# npm publish takes no token: npm trusts this workflow (Trusted Publishing). Each step skips what is already done, so a failed run can run again.
 
 on:
     release:
@@ -23,7 +21,7 @@ jobs:
             backport: ${{ steps.tag.outputs.backport }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-            - uses: oven-sh/setup-bun@v2
+            - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
               with:
                   bun-version: 1.4.4
             - run: bun install --frozen-lockfile
@@ -64,24 +62,21 @@ jobs:
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  # The installers too, so a release candidate installs from its release while the site still serves 0.x.
+                  # The installers too, so each release installs from its own page.
                   gh release upload "$GITHUB_REF_NAME" dist/release/* docs/public/install docs/public/install.ps1 --clobber
                   # A backport leaves the newest release marked Latest on GitHub.
                   if [ "${{ steps.tag.outputs.backport }}" = "true" ]; then gh release edit "$GITHUB_REF_NAME" --latest=false; fi
 
-            # The repository variable NPM_TRUSTED_PUBLISHING is true once npm trusts this workflow.
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              if: vars.NPM_TRUSTED_PUBLISHING == 'true'
               with:
                   node-version: 24.22.1
                   registry-url: https://registry.npmjs.org
             - name: publish to npm
-              if: vars.NPM_TRUSTED_PUBLISHING == 'true'
               run: |
                   if npm view "@takodotid/circuit@$VERSION" version > /dev/null 2>&1; then
                       echo "$VERSION is already on npm"
                   else
-                      npx -y npm@latest publish --access public --provenance --tag "$DIST_TAG"
+                      npx -y npm@12.2.2 publish --access public --provenance --tag "$DIST_TAG"
                   fi
 
     # The site, rebuilt for a stable release only: a release candidate or a backport leaves the site as it is.

@@ -3,14 +3,14 @@
 import { basename } from "node:path";
 import { Validation } from "../checks";
 import { Address } from "../core/address";
+import { AddressSpace, type OwnedPrefixes } from "../core/address-space";
 import { Secrets } from "../core/secrets";
 import { Topology } from "../core/topology";
-import type { Device } from "../model";
+import type { Device, Finding } from "../model";
 import { Platforms } from "../platforms";
-import { Catalog } from "../platforms/catalog";
-import { Derive } from "../platforms/derive";
-import type { Finding } from "../platforms/finding";
-import { ProjectError, type ProjectRead, readProject, secretsFileOf } from "../project/project";
+import { Catalog } from "../core/catalog";
+import { Derive } from "../core/derive";
+import { ProjectError, type ProjectRead, Project } from "../project";
 import type { AddressRow, Cable, Session, StudioData, StudioError } from "./types";
 
 export class StudioModel {
@@ -18,7 +18,7 @@ export class StudioModel {
     static async gather(root: string): Promise<StudioData | StudioError> {
         let read: ProjectRead;
         try {
-            read = await readProject(root);
+            read = await Project.read(root);
         } catch (error) {
             if (error instanceof ProjectError) return { error: error.lines.join("\n") };
             return { error: (error as Error).message };
@@ -38,7 +38,7 @@ export class StudioModel {
     static build(project: string, read: ProjectRead): StudioData {
         const devices = read.networks.flatMap((network) => Object.values(network.devices));
         const findings: Finding[] = [
-            ...read.warnings.map((message) => ({ level: "warning" as const, message })),
+            ...read.warnings.map((warning) => ({ level: "warning" as const, ...warning })),
             ...read.networks.flatMap((network) => Validation.run(Object.values(network.devices), network.settings.checks)),
         ];
 
@@ -49,7 +49,7 @@ export class StudioModel {
                 ...(network.asn !== undefined ? { asn: network.asn } : {}),
                 sites: network.settings.sites ?? {},
                 devices: Object.keys(network.devices),
-                secretsFile: secretsFileOf(network),
+                secretsFile: Project.secretsFile(network),
                 secrets: [...Secrets.referencesIn([network.devices, network.settings.integrations])]
                     .filter((name) => !name.startsWith("file:"))
                     .sort(),
@@ -77,12 +77,26 @@ export class StudioModel {
             findings,
             graph: Topology.of(devices),
             addresses: StudioModel.addressesOf(devices),
+            addressSpace: AddressSpace.report(devices, StudioModel.ownedOf(read)),
             sessions: StudioModel.sessionsOf(devices),
             cables: StudioModel.cablesOf(devices),
             secrets: [...Secrets.referencesIn(read.networks.map((network) => [network.devices, network.settings.integrations]))]
                 .filter((name) => !name.startsWith("file:"))
                 .sort(),
         };
+    }
+
+    /** The space each network owns, from `circuit({ prefixes })`, named as `circuit addresses` names it. */
+    private static ownedOf(read: ProjectRead): OwnedPrefixes {
+        const owned: Record<string, Record<string, string>> = {};
+
+        for (const network of read.networks) {
+            const prefixes = (network.settings.prefixes ?? {}) as Record<string, Record<string, string>>;
+            const named = (group: string) => (read.networks.length > 1 ? `${network.name}.${group}` : group);
+            for (const [group, members] of Object.entries(prefixes)) owned[named(group)] = { ...members };
+        }
+
+        return owned;
     }
 
     private static addressesOf(devices: readonly Device[]): AddressRow[] {

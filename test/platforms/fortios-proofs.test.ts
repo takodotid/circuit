@@ -275,8 +275,7 @@ test("BFD on a multihop BGP session is taken and read back, but refused: the dev
     ]);
 });
 
-// Proved on tako-fwl-01 (FG-3700D, 6.2.2): a loopback in VRF 1 and a route through it with BFD, applied, then an empty second plan;
-// `get router info routing-table all` listed it under VRF=1.
+// Proved on tako-fwl-01 (FG-3700D, 6.2.2): a loopback in VRF 1 and a route through it with BFD, applied, then an empty second plan; `get router info routing-table all` listed it under VRF=1.
 test("BFD on a route in a VRF is built and proved", () => {
     const inVrf: Device = {
         ...firewall,

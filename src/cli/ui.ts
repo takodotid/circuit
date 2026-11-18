@@ -8,6 +8,7 @@ export type Choice<T> = { value: T; label: string; hint?: string; disabled?: boo
 
 export class Ui {
     /** A person is at a terminal: Circuit may spin and ask. */
+    // oxlint-disable-next-line typescript/no-unnecessary-type-conversion -- off a terminal, isTTY is undefined, not false
     static readonly interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
 
     /** Colour only for a terminal, and never when NO_COLOR is set. */
@@ -62,16 +63,14 @@ export class Ui {
     private static active: { draw: () => void; halt: () => void } | undefined;
 
     /**
-     * Run `work` behind a spinner that says what Circuit waits for, with the seconds it has taken. Lines printed meanwhile, such as a
-     * platform's progress, go above it. When done it leaves a line, ◇ when it worked or ■ when it failed.
+     * Run `work` behind a spinner that says what Circuit waits for, with the seconds it has taken. Lines printed meanwhile, such as a platform's progress, go above it. When done it leaves a line, ◇ when it worked or ■ when it failed.
      */
     static step<T>(message: string, work: () => Promise<T>): Promise<T> {
         return Ui.spin(message, work, { leave: true, delay: 0 });
     }
 
     /**
-     * Wait for `work` with a spinner that leaves nothing behind, for a short wait such as the check before each command. It shows only
-     * after a moment, so a quick answer, such as one from the cache, shows nothing.
+     * Wait for `work` with a spinner that leaves nothing behind, for a short wait such as the check before each command. It shows only after a moment, so a quick answer, such as one from the cache, shows nothing.
      */
     static wait<T>(message: string, work: () => Promise<T>): Promise<T> {
         return Ui.spin(message, work, { leave: false, delay: 150 });
@@ -140,8 +139,7 @@ export class Ui {
     }
 
     /**
-     * Say what Circuit waits for while it can't spin, such as while 1Password asks the person to unlock it. Gives back what takes the
-     * line away again, and brings back the spinner it covered.
+     * Say what Circuit waits for while it can't spin, such as while 1Password asks the person to unlock it. Gives back what takes the line away again, and brings back the spinner it covered.
      */
     static blocked(message: string): () => void {
         if (!Ui.interactive) return () => {};
@@ -156,7 +154,7 @@ export class Ui {
     /** Stop when the person pressed Ctrl-C or Esc on a question. */
     private static answered<T>(value: T): Exclude<T, symbol> {
         if (prompts.isCancel(value)) {
-            prompts.cancel("Stopped, nothing changed.");
+            prompts.cancel("Stopped. Nothing changed.");
             process.exit(130);
         }
 
@@ -224,8 +222,7 @@ export class Ui {
     }
 
     /**
-     * Rows in a table with lines around each cell and a heading row. A column with `right` lines up its numbers on the right. In a terminal
-     * too narrow for it, the last column's text goes on more lines.
+     * Rows in a table with lines around each cell and a heading row. A column with `right` lines up its numbers on the right. In a terminal too narrow for it, the last column's text goes on more lines.
      */
     static table(columns: readonly { title: string; right?: boolean }[], rows: readonly (readonly string[])[]): string {
         const widths = columns.map((column, at) => Math.max(column.title.length, ...rows.map((row) => Ui.width(row[at] ?? ""))));

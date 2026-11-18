@@ -1,5 +1,4 @@
-// `circuit sync netbox` against a fake NetBox: what it makes on an empty one, that a second plan is empty, that it never touches what holds
-// no `circuit` tag, that networks sharing one NetBox are planned together, what it lists under Left alone, and that `validate` asks for a role.
+// `circuit sync netbox` against a fake NetBox: what it makes on an empty one, that a second plan is empty, that it never touches what holds no `circuit` tag, that networks sharing one NetBox are planned together, what it lists under Left alone, and that `validate` asks for a role.
 
 import { afterAll, afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -9,7 +8,7 @@ import { SyncCommand } from "../../src/cli/sync";
 import { NetBox } from "../../src/integrations/netbox";
 import type { SyncNetwork } from "../../src/integrations/sync";
 import type { Device } from "../../src/model";
-import { ProjectError, type ProjectNetwork, readProject } from "../../src/project/project";
+import { ProjectError, type ProjectNetwork, Project } from "../../src/project";
 import { Fixtures } from "../fixtures";
 
 type Json = { [field: string]: any };
@@ -124,7 +123,7 @@ class FakeNetBox {
 }
 
 // The colocation example's router and switch, from the fixtures, at one site with a role each.
-const SITES = { "dc-1": { description: "The data centre" } };
+const SITES = { "dc-1": { description: "The data center" } };
 const edge: Device = { ...Fixtures.device("colocation--edge-01"), site: "dc-1", role: "Edge router" };
 const tor: Device = { ...Fixtures.device("colocation--tor-01"), site: "dc-1", role: "Top-of-rack switch" };
 
@@ -171,7 +170,7 @@ test("an empty NetBox gets every object, tagged circuit, and a second plan is em
     expect(fake.find("dcim/interfaces", (o) => o.device === router.id && o.label === "25g-4")!.enabled).toBe(false);
 
     // The site carries its description from circuit.ts, and the role is the device's own.
-    expect(fake.find("dcim/sites", (o) => o.name === "dc-1")!.description).toBe("The data centre");
+    expect(fake.find("dcim/sites", (o) => o.name === "dc-1")!.description).toBe("The data center");
     expect(fake.find("dcim/device-roles", (o) => o.id === router.role)!.name).toBe("Edge router");
 
     // The device's primary address is the one Circuit reaches it at, set in the second round.
@@ -214,7 +213,7 @@ test("only what holds the tag is changed or deleted, and what doesn't is listed 
         ["edge-01/qsfp28-1-1", ['description: "edited by hand" to "tor-01"']],
     ]);
     expect(plan.deletes.map((change) => change.key)).toEqual(["old-router"]);
-    expect(plan.leftAlone).toContain("dcim/devices tor-01: in NetBox without the tag circuit, so it is used as it is.");
+    expect(plan.leftAlone).toContain("dcim/devices tor-01: in NetBox without the tag circuit, so Circuit uses it as it is.");
 
     fake.sent.length = 0;
     await new NetBox([network([edge, tor])]).send(plan);
@@ -299,7 +298,7 @@ test("validate stops on a device without a role when NetBox is set", async () =>
         `import { net } from "../../circuit";\n\nexport default net.device(${JSON.stringify(device, null, 4)});\n`
     );
 
-    const stopped = await readProject(folder).then(
+    const stopped = await Project.read(folder).then(
         () => [],
         (error: unknown) => (error instanceof ProjectError ? error.lines : [String(error)])
     );

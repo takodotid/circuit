@@ -8,8 +8,8 @@ type LinkId = "gpon" | "p2p" | "vdsl" | "radio" | "leo" | "geo";
 type Fit = "best" | "works" | "poor" | "none";
 
 const LINKS: { id: LinkId; name: string; delay: [number, number]; delayText: string }[] = [
-    { id: "gpon", name: "Fibre, shared (GPON)", delay: [0, 1], delayText: "well under 1 ms" },
-    { id: "p2p", name: "Fibre, its own", delay: [0, 1], delayText: "well under 1 ms" },
+    { id: "gpon", name: "Fiber, shared (GPON)", delay: [0, 1], delayText: "well under 1 ms" },
+    { id: "p2p", name: "Fiber, its own", delay: [0, 1], delayText: "well under 1 ms" },
     { id: "vdsl", name: "Copper phone line (VDSL2)", delay: [0, 1], delayText: "under 1 ms on the line" },
     { id: "radio", name: "Fixed wireless radio", delay: [0, 1], delayText: "under 1 ms on the link" },
     { id: "leo", name: "Low-orbit satellite", delay: [30, 80], delayText: "about 30 to 80 ms" },
@@ -23,15 +23,15 @@ const SITES: { id: string; name: string; short: string; about: string; fits: Rec
         id: "home",
         name: "A flat in the city",
         short: "Flat",
-        about: "The provider's fibre already runs along the street, and the old phone line is still in the wall.",
+        about: "The provider's fiber already runs along the street, and the old phone line is still in the wall.",
         fits: {
             gpon: [
                 "best",
-                "The street has GPON fibre. The flat shares about 2.5 Gbit/s down with the other homes on its splitter, and the fibre adds well under a millisecond.",
+                "The street has GPON fiber. The flat shares about 2.5 Gbit/s down with the other homes on its splitter, and the fiber adds well under a millisecond.",
             ],
             p2p: [
                 "works",
-                "A fibre of its own works, but it costs the provider a fibre and a port for one customer. It is kept for businesses that pay for a committed rate.",
+                "A fiber of its own works, but it costs the provider a fiber and a port for one customer. It is kept for businesses that pay for a committed rate.",
             ],
             vdsl: [
                 "works",
@@ -39,15 +39,15 @@ const SITES: { id: string; name: string; short: string; about: string; fits: Rec
             ],
             radio: [
                 "works",
-                "It works if the flat has a clear view of the provider's tower, but the fibre in the street is faster and is not weakened by heavy rain.",
+                "It works if the flat has a clear view of the provider's tower, but the fiber in the street is faster and is not weakened by heavy rain.",
             ],
             leo: [
                 "poor",
-                "It works under open sky, with tens of milliseconds of delay and capacity shared with other users. Nobody needs it with fibre in the street.",
+                "It works under open sky, with tens of milliseconds of delay and capacity shared with other users. Nobody needs it with fiber in the street.",
             ],
             geo: [
                 "poor",
-                "Over half a second for every round trip makes calls and games painful. Nobody chooses it with fibre in the street.",
+                "Over half a second for every round trip makes calls and games painful. Nobody chooses it with fiber in the street.",
             ],
         },
     },
@@ -55,18 +55,18 @@ const SITES: { id: string; name: string; short: string; about: string; fits: Rec
         id: "office",
         name: "An office tower",
         short: "Office",
-        about: "An office in the city centre. Its contract must promise a rate and a repair time.",
+        about: "An office in the city center. Its contract must promise a rate and a repair time.",
         fits: {
             p2p: [
                 "best",
-                "A fibre used by this customer alone. Nobody else shares it, so the provider can commit to a rate and promise a repair time.",
+                "A fiber used by this customer alone. Nobody else shares it, so the provider can commit to a rate and promise a repair time.",
             ],
             gpon: [
                 "works",
                 "Fine for a small office on a budget, but the splitter's capacity is shared with everyone on it, so a rate is hard to promise.",
             ],
             vdsl: ["poor", "Only as a cheap spare: it is slow and gets slower with distance."],
-            radio: ["works", "A good second link: it reaches the office by a different path from the fibre, if the roof can see a tower."],
+            radio: ["works", "A good second link: it reaches the office by a different path from the fiber, if the roof can see a tower."],
             leo: ["works", "A spare that shares nothing with the cables in the street, at tens of milliseconds of delay."],
             geo: ["poor", "Only as a last-resort spare: over half a second of delay."],
         },
@@ -75,7 +75,7 @@ const SITES: { id: string; name: string; short: string; about: string; fits: Rec
         id: "factory",
         name: "A factory outside town",
         short: "Factory",
-        about: "8 km from town. No fibre or copper runs along its road, but its roof has a clear view of the provider's tower.",
+        about: "8 km from town. No fiber or copper runs along its road, but its roof has a clear view of the provider's tower.",
         fits: {
             radio: [
                 "best",
@@ -83,10 +83,10 @@ const SITES: { id: string; name: string; short: string; about: string; fits: Rec
             ],
             p2p: [
                 "works",
-                "The best link in the end, but the fibre must first be laid along the road, which takes time and money to build.",
+                "The best link in the end, but the fiber must first be laid along the road, which takes time and money to build.",
             ],
-            gpon: ["none", "No fibre runs along its road, so there is no splitter to join."],
-            vdsl: ["none", "No copper runs there, and VDSL2 would be slow over kilometres of it anyway."],
+            gpon: ["none", "No fiber runs along its road, so there is no splitter to join."],
+            vdsl: ["none", "No copper runs there, and VDSL2 would be slow over kilometers of it anyway."],
             leo: ["works", "It works under open sky with tens of milliseconds of delay, and makes a good spare for the radio link."],
             geo: ["poor", "It works, but over half a second of delay hurts anything the factory runs in real time."],
         },
@@ -226,13 +226,13 @@ function clear() {
         </ol>
 
         <div class="ac-row">
-            <button type="button" class="ac-button small" @click="showBest">Show the best fit for each</button>
+            <button type="button" class="ac-button small" @click="showBest">Show best fits</button>
             <button type="button" class="ac-button small" @click="clear">Start again</button>
         </div>
         <p class="ac-say" aria-live="polite">
             {{
                 best === SITES.length
-                    ? "Every site has its best fit: the cables and the radio add almost nothing, the low-orbit satellite tens of milliseconds. Now give the island the geostationary satellite, and see over half a second."
+                    ? "Every site has its best fit. Now give the island the geostationary satellite."
                     : `Pick a link for each site. ${best} of ${SITES.length} have their best fit so far.`
             }}
         </p>

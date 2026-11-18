@@ -24,7 +24,10 @@ beforeAll(async () => {
     device = { ...aggregationSwitch, connection: { host: "127.0.0.1", port: await fake.listen(), user: "netops" } };
 });
 
-afterAll(() => fake.close());
+afterAll(() => {
+    delete process.env.EXAMPLE_NETOPS_PASSWORD;
+    fake.close();
+});
 
 test("a read over SSH checks the version, drops what the device adds by itself, and plans nothing against the render", async () => {
     const current = await platform.read(device, [device]);

@@ -1,8 +1,7 @@
 // The cabling as LLDP sees it, compared with what `link` says. `diff` and `apply` read a device's LLDP neighbors while they are connected, and warn where they disagree.
 
-import { Catalog } from "../platforms/catalog";
-import type { Device } from "../model";
-import type { Finding } from "../platforms/finding";
+import { Catalog } from "./catalog";
+import type { Device, Finding } from "../model";
 
 /** A device one of our ports sees at the far end of its cable, over LLDP. */
 export type Neighbor = {
