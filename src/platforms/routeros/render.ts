@@ -245,12 +245,12 @@ export class RouterOsRender {
         }
     }
 
-    /** Every port of the model is stated. One the config does not declare is disabled. */
+    /** Every port of the model is stated. One the config does not declare is disabled. A virtual router's adapters are known only to the read, so there the plan disables those the render does not state. */
     private ethernet(): void {
         const { device } = this;
 
-        for (const port of Catalog.ports(device.platform, device.model)) {
-            const selector = `set [ find default-name=${Catalog.spell(device.platform, device.model, port)} ]`;
+        for (const port of Catalog.devicePorts(device)) {
+            const selector = `set ${RouterOsSyntax.port(Catalog.spell(device.platform, device.model, port))}`;
             const settings = this.ports[port];
             if (!settings) {
                 this.add("/interface ethernet", selector, { disabled: "yes" });
@@ -888,8 +888,9 @@ export class RouterOsRender {
         this.logging();
 
         this.add("/system package update", "set", { channel: system.release_channel ?? "stable" });
-        // Bootloader setup only from a deliberate key on the console, so line noise on a serial cable cannot enter it.
-        if (Catalog.serialConsole(this.device.platform, this.device.model))
+        // Bootloader setup only from a deliberate key on the console, so line noise on a serial cable cannot enter it. A CHR has no bootloader of its own (TRAPS.md).
+        const { platform, model } = this.device;
+        if (Catalog.serialConsole(platform, model) && !Catalog.virtual(platform, model))
             this.add("/system routerboard settings", "set", { "enter-setup-on": "delete-key" });
 
         this.flowExport();

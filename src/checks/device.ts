@@ -64,10 +64,8 @@ export class DeviceChecks {
     }
 
     private static check(device: Device, report: Report): void {
-        let ports: string[] = [];
-
         try {
-            ports = Catalog.ports(device.platform, device.model);
+            Catalog.ports(device.platform, device.model);
         } catch (error) {
             report((error as Error).message);
         }
@@ -85,7 +83,7 @@ export class DeviceChecks {
         DeviceChecks.vlans(device, report);
         DeviceChecks.addresses(device, report, cidr, ip);
         DeviceChecks.ports(device, report);
-        DeviceChecks.interfaces(device, ports, report, ip);
+        DeviceChecks.interfaces(device, report, ip);
         DeviceChecks.routing(device, report, cidr, ip);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
@@ -277,12 +275,12 @@ export class DeviceChecks {
         });
     }
 
-    private static interfaces(device: Device, ports: readonly string[], report: Report, ip: Checker): void {
+    private static interfaces(device: Device, report: Report, ip: Checker): void {
         const bridges = Object.entries(device.interfaces?.bridge ?? {});
 
         for (const { name, kind, settings } of Derive.interfaces(device)) {
             const where = `interfaces.${kind}.${name}`;
-            if (ports.includes(name)) report(`${where} has the name of a port`);
+            if (Catalog.isPort(device.platform, device.model, name)) report(`${where} has the name of a port`);
 
             if (kind === "gre" || kind === "vxlan" || kind === "eoip") {
                 const tunnel = settings as Extract<Interface, { remote_address: string }>;

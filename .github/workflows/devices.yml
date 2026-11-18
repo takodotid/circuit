@@ -1,0 +1,89 @@
+name: devices
+
+# Circuit against an emulated device (#178): a RouterOS CHR boots in QEMU, and test/platforms/routeros-chr.test.ts applies to it.
+
+on:
+    pull_request:
+        paths:
+            - src/platforms/routeros/**
+            - src/transport/**
+            - test/platforms/routeros-chr.test.ts
+            - examples/edge-router/**
+            - .github/workflows/devices.yml
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    routeros:
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        env:
+            # RouterOS's long-term release, and the checksum MikroTik publishes beside its CHR image.
+            CHR_VERSION: 7.24.6
+            CHR_SHA256: 692672e6cac9cfaa4f37c6334d07760d49e074b50befc61f0904270553f17126
+            # Where the runner forwards the CHR's SSH and its REST API. The test reads CIRCUIT_TEST_CHR.
+            CIRCUIT_TEST_CHR: 127.0.0.1:2222
+            CHR_REST: 127.0.0.1:8080
+            # The edge router example's user and management address.
+            CHR_USER: operator
+            CHR_ADDRESS: 10.0.0.1/24
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+              with:
+                  bun-version: 1.4.4
+            - run: bun install --frozen-lockfile
+
+            # GitHub's Linux runners have KVM, open to the runner's user through a udev rule.
+            - name: KVM
+              run: |
+                  echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+                  sudo udevadm control --reload-rules
+                  sudo udevadm trigger --name-match=kvm
+            - name: QEMU
+              run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends qemu-system-x86
+
+            - name: the CHR image, checked against MikroTik's checksum
+              working-directory: ${{ runner.temp }}
+              run: |
+                  curl -fsSL --retry 3 -o chr.img.zip "https://download.mikrotik.com/routeros/$CHR_VERSION/chr-$CHR_VERSION.img.zip"
+                  echo "$CHR_SHA256  chr.img.zip" | sha256sum -c -
+                  unzip -q chr.img.zip
+                  mv "chr-$CHR_VERSION.img" chr.img
+
+            # Four adapters: the config names three, so Circuit disables the fourth. QEMU's user network serves ether1 the example's management address by DHCP and connects from 10.0.0.2.
+            - name: boot the CHR
+              working-directory: ${{ runner.temp }}
+              run: |
+                  qemu-system-x86_64 -enable-kvm -m 512 -display none -daemonize -serial file:chr-console.log \
+                      -drive file=chr.img,format=raw \
+                      -netdev "user,id=ether1,net=10.0.0.0/24,host=10.0.0.2,dhcpstart=${CHR_ADDRESS%/*},hostfwd=tcp:$CIRCUIT_TEST_CHR-:22,hostfwd=tcp:$CHR_REST-:80" \
+                      -device virtio-net-pci,netdev=ether1 \
+                      -netdev user,id=ether2,restrict=on -device virtio-net-pci,netdev=ether2 \
+                      -netdev user,id=ether3,restrict=on -device virtio-net-pci,netdev=ether3 \
+                      -netdev user,id=ether4,restrict=on -device virtio-net-pci,netdev=ether4
+                  for _ in $(seq 60); do curl -fsS -m 5 -u admin: "http://$CHR_REST/rest/system/resource" && exit 0; sleep 5; done
+                  exit 1
+
+            # As a person readies a new router: a user for Circuit, and the address the DHCP client holds set by hand, the client going first (TRAPS.md). A fresh CHR's admin has no password. The reply to the move can be lost while the address moves, so the address is checked after.
+            - name: a user and a management address for Circuit
+              run: |
+                  password="$(openssl rand -hex 16)"
+                  echo "::add-mask::$password"
+                  echo "CIRCUIT_TEST_CHR_PASSWORD=$password" >> "$GITHUB_ENV"
+                  curl -fsS -u admin: -X PUT "http://$CHR_REST/rest/user" -H "content-type: application/json" \
+                      -d "{\"name\":\"$CHR_USER\",\"group\":\"full\",\"password\":\"$password\"}"
+                  curl -sS -m 10 -u admin: -X POST "http://$CHR_REST/rest/execute" -H "content-type: application/json" \
+                      -d "{\"script\":\"/ip dhcp-client remove [find]; /ip address add address=$CHR_ADDRESS interface=ether1\"}" || true
+                  for _ in $(seq 12); do curl -fsS -m 5 -u admin: "http://$CHR_REST/rest/ip/address?dynamic=false" | grep -q "$CHR_ADDRESS" && exit 0; sleep 5; done
+                  exit 1
+
+            - run: bun test test/platforms/routeros-chr.test.ts
+
+            - name: the CHR's console
+              if: failure()
+              run: cat "$RUNNER_TEMP/chr-console.log"

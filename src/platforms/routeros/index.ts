@@ -102,6 +102,10 @@ export class RouterOs extends Platform {
         "}",
     ].join(" ");
 
+    /** A virtual router's ports, `# port ether4`: the machine's adapters, which the plan disables when the render does not state them. */
+    private static readonly LIST_PORTS =
+        ':foreach p in=[/interface ethernet find] do={ :put ("# port " . [/interface ethernet get $p default-name]) }';
+
     /** Certificates in the form the render writes them, since an export leaves them out. */
     private static readonly LIST_CERTIFICATES = [
         ":foreach c in=[/certificate find] do={",
@@ -160,7 +164,7 @@ export class RouterOs extends Platform {
     override readonly os: OsSupport = {
         name: "MikroTik RouterOS",
         versions: "7",
-        testedOn: "CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24",
+        testedOn: "CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24; CHR, RouterOS 7.24",
         checked: true,
     };
 
@@ -444,7 +448,8 @@ export class RouterOs extends Platform {
             const certificateMenu = certificates ? `/certificate\n${certificates}` : "";
             const keyLines = keys.split("\n").filter((line) => line.trim().startsWith("add fingerprint="));
             const keyMenu = keyLines.length ? `/user ssh-keys\n${keyLines.join("\n")}` : "";
-            const text = [config.trim(), userMenu, keyMenu, certificateMenu].filter(Boolean).join("\n");
+            const ports = Catalog.virtual(device.platform, device.model) ? await RouterOs.ports(session) : "";
+            const text = [config.trim(), userMenu, keyMenu, certificateMenu, ports].filter(Boolean).join("\n");
             return `${RouterOs.withoutTimestamp(text)}\n`;
         } finally {
             session.end();
@@ -678,9 +683,7 @@ export class RouterOs extends Platform {
         const [interfaces = "", system = "", ...rest] = line.split("|");
         const reported = rest.join("|");
         const own = interfaces.split(";")[0] ?? "";
-        const port = Catalog.ports(device.platform, device.model).find(
-            (name) => Catalog.spell(device.platform, device.model, name) === own
-        );
+        const port = Catalog.devicePorts(device).find((name) => Catalog.spell(device.platform, device.model, name) === own);
 
         return { port: port ?? own, system, remote_port: RouterOs.farPort(network, system, reported) };
     }
@@ -908,6 +911,16 @@ export class RouterOs extends Platform {
 
     private static async open(device: Device, options: ReadOptions = {}): Promise<Session> {
         return options.console ? RouterOs.consoleSession(device) : RouterOs.sshSession(await RouterOs.login(device), device);
+    }
+
+    /** The `# port` lines of `LIST_PORTS`, one for each of the device's ports. */
+    private static async ports(session: Session): Promise<string> {
+        const listed = await session.run(RouterOs.LIST_PORTS, RouterOs.LIST_TIMEOUT_MS);
+        return listed
+            .split("\n")
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith("# port "))
+            .join("\n");
     }
 
     private static async checkVersion(session: Session, device: Device): Promise<void> {
