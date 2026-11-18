@@ -26,7 +26,7 @@ import cytoscape, {
 } from "cytoscape";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { StudioData } from "../../../types";
-import { Export } from "../lib/csv";
+import { Export } from "../lib/export";
 import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
 import { type Tag, GraphLook } from "../lib/graph-look";
 import { GraphSignals } from "../lib/graph-signals";
@@ -864,17 +864,11 @@ watch(
                 </button>
             </nav>
             <div class="actions">
-                <button title="Fit the drawing to the window" @click="fit">Fit</button>
-                <button title="Forget where nodes were moved on this layer, and lay it out again" @click="layOutAgain">
-                    Lay out again
-                </button>
-                <button title="Save this layer as a PNG image" @click="saveImage">Save image</button>
-                <button title="Save this layer as an SVG drawing, sharp at any size" @click="saveSvg">Save SVG</button>
-                <button
-                    :aria-pressed="presenting"
-                    title="Show the network on a big screen, going through every layer (key P)"
-                    @click="togglePresenting"
-                >
+                <button title="Show all of this layer" @click="fit">Fit</button>
+                <button title="Reset this layer's layout" @click="layOutAgain">Lay out again</button>
+                <button title="Save this layer as PNG" @click="saveImage">Save image</button>
+                <button title="Save this layer as SVG" @click="saveSvg">Save SVG</button>
+                <button :aria-pressed="presenting" title="Show it on a big screen, layer by layer (key P)" @click="togglePresenting">
                     Present
                 </button>
             </div>

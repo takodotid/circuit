@@ -9,7 +9,7 @@ import { Saved, api, go, showInGraph, store } from "../lib/store";
 import DataTable, { type Row } from "./DataTable.vue";
 import Faceplate from "./Faceplate.vue";
 import LineDiff from "./LineDiff.vue";
-import Settings from "./Settings.vue";
+import SettingsTable from "./SettingsTable.vue";
 
 const props = defineProps<{ data: StudioData; name: string }>();
 
@@ -169,7 +169,7 @@ watch(
                     </ul>
                 </template>
                 <h3>Device</h3>
-                <Settings
+                <SettingsTable
                     :value="{
                         name: device.name,
                         site: device.site,
@@ -187,27 +187,22 @@ watch(
                 <DataTable :head="portColumns" :rows="ports" :csv="`${device.name}-ports`" />
             </template>
 
-            <Settings v-else-if="section === 'interfaces'" :value="interfaces" path="interfaces" />
-            <Settings v-else-if="section === 'switching'" :value="device.switching" path="switching" />
-            <Settings v-else-if="section === 'routing'" :value="device.routing" path="routing" />
-            <Settings v-else-if="section === 'firewall'" :value="device.firewall" path="firewall" />
-            <Settings v-else-if="section === 'management'" :value="device.management" path="management" />
-            <Settings v-else-if="section === 'system'" :value="device.system" path="system" />
-            <Settings v-else-if="section === 'monitoring'" :value="device.monitoring" path="monitoring" />
-            <Settings v-else-if="section === 'services'" :value="device.services" path="services" />
+            <SettingsTable v-else-if="section === 'interfaces'" :value="interfaces" path="interfaces" />
+            <SettingsTable v-else-if="section === 'switching'" :value="device.switching" path="switching" />
+            <SettingsTable v-else-if="section === 'routing'" :value="device.routing" path="routing" />
+            <SettingsTable v-else-if="section === 'firewall'" :value="device.firewall" path="firewall" />
+            <SettingsTable v-else-if="section === 'management'" :value="device.management" path="management" />
+            <SettingsTable v-else-if="section === 'system'" :value="device.system" path="system" />
+            <SettingsTable v-else-if="section === 'monitoring'" :value="device.monitoring" path="monitoring" />
+            <SettingsTable v-else-if="section === 'services'" :value="device.services" path="services" />
 
             <template v-else-if="section === 'config'">
-                <p class="muted">
-                    What the device should run, as Circuit writes it for {{ device.platform }}. A secret shows as its name, never its value.
-                </p>
+                <p class="muted">The config Circuit writes for {{ device.platform }}. Secrets show by name.</p>
                 <pre class="code">{{ data.rendered[device.name] }}</pre>
             </template>
 
             <template v-else-if="section === 'now'">
-                <p class="muted">
-                    Circuit reads the device now, the same way <code>circuit diff</code> does, and shows what
-                    <code>circuit apply</code> would send. Nothing is kept: read it again to see it again.
-                </p>
+                <p class="muted">Reads the device like <code>circuit diff</code> and shows what <code>circuit apply</code> would send.</p>
                 <p>
                     <button class="primary" :disabled="reading" @click="readNow">
                         {{ reading ? "Reading the device…" : "Read from the device now" }}
@@ -217,9 +212,7 @@ watch(
                 <template v-if="live">
                     <p class="muted">Read at {{ new Date(live.readAt).toLocaleString() }}.</p>
                     <h3>What apply would send</h3>
-                    <p v-if="!commands && !live.problems.length" class="verdict accept">
-                        The device already runs its config. Nothing to change.
-                    </p>
+                    <p v-if="!commands && !live.problems.length" class="verdict accept">Nothing to change.</p>
                     <template v-for="step in live.steps" :key="step.title">
                         <h4>{{ step.title }}</h4>
                         <pre class="code">{{ step.show.join("\n") }}</pre>

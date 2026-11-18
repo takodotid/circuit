@@ -118,11 +118,7 @@ function carried(attributes: Attributes): string[] {
 </script>
 
 <template>
-    <p class="muted">
-        Describe a route, and Studio walks the policy rule by rule, into each policy a rule calls, and shows what matched, what changed and
-        the decision. A route no rule accepts is rejected. A prefix set holds a route whose prefix is one of the set's prefixes, or inside
-        one.
-    </p>
+    <p class="muted">Walks the policy rule by rule, into called policies. A route no rule accepts is rejected.</p>
     <form class="tool-form" @submit.prevent="test">
         <label class="field"
             >Device
@@ -171,7 +167,7 @@ function carried(attributes: Attributes): string[] {
         <p v-if="tested.decision" :class="['verdict', tested.decision]">
             {{ tested.decision === "accept" ? "Accepted" : "Rejected" }}, by {{ tested.by }}.
         </p>
-        <p v-else class="verdict unknown">Stopped at {{ tested.by }}: it needs {{ tested.needs.join(", and ") }}. Fill that in to go on.</p>
+        <p v-else class="verdict unknown">Stopped at {{ tested.by }}: needs {{ tested.needs.join(", ") }}.</p>
         <template v-if="tested.decision === 'accept'">
             <h3>The route as the policy leaves it</h3>
             <ul class="findings">

@@ -1,6 +1,6 @@
 <!-- A table of rows, each cell text, a link, several device links, badges or an action, that can be saved as CSV. -->
 <script setup lang="ts">
-import { Export } from "../lib/csv";
+import { Export } from "../lib/export";
 import { href } from "../lib/store";
 
 export type Badge = { level: "error" | "warning" | "added"; text: string };
