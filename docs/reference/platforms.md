@@ -47,19 +47,20 @@ A note in a cell means "works, with this limit".
 
 ### Interfaces
 
-| Feature                    | RouterOS | VRP  | Raisecom ROS | Junos | FortiOS |
-| -------------------------- | -------- | ---- | ------------ | ----- | ------- |
-| VLAN interface             | ✅       | ✅   | ✅           | ✅    | ✅      |
-| Routed port, loopback      | ✅       | ❌   | ❌           | ✅    | ✅      |
-| GRE                        | ✅       | ❌   | ❌           | ✅    | ✅      |
-| VXLAN                      | ✅       | ❌   | ❌           | ❌    | ✅      |
-| WireGuard                  | ✅       | ❌   | ❌           | ❌    | ❌      |
-| EoIP                       | ✅       | ❌   | ❌           | ❌    | ❌      |
-| Round-robin LAG, ARP check | ✅       | ❌   | ❌           | ❌    | ❌      |
-| Shaping (CAKE)             | ✅       | ❌   | ❌           | ❌    | ❌      |
-| Proxy ARP for an address   | ❌       | ❌   | ❌           | ❌    | ✅      |
-| VRRP                       | ✅       | IPv4 | IPv4         | IPv4  | IPv4    |
-| IPv6 router advertisement  | ✅       | ❌   | ❌           | ✅    | ✅      |
+| Feature                    | RouterOS                                                | VRP            | Raisecom ROS | Junos     | FortiOS                          |
+| -------------------------- | ------------------------------------------------------- | -------------- | ------------ | --------- | -------------------------------- |
+| VLAN interface             | ✅                                                      | ✅             | ✅           | ✅        | ✅                               |
+| Routed port, loopback      | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
+| GRE                        | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
+| VXLAN                      | ✅                                                      | ❌             | ❌           | ❌        | ✅                               |
+| WireGuard                  | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| EoIP                       | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| Round-robin LAG, ARP check | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| Shaping (CAKE)             | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
+| Proxy ARP for an address   | ❌                                                      | ❌             | ❌           | ❌        | ✅                               |
+| VRRP                       | ✅                                                      | IPv4           | IPv4         | IPv4      | IPv4                             |
+| IPv6 router advertisement  | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
+| uRPF (RFC 3704)            | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs | 🧪 loose, IPv4 | ❌           | ✅ strict | 🧪 strict, one mode for the VDOM |
 
 ### Routing
 
@@ -100,15 +101,16 @@ A note in a cell means "works, with this limit".
 
 ### Management and monitoring
 
-| Feature                | RouterOS         | VRP                  | Raisecom ROS      | Junos    | FortiOS          |
-| ---------------------- | ---------------- | -------------------- | ----------------- | -------- | ---------------- |
-| Users                  | ✅               | ✅                   | `admin` role only | ✅       | ✅               |
-| SSH keys               | ✅               | one RSA key per user | ❌                | ✅       | ✅               |
-| SNMP v2c and v3        | ✅ v3 SHA1 only  | ✅                   | ✅ v3 SHA1 only   | ✅       | ✅ v3 SHA1 only  |
-| Syslog                 | ✅               | ✅                   | ✅                | ✅       | ✅ up to 4       |
-| Flow export            | NetFlow 9, IPFIX | sFlow                | ❌                | sFlow    | sFlow, NetFlow 9 |
-| Web, API, certificates | ✅               | ❌                   | ❌                | web, API | ✅               |
-| Management VDOM        | ❌               | ❌                   | ❌                | ❌       | ✅               |
+| Feature                | RouterOS                      | VRP                  | Raisecom ROS      | Junos    | FortiOS                           |
+| ---------------------- | ----------------------------- | -------------------- | ----------------- | -------- | --------------------------------- |
+| Users                  | ✅                            | ✅                   | `admin` role only | ✅       | ✅                                |
+| SSH keys               | ✅                            | one RSA key per user | ❌                | ✅       | ✅                                |
+| Logins through servers | RADIUS, no command accounting | ❌                   | ❌                | ✅       | ✅ up to 3 servers, no accounting |
+| SNMP v2c and v3        | ✅ v3 SHA1 only               | ✅                   | ✅ v3 SHA1 only   | ✅       | ✅ v3 SHA1 only                   |
+| Syslog                 | ✅                            | ✅                   | ✅                | ✅       | ✅ up to 4                        |
+| Flow export            | NetFlow 9, IPFIX              | sFlow                | ❌                | sFlow    | sFlow, NetFlow 9                  |
+| Web, API, certificates | ✅                            | ❌                   | ❌                | web, API | ✅                                |
+| Management VDOM        | ❌                            | ❌                   | ❌                | ❌       | ✅                                |
 
 ### Circuit's own tools
 

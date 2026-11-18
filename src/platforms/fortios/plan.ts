@@ -178,6 +178,7 @@ export class FortiOsPlan {
             fixed: ["type", "interface"],
         },
         "system accprofile": { factory: ["prof_admin"] },
+        "user group": { factory: ["SSO_Guest_Users", "Guest-group"] },
         "vpn certificate local": { factory: FortiOsPlan.FACTORY_CERTIFICATES },
         "system session-helper": { byContent: true },
         "firewall address": { factory: FortiOsPlan.FACTORY_ADDRESSES },

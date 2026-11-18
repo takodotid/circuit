@@ -139,6 +139,7 @@ const STATIC_ROUTE = {
 } as const;
 const ROUTED = {
     addresses: [{ address: 0, peer_address: 0 }],
+    urpf: { ipv4: 0, ipv6: 0 },
     ipv6_ra: 0,
     hardware_offload: 0,
     vrrp: [{ id: 0, address: 0, priority: 0, preempt: 0, interval: 0 }],
@@ -157,6 +158,8 @@ const SWITCHED = {
     bound_to: [{ mac: 0, addresses: 0 }],
 } as const;
 const BASE = { ...ROUTED, description: 0, mtu: 0, shaping: { algorithm: 0, mbps: 0 } } as const;
+// No packet arrives on a loopback, and a bridge doesn't route what crosses it.
+const { urpf: _urpf, ...UNCHECKED } = BASE;
 const NEIGHBOR_SETTINGS = {
     remote_as: 0,
     description: 0,
@@ -205,6 +208,12 @@ export const DEVICE = {
         logging: { local: { level: 0, files: 0, lines_per_file: 0 } },
         hardware_offload: 0,
         users: { "*": { role: 0, password: SECRET, description: 0, ssh_keys: 0 } },
+        aaa: {
+            tacacs: [{ address: 0, secret_key: SECRET, source_address: 0 }],
+            radius: [{ address: 0, secret_key: SECRET, source_address: 0, auth_port: 0, acct_port: 0 }],
+            remote_role: 0,
+            accounting_events: 0,
+        },
         certificates: { "*": { certificate_file: 0, private_key: SECRET } },
         // A VDOM's routes have no VRF.
         vdoms: {
@@ -261,8 +270,8 @@ export const DEVICE = {
         },
         lag: { "*": { ...BASE, ...SWITCHED, mode: 0, id: 0, link_check: { arp_targets: 0, interval_ms: 0 }, mac: 0 } },
         vlan_interface: { "*": { ...BASE, vlan: 0, mac: 0, proxy_arp: 0 } },
-        bridge: { "*": { ...BASE, member_interfaces: 0 } },
-        loopback: { "*": BASE },
+        bridge: { "*": { ...UNCHECKED, member_interfaces: 0 } },
+        loopback: { "*": UNCHECKED },
         gre: { "*": { ...BASE, local_address: 0, remote_address: 0 } },
         vxlan: { "*": { ...BASE, vni: 0, local_address: 0, remote_address: 0, port: 0, mac: 0 } },
         wireguard: {

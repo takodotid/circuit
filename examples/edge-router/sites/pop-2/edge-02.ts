@@ -19,6 +19,15 @@ export default as64500.device({
             root: { role: "admin", password: secret("EDGE_02_ROOT_PASSWORD") },
             netops: { role: "admin", password: secret("EDGE_02_PASSWORD") },
         },
+        // Each engineer logs in with their own name, which the TACACS+ servers check, and the servers keep each command they type. Circuit still logs in as netops, which the router checks itself.
+        aaa: {
+            tacacs: [
+                { address: "10.0.0.21", secret_key: secret("TACACS_KEY"), source_address: "10.0.1.1" },
+                { address: "10.0.0.22", secret_key: secret("TACACS_KEY"), source_address: "10.0.1.1" },
+            ],
+            remote_role: "operator",
+            accounting_events: ["login", "command"],
+        },
     },
     management: { allow: ["10.0.0.0/16"], ssh: {} },
 
@@ -26,8 +35,22 @@ export default as64500.device({
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.1.1/24"] },
             "10g-1": { description: "AMS-IX", addresses: ["203.0.113.130/25", "2001:db8:fffe::130/64"] },
-            "10g-2": { description: "AS64501", addresses: ["198.51.100.129/30"] },
+            // #region urpf
+            // Strict uRPF drops what arrives from an address not routed back through the same interface. So the customer can send only from the block we route to it and from its end of the link, and a server only from its own subnet (BCP 38).
+            "10g-2": {
+                description: "AS64501",
+                addresses: ["198.51.100.129/30", "2001:db8:100:ff::1/64"],
+                urpf: { ipv4: "strict", ipv6: "strict" },
+            },
+            "10g-3": { description: "Servers", access_vlan: "servers" },
         },
+        vlan_interface: {
+            servers: { vlan: "servers", addresses: ["198.51.100.65/27", "2001:db8:100:1::1/64"], urpf: { ipv4: "strict", ipv6: "strict" } },
+            // #endregion urpf
+        },
+    },
+    switching: {
+        vlans: { servers: { id: 100 } },
     },
 
     routing: {

@@ -18,15 +18,16 @@ export default as64500.device({
     },
     management: { allow: ["10.0.0.0/24"], ssh: {} },
 
+    // Loose uRPF drops what arrives from an address no route covers, such as a bogon, or from a prefix routed to a blackhole. RouterOS checks IPv4 only, in one mode for the whole router, so every interface with an IPv4 address says the same.
     interfaces: {
         ethernet: {
-            "1g-1": { description: "Management", addresses: ["10.0.0.1/24"] },
+            "1g-1": { description: "Management", addresses: ["10.0.0.1/24"], urpf: { ipv4: "loose" } },
             "25g-1": { description: "Hurricane Electric", access_vlan: "transit", ingress_acl: "edge" },
             "25g-2": { description: "DE-CIX", access_vlan: "exchange", ingress_acl: "edge" },
         },
         vlan_interface: {
-            transit: { vlan: "transit", addresses: ["203.0.113.2/30"] },
-            exchange: { vlan: "exchange", addresses: ["192.0.2.10/24", "2001:db8:ffff::10/64"] },
+            transit: { vlan: "transit", addresses: ["203.0.113.2/30"], urpf: { ipv4: "loose" } },
+            exchange: { vlan: "exchange", addresses: ["192.0.2.10/24", "2001:db8:ffff::10/64"], urpf: { ipv4: "loose" } },
         },
     },
     switching: {

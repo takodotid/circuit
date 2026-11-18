@@ -40,8 +40,11 @@ function v1Path(old: string): string {
     return start ? PATHS[start] + old.slice(start.length) : old;
 }
 
-/** Fixtures whose render differs from 0.x's only in the order of a section the platform treats as unordered, each with the reason. */
-const REORDERED: Record<string, string> = {};
+/** Fixtures whose render differs from 0.x's only in what a plan does not act on, each with the reason. */
+const ALIKE: Record<string, string> = {
+    "platforms--example-firewall": "the empty sections of logins through servers, which 0.x did not have",
+    "platforms--example-transparent-firewall": "the empty sections of logins through servers, which 0.x did not have",
+};
 
 /** Sections v1 manages and 0.x did not. These fixtures leave them empty, and 0.x did not print them. */
 const SINCE_V1 = ["router aspath-list"];
@@ -62,7 +65,7 @@ describe("0.x's FortiOS devices", () => {
         test(`${name} renders what 0.x rendered`, () => {
             const rendered = as0x(platform.render(Fixtures.device(name)));
 
-            if (!REORDERED[name]) {
+            if (!ALIKE[name]) {
                 expect(rendered).toEqual(Fixtures.render(name));
                 return;
             }

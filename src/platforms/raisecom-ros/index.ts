@@ -292,6 +292,7 @@ export class RaisecomRos extends Platform {
         for (const [name, user] of Object.entries(device.system?.users ?? {})) {
             if (user && user.role !== "admin") found.push(`system.users.${name}.role other than admin`);
         }
+        if (device.system?.aaa) found.push("system.aaa, which only RouterOS, Junos, and FortiOS build for now");
 
         const system = device.system ?? {};
         const services = device.services ?? {};

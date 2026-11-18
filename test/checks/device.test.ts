@@ -245,3 +245,27 @@ test("an AS number is a whole number from 0 to 4294967295, and a range starts be
         ])
     );
 });
+
+test("logins through servers name one kind of server, at least one, each once, sending from an address of its own family", () => {
+    const key = { secret: "AAA_KEY" };
+    const withAaa = (aaa: NonNullable<Device["system"]>["aaa"]): Device => ({ ...router, system: { ...router.system, aaa } });
+    const found = (device: Device) => messages(device).filter((message) => message.startsWith("system.aaa"));
+
+    expect(found(withAaa({ tacacs: [{ address: "192.0.2.10", secret_key: key }], radius: [], remote_role: "admin" }))).toEqual([
+        "system.aaa has both tacacs and radius: write one of them",
+    ]);
+    expect(found(withAaa({ radius: [], remote_role: "admin" }))).toEqual([
+        "system.aaa has no server: write tacacs or radius, with at least one server",
+    ]);
+
+    const radius = [
+        { address: "2001:db8::10", secret_key: key, source_address: "192.0.2.1" },
+        { address: "2001:db8:0::10", secret_key: key },
+        { address: "192.0.2.300", secret_key: key },
+    ] as const;
+    expect(found(withAaa({ radius, remote_role: "read-only" }))).toEqual([
+        "system.aaa.radius[0].source_address 192.0.2.1 and address 2001:db8::10 differ in family",
+        "system.aaa.radius[1]: 2001:db8:0::10 is listed twice",
+        "system.aaa.radius[2].address: '192.0.2.300' is not an address",
+    ]);
+});

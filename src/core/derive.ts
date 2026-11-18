@@ -2,13 +2,38 @@
 
 import { Address } from "./address";
 import { Utils } from "./utils";
-import type { AsNumbers, AsRange, Device, FilterRule, Interface, InterfaceKind, NatRule, NeighborSettings, Port } from "../model";
+import type {
+    AsNumbers,
+    AsRange,
+    Device,
+    Family,
+    FilterRule,
+    Interface,
+    InterfaceKind,
+    NatRule,
+    NeighborSettings,
+    Port,
+    Routed,
+} from "../model";
 
 /** A BGP neighbor's `max_prefixes` in its long form. Without `restart_after` or `warn_only`, the session stays closed. */
 type PrefixLimit = { limit: number; restart_after?: number; warn_only?: boolean };
 
 /** One interface of a device, with the group it is in. */
 export type NamedInterface = { name: string; kind: InterfaceKind; settings: Interface };
+
+/** A port or an interface that can hold an address, with its path, such as `interfaces.ethernet.10g-1`. */
+export type Holder = { where: string; name: string; kind: "ethernet" | InterfaceKind; settings: Routed };
+
+/** The uRPF mode that one setting for many interfaces would hold, as `Derive.sharedUrpf` finds it. */
+export type SharedUrpf = {
+    /** The mode, when every interface with an address of the family has it. */
+    mode?: NonNullable<Routed["urpf"]>[Family];
+    /** Each port and interface that sets a mode for the family. */
+    setting: Holder[];
+    /** The names of those with an address of the family and no mode for it. */
+    missing: string[];
+};
 
 /** A feature a platform renders once tested on one of its devices. */
 export type TestedFeature =
@@ -35,7 +60,8 @@ export type BuiltFeature =
     | "lag-mac"
     | "wireguard-table"
     | "upnp"
-    | "nat-state";
+    | "nat-state"
+    | "urpf";
 
 export class Derive {
     /** The groups of `interfaces` besides `ethernet`, in the order Circuit reads them. */
@@ -57,6 +83,9 @@ export class Derive {
         ["bound_to", "port-binding"],
     ] as const;
 
+    /** The kinds of interface without `urpf`: no packet arrives on a loopback, and a bridge doesn't route. */
+    private static readonly UNCHECKED_KINDS: readonly Holder["kind"][] = ["loopback", "bridge"];
+
     /** Each takes its sources from `management.allow`, on the protocol's own port. */
     private static readonly SWITCH_SERVICES = ["ssh", "telnet", "snmp"] as const;
 
@@ -74,6 +103,42 @@ export class Derive {
         return Object.entries<Port | undefined>(device.interfaces?.ethernet ?? {}).flatMap(([name, port]) =>
             port ? [[name, port] as [string, Port]] : []
         );
+    }
+
+    /** Ports, then interfaces group by group, that can hold an address. */
+    static holders(device: Device): Holder[] {
+        return [
+            ...Derive.ports(device).map(([name, settings]): Holder => ({
+                where: `interfaces.ethernet.${name}`,
+                name,
+                kind: "ethernet",
+                settings,
+            })),
+            ...Derive.interfaces(device).map(({ name, kind, settings }): Holder => ({
+                where: `interfaces.${kind}.${name}`,
+                name,
+                kind,
+                settings,
+            })),
+        ];
+    }
+
+    /** Whether a port or an interface has an address of `family`. A DHCP client gives a port IPv4. */
+    static hasFamily(settings: Routed | Port, family: Family): boolean {
+        const addresses = (settings.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
+        const dhcp = family === "ipv4" && "dhcp_client" in settings && Boolean(settings.dhcp_client);
+        return dhcp || addresses.some((address) => Address.family(address) === family);
+    }
+
+    /** The one uRPF mode of `family` that `holders` share, for a platform that has one setting for all of them. Loopbacks and bridges have no `urpf`, and are left out. */
+    static sharedUrpf(holders: readonly Holder[], family: Family): SharedUrpf {
+        const checked = holders.filter(({ kind }) => !Derive.UNCHECKED_KINDS.includes(kind));
+        const setting = checked.filter(({ settings }) => settings.urpf?.[family]);
+        const routed = checked.filter(({ settings }) => Derive.hasFamily(settings, family));
+        const modes = new Set([...setting, ...routed].map(({ settings }) => settings.urpf?.[family]));
+        const missing = routed.filter(({ settings }) => !settings.urpf?.[family]).map(({ name }) => name);
+
+        return { mode: modes.size === 1 ? [...modes][0] : undefined, setting, missing };
     }
 
     /** A port or an interface by its name, in any group. */
@@ -160,6 +225,9 @@ export class Derive {
         if (!has("proxy-arp"))
             for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {}))
                 if (iface?.proxy_arp) found.push(`interfaces.vlan_interface.${name}.proxy_arp, ${notBuilt}`);
+
+        if (!has("urpf"))
+            for (const { where, settings } of Derive.holders(device)) if (settings.urpf) found.push(`${where}.urpf, ${notBuilt}`);
 
         return found;
     }

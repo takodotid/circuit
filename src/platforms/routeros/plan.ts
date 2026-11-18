@@ -64,6 +64,7 @@ export class RouterOsPlan {
         "/interface ethernet switch",
         "/snmp",
         "/tool",
+        "/radius",
         "/user",
         // A logging rule names its action, so the action exists first.
         "/system logging action",
@@ -137,7 +138,7 @@ export class RouterOsPlan {
 
             let menuPlan: MenuPlan;
             if (menu === "/certificate") menuPlan = RouterOsPlan.certificates(wanted, existing);
-            else if (RouterOsExport.ORDERED.has(menu)) menuPlan = RouterOsPlan.ordered(menu, wanted, existing);
+            else if (RouterOsExport.ORDERED.has(menu)) menuPlan = planner.ordered(menu, wanted, existing);
             else {
                 menuPlan = planner.entries(menu, wanted, existing);
                 const settings = planner.settings(menu, wanted, existing);
@@ -458,14 +459,18 @@ export class RouterOsPlan {
     }
 
     /**
-     * An ordered menu that differs is rewritten whole, in the render's order. The old rules are captured, the new ones added after them, and then the old ones removed, so no chain is ever empty or half new. A chain no longer wanted is removed in the last phase, after what pointed at it has changed.
+     * An ordered menu that differs is rewritten whole, in the render's order. The old rules are captured, the new ones added after them, and then the old ones removed, so no chain is ever empty or half new. A chain no longer wanted is removed in the last phase, after what pointed at it has changed. One that holds a secret is rewritten whenever every secret is sent.
      */
-    private static ordered(menu: string, wanted: Command[], existing: Command[]): MenuPlan {
+    private ordered(menu: string, wanted: Command[], existing: Command[]): MenuPlan {
         const result: MenuPlan = { first: [], last: [] };
+        const secret = (item: Command) =>
+            Object.entries(item.attrs).some(
+                ([property, raw]) => RouterOsExport.SECRET_KEYS.has(property) || RouterOsExport.isSecretMarker(raw)
+            );
         const same =
             wanted.map((item) => RouterOsExport.canonical(item)).join("\n") ===
             existing.map((item) => RouterOsExport.canonical(item)).join("\n");
-        if (same) return result;
+        if (same && !(this.sendSecrets && wanted.some(secret))) return result;
 
         const oldRules = RouterOsPlan.OLD_RULES;
         const where = RouterOsPlan.DYNAMIC.has(menu) ? " where !dynamic" : "";

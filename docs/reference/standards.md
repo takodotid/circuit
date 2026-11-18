@@ -84,13 +84,15 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 
 ## Firewall
 
-| Feature                   | Standard                                                                                                                             | In model                                   |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| Bad TCP flag combinations | STD 7 (RFC 9293) defines the flags. Which ones to drop is practice.                                                                  | `tcp_flags` match, `presets.bad_tcp_flags` |
-| Service ports             | IANA port registry, BCP 165 (RFC 6335)                                                                                               | `presets.ports`                            |
-| Amplification ports       | Practice: CISA alert TA14-017A (archived, last revised 2019). Six preset ports are not in it: SLP, MS-SQL, ARD, CoAP, Ubiquiti, DVR. | `presets.udp_amplifiers`                   |
-| SYN cookies               | Practice: RFC 4987 (Informational)                                                                                                   | `system.ip_stack.syn_cookies`              |
-| ICMP redirects on or off  | STD 5 (RFC 792); RFC 4861 for IPv6                                                                                                   | `system.ip_stack.icmp_redirects`           |
+| Feature                     | Standard                                                                                                                             | In model                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Bad TCP flag combinations   | STD 7 (RFC 9293) defines the flags. Which ones to drop is practice.                                                                  | `tcp_flags` match, `presets.bad_tcp_flags` |
+| Service ports               | IANA port registry, BCP 165 (RFC 6335)                                                                                               | `presets.ports`                            |
+| Amplification ports         | Practice: CISA alert TA14-017A (archived, last revised 2019). Six preset ports are not in it: SLP, MS-SQL, ARD, CoAP, Ubiquiti, DVR. | `presets.udp_amplifiers`                   |
+| SYN cookies                 | Practice: RFC 4987 (Informational)                                                                                                   | `system.ip_stack.syn_cookies`              |
+| ICMP redirects on or off    | STD 5 (RFC 792); RFC 4861 for IPv6                                                                                                   | `system.ip_stack.icmp_redirects`           |
+| Source address check (uRPF) | BCP 84 (RFC 3704, updated by RFC 8704)                                                                                               | interface `urpf`                           |
+| Source-based blackholing    | Practice: RFC 5635 (Informational)                                                                                                   | a blackhole route, with `urpf`             |
 
 ## Monitoring and management
 
@@ -105,6 +107,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | NetFlow v9                         | Practice: RFC 3954 (Informational)                                                          | `flow_export` `netflow-v9`                     |
 | IPFIX                              | STD 77 (RFC 7011)                                                                           | `flow_export` `ipfix`                          |
 | SSH, user keys                     | RFC 4251 to RFC 4254 (keys: RFC 4252)                                                       | `management.ssh`, user `ssh_keys`              |
+| Logins through servers, accounting | TACACS+: RFC 8907 (Informational). RADIUS: RFC 2865, RFC 2866 (Informational)               | `system.aaa`                                   |
 | Certificates in PEM                | RFC 5280 (X.509), RFC 7468 (PEM)                                                            | `system.certificates`                          |
 | Alarm severities                   | ITU-T X.733                                                                                 | `system.alarms`                                |
 | Time zones                         | IANA Time Zone Database (BCP 175, RFC 6557)                                                 | `system.timezone`                              |

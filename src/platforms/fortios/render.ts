@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Gre, Helper, Severity, StaticRoute, Vxlan } from "../../model";
+import type { Device, Family, Gre, Helper, RadiusServer, Severity, StaticRoute, Vxlan } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { FortiOsFirewall } from "./firewall";
@@ -21,6 +21,11 @@ type RoutedSettings = {
 };
 
 export class FortiOsRender {
+    private static readonly FAMILIES: readonly [Family, string][] = [
+        ["ipv4", "IPv4"],
+        ["ipv6", "IPv6"],
+    ];
+
     /** Where the pre-login banner's text is kept. */
     static readonly BANNER = 'system replacemsg admin "pre_admin-disclaimer-text"';
 
@@ -31,6 +36,9 @@ export class FortiOsRender {
         "system global",
         FortiOsRender.BANNER,
         "system settings",
+        "user radius",
+        "user tacacs+",
+        "user group",
         "system accprofile",
         "system admin",
         "system interface",
@@ -174,6 +182,14 @@ export class FortiOsRender {
         "87": ["America/Asuncion"],
     };
 
+    /** The names of what logs users in through servers: the servers, the group that holds them, and the administrator every user a server accepts logs in as. */
+    static readonly AAA = { radius: "circuit-radius", tacacs: "circuit-tacacs", remote: "circuit-remote" } as const;
+
+    /** How the settings of each server in an entry start, in the order the device asks them. */
+    private static readonly AAA_ORDER = ["", "secondary-", "tertiary-"];
+
+    static readonly AAA_SERVERS = FortiOsRender.AAA_ORDER.length;
+
     /** What each role may do: the factory profile for an admin, and a profile Circuit adds for the others. */
     static readonly PROFILE = { admin: "super_admin", operator: "circuit-operator", "read-only": "circuit-read-only" } as const;
 
@@ -280,7 +296,9 @@ export class FortiOsRender {
         // SIP is otherwise rewritten by its proxy whatever the helpers say; this way only the `sip` helper does.
         section("system settings").set("default-voip-alg-mode", "kernel-helper-based");
         FortiOsRender.bfd(section("system settings"), device);
+        if (FortiOsRender.sourceCheck(device).strict) section("system settings").set("strict-src-check", "enable");
         FortiOsRender.users(section("system accprofile"), section("system admin"), device);
+        FortiOsRender.aaa(root, device);
         FortiOsRender.interfaces(root, device);
         FortiOsRender.dns(section("system dns"), section("system dns-server"), device);
         FortiOsRender.ntp(section("system ntp"), device);
@@ -357,6 +375,7 @@ export class FortiOsRender {
     private static users(profiles: FortiOsNode, admins: FortiOsNode, device: Device): void {
         const users = Object.entries(device.system?.users ?? {}).flatMap(([name, user]) => (user ? [[name, user] as const] : []));
         const roles = new Set(users.map(([, user]) => user.role));
+        if (device.system?.aaa) roles.add(device.system.aaa.remote_role);
 
         // An operator changes everything but the system's own settings, which hold the users; read-only changes nothing.
         for (const role of ["operator", "read-only"] as const) {
@@ -376,6 +395,41 @@ export class FortiOsRender {
             (user.ssh_keys ?? []).forEach((key, index) => admin.set(`ssh-public-key${index + 1}`, FortiOsTree.quote(key)));
             admin.set("password", FortiOsTree.quote(Secrets.marker(user.password)));
         }
+    }
+
+    /** The servers as one entry, asked in order, in a group a wildcard administrator logs in through. A name in `system.users` matches its own administrator first. */
+    private static aaa(root: FortiOsNode, device: Device): void {
+        const aaa = device.system?.aaa;
+        const servers: readonly RadiusServer[] | undefined = aaa?.tacacs ?? aaa?.radius;
+        if (!aaa || !servers) return;
+
+        const kind = aaa.tacacs ? "tacacs" : "radius";
+        const names = FortiOsRender.AAA;
+        const entry = root.block(kind === "tacacs" ? "user tacacs+" : "user radius").entry(names[kind]);
+        const secretKey = kind === "tacacs" ? "key" : "secret";
+
+        FortiOsRender.AAA_ORDER.forEach((prefix, index) => {
+            const server = servers[index];
+            if (!server) return;
+
+            entry.set(`${prefix}server`, FortiOsTree.quote(server.address));
+            entry.set(`${prefix}${secretKey}`, FortiOsTree.quote(Secrets.marker(server.secret_key)));
+        });
+
+        // The entry holds one of each for every server. The others are refused when they differ.
+        const [first] = servers;
+        if (first?.auth_port !== undefined) entry.set("radius-port", first.auth_port);
+        if (first?.source_address) entry.set("source-ip", FortiOsTree.quote(first.source_address));
+
+        root.block("user group").entry(names.remote).set("member", FortiOsTree.quote(names[kind]));
+
+        root.block("system admin")
+            .entry(names.remote)
+            .set("remote-auth", "enable")
+            .set("accprofile", FortiOsTree.quote(FortiOsRender.PROFILE[aaa.remote_role]))
+            .set("vdom", FortiOsTree.quote(FortiOsVdoms.ROOT))
+            .set("wildcard", "enable")
+            .set("remote-group", FortiOsTree.quote(names.remote));
     }
 
     private static interfaces(root: FortiOsNode, device: Device): void {
@@ -784,6 +838,38 @@ export class FortiOsRender {
             if (route.blackhole) entry.set("blackhole", "enable");
             if (route.bfd) entry.set("bfd", "enable");
         }
+    }
+
+    /** Strict source checks, `strict-src-check`, cover every interface of a VDOM and both families (TRAPS.md). So they are set only when every interface of the root VDOM with an address checks strict in each family it has. `gaps` says why not. */
+    static sourceCheck(device: Device): { strict: boolean; setting: string[]; gaps: string[] } {
+        const inRoot = (name: string) => FortiOsVdoms.of(device, name) === FortiOsVdoms.ROOT;
+        const holders = Derive.holders(device).filter(({ kind }) => kind !== "bridge" && kind !== "loopback");
+        const setting = holders.filter(({ settings }) => settings.urpf);
+        const root = setting.filter(({ name }) => inRoot(name));
+        const gaps = setting
+            .filter(({ name }) => !inRoot(name))
+            .map(({ where }) => `${where}.urpf in the management VDOM, whose settings Circuit leaves as they are`);
+
+        const loose = root.flatMap(({ where, settings }) =>
+            FortiOsRender.FAMILIES.filter(([family]) => settings.urpf?.[family] === "loose").map(
+                ([family]) => `${where}.urpf.${family} loose, FortiOS has no loose mode: it checks feasible paths unless strict`
+            )
+        );
+        const missing = FortiOsRender.FAMILIES.flatMap(([family, label]) => {
+            const names = holders
+                .filter(({ name, settings }) => inRoot(name) && Derive.hasFamily(settings, family) && settings.urpf?.[family] !== "strict")
+                .map(({ name }) => name);
+            return names.length ? [`${label} on ${names.join(", ")}`] : [];
+        });
+
+        gaps.push(...loose);
+        if (!loose.length && missing.length)
+            for (const { where } of root)
+                gaps.push(
+                    `${where}.urpf, FortiOS checks strict for the whole VDOM and both families: write strict for each family on every interface in it with an address of that family (missing: ${missing.join("; ")})`
+                );
+
+        return { strict: root.length > 0 && !gaps.length, setting: root.map(({ where }) => `${where}.urpf`), gaps };
     }
 
     /** BFD runs once a route or a session uses it, or the config sets its timers, which the device shows only while it runs. */

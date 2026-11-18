@@ -4,18 +4,7 @@ import { X509Certificate } from "node:crypto";
 import { utils } from "ssh2";
 import { Address } from "../core/address";
 import { Utils } from "../core/utils";
-import type {
-    Device,
-    Finding,
-    Interface,
-    InterfaceKind,
-    NeighborSettings,
-    Routed,
-    RouteMatch,
-    RouteRule,
-    StaticRoute,
-    Switched,
-} from "../model";
+import type { Device, Finding, Interface, NeighborSettings, Routed, RouteMatch, RouteRule, StaticRoute, Switched } from "../model";
 import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
@@ -23,9 +12,6 @@ import { Platforms } from "../platforms";
 type Report = (message: string) => void;
 
 type Checker = (where: string, value: string) => void;
-
-/** A port or an interface that can hold an address, with its path, such as `interfaces.ethernet.10g-1`. */
-export type Holder = { where: string; name: string; kind: "ethernet" | InterfaceKind; settings: Routed };
 
 export class DeviceChecks {
     /** IEEE 802.1Q reserves 0 and 4095. */
@@ -43,6 +29,10 @@ export class DeviceChecks {
     private static readonly MAX_ASN = 4294967295;
     /** The route match fields that hold AS numbers. */
     private static readonly AS_FIELDS = ["as_path_contains", "first_as", "origin_as"] as const;
+    private static readonly FAMILY_NAMES = [
+        ["ipv4", "IPv4"],
+        ["ipv6", "IPv6"],
+    ] as const;
 
     /** Every rule on one device, and what its model's hardware holds. */
     static run(device: Device): Finding[] {
@@ -53,24 +43,6 @@ export class DeviceChecks {
         findings.push(...DeviceChecks.limits(device));
 
         return findings;
-    }
-
-    /** Ports, then interfaces group by group, that can hold an address. */
-    static holders(device: Device): Holder[] {
-        return [
-            ...Derive.ports(device).map(([name, settings]): Holder => ({
-                where: `interfaces.ethernet.${name}`,
-                name,
-                kind: "ethernet",
-                settings,
-            })),
-            ...Derive.interfaces(device).map(({ name, kind, settings }): Holder => ({
-                where: `interfaces.${kind}.${name}`,
-                name,
-                kind,
-                settings,
-            })),
-        ];
     }
 
     /** An address entry's own address: the string, or `address` of `{ address, peer_address }`. */
@@ -106,6 +78,34 @@ export class DeviceChecks {
         DeviceChecks.certificates(device, report);
         DeviceChecks.vdoms(device, report, cidr, ip);
         DeviceChecks.users(device, report);
+        DeviceChecks.aaa(device, report, ip);
+    }
+
+    /** One kind of server, at least one, each listed once, and each sending from an address of its own family. */
+    private static aaa(device: Device, report: Report, ip: Checker): void {
+        const aaa = device.system?.aaa;
+        if (!aaa) return;
+
+        if (aaa.tacacs && aaa.radius) report("system.aaa has both tacacs and radius: write one of them");
+        const kind = aaa.tacacs ? "tacacs" : "radius";
+        const servers = aaa.tacacs ?? aaa.radius ?? [];
+        if (!servers.length) report("system.aaa has no server: write tacacs or radius, with at least one server");
+
+        const seen = new Set<string>();
+        servers.forEach((server, index) => {
+            const where = `system.aaa.${kind}[${index}]`;
+            ip(`${where}.address`, server.address);
+            if (server.source_address !== undefined) ip(`${where}.source_address`, server.source_address);
+            if (!Address.isValid(server.address)) return;
+
+            const address = Address.canonical(server.address);
+            if (seen.has(address)) report(`${where}: ${server.address} is listed twice`);
+            seen.add(address);
+
+            const source = server.source_address;
+            if (source && Address.isValid(source) && Address.family(source) !== Address.family(server.address))
+                report(`${where}.source_address ${source} and address ${server.address} differ in family`);
+        });
     }
 
     /** Each SSH key is one public key line whose key reads back, never a private key. */
@@ -204,7 +204,12 @@ export class DeviceChecks {
     private static addresses(device: Device, report: Report, cidr: Checker, ip: Checker): void {
         const holderOf = new Map<string, string>();
 
-        for (const { where, settings } of DeviceChecks.holders(device)) {
+        for (const { where, settings } of Derive.holders(device)) {
+            for (const [family, name] of DeviceChecks.FAMILY_NAMES) {
+                if (settings.urpf?.[family] && !Derive.hasFamily(settings, family))
+                    report(`${where} has urpf.${family} but no ${name} address: write it on the interface that holds the address`);
+            }
+
             for (const entry of settings.addresses ?? []) {
                 const address = DeviceChecks.addressOf(entry);
                 cidr(where, address);
