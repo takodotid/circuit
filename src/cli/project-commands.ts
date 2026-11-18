@@ -104,7 +104,9 @@ export class ProjectCommands {
             ...(flags.console ? { console: true } : {}),
         };
 
-        return new ProjectCommands(root, project, options, flags.experimental ?? false);
+        const commands = new ProjectCommands(root, project, options, flags.experimental ?? false);
+        Secrets.watch(commands.references());
+        return commands;
     }
 
     /** Without a name, a person picks the device from a list. A script must name it. */
@@ -374,7 +376,7 @@ export class ProjectCommands {
                 const took = Date.now() - started;
                 const stoppedAtLimit = !failed && took >= timeout ? `\n(stopped at the ${timeoutSeconds} second limit)` : "";
                 const block = `${Ui.bold(`>>> ${command}`)}  ${Ui.dim(`(${(took / ProjectCommands.SECOND_MS).toFixed(1)}s)`)}\n${output.replace(/\r/g, "").trimEnd()}${stoppedAtLimit}\n\n`;
-                process.stdout.write(Secrets.scrub(block, { network: this.devices }));
+                process.stdout.write(Secrets.scrub(block));
 
                 // A shell or a console still runs a command that did not finish, so nothing more can be sent.
                 if (failed) break;
@@ -509,7 +511,8 @@ export class ProjectCommands {
             ProjectCommands.printBgp(sessions);
             if (BgpWait.upCount(sessions) < want) process.exitCode = 1;
 
-            if (flags.log) await this.printBgpLog(adapter, session, flags.log === true ? ProjectCommands.BGP_LOG_MINUTES : flags.log);
+            if (flags.log)
+                await ProjectCommands.printBgpLog(adapter, session, flags.log === true ? ProjectCommands.BGP_LOG_MINUTES : flags.log);
         } finally {
             session.close();
         }
@@ -593,13 +596,13 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
     }
 
     /** A message repeated is folded into one line, and secrets are hidden. */
-    private async printBgpLog(adapter: Platform, session: ReadSession, minutes: number): Promise<void> {
+    private static async printBgpLog(adapter: Platform, session: ReadSession, minutes: number): Promise<void> {
         const lines = ProjectCommands.foldLog(
             await Ui.step(`Reading the BGP log of the last ${minutes} min`, () => adapter.bgpLog!(session, minutes))
         );
         const text = `\n--- BGP log, last ${minutes} min\n${lines.join("\n") || "(nothing)"}\n`;
 
-        process.stdout.write(Secrets.scrub(text, { network: this.devices }));
+        process.stdout.write(Secrets.scrub(text));
     }
 
     /** A message repeated, such as one every 10 seconds, becomes one line with when it came first, when last, and how many times. */
@@ -679,9 +682,7 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
         }
 
         if (lines.length) {
-            await ConsoleScript.run(opened.channel, lines, (answer) =>
-                process.stdout.write(Secrets.scrub(answer, { network: this.devices }))
-            );
+            await ConsoleScript.run(opened.channel, lines, (answer) => process.stdout.write(Secrets.scrub(answer)));
             await leave(0);
             return;
         }

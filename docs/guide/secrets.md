@@ -19,7 +19,7 @@ The value goes in `.circuit/secrets`, encrypted:
 circuit secrets set EDGE_01_PASSWORD
 ```
 
-Circuit asks for the value without showing it. In all output, a secret shows as `<redacted>`.
+Circuit asks for the value without showing it. In all output, a secret of 6 characters or more shows as `<redacted>`.
 
 ## How it works
 
