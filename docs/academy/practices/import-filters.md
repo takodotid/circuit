@@ -27,7 +27,7 @@ The last rule decides for every route that is left. An import that ends in a `se
 - A prefix set of your own space rejects it on the way in.
 - `imports_end_in_accept_or_reject: true` in `circuit.ts` stops an import that doesn't end in an accept or a reject with no `if`.
 
-Here is the transit import of the [edge router example](/guide/examples#an-edge-router), with two rules added for the special-purpose blocks:
+Here is the transit import of the [edge router example](/guide/examples#an-edge-router):
 
 ```ts
 prefix_sets: {
@@ -37,6 +37,7 @@ prefix_sets: {
 },
 policies: {
     sanity: presets.bgp_sanity,
+    // A route from the exchange beats the same route from the transit: the higher local preference wins.
     "transit-import": [
         { call: "sanity" },
         { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },
