@@ -7,12 +7,12 @@ type Item = { id: string; text: string };
 
 /** The steps in the right order. */
 const steps: Item[] = [
-    { id: "settings", text: "The laptop already has an address, a gateway and a DNS resolver." },
+    { id: "settings", text: "The laptop already has an address, a gateway, and a DNS resolver." },
     { id: "ask", text: "The laptop asks the resolver for the address of circuit.tako.id." },
     { id: "answer", text: "The answer comes back: 203.0.113.80." },
     { id: "gateway", text: "The laptop sees 203.0.113.80 is not on its network, and sends to the gateway." },
     { id: "handshake", text: "Three messages open a TCP conversation with port 443." },
-    { id: "lock", text: "Laptop and server agree on a secret key, and the server proves its name." },
+    { id: "lock", text: "The laptop and the server agree on a secret key, and the server proves its name." },
     { id: "request", text: "The browser asks for the page." },
     { id: "packets", text: "The page arrives in packets, and TCP puts them in order." },
     { id: "draw", text: "The browser draws the page." },
@@ -108,9 +108,7 @@ function restart() {
             <button v-if="solved" type="button" class="ac-button" @click="restart">Start over</button>
         </div>
 
-        <p v-if="solved" class="ac-say good" data-word="Right" aria-live="polite">
-            Every step is in its place. That is the whole journey, from a name to a page, and you have met every part of it in this level.
-        </p>
+        <p v-if="solved" class="ac-say good" data-word="Right" aria-live="polite">Every step is in its place.</p>
         <p v-else-if="checked" class="ac-say warn" data-word="Not yet" aria-live="polite">
             {{ rightCount }} of {{ steps.length }} are in the right place. Ask yourself what each step needs first: you cannot send to an
             address you do not know yet.
