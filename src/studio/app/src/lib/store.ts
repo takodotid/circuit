@@ -1,7 +1,7 @@
 // What the page knows: what the server gathered last, where the reader is, and whether the server is still there. The server tells the page when the project changed, and the page reads it again.
 
 import { reactive } from "vue";
-import type { Comparison } from "./graph-layer";
+import { type Comparison, GraphLayer } from "./graph-layer";
 import type { StudioData } from "../../../types";
 
 export type Route = { view: string; parts: string[] };
@@ -20,6 +20,9 @@ export type GraphFocus = {
 
 function parseRoute(): Route {
     const parts = location.hash.slice(1).split("/").map(decodeURIComponent).filter(Boolean);
+
+    // An address from before the views, such as `#bgp`, still opens that layer of the graph.
+    if (GraphLayer.isLayer(parts[0])) return { view: "graph", parts };
     return { view: parts[0] ?? "graph", parts: parts.slice(1) };
 }
 

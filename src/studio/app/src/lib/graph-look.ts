@@ -190,6 +190,8 @@ export class GraphLook {
                     "text-background-color": colors.bg,
                     "text-background-opacity": 1,
                     "text-background-padding": "2px",
+                    // Zoomed far out, a line's label is too small to read, and is left out.
+                    "min-zoomed-font-size": 6,
                     "transition-property": "opacity, line-color, width",
                     ...gently,
                 },

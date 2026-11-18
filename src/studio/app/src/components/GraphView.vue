@@ -38,7 +38,12 @@ const props = defineProps<{ data: StudioData }>();
 
 const LAYERS = GraphLayer.LAYERS.map((id) => ({ id, label: GraphLayer.NAMES[id], legend: GraphLayer.HELP[id] }));
 
-const layer = computed<Layer>(() => (GraphLayer.isLayer(store.route.parts[0]) ? store.route.parts[0] : "l1"));
+// The layer the address names, or the one shown last.
+const layer = computed<Layer>(() => {
+    const asked = store.route.parts[0];
+    const last = Saved.get<string>("layer");
+    return GraphLayer.isLayer(asked) ? asked : GraphLayer.isLayer(last) ? last : "l1";
+});
 const counts = computed(() =>
     Object.fromEntries(LAYERS.map((item) => [item.id, props.data.graph.edges.filter((edge) => edge.layer === item.id).length]))
 );
@@ -672,11 +677,40 @@ function togglePresenting(): void {
     showPresenting();
 }
 
+/** P presents or stops, Esc stops presenting or clears the selection, and the keys 1 to 6 pick a layer. */
 function onKey(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null;
     if (target?.closest("input, select, textarea") || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === "p" || (event.key === "Escape" && presenting.value)) togglePresenting();
+
+    if (event.key === "p" || (event.key === "Escape" && presenting.value)) return togglePresenting();
+    if (event.key === "Escape") return select(undefined);
+
+    const chosen = GraphLayer.LAYERS[Number(event.key) - 1];
+    if (chosen) go(`graph/${chosen}`);
 }
+
+/** The page's colours changed, with the system's light or dark, or the reader asked for less motion: draw it all again in them. */
+function restyle(): void {
+    if (!graph) return;
+    colors = GraphLook.colors();
+    tags.clear();
+    graph.style(GraphLook.style(colors, still.matches));
+    draw();
+    signals?.recolor(signalColors());
+    moveSignals();
+}
+
+const scheme = matchMedia("(prefers-color-scheme: dark)");
+
+/** Select a device from the list the keyboard reaches, and bring it to the middle of the view. */
+function pick(id: string): void {
+    store.graphFocus.device = id.replace(/^device:/, "");
+}
+
+/** The devices on the layer, by name, for the keyboard: a drawing on a canvas has no element to reach. */
+const deviceList = computed(() =>
+    shown.value.nodes.filter((node) => node.kind === "device").sort((a, b) => a.label.localeCompare(b.label))
+);
 
 onMounted(() => {
     graph = cytoscape({
@@ -724,7 +758,8 @@ onMounted(() => {
     // Dots travel the lines that work, unless the reader asks for less motion.
     if (signalsCanvas.value) signals = new GraphSignals(graph, signalsCanvas.value, signalColors());
     moveSignals();
-    still.addEventListener("change", moveSignals);
+    still.addEventListener("change", restyle);
+    scheme.addEventListener("change", restyle);
 
     // A press or a scroll stops a glide: the nodes are at their places at once, and the view stays where it is.
     graph.on("tapstart", () => {
@@ -772,7 +807,8 @@ onBeforeUnmount(() => {
     clearTimeout(leaving);
     resizing?.disconnect();
     removeEventListener("keydown", onKey);
-    still.removeEventListener("change", moveSignals);
+    still.removeEventListener("change", restyle);
+    scheme.removeEventListener("change", restyle);
     signals?.stop();
     document.body.classList.remove("presenting");
     graph?.destroy();
@@ -817,7 +853,13 @@ watch(
     <section class="view">
         <div class="toolbar">
             <nav aria-label="Layers">
-                <button v-for="item in LAYERS" :key="item.id" :aria-pressed="layer === item.id" @click="go(`graph/${item.id}`)">
+                <button
+                    v-for="(item, index) in LAYERS"
+                    :key="item.id"
+                    :aria-pressed="layer === item.id"
+                    :title="`${item.legend} Key ${index + 1}.`"
+                    @click="go(`graph/${item.id}`)"
+                >
                     {{ item.label }} <small>{{ counts[item.id] }}</small>
                 </button>
             </nav>
@@ -839,8 +881,20 @@ watch(
         </div>
         <div class="stage">
             <div class="board">
-                <div ref="container" class="canvas" role="img" aria-label="The network"></div>
+                <div ref="container" class="canvas" role="img" :aria-label="`The network, ${GraphLayer.NAMES[layer]} layer`"></div>
                 <canvas ref="signalsCanvas" class="signals" aria-hidden="true"></canvas>
+                <nav class="device-list" aria-label="Devices on this layer">
+                    <p>Devices</p>
+                    <button
+                        v-for="node in deviceList"
+                        :key="node.id"
+                        type="button"
+                        :aria-pressed="selected.node?.id === node.id"
+                        @click="pick(node.id)"
+                    >
+                        {{ node.label }}
+                    </button>
+                </nav>
             </div>
             <p v-if="presenting && caption" class="present-caption">
                 <strong>{{ caption.title }}</strong
@@ -871,6 +925,43 @@ watch(
 
 .signals {
     pointer-events: none;
+}
+
+/* The devices as buttons, for the keyboard: out of sight until one has the focus, then a list at the drawing's top left. */
+.device-list {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: grid;
+    gap: 4px;
+    max-height: calc(100% - 24px);
+    overflow: auto;
+    padding: 10px;
+    border: 2px solid var(--text);
+    border-radius: 2px;
+    background: var(--surface);
+    clip-path: inset(50%);
+    opacity: 0;
+}
+
+.device-list:focus-within {
+    clip-path: none;
+    opacity: 1;
+}
+
+.device-list p {
+    margin: 0 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    font-stretch: 115%;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.device-list button {
+    min-height: 30px;
+    justify-content: flex-start;
+    text-align: left;
 }
 
 @media (max-width: 760px) {
