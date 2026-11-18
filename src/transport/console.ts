@@ -1,15 +1,57 @@
-// Serial consoles, on a jump host or on this computer. A small relay joins the serial port to a stream: started over SSH on the jump host, or here as a child process. The device's CLI then streams through it as through an SSH shell.
+// A serial console on a jump host or on this computer. A small relay joins the port to a stream, started over SSH on the jump host or here as a child process. The device's CLI then streams through it as through an SSH shell.
 
 import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { Duplex } from "node:stream";
-import { Client, type ClientChannel } from "ssh2";
+import { Client } from "ssh2";
+import type { ClientChannel } from "ssh2";
 import { Secrets } from "../core/secrets";
 import type { Console, Device, Jump } from "../model";
 import { Ssh } from "./ssh";
 
-/** The relay, in Python's standard library only: the serial port in raw mode, locked against a second session, joined to standard input and output. */
-const RELAY = `import fcntl, os, select, sys, termios
+/** An open console. `close` waits for the console to go quiet, then lets the port go. */
+export type ConsoleSession = { channel: ClientChannel; close: () => Promise<void> };
+
+/** How a platform's console asks for a login and shows its prompt, and what moves it on from anywhere else. */
+export type ConsoleDialect = {
+    login: RegExp;
+    password: RegExp;
+    /** The CLI's prompt once logged in. */
+    prompt: RegExp;
+    logout: string;
+    /** Other places a console can be left, each with what moves it toward a login prompt: a pager, a config level, a question. Checked before the prompt. */
+    others?: readonly (readonly [RegExp, string])[];
+    /** The name typed at the login prompt, when the platform adds to it. */
+    user?: (user: string) => string;
+    /** What the console prints when it refuses a password, for a console that then shows no login prompt. */
+    refused?: RegExp;
+};
+
+/** The channel a console speaks on: an SSH stream from the relay, or anything shaped like one. */
+type Channel = Pick<ClientChannel, "write"> & {
+    on(event: "data", listener: (chunk: Buffer) => void): unknown;
+    removeListener(event: "data", listener: (chunk: Buffer) => void): unknown;
+};
+
+export class SerialConsole {
+    private static readonly RELAY_PATH = "/tmp/circuit-console.py";
+
+    /** How long the relay may take to be written and to start. */
+    private static readonly RELAY_TIMEOUT_MS = 30_000;
+    private static readonly BUSY_RETRY_MS = 5000;
+    private static readonly KILL_AFTER_MS = 2000;
+
+    private static readonly SILENCE_MS = 1000;
+    private static readonly LOGIN_SILENCE_MS = 800;
+    private static readonly SILENCE_LIMIT_MS = 5000;
+
+    private static readonly PASSWORD_TIMEOUT_MS = 60_000;
+    private static readonly LOGIN_STEPS = 10;
+    private static readonly LOGIN_QUESTIONS = 5;
+    private static readonly ERROR_TAIL_CHARS = 200;
+
+    /** The relay, in Python's standard library only: the serial port in raw mode, locked against a second session, joined to standard input and output. */
+    private static readonly RELAY = `import fcntl, os, select, sys, termios
 
 port, baud = sys.argv[1], int(sys.argv[2])
 fd = os.open(port, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
@@ -52,8 +94,8 @@ while True:
             os.write(1, data)
 `;
 
-/** The relay for a console on this computer under Windows, in PowerShell, which has no termios but has .NET's serial port. */
-const WINDOWS_RELAY = `
+    /** The relay for a console on this computer under Windows, in PowerShell, which has no termios but has .NET's serial port. */
+    private static readonly WINDOWS_RELAY = `
 $port = New-Object System.IO.Ports.SerialPort $env:CIRCUIT_PORT, ([int]$env:CIRCUIT_BAUD), 'None', 8, 'One'
 try { $port.Open() } catch [System.UnauthorizedAccessException] { [Console]::Error.WriteLine("busy: another program holds " + $env:CIRCUIT_PORT); exit 3 } catch { [Console]::Error.WriteLine("cannot open " + $env:CIRCUIT_PORT + ": " + $_.Exception.Message); exit 2 }
 [Console]::Error.WriteLine("ready")
@@ -80,53 +122,23 @@ while ($true) {
 $port.Close()
 `;
 
-/** An open console: the stream to the device's CLI, and how to let it go. `close` waits for the console to go quiet, then lets the port go. */
-export type ConsoleSession = { channel: ClientChannel; close: () => Promise<void> };
-
-/** How a platform's console asks for a login and shows its prompt, and what moves it on from anywhere else. */
-export type ConsoleDialect = {
-    /** The login prompt. */
-    login: RegExp;
-    /** The password prompt. */
-    password: RegExp;
-    /** The CLI's prompt once logged in. */
-    prompt: RegExp;
-    /** What logs out from the prompt. */
-    logout: string;
-    /** Other places a console can be left, each with what moves it toward a login prompt: a pager, a config level, a question. Checked before the prompt. */
-    others?: readonly (readonly [RegExp, string])[];
-    /** The name typed at the login prompt, when the platform adds to it. */
-    user?: (user: string) => string;
-    /** What the console prints when it refuses a password, for a console that then shows no login prompt. */
-    refused?: RegExp;
-};
-
-/** The channel a console speaks on: an SSH stream from the relay, or anything shaped like one. */
-type Channel = Pick<ClientChannel, "write"> & {
-    on(event: "data", listener: (chunk: Buffer) => void): unknown;
-    removeListener(event: "data", listener: (chunk: Buffer) => void): unknown;
-};
-
-export class SerialConsole {
-    private static readonly RELAY_PATH = "/tmp/circuit-console.py";
-
-    /** A serial port the relay is started with: a path under /dev, which reaches a shell, or a Windows COM port. */
+    /** A serial port: a path under /dev, checked because it goes into a shell command, or a Windows COM port. */
     private static readonly PORT = /^\/dev\/[\w./:+-]+$/;
     private static readonly WINDOWS_PORT = /^COM\d+$/i;
 
-    /** Terminal escape sequences: cursor moves, screen clears, character sets and modes. */
+    /** Terminal escape sequences: cursor moves, screen clears, character sets, and modes. */
     private static readonly ESCAPES = /\u001b(?:\[[0-9;?]*[A-Za-z]|[()][A-Z0-9]|[=>78c])/g;
 
     /** A session to a jump host, through `cloudflared access ssh` when it sits behind a Cloudflare Tunnel. */
     private static connectJump(jump: Jump): Promise<Client> {
         return new Promise((done, fail) => {
             const client = new Client();
-            const login = { username: jump.user, password: Secrets.reveal(jump.password), readyTimeout: 60_000 };
+            const login = { username: jump.user, password: Secrets.reveal(jump.password), readyTimeout: Ssh.READY_TIMEOUT_MS };
 
             client.on("ready", () => done(client)).on("error", fail);
 
             if (!jump.cloudflared) {
-                client.connect({ ...login, host: jump.host, port: jump.port ?? 22 });
+                client.connect({ ...login, host: jump.host, port: jump.port ?? Ssh.PORT });
                 return;
             }
 
@@ -138,11 +150,7 @@ export class SerialConsole {
         });
     }
 
-    /**
-     * Open a device's serial console, through its jump host or on this computer.
-     *
-     * A port another program holds is tried again every five seconds, `attempts` times in all, then fails with a message that starts with `busy:`.
-     */
+    /** A port another program holds is tried again `attempts` times in all, then fails with a message that starts with `busy:`. */
     static async open(console: Console, attempts = 5): Promise<ConsoleSession> {
         const windows = !console.jump && process.platform === "win32";
         if (windows ? !SerialConsole.WINDOWS_PORT.test(console.port) : !SerialConsole.PORT.test(console.port)) {
@@ -158,7 +166,7 @@ export class SerialConsole {
                 const busy = /busy: .*/.exec((error as Error).message);
                 if (busy && attempt >= attempts) throw new Error(busy[0], { cause: error });
                 if (!busy) throw error;
-                await new Promise((done) => setTimeout(done, 5_000));
+                await new Promise((done) => setTimeout(done, SerialConsole.BUSY_RETRY_MS));
             }
         }
     }
@@ -167,8 +175,12 @@ export class SerialConsole {
         const client = await SerialConsole.connectJump(jump);
 
         try {
-            const encoded = Buffer.from(RELAY).toString("base64");
-            await Ssh.exec(client, `sh -c 'printf %s ${encoded} | base64 -d > ${SerialConsole.RELAY_PATH}'`, 30_000);
+            const encoded = Buffer.from(SerialConsole.RELAY).toString("base64");
+            await Ssh.exec(
+                client,
+                `sh -c 'printf %s ${encoded} | base64 -d > ${SerialConsole.RELAY_PATH}'`,
+                SerialConsole.RELAY_TIMEOUT_MS
+            );
 
             const channel = await new Promise<ClientChannel>((done, fail) => {
                 client.exec(`python3 ${SerialConsole.RELAY_PATH} ${console.port} ${console.baud}`, (error, stream) =>
@@ -180,9 +192,9 @@ export class SerialConsole {
 
             return {
                 channel: SerialConsole.asTerminal(channel),
-                // What was written last, such as a logout, is still on its way to the device; the relay ends once the console goes quiet.
+                // What was written last, such as a logout, is still on its way to the device, so the relay ends once the console goes quiet.
                 close: () =>
-                    SerialConsole.quiet(channel, 1_000).then(() => {
+                    SerialConsole.quiet(channel, SerialConsole.SILENCE_MS).then(() => {
                         channel.end();
                         client.end();
                     }),
@@ -197,10 +209,10 @@ export class SerialConsole {
     private static async openHere(console: Console): Promise<ConsoleSession> {
         const child =
             process.platform === "win32"
-                ? spawn("powershell", ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_RELAY], {
+                ? spawn("powershell", ["-NoProfile", "-NonInteractive", "-Command", SerialConsole.WINDOWS_RELAY], {
                       env: { ...process.env, CIRCUIT_PORT: console.port, CIRCUIT_BAUD: String(console.baud) },
                   })
-                : spawn("python3", ["-c", RELAY, console.port, String(console.baud)]);
+                : spawn("python3", ["-c", SerialConsole.RELAY, console.port, String(console.baud)]);
 
         // The child's streams, in the shape an SSH channel has.
         const channel = Object.assign(new EventEmitter(), {
@@ -224,9 +236,9 @@ export class SerialConsole {
         return {
             channel: SerialConsole.asTerminal(asChannel),
             close: () =>
-                SerialConsole.quiet(asChannel, 1_000).then(() => {
+                SerialConsole.quiet(asChannel, SerialConsole.SILENCE_MS).then(() => {
                     channel.end();
-                    setTimeout(() => child.kill(), 2_000).unref();
+                    setTimeout(() => child.kill(), SerialConsole.KILL_AFTER_MS).unref();
                 }),
         };
     }
@@ -235,7 +247,10 @@ export class SerialConsole {
     private static relayReady(channel: ClientChannel): Promise<void> {
         return new Promise((done, fail) => {
             let said = "";
-            const limit = setTimeout(() => fail(new Error(`the console relay did not start: ${said.trim()}`)), 30_000);
+            const limit = setTimeout(
+                () => fail(new Error(`the console relay did not start: ${said.trim()}`)),
+                SerialConsole.RELAY_TIMEOUT_MS
+            );
 
             channel.stderr.on("data", (chunk: Buffer) => {
                 said += chunk.toString("utf8");
@@ -268,9 +283,9 @@ export class SerialConsole {
     }
 
     /**
-     * Write, then wait until what the console printed since ends with one of the patterns. Returns which, and what was printed.
+     * Write, then wait until what the console printed since ends with one of the patterns.
      *
-     * With `settle`, a match counts only once nothing more arrives for that many milliseconds, so a line in the middle of the output that looks like a prompt does not end it.
+     * With `settle`, a match counts only after `settle` milliseconds with no more output. So a line mid-output that looks like a prompt does not end it.
      */
     static expect(channel: Channel, write: string, patterns: readonly RegExp[], timeout = 30_000, settle = 0) {
         return new Promise<{ index: number; text: string }>((done, fail) => {
@@ -284,12 +299,12 @@ export class SerialConsole {
             };
 
             const onData = (chunk: Buffer) => {
-                // A terminal's escape sequences, which clear the screen or move the cursor, say nothing a reader needs.
+                // Escape sequences only clear the screen or move the cursor, so they are dropped.
                 text += chunk.toString("utf8").replace(/\r/g, "").replace(SerialConsole.ESCAPES, "");
                 clearTimeout(settled);
 
                 const index = patterns.findIndex((pattern) => pattern.test(text));
-                if (index < 0) return;
+                if (index === -1) return;
 
                 const finish = () => {
                     stop();
@@ -302,7 +317,7 @@ export class SerialConsole {
 
             const limit = setTimeout(() => {
                 stop();
-                fail(new Error(`the console did not answer: ${text.slice(-200)}`));
+                fail(new Error(`the console did not answer: ${text.slice(-SerialConsole.ERROR_TAIL_CHARS)}`));
             }, timeout);
 
             channel.on("data", onData);
@@ -311,7 +326,7 @@ export class SerialConsole {
     }
 
     /**
-     * Log in on a console, whatever state the last session left it in: what `others` names is moved on, a session left open is logged out, so every session starts from a fresh login. Returns once the CLI's prompt shows. A console that asks only for a password (`passwordOnly`) is logged in at its password prompt, with no name typed.
+     * Log in on a console, whatever state the last session left it in. A state in `others` is moved on, and a session left open is logged out, so every login starts fresh. Returns once the CLI's prompt shows. With `passwordOnly`, no name is typed.
      */
     static async login(channel: Channel, dialect: ConsoleDialect, user: string, password: string, passwordOnly = false): Promise<void> {
         const others = dialect.others ?? [];
@@ -324,8 +339,8 @@ export class SerialConsole {
             return `${dialect.logout}\n`;
         };
 
-        // What the last session printed as it left, such as a login prompt after its logout, arrives late; it must not be taken for an answer.
-        await SerialConsole.quiet(channel, 1_000);
+        // What the last session printed as it left, such as a login prompt after its logout, arrives late. It must not be taken for an answer.
+        await SerialConsole.quiet(channel, SerialConsole.SILENCE_MS);
 
         // The prompt a fresh login starts at: the login prompt, or the password prompt when there is no name to type.
         const start = passwordOnly ? 1 : 0;
@@ -334,12 +349,13 @@ export class SerialConsole {
         for (let step = 0; state !== start; step++) {
             if (passwordOnly && state === 0)
                 throw new Error("the console asks for a name, but its console is set to ask only for a password");
-            if (step >= 10) throw new Error(`the console never reached a ${passwordOnly ? "password" : "login"} prompt`);
+            if (step >= SerialConsole.LOGIN_STEPS)
+                throw new Error(`the console never reached a ${passwordOnly ? "password" : "login"} prompt`);
             state = (await SerialConsole.expect(channel, toward(state), states)).index;
         }
 
-        // A console can print the login prompt more than once; a name typed while it does is lost.
-        await SerialConsole.quiet(channel, 1_000);
+        // A console can print the login prompt more than once, and a name typed while it does is lost.
+        await SerialConsole.quiet(channel, SerialConsole.SILENCE_MS);
 
         if (!passwordOnly) {
             const name = dialect.user ? dialect.user(user) : user;
@@ -348,29 +364,29 @@ export class SerialConsole {
             }
         }
 
-        // A platform may ask something once logged in, such as whether to read a licence; `others` answers it. A refusal is checked before `others`, since the banner that follows it matches one of them.
+        // A platform may ask something once logged in, such as whether to read a license, and `others` answers it. A refusal is checked first, since the banner after it matches one of `others`.
         const refusal = dialect.refused ? [dialect.refused] : [];
         const first = 2 + refusal.length;
         const answers = [dialect.prompt, dialect.login, ...refusal, ...others.map(([pattern]) => pattern)];
 
-        let answer = await SerialConsole.expect(channel, `${password}\n`, answers, 60_000);
+        let answer = await SerialConsole.expect(channel, `${password}\n`, answers, SerialConsole.PASSWORD_TIMEOUT_MS);
         for (let step = 0; answer.index >= first; step++) {
-            if (step >= 5) throw new Error("the console kept asking after the login");
+            if (step >= SerialConsole.LOGIN_QUESTIONS) throw new Error("the console kept asking after the login");
             answer = await SerialConsole.expect(channel, others[answer.index - first]![1], answers);
         }
 
         if (answer.index === 1) throw new Error(`the console refused the login of ${user}`);
         if (answer.index === 2 && dialect.refused) throw new Error("the console refused the password");
 
-        // Some consoles print the prompt twice after a login; what arrives late must not reach the first command.
-        await SerialConsole.quiet(channel, 800);
+        // Some consoles print the prompt twice after a login, and what arrives late must not reach the first command.
+        await SerialConsole.quiet(channel, SerialConsole.LOGIN_SILENCE_MS);
     }
 
-    /** Wait until the console has printed nothing for `silence` milliseconds, dropping what it printed, at most five seconds. */
+    /** Wait until the console has printed nothing for `silence` milliseconds, dropping what it printed, or until `SILENCE_LIMIT_MS`. */
     private static quiet(channel: Channel, silence: number): Promise<void> {
         return new Promise((done) => {
             let timer = setTimeout(finish, silence);
-            const limit = setTimeout(finish, 5_000);
+            const limit = setTimeout(finish, SerialConsole.SILENCE_LIMIT_MS);
 
             function finish() {
                 clearTimeout(timer);
@@ -424,7 +440,7 @@ export class SerialConsole {
         return text;
     }
 
-    /** Where the echo of a command that starts at `start` ends, or undefined when the text there is not its echo. */
+    /** Where the command's echo from `start` ends, or undefined when the text there is not its echo. */
     private static echoEnd(text: string, command: string, start: number): number | undefined {
         let at = start;
 
@@ -438,10 +454,10 @@ export class SerialConsole {
     }
 }
 
-/** A CLI on a console or in an SSH shell that runs one command at a time and returns what it printed, as an SSH exec would: no echo, no prompt. */
+/** A CLI on a console or in an SSH shell, run one command at a time. Each returns what it printed, as an SSH exec would: no echo, no prompt. */
 export class ConsoleShell {
-    /** The quiet to wait for after the prompt when output can hold a line that looks like it, as `circuit exec` prints whatever the device has. */
-    static readonly SETTLE = 1_000;
+    /** The quiet after the prompt, in milliseconds, when output can hold a line that looks like it, as in `circuit exec`. */
+    static readonly SETTLE = 1000;
 
     constructor(
         private readonly channel: Channel,
@@ -450,7 +466,7 @@ export class ConsoleShell {
         private readonly settle = 0
     ) {}
 
-    /** Run a command and wait for the prompt. A pager in `others` is answered as it shows. */
+    /** A pager in `others` is answered as it shows. */
     async run(command: string, timeout = 120_000): Promise<string> {
         const pagers = (this.dialect.others ?? []).filter(([, reply]) => !reply.endsWith("\n"));
         const patterns = [this.dialect.prompt, ...pagers.map(([pattern]) => pattern)];
@@ -458,7 +474,7 @@ export class ConsoleShell {
         let { index, text } = await SerialConsole.expect(this.channel, `${command}\n`, patterns, timeout, this.settle);
         let output = "";
 
-        // A pager stops the output; its answer goes on without a new line, and the pager's own text is dropped.
+        // A pager's answer goes without a new line, and the pager's own text is dropped.
         while (index > 0) {
             const [pattern, reply] = pagers[index - 1]!;
             output += text.replace(pattern, "");
@@ -470,26 +486,27 @@ export class ConsoleShell {
         return lines.slice(0, -1).join("\n");
     }
 
-    /** Log out, so no session is left open on the console. */
     logout(): void {
         this.channel.write(`${this.dialect.logout}\n`);
     }
 }
 
-/** One line for `circuit access-console`: what to send, the quiet that ends its answer, and the text the last answer must end with for the line to be sent. */
+/** One line for `circuit access-console`. `onlyAfter` is the text the last answer must end with for the line to be sent. */
 export type ScriptLine = { text: string; quiet: number; onlyAfter?: string };
 
 /**
- * Lines sent to a console one at a time, each answer read until the console goes quiet, as a person would type them.
+ * Lines sent to a console one at a time, as a person would type them, each answer read until the console goes quiet.
  *
  * A line may start with `@if=TEXT=>`: it is sent only when the last answer ends with TEXT, for a prompt that may or may not come. Then, or alone, `@wait=N:` waits for N seconds of quiet instead of the usual 1.5, for a slow command.
  */
 export class ConsoleScript {
-    /** The quiet that ends an answer, in milliseconds. */
-    static readonly QUIET = 1_500;
+    /** The quiet that ends an answer. */
+    static readonly QUIET_MS = 1500;
+
+    private static readonly MS_PER_SECOND = 1000;
 
     /** A line as written, with `quiet` for a line that has no `@wait=`. */
-    static parse(line: string, quiet = ConsoleScript.QUIET): ScriptLine {
+    static parse(line: string, quiet = ConsoleScript.QUIET_MS): ScriptLine {
         let text = line;
         let onlyAfter: string | undefined;
 
@@ -504,16 +521,16 @@ export class ConsoleScript {
             text = text.slice(wait[0].length);
         }
 
-        const silence = wait ? Number(wait[1]) * 1000 : quiet;
+        const silence = wait ? Number(wait[1]) * ConsoleScript.MS_PER_SECOND : quiet;
         return { text, quiet: silence, ...(onlyAfter === undefined ? {} : { onlyAfter }) };
     }
 
-    /** Send each line and hand each answer to `answered` as it comes. A line whose condition does not hold is skipped. */
+    /** Each answer goes to `answered` as it comes. A line whose condition does not hold is skipped. */
     static async run(
         channel: Channel,
         lines: readonly string[],
         answered: (answer: string) => void,
-        quiet = ConsoleScript.QUIET
+        quiet = ConsoleScript.QUIET_MS
     ): Promise<void> {
         let last = "";
 
