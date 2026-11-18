@@ -27,7 +27,9 @@ import { BgpWait, type WaitLimits } from "../bgp-wait";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
+import { RouterOsFirewall } from "./firewall";
 import { RouterOsRender } from "./render";
+import { RouterOsRouting } from "./routing";
 
 /** Where commands run, one at a time, each returning what it printed: an SSH session, or the console. */
 type Session = {
@@ -169,7 +171,7 @@ export class RouterOs extends Platform {
             // What its export accepts by prefix: a prefix it would reject anyway needs no route in the table. Every prefix when the export names none.
             const exportPolicy = neighbor.export_policy ?? group?.export_policy;
             const accepted = (exportPolicy ? (device.routing?.policies?.[exportPolicy] ?? []) : [])
-                .flatMap((rule) => (RouterOsRender.onRoutes(rule) && rule.then === "accept" && rule.if?.prefix ? [rule.if.prefix] : []))
+                .flatMap((rule) => (RouterOsRouting.onRoutes(rule) && rule.then === "accept" && rule.if?.prefix ? [rule.if.prefix] : []))
                 .map((prefix) => Address.canonical(prefix));
             const announced = accepted.length ? originated.filter((prefix) => accepted.includes(Address.canonical(prefix))) : originated;
 
@@ -372,9 +374,9 @@ export class RouterOs extends Platform {
     }
 
     override switchRules(device: Device): SwitchRules {
-        const rules = RouterOsRender.switchRules(device);
+        const rules = RouterOsFirewall.switchRules(device);
         const ranges = new Set(rules.flatMap(({ srcPort, dstPort }) => [srcPort, dstPort]).filter((port) => port?.includes("-")));
-        const filters = RouterOsRender.ethertypeFilters(device).reduce((count, { ethertypes }) => count + ethertypes.length + 1, 0);
+        const filters = RouterOsFirewall.ethertypeFilters(device).reduce((count, { ethertypes }) => count + ethertypes.length + 1, 0);
 
         return { count: rules.length + filters, ranges: ranges.size };
     }
