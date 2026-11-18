@@ -322,12 +322,15 @@ export class RouterOsExport {
     }
 
     /** One property value in the form both sides compare in. */
-    private static normalValue(command: Command, property: string, value: string): string {
-        if (property === "rule") return RouterOsExport.canonicalRule(value);
+    private static normalValue(command: Command, property: string, raw: string): string {
+        if (property === "rule") return RouterOsExport.canonicalRule(raw);
         // A list whose order means nothing.
-        if (property === "tagged" || property === "untagged" || property === "slaves") return value.split(",").sort().join(",");
-        // A route's gateway is part of what it is known by, so an address spelled otherwise must not make it another route. An interface's name stays as it is.
-        if (property === "gateway" && (command.menu === "/ip route" || command.menu === "/ipv6 route")) return Address.canonical(value);
+        if (property === "tagged" || property === "untagged" || property === "slaves") return raw.split(",").sort().join(",");
+
+        // A route is known by its destination and gateway, so an address spelled otherwise must not make it another route. An interface's name stays as it is.
+        const route = command.menu === "/ip route" || command.menu === "/ipv6 route";
+        if (route && property === "gateway") return Address.canonical(raw);
+        const value = route && property === "dst-address" ? Address.canonical(raw) : raw;
 
         const onInterface = property === "address" && (command.menu === "/ip address" || command.menu === "/ipv6 address");
         // An IP address property, which a MAC address is not.

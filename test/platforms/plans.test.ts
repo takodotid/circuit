@@ -1122,6 +1122,24 @@ test("a route through an interface is found by its name, and an IPv6 gateway in 
     expect(routerOsSends("", linkLocal)).toEqual([`/ipv6 route remove ${mainRoute("::/0", 'gateway="fe80::1%sfp28-1"')}`]);
 });
 
+// The destination is part of what a route is known by too. The render keeps the config's spelling, and the plan compares it in one.
+test("a route's destination in another spelling is the same route", () => {
+    const written = withRoutes([
+        { prefix: "2001:DB8:0::/32", blackhole: true },
+        { prefix: "2001:db8:1:0:0:0:0:1/128", next_hop: "2001:db8:1::2" },
+    ]);
+    expect(written).toContain("add blackhole dst-address=2001:DB8:0::/32\n");
+    expect(written).toContain("add dst-address=2001:db8:1:0:0:0:0:1/128 gateway=2001:db8:1::2\n");
+
+    const printed = written.replace("2001:DB8:0::/32", "2001:db8::/32").replace("2001:db8:1:0:0:0:0:1/128", "2001:db8:1::1/128");
+    expect(routerOsSends(written, printed)).toEqual([]);
+
+    expect(routerOsSends(withRoutes([]), written)).toEqual([
+        `/ipv6 route remove ${mainRoute("2001:db8::/32", "!gateway")}`,
+        `/ipv6 route remove ${mainRoute("2001:db8:1::1/128", "gateway=2001:db8:1::2")}`,
+    ]);
+});
+
 // RouterOS knows a route by its prefix, table, and gateway, so two routes alike in all three can't be told apart.
 test("two routes to one prefix through one gateway in one table are refused on RouterOS", () => {
     const routes: StaticRoute[] = [
