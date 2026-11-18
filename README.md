@@ -24,7 +24,7 @@
     <a href="https://circuit.tako.id/studio/">Studio</a>
 </p>
 
-You write each network device in its own TypeScript file: its ports, VLANs, addresses, routing, firewall, and users. Your editor checks every name and every port as you type. Circuit reads what the device runs, shows you the difference, and sends the change once you say yes. [Introduction](https://circuit.tako.id/guide/introduction) explains how it works.
+A device's file holds its ports, VLANs, addresses, routing, firewall, and users. Your editor checks every name and every port as you type. Circuit reads what the device runs, shows you the difference, and sends the change once you say yes. [Introduction](https://circuit.tako.id/guide/introduction) explains how it works.
 
 Circuit works with MikroTik RouterOS 7, Huawei VRP, Raisecom ROS, Juniper Junos, and Fortinet FortiOS. [Platforms](https://circuit.tako.id/reference/platforms) shows what works on each.
 
@@ -74,16 +74,11 @@ If you write the port `"10g-49"`, the editor shows an error, because this switch
 - Linux and macOS: `curl -fsSL https://circuit.tako.id/install | sh`
 - Windows, in PowerShell: `irm https://circuit.tako.id/install.ps1 | iex`
 
-Then start a project with `circuit new network`, and open its folder in VS Code. Run `circuit` alone for a menu. [Install](https://circuit.tako.id/guide/install) has the details, and how updates work. [The circuit command](https://circuit.tako.id/reference/cli) lists every command.
+Then start a project with `circuit new network`, and open its folder in VS Code. Run `circuit` alone for a menu. [Install](https://circuit.tako.id/guide/install) has the details, and [the circuit command](https://circuit.tako.id/reference/cli) lists every command.
 
 ## Contributing
 
-```bash
-bun install
-bun run check   # runs every check
-```
-
-[CONTRIBUTING.md](CONTRIBUTING.md) explains how to change Circuit. [Decisions](DECISIONS.md) says what shaped it, and why.
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how to change Circuit. [DECISIONS.md](DECISIONS.md) holds the decisions that shaped it.
 
 ## License
 

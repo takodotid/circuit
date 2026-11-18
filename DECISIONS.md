@@ -1,8 +1,6 @@
 # Decisions
 
-What we decided while designing Circuit v1. These decisions are binding. A change to one is a new decision, added with the next number. The rules in `AGENTS.md` are not repeated here.
-
-Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were about one network's own data or the design experiment. Git has their history.
+These decisions are binding. A change to one is a new decision with the next number. A missing number was replaced, moved to `AGENTS.md`, or dropped.
 
 ## The language
 
@@ -12,8 +10,8 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **5.** Ordered rules are arrays, with no numbers. Another file's rules are placed with `merge`.
 - **6.** `merge([...])` flattens, and makes a list or a map by the field it lands in.
 - **7.** A match field may take a list. Interface sets exist.
-- **8.** The core is `circuit()` (the network) and its `.device()`, `merge`, `literal`, `secret`, and `part(kind, value)` for parts. 0.x's `defineNetwork` and `defineDevice` are gone (38).
-- **10.** Ready-made rules are data, not functions: 0.x's `antiAmplification()` became `presets.udp_amplifiers`.
+- **8.** The core is `circuit()` (the network) and its `.device()`, `merge`, `literal`, `secret`, and `part(kind, value)` for parts.
+- **10.** Ready-made rules are data in `presets`, not functions.
 - **11.** `checks` takes Circuit's checks (on, or with settings) and the project's own functions.
 - **13.** A rule's description is optional and short. One description for a rule with a list is fine.
 - **14.** The sessions of one upstream share a `neighbor_group`, even where that adds a template on the device.
@@ -26,7 +24,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **37.** The community scheme is data in `circuit()`, not a function value.
 - **38.** `circuit({...})` in `circuit.ts` returns a network value; devices are `<network>.device({...})`, typed from that network. Circuit finds the device files itself, with no extra command. One project may hold several networks.
 - **40.** A static route drops traffic with `blackhole: true`.
-- **41.** Route policy rules are plain objects, the condition first: `{ if, set, then }` or `{ call }`. Replaces 32 and 36.
+- **41.** Route policy rules are plain objects, the condition first: `{ if, set, then }` or `{ call }`.
 - **42.** A link is written at both ends, each in its device's file: each device is its own source of truth.
 - **43.** A built-in check, `same_vlan_ids`: one VLAN name has one ID on every device of a network.
 - **51.** Every rule kind (route policy, filter, NAT, ACL) is `{ if, then }`.
@@ -36,17 +34,17 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **55.** Nothing is filled in, anywhere. A linked port's description is written by hand: Circuit may warn, never fill it in. Circuit writes no defaults back.
 - **56.** A site's addresses carry their length where an interface needs one. No template strings in a project's files.
 - **57.** `management.allow` takes a list of prefixes or the name of an address set, with completion.
-- **58.** `connection.host` stays apart from any interface's address: Circuit may later log in through a tunnel or a proxy.
+- **58.** `connection.host` stays apart from any interface's address.
 - **62.** Circuit ships address helpers (`address.contains`, `.overlaps`, and the rest) for a project's own checks.
 - **63.** A finding of a project's own check may name its device and path, so Circuit points at the line.
 - **65.** A project's own checks read the network resolved, as the devices run it. The project doesn't change.
 - **66.** A network's prefixes live in `circuit({ prefixes })`, for devices, checks, and integrations.
-- **72.** `merge` is decided by the field it lands in, in the editor too, and names complete inside it. Replaces 64.
+- **72.** `merge` is decided by the field it lands in, in the editor too, and names complete inside it.
 - **87.** A later Circuit reads YAML projects too: one `!ref` tag, and v1's TypeScript as the schema ([#167](https://github.com/takodotid/circuit/issues/167)).
-- **90.** Project files import each other by relative path. The `circuit` path alias in `tsconfig.json` is for `import type` only: types are erased, and the binary doesn't read `tsconfig.json`.
-- **116.** A static route's `next_hop` is a plain address, and its interface goes in `interface`, never after `%`. RouterOS writes both as `gateway=<next_hop>%<interface>`, experimental until tested on a device. A platform that can't write both refuses them.
-- **117.** The docs show part of an example with a VitePress region include, so an excerpt can't drift from the example its test checks.
-- **119.** RouterOS's next hop with its interface is tested on a CCR2216 with RouterOS 7.24.6, so it is no longer experimental. Replaces that part of 116.
+- **90.** Project files import each other by relative path. The `circuit` path alias in `tsconfig.json` is for `import type` only, because the binary doesn't read `tsconfig.json`.
+- **116.** A static route's `next_hop` is a plain address, and its interface goes in `interface`, never after `%`. A platform that can't write both refuses them.
+- **117.** The docs show part of an example with a VitePress region include.
+- **119.** RouterOS writes a next hop with its interface as `gateway=<next_hop>%<interface>`, tested on a CCR2216 with RouterOS 7.24.6.
 
 ## BGP communities
 
@@ -71,7 +69,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 ## The `circuit` command
 
 - **27.** `circuit fmt` ships with Circuit. It is Prettier inside Circuit, styled by the project's `.editorconfig`, and not opinionated.
-- **73.** Circuit installs with one shell command, `curl -fsSL https://circuit.tako.id/install | sh` or, on Windows, `irm https://circuit.tako.id/install.ps1 | iex`, which then starts a project. There is no `circuit init`: in a folder without a project, `circuit` offers to start one.
+- **73.** Circuit installs with one shell command, which then starts a project. There is no `circuit init`: in a folder without a project, `circuit` offers to start one.
 - **74.** `circuit` alone opens a menu. A command can be run straight away, such as `circuit validate`. Core: `validate`, `diff`, `apply`. Utilities: `exec`, `bgp`, `access-console`, `studio`, `rename`, `fmt`. Secrets: `secrets`. Then `update`.
 - **75.** No snapshots. `diff` and `apply` read the live device. LLDP is compared with `link` while Circuit is connected.
 - **76.** `apply` shows what would change and asks, no by default. `--confirm` sends without asking. `build` is gone: `apply` shows the plan.
@@ -85,7 +83,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **99.** Circuit remembers the projects it ran in (`~/.circuit/projects.json`). A version kept in `~/.circuit/versions` that none of them pins any more is removed.
 - **100.** The installed `circuit` is the manager. Before every command but `uninstall`, it checks npm, at most every 30 seconds, and updates itself to the newest release of its major, then runs the command as that version. Offline, it warns and goes on. A project's version never changes with it.
 - **101.** Every command in a project runs the version in `.circuit/version`. One not on the machine is downloaded after a yes, or without asking in CI.
-- **106.** Utilities also has `communities` (`--format nlnog`, `alice`, or `json`) and `addresses`, and `sync` comes as #170 proposes. No `refresh`: `diff` and `apply` fetch a registry's prefix sets each time and plan them like any list. `wireguard` and `graph` are dropped (2026-11-09).
+- **106.** Utilities also has `communities` (`--format nlnog`, `alice`, or `json`) and `addresses`, and `sync` comes as #170 proposes. No `refresh`: `diff` and `apply` fetch a registry's prefix sets each time and plan them like any list. `wireguard` and `graph` are dropped.
 - **114.** `--experimental` lets through a feature built from public documentation but not tested on a real device yet. It stays until Circuit can test on emulated devices (containerlab, [#178](https://github.com/takodotid/circuit/issues/178)).
 
 ## Secrets
@@ -93,28 +91,28 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **92.** Secrets are Circuit's own, without dotenvx: a network's secrets file holds `NAME="value"` lines, names readable, each value AES-256-GCM with a key made from one password by scrypt and the name bound to it. It is committed. Only one password, no key pair.
 - **93.** The secrets file is `.circuit/secrets`, or the file `circuit({ secrets: { file } })` names, such as a lab network's with its own password. The password is never in `circuit.ts`.
 - **94.** The password comes from `CIRCUIT_SECRETS_PASSWORD` in the environment, from `CIRCUIT_SECRETS_PASSWORD="op://..."` in the secrets file, or is typed when Circuit asks. The first `circuit secrets` asks to choose one. If it is left empty, Circuit makes one and shows it once.
-- **95.** `circuit secrets` alone, in a terminal, opens every secret decrypted in a text editor that is part of Circuit, nano-like: Ctrl+S saves encrypted, Esc or Ctrl+X leaves (VS Code's terminal keeps Ctrl+Q for itself). A value that didn't change keeps its encryption. Values are never written to disk in plain text.
+- **95.** `circuit secrets` alone, in a terminal, opens every secret decrypted in a text editor that is part of Circuit, nano-like: Ctrl+S saves encrypted, Esc or Ctrl+X leaves. A value that didn't change keeps its encryption. Values are never written to disk in plain text.
 - **105.** Circuit remembers secrets only after a yes: for 10 minutes, 30 minutes, or 24 hours, never longer, in the memory of a small Circuit process, never in a file. It answers only a program with its token. The question warns that any program run by the person can get them, and locking 1Password doesn't lock them. `circuit secrets forget` drops them.
 
 ## Studio
 
 - **81.** Studio is a Vue 3 app built by Vite and carried in the binary; its graph is drawn with Cytoscape. Without snapshots (75), a device's page reads the device only when asked, "Read from the device now", as `circuit diff` does, and keeps nothing.
 - **82.** Studio's Secrets page shows how each value of each secrets file is kept. To see the values, a person types the file's password; the browser decrypts them, and the password is never sent or kept. A value in plain text never leaves the server. Studio reads a device only when the password comes from 1Password or the environment, and never on a server.
-- **115.** Studio's pages have plain paths, such as `/secrets`, not `#secrets`. The hash came from before Studio used a framework.
+- **115.** Studio's pages have plain paths, such as `/secrets`, not `#secrets`.
 
 ## Releases
 
 - **84.** Versions come from npm dist-tags: `latest` is stable, `rc` a release candidate, `latest-<major>.<minor>` a backport (103). A stable release rebuilds the site; a candidate or a backport doesn't. An update stays within its major version.
-- **102.** A version with a security problem is marked by a GitHub security advisory on the repository, any severity, read at most every 2 minutes. A project on an affected version runs nothing until it moves to a fixed one; the fix closest to its version is always offered. Replaces `[critical]` in a release title.
+- **102.** A version with a security problem is marked by a GitHub security advisory on the repository, any severity, read at most every 2 minutes. A project on an affected version runs nothing until it moves to a fixed one; the fix closest to its version is always offered.
 - **103.** A backport, a stable version older than npm's `latest` of its major, goes under the dist-tag `latest-<major>.<minor>`, as npm's own `latest-6`, is not marked Latest on GitHub, and doesn't rebuild the site.
 - **104.** Each release's `SHA256SUMS` is signed with an Ed25519 release key, the secret `RELEASE_SIGNING_KEY`. Circuit installs a binary only with a signature by a key it carries. The install commands check `SHA256SUMS.sshsig` with `ssh-keygen`.
 
 ## This repo
 
 - **91.** Prettier formats Circuit's own repo (`prettier.config.mjs`). `circuit fmt` formats a project, styled by its `.editorconfig`.
-- **107.** Agent instructions live in `AGENTS.md`, the agents.md standard, which Claude Code reads on its own. There is no `CLAUDE.md`. A folder with rules of its own has its own `AGENTS.md`, such as `src/platforms/` and `docs/`.
+- **107.** Agent instructions live in `AGENTS.md`, the agents.md standard. There is no `CLAUDE.md`. A folder with rules of its own has its own `AGENTS.md`, such as `src/platforms/` and `docs/`.
 - **108.** Tools enforce the repo's rules, not only text: Oxlint with type-aware rules (deprecated APIs), Vale (writing), knip (unused code), and `test/repo.test.ts` (the repo's own rules). The pre-commit hook, CI, and a Claude Code Stop hook run them.
 - **109.** Commit messages use the imperative mood: `fix(cli): keep remembered secrets for 24 hours`.
-- **110.** The docs have five parts, as mature tools do: Get started, Write a project, Run it, Integrations, and Reference. The Academy stays apart.
-- **113.** What Circuit supports is the feature matrix in the docs. A gap Circuit plans to fill is a GitHub issue, with what each vendor offers. There is no separate coverage file. Replaces 111.
-- **118.** The decisions are `DECISIONS.md` at the root of the repo, not on the docs site. There is no `design/` folder. Replaces 89.
+- **110.** The docs have five parts: Get started, Write a project, Run it, Integrations, and Reference. The Academy stays apart.
+- **113.** What Circuit supports is the feature matrix in the docs. A gap Circuit plans to fill is a GitHub issue, with what each vendor offers. There is no separate coverage file.
+- **118.** The decisions are `DECISIONS.md` at the root of the repo, not on the docs site. There is no `design/` folder.
