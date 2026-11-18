@@ -28,7 +28,11 @@ export class GraphSignals {
     stop(): void {
         if (this.frame !== undefined) cancelAnimationFrame(this.frame);
         this.frame = undefined;
-        this.canvas.getContext("2d")?.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // The last frame leaves the pan and zoom set: without them, the clear covers the whole canvas.
+        const context = this.canvas.getContext("2d");
+        context?.setTransform(1, 0, 0, 1, 0, 0);
+        context?.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     recolor(colors: SignalColors): void {
