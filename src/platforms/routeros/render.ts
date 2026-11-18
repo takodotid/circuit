@@ -1,21 +1,22 @@
-// The neutral model as a RouterOS 7 export, written in the form `/export` prints so the two compare line for line.
+// The model as a RouterOS 7 export, written in the form `/export` prints so the two compare line for line.
 
 import { X509Certificate } from "node:crypto";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family, Lag, Port, Prefix, Service, Severity, VlanInterface } from "../../model";
+import type { Device, Lag, Port, Prefix, Service, Severity, VlanInterface } from "../../model";
 import { Catalog } from "../../core/catalog";
-import { Derive, type NamedInterface } from "../../core/derive";
+import { Derive } from "../../core/derive";
+import type { NamedInterface } from "../../core/derive";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsRouting } from "./routing";
+import { RouterOsSyntax } from "./syntax";
 
 /** A property value as a command takes it. `undefined` and `false` leave the property out. */
 export type Value = string | number | undefined | false;
 
 type Speed = NonNullable<Port["speed"]>;
 
-/** One device's render: the device, and the commands collected under their menu. */
 export class RouterOsRender {
     /** The bridge every switched port joins. One per device. */
     private static readonly BRIDGE = "bridge";
@@ -39,10 +40,7 @@ export class RouterOsRender {
         },
     };
 
-    /** Address lists holding the prefixes BGP originates. A session reads the one of its family. */
-    static readonly NETWORKS: Record<Family, string> = { ipv4: "bgp-networks-v4", ipv6: "bgp-networks-v6" };
-
-    /** Neutral service name to the platform's. `native_protocol` is the platform's own desktop client. */
+    /** `native_protocol` is the platform's own desktop client. */
     private static readonly SERVICES = {
         ftp: "ftp",
         ssh: "ssh",
@@ -73,7 +71,6 @@ export class RouterOsRender {
     /** Every interface that is not a port, kind by kind. */
     private readonly interfaces: NamedInterface[];
 
-    /** Commands under their menu. */
     private readonly menus = new Map<string, string[]>();
 
     private constructor(private readonly device: Device) {
@@ -81,21 +78,6 @@ export class RouterOsRender {
         this.interfaces = Derive.interfaces(device);
     }
 
-    /** The entries of a map keyed by name, without the names whose value is left out. */
-    static entries<V>(map: { readonly [name: string]: V | undefined } | undefined): [string, V][] {
-        return Object.entries(map ?? {}).flatMap(([name, value]) => (value === undefined ? [] : [[name, value] as [string, V]]));
-    }
-
-    /** A prefix set's prefixes, written as a list or as a map of named prefixes. Undefined for a set fetched from a registry. */
-    static prefixesOf(device: Device, set: string): readonly Prefix[] | undefined {
-        const declared = device.routing?.prefix_sets?.[set];
-        if (!declared || !("prefixes" in declared)) return undefined;
-
-        const prefixes = declared.prefixes;
-        return Array.isArray(prefixes) ? prefixes : Object.values(prefixes);
-    }
-
-    /** The whole configuration the device should run. */
     static of(device: Device): string {
         const render = new RouterOsRender(device);
 
@@ -124,11 +106,7 @@ export class RouterOsRender {
         return `"${escaped}"`;
     }
 
-    /**
-     * A command: a verb such as `add` or `set [ find name=x ]`, then `property=value` for every property that has a value.
-     *
-     * Properties are written in the order given.
-     */
+    /** A verb such as `add` or `set [ find name=x ]`, then `property=value` for each property that has a value, in the order given. */
     private static command(verb: string, properties: Record<string, Value>): string {
         const words = [verb];
 
@@ -140,32 +118,6 @@ export class RouterOsRender {
         }
 
         return words.join(" ");
-    }
-
-    /** `yes` or `no`. */
-    static yesNo(on: boolean | undefined): string {
-        return on ? "yes" : "no";
-    }
-
-    /** Seconds as the platform writes a duration: `3600` becomes `1h`, `90` becomes `1m30s`. */
-    static duration(seconds: number): string {
-        const units = [
-            ["w", 604800],
-            ["d", 86400],
-            ["h", 3600],
-            ["m", 60],
-            ["s", 1],
-        ] as const;
-        let remaining = seconds;
-        let text = "";
-
-        for (const [unit, size] of units) {
-            const count = Math.floor(remaining / size);
-            if (count > 0) text += `${count}${unit}`;
-            remaining %= size;
-        }
-
-        return text || "0s";
     }
 
     /** The name of the VLAN interface under one with a MAC of its own, which takes the configured name itself. */
@@ -189,10 +141,9 @@ export class RouterOsRender {
         return new X509Certificate(pem).fingerprint256.replace(/:/g, "").toLowerCase();
     }
 
-    /** Every topic at or above a severity. Emergency and alert are logged as critical; the platform has no notice topic. */
+    /** Every topic at or above a severity. Emergency and alert are logged as critical, the most severe topic the platform has. It has no notice topic. */
     private static topicsFrom(level: Severity): string[] {
         const order = RouterOsRender.SEVERITY_ORDER;
-        // Emergency and alert fall back to critical, the most severe topic the platform has.
         const threshold = Math.max(order.indexOf(level), order.indexOf("critical"));
 
         return RouterOsRender.TOPICS.filter(([severity]) => order.indexOf(severity) <= threshold).map(([, topic]) => topic);
@@ -205,15 +156,13 @@ export class RouterOsRender {
         this.menus.set(menu, commands);
     }
 
-    /** Add a command to a menu. */
     add(menu: string, verb: string, properties: Record<string, Value>): void {
         this.addLine(menu, RouterOsRender.command(verb, properties));
     }
 
-    /** The whole configuration as text. */
     private text(): string {
         const blocks = [...this.menus].map(([menu, commands]) => [menu, ...commands].join("\n"));
-        return blocks.join("\n") + "\n";
+        return `${blocks.join("\n")}\n`;
     }
 
     /** What the platform calls a port or an interface. A port is spelled by the model; an interface keeps its config name. */
@@ -233,13 +182,12 @@ export class RouterOsRender {
     /** Ports and LAGs that are layer 2 members of a VLAN, with their settings. A port in a LAG is represented by the LAG. */
     private switched(): [string, Port | Lag][] {
         const ports = Object.entries(this.ports).filter(([, port]) => !port.in_lag && (port.access_vlan || port.trunk_vlans));
-        const lags = RouterOsRender.entries(this.device.interfaces?.lag).filter(([, lag]) => Boolean(lag.access_vlan || lag.trunk_vlans));
+        const lags = RouterOsSyntax.entries(this.device.interfaces?.lag).filter(([, lag]) => Boolean(lag.access_vlan || lag.trunk_vlans));
         return [...ports, ...lags];
     }
 
-    /** VLAN interfaces, with their settings. */
     private declaredVlanInterfaces(): [string, VlanInterface][] {
-        return RouterOsRender.entries(this.device.interfaces?.vlan_interface);
+        return RouterOsSyntax.entries(this.device.interfaces?.vlan_interface);
     }
 
     /** Every port and interface that holds addresses or other layer 3 settings. Ports are named as the platform spells them. */
@@ -268,13 +216,9 @@ export class RouterOsRender {
         this.shaping();
     }
 
-    /**
-     * Routing in the switch chip. With it on, routed traffic bypasses the forward chain unless its interface opts out.
-     *
-     * Restarting the offload after a failure, and offloading IPv6 too, follow the same switch.
-     */
+    /** Routing in the switch chip. With it on, routed traffic bypasses the forward chain unless its interface opts out. Restarting after a failure, and offloading IPv6, follow it. */
     private hardwareOffload(): void {
-        const on = RouterOsRender.yesNo(this.device.system?.hardware_offload);
+        const on = RouterOsSyntax.yesNo(this.device.system?.hardware_offload);
         this.add("/interface ethernet switch", "set switch1", { "l3-hw-offloading": on });
         this.add("/interface ethernet switch l3hw-settings", "set", { autorestart: on, "ipv6-hw": on });
     }
@@ -296,7 +240,7 @@ export class RouterOsRender {
             });
         }
 
-        for (const [name, loopback] of RouterOsRender.entries(device.interfaces?.loopback)) {
+        for (const [name, loopback] of RouterOsSyntax.entries(device.interfaces?.loopback)) {
             this.add("/interface bridge", "add", { comment: loopback.description, name });
         }
     }
@@ -324,11 +268,7 @@ export class RouterOsRender {
         }
     }
 
-    /**
-     * Storm control in the switch chip. The platform takes one rate, in percent, and which kinds of flooded traffic it limits.
-     *
-     * `unsupported()` refuses packets per second and different percentages per kind, so here they are always one shared percent.
-     */
+    /** Storm control in the switch chip: one rate, in percent, and the kinds of flooded traffic it limits. `unsupported()` refuses packets per second and a percent per kind. */
     private switchPorts(): void {
         for (const [port, settings] of Object.entries(this.ports)) {
             const storm = settings.storm_control;
@@ -339,9 +279,9 @@ export class RouterOsRender {
             if (!percent || !("percent" in percent)) continue;
 
             this.add("/interface ethernet switch port", `set ${this.name(port)}`, {
-                "limit-broadcasts": RouterOsRender.yesNo(storm.broadcast !== undefined),
-                "limit-unknown-multicasts": RouterOsRender.yesNo(storm.multicast !== undefined),
-                "limit-unknown-unicasts": RouterOsRender.yesNo(storm.unknown_unicast !== undefined),
+                "limit-broadcasts": RouterOsSyntax.yesNo(storm.broadcast !== undefined),
+                "limit-unknown-multicasts": RouterOsSyntax.yesNo(storm.multicast !== undefined),
+                "limit-unknown-unicasts": RouterOsSyntax.yesNo(storm.unknown_unicast !== undefined),
                 "storm-rate": percent.percent,
             });
         }
@@ -349,11 +289,11 @@ export class RouterOsRender {
 
     /** A LAG is a bonding interface. Its members, ports named as the platform spells them and then EoIP tunnels, are its slaves. */
     private lags(): void {
-        for (const [name, lag] of RouterOsRender.entries(this.device.interfaces?.lag)) {
+        for (const [name, lag] of RouterOsSyntax.entries(this.device.interfaces?.lag)) {
             const ports = Object.entries(this.ports)
                 .filter(([, port]) => port.in_lag === name)
                 .map(([port]) => this.name(port));
-            const tunnels = RouterOsRender.entries(this.device.interfaces?.eoip)
+            const tunnels = RouterOsSyntax.entries(this.device.interfaces?.eoip)
                 .filter(([, tunnel]) => tunnel.in_lag === name)
                 .map(([tunnel]) => tunnel);
             const roundRobin = lag.mode === "round_robin";
@@ -375,9 +315,9 @@ export class RouterOsRender {
         }
     }
 
-    /** An EoIP tunnel. A member of a LAG is listed among its slaves (`lags()`). */
+    /** A tunnel in a LAG is listed among the LAG's slaves (`lags()`). */
     private eoip(): void {
-        for (const [name, tunnel] of RouterOsRender.entries(this.device.interfaces?.eoip)) {
+        for (const [name, tunnel] of RouterOsSyntax.entries(this.device.interfaces?.eoip)) {
             this.add("/interface eoip", "add", {
                 comment: tunnel.description,
                 "local-address": Address.host(tunnel.local_address),
@@ -390,7 +330,7 @@ export class RouterOsRender {
     }
 
     /**
-     * CAKE on what leaves an interface: what leaves it, of either family, is marked on its way out, and a queue tree under `global` holds the marked packets to the rate, CAKE as its queue. A virtual interface refuses a queue of its own that sets no rate, and a queue tree under the interface itself sees no packet (TRAPS.md).
+     * CAKE on what leaves an interface. What leaves it, of either family, is marked on its way out. A queue tree under `global` holds the marked packets to the rate, with CAKE as its queue. A virtual interface refuses a queue of its own that sets no rate, and a queue tree under the interface sees no packet (TRAPS.md).
      */
     private shaping(): void {
         const ports = Object.entries(this.ports).map(([port, settings]) => ({ name: this.name(port), settings }));
@@ -413,15 +353,13 @@ export class RouterOsRender {
         }
     }
 
-    /** The queue type that shapes what leaves an interface: the interface's name, then `-cake`. */
-    static shapingQueue(iface: string): string {
+    /** The queue type that shapes what leaves an interface. */
+    private static shapingQueue(iface: string): string {
         return `${iface}-cake`;
     }
 
     /**
-     * A VLAN interface sits on the bridge. When the device offloads, one that opts out is routed in software so the firewall applies.
-     *
-     * Every VLAN interface on the bridge has the bridge's MAC. One with a MAC of its own is a MACVLAN on top of the VLAN interface: the MACVLAN takes the configured name, so its addresses and every rule naming it land on it.
+     * When the device offloads, a VLAN interface that opts out is routed in software, so the firewall applies. Every VLAN interface on the bridge has the bridge's MAC. One with a MAC of its own is a MACVLAN on the VLAN interface. The MACVLAN takes the configured name, so its addresses and the rules naming it land on it.
      */
     private vlanInterfaces(): void {
         for (const [name, iface] of this.declaredVlanInterfaces()) {
@@ -450,7 +388,7 @@ export class RouterOsRender {
     }
 
     private tunnels(): void {
-        for (const [name, gre] of RouterOsRender.entries(this.device.interfaces?.gre)) {
+        for (const [name, gre] of RouterOsSyntax.entries(this.device.interfaces?.gre)) {
             this.add("/interface gre", "add", {
                 comment: gre.description,
                 "local-address": Address.host(gre.local_address),
@@ -460,7 +398,7 @@ export class RouterOsRender {
             });
         }
 
-        for (const [name, vxlan] of RouterOsRender.entries(this.device.interfaces?.vxlan)) {
+        for (const [name, vxlan] of RouterOsSyntax.entries(this.device.interfaces?.vxlan)) {
             // 4789 is the platform's default and is not written.
             const port = vxlan.port && vxlan.port !== 4789 ? vxlan.port : undefined;
             this.add("/interface vxlan", "add", {
@@ -477,7 +415,7 @@ export class RouterOsRender {
     }
 
     private wireguard(): void {
-        for (const [name, iface] of RouterOsRender.entries(this.device.interfaces?.wireguard)) {
+        for (const [name, iface] of RouterOsSyntax.entries(this.device.interfaces?.wireguard)) {
             this.add("/interface wireguard", "add", {
                 comment: iface.description,
                 "listen-port": iface.listen_port,
@@ -511,7 +449,7 @@ export class RouterOsRender {
                     interface: name,
                     // Peer names are unique across the device, so they carry the interface.
                     name: `${name}-${peer.name}`,
-                    "persistent-keepalive": peer.keepalive ? RouterOsRender.duration(peer.keepalive) : undefined,
+                    "persistent-keepalive": peer.keepalive ? RouterOsSyntax.duration(peer.keepalive) : undefined,
                     "public-key": peer.public_key,
                 });
             }
@@ -525,9 +463,9 @@ export class RouterOsRender {
                 const ipv6 = Address.family(group.address) === "ipv6";
                 this.add("/interface vrrp", "add", {
                     interface: name,
-                    interval: group.interval ? RouterOsRender.duration(group.interval) : undefined,
+                    interval: group.interval ? RouterOsSyntax.duration(group.interval) : undefined,
                     name: RouterOsRender.vrrpName(name, group.id),
-                    "preemption-mode": RouterOsRender.yesNo(group.preempt),
+                    "preemption-mode": RouterOsSyntax.yesNo(group.preempt),
                     priority: group.priority,
                     "v3-protocol": ipv6 ? "ipv6" : undefined,
                     version: ipv6 ? 3 : undefined,
@@ -564,7 +502,7 @@ export class RouterOsRender {
 
     /** A VLAN is tagged on every trunk carrying it, and on the bridge itself when the router has an interface in it. */
     private bridgeVlans(): void {
-        for (const [vlanName, vlan] of RouterOsRender.entries(this.device.switching?.vlans)) {
+        for (const [vlanName, vlan] of RouterOsSyntax.entries(this.device.switching?.vlans)) {
             const routedHere = this.declaredVlanInterfaces().some(([, iface]) => iface.vlan === vlanName);
             const trunks = this.switched()
                 .filter(([, settings]) => settings.trunk_vlans?.includes(vlanName))
@@ -605,9 +543,7 @@ export class RouterOsRender {
         }
     }
 
-    /**
-     * Interface lists scope what works at layer 2: neighbor discovery, and the platform's own client over MAC. The IP firewall never sees either.
-     */
+    /** Interface lists scope what works at layer 2: neighbor discovery, and the platform's own client over MAC. The IP firewall never sees either. */
     private interfaceLists(): void {
         const lists = new Map<string, string[]>();
 
@@ -630,9 +566,7 @@ export class RouterOsRender {
                 });
     }
 
-    /**
-     * Where LLDP runs, when it is limited to some ports. Undefined when it runs everywhere or nowhere, which the discovery settings say directly.
-     */
+    /** Where LLDP runs, when it is limited to some ports. Undefined when it runs everywhere or nowhere, which the discovery settings say directly. */
     private lldpMembers(): string[] | undefined {
         const lldp = this.device.switching?.lldp;
         if (!lldp) return undefined;
@@ -651,9 +585,8 @@ export class RouterOsRender {
         return [...members];
     }
 
-    /** A VRF lists its interfaces. */
     private vrfs(): void {
-        for (const [vrf, settings] of RouterOsRender.entries(this.device.routing?.vrfs)) {
+        for (const [vrf, settings] of RouterOsSyntax.entries(this.device.routing?.vrfs)) {
             const members = this.routed()
                 .filter(({ settings: iface }) => iface.vrf === vrf)
                 .map(({ name }) => name);
@@ -671,7 +604,6 @@ export class RouterOsRender {
         this.addressLists();
     }
 
-    /** Every address goes on the menu of its family, with the interface's description as its comment. */
     private addresses(): void {
         for (const { name, settings } of this.routed()) {
             for (const entry of settings.addresses ?? []) {
@@ -684,7 +616,7 @@ export class RouterOsRender {
                 } else {
                     this.add("/ipv6 address", "add", {
                         address,
-                        advertise: RouterOsRender.yesNo(settings.ipv6_ra),
+                        advertise: RouterOsSyntax.yesNo(settings.ipv6_ra),
                         comment: settings.description,
                         interface: name,
                     });
@@ -709,9 +641,7 @@ export class RouterOsRender {
         }
     }
 
-    /**
-     * Router advertisements only where the config sends them. The platform's default entry sends them on every interface, so it is turned off once one interface names its own. A device that uses none keeps the platform's default.
-     */
+    /** The platform's default entry sends router advertisements on every interface. Once one interface sends its own, the default is turned off. A device that sends none keeps it. */
     private routerAdvertisements(): void {
         const sending = this.routed().filter(({ settings }) => settings.ipv6_ra);
         if (!sending.length) return;
@@ -744,12 +674,11 @@ export class RouterOsRender {
     private dhcp(): void {
         for (const [name, server] of Object.entries(this.device.services?.dhcp_server ?? {})) {
             const [first, last] = server.pool;
-            // The pool shares the server's name.
             this.add("/ip pool", "add", { name, ranges: `${first}-${last}` });
             this.add("/ip dhcp-server", "add", {
                 "address-pool": name,
                 interface: this.name(server.interface),
-                "lease-time": server.lease_time ? RouterOsRender.duration(server.lease_time) : undefined,
+                "lease-time": server.lease_time ? RouterOsSyntax.duration(server.lease_time) : undefined,
                 name,
             });
             this.add("/ip dhcp-server network", "add", {
@@ -790,32 +719,28 @@ export class RouterOsRender {
     private dns(): void {
         const servers = this.device.system?.dns?.servers;
         this.add("/ip dns", "set", {
-            "allow-remote-requests": RouterOsRender.yesNo(this.device.services?.dns_server),
+            "allow-remote-requests": RouterOsSyntax.yesNo(this.device.services?.dns_server),
             servers: servers?.join(",") ?? "",
         });
     }
 
-    /**
-     * Address lists come from firewall address sets, prefix sets typed in the config, and what BGP originates.
-     *
-     * A prefix set fetched from a registry is filled by `refresh`, so only its name is marked, and the plan leaves its entries alone.
-     */
+    /** Address lists come from firewall address sets, prefix sets typed in the config, and what BGP originates. `refresh` fills a prefix set fetched from a registry, so only its name is marked, and the plan leaves its entries alone. */
     private addressLists(): void {
         const { device } = this;
         const entries: { list: string; address: string }[] = [];
 
-        for (const [list, members] of RouterOsRender.entries(device.firewall?.address_sets)) {
+        for (const [list, members] of RouterOsSyntax.entries(device.firewall?.address_sets)) {
             for (const address of members) entries.push({ list, address });
         }
 
-        for (const [list] of RouterOsRender.entries(device.routing?.prefix_sets)) {
-            const prefixes = RouterOsRender.prefixesOf(device, list);
+        for (const [list] of RouterOsSyntax.entries(device.routing?.prefix_sets)) {
+            const prefixes = RouterOsSyntax.prefixesOf(device, list);
             if (prefixes) for (const address of prefixes) entries.push({ list, address });
             else this.addLine("/ip firewall address-list", `# generated ${list}`);
         }
 
         for (const prefix of device.routing?.bgp?.originated_prefixes ?? []) {
-            entries.push({ list: RouterOsRender.NETWORKS[Address.family(Address.host(prefix))], address: prefix });
+            entries.push({ list: RouterOsSyntax.NETWORKS[Address.family(Address.host(prefix))], address: prefix });
         }
 
         for (const family of ["ipv4", "ipv6"] as const) {
@@ -869,7 +794,7 @@ export class RouterOsRender {
         const keys = Object.values(this.device.system?.users ?? {}).some((user) => user?.ssh_keys?.length);
         this.add("/ip ssh", "set", {
             "password-authentication": keys ? "yes" : undefined,
-            "strong-crypto": RouterOsRender.yesNo(!management.ssh?.weak_crypto),
+            "strong-crypto": RouterOsSyntax.yesNo(!management.ssh?.weak_crypto),
         });
     }
 
@@ -887,9 +812,7 @@ export class RouterOsRender {
         this.add("/ip neighbor discovery-settings", "set", { "discover-interface-list": discovery, protocol: "lldp" });
     }
 
-    /**
-     * The platform keeps one community it will not delete. With version 2c it becomes the read community; without, it is disabled. Version 3 users are communities of their own.
-     */
+    /** The platform keeps one community it will not delete. With version 2c it becomes the read community; without, it is disabled. Version 3 users are communities of their own. */
     private snmp(): void {
         const snmp = this.device.monitoring?.snmp;
 
@@ -921,7 +844,7 @@ export class RouterOsRender {
     }
 
     private users(): void {
-        for (const [name, user] of RouterOsRender.entries(this.device.system?.users)) {
+        for (const [name, user] of RouterOsSyntax.entries(this.device.system?.users)) {
             this.add("/user", "add", {
                 comment: user.description,
                 group: RouterOsRender.USER_GROUPS[user.role],
@@ -932,15 +855,13 @@ export class RouterOsRender {
         }
     }
 
-    /**
-     * Certificates are not part of an export, so the reader lists them in this same form: a name, the SHA-256 fingerprint of the certificate, and whether the device holds its private key. A difference is installed from the config, not edited.
-     */
+    /** An export leaves certificates out, so the reader lists them in this same form: the name, the SHA-256 fingerprint, and whether the device holds the private key. A difference is installed from the config, not edited. */
     private certificates(): void {
-        for (const [name, certificate] of RouterOsRender.entries(this.device.system?.certificates)) {
+        for (const [name, certificate] of RouterOsSyntax.entries(this.device.system?.certificates)) {
             this.add("/certificate", "add", {
                 fingerprint: RouterOsRender.fingerprint(Utils.projectFile(certificate.certificate_file)),
                 name,
-                "private-key": RouterOsRender.yesNo(Boolean(certificate.private_key)),
+                "private-key": RouterOsSyntax.yesNo(Boolean(certificate.private_key)),
             });
         }
     }
@@ -949,8 +870,8 @@ export class RouterOsRender {
         const system = this.device.system ?? {};
 
         this.add("/ip settings", "set", {
-            "send-redirects": RouterOsRender.yesNo(system.ip_stack?.icmp_redirects),
-            "tcp-syncookies": RouterOsRender.yesNo(system.ip_stack?.syn_cookies),
+            "send-redirects": RouterOsSyntax.yesNo(system.ip_stack?.icmp_redirects),
+            "tcp-syncookies": RouterOsSyntax.yesNo(system.ip_stack?.syn_cookies),
         });
         this.add("/system identity", "set", { name: this.device.name });
 
@@ -958,8 +879,8 @@ export class RouterOsRender {
         this.add("/system clock", "set", { "time-zone-autodetect": "no", "time-zone-name": system.timezone ?? "UTC" });
         this.add("/system note", "set", { note: system.banner ?? "", "show-at-login": "yes" });
 
-        this.add("/system ntp client", "set", { enabled: RouterOsRender.yesNo(Boolean(system.ntp?.servers.length)) });
-        this.add("/system ntp server", "set", { enabled: RouterOsRender.yesNo(this.device.services?.ntp_server) });
+        this.add("/system ntp client", "set", { enabled: RouterOsSyntax.yesNo(Boolean(system.ntp?.servers.length)) });
+        this.add("/system ntp server", "set", { enabled: RouterOsSyntax.yesNo(this.device.services?.ntp_server) });
         for (const server of system.ntp?.servers ?? []) this.add("/system ntp client servers", "add", { address: server });
 
         this.logging();
@@ -1009,7 +930,7 @@ export class RouterOsRender {
         this.add("/ip traffic-flow", "set", {
             enabled: "yes",
             interfaces,
-            "packet-sampling": RouterOsRender.yesNo(sampled),
+            "packet-sampling": RouterOsSyntax.yesNo(sampled),
             "sampling-interval": sampled ? flow.sampling : undefined,
             "sampling-space": sampled ? 1 : undefined,
         });

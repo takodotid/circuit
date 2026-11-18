@@ -1,4 +1,4 @@
-// What a QFX5100-48S-6Q on Junos 21.4R3 printed when each feature was proved on it, with names and addresses replaced.
+// What a QFX5100-48S-6Q on Junos 21.4R3 printed when each feature was tested on it, with names and addresses replaced.
 
 import { expect, test } from "bun:test";
 import type { Device } from "../../src/model";
@@ -52,7 +52,7 @@ test("a neighbor on a 10G cage holding a 1G optic is on that cage's port, and on
     ]);
 });
 
-// What the device printed after a commit of BFD on a static route, a multihop session and an OSPF interface: first with no timers, then with timers. Each plan after the apply was empty.
+// What the device printed after a commit of BFD on a static route, a multihop session, and an OSPF interface: first with no timers, then with timers. Each plan after the apply was empty.
 const BFD_DEFAULT = [
     "set routing-options static route 198.51.100.0/24 next-hop 192.0.2.1",
     "set routing-options static route 198.51.100.0/24 bfd-liveness-detection minimum-interval 300",
@@ -74,7 +74,7 @@ const withBfd: Device = {
     ...aggregationSwitch,
     routing: {
         ...aggregationSwitch.routing,
-        // The example sets timers of its own; this test is about the defaults.
+        // The example sets timers of its own, and this test is about the defaults.
         bfd: undefined,
         static_routes: [...aggregationSwitch.routing!.static_routes!, { prefix: "198.51.100.0/24", next_hop: "192.0.2.1", bfd: true }],
         ospf: { areas: { "0.0.0.0": { interfaces: { loopback: { passive: true, bfd: true } } } } },
@@ -187,7 +187,7 @@ test("a MAC limit or an ethertype filter is refused where the switching family c
     );
 });
 
-// What the device printed after a commit of an access port bound to two hosts, one with an address of each family and one with a prefix. A MAC address comes back with its length, `/48`; an IPv6 match sits under `ip-version ipv6`. Bound on an iDRAC's port, the filter was programmed in hardware and dropped a wrong address or MAC address at once.
+// What the device printed after a commit of an access port bound to two hosts, one with an address of each family and one with a prefix. A MAC address comes back with its length, `/48`, and an IPv6 match sits under `ip-version ipv6`. Bound on an iDRAC's port, the filter was programmed in hardware and dropped a wrong address or MAC address at once.
 const BOUND = [
     "set interfaces xe-0/0/3 unit 0 family ethernet-switching interface-mode access",
     "set interfaces xe-0/0/3 unit 0 family ethernet-switching vlan members servers",
@@ -279,7 +279,7 @@ test("a bound port is refused beside another filter, or on a LAG member", () => 
     );
 });
 
-// The device sends a port's SNMP index, `520`, as its LLDP port ID until told otherwise; after this line a Raisecom neighbor read `PortIdSubtype: ifName` and `PortId: et-0/0/52`.
+// The device sends a port's SNMP index, `520`, as its LLDP port ID until told otherwise. After this line, a Raisecom neighbor read `PortIdSubtype: ifName` and `PortId: et-0/0/52`.
 const PORT_ID_BY_NAME = "set protocols lldp port-id-subtype interface-name";
 
 test("a device running LLDP sends each port's name as its port ID, and one without LLDP drops it with the rest", () => {

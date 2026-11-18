@@ -1,4 +1,4 @@
-// The quick checks Claude Code runs before it ends a turn (the Stop hook in .claude/settings.json). They catch a broken rule while the agent can still fix it. The pre-commit hook and CI run every check.
+// The Stop hook in .claude/settings.json runs these quick checks before an agent ends a turn, so it can still fix a broken rule. The pre-commit hook and CI run every check.
 
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";

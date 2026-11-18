@@ -1,9 +1,10 @@
-// Writes src/cli/editor-types.generated.ts: every file a project's editor reads, so Circuit can write them into a project from the binary. `bun install`, `bun run typecheck`, `bun run test` and `bun run build` run it; git ignores what it writes.
+// Every file a project's editor reads, carried in the binary so Circuit can write them into a project. `bun install` and the `typecheck`, `test`, and `build` scripts run it.
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const src = join(import.meta.dir, "..", "src");
+const JSON_INDENT = 4;
 
 /** A file's text with LF line ends, whatever the checkout wrote, so the generated file is the same on every system. */
 const read = (path: string) => readFileSync(path, "utf8").replaceAll("\r\n", "\n");
@@ -24,7 +25,7 @@ export function editorFiles(): Record<string, string> {
 }
 
 export function generated(): string {
-    return `// Written by scripts/editor-types.ts from src/config and each platform's models.ts: do not edit.\n\nexport const EDITOR_FILES: Record<string, string> = ${JSON.stringify(editorFiles(), null, 4)};\n`;
+    return `// Written by scripts/editor-types.ts from src/config and each platform's models.ts: do not edit.\n\nexport const EDITOR_FILES: Record<string, string> = ${JSON.stringify(editorFiles(), null, JSON_INDENT)};\n`;
 }
 
 if (import.meta.main) writeFileSync(join(src, "cli", "editor-types.generated.ts"), generated());

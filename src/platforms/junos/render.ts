@@ -1,5 +1,3 @@
-// The neutral model as Junos `set` statements, in the form `show configuration | display set` prints, so the two compare statement by statement.
-
 import { Address } from "../../core/address";
 import { Cabling } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
@@ -10,15 +8,13 @@ import { JunosBgp } from "./bgp";
 import { JunosNames } from "./names";
 import { JunosStatements } from "./statements";
 
-/** A port or a LAG: what switches VLANs. */
 type Switched = Port | Lag;
 
-/** The whole configuration of one device, built section by section into one set of statements. */
+/** The configuration as `set` statements, in the form `show configuration | display set` prints, so the plan compares them one by one. */
 export class JunosRender {
-    /** The class each role logs in with. */
     private static readonly USER_CLASS = { admin: "super-user", operator: "operator", "read-only": "read-only" } as const;
 
-    /** The statement each kind of public key is written under, by the key's own prefix. */
+    /** The statement for each kind of public key, by the key's own prefix. */
     static readonly KEY_STATEMENT: Record<string, string> = {
         "ssh-ed25519": "ssh-ed25519",
         "ssh-rsa": "ssh-rsa",
@@ -33,7 +29,7 @@ export class JunosRender {
     /** The SNMPv3 group every user joins, with read access to everything. */
     private static readonly SNMP_GROUP = "circuit";
 
-    /** A severity as the platform names it. It has no debug; `any` takes everything. */
+    /** The platform has no debug level, so debug is `any`, which takes everything. */
     private static readonly LEVEL: Record<Severity, string> = {
         emergency: "emergency",
         alert: "alert",
@@ -45,13 +41,12 @@ export class JunosRender {
         debug: "any",
     };
 
-    /** The filters that decide who reaches the device's own services, one per family. A filter name is unique across families. */
+    /** Who reaches the device's own services, one filter per family. A filter's name is unique across families. */
     private static readonly SERVICES_FILTER = { inet: "circuit-services", inet6: "circuit-services-v6" } as const;
 
-    /** The policy OSPF announces other routes with. */
     private static readonly OSPF_EXPORT = "circuit-ospf-redistribute";
 
-    /** Strong ciphers, MACs and key exchanges, offered unless `weak_crypto`. */
+    /** Strong ciphers, MACs, and key exchanges, offered unless `weak_crypto`. */
     private static readonly SSH_CIPHERS = ["aes256-gcm@openssh.com", "aes128-gcm@openssh.com", "aes256-ctr", "aes192-ctr", "aes128-ctr"];
     private static readonly SSH_MACS = ["hmac-sha2-512", "hmac-sha2-256"];
     private static readonly SSH_KEY_EXCHANGES = [
@@ -76,15 +71,18 @@ export class JunosRender {
     /** Kinds of frame as `ether-type` names them, in the order the render writes them. */
     private static readonly ETHERTYPES: readonly Ethertype[] = ["ipv4", "ipv6", "arp"];
 
-    /** Detection under a second: three missed packets 300 ms apart. The platform has no interval of its own, and 3 is its multiplier. */
-    static readonly BFD_INTERVAL = 300;
-
     /** Kinds of flooded traffic, with the statement that leaves each out of a storm-control profile. */
     private static readonly STORM_KINDS = [
         ["broadcast", "no-broadcast"],
         ["multicast", "no-multicast"],
         ["unknown_unicast", "no-unknown-unicast"],
     ] as const;
+
+    /** `0.0.0.0`, which a host asking DHCP for an address sends from. */
+    private static readonly IPV4_ALWAYS = ["0.0.0.0/32"];
+
+    /** Link-local addresses, and `::` while a host checks an address is free: IPv6 needs both, so every bound host sends from them. */
+    private static readonly IPV6_ALWAYS = ["fe80::/10", "::/128"];
 
     private readonly out = new JunosStatements();
     private readonly names: JunosNames;
@@ -93,7 +91,6 @@ export class JunosRender {
         this.names = new JunosNames(device);
     }
 
-    /** The whole configuration the device should run, as `set` statements. */
     static of(device: Device): string {
         const render = new JunosRender(device);
 
@@ -124,30 +121,12 @@ export class JunosRender {
         return render.out.text();
     }
 
-    /** BFD under a statement: `routing.bfd`'s timers, or every 300 ms when it has none. */
-    static bfd(out: JunosStatements, statement: string, device: Device): void {
-        const timers = device.routing?.bfd;
-
-        out.set(statement, "bfd-liveness-detection minimum-interval", timers?.interval ?? JunosRender.BFD_INTERVAL);
-        if (timers) out.set(statement, "bfd-liveness-detection multiplier", timers.multiplier);
-    }
-
-    /** Quote a value unless it is a plain word. Quoting more than the platform would is harmless: the comparison ignores quotes. */
-    static quote(value: string): string {
-        if (/^[\w.:/@-]+$/.test(value)) return value;
-
-        const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
-        return `"${escaped}"`;
-    }
-
     /** The address a VRRP group sits on: the one whose network holds the virtual address. */
     static vrrpAddress(addresses: readonly string[], group: Vrrp): string | undefined {
         return addresses.find((address) => Address.family(address) === "ipv4" && Address.contains(address, group.address));
     }
 
-    /**
-     * The storm-control profile a port or LAG names. A profile holds one threshold for every kind it limits, so a port's kinds must share one in percent; `unsupported()` refuses any other.
-     */
+    /** A profile holds one threshold for every kind it limits, so a port's kinds must share one in percent. `unsupported()` refuses any other. */
     static stormProfile(settings: Switched): { name: string; percent: number; left: string[] } | undefined {
         const storm = settings.storm_control;
         if (!storm) return undefined;
@@ -203,15 +182,15 @@ export class JunosRender {
 
     /** A rule's term name: its place, then its description so a reader sees it on the device. */
     private static ruleName(label: string, description: string | undefined): string {
-        return JunosRender.quote(description ? `${label} ${description}` : label);
+        return JunosStatements.quote(description ? `${label} ${description}` : label);
     }
 
     private system(): void {
-        this.out.set("system host-name", JunosRender.quote(this.device.name));
+        this.out.set("system host-name", JunosStatements.quote(this.device.name));
 
         const system = this.device.system ?? {};
         if (system.timezone) this.out.set("system time-zone", system.timezone);
-        if (system.banner) this.out.set("system login message", JunosRender.quote(system.banner));
+        if (system.banner) this.out.set("system login message", JunosStatements.quote(system.banner));
 
         for (const server of system.dns?.servers ?? []) this.out.set("system name-server", server);
 
@@ -244,13 +223,13 @@ export class JunosRender {
 
             if (name !== "root") {
                 this.out.set(`system login user ${name} class`, JunosRender.USER_CLASS[user.role]);
-                if (user.description) this.out.set(`system login user ${name} full-name`, JunosRender.quote(user.description));
+                if (user.description) this.out.set(`system login user ${name} full-name`, JunosStatements.quote(user.description));
             }
 
             this.out.set(login, "plain-text-password-value", Secrets.marker(user.password));
 
             for (const key of user.ssh_keys ?? [])
-                this.out.set(login, JunosRender.KEY_STATEMENT[key.split(" ")[0]!]!, JunosRender.quote(key));
+                this.out.set(login, JunosRender.KEY_STATEMENT[key.split(" ")[0]!]!, JunosStatements.quote(key));
         }
     }
 
@@ -272,7 +251,6 @@ export class JunosRender {
         if (management.telnet) this.out.set("system services telnet");
         if (management.ftp) this.out.set("system services ftp");
 
-        // The web interface, the REST API and NETCONF, each on its own port when given.
         const others = [
             ["http", "system services web-management http"],
             ["api", "system services rest http"],
@@ -302,8 +280,8 @@ export class JunosRender {
         const snmp = this.device.monitoring?.snmp;
         if (!snmp) return;
 
-        if (snmp.contact) this.out.set("snmp contact", JunosRender.quote(snmp.contact));
-        if (snmp.location) this.out.set("snmp location", JunosRender.quote(snmp.location));
+        if (snmp.contact) this.out.set("snmp contact", JunosStatements.quote(snmp.contact));
+        if (snmp.location) this.out.set("snmp location", JunosStatements.quote(snmp.location));
         if (snmp.community) this.out.set("snmp community", Secrets.marker(snmp.community), "authorization read-only");
 
         if (!snmp.users) return;
@@ -326,7 +304,7 @@ export class JunosRender {
             if (!vlan) continue;
 
             this.out.set(`vlans ${name} vlan-id`, vlan.id);
-            if (vlan.description) this.out.set(`vlans ${name} description`, JunosRender.quote(vlan.description));
+            if (vlan.description) this.out.set(`vlans ${name} description`, JunosStatements.quote(vlan.description));
         }
 
         for (const [name, iface] of Object.entries(this.device.interfaces?.vlan_interface ?? {})) {
@@ -334,7 +312,7 @@ export class JunosRender {
         }
     }
 
-    /** Layer 2 membership of a port or LAG. The native VLAN is a member too, or its untagged frames are dropped. */
+    /** The native VLAN is a member too, or its untagged frames are dropped. */
     private switching(physical: string, settings: Switched): void {
         const family = `interfaces ${physical} unit 0 family ethernet-switching`;
 
@@ -372,15 +350,7 @@ export class JunosRender {
         return `circuit-bound-${physical.replaceAll("/", "-")}`;
     }
 
-    /** `0.0.0.0`, which a host asking DHCP for an address sends from. */
-    private static readonly IPV4_ALWAYS = ["0.0.0.0/32"];
-
-    /** Link-local addresses, and `::` while a host checks an address is free: IPv6 needs both, so every bound host sends from them. */
-    private static readonly IPV6_ALWAYS = ["fe80::/10", "::/128"];
-
-    /**
-     * For each host on a bound port, a term for each kind of packet it sends, all from its MAC address: IPv4 and IPv6 from its own addresses and those every host needs, and ARP. Then nothing else. The device prints a MAC address with its length, `/48`.
-     */
+    /** Each host on a bound port gets a term per kind of packet from its MAC address: IPv4, IPv6, and ARP. IP comes from the host's own addresses or those every host needs. The rest is discarded. The device prints a MAC address with its length, `/48`. */
     private boundFilters(): void {
         const holders: [string, Switched][] = [
             ...Derive.ports(this.device).flatMap(([port, settings]): [string, Switched][] =>
@@ -470,7 +440,7 @@ export class JunosRender {
         }
     }
 
-    /** Every port the model has. One the config does not declare is turned off, and so is a 10G cage's name for the optic it does not hold. */
+    /** A port the config does not declare is turned off. */
     private ports(): void {
         for (const port of Catalog.ports(this.device.platform, this.device.model)) {
             const settings = this.device.interfaces?.ethernet?.[port];
@@ -485,7 +455,7 @@ export class JunosRender {
                 continue;
             }
 
-            if (settings.description) this.out.set(`interfaces ${name} description`, JunosRender.quote(settings.description));
+            if (settings.description) this.out.set(`interfaces ${name} description`, JunosStatements.quote(settings.description));
 
             if (settings.in_lag) {
                 this.out.set(`interfaces ${name} ether-options 802.3ad`, `ae${this.names.lags.get(settings.in_lag)}`);
@@ -500,7 +470,6 @@ export class JunosRender {
         }
     }
 
-    /** The device's LAGs, each with its settings, in the order written. */
     private lagSettings(): [string, Lag][] {
         return Object.entries(this.device.interfaces?.lag ?? {}).flatMap(([name, lag]) => (lag ? [[name, lag] as [string, Lag]] : []));
     }
@@ -512,7 +481,7 @@ export class JunosRender {
             const physical = this.names.physical(name);
             highest = Math.max(highest, this.names.lags.get(name)!);
 
-            if (lag.description) this.out.set(`interfaces ${physical} description`, JunosRender.quote(lag.description));
+            if (lag.description) this.out.set(`interfaces ${physical} description`, JunosStatements.quote(lag.description));
             if (lag.mode !== "static") this.out.set(`interfaces ${physical} aggregated-ether-options lacp active`);
             if (lag.mtu !== undefined)
                 this.out.set(`interfaces ${physical} mtu`, JunosRender.frameSize(lag.mtu, !!(lag.access_vlan || lag.trunk_vlans)));
@@ -525,7 +494,6 @@ export class JunosRender {
         if (highest >= 0) this.out.set("chassis aggregated-devices ethernet device-count", highest + 1);
     }
 
-    /** VLAN interfaces, loopbacks and GRE tunnels: a description, a tunnel's ends, addresses and VRRP, and an MTU per family. */
     private routedInterfaces(): void {
         for (const { name, kind, settings: iface } of Derive.interfaces(this.device)) {
             if (kind !== "vlan_interface" && kind !== "loopback" && kind !== "gre") continue;
@@ -534,7 +502,7 @@ export class JunosRender {
             const [physical, number] = unit.split(".");
             const prefix = `interfaces ${physical} unit ${number}`;
 
-            if (iface.description) this.out.set(`${prefix} description`, JunosRender.quote(iface.description));
+            if (iface.description) this.out.set(`${prefix} description`, JunosStatements.quote(iface.description));
 
             const tunnel = kind === "gre" ? this.device.interfaces?.gre?.[name] : undefined;
             if (tunnel) {
@@ -571,16 +539,12 @@ export class JunosRender {
         }
     }
 
-    /**
-     * Who reaches the device's own services: each guarded service from its sources only, time answered only to the servers the device keeps time from, and everything else as it was.
-     *
-     * The filter sits on every loopback unit and on each management port with an address, so it applies whichever routing table or port a packet arrives on.
-     */
+    /** A guarded service is reached from its sources only, and time is answered only to the device's NTP servers. The filter sits on every loopback unit and each addressed management port, so it applies whichever table or port a packet arrives on. */
     private servicesFilter(): void {
         const management = this.device.management ?? {};
         const guarded: { service: keyof typeof JunosRender.SERVICE_PORTS; sources: readonly string[] }[] = [];
 
-        // `management.allow` holds addresses by now: an address set's name is turned into its addresses before a platform reads it.
+        // The project has turned an address set's name in `management.allow` into its addresses.
         const allowed = typeof management.allow === "string" ? undefined : management.allow;
 
         for (const service of Object.keys(JunosRender.SERVICE_PORTS) as (keyof typeof JunosRender.SERVICE_PORTS)[]) {
@@ -661,7 +625,7 @@ export class JunosRender {
             if (!vrf) continue;
 
             this.out.set(`routing-instances ${name} instance-type virtual-router`);
-            if (vrf.description) this.out.set(`routing-instances ${name} description`, JunosRender.quote(vrf.description));
+            if (vrf.description) this.out.set(`routing-instances ${name} description`, JunosStatements.quote(vrf.description));
         }
 
         for (const [name, settings] of this.routed()) {
@@ -689,17 +653,16 @@ export class JunosRender {
             if (route.distance === undefined) this.out.set(statement, "next-hop", nextHop);
             else this.out.set(statement, "qualified-next-hop", nextHop, "preference", route.distance);
 
-            // BFD on the route watches its next hop.
-            if (route.bfd) JunosRender.bfd(this.out, statement, this.device);
+            if (route.bfd) this.out.bfd(statement, this.device.routing?.bfd);
         }
     }
 
-    /** Spanning tree on every switched port and LAG, each with its own settings. RSTP when no mode is given. */
+    /** On every switched port and LAG. RSTP when no mode is given. */
     private spanningTree(): void {
         const stp = this.device.switching?.stp;
         if (!stp) return;
 
-        // The platform has no plain STP; RSTP is held to it.
+        // The platform has no plain STP, so RSTP is held to it.
         const protocol = `protocols ${stp.mode === "mstp" ? "mstp" : "rstp"}`;
         if (stp.mode === "stp") this.out.set(protocol, "force-version stp");
         if (stp.priority !== undefined) this.out.set(protocol, "bridge-priority", stp.priority === 0 ? "0" : `${stp.priority / 1024}k`);
@@ -727,11 +690,7 @@ export class JunosRender {
         }
     }
 
-    /**
-     * LLDP on every port or on those listed, a port's own setting over the device's. LLDP runs on a LAG's member ports.
-     *
-     * The device sends a port's SNMP index as its port ID unless told to send its name, so a neighbor sees `et-0/0/52` rather than `520`.
-     */
+    /** A port's own setting wins over the device's, and a LAG runs LLDP on its member ports. The device sends a port's SNMP index as its port ID unless told to send its name: `et-0/0/52` rather than `520`. */
     private lldp(): void {
         const lldp = this.device.switching?.lldp;
 
@@ -765,7 +724,7 @@ export class JunosRender {
                     if (settings.cost !== undefined) this.out.set(statement, "metric", settings.cost);
                     if (settings.passive) this.out.set(statement, "passive");
                     if (settings.network === "point-to-point") this.out.set(statement, "interface-type p2p");
-                    if (settings.bfd) JunosRender.bfd(this.out, statement, this.device);
+                    if (settings.bfd) this.out.bfd(statement, this.device.routing?.bfd);
                 }
             }
 
@@ -791,7 +750,7 @@ export class JunosRender {
         }
     }
 
-    /** sFlow from the management address, to each collector, on every declared port or those listed. A LAG is observed on its member ports. */
+    /** Every declared port is sampled unless `interfaces` lists some, and a LAG on its member ports. The agent is the management address. */
     private sflow(): void {
         const flow = this.device.monitoring?.flow_export;
         if (flow?.protocol !== "sflow") return;
@@ -815,9 +774,7 @@ export class JunosRender {
         }
     }
 
-    /**
-     * Hardware ACLs. A switched port takes a filter of the switching family, which matches IPv4 and IPv6 under `ip-version`; a routed port takes one filter per family. Each ends by accepting what no rule matched.
-     */
+    /** A switched port takes a filter of the switching family, which matches IPv4 and IPv6 under `ip-version`. A routed port takes one filter per family. Each filter accepts what no rule matched. */
     private acls(): void {
         const switched = new Set<string>();
         const routed = new Set<string>();
@@ -933,7 +890,7 @@ export class JunosRender {
         this.out.set(filter, "term circuit-default then accept");
     }
 
-    /** A DHCP server is an address pool with its network, range, options and reservations, served on its interface. */
+    /** Each server is an address pool, served on its interface. */
     private dhcpServers(): void {
         for (const [name, server] of Object.entries(this.device.services?.dhcp_server ?? {})) {
             this.out.set(`system services dhcp-local-server group ${name} interface`, this.names.unit(server.interface));
@@ -970,7 +927,6 @@ export class JunosRender {
         }
     }
 
-    /** Every port, then every other interface kind by kind, each with its settings. */
     private routed(): [string, Port | Interface][] {
         return [
             ...Derive.ports(this.device),

@@ -1,4 +1,4 @@
-// Rules that span devices: what one device declares about another has to agree with what the other declares. That a link's far end exists and links back is stopped on when the project is read, so a link that doesn't is skipped here.
+// What one device declares about another has to agree with what the other declares.
 
 import { Address } from "../core/address";
 import type { Device, Finding, Gre, Prefix, Routed, Switched, Vrrp, Vxlan } from "../model";
@@ -24,11 +24,14 @@ export type AddressHolder = {
 /** What a port's settings are kept on, as a path: the LAG when the port is in one, otherwise the port. */
 type Carrier = { where: string; settings: Routed & Switched & { mtu?: number } };
 
-/** One end of a GRE or VXLAN tunnel. */
 type TunnelEnd = { device: Device; where: string; kind: "gre" | "vxlan"; tunnel: Gre | Vxlan };
 
 export class CrossChecks {
-    /** Every rule across devices. */
+    /** An interface's MTU when the config gives none. */
+    private static readonly ETHERNET_MTU = 1500;
+    /** IANA's VXLAN port (RFC 7348), when the config gives none. */
+    private static readonly VXLAN_PORT = 4789;
+
     static run(devices: readonly Device[]): Finding[] {
         const holders = CrossChecks.holders(devices);
 
@@ -99,7 +102,6 @@ export class CrossChecks {
         return new Map(names.flatMap((name) => (vlans[name] ? [[vlans[name].id, name] as const] : [])));
     }
 
-    /** What a port's settings are kept on: the LAG when the port is in one, otherwise the port. */
     private static carrierOf(device: Device, portName: string): Carrier {
         const port = device.interfaces!.ethernet![portName]!;
         const lag = port.in_lag ? device.interfaces?.lag?.[port.in_lag] : undefined;
@@ -186,8 +188,8 @@ export class CrossChecks {
                     report(`speed ${port.speed}, and ${farPortWhere} is ${farPort.speed}`);
                 }
 
-                const mtu = near.settings.mtu ?? 1500;
-                const farMtu = away.settings.mtu ?? 1500;
+                const mtu = near.settings.mtu ?? CrossChecks.ETHERNET_MTU;
+                const farMtu = away.settings.mtu ?? CrossChecks.ETHERNET_MTU;
                 if (mtu !== farMtu) report(`MTU ${mtu} on ${near.where}, and ${link.device} ${away.where} has ${farMtu}`);
 
                 const disagreement = CrossChecks.addressDisagreement(near.settings, away.settings, far, away.where);
@@ -390,8 +392,8 @@ export class CrossChecks {
             const theirs = mirror.tunnel as Vxlan;
             if (ours.vni !== theirs.vni) report(`VNI ${ours.vni}, and ${far.name} ${mirror.where} has ${theirs.vni}`);
 
-            const port = ours.port ?? 4789;
-            const farPort = theirs.port ?? 4789;
+            const port = ours.port ?? CrossChecks.VXLAN_PORT;
+            const farPort = theirs.port ?? CrossChecks.VXLAN_PORT;
             if (port !== farPort) report(`UDP port ${port}, and ${far.name} ${mirror.where} has ${farPort}`);
         }
 

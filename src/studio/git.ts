@@ -1,4 +1,4 @@
-// Git, for Studio's history and comparisons: the commits that changed a device's file, and the project as it was at another commit or branch.
+// Studio's history and comparisons: the commits that changed a device's file, and the project at another commit or branch.
 
 import { execFile } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -8,15 +8,19 @@ import type { Commit } from "./types";
 export class Git {
     private static readonly FORMAT = "--format=%H%x1f%h%x1f%an%x1f%aI%x1f%s";
 
+    /** 64 MiB. */
+    private static readonly MAX_OUTPUT_BYTES = 67_108_864;
+    private static readonly CHECKOUT_NAME_LENGTH = 12;
+
     /** The environment without git's own variables, such as GIT_DIR in a hook, which would point git at another repository than the folder's. */
     private static environment(): Record<string, string | undefined> {
         return Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")));
     }
 
-    /** Run git in a folder, and give what it printed, or fail with what it said: in words a person can act on when the folder is in no repository. */
+    /** What git printed, or a failure with what it said. A folder in no repository fails in words a person can act on. */
     private static run(cwd: string, args: string[]): Promise<string> {
         return new Promise((done, fail) => {
-            execFile("git", args, { cwd, env: Git.environment(), maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
+            execFile("git", args, { cwd, env: Git.environment(), maxBuffer: Git.MAX_OUTPUT_BYTES }, (error, stdout, stderr) => {
                 const said = (stderr || error?.message || "").trim();
                 if (!error) done(stdout);
                 else if (said.includes("not a git repository")) fail(new Error("The project is not in git. Run git init in its folder."));
@@ -95,7 +99,7 @@ export class Git {
         // A checkout left behind by a run that stopped is forgotten first.
         await Git.run(top, ["worktree", "prune"]);
 
-        const checkout = join(cache, commit.slice(0, 12));
+        const checkout = join(cache, commit.slice(0, Git.CHECKOUT_NAME_LENGTH));
         // The checkout sits deep inside the project, so a long path passes the 260 characters Windows allows unless git is told otherwise.
         await Git.run(top, ["-c", "core.longpaths=true", "worktree", "add", "--detach", "--force", checkout, commit]);
 

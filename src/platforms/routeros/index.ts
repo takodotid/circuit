@@ -1,48 +1,47 @@
-// RouterOS 7: logging in, reading, the fields it cannot express, and sending a plan.
-//
-// The platform applies every command the moment it arrives and has no candidate configuration, so a run is guarded three ways. Every command is first compiled on the device without running, so a syntax error or an unknown property costs nothing. A backup is saved and a scheduler armed to restore it, and the run must log in again in a fresh session before the scheduler is removed. A command the device refuses restores the backup at once, rather than leaving the device half applied.
-
 import type { Client } from "ssh2";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import type { Device, Family, Finding } from "../../model";
 import { Secrets } from "../../core/secrets";
-import { SerialConsole, type ConsoleDialect, ConsoleShell } from "../../transport/console";
+import { SerialConsole, ConsoleShell } from "../../transport/console";
+import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
-import {
-    type ApplyOptions,
-    type BgpLogLine,
-    type BgpSession,
-    type HealthCheck,
-    type HealthOptions,
-    type OsSupport,
-    type Plan,
-    type ReadOptions,
-    type ReadSession,
-    type SwitchRules,
-    Platform,
+import { Platform } from "../platform";
+import type {
+    ApplyOptions,
+    BgpLogLine,
+    BgpSession,
+    HealthCheck,
+    HealthOptions,
+    OsSupport,
+    Plan,
+    ReadOptions,
+    ReadSession,
+    SwitchRules,
 } from "../platform";
-import { BgpWait, type WaitLimits } from "../bgp-wait";
+import { BgpWait } from "../bgp-wait";
+import type { WaitLimits } from "../bgp-wait";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsRender } from "./render";
 import { RouterOsRouting } from "./routing";
+import { RouterOsSyntax } from "./syntax";
 
-/** Where commands run, one at a time, each returning what it printed: an SSH session, or the console. */
+/** An SSH session or the console. Commands run one at a time, and each returns what it printed. */
 type Session = {
     run(command: string, timeout?: number): Promise<string>;
-    /** Write a file to the device. Only SSH can. */
+    /** Only SSH can write a file. */
     upload?(path: string, content: string): Promise<void>;
-    /** A fresh login, which tests that access survived: this session ends and a new SSH session opens, or the console logs out and in again. */
+    /** A fresh login, which tests that access survived. */
     fresh(): Promise<Session>;
     end(): void;
 };
 
 export class RouterOs extends Platform {
-    /** How the RouterOS console asks for a login. The flags after the user turn off colours and terminal detection, without which the console redraws every line. */
+    /** `+cwt` after the user turns off colors and terminal detection. Without it, the console redraws every line (TRAPS.md). */
     static readonly CONSOLE: ConsoleDialect = {
         login: /Login: $/,
         password: /Password: $/,
@@ -55,16 +54,47 @@ export class RouterOs extends Platform {
         user: (user) => `${user}+cwt`,
     };
 
-    /** Why a MAC limit is refused: neither a bridge port nor a switch port has a learning limit on 7.23.5. */
     private static readonly NO_MAC_LIMIT = "the platform has no MAC learning limit on a bridge port or a switch port on 7.23";
 
-    /** The major version this adapter renders for. Version 6 has a different BGP and filter language altogether. */
+    /** Version 6 has another BGP and filter language. */
     private static readonly SUPPORTED_MAJOR = 7;
 
-    /** Both dumps stamp the time they were taken. Without the stamp, an unchanged device reads the same twice. */
+    /** The export stamps the time it was taken. Without the stamp, an unchanged device reads the same twice. */
     private static readonly EXPORT_TIMESTAMP = /^# \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} by RouterOS/m;
 
-    /** Lists certificates in the form the renderer writes them, since an export does not include them. One line, because a script sent over exec runs as one. */
+    /** A backup's name holds the time it was taken, to the minute: `pre-apply-202610240312`. */
+    private static readonly BACKUP_STAMP_CHARS = 12;
+
+    private static readonly EXPORT_TIMEOUT_MS = 300_000;
+
+    /** A command that changes the device: the backup, and each command of a plan. */
+    private static readonly CHANGE_TIMEOUT_MS = 120_000;
+
+    private static readonly RESTORE_TIMEOUT_MS = 30_000;
+
+    /** A script that lists BGP sessions, advertisements, LLDP neighbors, or the log. */
+    private static readonly LIST_TIMEOUT_MS = 60_000;
+
+    /** Address list entries in one command, so each command stays a sane length. */
+    private static readonly FILL_BATCH_ENTRIES = 60;
+
+    private static readonly FILL_BATCH_TIMEOUT_MS = 90_000;
+
+    private static readonly MINUTE_MS = 60_000;
+
+    /** How much of the device's answer, or of a command, an error quotes. */
+    private static readonly QUOTE_CHARS = 200;
+
+    /** How much an error quotes of output it could not read: the certificate list, or the clock. */
+    private static readonly QUOTE_UNEXPECTED_CHARS = 120;
+
+    /** How much of a refused command, and of the device's answer, an apply's error quotes. */
+    private static readonly QUOTE_REFUSED_COMMAND_CHARS = 160;
+
+    private static readonly QUOTE_REFUSED_ANSWER_CHARS = 300;
+
+    // Each script below is one line, because SSH exec runs a script as one line (TRAPS.md).
+
     /** Each user's SSH keys, by fingerprint: the device never prints a key, and `/user export` leaves them out. */
     private static readonly LIST_SSH_KEYS = [
         ":foreach k in=[/user ssh-keys find] do={",
@@ -72,6 +102,7 @@ export class RouterOs extends Platform {
         "}",
     ].join(" ");
 
+    /** Certificates in the form the render writes them, since an export leaves them out. */
     private static readonly LIST_CERTIFICATES = [
         ":foreach c in=[/certificate find] do={",
         ':local key "no";',
@@ -80,9 +111,7 @@ export class RouterOs extends Platform {
         "}",
     ].join(" ");
 
-    /**
-     * Every BGP session, one line each: name, remote address, established, prefixes received, uptime, closed on its limit, the limit, when it last closed. Then each disabled connection, `disabled|<name>|<address>`. One line, because a script sent over exec runs as one.
-     */
+    /** A line for each BGP session, its fields split by `|`. Then a line for each disabled connection: `disabled|<name>|<address>`. */
     private static readonly LIST_BGP_SESSIONS = [
         ":foreach s in=[/routing bgp session find] do={",
         ":local g [/routing bgp session get $s];",
@@ -93,19 +122,8 @@ export class RouterOs extends Platform {
         "}",
     ].join(" ");
 
-    /** Open again the session from one address, only while it is closed on its limit. */
-    /** Each advertisement of these prefixes, one line each: `ADV|<session>|<prefix>`. One line, because a script sent over exec runs as one. */
-    private static listAdvertisements(prefixes: readonly string[]): string {
-        const where = prefixes.map((prefix) => `dst=${prefix}`).join(" or ");
-        return `:foreach a in=[/routing bgp advertisements print as-value where ${where}] do={ :put ("ADV|" . ($a->"peer") . "|" . ($a->"dst")) }`;
-    }
-
-    private static clearLimit(address: string): string {
-        return `/routing bgp session clear [find remote.address=${address} and limit-exceeded] flag=limit-exceeded`;
-    }
-
     /**
-     * Every LLDP neighbor, one line each: our interfaces, the port first and then the LAG and bridge it is in, the far system name, and the far port as LLDP reports it. `:tostr` keeps the interface list one value; joined to a string as it is, a list repeats the whole line for each of its items. One line, because a script sent over exec runs as one.
+     * A line for each LLDP neighbor: `<our interfaces>|<far system>|<far port>`. Our interfaces are the port, then its LAG and bridge. `:tostr` keeps them one value, since a list joined to a string repeats the line for each item.
      */
     private static readonly LIST_NEIGHBORS = [
         ':foreach n in=[/ip neighbor find where discovered-by~"lldp"] do={',
@@ -120,14 +138,13 @@ export class RouterOs extends Platform {
     /** The device's date and time, in the form its log prints: `2026-10-24 03:12:44`. */
     private static readonly CLOCK = ':put ([/system clock get date] . " " . [/system clock get time])';
 
-    /** The switch chip's rules. A rule it cannot hold is invalid, and so is every rule after it, with no log line (TRAPS.md). */
     private static readonly SWITCH_RULES = "/interface ethernet switch rule";
 
+    /** A rule the switch chip cannot hold is invalid, and so is every rule after it, with no log line (TRAPS.md). */
     private static readonly COUNT_INVALID_SWITCH_RULES = `${RouterOs.SWITCH_RULES} print count-only where invalid`;
 
     private static readonly ROLLBACK_SCHEDULER = "apply-rollback";
 
-    /** Commands that only read: print, monitor, ping, traceroute, torch, profile, sniffer quick, an AS-path regex test, export, and `:put`, `:foreach` or `:delay` scripts. */
     private static readonly READS =
         /\b(print|monitor|monitor-traffic|ping|traceroute|torch|profile|test-as-path-regexp|export|get|find)\b|\bsniffer quick\b|^:(put|foreach|delay)\b/;
 
@@ -135,26 +152,26 @@ export class RouterOs extends Platform {
     private static readonly WRITES =
         /\b(set|add|remove|reset|reset-counters|enable|disable|unset|move|edit|import|reboot|shutdown|clear|run|upgrade|fetch|save|show-sensitive)\b|\bfile=/;
 
-    /** Flags after the user over SSH: no colours, no terminal detection, 300 columns, so output is plain and lines are not cut. */
+    /** Flags after the user over SSH: no colors, no terminal detection, 300 columns, so output is plain and lines are not cut. */
     private static readonly PLAIN_OUTPUT = "+ct300w";
 
-    readonly name = "routeros";
+    override readonly name = "routeros";
 
-    readonly os: OsSupport = {
+    override readonly os: OsSupport = {
         name: "MikroTik RouterOS",
         versions: "7",
         testedOn: "CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24",
         checked: true,
     };
 
-    readonly extension = ".rsc";
+    override readonly extension = ".rsc";
 
     override readonly console = RouterOs.CONSOLE;
 
     /**
-     * A BGP session with a `routing_table` announces from that table, not from main: each prefix of `originated_prefixes` it announces needs a route in the table too, or it is not announced (TRAPS.md). A session left with nothing to announce is an error; a prefix missing from its table is a warning, since its export may not announce it anyway.
+     * A BGP session with a `routing_table` announces only what that table has a route for (TRAPS.md). A session left with nothing to announce is an error. A prefix missing from its table is a warning, since its export may not announce it anyway.
      */
-    checks(device: Device): Finding[] {
+    override checks(device: Device): Finding[] {
         const bgp = device.routing?.bgp;
         const statics = device.routing?.static_routes ?? [];
         const findings: Finding[] = [];
@@ -168,7 +185,7 @@ export class RouterOs extends Platform {
             const originated = (bgp?.originated_prefixes ?? []).filter((prefix) => families.includes(Address.family(Address.host(prefix))));
             const inTable = (prefix: string) =>
                 statics.some((route) => route.routing_table === table && Address.canonical(route.prefix) === Address.canonical(prefix));
-            // What its export accepts by prefix: a prefix it would reject anyway needs no route in the table. Every prefix when the export names none.
+            // A prefix its export rejects needs no route in the table. An export without a prefix rule accepts every prefix.
             const exportPolicy = neighbor.export_policy ?? group?.export_policy;
             const accepted = (exportPolicy ? (device.routing?.policies?.[exportPolicy] ?? []) : [])
                 .flatMap((rule) => (RouterOsRouting.onRoutes(rule) && rule.then === "accept" && rule.if?.prefix ? [rule.if.prefix] : []))
@@ -203,10 +220,10 @@ export class RouterOs extends Platform {
         return findings;
     }
 
-    unsupported(device: Device): string[] {
+    override unsupported(device: Device): string[] {
         const found: string[] = [];
 
-        for (const [name] of RouterOsRender.entries(device.interfaces?.bridge)) {
+        for (const [name] of RouterOsSyntax.entries(device.interfaces?.bridge)) {
             found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
         }
 
@@ -227,7 +244,6 @@ export class RouterOs extends Platform {
             }
         }
 
-        // Routing in software is set per VLAN interface, on the switch chip that offloads.
         for (const [name, port] of Derive.ports(device))
             if (port.hardware_offload !== undefined) found.push(`interfaces.ethernet.${name}.hardware_offload, set on a VLAN interface`);
         for (const { name, kind, settings } of Derive.interfaces(device)) {
@@ -237,7 +253,7 @@ export class RouterOs extends Platform {
                 found.push(`interfaces.vlan_interface.${name}.hardware_offload true while system.hardware_offload is off`);
         }
 
-        for (const [name, lag] of RouterOsRender.entries(device.interfaces?.lag)) {
+        for (const [name, lag] of RouterOsSyntax.entries(device.interfaces?.lag)) {
             if (lag.mac_limit !== undefined) found.push(`interfaces.lag.${name}.mac_limit, ${RouterOs.NO_MAC_LIMIT}`);
             if (lag.ethertypes !== undefined)
                 found.push(`interfaces.lag.${name}.ethertypes, on a LAG, which is not tested on a device yet`);
@@ -292,7 +308,7 @@ export class RouterOs extends Platform {
         // The plan knows a route by its prefix, table, and gateway, as the render writes them. Two routes alike in all three can't be told apart.
         const routes = new Map<string, number>();
         (device.routing?.static_routes ?? []).forEach((route, index) => {
-            // `fe80::1%ether1` with both: the render writes the next hop with its interface.
+            // With both, the render writes `fe80::1%ether1`.
             const nextHop = route.next_hop && Address.canonical(Address.host(route.next_hop));
             const gateway = [nextHop, route.interface].filter(Boolean).join("%");
             const key = [Address.canonical(route.prefix), route.vrf ?? route.routing_table ?? "main", gateway].join(" ");
@@ -339,8 +355,7 @@ export class RouterOs extends Platform {
         return found;
     }
 
-    /** A route with both `next_hop` and `interface` is written `gateway=fe80::1%ether1`, after the vendor's documentation, and not tested on a device yet. */
-    /** What the v1 model can write that the platform does not render: a list of values in one rule's match, an interface set, an address set named in `management.allow`, and a `{ communities }` rule. */
+    /** What the model allows and the render does not write. */
     private static unsupportedShapes(device: Device): string[] {
         const found: string[] = [];
         const firewall = device.firewall;
@@ -368,7 +383,7 @@ export class RouterOs extends Platform {
             });
         }
 
-        for (const [name, rules] of RouterOsRender.entries(device.switching?.acls)) {
+        for (const [name, rules] of RouterOsSyntax.entries(device.switching?.acls)) {
             rules.forEach((rule, index) => {
                 for (const field of ["src", "dst", "vlan"] as const) {
                     if (list(rule.if?.[field])) found.push(`switching.acls.${name}[${index}].if.${field}, a list: write one rule for each`);
@@ -379,7 +394,7 @@ export class RouterOs extends Platform {
         const allow = device.management?.allow;
         if (typeof allow === "string") found.push(`management.allow ${allow}, an address set by name: write its prefixes`);
 
-        for (const [name, rules] of RouterOsRender.entries(device.routing?.policies)) {
+        for (const [name, rules] of RouterOsSyntax.entries(device.routing?.policies)) {
             rules.forEach((rule, index) => {
                 if (rule.communities !== undefined) found.push(`routing.policies.${name}[${index}].communities ${rule.communities}`);
             });
@@ -388,7 +403,7 @@ export class RouterOs extends Platform {
         return found;
     }
 
-    render(device: Device): string {
+    override render(device: Device): string {
         return RouterOsRender.of(device);
     }
 
@@ -400,23 +415,23 @@ export class RouterOs extends Platform {
         return { count: rules.length + filters, ranges: ranges.size };
     }
 
-    /**
-     * What the device runs: its export, its users, and its certificates. Secrets are not part of an export.
-     */
-    async read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
+    /** The export, then what it leaves out: the users, their SSH keys, and the certificates. */
+    override async read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
         const session = await RouterOs.open(device, options);
 
         try {
             await RouterOs.checkVersion(session, device);
 
-            const config = await session.run("/export", 300_000);
+            const config = await session.run("/export", RouterOs.EXPORT_TIMEOUT_MS);
             const users = await session.run("/user export");
             const certificates = (await session.run(RouterOs.LIST_CERTIFICATES)).trim();
             const keys = (await session.run(RouterOs.LIST_SSH_KEYS)).trim();
 
             const listed = certificates.split("\n").every((line) => line.trim().startsWith("add fingerprint="));
             if (certificates && !listed) {
-                throw new Error(`${device.name}: certificates could not be listed: ${certificates.slice(0, 120)}`);
+                throw new Error(
+                    `${device.name}: certificates could not be listed: ${certificates.slice(0, RouterOs.QUOTE_UNEXPECTED_CHARS)}`
+                );
             }
 
             // The user dump repeats the export's header; only its menu is kept.
@@ -425,17 +440,20 @@ export class RouterOs extends Platform {
             const keyLines = keys.split("\n").filter((line) => line.trim().startsWith("add fingerprint="));
             const keyMenu = keyLines.length ? `/user ssh-keys\n${keyLines.join("\n")}` : "";
             const text = [config.trim(), userMenu, keyMenu, certificateMenu].filter(Boolean).join("\n");
-            return RouterOs.withoutTimestamp(text) + "\n";
+            return `${RouterOs.withoutTimestamp(text)}\n`;
         } finally {
             session.end();
         }
     }
 
-    plan(desired: string, current: string, options: ApplyOptions): Plan {
+    override plan(desired: string, current: string, options: ApplyOptions): Plan {
         return RouterOsPlan.of(desired, current, options);
     }
 
-    async apply(device: Device, _network: readonly Device[], changes: Plan, options: ApplyOptions): Promise<void> {
+    /**
+     * RouterOS applies each command as it arrives, with no candidate configuration, so an apply is guarded three ways. Each command is first compiled on the device without running. A backup is saved, with a scheduler armed to restore it, which only a fresh login removes. A refused command restores the backup at once.
+     */
+    override async apply(device: Device, _network: readonly Device[], changes: Plan, options: ApplyOptions): Promise<void> {
         const session = await RouterOs.open(device, options);
         await RouterOs.checkVersion(session, device);
 
@@ -447,11 +465,11 @@ export class RouterOs extends Platform {
             const reason = await RouterOs.refusal(session, Secrets.substitute(command));
             if (reason) {
                 session.end();
-                throw new Error(`${title}: the device will not parse ${command.slice(0, 200)}\n    ${reason}`);
+                throw new Error(`${title}: the device will not parse ${command.slice(0, RouterOs.QUOTE_CHARS)}\n    ${reason}`);
             }
         }
 
-        const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12);
+        const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, RouterOs.BACKUP_STAMP_CHARS);
         const backup = `pre-apply-${stamp}`;
 
         // `interval` counts from now; `start-time=startup` would count from boot.
@@ -465,7 +483,7 @@ export class RouterOs extends Platform {
         try {
             console.log(`  saving ${backup}, arming a ${options.rollback} minute rollback`);
 
-            await session.run(`/system backup save name=${backup} dont-encrypt=yes`, 120_000);
+            await session.run(`/system backup save name=${backup} dont-encrypt=yes`, RouterOs.CHANGE_TIMEOUT_MS);
             await session.run(`/system scheduler remove [find name="${RouterOs.ROLLBACK_SCHEDULER}"]`);
             await session.run(armRollback);
 
@@ -476,20 +494,23 @@ export class RouterOs extends Platform {
                     continue;
                 }
 
-                const answer = (await session.run(Secrets.substitute(command), 120_000)).trim();
-                if (answer) throw new Error(`${title}: ${command.slice(0, 160)}\n    device said: ${answer.slice(0, 300)}`);
+                const answer = (await session.run(Secrets.substitute(command), RouterOs.CHANGE_TIMEOUT_MS)).trim();
+                if (answer) {
+                    const quoted = command.slice(0, RouterOs.QUOTE_REFUSED_COMMAND_CHARS);
+                    throw new Error(`${title}: ${quoted}\n    device said: ${answer.slice(0, RouterOs.QUOTE_REFUSED_ANSWER_CHARS)}`);
+                }
             }
         } catch (error) {
             console.log(`  FAILED: ${(error as Error).message}`);
             console.log(`  restoring ${backup} now; the rollback stays armed in case this does not get through`);
 
-            await session.run(`/system backup load name=${backup} password=""`, 30_000).catch(() => undefined);
+            await session.run(`/system backup load name=${backup} password=""`, RouterOs.RESTORE_TIMEOUT_MS).catch(() => undefined);
             session.end();
 
             throw new Error("apply failed and the backup is being restored", { cause: error });
         }
 
-        // A fresh login is the proof that access survived. Only then is the rollback removed, with the backup, which holds every credential, and any an earlier apply left: one that failed restores its backup, which stays on the device.
+        // Only a fresh login removes the rollback. It also removes the backup, which holds every credential, and any backup a failed apply left.
         const proof = await session.fresh().catch(() => undefined);
         if (!proof) throw new Error(`could not log in again; the device restores ${backup} within ${options.rollback} minutes`);
 
@@ -499,12 +520,12 @@ export class RouterOs extends Platform {
         console.log("  logged in again, rollback disarmed");
     }
 
-    readOnly(command: string): boolean {
+    override readOnly(command: string): boolean {
         return RouterOs.READS.test(command) && !RouterOs.WRITES.test(command);
     }
 
     /** Over SSH, each command runs on its own. */
-    async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
+    override async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
         const session = options.console
             ? await RouterOs.consoleSession(device, ConsoleShell.SETTLE)
             : RouterOs.sshSession(await RouterOs.login(device, RouterOs.PLAIN_OUTPUT), device);
@@ -513,12 +534,10 @@ export class RouterOs extends Platform {
     }
 
     /**
-     * A session is named `<connection>-<n>`, but a renamed connection keeps its session's old name until the session restarts. So a neighbor is matched by its address first, then by name.
-     *
-     * A session that is down says why: closed on its limit, or still connecting. A neighbor with no session and a disabled connection is admin down.
+     * A session is named `<connection>-<n>`, and a renamed connection keeps its session's old name until the session restarts (TRAPS.md). So a neighbor is matched by its address first, then by name. A session that is down says why: closed on its limit, or still connecting. A neighbor with no session and a disabled connection is admin down.
      */
-    async bgpSessions(device: Device, session: ReadSession): Promise<BgpSession[]> {
-        const output = await session.run(RouterOs.LIST_BGP_SESSIONS, 60_000);
+    override async bgpSessions(device: Device, session: ReadSession): Promise<BgpSession[]> {
+        const output = await session.run(RouterOs.LIST_BGP_SESSIONS, RouterOs.LIST_TIMEOUT_MS);
         const lines = output
             .split(/\r?\n/)
             .filter((line) => line.includes("|"))
@@ -569,21 +588,26 @@ export class RouterOs extends Platform {
         });
     }
 
-    async bgpClearLimit(session: ReadSession, sessions: readonly BgpSession[]): Promise<void> {
+    override async bgpClearLimit(session: ReadSession, sessions: readonly BgpSession[]): Promise<void> {
         for (const bgp of sessions) {
             const answer = (await session.run(RouterOs.clearLimit(bgp.remote))).trim();
-            if (answer) throw new Error(`could not clear ${bgp.neighbor}: ${answer.slice(0, 200)}`);
+            if (answer) throw new Error(`could not clear ${bgp.neighbor}: ${answer.slice(0, RouterOs.QUOTE_CHARS)}`);
         }
     }
 
-    /** A `time>` filter in `/log print` does not filter, so the lines are kept here by comparing each one's time with the device's clock. */
-    async bgpLog(session: ReadSession, minutes: number): Promise<BgpLogLine[]> {
+    /** Opens the session from one address again, only while it is closed on its limit. */
+    private static clearLimit(address: string): string {
+        return `/routing bgp session clear [find remote.address=${address} and limit-exceeded] flag=limit-exceeded`;
+    }
+
+    /** `time>` in `/log print` does not filter (TRAPS.md), so each line's time is compared with the device's clock here. */
+    override async bgpLog(session: ReadSession, minutes: number): Promise<BgpLogLine[]> {
         const now = (await session.run(RouterOs.CLOCK)).trim();
         const nowTime = RouterOs.logTime(now);
-        if (Number.isNaN(nowTime)) throw new Error(`could not read the device's clock: ${now.slice(0, 120)}`);
+        if (Number.isNaN(nowTime)) throw new Error(`could not read the device's clock: ${now.slice(0, RouterOs.QUOTE_UNEXPECTED_CHARS)}`);
 
-        const since = nowTime - minutes * 60_000;
-        const log = await session.run(RouterOs.BGP_LOG, 60_000);
+        const since = nowTime - minutes * RouterOs.MINUTE_MS;
+        const log = await session.run(RouterOs.BGP_LOG, RouterOs.LIST_TIMEOUT_MS);
 
         return log
             .split(/\r?\n/)
@@ -597,9 +621,9 @@ export class RouterOs extends Platform {
     }
 
     /**
-     * Three checks after an apply. When the plan touched switch rules, none may be invalid. BGP sessions established before the apply must be established again, and announce again each of the device's `originated_prefixes` they announced before, within `BgpWait.AFTER_APPLY`. A session can stay up and stop announcing (TRAPS.md), which the session check alone would not see.
+     * Three checks after an apply. When the plan touched switch rules, none may be invalid. Each BGP session established before must be established again, and announce again what it announced of `originated_prefixes`. A session can stay up and stop announcing (TRAPS.md).
      */
-    async health(device: Device, plan: Plan, options: HealthOptions = {}): Promise<HealthCheck> {
+    override async health(device: Device, plan: Plan, options: HealthOptions = {}): Promise<HealthCheck> {
         const switchRules = plan.steps.some((step) => step.send.some((command) => command.startsWith(RouterOs.SWITCH_RULES)));
         const limits = options.bgp ?? BgpWait.AFTER_APPLY;
 
@@ -618,7 +642,7 @@ export class RouterOs extends Platform {
                 try {
                     const switchProblems = switchRules ? await RouterOs.invalidSwitchRules(session, device) : [];
                     const bgpProblems = await this.bgpBack(device, session, establishedBefore, limits);
-                    const announceProblems = await this.announcedBack(device, session, announcedBefore, limits);
+                    const announceProblems = await RouterOs.announcedBack(device, session, announcedBefore, limits);
                     return [...switchProblems, ...bgpProblems, ...announceProblems];
                 } finally {
                     session.close();
@@ -632,7 +656,7 @@ export class RouterOs extends Platform {
         const session = await this.session(device, options);
 
         try {
-            const output = await session.run(RouterOs.LIST_NEIGHBORS, 60_000);
+            const output = await session.run(RouterOs.LIST_NEIGHBORS, RouterOs.LIST_TIMEOUT_MS);
 
             return output
                 .split(/\r?\n/)
@@ -656,9 +680,7 @@ export class RouterOs extends Platform {
         return { port: port ?? own, system, remote_port: RouterOs.farPort(network, system, reported) };
     }
 
-    /**
-     * RouterOS reports the far port's description, where it has one, not its name (TRAPS.md). When it is the description of exactly one port of that device in the network, that port is the far port, by Circuit's name; otherwise the report stays as it is.
-     */
+    /** RouterOS reports the far port's description, where it has one, not its name (TRAPS.md). When exactly one port of the far device has that description, it is the far port. */
     private static farPort(network: readonly Device[], system: string, reported: string): string {
         const far = network.find((candidate) => system === candidate.name || system.startsWith(`${candidate.name}.`));
         const described = (far ? Derive.ports(far) : []).filter(([, port]) => port.description === reported).map(([name]) => name);
@@ -666,20 +688,19 @@ export class RouterOs extends Platform {
         return described.length === 1 ? described[0]! : reported;
     }
 
-    /** Replace a list's entries in batches, so each command stays a sane length. */
-    async fill(device: Device, _network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void> {
+    override async fill(device: Device, _network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void> {
         const menu = family === "ipv4" ? "/ip firewall address-list" : "/ipv6 firewall address-list";
-        const batchSize = 60;
+        const size = RouterOs.FILL_BATCH_ENTRIES;
         const client = await RouterOs.login(device);
 
         try {
             await Ssh.exec(client, `${menu} remove [find list="${set}" and !dynamic]`);
 
-            for (let start = 0; start < prefixes.length; start += batchSize) {
-                const batch = prefixes.slice(start, start + batchSize).map((prefix) => `${menu} add list="${set}" address=${prefix}`);
+            for (let start = 0; start < prefixes.length; start += size) {
+                const batch = prefixes.slice(start, start + size).map((prefix) => `${menu} add list="${set}" address=${prefix}`);
 
-                const answer = (await Ssh.exec(client, batch.join("; "), 90_000)).trim();
-                if (answer) throw new Error(`${set}: ${answer.slice(0, 200)}`);
+                const answer = (await Ssh.exec(client, batch.join("; "), RouterOs.FILL_BATCH_TIMEOUT_MS)).trim();
+                if (answer) throw new Error(`${set}: ${answer.slice(0, RouterOs.QUOTE_CHARS)}`);
             }
 
             const count = (await Ssh.exec(client, `:put [:len [${menu} find list="${set}"]]`)).trim();
@@ -733,26 +754,26 @@ export class RouterOs extends Platform {
         );
     }
 
-    /** What each session announces of the device's own `originated_prefixes`, as `neighbor prefix`. None, without logging in, on a device that originates none. */
+    /** `announced`, over a session of its own. None, without logging in, on a device that originates none. */
     private async announcedNow(device: Device, options: ReadOptions): Promise<string[]> {
         if (!device.routing?.bgp?.originated_prefixes?.length) return [];
 
         const session = await this.session(device, options);
 
         try {
-            return await this.announced(device, session);
+            return await RouterOs.announced(device, session);
         } finally {
             session.close();
         }
     }
 
     /** The `originated_prefixes` each session announces, as `neighbor prefix`, sorted. An advertisement names its session, which is matched to its neighbor by address first, as in `bgpSessions`. */
-    private async announced(device: Device, session: ReadSession): Promise<string[]> {
+    private static async announced(device: Device, session: ReadSession): Promise<string[]> {
         const bgp = device.routing?.bgp;
         const originated = bgp?.originated_prefixes ?? [];
         if (!originated.length) return [];
 
-        const sessions = (await session.run(RouterOs.LIST_BGP_SESSIONS, 60_000))
+        const sessions = (await session.run(RouterOs.LIST_BGP_SESSIONS, RouterOs.LIST_TIMEOUT_MS))
             .split(/\r?\n/)
             .map((line) => line.trim().split("|"))
             .filter((fields) => fields.length > 1 && fields[0] !== "disabled");
@@ -764,7 +785,7 @@ export class RouterOs extends Platform {
             return (byAddress ?? byName)?.[0];
         };
 
-        const output = await session.run(RouterOs.listAdvertisements(originated), 60_000);
+        const output = await session.run(RouterOs.listAdvertisements(originated), RouterOs.LIST_TIMEOUT_MS);
         return output
             .split(/\r?\n/)
             .map((line) => line.trim().split("|"))
@@ -775,13 +796,24 @@ export class RouterOs extends Platform {
             .sort();
     }
 
-    /** Wait until each session announces again what it announced before, and give a problem for each prefix a session no longer announces when time runs out. */
-    private async announcedBack(device: Device, session: ReadSession, before: readonly string[], limits: WaitLimits): Promise<string[]> {
+    /** A line for each advertisement of these prefixes: `ADV|<session>|<prefix>`. */
+    private static listAdvertisements(prefixes: readonly string[]): string {
+        const where = prefixes.map((prefix) => `dst=${prefix}`).join(" or ");
+        return `:foreach a in=[/routing bgp advertisements print as-value where ${where}] do={ :put ("ADV|" . ($a->"peer") . "|" . ($a->"dst")) }`;
+    }
+
+    /** Wait until each session announces again what it announced before. When time runs out, each prefix a session no longer announces is a problem. */
+    private static async announcedBack(
+        device: Device,
+        session: ReadSession,
+        before: readonly string[],
+        limits: WaitLimits
+    ): Promise<string[]> {
         if (!before.length) return [];
 
         const missing = (now: string[]) => before.filter((pair) => !now.includes(pair));
         const after = await BgpWait.until(
-            () => this.announced(device, session),
+            () => RouterOs.announced(device, session),
             (now) => !missing(now).length,
             limits,
             (now) => console.log(`  BGP: ${missing(now).length} announcement(s) not back yet, checking again in ${limits.every} s`)
@@ -802,7 +834,7 @@ export class RouterOs extends Platform {
     /** A problem when any switch rule is invalid, saying what to do. */
     private static async invalidSwitchRules(session: ReadSession, device: Device): Promise<string[]> {
         const answer = (await session.run(RouterOs.COUNT_INVALID_SWITCH_RULES)).trim();
-        if (!/^\d+$/.test(answer)) return [`could not count invalid switch rules: ${answer.slice(0, 200)}`];
+        if (!/^\d+$/.test(answer)) return [`could not count invalid switch rules: ${answer.slice(0, RouterOs.QUOTE_CHARS)}`];
 
         const invalid = Number(answer);
         if (!invalid) {
@@ -869,12 +901,10 @@ export class RouterOs extends Platform {
         return session;
     }
 
-    /** Log in over SSH, or on the console when asked. */
     private static async open(device: Device, options: ReadOptions = {}): Promise<Session> {
         return options.console ? RouterOs.consoleSession(device) : RouterOs.sshSession(await RouterOs.login(device), device);
     }
 
-    /** Refuse a device on a version this adapter does not render for, before anything is read or sent. */
     private static async checkVersion(session: Session, device: Device): Promise<void> {
         const version = (await session.run(":put [/system resource get version]")).trim();
         const major = Number(version.split(".")[0]);
@@ -898,14 +928,14 @@ export class RouterOs extends Platform {
         return text.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$");
     }
 
-    /** Compile a command on the device without running it. Returns why it was refused, or undefined. */
+    /** Why the device refuses a command, which it compiles without running, or undefined. */
     private static async refusal(session: Session, command: string): Promise<string | undefined> {
         const compiled = (await session.run(`:put [:parse "${RouterOs.escapeForString(command)}"]`)).trim();
         const refused = !compiled.startsWith("(") || /syntax error|bad parameter|no such|expected/.test(compiled);
-        return refused ? compiled.slice(0, 200) : undefined;
+        return refused ? compiled.slice(0, RouterOs.QUOTE_CHARS) : undefined;
     }
 
-    /** Upload a certificate and its key, import both under one name, and delete the files. */
+    /** Upload a certificate and its key, and import both under one name. */
     private static async installCertificate(session: Session, device: Device, name: string): Promise<void> {
         const certificate = device.system?.certificates?.[name];
         if (!certificate) throw new Error(`certificate ${name} is not declared in system.certificates`);

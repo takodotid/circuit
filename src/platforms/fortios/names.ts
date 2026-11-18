@@ -1,34 +1,29 @@
-// How the platform names what the config names: ports and interfaces, prefixes, and the routing table an interface sits in.
-
 import { Address } from "../../core/address";
 import type { Device, Family } from "../../model";
 import { Catalog } from "../../core/catalog";
-import { Derive, type NamedInterface } from "../../core/derive";
+import { Derive } from "../../core/derive";
+import type { NamedInterface } from "../../core/derive";
 
 type Addressed = { addresses?: readonly (string | { address: string; peer_address?: string })[]; vrf?: string; in_lag?: string };
 
 export class FortiOsNames {
-    /** The bridges a device has, in the config's order. A device with any runs in transparent mode, each bridge a forward domain numbered by its place. */
+    /** In the config's order, since each bridge is a forward domain numbered by its place. */
     static bridgesOf(device: Device): { name: string; members: readonly string[] }[] {
         return Object.entries(device.interfaces?.bridge ?? {}).flatMap(([name, bridge]) =>
             bridge ? [{ name, members: bridge.member_interfaces }] : []
         );
     }
 
-    /** Whether an interface is a GRE or VXLAN tunnel. */
     static isTunnel(device: Device, name: string): boolean {
         return Boolean(device.interfaces?.gre?.[name] ?? device.interfaces?.vxlan?.[name]);
     }
 
-    /** Whether the device runs in transparent mode: it has a bridge. */
-
+    /** A bridge needs transparent mode. */
     static isTransparent(device: Device): boolean {
         return FortiOsNames.bridgesOf(device).length > 0;
     }
 
-    /**
-     * The management address of a device in transparent mode: the one IPv4 address on a port or an interface outside every bridge. The device answers on it, the platform's `manageip`, through that interface alone. Undefined when there is none, and the device is reached only through its console.
-     */
+    /** The one IPv4 address on a port or interface outside every bridge, the platform's `manageip`. The device answers on it through that interface alone. Without one, only the console reaches the device. */
     static transparentManagement(device: Device): { name: string; address: string } | undefined {
         if (!FortiOsNames.isTransparent(device)) return undefined;
 
@@ -42,27 +37,23 @@ export class FortiOsNames {
         return undefined;
     }
 
-    /** The forward domain of a VLAN interface in a bridge, or undefined. */
     static forwardDomainOf(device: Device, name: string): number | undefined {
         const index = FortiOsNames.bridgesOf(device).findIndex((bridge) => bridge.members.includes(name));
-        return index < 0 ? undefined : index + 1;
+        return index === -1 ? undefined : index + 1;
     }
 
     /** The name the platform gives a port or an interface: a port by its spelling, any other interface by its key. */
-    static nameOf(device: Device, name: string): string {
+    static of(device: Device, name: string): string {
         if (FortiOsNames.interfacesOf(device).some((entry) => entry.name === name)) return name;
 
         return Catalog.spell(device.platform, device.model, name);
     }
 
-    /** A port's or an interface's settings, by its key. */
     static settingsOf(device: Device, name: string): Addressed | undefined {
         return Derive.settings(device, name);
     }
 
-    /**
-     * Every interface that is not a port, in the order the config writes them: its groups in the order they are written, and each group's interfaces in theirs. Where an order shows on the device, such as the interfaces NTP answers on, it is this one.
-     */
+    /** Every interface that is not a port, in the config's order. Where an order shows on the device, such as the interfaces NTP answers on, it is this one. */
     static interfacesOf(device: Device): NamedInterface[] {
         return Object.entries(device.interfaces ?? {}).flatMap(([kind, group]) =>
             kind === "ethernet"
@@ -73,7 +64,6 @@ export class FortiOsNames {
         );
     }
 
-    /** Every port, then every other interface, by key, with its settings. */
     private static holders(device: Device): [string, Addressed][] {
         return [
             ...Derive.ports(device),
@@ -89,12 +79,11 @@ export class FortiOsNames {
         return device.firewall?.address_sets?.[allow] ?? [];
     }
 
-    /** The one value a match field holds, or undefined. A list is one value per rule, which Circuit writes out before the platform reads it; `unsupported()` refuses a list of several. */
+    /** Circuit writes a list out as one rule per value before the platform reads it, and `unsupported()` refuses a list left with several. */
     static single<T>(value: T | readonly T[] | undefined): T | undefined {
         return Array.isArray(value) ? (value as readonly T[])[0] : (value as T | undefined);
     }
 
-    /** Every address of a port or an interface. */
     static addressesOf(settings: Addressed | undefined): string[] {
         return (settings?.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
     }
@@ -104,7 +93,6 @@ export class FortiOsNames {
         return value.includes("/") ? value : `${value}/${Address.family(value) === "ipv4" ? 32 : 128}`;
     }
 
-    /** The family of an address or prefix. */
     static familyOfPrefix(value: string): Family {
         return Address.family(Address.split(FortiOsNames.withLength(value)).addr);
     }
@@ -114,7 +102,7 @@ export class FortiOsNames {
         return `${Address.host(prefix)} ${Address.netmask(Address.split(prefix).len)}`;
     }
 
-    /** The canonical form of a prefix: its network address and length, a bare address taken as a host. */
+    /** A prefix's network address and length, a bare address taken as a host. */
     static network(prefix: string): string {
         return Address.prefixOf(FortiOsNames.withLength(prefix));
     }
@@ -124,7 +112,7 @@ export class FortiOsNames {
         return vrf ? Object.keys(device.routing?.vrfs ?? {}).indexOf(vrf) + 1 : 0;
     }
 
-    /** Every port and interface that routes, by key, with its settings. A LAG member routes through its LAG. */
+    /** A LAG member routes through its LAG, so it is left out. */
     private static routedHolders(device: Device): [string, Addressed][] {
         return FortiOsNames.holders(device).filter(([, settings]) => !settings.in_lag);
     }

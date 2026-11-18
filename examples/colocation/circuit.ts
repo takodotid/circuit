@@ -1,4 +1,4 @@
-// The network, AS64500: a colocation site whose tenants each get their own VLANs, addresses and ports.
+// The network, AS64500: a colocation site whose tenants each get their own VLANs, addresses, and ports.
 
 import { blocksApart } from "./lib/checks";
 

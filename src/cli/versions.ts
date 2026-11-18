@@ -1,4 +1,4 @@
-// Each project pins its Circuit in `.circuit/version`, committed. The installed `circuit`, the manager, runs that version for every command in the project, kept once in ~/.circuit/versions/<version>/, so two projects on different versions never clash and the manager updating itself changes no project. A version not here yet is downloaded once the person says yes, signed and checked; one a security advisory affects never runs. Circuit remembers the projects it ran in, so a kept version no project pins any more is removed.
+// Each project pins its Circuit in `.circuit/version`, committed. The installed `circuit`, the manager, runs that version for every command in the project. Each version is kept once in ~/.circuit/versions/<version>/, so two projects never clash, and the manager updating itself changes no project.
 
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
@@ -9,13 +9,13 @@ import { Ui } from "./ui";
 import { VERSION } from "./version";
 
 export class Versions {
-    /** The file at a project's root that uses its Circuit version. */
     static readonly FILE = ".circuit/version";
 
     /** Set in the environment of a pinned Circuit this one started, so it doesn't start another. */
     static readonly RUNNING = "CIRCUIT_PINNED";
 
-    /** The version a project pins, or undefined when it pins none. */
+    private static readonly JSON_INDENT = 4;
+
     static pinned(root: string): string | undefined {
         const path = join(root, Versions.FILE);
         if (!existsSync(path)) return undefined;
@@ -34,7 +34,6 @@ export class Versions {
         return join(Installation.home(), "projects.json");
     }
 
-    /** The projects Circuit remembers. */
     static known(): string[] {
         try {
             const read = JSON.parse(readFileSync(Versions.projectsFile(), "utf8")) as { projects?: unknown };
@@ -47,11 +46,11 @@ export class Versions {
     private static save(projects: readonly string[]): void {
         try {
             mkdirSync(Installation.home(), { recursive: true });
-            writeFileSync(Versions.projectsFile(), `${JSON.stringify({ projects }, null, 4)}\n`);
+            writeFileSync(Versions.projectsFile(), `${JSON.stringify({ projects }, null, Versions.JSON_INDENT)}\n`);
         } catch {}
     }
 
-    /** Remember a project, so the version it pins is kept. */
+    /** So `prune` keeps the version the project pins. */
     static remember(root: string): void {
         const path = resolve(root);
         const known = Versions.known();
@@ -59,7 +58,7 @@ export class Versions {
     }
 
     /**
-     * Remove each kept version no project pins any more: a project is one Circuit ran in that is still there, and its version is what its `.circuit/version` says now. The app's own version is never kept apart: the app runs it. Gives back the versions removed.
+     * Removes each kept version that no remembered project still there pins now. The app's own version is never kept apart, as the app runs it. Gives back the versions removed.
      */
     static prune(app: string = VERSION): string[] {
         const projects = Versions.known().filter((root) => existsSync(join(root, "circuit.ts")));
@@ -86,7 +85,7 @@ export class Versions {
         return join(Installation.home(), "versions", version, process.platform === "win32" ? "circuit.exe" : "circuit");
     }
 
-    /** A version's binary: downloaded, signed and checked, once the person says yes, when it is not here yet. Without a person to ask, such as in CI, it is downloaded. */
+    /** A version not here yet is downloaded once the person says yes, and its signature checked. Without a person to ask, such as in CI, it is downloaded. */
     static async ensure(version: string): Promise<string> {
         const path = Versions.path(version);
         if (existsSync(path)) return path;
@@ -100,14 +99,14 @@ export class Versions {
         const bytes = await Ui.step(`Downloading Circuit ${version}`, () => Releases.fetchBinary(version));
         mkdirSync(join(path, ".."), { recursive: true });
         writeFileSync(`${path}.part`, bytes);
-        if (process.platform !== "win32") chmodSync(`${path}.part`, 0o755);
+        if (process.platform !== "win32") chmodSync(`${path}.part`, Releases.EXECUTABLE_MODE);
         renameSync(`${path}.part`, path);
 
         return path;
     }
 
     /**
-     * Before a command in a project: a version a security advisory affects never runs, so the person moves the project to a fixed one first. Then, when the project pins another version than this one, run that version with these arguments, and end with its exit code. Nothing to do when this Circuit is the one to run.
+     * Before a command in a project. A version a security advisory affects never runs, so the person moves the project to a fixed one first. When the project pins another version, runs it with these arguments, and ends with its exit code.
      */
     static async run(root: string, argv: string[]): Promise<void> {
         if (process.env[Versions.RUNNING] || !Installation.binary()) return;

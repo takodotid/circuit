@@ -1,4 +1,4 @@
-// A user's SSH key on VRP, as a CE6855 on V200R005 took it: RSA only, one per user, sent in lines of 200 and printed back in lines of 80 with `rsa-key` after it, before the lines that assign it, and let go of before it goes.
+// A user's SSH key on VRP, as a CE6855 on V200R005 took it: RSA only, and one per user. It is sent in lines of 200 and printed back in lines of 80, with `rsa-key` after it. A new key goes before the lines that assign it, and a removed one after them.
 
 import { expect, test } from "bun:test";
 import type { SshPublicKey } from "../../src/config/system";
@@ -10,7 +10,7 @@ const platform = Platforms.get("vrp");
 const options = { secrets: false, rollback: 10 };
 const switchDevice = Fixtures.device("platforms--example-core-switch");
 
-// An RSA key of 4096 bits, as `ssh-keygen` writes it; made up for this test.
+// A made-up RSA key of 4096 bits, as `ssh-keygen` writes it.
 const blob = `AAAAB3NzaC1yc2EAAAADAQABAAACAQ${"Dexamplekeyforatest0123456789".repeat(24)}w==`;
 const rsa: SshPublicKey = `ssh-rsa ${blob} alice@laptop`;
 

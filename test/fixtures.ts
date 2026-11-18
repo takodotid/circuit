@@ -1,4 +1,4 @@
-// The devices of Circuit 0.x's examples, templates and use cases, in the v1 model (`scripts/from-v0.ts`), with what 0.x rendered for each and what it called unsupported. A port of a platform renders each the same.
+// The devices of Circuit 0.x's examples, templates, and use cases, in the v1 model (`scripts/from-v0.ts`), with what 0.x rendered for each and what it called unsupported. A port of a platform renders each the same.
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -32,7 +32,6 @@ export class Fixtures {
         return JSON.parse(readFileSync(join(Fixtures.FOLDER, `${name}.unsupported.json`), "utf8")) as string[];
     }
 
-    /** Every fixture of one platform. */
     static ofPlatform(platform: string): string[] {
         return Fixtures.names().filter((name) => Fixtures.device(name).platform === platform);
     }

@@ -1,4 +1,4 @@
-// Secrets are references in the config and values only at the moment a command is sent. A reference names a variable, set in the environment or in the network's secrets file (see `SecretsFile`), or a file kept out of the repository. A value in the secrets file is encrypted, or a 1Password reference, `op://vault/item/field`, read with the 1Password CLI.
+// A secret is a reference in the config, and a value only when a command is sent. A reference names a variable, set in the environment or the secrets file, or a file kept out of the repository.
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -9,7 +9,6 @@ import { SecretsFile } from "./secrets-file";
 /** Anything that holds secret references, such as a network's devices. */
 type Network = object;
 
-/** How a device is logged in to: its management address and SSH port, its connection user and that user's password, and its console. */
 export type DeviceLogin = {
     /** Absent for a device reached only through its console. */
     host?: IP;
@@ -23,6 +22,8 @@ export type DeviceLogin = {
 };
 
 export class Secrets {
+    private static readonly SSH_PORT = 22;
+
     /** The directory of the config file. The secrets file and secret files are found from here. */
     private static root = process.cwd();
     /** The secrets file of the network being worked on, relative to `root`. */
@@ -53,7 +54,6 @@ export class Secrets {
         Secrets.values = undefined;
     }
 
-    /** The secrets file in use. */
     static file(): SecretsFile {
         return SecretsFile.at(Secrets.root, Secrets.fileName);
     }
@@ -68,7 +68,7 @@ export class Secrets {
         return Secrets.values;
     }
 
-    /** An unquoted value is cut at a `#`. A `#` after a space is a comment, but one inside the value, as in `abc#def`, would cut a value short and send that to a device, so it stops the run and asks for quotes. */
+    /** An unquoted value is cut at a `#`. A `#` after a space starts a comment. One inside a value, as in `abc#def`, would send the cut value to a device, so it stops the run. */
     private static refuseCutValues(text: string, name: string): void {
         for (const line of text.split(/\r?\n/)) {
             const [, key, value] = /^\s*(?:export\s+)?([\w.-]+)\s*=\s*(.*)$/.exec(line) ?? [];
@@ -78,7 +78,7 @@ export class Secrets {
         }
     }
 
-    static isSecret(value: unknown): value is Secret {
+    static isReference(value: unknown): value is Secret {
         return typeof value === "object" && value !== null && ("secret" in value || "secret_file" in value);
     }
 
@@ -127,7 +127,7 @@ export class Secrets {
 
     /** Every secret reference in a value, however deep, such as a network or one device, as `referenceOf` writes it. */
     static referencesIn(value: unknown, found = new Set<string>()): Set<string> {
-        if (Secrets.isSecret(value)) found.add(Secrets.referenceOf(value));
+        if (Secrets.isReference(value)) found.add(Secrets.referenceOf(value));
         else if (Array.isArray(value)) for (const item of value) Secrets.referencesIn(item, found);
         else if (typeof value === "object" && value !== null) for (const item of Object.values(value)) Secrets.referencesIn(item, found);
 
@@ -135,7 +135,7 @@ export class Secrets {
     }
 
     /**
-     * The secrets file when a secret of `value`, such as a device, is encrypted in it and no password is at hand: the person has to type it before the work starts. Undefined when every secret can be read. A password in the environment or 1Password opens the file here.
+     * The secrets file, when a secret of `value` is encrypted in it and no password is at hand. The person then types it before the work starts. A password in the environment or 1Password opens the file here.
      */
     static lockedFor(value: unknown): SecretsFile | undefined {
         const file = Secrets.file();
@@ -147,9 +147,7 @@ export class Secrets {
     }
 
     /**
-     * Text with every secret value Circuit knows replaced by `<redacted>`, before it is printed. Devices echo what they are sent, passwords too.
-     *
-     * Hidden are: each value in plain text in the secrets file of at least six characters, each value read in this run (1Password reads and secret files among them), each secret of `network` that the environment, the secrets file or a file holds, and `extra`. A 1Password reference not read in this run is not read for this.
+     * Every secret value Circuit knows becomes `<redacted>`, as devices echo what they are sent, passwords too. That is each plain value in the secrets file, each value read in this run, each secret of `network` at hand, and `extra`. A 1Password reference is not read for this.
      */
     static scrub(text: string, options: { network?: Network; extra?: readonly string[] } = {}): string {
         const values = new Set<string>(options.extra ?? []);
@@ -190,14 +188,13 @@ export class Secrets {
         return value ? Secrets.file().revealIfOpen(reference, value) : undefined;
     }
 
-    /** How Circuit logs in to a device: its address, port, connection user, that user's password revealed, and its console. */
     static loginOf(device: Device): DeviceLogin {
         const user = device.system?.users?.[device.connection.user];
         if (!user) throw new Error(`${device.name}: connection user ${device.connection.user} is not one of its users`);
 
         return {
             ...(device.connection.host ? { host: device.connection.host } : {}),
-            port: device.connection.port ?? 22,
+            port: device.connection.port ?? Secrets.SSH_PORT,
             user: device.connection.user,
             password: () => Secrets.reveal(user.password),
             keys: user.ssh_keys ?? [],

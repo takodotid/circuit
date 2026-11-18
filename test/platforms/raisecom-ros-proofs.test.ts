@@ -1,4 +1,4 @@
-// What a RAX721 on ROS 6.5.2 printed when each feature was proved on it, with names and addresses changed.
+// What a RAX721 on ROS 6.5.2 printed when each feature was tested on it, with names and addresses changed.
 
 import { expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
@@ -99,7 +99,7 @@ test("a log host prints its level as a number and its UDP port as `udpport`, and
 
 test("a log host that is gone is removed by its address, even when another one takes its place", () => {
     // As the device printed them: `logging host 10.99.0.81` at the defaults, `... 7 udpport 515` otherwise.
-    const current = platform.render(noLogs) + "logging host 192.0.2.60\nlogging host 192.0.2.61 7 udpport 515\n";
+    const current = `${platform.render(noLogs)}logging host 192.0.2.60\nlogging host 192.0.2.61 7 udpport 515\n`;
 
     expect(sent(platform.render(withLogs), current).filter((line) => line.includes("logging"))).toEqual([
         "no logging host 192.0.2.61",
@@ -163,7 +163,7 @@ const portBlocks = (config: string) =>
     config
         .split("!\n")
         .filter((block) => /^(access-list 3007|interface twenty-fivegige 1\/2\/1)\n/.test(block.trimStart()))
-        .map((block) => block.trimStart() + "!\n")
+        .map((block) => `${block.trimStart()}!\n`)
         .join("");
 
 test("a MAC limit is port security with a maximum, and an ethertype filter a MAC access-list of the port's own", () => {
@@ -171,7 +171,7 @@ test("a MAC limit is port security with a maximum, and an ethertype filter a MAC
     const rendered = platform.render(device);
 
     expect(platform.unsupported(device)).toEqual([]);
-    // The same lines; the device prints the filter before port security, and `portswitch` is the plan's.
+    // The same lines: the device prints the filter before port security, and `portswitch` is the plan's.
     const lines = (config: string) => config.replace(/ \n/g, "\n").replace("portswitch\n", "").split("\n").sort();
     expect(lines(portBlocks(rendered))).toEqual(lines(PORT_PRINTED));
     expect(sent(portBlocks(rendered), PORT_PRINTED)).toEqual([]);
@@ -234,7 +234,7 @@ test("the hostname is the device's name, set outside configuration mode, where `
     expect(sent(rendered, rendered)).toEqual([]);
 });
 
-// Proved on tako-mmr-01 (ROS 6.5.2), 2026-10-24: OSPF BFD on a VLAN interface, and a static route tracking a BFD session bound to the next hop (#107).
+// Tested on tako-mmr-01 (ROS 6.5.2), 2026-10-24: OSPF BFD on a VLAN interface, and a static route tracking a BFD session bound to the next hop (#107).
 test("OSPF BFD and a static route watched by BFD render as the switch printed them, and go in order", () => {
     const platform = Platforms.get("raisecom-ros");
     const watched: Device = {

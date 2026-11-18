@@ -7,30 +7,37 @@ const imperative = ({ subject }) => {
     return [!descriptive, 'write the subject as a command, such as "add ..." or "fix ...", not as a description'];
 };
 
-export default {
+// A commit says what changed, not which tool wrote it.
+const unsigned = ({ raw }) => [
+    !/^\W*generated with\b|^co-authored-by:/im.test(raw ?? ""),
+    'remove the "Generated with" or "Co-authored-by" line',
+];
+
+const config = {
     extends: ["@commitlint/config-conventional"],
-    plugins: [{ rules: { "subject-imperative": imperative } }],
+    plugins: [{ rules: { "subject-imperative": imperative, "body-unsigned": unsigned } }],
     rules: {
         "subject-imperative": [2, "always"],
+        "body-unsigned": [2, "always"],
         "scope-empty": [2, "never"],
         "scope-enum": [
             2,
             "always",
             [
-                "repo", // tooling, CI, AGENTS.md and other files at the root
-                "deps", // dependency updates
-                "docs", // the website in docs/
-                "config", // src/config and src/model.ts
-                "project", // src/project.ts
-                "checks", // src/checks
-                "core", // src/core
-                "platforms", // src/platforms, including TRAPS.md
-                "transport", // src/transport
-                "integrations", // src/integrations
-                "cli", // src/cli
-                "studio", // src/studio
-                "examples", // examples/
-                "release", // version bumps
+                "repo", // Tooling, CI, AGENTS.md, and other files at the root
+                "deps", // Dependency updates
+                "docs", // The website in docs/
+                "config", // The language in src/config, and src/model.ts
+                "project", // Src/project.ts
+                "checks", // Src/checks
+                "core", // Src/core
+                "platforms", // Src/platforms, including TRAPS.md
+                "transport", // Src/transport
+                "integrations", // Src/integrations
+                "cli", // Src/cli
+                "studio", // Src/studio
+                "examples", // Examples/
+                "release", // Version bumps
             ],
         ],
         "body-max-line-length": [0, "always"],
@@ -38,3 +45,5 @@ export default {
         "subject-case": [2, "never", ["upper-case", "pascal-case", "start-case"]],
     },
 };
+
+export default config;

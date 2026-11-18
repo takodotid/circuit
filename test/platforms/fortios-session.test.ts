@@ -1,4 +1,4 @@
-// FortiOS read over a real SSH shell, against a fake device that answers like a FortiGate 3700D: the version check, then `show` for each section Circuit manages.
+// A read over a real SSH shell, against a fake device that answers like a FortiGate 3700D.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Device } from "../../src/model";
@@ -17,7 +17,7 @@ let version = "v6.2.2,build1010,191008 (GA)";
 function shown(section: string): string {
     const lines = platform.render(device).split("\n");
     const start = lines.indexOf(`config ${section}`);
-    if (start < 0) return "";
+    if (start === -1) return "";
 
     const end = lines.indexOf("end", start);
     return `${lines.slice(start, end + 1).join("\r\n")}\r\n`;

@@ -1,13 +1,12 @@
-// Small helpers that stand alone.
-
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export class Utils {
-    /** The project's folder. A path in the config, such as a certificate's `certificate_file`, is from here. Circuit sets it when it reads a project. */
+    private static readonly MINUTES_PER_HOUR = 60;
+
+    /** The project's folder. A path in the config, such as a certificate's `certificate_file`, is from here. Reading a project sets it. */
     static root = process.cwd();
 
-    /** The text of a file of the project, by its path from the project's folder. */
     static projectFile(path: string): string {
         return readFileSync(join(Utils.root, path), "utf8");
     }
@@ -29,7 +28,7 @@ export class Utils {
         if (!found) return 0;
 
         const [, sign, hours, minutes] = found;
-        const sizeInMinutes = Number(hours) * 60 + Number(minutes);
+        const sizeInMinutes = Number(hours) * Utils.MINUTES_PER_HOUR + Number(minutes);
         return sign === "-" ? -sizeInMinutes : sizeInMinutes;
     }
 }

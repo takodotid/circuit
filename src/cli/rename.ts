@@ -1,9 +1,6 @@
-// `circuit rename`: a device's new name everywhere the project's files write it, and, when asked, its file too. It shows every change first and writes only once the person says yes.
-
 import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 
-/** One line that changes. */
 export type LineChange = { file: string; line: number; before: string; after: string };
 
 export type RenamePlan = {
@@ -18,7 +15,7 @@ export class Rename {
     /** Folders that hold none of the project's own files. */
     private static readonly SKIPPED = new Set(["node_modules", ".git", ".circuit", "dist"]);
 
-    /** A hostname: letters, digits, dots, dashes and underscores. */
+    /** Letters, digits, dots, dashes, and underscores. */
     static readonly HOSTNAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
     private static escape(text: string): string {
@@ -36,9 +33,7 @@ export class Rename {
     }
 
     /**
-     * Plan renaming a device from `from` to `to` in the project at `root`, whose file `declaring` writes it.
-     *
-     * A string that is exactly the old name becomes the new name: `name: "edge-01"`, `link: { device: "edge-01", ... }`, a check's list of devices, and a key such as a part's ports by device, which would otherwise no longer be found. A BGP neighbor named after the device is renamed too, which renames its session on the device: `circuit diff` shows it.
+     * The file `declaring` declares the device. A string that is exactly the old name becomes the new name, such as `name: "edge-01"`, `link: { device: "edge-01" }`, or a key such as a part's ports by device. A BGP neighbor named after the device is renamed too, which renames its session on the device: `circuit diff` shows it.
      */
     static plan(root: string, from: string, to: string, options: { declaring: string; file: boolean }): RenamePlan {
         const changes: LineChange[] = [];

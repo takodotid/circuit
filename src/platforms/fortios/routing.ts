@@ -1,10 +1,11 @@
-// OSPF, OSPFv3 and BGP, with the route maps, prefix lists and community lists BGP's policies become.
+// BGP's policies become route maps, prefix lists, and community lists.
 
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, PrefixSet, RouteRule } from "../../model";
 import { FortiOsNames } from "./names";
-import { FortiOsBlock, FortiOsTree } from "./tree";
+import type { FortiOsNode } from "./tree";
+import { FortiOsTree } from "./tree";
 
 /** The lengths a prefix list's rule takes within its prefix. */
 type Lengths = { ge?: number; le?: number };
@@ -14,7 +15,7 @@ class RouteMaps {
     private readonly built = new Set<string>();
 
     constructor(
-        private readonly root: FortiOsBlock,
+        private readonly root: FortiOsNode,
         private readonly device: Device
     ) {}
 
@@ -56,7 +57,7 @@ class RouteMaps {
         return name;
     }
 
-    private rule(entry: FortiOsBlock, rule: RouteRule, family: Family, label: string): void {
+    private rule(entry: FortiOsNode, rule: RouteRule, family: Family, label: string): void {
         const match = rule.if ?? {};
         const set = rule.set ?? {};
         const address = family === "ipv4" ? "match-ip-address" : "match-ip6-address";
@@ -120,7 +121,6 @@ class RouteMaps {
         if (rule.then === "reject") entry.set("action", "deny");
     }
 
-    /** The prefixes of a set the config lists. */
     private prefixesOf(set: string): string[] {
         return FortiOsRouting.listed(this.device.routing?.prefix_sets?.[set]) ?? [];
     }
@@ -158,7 +158,6 @@ export class FortiOsRouting {
     /** The start of the comment on a prefix list `refresh` fills. The plan keeps the entries the device holds in one. */
     static readonly FILLED = "Filled by circuit refresh";
 
-    /** The table a prefix list of one family sits in. */
     static readonly PREFIX_LIST = { ipv4: "router prefix-list", ipv6: "router prefix-list6" } as const;
 
     /** The longest prefix of each family. */
@@ -192,20 +191,19 @@ export class FortiOsRouting {
         return routes || ospf || bgp;
     }
 
-    static render(root: FortiOsBlock, device: Device): void {
+    static render(root: FortiOsNode, device: Device): void {
         FortiOsRouting.prefixLists(root, device);
         FortiOsRouting.ospf(root, device);
         FortiOsRouting.ospf6(root, device);
         FortiOsRouting.bgp(root, device);
     }
 
-    /** A prefix as the platform writes it in a prefix list of its family. */
     private static listPrefix(prefix: string, family: Family): string {
         return family === "ipv4" ? FortiOsNames.subnet(FortiOsNames.network(prefix)) : FortiOsNames.network(prefix);
     }
 
-    /** One rule of a prefix list: a prefix, and the lengths it takes within it. The device prints a bound the rule does not hold as `unset`. */
-    static listRule(rule: FortiOsBlock, family: Family, prefix: string, lengths: Lengths = {}): void {
+    /** The device prints a bound the rule does not hold as `unset`. */
+    static listRule(rule: FortiOsNode, family: Family, prefix: string, lengths: Lengths = {}): void {
         rule.set(family === "ipv4" ? "prefix" : "prefix6", FortiOsRouting.listPrefix(prefix, family));
         rule.set("ge", lengths.ge ?? FortiOsTree.UNSET);
         rule.set("le", lengths.le ?? FortiOsTree.UNSET);
@@ -221,8 +219,8 @@ export class FortiOsRouting {
         return { ...(low > own ? { ge: low } : {}), le: max };
     }
 
-    /** Each prefix set as a prefix list matching its prefixes and any more specific. One a registry fills starts with a rule that denies every prefix, so it matches nothing until `refresh` fills it. */
-    private static prefixLists(root: FortiOsBlock, device: Device): void {
+    /** Each prefix set matches its prefixes and any more specific. */
+    private static prefixLists(root: FortiOsNode, device: Device): void {
         for (const [name, set] of Object.entries(device.routing?.prefix_sets ?? {})) {
             if (!set) continue;
 
@@ -248,15 +246,14 @@ export class FortiOsRouting {
         }
     }
 
-    /** The networks of an interface's addresses of one family, for an OSPF area to announce. */
     private static networksOf(device: Device, name: string, family: Family): string[] {
         return FortiOsNames.addressesOf(FortiOsNames.settingsOf(device, name))
             .filter((address) => FortiOsNames.familyOfPrefix(address) === family)
             .map(FortiOsNames.network);
     }
 
-    /** OSPF for IPv4. An area runs on the networks of its interfaces; an interface named with a cost, a link type or BFD has settings of its own; a passive one forms no adjacency. */
-    private static ospf(root: FortiOsBlock, device: Device): void {
+    /** An area runs on the networks of its interfaces. An interface with a cost, a link type, or BFD has an entry of its own. */
+    private static ospf(root: FortiOsNode, device: Device): void {
         const ospf = device.routing?.ospf;
         if (!ospf || !(ospf.address_families ?? ["ipv4"]).includes("ipv4")) return;
 
@@ -270,7 +267,7 @@ export class FortiOsRouting {
             block.block("area").entry(areaId, true);
 
             for (const [name, settings] of Object.entries(area.interfaces)) {
-                const iface = FortiOsNames.nameOf(device, name);
+                const iface = FortiOsNames.of(device, name);
                 if (settings?.passive) passive.push(iface);
 
                 if (settings?.cost !== undefined || settings?.network === "point-to-point" || settings?.bfd) {
@@ -294,8 +291,8 @@ export class FortiOsRouting {
         for (const source of ospf.redistribute ?? []) block.block(`redistribute "${source}"`).set("status", "enable");
     }
 
-    /** OSPFv3 for IPv6. Every interface of an area runs it in that area. */
-    private static ospf6(root: FortiOsBlock, device: Device): void {
+    /** Every interface of an area has an entry of its own. */
+    private static ospf6(root: FortiOsNode, device: Device): void {
         const ospf = device.routing?.ospf;
         if (!ospf?.address_families?.includes("ipv6")) return;
 
@@ -308,7 +305,7 @@ export class FortiOsRouting {
             block.block("area").entry(areaId, true);
 
             for (const [name, settings] of Object.entries(area.interfaces)) {
-                const iface = FortiOsNames.nameOf(device, name);
+                const iface = FortiOsNames.of(device, name);
                 if (settings?.passive) passive.push(iface);
 
                 const entry = block.block("ospf6-interface").entry(iface);
@@ -324,8 +321,7 @@ export class FortiOsRouting {
         for (const source of ospf.redistribute ?? []) block.block(`redistribute "${source}"`).set("status", "enable");
     }
 
-    /** BGP: each session with its settings and group's, the route maps its policies become for each family it carries, and the prefixes the device originates. */
-    private static bgp(root: FortiOsBlock, device: Device): void {
+    private static bgp(root: FortiOsNode, device: Device): void {
         const bgp = device.routing?.bgp;
         if (!bgp) return;
 
@@ -362,7 +358,7 @@ export class FortiOsRouting {
             if (settings.hold_time !== undefined) entry.set("holdtime-timer", settings.hold_time);
 
             const source = settings.local_address ? FortiOsNames.holderOf(device, settings.local_address) : undefined;
-            if (source) entry.set("update-source", FortiOsTree.quote(FortiOsNames.nameOf(device, source)));
+            if (source) entry.set("update-source", FortiOsTree.quote(FortiOsNames.of(device, source)));
 
             if (settings.password) entry.set("password", FortiOsTree.quote(Secrets.marker(settings.password)));
         }

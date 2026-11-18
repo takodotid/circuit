@@ -1,4 +1,4 @@
-// Builds Studio's page with Vite into dist/studio/, then writes src/studio/assets.generated.ts: every file of it, so the `circuit` binary serves the page from inside itself. `bun install`, `bun run check` and `bun run build` run it; git ignores what it writes.
+// Builds Studio's page with Vite, then writes every file of it into src/studio/assets.generated.ts, so the `circuit` binary serves the page from inside itself.
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, join, relative } from "node:path";

@@ -7,7 +7,6 @@ import type { Device, Finding } from "../model";
 export type StudioNetwork = {
     name: string;
     asn?: number;
-    /** By name. */
     sites: Record<string, { description?: string; number?: number }>;
     devices: string[];
     /** Where its secrets are, relative to the project. */
@@ -23,7 +22,6 @@ export type AddressRow = {
     holder: string;
     /** With its length. */
     address: string;
-    /** The prefix it is in. */
     prefix: string;
     family: "ipv4" | "ipv6";
     /** The far end of a point-to-point address. */
@@ -31,10 +29,7 @@ export type AddressRow = {
     vrf?: string;
 };
 
-/**
- * Every address in use by space and segment, and what is free: `AddressReport` of `src/core/address-space.ts`, written out here so the
- * page takes none of Circuit's code.
- */
+/** A copy of `AddressReport` in `src/core/address-space.ts`. */
 export type AddressReport = {
     spaces: {
         prefix: string;
@@ -125,7 +120,6 @@ export type StudioData = {
 /** What reading the project stopped on, instead of the data. */
 export type StudioError = { error: string };
 
-/** One commit, as Studio lists it. */
 export type Commit = {
     commit: string;
     short: string;

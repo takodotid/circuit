@@ -1,10 +1,8 @@
-// What Junos calls a port, a LAG, a VLAN interface, a loopback or a tunnel.
-
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import type { Device } from "../../model";
 
-/** What the platform calls a port, a LAG, a VLAN interface or a loopback. */
+/** What the platform calls a port, a LAG, a VLAN interface, a loopback, or a tunnel. */
 export class JunosNames {
     readonly lags: Map<string, number>;
     readonly loopbacks = new Map<string, number>();
@@ -13,7 +11,7 @@ export class JunosNames {
     constructor(private readonly device: Device) {
         this.lags = Derive.lagIds(device);
 
-        // The default table's loopback is unit 0; one in a VRF takes the next unit.
+        // The default table's loopback is unit 0, and one in a VRF takes the next unit.
         const loopbacks = Derive.interfaces(device).filter((entry) => entry.kind === "loopback");
         let unit = 0;
 
@@ -26,7 +24,7 @@ export class JunosNames {
         tunnels.forEach(({ name }, index) => this.tunnels.set(name, index));
     }
 
-    /** A physical port. A 10G cage holding a 1G optic is `ge-`, not `xe-`. */
+    /** A 10G cage holding a 1G optic is `ge-`, not `xe-`. */
     port(port: string): string {
         const name = Catalog.spell(this.device.platform, this.device.model, port);
         const settings = this.device.interfaces?.ethernet?.[port];

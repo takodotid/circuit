@@ -1,22 +1,23 @@
-// Huawei VRP, as on the CE series.
-//
-// Configuration reads as blocks indented under their header, `#` between blocks, and `undo` to remove a line. Changes stage in a candidate and take effect only at `commit`, so a refused line leaves nothing applied: the candidate is cleared. `commit` does not write to flash; `save` does, and without it a reboot brings the old configuration back. There is no scheduler to restore from, so a fresh login tests access before saving.
+// Huawei VRP on the CE series. Changes stage in a candidate and take effect at `commit`, so a refused line leaves nothing applied. Only `save` writes to flash, so a fresh login tests access before saving, and a reboot undoes an unsaved commit.
 
 import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
 import type { Device, Lag, VlanInterface } from "../../model";
-import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
+import { ConsoleShell, SerialConsole } from "../../transport/console";
+import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
-import { LineDiff, type Dialect, type Group } from "../line-diff";
-import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
+import { LineDiff } from "../line-diff";
+import type { Dialect, Group } from "../line-diff";
+import { Platform } from "../platform";
+import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
-    /** How the console asks for a login: the same question to change the password, always answered no, a system view left with `return`, and the line's banner after a logout or a refused password answered with Enter. Not yet tested on a device. */
+    /** The question to change the password is always answered no, and a system view is left with `return`. The line's banner after a logout or a refused password is answered with Enter. Not yet tested on a device. */
     static readonly CONSOLE: ConsoleDialect = {
         login: /Username:\s*$/i,
         password: /Password:\s*$/i,
@@ -73,10 +74,19 @@ export class Vrp extends Platform {
         order: Vrp.order,
     };
 
+    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, users, and BFD. Then come device-wide lines, LAGs, ports, VLAN interfaces, OSPF, and the rest, such as logins. */
+    private static readonly BLOCK_ORDER = [
+        /^(ip vpn-instance|vlan |acl number|aaa|bfd)/,
+        /^$/,
+        /^interface Eth-Trunk/,
+        /^interface (?!Vlanif)/,
+        /^interface Vlanif/,
+        /^ospf /,
+    ];
+
     /** The platform offers an ECDSA host key it then signs wrongly, so RSA is asked for. */
     private static readonly HOST_KEYS = ["ssh-rsa"];
 
-    /** What the device prints when it refuses a line. */
     private static readonly REFUSED = /^\s*Error|Unrecognized command|Incomplete command|Wrong parameter|Too many parameters/m;
 
     /** A setting whose password the platform asks for interactively: the command, then the password, then the password again. */
@@ -85,23 +95,44 @@ export class Vrp extends Platform {
 
     private static readonly NOT_SAVED = "Not saved: a reboot restores the previous configuration.";
 
-    /** Commands that only read. A `?` sent by a script is run, not taken as help, so a line with one is refused. */
+    /** A `?` sent by a script is run, not taken as help, so a line with one is refused. */
     private static readonly READS = /^display\s[^?]*$/;
 
-    readonly name = "vrp";
+    private static readonly COMMAND_TIMEOUT_MS = 10_000;
+    private static readonly PROMPT_TIMEOUT_MS = 15_000;
+    private static readonly LINE_TIMEOUT_MS = 20_000;
+    private static readonly SLOW_TIMEOUT_MS = 60_000;
+    private static readonly READ_TIMEOUT_MS = 120_000;
+    private static readonly PROMPT_SETTLE_MS = 1500;
+    private static readonly PASSWORD_SETTLE_MS = 900;
+    private static readonly LINE_SETTLE_MS = 800;
+    private static readonly SAVE_SETTLE_MS = 2000;
+    private static readonly SLOW_SETTLE_MS = 3000;
+    private static readonly WRITE_SETTLE_MS = 5000;
 
-    readonly os: OsSupport = {
+    /** How much of the device's answer an error shows. */
+    private static readonly ANSWER_CHARS = 300;
+
+    /** Ranges the platform takes. */
+    private static readonly BFD_INTERVAL_MS = { min: 50, max: 1000 };
+    private static readonly BFD_MULTIPLIER = { min: 3, max: 50 };
+    private static readonly LOGFILES = { min: 3, max: 500 };
+    private static readonly SAMPLING = { min: 4096, max: 4294967295 };
+
+    override readonly name = "vrp";
+
+    override readonly os: OsSupport = {
         name: "Huawei VRP",
         versions: "V200R005",
         testedOn: "CE6855-48S6Q-HI, V200R005C00SPC800",
         checked: false,
     };
 
-    readonly extension = ".cfg";
+    override readonly extension = ".cfg";
 
     override readonly console = Vrp.CONSOLE;
 
-    unsupported(device: Device): string[] {
+    override unsupported(device: Device): string[] {
         const found: string[] = [];
 
         if (device.management?.interfaces) found.push("management.interfaces, which only FortiOS builds for now");
@@ -155,10 +186,12 @@ export class Vrp extends Platform {
         if (routing?.router_id && !routing.ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");
 
         const bfd = routing?.bfd;
-        if (bfd && !(Number.isInteger(bfd.interval) && bfd.interval >= 50 && bfd.interval <= 1000))
-            found.push("routing.bfd.interval, between 50 and 1000 ms on the platform");
-        if (bfd && !(Number.isInteger(bfd.multiplier) && bfd.multiplier >= 3 && bfd.multiplier <= 50))
-            found.push("routing.bfd.multiplier, between 3 and 50 on the platform");
+        const interval = Vrp.BFD_INTERVAL_MS;
+        const multiplier = Vrp.BFD_MULTIPLIER;
+        if (bfd && !Vrp.inRange(bfd.interval, interval))
+            found.push(`routing.bfd.interval, between ${interval.min} and ${interval.max} ms on the platform`);
+        if (bfd && !Vrp.inRange(bfd.multiplier, multiplier))
+            found.push(`routing.bfd.multiplier, between ${multiplier.min} and ${multiplier.max} on the platform`);
 
         for (const route of routing?.static_routes ?? []) {
             if (!route.bfd) continue;
@@ -198,7 +231,6 @@ export class Vrp extends Platform {
                 found.push(`services.dhcp_relay.${name}.interface, relays run on VLAN interfaces`);
         }
 
-        // The platform reserves this name.
         if (device.system?.users?.admin) found.push("system.users.admin, the platform reserves the name");
 
         const management = device.management ?? {};
@@ -220,8 +252,8 @@ export class Vrp extends Platform {
         const local = system.logging?.local;
         if (local?.lines_per_file !== undefined)
             found.push("system.logging.local.lines_per_file, the platform sizes a log file in megabytes");
-        if (local?.files !== undefined && !(Number.isInteger(local.files) && local.files >= 3 && local.files <= 500))
-            found.push("system.logging.local.files, between 3 and 500 on the platform");
+        if (local?.files !== undefined && !Vrp.inRange(local.files, Vrp.LOGFILES))
+            found.push(`system.logging.local.files, between ${Vrp.LOGFILES.min} and ${Vrp.LOGFILES.max} on the platform`);
 
         const monitoring = device.monitoring ?? {};
 
@@ -254,34 +286,32 @@ export class Vrp extends Platform {
         const flow = monitoring.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
         const sampling = flow?.protocol === "sflow" ? flow.sampling : undefined;
-        const samplingInRange = sampling !== undefined && Number.isInteger(sampling) && sampling >= 4096 && sampling <= 4_294_967_295;
+        const samplingInRange = sampling !== undefined && Vrp.inRange(sampling, Vrp.SAMPLING);
+        const { min, max } = Vrp.SAMPLING;
 
         if (flow?.protocol === "sflow" && !samplingInRange) {
             found.push(
-                "monitoring.flow_export.sampling, required and between 4096 and 4294967295: the platform samples, one packet in 4096 at most"
+                `monitoring.flow_export.sampling, required and between ${min} and ${max}: the platform samples, one packet in ${min} at most`
             );
         }
 
         return found;
     }
 
-    render(device: Device): string {
+    override render(device: Device): string {
         return VrpRender.of(device);
     }
 
-    /** What the device runs, credentials scrubbed. */
-    async read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
+    override async read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
         if (options.console) {
-            return Vrp.onConsole(device, async (channel) =>
-                Vrp.configurationOf(device, await Ssh.send(channel, "display current-configuration", 120_000, 3000))
-            );
+            return Vrp.onConsole(device, async (channel) => Vrp.configurationOf(device, await Vrp.dump(channel)));
         }
 
         const client = await Vrp.login(device);
 
         try {
-            const channel = await Vrp.shell(client);
-            const dump = await Ssh.send(channel, "display current-configuration", 120_000, 3000);
+            const channel = await Vrp.openShell(client);
+            const dump = await Vrp.dump(channel);
             channel.end();
 
             return Vrp.configurationOf(device, dump);
@@ -290,12 +320,8 @@ export class Vrp extends Platform {
         }
     }
 
-    /**
-     * What changes, in the order the platform accepts.
-     *
-     * A VLAN list changes by ID. VLANs no longer used go first, with their VLAN interfaces, so their names and numbers are free before a new VLAN takes them: a VLAN name is unique, and a VLAN with an interface cannot be removed. The whole plan is one candidate, so going first leaves nothing half done.
-     */
-    plan(desired: string, current: string, options: ApplyOptions): Plan {
+    /** VLANs no longer used go first, with their VLAN interfaces, so their names and numbers are free for a new VLAN. A VLAN name is unique, and a VLAN with an interface cannot be removed. The whole plan is one candidate, so nothing is left half done. */
+    override plan(desired: string, current: string, options: ApplyOptions): Plan {
         const compared = LineDiff.compare(desired, current, Vrp.DIALECT);
         const groups = options.secrets ? LineDiff.withSecrets(compared, desired, Vrp.DIALECT) : compared;
         LineDiff.vlanListChange(
@@ -346,7 +372,7 @@ export class Vrp extends Platform {
         return { steps: [...keys.first, ...planned, ...keys.last], problems: [] };
     }
 
-    async apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
+    override async apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
         // On the console, a fresh login on the same console is the proof, and the save is sent in it.
         if (options.console) {
             await Vrp.onConsole(device, async (channel, relogin) => {
@@ -362,7 +388,7 @@ export class Vrp extends Platform {
         }
 
         const client = await Vrp.login(device);
-        const channel = await Vrp.shell(client);
+        const channel = await Vrp.openShell(client);
 
         try {
             await Vrp.commitPlan(channel, plan);
@@ -381,19 +407,17 @@ export class Vrp extends Platform {
         console.log("  committed, logged in again, saved");
     }
 
-    async neighbors(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<Neighbor[]> {
+    override async neighbors(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<Neighbor[]> {
         const session = await this.session(device, options);
 
         try {
-            return Vrp.neighborsOf(device, await session.run("display lldp neighbor", 60_000));
+            return Vrp.neighborsOf(device, await session.run("display lldp neighbor", Vrp.SLOW_TIMEOUT_MS));
         } finally {
             session.close();
         }
     }
 
-    /**
-     * The neighbors in `display lldp neighbor`: a header per port, `10GE1/0/2 has 1 neighbor(s):`, then a block per neighbor where `Port ID` comes before `System name`. A port Circuit does not know, such as the management port, is left out.
-     */
+    /** A header per port, `10GE1/0/2 has 1 neighbor(s):`, then a block per neighbor where `Port ID` comes before `System name`. A port Circuit does not know, such as the management port, is left out. */
     static neighborsOf(device: Device, output: string): Neighbor[] {
         const ports = Catalog.ports(device.platform, device.model);
         const byName = new Map(ports.map((port) => [Catalog.spell(device.platform, device.model, port), port]));
@@ -420,12 +444,12 @@ export class Vrp extends Platform {
         return neighbors;
     }
 
-    readOnly(command: string): boolean {
+    override readOnly(command: string): boolean {
         return Vrp.READS.test(command);
     }
 
     /** One shell for every command, as the platform takes commands only there. */
-    async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
+    override async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
         if (options.console) {
             const opened = await Vrp.openConsole(device);
             const shell = new ConsoleShell(opened.channel, Vrp.CONSOLE, ConsoleShell.SETTLE);
@@ -440,7 +464,7 @@ export class Vrp extends Platform {
         }
 
         const client = await Vrp.login(device);
-        const channel = await Vrp.shell(client).catch((error: Error) => {
+        const channel = await Vrp.openShell(client).catch((error: Error) => {
             client.end();
             throw error;
         });
@@ -466,7 +490,7 @@ export class Vrp extends Platform {
 
         const keyword = Vrp.UNDO_BY_KEYWORD.exec(line);
         if (keyword) return `undo ${keyword[1]}`;
-        // A static route is removed by its destination and next hop; its preference, description or BFD after them is refused.
+        // A static route is removed by its destination and next hop. Its preference, description, or BFD after them is refused.
         if (/^ipv6 route-static |^ip route-static /.test(line)) return `undo ${line.replace(/ (preference|description|bfd) .*$/, "")}`;
         // Storm control is removed per kind, without its rates.
         if (line.startsWith("storm control ")) return `undo ${line.replace(/ (min-rate|max-rate).*$/, "")}`;
@@ -479,27 +503,18 @@ export class Vrp extends Platform {
         return line.replace(/((?:password|community read|-mode \S+) )(?:irreversible-)?cipher \S+/g, "$1cipher <secret>");
     }
 
-    /** Blocks other blocks refer to come first: VRFs, VLANs, the ACL and users, then device-wide lines, then LAGs, ports, VLAN interfaces, OSPF and logins. */
     private static order(path: string[]): number {
         const header = path[0] ?? "";
-        if (!header) return 1;
+        const rank = Vrp.BLOCK_ORDER.findIndex((pattern) => pattern.test(header));
 
-        if (/^(ip vpn-instance|vlan |acl number|aaa|bfd)/.test(header)) return 0;
-
-        if (header.startsWith("interface Eth-Trunk")) return 2;
-
-        if (header.startsWith("interface Vlanif")) return 4;
-
-        if (header.startsWith("interface ")) return 3;
-
-        if (header.startsWith("ospf ")) return 5;
-
-        return 6;
+        return rank === -1 ? Vrp.BLOCK_ORDER.length : rank;
     }
 
-    /**
-     * A log host the config no longer has is removed. One at the default level prints as `info-center loghost <address>`, whose head is the bare command, so a new log host would otherwise seem to replace it.
-     */
+    private static inRange(value: number, range: { min: number; max: number }): boolean {
+        return Number.isInteger(value) && value >= range.min && value <= range.max;
+    }
+
+    /** A log host the config no longer has is removed. One at the default level prints as `info-center loghost <address>`, whose head is the bare command, so a new log host would otherwise seem to replace it. */
     private static removeLoghosts(groups: Group[], desired: string, current: string): void {
         const loghosts = (text: string) => text.split("\n").filter((line) => line.startsWith("info-center loghost "));
         const addressOf = (line: string) => line.split(" ")[2];
@@ -554,16 +569,14 @@ export class Vrp extends Platform {
             const end = lines.findIndex((other, at) => at > index && other.trim() === "peer-public-key end");
             blocks.set(
                 name,
-                lines.slice(index, end < 0 ? undefined : end + 1).map((each) => each.trim())
+                lines.slice(index, end === -1 ? undefined : end + 1).map((each) => each.trim())
             );
         });
 
         return blocks;
     }
 
-    /**
-     * SSH keys are sent whole: a new key, every line of its block, before the lines that assign it to a user, and a key that goes, after them. Its lines leave the groups, which would send them apart. A key that changes is refused: the switch asks before replacing one.
-     */
+    /** A key is sent whole, every line of its block. A new key goes before the lines that assign it, and a key that goes after them. Its lines leave the groups, which would send them apart. A key that changes is refused, because the switch asks before replacing one. */
     private static keySteps(groups: Group[], desired: string, current: string): { first: Step[]; last: Step[]; problems: string[] } {
         const wanted = Vrp.keyBlocks(desired);
         const had = Vrp.keyBlocks(current);
@@ -646,32 +659,31 @@ export class Vrp extends Platform {
         });
     }
 
-    /**
-     * An interactive shell at the user prompt, paging off.
-     *
-     * Every login asks whether to change the password. Answering yes replaces it at once and every stored credential with it, so the answer is always no. Anything sent before the question is answered is taken as the answer.
-     */
-    private static async shell(client: Client): Promise<ClientChannel> {
+    /** Every login asks whether to change the password. Yes replaces it at once, and every stored credential with it, so the answer is always no. Anything sent before the question is answered is taken as the answer. */
+    private static async openShell(client: Client): Promise<ClientChannel> {
         const channel = await Ssh.shell(client);
         const banner = await Ssh.readUntil(
             channel,
             (text) => /Change now\? ?\[Y\/N\]/i.test(text) || /<[^>]+>\s*$/.test(text),
-            15_000,
-            1500
+            Vrp.PROMPT_TIMEOUT_MS,
+            Vrp.PROMPT_SETTLE_MS
         );
-        if (/Change now\?/i.test(banner)) await Ssh.send(channel, "N", 10_000, 1500);
-        await Ssh.send(channel, "screen-length 0 temporary", 10_000, 1500);
+        if (/Change now\?/i.test(banner)) await Ssh.send(channel, "N", Vrp.COMMAND_TIMEOUT_MS, Vrp.PROMPT_SETTLE_MS);
+        await Vrp.pagingOff(channel);
         return channel;
     }
 
-    /** Log in on the console with paging off. Returns the console, a way to log in afresh, and how to let the console go. */
+    private static async pagingOff(channel: ClientChannel): Promise<void> {
+        await Ssh.send(channel, "screen-length 0 temporary", Vrp.COMMAND_TIMEOUT_MS, Vrp.PROMPT_SETTLE_MS);
+    }
+
     private static async openConsole(device: Device) {
         const { console, user, password } = SerialConsole.of(device);
         const opened = await SerialConsole.open(console);
 
         const login = async () => {
             await SerialConsole.login(opened.channel, Vrp.CONSOLE, user, password, console.password_only);
-            await Ssh.send(opened.channel, "screen-length 0 temporary", 10_000, 1500);
+            await Vrp.pagingOff(opened.channel);
         };
 
         try {
@@ -684,7 +696,6 @@ export class Vrp extends Platform {
         return { channel: opened.channel, login, close: opened.close };
     }
 
-    /** Log in on the console with paging off, run `work` with a way to log in afresh, and log out. */
     private static async onConsole<T>(
         device: Device,
         work: (channel: ClientChannel, relogin: () => Promise<void>) => Promise<T>
@@ -700,58 +711,61 @@ export class Vrp extends Platform {
         }
     }
 
+    private static dump(channel: ClientChannel): Promise<string> {
+        return Ssh.send(channel, "display current-configuration", Vrp.READ_TIMEOUT_MS, Vrp.SLOW_SETTLE_MS);
+    }
+
     /** The configuration in a dump, without the prompt or the stamp of the last change. */
     private static configurationOf(device: Device, dump: string): string {
         const lines = dump.replace(/\r/g, "").split("\n");
         const start = lines.findIndex((line) => line.startsWith("!Software Version"));
-        if (start < 0) throw new Error(`${device.name} returned no configuration`);
+        if (start === -1) throw new Error(`${device.name} returned no configuration`);
 
         const body = lines.slice(start).filter((line) => !/^<.*>$/.test(line.trim()) && !line.startsWith("!Last configuration"));
-        return LineDiff.scrub(body.join("\n").trim() + "\n");
+        return LineDiff.scrub(`${body.join("\n").trim()}\n`);
     }
 
-    /** Send one line, answering a confirmation, and return what the device said. */
+    /** Answers a confirmation, or the password prompts of an interactive line. */
     private static async sendLine(channel: ClientChannel, line: string): Promise<string> {
         const interactive = Vrp.INTERACTIVE.exec(line.trim());
         if (interactive) {
             const [, command, reference] = interactive;
             const password = Secrets.valueOf(reference!);
-            let answer = await Ssh.send(channel, command!, 15_000, 900);
-            answer += await Ssh.send(channel, password, 15_000, 900);
-            answer += await Ssh.send(channel, password, 15_000, 900);
+            let answer = await Ssh.send(channel, command!, Vrp.PROMPT_TIMEOUT_MS, Vrp.PASSWORD_SETTLE_MS);
+            answer += await Ssh.send(channel, password, Vrp.PROMPT_TIMEOUT_MS, Vrp.PASSWORD_SETTLE_MS);
+            answer += await Ssh.send(channel, password, Vrp.PROMPT_TIMEOUT_MS, Vrp.PASSWORD_SETTLE_MS);
             return answer;
         }
 
-        let answer = await Ssh.send(channel, Secrets.substitute(line), 20_000, 800);
-        if (/\[Y\/N\]/i.test(answer)) answer += await Ssh.send(channel, "Y", 20_000, 800);
+        let answer = await Ssh.send(channel, Secrets.substitute(line), Vrp.LINE_TIMEOUT_MS, Vrp.LINE_SETTLE_MS);
+        if (/\[Y\/N\]/i.test(answer)) answer += await Ssh.send(channel, "Y", Vrp.LINE_TIMEOUT_MS, Vrp.LINE_SETTLE_MS);
         return answer;
     }
 
-    /** Send a plan into the candidate and commit it. A refused line clears the candidate, which leaves the device as it was. */
+    /** A refused line clears the candidate, which leaves the device as it was. */
     private static async commitPlan(channel: ClientChannel, plan: Plan): Promise<void> {
         try {
-            await Ssh.send(channel, "system-view", 10_000, 1500);
+            await Ssh.send(channel, "system-view", Vrp.COMMAND_TIMEOUT_MS, Vrp.PROMPT_SETTLE_MS);
 
             for (const step of plan.steps) {
                 for (const line of step.send) {
                     const answer = await Vrp.sendLine(channel, line);
                     if (Vrp.REFUSED.test(answer))
-                        throw new Error(`${step.title}: ${line}\n    device said: ${answer.trim().slice(0, 300)}`);
+                        throw new Error(`${step.title}: ${line}\n    device said: ${answer.trim().slice(0, Vrp.ANSWER_CHARS)}`);
                 }
             }
 
-            const committed = await Ssh.send(channel, "commit", 60_000, 3000);
-            if (Vrp.REFUSED.test(committed)) throw new Error(`commit refused: ${committed.trim().slice(0, 300)}`);
-            await Ssh.send(channel, "quit", 10_000);
+            const committed = await Ssh.send(channel, "commit", Vrp.SLOW_TIMEOUT_MS, Vrp.SLOW_SETTLE_MS);
+            if (Vrp.REFUSED.test(committed)) throw new Error(`commit refused: ${committed.trim().slice(0, Vrp.ANSWER_CHARS)}`);
+            await Ssh.send(channel, "quit", Vrp.COMMAND_TIMEOUT_MS);
         } catch (error) {
-            await Ssh.send(channel, "clear configuration candidate", 10_000).catch(() => undefined);
+            await Ssh.send(channel, "clear configuration candidate", Vrp.COMMAND_TIMEOUT_MS).catch(() => undefined);
             throw error;
         }
     }
 
-    /** Save what runs, so a reboot keeps it. */
     private static async save(channel: ClientChannel): Promise<void> {
-        const saving = await Ssh.send(channel, "save", 20_000, 2000);
-        if (/\[Y\/N\]/i.test(saving)) await Ssh.send(channel, "Y", 60_000, 5000);
+        const saving = await Ssh.send(channel, "save", Vrp.LINE_TIMEOUT_MS, Vrp.SAVE_SETTLE_MS);
+        if (/\[Y\/N\]/i.test(saving)) await Ssh.send(channel, "Y", Vrp.SLOW_TIMEOUT_MS, Vrp.WRITE_SETTLE_MS);
     }
 }

@@ -1,29 +1,28 @@
-// Convergence for platforms whose configuration is a list of lines in nested blocks, such as `interface X` holding its settings. A line the render does not hold is undone, so the device ends up holding exactly the render.
+// For platforms whose config is lines in nested blocks, such as `interface X` holding its settings. A line the render doesn't hold is undone, so the device ends up holding exactly the render.
 
 import type { Plan, Step } from "./platform";
 
 export type Dialect = {
     /** A line at the margin that opens a block, for platforms that do not indent a block's lines. */
     block: RegExp;
-    /** Whether a block's lines are indented under it. When they are, any line followed by deeper lines opens a block. */
+    /** When a block's lines are indented, any line followed by deeper lines opens a block. */
     indented: boolean;
     /** A line at the margin that closes every open block. */
     terminator: string;
-    /** Lines that describe the device rather than configure it, or that the platform prints whatever is set. */
+    /** Lines that describe the device rather than configure it, or that the device prints whatever is set. */
     ignore: (line: string) => boolean;
-    /** The command that removes a line. */
     undo: (line: string) => string;
-    /** Leaves one level of block. */
+    /** The command that leaves one block level. */
     leave: string;
-    /** Lines sent before the undos of their block, because the platform refuses an undo until they are in place. */
+    /** Lines sent before their block's undos, because the platform refuses an undo until they are in place. */
     first?: RegExp;
     /** A line in the form both sides compare in, for example a secret the device prints as a cipher. */
     canon?: (line: string) => string;
-    /** Where a block is sent among the others, lowest first, so that nothing is referenced before it exists. In the order they differ when absent. */
+    /** Where a block is sent among the others, lowest first, so nothing is referenced before it exists. Absent, blocks go in the order they differ. */
     order?: (path: string[]) => number;
 };
 
-/** One line, with the blocks it sits in, outermost first. */
+/** A line with the blocks it sits in, outermost first. */
 export type Entry = { path: string[]; line: string };
 
 /** What changes inside one block. */
@@ -33,11 +32,10 @@ export type Group = { path: string[]; remove: string[]; add: string[] };
 export type Around = (group: Group) => { before: string[]; after: string[] };
 
 export class LineDiff {
-    /** What a switch prints in place of a secret: the cipher of a password, a community or an SNMPv3 key, and a Raisecom community in clear. Never an algorithm list such as `ssh server cipher`. */
+    /** What a switch prints in place of a secret: the cipher of a password, a community, or an SNMPv3 key, and a Raisecom community in clear. Never an algorithm list such as `ssh server cipher`. */
     private static readonly STORED_CREDENTIAL =
         /((?:password|community read|-mode \S+) (?:irreversible-)?cipher|^snmp-server community)( +)\S+/gm;
 
-    /** How deep a line is indented. */
     private static indentOf(raw: string): number {
         return raw.length - raw.trimStart().length;
     }
@@ -94,11 +92,7 @@ export class LineDiff {
         return words.slice(0, Math.max(1, words.length - 1)).join(" ");
     }
 
-    /**
-     * What differs, by block.
-     *
-     * A device line replaced by a desired line with the same head is not undone; sending the new one is enough. A block the render does not hold goes with its header, and its lines with it.
-     */
+    /** What differs, by block. A device line replaced by a desired line with the same head isn't undone: sending the new one is enough. A block the render doesn't hold goes with its header, and its lines with it. */
     static compare(desired: string, current: string, dialect: Dialect): Group[] {
         const canon = dialect.canon ?? ((line: string) => line);
         const keyOf = (entry: Entry) => [...entry.path, canon(entry.line)].join("\u0000");
@@ -153,9 +147,7 @@ export class LineDiff {
         return [...groups.values()].filter((group) => group.add.length || group.remove.length);
     }
 
-    /**
-     * Send every line that holds a secret again, for `apply --secrets`. A device prints a secret as a cipher, so a line whose secret changed compares equal and is otherwise never sent.
-     */
+    /** Every line that holds a secret is sent again, for `apply --secrets`. A device prints a secret as a cipher, so a line whose secret changed compares equal and is otherwise never sent. */
     static withSecrets(groups: Group[], desired: string, dialect: Dialect): Group[] {
         const pathKey = (path: string[]) => path.join("\u0000");
         const result = groups.map((group) => ({ ...group, add: [...group.add] }));
@@ -175,11 +167,7 @@ export class LineDiff {
         return result;
     }
 
-    /**
-     * Replace a changed VLAN list line with only what changed.
-     *
-     * A platform keeps its VLANs as one line, such as `vlan batch 10 20 to 30`. Undoing the old line would delete VLANs still in use, so the plan adds the new IDs and removes the gone ones instead.
-     */
+    /** A platform keeps its VLANs as one line, such as `vlan batch 10 20 to 30`. Undoing the old line would delete VLANs still in use, so the plan adds the new IDs and removes the gone ones instead. */
     static vlanListChange(
         groups: Group[],
         prefix: string,
@@ -212,7 +200,7 @@ export class LineDiff {
         return { before: [], after: [] };
     }
 
-    /** The steps for the groups: enter each block of the path, undo, add, then leave each level. */
+    /** Each step enters each block of its path, undoes, adds, then leaves each level. */
     static steps(groups: Group[], dialect: Dialect, around: Around = LineDiff.nothingAround): Plan["steps"] {
         const rank = dialect.order ?? (() => 0);
         const ordered = [...groups].sort((a, b) => rank(a.path) - rank(b.path));

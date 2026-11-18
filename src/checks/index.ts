@@ -1,15 +1,14 @@
-// What `circuit validate` finds in a network read with `Project.read`: each device's own rules, what its platform cannot express or does otherwise, what its model's hardware holds, the rules across devices, and the built-in checks the network turns on. What reading the project stops on is not checked again.
-
 import type { Device, Finding } from "../model";
 import { Platforms } from "../platforms";
-import { CrossChecks } from "./across";
-import { BuiltInChecks, type NetworkChecks } from "./built-in";
+import { CrossChecks } from "./cross";
+import { BuiltInChecks } from "./built-in";
+import type { NetworkChecks } from "./built-in";
 import { DeviceChecks } from "./device";
 
 export type { NetworkChecks } from "./built-in";
 
-export class Validation {
-    /** Every finding on the network's devices, in the model, with the built-in checks its `checks` turns on. Own checks in `checks` are left out: reading the project runs them. */
+export class Checks {
+    /** What `circuit validate` finds on the network's devices, with the built-in checks `checks` turns on. Reading the project runs the project's own checks, and what it stops on is not checked again. */
     static run(devices: readonly Device[], checks: NetworkChecks | undefined, options: { experimental?: boolean } = {}): Finding[] {
         const findings: Finding[] = [];
 

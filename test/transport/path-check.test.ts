@@ -1,5 +1,3 @@
-// The path check before an apply: reading what `ping` printed on each system, and deciding from the numbers whether to go ahead.
-
 import { expect, test } from "bun:test";
 import { PathCheck } from "../../src/transport/path-check";
 

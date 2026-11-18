@@ -1,5 +1,3 @@
-// Renaming a device changes every string that is exactly its name, moves its file when asked, and leaves longer texts that mention it for a person to read.
-
 import { afterEach, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -47,7 +45,7 @@ test("every exact string takes the new name, in any quotes, outside node_modules
     expect(plan.changes[1]!.after).toContain('description: "tor-01 10GE1/0/1"');
     expect(plan.moves).toEqual([]);
 
-    // An import of the file, which keeps its name, and a description that names the device are a person's to change.
+    // An import of the file, which keeps its name, and a description that gives the device are a person's to change.
     expect(plan.mentions.map((mention) => [slashes(mention.file), mention.line])).toEqual([
         ["sites/site-a/edge-01.ts", 2],
         ["sites/site-a/edge-01.ts", 6],

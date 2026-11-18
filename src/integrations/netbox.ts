@@ -1,10 +1,9 @@
-// `circuit sync netbox`: keeps NetBox in sync with the project, one way: Circuit writes, NetBox shows. Each device goes in with its site, role, model and platform, every port of its model, its interfaces, VLANs, VRFs and addresses, and a cable for each `link`.
-//
-// Circuit tags what it makes `circuit`, and changes or deletes only objects with that tag. An object NetBox already holds without it, such as a site the team made, is used as it is, never changed, and listed under Left alone. Networks that name the same NetBox are planned together, so one never deletes what the other made.
+// Circuit writes, and NetBox only shows. Circuit tags what it makes `circuit`, and changes or deletes only objects with that tag. It uses an untagged object, such as a site the team made, as it is. Networks that name one NetBox are planned together, so neither deletes what the other made.
 
 import { Address } from "../core/address";
 import { AddressSpace } from "../core/address-space";
-import { type Holder, Topology } from "../core/topology";
+import { Topology } from "../core/topology";
+import type { Holder } from "../core/topology";
 import type { Device, InterfaceKind, Port, Switched } from "../model";
 import { Platforms } from "../platforms";
 import type { Platform as PlatformName } from "../config/models";
@@ -12,8 +11,8 @@ import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import type { SyncChange, SyncNetwork, SyncPlan, SyncTarget } from "./sync";
 
-/** NetBox's JSON, as it answers. Loose, since every kind of object has fields of its own. */
-type Json = { [field: string]: any };
+/** Loose, since every kind of object has fields of its own. */
+type Json = Record<string, any>;
 
 /** Each kind of object Circuit writes, in the order they are made: each refers only to kinds before it, or waits for the next round. */
 export type NetBoxKind =
@@ -32,7 +31,7 @@ export type NetBoxKind =
     | "ip"
     | "cable";
 
-/** One object to make, change or delete. */
+/** One object to make, change, or delete. */
 export type NetBoxChange = {
     kind: NetBoxKind;
     /** Where NetBox keeps it, such as `dcim/devices`. */
@@ -47,7 +46,6 @@ export type NetBoxChange = {
     diff: string[];
 };
 
-/** What `circuit sync netbox` would do. */
 export type NetBoxPlan = SyncPlan & {
     creates: NetBoxChange[];
     updates: NetBoxChange[];
@@ -65,6 +63,11 @@ class NetBoxRef {
 export class NetBox implements SyncTarget<NetBoxPlan> {
     /** The tag on everything Circuit makes. */
     static readonly TAG = "circuit";
+
+    private static readonly TIMEOUT_MS = 60_000;
+    private static readonly NOT_FOUND = 404;
+    private static readonly NO_CONTENT = 204;
+    private static readonly REASON_CHARS = 500;
 
     /** How many rounds `send` takes at most: a field that refers to an object made in the same round, such as a device's primary address, is set in the next. */
     private static readonly ROUNDS = 3;
@@ -192,7 +195,6 @@ export class NetBox implements SyncTarget<NetBoxPlan> {
         if (sessions) this.notes.push(`BGP sessions (${sessions}): NetBox has no place for them without a plugin.`);
     }
 
-    /** Compare the project with what NetBox holds. Reads NetBox only. */
     async plan(): Promise<NetBoxPlan> {
         const creates: NetBoxChange[] = [];
         const updates: NetBoxChange[] = [];
@@ -305,7 +307,7 @@ export class NetBox implements SyncTarget<NetBoxPlan> {
         }
     }
 
-    /** A device, its site, VLANs, VRFs, ports, interfaces, addresses and cables. */
+    /** A device, its site, VLANs, VRFs, ports, interfaces, addresses, and cables. */
     private wantDevice(device: Device, siteDescription: string | undefined, holders: readonly Holder[]): void {
         const ref = (kind: NetBoxKind, key: string) => new NetBoxRef(kind, key);
         const site = device.site;
@@ -603,18 +605,18 @@ export class NetBox implements SyncTarget<NetBoxPlan> {
             method,
             headers: this.headers,
             ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-            signal: AbortSignal.timeout(60_000),
+            signal: AbortSignal.timeout(NetBox.TIMEOUT_MS),
         });
 
         // An object deleted with its parent, such as a device's interfaces, is already gone.
-        if (response.status === 404 && method === "DELETE") return undefined;
+        if (response.status === NetBox.NOT_FOUND && method === "DELETE") return undefined;
 
         if (!response.ok) {
-            const reason = (await response.text()).slice(0, 500);
+            const reason = (await response.text()).slice(0, NetBox.REASON_CHARS);
             throw new Error(`NetBox answered ${response.status} to ${method} ${path}: ${reason}`);
         }
 
-        return response.status === 204 ? undefined : ((await response.json()) as Json);
+        return response.status === NetBox.NO_CONTENT ? undefined : ((await response.json()) as Json);
     }
 
     /** Every object of a kind, page by page. */
@@ -632,7 +634,7 @@ export class NetBox implements SyncTarget<NetBoxPlan> {
         return all;
     }
 
-    /** NetBox's answer in the shape Circuit sends: a nested object as its id, a choice as its value, a cable end as its type and id, an address in one spelling. */
+    /** NetBox's answer in the shape Circuit sends. A nested object becomes its id, a choice its value, a cable end its type and id, and an address one spelling. */
     private static normalize(value: unknown, field = ""): unknown {
         if (value === undefined || value === null || value === "") return null;
 

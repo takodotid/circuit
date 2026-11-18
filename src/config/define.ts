@@ -1,4 +1,4 @@
-// What a project's files call, as globals: `circuit`, `part`, `literal`, `merge`, `secret`, `secretFile`, `bgpNeighbors`. A network's `device()`.
+// The functions a project calls as globals, and a network's `device()`.
 
 import type { IP, Secret } from "./common";
 import type { AnyDevice, AnyPort, Device, DevicePart, Names, Part } from "./device";
@@ -7,9 +7,12 @@ import type { Port } from "./interfaces";
 import type { Model, Platform, PortName } from "./models";
 import type { CommunitiesExport, CommunitiesImport, GroupsOf, RequestsOf } from "./communities";
 import type { NetworkFacts, NetworkSettings, Prefixes, Site } from "./network";
-import { ACL_RULE, ACTIONS, closest, FILTER_RULE, NAT_RULE, ROUTING_RULE, type Shape, unknownKeyHelp, unknownKeys } from "./keys";
-import { type Before, type Clash, caller, innerCaller, made, mark, type Merged, mergeAll, resolve, ruleList, writtenAt } from "./merge";
-import { type CallRule, type PolicyRule, policyRuleProblem, type RouteRule, type RoutingRule } from "./routing";
+import { ACL_RULE, ACTIONS, closest, FILTER_RULE, NAT_RULE, ROUTING_RULE, unknownKeyHelp, unknownKeys } from "./keys";
+import type { Shape } from "./keys";
+import { caller, innerCaller, made, mark, mergeAll, resolve, ruleList, writtenAt } from "./merge";
+import type { Before, Clash, Merged } from "./merge";
+import { policyRuleProblem } from "./routing";
+import type { CallRule, PolicyRule, RouteRule, RoutingRule } from "./routing";
 import type { AclRule } from "./switching";
 
 /** A secret, by its name, never the value itself. Circuit reads the value from the network's secrets file or the environment when it connects to the device. If the value is an `op://` reference, Circuit reads it from 1Password. */
@@ -18,11 +21,11 @@ export const secret = (name: string): Secret => ({ secret: name });
 /** A secret read from a file when Circuit connects to the device, such as a private key in PEM. The path is from the project root. Keep the file out of git. */
 export const secretFile = (path: string): Secret => ({ secret_file: path });
 
-/** One network `circuit()` made, the line that made it, and each device registered with it: the device, the line that made it, and the file Circuit was reading. */
+/** A network `circuit()` made, with its devices. Each `at` is the line that made it, and `file` is the file Circuit was reading. */
 export type Registered = { network: object; at: string; devices: { device: AnyDevice; at: string; file: string }[] };
 
 /**
- * What Circuit checks once it has read every device: each network and its devices, that each source's hostnames are devices of the network, and that each rule list `part` made is placed. `reading` is the file under `sites/` Circuit is importing.
+ * What Circuit checks after it reads every device. Each source's hostnames must be devices of its network, and each rule list `part` made must be placed. `reading` is the file under `sites/` that Circuit is importing.
  */
 export const registry = {
     networks: [] as Registered[],
@@ -123,18 +126,18 @@ type PartOf<S, Name extends string> = S extends { readonly [K in Name]: infer P 
 type PartsOf<Sources extends readonly object[], Name extends string> = { [I in keyof Sources]: PartOf<Sources[I], Name> };
 
 /**
- * Declare one device of this network, in its own file under `sites/`. Circuit finds the file and imports it, and the call adds the device to this network:
+ * Declare one device of this network, in its own file under `sites/`. Circuit imports the file, and the call adds the device to this network:
  *
  * ```ts
  * export default as64500.device({ name: "switch-02", site: "site-b", ... });
  * export default as64500.device({ name: "edge-01", include: [tenants.parts], site: "site-a", ... });
  * ```
  *
- * `site` is one of the network's `sites`, and the editor suggests them. `untrusted: true` on a VLAN is an error unless the network turns on the check `untrusted_vlans`. A neighbor's `communities` and a policy's `{ communities }` rule are errors unless the network writes `communities`. They take the groups and requests the network writes there.
+ * `site` is one of the network's `sites`. `untrusted: true` on a VLAN needs the network's check `untrusted_vlans`. A neighbor's `communities` and a policy's `{ communities }` rule need the network's `communities`, and take its groups and requests.
  *
- * `include` lists the device's sources, such as the tenants'. Each source is an object keyed by hostname, and each value is a part. From each source, the device takes the part under its own `name` and merges it in, as `merge` does: maps key by key, and lists joined. These are errors: a value two of them write, an ordered list from two places, and a hostname in a source that is not a device of the network. The editor shows them when it can, and Circuit always stops on them when it reads the project.
+ * `include` lists the device's sources, such as the tenants'. A source is an object keyed by hostname, and each value is a part. The device takes the part under its own `name` from each source and merges it in, as `merge` does. These are errors: a value two of them write, an ordered list from two places, and a hostname that is not a device of the network. Circuit always stops on them, and the editor shows them when it can.
  *
- * Fields accept only the names the device and its parts declare, such as VLANs, interfaces, sets, ACLs and policies. The editor suggests them. The port names come from the model.
+ * Fields accept only the names the device and its parts declare, such as VLANs, interfaces, sets, ACLs, and policies. The port names come from the model.
  */
 export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
     const Name extends string,
@@ -157,7 +160,7 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
     const Users extends string = never,
     const Certificates extends string = never,
 >(
-    // `site` is checked on its own: inside the device, a network of one site made a wrong site a second error at each port.
+    // `site` is checked on its own. Inside the device type, a wrong site in a network of one site would add an error at each port.
     device: {
         /** The site it is at, from the network's `sites`. It is also its site in NetBox and its group in LibreNMS. */
         site: Sites;
@@ -295,7 +298,7 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
     Name
 >;
 
-/** One device, merged with the parts its `include` gives it and registered with its network, under the file Circuit is reading. */
+/** Merges the parts its `include` gives into a device, and registers it with its network under the file Circuit is reading. */
 function addDevice(network: Registered, written: AnyDevice & { include?: readonly object[] }): AnyDevice {
     const at = caller();
     // Taken off the device's own object, not copied, so the object stays the one the file wrote.
@@ -321,8 +324,6 @@ type Flat<X> = X extends readonly (infer Y)[] ? Flat<Y> : X;
 
 /** Every key of any member of a union. */
 type AllKeys<U> = U extends unknown ? keyof U : never;
-
-// What is wrong, said at the key, in one line.
 
 /** `S` with one letter left out, each way. */
 type Drop1<S extends string> = S extends `${infer A}${infer B}` ? B | `${A}${Drop1<B>}` : never;
@@ -363,7 +364,7 @@ type HoldsMaps<R> = [MapsOf<R> | MapsOf<ListItemOf<R>>] extends [never] ? false 
 /**
  * `X` as it should be, by `R`: a key `R` doesn't take becomes a sentence that says so, and a `then` `R` doesn't take becomes what it takes. So the editor says what is wrong at that key, in one line. Maps and lists inside are checked the same way. `Of` names where.
  *
- * What `R` decides alone is looked into, never a value by its own type: in a function in `lib/` a value may still be a type parameter, which the editor can't look into. A map keyed by name, such as VLANs, is left to the device that takes it.
+ * Only what `R` decides is looked into, never a value by its own type. In a function in `lib/`, a value may still be a type parameter, which the editor can't look into. A map keyed by name, such as VLANs, is left to the device that takes it.
  */
 type Fix<X, R, Of extends string> =
     IsNameMap<R> extends true
@@ -406,7 +407,7 @@ type PolicyRuleOf<X> = X extends { readonly call: unknown }
         : [RouteRule<string>, "a route policy rule"];
 
 /**
- * What item `X` of a list of `E` is checked as, and its words: a route policy rule as its own kind (`PolicyRuleOf`), a rule as the kind the list holds, anything else as `E`.
+ * What item `X` of a list of `E` is checked as, and the words that name it. A route policy rule is checked as its own kind (`PolicyRuleOf`), and any other item as `E`.
  */
 type RuleOf<X, E> =
     "call" extends AllKeys<E>
@@ -435,7 +436,7 @@ type IsBadItem<X, E> = true extends (Flat<X> extends infer Y ? (Y extends ItemCh
 type ListOf<F> = Extract<NonNullable<F>, readonly unknown[]>;
 
 /**
- * An item of a list field: one of its items, or a list of them, nested as deep as you like (a part's rules, a preset). The list has each key of an item as `never`, so a rule's own keys still tell its kind apart (`call` a call rule), and an error names what it takes.
+ * An item of a list field: one of its items, or a list of them, nested as deep as you like (a part's rules, a preset). The list has each key of an item as `never`. So a rule's own keys still tell its kind apart (`call` makes a call rule), and an error names what it takes.
  */
 type ItemOrList<E> = E | (readonly ItemOrList<E>[] & { readonly [K in AllKeys<Extract<E, object>>]?: never });
 
@@ -452,11 +453,11 @@ type AllMaps<T extends readonly unknown[]> = true extends (
 /**
  * Joins items into one, in order: `merge([rule_a, tenants.rules.router_input, rule_b])`. Each item is one value or a list of values, nested as deep as you like, so you never write `...`.
  *
- * The field it goes in, `F`, decides what it makes. The editor reads that field where `merge` lands, as Circuit does from the model:
+ * The field it goes in decides what it makes:
  *
- * - **a list** (a chain's rules, NAT, an ACL, a route policy, policy routing, trunk VLANs, addresses, static routes): one flat list. The editor checks and completes each item as one of the field's own items, including the device's names: a rule's keys, its `if` and `then`, and the names of address sets, interfaces, VLANs and policies. Two single rules, `merge([rule_a, rule_b])`, are two rules. An ordered list keeps every item, in order. Any other list keeps the same item once.
- * - **a map** (a part, VLANs, interfaces, address sets, a source keyed by hostname, a tenant): merged key by key, as [Parts and merge](https://circuit.tako.id/guide/parts) shows. Lists inside are joined. Two rule lists that `part` made are joined in order, with every rule kept. An ordered list from two items, or two values at one path, is an error that shows both files. So `merge([tenant_a, tenant_b])` gives each part by hostname, and each rule list with tenant_a's rules first.
- * - **no field** (a value of its own, `export const tenants = merge([tenant_a])`): the maps merged, if every item is a map. Otherwise a list.
+ * - **a list** (rules, trunk VLANs, addresses, static routes): one flat list. The editor checks and completes each item as an item of that field, with the device's names. An ordered list keeps every item, in order. Any other list keeps the same item once.
+ * - **a map** (a part, VLANs, interfaces, a source keyed by hostname, a tenant): merged key by key, as [Parts and merge](https://circuit.tako.id/guide/parts) shows. Lists inside are joined, and two rule lists that `part` made keep every rule, in order. An ordered list from two items, or two values at one path, is an error that shows both files.
+ * - **no field** (`export const tenants = merge([tenant_a])`): the maps merged, if every item is a map. Otherwise a list.
  *
  * The same map twice in one `merge` is an error.
  */
@@ -467,8 +468,7 @@ export function merge<const T extends readonly unknown[], F = unknown>(
             : T
         : [ListOf<F>] extends [never]
           ? MapItems<T>
-          : // Each item is checked and completes as the field's own; one with a wrong key or `then` has it said there, in one line
-            // (`ItemChecked`). Item by item: a rule that holds a `merge` of its own, such as `dst_port: merge([...])`, is read later, and would otherwise leave every item unchecked this way.
+          : // Each item is checked as an item of the field, so a wrong key or `then` is an error there, in one line (`ItemChecked`). Item by item, because a rule that holds its own `merge`, such as `dst_port: merge([...])`, is read later and would leave every item unchecked.
             {
                 [I in keyof T]: IsBadItem<T[I], ListOf<F>[number]> extends true
                     ? ItemChecked<T[I] & {}, ListOf<F>[number]>
@@ -484,7 +484,7 @@ export function merge<const T extends readonly unknown[], F = unknown>(
         ? Merged<T>
         : ListOf<F>;
 /**
- * Never called: no call has two arguments. A generic signature that returns a function makes TypeScript skip `merge` in its first pass over the device, and read it in a second, with the names the first pass found (`SkipGenericFunctions` in its checker).
+ * Never called: no call has two arguments. A generic signature that returns a function makes TypeScript skip `merge` in its first pass over the device (`SkipGenericFunctions` in its checker). It reads `merge` in a second pass, with the names the first pass found.
  */
 export function merge<X>(deferred: never, _: never): () => X;
 export function merge(items: readonly unknown[]): unknown {
@@ -516,7 +516,7 @@ type Kinds = {
 };
 
 /**
- * What `part` checks, by kind, at the wrong key: a device part has only a device's keys, at every depth; each rule only its kind's keys, its `if` only its kind's conditions, and its `then` one its kind takes. A route policy rule as its own kind (`PolicyRuleOf`).
+ * What `part` checks by kind, with the error at the wrong key. A device part has only a device's keys, at every depth. Each rule has only its kind's keys and `if` conditions, and a `then` its kind takes. A route policy rule is checked as its own kind (`PolicyRuleOf`).
  */
 type PartChecked<T, K> = K extends "device"
     ? Checked<T, DevicePart, "a device part">
@@ -528,7 +528,7 @@ type PartChecked<T, K> = K extends "device"
         ? Checked<T, readonly Rules[K][], `a ${K} rule`>
         : T;
 
-/** Each kind's keys at run time, from keys.ts, which checks them against the types; and what `then` may be. */
+/** Each kind's keys at run time, from keys.ts, which checks them against the types, and what its `then` may be. */
 const RULE_SHAPES: Record<string, Shape> = { filter: FILTER_RULE, nat: NAT_RULE, acl: ACL_RULE, "policy-routing": ROUTING_RULE };
 const THEN: Record<string, readonly string[]> = ACTIONS;
 
@@ -543,7 +543,7 @@ const mapAt = (value: unknown, path: string): unknown =>
  * A part written in one file and used in another. The kind gives its shape, and the editor completes and checks it as that shape:
  *
  * - `part("device", { ... })` is a part of a device, with the device's fields. A source gives it to each device under the device's hostname: `{ "edge-01": part("device", { ... }) }`. Circuit checks the names it uses at the device.
- * - `part("filter", [...])`, `"nat"`, `"acl"`, `"policy"` and `"policy-routing"` are rules for an ordered list that another file writes, such as each tenant's rules for the router's input chain. That file places them with `merge`: `rules: merge([own_rule, tenants.rules.router_input])`. Each rule has only its kind's fields. If no device holds the rules, `circuit validate` stops, so none is forgotten.
+ * - `part("filter", [...])`, `"nat"`, `"acl"`, `"policy"`, and `"policy-routing"` are rules for an ordered list that another file writes, such as each tenant's rules for the router's input chain. That file places them with `merge`: `rules: merge([own_rule, tenants.rules.router_input])`. Each rule has only its kind's fields. If no device holds the rules, `circuit validate` stops, so none is forgotten.
  */
 export function part<const K extends "device" | "filter" | "nat" | "acl" | "policy" | "policy-routing", const T>(
     kind: K,
@@ -630,7 +630,7 @@ export type Network<Sites extends Readonly<Record<string, Site>>, Asn extends nu
 };
 
 /**
- * Declare a network, in `circuit.ts` at the project's root: `export const as64500 = circuit({ asn: 64500, sites: { ... }, checks: { ... } })`. We suggest naming it after its AS. Each device is `as64500.device({ ... })`, in its own file under `sites/`. Its types come from what the network writes here: its sites, whether `untrusted_vlans` is on, and its `communities`. Circuit imports `circuit.ts` first, then every device file, so `circuit.ts` must not import a device file.
+ * Declare a network, in `circuit.ts` at the project's root: `export const as64500 = circuit({ asn: 64500, sites: { ... }, checks: { ... } })`. We suggest naming it after its AS. Each device is `as64500.device({ ... })`, in its own file under `sites/`. A device's types come from what the network writes here: its sites, whether `untrusted_vlans` is on, and its `communities`. Circuit imports `circuit.ts` first, then every device file, so `circuit.ts` must not import a device file.
  *
  * A project can hold several networks, such as two ASes. Write one `circuit()` for each, and export each from `circuit.ts` under its own name.
  *

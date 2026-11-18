@@ -1,5 +1,3 @@
-// `circuit sync netbox` against a fake NetBox: what it makes on an empty one, that a second plan is empty, that it never touches what holds no `circuit` tag, that networks sharing one NetBox are planned together, what it lists under Left alone, and that `validate` asks for a role.
-
 import { afterAll, afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -8,10 +6,11 @@ import { SyncCommand } from "../../src/cli/sync";
 import { NetBox } from "../../src/integrations/netbox";
 import type { SyncNetwork } from "../../src/integrations/sync";
 import type { Device } from "../../src/model";
-import { ProjectError, type ProjectNetwork, Project } from "../../src/project";
+import { ProjectError, Project } from "../../src/project";
+import type { ProjectNetwork } from "../../src/project";
 import { Fixtures } from "../fixtures";
 
-type Json = { [field: string]: any };
+type Json = Record<string, any>;
 
 /** NetBox's API in memory: lists, makes, changes and deletes objects, and answers with nested objects and choices the way NetBox 4 does. */
 class FakeNetBox {

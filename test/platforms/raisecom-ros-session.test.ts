@@ -1,4 +1,4 @@
-// Raisecom read over a real SSH shell, against a fake device that answers like a RAX721: the version check, paging off, and a dump that stalls halfway for longer than the old six seconds of silence, as on a lossy path (#86).
+// Raisecom read over a real SSH shell, against a fake device that answers like a RAX721. Its dump stalls halfway for 8 seconds, as on a lossy path (#86).
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Device } from "../../src/model";
@@ -25,7 +25,7 @@ const fake = new FakeSshDevice(
         return {
             parts: [
                 { text: config.slice(0, half), after: 0 },
-                { text: config.slice(half), after: 8_000 },
+                { text: config.slice(half), after: 8000 },
             ],
         };
     },
@@ -50,6 +50,6 @@ test("a read over SSH checks it is ROS, turns paging off, and waits through a st
 
     expect(fake.commands).toEqual(["show version", "terminal page-break disable", "show running-config"]);
     expect(current).not.toContain("System up time");
-    // Every line of the dump is kept, with only the version line before the config. A device prints a stored value where the render has a secret marker.
+    // Every line of the dump is kept, and only the version line comes before the config.
     expect(current.trim().split("\n")).toHaveLength(platform.render(device).trim().split("\n").length + 1);
 }, 60_000);

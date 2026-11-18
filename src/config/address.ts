@@ -1,11 +1,11 @@
-// `address`, a global beside `presets`: standard IP math for a project's own checks, IPv4 prefixes by RFC 4632 and IPv6 by RFC 4291, each address written back in its standard form (RFC 5952 for IPv6). Each helper takes an address alone, a /32 or a /128, or with its length.
+// `address` is a project global, like `presets`.
 
 import type { Family, IP, Prefix } from "./common";
 
 /** An address alone, such as `192.0.2.1`, or with its length, such as `192.0.2.0/24` or `192.0.2.1/24`. */
 export type AddressOrPrefix = IP | Prefix;
 
-/** An address or prefix as numbers: the address written, and the first and last address of its range. */
+/** An address or prefix as numbers: the address as written, and the first and last address of its range. */
 function parse(text: string) {
     const bad = () => new Error(`address: ${JSON.stringify(text)} is not an IPv4 or IPv6 address, alone or with its length.`);
     const [ip = "", length, extra] = text.split("/");
@@ -43,7 +43,7 @@ function parse(text: string) {
     return { family: (v6 ? "ipv6" : "ipv4") as Family, address: value, first, last: first + size - 1n };
 }
 
-/** A number written as an address of `family`: dotted for IPv4; for IPv6 lowercase, no leading zeros, the longest run of two or more zero groups as `::`, the first if two tie (RFC 5952). */
+/** Writes a number as an address of `family`. IPv6 follows RFC 5952: lowercase, no leading zeros, and the longest run of two or more zero groups as `::`, the first if two tie. */
 function format(family: Family, n: bigint): IP {
     if (family === "ipv4") return [24n, 16n, 8n, 0n].map((s) => String((n >> s) & 255n)).join(".") as IP;
     const groups = [112n, 96n, 80n, 64n, 48n, 32n, 16n, 0n].map((s) => ((n >> s) & 0xffffn).toString(16));

@@ -1,4 +1,4 @@
-// Signs a release's SHA256SUMS with Circuit's release key, for the release workflow: `bun scripts/sign.ts dist/release/SHA256SUMS` writes SHA256SUMS.sig beside it, which Circuit checks, and SHA256SUMS.sshsig, the same key's signature as ssh-keygen makes one, which the installers check. The key comes from RELEASE_SIGNING_KEY, an Ed25519 private key in PEM, and the signature is checked against the public keys Circuit carries before it is written.
+// For the release workflow: `bun scripts/sign.ts dist/release/SHA256SUMS` writes SHA256SUMS.sig, which Circuit checks, and SHA256SUMS.sshsig, which the installers check with ssh-keygen. The key is RELEASE_SIGNING_KEY, an Ed25519 private key in PEM. The signature is checked against Circuit's public keys before it is written.
 
 import { createPrivateKey, sign } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";

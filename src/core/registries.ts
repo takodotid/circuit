@@ -1,5 +1,3 @@
-// Registries Circuit reads prefix sets from.
-
 import type { Device, Family } from "../model";
 import { Address } from "./address";
 
@@ -7,11 +5,12 @@ import { Address } from "./address";
 export type Registry = "ripe-stat";
 
 export class Registries {
-    /** The most prefixes a set may take from a registry: more is a wrong query, such as a transit's AS, not a customer's. */
-    static readonly MOST = 100_000;
+    /** More is a wrong query, such as a transit's AS, not a customer's. */
+    static readonly MAX_PREFIXES = 100_000;
+    private static readonly FETCH_TIMEOUT_MS = 90_000;
 
     /**
-     * The device with each prefix set a registry fills fetched, as a set of the prefixes it gave, so `diff` and `apply` put them on the device like any other list: each prefix added or removed, never the list emptied first. `told` hears each set fetched. Stops on a registry that can't be reached, an empty answer, or too long a one, so a list is never emptied by mistake.
+     * The device with each prefix set a registry fills written out as its prefixes. `diff` and `apply` then plan it like any list: each prefix added or removed, never the list emptied first. `told` hears each set fetched. A registry that can't be reached, an empty answer, or too long a one stops it, so a list is never emptied by mistake.
      */
     static async resolve(device: Device, told: (line: string) => void = () => {}): Promise<Device> {
         const sets = device.routing?.prefix_sets;
@@ -36,9 +35,9 @@ export class Registries {
             }
             if (!prefixes.length)
                 throw new Error(`routing.prefix_sets.${name}: ${registry} gave no ${family} prefix for ${query}, so nothing was sent`);
-            if (prefixes.length > Registries.MOST)
+            if (prefixes.length > Registries.MAX_PREFIXES)
                 throw new Error(
-                    `routing.prefix_sets.${name}: ${registry} gave ${prefixes.length} prefixes for ${query}, more than ${Registries.MOST}: check the query`
+                    `routing.prefix_sets.${name}: ${registry} gave ${prefixes.length} prefixes for ${query}, more than ${Registries.MAX_PREFIXES}: check the query`
                 );
 
             told(`${name}: ${prefixes.length} ${family} prefix(es) from ${registry} ${query}`);
@@ -48,7 +47,6 @@ export class Registries {
         return { ...device, routing: { ...device.routing, prefix_sets: resolved } };
     }
 
-    /** The prefixes of one family a registry gives for a query. */
     static prefixes(name: Registry, query: string, family: Family): Promise<string[]> {
         const sources: Record<Registry, (query: string, family: Family) => Promise<string[]>> = { "ripe-stat": Registries.ripeStat };
         return sources[name](query, family);
@@ -58,7 +56,7 @@ export class Registries {
     private static async ripeStat(query: string, family: Family): Promise<string[]> {
         if (!/^AS\d+$/i.test(query)) throw new Error(`ripe-stat takes an AS number, got '${query}'`);
         const res = await fetch(`https://stat.ripe.net/data/announced-prefixes/data.json?resource=${query.toUpperCase()}`, {
-            signal: AbortSignal.timeout(90_000),
+            signal: AbortSignal.timeout(Registries.FETCH_TIMEOUT_MS),
         });
         if (!res.ok) throw new Error(`ripe-stat answered ${res.status}`);
         const data = (await res.json()) as { data: { prefixes: { prefix: string }[] } };

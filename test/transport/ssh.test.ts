@@ -1,5 +1,3 @@
-// How Circuit logs in over SSH: the connection user's own keys first, then the password, revealed only when no key logged in. Only the keys the user takes are offered, and Circuit says which way it logged in.
-
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";

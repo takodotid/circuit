@@ -1,4 +1,4 @@
-// The checks after a RouterOS apply, over real SSH sessions against a fake device: no switch rule may be invalid when the plan touched them, the BGP sessions established before must be established again, and announce again what they announced of the device's originated prefixes.
+// The checks after a RouterOS apply, over real SSH sessions against a fake device.
 
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
@@ -14,7 +14,6 @@ const COUNT_INVALID = "/interface ethernet switch rule print count-only where in
 
 const edge = Fixtures.device("edge-router--edge-01");
 
-/** The device with one port written anew. */
 const withPort = (device: Device, name: string, port: Port): Device => ({
     ...device,
     interfaces: { ...device.interfaces, ethernet: { ...device.interfaces?.ethernet, [name]: port } },
@@ -26,9 +25,9 @@ const before: Device = withPort(desired, "25g-2", { description: "SGIX", access_
 
 let running: string;
 let invalid: string;
-/** The sessions the `:foreach` script prints, read by read: the last one stays. */
+/** What the `:foreach` script prints, read by read. The last read repeats. */
 let sessionReads: string[][];
-/** The advertisements of the device's originated prefixes, read by read, as the router printed them: the last one stays. */
+/** The advertisements of the originated prefixes, read by read, as the router printed them. The last read repeats. */
 let advertisementReads: string[][];
 
 const fake = new FakeSshDevice(["operator", "operator+ct300w"], (command) => {
@@ -46,17 +45,12 @@ const fake = new FakeSshDevice(["operator", "operator+ct300w"], (command) => {
 
     if (command.startsWith(":foreach a in=[/routing bgp advertisements print as-value where ")) {
         const lines = advertisementReads.length > 1 ? advertisementReads.shift()! : advertisementReads[0]!;
-        return lines
-            .map(
-                (line) => `${line}
-`
-            )
-            .join("");
+        return lines.map((line) => `${line}\n`).join("");
     }
 
     if (command.startsWith(":foreach s in=[/routing bgp session find]")) {
         const sessions = sessionReads.length > 1 ? sessionReads.shift()! : sessionReads[0]!;
-        return sessions.join("\n") + "\n";
+        return `${sessions.join("\n")}\n`;
     }
 
     running = platform.render(desired);
@@ -85,7 +79,7 @@ afterAll(() => {
     fake.close();
 });
 
-/** Plan against the fake, read the sessions, apply, and run the checks, as `circuit apply --confirm` does. */
+/** As `circuit apply --confirm` does: plan, read the sessions, apply, and run the checks. */
 async function applyAndCheck(): Promise<string[]> {
     const plan = platform.plan(platform.render(device), await platform.read(device, [device]), options);
     const health = await platform.health!(device, plan, quick);
@@ -130,7 +124,7 @@ test("a session down before the apply is not waited for, and a plan without swit
     expect(fake.commands.slice(count)).not.toContain(COUNT_INVALID);
 });
 
-/** Both sessions announce our IPv4 block, as `ADV|<session>|<prefix>`. */
+/** Both sessions announce our IPv4 block. */
 const ANNOUNCED = ["ADV|hurricane-electric-1|198.51.100.0/24", "ADV|sgix-rs-v4-1|198.51.100.0/24"];
 
 test("a session that stays up but stops announcing an originated prefix is named; one that announces again in time is not", async () => {

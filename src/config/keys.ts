@@ -1,15 +1,14 @@
-// Every key Circuit takes, at run time, so `circuit validate` stops on one it doesn't know. One source: the types. Each shape here is typed `ShapeOf<the type>`, which needs every key of the type and allows no other, so a key added to, renamed in or removed from a type fails `tsc` until its shape says the same. The two can't drift.
+// Every key Circuit takes, at run time, so `circuit validate` stops on one it doesn't know. Each shape is typed `ShapeOf<the type>`, which needs every key of the type and allows no other. So a key added to, renamed in, or removed from a type fails `tsc` until its shape matches.
 
-import type { CommunityScheme } from "./communities";
+import type { CommunityScheme, CommunitiesExport, CommunitiesImport } from "./communities";
 import type { AnyDevice } from "./device";
 import type { FilterRule, NatRule, TcpMssRule } from "./firewall";
 import type { Checks, Integrations, NetworkSecrets, NetworkSettings, Prefixes, Site } from "./network";
 import type { CallRule, PolicyRule, RouteMatch, RouteRule, RouteSet, RoutingRule } from "./routing";
-import type { CommunitiesExport, CommunitiesImport } from "./communities";
 import type { AclRule } from "./switching";
 
 /**
- * Where keys may be: `0` holds none Circuit checks (a number, a name, a list of names); a map lists its keys, each with its own shape; `{ "*": shape }` takes any key, such as a VLAN's name; `[shape]` is a list of that item.
+ * Where keys may be. `0` holds none that Circuit checks, such as a number, a name, or a list of names. A map lists its keys, each with its own shape. `{ "*": shape }` takes any key, such as a VLAN's name. `[shape]` is a list of that item.
  */
 export type Shape = 0 | readonly [Shape] | { readonly [key: string]: Shape };
 
@@ -35,8 +34,6 @@ export type ShapeOf<T> = [Exclude<T, Prim>] extends [never]
 
 const SECRET = { secret: 0, secret_file: 0 } as const;
 const RANGE = { min: 0, max: 0 } as const;
-
-// Rules, each kind on its own.
 
 const FILTER_MATCH = {
     family: 0,
@@ -125,8 +122,6 @@ true satisfies Same<(typeof ACTIONS.filter)[number], FilterRule<string, string, 
 true satisfies Same<(typeof ACTIONS.nat)[number], NatRule<string, string, string>["then"]>;
 true satisfies Same<(typeof ACTIONS.acl)[number], AclRule<string>["then"]>;
 true satisfies Same<(typeof ACTIONS.policy)[number], NonNullable<RouteRule<string>["then"]>>;
-
-// A device.
 
 const SERVICE = { allow: 0, port: 0 } as const;
 const STATIC_ROUTE = {
@@ -332,8 +327,6 @@ export const DEVICE = {
     },
 } as const satisfies ShapeOf<AnyDevice>;
 
-// The network.
-
 const OPTION = { code: 0, description: 0 } as const;
 /** Every option of a community scheme. */
 const COMMUNITIES = {
@@ -375,7 +368,7 @@ export const NETWORK = {
     secrets: { file: 0 } satisfies ShapeOf<NetworkSecrets>,
 } as const satisfies { readonly [K in keyof NetworkSettings<{}, number>]-?: Shape };
 
-// `satisfies` misses a key too many that comes from a spread or another constant. Each side assignable to the other doesn't: every key of a shape is required, so a shape with one more key, at any depth, is not the type's. `tsc` fails here then.
+// `satisfies` misses an extra key that comes from a spread or another constant. `Same` catches it, because every key of a shape is required: a shape with one more key, at any depth, is not the type's.
 true satisfies Same<typeof DEVICE, ShapeOf<AnyDevice>>;
 true satisfies Same<typeof FILTER_RULE, ShapeOf<FilterRule<string, string, string>>>;
 true satisfies Same<typeof NAT_RULE, ShapeOf<NatRule<string, string, string>>>;
@@ -391,8 +384,6 @@ true satisfies Same<typeof NETWORK.integrations, ShapeOf<Integrations>>;
 true satisfies Same<typeof NETWORK.sites, ShapeOf<Readonly<Record<string, Site>>>>;
 true satisfies Same<typeof NETWORK.prefixes, ShapeOf<Prefixes>>;
 true satisfies Same<keyof typeof NETWORK, keyof NetworkSettings<{}, number>>;
-
-// The check.
 
 /** A key Circuit doesn't take: where it is, dot by dot (`firewall.filter.input.rules[3].if`), the key, and the keys taken there. */
 export type UnknownKey = { path: string; key: string; known: string[] };

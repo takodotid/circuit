@@ -1,6 +1,7 @@
-// Every hardware model Circuit knows, for Circuit's own code. The data and its types are in `src/config/models.ts`, which a project's editor reads too. Here an unknown model or port is an error.
+// The models' data is in `src/config/models.ts`, which a project's editor reads too. Here an unknown model or port is an error.
 
-import { MODELS, type ModelLimits, type ModelSpec, portsOf, spell } from "../config/models";
+import { MODELS, portsOf, spell } from "../config/models";
+import type { ModelLimits, ModelSpec } from "../config/models";
 
 export class Catalog {
     /** Every port a model has, in order. */

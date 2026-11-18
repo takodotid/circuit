@@ -43,7 +43,7 @@
         "test": "bun run editor-types && bun test",
         "lint": "bun run lint:code && bun run lint:prose && bun run lint:unused",
         "lint:code": "oxlint",
-        "lint:prose": "vale --minAlertLevel=error --glob='!**/node_modules/**' AGENTS.md README.md SECURITY.md CONTRIBUTING.md DESIGN.md DECISIONS.md .claude/skills docs src examples",
+        "lint:prose": "vale --minAlertLevel=error --glob='!**/node_modules/**' AGENTS.md README.md SECURITY.md CONTRIBUTING.md DESIGN.md DECISIONS.md .claude/skills docs src scripts test examples",
         "lint:unused": "knip",
         "vale:install": "node node_modules/@vvago/vale/dist/index.cjs && vale sync",
         "build": "bun scripts/build.ts",

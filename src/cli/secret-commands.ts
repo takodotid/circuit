@@ -1,7 +1,6 @@
-// `circuit secrets`: a network's secrets file, each value encrypted. Alone, in a terminal, it opens the secrets to look through and change them; its commands list them, read one, set, delete, encrypt what was typed in plain text, and change the password.
-
 import { OnePassword } from "../core/one-password";
-import { type SecretKind, SecretsFile } from "../core/secrets-file";
+import { SecretsFile } from "../core/secrets-file";
+import type { SecretKind } from "../core/secrets-file";
 import { Secrets } from "../core/secrets";
 import { ProjectError, Project } from "../project";
 import { isAbsolute, normalize, relative, resolve, sep } from "node:path";
@@ -23,7 +22,7 @@ export class SecretCommands {
     ) {}
 
     /**
-     * The secrets file to work on: the one `--file` names, relative to where the command runs, or `.circuit/secrets`. A project whose networks keep their secrets elsewhere has to name the file. Reading the project says which secrets the config needs; a project that can't be read still works on the file named.
+     * The file `--file` names, relative to where the command runs, or `.circuit/secrets`. A project whose networks keep their secrets elsewhere has to name the file. A project that can't be read still works on the file named.
      */
     static async open(file: string | undefined): Promise<SecretCommands> {
         const root = ProjectCommands.findOrFail();
@@ -90,7 +89,7 @@ export class SecretCommands {
         });
     }
 
-    /** Every secret, how it is kept, and the ones the config needs that the file lacks. Values are never shown. */
+    /** Values are never shown. */
     list(): void {
         const rows = this.rows();
 
@@ -110,7 +109,6 @@ export class SecretCommands {
         if (location) console.log(`\n${Ui.dim(`Password from ${location}`)}`);
     }
 
-    /** Print one value, decrypted. */
     async get(name: string | undefined): Promise<void> {
         const chosen = name ?? Ui.fail("Give the secret's name, such as circuit secrets get EDGE_01_PASSWORD.");
         if (!(chosen in this.file.values()) || chosen === SecretsFile.PASSWORD) Ui.fail(`${chosen} is not in ${this.file.name}.`);
@@ -123,7 +121,7 @@ export class SecretCommands {
         }
     }
 
-    /** Set a value, encrypted. A value not given is typed without showing it, so it stays out of the shell's history. */
+    /** A value not given is typed without showing it, so it stays out of the shell's history. */
     async set(name: string | undefined, value: string | undefined): Promise<void> {
         const chosen = SecretCommands.checkName(
             name ?? (Ui.interactive ? await Ui.text("Name", { placeholder: "EDGE_01_PASSWORD" }) : Ui.fail("Give the secret's name."))
@@ -227,7 +225,7 @@ export class SecretCommands {
         if (reference) Ui.warn(`Put the new password in 1Password at ${reference} now: it still holds the old one.`);
     }
 
-    /** Every secret, decrypted, in a text editor on the whole screen: change, add or delete lines, Ctrl+S to save, each value encrypted again. Nothing is written to disk in plain text. */
+    /** Every secret, decrypted, in a text editor. Saving encrypts each value again, and nothing is written to disk in plain text. */
     async edit(): Promise<void> {
         if (!Ui.interactive) Ui.fail(`The editor needs a terminal. Use ${SecretsFile.command(this.file.name, "set NAME")} instead.`);
 

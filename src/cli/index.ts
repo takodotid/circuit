@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-// The `circuit` command. Alone, it opens a menu; with a command, such as `circuit validate`, it runs that command. Before each command it checks that this Circuit is current (see `Releases`).
 
 import { Command, InvalidArgumentError, Option } from "@commander-js/extra-typings";
 import { spawnSync } from "node:child_process";
@@ -10,8 +9,8 @@ import { SecretsFile } from "../core/secrets-file";
 import { BgpWait } from "../platforms/bgp-wait";
 import { Ssh } from "../transport/ssh";
 import { App } from "./app";
-import { COMMUNITY_FORMATS } from "./communities";
-import { SecretCommands } from "./secrets";
+import { Communities } from "./communities";
+import { SecretCommands } from "./secret-commands";
 import { GitHooks } from "./git-hooks";
 import { Migrate } from "./migrate";
 import { ProjectCommands } from "./project-commands";
@@ -21,17 +20,25 @@ import { Remember } from "./remember";
 import { Format } from "./format";
 import { Setup } from "./setup";
 import { Versions } from "./versions";
-import { type Choice, Ui } from "./ui";
+import { Ui } from "./ui";
+import type { Choice } from "./ui";
 import { VERSION } from "./version";
 
 class Cli {
     /** Commands the manager runs itself, whatever version a project pins. */
     private static readonly APP_COMMANDS = new Set(["update", "uninstall", "new"]);
 
-    /** Read the arguments and run the command they name, or open the menu. */
+    /** `exec --timeout`'s default. */
+    private static readonly EXEC_TIMEOUT_SECONDS = 90;
+
+    private static readonly STUDIO_PORT = 4600;
+    private static readonly MAX_PORT = 65535;
+
+    /** The number a flag's error gives as an example, for a flag without a default. */
+    private static readonly EXAMPLE = { sessions: 4, maxSeconds: 90, prefixLength: 24 };
+
     static async main(argv: string[]): Promise<void> {
         const command = argv[0];
-        // The process that keeps remembered secrets, started after a yes to remembering them.
         if (command === SecretsAgent.COMMAND) return SecretsAgent.serve();
         // This binary's own version and nothing else: no update, no project's version. The installers read it to learn which Circuit is installed.
         if (command === "--version" || command === "-V") return console.log(VERSION);
@@ -82,7 +89,7 @@ class Cli {
         process.exit(result.status ?? 1);
     }
 
-    /** A whole number of minutes, seconds or sessions, as a flag takes it. */
+    /** A flag's parser for a whole number of `unit`, at least 1. */
     private static whole(unit: string, example: number) {
         return (value: string): number => {
             const number = Number(value);
@@ -92,7 +99,6 @@ class Cli {
         };
     }
 
-    /** Every command, with its arguments and options. `circuit --help` and `circuit <command> --help` are written from these. */
     private static program() {
         const program = new Command("circuit")
             .description("Describe each network device in TypeScript, see what would change, then make the device match.")
@@ -126,8 +132,8 @@ class Cli {
             .option(
                 "--rollback <minutes>",
                 "RouterOS, Junos, and FortiOS: minutes before the device undoes the change if Circuit can't log back in",
-                Cli.whole("minutes", 10),
-                10
+                Cli.whole("minutes", ProjectCommands.ROLLBACK_MINUTES),
+                ProjectCommands.ROLLBACK_MINUTES
             )
             .option("--console", "connect through the device's serial console on its jump host, not SSH")
             .option("--force", "send even if the network path to the device is lossy or slow")
@@ -145,7 +151,12 @@ class Cli {
             .argument("[device]", "if left out, you pick from a list")
             .argument("[command...]", "each command in quotes, such as '/ip route print'")
             .option("--file <path>", "also run each line of this file, except blank lines and lines starting with #")
-            .option("--timeout <seconds>", "the time limit for each command, in seconds", Cli.whole("seconds", 90), 90)
+            .option(
+                "--timeout <seconds>",
+                "the time limit for each command, in seconds",
+                Cli.whole("seconds", Cli.EXEC_TIMEOUT_SECONDS),
+                Cli.EXEC_TIMEOUT_SECONDS
+            )
             .option("--console", "connect through the device's serial console on its jump host, not SSH")
             .action(async (device, commands, flags) =>
                 (await ProjectCommands.open(flags)).exec(device, commands, flags.file, flags.timeout)
@@ -159,10 +170,19 @@ class Cli {
             .option(
                 "--wait [count]",
                 `check again every ${BgpWait.COMMAND.every} seconds until all neighbors shown, or this many, are up`,
-                Cli.whole("sessions", 4)
+                Cli.whole("sessions", Cli.EXAMPLE.sessions)
             )
-            .option("--max <seconds>", "the longest time --wait waits, in seconds", Cli.whole("seconds", 90), BgpWait.COMMAND.seconds)
-            .option("--log [minutes]", "also print the BGP log of the last few minutes (default: 5)", Cli.whole("minutes", 5))
+            .option(
+                "--max <seconds>",
+                "the longest time --wait waits, in seconds",
+                Cli.whole("seconds", Cli.EXAMPLE.maxSeconds),
+                BgpWait.COMMAND.seconds
+            )
+            .option(
+                "--log [minutes]",
+                "also print the BGP log of the last few minutes (default: 5)",
+                Cli.whole("minutes", ProjectCommands.BGP_LOG_MINUTES)
+            )
             .option("--clear-limit", "clear the sessions shown that closed on their prefix limit")
             .action(async (device, flags) => (await ProjectCommands.open()).bgp(device, flags));
 
@@ -170,7 +190,7 @@ class Cli {
             .command("addresses")
             .description("show the address space the project uses, and what is free")
             .argument("[prefix]", "show only this prefix; if left out, all the space your networks own")
-            .option("--length <n>", "list the free prefixes of this length instead", Cli.whole("length", 24))
+            .option("--length <n>", "list the free prefixes of this length instead", Cli.whole("length", Cli.EXAMPLE.prefixLength))
             .addOption(new Option("--format <format>", "text, or json for a script").choices(["text", "json"] as const).default("text"))
             .action(async (prefix, flags) => (await ProjectCommands.open()).addresses(prefix, flags.length, flags.format));
 
@@ -190,7 +210,7 @@ class Cli {
                     "--format <format>",
                     "nlnog: community,description lines; alice: an Alice-LG [bgp_communities] section; json: the IETF YANG model"
                 )
-                    .choices(COMMUNITY_FORMATS)
+                    .choices(Communities.FORMATS)
                     .default("nlnog")
             )
             .action(async (network, flags) => (await ProjectCommands.open()).communities(network, flags.format));
@@ -206,7 +226,7 @@ class Cli {
         program
             .command("studio")
             .description("open the project in Circuit Studio, in your browser")
-            .option("--port <number>", "the port to listen on", Cli.port, 4600)
+            .option("--port <number>", "the port to listen on", Cli.port, Cli.STUDIO_PORT)
             .option("--host <address>", "the address to listen on; give a server's address to share Studio", "127.0.0.1")
             .option("--allow-host <names...>", "other host names Studio answers to, such as studio.example.com behind a proxy")
             .option("--no-open", "don't open the browser")
@@ -359,15 +379,13 @@ class Cli {
         return program;
     }
 
-    /** `--port`'s value: a port number. */
     private static port(value: string): number {
         const port = Number(value);
-        if (!Number.isInteger(port) || port < 1 || port > 65535)
+        if (!Number.isInteger(port) || port < 1 || port > Cli.MAX_PORT)
             throw new InvalidArgumentError("Give a port from 1 to 65535, such as 4600.");
         return port;
     }
 
-    /** Serve Studio for the project until Ctrl+C, and open it in the browser. */
     private static async studio(flags: { port: number; host: string; allowHost?: string[]; open: boolean }): Promise<void> {
         const root = ProjectCommands.findOrFail();
         Setup.prepare(root);
@@ -384,7 +402,7 @@ class Cli {
         if (flags.open && local) StudioServer.openBrowser(url);
     }
 
-    /** In a project: move it to a version the person picks, and the app with it. Elsewhere, or with `--app`: update the app. Either way, versions no project pins any more are removed. */
+    /** In a project, moves it to a version the person picks. Elsewhere, or with `--app`, updates the app. Either way, versions no project pins any more are removed. */
     private static async update(app: boolean, confirmed: boolean): Promise<void> {
         const root = ProjectCommands.find();
         if (root && Installation.binary()) Versions.remember(root);
@@ -425,7 +443,7 @@ class Cli {
             Ui.fail("\nCommit stopped, so no secret reaches git.");
         };
 
-        // `.circuit/secrets` before the project is read, so a project with errors still has it checked; then the files the networks name.
+        // `.circuit/secrets` goes first, before the project is read, so a project with errors still has it checked.
         stop([SecretsFile.DEFAULT]);
         if (!ProjectCommands.find()) return;
 
@@ -448,7 +466,7 @@ class Cli {
         }
     }
 
-    /** The menu `circuit` opens alone: pick what to do, answer what it needs, and get the command it runs. */
+    /** What `circuit` alone opens. Gives back the command to run. */
     private static async menu(): Promise<string[]> {
         Ui.logo("Your network, written down.");
         Ui.intro(`Circuit ${VERSION}`);

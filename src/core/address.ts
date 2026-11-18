@@ -1,9 +1,17 @@
-// Address arithmetic for both families. Addresses are parsed to bigint so v4 and v6 share one code path.
+// Addresses are parsed to bigint, so IPv4 and IPv6 share one code path.
 
 import type { Family, IP, IPv4, IPv6, Prefix } from "../model";
 
 export class Address {
-    /** IPv4 space another network cannot reach: this host, private, shared, loopback, link-local and documentation, after RFC 6890. */
+    private static readonly IPV4_BITS = 32;
+    private static readonly IPV6_BITS = 128;
+    private static readonly IPV4_OCTETS = 4;
+    private static readonly OCTET_MAX = 255;
+    private static readonly IPV6_GROUPS = 8;
+    private static readonly IPV6_GROUP_BITS = 16;
+    private static readonly HEX = 16;
+
+    /** IPv4 space another network cannot reach: this host, private, shared, loopback, link-local, and documentation, after RFC 6890. */
     private static readonly NOT_GLOBAL_V4 = [
         "0.0.0.0/8",
         "10.0.0.0/8",
@@ -22,16 +30,16 @@ export class Address {
         return address.includes(":") ? "ipv6" : "ipv4";
     }
 
-    /** How many bits an address of the family has: 32 or 128. */
     static bits(family: Family): number {
-        return family === "ipv4" ? 32 : 128;
+        return family === "ipv4" ? Address.IPV4_BITS : Address.IPV6_BITS;
     }
 
-    /** An address as a number, or null when it is not one. */
     static toNumber(address: string): bigint | null {
         if (!address.includes(":")) {
             const octets = address.split(".");
-            const valid = octets.length === 4 && octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255);
+            const valid =
+                octets.length === Address.IPV4_OCTETS &&
+                octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= Address.OCTET_MAX);
             if (!valid) return null;
 
             return octets.reduce((value, octet) => (value << 8n) | BigInt(octet), 0n);
@@ -45,13 +53,13 @@ export class Address {
         const trailing = groupsOf(after);
 
         // `::` stands for as many zero groups as make eight.
-        const zeros = after === undefined ? 0 : 8 - leading.length - trailing.length;
+        const zeros = after === undefined ? 0 : Address.IPV6_GROUPS - leading.length - trailing.length;
         const groups = [...leading, ...Array(zeros).fill("0"), ...trailing];
 
-        const valid = groups.length === 8 && groups.every((group) => /^[0-9a-fA-F]{1,4}$/.test(group));
+        const valid = groups.length === Address.IPV6_GROUPS && groups.every((group) => /^[0-9a-fA-F]{1,4}$/.test(group));
         if (!valid) return null;
 
-        return groups.reduce((value, group) => (value << 16n) | BigInt(parseInt(group, 16)), 0n);
+        return groups.reduce((value, group) => (value << 16n) | BigInt(parseInt(group, Address.HEX)), 0n);
     }
 
     /** `10.0.0.1/24` to its parts. Throws when it is not an address with a length. */
@@ -90,21 +98,22 @@ export class Address {
         return all ^ hostBits;
     }
 
-    /** A number back to the address it stands for. */
     static fromNumber(value: bigint, family: Family): IP {
         if (family === "ipv4") {
             return [24n, 16n, 8n, 0n].map((shift) => String((value >> shift) & 255n)).join(".") as IPv4;
         }
 
-        const groups = Array.from({ length: 8 }, (_, index) => ((value >> BigInt(112 - index * 16)) & 0xffffn).toString(16));
+        const groups = Array.from({ length: Address.IPV6_GROUPS }, (_, index) =>
+            ((value >> BigInt(Address.IPV6_BITS - (index + 1) * Address.IPV6_GROUP_BITS)) & 0xffffn).toString(Address.HEX)
+        );
 
         // Compress the longest run of zero groups, as RFC 5952 asks.
         let longestStart = -1;
         let longestLength = 0;
 
-        for (let start = 0; start < 8;) {
+        for (let start = 0; start < Address.IPV6_GROUPS;) {
             let end = start;
-            while (end < 8 && groups[end] === "0") end++;
+            while (end < Address.IPV6_GROUPS && groups[end] === "0") end++;
 
             const runLength = end - start;
             if (runLength > longestLength && runLength > 1) {
@@ -151,7 +160,6 @@ export class Address {
         return (Address.toNumber(innerAddress!)! & outerMask) === (Address.toNumber(outerParts.addr)! & outerMask);
     }
 
-    /** The first and last address of a prefix, as numbers. */
     static range(cidr: string): { first: bigint; last: bigint; family: Family } {
         const { addr, len, family } = Address.split(cidr);
         const hostBits = Address.mask(len, family) ^ ((1n << BigInt(Address.bits(family))) - 1n);
@@ -187,7 +195,6 @@ export class Address {
         return Address.fromNumber(Address.mask(length, "ipv4") ^ 0xffffffffn, "ipv4") as IPv4;
     }
 
-    /** The address with its length dropped. */
     static host(cidr: string): IP {
         return cidr.split("/")[0]! as IP;
     }

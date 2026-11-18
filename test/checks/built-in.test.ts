@@ -1,7 +1,7 @@
-// The built-in checks a network turns on in `checks`: each finds what its doc describes, and only when it is on.
+// Each built-in check finds what its doc describes, and only when the network turns it on.
 
 import { expect, test } from "bun:test";
-import { Validation } from "../../src/checks";
+import { Checks } from "../../src/checks";
 import { BuiltInChecks } from "../../src/checks/built-in";
 import type { Device, PolicyRule, PrefixSet } from "../../src/model";
 import { Fixtures } from "../fixtures";
@@ -30,9 +30,9 @@ test("exports_end_in_reject finds an export that does not end in an unconditiona
         "routing.bgp.neighbors.upstream-1: export_policy UPSTREAM-OUT does not end in an unconditional reject"
     );
 
-    // Off, it finds nothing, and Validation runs it only when the network turns it on.
+    // Off, it finds nothing, and `Checks.run` runs it only when the network turns it on.
     expect(BuiltInChecks.run([withExport([{ then: "accept" }])], {})).toEqual([]);
-    expect(Validation.run([withExport([{ then: "accept" }])], { exports_end_in_reject: true }).map((finding) => finding.message)).toContain(
+    expect(Checks.run([withExport([{ then: "accept" }])], { exports_end_in_reject: true }).map((finding) => finding.message)).toContain(
         "routing.bgp.neighbors.upstream-1: export_policy UPSTREAM-OUT does not end in an unconditional reject"
     );
 });

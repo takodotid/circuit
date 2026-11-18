@@ -22,7 +22,7 @@ Ask for what's missing:
 
 ## 3. Fix with a test
 
-1. A failing test first, from the device's real lines (secrets and real addresses removed): `test/platforms/plans.test.ts` or the platform's `*-proofs.test.ts`.
+1. A failing test first, from the device's real lines (secrets and real addresses removed): `test/platforms/<platform>-plan.test.ts` or the platform's `*-proofs.test.ts`.
 2. Fix in `src/platforms/<platform>/`. Vendor syntax stays there.
 3. `bun run check`. The golden tests must still pass.
 4. Test on the device when it is free: plan, apply, empty second plan.

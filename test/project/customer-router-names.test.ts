@@ -1,10 +1,10 @@
-// A DHCP client's default routes and a WireGuard interface's own packets name routing tables, and UPnP names interfaces: each name is one the device declares, and a table a DHCP client fills counts as filled.
+// A DHCP client's default routes and a WireGuard interface's own packets name routing tables, and UPnP names interfaces.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Validation } from "../../src/checks";
+import { Checks } from "../../src/checks";
 import { ProjectError, Project } from "../../src/project";
 
 const folder = mkdtempSync(join(tmpdir(), "circuit-customer-router-"));
@@ -51,6 +51,6 @@ test("a table or an interface the device does not declare is named", () => {
 
 test("a table only a DHCP client fills is not empty", () => {
     const device = { ...router(["isp1"]), interfaces: { ethernet: router(["isp1"]).interfaces.ethernet } };
-    const findings = Validation.run([JSON.parse(JSON.stringify(device))], undefined).map((finding) => finding.message);
+    const findings = Checks.run([JSON.parse(JSON.stringify(device))], undefined).map((finding) => finding.message);
     expect(findings.filter((message) => message.includes("nothing installs routes"))).toEqual([]);
 });

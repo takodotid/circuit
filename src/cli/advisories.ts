@@ -1,9 +1,8 @@
-// Security advisories for Circuit: GitHub's, published on the repository, the source npm audit reads too. Each uses the versions it affects and the versions that fix it. A version an advisory affects never runs: the person moves to a fixed one first. Read straight from the repository, so an advisory counts the moment it is published, and kept for a few minutes, as GitHub answers 60 requests an hour without a sign-in.
+// GitHub's security advisories on Circuit's repository, which npm audit reads too. Circuit reads them from the repository, so an advisory counts the moment it is published. It keeps them for two minutes, as GitHub answers 60 requests an hour without a sign-in.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-/** One advisory, as Circuit keeps it. */
 export type Advisory = {
     /** Such as `GHSA-xxxx-xxxx-xxxx`. */
     id: string;
@@ -16,7 +15,7 @@ export type Advisory = {
     patched: string[];
 };
 
-/** How a version compares with another: below 0 older, 0 the same, above 0 newer. */
+/** Below 0 when `a` is older, 0 when the same, above 0 when newer. */
 type Compare = (a: string, b: string) => number;
 
 export class Advisories {
@@ -26,6 +25,7 @@ export class Advisories {
     /** How long advisories read count before Circuit asks GitHub again. */
     private static readonly FRESH_SECONDS = 120;
     private static readonly TIMEOUT_MS = 3000;
+    private static readonly SECOND_MS = 1000;
 
     /** Whether `version` is in a range as GitHub writes it: constraints joined by commas, each `<`, `<=`, `>`, `>=` or `=` and a version. */
     static inRange(range: string, version: string, compare: Compare): boolean {
@@ -44,7 +44,6 @@ export class Advisories {
             });
     }
 
-    /** The advisories that affect `version`. */
     static affecting(advisories: readonly Advisory[], version: string, compare: Compare): Advisory[] {
         return advisories.filter((advisory) => advisory.affected.some((range) => Advisories.inRange(range, version, compare)));
     }
@@ -77,7 +76,7 @@ export class Advisories {
         });
     }
 
-    /** The published advisories: from the cache when read in the last two minutes, else from GitHub. `offline` when GitHub could not be read, with the last answer, if any. */
+    /** From the cache when read in the last `FRESH_SECONDS`, else from GitHub. `offline` when GitHub could not be read, with the last answer, if any. */
     static async read(home: string, fresh = false): Promise<{ advisories: Advisory[]; offline: boolean }> {
         const path = join(home, "advisories.json");
         let cached: { checked: number; advisories: Advisory[] } | undefined;
@@ -85,7 +84,7 @@ export class Advisories {
             cached = JSON.parse(readFileSync(path, "utf8"));
         } catch {}
 
-        if (!fresh && cached && Date.now() - cached.checked < Advisories.FRESH_SECONDS * 1000)
+        if (!fresh && cached && Date.now() - cached.checked < Advisories.FRESH_SECONDS * Advisories.SECOND_MS)
             return { advisories: cached.advisories, offline: false };
 
         try {

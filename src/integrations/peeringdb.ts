@@ -1,6 +1,6 @@
-// `circuit sync peeringdb`: keeps a network's exchange presence at PeeringDB in sync with the project. Each port or interface whose `exchange` names a `peeringdb_ixlan` is one record (a `netixlan`).
+// Each port or interface whose `exchange` names a `peeringdb_ixlan` is one record at PeeringDB (a `netixlan`).
 //
-// It reads PeeringDB's public API, which needs no key, and sends with the network's API key. Only global addresses are published: an exchange reached over a tunnel often lands on private or shared space, and publishing it would point others at a dead end. A record the project doesn't hold is listed, never deleted, and `operational` is never changed: leaving an exchange is decided outside the project.
+// Only global addresses are published: an exchange reached over a tunnel often lands on private or shared space, a dead end for others. A record the project doesn't hold is listed, never deleted. Circuit never changes `operational`, since leaving an exchange is decided outside the project.
 
 import { Address } from "../core/address";
 import { Topology } from "../core/topology";
@@ -35,11 +35,13 @@ type Wanted = {
 /** A record to send: `id` when it exists and is changed in place. */
 type Send = { what: string; id?: number; body: Record<string, unknown> };
 
-/** What `circuit sync peeringdb` would do. */
 export type PeeringDbPlan = SyncPlan & { sends: Send[] };
 
 export class PeeringDb implements SyncTarget<PeeringDbPlan> {
     static readonly API = "https://www.peeringdb.com/api";
+
+    private static readonly TIMEOUT_MS = 30_000;
+    private static readonly REASON_CHARS = 300;
 
     /** Whether an address may be published: a global one, which another network can reach. A test swaps it, to publish documentation addresses. */
     static publishable: (address: string) => boolean = Address.isGlobal;
@@ -63,9 +65,9 @@ export class PeeringDb implements SyncTarget<PeeringDbPlan> {
         this.where = `PeeringDB for AS${this.asn}`;
     }
 
-    /** What would change at PeeringDB. Reads the public API; needs no key. */
+    /** Reads the public API, which needs no key. */
     async plan(): Promise<PeeringDbPlan> {
-        const existing = await this.read<NetIxLan>(`netixlan?asn=${this.asn}`);
+        const existing = await PeeringDb.read<NetIxLan>(`netixlan?asn=${this.asn}`);
         const leftAlone: string[] = [];
         const desired = this.wanted(leftAlone);
 
@@ -103,7 +105,7 @@ export class PeeringDb implements SyncTarget<PeeringDbPlan> {
 
             if (!current) {
                 // The network's record at PeeringDB, which every presence belongs to.
-                netId ??= (await this.read<{ id: number }>(`net?asn=${this.asn}`))[0]?.id;
+                netId ??= (await PeeringDb.read<{ id: number }>(`net?asn=${this.asn}`))[0]?.id;
                 if (netId === undefined)
                     throw new Error(`PeeringDB has no network record for AS${this.asn}. Make it at peeringdb.com first.`);
 
@@ -135,7 +137,6 @@ export class PeeringDb implements SyncTarget<PeeringDbPlan> {
         return { changes, summary: [], leftAlone, sends };
     }
 
-    /** Send the changes, with the API key of the first network. */
     async send(plan: PeeringDbPlan): Promise<void> {
         const [first] = this.networks;
         const key = first!.reveal(first!.integrations.peeringdb!.api_key);
@@ -145,21 +146,21 @@ export class PeeringDb implements SyncTarget<PeeringDbPlan> {
                 method: change.id ? "PUT" : "POST",
                 headers: { Authorization: `Api-Key ${key}`, "Content-Type": "application/json", Accept: "application/json" },
                 body: JSON.stringify(change.body),
-                signal: AbortSignal.timeout(30_000),
+                signal: AbortSignal.timeout(PeeringDb.TIMEOUT_MS),
             });
 
             if (!response.ok) {
-                const reason = (await response.text()).slice(0, 300);
+                const reason = (await response.text()).slice(0, PeeringDb.REASON_CHARS);
                 throw new Error(`${change.what}: PeeringDB answered ${response.status} ${reason}`);
             }
         }
     }
 
     /** One list from PeeringDB's public API. */
-    private async read<T>(query: string): Promise<T[]> {
+    private static async read<T>(query: string): Promise<T[]> {
         const response = await fetch(`${PeeringDb.API}/${query}`, {
             headers: { Accept: "application/json" },
-            signal: AbortSignal.timeout(30_000),
+            signal: AbortSignal.timeout(PeeringDb.TIMEOUT_MS),
         });
         if (!response.ok) throw new Error(`PeeringDB answered ${response.status} to ${query}`);
 

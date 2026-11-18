@@ -1,8 +1,7 @@
-// The text editor `circuit secrets` opens: the keys a terminal sends, editing the text, saving and leaving, on a terminal of the test's own.
-
 import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
-import { EditorBuffer, type TerminalInput, type TerminalOutput, TextEditor } from "../../src/cli/text-editor";
+import { EditorBuffer, TextEditor } from "../../src/cli/text-editor";
+import type { TerminalInput, TerminalOutput } from "../../src/cli/text-editor";
 
 describe("keys", () => {
     test("arrows, Home, End, Delete and the controls", () => {

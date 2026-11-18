@@ -1,4 +1,4 @@
-// Values every network writes the same way, each from the public standard it comes from. Plain data, in one `presets` object: pick from it, or place its rules where they go in an ordered list with `merge`. Data is snake_case, like every field.
+// Plain data only: a project picks from it, or places its rules with `merge`. Keys are snake_case, like every field.
 
 import type { Prefix } from "./common";
 import type { FilterRule, Ports } from "./firewall";
@@ -103,7 +103,7 @@ export const presets = {
         snmp: 161,
         /** BGP, RFC 4271. */
         bgp: 179,
-        /** Windows networking: MS-RPC endpoint mapper (135), NetBIOS (137 to 139, RFC 1001 and RFC 1002) and SMB (445), as IANA lists them. */
+        /** Windows networking: MS-RPC endpoint mapper (135), NetBIOS (137 to 139, RFC 1001 and RFC 1002), and SMB (445), as IANA lists them. */
         windows_networking: [135, { min: 137, max: 139 }, 445],
     } as const satisfies Record<string, Ports>,
 
@@ -121,7 +121,7 @@ export const presets = {
     bad_tcp_flags,
 
     /**
-     * UDP services that answer a small request with a much larger reply. Attackers use them to reflect a flood at a victim, so a reflected flood comes from these ports. The list has the ports of CISA's alert TA14-017A, "UDP-Based Amplification Attacks", plus six more that are widely abused the same way: SLP, MS-SQL, ARD, CoAP, Ubiquiti and DVR. Pick the ports a rule needs by name: `src_port: [presets.udp_amplifiers.qotd, presets.udp_amplifiers.chargen]`.
+     * UDP services that answer a small request with a much larger reply. Attackers use them to reflect a flood at a victim, so a reflected flood comes from these ports. The list has the ports of CISA's alert TA14-017A, "UDP-Based Amplification Attacks", plus six more that are widely abused the same way: SLP, MS-SQL, ARD, CoAP, Ubiquiti, and DVR. Pick the ports a rule needs by name: `src_port: [presets.udp_amplifiers.qotd, presets.udp_amplifiers.chargen]`.
      */
     udp_amplifiers: {
         qotd: 17,

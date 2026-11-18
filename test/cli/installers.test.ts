@@ -1,5 +1,3 @@
-// The installers check a release's SHA256SUMS against the release key's signature with ssh-keygen: the signature the release workflow makes is one ssh-keygen takes, and the installers carry every release key.
-
 import { expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { createPrivateKey, generateKeyPairSync } from "node:crypto";
@@ -13,7 +11,6 @@ const root = join(import.meta.dir, "..", "..");
 const windowsKeygen = join(process.env.WINDIR ?? "C:\\Windows", "System32", "OpenSSH", "ssh-keygen.exe");
 const keygen = Bun.which("ssh-keygen") ?? (process.platform === "win32" && existsSync(windowsKeygen) ? windowsKeygen : undefined);
 
-/** An Ed25519 key pair, both halves in PEM. */
 function keyPair(): { publicKey: string; privateKey: string } {
     return generateKeyPairSync("ed25519", {
         publicKeyEncoding: { type: "spki", format: "pem" },
@@ -32,7 +29,7 @@ test.skipIf(!keygen)(
             `circuit-release namespaces="${SshSig.NAMESPACE}" ${SshSig.publicKey(release.publicKey)}\n`
         );
 
-        /** ssh-keygen's exit code for `data` checked against the signature of SHA256SUMS by `privateKey`. */
+        /** Ssh-keygen's exit code for `data` checked against the signature of SHA256SUMS by `privateKey`. */
         const verify = (data: Buffer, privateKey: string) => {
             writeFileSync(join(folder, "SHA256SUMS.sshsig"), SshSig.sign(sums, createPrivateKey(privateKey)));
             const args = ["-Y", "verify", "-f", join(folder, "allowed_signers"), "-I", SshSig.PRINCIPAL, "-n", SshSig.NAMESPACE];

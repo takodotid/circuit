@@ -1,4 +1,4 @@
-// A network's BGP large communities, `asn:code:value` (RFC 8092), used as RFC 8195 describes. The scheme is written once, in `circuit({ communities })`; a neighbor group says which groups it is in, and a policy places `{ communities: "import" }` or `{ communities: "export" }`. Circuit writes the catalogue from the scheme, and each such rule as the rules it means for the neighbors that use the policy.
+// BGP large communities, `asn:code:value` (RFC 8092), used as RFC 8195 describes. Circuit writes the catalog from the scheme in `circuit({ communities })`. It writes each `{ communities }` policy rule as the rules it means for the neighbors that use the policy.
 
 import type { Community } from "./network";
 import type { LargeCommunity, StandardCommunity } from "./routing";
@@ -7,7 +7,7 @@ import type { LargeCommunity, StandardCommunity } from "./routing";
 export type CommunityOption = {
     /** The middle number of `asn:code:value` (RFC 8195 calls it the function). */
     code: number;
-    /** Your own words for it in the catalogue, instead of Circuit's. Each option says which line they replace. */
+    /** Your own words for it in the catalog, instead of Circuit's. Each option says which line they replace. */
     description?: string;
 };
 
@@ -15,12 +15,12 @@ export type CommunityOption = {
 export type CommunityGroup = {
     /** The last number of a community about the group, such as the `2` of `64500:1:2`. Neighbors write it into their routers, so don't change it. */
     value: number;
-    /** How the catalogue describes the group, such as `an IP transit`. When absent, its name with `a` or `an`, such as `a transit`. */
+    /** How the catalog describes the group, such as `an IP transit`. When absent, its name with `a` or `an`, such as `a transit`. */
     description?: string;
 };
 
 /**
- * The network's large communities, `asn:code:value`. Write the options the network offers, and leave out the rest. Each option is an object with its `code`, and may have its own `description` for the catalogue.
+ * The network's large communities, `asn:code:value`. Write the options the network offers, and leave out the rest. Each option is an object with its `code`, and may have its own `description` for the catalog.
  */
 export type CommunityScheme = {
     /** The first number of every community. The network's `asn` when absent. */
@@ -37,11 +37,11 @@ export type CommunityScheme = {
     do_not_announce_to_as?: CommunityOption;
     /** A request not to announce a route to the neighbors of a group: `asn:code:<group value>`. `description` is the words before the group. `Do not announce to` when absent. */
     do_not_announce_to_group?: CommunityOption;
-    /** A request to prepend our AS once, twice or three times toward an AS: `asn:code:<asn>`. Each `description` is the line for its `nnn`. `Prepend once to AS$0` when absent. */
+    /** A request to prepend our AS once, twice, or three times toward an AS: `asn:code:<asn>`. Each `description` is the line for its `nnn`. `Prepend once to AS$0` when absent. */
     prepend?: { once?: CommunityOption; twice?: CommunityOption; three_times?: CommunityOption };
     /** A request to drop all traffic to the route: `asn:code:0`. A neighbor with its own `blackhole` community gets the route with that community, so it drops the traffic too. Other neighbors never get the route. `description` is its line. `Blackhole: dropped in AS<asn>` when absent. */
     blackhole?: CommunityOption;
-    /** Your own words for single lines of the catalogue, keyed by the community as the catalogue writes it: `{ "64500:2:0": "Learned at site-a" }`. */
+    /** Your own words for single lines of the catalog, keyed by the community as the catalog writes it: `{ "64500:2:0": "Learned at site-a" }`. */
     custom_descriptions?: Readonly<Record<string, string>>;
 };
 
@@ -55,7 +55,7 @@ export type RequestsOf<C> = C extends object ? Extract<keyof C, CommunityRequest
 export type GroupsOf<C> = C extends { readonly groups: infer G } ? keyof G & string : never;
 
 /**
- * The scheme as written, `C`, and an error at each option that needs what is not written: a `_group` option without `groups`, and `learned_at_site` while no site has a `number` (`Numbered`). The editor still offers them. A key that is no option is an error too.
+ * The scheme as written, `C`, with an error at each option that lacks what it needs. A `_group` option needs `groups`, and `learned_at_site` needs a site with a `number` (`Numbered`). The editor still offers them. A key that is no option is an error too.
  */
 export type SchemeCheck<C, Numbered extends boolean> = {
     [K in Exclude<keyof C, keyof CommunityScheme> & string]: `${K} is no option of communities`;
@@ -97,7 +97,7 @@ export type CommunitiesImport<R extends string> = {
 export type CommunitiesExport = {
     /** The rules for an export. */
     communities: "export";
-    /** Keep our communities on the route. `false` when absent. Toward iBGP you must write it. `true` passes every tag and request on as it is. If it is missing there, `circuit validate` stops. */
+    /** Keep our communities on the route. `false` when absent. `true` passes every tag and request on as it is. Toward iBGP you must write it, or `circuit validate` stops. */
     keep_ours?: boolean;
     /** Keep our tags on the route, for a neighbor that wants to see where a route was learned. The requests are still removed. `false` when absent. */
     send_tags?: boolean;
@@ -107,8 +107,6 @@ export type CommunitiesExport = {
 
 /** A route policy rule Circuit writes out from the scheme, when the network writes `communities`. */
 export type CommunitiesRule<R extends string> = CommunitiesImport<R> | CommunitiesExport;
-
-// What Circuit does with them.
 
 // The network and a device's JSON, walked without their types.
 type Json = any;
@@ -129,8 +127,8 @@ const codesOf = (s: Json, names: string[]): number[] =>
         n === "prepend" ? PREPENDS.flatMap(([p]) => (s.prepend?.[p] ? [s.prepend[p].code] : [])) : s[n] ? [s[n].code] : []
     );
 
-/** Every community of the scheme as the catalogue lists it, `nnn` for any number, with the scheme's own words where it has them. */
-export function catalogue(network: Json): Community[] {
+/** Every community of the scheme as the catalog lists it, `nnn` for any number, with the scheme's own words where it has them. */
+export function catalog(network: Json): Community[] {
     const s = network.communities;
     if (!s) return [];
     const asn = s.asn ?? network.asn;
@@ -187,25 +185,25 @@ export function schemeProblems(network: Json): string[] {
         if (s[option] && !s.groups) found.push(`communities.${option} needs communities.groups.`);
     if (s.learned_at_site && !Object.values<Json>(network.sites ?? {}).some((site) => site.number !== undefined))
         found.push("communities.learned_at_site needs a number on a site, in sites.");
-    const listed = new Set(catalogue(network).map((l) => l.community));
+    const listed = new Set(catalog(network).map((l) => l.community));
     for (const community of Object.keys(s.custom_descriptions ?? {}))
         if (!listed.has(community))
             found.push(
-                `communities.custom_descriptions: ${community} is no community of the scheme. The catalogue has ${[...listed].join(", ")}.`
+                `communities.custom_descriptions: ${community} is no community of the scheme. The catalog has ${[...listed].join(", ")}.`
             );
     return found;
 }
 
-/** One neighbor as a communities rule sees it: its AS, its groups, its blackhole community, and whether it is a customer. */
+/** One neighbor, as a communities rule sees it. */
 type Peer = { asn: number; groups: string[]; blackhole?: string; customer: boolean; ibgp: boolean };
 
 /**
- * The rules one communities rule is written as, toward one neighbor: `all` in place, for a policy one AS uses; for a policy several ASes use, `own`, the rules of this AS, which run first in a policy of their own, and `shared`, the same for every AS.
+ * The rules one communities rule becomes toward one neighbor. A policy one AS uses takes `all`, in place. A policy several ASes use takes `shared`, the same for every AS. `own` is the rules of this AS, which run first in a policy of their own.
  */
 type Written = { all: Json[]; own: Json[]; shared: Json[] };
 
 /**
- * An import: takes off the requests not accepted and the tags, adds the tags, and blackholes a route that asks, when accepted. A customer's routes get no `learned_from_as` tag (decision 50), so the customers share one import policy.
+ * An import: removes the requests it doesn't accept and any tags, adds our tags, and blackholes a route that asks, when accepted. A customer's routes get no `learned_from_as` tag (decision 50), so the customers share one import policy.
  */
 function importRules(s: Json, asn: number, rule: Json, to: Peer, site: number | undefined, groupsShared: boolean): Written {
     const accepted: string[] = rule.accept_requests ?? [];
@@ -253,7 +251,7 @@ function importRules(s: Json, asn: number, rule: Json, to: Peer, site: number | 
 }
 
 /**
- * An export, before the rules that accept: a blackholed route rejected, or passed on to a neighbor that takes it; a route asked not to go anywhere, to this AS or to one of its groups, rejected; the prepends it asks for; our communities taken off. Toward a customer, no request about one AS (decision 39). Rejects come first, so "do not announce" always wins over a prepend. Toward iBGP, where our other routers act on the requests themselves, only our communities taken off, unless `keep_ours`.
+ * An export, which goes before the rules that accept. A blackholed route is rejected, or passed on to a neighbor that takes it. A route asked not to go anywhere, to this AS, or to one of its groups is rejected. Then come the prepends it asks for, and our communities are removed. Rejects come first, so "do not announce" always wins over a prepend. Toward a customer, no request about one AS applies (decision 39). Toward iBGP, our other routers act on the requests themselves, so only our communities are removed, unless `keep_ours`.
  */
 function exportRules(s: Json, asn: number, rule: Json, to: Peer, groupsShared: boolean): Written {
     const requests = codesOf(s, REQUESTS);
@@ -332,7 +330,7 @@ function neighborsOf(d: Json) {
 const isCommunities = (rule: Json) => !!rule && typeof rule === "object" && "communities" in rule;
 
 /**
- * Writes out each `{ communities }` rule of a device, for the neighbors that use its policy: their AS, their groups, their blackhole community, and the device's site. A policy one AS uses gets the rules in place. A policy several ASes use keeps what they share, and each AS with rules of its own gets a policy `<policy>-as<asn>` with them, which then calls it; its neighbors use that one. Then takes the `communities` block off each neighbor and group: only Circuit reads it. Returns what is wrong, each starting with `at`.
+ * Writes out each `{ communities }` rule of a device for the neighbors that use its policy. A policy one AS uses gets the rules in place. A policy several ASes use keeps what they share. Each AS with rules of its own gets a policy `<policy>-as<asn>` that holds them and then calls the shared one, and its neighbors use it. Then it removes the `communities` block from each neighbor and group, because only Circuit reads it. Returns the problems, each starting with `at`.
  */
 export function writeCommunities(network: Json, d: Json, at: (map: object | undefined, kind: string, key: string) => string): string[] {
     const found: string[] = [];

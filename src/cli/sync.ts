@@ -1,4 +1,4 @@
-// `circuit sync <target>`: picks the target, puts together the networks that use the same system, and unlocks the secrets it needs. For each system it reads, prints the plan, asks, sends, then reads and plans again. The targets in src/integrations only read, plan and send.
+// The flow every `circuit sync` target shares. The targets in src/integrations only read, plan, and send.
 
 import { Secrets } from "../core/secrets";
 import type { Device } from "../model";
@@ -7,17 +7,18 @@ import { NetBox } from "../integrations/netbox";
 import { PeeringDb } from "../integrations/peeringdb";
 import { Prometheus } from "../integrations/prometheus";
 import type { SyncNetwork, SyncPlan, SyncTarget } from "../integrations/sync";
-import { type ProjectNetwork, type ProjectRead, Project } from "../project";
+import { Project } from "../project";
+import type { ProjectNetwork, ProjectRead } from "../project";
 import { Remember } from "./remember";
 import { SecretsPassword } from "./secrets-password";
-import { type Choice, Ui } from "./ui";
+import { Ui } from "./ui";
+import type { Choice } from "./ui";
 
 export type SyncTargetName = (typeof SyncCommand.TARGETS)[number];
 
 /** How a sync ended: `matches` and `sent` and `declined` exit 0; `not-sent` and `left` exit 1. */
 export type SyncOutcome = "matches" | "declined" | "not-sent" | "sent" | "left";
 
-/** Whether to send without asking, whether a person can answer, and how to ask them. */
 export type SyncAnswers = {
     /** `--confirm`: send without asking. */
     confirmed: boolean;
@@ -47,7 +48,7 @@ export class SyncCommand {
         prometheus: 'prometheus: { targets: "monitoring/targets.json", auths: "monitoring/snmp-auths.yml" }',
     };
 
-    /** Keep the target in sync with the project: each group of networks naming the same system in turn. Exits 1 when something was not sent, or is still left. */
+    /** Each group of networks naming the same system in turn. Exits 1 when something was not sent, or is still left. */
     static async run(root: string, project: ProjectRead, given: string | undefined, confirmed: boolean): Promise<void> {
         const name = await SyncCommand.pick(project, given);
         const outcomes: SyncOutcome[] = [];

@@ -1,5 +1,3 @@
-// A new project, started by the installer or from the menu: the folder, its files, git and its hook, and the editor's types. Also what Circuit keeps current in a project each time it runs in it.
-
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -11,25 +9,6 @@ import { Format } from "./format";
 import { VERSION } from "./version";
 import { Versions } from "./versions";
 
-const GENERATED_README = `# Do not edit
-
-Circuit writes everything in this folder. Don't edit it by hand: change the project's own files, or use the command named below.
-
-- \`version\`: the Circuit version this project runs. \`circuit update\` changes it. (Not in a full install: \`package.json\` pins the version.)
-- \`secrets\`: the project's secrets, each value encrypted, so it is committed. Change them with \`circuit secrets\`.
-- \`types/\`: what your editor reads to complete and check the project's files. Written again on each update. (Not in a full install: the types come from the package in \`node_modules\`.)
-- \`hooks/\`: the git hook that checks each commit: every secret encrypted, and a project that validates.
-- \`cache/\`: temporary, ignored by git.
-`;
-
-/** The notice in `.circuit`. */
-const NOTICE = "DO_NOT_EDIT.md";
-
-export const GITIGNORE = `node_modules/
-.circuit/cache/
-`;
-
-/** What a new project is set up with. */
 export type ProjectSetup = {
     folder: string;
     /** Simple: the binary alone. Full: Circuit as a package in the project, its version pinned in package.json. */
@@ -43,19 +22,38 @@ export class Setup {
     /** The package a full install adds to the project. */
     static readonly PACKAGE = "@takodotid/circuit";
 
+    static readonly GITIGNORE = `node_modules/
+.circuit/cache/
+`;
+
+    private static readonly NOTICE = "DO_NOT_EDIT.md";
+
+    private static readonly NOTICE_TEXT = `# Do not edit
+
+Circuit writes everything in this folder. Don't edit it by hand: change the project's own files, or use the command named below.
+
+- \`version\`: the Circuit version this project runs. \`circuit update\` changes it. (Not in a full install: \`package.json\` pins the version.)
+- \`secrets\`: the project's secrets, each value encrypted, so it is committed. Change them with \`circuit secrets\`.
+- \`types/\`: what your editor reads to complete and check the project's files. Written again on each update. (Not in a full install: the types come from the package in \`node_modules\`.)
+- \`hooks/\`: the git hook that checks each commit: every secret encrypted, and a project that validates.
+- \`cache/\`: temporary, ignored by git.
+`;
+
+    private static readonly JSON_INDENT = 4;
+
     private static installed(command: string): boolean {
         return !spawnSync(command, ["--version"], { encoding: "utf8", shell: process.platform === "win32" }).error;
     }
 
     /**
-     * A full install's package.json, before `bun add` puts Circuit in it. Its `circuit` script is what `bun circuit` runs: with no script of that name, Bun runs the project's own circuit.ts instead of the package's `circuit`.
+     * A full install's package.json, before `bun add` puts Circuit in it. With no `circuit` script, `bun circuit` would run the project's own circuit.ts instead of the package's `circuit`.
      */
     static packageJson(folder: string): string {
         const name = folder.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
-        return `${JSON.stringify({ name, private: true, scripts: { circuit: "circuit" }, devDependencies: {} }, null, 4)}\n`;
+        return `${JSON.stringify({ name, private: true, scripts: { circuit: "circuit" }, devDependencies: {} }, null, Setup.JSON_INDENT)}\n`;
     }
 
-    /** Circuit installed in the project as a package, by a full install: the file to run it from. */
+    /** The file to run a full install's Circuit from. */
     static localCircuit(root: string): string | undefined {
         const path = join(root, "node_modules", ...Setup.PACKAGE.split("/"), "src", "cli", "index.ts");
         return existsSync(path) ? path : undefined;
@@ -85,7 +83,6 @@ export class Setup {
             Ui.warn(`${SecretsFile.DEFAULT} holds ${plain.join(", ")} in plain text. Run circuit secrets encrypt before you commit.`);
     }
 
-    /** Ask how to set up a new project, then set it up. */
     static async ask(folder?: string, chosen?: ProjectSetup["kind"]): Promise<ProjectSetup> {
         Ui.intro("A new Circuit project");
 
@@ -133,7 +130,7 @@ export class Setup {
         return { folder: name.trim(), kind, asn, git, openInEditor };
     }
 
-    /** Install Bun with its own installer, when the person agrees. */
+    /** Runs Bun's own installer, when the person agrees. */
     private static async offerBun(): Promise<void> {
         if (!(await Ui.confirm("Bun is not installed. Install it now from bun.sh?", true))) {
             Ui.fail("A full install needs Bun. Install it from https://bun.sh, or pick Simple.");
@@ -146,7 +143,6 @@ export class Setup {
         if (result.status !== 0) Ui.fail("Bun's installer did not finish. Install Bun from https://bun.sh, then run this again.");
     }
 
-    /** Write the project's files, then git, the package and the editor, as `setup` says. */
     static async create(setup: ProjectSetup): Promise<string> {
         const root = resolve(process.cwd(), setup.folder);
 
@@ -177,7 +173,7 @@ export const as${setup.asn} = circuit({
                 join(root, "tenants", "README.md"),
                 "What tenants share with your devices, one file each, merged in `tenants/index.ts`.\n"
             );
-            writeFileSync(join(root, ".gitignore"), GITIGNORE);
+            writeFileSync(join(root, ".gitignore"), Setup.GITIGNORE);
             writeFileSync(join(root, "tsconfig.json"), setup.kind === "full" ? EditorTypes.TSCONFIG_FULL : EditorTypes.TSCONFIG);
             Setup.writeEditor(root);
             if (setup.kind === "simple") Versions.pin(root, VERSION);
@@ -210,7 +206,6 @@ export const as${setup.asn} = circuit({
         return root;
     }
 
-    /** The steps after a new project, for the person to follow. */
     static nextSteps(root: string, setup: ProjectSetup): string {
         const run = setup.kind === "full" ? "bun circuit" : "circuit";
         return [
@@ -225,7 +220,6 @@ export const as${setup.asn} = circuit({
         ].join("\n");
     }
 
-    /** The whole of a new project: ask, create, and say what is next. */
     static async run(folder: string | undefined, options: { existing: "ready" | "refuse"; kind?: ProjectSetup["kind"] }): Promise<void> {
         // In a project already, such as a fresh clone: set it up as it is, with no questions.
         const here = resolve(process.cwd(), folder ?? ".");
@@ -244,7 +238,7 @@ export const as${setup.asn} = circuit({
         Ui.outro("The project is ready.");
     }
 
-    /** Get a project Circuit did not start here ready: its editor types, its git hook, and, in a full install, its packages. */
+    /** A project Circuit did not start here, such as a clone: its editor types, its git hook, and, in a full install, its packages. */
     static async ready(root: string): Promise<void> {
         Setup.prepare(root);
 
@@ -258,17 +252,17 @@ export const as${setup.asn} = circuit({
         Ui.done(`${root} is ready. Run circuit in it.`);
     }
 
-    /** `.circuit/DO_NOT_EDIT.md`, in place of the README an older Circuit wrote there. */
+    /** Also removes the README an older Circuit wrote in `.circuit`. */
     static writeNotice(root: string): void {
         mkdirSync(join(root, ".circuit"), { recursive: true });
-        const path = join(root, ".circuit", NOTICE);
-        if (!existsSync(path) || readFileSync(path, "utf8") !== GENERATED_README) writeFileSync(path, GENERATED_README);
+        const path = join(root, ".circuit", Setup.NOTICE);
+        if (!existsSync(path) || readFileSync(path, "utf8") !== Setup.NOTICE_TEXT) writeFileSync(path, Setup.NOTICE_TEXT);
         rmSync(join(root, ".circuit", "README.md"), { force: true });
     }
 
     /** The editor's settings: the style in `.editorconfig`, which the Prettier extension and `circuit fmt` both read, and format on save in VS Code. A file the project has already is kept. */
     static writeEditor(root: string): void {
-        const json = (value: unknown) => `${JSON.stringify(value, null, 4)}\n`;
+        const json = (value: unknown) => `${JSON.stringify(value, null, Setup.JSON_INDENT)}\n`;
         const files: Record<string, string> = {
             ".editorconfig": Format.EDITORCONFIG,
             ".vscode/settings.json": json({

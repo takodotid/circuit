@@ -1,4 +1,4 @@
-// The session `circuit exec` runs commands in, over a real SSH session against fake devices: RouterOS runs each command on its own with plain wide output, VRP runs them in one shell after its login questions, and FortiOS moves to one shell once a session filter must carry over.
+// The session `circuit exec` runs commands in, over real SSH against fake devices.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Device } from "../../src/model";
@@ -36,7 +36,7 @@ const fortiOs = new FakeSshDevice(
     }
 );
 
-/** A device of the fake's, at its port on this computer. */
+/** The device at the fake's port on this computer. */
 async function at(device: Device, fake: FakeSshDevice, user: string): Promise<Device> {
     return { ...device, connection: { host: "127.0.0.1", port: await fake.listen(), user } };
 }

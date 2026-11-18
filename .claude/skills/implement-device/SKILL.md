@@ -33,7 +33,7 @@ Read `src/platforms/platform.ts` (the contract) and the closest adapter in `src/
 5. `read()`: log in, check the version, read, and strip secrets and device-added lines.
 6. `plan()`: `show` for the reviewer, `send` for the device, `problems` for what can't converge.
 7. `apply()`: a change that can't lock anyone out (commit confirmed, revert timer, or self-restoring backup), then a fresh login before it sticks.
-8. Tests: plans in `test/platforms/plans.test.ts`; a session test over `test/platforms/fake-ssh.ts`.
+8. Tests: plans in `test/platforms/<platform>-plan.test.ts`; a session test over `test/platforms/fake-ssh.ts`.
 9. Test it on the device: read, plan, apply, empty second plan. Surprises go in `TRAPS.md`.
 10. Docs: the platforms page and the feature matrix in `docs/`, `README.md`, and a `package.json` keyword.
 
