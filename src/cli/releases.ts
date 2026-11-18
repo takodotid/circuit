@@ -3,8 +3,8 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { Installation } from "../core/installation";
 import { type Advisory, Advisories } from "./advisories";
 import { Signing } from "./signing";
 import { Ui } from "./ui";
@@ -36,13 +36,8 @@ export class Releases {
     /** How many versions `circuit update` offers, newest first. */
     static readonly OFFERED = 5;
 
-    /** Where Circuit keeps what it learned and the versions projects pin: `~/.circuit`, or `CIRCUIT_HOME` for a test. */
-    static home(): string {
-        return process.env.CIRCUIT_HOME || join(homedir(), ".circuit");
-    }
-
     private static cachePath(): string {
-        return join(Releases.home(), "latest.json");
+        return join(Installation.home(), "latest.json");
     }
 
     /** Below 0 when `a` is older than `b`, 0 when the same, above 0 when newer. Versions as semver writes them, such as `1.0.0-rc.2`. */
@@ -127,7 +122,7 @@ export class Releases {
             };
 
             try {
-                mkdirSync(Releases.home(), { recursive: true });
+                mkdirSync(Installation.home(), { recursive: true });
                 writeFileSync(Releases.cachePath(), JSON.stringify({ checked: Date.now(), version: VERSION, latest }));
             } catch {}
             return { latest, offline: false };
@@ -138,7 +133,7 @@ export class Releases {
 
     /** The security advisories, from the cache when read in the last two minutes. */
     static advisories(fresh = false): Promise<{ advisories: Advisory[]; offline: boolean }> {
-        return Advisories.read(Releases.home(), fresh);
+        return Advisories.read(Installation.home(), fresh);
     }
 
     /** The advisories that affect `version`. */
@@ -167,7 +162,7 @@ export class Releases {
         const target = latest && Releases.target(latest);
         if (!target || Releases.compare(VERSION, target) >= 0 || Releases.affecting(advisories.advisories, target).length) return;
 
-        const binary = Releases.binary();
+        const binary = Installation.binary();
         if (!binary || process.env[Releases.UPDATED]) {
             Ui.warn(`Circuit ${target} is out, and this is ${VERSION}.`);
             return;
@@ -187,16 +182,6 @@ export class Releases {
         process.exit(result.status ?? 1);
     }
 
-    /** This Circuit's own file, when it runs as the installed binary rather than from its sources. */
-    static binary(): string | undefined {
-        return /^circuit(-[\w-]+)?(\.exe)?$/i.test(basename(process.execPath)) ? process.execPath : undefined;
-    }
-
-    /** How this Circuit runs itself again: the installed binary, or Bun with these sources. */
-    static self(): string[] {
-        return Releases.binary() ? [process.execPath] : [process.execPath, join(import.meta.dir, "index.ts")];
-    }
-
     /** The release file for this system, such as `circuit-linux-x64`. Undefined on a system Circuit is not built for. */
     static asset(platform: string = process.platform, arch: string = process.arch): string | undefined {
         const systems: Record<string, string> = { linux: "linux", darwin: "darwin", win32: "windows" };
@@ -208,7 +193,7 @@ export class Releases {
 
     /** Remove what an update on Windows left: the old binary, kept aside while it still ran. */
     static tidy(): void {
-        const binary = Releases.binary();
+        const binary = Installation.binary();
         if (!binary) return;
 
         const folder = dirname(binary);
@@ -343,7 +328,7 @@ export class Releases {
     /** Update the installed manager to a version the person picks. Gives back that version. */
     static async updateApp(confirmed: boolean): Promise<string | undefined> {
         const binary =
-            Releases.binary() ?? Ui.fail("This Circuit runs from its sources. Update it where it came from, such as with git pull.");
+            Installation.binary() ?? Ui.fail("This Circuit runs from its sources. Update it where it came from, such as with git pull.");
         const target = await Releases.pick(VERSION, confirmed, "The app");
         if (!target) return undefined;
 

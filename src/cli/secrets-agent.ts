@@ -5,7 +5,8 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { connect, createServer } from "node:net";
 import { join } from "node:path";
-import { Releases } from "./releases";
+import { Installation } from "../core/installation";
+import { App } from "./app";
 
 /** What the process keeps: values by their 1Password reference, and typed passwords by the secrets file's full path. */
 export type Held = { values: Record<string, string>; passwords: Record<string, string> };
@@ -37,7 +38,7 @@ export class SecretsAgent {
     ];
 
     static infoPath(): string {
-        return join(Releases.home(), "secrets-agent.json");
+        return join(Installation.home(), "secrets-agent.json");
     }
 
     private static info(): Info | undefined {
@@ -83,7 +84,7 @@ export class SecretsAgent {
 
     /** Start the process, to stop at `until`. False when it did not answer. */
     static async start(until: number): Promise<boolean> {
-        const home = Releases.home();
+        const home = Installation.home();
         mkdirSync(home, { recursive: true });
 
         const id = randomBytes(8).toString("hex");
@@ -96,7 +97,7 @@ export class SecretsAgent {
         const environment = Object.fromEntries(
             SecretsAgent.ENVIRONMENT.filter((name) => process.env[name] !== undefined).map((name) => [name, process.env[name]!])
         );
-        const [command, ...args] = Releases.self();
+        const [command, ...args] = App.self();
         const child = spawn(command!, [...args, SecretsAgent.COMMAND], {
             detached: true,
             windowsHide: true,

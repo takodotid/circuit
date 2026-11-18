@@ -4,6 +4,7 @@
 import { Command, InvalidArgumentError, Option } from "@commander-js/extra-typings";
 import { spawnSync } from "node:child_process";
 import { relative } from "node:path";
+import { Installation } from "../core/installation";
 import { OnePassword } from "../core/one-password";
 import { SecretsFile } from "../core/secrets-file";
 import { BgpWait } from "../platforms/bgp-wait";
@@ -46,7 +47,7 @@ class Cli {
             Cli.runLocal(argv);
             const root = ProjectCommands.find();
             if (root) {
-                if (Releases.binary()) Versions.remember(root);
+                if (Installation.binary()) Versions.remember(root);
                 await Versions.run(root, argv);
             }
         }
@@ -67,7 +68,7 @@ class Cli {
 
     /** In a project with a full install, run the Circuit pinned in it instead of this one, so a team runs one version. */
     private static runLocal(argv: string[]): void {
-        if (process.env.CIRCUIT_LOCAL || !Releases.binary()) return;
+        if (process.env.CIRCUIT_LOCAL || !Installation.binary()) return;
 
         const root = ProjectCommands.find();
         const local = root && Setup.localCircuit(root);
@@ -403,7 +404,7 @@ class Cli {
     /** In a project: move it to a version the person picks, and the app with it. Elsewhere, or with `--app`: update the app. Either way, versions no project pins any more are removed. */
     private static async update(app: boolean, confirmed: boolean): Promise<void> {
         const root = ProjectCommands.find();
-        if (root && Releases.binary()) Versions.remember(root);
+        if (root && Installation.binary()) Versions.remember(root);
         if (app || !root) {
             const target = await Releases.updateApp(confirmed);
             Versions.prune(target ?? VERSION);
@@ -451,7 +452,7 @@ class Cli {
         project.validate();
 
         // A project inside this one, such as a customer's, is checked by its own Circuit: the version it pins, its secrets, its files.
-        const [command = process.execPath, ...args] = Releases.self();
+        const [command = process.execPath, ...args] = App.self();
         const env: Record<string, string | undefined> = { ...process.env };
         delete env[Versions.RUNNING];
 
