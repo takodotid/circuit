@@ -224,14 +224,16 @@ test('a new description is one set, and none is comment="" (7.24.6)', () => {
     ]);
 });
 
-/** The edge router with a WireGuard interface and one peer. */
-function withWireGuard(): Device {
+/** The edge router with a WireGuard interface and one peer, and the interface's endpoint when given. */
+function withWireGuard(endpoint?: "203.0.113.1/24" | "203.0.113.2"): Device {
     const peer = {
         name: "client",
         public_key: "BQEfqiXI2qhli4vtMsyLf2PA2zME9/H/LHUOb74xbKA=",
         allowed_addresses: ["192.0.2.2/32"],
     } as const;
-    const wireguard = { "wg-test": { listen_port: 51899, private_key: { secret: "WG_TEST_KEY" }, peers: [peer] } };
+    const wireguard = {
+        "wg-test": { listen_port: 51899, ...(endpoint ? { endpoint } : {}), private_key: { secret: "WG_TEST_KEY" }, peers: [peer] },
+    };
 
     return { ...edge, interfaces: { ...edge.interfaces, wireguard } };
 }
@@ -247,6 +249,25 @@ test("a WireGuard interface without an MTU reads back as the router printed it, 
     const plan = platform.plan(desired, printed, options);
     expect(plan.problems).toEqual([]);
     expect(plan.steps).toEqual([]);
+});
+
+test("a WireGuard interface's endpoint is each peer's client-endpoint, which the router's client config ends with the listen port (7.24.6)", () => {
+    const desired = platform.render(withWireGuard("203.0.113.1/24"));
+    expect(desired).toContain(
+        'add allowed-address=192.0.2.2/32 client-endpoint=203.0.113.1 interface=wg-test name=wg-test-client public-key="BQEfqiXI2qhli4vtMsyLf2PA2zME9/H/LHUOb74xbKA="'
+    );
+    // The router printed `Endpoint = 203.0.113.1:51899` in the peer's client config.
+    expect(platform.plan(desired, desired.replace(/ private-key="[^"]*"/, " mtu=1420"), options).steps).toEqual([]);
+
+    const sent = (desired: Device, current: Device) =>
+        platform.plan(platform.render(desired), platform.render(current), options).steps.flatMap((step) => step.send);
+    expect(sent(withWireGuard("203.0.113.2"), withWireGuard("203.0.113.1/24"))).toEqual([
+        "/interface wireguard peers set [ find name=wg-test-client ] client-endpoint=203.0.113.2",
+    ]);
+    // Without one, the client config has no `Endpoint` line.
+    expect(sent(withWireGuard(), withWireGuard("203.0.113.2"))).toEqual([
+        '/interface wireguard peers set [ find name=wg-test-client ] client-endpoint=""',
+    ]);
 });
 
 test("an ethertype filter: a switch rule per kind after the port's ACL, then a drop, as the router printed them", () => {

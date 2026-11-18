@@ -444,6 +444,8 @@ export class RouterOsRender {
                 this.add("/interface wireguard peers", "add", {
                     "allowed-address": peer.allowed_addresses.join(","),
                     "client-allowed-address": peer.client_allowed_addresses?.join(","),
+                    // The router's generated client config ends it with the interface's listen port.
+                    "client-endpoint": iface.endpoint && Address.host(iface.endpoint),
                     "endpoint-address": endpoint?.host,
                     "endpoint-port": endpoint?.port,
                     interface: name,

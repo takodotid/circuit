@@ -44,6 +44,7 @@ export class RouterOsExport {
         "/interface wireguard": { mtu: "1420" },
         "/interface wireguard peers": {
             "client-allowed-address": "",
+            "client-endpoint": "",
             "endpoint-address": "",
             "endpoint-port": "0",
             "persistent-keepalive": "0s",

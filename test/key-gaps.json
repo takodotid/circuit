@@ -182,7 +182,7 @@
     ],
     "platforms": {
         "routeros": {
-            "silent": ["interfaces.wireguard.*.endpoint"],
+            "silent": [],
             "untried": []
         },
         "vrp": {
