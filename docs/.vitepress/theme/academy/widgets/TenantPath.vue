@@ -10,9 +10,9 @@ const places: Place[] = [
     { id: "internet", kind: "cloud", label: "The internet", note: "via the transit", x: 90, y: 70 },
     { id: "edge", kind: "router", label: "edge-01", note: "every gateway", x: 350, y: 70 },
     { id: "tor", kind: "switch", label: "tor-01", note: "", x: 350, y: 200 },
-    { id: "acme1", kind: "server", label: "netflix server 1", note: "198.51.100.10", x: 120, y: 320 },
-    { id: "acme2", kind: "server", label: "netflix server 2", note: "198.51.100.11", x: 350, y: 320 },
-    { id: "globex1", kind: "server", label: "akamai server 1", note: "198.51.100.18", x: 580, y: 320 },
+    { id: "netflix1", kind: "server", label: "Netflix server 1", note: "198.51.100.10", x: 120, y: 320 },
+    { id: "netflix2", kind: "server", label: "Netflix server 2", note: "198.51.100.11", x: 350, y: 320 },
+    { id: "akamai1", kind: "server", label: "Akamai server 1", note: "198.51.100.18", x: 580, y: 320 },
 ];
 
 const at = (id: string) => places.find((place) => place.id === id)!;
@@ -20,9 +20,9 @@ const at = (id: string) => places.find((place) => place.id === id)!;
 const cables = [
     { from: "internet", to: "edge", label: "25g-1" },
     { from: "edge", to: "tor", label: "trunk: 99, 1001, 1002" },
-    { from: "tor", to: "acme1", label: "1001, 2001" },
-    { from: "tor", to: "acme2", label: "1001, 2001" },
-    { from: "tor", to: "globex1", label: "1002, 2002" },
+    { from: "tor", to: "netflix1", label: "1001, 2001" },
+    { from: "tor", to: "netflix2", label: "1001, 2001" },
+    { from: "tor", to: "akamai1", label: "1002, 2002" },
 ];
 
 type Trip = { id: string; label: string; path: string[]; delivered: boolean; text: string };
@@ -30,31 +30,31 @@ type Trip = { id: string; label: string; path: string[]; delivered: boolean; tex
 const trips: Trip[] = [
     {
         id: "in",
-        label: "The internet to netflix server 1",
-        path: ["internet", "edge", "tor", "acme1"],
+        label: "The internet to Netflix server 1",
+        path: ["internet", "edge", "tor", "netflix1"],
         delivered: true,
-        text: "It arrives from the transit, and the edge ACL checks its source in the switch chip. 198.51.100.10 is inside 198.51.100.8/29, netflix's block, whose gateway is on netflix-internet, so the router sends it down the trunk tagged 1001. tor-01 passes it out of 10g-1, still tagged 1001.",
+        text: "It arrives from the transit, and the edge ACL checks its source in the switch chip. 198.51.100.10 is inside 198.51.100.8/29, the block of Netflix, whose gateway is on netflix-internet. So the router sends it down the trunk tagged 1001, and tor-01 passes it out of 10g-1, still tagged 1001.",
     },
     {
         id: "private",
-        label: "netflix server 1 to netflix server 2, privately",
-        path: ["acme1", "tor", "acme2"],
+        label: "Netflix server 1 to Netflix server 2, privately",
+        path: ["netflix1", "tor", "netflix2"],
         delivered: true,
-        text: "Tagged 2001, netflix-private. tor-01 switches it straight to 10g-2. VLAN 2001 is not on the trunk, so it never reaches the router and never touches netflix's internet traffic.",
+        text: "Tagged 2001, netflix-private. tor-01 switches it straight to 10g-2. VLAN 2001 is not on the trunk, so it never reaches the router, and never mixes with the internet traffic of Netflix.",
     },
     {
         id: "across",
-        label: "netflix server 1 to akamai server 1",
-        path: ["acme1", "tor", "edge", "tor", "globex1"],
+        label: "Netflix server 1 to Akamai server 1",
+        path: ["netflix1", "tor", "edge", "tor", "akamai1"],
         delivered: true,
-        text: "Two different public networks, so it goes up to netflix's gateway on the router, is routed onto akamai-internet, VLAN 1002, and comes back down the same trunk. To each tenant, the other is just another address on the internet.",
+        text: "Two different public networks, so it goes up to the gateway of Netflix on the router. It is routed onto akamai-internet, VLAN 1002, and comes back down the same trunk. To each tenant, the other is just another address on the internet.",
     },
     {
         id: "sneak",
-        label: "netflix server 1 into akamai's private network",
-        path: ["acme1", "tor"],
+        label: "Netflix server 1 into the private network of Akamai",
+        path: ["netflix1", "tor"],
         delivered: false,
-        text: "There is no way in. VLAN 2002 is only on akamai's port, and the router has no address on it, so nothing netflix sends can be switched or routed into it.",
+        text: "There is no way in. VLAN 2002 is only on the port of Akamai, and the router has no address on it. So nothing Netflix sends can be switched or routed into it.",
     },
 ];
 
@@ -86,7 +86,7 @@ async function send(trip: Trip) {
             class="ac-drawing"
             viewBox="0 0 700 380"
             role="img"
-            aria-label="The internet joined to edge-01, edge-01 joined by a trunk to the switch tor-01, and three tenant servers on the switch: netflix server 1, netflix server 2 and akamai server 1."
+            aria-label="The internet joined to edge-01, edge-01 joined by a trunk to the switch tor-01, and three tenant servers on the switch: Netflix server 1, Netflix server 2, and Akamai server 1."
         >
             <g v-for="cable in cables" :key="cable.from + cable.to">
                 <line
@@ -137,7 +137,7 @@ async function send(trip: Trip) {
 
         <p v-if="said" class="ac-say" :class="said.kind" aria-live="polite">{{ said.text }}</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            {{ travelling ? "On its way..." : "Pick a packet to send. akamai here has both its networks, as in the last choice above." }}
+            {{ travelling ? "On its way..." : "Pick a packet to send." }}
         </p>
     </div>
 </template>
