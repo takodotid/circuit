@@ -64,7 +64,7 @@ async function attack() {
         said.value = {
             kind: "bad",
             word: "Dropped",
-            text: `Network S's edge router dropped the requests: their source, ${VICTIM}, is not inside ${NETWORK_S}, the only space its customers may send from. Nothing reached the reflector, and nothing reached the victim.`,
+            text: `The edge router of AS64511 dropped the requests. Their source, ${VICTIM}, is not inside ${NETWORK_S}, the only space its customers may send from. Nothing reached the reflector or the victim.`,
         };
         return;
     }
@@ -114,7 +114,7 @@ const busy = computed(() => request.travelling.value || reply.travelling.value);
             class="ac-drawing"
             viewBox="0 0 700 380"
             role="img"
-            aria-label="An attacker in Network S, behind that network's edge router, reaches a reflector and a victim across the internet. The victim sits in your network."
+            aria-label="An attacker in AS64511, behind that network's edge router, reaches a reflector and a victim across the internet. The victim sits in your network."
         >
             <line
                 v-for="[a, b] in cables"
@@ -131,7 +131,7 @@ const busy = computed(() => request.travelling.value || reply.travelling.value);
                 kind="router"
                 :x="points.edge[0]"
                 :y="points.edge[1]"
-                label="Network S edge"
+                label="AS64511 edge"
                 :note="filtering ? 'checks sources' : 'checks nothing'"
                 :lit="filtering"
             />
@@ -180,7 +180,7 @@ const busy = computed(() => request.travelling.value || reply.travelling.value);
             </div>
 
             <div class="ac-field">
-                <span>3. Network S's edge</span>
+                <span>3. The edge of AS64511</span>
                 <button type="button" class="ac-button small" :aria-pressed="filtering" @click="((filtering = !filtering), reset())">
                     Drop sources outside {{ NETWORK_S }}
                 </button>
@@ -196,7 +196,7 @@ const busy = computed(() => request.travelling.value || reply.travelling.value);
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
         <p v-else class="ac-say hint" aria-live="polite">
             Send the requests with the victim's address as the source. Then try the attacker's own address, and then turn on the check at
-            Network S's edge.
+            the edge of AS64511.
         </p>
     </div>
 </template>
