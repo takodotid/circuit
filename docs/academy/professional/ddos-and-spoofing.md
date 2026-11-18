@@ -5,29 +5,33 @@ description: Stop forged sources at your edge, shed a flood by blackholing its t
 
 # Attacks on the network
 
-A <Term means="Distributed denial of service: an attack that sends a target more traffic than its links or its devices can take, from many sources at once.">DDoS</Term>, a distributed denial of service attack, sends a target more traffic than its links or its devices can take, from many sources at once. A provider meets it from both sides: its customers are attacked, and its own network can be used to attack others.
+A <Term means="Distributed denial of service: an attack that sends a target more traffic than its links or its devices can take, from many sources at once.">DDoS</Term>, a distributed denial of service attack, sends a target more traffic than its links or its devices can take, from many sources at once. A provider meets it from both sides. Its customers are attacked, and its own network can be used to attack others.
 
-Three defences work at three different places:
+Three defenses work at three different places:
 
-1. **At the edge of every network, drop packets with forged sources**, so floods cannot be launched from yours.
+1. **At the edge of every network, drop packets with forged sources**, so nobody can launch floods from yours.
 2. **When a flood arrives, drop it as far upstream as you can**, by blackholing the address it is aimed at.
-3. **On every router, filter what reaches its own CPU**, so a flood cannot take routing down with it.
+3. **On every router, filter what reaches its own CPU**, so a flood can't take routing down with it.
 
 ## Forged sources and reflection
 
-The source address of a packet is written by its sender. Nothing on the way checks it, unless a router is set to. An attacker who forges, or <Term means="Writing a source address on a packet that is not the sender's own.">spoofs</Term>, a source can do something worse than hide: it can make other servers attack for it.
+The sender of a packet writes its source address. Nothing on the way checks it, unless a router is set to. An attacker who forges, or <Term means="Writing a source address on a packet that is not the sender's own.">spoofs</Term>, a source can do something worse than hide. It can make other servers attack for it.
 
-Some services answer a small UDP request with a much larger reply. The attacker sends requests to thousands of such servers, called <Term means="A server that sends its answer to the source address written on a request, so an attacker can bounce traffic off it toward a victim.">reflectors</Term>, with the victim's address as the source, and every reply goes to the victim. CISA, the Cybersecurity and Infrastructure Security Agency of the United States, lists how many times larger the replies are: 28 to 54 times for DNS, about 557 for <Term means="Network Time Protocol: how devices ask a server for the time, over UDP port 123.">NTP</Term>, and 10,000 to 51,000 for <Term means="A program that keeps data in memory for web servers. Left open to the internet, it answers on UDP port 11211.">memcached</Term>.
+Some services answer a small UDP request with a much larger reply. The attacker sends requests to thousands of such servers, called <Term means="A server that sends its answer to the source address written on a request, so an attacker can bounce traffic off it toward a victim.">reflectors</Term>, with the victim's address as the source. Every reply goes to the victim. CISA, the Cybersecurity and Infrastructure Security Agency of the United States, lists how many times larger the replies are:
+
+- 28 to 54 times for DNS.
+- About 557 times for <Term means="Network Time Protocol: how devices ask a server for the time, over UDP port 123.">NTP</Term>.
+- 10,000 to 51,000 times for <Term means="A program that keeps data in memory for web servers. Left open to the internet, it answers on UDP port 11211.">memcached</Term>.
 
 <TryIt title="Bounce a flood off a reflector">
-
-Send the requests with the victim's address as the source, and read how much arrives. Then use the attacker's own address. Then turn on the source check at Network S's edge, and send again.
 
 <SpoofReflect />
 
 </TryIt>
 
-The check that stopped the flood ran in Network S, not at the victim and not at the reflector. That is **BCP 38**, Best Current Practice 38, published as RFC 2827 in 2000: a provider drops traffic from its customers when the source address is outside the customers' own address space. It protects everyone else, never the network that runs it, which is why it only works when most networks do it, and why MANRS lists it as one of its actions.
+The check that stopped the flood ran in the attacker's own network, AS64511. It didn't run at the victim or at the reflector. That is **BCP 38**, Best Current Practice 38, published as RFC 2827 in 2000. A provider drops traffic from its customers when the source address is outside the customers' own address space.
+
+BCP 38 protects everyone else, never the network that runs it. So it only works when most networks do it, and that is why MANRS lists it as one of its actions.
 
 Routers can make the check automatic with <Term means="Unicast reverse path forwarding: a router accepts a packet only if its routing table would send traffic for the packet's source back out the same way, or at all.">uRPF</Term>, unicast reverse path forwarding, described in RFC 3704 (BCP 84):
 
@@ -35,7 +39,7 @@ Routers can make the check automatic with <Term means="Unicast reverse path forw
 | -------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
 | Strict   | its route back to the source leaves through the same interface           | A customer link with one way in and out. MANRS calls it the easiest way for most small networks. |
 | Feasible | any route it knows to the source, not only the best, uses that interface | A customer with several links to you                                                             |
-| Loose    | it has any route to the source at all                                    | Hardly anywhere: RFC 3704 recommends it only as a way to measure                                 |
+| Loose    | it has any route to the source at all                                    | Hardly anywhere. RFC 3704 recommends it only as a way to measure.                                |
 
 <Quiz
   question="Your network checks the source of every packet from its customers, as BCP 38 asks. Who does that protect?"
@@ -47,7 +51,7 @@ Routers can make the check automatic with <Term means="Unicast reverse path forw
 
 ## Anti-spoofing in Circuit
 
-Circuit has no field for uRPF. You write the same check as a list, in the router's switch chip, with an ACL on each customer port: the customer's own space and its end of the link are accepted, and any other source is dropped.
+Circuit has no field for uRPF. You write the same check as a list, in the router's switch chip, with an ACL on each customer port. The ACL accepts the customer's own space and its end of the link, and drops any other source.
 
 ```ts
 interfaces: {
@@ -67,13 +71,13 @@ switching: {
 },
 ```
 
-A FortiGate's ACLs can only drop, so on a FortiGate the same check goes in its firewall instead, as rules that accept the customer's sources on that port and drop the rest. Write the IPv6 rules the same way, and keep accepting link-local sources, `fe80::/10`, which IPv6 neighbor discovery uses on the link, as RFC 4861 says.
+A FortiGate's ACLs can only drop. So on a FortiGate the same check goes in its firewall instead, as rules that accept the customer's sources on that port and drop the rest. Write the IPv6 rules the same way. Keep accepting link-local sources, `fe80::/10`, which IPv6 neighbor discovery uses on the link, as RFC 4861 says.
 
-The other direction is an ACL on the ports toward your transits and exchanges: traffic arriving from the internet that claims to come from your own space or a private range is dropped. The [edge router example](/guide/examples#an-edge-router) has both of its outside ports filtered this way, with its ACL `edge`.
+The other direction is an ACL on the ports toward your transits and exchanges. It drops traffic from the internet that claims to come from your own space or a private range. The [edge router example](/guide/examples#an-edge-router) filters both of its outside ports this way, with its ACL `edge`.
 
 ### Inside one subnet
 
-The gateway's check stops sources outside a subnet. Inside it, any server can still send as its neighbour: its address, its MAC address, or an answer to ARP in its name. The switch closes that gap at the port. `bound_to` lists the hosts on an access port, each with its MAC address and the addresses it sends from:
+The gateway's check stops sources outside a subnet. Inside it, any server can still send as its neighbor, with its address, its MAC address, or an answer to ARP in its name. The switch closes that gap at the port. `bound_to` lists the hosts on an access port, each with its MAC address and the addresses it sends from:
 
 ```ts
 "10g-7": {
@@ -87,29 +91,31 @@ The gateway's check stops sources outside a subnet. Inside it, any server can st
 },
 ```
 
-The port then takes IPv4 and IPv6 only from those MAC addresses with those sources, plus what every host sends from (`0.0.0.0` while it asks DHCP for an address, link-local IPv6, and `::`), and ARP only from them. Anything else is dropped. A server whose virtual machines are bridged onto its cable lists each machine, so a new machine is a new entry before it can send. A port with another switch behind it can't be bound host by host; the gateway's check is what protects it.
+The port then takes IPv4 and IPv6 only from those MAC addresses with those sources, and ARP only from them. It also takes the sources every host sends from: `0.0.0.0` while it asks DHCP for an address, link-local IPv6, and `::`. It drops anything else.
 
-On Junos the switch can't read inside an ARP packet, so a bound host can still claim a neighbour's address in ARP. It can no longer send packets from that address.
+A server whose virtual machines are bridged onto its cable lists each machine, so a new machine needs a new entry before it can send. A port with another switch behind it can't be bound host by host. The gateway's check is what protects it.
+
+On Junos the switch can't read inside an ARP packet. So a bound host can still claim a neighbor's address in ARP, but it can no longer send packets from that address.
 
 ## Shedding a flood
 
-On 28 February 2018 at 17:21 UTC, GitHub received a memcached reflection flood that peaked at 1.35 Tbit/s and 126.9 million packets a second. Its links to its transits could not carry it. At 17:26 GitHub withdrew its routes from its transits and announced them only over its links to Akamai, a DDoS protection provider, so the flood went to Akamai's network instead; after the routes settled, access control lists stopped the attack. By 17:30 the site was back. GitHub's own report tells the story.
+On February 28, 2018, at 17:21 UTC, GitHub received a memcached reflection flood. It peaked at 1.35 Tbit/s and 126.9 million packets a second, more than GitHub's links to its transits could carry. At 17:26 GitHub withdrew its routes from its transits, and announced them only over its links to Akamai, a DDoS protection provider. So the flood went to Akamai's network instead. After the routes settled, access control lists stopped the attack. By 17:30 the site was back.
 
-The lesson is about where the flood is dropped. A filter on your own router acts only after the flood has crossed your links from your upstreams, and when those are full, everyone behind them loses packets, not only the target. The flood has to be dropped on the far side of those links.
+The lesson is about where the flood is dropped. A filter on your own router acts only after the flood has crossed your links from your upstreams. When those links are full, everyone behind them loses packets, not only the target. So the flood has to be dropped on the far side of those links.
 
-**Remote triggered blackholing** is the tool every provider has for this. The address under attack is announced in BGP as a <Term means="A route for one single address: a /32 in IPv4, a /128 in IPv6.">host route</Term>, a /32 or a /128, with a <Term means="A community that asks the network receiving the route to drop all traffic toward it. RFC 7999 reserves 65535:666 for it.">blackhole community</Term>, and the network receiving it drops all traffic toward that address. RFC 7999 reserves `65535:666` for it, and asks the receiver to keep the route inside its own network. Whether an upstream takes blackholes is its own choice; one that does gives you the community to use.
+**Remote triggered blackholing** is the tool every provider has for this. You announce the address under attack in BGP as a <Term means="A route for one single address: a /32 in IPv4, a /128 in IPv6.">host route</Term>, a /32 or a /128, with a <Term means="A community that asks the network receiving the route to drop all traffic toward it. RFC 7999 reserves 65535:666 for it.">blackhole community</Term>. The network receiving it drops all traffic toward that address. RFC 7999 reserves `65535:666` for it, and asks the receiver to keep the route inside its own network. Each upstream chooses whether it takes blackholes. One that does gives you the community to use.
 
 <TryIt title="Blackhole the target, and see who stops sending">
 
-Send a wave of the flood as it is. Then have Netflix ask for a blackhole, and send again. Then list the transits that take blackholes, one at a time, and watch the link meters.
+Send a wave of the flood as it is. Then have Netflix ask for a blackhole, and send again. Then add the blackhole communities, one at a time, and watch the link meters.
 
 <BlackholeFlood />
 
 </TryIt>
 
-A blackhole on your own router freed Netflix's link, and nothing else. Each transit that received the route freed your link to it. The exchange takes no blackholes in this widget, so its share kept arriving, and your router dropped it. And in every case `192.0.2.10` became unreachable for everyone: blackholing gives up one address to save every other customer, which RFC 5635 says plainly. Netflix can move its service to another address while the attack lasts.
+A blackhole on your own router freed Netflix's link, and nothing else. Each upstream that received the route freed your link to it. The rest of the flood kept arriving, and your router dropped it. In every case `192.0.2.10` became unreachable for everyone. Blackholing gives up one address to save every other customer, as RFC 5635 says plainly. Netflix can move its service to another address while the attack lasts.
 
-In Circuit, blackholing is part of the [community scheme](/guide/communities). The scheme says which community asks for a blackhole; each upstream that takes it carries its own community, and the import from a customer allowed to ask for one says so with `accept_requests`:
+In Circuit, blackholing is part of the [community scheme](/guide/communities). The scheme in `circuit.ts` says which community asks for a blackhole:
 
 ```ts
 // circuit.ts
@@ -120,22 +126,28 @@ communities: {
 },
 ```
 
+Each upstream that takes blackholes carries its own community:
+
 ```ts
 // edge-01.ts, the neighbors
-// hurricane-electric drops traffic to a route it receives with 65535:666. cogent takes no blackholes, so it never receives the route.
-"hurricane-electric": { address: "203.0.113.1", remote_as: 6939, role: "provider", import_policy: "transit-import", export_policy: "export", communities: { groups: ["transit"], blackhole: "65535:666" } },
+// hurricane-electric drops traffic to a route it receives with 6939:666. cogent has no blackhole community here, so it never receives the route.
+"hurricane-electric": { address: "203.0.113.1", remote_as: 6939, role: "provider", import_policy: "transit-import", export_policy: "export", communities: { groups: ["transit"], blackhole: "6939:666" } },
 "cogent": { address: "203.0.113.129", remote_as: 174, role: "provider", import_policy: "transit-import", export_policy: "export", communities: { groups: ["transit"] } },
-netflix: { address: "198.51.100.254", remote_as: 65550, role: "customer", import_policy: "netflix-import", export_policy: "netflix-export", communities: { groups: ["customer"] } },
+netflix: { address: "198.51.100.254", remote_as: 2906, role: "customer", import_policy: "netflix-import", export_policy: "netflix-export", communities: { groups: ["customer"] } },
 ```
+
+The import from a customer allowed to ask for a blackhole says so with `accept_requests`:
 
 ```ts
 // edge-01.ts, the first rule of Netflix's import: Netflix may ask for a blackhole. The rest of the import accepts only Netflix's own space, so it can never blackhole someone else.
 { communities: "import", accept_requests: ["blackhole"] },
 ```
 
-Circuit writes the rest from the scheme: the communities rule in Netflix's import keeps the blackhole request, and `{ communities: "export" }` in the export to hurricane-electric passes the route on with `65535:666`, while the export to cogent rejects it.
+Circuit writes the rest from the scheme. The communities rule in Netflix's import keeps the blackhole request. `{ communities: "export" }` in the export to hurricane-electric passes the route on with `6939:666`, and the export to cogent drops it.
 
-Blackholing drops everything toward the address, the attack and the customers of that service alike. <Term means="BGP flow specification: rules carried in BGP that match traffic by addresses, protocol, ports, packet length and more, and drop or rate-limit only what matches.">Flowspec</Term>, defined in RFC 8955, is the finer tool: a rule carried in BGP that matches the flood by protocol, ports or packet length, and drops or rate-limits only that. Circuit has no field for flowspec. On your own edge, `presets.udp_amplifiers` lists the source ports of reflected floods, for a switch-chip rule that drops them, which saves your router, but not the link the flood arrived on.
+Blackholing drops everything toward the address, the attack and the customers of that service alike. <Term means="BGP flow specification: rules carried in BGP that match traffic by addresses, protocol, ports, packet length, and more, and drop or rate-limit only what matches.">Flowspec</Term>, defined in RFC 8955, is the finer tool. It is a rule carried in BGP that matches the flood by protocol, ports, or packet length, and drops or rate-limits only that. Circuit has no field for flowspec.
+
+On your own edge, `presets.udp_amplifiers` lists the source ports of reflected floods, for a switch-chip rule that drops them. This saves your router, but not the link the flood arrived on.
 
 <Quiz
   question="A flood of 30 Gbit/s toward one customer address arrives over your two 10 Gbit/s transit links. You blackhole the address on your own router only. What changes?"
@@ -147,13 +159,13 @@ Blackholing drops everything toward the address, the attack and the customers of
 
 ## Protecting the router itself
 
-A flood aimed at the router's own address, or a flood of traffic the router must think about, reaches its CPU, the same CPU that runs BGP. If it falls behind, sessions drop, and the whole network loses its routes. RFC 6192 gives the rule: decide what traffic the router itself needs, such as BGP from its neighbors and management from your own networks, and filter everything else that is addressed to it.
+Some floods reach the router's CPU, the same CPU that runs BGP. A flood aimed at the router's own address does, and so does a flood of traffic the router must think about. If the CPU falls behind, sessions drop, and the whole network loses its routes. RFC 6192 gives the rule. Decide what traffic the router itself needs, such as BGP from its neighbors and management from your own networks. Then filter everything else that is addressed to it.
 
-In Circuit, that is the input chain, with `default_action: "drop"`, as the [edge router example](/guide/examples#an-edge-router) writes it. Three more things help on RouterOS, all from what was found on a real router:
+In Circuit, that is the input chain, with `default_action: "drop"`, as the [edge router example](/guide/examples#an-edge-router) writes it. Three more things help on RouterOS, all found on a real router:
 
-- **Drop in the switch chip what you can recognise.** An ACL drop never reaches the CPU. A `rate` on a switch-chip rule did not limit traffic the CPU routes, so drop instead of limiting.
-- **Keep floods out of the <Term means="The list a stateful firewall keeps of every connection passing through it, so it can recognise replies and established traffic.">connection table</Term>.** The connection table of a CCR2216, the router the RouterOS adapter was proven on, has room for 1,048,576 entries, and a full table refuses every new connection through the router, not only the target's. A <Term means="A flood of TCP SYN packets, the first packet of a connection, from addresses that never finish the handshake, so the receiver keeps waiting on each.">SYN flood</Term> of 210,000 packets a second filled it in five seconds. Traffic to and from prefixes in `untracked` never enters it.
-- **Answer SYN floods with <Term means="A way to answer a TCP SYN without remembering it: the details are encoded in the reply, and checked only if the sender completes the handshake.">SYN cookies</Term>**, `system.ip_stack.syn_cookies`, so the router does not keep state for half-open connections to itself.
+- **Drop in the switch chip what you can recognize.** An ACL drop never reaches the CPU. A `rate` on a switch-chip rule didn't limit traffic the CPU routes, so drop instead of limiting.
+- **Keep floods out of the <Term means="The list a stateful firewall keeps of every connection passing through it, so it can recognize replies and established traffic.">connection table</Term>.** The connection table of a CCR2216, the router the RouterOS adapter was tested on, has room for 1,048,576 entries. A full table refuses every new connection through the router, not only the target's. A <Term means="A flood of TCP SYN packets, the first packet of a connection, from addresses that never finish the handshake, so the receiver keeps waiting on each.">SYN flood</Term> of 210,000 packets a second filled it in five seconds. Traffic to and from prefixes in `untracked` never enters it.
+- **Answer SYN floods with <Term means="A way to answer a TCP SYN without remembering it: the details are encoded in the reply, and checked only if the sender completes the handshake.">SYN cookies</Term>**, `system.ip_stack.syn_cookies`, so the router keeps no state for half-open connections to itself.
 
 ```ts
 system: { ip_stack: { syn_cookies: true } },
@@ -189,21 +201,21 @@ A forward chain that drops by default must also accept the state `untracked`, si
 
 ## Further reading
 
-- [RFC 2827, Network Ingress Filtering (BCP 38)](https://www.rfc-editor.org/rfc/rfc2827).
-- [RFC 3704, Ingress Filtering for Multihomed Networks (BCP 84)](https://www.rfc-editor.org/rfc/rfc3704): strict, feasible and loose uRPF.
-- [CISA, UDP-Based Amplification Attacks](https://www.cisa.gov/news-events/alerts/2014/01/17/udp-based-amplification-attacks): the amplification factors.
-- [GitHub, February 28th DDoS Incident Report](https://github.blog/2018-03-01-ddos-incident-report/).
-- [RFC 5635, Remote Triggered Black Hole Filtering with uRPF](https://www.rfc-editor.org/rfc/rfc5635).
-- [RFC 7999, BLACKHOLE Community](https://www.rfc-editor.org/rfc/rfc7999).
-- [RFC 8955, Dissemination of Flow Specification Rules](https://www.rfc-editor.org/rfc/rfc8955).
-- [RFC 6192, Protecting the Router Control Plane](https://www.rfc-editor.org/rfc/rfc6192).
-- [RFC 4861, Neighbor Discovery for IPv6](https://www.rfc-editor.org/rfc/rfc4861).
+- [RFC 2827](https://www.rfc-editor.org/rfc/rfc2827), network ingress filtering (BCP 38).
+- [RFC 3704](https://www.rfc-editor.org/rfc/rfc3704), ingress filtering for networks with several upstreams (BCP 84): strict, feasible, and loose uRPF.
+- [UDP-Based Amplification Attacks](https://www.cisa.gov/news-events/alerts/2014/01/17/udp-based-amplification-attacks), CISA: the amplification factors.
+- [DDoS incident report](https://github.blog/2018-03-01-ddos-incident-report/), GitHub, on the attack of February 28, 2018.
+- [RFC 5635](https://www.rfc-editor.org/rfc/rfc5635), remote triggered blackhole filtering with uRPF.
+- [RFC 7999](https://www.rfc-editor.org/rfc/rfc7999), the BLACKHOLE community.
+- [RFC 8955](https://www.rfc-editor.org/rfc/rfc8955), on flow specification rules.
+- [RFC 6192](https://www.rfc-editor.org/rfc/rfc6192), on protecting the router control plane.
+- [RFC 4861](https://www.rfc-editor.org/rfc/rfc4861), neighbor discovery for IPv6.
 - [MANRS implementation guide for network operators](https://manrs.org/netops/guide/), on anti-spoofing.
 
 ## In short
 
-- Spoofed sources let one attacker reflect and amplify a flood off thousands of servers. BCP 38 stops it in the sender's network: drop customer traffic from outside the customer's space, by uRPF or, in Circuit, an ACL on the customer port.
+- Spoofed sources let one attacker reflect and amplify a flood off thousands of servers. BCP 38 stops it in the sender's network. It drops customer traffic from outside the customer's space, by uRPF or, in Circuit, with an ACL on the customer port.
 - Inside one subnet, `bound_to` ties an access port to its hosts' MAC addresses and the addresses they send from.
-- A flood larger than your links must be dropped upstream. Blackholing announces the target's /32 with a community; every upstream that takes it drops the flood in its own network. The target becomes unreachable, and everyone else is saved.
-- In Circuit, the community scheme in `circuit.ts` says which community asks for a blackhole, each upstream that takes it writes its own `blackhole` community, and a customer's import may keep the request with `accept_requests: ["blackhole"]`. Circuit has no flowspec.
-- Protect the router's CPU: an input chain that ends in drop, ACL drops in the switch chip, `untracked` for customer space, and SYN cookies.
+- A flood larger than your links must be dropped upstream. Blackholing announces the target's /32 with a community, and every upstream that takes it drops the flood in its own network. The target becomes unreachable, and everyone else is saved.
+- In Circuit, the community scheme in `circuit.ts` says which community asks for a blackhole. Each upstream that takes it writes its own `blackhole` community, and a customer's import may keep the request with `accept_requests: ["blackhole"]`. Circuit has no flowspec.
+- Protect the router's CPU with an input chain that ends in drop, ACL drops in the switch chip, `untracked` for customer space, and SYN cookies.

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: running it day to day. The reader steps through one change to the colocation example, from the request to the commit, with what each command prints. Output is Circuit's own, run on the template; diff compares against the template's build, which stands in for the device, and commands that need a device show the command alone.
+// Lesson: running it day to day. The reader steps through one change to the colocation example, from the request to the check, with what each command prints. Output is Circuit's own, run on the example; diff compares against the example's own render, which stands in for the device, and commands that need a device show the command alone.
 
 type Step = { title: string; text: string; code: string; lang: "shell" | "text" | "ts"; file: string; highlight?: number[] };
 
@@ -8,9 +8,9 @@ const steps: Step[] = [
         title: "The request",
         file: "Ticket",
         lang: "text",
-        text: "Every change starts as a request someone can point to later: who asked, for what, and by when. Here a tenant wants a third server on the network.",
+        text: "Every change starts as a request someone can point to later: who asked, for what, and by when.",
         code: [
-            "From:     netflix",
+            "From:     Netflix",
             "Asks for: a port for a third server, server 3, rack A1",
             "Needs:    the same two networks as servers 1 and 2",
             "By:       Thursday",
@@ -20,7 +20,7 @@ const steps: Step[] = [
         title: "A branch of its own",
         file: "Terminal",
         lang: "shell",
-        text: "The change is made on a git branch, not on main, so nothing reaches a device until someone else has read it.",
+        text: "Make the change on a git branch, not on main, so nothing reaches a device until someone else has read it.",
         code: ["$ git switch -c netflix-server-3", "Switched to a new branch 'netflix-server-3'"].join("\n"),
     },
     {
@@ -45,14 +45,14 @@ const steps: Step[] = [
         title: "Validate",
         file: "Terminal",
         lang: "shell",
-        text: "validate checks every file and your own checks. An error here stops the change before anyone reviews it.",
+        text: "validate runs every check, your own included. An error here stops the change before anyone reviews it.",
         code: ["$ circuit validate", "✔ 2 device(s), no errors."].join("\n"),
     },
     {
         title: "Diff",
         file: "Terminal",
         lang: "shell",
-        text: "diff reads the switch and plans the change against what it runs now. One port stops being shut down and carries netflix's two VLANs. Paste this into the pull request.",
+        text: "diff reads the switch and plans the change against what it runs now. One port stops being shut down, and carries the two VLANs of Netflix. Paste this into the pull request.",
         code: [
             "$ circuit diff tor-01",
             "tor-01: 7 command(s) in 1 step(s)",
@@ -68,9 +68,9 @@ const steps: Step[] = [
         title: "A pull request",
         file: "Terminal",
         lang: "shell",
-        text: "Push the branch and open a pull request. Say what the change is for, link the request, and paste the plan, so the reviewer reads the network change and not only the file.",
+        text: "Push the branch and open a pull request. Link the request and paste the plan, so the reviewer reads the network change and not only the file.",
         code: [
-            '$ git commit -am "Give netflix a port for server 3"',
+            '$ git commit -am "Give Netflix a port for server 3"',
             "$ git push -u origin netflix-server-3",
             "$ gh pr create --base main",
         ].join("\n"),
@@ -84,7 +84,7 @@ const steps: Step[] = [
             "Does validate pass?                  yes",
             "Does the plan do only what was asked? yes: one port, 10GE1/0/3",
             "Does anything get removed?           only the port's shutdown",
-            "Who notices?                         netflix, whose server 3 comes up",
+            "Who notices?                         Netflix, whose server 3 comes up",
             "How is it undone?                    revert the commit and apply",
         ].join("\n"),
     },
@@ -92,14 +92,14 @@ const steps: Step[] = [
         title: "Apply, in the window",
         file: "Terminal",
         lang: "shell",
-        text: "Merge, then apply at the time agreed with whoever it touches. apply reads the switch again first: if its plan is longer than the diff, someone changed the switch by hand, so answer no and find out why.",
+        text: "Merge, then apply at the time agreed with whoever it touches. Compare the plan with the one in the pull request before you answer.",
         code: ["$ git switch main && git pull", "$ circuit apply tor-01", "◆  Send these changes to tor-01?  Yes"].join("\n"),
     },
     {
         title: "Check",
         file: "Terminal",
         lang: "shell",
-        text: "Watch the port come up in your monitoring, and ask netflix to confirm the server answers. diff now plans nothing: the switch runs what main says.",
+        text: "Watch the port come up in your monitoring, and ask Netflix to confirm the server answers. diff now plans nothing: the switch runs what main says.",
         code: ["$ circuit diff tor-01", "✔ tor-01 already matches its config."].join("\n"),
     },
 ];

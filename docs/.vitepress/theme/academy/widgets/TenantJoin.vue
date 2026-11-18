@@ -28,7 +28,7 @@ const decisions: Decision[] = [
                 id: "1001",
                 label: "1001 and 2001",
                 verdict: "bad",
-                text: "netflix already uses them. Both tenants would be on VLAN 1001, and their traffic would mix on it.",
+                text: "Netflix already uses them. Both tenants would be on VLAN 1001, and their traffic would mix on it.",
             },
         ],
     },
@@ -46,26 +46,26 @@ const decisions: Decision[] = [
                 id: "overlap",
                 label: GATEWAYS.overlap,
                 verdict: "bad",
-                text: "Its block, 198.51.100.12/30, lies inside netflix's 198.51.100.8/29. Two tenants would answer for the same addresses. Circuit does not know what a tenant is, so the example's own check, blocks_apart, catches it.",
+                text: "Its block, 198.51.100.12/30, lies inside 198.51.100.8/29, the block of Netflix. Two tenants would answer for the same addresses. Circuit doesn't know what a tenant is, so the example's own check, blocks_apart, catches it.",
             },
         ],
     },
     {
         id: "port",
-        question: "4. Its port on tor-01",
+        question: "3. Its port on tor-01",
         choices: [
             { id: "10g-3", label: "10g-3", verdict: "good", text: "No tenant's file lists 10g-3, so it is free." },
             {
                 id: "10g-1",
                 label: "10g-1",
                 verdict: "bad",
-                text: "netflix's file already gives 10g-1 to netflix server 1. Two files that write one port with two values stop Circuit, which names both files.",
+                text: "The file of Netflix already gives 10g-1 to its server 1. Two files that write one port with two values stop Circuit, which gives both files.",
             },
         ],
     },
     {
         id: "networks",
-        question: "5. What the port carries",
+        question: "4. What the port carries",
         choices: [
             {
                 id: "internet",
@@ -77,7 +77,7 @@ const decisions: Decision[] = [
                 id: "both",
                 label: "Public and private",
                 verdict: "good",
-                text: "Two tagged VLANs. The private one exists only on the switch, between akamai's own servers, and never reaches the router.",
+                text: "Two tagged VLANs. The private one exists only on the switch, between the servers of Akamai, and never reaches the router.",
             },
         ],
     },
@@ -169,7 +169,7 @@ const outcome = computed(() => {
     return {
         kind: "good",
         word: "Ready",
-        text: "The router gets akamai's VLAN and gateway, the switch gets the VLAN, the port, and the VLAN on its uplink. Nothing of netflix's changes.",
+        text: "The router gets the VLAN and gateway of Akamai. The switch gets the VLAN, the port, and the VLAN on its uplink. Nothing of Netflix changes.",
     };
 });
 </script>

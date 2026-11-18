@@ -57,7 +57,7 @@ const verdict = computed<Verdict | undefined>(() => {
                 reasons: [
                     tracking,
                     `${gigabits.value} Gbit/s is ${rate}, all of it through a CPU. Forward in a chip where most traffic passes, and track connections only for the traffic that needs it, on a CPU router or a firewall of its own.`,
-                    "The regional provider example does a small version of this: its edge routers forward in the chip, but keep the exchange interface on the CPU with hardware_offload: false, which is what makes the firewall apply to it.",
+                    "A small version of this: an edge router forwards in its chip, but keeps the exchange interface on the CPU with hardware_offload: false, so the firewall applies to that traffic.",
                 ],
             };
 
@@ -109,7 +109,7 @@ const verdict = computed<Verdict | undefined>(() => {
             word: "Fits",
             title: "A small router that forwards on its CPU",
             reasons: [
-                "A small table and 1 Gbit/s is the light end of the scale. Choose by ports, power and what you know how to run.",
+                "A small table and 1 Gbit/s is the light end of the scale. Choose by ports, power, and what you know how to run.",
                 `1 Gbit/s is ${rate}, which is the figure to check.`,
             ],
         };
