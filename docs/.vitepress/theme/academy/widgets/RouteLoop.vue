@@ -44,7 +44,7 @@ function decide(table: readonly Entry[], address: number): Entry | undefined {
 
 const destinations = [
     { address: "198.51.100.20", label: "198.51.100.20, the office server" },
-    { address: "198.51.100.200", label: "198.51.100.200, an address you have not used yet" },
+    { address: "198.51.100.200", label: "198.51.100.200, an address you don't use yet" },
 ];
 const destination = ref("198.51.100.200");
 
@@ -124,13 +124,13 @@ async function send() {
     } else if (end === "blackhole") {
         said.value = {
             kind: "bad",
-            text: `Your router dropped it at once: for an address nothing uses, the blackhole route 198.51.100.0/24 is the longest match. The packet crossed your link to the provider ${crossings} time${crossings === 1 ? "" : "s"}.`,
+            text: `Your router dropped it at once, because the blackhole route 198.51.100.0/24 is the longest match for an address nothing uses. The packet crossed your link to the provider ${crossings} time${crossings === 1 ? "" : "s"}.`,
         };
     } else {
         said.value = {
             kind: "bad",
             word: "Looped",
-            text: `The provider sends 198.51.100.200 to you, and your router has nothing longer than the default route for it, so it sends it back. It went back and forth ${crossings} times across your link to the provider until ${at === "yours" ? "your router" : "the provider"} lowered its TTL to 0 and dropped it.`,
+            text: `The provider sends 198.51.100.200 to you. Your router has nothing longer than the default route for it, so it sends it back. The packet crossed your link to the provider ${crossings} times, until ${at === "yours" ? "your router" : "the provider"} lowered its TTL to 0 and dropped it.`,
         };
     }
 
@@ -232,9 +232,10 @@ const cables: [Place, Place][] = [
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
-        <p v-else-if="busy" class="ac-say hint" aria-live="polite">On its way. Watch the TTL above the packet.</p>
+        <p v-else-if="busy" class="ac-say hint" aria-live="polite">Watch the TTL above the packet.</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            Send a packet to the address you have not used yet, with the blackhole route off. Then turn it on and send again.
+            Send a packet to the address you don't use yet, with the blackhole route off. Then turn the blackhole route on and send it
+            again. Send one to the office server too.
         </p>
     </div>
 </template>
