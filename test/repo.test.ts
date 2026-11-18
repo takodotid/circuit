@@ -16,8 +16,8 @@ const files = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-s
 const SET_ELSEWHERE = [".claude/skills/", ".github/", ".vale/", "docs/public/", "examples/", "test/fixtures/"];
 const setElsewhere = (path: string) => SET_ELSEWHERE.some((prefix) => `${path}/`.startsWith(prefix));
 
-/** Code still to follow the rules on code and comments: Studio's page and its tests, the website's theme, and the file test/studio imports by its name. */
-const NOT_YET = ["src/studio/app/", "test/studio/", "docs/.vitepress/", "src/studio/data.ts"];
+/** Code still to follow the rules on code and comments: Studio's page and its tests, and the website's theme. */
+const NOT_YET = ["src/studio/app/", "test/studio/", "docs/.vitepress/"];
 
 const read = (file: string) => readFileSync(join(root, file), "utf8");
 

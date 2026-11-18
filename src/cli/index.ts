@@ -366,8 +366,8 @@ class Cli {
             .description("what Studio shows of the project, as JSON: Studio runs it to read the project fresh")
             .argument("<folder>")
             .action(async (folder) => {
-                const { StudioModel } = await import("../studio/data");
-                process.stdout.write(JSON.stringify(await StudioModel.gather(folder)));
+                const { StudioDataReader } = await import("../studio/data");
+                process.stdout.write(JSON.stringify(await StudioDataReader.gather(folder)));
             });
 
         program

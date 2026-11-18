@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SecretsFile } from "../../src/core/secrets-file";
 import { STUDIO_ASSETS } from "../../src/studio/assets.generated";
-import { StudioModel } from "../../src/studio/data";
+import { StudioDataReader } from "../../src/studio/data";
 import { StudioServer } from "../../src/studio/server";
 import type { SecretsListing, StudioData } from "../../src/studio/types";
 import { SecretsCrypto } from "../../src/studio/app/src/lib/secrets-crypto";
@@ -41,7 +41,7 @@ beforeAll(async () => {
         port,
         host: "127.0.0.1",
         allowHosts: [],
-        gather: async (root) => JSON.stringify(await StudioModel.gather(root)),
+        gather: async (root) => JSON.stringify(await StudioDataReader.gather(root)),
     });
 });
 
