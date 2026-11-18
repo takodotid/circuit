@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: choosing the best route. The reader changes the local preference, origin and MED of four routes to one prefix, and watches which step of the order picks the winner.
+// Lesson: choosing the best route. The reader changes the local preference, origin, and MED of four routes to one prefix, and watches which step of the order picks the winner.
 
 import { computed, ref } from "vue";
 
@@ -159,7 +159,7 @@ const outcome = computed(() => {
     return { rows, winner: left[0]!, decidedAt };
 });
 
-/** A step's name inside a sentence: "Origin" becomes "origin", but "AS path length", "MED" and "eBGP or iBGP" keep their letters. */
+/** A step's name inside a sentence: "Origin" becomes "origin", but "AS path length", "MED", and "eBGP or iBGP" keep their letters. */
 const inSentence = (name: string) => (/^[A-Z][a-z]/.test(name) ? name[0]!.toLowerCase() + name.slice(1) : name);
 
 /** Where a route was dropped, in words. */

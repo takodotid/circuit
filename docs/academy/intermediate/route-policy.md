@@ -29,10 +29,10 @@ A rule without `then` changes the route and moves on to the next rule. The first
 
 A neighbor can send you routes it shouldn't. It may do so by mistake or on purpose. Four kinds should never reach your routing table:
 
-1. **Addresses that are not on the internet**: private ranges such as `10.0.0.0/8`, and <Term means="Addresses that can never be a real destination on the internet, such as 127.0.0.0/8, the device itself, or 169.254.0.0/16, used only on one link.">martians</Term>. Circuit's ready-made values list them as `presets.rfc1918` and `presets.bogons`.
+1. **Addresses that are not on the internet**: private ranges such as `10.0.0.0/8`, and <Term means="Addresses that can never be a real destination on the internet. For example, 127.0.0.0/8 means the device itself, and 169.254.0.0/16 is used only on one link.">martians</Term>. Circuit's ready-made values list them as `presets.rfc1918` and `presets.bogons`.
 2. **Prefixes too long or too short.** Most networks accept nothing longer than a /24 for IPv4, or a /48 for IPv6. So a longer prefix wouldn't travel far, and it only makes every table bigger. Nothing shorter than a /8 or a /16 is a real network either.
 3. **Your own prefixes, coming back.** You already know where your own space is. A neighbor that announces it means that someone else claims it. It may be a mistake or an attempt to steal its traffic.
-4. **Routes that RPKI marks invalid.** With <Term means="Signed records of which AS may announce a prefix; a ROA is one such record.">RPKI</Term>, a validator compares each route with the published records. A route is `valid` if a record allows it, `invalid` if one contradicts it, and `not-found` if there is none. Your validators go in `routing.rpki`.
+4. **Routes that RPKI marks invalid.** With <Term means="Resource Public Key Infrastructure: the holder of a prefix publishes a signed record, a ROA, that says which AS may announce it. Routers check each route against those records.">RPKI</Term>, a validator compares each route with the published records. A route is `valid` if a record allows it, `invalid` if one contradicts it, and `not-found` if there is none. Your validators go in `routing.rpki`.
 
 `presets.bgp_sanity` holds the rules for the second and the fourth. The first and the third need a `prefix_set` each, a named list of prefixes. A route matches a set when its prefix is one of the set's own, or inside one:
 
@@ -88,7 +88,7 @@ export: [
 ],
 ```
 
-If you announce more than that, you cause a <Term means="Announcing a prefix that is not yours; passing routes on to networks that should not get them.">route leak</Term>. A small network suddenly becomes the way between two large ones, and its links can't carry that.
+If you announce more than that, you cause a <Term means="Routes learned from one provider or peer, announced to another, so traffic between two other networks starts to flow through yours.">route leak</Term>. A small network suddenly becomes the way between two large ones, and its links can't carry that.
 
 <TryIt title="Announce too much, and see what happens">
 
@@ -116,7 +116,7 @@ Three things guard against a leak, and the example uses all of them:
 
 ## Communities: tags on routes
 
-A <Term means="A tag on a route. A router can add it on import and match on it later, or a neighbor can add it to ask you for something.">BGP community</Term> is a tag that a route carries. The example uses large communities. Each one is three numbers: your AS, a function, and a parameter, such as `64500:1:1`.
+A <Term means="A tag on a route. Your router can add it when a route comes in and match on it later, or a neighbor can add it to ask you to do something with the route.">BGP community</Term> is a tag that a route carries. The example uses large communities. Each one is three numbers: your AS, a function, and a parameter, such as `64500:1:1`.
 
 The example's `circuit.ts` says what its communities mean, in `communities`, as [BGP communities](/guide/communities) explains. Then `{ communities: "import" }` in the import does two things to each route:
 

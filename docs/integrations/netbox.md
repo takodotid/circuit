@@ -56,7 +56,7 @@ In `circuit.ts`:
 export const as64500 = circuit({
     asn: 64500,
     sites: {
-        "dc-1": { description: "The data centre" },
+        "dc-1": { description: "The data center" },
     },
     integrations: {
         netbox: { url: "https://netbox.example.com", api_token: secret("NETBOX_API_TOKEN") },

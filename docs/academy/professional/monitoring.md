@@ -17,7 +17,7 @@ Circuit doesn't watch anything itself. It writes the part of each device's confi
 
 ## Counters: how much
 
-Every router and switch keeps counters for each port, such as bytes in, bytes out, packets, and errors. A monitoring server reads them with <Term means="The protocol for reading counters from a device, and the early tool that drew traffic graphs from them.">SNMP</Term>. The device runs a small SNMP <Term means="The part of a device that answers SNMP questions about it.">agent</Term>. The monitoring server, the manager, asks it for named values from a <Term means="Management Information Base: the catalog of everything a device can be asked over SNMP, each value with its own name and number.">MIB</Term>. Asking again and again on a timer is called <Term means="Asking a device for a value at a fixed interval, such as every five minutes.">polling</Term>.
+Every router and switch keeps counters for each port, such as bytes in, bytes out, packets, and errors. A monitoring server reads them with <Term means="Simple Network Management Protocol: how a monitoring server asks a device for its counters and settings. The device answers, and the server keeps the history.">SNMP</Term>. The device runs a small SNMP <Term means="The part of a device that answers SNMP requests about it.">agent</Term>. The monitoring server, the manager, asks it for named values from a <Term means="Management Information Base: the catalog of everything a device can be asked over SNMP, each value with its own name and number.">MIB</Term>. Asking again and again on a timer is called <Term means="Asking a device for a value at a fixed interval, such as every five minutes.">polling</Term>.
 
 The value for traffic is a port's byte counter, `ifInOctets` for bytes received. It only ever goes up, so one reading says nothing. The counter has counted since the device started, and the standard itself says a single value has no meaning. Two readings do. The traffic between them is:
 
@@ -45,7 +45,7 @@ That is why the standard for these counters requires the 64-bit ones, `ifHCInOct
 
 ## Graphs from the counters
 
-The tool that made this common was <Term means="The protocol for reading counters from a device, and the early tool that drew traffic graphs from them.">MRTG</Term>, the Multi Router Traffic Grapher. It began in 1994 as a quick way to graph a single 64 kbit/s line, and was first released in 1995. It polls every five minutes by default, and draws a graph for the day, the week, the month, and the year.
+The tool that made this common was <Term means="A program from the 1990s that reads traffic counters over SNMP and draws graphs of them on web pages.">MRTG</Term>, the Multi Router Traffic Grapher. It began in 1994 as a quick way to graph a single 64 kbit/s line, and was first released in 1995. It polls every five minutes by default, and draws a graph for the day, the week, the month, and the year.
 
 Today two kinds of tool do the same job, with more around it:
 
@@ -56,7 +56,7 @@ The interval is the detail you get. A five-minute point is an average. A flood t
 
 ### In Circuit
 
-SNMP goes under `monitoring`. Give it a version 3 user, which signs and encrypts every message. Don't use a version 2c <Term means="The shared password of SNMP versions 1 and 2c, sent with every request in plain text.">community</Term>, which the standard calls insecure. Allow only the monitoring server:
+SNMP goes under `monitoring`. Give it a version 3 user, which signs and encrypts every message. Don't use a version 2c <Term means="The shared password of SNMP versions 1 and 2c, sent in plain text with every request.">community</Term>, which the standard calls insecure. Allow only the monitoring server:
 
 ```ts
 management: { allow: ["10.0.0.0/24"], ssh: {} },
@@ -84,7 +84,7 @@ This works on `edge-01`, the RouterOS router of the [colocation example](/guide/
 
 ## Flow records: who sends what
 
-A counter says that the transit port is full. It doesn't say who is filling it. For that, the router describes the traffic itself. A <Term means="A run of packets with the same source and destination addresses, ports, and protocol, seen passing a device over some time.">flow</Term> is a run of packets that share their addresses, ports, and protocol. A flow record says how many packets and bytes the flow had. The router sends its records to a <Term means="A server that receives flow records or packet samples from devices, stores them, and answers questions such as who sent the most.">collector</Term>. The collector can then answer "who sent the most to this address in the last five minutes?"
+A counter says that the transit port is full. It doesn't say who is filling it. For that, the router describes the traffic itself. A <Term means="The packets of one conversation, such as one download: the same source and destination addresses, ports, and protocol.">flow</Term> is a run of packets that share their addresses, ports, and protocol. A flow record says how many packets and bytes the flow had. The router sends its records to a <Term means="A server that receives flow records or packet samples from devices, stores them, and answers questions such as who sent the most.">collector</Term>. The collector can then answer "who sent the most to this address in the last five minutes?"
 
 Three formats do this, each described in an <Term means="Request for Comments: the numbered documents that publish internet standards and common practice.">RFC</Term>:
 
@@ -115,7 +115,7 @@ Each platform exports only some formats. [Platforms](/reference/platforms) lists
 
 ## Logs: what the device noticed
 
-Devices also write messages about themselves, such as a port that went down, a BGP session that closed, or someone who failed to log in. They send them to a <Term means="A server that receives log messages from many devices over the network and keeps them in one place.">syslog</Term> server, each with a severity from 0, emergency, to 7, debug. Keep the warnings and worse:
+Devices also write messages about themselves, such as a port that went down, a BGP session that closed, or someone who failed to log in. They send them to a <Term means="The standard way for devices to send log messages over the network to a server, which keeps them in one place.">syslog</Term> server, each with a severity from 0, emergency, to 7, debug. Keep the warnings and worse:
 
 ```ts
 // In monitoring
@@ -126,7 +126,7 @@ This sends every message from `warning` up to the server, through `error`, `crit
 
 ## Alert on what matters
 
-A graph is only useful while someone looks at it. An <Term means="A rule that sends a message to a person, by phone, chat, or pager, when something measured crosses a line.">alert</Term> watches for you. A <Term means="An alert urgent enough to interrupt someone, at any hour, who is on call to answer it.">page</Term> is an alert urgent enough to wake the person on call.
+A graph is only useful while someone looks at it. An <Term means="A rule that sends a message to a person, by phone, chat, or pager, when something measured crosses a limit.">alert</Term> watches for you. A <Term means="An alert urgent enough to interrupt someone, at any hour, who is on call to answer it.">page</Term> is an alert urgent enough to wake the person on call.
 
 <TryIt title="Find the incident, then set the alert">
 

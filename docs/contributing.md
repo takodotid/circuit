@@ -4,7 +4,7 @@ description: "How to report a bug, ask a question, or fix and add to these docs 
 
 # Contributing
 
-Everyone in issues, pull requests and Discussions follows the [Code of Conduct](https://github.com/takodotid/circuit/blob/main/CODE_OF_CONDUCT.md).
+Everyone in issues, pull requests, and Discussions follows the [Code of Conduct](https://github.com/takodotid/circuit/blob/main/CODE_OF_CONDUCT.md).
 
 | You want to                                  | Go to                                                                                                   |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------- |

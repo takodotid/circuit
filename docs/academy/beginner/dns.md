@@ -5,7 +5,7 @@ description: DNS turns a name like circuit.tako.id into an IP address. Step thro
 
 # Names and numbers: DNS
 
-People use names, such as `circuit.tako.id`. Networks deliver packets only to IP addresses, such as `203.0.113.80`. <Term means="The system that turns a name such as circuit.tako.id into an IP address.">DNS</Term>, the Domain Name System, turns the name into the address.
+People use names, such as `circuit.tako.id`. Networks deliver packets only to IP addresses, such as `203.0.113.80`. <Term means="Domain Name System: the system that turns a name such as circuit.tako.id into the IP address it stands for.">DNS</Term>, the Domain Name System, turns the name into the address.
 
 ::: info The addresses in this lesson
 The addresses here are examples. A real lookup of `circuit.tako.id` gives a different address.
@@ -21,17 +21,17 @@ DNS works like the contacts on your phone: you tap a name, and the phone dials t
 
 You read a name from right to left, from the most general part to the most exact:
 
-| Part              | What it is                                                                                                                                                  |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`              | The top of the name. `.id` is the ending for Indonesia. Others are `.com`, `.org`, and `.uk`.                                                               |
-| `tako.id`         | A <Term means="A name someone has registered, such as tako.id. Its owner decides which names exist under it.">domain</Term>, a name someone has registered. |
-| `circuit.tako.id` | One name inside that domain, chosen by the domain's owner.                                                                                                  |
+| Part              | What it is                                                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`              | The top of the name. `.id` is the ending for Indonesia. Others are `.com`, `.org`, and `.uk`.                                                              |
+| `tako.id`         | A <Term means="A name someone has registered, such as tako.id. Its owner decides what names exist under it.">domain</Term>, a name someone has registered. |
+| `circuit.tako.id` | One name inside that domain, chosen by the domain's owner.                                                                                                 |
 
 At the very top is the root, the starting point of every name on the internet. Each level knows only the level just under it. The root knows who looks after `.id`. The `.id` servers know who looks after `tako.id`. The `tako.id` servers know the names inside it.
 
 ## A lookup, step by step
 
-Your device does not ask all of these servers itself. It asks a <Term means="A server that looks up names for you: it asks the other DNS servers, and remembers their answers.">resolver</Term>, a server that does the asking for it. Your internet provider usually runs one. Your device learns the address of the resolver when it joins a network. It gets its own address and gateway at the same time. The resolver knows where the root servers are from the start. There is a small, fixed set of them, each copied to many places around the world.
+Your device does not ask all of these servers itself. It asks a <Term means="A server that looks up names for you. It asks the other DNS servers, and remembers their answers.">resolver</Term>, a server that does the asking for it. Your internet provider usually runs one. Your device learns the address of the resolver when it joins a network. It gets its own address and gateway at the same time. The resolver knows where the root servers are from the start. There is a small, fixed set of them, each copied to many places around the world.
 
 <TryIt title="Look up circuit.tako.id">
 
@@ -53,7 +53,7 @@ Each server knows only its own part and where to go next, like each router knows
 
 ## Remembering answers
 
-Four questions for every name would be slow, and the root and `.id` servers would get the same questions all day. So every answer comes with a number of seconds that it may be remembered for. This number is the answer's <Term means="A counter on a packet that each router lowers by one, so a lost packet cannot loop forever. DNS uses the word too, for how long an answer may be remembered.">TTL</Term>, or time to live. The resolver and your laptop each keep the answer until that time runs out. Until then, they answer from memory.
+Four questions for every name would be slow, and the root and `.id` servers would get the same questions all day. So every answer comes with a number of seconds that it may be remembered for. This number is the answer's <Term means="Time to live in DNS: how many seconds an answer may be remembered before it must be asked for again.">TTL</Term>, or time to live. The resolver and your laptop each keep the answer until that time runs out. Until then, they answer from memory.
 
 TTL also means the counter on a packet from [Routers and the gateway](/academy/beginner/routers). Both say how long something may live.
 

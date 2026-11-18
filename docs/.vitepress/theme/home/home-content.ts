@@ -1,4 +1,4 @@
-// What the home page lists below its opening: the steps of a change, the example projects, the platforms, the Academy's levels and the networks that run Circuit.
+// What the home page lists below its opening: the steps of a change, the example projects, the platforms, the Academy's levels, and the networks that run Circuit.
 
 import circuit from "../../../../package.json";
 import { MODELS } from "../../../../src/config/models";
@@ -39,7 +39,7 @@ export class HomeContent {
             name: "A single site",
             id: "single-site",
             anchor: "a-single-site",
-            text: "A home, an office or an internal network. A router and a switch, no BGP.",
+            text: "A home, an office, or an internal network. A router and a switch, no BGP.",
         },
         {
             name: "An edge router",
@@ -51,7 +51,7 @@ export class HomeContent {
             name: "Colocation with tenants",
             id: "colocation",
             anchor: "colocation-with-tenants",
-            text: "Customers who each get their own VLANs, addresses and ports.",
+            text: "Customers who each get their own VLANs, addresses, and ports.",
         },
         {
             name: "An internet exchange",

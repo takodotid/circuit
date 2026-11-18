@@ -37,7 +37,7 @@ const lit = ref<Id[]>([]);
 const said = ref<{ kind: "good" | "warn"; word: string; text: string }>();
 const busy = ref(false);
 
-const { position, travelling, travel } = useTravel(320);
+const { position, traveling, travel } = useTravel(320);
 const shown = ref<"ask" | "answer" | "frame">();
 
 /** The devices on the laptop's own network, each with a cable to the switch. */
@@ -142,7 +142,7 @@ function forget() {
                 :lit="lit.includes(id)"
             />
 
-            <g v-if="travelling" :transform="`translate(${position[0]} ${position[1]})`">
+            <g v-if="traveling" :transform="`translate(${position[0]} ${position[1]})`">
                 <circle class="packet" :class="shown" r="10" />
                 <text class="bubble" y="-16" text-anchor="middle">
                     {{ shown === "ask" ? "who has?" : shown === "answer" ? "it's me" : "frame" }}

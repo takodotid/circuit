@@ -224,7 +224,7 @@ async function send() {
             />
 
             <template v-for="(runner, index) in runners" :key="index">
-                <circle v-if="runner.travelling.value" class="packet" :cx="runner.position.value[0]" :cy="runner.position.value[1]" r="8" />
+                <circle v-if="runner.traveling.value" class="packet" :cx="runner.position.value[0]" :cy="runner.position.value[1]" r="8" />
             </template>
         </svg>
 

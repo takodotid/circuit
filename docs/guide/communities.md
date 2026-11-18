@@ -99,7 +99,7 @@ policies: {
 `{ communities: "import" }`:
 
 - Removes every request and every tag of yours that the neighbor sent. `accept_requests` lets some requests through.
-- Adds your tags: the neighbor's groups, the device's site and the neighbor's AS.
+- Adds your tags: the neighbor's groups, the device's site, and the neighbor's AS.
 - With `add_tags: false`, routes keep the tags they came with, and Circuit adds none. Use it for iBGP.
 
 `{ communities: "export" }`:

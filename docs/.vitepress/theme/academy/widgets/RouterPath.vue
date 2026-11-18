@@ -439,8 +439,8 @@ async function finishDirect(from: NodeId, address: number, network: string, pref
                 {{ tag.text }}
             </text>
 
-            <circle v-if="walk.travelling.value" class="packet" :cx="walk.position.value[0]" :cy="walk.position.value[1]" r="9" />
-            <circle v-if="rush.travelling.value" class="packet" :cx="rush.position.value[0]" :cy="rush.position.value[1]" r="9" />
+            <circle v-if="walk.traveling.value" class="packet" :cx="walk.position.value[0]" :cy="walk.position.value[1]" r="9" />
+            <circle v-if="rush.traveling.value" class="packet" :cx="rush.position.value[0]" :cy="rush.position.value[1]" r="9" />
         </svg>
 
         <p class="laptop">

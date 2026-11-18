@@ -15,20 +15,20 @@ An internet provider sells everyone the same thing, a way to the rest of the int
 
 Homes and many small shops buy broadband. Three things set it apart.
 
-**It is shared.** The homes on a street share the provider's capacity, from the splitter of a [GPON tree](/academy/professional/last-mile) up to the provider's links to the internet. The provider sells more than it has, because homes are rarely all busy at once. How much more is the <Term means="How much capacity is sold, compared with how much there is to share. 40 homes sold 100 Mbit/s each on a 1,000 Mbit/s link is a contention ratio of 4 to 1.">contention ratio</Term>. When many homes are busy, as in the evening, each gets less.
+**It is shared.** The homes on a street share the provider's capacity, from the splitter of a [GPON tree](/academy/professional/last-mile) up to the provider's links to the internet. The provider sells more than it has, because homes are rarely all busy at once. How much more is the <Term means="How much capacity is sold, compared with how much there is to share. Selling 40 homes 100 Mbit/s each on a 1,000 Mbit/s link is a contention ratio of 4 to 1.">contention ratio</Term>. When many homes are busy, as in the evening, each gets less.
 
 **It is best effort.** A plan of "up to 100 Mbit/s" is the most a home gets, not a promise. The provider does its best, and commits to no rate.
 
-**It sits behind the provider's gateway.** Often the home router logs in with a username and password over <Term means="PPP over Ethernet, RFC 2516: a session from the customer's router to the provider's gateway, which carries a login and hands out the address.">PPPoE</Term>. The session ends at the provider's <Term means="Broadband network gateway: the provider's router where home sessions end. It checks the login, gives the address, and applies the plan's speed. Older networks call it a BRAS.">BNG</Term>, the broadband network gateway. The BNG checks the login, hands out the address, and keeps the home to its plan's speed. Some providers use plain DHCP instead of PPPoE, and the BNG does the same job.
+**It sits behind the provider's gateway.** Often the home router logs in with a username and password over <Term means="PPP over Ethernet, RFC 2516: a session from the customer's router to the provider's gateway that carries a login and hands out the address.">PPPoE</Term>. The session ends at the provider's <Term means="Broadband network gateway: the provider's router where home sessions end. It checks the login, gives the address, and applies the plan's speed. Older networks call it a BRAS.">BNG</Term>, the broadband network gateway. The BNG checks the login, hands out the address, and keeps the home to its plan's speed. Some providers use plain DHCP instead of PPPoE, and the BNG does the same job.
 
-The address a home gets is often not a public one. With <Term means="Rewriting addresses so many devices share one public address; CGNAT does it inside the provider, for many customers.">CGNAT</Term>, the provider runs NAT for many customers at once, so they share public IPv4 addresses. It is the same idea as the devices in a home sharing one address, from [Sharing one address](/academy/elementary/nat). If your router's internet address is between 100.64 and 100.127, it is behind CGNAT. That range, `100.64.0.0/10`, is set aside for it. Nobody outside can reach a camera or a game server in that home directly, because the public address isn't the home's alone.
+The address a home gets is often not a public one. With <Term means="Carrier-grade NAT: NAT run by the provider, so many customers share one public IPv4 address.">CGNAT</Term>, the provider runs NAT for many customers at once, so they share public IPv4 addresses. It is the same idea as the devices in a home sharing one address, from [Sharing one address](/academy/elementary/nat). If your router's internet address is between 100.64 and 100.127, it is behind CGNAT. That range, `100.64.0.0/10`, is set aside for it. Nobody outside can reach a camera or a game server in that home directly, because the public address isn't the home's alone.
 
 ## DIA: a committed rate
 
-A business that needs to count on its connection buys <Term means="Dedicated internet access: a business connection with a committed rate and a service level agreement.">DIA</Term>, dedicated internet access. The difference is in what the contract promises:
+A business that needs to count on its connection buys <Term means="Dedicated internet access: business internet with a committed rate, usually the same in both directions, and a service level agreement.">DIA</Term>, dedicated internet access. The difference is in what the contract promises:
 
-- **A committed rate.** If the contract says 100 Mbit/s, the provider plans its network so that 100 Mbit/s is there at every hour. This is the <Term means="Committed information rate: the bandwidth a provider guarantees, as opposed to what you may burst to.">CIR</Term>, the committed information rate. It is usually the same in both directions, while broadband often uploads far slower than it downloads.
-- **A service level agreement.** The <Term means="Service level agreement: what the provider promises, such as uptime and repair time, and what it owes if it misses.">SLA</Term> promises how many hours a year the service may be down, and how fast a fault is fixed. It also says what the provider owes, such as a refund, when it misses.
+- **A committed rate.** If the contract says 100 Mbit/s, the provider plans its network so that 100 Mbit/s is there at every hour. This is the <Term means="Committed information rate: the rate a provider guarantees, as opposed to the rate a customer may burst to when there is room.">CIR</Term>, the committed information rate. It is usually the same in both directions, while broadband often uploads far slower than it downloads.
+- **A service level agreement.** The <Term means="Service level agreement: what the provider promises in the contract, such as uptime and repair time, and what it owes if it misses.">SLA</Term> promises how many hours a year the service may be down, and how fast a fault is fixed. It also says what the provider owes, such as a refund, when it misses.
 - **Fixed public addresses.** The customer gets a block from the provider's own space, routed to it. If the customer moves to another provider, the addresses stay behind.
 
 DIA usually comes over a [fiber of its own](/academy/professional/last-mile#a-fiber-of-its-own). Some providers sell "business" plans that are broadband underneath with a business contract on top. Read what the contract commits to before you call it DIA.
@@ -51,7 +51,7 @@ The business pays more so that its 100 Mbit/s is kept aside. Real contention rat
 
 ## IP transit: selling to other networks
 
-<Term means="A connection to the whole internet sold to another network, which brings its own AS number and addresses.">IP transit</Term> is sold to networks, such as smaller internet providers, hosting companies, and content networks. The customer has its own AS number and its own addresses, as your network did in [Project: an edge router](/academy/intermediate/project-edge-router). Three things change from DIA:
+<Term means="A connection to the whole internet, sold to another network that brings its own AS number and addresses and runs BGP with the provider. Often just called transit.">IP transit</Term> is sold to networks, such as smaller internet providers, hosting companies, and content networks. The customer has its own AS number and its own addresses, as your network did in [Project: an edge router](/academy/intermediate/project-edge-router). Three things change from DIA:
 
 - **The customer runs BGP with the provider.** It announces its own prefixes, and the provider passes them on to the rest of the internet.
 - **The provider sends routes back.** It sends either the full table (every route it knows) or only a default route, as the customer asks.
@@ -61,7 +61,7 @@ To the provider, the customer is a downstream, a network that buys transit from 
 
 ## IX transit: only what the exchange has
 
-Many of the networks people use most, such as content networks and cloud providers, are at the internet exchanges. A provider at those exchanges can sell <Term means="Only the routes learned at internet exchanges, sold more cheaply than full transit.">IX transit</Term>. It carries the routes the provider learns there, and its own customers' routes, but not the routes from its own transit providers.
+Many of the networks people use most, such as content networks and cloud providers, are at the internet exchanges. A provider at those exchanges can sell <Term means="Only the routes a provider learns at internet exchanges, plus its own customers' routes, sold to another network for less than full transit. It is one kind of partial transit.">IX transit</Term>. It carries the routes the provider learns there, and its own customers' routes, but not the routes from its own transit providers.
 
 The buyer gets the exchange's networks without joining the exchange. It needs no port at the exchange, no rack in its building, and no session with each member. It still needs ordinary transit for the rest of the internet. So IX transit is bought beside full transit, for the traffic to the exchange's networks.
 
@@ -74,7 +74,7 @@ The buyer gets the exchange's networks without joining the exchange. It needs no
 
 ## How transit is billed
 
-Transit is often sold with a <Term means="The rate a customer agrees to pay for every month, whether it uses it or not.">commit</Term>. The customer agrees to pay for, say, 200 Mbit/s every month, on a port that can carry far more. Traffic over the commit is <Term means="Traffic over the commit, which the port allows and the contract bills at its burst rate.">burst</Term>, billed at the burst rate in the contract. To measure the burst, providers usually bill the **ninety-fifth percentile**:
+Transit is often sold with a <Term means="The rate a customer agrees to pay for every month, even when it uses less.">commit</Term>. The customer agrees to pay for, say, 200 Mbit/s every month, on a port that can carry far more. Traffic over the commit is <Term means="Traffic over the commit. The port allows it, and the contract bills it at its burst rate.">burst</Term>, billed at the burst rate in the contract. To measure the burst, providers usually bill the **95th percentile**:
 
 1. Every five minutes, the provider records the port's average rate over those five minutes. A 30-day month has 8,640 samples.
 2. At the end of the month, the samples are sorted from the busiest down.
@@ -141,4 +141,4 @@ You also announce the IX transit customer's prefixes only at the exchange, not t
 - Broadband is shared and best effort, "up to" a speed. It sits behind the provider's BNG, often over PPPoE, and often behind CGNAT.
 - DIA commits to a rate, usually the same both ways. It comes with an SLA and fixed addresses from the provider.
 - IP transit is sold to networks with their own AS and addresses, over BGP. IX transit sells only the routes from the exchanges and the provider's customers.
-- Transit is often billed by a commit and the ninety-fifth percentile. Sort a month of five-minute samples, throw away the busiest 5 percent, and bill the highest one left.
+- Transit is often billed by a commit and the 95th percentile. Sort a month of five-minute samples, throw away the busiest 5 percent, and bill the highest one left.

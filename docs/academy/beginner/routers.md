@@ -16,7 +16,7 @@ Each time a device sends a packet, it first compares the destination's network p
 
 ## The default gateway
 
-The <Term means="The router a device sends everything for other networks to.">default gateway</Term> is the router on your own network: the one way out. A device gets the gateway's address together with its own address when it joins the network. At home, the gateway is the home router, often at an address such as `192.168.1.1`.
+The <Term means="The router on your own network that a device sends every packet for other networks to.">default gateway</Term> is the router on your own network: the one way out. A device gets the gateway's address together with its own address when it joins the network. At home, the gateway is the home router, often at an address such as `192.168.1.1`.
 
 Think of a building with a mail room. You take a note for a colleague on your floor to them yourself. Every letter for anywhere else goes to the mail room. But the mail room does not carry your letter all the way. It passes the letter to the next sorting office, which passes it on again. Routers work the same way.
 
@@ -40,7 +40,7 @@ To reach its gateway, the laptop puts the packet in a frame for the main router'
 
 ## Finding a hardware address with ARP
 
-A frame needs the receiver's hardware address, but a device usually knows only the receiver's IP address. It finds the hardware address with <Term means="How a device finds the hardware address behind an IP address on its own network, by asking everyone with a broadcast.">ARP</Term>, the broadcast question from [Switches](/academy/beginner/switches): "who has 192.168.1.30?". Only the device with that address answers. The asker keeps the answer in its <Term means="The list a device keeps of the hardware address behind each IP address on its own network, so it does not have to ask every time. It forgets old rows after a while.">ARP table</Term> for a while, so the next frame goes out at once.
+A frame needs the receiver's hardware address, but a device usually knows only the receiver's IP address. It finds the hardware address with <Term means="Address Resolution Protocol: how a device finds the hardware address that belongs to an IP address on its own network. It asks every device at once, with a broadcast.">ARP</Term>, the broadcast question from [Switches](/academy/beginner/switches): "who has 192.168.1.30?". Only the device with that address answers. The asker keeps the answer in its <Term means="The list a device keeps of the hardware address behind each IP address on its own network, so it does not have to ask every time. Old entries are forgotten after a while.">ARP table</Term> for a while, so the next frame goes out at once.
 
 A device asks only on its own network. For a far address, it does not ask for the far device at all. It asks for its gateway's hardware address and sends the frame there.
 
@@ -60,7 +60,7 @@ A device asks only on its own network. For a far address, it does not ask for th
 
 ## The routing table
 
-A router's <Term means="The list of prefixes a router knows, and where to send traffic for each.">routing table</Term> is a list of networks. For each network, it says where to send a packet for it. There are two kinds of answer:
+A router's <Term means="The list a router keeps of the networks it can reach, and where to send a packet for each.">routing table</Term> is a list of networks. For each network, it says where to send a packet for it. There are two kinds of answer:
 
 | Send to                       | Means                                                                                                 |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -85,7 +85,7 @@ A packet from your home to a website far away may take ten or twenty hops. Every
 
 People write routing tables, and people make mistakes. Say one router sends a packet to a second router, and the second sends it back to the first. The packet goes round and round. Without something to stop it, it would circle forever and keep the cable busy.
 
-So every packet carries a number called the <Term means="A counter on a packet that each router lowers by one, so a lost packet cannot loop forever. DNS uses the word too, for how long an answer may be remembered.">TTL</Term>, short for time to live. Most devices start it at 64 or 128. Every router that passes the packet on lowers it by one. A router that lowers it to 0 drops the packet instead of passing it on.
+So every packet carries a number called the <Term means="Time to live: a counter in every IP packet that each router lowers by one. At zero the packet is dropped, so it cannot loop forever.">TTL</Term>, short for time to live. Most devices start it at 64 or 128. Every router that passes the packet on lowers it by one. A router that lowers it to 0 drops the packet instead of passing it on.
 
 In the next drawing, the main router still has a row for a reading room in the library that closed last year. The library router no longer knows that network. So it sends anything for it back to the main router, which sends it to the library again.
 
@@ -99,7 +99,7 @@ The TTL does not fix the mistake. The packet is still lost, and the old row stay
 
 ## Notes from the network
 
-A router that drops a packet usually sends a short note back to the sender, saying why. These notes are called <Term means="Short messages about delivery itself, such as a ping and its reply, or a router saying a packet's TTL ran out.">ICMP</Term>. They carry no data of their own. They say what happened to other packets on the way. Two common tools are built on ICMP: **ping** and **traceroute**, which Windows calls `tracert`.
+A router that drops a packet usually sends a short note back to the sender, saying why. These notes are called <Term means="Internet Control Message Protocol: short messages about delivery itself, such as a ping and its reply, or a router saying that a packet's TTL ran out.">ICMP</Term>. They carry no data of their own. They say what happened to other packets on the way. Two common tools are built on ICMP: **ping** and **traceroute**, which Windows calls `tracert`.
 
 <TryIt title="Ping, then trace the way">
 
@@ -109,7 +109,7 @@ A router that drops a packet usually sends a short note back to the sender, sayi
 
 **ping** sends an ICMP echo request, and the device answers with an echo reply. Each reply line says how long the round trip took, in ms (thousandths of a second). It also says the TTL the reply had left when it arrived.
 
-No reply says less than it seems. `Request timed out.` only means that no answer came back. The device may be off, or nobody may have the address. Or a <Term means="Rules, read from the top, that decide which traffic may pass.">firewall</Term> on the device may throw echo requests away.
+No reply says less than it seems. `Request timed out.` only means that no answer came back. The device may be off, or nobody may have the address. Or a <Term means="A filter on a router that checks each packet against its rules, read from the top, and lets the packet pass or drops it.">firewall</Term> on the device may throw echo requests away.
 
 **traceroute** finds the routers on the way by letting the TTL run out on purpose:
 

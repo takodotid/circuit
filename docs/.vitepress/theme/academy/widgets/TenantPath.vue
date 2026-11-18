@@ -60,7 +60,7 @@ const trips: Trip[] = [
 
 const chosen = ref<Trip>();
 const said = ref<{ kind: "good" | "bad"; text: string }>();
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 
 const litCables = computed(() => {
     const path = chosen.value?.path ?? [];
@@ -118,7 +118,7 @@ async function send(trip: Trip) {
                 :lit="chosen?.path.includes(place.id)"
             />
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="options">
@@ -128,7 +128,7 @@ async function send(trip: Trip) {
                 type="button"
                 class="ac-button"
                 :aria-pressed="chosen?.id === trip.id"
-                :disabled="travelling"
+                :disabled="traveling"
                 @click="send(trip)"
             >
                 {{ trip.label }}
@@ -137,7 +137,7 @@ async function send(trip: Trip) {
 
         <p v-if="said" class="ac-say" :class="said.kind" aria-live="polite">{{ said.text }}</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            {{ travelling ? "On its way..." : "Pick a packet to send." }}
+            {{ traveling ? "On its way..." : "Pick a packet to send." }}
         </p>
     </div>
 </template>

@@ -49,7 +49,7 @@ const sessionText = computed(() => {
     return `The iBGP session runs between the link's own addresses, and R2's address on the link can no longer be reached. The session goes down at the latest when the ${HOLD_TIME} s hold time runs out, and every route learned through it is withdrawn, to be sent again when the link returns.`;
 });
 
-const { position, travelling, travel } = useTravel(300);
+const { position, traveling, travel } = useTravel(300);
 
 async function toggleCut() {
     cut.value = !cut.value;
@@ -155,11 +155,11 @@ const said = computed(() => {
                 :dim="cut"
             />
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="ac-row">
-            <button type="button" class="ac-button primary" :disabled="travelling" @click="toggleCut">
+            <button type="button" class="ac-button primary" :disabled="traveling" @click="toggleCut">
                 {{ cut ? "Repair the link" : build === "switch" ? "Make the switch fail" : "Cut the cable" }}
             </button>
         </div>

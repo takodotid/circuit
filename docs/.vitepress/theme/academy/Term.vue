@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// A word that can be looked up: dotted underline, and its meaning in a small note on hover, focus or tap.
+// A word that can be looked up: dotted underline, and its meaning in a small note on hover, focus, or tap.
 
 import { nextTick, ref, useId, watch } from "vue";
 

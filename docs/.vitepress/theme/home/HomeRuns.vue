@@ -11,12 +11,12 @@ import { HomeContent } from "./home-content";
         <div class="body">
             <table class="proved" data-reveal>
                 <caption>
-                    Proved on production devices before release
+                    Tested on production devices before release
                 </caption>
                 <thead>
                     <tr>
                         <th scope="col">Platform</th>
-                        <th scope="col">Proved on</th>
+                        <th scope="col">Tested on</th>
                     </tr>
                 </thead>
                 <tbody>

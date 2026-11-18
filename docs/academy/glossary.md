@@ -149,7 +149,7 @@ The words the Academy teaches, and the words in a provider's quote or contract. 
 | Next hop                 | The next router on a packet's way to its destination: the router that this router hands the packet to.                                                                               | [Routing tables](/academy/intermediate/routing-tables)            |
 | OSPF                     | Open Shortest Path First: a routing protocol inside one network. Every router learns the map of links and takes the path with the lowest total cost.                                 | [Routers that talk: OSPF](/academy/intermediate/ospf)             |
 | Routing protocol         | A way for routers to tell each other which addresses they can reach, so nobody has to write every route by hand.                                                                     | [Routing tables](/academy/intermediate/routing-tables)            |
-| Routing table            | The list a router keeps of the networks it can reach, and where to send a packet for each. The longest matching prefix wins.                                                         | [Routing tables](/academy/intermediate/routing-tables)            |
+| Routing table            | The list a router keeps of the networks it can reach, and where to send a packet for each.                                                                                           | [Routing tables](/academy/intermediate/routing-tables)            |
 | TTL                      | Time to live: a counter in every IP packet that each router lowers by one. At zero the packet is dropped, so it cannot loop forever.                                                 | [Routers and the gateway](/academy/beginner/routers)              |
 
 ## IPv6

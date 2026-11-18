@@ -252,7 +252,7 @@ const code = computed(() => {
             class="ac-drawing"
             viewBox="0 0 700 360"
             role="img"
-            aria-label="Three switches in a ring. A laptop hangs off sw-02 and a printer off sw-03. Blocked ports, cut cables and copies of the broadcast on each cable are marked."
+            aria-label="Three switches in a ring. A laptop hangs off sw-02 and a printer off sw-03. Blocked ports, cut cables, and copies of the broadcast on each cable are marked."
         >
             <line class="cable" :x1="60" :y1="300" :x2="sw('sw2').x" :y2="sw('sw2').y" />
             <line class="cable" :x1="640" :y1="300" :x2="sw('sw3').x" :y2="sw('sw3').y" />

@@ -366,7 +366,7 @@ const spots: Record<Interface | "router", Point> = {
 
 const sides: Interface[] = ["mgmt", "home", "guests", "1g-1"];
 
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 const arrived = ref(false);
 
 async function send(packet: Packet) {
@@ -457,14 +457,14 @@ const verdictText = computed(() => {
             ? `No rule matches it, so the default decides: ${outcome.verdict}.`
             : `Rule ${outcome.matched + 1}, ${outcome.lines[outcome.matched]!.rule.description}, is the first that matches, so it is ${outcome.verdict === "accept" ? "accepted" : "dropped"}. Rules below it are not read.`;
     const verdictMatches = outcome.verdict === packet.should;
-    const judgement = verdictMatches
+    const judgment = verdictMatches
         ? "That is what should happen."
         : `It should be ${packet.should === "accept" ? "accepted" : "dropped"}: change the rules.`;
 
     return {
         kind: outcome.verdict === "accept" ? "good" : "bad",
         word: outcome.verdict === "accept" ? "Accepted" : "Dropped",
-        text: `${chainWords} ${decided} ${judgement}`,
+        text: `${chainWords} ${decided} ${judgment}`,
     };
 });
 
@@ -548,7 +548,7 @@ const code = computed(() => {
                 <text y="3" text-anchor="middle">DROPPED</text>
             </g>
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="frame">
@@ -567,7 +567,7 @@ const code = computed(() => {
                 <tbody>
                     <tr v-for="packet in packets" :key="packet.id" :class="{ lit: packet.id === selectedId }">
                         <td>
-                            <button type="button" class="send" :disabled="travelling" @click="send(packet)">{{ packet.title }}</button>
+                            <button type="button" class="send" :disabled="traveling" @click="send(packet)">{{ packet.title }}</button>
                             <span class="detail ac-mono"
                                 >{{ packet.src }} to {{ packet.dst }}, {{ packet.protocol }} port {{ packet.dstPort
                                 }}{{ packet.state === "new" ? "" : ", a reply" }}</span

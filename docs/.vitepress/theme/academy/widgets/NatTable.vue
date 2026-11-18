@@ -64,7 +64,7 @@ const knockPort = ref(FORWARDED_PORT);
 
 const busy = ref(false);
 const said = ref<{ kind: "good" | "bad"; text: string }>();
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 
 /** The ports a stranger can try: the forwarded one, and every outside port in the table. */
 const knockPorts = computed(() => [
@@ -273,7 +273,7 @@ const forwardLines = computed(() => (forwardOn.value ? [4, 5, 6, 7, 8, 9, 10, 11
                 :note="place.id === 'router' ? `outside ${place.address}` : place.address || undefined"
             />
 
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="controls">

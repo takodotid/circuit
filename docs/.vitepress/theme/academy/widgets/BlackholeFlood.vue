@@ -101,9 +101,9 @@ function toggleAsk() {
     sentOnce.value = false;
 }
 
-const travellers = upstreams.map(() => useTravel(300));
+const travelers = upstreams.map(() => useTravel(300));
 const sentOnce = ref(false);
-const busy = computed(() => travellers.some((traveller) => traveller.travelling.value));
+const busy = computed(() => travelers.some((traveler) => traveler.traveling.value));
 
 async function send() {
     sentOnce.value = true;
@@ -116,7 +116,7 @@ async function send() {
             ];
             if (!takesIt(upstream)) path.push([edge.x, edge.y]);
             if (!takesIt(upstream) && !asked.value) path.push([netflix.x, netflix.y]);
-            return travellers[index]!.travel(path);
+            return travelers[index]!.travel(path);
         })
     );
 }
@@ -200,12 +200,12 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
             <SvgDevice kind="server" :x="netflix.x" :y="netflix.y" label="Netflix's server" :note="TARGET" :dim="asked" />
             <SvgDevice kind="cloud" :x="others.x" :y="others.y" label="Other customers" />
 
-            <template v-for="(traveller, index) in travellers" :key="`p-${index}`">
+            <template v-for="(traveler, index) in travelers" :key="`p-${index}`">
                 <circle
-                    v-if="traveller.travelling.value"
+                    v-if="traveler.traveling.value"
                     class="packet"
-                    :cx="traveller.position.value[0]"
-                    :cy="traveller.position.value[1]"
+                    :cx="traveler.position.value[0]"
+                    :cy="traveler.position.value[1]"
                     r="8"
                 />
             </template>

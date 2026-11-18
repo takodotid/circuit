@@ -44,9 +44,9 @@ The routes were more specific, so much of the internet sent traffic for the affe
 
 You met RPKI, the Resource Public Key Infrastructure, and its three answers in [Route policies](/academy/intermediate/route-policy). Here is where they come from:
 
-1. **You publish a ROA.** A <Term means="Signed records of which AS may announce a prefix; a ROA is one such record.">ROA</Term> says that this prefix, up to this length, may be originated by this AS. You create it with your <Term means="The registries that hand out addresses and AS numbers: APNIC for Asia and the Pacific, and national ones such as IDNIC in Indonesia.">RIR</Term>, the registry that gave you the space. At APNIC, you do it in the MyAPNIC portal.
-2. **Validators collect them.** A <Term means="A program that downloads every ROA from the registries, checks each signature, and hands routers the list of valid ones.">validator</Term> downloads every ROA and checks its signature. It serves the result to routers over the RPKI to Router protocol, RTR. Routinator is one such program.
-3. **Routers check every route.** For each route, the router compares the prefix and the <Term means="The AS that first announced a route: the last AS in its AS path.">origin AS</Term> with the ROAs. It marks the route valid, invalid, or not found.
+1. **You publish a ROA.** A <Term means="Route Origin Authorization: a signed record that says which AS may announce a prefix, and how specific the prefixes it announces inside it may be, such as up to /24.">ROA</Term> says that this prefix, up to this length, may be originated by this AS. You create it with your <Term means="Regional internet registry: one of five organizations that hand out addresses and AS numbers for a part of the world. APNIC is the one for Asia and the Pacific.">RIR</Term>, the registry that gave you the space. At APNIC, you do it in the MyAPNIC portal.
+2. **Validators collect them.** A <Term means="A program that downloads every ROA from the registries, checks each signature, and gives routers the list of valid ones.">validator</Term> downloads every ROA and checks its signature. It serves the result to routers over the RPKI to Router protocol, RTR. Routinator is one such program.
+3. **Routers check every route.** For each route, the router compares the prefix and the <Term means="The AS that first announced a prefix: the network the addresses belong to. It is the last AS in the AS path.">origin AS</Term> with the ROAs. It marks the route valid, invalid, or not found.
 4. **Your policy acts on it.** `presets.bgp_sanity` rejects invalid routes. Valid and not found ones go on through the rest of the import.
 
 RFC 6811 defines the check with two words. A ROA **covers** a route when the route's prefix is the prefix of the ROA, or inside it. A ROA **matches** a route when it covers it, has the same origin AS, and allows its length. Then:
@@ -108,10 +108,10 @@ What you saw is how the internet behaves:
 
 ## Registry filters
 
-An <Term means="Internet Routing Registry: databases where networks publish route objects, which prefix each AS originates, and AS-SETs, which ASes a network announces.">IRR</Term> has two kinds of record that matter here:
+An <Term means="Internet Routing Registry: databases where networks publish which AS announces each prefix, in route objects, and which ASes they announce, in AS-SETs.">IRR</Term> has two kinds of record that matter here:
 
-- A <Term means="An IRR record pairing a prefix with the AS that originates it.">route object</Term> pairs a prefix with its origin AS.
-- An <Term means="A named list of AS numbers in an IRR: a network and its customers, such as AS64500:AS-CUSTOMERS.">AS-SET</Term> lists the ASes a network announces: the network itself and its customers.
+- A <Term means="An IRR record that pairs a prefix with the AS that announces it.">route object</Term> pairs a prefix with its origin AS.
+- An <Term means="A named list of AS numbers in an IRR, such as a network and its customers, AS64500:AS-CUSTOMERS.">AS-SET</Term> lists the ASes a network announces: the network itself and its customers.
 
 A provider builds each customer's import filter from them. A tool such as bgpq4 expands the customer's AS-SET into every route object behind it, and the filter accepts only those prefixes. A leak or a hijack from a filtered customer then stops at the first provider. That is why you register your customers before you announce them: your upstreams filter you the same way.
 

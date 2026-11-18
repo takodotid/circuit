@@ -290,7 +290,7 @@ export class HomeDrawing {
         };
     }
 
-    /** A line of the editor's code, split into the parts its colours mark. */
+    /** A line of the editor's code, split into the parts its colors mark. */
     static tokens(line: string) {
         return line
             .split(/("[^"]*"|export default|as64500\.device|\b\d+\b)/)

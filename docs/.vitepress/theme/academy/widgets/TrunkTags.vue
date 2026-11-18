@@ -53,7 +53,7 @@ const to = ref("recorder");
 const busy = ref(false);
 const tag = ref("");
 const said = ref<{ kind: "good" | "bad" | "warn"; word?: string; text: string }>();
-const { position, travelling, travel } = useTravel(220);
+const { position, traveling, travel } = useTravel(220);
 
 const switchPoint = (id: SwitchId): Point => [switches[id].x, switches[id].y];
 const hostPoint = (host: Host): Point => [host.x, HOST_Y];
@@ -201,7 +201,7 @@ async function send() {
                 :lit="!busy && said?.kind === 'good' && host.id === to"
             />
 
-            <template v-if="travelling">
+            <template v-if="traveling">
                 <circle class="packet" :cx="position[0]" :cy="position[1]" r="9" />
                 <text class="tag-label" :class="{ tagged: tag !== 'untagged' }" :x="position[0]" :y="position[1] - 16" text-anchor="middle">
                     {{ tag }}

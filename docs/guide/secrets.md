@@ -125,7 +125,7 @@ Circuit also refuses a value in plain text when it runs.
 
 ## In Studio
 
-Studio's **Secrets** page lists each secret, file by file, like `circuit secrets list`: its name, how it is stored, and any secret the project needs that the file doesn't have. It shows no value until you ask:
+Studio's **Secrets** page lists the secrets file by file, as `circuit secrets list` does. For each secret it shows the name and how it is stored. It also lists each secret the project needs that the file doesn't have. It shows no value until you ask for it.
 
 1. Open **Secrets**.
 2. Type the file's password.

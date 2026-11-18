@@ -16,7 +16,7 @@ A phone number works a bit like an IP address. Its first digits are the area cod
 An IP address has the same two parts:
 
 - The **network part**, the first bits, says which network the device is on. Every device on one network has the same network part.
-- The **host part**, the rest of the bits, says which device on that network it is. Each device on the network has its own. In networking, a device with an address is often called a <Term means="Any device that has an IP address on a network: a laptop, a phone, a printer, or a server.">host</Term>.
+- The **host part**, the rest of the bits, says which device on that network it is. Each device on the network has its own. In networking, a device with an address is often called a <Term means="Any device with an IP address on a network, such as a laptop, a phone, a printer, or a server.">host</Term>.
 
 Here the phone number stops being a good comparison. Everyone knows how long an area code is. But you cannot tell where the network part of an IP address ends from the address alone. The network decides. The **prefix length**, written after the address as in `192.168.1.37/24`, tells you. `/24` means the first 24 bits are the network part, and the other 8 are the host part.
 
@@ -32,7 +32,7 @@ At `/24`, the network part is the first three numbers, `192.168.1`. At `/16`, it
 
 ## The mask says the same thing
 
-Another way to write the prefix length is the <Term means="Another way of writing the prefix length: 32 bits with a 1 for every network bit and a 0 for every host bit, written like an address, such as 255.255.255.0.">mask</Term>. It is 32 bits too, with a 1 under every network bit and a 0 under every host bit. It is written the way an address is written. The widget shows it in the second row of bits.
+Another way to write the prefix length is the <Term means="Another way to write a prefix length, such as 255.255.255.0 for /24. It has 32 bits: a 1 for each network bit, and a 0 for each host bit.">mask</Term>. It is 32 bits too, with a 1 under every network bit and a 0 under every host bit. It is written the way an address is written. The widget shows it in the second row of bits.
 
 For `/24`, the mask is 24 ones and 8 zeros. Eight ones are 255, and eight zeros are 0, so the mask is `255.255.255.0`. Settings screens often show the mask, and these lessons use the prefix length. This table shows both:
 
@@ -56,7 +56,7 @@ In `/25`, the mask's last number is `128`. Only the first bit of the last byte i
 
 ## How many addresses a network holds
 
-An address with a prefix length, such as `192.168.1.0/24`, can also stand for a whole block of addresses. That block is called a <Term means="A block of addresses, such as 192.168.1.0/24: the number after the slash is how many bits are for the network.">prefix</Term>.
+An address with a prefix length, such as `192.168.1.0/24`, can also stand for a whole block of addresses. That block is called a <Term means="A block of addresses, such as 198.51.100.0/24. The number after the slash says how many bits belong to the network.">prefix</Term>.
 
 Every host bit can be 0 or 1, so each host bit doubles the number of addresses. With 8 host bits, a `/24` holds 2 × 2 × 2 × 2 × 2 × 2 × 2 × 2 = 256 addresses. A `/25` has one host bit fewer, so it holds half as many: 128. Each step to the right halves the block.
 
@@ -109,9 +109,9 @@ Anyone may use these **private addresses** inside their own network, so millions
 
 <Quiz
   question="Which of these addresses is private?"
-  :choices="['172.20.1.5', '172.40.1.5', '193.168.1.5']"
+  :choices="['172.20.1.5', '198.51.100.5', '203.0.113.5']"
   :answer="0"
-  :why="['', 'The private block that starts with 172 runs from 172.16 to 172.31 only. 40 is outside it.', 'It looks like 192.168, but it starts with 193, which is not a private block.']"
+  :why="['', 'No private block starts with 198.', 'No private block starts with 203.']"
   explain="172.16.0.0/12 runs from 172.16.0.0 to 172.31.255.255, and 172.20 is inside it."
 />
 

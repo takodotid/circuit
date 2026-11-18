@@ -56,7 +56,7 @@ const tables = computed(() => {
     return names.map((name) => ({ name, rows: rows.filter((row) => row.table === name) }));
 });
 
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 
 function choose(next: "one" | "vrfs") {
     mode.value = next;
@@ -161,14 +161,7 @@ const code = computed(() => {
                 :x2="office.x"
                 :y2="office.y"
             />
-            <SvgDevice
-                kind="router"
-                :x="PE.x"
-                :y="PE.y"
-                label="pe-01"
-                :note="mode === 'one' ? 'one table' : 'two VRFs'"
-                :lit="travelling"
-            />
+            <SvgDevice kind="router" :x="PE.x" :y="PE.y" label="pe-01" :note="mode === 'one' ? 'one table' : 'two VRFs'" :lit="traveling" />
             <SvgDevice
                 v-for="office in offices"
                 :key="`d-${office.id}`"
@@ -179,7 +172,7 @@ const code = computed(() => {
                 :note="office.lan"
                 :lit="office.id === from"
             />
-            <circle v-if="travelling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+            <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
         </svg>
 
         <div class="send">
@@ -190,7 +183,7 @@ const code = computed(() => {
                     <option value="b1">School, office 1</option>
                 </select>
             </label>
-            <button type="button" class="ac-button primary" :disabled="travelling" @click="send">Send a packet</button>
+            <button type="button" class="ac-button primary" :disabled="traveling" @click="send">Send a packet</button>
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>

@@ -8,8 +8,8 @@ Studio shows your project in the browser: the network drawn as a graph, every de
 
 Studio only reads your files. It touches a device only when you press **Read from the device now**, and then it only reads.
 
-<img class="screenshot light" src="/screenshots/studio-light.png" alt="Studio's graph of cables between edge-01 and tor-01, with the layer tabs above it and the legend beside it.">
-<img class="screenshot dark" src="/screenshots/studio-dark.png" alt="Studio's graph of cables between edge-01 and tor-01, with the layer tabs above it and the legend beside it.">
+<img class="screenshot light" src="/screenshots/studio-light.png" alt="Studio's graph of cables between edge-01 and tor-01, with the layer tabs at the top and the legend beside it.">
+<img class="screenshot dark" src="/screenshots/studio-dark.png" alt="Studio's graph of cables between edge-01 and tor-01, with the layer tabs at the top and the legend beside it.">
 
 ## Start it
 
@@ -30,7 +30,7 @@ Every page has its own address, like `/devices/edge-01`, so the back button and 
 
 ## The graph
 
-The graph draws your network one layer at a time. Pick a layer above the drawing, or press 1 to 6. Each layer button shows how many lines it has.
+The graph draws your network one layer at a time. Pick a layer at the top of the drawing, or press 1 to 6. Each layer button shows how many lines it has.
 
 | Layer     | What it draws                                                                       |
 | --------- | ----------------------------------------------------------------------------------- |
@@ -41,9 +41,7 @@ The graph draws your network one layer at a time. Pick a layer above the drawing
 | OSPF      | Interfaces in one area and one prefix, where neither side is passive.               |
 | Tunnels   | GRE and VXLAN tunnels, matched by their endpoints, and WireGuard peers.             |
 
-To find your way:
-
-- Point at a device to light it and its lines. Click a device or a line to see it in the side panel, with its lines or its two ends. Esc clears the selection.
+- Point at a device to light it and its lines. Click a device or a line to see it in the side panel: a device with its lines, a line with its two ends. Esc clears the selection.
 - Double-click a device to open its page.
 - Drag a device to move it. Studio remembers where you put it, per layer, after a reload too.
 - Drag the empty space to move the drawing, and scroll to zoom.
@@ -58,7 +56,7 @@ Each device shows its front panel, its name, and its platform and model. Dots tr
 | A dotted box             | Something outside the network, such as another AS.                          |
 | An orange or red frame   | The device has warnings or errors, as `circuit validate` reports them.      |
 
-The buttons above the drawing:
+The buttons at the top of the drawing act on the layer you see.
 
 | Button        | What it does                                              |
 | ------------- | --------------------------------------------------------- |
@@ -71,17 +69,17 @@ The graph shows what your files say, not what is plugged in. To check the cables
 
 ### Present on a big screen
 
-**Present**, or the key P, shows the network on a wall screen, such as in a NOC:
+**Present**, or the key P, shows the network on a wall screen, such as in a NOC.
 
 1. The drawing fills the window, and the whole screen when the browser allows it.
-2. Every 6 seconds it moves on: first the whole layer, then its four busiest devices one by one, each lit with its neighbors and a ring around it.
+2. Every 6 seconds it moves on: first the whole layer, then its four busiest devices one by one. Each is lit with its neighbors and has a ring around it.
 3. Then it shows the whole layer again, and goes on to the next layer that has lines.
 
 The drawing drifts slowly while it presents. It waits while you point at a device or drag one. **Stop presenting** or Esc stops it. A screen that reloads keeps presenting.
 
 ## Look things up
 
-The tabs at the top list everything in your files:
+The tabs at the top list everything in your files.
 
 | Tab       | What it lists                                                                                              |
 | --------- | ---------------------------------------------------------------------------------------------------------- |
@@ -118,7 +116,7 @@ Every table has **Save as CSV**, for a spreadsheet.
 | On the device now | What the device runs, and what `circuit apply` would send.                                      |
 | History           | The commits that changed the device's file.                                                     |
 
-Under the device's name are its platform, model, site, and file. **Show in the graph** there lights the device on the graph.
+**Show in the graph**, under the device's name, lights the device on the graph.
 
 **Read from the device now** logs in to the device and reads it, like `circuit diff`. Nothing is sent, and Studio keeps no copy. It needs the device's password, so it works only when the secrets password comes from 1Password, `CIRCUIT_SECRETS_PASSWORD`, or a password Circuit remembers. Otherwise run `circuit diff`, which asks for it.
 
@@ -128,10 +126,7 @@ Studio compares your files now with a branch, a tag, or a commit. Your project m
 
 1. Open **Compare** in the top bar.
 2. Pick a branch, tag, or recent commit, or type one, such as `main` or `HEAD~3`.
-3. Studio shows what differs:
-    - devices added and removed, and each device whose config changes, line by line;
-    - lines of the graph added and gone, layer by layer;
-    - what `circuit validate` finds now that it didn't before, and what it no longer finds.
+3. Studio shows the devices added and removed, and the config of each changed device, line by line. It shows the lines of the graph added and gone, layer by layer. It also shows what `circuit validate` finds now that it didn't before, and what it no longer finds.
 4. **Show in the graph** draws new lines in green and removed lines in dashed red. **Stop comparing** goes back to the graph as it is.
 
 Before you merge a pull request, compare its branch with `main`. You see what it changes in the network, not only in the files. Studio reads both sides with the Circuit you run now, so changes to Circuit itself don't show.

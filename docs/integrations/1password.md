@@ -47,7 +47,7 @@ Only a reference may go there. The commit check stops a password written in plai
 
 To use 1Password in CI, see [Run in CI](/guide/ci).
 
-## B. Values in 1Password
+## B. The values in 1Password
 
 A value in the secrets file points to a 1Password field:
 

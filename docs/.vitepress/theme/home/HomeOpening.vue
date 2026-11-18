@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The opening: the title, the drawing of a change travelling from the file to the network, its legend, and the two ways to start.
+// The opening: the title, the drawing of a change traveling from the file to the network, its legend, and the two ways to start.
 
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
@@ -173,8 +173,9 @@ function nextChange() {
             <p class="swipe onward" aria-hidden="true">Swipe the drawing to see all six parts</p>
 
             <figcaption id="plate-caption" class="visually-hidden">
-                How a change travels: an engineer writes a device file, a teammate reads the plan it makes, Apply sends it, the network
-                drawing shows the changed device, Circuit reads it again to check it, and the git history records the change.
+                How a change travels. An engineer writes a device file, and a teammate reads the plan it makes. Apply sends it, and the
+                network drawing shows the changed device. Circuit reads the device again to check it, and the git history records the
+                change.
             </figcaption>
         </figure>
 
@@ -560,7 +561,7 @@ h1 {
     right: 1.6cqw;
 }
 
-/* The callout a reader points at rises above every other, so its tag is never covered by a neighbour's dot. */
+/* The callout a reader points at rises above every other, so its tag is never covered by a neighbor's dot. */
 .callout.lit,
 .callout:hover,
 .callout:focus-visible {
@@ -716,7 +717,7 @@ h1 {
     transform: translateX(3px);
 }
 
-/* The opening is written as the visitor arrives: the title line, then the change travelling through the drawing, left to right. */
+/* The opening is written as the visitor arrives: the title line, then the change traveling through the drawing, left to right. */
 @media (prefers-reduced-motion: no-preference) {
     .written {
         animation: write 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.1s backwards;

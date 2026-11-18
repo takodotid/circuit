@@ -9,7 +9,7 @@ One device can run many programs that use the network at the same time, such as 
 
 ## One address, many programs
 
-An IP address gets a packet to the right device, the way a street address gets a letter to the right building. Inside the building, the letter still needs an apartment number to reach the right door. On a device, that number is the <Term means="A number that says which program on a device a message is for, such as 443 for HTTPS.">port</Term>.
+An IP address gets a packet to the right device, the way a street address gets a letter to the right building. Inside the building, the letter still needs an apartment number to reach the right door. On a device, that number is the <Term means="A number from 0 to 65535 in a packet that says which program on the device the packet is for, such as 443 for a web server. Often just called a port.">port</Term>.
 
 Here the comparison fails: a port is not a place inside the device. It is a number that a program asks the device for when it starts. The device then hands the program every packet with that number. For the programs everyone needs to find, the numbers are agreed in advance:
 
@@ -46,7 +46,7 @@ Your laptop's side has a port too. It is a free number the laptop picks for this
 
 ## Two ways to send
 
-In [Messages in pieces](/academy/beginner/packets), you saw that packets can be lost, or arrive in a different order than they were sent. Some programs must get every piece. Others would rather skip a piece than wait for it. So there are two common <Term means="A set of rules that two programs agree on for how they talk to each other.">protocols</Term> for sending, and every packet uses one of them. Both carry port numbers.
+In [Messages in pieces](/academy/beginner/packets), you saw that packets can be lost, or arrive in a different order than they were sent. Some programs must get every piece. Others would rather skip a piece than wait for it. So there are two common <Term means="A set of rules that two programs or devices agree on for how they talk to each other.">protocols</Term> for sending, and every packet uses one of them. Both carry port numbers.
 
 **TCP** sets up a conversation:
 
@@ -74,7 +74,7 @@ UDP is faster, because it never waits for a handshake or a "got it". But when pa
 | DNS                                 | UDP, mostly | One small question and one small answer. Asking again is quicker than a handshake. Very large answers use TCP. |
 
 ::: info A newer way for the web
-Some websites now send pages over UDP with <Term means="The newest version of the rules browsers and web servers use to ask for and send pages. It runs on QUIC, over UDP, instead of over TCP.">HTTP/3</Term>. HTTP/3 runs on <Term means="A newer way to carry web pages over UDP, with its own checking, resending, and encryption. HTTP/3 runs on it.">QUIC</Term>, which adds its own checking, resending, and locking on top of UDP. Every piece must still arrive. These lessons follow the classic way, over TCP.
+Some websites now send pages over UDP with <Term means="The newest version of the rules browsers and web servers use to ask for and send pages. It runs on QUIC, over UDP.">HTTP/3</Term>. HTTP/3 runs on <Term means="A way of sending data over UDP that adds what UDP leaves out. It checks that every piece arrived, sends lost ones again, and encrypts the data. Browsers use it for HTTP/3.">QUIC</Term>, which adds its own checking, resending, and locking on top of UDP. Every piece must still arrive. These lessons follow the classic way, over TCP.
 :::
 
 <Quiz

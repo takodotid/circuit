@@ -7,7 +7,7 @@ export type Point = [number, number];
 
 export function useTravel(pixelsPerSecond = 260) {
     const position = ref<Point>([0, 0]);
-    const travelling = ref(false);
+    const traveling = ref(false);
     let frame = 0;
 
     onBeforeUnmount(() => cancelAnimationFrame(frame));
@@ -26,7 +26,7 @@ export function useTravel(pixelsPerSecond = 260) {
         const duration = still ? legs.length * 350 : (total / pixelsPerSecond) * 1000;
 
         position.value = points[0]!;
-        travelling.value = true;
+        traveling.value = true;
 
         return new Promise((resolve) => {
             const began = performance.now();
@@ -56,7 +56,7 @@ export function useTravel(pixelsPerSecond = 260) {
                     return;
                 }
 
-                travelling.value = false;
+                traveling.value = false;
                 resolve();
             };
 
@@ -64,5 +64,5 @@ export function useTravel(pixelsPerSecond = 260) {
         });
     }
 
-    return { position, travelling, travel };
+    return { position, traveling, travel };
 }

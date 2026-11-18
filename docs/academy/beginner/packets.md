@@ -9,7 +9,7 @@ A device never sends a message over a network in one go. It cuts the message int
 
 ## Cutting a message into packets
 
-Everything a device sends is <Term means="Anything a device stores or sends: the letters of a message, the dots of a photo, or the sound of a call.">data</Term>. Before data leaves your device, the device cuts it into pieces and puts each piece into a <Term means="A small piece of a message, with where it is from, where it goes, and its place in the message.">packet</Term>. On most networks, one packet holds at most about 1,500 letters of plain text. That limit is the MTU from [Cables, light, and radio](/academy/beginner/cables).
+Everything a device sends is <Term means="Anything a device stores or sends, such as the letters of a message, a photo, or a call.">data</Term>. Before data leaves your device, the device cuts it into pieces and puts each piece into a <Term means="A small piece of data with a label that says where it comes from, where it goes, and which piece it is. Everything on a network travels in packets.">packet</Term>. On most networks, one packet holds at most about 1,500 letters of plain text. That limit is the MTU from [Cables, light, and radio](/academy/beginner/cables).
 
 Every packet has a label with three things on it:
 

@@ -40,13 +40,13 @@ export default as64500.device({
 
 ## How it fits together
 
-| Piece                                       | What it does                                                                                                             |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `part("device", {...})`                     | Part of a device, under its hostname. Checked like a device.                                                             |
-| `part("acl", [...])`                        | Rules for an ordered list that a device file writes. The other kinds are `filter`, `nat`, `policy` and `policy-routing`. |
-| `merge([netflix, other_tenant])`            | Joins tenants: parts by hostname, and rule lists in order.                                                               |
-| `include: [tenants.parts]`                  | The device takes the part under its hostname. The names in the part become the device's own.                             |
-| `merge([own_rule, tenants.rules.edge_acl])` | Places those rules in the device's own list.                                                                             |
+| Piece                                       | What it does                                                                                                              |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `part("device", {...})`                     | Part of a device, under its hostname. Checked like a device.                                                              |
+| `part("acl", [...])`                        | Rules for an ordered list that a device file writes. The other kinds are `filter`, `nat`, `policy`, and `policy-routing`. |
+| `merge([netflix, other_tenant])`            | Joins tenants: parts by hostname, and rule lists in order.                                                                |
+| `include: [tenants.parts]`                  | The device takes the part under its hostname. The names in the part become the device's own.                              |
+| `merge([own_rule, tenants.rules.edge_acl])` | Places those rules in the device's own list.                                                                              |
 
 Circuit stops you if:
 
@@ -58,9 +58,9 @@ Circuit stops you if:
 You never write `...`. What `merge` makes depends on the field it goes in:
 
 - **A list field:** one flat list. Ordered lists keep their order, and other lists keep each item once.
-- **A map field,** such as parts, VLANs or interfaces: merged key by key. The same key with two values is an error, and so is an ordered list from two places.
+- **A map field,** such as parts, VLANs, or interfaces: merged key by key. The same key with two values is an error, and so is an ordered list from two places.
 - **No field,** such as `export const tenants = merge([...])`: a map if every item is a map, or else a list.
 
 ## Keep it searchable
 
-Write each tenant's names, addresses, VLAN IDs and secrets by hand in its own file, so a text search finds them. A function in `lib/` can build the parts of many tenants of the same shape, but then whoever changes it needs some TypeScript.
+Write each tenant's names, addresses, VLAN IDs, and secrets by hand in its own file, so a text search finds them. A function in `lib/` can build the parts of many tenants of the same shape, but then whoever changes it needs some TypeScript.

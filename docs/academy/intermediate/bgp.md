@@ -40,7 +40,7 @@ Before you added the policies, the session was up. Yet no route came in, and non
 
 An announcement is a prefix with facts about it, called attributes. Two of them matter most here:
 
-- The **AS path**: the ASes the announcement passed through, the nearest first. The last number is the AS where the prefix comes from, its <Term means="The AS that first announces a prefix: the network the addresses belong to. It is the last number of the AS path.">origin</Term>.
+- The **AS path**: the ASes the announcement passed through, the nearest first. The last number is the AS where the prefix comes from, its <Term means="The AS that first announced a prefix: the network the addresses belong to. It is the last AS in the AS path.">origin</Term>.
 - The **next hop**: the address to send traffic to for this prefix. Between two ASes, it is usually the address of the router that sent the announcement.
 
 Read the AS path from right to left, and you see how the announcement traveled. Read it from left to right, and you see the way the traffic goes.

@@ -2,7 +2,7 @@
 
 ## Users
 
-Primary: network engineers at ISPs, internet exchanges, colocation providers, campuses, and offices. Many know networking well and programming little. They edit one TypeScript file per device in an editor, and run `circuit validate`, `diff` and `apply` from a terminal.
+Primary: network engineers at ISPs, internet exchanges, colocation providers, campuses, and offices. Many know networking well and programming little. They edit one TypeScript file per device in an editor, and run `circuit validate`, `diff`, and `apply` from a terminal.
 
 Secondary: teammates who don't read TypeScript (NOC, support, managers) and look things up in Circuit Studio; readers new to networking, who learn in Circuit Academy.
 
@@ -23,7 +23,7 @@ One file per device is the whole truth: what the file leaves out is removed or r
 ## Operating context
 
 - A network lives in its own git repo. Circuit is installed like an app; a full install pins Circuit in the project.
-- `diff` and `apply` read the live device over SSH or a serial console. `apply` sends only after a yes. On RouterOS, Junos and FortiOS a change undoes itself if Circuit can't log in again.
+- `diff` and `apply` read the live device over SSH or a serial console. `apply` sends only after a yes. On RouterOS, Junos, and FortiOS a change undoes itself if Circuit can't log in again.
 - Studio runs on an engineer's laptop (127.0.0.1) or on a team server behind a login. It reads the files, and a device only when asked.
 - Secrets are `secret("NAME")` references. `.circuit/secrets` is encrypted and committed; its password never is.
 

@@ -17,7 +17,7 @@ type Optic = {
     fibers: number;
 };
 
-// Reaches as Wikipedia's pages on 10, 25, 40 and 100 Gigabit Ethernet give them.
+// Reaches as Wikipedia's pages on 10, 25, 40, and 100 Gigabit Ethernet give them.
 const optics: Optic[] = [
     { name: "10GBASE-SR", form: "SFP+", gigabits: 10, medium: "multimode", reach: { OM3: 300, OM4: 400 }, fibers: 2 },
     { name: "10GBASE-LR", form: "SFP+", gigabits: 10, medium: "single mode", reach: { OS2: 10_000 }, fibers: 2 },

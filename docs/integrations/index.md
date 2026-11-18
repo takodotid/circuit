@@ -1,5 +1,5 @@
 ---
-description: How circuit sync keeps NetBox, LibreNMS, PeeringDB and Prometheus in sync with your project, what the plan shows, and how to use it in CI.
+description: How circuit sync keeps NetBox, LibreNMS, PeeringDB, and Prometheus in sync with your project, what the plan shows, and how to use it in CI.
 ---
 
 # How sync works

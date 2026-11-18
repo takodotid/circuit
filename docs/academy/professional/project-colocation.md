@@ -5,7 +5,7 @@ description: Host tenants on Circuit's colocation example. Read how one small fi
 
 # Project: a colocation
 
-In this project you run the network of a <Term means="Renting space, power, and cooling in someone else's data center for your own servers and network equipment.">colocation</Term> business. Customers, the <Term means="A customer of a colocation, with its own servers in the provider's racks and its own networks on the provider's switches.">tenants</Term>, put their servers in your racks. You give each of them its own network:
+In this project you run the network of a <Term means="Renting space, power, and cooling in someone else's data center for your own servers and network equipment.">colocation</Term> business. Customers, the <Term means="A customer that gets its own networks inside yours, such as a colocation customer with its own servers in your racks.">tenants</Term>, put their servers in your racks. You give each of them its own network:
 
 - A VLAN for its public addresses.
 - A block of those addresses, with your router as its gateway.
@@ -16,11 +16,11 @@ This is Circuit's [colocation example](/guide/examples#colocation-with-tenants).
 
 ## What a tenant buys
 
-A data center rents out room in its racks, measured in <Term means="The height of one slot in a standard rack: 1.75 inches, 44.45 mm. Equipment is sold as 1U, 2U, and so on, and a full rack is commonly 42U.">rack units</Term>. Power and cooling come with it. To reach anyone outside the rack, a tenant needs a <Term means="A cable a data center runs between two customers' racks; the room where those cables meet.">cross-connect</Term> to a network, and in this project that network is yours. You sell this over it:
+A data center rents out room in its racks, measured in <Term means="The height of one slot in a standard rack: 1.75 inches, or 44.45 mm. Equipment is sold as 1U, 2U, and so on, and a full rack is often 42U.">rack units</Term>. Power and cooling come with it. To reach anyone outside the rack, a tenant needs a <Term means="A cable the data center runs between two customers' racks, or between a customer and a network, in the same building.">cross-connect</Term> to a network, and in this project that network is yours. You sell this over it:
 
 - **Internet access**, carried by your edge router to your transit and your exchange.
 - **Public addresses**, a block from your own space, routed to the tenant's VLAN. Your router is the gateway, at the first address.
-- **Ports** on your <Term means="The switch in each data center rack, and the layout that joins every one of them to every spine switch above it.">top-of-rack</Term> switch, one per server.
+- **Ports** on your <Term means="A switch at the top of a rack of servers. Every server in the rack is cabled to it, and it has a few uplinks to the next layer. ToR for short.">top-of-rack</Term> switch, one per server.
 - **A private network**, if the tenant wants its servers to talk to each other without going through the router or the internet.
 
 ## Start the project

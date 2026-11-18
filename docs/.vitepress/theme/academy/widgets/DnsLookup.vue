@@ -195,7 +195,7 @@ const index = ref(0);
 const steps = computed(() => scripts[mode.value]);
 const step = computed(() => steps.value[index.value]!);
 
-const { position, travelling, travel } = useTravel();
+const { position, traveling, travel } = useTravel();
 const leg = ref<[Place, Place]>();
 
 function pick(next: Mode) {
@@ -268,7 +268,7 @@ const litPlace = computed(() => {
                         {{ place.note }}
                     </text>
                 </g>
-                <circle v-if="travelling && leg" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
+                <circle v-if="traveling && leg" class="packet" :cx="position[0]" :cy="position[1]" r="9" />
             </svg>
 
             <div class="talk">
