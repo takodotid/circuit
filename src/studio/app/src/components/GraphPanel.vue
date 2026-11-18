@@ -4,7 +4,7 @@ import { computed } from "vue";
 import type { CarriedVlan, Layer } from "../../../../core/graph";
 import type { StudioData } from "../../../types";
 import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
-import { href, store } from "../lib/store";
+import { store } from "../lib/store";
 import GraphLegend from "./GraphLegend.vue";
 
 export type Selection = { node: string } | { edge: string } | undefined;
@@ -59,7 +59,7 @@ function toggleVlan(id: number): void {
                 <h2>{{ selected.node.label }}</h2>
                 <p class="kind">{{ KINDS[selected.node.kind] }}</p>
                 <p v-if="selected.node.kind === 'device'">
-                    <a :href="href(`devices/${selected.node.label}`)">Open {{ selected.node.label }}</a>
+                    <RouterLink :to="{ name: 'device', params: { name: selected.node.label } }">Open {{ selected.node.label }}</RouterLink>
                 </p>
                 <ul v-if="selected.node.detail.length">
                     <li v-for="line in selected.node.detail" :key="line">{{ line }}</li>

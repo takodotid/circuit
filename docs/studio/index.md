@@ -26,7 +26,7 @@ Only your machine can reach it. Ctrl+C stops it.
 | `--allow-host <names>` | The names people use to reach it, behind a proxy.     |
 | `--no-open`            | Don't open the browser.                               |
 
-Every page has its own address, like `#devices/edge-01`, so the back button and bookmarks work.
+Every page has its own address, like `/devices/edge-01`, so the back button and bookmarks work.
 
 ## The graph
 

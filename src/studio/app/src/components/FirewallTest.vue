@@ -1,17 +1,19 @@
-<!-- Test a firewall: a packet a person describes, through one of a device's filter chains, rule by rule. The packet is in the page's address, such as `#tools/firewall/device=edge-01&chain=input&protocol=tcp&dst_port=22`, to bookmark or send. -->
+<!-- Test a firewall: a packet a person describes, through one of a device's filter chains, rule by rule. The packet is in the page's address, such as `/tools/firewall?device=edge-01&chain=input&protocol=tcp&dst_port=22`, to bookmark or send. -->
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import type { Protocol } from "../../../../model";
 import type { StudioData } from "../../../types";
 import { type ConnectionState, Evaluate, type Packet, type TcpFlag } from "../lib/evaluate";
 import { Format } from "../lib/format";
 import { Net } from "../lib/net";
-import { goParams, placeParams } from "../lib/store";
+import { queryOf } from "../lib/store";
 import DataTable from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
+const route = useRoute();
+const router = useRouter();
 
-const PLACE = "tools/firewall";
 const CHAINS = ["input", "forward", "output"] as const;
 const PROTOCOLS: Protocol[] = ["tcp", "udp", "icmp", "gre", "esp", "ah", "ospf", "vrrp"];
 const STATES: ConnectionState[] = ["new", "established", "related", "untracked", "invalid"];
@@ -32,7 +34,7 @@ const FIELDS = [
     "flags",
 ] as const;
 
-const asked = computed(() => placeParams(PLACE));
+const asked = computed(() => queryOf(route));
 
 const withChains = computed(() => props.data.devices.filter((device) => device.firewall?.filter));
 const form = reactive(Object.fromEntries(FIELDS.map((field) => [field, ""])) as Record<(typeof FIELDS)[number], string>);
@@ -53,8 +55,8 @@ watch(
 
 function test(): void {
     form.flags = FLAGS.filter((flag) => flags[flag]).join(",");
-    const params = new URLSearchParams(FIELDS.filter((field) => form[field].trim()).map((field) => [field, form[field].trim()]));
-    goParams(PLACE, params);
+    const query = Object.fromEntries(FIELDS.filter((field) => form[field].trim()).map((field) => [field, form[field].trim()]));
+    void router.push({ name: "firewall", query });
 }
 
 const device = computed(() => props.data.devices.find((candidate) => candidate.name === form.device));

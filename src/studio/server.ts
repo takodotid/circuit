@@ -281,7 +281,10 @@ export class StudioServer {
                 return;
             }
 
-            const asset = STUDIO_ASSETS[path === "/" ? "index.html" : path.slice(1)];
+            // Every other path is a page of Studio, such as /devices/edge-01, so a reload or a bookmark opens it. A missing file under /api/ or
+            // /assets/ stays missing: a page in its place would break the script that asked for it.
+            const page = (request.method === "GET" || request.method === "HEAD") && !/^\/(api|assets)\//.test(path);
+            const asset = STUDIO_ASSETS[path.slice(1)] ?? (page ? STUDIO_ASSETS["index.html"] : undefined);
             if (!asset) {
                 response.writeHead(404).end();
                 return;

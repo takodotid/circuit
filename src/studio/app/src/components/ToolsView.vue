@@ -1,23 +1,32 @@
 <!-- Studio's tools: trace an address through the project, find the cables that carry a VLAN between two devices, and test a packet against a firewall chain or a route against a route policy. Each keeps what was asked in the page's address. -->
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
 import { GraphLayer } from "../lib/graph-layer";
-import { go, goParams, placeParams, showInGraph, store } from "../lib/store";
+import { paramOf, queryOf, showInGraph } from "../lib/store";
 import { Tools } from "../lib/tools";
 import DataTable from "./DataTable.vue";
 import FirewallTest from "./FirewallTest.vue";
 import PolicyTest from "./PolicyTest.vue";
 
 const props = defineProps<{ data: StudioData }>();
+const route = useRoute();
+const router = useRouter();
 
-const TOOLS = ["trace", "vlan", "firewall", "policy"] as const;
-const tool = computed(() => TOOLS.find((name) => name === store.route.parts[0]) ?? "trace");
+const TOOLS = [
+    { id: "trace", label: "Trace an address" },
+    { id: "vlan", label: "VLAN path" },
+    { id: "firewall", label: "Test a firewall" },
+    { id: "policy", label: "Test a route policy" },
+] as const;
+const tool = computed(() => TOOLS.find((item) => item.id === route.name)?.id ?? "trace");
 
-// A trace has its own address, such as `#tools/trace/192.0.2.5`, to bookmark or send.
-const typed = ref(store.route.parts[0] === "trace" ? (store.route.parts[1] ?? "") : "");
-const traced = computed(() => (tool.value === "trace" && store.route.parts[1] ? Tools.trace(props.data, store.route.parts[1]) : undefined));
-const traceFailed = computed(() => tool.value === "trace" && Boolean(store.route.parts[1]) && !traced.value);
+// A trace has its own address, such as `/tools/trace/192.0.2.5`, to bookmark or send.
+const address = computed(() => (tool.value === "trace" ? paramOf(route, "address") : ""));
+const typed = ref(address.value);
+const traced = computed(() => (address.value ? Tools.trace(props.data, address.value) : undefined));
+const traceFailed = computed(() => Boolean(address.value) && !traced.value);
 
 /** Where the traced address is, in a sentence. */
 const placed = computed(() => {
@@ -30,11 +39,10 @@ const placed = computed(() => {
     return "No segment or block of the project holds it.";
 });
 
-// The VLAN path keeps what was picked in the address, such as `#tools/vlan/vlan=users&from=core-01&to=acc-04`.
-const VLAN_PLACE = "tools/vlan";
+// The VLAN path keeps what was picked in the address, such as `/tools/vlan?vlan=users&from=core-01&to=acc-04`.
 const vlans = computed(() => [...new Set(props.data.devices.flatMap((device) => Object.keys(device.switching?.vlans ?? {})))].sort());
 const devices = computed(() => props.data.devices.map((device) => device.name));
-const asked = computed(() => placeParams(VLAN_PLACE));
+const asked = computed(() => queryOf(route));
 const picked = reactive({ vlan: "", from: "", to: "" });
 
 watch(
@@ -48,7 +56,7 @@ watch(
 );
 
 function findPath(): void {
-    goParams(VLAN_PLACE, new URLSearchParams({ vlan: picked.vlan, from: picked.from, to: picked.to }));
+    void router.push({ name: "vlan", query: { vlan: picked.vlan, from: picked.from, to: picked.to } });
 }
 
 const question = computed(() => {
@@ -72,18 +80,17 @@ function showPath(): void {
             pairs.has(pairOf(edge.from, edge.to)) &&
             edge.vlans?.some((carried) => carried.name === question.value?.vlan)
     );
-    showInGraph("l2", { path: lines.map(GraphLayer.keyOf) });
+    showInGraph(router, "l2", { path: lines.map(GraphLayer.keyOf) });
 }
 </script>
 
 <template>
     <h2>Tools</h2>
-    <div class="tabs">
-        <button :aria-pressed="tool === 'trace'" @click="go('tools/trace')">Trace an address</button>
-        <button :aria-pressed="tool === 'vlan'" @click="go('tools/vlan')">VLAN path</button>
-        <button :aria-pressed="tool === 'firewall'" @click="go('tools/firewall')">Test a firewall</button>
-        <button :aria-pressed="tool === 'policy'" @click="go('tools/policy')">Test a route policy</button>
-    </div>
+    <nav class="tabs" aria-label="Tools">
+        <RouterLink v-for="item in TOOLS" :key="item.id" :to="{ name: item.id }" :aria-current="tool === item.id ? 'page' : undefined">
+            {{ item.label }}
+        </RouterLink>
+    </nav>
 
     <FirewallTest v-if="tool === 'firewall'" :data="data" />
     <PolicyTest v-else-if="tool === 'policy'" :data="data" />
@@ -92,7 +99,7 @@ function showPath(): void {
         <p class="muted">
             Who holds an address, each device's route to it, and the rules that name it. BGP and OSPF routes aren't in the project.
         </p>
-        <form class="tool-form" @submit.prevent="go(`tools/trace/${typed.trim()}`)">
+        <form class="tool-form" @submit.prevent="router.push({ name: 'trace', params: { address: typed.trim() } })">
             <label class="field">Address <input v-model="typed" placeholder="192.0.2.5" /></label>
             <button class="primary" type="submit">Trace</button>
         </form>

@@ -254,12 +254,20 @@ header > nav {
     padding-inline: 6px;
 }
 
-header > nav button {
+/* Links that look like tabs: the views, a device's sections, the tools, and the graph's layers. Links, so each opens in a new tab too. */
+header > nav a,
+.toolbar nav a,
+.tabs a {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    text-decoration: none;
+}
+
+header > nav a {
     position: relative;
     min-height: 52px;
     padding: 0 11px;
-    border: 0;
-    border-radius: 0;
     background: transparent;
     color: var(--on-cobalt-soft);
     font-size: 12.5px;
@@ -269,17 +277,17 @@ header > nav button {
     text-transform: uppercase;
 }
 
-header > nav button:hover {
+header > nav a:hover {
     color: #ffffff;
     background: rgba(255, 255, 255, 0.08);
 }
 
-header > nav button[aria-pressed="true"] {
+header > nav a[aria-current="page"] {
     color: #ffffff;
     background: transparent;
 }
 
-header > nav button[aria-pressed="true"]::after {
+header > nav a[aria-current="page"]::after {
     content: "";
     position: absolute;
     right: 9px;
@@ -485,26 +493,29 @@ main {
     border-radius: 2px;
 }
 
-.toolbar nav button {
+.toolbar nav a {
+    gap: 4px;
     min-height: 32px;
     padding: 4px 12px;
-    border: 0;
-    border-radius: 0;
     background: transparent;
+    color: inherit;
     font-size: 13px;
 }
 
-.toolbar nav button + button {
+.toolbar nav a:hover {
+    color: var(--accent);
+}
+
+.toolbar nav a + a {
     border-left: 1.5px solid var(--line);
 }
 
-.toolbar nav button[aria-pressed="true"] {
+.toolbar nav a[aria-current="page"] {
     background: var(--cobalt);
     color: #ffffff;
 }
 
-.toolbar nav button .count,
-.toolbar nav button small {
+.toolbar nav a small {
     background: none;
     color: inherit;
     opacity: 0.7;
@@ -774,7 +785,8 @@ aside .members span {
     border-bottom: 1.5px solid var(--line);
 }
 
-.tabs button {
+.tabs button,
+.tabs a {
     position: relative;
     min-height: 40px;
     padding: 8px 12px 10px;
@@ -783,19 +795,23 @@ aside .members span {
     background: transparent;
     color: var(--muted);
     font-size: 14px;
+    font-weight: 600;
 }
 
-.tabs button:hover {
+.tabs button:hover,
+.tabs a:hover {
     color: var(--text);
     background: var(--surface-raised);
 }
 
-.tabs button[aria-pressed="true"] {
+.tabs button[aria-pressed="true"],
+.tabs a[aria-current="page"] {
     background: transparent;
     color: var(--text);
 }
 
-.tabs button[aria-pressed="true"]::after {
+.tabs button[aria-pressed="true"]::after,
+.tabs a[aria-current="page"]::after {
     content: "";
     position: absolute;
     right: 8px;
@@ -1204,7 +1220,7 @@ button.primary:hover {
         flex-wrap: nowrap;
     }
 
-    header > nav button {
+    header > nav a {
         flex: none;
     }
 
@@ -1227,7 +1243,7 @@ button.primary:hover {
         overflow-x: auto;
     }
 
-    .toolbar nav button {
+    .toolbar nav a {
         flex: none;
     }
 

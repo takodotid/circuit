@@ -1,19 +1,25 @@
 <!-- The project now against another branch, tag or commit: devices added, removed and changed with their config line by line, the graph's lines added and gone, and what validate finds newly or no longer. -->
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import type { GraphEdge } from "../../../../core/graph";
 import type { Commit, StudioData } from "../../../types";
 import { Format } from "../lib/format";
 import { GraphLayer } from "../lib/graph-layer";
-import { api, go, href, showInGraph, store } from "../lib/store";
+import { api, paramOf, showInGraph } from "../lib/store";
 import DataTable, { type Badge, type Row } from "./DataTable.vue";
 import LineDiff from "./LineDiff.vue";
 
 const props = defineProps<{ data: StudioData }>();
+const route = useRoute();
+const router = useRouter();
+
+/** The branch, tag, or commit the path names, such as `main` in `/compare/main`. */
+const asked = computed(() => paramOf(route, "ref"));
 
 const refs = ref<{ names: string[]; commits: Commit[] }>();
 const refsError = ref("");
-const typed = ref(store.route.parts[0] ?? "");
+const typed = ref(asked.value);
 const comparison = ref<{ commit: Commit; network: StudioData }>();
 const compareError = ref("");
 const reading = ref(false);
@@ -27,18 +33,18 @@ onMounted(async () => {
 });
 
 watch(
-    () => store.route.parts[0],
-    async (asked) => {
+    asked,
+    async (name) => {
         comparison.value = undefined;
         compareError.value = "";
-        if (!asked) return;
+        if (!name) return;
 
         reading.value = true;
         try {
             const answer = await api<{ commit: Commit; network: StudioData | { error: string } }>(
-                `/api/compare?ref=${encodeURIComponent(asked)}`
+                `/api/compare?ref=${encodeURIComponent(name)}`
             );
-            if ("error" in answer.network) throw new Error(`The project at ${asked} cannot be read:\n${answer.network.error}`);
+            if ("error" in answer.network) throw new Error(`The project at ${name} cannot be read:\n${answer.network.error}`);
             comparison.value = { commit: answer.commit, network: answer.network };
         } catch (error) {
             compareError.value = (error as Error).message;
@@ -101,7 +107,7 @@ function showChanges(): void {
     if (!edges.value) return;
     const changed = [...edges.value.added, ...edges.value.gone];
     const first = GraphLayer.LAYERS.find((layer) => changed.some((edge) => edge.layer === layer)) ?? "l1";
-    showInGraph(first, { comparison: { name: store.route.parts[0] ?? "", added: edges.value.added, removed: edges.value.gone } });
+    showInGraph(router, first, { comparison: { name: asked.value, added: edges.value.added, removed: edges.value.gone } });
 }
 
 const findingKey = (finding: { level: string; device?: string; message: string }) =>
@@ -123,7 +129,7 @@ const findings = computed(() => {
     <h2>Compare</h2>
     <p class="muted">Compare the project with a branch, tag or commit.</p>
     <p v-if="refsError" class="verdict reject">{{ refsError }}</p>
-    <form class="tool-form" @submit.prevent="typed.trim() && go(`compare/${typed.trim()}`)">
+    <form class="tool-form" @submit.prevent="typed.trim() && router.push({ name: 'compare', params: { ref: typed.trim() } })">
         <label class="field"
             >Branch, tag or commit
             <input v-model="typed" list="refs" placeholder="main, HEAD~3" />
@@ -135,7 +141,7 @@ const findings = computed(() => {
         <button class="primary" type="submit">Compare</button>
     </form>
 
-    <p v-if="reading" class="muted">Reading the project at {{ store.route.parts[0] }}…</p>
+    <p v-if="reading" class="muted">Reading the project at {{ asked }}…</p>
     <pre v-if="compareError" class="banner">{{ compareError }}</pre>
 
     <template v-if="comparison && devices && edges && findings">
@@ -148,7 +154,7 @@ const findings = computed(() => {
         <p v-if="!devices.added.length && !devices.removed.length && !devices.changed.length" class="muted">No changes.</p>
         <ul class="findings">
             <li v-for="name in devices.added" :key="`added ${name}`">
-                <span class="badge added">added</span><a :href="href(`devices/${name}`)">{{ name }}</a>
+                <span class="badge added">added</span><RouterLink :to="{ name: 'device', params: { name } }">{{ name }}</RouterLink>
             </li>
             <li v-for="name in devices.removed" :key="`removed ${name}`"><span class="badge error">removed</span>{{ name }}</li>
         </ul>

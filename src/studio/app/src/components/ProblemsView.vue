@@ -1,12 +1,14 @@
 <!-- Everything that needs a look: what `circuit validate` finds, errors first, and every line of the graph only one end declares, such as a BGP session or a tunnel with nothing back. The top bar counts both. -->
 <script setup lang="ts">
 import { computed } from "vue";
+import { useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
 import { GraphLayer } from "../lib/graph-layer";
 import { showInGraph } from "../lib/store";
 import DataTable, { type Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
+const router = useRouter();
 
 const findings = computed<Row[]>(() =>
     [...props.data.findings]
@@ -30,7 +32,7 @@ const oneSided = computed<Row[]>(() =>
             nameOf(edge.from),
             nameOf(edge.to),
             edge.detail.at(-1),
-            { action: () => showInGraph(edge.layer, { path: [GraphLayer.keyOf(edge)] }), label: "in the graph" },
+            { action: () => showInGraph(router, edge.layer, { path: [GraphLayer.keyOf(edge)] }), label: "in the graph" },
         ],
     }))
 );

@@ -1,44 +1,29 @@
-<!-- Studio's frame: the rail with the views and the search, the network's health, and the view the address names. -->
+<!-- Studio's frame: the rail with the views and the search, the network's health, and the page the path names. -->
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { Format } from "./lib/format";
 import { GraphLayer } from "./lib/graph-layer";
-import { go, store } from "./lib/store";
-import AddressesView from "./components/AddressesView.vue";
-import CablesView from "./components/CablesView.vue";
-import CompareView from "./components/CompareView.vue";
-import DeviceView from "./components/DeviceView.vue";
-import DevicesView from "./components/DevicesView.vue";
+import { store } from "./lib/store";
+import { placeOf, viewOf } from "./router";
 import FieldNote from "./components/FieldNote.vue";
-import GraphView from "./components/GraphView.vue";
-import ProblemsView from "./components/ProblemsView.vue";
-import SearchView from "./components/SearchView.vue";
-import SecretsView from "./components/SecretsView.vue";
-import SessionsView from "./components/SessionsView.vue";
-import ToolsView from "./components/ToolsView.vue";
-import VlansView from "./components/VlansView.vue";
 
 const VIEWS = [
-    { id: "graph", label: "Graph" },
-    { id: "devices", label: "Devices" },
-    { id: "vlans", label: "VLANs" },
-    { id: "addresses", label: "Addresses" },
-    { id: "sessions", label: "BGP" },
-    { id: "cables", label: "Cables" },
-    { id: "tools", label: "Tools" },
-    { id: "compare", label: "Compare" },
-    { id: "secrets", label: "Secrets" },
-    { id: "problems", label: "Problems" },
+    { id: "graph", label: "Graph", to: "/" },
+    { id: "devices", label: "Devices", to: "/devices" },
+    { id: "vlans", label: "VLANs", to: "/vlans" },
+    { id: "addresses", label: "Addresses", to: "/addresses" },
+    { id: "sessions", label: "BGP", to: "/sessions" },
+    { id: "cables", label: "Cables", to: "/cables" },
+    { id: "tools", label: "Tools", to: "/tools" },
+    { id: "compare", label: "Compare", to: "/compare" },
+    { id: "secrets", label: "Secrets", to: "/secrets" },
+    { id: "problems", label: "Problems", to: "/problems" },
 ] as const;
 
-// `#device/<name>` opens a device too, as `#devices/<name>` does.
-const view = computed(() => (store.route.view === "device" ? "devices" : store.route.view));
-const device = computed(() => (view.value === "devices" ? store.route.parts[0] : undefined));
-
-// Each place keeps its own page: a new one fades in from the top, and a project read again changes the same one in place.
-const place = computed(() =>
-    view.value === "tools" || view.value === "compare" ? `${view.value}/${store.route.parts[0] ?? ""}` : view.value
-);
+const route = useRoute();
+const router = useRouter();
+const view = computed(() => viewOf(route));
 
 const LIVE: Record<typeof store.live, string> = {
     live: "Watching the project: a saved change shows here at once.",
@@ -59,30 +44,40 @@ const summary = computed(() => [
 const problems = computed(() => (store.data ? store.data.findings.length + GraphLayer.oneSided(store.data).length : 0));
 
 // The search waits for typing to stop, then shows what it finds; an emptied search goes back to the graph. Leaving the search empties it.
-const query = ref(view.value === "search" ? (store.route.parts[0] ?? "") : "");
+// Typing more replaces the search's address, so Back leaves the search in one step.
+const query = ref("");
 let searching: ReturnType<typeof setTimeout> | undefined;
 
 function search(event: Event): void {
     const text = (event.target as HTMLInputElement).value;
     query.value = text;
     clearTimeout(searching);
-    searching = setTimeout(() => go(text.trim() ? `search/${text.trim()}` : "graph"), 250);
+    searching = setTimeout(() => {
+        if (!text.trim()) return void router.push({ name: "graph" });
+        const next = { name: "search", query: { q: text.trim() } };
+        void (view.value === "search" ? router.replace(next) : router.push(next));
+    }, 250);
 }
 
-watch(view, (next) => {
-    if (next !== "search") query.value = "";
-});
+watch(
+    () => [view.value, route.query.q] as const,
+    ([next, asked]) => {
+        if (next !== "search") query.value = "";
+        else if (typeof asked === "string" && asked !== query.value.trim()) query.value = asked;
+    },
+    { immediate: true }
+);
 </script>
 
 <template>
     <header>
-        <a class="brand" href="#graph" aria-label="Circuit Studio, back to the graph"
-            ><span class="wordmark">Circuit</span><span class="product">Studio</span></a
+        <RouterLink class="brand" to="/" aria-label="Circuit Studio, back to the graph"
+            ><span class="wordmark">Circuit</span><span class="product">Studio</span></RouterLink
         >
         <nav aria-label="Views">
-            <button v-for="item in VIEWS" :key="item.id" :aria-pressed="view === item.id" @click="go(item.id)">
+            <RouterLink v-for="item in VIEWS" :key="item.id" :to="item.to" :aria-current="view === item.id ? 'page' : undefined">
                 {{ item.label }}<span v-if="item.id === 'problems'" class="count">{{ problems || "" }}</span>
-            </button>
+            </RouterLink>
         </nav>
         <input :value="query" type="search" placeholder="Search the project" aria-label="Search the project" @input="search" />
         <div class="status-rail" aria-label="Network status">
@@ -99,24 +94,14 @@ watch(view, (next) => {
         store.data ? `The project can't be read, so this is the last that could be:\n${store.error}` : store.error
     }}</pre>
 
+    <!-- Each page fades in from the top; a project read again changes the same page in place. -->
     <main v-if="store.data">
-        <Transition name="enter" mode="out-in">
-            <GraphView v-if="view === 'graph'" :data="store.data" />
-            <DeviceView v-else-if="device" :key="device" :data="store.data" :name="device" />
-            <div v-else :key="place" class="tables">
-                <DevicesView v-if="view === 'devices'" :data="store.data" />
-                <VlansView v-else-if="view === 'vlans'" :data="store.data" />
-                <AddressesView v-else-if="view === 'addresses'" :data="store.data" />
-                <SessionsView v-else-if="view === 'sessions'" :data="store.data" />
-                <CablesView v-else-if="view === 'cables'" :data="store.data" />
-                <ToolsView v-else-if="view === 'tools'" :data="store.data" />
-                <CompareView v-else-if="view === 'compare'" :data="store.data" />
-                <SecretsView v-else-if="view === 'secrets'" />
-                <ProblemsView v-else-if="view === 'problems'" :data="store.data" />
-                <SearchView v-else-if="view === 'search'" :data="store.data" :query="store.route.parts[0] ?? ''" />
-                <p v-else class="muted">Nothing here. <a href="#graph">Back to the graph</a>.</p>
-            </div>
-        </Transition>
+        <RouterView v-slot="{ Component, route: shown }">
+            <Transition name="enter" mode="out-in">
+                <component :is="Component" v-if="shown.meta.whole" :key="placeOf(shown)" />
+                <div v-else-if="Component" :key="placeOf(shown)" class="tables"><component :is="Component" /></div>
+            </Transition>
+        </RouterView>
     </main>
     <main v-else-if="!store.error" class="tables"><p class="muted">Reading the project…</p></main>
     <FieldNote />

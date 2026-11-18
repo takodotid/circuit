@@ -1,19 +1,21 @@
-<!-- Test a route policy: a route a person describes, through one of a device's route policies, rule by rule and into each policy a rule calls. The route is in the page's address, such as `#tools/policy/device=edge-01&policy=transit-import&prefix=198.51.100.0%2F24`, to bookmark or send. -->
+<!-- Test a route policy: a route a person describes, through one of a device's route policies, rule by rule and into each policy a rule calls. The route is in the page's address, such as `/tools/policy?device=edge-01&policy=transit-import&prefix=198.51.100.0/24`, to bookmark or send. -->
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
 import { type Attributes, Evaluate, type Route } from "../lib/evaluate";
 import { Format } from "../lib/format";
 import { Net } from "../lib/net";
-import { goParams, placeParams } from "../lib/store";
+import { queryOf } from "../lib/store";
 import DataTable from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
+const page = useRoute();
+const router = useRouter();
 
-const PLACE = "tools/policy";
 const FIELDS = ["device", "policy", "prefix", "as_path", "rpki", "communities", "large_communities", "registry_sets"] as const;
 
-const asked = computed(() => placeParams(PLACE));
+const asked = computed(() => queryOf(page));
 
 const withPolicies = computed(() => props.data.devices.filter((device) => Object.keys(device.routing?.policies ?? {}).length));
 const form = reactive(Object.fromEntries(FIELDS.map((field) => [field, ""])) as Record<(typeof FIELDS)[number], string>);
@@ -56,8 +58,8 @@ function test(): void {
         .filter((set) => ticked[set.name])
         .map((set) => set.name)
         .join(",");
-    const params = new URLSearchParams(FIELDS.filter((field) => form[field].trim()).map((field) => [field, form[field].trim()]));
-    goParams(PLACE, params);
+    const query = Object.fromEntries(FIELDS.filter((field) => form[field].trim()).map((field) => [field, form[field].trim()]));
+    void router.push({ name: "policy", query });
 }
 
 /** Words in a list written with spaces or commas between them. */

@@ -25,22 +25,25 @@ import cytoscape, {
     type NodeSingular,
 } from "cytoscape";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
 import { Export } from "../lib/export";
 import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
 import { type Tag, GraphLook } from "../lib/graph-look";
 import { GraphSignals } from "../lib/graph-signals";
 import { type Drawing, GraphSvg } from "../lib/graph-svg";
-import { go, still, store } from "../lib/store";
+import { paramOf, still, store } from "../lib/store";
 import GraphPanel from "./GraphPanel.vue";
 
 const props = defineProps<{ data: StudioData }>();
+const route = useRoute();
+const router = useRouter();
 
 const LAYERS = GraphLayer.LAYERS.map((id) => ({ id, label: GraphLayer.NAMES[id], legend: GraphLayer.HELP[id] }));
 
-// The layer the address names, or the one shown last.
+// The layer the path names, such as `bgp` in `/graph/bgp`, or the one shown last.
 const layer = computed<Layer>(() => {
-    const asked = store.route.parts[0];
+    const asked = paramOf(route, "layer");
     const last = Saved.get<string>("layer");
     return GraphLayer.isLayer(asked) ? asked : GraphLayer.isLayer(last) ? last : "l1";
 });
@@ -627,7 +630,7 @@ function tourNext(): void {
     leaving = setTimeout(() => {
         leaving = undefined;
         // Replacing the address keeps the history clean, so Back still leaves Studio's last place.
-        if (presenting.value) location.replace(`#graph/${following}`);
+        if (presenting.value) void router.replace({ name: "layer", params: { layer: following } });
     }, 2600);
 }
 
@@ -686,7 +689,7 @@ function onKey(event: KeyboardEvent): void {
     if (event.key === "Escape") return select(undefined);
 
     const chosen = GraphLayer.LAYERS[Number(event.key) - 1];
-    if (chosen) go(`graph/${chosen}`);
+    if (chosen) void router.push({ name: "layer", params: { layer: chosen } });
 }
 
 /** The page's colours changed, with the system's light or dark, or the reader asked for less motion: draw it all again in them. */
@@ -726,7 +729,9 @@ onMounted(() => {
     graph.on("tap", (event) => {
         if (event.target === graph) select(undefined);
     });
-    graph.on("dbltap", 'node[kind = "device"]', (event) => go(`devices/${event.target.data("label")}`));
+    graph.on("dbltap", 'node[kind = "device"]', (event) => {
+        void router.push({ name: "device", params: { name: String(event.target.data("label")) } });
+    });
     graph.on("dragfree", "node", (event) => remember(event.target));
 
     // Pointing at a node lights it with its lines, as selecting it does. While presenting, the turns and the drift wait for it.
@@ -853,15 +858,15 @@ watch(
     <section class="view">
         <div class="toolbar">
             <nav aria-label="Layers">
-                <button
+                <RouterLink
                     v-for="(item, index) in LAYERS"
                     :key="item.id"
-                    :aria-pressed="layer === item.id"
+                    :to="{ name: 'layer', params: { layer: item.id } }"
+                    :aria-current="layer === item.id ? 'page' : undefined"
                     :title="`${item.legend} Key ${index + 1}.`"
-                    @click="go(`graph/${item.id}`)"
                 >
                     {{ item.label }} <small>{{ counts[item.id] }}</small>
-                </button>
+                </RouterLink>
             </nav>
             <div class="actions">
                 <button title="Show all of this layer" @click="fit">Fit</button>

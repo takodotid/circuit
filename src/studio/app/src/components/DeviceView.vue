@@ -1,17 +1,20 @@
 <!-- One device: what validate finds on it, each group of its settings, what it would run, what it runs now when asked, and the commits that changed its file. -->
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import type { Device } from "../../../../model";
 import type { Commit, LiveRead, StudioData } from "../../../types";
 import { FieldDocs } from "../lib/field-docs";
 import { Format } from "../lib/format";
-import { Saved, api, go, showInGraph, store } from "../lib/store";
+import { Saved, api, showInGraph } from "../lib/store";
 import DataTable, { type Row } from "./DataTable.vue";
 import Faceplate from "./Faceplate.vue";
 import LineDiff from "./LineDiff.vue";
 import SettingsTable from "./SettingsTable.vue";
 
-const props = defineProps<{ data: StudioData; name: string }>();
+/** `section` is the tab the path names, such as `ports` in `/devices/edge-01/ports`. */
+const props = defineProps<{ data: StudioData; name: string; section: string }>();
+const router = useRouter();
 
 const device = computed<Device | undefined>(() => props.data.devices.find((candidate) => candidate.name === props.name));
 const findings = computed(() => props.data.findings.filter((finding) => finding.device === props.name));
@@ -35,7 +38,10 @@ const SECTIONS = [
 ] as const;
 
 const sections = computed(() => (device.value ? SECTIONS.filter((section) => section.has(device.value!)) : []));
-const section = computed(() => store.route.parts[1] ?? "overview");
+const section = computed(() => props.section);
+
+/** A tab's address: the overview is the device's own path. */
+const tabLink = (id: string) => ({ name: "device", params: { name: props.name, ...(id === "overview" ? {} : { section: id }) } });
 
 // Another tab starts at the top of the page.
 const page = ref<HTMLElement>();
@@ -111,7 +117,7 @@ async function readNow(): Promise<void> {
 
 /** Select the device on the graph, on the layer shown last. */
 function showOnGraph(): void {
-    showInGraph(Saved.get<string>("layer") ?? "l1", { device: props.name });
+    showInGraph(router, Saved.get<string>("layer") ?? "l1", { device: props.name });
 }
 
 const commands = computed(() => live.value?.steps.reduce((count, step) => count + step.show.length, 0) ?? 0);
@@ -134,7 +140,7 @@ watch(
 
 <template>
     <div ref="page" class="tables">
-        <p class="crumbs"><a href="#devices">Devices</a> /</p>
+        <p class="crumbs"><RouterLink to="/devices">Devices</RouterLink> /</p>
         <p v-if="!device" class="muted">No device {{ name }} in the project.</p>
         <template v-else>
             <h2>
@@ -147,16 +153,16 @@ watch(
                 <button type="button" class="link" @click="showOnGraph">show in the graph</button>
             </p>
 
-            <div class="tabs">
-                <button
+            <nav class="tabs" aria-label="Sections">
+                <RouterLink
                     v-for="item in sections"
                     :key="item.id"
-                    :aria-pressed="section === item.id"
-                    @click="go(`devices/${device.name}/${item.id}`)"
+                    :to="tabLink(item.id)"
+                    :aria-current="section === item.id ? 'page' : undefined"
                 >
                     {{ item.title }}
-                </button>
-            </div>
+                </RouterLink>
+            </nav>
 
             <template v-if="section === 'overview'">
                 <template v-if="findings.length">
@@ -240,7 +246,7 @@ watch(
                                 new Date(commit.date).toLocaleString(),
                                 commit.author,
                                 commit.subject,
-                                { link: `compare/${commit.commit}`, label: 'compare with now' },
+                                { link: { name: 'compare', params: { ref: commit.commit } }, label: 'compare with now' },
                             ],
                         }))
                     "
