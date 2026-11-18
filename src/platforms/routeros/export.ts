@@ -90,6 +90,8 @@ export class RouterOsExport {
         // The default configuration of an RB5009 shares a USB disk on its bridge.
         "/disk settings": { "auto-media-interface": "none", "auto-media-sharing": "no", "auto-smb-sharing": "no" },
         "/ip neighbor discovery-settings": { "discover-interface-list": "!dynamic", protocol: "cdp,lldp,mndp" },
+        "/radius": { "authentication-port": "1812", "accounting-port": "1813", "src-address": "0.0.0.0" },
+        "/user aaa": { "use-radius": "no", accounting: "yes", "default-group": "read", "exclude-groups": "", "interim-update": "0s" },
         "/snmp": { enabled: "no", contact: "", location: "" },
         "/snmp community": {
             addresses: "::/0",
@@ -153,7 +155,14 @@ export class RouterOsExport {
     static readonly UNSET: Record<string, readonly string[]> = { "/routing bgp instance": ["cluster-id"] };
 
     /** Properties whose value cannot be read back from the device. They are compared only by the presence of what holds them. */
-    static readonly SECRET_KEYS = new Set(["private-key", "password", "tcp-md5-key", "authentication-password", "encryption-password"]);
+    static readonly SECRET_KEYS = new Set([
+        "private-key",
+        "password",
+        "secret",
+        "tcp-md5-key",
+        "authentication-password",
+        "encryption-password",
+    ]);
 
     /** Properties that tell two `add` entries of a menu apart. `name` where the menu is not listed. */
     private static readonly IDENTITY: Record<string, string[]> = {
@@ -202,6 +211,8 @@ export class RouterOsExport {
         "/ipv6 firewall raw",
         "/interface bridge filter",
         "/interface ethernet switch rule",
+        // RADIUS servers are asked in this order.
+        "/radius",
     ]);
 
     /** Undo the line wrapping an export applies: a backslash at the end of a line continues it. */

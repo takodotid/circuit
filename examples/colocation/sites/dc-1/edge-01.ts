@@ -19,6 +19,15 @@ export default as64500.device({
         timezone: dc_1.timezone,
         ntp: { servers: ["pool.ntp.org"] },
         users: { operator: { role: "admin", password: secret("EDGE_01_PASSWORD") } },
+        // Each engineer logs in with their own name, which the RADIUS servers check, and may look but change nothing. The servers are older ones, on the ports used before RFC 2865 assigned 1812 and 1813.
+        aaa: {
+            radius: [
+                { address: "10.0.0.11", secret_key: secret("RADIUS_KEY"), source_address: "10.0.0.1", auth_port: 1645, acct_port: 1646 },
+                { address: "10.0.0.12", secret_key: secret("RADIUS_KEY"), source_address: "10.0.0.1", auth_port: 1645, acct_port: 1646 },
+            ],
+            remote_role: "read-only",
+            accounting_events: ["login"],
+        },
     },
     management: { allow: [dc_1.addresses.management], ssh: {} },
 

@@ -232,6 +232,7 @@ export class Vrp extends Platform {
         }
 
         if (device.system?.users?.admin) found.push("system.users.admin, the platform reserves the name");
+        if (device.system?.aaa) found.push("system.aaa, which only RouterOS, Junos, and FortiOS build for now");
 
         const management = device.management ?? {};
 

@@ -102,6 +102,34 @@ export class DeviceChecks {
         DeviceChecks.certificates(device, report);
         DeviceChecks.vdoms(device, report, cidr, ip);
         DeviceChecks.users(device, report);
+        DeviceChecks.aaa(device, report, ip);
+    }
+
+    /** One kind of server, at least one, each listed once, and each sending from an address of its own family. */
+    private static aaa(device: Device, report: Report, ip: Checker): void {
+        const aaa = device.system?.aaa;
+        if (!aaa) return;
+
+        if (aaa.tacacs && aaa.radius) report("system.aaa has both tacacs and radius: write one of them");
+        const kind = aaa.tacacs ? "tacacs" : "radius";
+        const servers = aaa.tacacs ?? aaa.radius ?? [];
+        if (!servers.length) report("system.aaa has no server: write tacacs or radius, with at least one server");
+
+        const seen = new Set<string>();
+        servers.forEach((server, index) => {
+            const where = `system.aaa.${kind}[${index}]`;
+            ip(`${where}.address`, server.address);
+            if (server.source_address !== undefined) ip(`${where}.source_address`, server.source_address);
+            if (!Address.isValid(server.address)) return;
+
+            const address = Address.canonical(server.address);
+            if (seen.has(address)) report(`${where}: ${server.address} is listed twice`);
+            seen.add(address);
+
+            const source = server.source_address;
+            if (source && Address.isValid(source) && Address.family(source) !== Address.family(server.address))
+                report(`${where}.source_address ${source} and address ${server.address} differ in family`);
+        });
     }
 
     /** Each SSH key is one public key line whose key reads back, never a private key. */

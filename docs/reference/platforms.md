@@ -99,15 +99,16 @@ A note in a cell means "works, with this limit".
 
 ### Management and monitoring
 
-| Feature                | RouterOS         | VRP                  | Raisecom ROS      | Junos    | FortiOS          |
-| ---------------------- | ---------------- | -------------------- | ----------------- | -------- | ---------------- |
-| Users                  | ✅               | ✅                   | `admin` role only | ✅       | ✅               |
-| SSH keys               | ✅               | one RSA key per user | ❌                | ✅       | ✅               |
-| SNMP v2c and v3        | ✅ v3 SHA1 only  | ✅                   | ✅ v3 SHA1 only   | ✅       | ✅ v3 SHA1 only  |
-| Syslog                 | ✅               | ✅                   | ✅                | ✅       | ✅ up to 4       |
-| Flow export            | NetFlow 9, IPFIX | sFlow                | ❌                | sFlow    | sFlow, NetFlow 9 |
-| Web, API, certificates | ✅               | ❌                   | ❌                | web, API | ✅               |
-| Management VDOM        | ❌               | ❌                   | ❌                | ❌       | ✅               |
+| Feature                | RouterOS                      | VRP                  | Raisecom ROS      | Junos    | FortiOS                           |
+| ---------------------- | ----------------------------- | -------------------- | ----------------- | -------- | --------------------------------- |
+| Users                  | ✅                            | ✅                   | `admin` role only | ✅       | ✅                                |
+| SSH keys               | ✅                            | one RSA key per user | ❌                | ✅       | ✅                                |
+| Logins through servers | RADIUS, no command accounting | ❌                   | ❌                | ✅       | ✅ up to 3 servers, no accounting |
+| SNMP v2c and v3        | ✅ v3 SHA1 only               | ✅                   | ✅ v3 SHA1 only   | ✅       | ✅ v3 SHA1 only                   |
+| Syslog                 | ✅                            | ✅                   | ✅                | ✅       | ✅ up to 4                        |
+| Flow export            | NetFlow 9, IPFIX              | sFlow                | ❌                | sFlow    | sFlow, NetFlow 9                  |
+| Web, API, certificates | ✅                            | ❌                   | ❌                | web, API | ✅                                |
+| Management VDOM        | ❌                            | ❌                   | ❌                | ❌       | ✅                                |
 
 ### Circuit's own tools
 

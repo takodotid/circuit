@@ -114,6 +114,8 @@ export class Junos extends Platform {
         for (const [name, user] of Object.entries(users)) {
             if (!user) continue;
             if (Junos.SYSTEM_ACCOUNTS.has(name)) found.push(`system.users.${name}, a name the platform keeps for a system account`);
+            if (name === "remote" && device.system?.aaa)
+                found.push("system.users.remote, with system.aaa the platform keeps the name for the users a server accepts");
 
             for (const key of user.ssh_keys ?? []) {
                 const kind = key.split(" ")[0]!;

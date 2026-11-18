@@ -316,6 +316,11 @@ export class RouterOs extends Platform {
             }
         }
 
+        const aaa = device.system?.aaa;
+        if (aaa?.tacacs) found.push("system.aaa.tacacs, the platform logs in with RADIUS only");
+        if (aaa?.accounting_events?.includes("command"))
+            found.push("system.aaa.accounting_events command, the platform sends a server its logins only");
+
         if (device.monitoring?.transceivers === false) found.push("monitoring.transceivers false, it is always on");
         if (device.monitoring?.flow_export?.protocol === "sflow") {
             found.push("monitoring.flow_export.protocol sflow, the platform exports NetFlow and IPFIX");
