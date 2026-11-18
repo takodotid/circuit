@@ -34,6 +34,8 @@ export class GraphLook {
     static readonly HEIGHT = 34;
     /** The height of a device's tag, with its name over its platform and model. */
     static readonly DEVICE_HEIGHT = 62;
+    /** How long a part takes to fade, as when it is lit, dimmed, or comes in, in milliseconds. */
+    static readonly FADE = 250;
     /** Where a device's text starts, after its chassis mark. */
     private static readonly TEXT_X = 62;
 
@@ -114,7 +116,7 @@ export class GraphLook {
     /** The stylesheet. With `still`, a change shows at once instead of over a quarter second. */
     static style(colors: Colors, still: boolean): StylesheetJson {
         // Lighting a part dims the rest gently, so the eye follows what changed.
-        const gently = { "transition-duration": still ? 0 : 250, "transition-timing-function": "ease-out" as const };
+        const gently = { "transition-duration": still ? 0 : GraphLook.FADE, "transition-timing-function": "ease-out" as const };
 
         return [
             {
@@ -229,6 +231,9 @@ export class GraphLook {
                 style: { "outline-width": 3, "outline-color": colors.yellowDeep, "outline-offset": 4, "outline-opacity": 1 },
             },
             { selector: ".dim", style: { opacity: 0.18 } },
+            // A part that has not come in yet. Without it, the part fades in to how it shows now, dimmed or not. While unseen, it is lit or
+            // dimmed at once: the end of that fade would take back the fade it comes in with.
+            { selector: ".unseen", style: { opacity: 0, "text-opacity": 0, "transition-property": "none" } },
         ];
     }
 }

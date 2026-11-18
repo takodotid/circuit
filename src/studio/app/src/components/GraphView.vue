@@ -174,7 +174,7 @@ function draw(arrival?: "network" | "layer"): void {
         }
 
         // What arrives starts unseen.
-        if (coming) fresh.style({ opacity: 0, "text-opacity": 0 });
+        if (coming) fresh.addClass("unseen");
     });
 
     // The devices on both layers glide to their places on this one, so the eye can follow each.
@@ -271,6 +271,7 @@ const ARRIVE = "ease-out-quint";
 /**
  * Bring new parts in from the busiest device outward, a ring of neighbours at a time: nodes fade in, then the lines, then their labels.
  * On the first view each line draws in from its nearer end; else its lines fade in. The dots of a new drawing follow once it is all in.
+ * A part fades as Cytoscape fades a part that is lit or dimmed, so it comes in to how it shows now, dimmed while something else is lit.
  */
 function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer" | "change"): void {
     if (!graph) return;
@@ -295,10 +296,7 @@ function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer" | "ch
     const ringOf = (node: NodeSingular) => ring.get(node.id()) ?? farthest;
 
     fresh.nodes().forEach((node) => {
-        node.delay(ringOf(node) * step).animate(
-            { style: { opacity: 1, "text-opacity": 1 } },
-            { duration: 360, easing: ARRIVE, complete: () => node.removeStyle("opacity text-opacity") }
-        );
+        node.delay(ringOf(node) * step, () => node.removeClass("unseen"));
     });
 
     let last = 0;
@@ -308,7 +306,9 @@ function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer" | "ch
         const delay = (Math.min(from, to) + 0.5) * step + (arrival === "network" ? 0 : 200);
         last = Math.max(last, delay + 860);
 
-        const done = () => edge.removeStyle("opacity text-opacity line-style line-dash-pattern line-dash-offset");
+        // Its label waits for the line.
+        edge.style("text-opacity", 0);
+        edge.delay(delay, () => edge.removeClass("unseen"));
 
         // A line both ends declare draws in from its nearer end: a dash as long as the line slides along it. A dashed line fades in.
         // A line whose ends are not placed yet has no length, and fades in too.
@@ -317,20 +317,17 @@ function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer" | "ch
         const length = Math.hypot(b.x - a.x, b.y - a.y) * 1.3 + 4;
         if (arrival === "network" && !edge.data("oneSided") && Number.isFinite(length)) {
             edge.style({
-                opacity: 1,
                 "line-style": "dashed",
                 "line-dash-pattern": [length, length],
                 "line-dash-offset": from <= to ? length : -length,
             });
-            edge.delay(delay)
-                .animate({ style: { "line-dash-offset": 0 } }, { duration: 560, easing: ARRIVE })
-                .animate({ style: { "text-opacity": 1 } }, { duration: 300, complete: done });
-            return;
-        }
+            edge.animate({ style: { "line-dash-offset": 0 } }, { duration: 560, easing: ARRIVE });
+        } else edge.delay(GraphLook.FADE);
 
-        edge.delay(delay)
-            .animate({ style: { opacity: 1 } }, { duration: 420, easing: ARRIVE })
-            .animate({ style: { "text-opacity": 1 } }, { duration: 300, complete: done });
+        edge.animate(
+            { style: { "text-opacity": 1 } },
+            { duration: 300, complete: () => edge.removeStyle("text-opacity line-style line-dash-pattern line-dash-offset") }
+        );
     });
 
     if (signals && arrival !== "change") signals.showFrom = performance.now() + last;
