@@ -109,5 +109,3 @@ scrypt
 snake_case
 snmp_exporter
 systemd('s)?
-(?i)subagents?('s)?
-(?i)containerlab
