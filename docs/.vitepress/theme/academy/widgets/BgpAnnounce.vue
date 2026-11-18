@@ -2,34 +2,42 @@
 // Lesson: BGP. The reader announces a prefix from their AS and steps through the rounds as it spreads, the AS path growing at each hop and loops dropped; cutting links changes the paths.
 
 import { computed, ref } from "vue";
-import { Announcement, type Arrival } from "./BgpAnnounce";
+import { Announcement, type Arrival, type AsLink } from "./BgpAnnounce";
 
 const ORIGIN = 64500;
 const PREFIX = "198.51.100.0/24";
 
-const places: Record<number, { x: number; y: number }> = {
-    64500: { x: 90, y: 190 },
-    64501: { x: 250, y: 70 },
-    64502: { x: 450, y: 70 },
-    64505: { x: 620, y: 70 },
-    64503: { x: 450, y: 300 },
-    64504: { x: 250, y: 300 },
+const places: Record<number, { name: string; x: number; y: number }> = {
+    64500: { name: "You", x: 90, y: 190 },
+    6939: { name: "Hurricane Electric", x: 250, y: 70 },
+    1299: { name: "Arelion", x: 450, y: 70 },
+    2906: { name: "Netflix", x: 620, y: 70 },
+    15169: { name: "Google", x: 450, y: 310 },
+    174: { name: "Cogent", x: 250, y: 310 },
 };
 
-const ases = Object.keys(places).map(Number);
+const ases = [64500, 6939, 174, 1299, 15169, 2906];
 
-const allLinks: [number, number][] = [
-    [64500, 64501],
-    [64501, 64502],
-    [64502, 64505],
-    [64502, 64503],
-    [64503, 64504],
-    [64504, 64500],
+const allLinks: AsLink[] = [
+    { a: 64500, b: 6939, provider: 6939 },
+    { a: 64500, b: 174, provider: 174 },
+    { a: 6939, b: 1299 },
+    { a: 174, b: 1299 },
+    { a: 174, b: 15169 },
+    { a: 1299, b: 2906, provider: 1299 },
 ];
 
 const cut = ref<string[]>([]);
-const linkKey = ([a, b]: [number, number]) => `${a}-${b}`;
+const linkKey = (link: AsLink) => `${link.a}-${link.b}`;
 const links = computed(() => allLinks.filter((link) => !cut.value.includes(linkKey(link))));
+
+/** A small arrow at the middle of a transit link, pointing from the customer to the provider it pays. */
+function arrow(link: AsLink): string {
+    const provider = place(link.provider!);
+    const customer = place(link.provider === link.a ? link.b : link.a);
+    const angle = (Math.atan2(provider.y - customer.y, provider.x - customer.x) * 180) / Math.PI;
+    return `translate(${(provider.x + customer.x) / 2} ${(provider.y + customer.y) / 2}) rotate(${angle})`;
+}
 
 const rounds = computed(() => Announcement.rounds(links.value, ORIGIN));
 const step = ref(0);
@@ -54,7 +62,7 @@ function next() {
     if (step.value < last.value) step.value += 1;
 }
 
-function toggle(link: [number, number]) {
+function toggle(link: AsLink) {
     const name = linkKey(link);
     cut.value = cut.value.includes(name) ? cut.value.filter((entry) => entry !== name) : [...cut.value, name];
     step.value = 0;
@@ -82,25 +90,33 @@ function chipAt(arrival: Arrival) {
     return { x: from.x + (to.x - from.x) * 0.62, y: from.y + (to.y - from.y) * 0.62 };
 }
 
+const name = (as: number) => place(as).name;
+
 function sentence(arrival: Arrival): string {
-    const who = `AS${arrival.to}`;
+    const who = name(arrival.to);
     const path = arrival.path.join(" ");
 
     if (arrival.result === "loop") return `${who} hears ${path}, finds its own number in it, and drops it. That is a loop.`;
-    if (arrival.result === "new") return `${who} hears ${path}. It is its first route to ${PREFIX}, so it keeps it and passes it on.`;
-    if (arrival.result === "shorter") return `${who} hears ${path}, shorter than what it had, so it switches and passes it on.`;
-    return `${who} hears ${path}, no shorter than ${pathText(best.value.get(arrival.to) ?? [])}, so it keeps what it has and sends nothing.`;
+    if (arrival.result === "new") return `${who} hears ${path}. It is its first route to ${PREFIX}, so it keeps it.`;
+    if (arrival.result === "shorter") return `${who} hears ${path}, which is shorter than what it had, so it switches to it.`;
+    return `${who} hears ${path}, which is no shorter than ${pathText(best.value.get(arrival.to) ?? [])}, so it keeps what it has.`;
 }
 
 const said = computed(() => {
-    if (alone.value) return `Every link of AS${ORIGIN} is cut, so nobody hears the announcement. Put a link back.`;
-    if (step.value === 0) return `Press Announce: AS${ORIGIN} tells its neighbors it has ${PREFIX}.`;
-    if (step.value === last.value)
-        return "Nothing changed in this round, so nobody sends anything more. Every AS that can be reached now has a path.";
-    return `Round ${step.value}: the messages above arrive, and every AS whose path changed sends it on to all its neighbors, with its own number in front.`;
+    if (alone.value) return "Every link of yours is cut, so nobody hears the announcement. Put a link back.";
+    if (step.value === 0) return "Announce your prefix, and step through the rounds.";
+
+    if (step.value === last.value) {
+        const missing = ases.filter((as) => as !== ORIGIN && !best.value.get(as)).map(name);
+        const done = "Nobody has anything more to send.";
+        if (!missing.length) return done;
+        return `${done} ${missing.join(" and ")} ${missing.length === 1 ? "has" : "have"} no route, because no neighbor may pass it on.`;
+    }
+
+    return `Round ${step.value}: the messages above arrive. Every AS whose path changed sends it on, with its own number in front.`;
 });
 
-const label = (as: number) => (as === ORIGIN ? "You, AS64500" : `AS${as}`);
+const label = (as: number) => `${name(as)}, AS${as}`;
 </script>
 
 <template>
@@ -116,25 +132,31 @@ const label = (as: number) => (as === ORIGIN ? "You, AS64500" : `AS${as}`);
             class="ac-drawing"
             viewBox="0 0 700 370"
             role="img"
-            :aria-label="`Six autonomous systems in a ring with one branch. ${PREFIX} is announced from AS64500.`"
+            :aria-label="`Six networks joined by transit and peering links. You announce ${PREFIX}.`"
         >
-            <line
-                v-for="link in allLinks"
-                :key="linkKey(link)"
-                class="cable"
-                :class="{ cut: cut.includes(linkKey(link)) }"
-                :x1="place(link[0]).x"
-                :y1="place(link[0]).y"
-                :x2="place(link[1]).x"
-                :y2="place(link[1]).y"
-            />
+            <g class="legend" transform="translate(20 20)">
+                <path class="pays" transform="translate(9 0)" d="M-9 -8L9 0L-9 8z" />
+                <text x="26" y="4">transit: arrow to who is paid</text>
+                <text x="26" y="26">peering: no arrow</text>
+            </g>
+            <g v-for="link in allLinks" :key="linkKey(link)">
+                <line
+                    class="cable"
+                    :class="{ cut: cut.includes(linkKey(link)) }"
+                    :x1="place(link.a).x"
+                    :y1="place(link.a).y"
+                    :x2="place(link.b).x"
+                    :y2="place(link.b).y"
+                />
+                <path v-if="link.provider" class="pays" :transform="arrow(link)" d="M-9 -8L9 0L-9 8z" />
+            </g>
             <SvgDevice
                 v-for="as in ases"
                 :key="as"
                 kind="router"
                 :x="place(as).x"
                 :y="place(as).y"
-                :label="label(as)"
+                :label="name(as)"
                 :note="noteOf(as)"
                 :lit="as === ORIGIN"
             />
@@ -196,7 +218,7 @@ const label = (as: number) => (as === ORIGIN ? "You, AS64500" : `AS${as}`);
                     :aria-pressed="cut.includes(linkKey(link))"
                     @click="toggle(link)"
                 >
-                    {{ cut.includes(linkKey(link)) ? "Cut:" : "" }} {{ link[0] }} to {{ link[1] }}
+                    {{ cut.includes(linkKey(link)) ? "Cut:" : "" }} {{ name(link.a) }} to {{ name(link.b) }}
                 </button>
             </div>
         </div>
@@ -219,6 +241,15 @@ const label = (as: number) => (as === ORIGIN ? "You, AS64500" : `AS${as}`);
 .cable.cut {
     stroke-dasharray: 5 7;
     opacity: 0.45;
+}
+
+.pays {
+    fill: var(--circuit-edge, #7b86a0);
+    stroke: none;
+}
+
+.ac-drawing .legend text {
+    font-size: 12px;
 }
 
 .chip rect {
