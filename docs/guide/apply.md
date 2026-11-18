@@ -22,17 +22,17 @@ description: Edit a device's file, read the plan, and send it. What Circuit chec
 
 ## Making the plan
 
-Each time you run `diff` or `apply`, Circuit turns the file into the vendor's commands and reads what the device runs now. So the plan is never out of date. It removes or resets anything on the device that the file doesn't have.
+Each time you run `diff` or `apply`, Circuit turns the file into the vendor's commands and reads what the device runs now. The plan removes or resets anything on the device that the file doesn't have.
 
 - **New and changed things go first**, in the order they depend on each other. A VLAN is made before a port joins it.
 - **Removals go last**, in reverse order. A port leaves a VLAN before the VLAN goes.
 - **Ordered lists**, such as firewall chains and route policies, are swapped whole. The new rules go in before the old ones come out, so there is never a moment with no rules.
 
-If the device runs LLDP, Circuit also reads its neighbors, and warns you if a cable isn't where `link` says. This works on RouterOS, VRP, Raisecom ROS, and Junos.
+If the device runs LLDP, Circuit also reads its neighbors, and warns you if a cable isn't where `link` says.
 
 ## The path check
 
-A change sent over a bad link can cut the device off halfway. So `apply` first pings the device 20 times, which takes about 5 seconds:
+A change sent over a bad link can cut the device off halfway. So `apply` first pings the device 20 times, for about 5 seconds:
 
 ```
 path: 192.0.2.1: 0 of 20 pings lost (0%), 12 ms on average
@@ -66,7 +66,7 @@ After every change, Circuit logs in again in a new session. The change stays onl
 
 ## Checking afterwards
 
-A device can take every command and still be broken. So on RouterOS, `apply` checks three things after it sends. Other platforms have no checks afterwards yet.
+On RouterOS only, `apply` checks three things after it sends.
 
 1. **Switch rules.** If the plan changed switch rules, none may be invalid. A rule that doesn't fit the switch chip stops working without a word, and so does every rule after it.
 2. **BGP sessions.** Every session that was up before must be up again within 180 seconds. If one closed on its prefix limit, Circuit prints the `circuit bgp ... --clear-limit` command to run once you know why.
@@ -96,7 +96,7 @@ system: {
 },
 ```
 
-The password keeps working beside the keys. On RouterOS, Circuit writes `/ip ssh password-authentication=yes` for that, because RouterOS turns off password login for a user with a key.
+The password keeps working beside the keys. On RouterOS, Circuit writes `/ip ssh password-authentication=yes` for that.
 
 ## Prefix sets from a registry
 

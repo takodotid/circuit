@@ -10,7 +10,7 @@ Run Studio on a server, and the whole team opens one address to see the network 
 Studio has no login. It shows your whole design: devices, addresses, rules, and the names of users and secrets. Never put it on the internet as is. Put a login in front (a reverse proxy) or keep it on your VPN.
 :::
 
-Studio tells search engines to stay away (`noindex`, `robots.txt`). That's not a lock, so you still need the login. A hosted Studio never logs in to devices.
+A hosted Studio never logs in to devices.
 
 ## The command
 
@@ -18,17 +18,11 @@ Studio tells search engines to stay away (`noindex`, `robots.txt`). That's not a
 circuit studio --host 0.0.0.0 --allow-host studio.example.com --no-open
 ```
 
-| Option         | Does                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------ |
-| `--host`       | Where it listens. `0.0.0.0` = every address. Default: this machine only.                   |
-| `--allow-host` | The names people use to reach it. Anything else is refused, so other sites can't sneak in. |
-| `--port`       | The port. Default `4600`.                                                                  |
-
-Compare and history need `git` on the server, and a real clone with its history.
+The options are in [Start it](/studio/#start-it). Compare and history need `git` on the server, and a real clone with its history.
 
 ## With Docker Compose
 
-This runs three containers. One keeps the copy of your repository pulled, and one runs Studio. The third is [Caddy](https://caddyserver.com), which gets a certificate for your name and asks for a password.
+This runs three containers: one pulls your repository, one runs Studio, and [Caddy](https://caddyserver.com) gets a certificate for your name and asks for a password.
 
 1. Point a name, such as `studio.example.com`, at the server.
 2. On the server, clone your network's repository into a directory named `network`. Use a deploy key that can only read it, saved beside `network` as `deploy-key` and readable by its owner only (`chmod 600 deploy-key`), with the git host's key in `known_hosts`.

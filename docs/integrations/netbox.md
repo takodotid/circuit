@@ -4,9 +4,7 @@ description: Sync the devices, ports, VLANs, addresses, and cables in your proje
 
 # NetBox
 
-[NetBox](https://netbox.dev) is where many teams keep what their network is made of: sites, racks, devices, cables, and addresses.
-
-`circuit sync netbox` writes what your project says into NetBox, so nobody types it in twice. Racks, power, and anything else you keep in NetBox stay yours. [How sync works](/integrations/) explains the plan, CI, and several networks.
+`circuit sync netbox` writes what your project says into [NetBox](https://netbox.dev). Racks, power, and anything else you keep in NetBox stay yours. [How sync works](/integrations/) explains the plan, CI, and several networks.
 
 ## What it writes
 
@@ -64,7 +62,7 @@ export const as64500 = circuit({
 });
 ```
 
-Then keep the token in your secrets, encrypted:
+Then set the token:
 
 ```sh
 circuit secrets set NETBOX_API_TOKEN
@@ -72,10 +70,7 @@ circuit secrets set NETBOX_API_TOKEN
 
 ## Sync NetBox
 
-```sh
-circuit sync netbox             # shows what would change, then asks
-circuit sync netbox --confirm   # sends without asking
-```
+`circuit sync netbox` shows a plan such as this one, then asks:
 
 ```
 NetBox: 3 change(s)

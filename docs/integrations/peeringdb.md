@@ -4,9 +4,7 @@ description: Keep your network's presence at each internet exchange on PeeringDB
 
 # PeeringDB
 
-[PeeringDB](https://www.peeringdb.com) is where networks say which internet exchanges they are at, and with which addresses, so others can peer with them.
-
-`circuit sync peeringdb` keeps your presence at each exchange in sync with your project: the speed, the IPv4 and IPv6 addresses, and whether you peer with the route servers. [How sync works](/integrations/) explains the plan, CI, and several networks.
+`circuit sync peeringdb` keeps your presence at each exchange on [PeeringDB](https://www.peeringdb.com) in sync with your project: the speed, the IPv4 and IPv6 addresses, and whether you peer with the route servers. [How sync works](/integrations/) explains the plan, CI, and several networks.
 
 ## What it reads
 
@@ -17,9 +15,9 @@ description: Keep your network's presence at each internet exchange on PeeringDB
 
 ## What it sends
 
-With your API key, Circuit adds each new presence and changes each one that differs. It never deletes a presence, and never changes `operational`, because you decide outside the project when you leave an exchange. If PeeringDB has a presence that the project doesn't, the plan lists it under **Left alone**, so you can remove it by hand.
+With your API key, Circuit adds each new presence and changes each one that differs. It never deletes a presence, and never changes `operational`. If PeeringDB has a presence that the project doesn't, the plan lists it under **Left alone**, so you can remove it by hand.
 
-Circuit publishes only global addresses. A private or shared address, which a tunnel to an exchange often uses, would send other networks to a dead end. The plan lists such an address under Left alone, and Circuit doesn't send a presence without a global address.
+Circuit publishes only global addresses. The plan lists a private or shared address under Left alone, and Circuit doesn't send a presence without a global address.
 
 ## Before you start
 
@@ -55,7 +53,7 @@ vlan_interface: {
 
 Write your real, global addresses. Circuit doesn't publish documentation addresses like these.
 
-Then keep the key in your secrets, encrypted:
+Then set the key:
 
 ```sh
 circuit secrets set PEERINGDB_API_KEY
@@ -63,10 +61,7 @@ circuit secrets set PEERINGDB_API_KEY
 
 ## Sync PeeringDB
 
-```sh
-circuit sync peeringdb             # shows what would change, then asks
-circuit sync peeringdb --confirm   # sends without asking
-```
+`circuit sync peeringdb` shows a plan such as this one, then asks:
 
 ```
 PeeringDB (AS64500): 2 change(s)

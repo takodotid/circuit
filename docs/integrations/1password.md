@@ -6,7 +6,7 @@ description: Keep the password that opens your secrets in 1Password, or the secr
 
 Circuit reads from 1Password. It never creates or changes anything there.
 
-Any value in a secrets file can be a 1Password reference, `op://vault/item/field`. Circuit reads it with the [1Password CLI](https://developer.1password.com/docs/cli/), `op`, by itself. You don't need `op run`, and you type the same `circuit` commands.
+Any value in a secrets file can be a 1Password reference, `op://vault/item/field`. Circuit reads it with the [1Password CLI](https://developer.1password.com/docs/cli/), `op`, by itself, so you don't need `op run`.
 
 You need `op` installed and signed in. It may ask you to unlock 1Password once a session. Circuit can also remember what it read for a while, so 1Password asks less often. See [Remembering for a while](/guide/secrets#remembering-for-a-while).
 
@@ -41,7 +41,7 @@ Only a reference may go there. The commit check stops a password written in plai
 
 **A teammate** needs `op` signed in, with access to that vault. There is nothing to pass around, and Circuit never asks them for the password.
 
-**To change the password**, run `circuit secrets password`, then put the new one in the same 1Password field. Until you do, the reference still reads the old one.
+**To change the password**, see [Changing the password](/guide/secrets#changing-the-password).
 
 **To stop using 1Password**, run `circuit secrets password --forget-1password`. Circuit then asks for the password again.
 

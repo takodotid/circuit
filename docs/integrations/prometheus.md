@@ -4,14 +4,12 @@ description: Write a targets file for Prometheus and a credentials file for the 
 
 # Prometheus
 
-[Prometheus](https://prometheus.io) collects numbers over time, such as how much traffic each port carries. It reads network devices through the [SNMP exporter](https://github.com/prometheus/snmp_exporter), which asks each device over SNMP.
+`circuit sync prometheus` writes two files in your project, from its devices:
 
-Your project already lists every device, its address, and its SNMP credentials. `circuit sync prometheus` turns that into two files in your project, so you don't keep a second list of devices:
+1. **The targets file**, the list of devices for [Prometheus](https://prometheus.io).
+2. **The `auths` file**, the credentials for the [SNMP exporter](https://github.com/prometheus/snmp_exporter).
 
-1. **The targets file**, the list of devices for Prometheus.
-2. **The `auths` file**, the credentials for the SNMP exporter.
-
-Neither file holds a secret, so you commit and review them like any other change. Deploy them to the monitoring host as you deploy anything else. [How sync works](/integrations/) explains the plan, CI, and several networks.
+Neither file holds a secret, so you commit them. Deploy them to the monitoring host as you deploy anything else. [How sync works](/integrations/) explains the plan, CI, and several networks.
 
 ## Before you start
 
@@ -32,12 +30,7 @@ You can leave out `auths` if you write the SNMP exporter's credentials yourself.
 
 ## Write the files
 
-```sh
-circuit sync prometheus             # shows the lines that would change, then asks
-circuit sync prometheus --confirm   # writes without asking
-```
-
-A new file shows every line with `+`. A file that differs shows the lines that go (`-`) and the lines that come (`+`). Run it again after you add or change a device.
+`circuit sync prometheus` shows the lines that would change, then asks. A new file shows every line with `+`. Run it again after you add or change a device.
 
 ## The targets file
 
@@ -107,9 +100,9 @@ snmp_exporter \
     --config.expand-environment-variables
 ```
 
-The values are in your [secrets file](/guide/secrets), encrypted, so the monitoring host needs them in its environment. There are two ways to put them there:
+The monitoring host needs the values in its environment. There are two ways to put them there:
 
 1. **From your secrets, when you deploy.** `circuit secrets get EDGE_01_SNMP_AUTH` prints one value. Your deploy step writes each value into an environment file that only the exporter's user can read, such as systemd's `EnvironmentFile=`.
 2. **From 1Password.** If the values are in [1Password](/integrations/1password), write an environment file of references, such as `EDGE_01_SNMP_AUTH=op://Network/edge-01/snmp-auth`. Then start the exporter with `op run --env-file=<that file> -- snmp_exporter ...`.
 
-A device with only an SNMP version 2c community gets `community: FILL_IN`, and the plan says so. The SNMP exporter can't read a community from its environment, and Circuit never writes a secret's value. So write the community in where you deploy the file, or better, give the device a version 3 user. The same goes for a password kept in a file with `secretFile()`.
+A device with only an SNMP version 2c community gets `community: FILL_IN`, and the plan says so, because the SNMP exporter can't read a community from its environment. Write the community in where you deploy the file, or better, give the device a version 3 user. The same goes for a password kept in a file with `secretFile()`.

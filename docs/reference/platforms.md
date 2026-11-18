@@ -4,8 +4,6 @@ description: The device operating systems Circuit works with, their versions, an
 
 # Platforms
 
-A platform is the device's operating system. It decides which commands Circuit sends.
-
 | `platform`     | OS                | Version  | Tested on                                                      |
 | -------------- | ----------------- | -------- | -------------------------------------------------------------- |
 | `routeros`     | MikroTik RouterOS | 7        | CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24 |
@@ -14,8 +12,6 @@ A platform is the device's operating system. It decides which commands Circuit s
 | `junos`        | Juniper Junos     | 21       | QFX5100-48S-6Q, Junos 21.4R3                                   |
 | `fortios`      | Fortinet FortiOS  | 6.2      | FG-3700D, FortiOS 6.2.2                                        |
 
-Good to know:
-
 - **One version per platform.** `routeros` means RouterOS 7. RouterOS 6 takes other commands, so Circuit doesn't support it.
 - **Version check.** On RouterOS, Junos, and FortiOS, `diff` and `apply` stop if the device runs another version. VRP and Raisecom ROS don't check, so check the version yourself before the first apply.
 - **Only the models it was tested on.** Another model needs its port list added. See [Contributing](/contributing).
@@ -23,7 +19,7 @@ Good to know:
 
 ## Feature matrix
 
-What each platform can do today. The table comes from Circuit's code, not from datasheets. [Standards](/reference/standards) lists the RFC behind each feature.
+The table comes from Circuit's code, not from datasheets. [Standards](/reference/standards) lists the RFC behind each feature.
 
 | Mark | Means                                                                                                                                                               |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

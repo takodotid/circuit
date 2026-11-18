@@ -17,8 +17,6 @@ description: Circuit's built-in checks, how to write your own, and what circuit 
 | `tunnels_outside_offered`         | A tunnel's own address isn't inside what you announce over it.                               |
 | `same_vlan_ids`                   | One VLAN name has the same ID on every device.                                               |
 
-You can only write `untrusted: true` on a VLAN while `untrusted_vlans` is on.
-
 ## Your own checks
 
 Any other name in `checks` takes a function that gets the network and returns what it found. This one is from the [edge router example](/guide/examples#an-edge-router), where `circuit.ts` turns it on with `checks: { imports_filtered: importsFiltered }`:

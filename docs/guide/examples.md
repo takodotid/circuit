@@ -4,7 +4,7 @@ description: Four whole projects to copy from, tested on every change to Circuit
 
 # Example projects
 
-Here are four whole projects. Pick the one closest to your network, copy it, and change it to yours. They live in [`examples/`](https://github.com/takodotid/circuit/tree/main/examples), and each one passes `circuit validate` on every change to Circuit.
+Copy the project closest to your network from [`examples/`](https://github.com/takodotid/circuit/tree/main/examples), and change it to yours. Each one passes `circuit validate` on every change to Circuit.
 
 ## A single site
 

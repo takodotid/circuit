@@ -8,14 +8,12 @@ This page is for people who work on Circuit's code. To write a project, start wi
 
 The model is what Circuit holds after it reads a project: each network and its devices, as the devices run them. The platforms read only the model. Its types are in `src/model.ts`. They are the types of `src/config/`, with each name as plain text.
 
-Circuit only knows devices. It has no idea of a tenant, an upstream, or a customer. A project builds those as [parts](/guide/parts) that it gives its devices.
-
 ## The network
 
 ```
 asn            the network's AS
 prefixes       the network's own prefixes, in named groups, for devices, checks, and integrations
-communities    the catalog: each community the scheme defines, with what it means
+communities    the catalog: each community the scheme defines, with what it means. nnn stands for any number.
 sites          by name: a description, and a number for communities. Nothing more.
 devices        by hostname: one device each (below)
 checks         Circuit's checks, turned on by name with their settings, and the project's own
@@ -24,7 +22,7 @@ integrations   peeringdb, librenms, netbox, prometheus
 
 ## A device
 
-Each group has one job. A new feature goes in the group whose job it fits. Winbox was a reference, not the target, so each group is named for what it does, not for one vendor's menu.
+Each group has one job. A new feature goes in the group whose job it fits.
 
 ```
 device
@@ -42,7 +40,7 @@ device
 └─ firewall              which packets pass and how they are rewritten: address sets, filter, nat, tcp_mss, untracked, conntrack_helpers
 ```
 
-Each field's doc comment in `src/config/` says what it means. The editor shows it on hover.
+Each field's doc comment in `src/config/` says what it means.
 
 ## What gets resolved
 
@@ -58,15 +56,13 @@ Nothing else is filled in: no default, no main table, no description. If the mod
 
 A platform may drop what it can't hold, and says so. For example, a VLAN on Raisecom and FortiOS is only a number, so they drop its description. A field that a platform can't express at all is an error before anything is sent. `untrusted: true` on a VLAN is only for its check, so no platform writes it.
 
-## Communities and checks
-
-`communities` in the model is the catalog: every community the scheme defines, with what it means. `nnn` stands for any number.
+## Checks
 
 The built-in checks read the model. A project's own checks read each device in the config's shape. See [Your own checks](/guide/checks#your-own-checks).
 
 ## From Circuit 0.x
 
-`circuit migrate <v0-folder>` writes a 0.x project again as a v1 project. It moves each field into v1's groups, and renames fields so each name says what it is. What it can't move, it lists in `MIGRATION.md`. The renames people meet most:
+[`circuit migrate`](/reference/cli#circuit-itself) moves each field of a 0.x project into v1's groups, and renames fields. The renames people meet most:
 
 | Circuit 0.x                                                   | v1                                                                                      |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
