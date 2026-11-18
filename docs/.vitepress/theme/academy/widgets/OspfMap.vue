@@ -50,27 +50,16 @@ function onPath(link: Link): boolean {
     );
 }
 
-const lastChange = ref("");
-
 function toggle(link: Link) {
     link.up = !link.up;
-    lastChange.value = link.up
-        ? `${link.a} and ${link.b} hear each other again. They tell every router, and every router runs the calculation again.`
-        : `${link.a} and ${link.b} stop hearing each other. They tell every router the link is gone, and every router runs the calculation again.`;
-}
-
-function setCost(link: Link, cost: number) {
-    link.cost = cost;
-    lastChange.value = `The cost of ${linkName(link)} is now ${cost}. Every router learns it and runs the calculation again.`;
 }
 
 function onCost(link: Link, event: Event) {
-    setCost(link, Number((event.target as HTMLSelectElement).value));
+    link.cost = Number((event.target as HTMLSelectElement).value);
 }
 
 function reset() {
     links.value = startingLinks.map((link) => ({ ...link }));
-    lastChange.value = "";
 }
 
 const said = computed(() => {
@@ -197,7 +186,6 @@ const code = computed(() => {
         </svg>
 
         <p class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
-        <p v-if="lastChange" class="change">{{ lastChange }}</p>
 
         <div class="frame">
             <table class="ac-table links">
@@ -239,7 +227,7 @@ const code = computed(() => {
             <button type="button" class="ac-button small" @click="reset">Put every link back</button>
         </div>
 
-        <p class="table-name">{{ from }}'s routing table, worked out by OSPF</p>
+        <p class="table-name">{{ from }}'s routing table</p>
         <div class="frame">
             <table class="ac-table">
                 <thead>
@@ -296,12 +284,6 @@ const code = computed(() => {
 
 .link.down .cost {
     stroke-dasharray: 3 3;
-}
-
-.change {
-    margin: 6px 0 0;
-    color: var(--circuit-soft);
-    font-size: 14.5px;
 }
 
 .frame {
