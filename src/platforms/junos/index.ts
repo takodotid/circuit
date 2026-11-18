@@ -750,7 +750,38 @@ export class Junos extends Platform {
 
             if (settings.keepalive !== undefined)
                 found.push(`routing.bgp.neighbors.${name}.keepalive, the platform keeps it at a third of hold_time`);
+
+            const restart = Derive.prefixLimit(settings)?.restart_after;
+            const minutes = (restart ?? 0) / JunosBgp.SECONDS_PER_MINUTE;
+            if (restart !== undefined && (!Number.isInteger(minutes) || minutes < 1 || minutes > JunosBgp.MAX_IDLE_MINUTES))
+                found.push(
+                    `routing.bgp.neighbors.${name}.max_prefixes.restart_after ${restart}, Junos waits whole minutes, up to ${JunosBgp.MAX_IDLE_MINUTES}: write a multiple of ${JunosBgp.SECONDS_PER_MINUTE}`
+                );
+            if (settings.route_reflector_client && !bgp?.cluster_id)
+                found.push(
+                    `routing.bgp.neighbors.${name}.route_reflector_client without routing.bgp.cluster_id: Junos needs a cluster ID, so write one`
+                );
         }
+
+        // `routing-options graceful-restart` turns it on for the whole router, OSPF too.
+        const graceful = Object.entries(bgp?.neighbors ?? {}).map(([name, neighbor]) => ({
+            name,
+            on: !!neighbor && JunosBgp.settingsOf(device, neighbor).graceful_restart,
+        }));
+        const first = graceful.find(({ on }) => on)?.name;
+        const without = graceful.filter(({ on }) => !on).map(({ name }) => name);
+        if (first && without.length)
+            found.push(
+                `routing.bgp.neighbors.${first}.graceful_restart, but not on ${without.join(", ")}: Junos turns it on for every session at once. Set it on every neighbor or on none`
+            );
+        if (first && device.routing?.ospf)
+            found.push(`routing.bgp.neighbors.${first}.graceful_restart with routing.ospf, Junos turns graceful restart on for OSPF too`);
+
+        const clients = Object.values(bgp?.neighbors ?? {}).some(
+            (neighbor) => neighbor && JunosBgp.settingsOf(device, neighbor).route_reflector_client
+        );
+        if (bgp?.cluster_id && !clients)
+            found.push("routing.bgp.cluster_id without a route_reflector_client: Junos holds the cluster ID on its clients' sessions");
 
         for (const server of device.routing?.rpki ?? []) {
             if (server.description) found.push(`routing.rpki ${server.address} description`);

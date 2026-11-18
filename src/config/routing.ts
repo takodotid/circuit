@@ -1,4 +1,4 @@
-import type { Family, HostAddress, IP, Named, Ordered, Prefix, Secret } from "./common";
+import type { Family, HostAddress, IP, IPv4, Named, Ordered, Prefix, Secret } from "./common";
 import type { CommunitiesRule, NeighborCommunities } from "./communities";
 import { ACTIONS, CALL_RULE, closest, COMMUNITIES_EXPORT, COMMUNITIES_IMPORT, ROUTE_MATCH, ROUTE_RULE, ROUTE_SET } from "./keys";
 import type { AnyFacts, NetworkFacts } from "./network";
@@ -36,6 +36,23 @@ export type StaticRoute<I extends string, F extends string, T extends string> = 
  */
 export type BgpRole = "provider" | "customer" | "peer" | "rs" | "rs-client";
 
+/** A prefix limit that does not keep the session closed: it opens again after a time, or it never closes. */
+export type PrefixLimit =
+    | {
+          /** The most prefixes the neighbor may announce. */
+          limit: number;
+          /** Close the session, then open it again after this many seconds. */
+          restart_after: number;
+          warn_only?: never;
+      }
+    | {
+          /** The most prefixes the neighbor may announce. */
+          limit: number;
+          /** Keep the session up and only log a message. */
+          warn_only: true;
+          restart_after?: never;
+      };
+
 /** Settings a BGP neighbor can set itself or take from its group. `P` is the device's policies, `T` its tables, `Net` what the network writes. */
 export type NeighborSettings<P extends string, T extends string, Net extends NetworkFacts = AnyFacts> = {
     /** The neighbor's AS. If it is our own AS, the session is internal (iBGP). */
@@ -54,12 +71,14 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     multihop?: boolean;
     /** Send with TTL 255, and accept only BGP packets that arrive with TTL 255, so only from a directly connected neighbor (GTSM, RFC 5082). Not with `multihop`. */
     ttl_security?: boolean;
+    /** This router is a route reflector, and the neighbor is its client: the router passes on to it the routes it learns from its other iBGP neighbors (RFC 4456). For iBGP neighbors only. */
+    route_reflector_client?: boolean;
     /** Announce a default route to the neighbor, in each address family the session carries, even when this device has none. The export policy does not apply to it. */
     send_default_route?: boolean;
     /** TCP MD5 password shared with the neighbor. */
     password?: Secret;
-    /** Close the session if the neighbor announces more prefixes than this. It stays closed until you clear it by hand. On RouterOS, use `/routing bgp session clear <session> flag=limit-exceeded`. */
-    max_prefixes?: number;
+    /** Close the session if the neighbor announces more prefixes than this. It stays closed until you clear it by hand. On RouterOS, use `/routing bgp session clear <session> flag=limit-exceeded`. Write `{ limit, restart_after }` to open it again after that many seconds, or `{ limit, warn_only: true }` to only log a message. */
+    max_prefixes?: number | PrefixLimit;
     /** Seconds without a message before the session goes down, 3 or more. */
     hold_time?: number;
     /** Seconds between keepalive messages. */
@@ -70,6 +89,8 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     passive?: boolean;
     /** Detect a dead link in under a second with BFD. */
     bfd?: boolean;
+    /** Graceful restart (RFC 4724): while BGP restarts on one side, the other side keeps its routes and traffic keeps flowing. */
+    graceful_restart?: boolean;
     /** The table for the routes learned from this neighbor, from `routing.tables`, or `main`. The main table when absent. On RouterOS, the session also announces from that table, so each prefix of `originated_prefixes` it announces needs a route in that table too. A running session uses a new table only after it restarts. */
     routing_table?: T | "main";
     /**
@@ -102,6 +123,8 @@ export type BgpAggregate = {
 export type Bgp<P extends string, G extends string, T extends string, Net extends NetworkFacts = AnyFacts> = {
     /** Our AS number. The network's `asn` when absent. */
     asn?: number;
+    /** The cluster ID of this route reflector (RFC 4456). Reflectors that serve the same clients share one. The router ID when absent. Junos needs it for `route_reflector_client`. */
+    cluster_id?: IPv4;
     /** Prefixes this device originates. Each needs a route, such as a static blackhole route. The export policies still decide who gets them. */
     originated_prefixes?: readonly Prefix[];
     /** Aggregates BGP announces, such as `{ prefix: "198.51.100.0/24", summary_only: true }`. */

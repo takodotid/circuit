@@ -117,7 +117,7 @@ export class Cabling {
         let ports: string[] = [];
 
         try {
-            ports = Catalog.ports(device.platform, device.model);
+            ports = Catalog.devicePorts(device);
         } catch {
             return reported;
         }

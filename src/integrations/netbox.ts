@@ -321,7 +321,7 @@ export class NetBox implements SyncTarget<NetBoxPlan> {
 
         let ports: string[];
         try {
-            ports = Catalog.ports(device.platform, device.model);
+            ports = Catalog.devicePorts(device);
         } catch {
             this.notes.push(`${device.name}: ${device.platform} has no model ${device.model}, so it is not in NetBox.`);
             return;

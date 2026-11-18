@@ -53,6 +53,7 @@ Seen on a FortiGate 3700D running FortiOS 6.2.2, without a license.
 - `capability-default-originate` sends a default route of the device's own, even through a `route-map-out` that denies everything.
 - An `aggregate-address` goes through `route-map-out`: a denied one is withdrawn. It is announced while the BGP table holds a route inside it, which `summary-only` marks `s` and keeps from the neighbors. The device routes the aggregate to Null, at distance 200. `get router info bgp neighbors <address> advertised-routes` leaves the aggregate out although the neighbor gets it; `get router info bgp network <prefix>` lists whom it went to.
 - There is no WireGuard and no RPKI: `command parse error`. A route map has no large community, a BGP neighbor no role, and SNMPv3 no SHA256.
+- A BGP neighbor has `route-reflector-client` and `route-reflector-client6` only while it is internal. While the router's `as` is unset, or `remote-as` is another AS, setting them is `command parse error`. The render writes both ASes before them.
 - `execute backup config flash <comment>` keeps a revision on the device, and `execute restore config flash <id>` restores one.
 - The factory dedicates `mgmt1` and `mgmt2` to management, at `192.168.1.99` and `192.168.2.99`.
 - On the serial console a line ends at a carriage return. A session left open stays logged in, and one left inside `config` stays there, so the next login must first leave and log out. The console runs at 9600 bits per second: reading the sections Circuit manages takes about two minutes.

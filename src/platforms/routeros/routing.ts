@@ -1,6 +1,7 @@
 import { presets } from "../../config/presets";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
+import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, RouteRule } from "../../model";
 import type { RouterOsRender } from "./render";
@@ -193,7 +194,19 @@ export class RouterOsRouting {
     /** The default instance exists on every device; it is stated in the form the export prints it. */
     private bgpInstance(): void {
         const bgp = this.device.routing!.bgp!;
-        this.render.add("/routing bgp instance", "add", { as: bgp.asn, name: "default", "router-id": this.device.routing?.router_id });
+        this.render.add("/routing bgp instance", "add", {
+            as: bgp.asn,
+            "cluster-id": bgp.cluster_id,
+            name: "default",
+            "router-id": this.device.routing?.router_id,
+        });
+    }
+
+    /** `local.role` holds both a route reflector's client and an RFC 9234 role. The device checks refuse a client with a role, or in another AS. */
+    private static roleOf(settings: NeighborSettings, internal: boolean): string {
+        if (settings.route_reflector_client) return "ibgp-rr";
+        if (settings.role) return RouterOsRouting.ROLES[settings.role];
+        return internal ? "ibgp" : "ebgp";
     }
 
     /** A neighbor's settings with its group's beneath them. */
@@ -312,7 +325,7 @@ export class RouterOsRouting {
             const addressFamily = Address.family(neighbor.address);
             const internal = settings.remote_as === bgp.asn;
             const originates = bgp.originated_prefixes?.some((prefix) => Address.family(Address.host(prefix)) === family);
-            const role = settings.role ? RouterOsRouting.ROLES[settings.role] : internal ? "ibgp" : "ebgp";
+            const role = RouterOsRouting.roleOf(settings, internal);
 
             this.render.add("/routing bgp connection", "add", {
                 // Only stated when the routes differ in family from the address they are carried over.
@@ -324,7 +337,7 @@ export class RouterOsRouting {
                 "input.filter": RouterOsRouting.chainName(settings.import_policy ?? RouterOsRouting.REJECT_ALL, family),
                 // The one instance bgpInstance adds. 7.23 refuses a new connection without it.
                 instance: "default",
-                [`input.limit-process-routes-${family}`]: settings.max_prefixes,
+                [`input.limit-process-routes-${family}`]: Derive.prefixLimit(settings)?.limit,
                 "keepalive-time": settings.keepalive ? RouterOsSyntax.duration(settings.keepalive) : undefined,
                 listen: settings.passive ? "yes" : undefined,
                 "local.address": settings.local_address && Address.host(settings.local_address),

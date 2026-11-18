@@ -19,6 +19,8 @@ export type Parsed = {
     commands: Command[];
     /** Address lists whose entries are filled by `refresh`, not by the render. */
     generated: Set<string>;
+    /** The device's ports, `# port ether4`, which the read lists for a virtual router. */
+    ports: string[];
 };
 
 export class RouterOsExport {
@@ -30,7 +32,8 @@ export class RouterOsExport {
         "/interface bridge": { "protocol-mode": "rstp", priority: "0x8000", "vlan-filtering": "no", pvid: "1" },
         "/interface bridge port": { pvid: "1", "frame-types": "admit-all", edge: "auto", "path-cost": "10", priority: "0x80" },
         "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
-        "/interface ethernet": { mtu: "1500", "auto-negotiation": "yes" },
+        // A CHR prints `disable-running-check=no` on every port, as it ships. A RouterBOARD has no such property, so this changes nothing there (TRAPS.md).
+        "/interface ethernet": { mtu: "1500", "auto-negotiation": "yes", "disable-running-check": "no" },
         "/interface ethernet switch port": {
             "storm-rate": "100",
             "limit-broadcasts": "yes",
@@ -53,6 +56,7 @@ export class RouterOsExport {
         // A blackhole route prints its distance, a route through a gateway doesn't (TRAPS.md).
         "/ip route": { distance: "1", "pref-src": "" },
         "/ipv6 route": { distance: "1" },
+        "/routing bgp instance": { "cluster-id": "" },
         // TTLs never set send 255 and accept any, and cannot be unset (TRAPS.md).
         "/routing bgp connection": { "use-bfd": "no", "local.ttl": "255", "remote.ttl": "1", "output.default-originate": "never" },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
@@ -144,6 +148,9 @@ export class RouterOsExport {
 
     /** Properties the device makes up for itself when an entry is created, such as an EoIP tunnel's random MAC. The plan leaves them as they are when the render doesn't state them. */
     static readonly GENERATED: Record<string, readonly string[]> = { "/interface eoip": ["mac-address"] };
+
+    /** Properties the device clears only with `unset`: it refuses them empty (TRAPS.md). */
+    static readonly UNSET: Record<string, readonly string[]> = { "/routing bgp instance": ["cluster-id"] };
 
     /** Properties whose value cannot be read back from the device. They are compared only by the presence of what holds them. */
     static readonly SECRET_KEYS = new Set(["private-key", "password", "tcp-md5-key", "authentication-password", "encryption-password"]);
@@ -276,6 +283,7 @@ export class RouterOsExport {
     static parse(text: string): Parsed {
         const commands: Command[] = [];
         const generated = new Set<string>();
+        const ports: string[] = [];
         let menu = "";
 
         for (const raw of RouterOsExport.unwrap(text).split("\n")) {
@@ -287,10 +295,12 @@ export class RouterOsExport {
 
             const marker = /^# generated (\S+)$/.exec(line);
             if (marker) generated.add(marker[1]!);
+            const port = /^# port (\S+)$/.exec(line);
+            if (port) ports.push(port[1]!);
             if (menu && /^(add|set)( |$)/.test(line)) commands.push(RouterOsExport.parseLine(menu, line));
         }
 
-        return { commands, generated };
+        return { commands, generated, ports };
     }
 
     /** The default of one property of a command, or undefined when it is not known. */

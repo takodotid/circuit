@@ -1,5 +1,6 @@
 import { presets } from "../../config/presets";
 import { Address } from "../../core/address";
+import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, Prefix, PrefixSet, RouteRule } from "../../model";
 import { JunosStatements } from "./statements";
@@ -29,6 +30,11 @@ export class JunosBgp {
     private static readonly FAMILY = { ipv4: "inet", ipv6: "inet6" } as const;
 
     private static readonly VALIDATION = { valid: "valid", invalid: "invalid", "not-found": "unknown" } as const;
+
+    /** The device waits whole minutes before it opens a session closed on its prefix limit. */
+    static readonly SECONDS_PER_MINUTE = 60;
+    /** The longest it waits, in minutes. */
+    static readonly MAX_IDLE_MINUTES = 2400;
 
     private constructor(
         private readonly out: JunosStatements,
@@ -100,10 +106,14 @@ export class JunosBgp {
             if (settings.description) this.out.set(group, "description", JunosStatements.quote(settings.description));
             if (settings.local_address) this.out.set(group, "local-address", Address.host(settings.local_address));
             if (settings.multihop) this.out.set(group, "multihop");
+            // A neighbor in a group with a cluster ID is a client. `unsupported()` names a client without one.
+            if (settings.route_reflector_client && bgp.cluster_id) this.out.set(group, "cluster", bgp.cluster_id);
             if (settings.passive) this.out.set(group, "passive");
             if (settings.hold_time !== undefined) this.out.set(group, "hold-time", settings.hold_time);
             if (settings.password) this.out.set(group, "authentication-key", Secrets.marker(settings.password));
             if (settings.bfd) this.out.bfd(group, this.device.routing?.bfd);
+            // Only the router-wide statement turns it on: a group's own `graceful-restart` alone does nothing (TRAPS.md). `unsupported()` refuses it on only some neighbors.
+            if (settings.graceful_restart) this.out.set("routing-options graceful-restart");
 
             this.out.set(group, "import", settings.import_policy ?? JunosBgp.REJECT_ALL);
 
@@ -124,15 +134,19 @@ export class JunosBgp {
                 else rejectAll = true;
             }
 
+            const limit = Derive.prefixLimit(settings);
+
             for (const family of families) {
                 const nlri = `${group} family ${JunosBgp.FAMILY[family]} unicast`;
                 this.out.set(nlri);
+                if (!limit) continue;
 
-                // A session over its limit stays down until it is cleared by hand.
-                if (settings.max_prefixes !== undefined) {
-                    this.out.set(nlri, "prefix-limit maximum", settings.max_prefixes);
-                    this.out.set(nlri, "prefix-limit teardown idle-timeout forever");
-                }
+                // Without `teardown`, the device only logs a message.
+                this.out.set(nlri, "prefix-limit maximum", limit.limit);
+                if (limit.warn_only) continue;
+
+                const idle = limit.restart_after === undefined ? "forever" : limit.restart_after / JunosBgp.SECONDS_PER_MINUTE;
+                this.out.set(nlri, "prefix-limit teardown idle-timeout", idle);
             }
 
             this.out.set(group, "neighbor", neighbor.address);
