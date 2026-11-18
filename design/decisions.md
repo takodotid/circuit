@@ -44,6 +44,8 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **72.** `merge` is decided by the field it lands in, in the editor too, and names complete inside it. Replaces 64.
 - **87.** A later Circuit reads YAML projects too: one `!ref` tag, and v1's TypeScript as the schema ([#167](https://github.com/takodotid/circuit/issues/167)).
 - **90.** Project files import each other by relative path. The `circuit` path alias in `tsconfig.json` is for `import type` only: types are erased, and the binary doesn't read `tsconfig.json`.
+- **116.** A static route's `next_hop` is a plain address, and its interface goes in `interface`, never after `%`. RouterOS writes both as `gateway=<next_hop>%<interface>`, experimental until tested on a device. A platform that can't write both refuses them.
+- **117.** The docs show part of an example with a VitePress region include, so an excerpt can't drift from the example its test checks.
 
 ## BGP communities
 
