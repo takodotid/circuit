@@ -16,8 +16,8 @@ const programs: Program[] = [
     { port: 22, name: "Remote login (SSH)", said: "the remote login program, SSH" },
     { port: 25, name: "Mail delivery", said: "the mail program, which takes mail from other mail servers" },
     { port: 53, name: "DNS answers", said: "the DNS program, which answers questions about names" },
-    { port: 80, name: "Web pages", said: "the web program, sending pages without a lock" },
-    { port: 443, name: "Web pages, locked", said: "the web program, sending pages locked" },
+    { port: 80, name: "Web pages", said: "the web program, which sends pages without a lock" },
+    { port: 443, name: "Web pages, locked", said: "the web program, which sends locked pages" },
 ];
 
 type Layout = {
@@ -73,7 +73,7 @@ async function send() {
     const number = Number(text);
 
     if (!/^\d+$/.test(text) || number > 65535) {
-        said.value = { kind: "bad", word: "Not a port", text: "A port is a whole number from 0 to 65535. Try 443, 22 or 53." };
+        said.value = { kind: "bad", word: "Not a port", text: "A port is a whole number from 0 to 65535. Try 443, 22, or 53." };
         litIndex.value = undefined;
         return;
     }
@@ -105,7 +105,7 @@ async function send() {
     said.value = {
         kind: "good",
         word: "Answered",
-        text: `Port ${number} on 203.0.113.80 reached ${programs[index]!.said}. It answered to port ${ownPort.value} on the laptop, the port the laptop picked for this conversation.`,
+        text: `Port ${number} on 203.0.113.80 reached ${programs[index]!.said}. The program answered to port ${ownPort.value}, which the laptop picked for this conversation.`,
     };
 }
 </script>
