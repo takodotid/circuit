@@ -113,7 +113,7 @@ jobs:
                   # The checks it remembers for a while are forgotten, so it asks again, through a proxy that answers nothing.
                   rm -f "$HOME/.circuit/latest.json" "$HOME/.circuit/advisories.json"
                   HTTPS_PROXY=http://127.0.0.1:9 HTTP_PROXY=http://127.0.0.1:9 circuit validate 2>&1 | tee offline.txt || true
-                  grep -q "Could not reach the npm registry or GitHub" offline.txt
+                  grep -q "couldn't reach the npm registry or GitHub" offline.txt
 
             # The release's files served from here, with one checksum changed: the installer must refuse them.
             - name: a download whose checksums are not the signed ones is refused
