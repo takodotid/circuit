@@ -37,7 +37,7 @@ async function send() {
         await travel([LAPTOP, [SWITCH[0] - 14, SWITCH[1]]]);
         said.value = {
             kind: "bad",
-            text: "Nothing in VLAN 20 answers to 192.168.20.1, so the packet has nowhere to go. The switch will not carry it into VLAN 40 on its own.",
+            text: "Nothing in VLAN 20 answers to 192.168.20.1, so the packet has nowhere to go. The switch does not carry it into VLAN 40 on its own.",
         };
         busy.value = false;
         return;
@@ -95,7 +95,7 @@ async function send() {
             <button type="button" class="ac-button" :aria-pressed="router" :disabled="busy" @click="toggleRouter">
                 {{ router ? "Router plugged in" : "Plug in a router" }}
             </button>
-            <button type="button" class="ac-button primary" :disabled="busy" @click="send">Send from the laptop to the recorder</button>
+            <button type="button" class="ac-button primary" :disabled="busy" @click="send">Send a packet</button>
         </div>
 
         <div aria-live="polite">
