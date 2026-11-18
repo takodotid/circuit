@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: hijacks and leaks. The reader has AS64510 hijack or leak their address block, then publishes a ROA, turns on origin validation and registry filters network by network, and sees where each network's traffic ends up.
+// Lesson: hijacks and leaks. The reader has AS64510 hijack or leak their address block, then publishes a ROA, turns on origin validation and registry filters network by network, and sees where each network's traffic ends up. Every network but yours has a documentation AS number, since any of them may be shown careless.
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
@@ -8,12 +8,12 @@ import { type Delivery, type RoaChoice, RouteSpread, type Scenario } from "./Hij
 type Place = { label: string; x: number; y: number };
 
 const places: Record<number, Place> = {
-    64496: { label: "Transit 1", x: 230, y: 80 },
-    64497: { label: "Transit 2", x: 470, y: 80 },
-    64503: { label: "ISP West", x: 75, y: 205 },
+    64496: { label: "West transit", x: 230, y: 80 },
+    64497: { label: "East transit", x: 470, y: 80 },
+    64503: { label: "West ISP", x: 75, y: 205 },
     64501: { label: "Your provider", x: 250, y: 215 },
     [RouteSpread.OTHER]: { label: "Another network", x: 470, y: 215 },
-    64502: { label: "ISP East", x: 630, y: 205 },
+    64502: { label: "East ISP", x: 630, y: 205 },
     [RouteSpread.YOU]: { label: "You", x: 250, y: 345 },
 };
 
@@ -47,8 +47,8 @@ const scenarios: { id: Scenario; label: string; text: string }[] = [
     },
     {
         id: "leak",
-        label: "Leaks your route to Transit 2",
-        text: "AS64510 hears your route from your provider, and passes it on to its other provider, Transit 2.",
+        label: "Leaks your route",
+        text: "AS64510 hears your route from your provider, and passes it on to its other provider, the east transit.",
     },
 ];
 
@@ -214,7 +214,7 @@ const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
             class="ac-drawing"
             viewBox="0 0 700 400"
             role="img"
-            :aria-label="`Seven networks. Transit 1 and Transit 2 peer. Transit 1 serves ISP West and your provider; Transit 2 serves AS64510 and ISP East; your provider serves you and AS64510. ${summary.text}`"
+            :aria-label="`Seven networks. The west and east transits peer. The west transit serves the west ISP and your provider; the east transit serves AS64510 and the east ISP; your provider serves you and AS64510. ${summary.text}`"
         >
             <line
                 v-for="link in links"
@@ -286,11 +286,11 @@ const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
         </div>
 
         <div class="refused">
-            <p class="heading">Dropped by a defence</p>
+            <p class="heading">Dropped by a defense</p>
             <ul v-if="refusals.length">
                 <li v-for="line in refusals" :key="line">{{ line }}</li>
             </ul>
-            <p v-else class="quiet">Nothing yet. Only a loop or your own space coming back is dropped without a defence.</p>
+            <p v-else class="quiet">Nothing yet. Without a defense, a network drops only a loop, or your own space coming back.</p>
         </div>
     </div>
 </template>
