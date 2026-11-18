@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { defineConfig, type DefaultTheme } from "vitepress";
+import { defineConfig } from "vitepress";
+import type { DefaultTheme } from "vitepress";
 import circuit from "../../package.json";
 import { Academy } from "./academy.ts";
 import { Seo } from "./seo.ts";
@@ -163,7 +164,7 @@ export default defineConfig({
             pattern: `${repository}/edit/main/docs/:path`,
         },
 
-        // The outline beside each page lists its second- and third-level headings.
+        // oxlint-disable-next-line eslint/no-magic-numbers -- The outline beside each page lists its second- and third-level headings.
         outline: { level: [2, 3], label: "On this page" },
 
         search: {

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-// Lesson: switches. The reader sends frames between five devices on one switch, and watches the switch learn where each device is, flood a frame it cannot place yet, and copy a broadcast to everyone.
+// Lesson: switches. The reader sends frames between five devices on one switch. The switch learns where each device is, floods a frame it cannot place yet, and copies a broadcast to everyone.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
-import { type Host, Lan, useNarrow, usePause } from "./SwitchLearning";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
+import { Lan, useNarrow, usePause } from "./SwitchLearning";
+import type { Host } from "./SwitchLearning";
 
 type Layout = {
     viewBox: string;

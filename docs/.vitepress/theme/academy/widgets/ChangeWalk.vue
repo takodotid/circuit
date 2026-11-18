@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: running it day to day. The reader steps through one change to the colocation example, from the request to the check, with what each command prints. Output is Circuit's own, run on the example; diff compares against the example's own render, which stands in for the device, and commands that need a device show the command alone.
+// Lesson: running it day to day. The reader steps through one change to the colocation example, from the request to the check, with what each command prints. Output is Circuit's own, run on the example. Diff compares against the example's own render, which stands in for the device. A command that needs a device shows the command alone.
 
 type Step = { title: string; text: string; code: string; lang: "shell" | "text" | "ts"; file: string; highlight?: number[] };
 

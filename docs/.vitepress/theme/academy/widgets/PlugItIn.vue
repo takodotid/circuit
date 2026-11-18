@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: cables, light, and radio. The reader picks a cable or a module from a tray and a port on a switch, and is told whether it fits, and at what speed and distance the link comes up, or why it does not.
+// Lesson: cables, light, and radio. The reader picks a cable or a module from a tray and a port on a switch. The widget says whether it fits, and at what speed and distance the link comes up, or why it does not.
 
 import { computed, ref } from "vue";
 

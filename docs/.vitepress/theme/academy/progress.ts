@@ -35,13 +35,10 @@ export class Progress {
 
     private static loaded = false;
 
-    /**
-     * Whether a level is open in this browser. The first is always open; a later one opens with its own entry check, or a check for a
-     * level after it, since that check asks about this level too.
-     */
+    /** Whether a level is open in this browser. The first is always open; a later one opens with its own entry check, or a check for a level after it, since that check asks about this level too. */
     static isOpen(slug: string, checks: Record<string, number> = Progress.passed.value) {
         const needed = Progress.GATED.indexOf(slug);
-        return needed < 0 || Progress.GATED.slice(needed).some((level) => Boolean(checks[level]));
+        return needed === -1 || Progress.GATED.slice(needed).some((level) => Boolean(checks[level]));
     }
 
     /** Read what this browser remembers, once, after the page is in the browser. */

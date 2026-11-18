@@ -2,7 +2,8 @@
 // Lesson: opening a website. The reader steps through everything that happens between typing circuit.tako.id and seeing the page, with each message traveling the hops it really takes.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 import { useNarrow, usePause } from "./SwitchLearning";
 
 type Place = "laptop" | "home" | "provider" | "resolver" | "internet" | "site";

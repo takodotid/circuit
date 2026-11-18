@@ -65,7 +65,7 @@ const sum = computed(() => Array.from({ length: switches.value }, () => "2").joi
         </div>
 
         <p class="ac-say good" data-word="Patterns" aria-live="polite">
-            <template v-if="switches === 1">One switch makes 2 patterns, for 0 and 1.</template>
+            <template v-if="switches === 1">One switch makes 2 patterns: 0 and 1.</template>
             <template v-else>
                 {{ switches }} switches make {{ sum }} = <strong>{{ all.length }}</strong> patterns, for 0 to {{ all.length - 1 }}.
             </template>

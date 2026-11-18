@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// Lesson: hijacks and leaks. The reader has AS64510 hijack or leak their address block, then publishes a ROA, turns on origin validation and registry filters network by network, and sees where each network's traffic ends up. Every network but yours has a documentation AS number, since any of them may be shown careless.
+// Lesson: hijacks and leaks. The reader has AS64510 hijack or leak their address block. Then they publish a ROA, and turn on origin validation and registry filters network by network. They see where each network's traffic ends up. Every network but yours has a documentation AS number, since any of them may be shown careless.
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
-import { type Delivery, type RoaChoice, RouteSpread, type Scenario } from "./HijackSpread";
+import { RouteSpread } from "./HijackSpread";
+import type { Delivery, RoaChoice, Scenario } from "./HijackSpread";
 
 type Place = { label: string; x: number; y: number };
 

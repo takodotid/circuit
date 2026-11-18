@@ -2,7 +2,8 @@
 // Lesson: VLANs. The reader tries to send from a laptop in one VLAN to a recorder in another, then plugs in a router with a port in each VLAN and tries again.
 
 import { ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 const LAPTOP: Point = [100, 225];
 const RECORDER: Point = [540, 225];

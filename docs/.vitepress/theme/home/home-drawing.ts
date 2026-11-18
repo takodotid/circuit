@@ -21,8 +21,7 @@ export class HomeDrawing {
         { plate: "network", src: "/illustrations/home/plate-network.webp" },
     ] as const;
 
-    // The editor in the drawing leans away to the right. Its words are set flat on a window of this size, then bent onto the
-    // editor's four corners in the drawing, so they lean with it.
+    // The editor in the drawing leans away to the right. Its words are set flat on a window of this size, then bent onto the editor's four corners in the drawing, so they lean with it.
     private static readonly WINDOW = { width: 870, height: 760 };
     private static readonly EDITOR = [
         [580, 92],
@@ -103,10 +102,7 @@ export class HomeDrawing {
     // The git history under the drawing: a commit at each station, the newest the change in the plan.
     static readonly STATIONS = [155, 432, 708, 957];
 
-    /**
-     * The changes the drawing goes through, one after another: what is written in the editor, the plan Circuit makes of it against
-     * what the device runs, and the commit it ends in. Each plan is what the RouterOS adapter prints for that change, its long lines wrapped.
-     */
+    /** The changes the drawing goes through, one after another. Each has what is written in the editor, the plan Circuit makes of it against what the device runs, and the commit it ends in. Each plan is what the RouterOS adapter prints for that change, its long lines wrapped. */
     static readonly CHANGES = [
         {
             code: [

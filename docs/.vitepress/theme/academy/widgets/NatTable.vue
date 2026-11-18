@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Lesson: NAT. The reader opens connections from devices at home, watches the router rewrite each one and fill its translation table, then tries to connect in from outside, with and without a port forward.
+// Lesson: NAT. The reader opens connections from devices at home, and watches the router rewrite each one and fill its translation table. Then they try to connect in from outside, with and without a port forward.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 type Kind = "laptop" | "phone" | "camera" | "router" | "cloud" | "server";
 type Place = { id: string; kind: Kind; label: string; address: string; x: number; y: number };

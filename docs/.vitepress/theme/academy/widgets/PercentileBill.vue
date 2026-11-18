@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: what an ISP sells. The reader guesses where a 95th percentile bill lands, then sorts an evening of five-minute samples, throws away the busiest 5 percent, bills the highest left, and adds a burst to see when it starts to cost.
+// Lesson: what an ISP sells. The reader guesses where a 95th percentile bill lands. Then they sort an evening of five-minute samples, throw away the busiest 5 percent, and bill the highest left. A burst shows when it starts to cost.
 
 import { computed, ref, watch } from "vue";
 import { Percentile95 } from "./PercentileBill";

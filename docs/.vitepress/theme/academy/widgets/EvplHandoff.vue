@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// Lesson: carrying your own traffic. The reader buys an EPL or EVPLs on one port, sends frames with different VLAN tags into the provider, sees where each arrives, and reads the Circuit excerpt for the port.
+// Lesson: carrying your own traffic. The reader buys an EPL or EVPLs on one port, and sends frames with different VLAN tags into the provider. They see where each arrives, and read the Circuit excerpt for the port.
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
-import { Handoff, type Mode, type Service } from "./EvplHandoff";
+import { Handoff } from "./EvplHandoff";
+import type { Mode, Service } from "./EvplHandoff";
 
 const mode = ref<Mode>("evpl");
 const bought = ref<Service["id"][]>(["branch"]);

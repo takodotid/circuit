@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: separate networks on one. The reader follows either customer's packet across a provider core wrapped in VXLAN or in MPLS labels, sees which header each router reads, and finds the core MTU the wrapping needs.
+// Lesson: separate networks on one. The reader follows either customer's packet across a provider core wrapped in VXLAN or in MPLS labels. They see which header each router reads, and find the core MTU the wrapping needs.
 
 import { computed, ref } from "vue";
 

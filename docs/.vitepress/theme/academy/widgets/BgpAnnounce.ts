@@ -22,7 +22,7 @@ export class Announcement {
     /**
      * Every round of announcing one prefix, until nothing more is sent.
      *
-     * Each AS keeps the shortest path it hears, and keeps the one it has when a new one is no shorter. Whenever its path changes, it sends the path on with its own number added at the front. It sends a route from a customer, or its own, to every neighbor, and a route from a provider or a peer only to its customers. An AS that finds its own number in a path drops it.
+     * Each AS keeps the shortest path it hears, and on a tie keeps the one it has. When its path changes, it sends the path on with its own number at the front. It sends a customer's route, or its own, to every neighbor, and a provider's or a peer's route only to its customers. An AS that finds its own number in a path drops it.
      */
     static rounds(links: readonly AsLink[], origin: number): Round[] {
         const neighborsOf = (as: number) => links.flatMap((link) => (link.a === as ? [link.b] : link.b === as ? [link.a] : []));

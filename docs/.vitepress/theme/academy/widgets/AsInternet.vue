@@ -2,7 +2,8 @@
 // Lesson: networks of networks. The reader joins their own AS to a small internet with transit and peering links, and sees which networks each can reach and who pays whom.
 
 import { computed, ref } from "vue";
-import { AsPaths, type AsLink } from "./AsInternet";
+import { AsPaths } from "./AsInternet";
+import type { AsLink } from "./AsInternet";
 
 const networks = [
     { id: "64500", name: "Your network", x: 350, y: 235 },

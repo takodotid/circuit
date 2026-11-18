@@ -50,7 +50,7 @@ onMounted(() => {
     if (hero.value) sight.observe(hero.value);
 
     // A new change is written every few seconds, as if the network were being worked on. Reduced motion keeps the first.
-    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) cycle = setInterval(nextChange, 7500);
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) cycle = setInterval(nextChange, CHANGE_TIME);
 });
 
 onBeforeUnmount(() => {
@@ -70,6 +70,7 @@ const history = ref([...HomeDrawing.HISTORY]);
 const commits = computed(() => history.value.map((commit, index) => ({ ...commit, x: HomeDrawing.STATIONS[index]! })));
 
 let cycle: ReturnType<typeof setInterval> | undefined;
+const CHANGE_TIME = 7500;
 
 /** Move on to the next change, unless the opening is out of sight or the page is hidden. */
 function nextChange() {

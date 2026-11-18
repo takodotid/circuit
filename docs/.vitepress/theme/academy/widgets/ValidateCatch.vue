@@ -111,7 +111,7 @@ function choose(id: string | undefined) {
                     ? "Your editor underlines this one as you type, too."
                     : "Your editor misses this one, but validate catches it."
             }}
-            While there is an error, <span class="ac-mono">diff</span> and <span class="ac-mono">apply</span> refuse to run.
+            <span class="ac-mono">diff</span> and <span class="ac-mono">apply</span> refuse to run while there is an error.
         </p>
     </div>
 </template>

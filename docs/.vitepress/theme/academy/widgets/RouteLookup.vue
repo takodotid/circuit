@@ -2,7 +2,8 @@
 // Lesson: routing tables. The reader looks up destination addresses in an office router's table, adds and removes static routes, and sees the matching rows, the winner, and the Circuit file.
 
 import { computed, ref } from "vue";
-import { type Prefix, type Route, RouteTable } from "./RouteLookup";
+import { RouteTable } from "./RouteLookup";
+import type { Prefix, Route } from "./RouteLookup";
 
 type Row = Route & { id: number };
 

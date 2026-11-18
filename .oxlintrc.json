@@ -88,8 +88,10 @@
             "rules": { "eslint/no-magic-numbers": "off" }
         },
         {
-            // A drawing's numbers are read as they are, as in CSS: positions, sizes, and the curve of a motion.
+            // A drawing's numbers are read as they are, as in CSS: positions, sizes, and the curve of a motion. A lesson's widget also shows the values it teaches.
             "files": [
+                "docs/.vitepress/theme/academy/widgets/**",
+                "docs/.vitepress/theme/home/home-drawing.ts",
                 "src/studio/app/src/lib/graph-glide.ts",
                 "src/studio/app/src/lib/graph-look.ts",
                 "src/studio/app/src/lib/graph-svg.ts"
@@ -130,20 +132,6 @@
             "rules": {
                 "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
                 "typescript/no-non-null-assertion": "error"
-            }
-        },
-        {
-            // The website's theme is still to follow these.
-            "files": ["docs/**"],
-            "rules": {
-                "eslint/no-magic-numbers": "off",
-                "eslint/capitalized-comments": "off",
-                "eslint/prefer-template": "off",
-                "unicorn/numeric-separators-style": "off",
-                "unicorn/consistent-existence-index-check": "off",
-                "unicorn/no-useless-undefined": "off",
-                "import/consistent-type-specifier-style": "off",
-                "typescript/consistent-type-definitions": "off"
             }
         }
     ],

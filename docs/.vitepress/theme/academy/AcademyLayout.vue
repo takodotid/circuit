@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The default layout, with the Academy's parts around a lesson: its place in the level above the title, the end of lesson and the discussion under it, and in place of a lesson whose level is still closed, the gate to its entry check.
+// The default layout, with the Academy's parts around a lesson: its place in the level above the title, and the end of lesson and the discussion under it. A lesson whose level is still closed shows the gate to its entry check instead.
 
 import { computed, nextTick, onMounted, watch } from "vue";
 import DefaultTheme from "vitepress/theme";

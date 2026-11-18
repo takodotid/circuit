@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: roles in a network. The reader gives each device of a small provider with two sites a role from what is plugged into it, sees it take its place in the drawing, and sees the name and file that follow.
+// Lesson: roles in a network. The reader gives each device of a small provider with two sites a role from what is plugged into it. The device takes its place in the drawing, with the name and file that follow.
 
 import { computed, ref } from "vue";
 

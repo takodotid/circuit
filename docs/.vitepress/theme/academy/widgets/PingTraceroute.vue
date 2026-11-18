@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Lesson: routers and the gateway. The reader runs ping to four addresses and tracert to a far server from a laptop, and watches echo requests, replies, and "time exceeded" notes travel, while the laptop prints what Windows would print.
+// Lesson: routers and the gateway. The reader runs ping to four addresses and tracert to a far server from a laptop. Echo requests, replies, and "time exceeded" notes travel, while the laptop prints what Windows would print.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 import { useNarrow, usePause } from "./SwitchLearning";
 
 type Id = "laptop" | "main" | "provider" | "middle" | "far" | "server" | "shop" | "nobody";

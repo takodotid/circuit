@@ -2,7 +2,8 @@
 // Lesson: hijacks and leaks. The reader writes ROAs and a route, and sees route origin validation decide valid, invalid, or not found, ROA by ROA.
 
 import { computed, ref } from "vue";
-import { type Roa, Rov } from "./OriginCheck";
+import { Rov } from "./OriginCheck";
+import type { Roa } from "./OriginCheck";
 
 type RoaRow = { prefix: string; maxLength: string; asn: string };
 type Case = { label: string; roas: RoaRow[]; prefix: string; path: string };
