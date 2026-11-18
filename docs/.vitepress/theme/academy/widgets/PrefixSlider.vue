@@ -154,14 +154,14 @@ const splitText = computed(() => {
                         <th scope="row">First address</th>
                         <td>
                             <span class="ac-mono">{{ Ipv4.format(network) }}</span
-                            >: the network address, stands for the network itself
+                            >, the network address, for the network itself
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">Last address</th>
                         <td>
                             <span class="ac-mono">{{ Ipv4.format(broadcast) }}</span
-                            >: the broadcast address, reaches every device at once
+                            >, the broadcast address, for every device at once
                         </td>
                     </tr>
                     <tr class="lit">
@@ -177,7 +177,7 @@ const splitText = computed(() => {
                     </tr>
                     <tr>
                         <th scope="row">Private?</th>
-                        <td>{{ privateRange ? `Yes, inside ${privateRange.text}` : "No, it is not in a private range" }}</td>
+                        <td>{{ privateRange ? `Yes, inside ${privateRange.text}` : "No" }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -185,7 +185,7 @@ const splitText = computed(() => {
 
         <p class="ac-say hint" aria-live="polite">
             With <span class="ac-mono">/{{ prefix }}</span
-            >, {{ hostBits }} host bits make {{ twosText }} = {{ Ipv4.countText(size) }} addresses. {{ splitText }}
+            >, {{ hostBits }} host bits make {{ Ipv4.countText(size) }} addresses: {{ twosText }}. {{ splitText }}
         </p>
     </div>
 </template>
