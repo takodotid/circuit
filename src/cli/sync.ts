@@ -31,7 +31,7 @@ export class SyncCommand {
         prometheus: 'prometheus: { targets: "monitoring/targets.json", auths: "monitoring/snmp-auths.yml" }',
     };
 
-    /** Keep the target in step with the project: each group of networks naming the same system in turn. Exits 1 when something was not sent, or is still left. */
+    /** Keep the target in sync with the project: each group of networks naming the same system in turn. Exits 1 when something was not sent, or is still left. */
     static async run(root: string, project: ProjectRead, given: string | undefined, confirmed: boolean): Promise<void> {
         const name = await SyncCommand.pick(project, given);
         const outcomes: SyncOutcome[] = [];

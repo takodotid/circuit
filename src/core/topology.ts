@@ -313,7 +313,7 @@ export class Topology {
         });
     }
 
-    /** `bgp`: sessions between our devices, matched by the address each names, and to every AS outside. */
+    /** `bgp`: sessions between our devices, matched by the address each uses, and to every AS outside. */
     private static sessions(devices: readonly Device[], owners: Map<string, Holder>, graph: Builder): void {
         const all = Topology.sessionsOf(devices);
         type Session = (typeof all)[number];
@@ -339,7 +339,7 @@ export class Topology {
             const far = ownerOf(session);
 
             if (far && far !== session.device) {
-                // The far device's session back: one of the same family that names an address this device holds.
+                // The far device's session back: one of the same family that uses an address this device holds.
                 const back = all.find(
                     (other) =>
                         other.device === far &&

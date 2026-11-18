@@ -25,7 +25,7 @@ export type TcpFlag = "fin" | "syn" | "rst" | "psh" | "ack" | "urg";
 /**
  * Conditions on a packet. All must be true. A rule with addresses of one family applies to that family only. `I` is the device's ports and interfaces, `AS` its address sets, `IS` its interface sets.
  *
- * `src`, `dst`, `in_interface` and `out_interface` each take a list, and an interface set stands for its interfaces. Where the platform has no list, Circuit writes one rule per combination: the interface outermost (`in` before `out`), then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so that combination is left out; a rule with nothing else is an error.
+ * `src`, `dst`, `in_interface` and `out_interface` each take a list, and an interface set stands for its interfaces. If the platform has no lists, Circuit writes one rule for each combination, in this order: interfaces first (`in` before `out`), then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so Circuit leaves that combination out. If no combination is left, the rule is an error.
  */
 export type FilterMatch<I extends string, AS extends string, IS extends string> = {
     /** Only packets of this family. */
@@ -36,25 +36,25 @@ export type FilterMatch<I extends string, AS extends string, IS extends string> 
     src?: OneOrMore<Prefix>;
     /** Destination address or prefix, or any of several. */
     dst?: OneOrMore<Prefix>;
-    /** One of `firewall.address_sets`: the source is in it. */
+    /** The source is in this set, from `firewall.address_sets`. */
     src_address_set?: AS;
-    /** One of `firewall.address_sets`: the destination is in it. */
+    /** The destination is in this set, from `firewall.address_sets`. */
     dst_address_set?: AS;
     /** Source port, or any of several. TCP and UDP only. */
     src_port?: Ports;
     /** Destination port, or any of several. TCP and UDP only. */
     dst_port?: Ports;
-    /** One of the device's ports or interfaces, or any of several: the packet arrived on it. */
+    /** The port or interface the packet arrived on, or any of several. */
     in_interface?: OneOrMore<I>;
-    /** One of the device's ports or interfaces, or any of several: the packet leaves through it. */
+    /** The port or interface the packet leaves through, or any of several. */
     out_interface?: OneOrMore<I>;
-    /** One of `firewall.interface_sets`: the packet arrived on one of its interfaces. Not with `in_interface`. */
+    /** The packet arrived on an interface of this set, from `firewall.interface_sets`. Not with `in_interface`. */
     in_interface_set?: IS;
-    /** One of `firewall.interface_sets`: the packet leaves through one of its interfaces. Not with `out_interface`. */
+    /** The packet leaves through an interface of this set, from `firewall.interface_sets`. Not with `out_interface`. */
     out_interface_set?: IS;
-    /** Connection tracking state, any of these. */
+    /** The connection tracking state, any of these. */
     connection_state?: readonly ConnectionState[];
-    /** How the connection was translated, any of these: `dstnat` for one a destination translation sent here, such as to a port a host opened by UPnP, `srcnat` for one whose source was translated. Either or none when absent. */
+    /** How the connection was translated, any of these. `dstnat` is a connection whose destination was translated, such as to a port a host opened with UPnP. `srcnat` is one whose source was translated. Any connection when absent. */
     connection_nat_state?: readonly ("srcnat" | "dstnat")[];
     /** TCP flags that must be set, and flags that must not be. */
     tcp_flags?: {
@@ -66,7 +66,7 @@ export type FilterMatch<I extends string, AS extends string, IS extends string> 
 };
 
 /**
- * One firewall rule, the condition first: `{ if: { protocol: "icmp" }, then: "accept" }`. No `if`: every packet.
+ * One firewall rule, with the condition first: `{ if: { protocol: "icmp" }, then: "accept" }`. Without `if`, it applies to every packet.
  */
 export type FilterRule<I extends string, AS extends string, IS extends string> = {
     /** Shown beside the rule on the device. */
@@ -75,20 +75,20 @@ export type FilterRule<I extends string, AS extends string, IS extends string> =
     if?: FilterMatch<I, AS, IS>;
     /** What happens to a matching packet. `reject` answers the sender, `drop` does not. */
     then: "accept" | "drop" | "reject";
-    /** Send the rest of an accepted flow through the fast path, skipping the remaining rules. */
+    /** Send the rest of an accepted flow through the fast path, so it skips the remaining rules. */
     fast_path?: true;
 };
 
-/** Rules in order, the first match wins, then `default_action`. */
+/** Rules in order. The first rule that matches decides. A packet that no rule matches gets `default_action`. */
 export type Chain<I extends string, AS extends string, IS extends string> = {
     /** What happens to a packet no rule matched. Accept when absent. */
     default_action?: "accept" | "drop";
-    /** Rules in order: the first runs first. Written whole in one place; `merge` places rules from other files in it. */
+    /** Rules in order. The first rule runs first. Write the list whole, in one place, and use `merge` to place rules from other files in it. */
     rules?: Ordered<FilterRule<I, AS, IS>>;
 };
 
 /**
- * One address translation, the condition first: `{ if: { src: "10.0.0.0/24", out_interface_set: "uplinks" }, then: "snat", to_address: "192.0.2.1" }`. No `if`: every packet.
+ * One address translation, with the condition first: `{ if: { src: "10.0.0.0/24", out_interface_set: "uplinks" }, then: "snat", to_address: "192.0.2.1" }`. Without `if`, it applies to every packet.
  */
 export type NatRule<I extends string, AS extends string, IS extends string> = {
     /** Shown beside the rule on the device. */
@@ -97,7 +97,7 @@ export type NatRule<I extends string, AS extends string, IS extends string> = {
     if?: FilterMatch<I, AS, IS>;
 } & (
     | {
-          /** `masquerade` uses the address of the outgoing interface. */
+          /** `masquerade` rewrites the source to the address of the outgoing interface. */
           then: "masquerade";
       }
     | {
@@ -111,26 +111,26 @@ export type NatRule<I extends string, AS extends string, IS extends string> = {
 );
 
 /**
- * One TCP MSS clamp, the condition first: `{ if: { out_interface: "tunnel-01" }, mss: "path_mtu" }`. It rewrites the maximum segment size in a TCP SYN the device routes, so the connection's packets fit a link with a smaller MTU on the way. No `if`: every routed SYN.
+ * One TCP MSS clamp, with the condition first: `{ if: { out_interface: "tunnel-01" }, mss: "path_mtu" }`. It rewrites the maximum segment size in each TCP SYN the device routes, so the connection's packets fit a link with a smaller MTU on the path. Without `if`, it applies to every routed SYN.
  */
 export type TcpMssRule<I extends string, AS extends string, IS extends string> = {
     /** Shown beside the rule on the device. */
     description?: string;
-    /** Which SYNs are rewritten, besides being TCP SYNs. Every routed SYN when absent. */
+    /** Which routed SYNs are rewritten. Every routed SYN when absent. */
     if?: Omit<FilterMatch<I, AS, IS>, "protocol" | "tcp_flags" | "connection_state">;
-    /** The MSS written, in bytes, when the SYN offers more; or `path_mtu`: the MTU of the interface the SYN leaves through, less the IP and TCP headers. */
+    /** The MSS to write, in bytes, if the SYN offers more. Or `path_mtu`, which is the MTU of the interface the SYN leaves through, minus the IP and TCP headers. */
     mss: number | "path_mtu";
 };
 
-/** Connection-tracking helpers that rewrite application payloads. None run unless listed. */
+/** Connection-tracking helpers, which rewrite application payloads. Only the ones you list run. */
 export type Helper = "ftp" | "tftp" | "sip" | "h323" | "pptp" | "rtsp" | "irc";
 
 /** What the device filters and translates. `AS` is the device's address set names, `I` its ports and interfaces, `IS` its interface set names. */
 export type Firewall<AS extends string, I extends string, IS extends string> = {
-    /** Named groups of addresses and prefixes, of either family, that rules match on with `src_address_set` and `dst_address_set`. */
+    /** Named groups of addresses and prefixes, of either family. Rules match on them with `src_address_set` and `dst_address_set`. */
     address_sets?: Named<AS, readonly (IP | Prefix)[]>;
     /**
-     * Named groups of the device's ports and interfaces, that rules match on with `in_interface_set` and `out_interface_set`, like a RouterOS interface list or a FortiOS zone. A list: each part adds its own, such as each upstream its interface to `uplinks`.
+     * Named groups of the device's ports and interfaces, like a RouterOS interface list or a FortiOS zone. Rules match on them with `in_interface_set` and `out_interface_set`. Each set is a plain list, so each part can add to it, such as each upstream adding its interface to `uplinks`.
      */
     interface_sets?: Named<IS, readonly I[]>;
     /** Traffic to the device (`input`), through it (`forward`), and from it (`output`). */
@@ -142,21 +142,21 @@ export type Firewall<AS extends string, I extends string, IS extends string> = {
         /** Traffic the device itself sends. */
         output?: Chain<I, NoInfer<AS>, NoInfer<IS>>;
     };
-    /** Source translation on the way out, destination translation on the way in. Each is rules in order: the first runs first. */
+    /** Source translation on the way out, and destination translation on the way in. Each is a list of rules in order. The first rule runs first. */
     nat?: {
         /** Rewrites the source of traffic on the way out. */
         source?: Ordered<NatRule<I, NoInfer<AS>, NoInfer<IS>>>;
         /** Rewrites the destination of traffic on the way in. */
         destination?: Ordered<NatRule<I, NoInfer<AS>, NoInfer<IS>>>;
     };
-    /** TCP MSS clamps on routed SYNs, of both families. A list, not an ordered chain: each part adds its own, such as each tunnel's. None when absent. */
+    /** TCP MSS clamps on routed SYNs, of both families. It is a plain list, not an ordered chain, so each part can add its own, such as one for each tunnel. None when absent. */
     tcp_mss?: readonly TcpMssRule<I, NoInfer<AS>, NoInfer<IS>>[];
     /** Connection-tracking helpers that run. None when absent. */
     conntrack_helpers?: readonly Helper[];
     /**
-     * Traffic to and from these prefixes passes without connection tracking. A flood toward them cannot fill the connection table, and rules see its packets in the state `untracked`. Everything is tracked when absent.
+     * Traffic to and from these prefixes passes without connection tracking. A flood toward them can't fill the connection table, and rules see their packets in the state `untracked`. Everything is tracked when absent.
      *
-     * Each address NAT uses inside one of these prefixes (a source translation's `to_address`, a destination translation's `to_address` or matched `dst`) stays tracked: Circuit writes two accept rules for it, one for traffic to it and one for traffic from it, before the untracked rules. Without them, a reply to that address would skip tracking and never be translated back.
+     * An address in these prefixes that NAT uses stays tracked: a source translation's `to_address`, or a destination translation's `to_address` or matched `dst`. Circuit writes two accept rules for each such address, for traffic to it and from it, before the untracked rules. Without them, a reply to that address would skip tracking and never be translated back.
      */
     untracked?: readonly Prefix[];
 };

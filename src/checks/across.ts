@@ -250,7 +250,7 @@ export class CrossChecks {
         });
     }
 
-    /** A BGP session to an address another of our devices holds needs that device's session back, in the AS it expects, from the address it names. */
+    /** A BGP session to an address another of our devices holds needs that device's session back, in the AS it expects, from the address it uses. */
     private static sessions(devices: readonly Device[], owners: Map<string, AddressHolder>): Finding[] {
         const findings: Finding[] = [];
 
@@ -283,7 +283,7 @@ export class CrossChecks {
                     continue;
                 }
 
-                // The far end only accepts the session from the address it names.
+                // The far end only accepts the session from the address it uses.
                 if (session.localAddress && CrossChecks.keyOf(session.localAddress) !== CrossChecks.keyOf(back.address)) {
                     report(
                         `starts from ${session.localAddress}, and ${far.name}'s routing.bgp.neighbors.${back.name} expects ${back.address}`

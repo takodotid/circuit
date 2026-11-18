@@ -17,7 +17,7 @@ export class Format {
     /** Folders that hold nothing of the project's own to format. */
     private static readonly SKIPPED = new Set(["node_modules", ".git", ".circuit", "dist"]);
 
-    /** The settings of `.editorconfig` that apply to a TypeScript file: those under `[*]`, then under a section that names `.ts`. */
+    /** The settings of `.editorconfig` that apply to a TypeScript file: those under `[*]`, then under a section that uses `.ts`. */
     static editorconfig(text: string): Record<string, string> {
         const settings: Record<string, string> = {};
         let applies = false;

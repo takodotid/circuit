@@ -1,4 +1,4 @@
-// Security advisories for Circuit: GitHub's, published on the repository, the source npm audit reads too. Each names the versions it affects and the versions that fix it. A version an advisory affects never runs: the person moves to a fixed one first. Read straight from the repository, so an advisory counts the moment it is published, and kept for a few minutes, as GitHub answers 60 requests an hour without a sign-in.
+// Security advisories for Circuit: GitHub's, published on the repository, the source npm audit reads too. Each uses the versions it affects and the versions that fix it. A version an advisory affects never runs: the person moves to a fixed one first. Read straight from the repository, so an advisory counts the moment it is published, and kept for a few minutes, as GitHub answers 60 requests an hour without a sign-in.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

@@ -35,7 +35,7 @@ export type SyncPlan = {
     leftAlone: string[];
 };
 
-/** A system Circuit keeps in step with the project. */
+/** A system Circuit keeps in sync with the project. */
 export type SyncTarget<P extends SyncPlan = SyncPlan> = {
     /** Its name in a question, such as `NetBox`. */
     readonly name: string;

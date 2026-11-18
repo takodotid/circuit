@@ -2,7 +2,7 @@
 
 import type { Family, IP, Prefix } from "./common";
 
-/** An address alone, such as `10.0.0.1`, or with its length, such as `10.0.0.0/24` or `10.0.0.1/24`. */
+/** An address alone, such as `192.0.2.1`, or with its length, such as `192.0.2.0/24` or `192.0.2.1/24`. */
 export type AddressOrPrefix = IP | Prefix;
 
 /** An address or prefix as numbers: the address written, and the first and last address of its range. */
@@ -58,17 +58,17 @@ function format(family: Family, n: bigint): IP {
 }
 
 /**
- * IP math for your own checks, by RFC 4632 (IPv4) and RFC 4291 (IPv6). Each takes an address alone (a /32 or a /128) or with its length. An address it can't read is an error naming it.
+ * IP math for your own checks, by RFC 4632 (IPv4) and RFC 4291 (IPv6). Each function takes an address alone (a /32 or a /128) or with its length. An address it can't read is an error that shows the address.
  */
 export const address = {
-    /** Whether `inner` lies wholly inside `outer`, of the same family: `address.contains("10.0.0.0/8", "10.1.0.0/16")` is true. */
+    /** Whether `inner` is wholly inside `outer`, and of the same family. `address.contains("192.0.2.0/24", "192.0.2.128/25")` is true. */
     contains(outer: AddressOrPrefix, inner: AddressOrPrefix): boolean {
         const a = parse(outer);
         const b = parse(inner);
         return a.family === b.family && a.first <= b.first && b.last <= a.last;
     },
 
-    /** Whether `a` and `b` share any address: one contains the other. */
+    /** Whether `a` and `b` share any address, which means one contains the other. */
     overlaps(a: AddressOrPrefix, b: AddressOrPrefix): boolean {
         const x = parse(a);
         const y = parse(b);

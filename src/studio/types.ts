@@ -48,7 +48,7 @@ export type Session = {
     oneSided?: true;
 };
 
-/** One cable, from the end that names it first. */
+/** One cable, from the end that uses it first. */
 export type Cable = {
     device: string;
     port: string;

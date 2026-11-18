@@ -107,7 +107,7 @@ export class ProjectCommands {
         );
     }
 
-    /** Keep NetBox, LibreNMS, PeeringDB or Prometheus in step with the project: plan, ask, send. Stops on validation errors first, as `apply` does. */
+    /** Keep NetBox, LibreNMS, PeeringDB or Prometheus in sync with the project: plan, ask, send. Stops on validation errors first, as `apply` does. */
     async sync(target: string | undefined, confirmed: boolean): Promise<void> {
         this.guard(this.devices);
 

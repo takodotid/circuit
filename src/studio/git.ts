@@ -67,7 +67,7 @@ export class Git {
         return { names, commits: Git.commitsOf(await Git.run(folder, ["log", "-n30", Git.FORMAT])) };
     }
 
-    /** A branch, tag or commit, as the commit it names, or undefined when it names none. Only the characters a git name can hold are taken. */
+    /** A branch, tag or commit, as the commit it uses, or undefined when it uses none. Only the characters a git name can hold are taken. */
     static async commitOf(folder: string, name: string): Promise<Commit | undefined> {
         if (!/^[A-Za-z0-9][\w./@^~-]*$/.test(name)) return undefined;
 

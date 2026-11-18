@@ -220,7 +220,7 @@ export class Releases {
         }
     }
 
-    /** The file of a release's SHA256SUMS that names `asset`, when the signature is the release key's. Throws otherwise. */
+    /** The file of a release's SHA256SUMS that uses `asset`, when the signature is the release key's. Throws otherwise. */
     static expectedHash(sums: Buffer, signature: string, asset: string, keys: readonly string[] = Signing.KEYS): string {
         if (!Signing.verify(sums, signature, keys))
             throw new Error("the release's SHA256SUMS is not signed with Circuit's release key, so nothing was installed");

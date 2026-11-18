@@ -19,7 +19,7 @@ import { RaisecomRosRender } from "./render";
 export type Session = { channel: ClientChannel; close: () => void; fresh: () => Promise<Session> };
 
 export class RaisecomRos extends Platform {
-    /** How the console asks for a login and shows its prompt. Not yet proved on a device: the RAX721's console was never cabled to a jump host. */
+    /** How the console asks for a login and shows its prompt. Not yet tested on a device: the RAX721's console was never cabled to a jump host. */
     static readonly CONSOLE: ConsoleDialect = {
         login: /login:\s*$/i,
         password: /password:\s*$/i,
@@ -87,7 +87,7 @@ export class RaisecomRos extends Platform {
                 .replace(/ track bfd-session (\d+)$/, " track bfd $1")
                 // An access group prints a notify view the render leaves to its default.
                 .replace(/^(snmp-server access \S+ read \S+) notify internet (usm \S+)$/, "$1 $2"),
-        // A LAG exists before a port joins it, and an OSPF process comes after the interfaces it names.
+        // A LAG exists before a port joins it, and an OSPF process comes after the interfaces it uses.
         order: (path) => {
             const header = path[0] ?? "";
             // A BFD session binds to a VLAN interface, so it comes after the interfaces. Only one session binds to a peer, so an old one goes first, with the routes at the top level; a route takes a session that does not exist yet.

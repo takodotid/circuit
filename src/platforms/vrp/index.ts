@@ -16,7 +16,7 @@ import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type Re
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
-    /** How the console asks for a login: the same question to change the password, always answered no, a system view left with `return`, and the line's banner after a logout or a refused password answered with Enter. Not yet proved on a device. */
+    /** How the console asks for a login: the same question to change the password, always answered no, a system view left with `return`, and the line's banner after a logout or a refused password answered with Enter. Not yet tested on a device. */
     static readonly CONSOLE: ConsoleDialect = {
         login: /Username:\s*$/i,
         password: /Password:\s*$/i,

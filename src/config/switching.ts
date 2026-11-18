@@ -7,12 +7,12 @@ import type { Ports, Protocol } from "./firewall";
  * A VLAN. Its key in `switching.vlans` is its name. `Untrusted` is whether the network turns on the check `untrusted_vlans`, which `untrusted` needs.
  */
 export type Vlan<Untrusted extends boolean = true> = {
-    /** The VLAN's number on the wire, 1 to 4094. Two VLANs on a device never share one. */
+    /** The VLAN ID on the wire, 1 to 4094. Two VLANs on a device can't share an ID. */
     id: number;
-    /** What the VLAN is for. Dropped on a platform where a VLAN is only its number (Raisecom, FortiOS), so a device takes a VLAN whole wherever it runs. */
+    /** What the VLAN is for. On a platform where a VLAN is only its number (Raisecom, FortiOS), Circuit doesn't write it, so the same VLAN works on every platform. */
     description?: string;
     /**
-     * The VLAN carries traffic straight from outside: a transit, an exchange, an ISP handoff, or such a one's native VLAN. Only Circuit reads it, for the check `untrusted_vlans`; the device never sees it. Write it on every device that declares the VLAN. Allowed only when the network's `circuit()` turns on `untrusted_vlans`: an error in the editor, and `circuit validate` stops.
+     * The VLAN carries traffic straight from outside, such as a transit, an exchange, an ISP handoff, or the native VLAN of one of these. The check `untrusted_vlans` uses it, and the device never gets it. Write it on every device that declares the VLAN. Allowed only when the network's `circuit()` turns on `untrusted_vlans`. Otherwise the editor shows an error and `circuit validate` stops.
      */
     untrusted?: Untrusted extends true ? true : "allowed only when circuit.ts turns on the check untrusted_vlans";
 };
@@ -20,7 +20,7 @@ export type Vlan<Untrusted extends boolean = true> = {
 /**
  * Which packets an ACL rule applies to. All must be true.
  *
- * `vlan`, `src` and `dst` each take a list. Where the platform has no list, Circuit writes one rule per combination: the VLAN outermost, then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so that combination is left out; a rule with nothing else is an error.
+ * `vlan`, `src` and `dst` each take a list. If the platform has no lists, Circuit writes one rule for each combination, in this order: VLAN first, then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so Circuit leaves that combination out. If no combination is left, the rule is an error.
  */
 export type AclMatch<V extends string> = {
     /** Only packets of this family. */
@@ -35,13 +35,12 @@ export type AclMatch<V extends string> = {
     src_port?: Ports;
     /** Destination port, or any of several. */
     dst_port?: Ports;
-    /** One of `switching.vlans`, or any of several: only packets in this VLAN. */
+    /** Only packets in this VLAN, or in any of several, from `switching.vlans`. */
     vlan?: OneOrMore<V>;
 };
 
 /**
- * A stateless rule evaluated in hardware where traffic arrives, before routing, the condition first:
- * `{ if: { vlan: "ix", src: "10.0.0.0/8" }, then: "drop" }`. No `if`: every packet.
+ * A stateless rule the hardware runs where traffic arrives, before routing. The condition comes first: `{ if: { vlan: "ix", src: "10.0.0.0/8" }, then: "drop" }`. Without `if`, it applies to every packet.
  */
 export type AclRule<V extends string> = {
     /** Shown beside the rule on the device. */
@@ -50,21 +49,21 @@ export type AclRule<V extends string> = {
     if?: AclMatch<V>;
     /** What happens to a matching packet. */
     then: "accept" | "drop";
-    /** Accepted traffic above this rate is dropped. On RouterOS it did not limit traffic the CPU routes; see its TRAPS.md. */
+    /** Accepted traffic above this rate is dropped. On RouterOS it did not limit traffic that the CPU routes. */
     rate?: Rate;
 };
 
 /** Spanning tree on every switched port. A port may override it. */
 export type Stp = {
-    /** Which variant runs. RSTP when absent. */
+    /** Which version of spanning tree runs. `rstp` when absent. */
     mode?: "stp" | "rstp" | "mstp";
-    /** Bridge priority, 0 to 61440 in steps of 4096. Lower wins the root election. */
+    /** Bridge priority, 0 to 61440 in steps of 4096. The lowest becomes the root bridge. */
     priority?: number;
 };
 
 /** Layer 2 that the ports share. `V` is the device's VLAN names, `A` its ACL names, `I` its ports and interfaces. `Untrusted` is whether the network turns on `untrusted_vlans`. */
 export type Switching<V extends string, A extends string, I extends string, Untrusted extends boolean = true> = {
-    /** VLANs, keyed by name. A port, a LAG or a VLAN interface names one of these. */
+    /** VLANs, keyed by name. Ports, LAGs and VLAN interfaces use these names. */
     vlans?: Named<V, Vlan<Untrusted>>;
     /** Spanning tree on every switched port. A port may override it. */
     stp?: Stp;
@@ -72,9 +71,9 @@ export type Switching<V extends string, A extends string, I extends string, Untr
     lldp?:
         | true
         | {
-              /** Some of the device's ports and interfaces. */
+              /** The ports and interfaces that run LLDP. */
               interfaces: readonly I[];
           };
-    /** Hardware ACLs, keyed by name, applied to a port with `ingress_acl`. Each is rules in order, written whole in one place: the first runs first. */
+    /** Hardware ACLs, keyed by name. A port uses one with `ingress_acl`. Each is a list of rules in order, written whole in one place. The first rule runs first. */
     acls?: Named<A, Ordered<AclRule<NoInfer<V>>>>;
 };

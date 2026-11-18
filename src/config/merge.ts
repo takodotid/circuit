@@ -51,7 +51,7 @@ export function mark<T>(value: T, file: string, inner = file): T {
     return value;
 }
 
-/** Where each key of a map was written, for an error that names the file. */
+/** Where each key of a map was written, so an error can show the file. */
 export const writtenIn = (map: object, key: string): string => (map as { [WRITTEN]?: Record<string, string> })[WRITTEN]?.[key] ?? "?";
 
 /** The line in `lib/` a key was written through, or nothing. */

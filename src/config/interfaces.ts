@@ -16,31 +16,31 @@ export type Threshold =
 /** A kind of frame, by the ethertype in its header: `ipv4` is 0x0800, `ipv6` 0x86DD, `arp` 0x0806. */
 export type Ethertype = "ipv4" | "ipv6" | "arp";
 
-/** A host on an access port: the MAC address it sends from, and the addresses it sends from. */
+/** A host on an access port: its MAC address and the IP addresses it sends from. */
 export type BoundHost = {
     /** The MAC address of the host's network card, or of a virtual machine bridged onto it, for example `02:00:00:00:00:01`. */
     mac: MacAddress;
-    /** The IPv4 and IPv6 addresses it sends from, each an address or a prefix routed to it. What every host sends from is taken without being listed: `0.0.0.0` while it asks DHCP for an address, its IPv6 link-local addresses, and `::` while it checks an address is free. */
+    /** The IPv4 and IPv6 addresses it sends from. Each is an address, or a prefix routed to the host. Some addresses are always allowed, so don't list them: `0.0.0.0` while the host asks DHCP for an address, its IPv6 link-local addresses, and `::` while it checks that an address is free. */
     addresses: readonly (IP | Prefix)[];
 };
 
 /** A virtual router address shared with other devices on the same segment, RFC 9568 (VRRPv3). */
 export type Vrrp = {
-    /** Virtual router number, 1 to 255. The same on every device sharing the address. */
+    /** Virtual router ID, 1 to 255. Use the same ID on every device that shares the address. */
     id: number;
     /** The shared address, without a length. */
     address: IP;
-    /** Higher wins the master election, 1 to 254. 100 when absent. */
+    /** Priority, 1 to 254. The device with the highest priority becomes the master. 100 when absent. */
     priority?: number;
-    /** Take mastership back from a lower priority device when this one returns. Off when absent. */
+    /** When this device comes back, it takes the master role back from a device with a lower priority. Off when absent. */
     preempt?: boolean;
     /** Seconds between advertisements. 1 when absent. */
     interval?: number;
 };
 
-/** Presence at an internet exchange, as a registry lists it. The addresses are the interface's own. */
+/** This interface's connection to an internet exchange, as a registry such as PeeringDB lists it. The addresses are the interface's own. */
 export type Exchange = {
-    /** The exchange's name, for output. */
+    /** The exchange's name, shown in Circuit's output. */
     name: string;
     /** Capacity toward the exchange, in Mbit/s. */
     speed: number;
@@ -48,7 +48,7 @@ export type Exchange = {
     peeringdb_ixlan?: number;
 };
 
-/** An address with its length, or `{ address, peer_address }` for a point-to-point address whose far end is outside its own prefix. */
+/** An address with its length. On a point-to-point link whose far end is outside the address's prefix, write `{ address, peer_address }`. */
 export type Address =
     | InterfaceAddress
     | {
@@ -60,23 +60,23 @@ export type Address =
 
 /** Layer 3 settings shared by every interface that can have an address. `Vrf` is the device's VRF names. */
 export type Routed<Vrf extends string> = {
-    /** Addresses with their length. Use `{ address, peer_address }` for a point-to-point address whose far end is outside its own prefix. */
+    /** Addresses with their length. On a point-to-point link whose far end is outside the address's prefix, write `{ address, peer_address }`. */
     addresses?: readonly Address[];
     /** Send IPv6 router advertisements on this interface. Off when absent. */
     ipv6_ra?: boolean;
-    /** Overrides `system.hardware_offload` for traffic routed through this interface. Software forwarding is what makes the firewall apply. */
+    /** Overrides `system.hardware_offload` for traffic routed through this interface. The firewall applies only to traffic forwarded in software. */
     hardware_offload?: boolean;
     /** Virtual router addresses on this interface. */
     vrrp?: readonly Vrrp[];
-    /** One of `routing.vrfs`: the VRF this interface routes in. The main table when absent. */
+    /** The VRF this interface routes in, from `routing.vrfs`. The main table when absent. */
     vrf?: Vrf;
-    /** This interface is the network's presence at an internet exchange. Devices ignore it; `circuit sync peeringdb` publishes it. */
+    /** Set it if this interface connects to an internet exchange. Circuit writes nothing to the device for it. `circuit sync peeringdb` publishes it to PeeringDB. */
     exchange?: Exchange;
 };
 
 /** Spanning tree settings for one port. */
 export type PortStp = {
-    /** The port faces a host, never a switch, so it forwards at once. */
+    /** The port connects to a host, never a switch, so it starts forwarding at once. */
     edge?: boolean;
     /** Path cost. Lower is preferred. Derived from speed when absent. */
     cost?: number;
@@ -96,56 +96,57 @@ export type StormControl = {
 
 /** Layer 2 membership. A port or LAG with none of these is routed. `Vlan` is the device's VLAN names. */
 export type Switched<Vlan extends string> = {
-    /** One of `switching.vlans`: the one VLAN this port or LAG is in, untagged. */
+    /** The one VLAN this port or LAG is in, untagged, from `switching.vlans`. */
     access_vlan?: Vlan;
-    /** Some of `switching.vlans`: the VLANs this port or LAG carries, tagged. */
+    /** The VLANs this port or LAG carries, tagged, from `switching.vlans`. */
     trunk_vlans?: readonly Vlan[];
-    /** One of `switching.vlans`: untagged frames on a trunk are in this VLAN. Only with `trunk_vlans`. */
+    /** The VLAN for untagged frames on a trunk, from `switching.vlans`. Only with `trunk_vlans`. */
     native_vlan?: Vlan;
-    /** Overrides `switching.stp` for this port. `false` stops it sending or acting on BPDUs. */
+    /** Overrides `switching.stp` for this port. With `false`, the port sends no BPDUs and ignores the ones it gets. */
     stp?: boolean | PortStp;
     /** Drop flooded traffic above these thresholds. */
     storm_control?: StormControl;
-    /** The most MAC addresses this port or LAG learns, 1 or more. Frames from any other source address are dropped. An exchange sets 1 on a member port, so each member sends from one router only. No limit when absent. */
+    /** The most MAC addresses this port or LAG learns, 1 or more. It drops frames from any other source MAC. An exchange sets 1 on a member's port, so each member sends from one router only. No limit when absent. */
     mac_limit?: number;
-    /** The only kinds of frame this port or LAG takes in; any other kind is dropped. An exchange takes `ipv4`, `ipv6` and `arp` on a member port. Every kind when absent. */
+    /** The only kinds of frame this port or LAG takes in. It drops every other kind. An exchange allows `ipv4`, `ipv6` and `arp` on a member's port. Every kind when absent. */
     ethertypes?: readonly Ethertype[];
     /**
-     * The only hosts on this access port: frames only from their MAC addresses, IP packets only from their own addresses (and what every host sends from: `0.0.0.0` for DHCP, IPv6 link-local and `::`), and ARP only from their MAC addresses. Anything else arriving on the port is dropped, so a host can't send as its neighbour. A server with a management card on the same cable, or virtual machines bridged onto it, lists each MAC. Unbound when absent.
+     * The only hosts allowed on this access port. The port takes frames and ARP only from their MAC addresses, and IP packets only from their addresses. It also takes the addresses every host sends from: `0.0.0.0` for DHCP, IPv6 link-local and `::`. It drops everything else, so a host can't pretend to be its neighbor. For a server with a management card on the same cable, or with virtual machines bridged onto it, list each MAC. Any host when absent.
      */
     bound_to?: readonly BoundHost[];
 };
 
 /**
- * The other end of a cable: another of our devices and its port. Both ends must agree on how they are switched, and the far end must link back. The port's own `description` names that end, `<far device> <far port as printed there>`, such as `fw-01 port6`:
- * Circuit warns when it doesn't, and never writes it.
+ * The other end of a cable: another of your devices, and its port. Both ends must agree on how they are switched, and the far end must link back to this port.
+ *
+ * Write the far end in the port's `description`, as `<far device> <far port as that device prints it>`, such as `fw-01 port6`. Circuit warns if it doesn't match, but never writes it for you.
  */
 export type Link = {
-    /** The device at the other end, by its key in `devices`. */
+    /** The device at the other end, by its `name`. */
     device: string;
     /** The port on that device, such as `10g-2`. */
     port: string;
     /**
-     * What is between the two ends when the cable is not direct, such as a carrier's local loop or L2 transport: `"Carrier A local loop"`. LLDP then sees the carrier's switches, not the far end, so `validate` does not compare LLDP on this port. Both ends name the same carrier.
+     * What is between the two ends when the cable is not direct, such as a carrier's local loop or layer 2 transport: `"Carrier A local loop"`. LLDP then sees the carrier's switches, not the far end, so Circuit doesn't check LLDP on this port. Write the same carrier at both ends.
      */
     through?: string;
 };
 
-/** Where a DHCP client puts the default route its server gives: one table, at one distance. */
+/** Where a DHCP client puts the default route from its server: a table, at a distance. */
 export type DhcpDefaultRoute<Table extends string> = {
     /** One of `routing.tables`, or `main`. `main` when absent. */
     routing_table?: Table | "main";
-    /** Preference among routes to the same prefix, lower wins. 1 when absent. */
+    /** Preference among routes to the same prefix. Lower wins. 1 when absent. */
     distance?: number;
 };
 
-/** An IPv4 address taken from a DHCP server on the link, such as an ISP's modem. The server's DNS and time servers are not used: `system.dns` and `system.ntp` are. */
+/** Take an IPv4 address from a DHCP server on the link, such as an ISP's modem. The device doesn't use the DNS and time servers the DHCP server offers. It uses `system.dns` and `system.ntp`. */
 export type DhcpClient<Table extends string> = {
-    /** Where the default route the server gives goes, each table at its distance. The main table at distance 1 when absent; an empty list puts it nowhere. */
+    /** Where the default route from the server goes: each table, at its distance. The main table at distance 1 when absent. An empty list installs no default route. */
     default_routes?: readonly DhcpDefaultRoute<Table>[];
 };
 
-/** A physical port, by its key `<speed>-<position>`, such as `10g-4`. Ports a device does not declare are shut down. */
+/** A physical port, by its key `<speed>-<position>`, such as `10g-4`. Circuit shuts down every port the device doesn't list. */
 export type Port<
     Vlan extends string,
     Acl extends string,
@@ -154,7 +155,7 @@ export type Port<
     Table extends string = string,
 > = Routed<Vrf> &
     Switched<Vlan> & {
-        /** What is plugged in. On a port with a `link`, the far end: `<far device> <far port as printed there>`. */
+        /** What is plugged in. On a port with a `link`, write the far end as `<far device> <far port as that device prints it>`. */
         description?: string;
         /** Largest IP packet, in bytes. 1500 when absent. */
         mtu?: number;
@@ -162,25 +163,25 @@ export type Port<
         speed?: "100m" | "1g" | "10g" | "25g" | "40g" | "50g" | "100g";
         /** Overrides `switching.lldp` for this port. */
         lldp?: boolean;
-        /** One of `switching.acls`: the hardware ACL applied to traffic arriving on this port. */
+        /** The hardware ACL for traffic that arrives on this port, from `switching.acls`. */
         ingress_acl?: Acl;
-        /** One of `interfaces.lag`: the LAG this port is in. Every other setting goes on the LAG. */
+        /** The LAG this port is in, from `interfaces.lag`. Write every other setting on the LAG. */
         in_lag?: Lag;
-        /** Another of our devices at the other end of the cable. Circuit checks that it links back, and warns when `description` doesn't name it. */
+        /** Your device at the other end of the cable. Circuit checks that it links back, and warns if `description` doesn't match it. */
         link?: Link;
-        /** Take an IPv4 address from a DHCP server on the link, besides any in `addresses`. None when absent. */
+        /** Also take an IPv4 address from a DHCP server on the link, besides any in `addresses`. Off when absent. */
         dhcp_client?: DhcpClient<Table>;
-        /** Traffic leaving through it is held to a rate by a queue. Not shaped when absent. */
+        /** Limits the traffic that leaves through this port to a rate, with a queue. Not limited when absent. */
         shaping?: Shaping;
     };
 
 /**
- * Traffic leaving through an interface, held to a rate by a queue. CAKE (RFC 8290's FQ-CoDel with its own shaper) keeps latency low under load when the rate is a little below the slowest link on the way.
+ * Limits the traffic that leaves through an interface to a rate, with a queue. CAKE is FQ-CoDel (RFC 8290) with its own shaper. It keeps latency low under load if the rate is a little below the slowest link on the path.
  */
 export type Shaping = {
     /** The queue: `cake`. */
     algorithm: "cake";
-    /** The most traffic leaves, in Mbit/s. */
+    /** The rate limit, in Mbit/s. */
     mbps: number;
 };
 
@@ -190,32 +191,32 @@ export type Base<Vrf extends string> = Routed<Vrf> & {
     description?: string;
     /** Largest IP packet, in bytes. */
     mtu?: number;
-    /** Traffic leaving through it is held to a rate by a queue. Not shaped when absent. */
+    /** Limits the traffic that leaves through this interface to a rate, with a queue. Not limited when absent. */
     shaping?: Shaping;
 };
 
 /** A layer 3 interface on a VLAN. */
 export type VlanInterface<Vlan extends string, Vrf extends string> = Base<Vrf> & {
-    /** One of `switching.vlans`: the VLAN it is on. */
+    /** The VLAN it is on, from `switching.vlans`. */
     vlan: Vlan;
     /**
-     * A MAC address of its own, instead of the one it shares with the device's other VLAN interfaces. A gateway in front of a transparent firewall needs one: frames to it come back on another VLAN, where the bridge would otherwise take a shared MAC for its own and keep them.
+     * A MAC address of its own, instead of the one it shares with the device's other VLAN interfaces. A gateway in front of a transparent firewall needs one. Frames to it come back on another VLAN, and with a shared MAC the bridge would take them as its own and keep them.
      */
     mac?: MacAddress;
     /**
-     * Addresses of its subnet that live elsewhere, which it answers ARP for with its own MAC and then routes: an address taken out of the subnet and routed to another link, which the hosts on the subnet still take for a neighbor. None when absent.
+     * Addresses in its subnet that are really somewhere else. It answers ARP for them with its own MAC, then routes their traffic. Use it for an address you moved out of the subnet to another link, which the hosts on the subnet still think is a neighbor. None when absent.
      */
     proxy_arp?: readonly IP[];
 };
 
-/** An interface that is always up and is on no link, for addresses that must not depend on one. */
+/** An interface that is always up and is not on any link. Use it for addresses that must not depend on a link. */
 export type Loopback<Vrf extends string> = Base<Vrf>;
 
 /**
- * How a LAG finds a member that no longer carries traffic: an ARP request to each target over every member, every `interval_ms`. A member that gets no reply leaves the LAG until it gets one again. For members whose own link stays up when the path behind it fails, such as tunnels.
+ * How a LAG finds a member that no longer carries traffic. Every `interval_ms`, the LAG sends an ARP request to each target over every member. A member that gets no reply leaves the LAG until it gets one again. Use it for members whose link stays up when the path behind them fails, such as tunnels.
  */
 export type LinkCheck = {
-    /** The addresses asked, on the LAG's own subnet: the far end's address on the LAG. */
+    /** The addresses to ask, in the LAG's own subnet, such as the far end's address on the LAG. */
     arp_targets: readonly IP[];
     /** Milliseconds between requests. */
     interval_ms: number;
@@ -225,14 +226,14 @@ export type LinkCheck = {
 export type Lag<Vlan extends string, Vrf extends string> = Base<Vrf> &
     Switched<Vlan> & {
         /**
-         * LACP negotiates membership with the far end; `static` joins the ports without asking; `round_robin` sends each packet over the next member in turn, so one flow uses every member (Linux's balance-rr), and takes no part in LACP. LACP when absent.
+         * How the members join. `lacp` agrees on the members with the far end. `static` joins them without asking. `round_robin` sends each packet over the next member in turn, so one flow uses every member (Linux's balance-rr), and it uses no LACP. `lacp` when absent.
          */
         mode?: "lacp" | "static" | "round_robin";
-        /** Number, on platforms where a LAG has a number instead of a name. Its position among the device's LAGs when absent. */
+        /** The LAG's number, on platforms where a LAG has a number, not a name. Its position among the device's LAGs when absent. */
         id?: number;
-        /** Find a member that no longer carries traffic by ARP, and take it out. Each member's link state only when absent. */
+        /** Use ARP to find a member that no longer carries traffic, and take it out. When absent, only each member's link state counts. */
         link_check?: LinkCheck;
-        /** A fixed MAC address. A LAG of tunnels otherwise takes a member's, which a tunnel may make up anew each time the device starts, while the far end keeps the old one in its ARP table. A member's when absent. */
+        /** A fixed MAC address. Without it, the LAG takes a member's MAC. A tunnel may make up a new MAC each time the device starts, while the far end keeps the old one in its ARP table. A member's MAC when absent. */
         mac?: MacAddress;
     };
 
@@ -246,7 +247,7 @@ export type Gre<Vrf extends string> = Base<Vrf> & {
 
 /** A point-to-point VXLAN tunnel. */
 export type Vxlan<Vrf extends string> = Base<Vrf> & {
-    /** Segment identifier, the same on both ends, 1 to 16777215. */
+    /** The VXLAN segment ID, 1 to 16777215. Use the same ID on both ends. */
     vni: number;
     /** Our tunnel endpoint, alone or with its length. */
     local_address: HostAddress;
@@ -254,21 +255,21 @@ export type Vxlan<Vrf extends string> = Base<Vrf> & {
     remote_address: IP;
     /** UDP port. 4789 when absent. */
     port?: number;
-    /** Fixed MAC address, so a rebuild keeps the one the far side learned. */
+    /** A fixed MAC address, so the tunnel keeps the MAC the far end learned, even after it is rebuilt. */
     mac?: MacAddress;
 };
 
 /**
- * An Ethernet tunnel over IP (EoIP, MikroTik's GRE carrying Ethernet frames, IP protocol 47): it carries layer 2 between two routers, so it can be a member of a LAG. Both ends write the same `tunnel_id`.
+ * An Ethernet over IP tunnel (EoIP): MikroTik's GRE tunnel that carries Ethernet frames, IP protocol 47. It carries layer 2 between two routers, so it can be a member of a LAG. Both ends use the same `tunnel_id`.
  */
 export type Eoip<Lag extends string, Vrf extends string> = Base<Vrf> & {
     /** Our tunnel endpoint, alone or with its length. */
     local_address: HostAddress;
     /** The far tunnel endpoint. */
     remote_address: IP;
-    /** The tunnel's number, 0 to 65535, the same on both ends and unique among the device's EoIP tunnels. */
+    /** The tunnel's number, 0 to 65535. Use the same number on both ends, and a different one for each EoIP tunnel on the device. */
     tunnel_id: number;
-    /** One of `interfaces.lag`: the LAG this tunnel is a member of. */
+    /** The LAG this tunnel is a member of, from `interfaces.lag`. */
     in_lag?: Lag;
 };
 
@@ -281,13 +282,13 @@ export type WireGuardPeer = {
     name: string;
     /** The peer's public key. Public keys are not secrets. */
     public_key: string;
-    /** Addresses the peer may send from and that are routed to it. */
+    /** The addresses the peer may send from. Traffic to them goes to this peer. */
     allowed_addresses: readonly Prefix[];
-    /** `host:port`, for a peer this side dials. The peer dials in when absent. */
+    /** The peer's `host:port`, if this side connects to it. When absent, the peer connects in. */
     endpoint?: Endpoint;
     /** Seconds between keepalives, for a peer behind NAT. None when absent. */
     keepalive?: number;
-    /** What a generated client config routes into the tunnel. Affects no forwarding here. */
+    /** What a generated client config sends into the tunnel. It changes nothing on this device. */
     client_allowed_addresses?: readonly Prefix[];
 };
 
@@ -295,21 +296,21 @@ export type WireGuardPeer = {
 export type WireGuard<Vrf extends string, Table extends string = string> = Base<Vrf> & {
     /** UDP port peers connect to. */
     listen_port: number;
-    /** One of `routing.tables`: the table the tunnel's own packets to its peers are routed by, such as one that leaves through one uplink only, so the tunnel never moves to another. The main table when absent. */
+    /** The table that routes the tunnel's own packets to its peers, from `routing.tables`. Use a table that leaves through one uplink only, so the tunnel never moves to another uplink. The main table when absent. */
     routing_table?: Table;
-    /** The address clients connect to, for generated client configs, alone or with its length. */
+    /** The address clients connect to, alone or with its length. Generated client configs use it. */
     endpoint?: HostAddress;
-    /** This interface's private key. Its public key is derived from it. */
+    /** This interface's private key. The public key comes from it. */
     private_key: Secret;
     /** Who may connect. */
     peers?: readonly WireGuardPeer[];
 };
 
 /**
- * A layer 2 bridge between VLAN interfaces, each keeping its own VLAN: a frame that comes in on one member leaves another with that member's tag. A firewall filters what crosses it, by the rules of its forward chain between the members, without routing it.
+ * A layer 2 bridge between VLAN interfaces, each keeping its own VLAN. A frame that comes in on one member leaves another with that member's tag. A firewall filters the traffic that crosses it with its forward chain, without routing it.
  */
 export type Bridge<VlanInterface extends string, Vrf extends string> = Base<Vrf> & {
-    /** Some of `interfaces.vlan_interface`: the VLAN interfaces it joins. Each has no address of its own. */
+    /** The VLAN interfaces it joins, from `interfaces.vlan_interface`. They have no addresses of their own. */
     member_interfaces: readonly VlanInterface[];
 };
 
@@ -329,13 +330,13 @@ export type Interfaces<
 > = {
     /** Physical ports, keyed by `<speed>-<position>` from the model, such as `10g-4`. Ports not listed are shut down. */
     ethernet?: Ethernet;
-    /** Link aggregations, keyed by name. Each member port names one with `in_lag`. */
+    /** Link aggregations, keyed by name. Each member port points to one with `in_lag`. */
     lag?: Named<L, Lag<V, F>>;
-    /** Layer 3 interfaces on a VLAN, keyed by name. Each names its VLAN in `vlan`. */
+    /** Layer 3 interfaces on a VLAN, keyed by name. Each gives its VLAN in `vlan`. */
     vlan_interface?: Named<VI, VlanInterface<V, F>>;
     /** Layer 2 bridges between VLAN interfaces, keyed by name. */
     bridge?: Named<T, Bridge<NoInfer<VI>, F>>;
-    /** Interfaces on no link, keyed by name. */
+    /** Loopback interfaces, keyed by name. They are always up and on no link. */
     loopback?: Named<T, Loopback<F>>;
     /** GRE tunnels, keyed by name. */
     gre?: Named<T, Gre<F>>;

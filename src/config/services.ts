@@ -14,7 +14,7 @@ export type Reservation = {
 
 /** A DHCP server for one network. */
 export type DhcpServer<I extends string> = {
-    /** One of the device's ports or interfaces: where it answers. */
+    /** The port or interface it answers on. */
     interface: I;
     /** The network it serves. */
     network: Prefix;
@@ -32,19 +32,19 @@ export type DhcpServer<I extends string> = {
 
 /** Forward DHCP requests heard on an interface to servers elsewhere. */
 export type DhcpRelay<I extends string> = {
-    /** One of the device's ports or interfaces: where requests are heard. */
+    /** The port or interface it hears requests on. */
     interface: I;
     /** Where they are forwarded, in order of preference. */
     servers: readonly IP[];
 };
 
-/** UPnP for hosts behind the device's source NAT, such as game consoles: a host opens its own ports from outside, through the device. */
+/** UPnP for hosts behind the device's source NAT, such as game consoles. A host can open its own ports to the outside, through the device. */
 export type Upnp<I extends string> = {
-    /** Some of the device's ports and interfaces: where hosts ask. */
+    /** The ports and interfaces where hosts ask. */
     internal: readonly I[];
-    /** One of the device's ports or interfaces: where the opened ports are reached from. */
+    /** The port or interface the opened ports are reached from. */
     external: I;
-    /** The address hosts are told is theirs outside, when it is not `external`'s own, such as the one source NAT gives everything leaving through it. `external`'s own when absent. */
+    /** The outside address hosts are told is theirs, if it is not the address of `external`. For example, the address source NAT gives all traffic that leaves through it. The address of `external` when absent. */
     external_address?: IP;
 };
 
@@ -54,7 +54,7 @@ export type Services<I extends string> = {
     dhcp_server?: Record<string, DhcpServer<I>>;
     /** DHCP relays, keyed by name. */
     dhcp_relay?: Record<string, DhcpRelay<I>>;
-    /** Answer DNS queries from others, from `system.dns.servers`. Off when absent. */
+    /** Answer DNS queries from others, using `system.dns.servers`. Off when absent. */
     dns_server?: true;
     /** Answer time queries from others. Off when absent. */
     ntp_server?: true;

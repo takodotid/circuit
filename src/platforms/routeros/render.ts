@@ -870,7 +870,7 @@ export class RouterOsRender {
     }
 
     /**
-     * Router advertisements only where the config sends them. The platform's default entry sends them on every interface, so it is turned off once one interface names its own. A device that names none keeps the platform's default.
+     * Router advertisements only where the config sends them. The platform's default entry sends them on every interface, so it is turned off once one interface names its own. A device that uses none keeps the platform's default.
      */
     private routerAdvertisements(): void {
         const sending = this.routed().filter(({ settings }) => settings.ipv6_ra);

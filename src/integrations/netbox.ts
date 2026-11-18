@@ -1,4 +1,4 @@
-// `circuit sync netbox`: keeps NetBox in step with the project, one way: Circuit writes, NetBox shows. Each device goes in with its site, role, model and platform, every port of its model, its interfaces, VLANs, VRFs and addresses, and a cable for each `link`.
+// `circuit sync netbox`: keeps NetBox in sync with the project, one way: Circuit writes, NetBox shows. Each device goes in with its site, role, model and platform, every port of its model, its interfaces, VLANs, VRFs and addresses, and a cable for each `link`.
 //
 // Circuit tags what it makes `circuit`, and changes or deletes only objects with that tag. An object NetBox already holds without it, such as a site the team made, is used as it is, never changed, and listed under Left alone. Networks that name the same NetBox are planned together, so one never deletes what the other made.
 

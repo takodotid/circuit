@@ -10,7 +10,7 @@ export type NamedInterface = { name: string; kind: InterfaceKind; settings: Inte
 /** The groups of `interfaces` besides `ethernet`, in the order Circuit reads them. */
 const KINDS: readonly InterfaceKind[] = ["lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "wireguard", "eoip"];
 
-/** A feature a platform renders once proved on one of its devices. */
+/** A feature a platform renders once tested on one of its devices. */
 export type ProvedFeature =
     | "bfd-timers"
     | "static-route-bfd"
@@ -81,7 +81,7 @@ export class Derive {
         return addresses.filter((address) => Address.family(address) === "ipv4").map((address) => Address.prefixOf(address));
     }
 
-    /** Fields a platform renders only once they are proved on one of its devices. */
+    /** Fields a platform renders only once they are tested on one of its devices. */
     private static readonly UNPROVED_PORT_FIELDS = [
         ["mac_limit", "mac-limit"],
         ["ethertypes", "ethertype-filter"],

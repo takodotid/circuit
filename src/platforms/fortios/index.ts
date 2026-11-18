@@ -48,7 +48,7 @@ export class FortiOs extends Platform {
         ],
     };
 
-    /** The release this adapter renders for, and was proved on. */
+    /** The release this adapter renders for, and was tested on. */
     private static readonly SUPPORTED = "6.2";
 
     /** The longest name the platform takes for an interface, and for an address or service. */
@@ -114,7 +114,7 @@ export class FortiOs extends Platform {
             if (vrf?.description) found.push(`routing.vrfs.${name}.description, the platform numbers a VRF and keeps no description`);
         }
 
-        // Proved on a FG-3700D on FortiOS 6.2.2, in NAT mode, the management VDOM and BFD on a route in a VRF too. BFD on a multihop BGP session is refused in FortiOsRouting.gaps, for the reason the device showed.
+        // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, the management VDOM and BFD on a route in a VRF too. BFD on a multihop BGP session is refused in FortiOsRouting.gaps, for the reason the device showed.
         found.push(...Derive.unproved(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
         found.push(...Derive.unbuilt(device, ["proxy-arp"]));
 
@@ -347,7 +347,7 @@ export class FortiOs extends Platform {
         }
     }
 
-    /** Refuse a device on a release this adapter was not proved on, before anything is read or sent. Gives what `get system status` printed. */
+    /** Refuse a device on a release this adapter was not tested on, before anything is read or sent. Gives what `get system status` printed. */
     private static async checkVersion(cli: FortiOsCli, device: Device): Promise<string> {
         const status = await cli.run("get system status");
         const version = /^Version: \S+ v(\d+)\.(\d+)\.(\d+)/m.exec(status);

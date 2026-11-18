@@ -1,4 +1,5 @@
-// A network's secrets file, `.circuit/secrets` unless `circuit({ secrets: { file } })` gives another: `NAME="value"` lines, each value encrypted, so the file is safe to commit. A value is AES-256-GCM, with a key made from the file's password by scrypt and bound to the secret's name. The password is never in the file. See SECURITY.md.
+// A network's secrets file, `.circuit/secrets` unless `circuit({ secrets: { file } })` gives another: `NAME="value"` lines, each value encrypted, so the file is safe to commit. A value is AES-256-GCM, with a key made from the file's password by scrypt and bound to the secret's name. The password is never in the file. Where the password comes from: docs/guide/secrets.md. The crypto: SECURITY.md.
+
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

@@ -20,7 +20,7 @@ import { JunosRender } from "./render";
 export type Guard = { minutes: number; prove: () => Promise<void> };
 
 export class Junos extends Platform {
-    /** How the console asks for a login. Root lands in a shell, `%`, every other user in the CLI, `>`; a session left in configuration mode, `#`, leaves it first. Not yet proved on a device. */
+    /** How the console asks for a login. Root lands in a shell, `%`, every other user in the CLI, `>`; a session left in configuration mode, `#`, leaves it first. Not yet tested on a device. */
     static readonly CONSOLE: ConsoleDialect = {
         // On a line of its own: the banner after a login says `Last login: ...`, and a chunk can end right after it.
         login: /(?:^|\n)login: $/,
@@ -30,7 +30,7 @@ export class Junos extends Platform {
         others: [[/# $/, "exit configuration-mode\n"]],
     };
 
-    /** The release this adapter renders for, and was proved on. */
+    /** The release this adapter renders for, and was tested on. */
     private static readonly SUPPORTED_MAJOR = 21;
 
     /** Statements the device keeps for itself: the release it runs and the number it gives each user. */
@@ -737,7 +737,7 @@ export class Junos extends Platform {
         });
     }
 
-    /** Refuse a device on a release this adapter was not proved on, before anything is read or sent. */
+    /** Refuse a device on a release this adapter was not tested on, before anything is read or sent. */
     private static async checkVersion(ask: (command: string) => Promise<string>, device: Device): Promise<void> {
         const version = await ask("show version | match Junos:");
         const release = /Junos: (\d+)\.(\S+)/.exec(version);

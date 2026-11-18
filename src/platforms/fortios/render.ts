@@ -461,7 +461,7 @@ export class FortiOsRender {
             FortiOsRender.routed(entry, device, name, iface, access);
         }
 
-        // A tunnel's interface is created by its own table, which names the interface it leaves through.
+        // A tunnel's interface is created by its own table, which uses the interface it leaves through.
         for (const { name, kind, settings } of FortiOsNames.interfacesOf(device)) {
             if (kind !== "gre" && kind !== "vxlan") continue;
 

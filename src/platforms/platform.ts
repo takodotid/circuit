@@ -70,13 +70,13 @@ export type BgpLimit = { max?: number; stopped?: string; stoppedAt?: number };
 /** One BGP log line: when, as the device printed it, such as `2026-10-24 03:12:44`, and the rest of the line. */
 export type BgpLogLine = { at: string; message: string };
 
-/** The operating system a platform runs, and the versions it is proved on. */
+/** The operating system a platform runs, and the versions it is tested on. */
 export type OsSupport = {
     /** Its name in full, such as `MikroTik RouterOS`. */
     name: string;
     /** The versions the adapter renders for, such as `7`. */
     versions: string;
-    /** The device and version it was proved on, such as `CCR2216-1G-12XS-2XQ, RouterOS 7.23`. */
+    /** The device and version it was tested on, such as `CCR2216-1G-12XS-2XQ, RouterOS 7.23`. */
     provedOn: string;
     /** Whether a read or an apply refuses a device on another version. */
     checked: boolean;
@@ -100,7 +100,7 @@ export abstract class Platform {
     readonly console: ConsoleDialect | undefined = undefined;
     /** Fields this platform cannot express. Validation fails on any of them, so nothing is skipped silently. */
     abstract unsupported(device: Device): string[];
-    /** Fields this platform renders but has not proved on a device yet. Validation refuses them, unless `--experimental` asks for them, which makes each a warning. Absent on a platform with none. */
+    /** Fields this platform renders but has not tested on a device yet. Validation refuses them, unless `--experimental` asks for them, which makes each a warning. Absent on a platform with none. */
     experimental?(device: Device): string[];
     /** What the platform does with a config that it may not do elsewhere, each as `validate` reports it: an error stops `diff` and `apply`, a warning is reported only. Absent on a platform with none. */
     checks?(device: Device): Finding[];
@@ -110,7 +110,7 @@ export abstract class Platform {
     abstract render(device: Device): string;
     /** What the device runs now, secrets removed, in the form `render` produces where the platform allows. */
     abstract read(device: Device, network: readonly Device[], options?: ReadOptions): Promise<string>;
-    /** The LLDP neighbors the device sees, by Circuit's port names, for `diff` and `apply` to compare with each port's `link`. Absent on a platform whose LLDP command and its output are not proved on a device yet. */
+    /** The LLDP neighbors the device sees, by Circuit's port names, for `diff` and `apply` to compare with each port's `link`. Absent on a platform whose LLDP command and its output are not tested on a device yet. */
     neighbors?(device: Device, network: readonly Device[], options?: ReadOptions): Promise<Neighbor[]>;
     /** What it takes to go from `current` to `desired`. */
     abstract plan(desired: string, current: string, options: ApplyOptions): Plan;

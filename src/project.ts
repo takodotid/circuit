@@ -367,7 +367,7 @@ async function read(folder: string): Promise<ProjectRead> {
     function names(name: string, d: Json) {
         const kinds = ["ethernet", "lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "wireguard", "eoip"];
 
-        // An interface's name is one interface: a rule or a route that names it would otherwise not say which.
+        // An interface's name is one interface: a rule or a route that uses it would otherwise not say which.
         const groupsOf = new Map<string, string[]>();
         for (const kind of kinds) for (const i of keys(d.interfaces?.[kind])) groupsOf.set(i, [...(groupsOf.get(i) ?? []), kind]);
         for (const [i, groups] of groupsOf)
@@ -672,7 +672,7 @@ const filter = (rule: Json, sets: Record<string, string[]>): Json[] => {
 const alone = (v: unknown) => (typeof v === "string" ? v.replace(/\/\d+$/, "") : v);
 
 /**
- * What the model keeps otherwise than a device writes it: an address set named in `management.allow` as its addresses; no VLAN description where a VLAN is only its number (`NUMBERED_VLANS`), so a VLAN written whole once serves every platform; the address alone in each field that names one host (`HostAddress`), which a device may write with its length; and the network's AS on BGP, which the model needs there. No default is written: what a device leaves out stays out.
+ * What the model keeps otherwise than a device writes it: an address set named in `management.allow` as its addresses; no VLAN description where a VLAN is only its number (`NUMBERED_VLANS`), so a VLAN written whole once serves every platform; the address alone in each field that uses one host (`HostAddress`), which a device may write with its length; and the network's AS on BGP, which the model needs there. No default is written: what a device leaves out stays out.
  */
 function written(d: Json, network: Json) {
     // `management.allow` written as an address set's name is that set's addresses.

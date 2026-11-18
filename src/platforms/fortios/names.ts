@@ -81,7 +81,7 @@ export class FortiOsNames {
         ];
     }
 
-    /** The sources `management.allow` names: its prefixes, or the members of the address set it names. */
+    /** The sources `management.allow` names: its prefixes, or the members of the address set it uses. */
     static allowed(device: Device): readonly string[] {
         const allow = device.management?.allow;
         if (typeof allow !== "string") return allow ?? [];

@@ -7,15 +7,15 @@ import type { LargeCommunity, StandardCommunity } from "./routing";
 export type CommunityOption = {
     /** The middle number of `asn:code:value` (RFC 8195 calls it the function). */
     code: number;
-    /** The catalogue's words for it, in place of Circuit's. Each option says which line they are. */
+    /** Your own words for it in the catalogue, instead of Circuit's. Each option says which line they replace. */
     description?: string;
 };
 
 /** A group of neighbors, such as `transit`. */
 export type CommunityGroup = {
-    /** The last number of a community about the group, such as the `2` of `64500:1:2`. Neighbors write it into their routers: keep it. */
+    /** The last number of a community about the group, such as the `2` of `64500:1:2`. Neighbors write it into their routers, so don't change it. */
     value: number;
-    /** How the catalogue names the group, such as `an IP transit`. Its name with `a` or `an` when absent: `a transit`. */
+    /** How the catalogue describes the group, such as `an IP transit`. When absent, its name with `a` or `an`, such as `a transit`. */
     description?: string;
 };
 
@@ -25,27 +25,27 @@ export type CommunityGroup = {
 export type CommunityScheme = {
     /** The first number of every community. The network's `asn` when absent. */
     asn?: number;
-    /** Groups of neighbors, by name, such as `{ transit: { value: 1 }, exchange: { value: 2 } }`. A neighbor group says which it is in. Needed by the `_group` options. */
+    /** Groups of neighbors, by name, such as `{ transit: { value: 1 }, exchange: { value: 2 } }`. A neighbor group says which groups it is in. The `_group` options need it. */
     groups?: Readonly<Record<string, CommunityGroup>>;
-    /** A tag: the groups of the neighbor a route was learned from, `asn:code:<group value>`. `description` is the words before the group: `Learned from` when absent. */
+    /** A tag for the groups of the neighbor a route was learned from: `asn:code:<group value>`. `description` is the words before the group. `Learned from` when absent. */
     learned_from_group?: CommunityOption;
-    /** A tag: the site a route was learned at, `asn:code:<site number>`, from the site's `number` in `sites`. `description` is the `nnn` line: `Learned at site $0` when absent. */
+    /** A tag for the site a route was learned at: `asn:code:<site number>`, with the site's `number` from `sites`. `description` is the line for `nnn`. `Learned at site $0` when absent. */
     learned_at_site?: CommunityOption;
-    /** A tag: the AS a route was learned from, `asn:code:<asn>`. Never on a customer's routes, so customers share one import policy. `description` is the `nnn` line: `Learned from AS$0` when absent. */
+    /** A tag for the AS a route was learned from: `asn:code:<asn>`. Circuit never adds it to a customer's routes, so customers can share one import policy. `description` is the line for `nnn`. `Learned from AS$0` when absent. */
     learned_from_as?: CommunityOption;
-    /** A request: do not announce to an AS, `asn:code:<asn>`, or to anyone, `asn:code:0`. `description` is the `nnn` line: `Do not announce to AS$0` when absent. */
+    /** A request not to announce a route to an AS, `asn:code:<asn>`, or to anyone, `asn:code:0`. `description` is the line for `nnn`. `Do not announce to AS$0` when absent. */
     do_not_announce_to_as?: CommunityOption;
-    /** A request: do not announce to the neighbors of a group, `asn:code:<group value>`. `description` is the words before the group: `Do not announce to` when absent. */
+    /** A request not to announce a route to the neighbors of a group: `asn:code:<group value>`. `description` is the words before the group. `Do not announce to` when absent. */
     do_not_announce_to_group?: CommunityOption;
-    /** A request: prepend our AS toward an AS once, twice or three times, `asn:code:<asn>`. Each `description` is its `nnn` line: `Prepend once to AS$0` when absent. */
+    /** A request to prepend our AS once, twice or three times toward an AS: `asn:code:<asn>`. Each `description` is the line for its `nnn`. `Prepend once to AS$0` when absent. */
     prepend?: { once?: CommunityOption; twice?: CommunityOption; three_times?: CommunityOption };
-    /** A request: drop all traffic to the route, `asn:code:0`. A neighbor group with its own `blackhole` community is passed the route with it, so it drops the traffic too; any other never gets the route. `description` is its line: `Blackhole: dropped in AS<asn>` when absent. */
+    /** A request to drop all traffic to the route: `asn:code:0`. A neighbor with its own `blackhole` community gets the route with that community, so it drops the traffic too. Other neighbors never get the route. `description` is its line. `Blackhole: dropped in AS<asn>` when absent. */
     blackhole?: CommunityOption;
-    /** Your own words for one community of the catalogue, by the community as the catalogue writes it: `{ "64500:2:0": "Learned at site-a" }`. */
+    /** Your own words for single lines of the catalogue, keyed by the community as the catalogue writes it: `{ "64500:2:0": "Learned at site-a" }`. */
     custom_descriptions?: Readonly<Record<string, string>>;
 };
 
-/** The options a neighbor sends to ask something of us, which an import may accept. */
+/** The options a neighbor sends to ask us for something. An import can accept them. */
 export type CommunityRequest = "do_not_announce_to_as" | "do_not_announce_to_group" | "prepend" | "blackhole";
 
 /** The requests a scheme `C` offers. */
@@ -71,35 +71,35 @@ export type SchemeCheck<C, Numbered extends boolean> = {
 
 /** What a neighbor, or its group, says about communities. `G` is the scheme's groups. */
 export type NeighborCommunities<G extends string> = {
-    /** The groups it is in, from the network's `communities.groups`. Its routes are tagged with each, and a request about a group acts on it. */
+    /** The groups it is in, from the network's `communities.groups`. Its routes get a tag for each group, and a request about a group applies to it. */
     groups?: readonly ([G] extends [never] ? "needs communities.groups in circuit.ts" : G)[];
-    /** Its own blackhole community, when it takes blackholes from us, such as `64501:666`. A route asked to be blackholed is passed to it with this. */
+    /** Its own blackhole community, if it takes blackhole routes from us, such as `64501:666`. A route that asks to be blackholed is sent to it with this community. */
     blackhole?: StandardCommunity | LargeCommunity;
 };
 
 /**
- * A route policy rule that Circuit writes out, in an import: it takes off the requests a neighbor may not send, and the tags only we set, then tags the route with where it was learned. `R` is the requests the scheme offers.
+ * A route policy rule for an import, which Circuit writes out as several rules. It removes the requests the neighbor may not send and the tags only we set. Then it tags the route with where it was learned. `R` is the requests the scheme offers.
  */
 export type CommunitiesImport<R extends string> = {
     /** The rules for an import. */
     communities: "import";
-    /** The requests this neighbor may send, which stay on the route. None when absent: every request is taken off (RFC 7454). */
+    /** The requests this neighbor may send, which stay on the route. When absent, every request is removed (RFC 7454). */
     accept_requests?: readonly R[];
-    /** Tag the route with where it was learned: its groups, the site, its AS (not a customer's). `true` when absent. `false` leaves the tags as they came, for iBGP, where our own router set them. */
+    /** Tag the route with where it was learned: the neighbor's groups, the site, and its AS (not for a customer). `true` when absent. `false` keeps the tags as they came, for iBGP, where our own router set them. */
     add_tags?: boolean;
     /** A communities rule holds nothing else. */
     call?: never;
 };
 
 /**
- * A route policy rule that Circuit writes out, in an export, before the rules that accept: it does what routes ask (do not announce, prepend, blackhole) toward the neighbor, then takes our communities off.
+ * A route policy rule for an export, which Circuit writes out as several rules. It goes before the rules that accept. It does what each route asks toward the neighbor (do not announce, prepend, blackhole), then removes our communities.
  */
 export type CommunitiesExport = {
     /** The rules for an export. */
     communities: "export";
-    /** Keep our communities on the route. `false` when absent. Toward iBGP, write it: `true` sends every tag and request on, as it is; without it, `circuit validate` stops. */
+    /** Keep our communities on the route. `false` when absent. Toward iBGP you must write it. `true` passes every tag and request on as it is. If it is missing there, `circuit validate` stops. */
     keep_ours?: boolean;
-    /** Keep our tags on the route, for a neighbor that wants to see where a route was learned; the requests are still taken off. `false` when absent. */
+    /** Keep our tags on the route, for a neighbor that wants to see where a route was learned. The requests are still removed. `false` when absent. */
     send_tags?: boolean;
     /** A communities rule holds nothing else. */
     call?: never;
@@ -239,7 +239,7 @@ function importRules(s: Json, asn: number, rule: Json, to: Peer, site: number | 
                   },
               ]
             : [];
-    // The tag is the AS's own when it names the AS, or groups that differ between the ASes.
+    // The tag belongs to one AS when it holds the AS number, or groups that differ between the ASes.
     const ownTag = tags && (asTag || (!!s.learned_from_group && to.groups.length > 0 && !groupsShared));
     const tag = {
         description: !tags ? "Requests it may not send taken off" : ownTag ? `Learned from AS${to.asn}` : "Where it was learned",

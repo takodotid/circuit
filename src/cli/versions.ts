@@ -8,7 +8,7 @@ import { Ui } from "./ui";
 import { VERSION } from "./version";
 
 export class Versions {
-    /** The file at a project's root that names its Circuit version. */
+    /** The file at a project's root that uses its Circuit version. */
     static readonly FILE = ".circuit/version";
 
     /** Set in the environment of a pinned Circuit this one started, so it doesn't start another. */

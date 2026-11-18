@@ -1,4 +1,4 @@
-// Values every network writes the same way, each from a public standard it names. Plain data, in one `presets` object: pick from it, or place its rules where they go in an ordered list with `merge`. Data is snake_case, like every field.
+// Values every network writes the same way, each from the public standard it comes from. Plain data, in one `presets` object: pick from it, or place its rules where they go in an ordered list with `merge`. Data is snake_case, like every field.
 
 import type { Prefix } from "./common";
 import type { FilterRule, Ports } from "./firewall";
@@ -76,20 +76,20 @@ const bad_tcp_flags: readonly FilterRule<never, never, never>[] = [
     },
 ];
 
-/** Values every network writes the same way, each from a public standard. A global: write `presets.bogons`, with no import. */
+/** Values every network writes the same way, each from a public standard. It is a global, so write `presets.bogons` with no import. */
 export const presets = {
     /**
-     * Address blocks that never appear as a source or destination on the internet: the IANA IPv4 and IPv6 Special-Purpose Address Registries (RFC 6890), each block with the RFC that reserves it. Pick the ones your filters need: `presets.bogons.ipv4.loopback`.
+     * Address blocks that never appear as a source or destination on the internet, from the IANA IPv4 and IPv6 Special-Purpose Address Registries (RFC 6890). Each block comes with the RFC that reserves it. Pick the ones your filters need, such as `presets.bogons.ipv4.loopback`.
      */
     bogons,
 
     /** The IPv4 private ranges of RFC 1918, in address order. */
     rfc1918: [bogons.ipv4.private10, bogons.ipv4.private172, bogons.ipv4.private192] as const,
 
-    /** The default route of each family: every destination, `0.0.0.0/0` (RFC 4632) and `::/0` (RFC 4291). */
+    /** The default route of each family, which matches every destination: `0.0.0.0/0` (RFC 4632) and `::/0` (RFC 4291). */
     default_routes: { ipv4: "0.0.0.0/0", ipv6: "::/0" } as const satisfies Record<"ipv4" | "ipv6", Prefix>,
 
-    /** Well-known ports, by the service names of the IANA Service Name and Transport Protocol Port Number Registry (RFC 6335). */
+    /** Well-known ports, by their service names in the IANA Service Name and Transport Protocol Port Number Registry (RFC 6335). */
     ports: {
         /** DNS, RFC 1035. */
         dns: 53,
@@ -108,15 +108,20 @@ export const presets = {
     } as const satisfies Record<string, Ports>,
 
     /**
-     * Route policy rules rejecting what no neighbor should send, for an import, or as a policy every import calls (MANRS action 1, filtering). In order: IPv4 shorter than /8 and longer than /24, IPv6 shorter than /16 and longer than /48: too specific for the global table (RFC 7454, section 6.1.3), or wider than any block one network holds. Then routes RPKI finds invalid (RFC 6811). A policy of its own (`"common-sanity": presets.bgp_sanity`), or placed with `merge`: `merge([presets.bgp_sanity, own_rule])`.
+     * Route policy rules that reject what no neighbor should send (MANRS action 1, filtering). Use them in an import, or as a policy that every import calls. In order, they reject:
+     *
+     * - IPv4 shorter than /8 or longer than /24, and IPv6 shorter than /16 or longer than /48. A longer prefix is too specific for the global table (RFC 7454, section 6.1.3), and a shorter one is wider than any block one network holds.
+     * - Routes that RPKI finds invalid (RFC 6811).
+     *
+     * Use them as a policy of their own, `"common-sanity": presets.bgp_sanity`, or place them with `merge`: `merge([presets.bgp_sanity, own_rule])`.
      */
     bgp_sanity,
 
-    /** Firewall rules dropping TCP flag combinations no packet that follows TCP (RFC 9293) carries, for a forward chain. Place them with `merge`. */
+    /** Firewall rules for a forward chain. They drop TCP flag combinations that no valid TCP packet carries (RFC 9293). Place them with `merge`. */
     bad_tcp_flags,
 
     /**
-     * UDP services that answer a small request with a much larger reply, which attackers use to reflect a flood at a victim: the ports of CISA's alert TA14-017A, "UDP-Based Amplification Attacks", plus six that are widely abused the same way but not in it: SLP, MS-SQL, ARD, CoAP, Ubiquiti and DVR. A reflected flood arrives from these. Pick the ports a rule needs by name: `src_port: [presets.udp_amplifiers.qotd, presets.udp_amplifiers.chargen]`.
+     * UDP services that answer a small request with a much larger reply. Attackers use them to reflect a flood at a victim, so a reflected flood comes from these ports. The list has the ports of CISA's alert TA14-017A, "UDP-Based Amplification Attacks", plus six more that are widely abused the same way: SLP, MS-SQL, ARD, CoAP, Ubiquiti and DVR. Pick the ports a rule needs by name: `src_port: [presets.udp_amplifiers.qotd, presets.udp_amplifiers.chargen]`.
      */
     udp_amplifiers: {
         qotd: 17,
