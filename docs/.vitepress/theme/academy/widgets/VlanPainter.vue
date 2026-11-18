@@ -108,7 +108,7 @@ const file = computed(() => {
     return { text: lines.join("\n"), highlight: highlight ? [highlight] : [] };
 });
 
-const centre = (port: string): Point => [portOf(port).x, DEVICE_Y];
+const center = (port: string): Point => [portOf(port).x, DEVICE_Y];
 
 async function send() {
     const sender = portOf(from.value);
@@ -130,7 +130,7 @@ async function send() {
 
     busy.value = true;
     said.value = undefined;
-    await runners[0]!.travel([centre(sender.port), socketOf(ports.indexOf(sender))]);
+    await runners[0]!.travel([center(sender.port), socketOf(ports.indexOf(sender))]);
 
     if (to.value !== "everyone") {
         const target = portOf(to.value);
@@ -148,7 +148,7 @@ async function send() {
             };
         } else {
             const index = ports.indexOf(target);
-            await runners[index]!.travel([socketOf(index), centre(target.port)]);
+            await runners[index]!.travel([socketOf(index), center(target.port)]);
             heard.value = [target.port];
             said.value = {
                 kind: "good",
@@ -162,7 +162,7 @@ async function send() {
 
     const receivers = ports.filter((entry) => entry !== sender && vlanOf(entry.port)?.id === senderVlan.id);
     await Promise.all(
-        receivers.map((entry) => runners[ports.indexOf(entry)]!.travel([socketOf(ports.indexOf(entry)), centre(entry.port)]))
+        receivers.map((entry) => runners[ports.indexOf(entry)]!.travel([socketOf(ports.indexOf(entry)), center(entry.port)]))
     );
     heard.value = receivers.map((entry) => entry.port);
     busy.value = false;

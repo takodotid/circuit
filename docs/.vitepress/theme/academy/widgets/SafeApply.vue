@@ -16,7 +16,7 @@ const steps = computed(() => [
     },
     {
         title: "Save a backup, set a timer",
-        text: "The router saves a backup of what it runs now, and sets a timer that will load that backup in 10 minutes. The --rollback option changes the minutes.",
+        text: "The router saves a backup of what it runs now, and sets a timer to load that backup in 10 minutes. The --rollback option changes the minutes.",
     },
     {
         title: "Send the plan",

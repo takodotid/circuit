@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: firewalls. The reader reorders, changes, removes and adds rules, sends test packets through them, and sees which rule matched first, or the default, until every packet gets what it should.
+// Lesson: firewalls. The reader reorders, changes, removes, and adds rules, sends test packets through them, and sees which rule matched first, or the default, until every packet gets what it should.
 
 import { computed, ref } from "vue";
 import { useTravel, type Point } from "../travel";
@@ -511,7 +511,7 @@ const code = computed(() => {
             class="ac-drawing"
             viewBox="0 0 700 300"
             role="img"
-            :aria-label="`A router with four networks: management, home and guests on one side, the internet on its port 1g-1 on the other.${selected ? ' Showing: ' + selected.title + '.' : ''}`"
+            :aria-label="`A router with four networks: management, home, and guests on one side, and the internet on its port 1g-1 on the other.${selected ? ' Showing: ' + selected.title + '.' : ''}`"
         >
             <line
                 v-for="side in sides"

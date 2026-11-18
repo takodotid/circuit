@@ -246,7 +246,7 @@ const forwardLines = computed(() => (forwardOn.value ? [4, 5, 6, 7, 8, 9, 10, 11
             class="ac-drawing"
             viewBox="0 0 700 340"
             role="img"
-            aria-label="A laptop, a phone and a camera at home behind a router with the public address 203.0.113.2. Beyond the internet are a website, a video service and a stranger."
+            aria-label="A laptop, a phone, and a camera at home behind a router with the public address 203.0.113.2. Beyond the internet are a website, a video service, and a stranger."
         >
             <line v-for="id in inside" :key="id" class="cable" :x1="at(id).x" :y1="at(id).y" :x2="at('router').x" :y2="at('router').y" />
             <line class="cable" :x1="at('router').x" :y1="at('router').y" :x2="at('internet').x" :y2="at('internet').y" />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: keeping the keys. The reader changes the router's services, its allowed sources, its users and one switch port, and sees who can log in from where, with the device file written beside it.
+// Lesson: keeping the keys. The reader changes the router's services, its allowed sources, its users, and one switch port, and sees who can log in from where, with the device file written beside it.
 
 import { computed, ref } from "vue";
 

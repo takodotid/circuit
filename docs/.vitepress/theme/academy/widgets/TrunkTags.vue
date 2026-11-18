@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: trunks. The reader chooses the VLANs each end of a trunk carries, sends frames between two switches and watches the tag appear on the trunk and go again, with each end's Circuit port and what `circuit validate` says.
+// Lesson: trunks. The reader chooses the VLANs each end of a trunk carries, sends frames between two switches, and watches the tag appear on the trunk and go again, with each end's Circuit port and what `circuit validate` says.
 
 import { computed, ref } from "vue";
 import { useTravel, type Point } from "../travel";
@@ -167,7 +167,7 @@ async function send() {
             class="ac-drawing"
             viewBox="0 0 680 280"
             role="img"
-            aria-label="Two switches joined by one trunk cable. Each switch has a laptop or desktop in VLAN 20, a guest Wi-Fi access point in VLAN 30 and a camera or recorder in VLAN 40."
+            aria-label="Two switches joined by one trunk cable. Each switch has a laptop or desktop in VLAN 20, a guest Wi-Fi access point in VLAN 30, and a camera or recorder in VLAN 40."
         >
             <line class="cable trunk" :x1="switches['switch-a'].x + 30" :y1="80" :x2="switches['switch-b'].x - 30" :y2="80" />
             <text class="trunk-name" x="340" y="68" text-anchor="middle">trunk, port 40g-1 at both ends</text>
