@@ -739,6 +739,10 @@ export class Junos extends Platform {
 
             const settings = JunosBgp.settingsOf(device, neighbor);
             if (settings.role) found.push(`routing.bgp.neighbors.${name}.role, Junos 21 has no BGP roles`);
+            if (settings.ttl_security)
+                found.push(
+                    `routing.bgp.neighbors.${name}.ttl_security, Junos BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255`
+                );
             // IPv4 routes over an IPv6 session need a local IPv4 address the config has no field for.
             if (Address.family(neighbor.address) === "ipv6" && settings.address_families?.includes("ipv4")) {
                 found.push(`routing.bgp.neighbors.${name}.address_families ipv4 over an IPv6 session`);

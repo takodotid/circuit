@@ -52,6 +52,8 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     role?: BgpRole;
     /** The neighbor is more than one hop away. */
     multihop?: boolean;
+    /** Send with TTL 255, and accept only BGP packets that arrive with TTL 255, so only from a directly connected neighbor (GTSM, RFC 5082). Not with `multihop`. */
+    ttl_security?: boolean;
     /** TCP MD5 password shared with the neighbor. */
     password?: Secret;
     /** Close the session if the neighbor announces more prefixes than this. It stays closed until you clear it by hand. On RouterOS, use `/routing bgp session clear <session> flag=limit-exceeded`. */

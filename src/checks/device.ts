@@ -389,6 +389,15 @@ export class DeviceChecks {
 
         for (const prefix of bgp?.originated_prefixes ?? []) cidr("routing.bgp.originated_prefixes", prefix);
 
+        const ttlWithMultihop = (where: string) =>
+            report(
+                `${where} has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected`
+            );
+
+        for (const [name, group] of Object.entries(bgp?.neighbor_groups ?? {})) {
+            if (group?.ttl_security && group.multihop) ttlWithMultihop(`routing.bgp.neighbor_groups.${name}`);
+        }
+
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const where = `routing.bgp.neighbors.${name}`;
             ip(where, neighbor.address);
@@ -399,6 +408,11 @@ export class DeviceChecks {
             const local = neighbor.local_address ?? group?.local_address;
             if (local && Address.family(local) !== Address.family(neighbor.address))
                 report(`${where} local_address and address differ in family`);
+
+            // A group that has both is reported once, at the group.
+            const ownChoice = neighbor.ttl_security !== undefined || neighbor.multihop !== undefined;
+            if ((neighbor.ttl_security ?? group?.ttl_security) && (neighbor.multihop ?? group?.multihop) && ownChoice)
+                ttlWithMultihop(where);
         }
 
         for (const areaId of Object.keys(routing?.ospf?.areas ?? {})) {

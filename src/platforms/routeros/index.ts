@@ -270,6 +270,11 @@ export class RouterOs extends Platform {
             const families = neighbor.address_families ?? group?.address_families ?? [Address.family(neighbor.address)];
 
             if (families.length > 1) found.push(`routing.bgp.neighbors.${name}.address_families, one family per session`);
+
+            // MikroTik's reference: `remote.ttl` "only affects EBGP peers".
+            const internal = (neighbor.remote_as ?? group?.remote_as) === bgp?.asn;
+            if ((neighbor.ttl_security ?? group?.ttl_security) && internal)
+                found.push(`routing.bgp.neighbors.${name}.ttl_security on an iBGP session, RouterOS checks the TTL of eBGP sessions only`);
         }
 
         const management = device.management;

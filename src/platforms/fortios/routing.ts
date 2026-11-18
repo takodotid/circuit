@@ -440,6 +440,10 @@ export class FortiOsRouting {
             const settings = FortiOsRouting.neighborSettings(device, neighbor);
 
             if (settings.role) found.push(`${where}.role, the platform has no BGP roles`);
+            if (settings.ttl_security)
+                found.push(
+                    `${where}.ttl_security, the platform's BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255`
+                );
             if (settings.bfd && settings.multihop)
                 found.push(
                     `${where}.bfd, FortiOS 6.2 runs single-hop BFD on a multihop session, which a peer running multihop BFD never answers`

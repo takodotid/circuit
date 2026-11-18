@@ -113,3 +113,29 @@ test("a blackhole route has neither next_hop nor interface", () => {
         "system.vdoms.management.static_routes 0.0.0.0/0 has blackhole with interface. Remove interface to drop the traffic, or remove blackhole to forward it",
     ]);
 });
+
+// GTSM accepts only TTL 255, which a packet from more than one hop away never has.
+test("ttl_security with multihop is an error, once at a group that has both", () => {
+    const bgp = router.routing!.bgp!;
+    const device: Device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            bgp: {
+                ...bgp,
+                neighbor_groups: { ...bgp.neighbor_groups, controllers: { remote_as: 64512, multihop: true, ttl_security: true } },
+                neighbors: {
+                    ...bgp.neighbors,
+                    "controller-1": { address: "198.51.100.7", neighbor_group: "controllers" },
+                    "controller-2": { address: "198.51.100.8", neighbor_group: "controllers", multihop: false },
+                    cogent: { address: "203.0.113.5", neighbor_group: "upstream", multihop: true, ttl_security: true },
+                },
+            },
+        },
+    };
+
+    expect(messages(device).filter((message) => message.includes("ttl_security"))).toEqual([
+        "routing.bgp.neighbor_groups.controllers has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected",
+        "routing.bgp.neighbors.cogent has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected",
+    ]);
+});
