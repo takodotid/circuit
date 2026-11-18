@@ -1,4 +1,4 @@
-// A packet travelling along a path in a widget's drawing: a point that moves from place to place at an even speed.
+// A packet moving along a path in a widget's drawing: a point that goes from place to place at an even speed.
 // With reduced motion it is shown at each place in turn instead of gliding.
 
 import { onBeforeUnmount, ref } from "vue";

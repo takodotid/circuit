@@ -66,7 +66,7 @@ function state(index: number) {
             </p>
             <p v-else-if="picked !== undefined" class="wrong">
                 <strong>Not quite.</strong>
-                {{ why?.[picked] ?? "Have another look, and pick again." }}
+                {{ why?.[picked] ?? "Try another answer." }}
             </p>
         </div>
     </fieldset>

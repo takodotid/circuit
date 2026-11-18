@@ -12,7 +12,7 @@ const found = computed(() => graduates.find((graduate) => graduate.id.toLowerCas
 const newestFirst = computed(() => [...graduates].sort((a, b) => b.date.localeCompare(a.date)));
 
 const day = (date: string) =>
-    new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+    new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 function check() {
     checked.value = query.value;
@@ -33,14 +33,7 @@ onMounted(() => {
         <form class="lookup" @submit.prevent="check">
             <label class="ac-field">
                 <span>Check a certificate by its ID</span>
-                <input
-                    v-model="query"
-                    class="ac-input mono"
-                    type="text"
-                    autocomplete="off"
-                    spellcheck="false"
-                    placeholder="The ID on the certificate"
-                />
+                <input v-model="query" class="ac-input mono" type="text" autocomplete="off" spellcheck="false" />
             </label>
             <button type="submit" class="ac-button primary" :disabled="!query.trim()">Check</button>
         </form>
@@ -52,7 +45,7 @@ onMounted(() => {
             </p>
             <p v-else-if="checked" class="ac-say bad" data-word="Not found">
                 No certificate has the ID <span class="ac-mono">{{ checked }}</span
-                >. Check it for typos: a certificate that is not listed here was not given by Circuit Academy.
+                >. Check it for typos. A certificate that is not listed here was not given by Circuit Academy.
             </p>
         </div>
 
@@ -76,10 +69,7 @@ onMounted(() => {
             </tbody>
         </table>
 
-        <div v-else class="empty">
-            <p class="chip">No graduates yet</p>
-            <p>The certification has not opened yet, so nobody is listed here. The first people to pass it will be.</p>
-        </div>
+        <p v-else class="empty">No graduates yet.</p>
     </div>
 </template>
 
@@ -105,22 +95,7 @@ onMounted(() => {
 }
 
 .empty {
-    margin-top: 28px;
-    padding: 18px 22px 8px;
-    border: 2px dashed var(--circuit-line);
-}
-
-.chip {
-    display: inline-block;
-    margin: 0 0 6px !important;
-    padding: 2px 8px;
-    background: var(--circuit-ink);
-    color: var(--circuit-paper);
-    font-size: 12px !important;
-    font-weight: 700;
-    font-stretch: 120%;
-    letter-spacing: 0.1em;
-    line-height: 20px !important;
-    text-transform: uppercase;
+    margin-top: 28px !important;
+    color: var(--circuit-soft);
 }
 </style>

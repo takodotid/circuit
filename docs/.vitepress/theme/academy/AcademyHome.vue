@@ -42,13 +42,13 @@ function clear() {
     <div class="academy-map">
         <div class="progress" aria-live="polite">
             <p v-if="finished === 0">
-                <strong>Start from the first lesson</strong> if networking is new to you. If you know some of it, start at the level that
-                fits.
+                <strong>Start with lesson 1</strong> if networking is new to you. If you know some already, take the entry check of the
+                level that fits.
             </p>
             <p v-else-if="next">
-                <strong>{{ finished }} of {{ Academy.LESSONS.length }} lessons done.</strong> Pick up where you left off.
+                <strong>{{ finished }} of {{ Academy.LESSONS.length }} lessons done.</strong>
             </p>
-            <p v-else><strong>Every lesson done.</strong> The certification is the next step.</p>
+            <p v-else><strong>Every lesson done.</strong></p>
 
             <div class="actions">
                 <a v-if="nextStep" class="ac-button primary" :href="withBase(nextStep.link)">{{ nextStep.text }}</a>
@@ -57,6 +57,7 @@ function clear() {
                     Clear my progress
                 </button>
             </div>
+            <p class="note">Your progress is kept in this browser only.</p>
         </div>
 
         <section
@@ -74,7 +75,7 @@ function clear() {
                     <span>Level {{ index + 1 }}: {{ level.name }}</span>
                     <span v-if="levelDone(level.slug)" class="count">{{ levelDone(level.slug) }} of {{ level.lessons.length }} done</span>
                 </p>
-                <h2 :id="`${level.slug}-title`">{{ level.title }}</h2>
+                <h2 :id="`${level.slug}-title`" v-text="level.title" />
                 <p class="audience">{{ level.audience }}</p>
                 <p v-if="Progress.GATED.includes(level.slug)" class="gate" :class="{ closed: closed(level.slug) }">
                     <template v-if="closed(level.slug)">
@@ -82,10 +83,7 @@ function clear() {
                         Opens with its <a :href="withBase(`/academy/checks/${level.slug}`)">entry check</a>: ten questions about
                         {{ Academy.LEVELS[index - 1]?.name }}.
                     </template>
-                    <template v-else>
-                        <span class="lock open">Open</span>
-                        You passed its entry check in this browser.
-                    </template>
+                    <span v-else class="lock open">Open</span>
                 </p>
             </div>
             <ol class="lessons">
@@ -112,12 +110,12 @@ function clear() {
                 <p class="soon">Coming soon</p>
                 <h2 id="certify-title">Certification</h2>
                 <p>
-                    Once you finish the levels, ask for a case: a network someone needs, which you provision in Circuit. When your work
-                    passes review, you get a certificate anyone can check, and a place among the graduates.
+                    When you finish the levels, ask for a case: a network someone needs, which you write in Circuit. If your work passes
+                    review, you get a certificate that anyone can check.
                 </p>
                 <div class="actions">
-                    <a class="ac-button" :href="withBase('/academy/certification')">How it will work</a>
-                    <a class="ac-button" :href="withBase('/academy/graduates')">The graduates</a>
+                    <a class="ac-button" :href="withBase('/academy/certification')">How it works</a>
+                    <a class="ac-button" :href="withBase('/academy/graduates')">Graduates</a>
                 </div>
             </div>
         </aside>
@@ -133,6 +131,12 @@ function clear() {
 
 .progress p {
     margin: 0 0 14px;
+}
+
+.progress .note {
+    margin: 12px 0 0;
+    color: var(--circuit-soft);
+    font-size: 13.5px;
 }
 
 .actions {

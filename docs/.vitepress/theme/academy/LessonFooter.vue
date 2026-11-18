@@ -22,21 +22,20 @@ const nextText = computed(() =>
 
 <template>
     <aside class="lesson-end" :class="{ finished }" aria-labelledby="lesson-end-title">
-        <p id="lesson-end-title" class="chip">{{ finished ? "Finished" : "Before you go on" }}</p>
+        <p id="lesson-end-title" class="chip">{{ finished ? "Done" : "End of lesson" }}</p>
         <p class="outcome">
-            You can now: <strong>{{ lesson.outcome.replace(/\.$/, "").replace(/^./, (letter) => letter.toLowerCase()) }}.</strong>
+            You can now <strong>{{ lesson.outcome.replace(/\.$/, "").replace(/^./, (letter) => letter.toLowerCase()) }}.</strong>
         </p>
         <div class="actions">
             <button v-if="!finished" type="button" class="ac-button primary" @click="Progress.setDone(lesson.link, true)">
-                I can do this, mark it done
+                Mark as done
             </button>
             <template v-else>
                 <a v-if="next" class="ac-button primary" :href="withBase(nextLink)">{{ nextText }}</a>
                 <a v-else class="ac-button primary" :href="withBase('/academy/certification')">See the certification</a>
-                <button type="button" class="ac-button" @click="Progress.setDone(lesson.link, false)">Not yet, unmark it</button>
+                <button type="button" class="ac-button" @click="Progress.setDone(lesson.link, false)">Mark not done</button>
             </template>
         </div>
-        <p class="note">Your progress is kept in this browser only.</p>
     </aside>
 </template>
 
@@ -89,11 +88,5 @@ const nextText = computed(() =>
 .actions a {
     text-decoration: none;
     white-space: normal;
-}
-
-.note {
-    margin: 12px 0 0;
-    color: var(--circuit-soft);
-    font-size: 13.5px;
 }
 </style>

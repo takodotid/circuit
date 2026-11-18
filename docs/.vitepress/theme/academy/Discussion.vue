@@ -67,13 +67,10 @@ watch(isDark, () => {
 <template>
     <section class="discussion" aria-labelledby="discussion-title">
         <h2 id="discussion-title">Discussion</h2>
-        <p v-if="GISCUS.categoryId" class="lead">
-            Stuck, or found a mistake? Ask here. You sign in with GitHub, and the thread is kept in the repository's discussions.
-        </p>
+        <p v-if="GISCUS.categoryId" class="lead">Stuck, or found a mistake? Ask here. You sign in with GitHub.</p>
         <p v-else class="lead">
             Stuck, or found a mistake? Ask on
-            <a :href="`${repository}/issues/new?title=${encodeURIComponent(`Academy: ${route.path}`)}`">GitHub</a>, and say which lesson it
-            is about. A discussion under each lesson is on its way.
+            <a :href="`${repository}/issues/new?title=${encodeURIComponent(`Academy: ${route.path}`)}`">GitHub</a>.
         </p>
         <div ref="frame" class="giscus" />
     </section>
