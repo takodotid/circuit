@@ -1,4 +1,4 @@
-// A firewall rule whose `src` and `dst` lists hold both families: each src and dst of different families matches no packet, so reading the project leaves that combination out. A rule that has nothing else is reported. RouterOS refuses an IPv6 dst on its IPv4 filter, and a refused command mid-apply restores the backup and reboots the router.
+// A firewall rule whose `src` and `dst` lists hold both families. RouterOS refuses an IPv6 dst on its IPv4 filter, and a refused command mid-apply restores the backup and reboots the router.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";

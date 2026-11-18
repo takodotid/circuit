@@ -1,4 +1,4 @@
-// A DHCP client's default routes and a WireGuard interface's own packets name routing tables, and UPnP names interfaces: each name is one the device declares, and a table a DHCP client fills counts as filled.
+// A DHCP client's default routes and a WireGuard interface's own packets name routing tables, and UPnP names interfaces.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";

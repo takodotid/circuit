@@ -1,4 +1,4 @@
-// The example projects in examples/, which the docs and the Academy show: each passes the editor's types, as TypeScript 7 and 6 read them, and `circuit validate`.
+// The example projects in examples/, which the docs and the Academy show.
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
