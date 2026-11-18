@@ -115,9 +115,7 @@ const VERDICTS = { accept: "Accepted", drop: "Dropped", reject: "Rejected" } as 
 
 <template>
     <p class="muted">
-        Describe a packet, and Studio walks the chain's rules in order and shows whether each one matches it and why not. The first rule
-        that matches decides; when none does, the chain's <code>default_action</code> does, and a chain with none accepts. A rule written
-        with a list, such as several sources or an interface set, is one rule per value here, as the device gets it.
+        Walks the chain's rules in order. The first match decides; with none, <code>default_action</code> (accept if unset).
     </p>
     <form class="tool-form" @submit.prevent="test">
         <label class="field"
@@ -191,7 +189,7 @@ const VERDICTS = { accept: "Accepted", drop: "Dropped", reject: "Rejected" } as 
     <template v-if="tested">
         <p v-if="!tested.has" class="muted">{{ tested.device.name }} has no {{ tested.chain }} chain in the project.</p>
         <p v-if="tested.verdict" :class="['verdict', tested.verdict]">{{ VERDICTS[tested.verdict] }}, by {{ tested.by }}.</p>
-        <p v-else class="verdict unknown">Stopped at {{ tested.by }}: it needs {{ tested.needs.join(", and ") }}. Fill that in to go on.</p>
+        <p v-else class="verdict unknown">Stopped at {{ tested.by }}: needs {{ tested.needs.join(", ") }}.</p>
         <DataTable
             v-if="tested.steps.length"
             :head="['Rule', 'Description', 'If', 'Then', 'Matches']"

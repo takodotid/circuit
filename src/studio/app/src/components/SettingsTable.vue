@@ -32,7 +32,7 @@ function shown(value: unknown): Shown {
     }
 
     if (Array.isArray(value) && value.some((item) => Format.isObject(item) && !Format.isSecret(item))) {
-        const items = value.map((item) => (Format.isObject(item) ? item : { value: item }));
+        const items: Record<string, unknown>[] = value.map((item) => (Format.isObject(item) ? item : { value: item }));
         const head = columnsOf(items);
         return { kind: "list", head, rows: items.map((item) => head.map((column) => item[column])) };
     }
@@ -59,7 +59,7 @@ const entries = computed(() =>
                 </th>
                 <td>
                     <template v-if="item.kind === 'text'">{{ item.text }}</template>
-                    <Settings v-else-if="item.kind === 'settings'" :value="item.value" :path="at(key)" />
+                    <SettingsTable v-else-if="item.kind === 'settings'" :value="item.value" :path="at(key)" />
                     <table v-else-if="item.kind === 'record'" class="data">
                         <thead>
                             <tr>
