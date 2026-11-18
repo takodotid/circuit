@@ -36,7 +36,7 @@ type Session = {
     run(command: string, timeout?: number): Promise<string>;
     /** Write a file to the device. Only SSH can. */
     upload?(path: string, content: string): Promise<void>;
-    /** A fresh login, which proves access survived: this session ends and a new SSH session opens, or the console logs out and in again. */
+    /** A fresh login, which tests that access survived: this session ends and a new SSH session opens, or the console logs out and in again. */
     fresh(): Promise<Session>;
     end(): void;
 };
@@ -143,7 +143,7 @@ export class RouterOs extends Platform {
     readonly os: OsSupport = {
         name: "MikroTik RouterOS",
         versions: "7",
-        provedOn: "CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24",
+        testedOn: "CCR2216-1G-12XS-2XQ, RouterOS 7.23; RB5009UG+S+, RouterOS 7.24",
         checked: true,
     };
 
@@ -240,7 +240,7 @@ export class RouterOs extends Platform {
         for (const [name, lag] of RouterOsRender.entries(device.interfaces?.lag)) {
             if (lag.mac_limit !== undefined) found.push(`interfaces.lag.${name}.mac_limit, ${RouterOs.NO_MAC_LIMIT}`);
             if (lag.ethertypes !== undefined)
-                found.push(`interfaces.lag.${name}.ethertypes, on a LAG, which is not proved on a device yet`);
+                found.push(`interfaces.lag.${name}.ethertypes, on a LAG, which is not tested on a device yet`);
 
             for (const field of ["storm_control", "stp"] as const) {
                 if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, on a LAG`);
@@ -274,7 +274,7 @@ export class RouterOs extends Platform {
         for (const [name, user] of Object.entries(snmp?.users ?? {})) {
             if (user.auth !== "sha1") {
                 found.push(
-                    `monitoring.snmp.users.${name}.auth ${user.auth}: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not proved yet)`
+                    `monitoring.snmp.users.${name}.auth ${user.auth}: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not tested yet)`
                 );
             }
         }
@@ -324,9 +324,9 @@ export class RouterOs extends Platform {
             ])
         );
 
-        // BFD on a static route and a MAC limit are refused above, for the reason the device gave, and an ethertype filter on a LAG as unproved.
+        // BFD on a static route and a MAC limit are refused above, for the reason the device gave, and an ethertype filter on a LAG as untested.
         found.push(
-            ...Derive.unproved(device, [
+            ...Derive.untested(device, [
                 "bfd-timers",
                 "multihop-bfd",
                 "static-route-bfd",

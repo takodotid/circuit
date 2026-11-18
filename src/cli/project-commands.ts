@@ -39,7 +39,7 @@ export class ProjectCommands {
         readonly project: ProjectRead,
         /** How a device is reached and what a plan sends: `apply`'s flags, the defaults for every other command. */
         private readonly options: ApplyOptions,
-        /** `--experimental`: fields a platform renders but has not proved are warnings, not errors. */
+        /** `--experimental`: fields a platform renders but has not tested are warnings, not errors. */
         private readonly experimental = false
     ) {
         this.devices = project.networks.flatMap((network) => Object.values(network.devices));

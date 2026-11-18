@@ -1,6 +1,6 @@
 // Raisecom ROS, as on the RAX700 series.
 //
-// An interface, an access-list or an OSPF process opens a block, `!` closes it, and `no` removes a line. Commands apply as they arrive and persist only on `write`. There is no rollback, so management is proved reachable in a fresh session before anything is written: a reboot then restores what was there before.
+// An interface, an access-list or an OSPF process opens a block, `!` closes it, and `no` removes a line. Commands apply as they arrive and persist only on `write`. There is no rollback, so a fresh session tests that management is reachable before anything is written: a reboot then restores what was there before.
 
 import type { ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
@@ -15,7 +15,7 @@ import { LineDiff, type Dialect, type Group } from "../line-diff";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
 import { RaisecomRosRender } from "./render";
 
-/** A session, and how to prove access in a fresh login: a new SSH session, or logging out and in again on the console. */
+/** A session, and how to test access in a fresh login: a new SSH session, or logging out and in again on the console. */
 export type Session = { channel: ClientChannel; close: () => void; fresh: () => Promise<Session> };
 
 export class RaisecomRos extends Platform {
@@ -126,7 +126,7 @@ export class RaisecomRos extends Platform {
     readonly os: OsSupport = {
         name: "Raisecom ROS",
         versions: "6.5",
-        provedOn: "RAX721-C-6C48, ROS 6.5.2",
+        testedOn: "RAX721-C-6C48, ROS 6.5.2",
         checked: false,
     };
 
@@ -156,7 +156,7 @@ export class RaisecomRos extends Platform {
 
             if (port.lldp === true) found.push(`${where}.lldp true, LLDP is turned on per device`);
             if (port.in_lag && (port.mac_limit !== undefined || port.ethertypes))
-                found.push(`${where}.mac_limit and ethertypes on a LAG member, proved on a port alone`);
+                found.push(`${where}.mac_limit and ethertypes on a LAG member, tested on a port alone`);
             if (port.mac_limit !== undefined && (port.mac_limit < 1 || port.mac_limit > RaisecomRosRender.MAC_LIMIT_MAX))
                 found.push(`${where}.mac_limit ${port.mac_limit}, port security takes 1 to ${RaisecomRosRender.MAC_LIMIT_MAX}`);
             if (typeof port.stp === "object" || port.stp === true) found.push(`${where}.stp other than false`);
@@ -173,7 +173,7 @@ export class RaisecomRos extends Platform {
                 if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, a LAG here only switches`);
             }
             for (const field of ["mac_limit", "ethertypes"] as const) {
-                if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, proved on a port alone`);
+                if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, tested on a port alone`);
             }
         }
 
@@ -292,7 +292,7 @@ export class RaisecomRos extends Platform {
 
         // SNMP takes its own access-list; SSH and telnet share the management one.
         found.push(...Derive.switchUnsupported(device, ["snmp"]));
-        found.push(...Derive.unproved(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
+        found.push(...Derive.untested(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
         found.push(...Derive.unbuilt(device));
 
         return found;
@@ -600,7 +600,7 @@ export class RaisecomRos extends Platform {
             );
         await Ssh.send(proof.channel, "write", 60_000, 3000);
         proof.close();
-        console.log("  applied, login proved, written");
+        console.log("  applied, logged in again, written");
     }
 
     readOnly(command: string): boolean {

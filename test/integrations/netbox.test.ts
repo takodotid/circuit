@@ -123,7 +123,7 @@ class FakeNetBox {
 }
 
 // The colocation example's router and switch, from the fixtures, at one site with a role each.
-const SITES = { "dc-1": { description: "The data centre" } };
+const SITES = { "dc-1": { description: "The data center" } };
 const edge: Device = { ...Fixtures.device("colocation--edge-01"), site: "dc-1", role: "Edge router" };
 const tor: Device = { ...Fixtures.device("colocation--tor-01"), site: "dc-1", role: "Top-of-rack switch" };
 
@@ -170,7 +170,7 @@ test("an empty NetBox gets every object, tagged circuit, and a second plan is em
     expect(fake.find("dcim/interfaces", (o) => o.device === router.id && o.label === "25g-4")!.enabled).toBe(false);
 
     // The site carries its description from circuit.ts, and the role is the device's own.
-    expect(fake.find("dcim/sites", (o) => o.name === "dc-1")!.description).toBe("The data centre");
+    expect(fake.find("dcim/sites", (o) => o.name === "dc-1")!.description).toBe("The data center");
     expect(fake.find("dcim/device-roles", (o) => o.id === router.role)!.name).toBe("Edge router");
 
     // The device's primary address is the one Circuit reaches it at, set in the second round.

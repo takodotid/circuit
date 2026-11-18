@@ -80,7 +80,7 @@ export class GraphLook {
         return {
             width,
             height: GraphLook.DEVICE_HEIGHT,
-            // The name is drawn centred on this point, so it starts where the text does.
+            // The name is drawn centered on this point, so it starts where the text does.
             shift: GraphLook.TEXT_X + name / 2 - width / 2,
             image: GraphLook.panel(width, sub, colors.cobalt, "#ffffff", colors.muted, colors.mono),
             picked: GraphLook.panel(width, sub, colors.cobalt, colors.yellow, colors.muted, colors.mono),

@@ -145,7 +145,7 @@ test("SNMP sha256 is refused, never written as SHA1", () => {
     } as Device;
 
     expect(platform.unsupported(device)).toContain(
-        "monitoring.snmp.users.librenms.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not proved yet)"
+        "monitoring.snmp.users.librenms.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not tested yet)"
     );
 });
 

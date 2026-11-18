@@ -54,7 +54,7 @@ export class FortiOsUnsupported {
         }
 
         // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, the management VDOM and BFD on a route in a VRF too. BFD on a multihop BGP session is refused in FortiOsRouting.gaps, for the reason the device showed.
-        found.push(...Derive.unproved(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
+        found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
         found.push(...Derive.unbuilt(device, ["proxy-arp"]));
 
         return found;
@@ -89,14 +89,14 @@ export class FortiOsUnsupported {
 
         const routing = device.routing;
         if (routing?.bgp || routing?.ospf) found.push(`routing, ${where}: static routes only`);
-        if (routing?.bfd) found.push(`routing.bfd, ${where}: BFD is proved in NAT mode only`);
+        if (routing?.bfd) found.push(`routing.bfd, ${where}: BFD is tested in NAT mode only`);
 
         for (const [index, route] of (routing?.static_routes ?? []).entries()) {
             const at = `routing.static_routes[${index}]`;
             if (!management) found.push(`${at}, ${where}: a route needs the management address`);
             if (!route.next_hop || Address.family(route.next_hop) !== "ipv4" || route.interface || route.blackhole || route.vrf)
                 found.push(`${at}, ${where}: only an IPv4 next hop, for the management address`);
-            if (route.bfd) found.push(`${at}.bfd, ${where}: BFD is proved in NAT mode only`);
+            if (route.bfd) found.push(`${at}.bfd, ${where}: BFD is tested in NAT mode only`);
         }
 
         if (device.firewall?.nat) found.push(`firewall.nat, ${where}`);

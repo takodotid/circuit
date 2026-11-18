@@ -45,9 +45,9 @@ test("a platform that has not proved them refuses a MAC limit and an ethertype f
 
         expect(Platforms.get(device.platform).unsupported(filtered)).toEqual(
             expect.arrayContaining([
-                `interfaces.ethernet.${port}.mac_limit, not proved on a device yet`,
-                `interfaces.ethernet.${port}.ethertypes, not proved on a device yet`,
-                "interfaces.lag.members.mac_limit, not proved on a device yet",
+                `interfaces.ethernet.${port}.mac_limit, not tested on a device yet`,
+                `interfaces.ethernet.${port}.ethertypes, not tested on a device yet`,
+                "interfaces.lag.members.mac_limit, not tested on a device yet",
             ])
         );
     }
@@ -69,7 +69,7 @@ test("a platform that has not proved it refuses a port bound to its hosts", () =
         };
 
         expect(Platforms.get(device.platform).unsupported(bound)).toContain(
-            `interfaces.ethernet.${port}.bound_to, not proved on a device yet`
+            `interfaces.ethernet.${port}.bound_to, not tested on a device yet`
         );
     }
 });
@@ -182,9 +182,9 @@ test("BFD timers, BFD on a static route and BFD on a multihop session are refuse
             "raisecom-ros": ["static"],
         };
         const findings = {
-            timers: "routing.bfd, BFD timers are not proved on a device yet",
-            static: "routing.static_routes 198.51.100.128/25 bfd, BFD on a static route is not proved on a device yet",
-            multihop: "routing.bgp.neighbors.loopback.bfd, BFD on a multihop session is not proved on a device yet",
+            timers: "routing.bfd, BFD timers are not tested on a device yet",
+            static: "routing.static_routes 198.51.100.128/25 bfd, BFD on a static route is not tested on a device yet",
+            multihop: "routing.bgp.neighbors.loopback.bfd, BFD on a multihop session is not tested on a device yet",
         };
         const unproved = Object.entries(findings)
             .filter(([feature]) => !(proved[device.platform] ?? []).includes(feature))
@@ -200,7 +200,7 @@ test("an alarm's severity is refused until proved", () => {
         const withAlarm: Device = { ...device, system: { ...device.system, alarms: { hwOpticalUnAuthorized: { severity: "warning" } } } };
 
         expect(Platforms.get(device.platform).unsupported(withAlarm)).toContain(
-            "system.alarms.hwOpticalUnAuthorized, an alarm's severity is not proved on a device yet"
+            "system.alarms.hwOpticalUnAuthorized, an alarm's severity is not tested on a device yet"
         );
     }
 });

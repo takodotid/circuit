@@ -358,16 +358,16 @@ function framing(ids: readonly string[], padding: number, readable = false): Vie
     const height = graph.height();
     const whole = Math.min((width - padding * 2) / (right - left), (height - padding * 2) / (bottom - top));
     let zoom = Math.max(Math.min(whole, LARGEST), graph.minZoom());
-    let centre = { x: (left + right) / 2, y: (top + bottom) / 2 };
+    let center = { x: (left + right) / 2, y: (top + bottom) / 2 };
 
     if (readable && zoom < READABLE) {
         zoom = READABLE;
         const degree = (id: string) => shown.value.edges.filter((edge) => edge.from === id || edge.to === id).length;
         const hub = [...ids].sort((a, b) => degree(b) - degree(a))[0];
-        centre = (hub && places.get(hub)) || centre;
+        center = (hub && places.get(hub)) || center;
     }
 
-    return { zoom, pan: { x: width / 2 - centre.x * zoom, y: height / 2 - centre.y * zoom } };
+    return { zoom, pan: { x: width / 2 - center.x * zoom, y: height / 2 - center.y * zoom } };
 }
 
 /** Show the whole layer, but never larger than its own size: a network of two devices stays readable. */
@@ -580,12 +580,12 @@ function drift(): void {
 
     const base = { zoom: cy.zoom(), pan: { ...cy.pan() } };
     const angle = tourStep * 2.4 + layer.value.length;
-    const centre = { x: cy.width() / 2, y: cy.height() / 2 };
+    const center = { x: cy.width() / 2, y: cy.height() / 2 };
     const away = {
         zoom: base.zoom * 1.03,
         pan: {
-            x: centre.x - (centre.x - base.pan.x) * 1.03 + Math.cos(angle) * 16,
-            y: centre.y - (centre.y - base.pan.y) * 1.03 + Math.sin(angle) * 10,
+            x: center.x - (center.x - base.pan.x) * 1.03 + Math.cos(angle) * 16,
+            y: center.y - (center.y - base.pan.y) * 1.03 + Math.sin(angle) * 10,
         },
     };
 

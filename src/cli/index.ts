@@ -431,7 +431,7 @@ class Cli {
 
         const project = await ProjectCommands.open({ experimental: true });
         stop(project.secretsFiles());
-        // A field not proved yet is a warning here: it stops `apply`, not a commit.
+        // A field not tested yet is a warning here: it stops `apply`, not a commit.
         project.validate();
 
         // A project inside this one, such as a customer's, is checked by its own Circuit: the version it pins, its secrets, its files.

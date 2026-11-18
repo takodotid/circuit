@@ -11,7 +11,7 @@ export type NamedInterface = { name: string; kind: InterfaceKind; settings: Inte
 const KINDS: readonly InterfaceKind[] = ["lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "wireguard", "eoip"];
 
 /** A feature a platform renders once tested on one of its devices. */
-export type ProvedFeature =
+export type TestedFeature =
     | "bfd-timers"
     | "static-route-bfd"
     | "multihop-bfd"
@@ -82,7 +82,7 @@ export class Derive {
     }
 
     /** Fields a platform renders only once they are tested on one of its devices. */
-    private static readonly UNPROVED_PORT_FIELDS = [
+    private static readonly UNTESTED_PORT_FIELDS = [
         ["mac_limit", "mac-limit"],
         ["ethertypes", "ethertype-filter"],
         ["bound_to", "port-binding"],
@@ -138,62 +138,62 @@ export class Derive {
         return found;
     }
 
-    /** Fields a platform refuses until it has proved them on a device. A platform names the ones it has proved, and the rest are refused. */
-    static unproved(device: Device, proved: readonly ProvedFeature[] = []): string[] {
+    /** Fields a platform refuses until it has tested them on a device. A platform names the ones it has tested, and the rest are refused. */
+    static untested(device: Device, tested: readonly TestedFeature[] = []): string[] {
         const found: string[] = [];
         const routing = device.routing;
-        const unproved = "not proved on a device yet";
-        const has = (feature: ProvedFeature) => proved.includes(feature);
+        const untested = "not tested on a device yet";
+        const has = (feature: TestedFeature) => tested.includes(feature);
 
-        if (routing?.bfd && !has("bfd-timers")) found.push(`routing.bfd, BFD timers are ${unproved}`);
-        if (device.system?.vdoms && !has("management-vdom")) found.push(`system.vdoms, a management VDOM is ${unproved}`);
+        if (routing?.bfd && !has("bfd-timers")) found.push(`routing.bfd, BFD timers are ${untested}`);
+        if (device.system?.vdoms && !has("management-vdom")) found.push(`system.vdoms, a management VDOM is ${untested}`);
 
         for (const route of routing?.static_routes ?? []) {
             if (route.bfd && !has("static-route-bfd"))
-                found.push(`routing.static_routes ${route.prefix} bfd, BFD on a static route is ${unproved}`);
+                found.push(`routing.static_routes ${route.prefix} bfd, BFD on a static route is ${untested}`);
             if (Utils.otherTable(route.routing_table) && !has("routing-tables"))
-                found.push(`routing.static_routes ${route.prefix} routing_table, a routing table beside the main one is ${unproved}`);
+                found.push(`routing.static_routes ${route.prefix} routing_table, a routing table beside the main one is ${untested}`);
         }
 
         if (!has("routing-tables")) {
-            if (routing?.tables) found.push(`routing.tables, a routing table beside the main one is ${unproved}`);
-            if (routing?.policy_routing) found.push(`routing.policy_routing, policy routing is ${unproved}`);
+            if (routing?.tables) found.push(`routing.tables, a routing table beside the main one is ${untested}`);
+            if (routing?.policy_routing) found.push(`routing.policy_routing, policy routing is ${untested}`);
         }
 
         const bgp = routing?.bgp;
 
         for (const [name, group] of Object.entries(bgp?.neighbor_groups ?? {})) {
             if (Utils.otherTable(group?.routing_table) && !has("routing-tables"))
-                found.push(`routing.bgp.neighbor_groups.${name}.routing_table, a routing table beside the main one is ${unproved}`);
+                found.push(`routing.bgp.neighbor_groups.${name}.routing_table, a routing table beside the main one is ${untested}`);
         }
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             if (!neighbor) continue;
             if (Utils.otherTable(neighbor.routing_table) && !has("routing-tables"))
-                found.push(`routing.bgp.neighbors.${name}.routing_table, a routing table beside the main one is ${unproved}`);
+                found.push(`routing.bgp.neighbors.${name}.routing_table, a routing table beside the main one is ${untested}`);
 
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
             const bfd = neighbor.bfd ?? group?.bfd;
             const multihop = neighbor.multihop ?? group?.multihop;
 
             if (bfd && multihop && !has("multihop-bfd"))
-                found.push(`routing.bgp.neighbors.${name}.bfd, BFD on a multihop session is ${unproved}`);
+                found.push(`routing.bgp.neighbors.${name}.bfd, BFD on a multihop session is ${untested}`);
         }
 
         if (!has("alarm-severity")) {
             for (const name of Object.keys(device.system?.alarms ?? {})) {
-                found.push(`system.alarms.${name}, an alarm's severity is ${unproved}`);
+                found.push(`system.alarms.${name}, an alarm's severity is ${untested}`);
             }
         }
 
-        const holders: { where: string; settings: Pick<Port, (typeof Derive.UNPROVED_PORT_FIELDS)[number][0]> | undefined }[] = [
+        const holders: { where: string; settings: Pick<Port, (typeof Derive.UNTESTED_PORT_FIELDS)[number][0]> | undefined }[] = [
             ...Derive.ports(device).map(([name, settings]) => ({ where: `interfaces.ethernet.${name}`, settings })),
             ...Object.entries(device.interfaces?.lag ?? {}).map(([name, settings]) => ({ where: `interfaces.lag.${name}`, settings })),
         ];
 
         for (const { where, settings } of holders) {
-            for (const [field, feature] of Derive.UNPROVED_PORT_FIELDS) {
-                if (settings?.[field] !== undefined && !has(feature)) found.push(`${where}.${field}, ${unproved}`);
+            for (const [field, feature] of Derive.UNTESTED_PORT_FIELDS) {
+                if (settings?.[field] !== undefined && !has(feature)) found.push(`${where}.${field}, ${untested}`);
             }
         }
 

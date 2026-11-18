@@ -245,7 +245,7 @@ test("a MAC limit is undone without its value, and a filter on a LAG or a LAG me
 
     expect(vrp.unsupported(onLag)).toEqual([
         "interfaces.ethernet.40g-1.mac_limit on a LAG member, set it on the LAG",
-        "interfaces.lag.uplink.ethertypes, on a LAG is not proved",
+        "interfaces.lag.uplink.ethertypes, on a LAG is not tested",
     ]);
 });
 
