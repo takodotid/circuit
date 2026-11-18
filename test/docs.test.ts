@@ -1,4 +1,4 @@
-// Each ```ts block in docs/ type-checks with the language in src/config, so a page can't keep a key Circuit renamed or removed.
+// Each ```ts block in docs/ and README.md type-checks with the language in src/config, so a page can't keep a key Circuit renamed or removed.
 
 import { afterAll, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -37,7 +37,10 @@ type Block = { page: string; line: number; fragment: boolean; located: boolean }
 /** Each file tsc checks, by its path in `scratch`. */
 const blocks = new Map<string, Block>();
 
-const pages = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "docs/*.md"], { cwd: root, encoding: "utf8" })
+const pages = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "docs/*.md", "README.md"], {
+    cwd: root,
+    encoding: "utf8",
+})
     .stdout.split("\n")
     .filter(Boolean);
 
@@ -97,7 +100,7 @@ function writePage(page: string): string[] {
     return wrong;
 }
 
-test("every ts block in docs/ type-checks", () => {
+test("every ts block in docs/ and README.md type-checks", () => {
     EditorTypes.write(scratch);
     writeFileSync(join(scratch, "tsconfig.json"), EditorTypes.TSCONFIG);
     writeFileSync(join(scratch, "network.d.ts"), NETWORK);
@@ -114,8 +117,8 @@ test("every ts block in docs/ type-checks", () => {
             wrong.push(`${file}:${at}:${column}: ${code}: ${message}`);
             continue;
         }
-        // A fragment may use a name its file imports, such as `home` from site.ts. Its keys are still checked.
-        if (block.fragment && code === "TS2304") continue;
+        // A sample may use a file the page doesn't show, and its keys are still checked. A fragment may use a name its file imports, such as `home` from site.ts. A whole file may import a module other than circuit.ts, such as README.md's site.ts.
+        if (block.fragment ? code === "TS2304" : code === "TS2307" && !message!.includes("circuit'")) continue;
         // An error on a fragment's first line, which tsc checks before the block, is about the location on the block's first line.
         const where =
             block.fragment && at === "1" ? `${block.line + 1}` : `${block.line + Number(at) - (block.fragment ? 1 : 0)}:${column}`;
