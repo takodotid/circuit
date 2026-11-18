@@ -13,7 +13,7 @@ The far end reaches your end of the tunnel over the internet. If you announce a 
 
 ## In Circuit
 
-`tunnels_outside_offered: true` in `circuit.ts` turns on the check. For each GRE and VXLAN tunnel, it finds the BGP neighbors whose address is on the tunnel. It stops when the tunnel's `local_address` is inside a `prefix` that their export accepts.
+`tunnels_outside_offered: true` in `circuit.ts` turns on the check. For each GRE and VXLAN tunnel, it finds the BGP neighbors whose address is on the tunnel. It stops when the tunnel's `local_address` is inside a `prefix` or a `prefix_set` that their export accepts.
 
 Start the tunnel from the address you reach the far end through, such as your end of the transit link. Here Netflix is sent `198.51.100.0/24` through the tunnel, and the tunnel starts from `203.0.113.2`, outside it:
 

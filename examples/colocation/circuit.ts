@@ -12,7 +12,7 @@ export const as64500 = circuit({
         learned_from_group: { code: 1 },
     },
     sites: {
-        "dc-1": { description: "The data centre: one router, and one top-of-rack switch for the tenants' servers." },
+        "dc-1": { description: "The data center: one router, and one top-of-rack switch for the tenants' servers." },
     },
     checks: {
         exports_end_in_reject: true,

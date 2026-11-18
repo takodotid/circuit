@@ -23,22 +23,9 @@ The description is for whoever stands at the rack or reads the device's own conf
 
 The two ends of the trunk in the [single site example](/guide/examples#a-single-site), on the router and on the switch:
 
-```ts
-"25g-1": {
-    description: "switch 10GE1/0/1",
-    speed: "10g",
-    trunk_vlans: ["mgmt", "home", "guests"],
-    link: { device: "switch", port: "10g-1" },
-},
-```
+<<< @/../examples/single-site/sites/home/router.ts#trunk
 
-```ts
-"10g-1": {
-    description: "router sfp28-1",
-    trunk_vlans: ["mgmt", "home", "guests"],
-    link: { device: "router", port: "25g-1" },
-},
-```
+<<< @/../examples/single-site/sites/home/switch.ts#trunk
 
 Each description uses the far device's own name for the port: the switch runs VRP, which prints `10g-1` as `10GE1/0/1`, and the router runs RouterOS, which prints `25g-1` as `sfp28-1`. With `guests` left off the switch's end, `validate` stops:
 

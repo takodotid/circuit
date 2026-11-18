@@ -18,7 +18,7 @@ One ID under two names works on the wire, but reads as two VLANs.
 `same_vlan_ids: true` in `circuit.ts` stops the project on a VLAN name with two IDs, and shows where each is written:
 
 ```text
-VLAN guests has 2 IDs: 30 on router (sites/home/site.ts:14); 31 on switch (sites/home/switch.ts:37). One VLAN name has one ID in the network (check same_vlan_ids).
+VLAN guests has 2 IDs: 30 on router (sites/home/site.ts:14); 31 on switch (sites/home/switch.ts:39). One VLAN name has one ID in the network (check same_vlan_ids).
 ```
 
 Write each VLAN once, in a `literal` that every device uses. The [single site example](/guide/examples#a-single-site) keeps its VLANs in `site.ts`, and both devices write `vlans: home.vlans`:

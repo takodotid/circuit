@@ -15,7 +15,7 @@ export const RUNS: Record<string, Run> = {
     },
     "54113|40g-5": {
         validate:
-            's: "ix-sw-01 40GE1/0/5" in sites/ix-1/ix-sw-02.ts:7: interfaces.ethernet.40g-5.description is written twice with two values: "ix-sw-01 40GE1/0/5" in sites/ix-1/ix-sw-02.ts:7, and "Fastly, AS54113" in members/fastly.ts:5. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+            'sites/ix-1/ix-sw-02.ts:7: interfaces.ethernet.40g-5.description is written twice with two values: "ix-sw-01 40GE1/0/5" in sites/ix-1/ix-sw-02.ts:7, and "Fastly, AS54113" in members/fastly.ts:5. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
     },
     "13335|10g-2": {
         validate: "✔ 2 device(s), no errors.",
@@ -27,6 +27,6 @@ export const RUNS: Record<string, Run> = {
     },
     "13335|40g-5": {
         validate:
-            's: "ix-sw-01 40GE1/0/5" in sites/ix-1/ix-sw-02.ts:7: interfaces.ethernet.40g-5.description is written twice with two values: "ix-sw-01 40GE1/0/5" in sites/ix-1/ix-sw-02.ts:7, and "Fastly, AS13335" in members/fastly.ts:5. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+            'sites/ix-1/ix-sw-02.ts:7: interfaces.ethernet.40g-5.description is written twice with two values: "ix-sw-01 40GE1/0/5" in sites/ix-1/ix-sw-02.ts:7, and "Fastly, AS13335" in members/fastly.ts:5. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
     },
 };

@@ -1,4 +1,4 @@
-// A customer's router on an RB5009: its uplink takes an address by DHCP, a tunnel to the data centre is tied to that uplink, a LAG of tunnels keeps one MAC, consoles open ports by UPnP, and its LAN gets router advertisements. Each printed line below is how an RB5009 on RouterOS 7.24.6 printed what the render writes, so a device that runs the config plans nothing.
+// A customer's router on an RB5009: its uplink takes an address by DHCP, a tunnel to the data center is tied to that uplink, a LAG of tunnels keeps one MAC, consoles open ports by UPnP, and its LAN gets router advertisements. Each printed line below is how an RB5009 on RouterOS 7.24.6 printed what the render writes, so a device that runs the config plans nothing.
 
 import { expect, test } from "bun:test";
 import type { Device } from "../../src/model";

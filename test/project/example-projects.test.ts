@@ -2,7 +2,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Validation } from "../../src/checks";
@@ -43,3 +43,34 @@ for (const name of readdirSync(examples)) {
         });
     });
 }
+
+// The colocation once its last tenant has left: the devices still find tenants.parts and tenants.rules.
+describe("colocation with no tenant", () => {
+    const folder = join(scratch, "colocation-no-tenant");
+    cpSync(join(examples, "colocation"), folder, { recursive: true });
+    const index = join(folder, "tenants", "index.ts");
+    const withNetflix = readFileSync(index, "utf8");
+    const withoutNetflix = withNetflix
+        .replace('import { netflix } from "./netflix";\n\n', "")
+        .replace("merge([empty, netflix])", "merge([empty])");
+    writeFileSync(index, withoutNetflix);
+    EditorTypes.write(folder);
+    writeFileSync(join(folder, "tsconfig.json"), EditorTypes.TSCONFIG);
+
+    test("the editor's types take it", () => {
+        expect(withoutNetflix).not.toContain("netflix");
+
+        const run = spawnSync("bun", [join(root, "node_modules", "typescript", "bin", "tsc"), "--noEmit", "-p", folder], {
+            encoding: "utf8",
+        });
+        expect(run.stdout + run.stderr).toBe("");
+    }, 30_000);
+
+    test("circuit validate finds nothing", async () => {
+        const read = await Project.read(folder);
+        const findings = read.networks.flatMap((network) => Validation.run(Object.values(network.devices), network.settings.checks));
+
+        expect(findings).toEqual([]);
+        expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("netflix");
+    });
+});

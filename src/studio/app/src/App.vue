@@ -13,7 +13,7 @@ const VIEWS = [
     { id: "devices", label: "Devices", to: "/devices" },
     { id: "vlans", label: "VLANs", to: "/vlans" },
     { id: "addresses", label: "Addresses", to: "/addresses" },
-    { id: "sessions", label: "BGP", to: "/sessions" },
+    { id: "bgp", label: "BGP", to: "/bgp" },
     { id: "cables", label: "Cables", to: "/cables" },
     { id: "tools", label: "Tools", to: "/tools" },
     { id: "compare", label: "Compare", to: "/compare" },

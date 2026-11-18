@@ -1,6 +1,6 @@
 // Huawei VRP, as on the CE series.
 //
-// Configuration reads as blocks indented under their header, `#` between blocks, and `undo` to remove a line. Changes stage in a candidate and take effect only at `commit`, so a refused line leaves nothing applied: the candidate is cleared. `commit` does not write to flash; `save` does, and without it a reboot brings the old configuration back. There is no scheduler to restore from, so access is proved by a fresh login before saving.
+// Configuration reads as blocks indented under their header, `#` between blocks, and `undo` to remove a line. Changes stage in a candidate and take effect only at `commit`, so a refused line leaves nothing applied: the candidate is cleared. `commit` does not write to flash; `save` does, and without it a reboot brings the old configuration back. There is no scheduler to restore from, so a fresh login tests access before saving.
 
 import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
@@ -93,7 +93,7 @@ export class Vrp extends Platform {
     readonly os: OsSupport = {
         name: "Huawei VRP",
         versions: "V200R005",
-        provedOn: "CE6855-48S6Q-HI, V200R005C00SPC800",
+        testedOn: "CE6855-48S6Q-HI, V200R005C00SPC800",
         checked: false,
     };
 
@@ -135,8 +135,8 @@ export class Vrp extends Platform {
             const where = `interfaces.${kind}.${name}`;
             if (kind !== "vlan_interface" && kind !== "lag") found.push(`${where}, a ${kind}`);
             if (kind === "lag" && settings.addresses?.length) found.push(`${where}.addresses, LAGs are switched`);
-            if (kind === "lag" && (settings as Lag).mac_limit !== undefined) found.push(`${where}.mac_limit, on a LAG is not proved`);
-            if (kind === "lag" && (settings as Lag).ethertypes) found.push(`${where}.ethertypes, on a LAG is not proved`);
+            if (kind === "lag" && (settings as Lag).mac_limit !== undefined) found.push(`${where}.mac_limit, on a LAG is not tested`);
+            if (kind === "lag" && (settings as Lag).ethertypes) found.push(`${where}.ethertypes, on a LAG is not tested`);
             if (settings.mtu !== undefined) found.push(`${where}.mtu`);
             if (settings.ipv6_ra) found.push(`${where}.ipv6_ra`);
             if (settings.hardware_offload !== undefined) found.push(`${where}.hardware_offload, the switch chip forwards everything`);
@@ -165,7 +165,7 @@ export class Vrp extends Platform {
 
             const where = `routing.static_routes ${route.prefix} bfd`;
             const nextHop = route.next_hop && Address.host(route.next_hop);
-            if (route.vrf) found.push(`${where} in a VRF, not proved`);
+            if (route.vrf) found.push(`${where} in a VRF, not tested`);
             else if (!nextHop || Address.family(nextHop) !== "ipv4") found.push(`${where}, needs an IPv4 next_hop`);
             else if (!VrpRender.localAddressTo(device, nextHop))
                 found.push(`${where}, the device has no address on the network of ${nextHop}`);
@@ -174,6 +174,9 @@ export class Vrp extends Platform {
         for (const [index, route] of (routing?.static_routes ?? []).entries()) {
             if (route.description && Address.family(Address.split(route.prefix).addr) === "ipv6")
                 found.push(`routing.static_routes[${index}].description for IPv6`);
+            // The render writes the next hop alone, so the interface would be lost.
+            if (route.next_hop && route.interface)
+                found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
         }
 
         const refusedGroups = [
@@ -223,18 +226,18 @@ export class Vrp extends Platform {
         const monitoring = device.monitoring ?? {};
 
         for (const collector of monitoring.syslog ?? []) {
-            if (Address.family(collector.address) === "ipv6") found.push(`monitoring.syslog ${collector.address}, IPv6 is not proved`);
+            if (Address.family(collector.address) === "ipv6") found.push(`monitoring.syslog ${collector.address}, IPv6 is not tested`);
         }
 
         for (const source of monitoring.snmp?.allow ?? []) {
-            if (Address.family(Address.split(source).addr) === "ipv6") found.push(`monitoring.snmp.allow ${source}, IPv6 is not proved`);
+            if (Address.family(Address.split(source).addr) === "ipv6") found.push(`monitoring.snmp.allow ${source}, IPv6 is not tested`);
         }
 
         if (monitoring.transceivers !== undefined) found.push("monitoring.transceivers");
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));
-        // One key per user, as `ssh user ... assign` takes one. RSA only: V200R005 has no ed25519, and ECDSA is not proved.
+        // One key per user, as `ssh user ... assign` takes one. RSA only: V200R005 has no ed25519, and ECDSA is not tested.
         for (const [name, user] of Object.entries(device.system?.users ?? {})) {
             const keys = user?.ssh_keys ?? [];
             if (keys.length > 1) found.push(`system.users.${name}.ssh_keys, more than one: a user takes one key`);
@@ -245,7 +248,7 @@ export class Vrp extends Platform {
             if (keys.length && name.length > VrpRender.KEY_NAME)
                 found.push(`system.users.${name}.ssh_keys, a key named after a user over ${VrpRender.KEY_NAME} characters`);
         }
-        found.push(...Derive.unproved(device, ["alarm-severity", "bfd-timers", "static-route-bfd", "mac-limit", "ethertype-filter"]));
+        found.push(...Derive.untested(device, ["alarm-severity", "bfd-timers", "static-route-bfd", "mac-limit", "ethertype-filter"]));
         found.push(...Derive.unbuilt(device));
 
         const flow = monitoring.flow_export;
@@ -354,7 +357,7 @@ export class Vrp extends Platform {
                 await Vrp.save(channel);
             });
 
-            console.log("  committed, login proved, saved");
+            console.log("  committed, logged in again, saved");
             return;
         }
 
@@ -375,7 +378,7 @@ export class Vrp extends Platform {
             client.end();
         }
 
-        console.log("  committed, login proved, saved");
+        console.log("  committed, logged in again, saved");
     }
 
     async neighbors(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<Neighbor[]> {

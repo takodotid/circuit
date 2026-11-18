@@ -24,7 +24,7 @@ export default as64500.device({
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.0.1/24"] },
             "25g-1": { description: "Hurricane Electric", access_vlan: "transit", ingress_acl: "edge" },
-            "25g-2": { description: "de-cix", access_vlan: "exchange", ingress_acl: "edge" },
+            "25g-2": { description: "DE-CIX", access_vlan: "exchange", ingress_acl: "edge" },
             "100g-1": {
                 description: "tor-01 40GE1/0/1",
                 speed: "40g",
@@ -87,17 +87,23 @@ export default as64500.device({
         },
         prefix_sets: {
             ours: { prefixes: as64500.prefixes.ours },
+            "bogons-v4": { prefixes: presets.bogons.ipv4 },
+            "bogons-v6": { prefixes: presets.bogons.ipv6 },
         },
         policies: {
             sanity: presets.bgp_sanity,
             "transit-import": [
                 { call: "sanity" },
+                { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },
+                { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },
                 { if: { prefix_set: "ours" }, then: "reject" },
                 { communities: "import" },
                 { set: { local_pref: 100 }, then: "accept" },
             ],
             "exchange-import": [
                 { call: "sanity" },
+                { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },
+                { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },
                 { if: { prefix_set: "ours" }, then: "reject" },
                 { communities: "import" },
                 { set: { local_pref: 200 }, then: "accept" },

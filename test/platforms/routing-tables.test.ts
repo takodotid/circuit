@@ -233,10 +233,10 @@ test("a platform that has not proved routing tables refuses them, by the field",
         .filter((field) => /table|policy_routing/.test(field));
 
     expect(refused).toEqual([
-        "routing.static_routes 2001:db8:200::/48 routing_table, a routing table beside the main one is not proved on a device yet",
-        "routing.tables, a routing table beside the main one is not proved on a device yet",
-        "routing.policy_routing, policy routing is not proved on a device yet",
-        "routing.bgp.neighbors.transit-p.routing_table, a routing table beside the main one is not proved on a device yet",
+        "routing.static_routes 2001:db8:200::/48 routing_table, a routing table beside the main one is not tested on a device yet",
+        "routing.tables, a routing table beside the main one is not tested on a device yet",
+        "routing.policy_routing, policy routing is not tested on a device yet",
+        "routing.bgp.neighbors.transit-p.routing_table, a routing table beside the main one is not tested on a device yet",
     ]);
     expect(platform.unsupported(withBlockB())).toEqual([]);
 });

@@ -66,19 +66,19 @@ A note in a cell means "works, with this limit".
 
 ### Routing
 
-| Feature                     | RouterOS                | VRP           | Raisecom ROS             | Junos         | FortiOS          |
-| --------------------------- | ----------------------- | ------------- | ------------------------ | ------------- | ---------------- |
-| Static routes               | ✅                      | ✅            | IPv4 next hop            | ✅            | ✅               |
-| Next hop with its interface | 🧪                      | next hop only | next hop only            | next hop only | ✅               |
-| VRFs                        | ✅                      | ✅            | ❌                       | ✅            | ✅               |
-| Policy routing, more tables | ✅                      | ❌ not yet    | ❌ not yet               | ❌ not yet    | ❌ not yet       |
-| OSPF                        | ✅                      | IPv4          | IPv4                     | outside VRFs  | outside VRFs     |
-| BFD                         | ✅ not on static routes | ✅            | static routes, no timers | ✅            | ✅               |
-| BGP                         | ✅                      | ❌            | ❌                       | ✅            | ✅               |
-| Route policies, prefix sets | ✅                      | ❌            | ❌                       | ✅            | ✅               |
-| BGP communities             | ✅                      | ❌            | ❌                       | ✅            | ✅ no large ones |
-| RPKI                        | ✅                      | ❌            | ❌                       | ✅            | ❌               |
-| BGP roles (RFC 9234)        | ✅                      | ❌            | ❌                       | ❌            | ❌               |
+| Feature                     | RouterOS                | VRP        | Raisecom ROS             | Junos        | FortiOS          |
+| --------------------------- | ----------------------- | ---------- | ------------------------ | ------------ | ---------------- |
+| Static routes               | ✅                      | ✅         | IPv4 next hop            | ✅           | ✅               |
+| Next hop with its interface | 🧪                      | ❌         | ❌                       | ❌           | ✅               |
+| VRFs                        | ✅                      | ✅         | ❌                       | ✅           | ✅               |
+| Policy routing, more tables | ✅                      | ❌ not yet | ❌ not yet               | ❌ not yet   | ❌ not yet       |
+| OSPF                        | ✅                      | IPv4       | IPv4                     | outside VRFs | outside VRFs     |
+| BFD                         | ✅ not on static routes | ✅         | static routes, no timers | ✅           | ✅               |
+| BGP                         | ✅                      | ❌         | ❌                       | ✅           | ✅               |
+| Route policies, prefix sets | ✅                      | ❌         | ❌                       | ✅           | ✅               |
+| BGP communities             | ✅                      | ❌         | ❌                       | ✅           | ✅ no large ones |
+| RPKI                        | ✅                      | ❌         | ❌                       | ✅           | ❌               |
+| BGP roles (RFC 9234)        | ✅                      | ❌         | ❌                       | ❌           | ❌               |
 
 ### Firewall and services
 

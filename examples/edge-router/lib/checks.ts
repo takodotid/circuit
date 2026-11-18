@@ -1,8 +1,8 @@
-// Our own checks, beside Circuit's. circuit.ts names them in `checks`.
+// This network's own checks, beside Circuit's built-in ones. circuit.ts turns them on in `checks`.
 
 import type { Check } from "circuit";
 
-/** Every BGP session filters what it takes in. A neighbor without an import policy takes every route it is sent. */
+/** Every BGP neighbor has an import policy. Without one, the router accepts no route from it. */
 export const importsFiltered: Check = (network) =>
     network.devices.flatMap((device) =>
         Object.entries(device.routing?.bgp?.neighbors ?? {})
@@ -10,6 +10,6 @@ export const importsFiltered: Check = (network) =>
             .map(([name]) => ({
                 device: device.name,
                 path: `routing.bgp.neighbors.${name}`,
-                message: "takes every route it is sent: write an import_policy.",
+                message: "has no import_policy, so the router accepts no route from it. Write one.",
             }))
     );

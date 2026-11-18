@@ -19,12 +19,13 @@ const CIRCUIT = decodeURIComponent(new URL("..", import.meta.url).pathname)
 const isCircuit = (file: string) => file.replaceAll("\\", "/").toLowerCase().startsWith(CIRCUIT);
 
 /**
- * The user's frames on the stack of `error`, innermost first, each `file:line`. A frame of code outside any function, such as a device file's own lines, is `at /path/file.ts:3:16` on Linux and macOS, with no brackets: the `at ` is not part of the file.
+ * The user's frames on the stack of `error`, innermost first, each `file:line`. A frame of code outside any function, such as a device file's own lines, is `at /path/file.ts:3:16` on Linux and macOS, with no brackets: the `at ` is not part of the file. Only the lines that start with `at` are frames: the lines before them are the error's message, which may name a file too.
  */
 export function userFrames(error: Error = new Error()): string[] {
     return (error.stack ?? "")
         .split("\n")
-        .map((line) => /\(?((?:[A-Za-z]:)?[^():]+\.ts):(\d+)/.exec(line.replace(/^\s*at\s+/, "")))
+        .filter((line) => /^\s*at\s/.test(line))
+        .map((line) => /(?:^|\()((?:[A-Za-z]:)?[^():]+\.ts):(\d+)/.exec(line.replace(/^\s*at\s+/, "")))
         .filter((m): m is RegExpExecArray => !!m && !isCircuit(m[1]!))
         .map((m) => `${m[1]!.trim()}:${m[2]}`);
 }

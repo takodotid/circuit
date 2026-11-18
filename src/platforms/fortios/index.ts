@@ -1,6 +1,6 @@
 // Fortinet FortiOS 6.2, as on the FortiGate 3700D.
 //
-// The configuration is read and written as `config` blocks, the form `show` prints. A change applies as it is sent. Before a plan is sent the device is set to revert: a change not saved within the rollback time is undone by reloading the saved configuration, and Circuit reloads it at once when a line is refused. A fresh login proves access before the change is saved. Configuration transactions are not used: on 6.2 one keeps references its own deletions dropped, and one whose session is cut off keeps what it touched locked.
+// The configuration is read and written as `config` blocks, the form `show` prints. A change applies as it is sent. Before a plan is sent the device is set to revert: a change not saved within the rollback time is undone by reloading the saved configuration, and Circuit reloads it at once when a line is refused. A fresh login tests access before the change is saved. Configuration transactions are not used: on 6.2 one keeps references its own deletions dropped, and one whose session is cut off keeps what it touched locked.
 
 import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
@@ -59,7 +59,7 @@ export class FortiOs extends Platform {
     readonly os: OsSupport = {
         name: "Fortinet FortiOS",
         versions: "6.2",
-        provedOn: "FG-3700D, FortiOS 6.2.2",
+        testedOn: "FG-3700D, FortiOS 6.2.2",
         checked: true,
     };
 
@@ -422,7 +422,7 @@ export class FortiOs extends Platform {
     }
 
     /**
-     * Send a plan line by line, each applied as it arrives. The device is first set to revert what is not saved, so a refused line or a fresh login that fails reloads its saved configuration. Once access is proved the change is saved, and changes save themselves again.
+     * Send a plan line by line, each applied as it arrives. The device is first set to revert what is not saved, so a refused line or a fresh login that fails reloads its saved configuration. Once access is tested, the change is saved, and changes save themselves again.
      */
     private static async configure(cli: FortiOsCli, plan: Plan, guard: Guard, multi: boolean): Promise<void> {
         const minutes = guard.seconds / 60;
@@ -458,7 +458,7 @@ export class FortiOs extends Platform {
             }
         }
 
-        console.log(`  sent; the device reloads its saved configuration in ${minutes} minutes unless access is proved`);
+        console.log(`  sent; the device reloads its saved configuration in ${minutes} minutes unless Circuit logs in again`);
 
         try {
             await guard.prove();
@@ -469,7 +469,7 @@ export class FortiOs extends Platform {
         const saved = await FortiOs.inGlobal(cli, multi, () => cli.run("execute cfg save", 120_000));
         if (!/config saved|no config to be saved/.test(saved)) {
             throw new Error(
-                `access was proved but the save failed; the device reverts in ${minutes} minutes:\n    ${saved.trim().slice(0, 300)}`
+                `Circuit logged in again, but the save failed; the device reverts in ${minutes} minutes:\n    ${saved.trim().slice(0, 300)}`
             );
         }
 
@@ -504,7 +504,7 @@ export class FortiOs extends Platform {
         const seconds = options.rollback * 60;
 
         try {
-            // Through the console, a fresh login on the same console proves the change left the device's logins working; over SSH, a fresh SSH session proves the management path too.
+            // Through the console, a fresh login on the same console tests that the change left the device's logins working; over SSH, a fresh SSH session tests the management path too.
             if (options.console) {
                 await FortiOs.consoleSession(device, async (cli, relogin) => {
                     await FortiOs.checkVersion(cli, device);

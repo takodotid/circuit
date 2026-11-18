@@ -127,3 +127,26 @@ test("GitHub Actions are pinned to a commit", () => {
 
     expect(loose).toEqual([]);
 });
+
+// A page shows part of an example as a region, `<<< @/../examples/<file>#<name>`, so the excerpt can't drift from the file. VitePress shows the whole file when the region is missing, so each one is checked here, and each region in an example is one a page shows.
+test("every region a page includes is in its example, and every region is included", () => {
+    const included = new Set<string>();
+    const wrong: string[] = [];
+
+    for (const page of files.filter((file) => file.startsWith("docs/") && file.endsWith(".md"))) {
+        for (const [, path, name] of readFileSync(join(root, page), "utf8").matchAll(/^<<< @\/\.\.\/(\S+?)#([\w-]+)\s*$/gm)) {
+            included.add(`${path}#${name}`);
+            const text = existsSync(join(root, path!)) ? readFileSync(join(root, path!), "utf8") : "";
+            if (!text.includes(`// #region ${name}\n`) || !text.includes(`// #endregion ${name}\n`))
+                wrong.push(`${page}: ${path} has no region ${name}`);
+        }
+    }
+
+    for (const example of files.filter((file) => file.startsWith("examples/") && file.endsWith(".ts"))) {
+        for (const [, name] of readFileSync(join(root, example), "utf8").matchAll(/^\s*\/\/ #region ([\w-]+)$/gm)) {
+            if (!included.has(`${example}#${name}`)) wrong.push(`${example}: region ${name} is on no page`);
+        }
+    }
+
+    expect(wrong).toEqual([]);
+});

@@ -21,18 +21,7 @@ RFC 7454 sets the limit by who the neighbor is. For a peer, keep it lower than a
 
 The [edge router example](/guide/examples#an-edge-router) sets a limit on each of its three sessions. Its transit:
 
-```ts
-"hurricane-electric": {
-    address: "203.0.113.1",
-    remote_as: 6939,
-    description: "Hurricane Electric",
-    role: "provider",
-    max_prefixes: 1_200_000,
-    import_policy: "transit-import",
-    export_policy: "export",
-    communities: { groups: ["transit"] },
-},
-```
+<<< @/../examples/edge-router/sites/pop-1/edge-01.ts#transit
 
 For a peer, use the limits its PeeringDB record recommends for IPv4 and IPv6. [BGP](/academy/intermediate/bgp) lets you try a limit on a session, and [Choosing a device](/academy/professional/choosing-hardware) shows how many routes a chip holds.
 

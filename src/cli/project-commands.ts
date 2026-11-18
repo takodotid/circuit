@@ -39,7 +39,7 @@ export class ProjectCommands {
         readonly project: ProjectRead,
         /** How a device is reached and what a plan sends: `apply`'s flags, the defaults for every other command. */
         private readonly options: ApplyOptions,
-        /** `--experimental`: fields a platform renders but has not proved are warnings, not errors. */
+        /** `--experimental`: fields a platform renders but has not tested are warnings, not errors. */
         private readonly experimental = false
     ) {
         this.devices = project.networks.flatMap((network) => Object.values(network.devices));
@@ -316,12 +316,15 @@ export class ProjectCommands {
 
         await Ui.step(`Sending the changes to ${device.name}`, () => adapter.apply(device, this.devices, plan, this.optionsFor(device)));
 
-        if (!health) return;
+        if (!health) {
+            Ui.done(`${device.name} applied.`);
+            return;
+        }
 
         const problems = await Ui.step(`Checking ${device.name} after the change`, () => health.run());
         if (problems.length) Ui.fail(`\nApplied, but the device is not healthy:\n${problems.map((problem) => `  ${problem}`).join("\n")}`);
 
-        Ui.done("Applied. No problems found.");
+        Ui.done(`${device.name} applied. No problems found.`);
     }
 
     /** Run commands that only read, each under a header with how long it took. Every command is checked before anything connects. */

@@ -15,18 +15,11 @@ Nothing has filtered the traffic on a transit or exchange VLAN yet. If a switch 
 
 `untrusted_vlans` in `circuit.ts` turns on the check, with the devices that filter. The [edge router example](/guide/examples#an-edge-router) has one:
 
-```ts
-untrusted_vlans: { filtering_devices: ["edge-01"] },
-```
+<<< @/../examples/edge-router/circuit.ts#untrusted-vlans
 
 Then each outside VLAN gets `untrusted: true`, on every device that declares it:
 
-```ts
-vlans: {
-    transit: { id: 300, description: "IP transit from Hurricane Electric, AS6939", untrusted: true },
-    exchange: { id: 200, description: "DE-CIX peering LAN", untrusted: true },
-},
-```
+<<< @/../examples/edge-router/sites/pop-1/edge-01.ts#outside-vlans
 
 `circuit validate` then stops when a device that doesn't filter gives an untrusted VLAN an address. It also stops when a port or LAG carries an untrusted VLAN beside a trusted one, and neither its own device nor the device its `link` reaches filters.
 

@@ -20,15 +20,7 @@ Some sources are always forged:
 
 A switch-chip ACL drops them before they reach the router's CPU. The [edge router example](/guide/examples#an-edge-router) runs this one on both of its outside ports, with `ingress_acl: "edge"`:
 
-```ts
-// In the switch chip, before a packet reaches the router's CPU: nothing from outside may claim our addresses or private ones.
-acls: {
-    edge: [
-        { description: "Our own space", if: { vlan: ["transit", "exchange"], src: as64500.prefixes.ours.v4 }, then: "drop" },
-        { description: "Private ranges", if: { vlan: ["transit", "exchange"], src: presets.rfc1918 }, then: "drop" },
-    ],
-},
-```
+<<< @/../examples/edge-router/sites/pop-1/edge-01.ts#edge-acl
 
 `presets.rfc1918` holds the private ranges, and `presets.bogons` holds every special-purpose block. For a customer, an ACL on its port accepts its own space and drops the rest, as [Attacks on the network](/academy/professional/ddos-and-spoofing#anti-spoofing-in-circuit) shows. On Junos, `bound_to` also ties an access port to its hosts' MAC and IP addresses.
 

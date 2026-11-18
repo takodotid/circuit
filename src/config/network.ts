@@ -20,7 +20,7 @@ export type Community = {
     description: string;
 };
 
-/** A site, such as a data centre or an office. */
+/** A site, such as a data center or an office. */
 export type Site = {
     /** What and where the site is. */
     description?: string;
@@ -162,7 +162,7 @@ export type NetworkSettings<
      * The network's BGP large communities, `asn:code:value` (RFC 8092), used as RFC 8195 describes. Write them once, here. A neighbor group says which `groups` it is in, and a policy uses them with a `{ communities: "import" }` or `{ communities: "export" }` rule. `circuit communities` prints what each one means, for a looking glass or bgp.tools.
      */
     communities?: C & CommunityScheme & SchemeCheck<C, Numbered<Sites>>;
-    /** Each site, by name, such as a data centre or an office. Each is also a site in NetBox and a group in LibreNMS. A device's `site` is one of these, and each site needs at least one device. */
+    /** Each site, by name, such as a data center or an office. Each is also a site in NetBox and a group in LibreNMS. A device's `site` is one of these, and each site needs at least one device. */
     sites: Sites;
     /**
      * Circuit's built-in checks, turned on by name with their settings, and your own checks. Any other name takes a function that reads the network and returns what it found (`Check`). `circuit validate` runs them all. `untrusted: true` on a VLAN is allowed only while `untrusted_vlans` is here.

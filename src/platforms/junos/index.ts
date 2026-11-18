@@ -1,6 +1,6 @@
 // Junos, as on the QFX series with its Enhanced Layer 2 Software.
 //
-// The configuration is read and written as `set` statements, one per line, the form `show configuration | display set` prints. A statement the render does not hold is deleted, at the shortest path that holds nothing the render wants. Changes stage in a candidate and take effect only at `commit`. `commit confirmed` rolls itself back unless confirmed, so access is proved by a fresh login before the commit is confirmed.
+// The configuration is read and written as `set` statements, one per line, the form `show configuration | display set` prints. A statement the render does not hold is deleted, at the shortest path that holds nothing the render wants. Changes stage in a candidate and take effect only at `commit`. `commit confirmed` rolls itself back unless confirmed, so a fresh login tests access before the commit is confirmed.
 
 import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
@@ -10,7 +10,7 @@ import type { Device, Family, Lag, Port, Routed } from "../../model";
 import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
-import { Derive, type ProvedFeature } from "../../core/derive";
+import { Derive, type TestedFeature } from "../../core/derive";
 import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
 import { JunosBgp } from "./bgp";
 import { JunosNames } from "./names";
@@ -52,8 +52,8 @@ export class Junos extends Platform {
     /** Commands that only read. */
     private static readonly READS = /^show\s/;
 
-    /** Features `Derive.unproved` refuses until a platform proves them, proved here on a QFX5100-48S-6Q running Junos 21.4R3. */
-    private static readonly PROVED: readonly ProvedFeature[] = [
+    /** Features `Derive.untested` refuses until a platform tests them, tested here on a QFX5100-48S-6Q running Junos 21.4R3. */
+    private static readonly TESTED: readonly TestedFeature[] = [
         "bfd-timers",
         "static-route-bfd",
         "multihop-bfd",
@@ -67,7 +67,7 @@ export class Junos extends Platform {
     readonly os: OsSupport = {
         name: "Juniper Junos",
         versions: "21",
-        provedOn: "QFX5100-48S-6Q, Junos 21.4R3",
+        testedOn: "QFX5100-48S-6Q, Junos 21.4R3",
         checked: true,
     };
 
@@ -226,6 +226,9 @@ export class Junos extends Platform {
 
         for (const route of routing?.static_routes ?? []) {
             if (route.description) found.push(`routing.static_routes ${route.prefix} description`);
+            // The render writes the next hop alone, so the interface would be lost.
+            if (route.next_hop && route.interface)
+                found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
 
             const table = `${route.vrf ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
             tables.set(table, (tables.get(table) ?? 0) + 1);
@@ -271,7 +274,7 @@ export class Junos extends Platform {
                 found.push(`monitoring.flow_export.interfaces ${name}, a management port`);
         }
 
-        found.push(...Derive.unproved(device, Junos.PROVED));
+        found.push(...Derive.untested(device, Junos.TESTED));
         found.push(...Derive.unbuilt(device));
 
         return found;
@@ -584,7 +587,7 @@ export class Junos extends Platform {
     }
 
     /**
-     * Load the plan into an exclusive candidate and check it. With a guard, commit it to roll back after `minutes`, prove access, then confirm; without one, commit it outright.
+     * Load the plan into an exclusive candidate and check it. With a guard, commit it to roll back after `minutes`, test access, then confirm; without one, commit it outright.
      *
      * Deletions go before the statements that are set, so a path deleted and set again in one plan ends up set.
      */
@@ -646,7 +649,7 @@ export class Junos extends Platform {
             throw await discard(`commit failed, nothing was applied:\n    ${committed.trim().split("\n").slice(1, 20).join("\n    ")}`);
         }
 
-        console.log(`  committed; it rolls back in ${minutes} minutes unless access is proved`);
+        console.log(`  committed; it rolls back in ${minutes} minutes unless Circuit logs in again`);
 
         try {
             await prove();
@@ -664,7 +667,7 @@ export class Junos extends Platform {
         const confirmed = await Junos.edit(channel, "commit comment circuit-confirmed", 600_000);
         if (!/commit complete/.test(confirmed)) {
             throw new Error(
-                `access was proved but the confirmation failed; the device rolls back in ${minutes} minutes:\n    ${confirmed.trim().slice(0, 300)}`
+                `Circuit logged in again, but the confirmation failed; the device rolls back in ${minutes} minutes:\n    ${confirmed.trim().slice(0, 300)}`
             );
         }
 

@@ -18,7 +18,9 @@ export const as64500 = circuit({
     checks: {
         exports_end_in_reject: true,
         imports_end_in_accept_or_reject: true,
+        // #region untrusted-vlans
         untrusted_vlans: { filtering_devices: ["edge-01"] },
+        // #endregion untrusted-vlans
         imports_filtered: importsFiltered,
     },
 });

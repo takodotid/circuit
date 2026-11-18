@@ -1186,6 +1186,27 @@ test("a next hop with its interface is one gateway on RouterOS, experimental unt
     ]);
 });
 
+// VRP, Junos, and Raisecom ROS would write the next hop alone and lose the interface, so the two together are refused there.
+test("a next hop with its interface is refused on VRP, Junos, and Raisecom ROS", () => {
+    const route: StaticRoute = { prefix: "192.0.2.0/24", next_hop: "198.51.100.1", interface: "vlan10" };
+    const refused = (fixture: string) => {
+        const device = Fixtures.device(fixture);
+        return Platforms.get(device.platform)
+            .unsupported({ ...device, routing: { ...device.routing, static_routes: [route] } })
+            .filter((field) => field.includes("next_hop with interface"));
+    };
+
+    expect(refused("platforms--example-switch")).toEqual([
+        "routing.static_routes 192.0.2.0/24 next_hop with interface, write only one of them",
+    ]);
+    expect(refused("platforms--example-aggregation-switch")).toEqual([
+        "routing.static_routes 192.0.2.0/24 next_hop with interface, write only one of them",
+    ]);
+    expect(refused("platforms--example-core-switch")).toEqual([
+        "routing.static_routes 192.0.2.0/24 next_hop with interface, write the next_hop alone",
+    ]);
+});
+
 // RouterOS knows a route by its prefix, table, and gateway, so two routes alike in all three can't be told apart.
 test("two routes to one prefix through one gateway in one table are refused on RouterOS", () => {
     const routes: StaticRoute[] = [

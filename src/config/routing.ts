@@ -11,7 +11,7 @@ export type StaticRoute<I extends string, F extends string, T extends string> = 
     prefix: Prefix;
     /** Next-hop address, alone or with its length. A link-local next hop, in `fe80::/10`, needs `interface` too. */
     next_hop?: HostAddress;
-    /** The port or interface to send the traffic out of. Alone, for a link without a next-hop address. With `next_hop`, the interface that reaches the next hop, such as `{ next_hop: "fe80::1", interface: "10g-1" }`. Some platforms use only the next hop then: the feature matrix in the platforms reference says which. */
+    /** The port or interface to send the traffic out of. Alone, for a link without a next-hop address. With `next_hop`, the interface that reaches the next hop, such as `{ next_hop: "fe80::1", interface: "10g-1" }`. Some platforms refuse the two together: the feature matrix in the platforms reference says which. */
     interface?: I;
     /** Drop the traffic. This is the usual way to originate an aggregate in BGP. */
     blackhole?: true;
@@ -221,7 +221,7 @@ export type RouteMatch<S extends string> = {
     family?: Family;
     /** Exactly this prefix. */
     prefix?: Prefix;
-    /** The route's prefix is one of this set's prefixes, from `routing.prefix_sets`. */
+    /** The route's prefix is one of this set's prefixes, or a more specific prefix inside one, from `routing.prefix_sets`. A set that holds `10.0.0.0/8` also matches `10.1.0.0/16`. */
     prefix_set?: S;
     /** The prefix length is within this range, both ends included, 0 to 128. */
     prefix_length?: {

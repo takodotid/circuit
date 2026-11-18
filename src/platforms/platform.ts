@@ -13,7 +13,7 @@ export type Plan = { steps: Step[]; problems: string[] };
 export type ApplyOptions = {
     /** Also send every secret, so a rotated value reaches the device. Secrets cannot be read back, so they are otherwise only sent when the object holding them is new. */
     secrets: boolean;
-    /** Minutes before a platform that can restore itself does so, if the run does not prove access survived. */
+    /** Minutes before a platform that can restore itself does so, if the run does not test that access survived. */
     rollback: number;
     /** Reach the device through its serial console, `connection.console`, instead of SSH to its management address. */
     console?: boolean;
@@ -77,7 +77,7 @@ export type OsSupport = {
     /** The versions the adapter renders for, such as `7`. */
     versions: string;
     /** The device and version it was tested on, such as `CCR2216-1G-12XS-2XQ, RouterOS 7.23`. */
-    provedOn: string;
+    testedOn: string;
     /** Whether a read or an apply refuses a device on another version. */
     checked: boolean;
 };

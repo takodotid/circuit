@@ -55,7 +55,7 @@ export type AclRule<V extends string> = {
 
 /** Spanning tree on every switched port. A port may override it. */
 export type Stp = {
-    /** Which version of spanning tree runs. `rstp` when absent. */
+    /** Which version of spanning tree runs. When absent, RouterOS and Junos run RSTP, and VRP runs its own default, MSTP: Circuit writes no mode there. Raisecom ROS takes only `mstp`, and runs its own default when absent. */
     mode?: "stp" | "rstp" | "mstp";
     /** Bridge priority, 0 to 61440 in steps of 4096. The lowest becomes the root bridge. */
     priority?: number;

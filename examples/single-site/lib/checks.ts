@@ -1,4 +1,4 @@
-// Our own checks, beside Circuit's. circuit.ts names them in `checks`.
+// This network's own checks, beside Circuit's built-in ones. circuit.ts turns them on in `checks`.
 
 import type { Check } from "circuit";
 

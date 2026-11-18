@@ -13,7 +13,7 @@ export type Kept = Partial<Record<Layer, Record<string, [number, number]>>>;
 export class GraphLayout {
     /** The least gap between two tags side by side. */
     static readonly GAP = 24;
-    /** The least distance between the centres of two tags one above the other. */
+    /** The least distance between the centers of two tags one above the other. */
     static readonly ROW = 96;
     /** The length a line pulls its ends towards. */
     private static readonly IDEAL = 170;
