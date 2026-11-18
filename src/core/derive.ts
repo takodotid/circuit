@@ -14,6 +14,8 @@ import type {
     NeighborSettings,
     Port,
     Routed,
+    RouteMatch,
+    RouteRule,
 } from "../model";
 
 /** A BGP neighbor's `max_prefixes` in its long form. Without `restart_after` or `warn_only`, the session stays closed. */
@@ -163,6 +165,55 @@ export class Derive {
     static prefixLimit(settings: NeighborSettings): PrefixLimit | undefined {
         const max = settings.max_prefixes;
         return typeof max === "number" ? { limit: max } : max;
+    }
+
+    /** What an export policy does with a route the device makes itself, which has no AS path and no communities. It is `unknown` when the config can't tell, and nothing when no rule decides. */
+    static exportOf(device: Device, policy: string, prefix: string, seen: string[] = []): "accept" | "reject" | "unknown" | undefined {
+        if (seen.includes(policy)) return "unknown";
+
+        for (const rule of device.routing?.policies?.[policy] ?? []) {
+            if ("call" in rule && rule.call) {
+                const called = Derive.exportOf(device, rule.call, prefix, [...seen, policy]);
+                if (called) return called;
+                continue;
+            }
+
+            if ("communities" in rule && rule.communities) return "unknown";
+
+            const route = rule as RouteRule;
+            const matched = Derive.matchesOwn(device, route.if ?? {}, prefix);
+            if (!matched || !route.then) continue;
+
+            return matched === "unknown" ? "unknown" : route.then;
+        }
+
+        return undefined;
+    }
+
+    /** Whether a route the device makes itself matches: `unknown` for a condition the config can't answer, such as a registry's prefix set or the RPKI state. */
+    private static matchesOwn(device: Device, match: RouteMatch, prefix: string): boolean | "unknown" {
+        const { len, family } = Address.split(prefix);
+        const set = match.prefix_set ? device.routing?.prefix_sets?.[match.prefix_set] : undefined;
+        const listed = set && "prefixes" in set ? (Array.isArray(set.prefixes) ? set.prefixes : Object.values(set.prefixes)) : undefined;
+
+        if (match.family && match.family !== family) return false;
+        if (match.prefix && Address.canonical(Address.prefixOf(match.prefix)) !== Address.canonical(Address.prefixOf(prefix))) return false;
+        if (listed && !listed.some((outer) => Address.contains(outer, prefix))) return false;
+        if (match.prefix_length && (len < (match.prefix_length.min ?? 0) || len > (match.prefix_length.max ?? Address.bits(family))))
+            return false;
+
+        const unknown =
+            (match.prefix_set !== undefined && !listed) ||
+            [
+                match.as_path_length,
+                match.as_path_contains,
+                match.first_as,
+                match.origin_as,
+                match.rpki,
+                match.standard_community,
+                match.large_community,
+            ].some((condition) => condition !== undefined);
+        return unknown ? "unknown" : true;
     }
 
     /** AS numbers as ranges, a single number as a range of one. */
