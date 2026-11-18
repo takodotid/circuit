@@ -7,7 +7,10 @@ type Origin = "igp" | "egp" | "incomplete";
 
 type Route = {
     id: string;
-    from: string;
+    /** Who sent the route, short enough for a sentence. */
+    name: string;
+    /** What that neighbor is to you. */
+    note: string;
     session: "eBGP" | "iBGP";
     path: number[];
     routerId: string;
@@ -25,9 +28,10 @@ const MEDS = [0, 10, 50];
 const fresh = (): Route[] => [
     {
         id: "hurricane-electric",
-        from: "Transit A",
+        name: "Hurricane Electric",
+        note: "transit",
         session: "eBGP",
-        path: [64510, 64505],
+        path: [6939, 13335],
         routerId: "192.0.2.1",
         localPref: 100,
         origin: "igp",
@@ -35,21 +39,33 @@ const fresh = (): Route[] => [
     },
     {
         id: "cogent",
-        from: "Transit B",
+        name: "Cogent",
+        note: "transit",
         session: "eBGP",
-        path: [64511, 64505],
+        path: [174, 13335],
         routerId: "192.0.2.2",
         localPref: 100,
         origin: "igp",
         med: 0,
     },
-    { id: "exchange", from: "Exchange peer", session: "eBGP", path: [64505], routerId: "192.0.2.3", localPref: 100, origin: "igp", med: 0 },
+    {
+        id: "exchange",
+        name: "Cloudflare",
+        note: "peer at DE-CIX",
+        session: "eBGP",
+        path: [13335],
+        routerId: "192.0.2.3",
+        localPref: 100,
+        origin: "igp",
+        med: 0,
+    },
     {
         id: "edge-02",
-        from: "edge-02, your other router",
+        name: "edge-02",
+        note: "your other router, from Arelion",
         session: "iBGP",
-        path: [64512, 64505],
-        routerId: "10.0.0.2",
+        path: [1299, 13335],
+        routerId: "198.51.100.2",
         localPref: 100,
         origin: "igp",
         med: 0,
@@ -58,7 +74,7 @@ const fresh = (): Route[] => [
 
 const routes = ref<Route[]>(fresh());
 
-/** A router ID as one number, so 10.0.0.2 sorts below 192.0.2.1. */
+/** A router ID as one number, so 192.0.2.3 sorts below 198.51.100.2. */
 const routerIdNumber = (id: string) => id.split(".").reduce((sum, part) => sum * 256 + Number(part), 0);
 
 type Step = {
@@ -160,22 +176,22 @@ const REASONS = [
 
 const verdict = computed(() => {
     const { winner, decidedAt } = outcome.value;
-    return `${winner.from} wins at step ${decidedAt + 1}, ${steps[decidedAt]!.name.toLowerCase()}: ${REASONS[decidedAt]!(winner)}.`;
+    return `${winner.name} wins at step ${decidedAt + 1}, ${steps[decidedAt]!.name.toLowerCase()}: ${REASONS[decidedAt]!(winner)}.`;
 });
 
 function rowText(row: Row): string {
     if (row.state === "unused") return "Not needed: the route is already chosen.";
 
-    const values = row.compared.map((route) => `${route.from.split(",")[0]} ${row.step.show(route)}`).join(", ");
+    const values = row.compared.map((route) => `${route.name} ${row.step.show(route)}`).join(", ");
     if (row.state === "tie") return `${values}. A tie, so on to the next step.`;
 
-    const kept = row.kept.map((route) => route.from.split(",")[0]).join(" and ");
+    const kept = row.kept.map((route) => route.name).join(" and ");
     if (row.state === "decided") return `${values}. ${kept} is chosen.`;
     return `${values}. ${kept} go on.`;
 }
 
 const goals = [
-    { text: "Transit B is your cheapest contract. Make it the best route.", done: () => outcome.value.winner.id === "cogent" },
+    { text: "Cogent is your cheapest contract. Make it the best route.", done: () => outcome.value.winner.id === "cogent" },
     { text: "Make the choice come down to step 5, eBGP over iBGP.", done: () => outcome.value.decidedAt === 4 },
     { text: "Make the choice come down to the tie-break.", done: () => outcome.value.decidedAt === 5 },
 ];
@@ -211,12 +227,12 @@ function reset() {
 
 <template>
     <div class="best-path">
-        <p class="prefix">Four routes to <span class="ac-mono">203.0.113.0/24</span>, a network in AS64505</p>
+        <p class="prefix">Four routes to <span class="ac-mono">203.0.113.0/24</span>, a network of Cloudflare, AS13335</p>
 
         <div class="routes">
             <article v-for="route in routes" :key="route.id" class="route" :class="{ winner: route.id === outcome.winner.id }">
                 <header>
-                    <strong>{{ route.from }}</strong>
+                    <strong>{{ route.name }}, {{ route.note }}</strong>
                     <span class="tag">{{ route.session }}</span>
                 </header>
                 <p class="facts">
