@@ -8,9 +8,12 @@ type Header = { name: string; detail: string; bytes: number; part: "outer" | "se
 
 /** Each customer's VRF on both PEs, and the VNI of its own tunnel between them. */
 const customers = {
-    a: { name: "Customer A", vrf: "cust-a", vni: 10001 },
-    b: { name: "Customer B", vrf: "cust-b", vni: 10002 },
+    a: { name: "the bank", vrf: "bank", vni: 10001 },
+    b: { name: "the school", vrf: "school", vni: 10002 },
 };
+
+/** A customer's name at the start of a sentence or a label. */
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 const kind = ref<Kind>("vxlan");
 const whose = ref<keyof typeof customers>("a");
@@ -22,7 +25,7 @@ const customer = computed(() => customers[whose.value]);
 /** The headers on the core link, outermost first. Sizes: Ethernet 14 bytes, IPv4 20, UDP 8, VXLAN 8 (RFC 7348), an MPLS label 4 (RFC 3032). */
 const headers = computed<Header[]>(() => {
     const { name, vni } = customer.value;
-    const packet: Header = { name: `${name}'s packet`, detail: "10.1.1.20 to 10.1.2.20", bytes: packetSize.value, part: "packet" };
+    const packet: Header = { name: `${capital(name)}'s packet`, detail: "10.1.1.20 to 10.1.2.20", bytes: packetSize.value, part: "packet" };
 
     if (kind.value === "vxlan") {
         return [
@@ -53,7 +56,7 @@ const steps = computed(() => {
     const { name, vrf, vni } = customer.value;
     return [
         {
-            title: `${name}'s office 1 sends a packet`,
+            title: `${capital(name)}'s office 1 sends a packet`,
             text: `A plain packet to 10.1.2.20 arrives at pe-01 on the port for ${name}'s office 1. That port is in VRF ${vrf}.`,
         },
         {
@@ -118,8 +121,8 @@ const sizes = [1400, 1500];
             <div class="ac-field">
                 <span>Whose packet</span>
                 <div class="ac-row" role="group" aria-label="Whose packet">
-                    <button type="button" class="ac-button small" :aria-pressed="whose === 'a'" @click="whose = 'a'">Customer A</button>
-                    <button type="button" class="ac-button small" :aria-pressed="whose === 'b'" @click="whose = 'b'">Customer B</button>
+                    <button type="button" class="ac-button small" :aria-pressed="whose === 'a'" @click="whose = 'a'">The bank</button>
+                    <button type="button" class="ac-button small" :aria-pressed="whose === 'b'" @click="whose = 'b'">The school</button>
                 </div>
             </div>
         </div>
@@ -129,7 +132,7 @@ const sizes = [1400, 1500];
                 class="ac-drawing"
                 viewBox="0 0 700 120"
                 role="img"
-                :aria-label="`${customer.name}'s office 1, then pe-01, a core router and pe-02, in a line.`"
+                :aria-label="`${capital(customer.name)}'s office 1, then pe-01, a core router, and pe-02, in a line.`"
             >
                 <line class="cable" x1="70" y1="45" x2="610" y2="45" />
                 <line class="cable lit" :x1="70" y1="45" :x2="stationX(step)" y2="45" />
