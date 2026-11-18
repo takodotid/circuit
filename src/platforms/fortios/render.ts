@@ -54,6 +54,7 @@ export class FortiOsRender {
         "router prefix-list",
         "router prefix-list6",
         "router community-list",
+        "router aspath-list",
         "router route-map",
         "router ospf",
         "router ospf6",

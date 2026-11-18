@@ -2,7 +2,7 @@
 
 import type { Prefix } from "./common";
 import type { FilterRule, Ports } from "./firewall";
-import type { RouteRule } from "./routing";
+import type { AsNumbers, RouteRule } from "./routing";
 
 const bogons = {
     ipv4: {
@@ -73,6 +73,18 @@ const bgp_sanity: readonly RouteRule<never>[] = [
     { description: "RPKI invalid", if: { rpki: "invalid" }, then: "reject" },
 ];
 
+const bogon_asns = [
+    0, // RFC 7607
+    23456, // AS_TRANS, RFC 6793
+    { min: 64496, max: 64511 }, // Documentation, RFC 5398
+    { min: 64512, max: 65534 }, // Private use, RFC 6996
+    65535, // RFC 7300
+    { min: 65536, max: 65551 }, // Documentation, RFC 5398
+    { min: 65552, max: 131071 }, // Reserved by IANA
+    { min: 4200000000, max: 4294967294 }, // Private use, RFC 6996
+    4294967295, // RFC 7300
+] as const satisfies AsNumbers;
+
 const bad_tcp_flags: readonly FilterRule<never, never, never>[] = [
     { description: "Bad flags FIN+SYN", if: { protocol: "tcp", tcp_flags: { set: ["fin", "syn"], unset: [] } }, then: "drop" },
     { description: "Bad flags SYN+RST", if: { protocol: "tcp", tcp_flags: { set: ["syn", "rst"], unset: [] } }, then: "drop" },
@@ -126,6 +138,11 @@ export const presets = {
      * Use them as a policy of their own, `"common-sanity": presets.bgp_sanity`, or place them with `merge`: `merge([presets.bgp_sanity, own_rule])`.
      */
     bgp_sanity,
+
+    /**
+     * AS numbers no route on the internet should carry, as the NLNOG BGP Filter Guide lists them. They are the IANA special-purpose AS numbers (RFC 7249), less the one RFC 7534 uses, and the AS numbers IANA keeps reserved. A route with one anywhere in its path leaked from a private network or is a mistake: `{ if: { as_path_contains: presets.bogon_asns }, then: "reject" }`.
+     */
+    bogon_asns,
 
     /** Firewall rules for a forward chain. They drop TCP flag combinations that no valid TCP packet carries (RFC 9293). Place them with `merge`. */
     bad_tcp_flags,

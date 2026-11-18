@@ -796,9 +796,15 @@ export class Junos extends Platform {
 
                 if (rule.set?.preferred_source) found.push(`${where}.set.preferred_source`);
                 if (rule.if?.prefix && rule.if.prefix_length) found.push(`${where}.if.prefix with prefix_length`);
-                if (rule.if?.as_path_length && rule.if.as_path_contains !== undefined && !JunosBgp.listable(rule.if.as_path_contains))
+
+                const match = rule.if ?? {};
+                const regexes = [
+                    ...(match.as_path_length ? (["as_path_length"] as const) : []),
+                    ...JunosBgp.AS_FIELDS.filter((field) => match[field] !== undefined && !JunosBgp.listable(match[field])),
+                ];
+                if (regexes.length > 1)
                     found.push(
-                        `${where}.if.as_path_contains with as_path_length: Junos matches both by regular expression and joins two of those by OR. Leave AS 0 and AS 4294967295 out, which only a regular expression matches, or match each in a rule of its own`
+                        `${where}.if.${regexes[1]} with ${regexes[0]}: Junos matches both by regular expression and joins two of those by OR. Leave AS 0 and AS 4294967295 out, which only a regular expression matches, or match each in a rule of its own`
                     );
             });
         }

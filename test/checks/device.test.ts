@@ -222,3 +222,26 @@ test("route_reflector_client on an eBGP neighbor is an error, once at a group th
         "routing.bgp.neighbors.edge-03 has role, but AS64500 is ours, and a role is for eBGP neighbors (RFC 9234). Remove role",
     ]);
 });
+
+test("an AS number is a whole number from 0 to 4294967295, and a range starts before it ends", () => {
+    const device: Device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            policies: {
+                ...router.routing?.policies,
+                checked: [
+                    { if: { first_as: -1, origin_as: [64501, { min: 65534, max: 64512 }], as_path_contains: 64500.5 }, then: "reject" },
+                ],
+            },
+        },
+    };
+
+    expect(messages(device)).toEqual(
+        expect.arrayContaining([
+            "routing.policies.checked[0].if.first_as: -1 is no AS number; write 0 to 4294967295",
+            "routing.policies.checked[0].if.origin_as: the range ends before it starts; write { min: 64512, max: 65534 }",
+            "routing.policies.checked[0].if.as_path_contains: 64500.5 is no AS number; write 0 to 4294967295",
+        ])
+    );
+});

@@ -90,6 +90,10 @@ export class FortiOs extends Platform {
         return FortiOsUnsupported.of(device);
     }
 
+    override experimental(device: Device): string[] {
+        return FortiOsRouting.experimental(device);
+    }
+
     override render(device: Device): string {
         return FortiOsRender.of(device);
     }

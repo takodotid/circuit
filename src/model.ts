@@ -3,6 +3,8 @@
 import type * as C from "./config/index";
 
 export type {
+    AsNumbers,
+    AsRange,
     BoundHost,
     Certificate,
     Ethertype,

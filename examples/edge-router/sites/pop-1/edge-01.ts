@@ -107,6 +107,9 @@ export default as64500.device({
                 { call: "sanity" },
                 { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },
                 { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },
+                { description: "Bogon ASNs", if: { as_path_contains: presets.bogon_asns }, then: "reject" },
+                // Over 100 ASes, the NLNOG BGP Filter Guide's safe limit: such a path is overdone prepending, or an attack.
+                { description: "Long AS paths", if: { as_path_length: { min: 101 } }, then: "reject" },
                 { if: { prefix_set: "ours" }, then: "reject" },
                 { communities: "import" },
                 { set: { local_pref: 100 }, then: "accept" },
@@ -116,6 +119,8 @@ export default as64500.device({
                 { call: "sanity" },
                 { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },
                 { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },
+                { description: "Bogon ASNs", if: { as_path_contains: presets.bogon_asns }, then: "reject" },
+                { description: "Long AS paths", if: { as_path_length: { min: 101 } }, then: "reject" },
                 { if: { prefix_set: "ours" }, then: "reject" },
                 { communities: "import" },
                 { set: { local_pref: 200 }, then: "accept" },

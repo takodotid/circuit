@@ -43,6 +43,14 @@ function v1Path(old: string): string {
 /** Fixtures whose render differs from 0.x's only in the order of a section the platform treats as unordered, each with the reason. */
 const REORDERED: Record<string, string> = {};
 
+/** Sections v1 manages and 0.x did not. These fixtures leave them empty, and 0.x did not print them. */
+const SINCE_V1 = ["router aspath-list"];
+
+/** The render without the empty sections 0.x did not print. */
+function as0x(render: string): string {
+    return SINCE_V1.reduce((text, section) => text.replace(`config ${section}\nend\n`, ""), render);
+}
+
 describe("0.x's FortiOS devices", () => {
     const names = Fixtures.ofPlatform("fortios");
 
@@ -52,7 +60,7 @@ describe("0.x's FortiOS devices", () => {
 
     for (const name of names) {
         test(`${name} renders what 0.x rendered`, () => {
-            const rendered = platform.render(Fixtures.device(name));
+            const rendered = as0x(platform.render(Fixtures.device(name)));
 
             if (!REORDERED[name]) {
                 expect(rendered).toEqual(Fixtures.render(name));

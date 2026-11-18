@@ -105,10 +105,17 @@ export default as64500.device({
                 { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },
                 { if: { prefix_set: "ours-v4" }, then: "reject" },
                 { if: { prefix_set: "ours-v6" }, then: "reject" },
+                // Through a route server, the first AS is the member that sent the route. AS64501's customers reach us through AS64501, which pays for it.
+                { description: "AS64501's customers", if: { first_as: { min: 64502, max: 64505 } }, then: "reject" },
                 { set: { local_pref: 200 }, then: "accept" },
             ],
             "customer-import": [
-                { description: "The block we gave it", if: { prefix: "198.51.100.192/26" }, then: "accept" },
+                // AS64501 announces the block itself, or for one of its own customers, AS64502 to AS64505.
+                {
+                    description: "The block we gave it",
+                    if: { prefix: "198.51.100.192/26", first_as: 64501, origin_as: [64501, { min: 64502, max: 64505 }] },
+                    then: "accept",
+                },
                 { then: "reject" },
             ],
             export: [

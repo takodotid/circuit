@@ -1,6 +1,17 @@
 // Studio's two tests: which firewall rule a packet meets, and what a route policy does to a route. They read each rule as Circuit's docs describe it, in the model Studio receives (a list in a match is one rule per value there). A device can still behave otherwise, so they say what the project means, not what a device did.
 
-import type { Device, Family, FilterMatch, FilterRule, PolicyRule, Ports, Protocol, RouteRule, RouteSet } from "../../../../model";
+import type {
+    AsNumbers,
+    Device,
+    Family,
+    FilterMatch,
+    FilterRule,
+    PolicyRule,
+    Ports,
+    Protocol,
+    RouteRule,
+    RouteSet,
+} from "../../../../model";
 import type { StudioData } from "../../../types";
 import { Net } from "./net";
 
@@ -116,12 +127,15 @@ export class Evaluate {
         return Net.parseRange(text)?.family;
     }
 
-    private static portIn(ports: Ports, port: number): boolean {
-        return Evaluate.list(ports).some((entry) => (typeof entry === "number" ? entry === port : entry.min <= port && port <= entry.max));
+    /** Whether a number is one of the ports or AS numbers a rule gives, each a number or a range. */
+    private static numberIn(numbers: Ports | AsNumbers, value: number): boolean {
+        return Evaluate.list(numbers).some((entry) =>
+            typeof entry === "number" ? entry === value : entry.min <= value && value <= entry.max
+        );
     }
 
-    private static portsText(ports: Ports): string {
-        return Evaluate.list(ports)
+    private static numbersText(numbers: Ports | AsNumbers): string {
+        return Evaluate.list(numbers)
             .map((entry) => (typeof entry === "number" ? String(entry) : `${entry.min}-${entry.max}`))
             .join(", ");
     }
@@ -188,7 +202,7 @@ export class Evaluate {
                 return checks.push(Evaluate.test(false, "it names ports, which only TCP and UDP have"));
             checks.push(
                 given !== undefined
-                    ? Evaluate.test(Evaluate.portIn(rule, given), `its ${side} port is ${Evaluate.portsText(rule)}`)
+                    ? Evaluate.test(Evaluate.numberIn(rule, given), `its ${side} port is ${Evaluate.numbersText(rule)}`)
                     : Evaluate.needs(`the ${side} port`)
             );
         };
@@ -320,12 +334,15 @@ export class Evaluate {
             }
         }
 
-        if (match.as_path_contains !== undefined)
-            checks.push(
-                route.asPath
-                    ? Evaluate.test(route.asPath.includes(match.as_path_contains), `the AS path has no AS${match.as_path_contains}`)
-                    : Evaluate.needs("the AS path")
-            );
+        const asCheck = (numbers: AsNumbers | undefined, ases: (path: number[]) => number[], why: string) => {
+            if (numbers === undefined) return;
+            const path = route.asPath;
+            const holds = path && ases(path).some((asn) => Evaluate.numberIn(numbers, asn));
+            checks.push(path ? Evaluate.test(Boolean(holds), `${why} ${Evaluate.numbersText(numbers)}`) : Evaluate.needs("the AS path"));
+        };
+        asCheck(match.as_path_contains, (path) => path, "it is for AS paths through");
+        asCheck(match.first_as, (path) => path.slice(0, 1), "it is for routes whose first AS is");
+        asCheck(match.origin_as, (path) => path.slice(-1), "it is for routes whose origin AS is");
 
         if (match.rpki)
             checks.push(
@@ -335,14 +352,14 @@ export class Evaluate {
             );
 
         // Communities as the rules before this one left them.
-        if (match.standard_community)
-            checks.push(
-                Evaluate.test(attributes.communities.includes(match.standard_community), `the route has no ${match.standard_community}`)
-            );
-        if (match.large_community)
-            checks.push(
-                Evaluate.test(attributes.largeCommunities.includes(match.large_community), `the route has no ${match.large_community}`)
-            );
+        const carries = (wanted: string | readonly string[] | undefined, carried: readonly string[]) => {
+            if (wanted === undefined) return;
+            const patterns = Evaluate.list(wanted);
+            const holds = carried.some((community) => patterns.some((pattern) => Evaluate.fits(pattern, community)));
+            checks.push(Evaluate.test(holds, `the route has none of ${patterns.join(", ")}`));
+        };
+        carries(match.standard_community, attributes.communities);
+        carries(match.large_community, attributes.largeCommunities);
 
         return Evaluate.all(checks);
     }
