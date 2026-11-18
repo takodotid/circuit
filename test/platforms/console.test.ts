@@ -1,4 +1,4 @@
-// Logging in on a serial console and running commands there, against consoles played back from what each device printed.
+// Each fake console plays back what its device printed.
 
 import { EventEmitter } from "node:events";
 import { expect, test } from "bun:test";
@@ -11,7 +11,7 @@ import { Checks } from "../../src/checks";
 import type { Device } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
-/** A console that answers each line it receives from a script, and records what was written. */
+/** A console that answers each line from `answers`, and records what was written. */
 function fakeConsole(answers: Record<string, string | string[] | (() => string | string[])>) {
     const emitter = new EventEmitter();
     const written: string[] = [];

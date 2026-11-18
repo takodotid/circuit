@@ -1,4 +1,4 @@
-// Routing tables beside the main one and the rules that pick them, proved on a CCR2216 on 7.23.5: a BGP session with `routing-table` installed what it learned in that table and not in main, and announced only what that table held; a new `routing-table` on a running session took effect only when it restarted; a rule sent traffic from a block to its table, and `lookup-only-in-table` dropped what the table had no route for where `lookup` fell back to main. Each test feeds the router's own lines to the adapter, with names and addresses replaced.
+// Routing tables beside the main one, and the rules that pick them, tested on a CCR2216 on 7.23.5 (TRAPS.md). Each test feeds the router's own lines to the adapter, with names and addresses replaced.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -10,7 +10,7 @@ const edge = Fixtures.device("edge-router--edge-01");
 const platform = Platforms.get("routeros");
 const options = { secrets: false, rollback: 10 };
 
-/** The edge router with a block that leaves only through its own transit: a table, the rules that send the block's traffic to it, the transit's session installing in it, and the block's route in main and in the table, so both announce it. The transit's export accepts our own block too, which its table lacks. */
+/** The edge router with a block that leaves only through its own transit, in a table of its own. The block's route is in main and in the table, so both announce it. */
 function withBlockB(): Device {
     const routing = edge.routing!;
     return {
@@ -60,7 +60,7 @@ const errors = (device: Device) =>
         .filter((finding) => finding.level === "error")
         .map((finding) => finding.message);
 
-/** The device on Junos, with only what the routing tables need: the platform's own checks then refuse nothing else. */
+/** The device on Junos, with only what the routing tables need, so Junos refuses nothing else. */
 const onJunos = ({ name, site, connection, system, routing }: Device): Device => ({
     name,
     site,
@@ -227,7 +227,7 @@ test("validate: a table named main or like a VRF, one nothing installs in, a rul
     ]);
 });
 
-test("a platform that has not proved routing tables refuses them, by the field", () => {
+test("a platform that has not tested routing tables refuses them, by the field", () => {
     const refused = Platforms.get("junos")
         .unsupported(onJunos(withBlockB()))
         .filter((field) => /table|policy_routing/.test(field));
@@ -241,7 +241,6 @@ test("a platform that has not proved routing tables refuses them, by the field",
     expect(platform.unsupported(withBlockB())).toEqual([]);
 });
 
-// 0.x's `Upstreams` helper put an upstream's table on its group, or on each session when it had none. v1 writes both out: a group's table reaches each session in it.
 test("a table on a neighbor group installs its sessions in it, as a table on the session does", () => {
     const device = withBlockB();
     const routing = device.routing!;

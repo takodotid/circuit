@@ -1,9 +1,8 @@
-// Packet filters, NAT, TCP MSS clamps, untracked prefixes, connection tracking helpers, and ACLs in the switch chip, as RouterOS commands.
-
 import { Address } from "../../core/address";
 import type { AclRule, Device, Ethertype, Family, FilterMatch, NatRule, Ports } from "../../model";
 import { Derive } from "../../core/derive";
-import { RouterOsRender } from "./render";
+import type { RouterOsRender } from "./render";
+import { RouterOsSyntax } from "./syntax";
 
 /** One switch rule: the port it is on, the ACL rule it comes from, and the one source and destination port or range it takes. */
 export type SwitchRule = { port: string; rule: AclRule; srcPort?: string; dstPort?: string };
@@ -23,7 +22,6 @@ export class RouterOsFirewall {
         private readonly device: Device
     ) {}
 
-    /** Add the device's firewall for each family, then its helpers and switch ACLs. */
     static render(render: RouterOsRender, device: Device): void {
         const firewall = new RouterOsFirewall(render, device);
 
@@ -39,7 +37,7 @@ export class RouterOsFirewall {
     }
 
     /** A value of a match: the one written, or the only one of a list. `unsupported()` refuses a list of more. */
-    static one<T>(value: T | readonly T[] | undefined): T | undefined {
+    private static one<T>(value: T | readonly T[] | undefined): T | undefined {
         return Array.isArray(value) ? (value as readonly T[])[0] : (value as T | undefined);
     }
 
@@ -74,9 +72,7 @@ export class RouterOsFirewall {
     }
 
     /**
-     * Untracked prefixes skip connection tracking in the raw table, both ways, before a connection is ever made.
-     *
-     * An address NAT uses inside one stays tracked, by an `accept` in each direction before every `notrack`: a reply to it that skipped tracking would never be translated back.
+     * Untracked prefixes skip connection tracking in the raw table, both ways. An address NAT uses inside one stays tracked, by an `accept` in each direction before every `notrack`. A reply to it that skipped tracking would never be translated back (TRAPS.md).
      */
     private untracked(family: Family): void {
         const menu = family === "ipv4" ? "/ip firewall raw" : "/ipv6 firewall raw";
@@ -114,7 +110,7 @@ export class RouterOsFirewall {
     }
 
     /** Every address NAT translates to or from: each translation's target, and the address a destination translation matches. Once each, in rule order. */
-    static natAddresses(device: Device): string[] {
+    private static natAddresses(device: Device): string[] {
         const nat = device.firewall?.nat;
         const translatedTo = (rule: NatRule) => (rule.then === "masquerade" ? [] : [Address.host(rule.to_address)]);
         const addresses = [
@@ -128,11 +124,7 @@ export class RouterOsFirewall {
         return [...new Set(addresses)];
     }
 
-    /**
-     * The families a rule applies to. An address in the rule decides it; otherwise it applies to both.
-     *
-     * A rule naming an address set applies only to the families the set has members in.
-     */
+    /** The families a rule applies to: its `family`, its address's, or both. A rule naming an address set applies only to the families the set has members in. */
     private families(match: FilterMatch | undefined): Family[] {
         const sets = this.device.firewall?.address_sets ?? {};
         const address = RouterOsFirewall.one(match?.src) ?? RouterOsFirewall.one(match?.dst);
@@ -244,12 +236,12 @@ export class RouterOsFirewall {
         const enabled = this.device.firewall?.conntrack_helpers ?? [];
 
         for (const helper of RouterOsFirewall.HELPERS) {
-            this.render.add("/ip firewall service-port", `set ${helper}`, { disabled: RouterOsRender.yesNo(!enabled.includes(helper)) });
+            this.render.add("/ip firewall service-port", `set ${helper}`, { disabled: RouterOsSyntax.yesNo(!enabled.includes(helper)) });
         }
     }
 
     /**
-     * ACLs run in the switch chip on the port traffic arrives on. The chip matches addresses with a dotted mask on IPv4, drops by forwarding to no port, and limits by rate. A rule takes one port or range, so a list becomes one rule for each.
+     * ACLs run in the switch chip on the port traffic arrives on. The chip matches IPv4 addresses with a dotted mask, drops by forwarding to no port, and limits by rate. A rule takes one port or range, so a list becomes one rule for each.
      */
     private switchAcls(): void {
         for (const { port, rule, srcPort, dstPort } of RouterOsFirewall.switchRules(this.device)) {
@@ -280,7 +272,7 @@ export class RouterOsFirewall {
     }
 
     /**
-     * A port that takes only some kinds of frame: a rule that lets each kind through, then one that drops the rest. The chip takes the first rule that matches on the port, so these come after the port's ACL, whose rules match only IPv4 or IPv6.
+     * A port that takes only some kinds of frame: a rule that lets each kind through, then one that drops the rest. The chip takes the first rule that matches on the port. So these come after the port's ACL, whose rules match only IPv4 or IPv6.
      */
     private ethertypeFilters(): void {
         for (const { port, ethertypes } of RouterOsFirewall.ethertypeFilters(this.device)) {
@@ -309,7 +301,7 @@ export class RouterOsFirewall {
         return Derive.ports(device).flatMap(([port, settings]) => (settings.ethertypes ? [{ port, ethertypes: settings.ethertypes }] : []));
     }
 
-    /** Every switch rule the device's hardware ACLs make, in order: one for each port with an ACL, each rule of it, and each source and destination port or range of the rule. */
+    /** Every switch rule the ACLs make, in order: one per port with an ACL, per rule of it, and per source and destination port or range. */
     static switchRules(device: Device): SwitchRule[] {
         const each = (ports: Ports | undefined) => (ports === undefined ? [undefined] : RouterOsFirewall.eachPort(ports));
         const rules: SwitchRule[] = [];

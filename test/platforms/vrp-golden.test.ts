@@ -1,4 +1,4 @@
-// VRP on the v1 model renders every 0.x device as 0.x did, byte for byte, and refuses what 0.x refused, by its v1 path.
+// Each VRP device of 0.x renders byte for byte as 0.x rendered it, and is refused what 0.x refused, by its v1 path.
 
 import { expect, test } from "bun:test";
 import type { Device } from "../../src/model";
@@ -73,7 +73,6 @@ for (const name of names) {
             return;
         }
 
-        // Only the order differs: the platform plans nothing between the two.
         expect(rendered).not.toBe(old);
         expect(vrp.plan(rendered, old, { secrets: false, rollback: 10 })).toEqual({ steps: [], problems: [] });
     });

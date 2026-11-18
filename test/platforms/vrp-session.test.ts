@@ -1,4 +1,4 @@
-// VRP read over a real SSH shell, against a fake device that answers like a CE6855: the question about changing the password answered no, paging off, then the configuration.
+// VRP read over a real SSH shell, against a fake device that answers like a CE6855.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Device } from "../../src/model";

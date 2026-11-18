@@ -1,4 +1,4 @@
-// Junos read over a real SSH session, against a fake device that answers like Junos 21: the version check, then the configuration as set statements.
+// Junos read over a real SSH session, against a fake device that answers like Junos 21.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Device } from "../../src/model";

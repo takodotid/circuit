@@ -1,16 +1,15 @@
-// A FortiGate keeps each policy, static route, ACL entry and virtual IP under the number it was created with, whatever its place. A plan finds an entry by what it holds, or by its description, so adding or removing one changes no other, and every entry the config keeps stays on the device through the change.
+// A FortiGate keeps each policy, static route, ACL entry, and virtual IP under the number it was created with, whatever its place.
 
 import { expect, test } from "bun:test";
 import type { AclRule, Device, FilterRule, NatRule, StaticRoute } from "../../src/model";
 import { FortiOs } from "../../src/platforms/fortios";
-import { FortiOsBlock, FortiOsTree } from "../../src/platforms/fortios/tree";
+import { FortiOsNode, FortiOsTree } from "../../src/platforms/fortios/tree";
 import type { Plan } from "../../src/platforms/platform";
 import { Fixtures } from "../fixtures";
 
 const platform = new FortiOs();
 const options = { secrets: false, rollback: 10 };
 
-/** The FortiOS example. */
 const firewall = Fixtures.device("platforms--example-firewall");
 
 /** The tables whose policies deny unless told otherwise. */
@@ -36,7 +35,6 @@ const LAB_ROUTE: StaticRoute = { prefix: "192.0.2.128/25", next_hop: "203.0.113.
 const LAB_ROUTE6: StaticRoute = { prefix: "2001:db8:100::/48", next_hop: "2001:db8:fff0::1", description: "Lab" };
 const NO_CHARGEN: AclRule = { description: "No chargen", if: { protocol: "udp", dst_port: 19 }, then: "drop" };
 
-/** The device with the rules of one chain changed. */
 function withRules(device: Device, chain: "forward" | "input", change: (rules: FilterRule[]) => void): Device {
     const filter = device.firewall?.filter;
     const rules = [...(filter?.[chain]?.rules ?? [])];
@@ -45,7 +43,6 @@ function withRules(device: Device, chain: "forward" | "input", change: (rules: F
     return { ...device, firewall: { ...device.firewall, filter: { ...filter, [chain]: { ...filter?.[chain], rules } } } };
 }
 
-/** The device with its source or destination NAT rules changed. */
 function withNat(device: Device, direction: "source" | "destination", change: (rules: NatRule[]) => void): Device {
     const nat = device.firewall?.nat;
     const rules = [...(nat?.[direction] ?? [])];
@@ -54,7 +51,6 @@ function withNat(device: Device, direction: "source" | "destination", change: (r
     return { ...device, firewall: { ...device.firewall, nat: { ...nat, [direction]: rules } } };
 }
 
-/** The device with its static routes changed. */
 function withRoutes(device: Device, change: (routes: StaticRoute[]) => void): Device {
     const routes = [...(device.routing?.static_routes ?? [])];
     change(routes);
@@ -62,7 +58,7 @@ function withRoutes(device: Device, change: (routes: StaticRoute[]) => void): De
     return { ...device, routing: { ...device.routing, static_routes: routes } };
 }
 
-/** The device with the rules of its ACL `lab` changed. */
+/** Changes the rules of the ACL `lab`. */
 function withAcl(device: Device, change: (rules: AclRule[]) => void): Device {
     const rules = [...(device.switching?.acls?.lab ?? [])];
     change(rules);
@@ -90,7 +86,7 @@ function applied(current: string, plan: Plan): string {
 
     for (const line of plan.steps.flatMap((step) => step.send)) {
         const block = stack.at(-1)!;
-        const [, verb, rest = ""] = /^(\S+)\s*(.*)$/.exec(line)!;
+        const [, verb = "", rest = ""] = /^(\S+)\s*(.*)$/.exec(line)!;
 
         switch (verb) {
             case "config":
@@ -99,7 +95,7 @@ function applied(current: string, plan: Plan): string {
 
             case "edit": {
                 const key = FortiOsTree.bare(rest);
-                if (!block.entries.has(key)) block.entries.set(key, { id: rest, block: new FortiOsBlock() });
+                if (!block.entries.has(key)) block.entries.set(key, { id: rest, block: new FortiOsNode() });
                 stack.push(block.entries.get(key)!.block);
                 break;
             }
@@ -167,7 +163,7 @@ test("a FortiGate numbered by an earlier Circuit plans nothing", () => {
     expect(platform.plan(platform.render(base), printed(base), options).steps).toEqual([]);
 });
 
-// Policies 1 to 5 and IPv6 policies 1 and 2: servers out, guests out, guests to resolvers, no SMTP out, web in; the IPv4 ones of these are only in `firewall policy`.
+// Policies 1 to 5: servers out, guests out, guests to resolvers, no SMTP out, and web in. IPv6 policies 1 and 2: servers out and no SMTP out.
 test("a forward rule added or removed changes no other policy", () => {
     const top = planned(
         base,
@@ -267,15 +263,15 @@ test("rules sharing a description are created again when they change, and the ol
         "    next",
     ];
 
-    const desired = ["config firewall policy", ...policy(1, "c"), ...policy(2, "d"), "end"].join("\n") + "\n";
-    const current = ["config firewall policy", ...policy(1, "a"), ...policy(2, "b"), "end"].join("\n") + "\n";
+    const desired = `${["config firewall policy", ...policy(1, "c"), ...policy(2, "d"), "end"].join("\n")}\n`;
+    const current = `${["config firewall policy", ...policy(1, "a"), ...policy(2, "b"), "end"].join("\n")}\n`;
 
     const plan = platform.plan(desired, current, options);
     expect(plan.steps.map((step) => step.title)).toEqual(["firewall policy", "firewall policy, removed"]);
     expect(entryLines(plan, "firewall policy")).toEqual(["edit 3", "edit 4", "delete 1", "delete 2"]);
 });
 
-// Static routes 1 to 4: the default route, our space, a route with no description, and the guests' default route; IPv6 route 1 is the default route, and the lab's route is the second.
+// Static routes 1 to 4: the default route, our space, a route with no description, and the guests' default route. IPv6 route 1 is the default route, and the lab's route is the second.
 test("a static route added or removed changes no other", () => {
     const top = planned(
         base,

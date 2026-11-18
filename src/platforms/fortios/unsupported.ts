@@ -1,5 +1,3 @@
-// What FortiOS can't express, for `unsupported()`.
-
 import { Address } from "../../core/address";
 import type { AclRule, Device, FilterRule, Gre, Lag, VlanInterface, Vxlan } from "../../model";
 import { Catalog } from "../../core/catalog";
@@ -27,7 +25,6 @@ export class FortiOsUnsupported {
     /** Names the platform keeps for interfaces of its own. */
     private static readonly RESERVED_INTERFACES = new Set(["any", "modem", "ssl.root"]);
 
-    /** Each field of the device the platform can't express, with the reason. */
     static of(device: Device): string[] {
         const found: string[] = [];
 
@@ -53,7 +50,7 @@ export class FortiOsUnsupported {
             if (vrf?.description) found.push(`routing.vrfs.${name}.description, the platform numbers a VRF and keeps no description`);
         }
 
-        // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, the management VDOM and BFD on a route in a VRF too. BFD on a multihop BGP session is refused in FortiOsRouting.gaps, for the reason the device showed.
+        // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, with the management VDOM and BFD on a route in a VRF. FortiOsRouting.gaps refuses BFD on a multihop BGP session.
         found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
         found.push(...Derive.unbuilt(device, ["proxy-arp"]));
 
@@ -61,7 +58,7 @@ export class FortiOsUnsupported {
     }
 
     /**
-     * What transparent mode, which a bridge needs, leaves out: every address but one IPv4 management address outside the bridges, routing beyond static routes for it, NAT and DHCP. Without a management address the device is reached through its console and answers no service.
+     * Transparent mode leaves out every address but one IPv4 management address outside the bridges, routing beyond static routes for it, NAT, and DHCP. Without a management address the device answers no service.
      */
     private static transparentGaps(device: Device): string[] {
         if (!FortiOsNames.isTransparent(device)) return [];
@@ -172,7 +169,6 @@ export class FortiOsUnsupported {
         return found;
     }
 
-    /** Every name the platform knows a port by. */
     private static portNames(device: Device): Set<string> {
         return new Set(Catalog.ports(device.platform, device.model).map((port) => Catalog.spell(device.platform, device.model, port)));
     }
@@ -479,7 +475,6 @@ export class FortiOsUnsupported {
         return found;
     }
 
-    /** A filter rule the platform cannot express. */
     private static ruleGaps(where: string, rule: FilterRule, chain: "forward" | "input", device: Device): string[] {
         const found: string[] = [];
         const match = rule.if;

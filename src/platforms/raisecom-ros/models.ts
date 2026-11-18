@@ -1,4 +1,4 @@
-// Port counts per speed class, and how the platform spells a port. `{n}` is the position within the class. The out-of-band management port is not a switch port and is left out.
+// `{n}` is a port's place in its class. The out-of-band management port is not a switch port and is left out.
 export const models = {
     "RAX721-C-6C48": {
         ports: { "100g": 6, "25g": 24, "10g": 24 },

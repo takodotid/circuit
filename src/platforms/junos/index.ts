@@ -1,17 +1,18 @@
-// Junos, as on the QFX series with its Enhanced Layer 2 Software.
-//
-// The configuration is read and written as `set` statements, one per line, the form `show configuration | display set` prints. A statement the render does not hold is deleted, at the shortest path that holds nothing the render wants. Changes stage in a candidate and take effect only at `commit`. `commit confirmed` rolls itself back unless confirmed, so a fresh login tests access before the commit is confirmed.
+// Junos on the QFX series, with its Enhanced Layer 2 Software. The configuration is read and written as `set` statements. Changes stage in a candidate, and `commit confirmed` rolls back unless a fresh login confirms it.
 
 import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Lag, Port, Routed } from "../../model";
-import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
+import { ConsoleShell, SerialConsole } from "../../transport/console";
+import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
-import { Derive, type TestedFeature } from "../../core/derive";
-import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
+import { Derive } from "../../core/derive";
+import type { TestedFeature } from "../../core/derive";
+import { Platform } from "../platform";
+import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession } from "../platform";
 import { JunosBgp } from "./bgp";
 import { JunosNames } from "./names";
 import { JunosPlan } from "./plan";
@@ -21,9 +22,9 @@ import { JunosRender } from "./render";
 export type Guard = { minutes: number; prove: () => Promise<void> };
 
 export class Junos extends Platform {
-    /** How the console asks for a login. Root lands in a shell, `%`, every other user in the CLI, `>`; a session left in configuration mode, `#`, leaves it first. Not yet tested on a device. */
+    /** Root lands in a shell, `%`, and every other user in the CLI, `>`. A session left in configuration mode, `#`, leaves it first. Not yet tested on a device. */
     static readonly CONSOLE: ConsoleDialect = {
-        // On a line of its own: the banner after a login says `Last login: ...`, and a chunk can end right after it.
+        // On a line of its own, because the banner after a login says `Last login: ...` and a chunk can end there.
         login: /(?:^|\n)login: $/,
         password: /Password:\s*$/,
         prompt: /[>%] $/,
@@ -31,28 +32,45 @@ export class Junos extends Platform {
         others: [[/# $/, "exit configuration-mode\n"]],
     };
 
-    /** The release this adapter renders for, and was tested on. */
     private static readonly SUPPORTED_MAJOR = 21;
 
-    /** Names the platform keeps for its own system accounts. A user under one fails the commit check. */
+    private static readonly COMMAND_TIMEOUT_MS = 60_000;
+    private static readonly PROMPT_TIMEOUT_MS = 20_000;
+    private static readonly READ_TIMEOUT_MS = 180_000;
+    private static readonly LOAD_TIMEOUT_MS = 300_000;
+    private static readonly COMMIT_TIMEOUT_MS = 600_000;
+    private static readonly SETTLE_MS = 300;
+    private static readonly BANNER_SETTLE_MS = 500;
+    private static readonly ECHO_SETTLE_MS = 50;
+
+    /** The end of an echoed statement that a paced load waits for. */
+    private static readonly ECHO_TAIL_CHARS = 24;
+
+    /** How much of the device's answer an error shows. */
+    private static readonly ANSWER_CHARS = 300;
+    private static readonly ANSWER_LINES = 19;
+    private static readonly VERSION_CHARS = 200;
+
+    private static readonly DEFAULT_MTU = 1500;
+    private static readonly STP_PRIORITY_STEP = 4096;
+
+    /** A user with one of these names fails the commit check: the platform keeps them for system accounts. */
     private static readonly SYSTEM_ACCOUNTS = new Set(["bind", "daemon", "kmem", "nobody", "operator", "sshd", "tty", "uucp"]);
 
-    /** A prompt at the end of what the device printed: `user@host> `, `user@host# `, or a shell's `% `. */
+    /** `user@host> `, `user@host# `, or a shell's `% `. */
     private static readonly PROMPT = /[>#%] $/;
 
     /** The prompt in configuration mode, under its `[edit]` line. An echoed statement cannot end with it. */
     private static readonly EDIT_PROMPT = /\[edit[^\]\n]*\]\n[^\n]*# $/;
 
-    /** What the device says when it refuses a statement in a load: `terminal:3:(14) syntax error: ...`. A warning, such as a statement not found, is not a refusal. */
+    /** A refusal in a load, such as `terminal:3:(14) syntax error: ...`. A warning, such as a statement not found, is not one. */
     private static readonly REFUSED = /^terminal:\d+:\(\d+\) (?!warning)|^error: /m;
 
-    /** Every LLDP neighbor with the far port, which the brief form leaves out. */
+    /** The detail form as XML: the brief form leaves out the far port, and its table pads columns that a description can fill. */
     private static readonly LLDP_NEIGHBORS = "show lldp neighbors detail | display xml | no-more";
 
-    /** Commands that only read. */
     private static readonly READS = /^show\s/;
 
-    /** Features `Derive.untested` refuses until a platform tests them, tested here on a QFX5100-48S-6Q running Junos 21.4R3. */
     private static readonly TESTED: readonly TestedFeature[] = [
         "bfd-timers",
         "static-route-bfd",
@@ -62,20 +80,20 @@ export class Junos extends Platform {
         "port-binding",
     ];
 
-    readonly name = "junos";
+    override readonly name = "junos";
 
-    readonly os: OsSupport = {
+    override readonly os: OsSupport = {
         name: "Juniper Junos",
         versions: "21",
         testedOn: "QFX5100-48S-6Q, Junos 21.4R3",
         checked: true,
     };
 
-    readonly extension = ".conf";
+    override readonly extension = ".conf";
 
     override readonly console = Junos.CONSOLE;
 
-    unsupported(device: Device): string[] {
+    override unsupported(device: Device): string[] {
         const found: string[] = [];
         const interfaces = Derive.interfaces(device);
 
@@ -167,7 +185,7 @@ export class Junos extends Platform {
             found.push(...Junos.switchedGaps(where, port, device));
         }
 
-        // A rule's match takes one address and one VLAN here; a list is one rule per value.
+        // A match takes one address and one VLAN here.
         for (const [name, rules] of Object.entries(device.switching?.acls ?? {})) {
             (rules ?? []).forEach((rule, index) => {
                 for (const field of ["src", "dst", "vlan"] as const) {
@@ -192,10 +210,10 @@ export class Junos extends Platform {
             if (kind === "loopback" && settings.mtu !== undefined) found.push(`${where}.mtu, on a loopback`);
             if (kind === "gre" && settings.vrrp?.length) found.push(`${where}.vrrp, on a tunnel`);
 
-            // A VLAN interface sends no larger packets than the ports carrying its VLAN take; the device warns and carries on.
+            // A VLAN interface sends no larger packets than the ports carrying its VLAN take. The device only warns.
             const vlanInterface = kind === "vlan_interface" ? device.interfaces?.vlan_interface?.[name] : undefined;
             if (vlanInterface?.mtu !== undefined) {
-                const smallest = Math.min(...Junos.carriers(device, vlanInterface.vlan));
+                const smallest = Math.min(...Junos.carrierMtus(device, vlanInterface.vlan));
                 if (vlanInterface.mtu > smallest)
                     found.push(`${where}.mtu ${vlanInterface.mtu}, above the ${smallest} its VLAN's ports carry`);
             }
@@ -217,7 +235,8 @@ export class Junos extends Platform {
         if (ids.length !== new Set(ids).size) found.push("interfaces.lag, two LAGs with one number");
 
         const stp = device.switching?.stp;
-        if (stp?.priority !== undefined && stp.priority % 4096 !== 0) found.push("switching.stp.priority, in steps of 4096");
+        if (stp?.priority !== undefined && stp.priority % Junos.STP_PRIORITY_STEP !== 0)
+            found.push("switching.stp.priority, in steps of 4096");
 
         const routing = device.routing;
         found.push(...Junos.bgpGaps(device));
@@ -280,18 +299,18 @@ export class Junos extends Platform {
         return found;
     }
 
-    render(device: Device): string {
+    override render(device: Device): string {
         return JunosRender.of(device);
     }
 
-    async read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
+    override async read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
         if (options.console) {
             return Junos.onConsole(device, async (channel) => {
                 await Junos.checkVersion((command) => Junos.run(channel, command), device);
-                const output = await Junos.run(channel, "show configuration | display set | no-more", 180_000);
+                const output = await Junos.run(channel, "show configuration | display set | no-more", Junos.READ_TIMEOUT_MS);
                 if (!/^set /m.test(output)) throw new Error(`${device.name} returned no configuration`);
 
-                return Junos.clean(output);
+                return Junos.configurationOf(output);
             });
         }
 
@@ -299,17 +318,16 @@ export class Junos extends Platform {
 
         try {
             await Junos.checkVersion((command) => Ssh.exec(client, command), device);
-            const output = await Ssh.exec(client, "show configuration | display set | no-more", 180_000);
+            const output = await Ssh.exec(client, "show configuration | display set | no-more", Junos.READ_TIMEOUT_MS);
             if (!/^set /m.test(output)) throw new Error(`${device.name} returned no configuration`);
 
-            return Junos.clean(output);
+            return Junos.configurationOf(output);
         } finally {
             client.end();
         }
     }
 
-    /** The LLDP neighbors from `show lldp neighbors detail` as XML. The brief form leaves out the far port, and its table pads columns that a description can fill. */
-    async neighbors(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<Neighbor[]> {
+    override async neighbors(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<Neighbor[]> {
         if (options.console) {
             return Junos.onConsole(device, async (channel) => {
                 await Junos.checkVersion((command) => Junos.run(channel, command), device);
@@ -327,7 +345,7 @@ export class Junos extends Platform {
         }
     }
 
-    /** Each neighbor in the XML the device printed, on our port by Circuit's name. The far end's system name, or its chassis ID when it sends none. */
+    /** Our port by Circuit's name, and the far end by its system name, or its chassis ID when it sends none. */
     static neighborsOf(device: Device, xml: string): Neighbor[] {
         const names = new JunosNames(device);
         const ports = new Map<string, string>();
@@ -364,16 +382,16 @@ export class Junos extends Platform {
         return text.replace(/&(amp|lt|gt|quot|apos);/g, (_, name: string) => entities[name]!);
     }
 
-    plan(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
+    override plan(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
         return JunosPlan.of(desired, current, options);
     }
 
-    async apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
+    override async apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
         if (options.console) {
             await Junos.onConsole(device, async (channel, relogin) => {
                 await Junos.checkVersion((command) => Junos.run(channel, command), device);
 
-                // A fresh login on the console ends the session that holds the candidate, so the proof logs in again and takes the candidate back to confirm the commit.
+                // A fresh login on the console ends the session holding the candidate, so the proof takes the candidate back to confirm.
                 await Junos.configure(
                     channel,
                     plan,
@@ -413,8 +431,8 @@ export class Junos extends Platform {
         }
     }
 
-    /** Replace a prefix list `refresh` fetched. It cannot cut access, so it is committed without a rollback. */
-    async fill(device: Device, _network: readonly Device[], set: string, _family: Family, prefixes: string[]): Promise<void> {
+    /** A prefix list cannot cut access, so it is committed without a rollback. */
+    override async fill(device: Device, _network: readonly Device[], set: string, _family: Family, prefixes: string[]): Promise<void> {
         const client = await Junos.login(device);
 
         try {
@@ -431,12 +449,12 @@ export class Junos extends Platform {
         }
     }
 
-    readOnly(command: string): boolean {
+    override readOnly(command: string): boolean {
         return Junos.READS.test(command);
     }
 
     /** Over SSH, each command runs on its own, as the read does. */
-    async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
+    override async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
         if (options.console) {
             const opened = await Junos.openConsole(device);
             const shell = new ConsoleShell(opened.channel, Junos.CONSOLE, ConsoleShell.SETTLE);
@@ -463,8 +481,7 @@ export class Junos extends Platform {
             .replace(/"\$\d\$[^"]*"/g, "<redacted>");
     }
 
-    /** The configuration's statements from what `show configuration | display set` printed. */
-    private static clean(output: string): string {
+    private static configurationOf(output: string): string {
         const statements = output
             .replace(/\r/g, "")
             .split("\n")
@@ -472,7 +489,7 @@ export class Junos extends Platform {
             .filter((line) => /^(set|deactivate) /.test(line))
             .filter((line) => !JunosPlan.DEVICE_FACTS.some((fact) => fact.test(line)));
 
-        return Junos.scrub(statements.join("\n") + "\n");
+        return Junos.scrub(`${statements.join("\n")}\n`);
     }
 
     private static async login(device: Device): Promise<Client> {
@@ -487,12 +504,11 @@ export class Junos extends Platform {
         });
     }
 
-    /** Refuse a device on a release this adapter was not tested on, before anything is read or sent. */
     private static async checkVersion(ask: (command: string) => Promise<string>, device: Device): Promise<void> {
         const version = await ask("show version | match Junos:");
         const release = /Junos: (\d+)\.(\S+)/.exec(version);
 
-        if (!release) throw new Error(`${device.name} did not say which Junos it runs: ${version.slice(0, 200)}`);
+        if (!release) throw new Error(`${device.name} did not say which Junos it runs: ${version.slice(0, Junos.VERSION_CHARS)}`);
         if (Number(release[1]) !== Junos.SUPPORTED_MAJOR) {
             throw new Error(
                 `${device.name} runs Junos ${release[1]}.${release[2]}; this adapter renders for Junos ${Junos.SUPPORTED_MAJOR}`
@@ -500,21 +516,18 @@ export class Junos extends Platform {
         }
     }
 
-    /** Send one line and wait for the prompt to come back. */
-    private static async run(channel: ClientChannel, line: string, timeout = 60_000): Promise<string> {
+    private static async run(channel: ClientChannel, line: string, timeout = Junos.COMMAND_TIMEOUT_MS): Promise<string> {
         channel.write(`${line}\n`);
-        const output = await Ssh.readUntil(channel, (text) => Junos.PROMPT.test(text.replace(/\r/g, "")), timeout, 300);
+        const output = await Ssh.readUntil(channel, (text) => Junos.PROMPT.test(text.replace(/\r/g, "")), timeout, Junos.SETTLE_MS);
         return output.replace(/\r/g, "");
     }
 
-    /** Send one line in configuration mode and wait for its prompt to come back. */
-    private static async edit(channel: ClientChannel, line: string, timeout = 60_000): Promise<string> {
+    private static async edit(channel: ClientChannel, line: string, timeout = Junos.COMMAND_TIMEOUT_MS): Promise<string> {
         channel.write(`${line}\n`);
-        const output = await Ssh.readUntil(channel, (text) => Junos.EDIT_PROMPT.test(text.replace(/\r/g, "")), timeout, 300);
+        const output = await Ssh.readUntil(channel, (text) => Junos.EDIT_PROMPT.test(text.replace(/\r/g, "")), timeout, Junos.SETTLE_MS);
         return output.replace(/\r/g, "");
     }
 
-    /** Log in on the console and open the CLI. Returns the console, a way to log in afresh, and how to let the console go. */
     private static async openConsole(device: Device) {
         const { console, user, password } = SerialConsole.of(device);
         const opened = await SerialConsole.open(console);
@@ -537,7 +550,6 @@ export class Junos extends Platform {
         return { channel: opened.channel, login, close: opened.close };
     }
 
-    /** Log in on the console, open the CLI, and run `work` in it with a way to log in afresh. Logs out after. */
     private static async onConsole<T>(
         device: Device,
         work: (channel: ClientChannel, relogin: () => Promise<void>) => Promise<T>
@@ -553,9 +565,14 @@ export class Junos extends Platform {
         }
     }
 
-    /** An interactive CLI with paging off. Root lands in a shell and starts the CLI from there. */
+    /** Root lands in a shell, so it starts the CLI from there. */
     private static async openCli(channel: ClientChannel): Promise<void> {
-        const banner = await Ssh.readUntil(channel, (text) => Junos.PROMPT.test(text.replace(/\r/g, "")), 20_000, 500);
+        const banner = await Ssh.readUntil(
+            channel,
+            (text) => Junos.PROMPT.test(text.replace(/\r/g, "")),
+            Junos.PROMPT_TIMEOUT_MS,
+            Junos.BANNER_SETTLE_MS
+        );
         if (banner.replace(/\r/g, "").endsWith("% ")) await Junos.run(channel, "cli");
 
         await Junos.run(channel, "set cli screen-length 0");
@@ -563,13 +580,11 @@ export class Junos extends Platform {
         await Junos.run(channel, "set cli complete-on-space off");
     }
 
-    /**
-     * A delete through a name the read redacted, `delete snmp community <redacted>`, as one delete for each entry the device holds there. The names stay in the session.
-     */
-    private static async named(channel: ClientChannel, line: string): Promise<string[]> {
+    /** A delete through a name the read redacted, `delete snmp community <redacted>`, as one delete for each entry the device holds there. The names stay in the session. */
+    private static async namedDeletes(channel: ClientChannel, line: string): Promise<string[]> {
         const words = JunosPlan.wordsOf(line).slice(1);
         const at = words.indexOf("<redacted>");
-        if (at < 0) return [line];
+        if (at === -1) return [line];
 
         // `show` cannot stop at a list either, so the list's parent is shown and its entries picked out.
         const shown = await Junos.edit(channel, `show ${words.slice(0, at - 1).join(" ")} | display set`);
@@ -586,21 +601,17 @@ export class Junos extends Platform {
         return [...names].map((name) => `delete ${[...words.slice(0, at), name, ...words.slice(at + 1)].join(" ")}`);
     }
 
-    /**
-     * Load the plan into an exclusive candidate and check it. With a guard, commit it to roll back after `minutes`, test access, then confirm; without one, commit it outright.
-     *
-     * Deletions go before the statements that are set, so a path deleted and set again in one plan ends up set.
-     */
+    /** With a guard, the commit rolls back after `minutes` unless access is tested and the commit confirmed. Deletions go before the statements that are set, so a path deleted and set again ends up set. */
     private static async configure(channel: ClientChannel, plan: Plan, guard?: Guard, paced = false): Promise<void> {
         const sent = plan.steps.flatMap((step) => step.send);
 
         const entered = await Junos.run(channel, "configure exclusive");
         if (!/Entering configuration mode/.test(entered) || /^error: /m.test(entered)) {
-            throw new Error(`the candidate could not be locked: ${entered.trim().slice(0, 300)}`);
+            throw new Error(`the candidate could not be locked: ${entered.trim().slice(0, Junos.ANSWER_CHARS)}`);
         }
 
         const deletions: string[] = [];
-        for (const line of sent.filter((line) => line.startsWith("delete "))) deletions.push(...(await Junos.named(channel, line)));
+        for (const line of sent.filter((line) => line.startsWith("delete "))) deletions.push(...(await Junos.namedDeletes(channel, line)));
 
         const ordered = [
             ...sent.filter((line) => line.startsWith("activate ")),
@@ -615,38 +626,46 @@ export class Junos extends Platform {
         };
 
         channel.write("load set terminal\n");
-        await Ssh.readUntil(channel, (text) => text.includes("[Type ^D at a new line to end input]"), 20_000, 300);
+        await Ssh.readUntil(
+            channel,
+            (text) => text.includes("[Type ^D at a new line to end input]"),
+            Junos.PROMPT_TIMEOUT_MS,
+            Junos.SETTLE_MS
+        );
 
         // A serial console has no flow control: statements sent at once overrun it and arrive garbled. There, each waits for the echo of the one before.
         for (const line of ordered) {
             const statement = Secrets.substitute(line);
             channel.write(`${statement}\n`);
-            if (paced) await Ssh.readUntil(channel, (text) => text.replace(/\r/g, "").includes(statement.slice(-24)), 20_000, 50);
+            if (!paced) continue;
+
+            const tail = statement.slice(-Junos.ECHO_TAIL_CHARS);
+            await Ssh.readUntil(channel, (text) => text.replace(/\r/g, "").includes(tail), Junos.PROMPT_TIMEOUT_MS, Junos.ECHO_SETTLE_MS);
         }
 
-        const loaded = await Junos.edit(channel, "\u0004", 300_000);
+        const loaded = await Junos.edit(channel, "\u0004", Junos.LOAD_TIMEOUT_MS);
         const refused = loaded.split("\n").filter((line) => Junos.REFUSED.test(line));
         if (refused.length) throw await discard(`the device refused the plan, nothing was applied:\n    ${refused.join("\n    ")}`);
 
-        const checked = await Junos.edit(channel, "commit check", 600_000);
+        const checked = await Junos.edit(channel, "commit check", Junos.COMMIT_TIMEOUT_MS);
         if (!/configuration check succeeds/.test(checked)) {
-            throw await discard(`commit check failed, nothing was applied:\n    ${checked.trim().split("\n").slice(1, 20).join("\n    ")}`);
+            throw await discard(`commit check failed, nothing was applied:\n    ${Junos.excerpt(checked)}`);
         }
 
         if (!guard) {
-            const committed = await Junos.edit(channel, "commit comment circuit", 600_000);
+            const committed = await Junos.edit(channel, "commit comment circuit", Junos.COMMIT_TIMEOUT_MS);
             if (!/commit complete/.test(committed))
                 throw await discard(`commit failed, nothing was applied:
-    ${committed.trim().slice(0, 300)}`);
+    ${committed.trim().slice(0, Junos.ANSWER_CHARS)}`);
 
             await Junos.run(channel, "exit configuration-mode");
             return;
         }
 
         const { minutes, prove } = guard;
-        const committed = await Junos.edit(channel, `commit confirmed ${minutes} comment circuit`, 600_000);
+        const committed = await Junos.edit(channel, `commit confirmed ${minutes} comment circuit`, Junos.COMMIT_TIMEOUT_MS);
         if (!/commit complete/.test(committed)) {
-            throw await discard(`commit failed, nothing was applied:\n    ${committed.trim().split("\n").slice(1, 20).join("\n    ")}`);
+            throw await discard(`commit failed, nothing was applied:\n    ${Junos.excerpt(committed)}`);
         }
 
         console.log(`  committed; it rolls back in ${minutes} minutes unless Circuit logs in again`);
@@ -654,9 +673,9 @@ export class Junos extends Platform {
         try {
             await prove();
         } catch (error) {
-            // The session still open restores the previous configuration at once; if it cannot, the device does when the time runs out.
-            await Junos.edit(channel, "rollback 1", 60_000).catch(() => undefined);
-            await Junos.edit(channel, "commit comment circuit-restore", 600_000).catch(() => undefined);
+            // The session still open restores the previous configuration at once. If it cannot, the device does when the time runs out.
+            await Junos.edit(channel, "rollback 1").catch(() => undefined);
+            await Junos.edit(channel, "commit comment circuit-restore", Junos.COMMIT_TIMEOUT_MS).catch(() => undefined);
             await Junos.run(channel, "exit configuration-mode").catch(() => undefined);
             throw new Error(
                 `a fresh login failed (${(error as Error).message}); the previous configuration is restored, at the latest in ${minutes} minutes`,
@@ -664,10 +683,10 @@ export class Junos extends Platform {
             );
         }
 
-        const confirmed = await Junos.edit(channel, "commit comment circuit-confirmed", 600_000);
+        const confirmed = await Junos.edit(channel, "commit comment circuit-confirmed", Junos.COMMIT_TIMEOUT_MS);
         if (!/commit complete/.test(confirmed)) {
             throw new Error(
-                `Circuit logged in again, but the confirmation failed; the device rolls back in ${minutes} minutes:\n    ${confirmed.trim().slice(0, 300)}`
+                `Circuit logged in again, but the confirmation failed; the device rolls back in ${minutes} minutes:\n    ${confirmed.trim().slice(0, Junos.ANSWER_CHARS)}`
             );
         }
 
@@ -675,16 +694,24 @@ export class Junos extends Platform {
         console.log("  logged in again, commit confirmed");
     }
 
-    /** The plan that replaces a prefix list's entries with what a registry returned. */
+    /** The lines of an answer after its echo. */
+    private static excerpt(answer: string): string {
+        return answer
+            .trim()
+            .split("\n")
+            .slice(1, 1 + Junos.ANSWER_LINES)
+            .join("\n    ");
+    }
+
     private static fillPlan(set: string, prefixes: string[]): Plan {
         const list = `policy-options prefix-list ${set}`;
         const send = [`delete ${list}`, `set ${list}`, ...prefixes.map((prefix) => `set ${list} ${prefix}`)];
         return { steps: [{ title: list, show: [], send }], problems: [] };
     }
 
-    /** The IP MTU of every port and LAG that carries a VLAN; 1500 where none is given. */
-    private static carriers(device: Device, vlan: string): number[] {
-        const sizes = [1500];
+    /** The IP MTU of each port and LAG that carries a VLAN, or the default when none does. */
+    private static carrierMtus(device: Device, vlan: string): number[] {
+        const sizes = [Junos.DEFAULT_MTU];
         const carrying: (Port | Lag | undefined)[] = [
             ...Derive.ports(device).map(([, settings]) => settings),
             ...Object.values(device.interfaces?.lag ?? {}),
@@ -694,7 +721,7 @@ export class Junos extends Platform {
             if (!settings || !("access_vlan" in settings || "trunk_vlans" in settings)) continue;
 
             const members = [settings.access_vlan, settings.native_vlan, ...(settings.trunk_vlans ?? [])];
-            if (members.includes(vlan)) sizes.push(settings.mtu ?? 1500);
+            if (members.includes(vlan)) sizes.push(settings.mtu ?? Junos.DEFAULT_MTU);
         }
 
         return sizes.length > 1 ? sizes.slice(1) : sizes;
@@ -747,7 +774,6 @@ export class Junos extends Platform {
         return found;
     }
 
-    /** Layer 3 settings the platform cannot express on a port or an interface. */
     private static routedGaps(where: string, settings: Pick<Routed, "addresses" | "vrrp">): string[] {
         const found: string[] = [];
         const addresses = (settings.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));

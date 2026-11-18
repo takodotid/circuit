@@ -1,8 +1,8 @@
-// Every fixture plans nothing against its own render. A plan that is not empty there means the reader and the renderer disagree on a form, which would show up as a change on every apply. Validating the fixtures, and a field a platform renders nothing for, are in test/checks/v0-examples.test.ts.
+// A plan that is not empty against its own render means the reader and the renderer disagree on a form, which shows up as a change on every apply. Validating them is in test/checks/v0-examples.test.ts.
 
 import { describe, expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
-import type { Device } from "../../src/model";
+import type { Device, StaticRoute } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
 const router = Fixtures.device("platforms--example-router");
@@ -28,11 +28,11 @@ describe("plans nothing against its own render", () => {
     }
 });
 
-// A platform whose commands for a MAC limit or an ethertype filter are not proved on a device refuses both rather than guess. Each proved one has its own proofs test.
+// Each platform that tested them has its own proofs test.
 test("a platform that has not proved them refuses a MAC limit and an ethertype filter", () => {
-    const proved = ["routeros", "raisecom-ros", "vrp", "junos"];
+    const tested = ["routeros", "raisecom-ros", "vrp", "junos"];
 
-    for (const device of examples.filter((example) => !proved.includes(example.platform))) {
+    for (const device of examples.filter((example) => !tested.includes(example.platform))) {
         const [port, settings] = Object.entries(device.interfaces?.ethernet ?? {})[0]!;
         const filtered: Device = {
             ...device,
@@ -53,7 +53,7 @@ test("a platform that has not proved them refuses a MAC limit and an ethertype f
     }
 });
 
-// Binding a port to its hosts is proved on Junos alone; every other platform refuses it rather than guess.
+// Tested on Junos alone.
 test("a platform that has not proved it refuses a port bound to its hosts", () => {
     for (const device of examples.filter((example) => example.platform !== "junos")) {
         const [port, settings] = Object.entries(device.interfaces?.ethernet ?? {})[0]!;
@@ -152,9 +152,9 @@ test("management services answer only on the interfaces listed", () => {
     ).toContain("management.interfaces, which only FortiOS builds for now");
 });
 
-// Until proved on a device, a platform refuses these rather than guess (#27). BFD on a static route with no next_hop is in test/checks/device.test.ts.
+// See #27. BFD on a static route without a next_hop is in test/checks/device.test.ts.
 test("BFD timers, BFD on a static route and BFD on a multihop session are refused until proved", () => {
-    // RouterOS proved them, or refuses them for another reason: routeros-proofs.test.ts.
+    // RouterOS tested them, or refuses them for another reason: see routeros-proofs.test.ts.
     for (const device of examples.filter((example) => example.platform !== "routeros")) {
         const bgp = device.routing?.bgp;
         const withBfd: Device = {
@@ -174,8 +174,8 @@ test("BFD timers, BFD on a static route and BFD on a multihop session are refuse
             },
         };
 
-        // What each platform proved on a device has its own proofs test, such as test/platforms/vrp-proofs.test.ts.
-        const proved: Record<string, readonly string[]> = {
+        // Each platform's proofs test holds what it tested on a device, such as vrp-proofs.test.ts.
+        const tested: Record<string, readonly string[]> = {
             fortios: ["timers", "static", "multihop"],
             vrp: ["timers", "static"],
             junos: ["timers", "static", "multihop"],
@@ -186,15 +186,15 @@ test("BFD timers, BFD on a static route and BFD on a multihop session are refuse
             static: "routing.static_routes 198.51.100.128/25 bfd, BFD on a static route is not tested on a device yet",
             multihop: "routing.bgp.neighbors.loopback.bfd, BFD on a multihop session is not tested on a device yet",
         };
-        const unproved = Object.entries(findings)
-            .filter(([feature]) => !(proved[device.platform] ?? []).includes(feature))
+        const untested = Object.entries(findings)
+            .filter(([feature]) => !(tested[device.platform] ?? []).includes(feature))
             .map(([, finding]) => finding);
 
-        expect(Platforms.get(device.platform).unsupported(withBfd)).toEqual(expect.arrayContaining(unproved));
+        expect(Platforms.get(device.platform).unsupported(withBfd)).toEqual(expect.arrayContaining(untested));
     }
 });
 
-// Proved on VRP only, in test/platforms/vrp-proofs.test.ts (#75).
+// Tested on VRP only, in test/platforms/vrp-proofs.test.ts (#75).
 test("an alarm's severity is refused until proved", () => {
     for (const device of examples.filter((example) => example.platform !== "vrp")) {
         const withAlarm: Device = { ...device, system: { ...device.system, alarms: { hwOpticalUnAuthorized: { severity: "warning" } } } };
@@ -203,4 +203,32 @@ test("an alarm's severity is refused until proved", () => {
             "system.alarms.hwOpticalUnAuthorized, an alarm's severity is not tested on a device yet"
         );
     }
+});
+
+test("a platform that doesn't build EoIP, round robin, shaping, MSS clamps or proxy ARP refuses each by name", () => {
+    const junos = Platforms.get("junos");
+    const device = { ...aggregationSwitch, firewall: { tcp_mss: [{ mss: 1400 as const }] } };
+
+    expect(junos.unsupported(device)).toContain("firewall.tcp_mss, which the platform does not build");
+});
+
+// VRP, Junos, and Raisecom ROS would write the next hop alone and lose the interface.
+test("a next hop with its interface is refused on VRP, Junos, and Raisecom ROS", () => {
+    const route: StaticRoute = { prefix: "192.0.2.0/24", next_hop: "198.51.100.1", interface: "vlan10" };
+    const refused = (fixture: string) => {
+        const device = Fixtures.device(fixture);
+        return Platforms.get(device.platform)
+            .unsupported({ ...device, routing: { ...device.routing, static_routes: [route] } })
+            .filter((field) => field.includes("next_hop with interface"));
+    };
+
+    expect(refused("platforms--example-switch")).toEqual([
+        "routing.static_routes 192.0.2.0/24 next_hop with interface, write only one of them",
+    ]);
+    expect(refused("platforms--example-aggregation-switch")).toEqual([
+        "routing.static_routes 192.0.2.0/24 next_hop with interface, write only one of them",
+    ]);
+    expect(refused("platforms--example-core-switch")).toEqual([
+        "routing.static_routes 192.0.2.0/24 next_hop with interface, write the next_hop alone",
+    ]);
 });

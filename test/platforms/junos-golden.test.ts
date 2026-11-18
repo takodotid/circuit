@@ -1,4 +1,4 @@
-// Every Junos device of Circuit 0.x's examples, templates and use cases renders in v1 as 0.x rendered it, and is refused for the same fields, named by their v1 paths.
+// Each Junos device of Circuit 0.x's examples, templates, and use cases renders as 0.x rendered it. It is refused for the same fields, by their v1 paths.
 
 import { expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
@@ -67,7 +67,6 @@ for (const name of fixtures) {
             return;
         }
 
-        // Only the order differs, and the plan from one to the other changes nothing.
         expect(rendered.split("\n").sort()).toEqual(before.split("\n").sort());
         expect(platform.plan(rendered, before, { secrets: false, rollback: 10 })).toEqual({ steps: [], problems: [] });
     });

@@ -1,4 +1,4 @@
-// What `circuit bgp` reads on RouterOS, over a real SSH session against a fake device: each configured neighbor matched with its live session, and the BGP log kept to a window by the device's clock.
+// What `circuit bgp` reads on RouterOS, over a real SSH session against a fake device.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { BgpWait } from "../../src/platforms/bgp-wait";
@@ -21,9 +21,9 @@ const LOG = [
 ].join("\n");
 
 const fake = new FakeSshDevice("operator+ct300w", (command) => {
-    if (command.startsWith(":foreach s in=[/routing bgp session find]")) return sessions.join("\n") + "\n";
+    if (command.startsWith(":foreach s in=[/routing bgp session find]")) return `${sessions.join("\n")}\n`;
     if (command === ':put ([/system clock get date] . " " . [/system clock get time])') return "2026-10-24 03:10:00\n";
-    if (command === '/log print where topics~"bgp" and !(message~"^connection ")') return LOG + "\n";
+    if (command === '/log print where topics~"bgp" and !(message~"^connection ")') return `${LOG}\n`;
     return `bad command name ${command}\n`;
 });
 

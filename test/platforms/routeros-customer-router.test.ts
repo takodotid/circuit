@@ -1,4 +1,4 @@
-// A customer's router on an RB5009: its uplink takes an address by DHCP, a tunnel to the data center is tied to that uplink, a LAG of tunnels keeps one MAC, consoles open ports by UPnP, and its LAN gets router advertisements. Each printed line below is how an RB5009 on RouterOS 7.24.6 printed what the render writes, so a device that runs the config plans nothing.
+// A customer's router on an RB5009. Each printed line below is how an RB5009 on RouterOS 7.24.6 printed what the render writes, so a device that runs the config plans nothing.
 
 import { expect, test } from "bun:test";
 import type { Device } from "../../src/model";
@@ -114,7 +114,7 @@ test("a device that prints what the render wrote plans nothing for it", () => {
     expect(plan.steps.filter((step) => menus.has(step.title))).toEqual([]);
 });
 
-// The client a person made by hand, with a script and another name, is changed in place: a second client on its interface is refused.
+// The device refuses a second client on the interface.
 test("a DHCP client made by hand is changed in place, by its interface", () => {
     const printed = [
         "/ip dhcp-client",
@@ -148,7 +148,7 @@ test("a platform that does not build them refuses each new field by name", () =>
     );
 });
 
-// A disabled route in the main table has no table at all: `find routing-table=main` matched nothing, and the change was never made.
+// A disabled route in the main table has no table: `find routing-table=main` matched nothing, and the change was never made.
 test("a disabled route in the main table is found by a selector that allows no table", () => {
     const printed = [
         "/ip route",
@@ -179,7 +179,7 @@ test("a user with a key keeps logging in by password", () => {
     expect(adapter.render(keyed)).toContain("/ip ssh\nset password-authentication=yes strong-crypto=yes");
 });
 
-// RouterOS never prints a key, only its fingerprint, and `/user export` leaves keys out: they are read by fingerprint and compared so.
+// RouterOS prints only a key's fingerprint, and `/user export` leaves keys out, so keys are compared by fingerprint.
 test("an SSH key the device holds plans nothing, and another is replaced", () => {
     const key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGVzc2VudGlhbGx5IGFuIGV4YW1wbGUga2V5IG9ubHk= test";
     const desired = ["/user ssh-keys", `add key="${key}" user=admin`].join("\n");

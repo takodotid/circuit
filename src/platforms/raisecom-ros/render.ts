@@ -5,7 +5,6 @@ import type { Device, Ethertype, Port, Prefix, Severity, SnmpUser, Switched, Vrr
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 
-/** The configuration a Raisecom ROS device should run. */
 export class RaisecomRosRender {
     /** The access-list that guards every management service. */
     static readonly MANAGEMENT_ACL = 1000;
@@ -37,7 +36,6 @@ export class RaisecomRosRender {
     /** The SNMPv3 authentication each `auth` takes on this platform. One missing here cannot be expressed. */
     static readonly SNMP_AUTH: Partial<Record<SnmpUser["auth"], string>> = { sha1: "sha" };
 
-    /** The OSPF process number. */
     private static readonly OSPF_PROCESS = 1;
 
     /** The SNMPv3 access group every user belongs to, read-only on the whole tree. */
@@ -58,7 +56,6 @@ export class RaisecomRosRender {
         return ranges.join(",");
     }
 
-    /** The whole configuration of a device. */
     static of(device: Device): string {
         const lines: string[] = [];
         const vlans = device.switching?.vlans ?? {};
@@ -232,7 +229,7 @@ export class RaisecomRosRender {
             lines.push(line);
         }
 
-        return lines.join("\n") + "\n";
+        return `${lines.join("\n")}\n`;
     }
 
     /** The sources every management service takes. The project has already turned an address set's name here into the set's addresses. */
@@ -253,7 +250,6 @@ export class RaisecomRosRender {
         return [`access-list ${number}`, `  description ${description}`, ...rules, "  rule 100 deny any", "!"];
     }
 
-    /** Access or trunk membership, for a port or a LAG. */
     private static switching(settings: Switched, vlanId: (name: string) => number): string[] {
         const lines: string[] = [];
         if (settings.access_vlan) lines.push(`switchport access vlan ${vlanId(settings.access_vlan)}`);
@@ -294,7 +290,7 @@ export class RaisecomRosRender {
         const broadcast = settings.storm_control?.broadcast;
         if (broadcast && "pps" in broadcast) lines.push("storm-control mode pps", `storm-control broadcast pps ${broadcast.pps}`);
 
-        // Port security drops frames from any source past the limit (its `protect` action, the default). The most it takes, 1024, is its default and prints nothing.
+        // Port security drops frames from any source past the limit, its default `protect` action. The default limit prints nothing.
         if (settings.mac_limit !== undefined) {
             lines.push("switchport port-security");
             if (settings.mac_limit !== RaisecomRosRender.MAC_LIMIT_MAX)

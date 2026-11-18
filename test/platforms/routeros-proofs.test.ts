@@ -1,4 +1,4 @@
-// What a real RouterOS device printed, proved on a CCR2216 on 7.23.5, with names and addresses replaced. Each test feeds the device's own lines to the adapter.
+// What a CCR2216 on RouterOS 7.23.5 printed, with names and addresses replaced, fed to the adapter.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { BgpWait } from "../../src/platforms/bgp-wait";
@@ -13,13 +13,12 @@ const options = { secrets: false, rollback: 10 };
 const edge = Fixtures.device("edge-router--edge-01");
 const ethernet = edge.interfaces!.ethernet!;
 
-/** The edge router with these ports written anew. */
 const withPorts = (ports: Record<string, Port>): Device => ({
     ...edge,
     interfaces: { ...edge.interfaces, ethernet: { ...ethernet, ...ports } },
 });
 
-/** The `:foreach` over `/routing bgp session`, as the router printed it. The transit's connection was renamed, so its session keeps the old name; a session that never established prints `established` empty and no uptime. */
+/** The `:foreach` over `/routing bgp session`, as the router printed it. The transit's renamed connection keeps its session's old name. A session that never established prints `established` empty and no uptime. */
 const SESSIONS = [
     "transit-global-v4-1|203.0.113.1|true|1099935|13:35:26.440",
     "sgix-rs-v4-1|192.0.2.1|true|9204|13:35:04.930",
@@ -27,7 +26,7 @@ const SESSIONS = [
 ].join("\n");
 
 /**
- * The same script after a leak on an exchange: the two route servers' IPv6 sessions closed on their limit nine seconds apart. The session lines are as a CCR2216 on 7.23.5 printed them after such a leak: `limit-exceeded`, the limit, and when the session last closed. The last line is the form the script writes for a disabled connection; the router had none to print.
+ * The same script after a leak on an exchange, as the router printed it: two route servers' IPv6 sessions closed on their limit nine seconds apart. The last line is the form the script writes for a disabled connection, which the router had none of.
  */
 const LEAK = [
     "sgix-rs-v4-1|192.0.2.1|true|9204|13:35:04.930|||",
@@ -47,14 +46,14 @@ const LOG_LINE =
 const NEIGHBORS = ["qsfp28-1-1;bridge|Vendor|edge-01 uplink", "sfp28-1;lag-fw;bridge|fw-01|edge-01 sfp28-1"].join("\n");
 
 const fake = new FakeSshDevice("operator+ct300w", (command) => {
-    if (command.startsWith(':foreach n in=[/ip neighbor find where discovered-by~"lldp"]')) return NEIGHBORS + "\n";
-    if (command.startsWith(":foreach s in=[/routing bgp session find]")) return sessions + "\n";
+    if (command.startsWith(':foreach n in=[/ip neighbor find where discovered-by~"lldp"]')) return `${NEIGHBORS}\n`;
+    if (command.startsWith(":foreach s in=[/routing bgp session find]")) return `${sessions}\n`;
     if (command.startsWith("/routing bgp session clear ")) {
         sent.push(command);
         return "";
     }
     if (command === ':put ([/system clock get date] . " " . [/system clock get time])') return "2026-10-24 04:53:08\n";
-    if (command === '/log print where topics~"bgp" and !(message~"^connection ")') return LOG_LINE + "\n";
+    if (command === '/log print where topics~"bgp" and !(message~"^connection ")') return `${LOG_LINE}\n`;
     return `bad command name ${command}\n`;
 });
 
@@ -212,7 +211,7 @@ test("an ethertype filter: a switch rule per kind after the port's ACL, then a d
     expect(platform.switchRules!(filtered).count).toBe(platform.switchRules!(edge).count + 4);
 });
 
-test("a MAC limit stays refused, for the reason the router gave, and an ethertype filter on a LAG as unproved", () => {
+test("a MAC limit stays refused, for the reason the router gave, and an ethertype filter on a LAG as untested", () => {
     const ported = withPorts({ "25g-2": { ...ethernet["25g-2"]!, mac_limit: 1, ethertypes: ["ipv4"] } });
     const device: Device = { ...ported, interfaces: { ...ported.interfaces, lag: { members: { mac_limit: 1, ethertypes: ["ipv4"] } } } };
 

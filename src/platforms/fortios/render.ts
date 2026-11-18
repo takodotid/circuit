@@ -1,5 +1,3 @@
-// The neutral model as FortiOS configuration, in the form `show` prints, so the plan can compare the two section by section.
-
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
@@ -9,7 +7,7 @@ import { Derive } from "../../core/derive";
 import { FortiOsFirewall } from "./firewall";
 import { FortiOsNames } from "./names";
 import { FortiOsRouting } from "./routing";
-import { FortiOsBlock, FortiOsTree } from "./tree";
+import { FortiOsNode, FortiOsTree } from "./tree";
 import { FortiOsVdoms } from "./vdoms";
 
 export type Section = (typeof FortiOsRender.SECTIONS)[number];
@@ -80,7 +78,7 @@ export class FortiOsRender {
     /** Sections rendered only when the config uses them, after every other, and read always, so what the device holds there is planned away when the config has none. */
     static readonly OPTIONAL_SECTIONS = ["system proxy-arp"] as const;
 
-    /** Sections `show` prints without what matters, which `show full-configuration` prints: a certificate's text. */
+    /** `show` prints a certificate without its text, and `show full-configuration` with it. */
     static readonly FULL: readonly string[] = ["vpn certificate local", "vpn certificate ca"];
 
     /** The FortiOS zone number of each IANA zone it has one for. A number names a list of places in one zone; `00` is the device's default. */
@@ -178,7 +176,6 @@ export class FortiOsRender {
     /** What each role may do: the factory profile for an admin, and a profile Circuit adds for the others. */
     static readonly PROFILE = { admin: "super_admin", operator: "circuit-operator", "read-only": "circuit-read-only" } as const;
 
-    /** The permission groups of an access profile. */
     private static readonly PERMISSION_GROUPS = [
         "secfabgrp",
         "ftviewgrp",
@@ -205,7 +202,6 @@ export class FortiOsRender {
     /** The most VRFs the device holds besides its default table. */
     static readonly VRFS = 31;
 
-    /** A severity as the platform names it. */
     static readonly LEVEL: Record<Severity, string> = {
         emergency: "emergency",
         alert: "alert",
@@ -217,7 +213,7 @@ export class FortiOsRender {
         debug: "debug",
     };
 
-    /** The helpers the factory runs, by the name a config gives them: protocol and port of each. */
+    /** The factory's helpers, by the name a config gives them: each as name, IP protocol, and port. */
     static readonly HELPERS: Partial<Record<Helper, readonly [string, number, number][]>> = {
         ftp: [["ftp", 6, 21]],
         tftp: [["tftp", 17, 69]],
@@ -241,15 +237,13 @@ export class FortiOsRender {
         "1g": { "1g": "1000full", "100m": "100full" },
     };
 
-    /** The management address of a device in transparent mode, which is reached only through its console: link-local, on no network it can reach. */
+    /** For a device in transparent mode without a management address: link-local, so only the console reaches it. */
     static readonly TRANSPARENT_MANAGEIP = "169.254.0.1/255.255.255.255";
 
-    /** The zone number for an IANA zone. UTC when the config names none. */
     static zoneOf(timezone = "UTC"): string | undefined {
         return Object.entries(FortiOsRender.ZONES).find(([, places]) => places.includes(timezone))?.[0];
     }
 
-    /** The services a port or an interface answers on its addresses: ping always, and every management service the config turns on. */
     private static allowAccess(device: Device): string {
         const management = device.management ?? {};
         const services = ["ping"];
@@ -264,9 +258,8 @@ export class FortiOsRender {
         return services.join(" ");
     }
 
-    /** The whole configuration the device should run, in the form `show` prints. */
     static of(device: Device): string {
-        const root = new FortiOsBlock();
+        const root = new FortiOsNode();
         for (const section of FortiOsRender.SECTIONS) root.block(section);
 
         const section = (name: Section) => root.block(name);
@@ -274,7 +267,7 @@ export class FortiOsRender {
         FortiOsRender.certificates(section("vpn certificate local"), section("vpn certificate ca"), device);
         FortiOsRender.global(section("system global"), device);
         if (device.system?.banner) section(FortiOsRender.BANNER).set("buffer", FortiOsTree.quote(device.system.banner));
-        // A bridge needs transparent mode, and transparent mode a management address: the config's, or one on no network the device can reach, which keeps it reached only through its console.
+        // A bridge needs transparent mode, and transparent mode needs a management address.
         if (FortiOsNames.isTransparent(device)) {
             const management = FortiOsNames.transparentManagement(device);
             const manageip = management
@@ -306,11 +299,11 @@ export class FortiOsRender {
     }
 
     /** A management VDOM's routes, and who reaches the device's own services through it, as sections of their own after everything else. */
-    private static managementVdom(root: FortiOsBlock, device: Device): void {
+    private static managementVdom(root: FortiOsNode, device: Device): void {
         const management = device.system?.vdoms?.management;
         if (!management) return;
 
-        const vdom = new FortiOsBlock();
+        const vdom = new FortiOsNode();
         for (const section of FortiOsVdoms.MANAGEMENT_SECTIONS) vdom.block(section);
 
         FortiOsRender.staticRoutes(vdom.block("router static"), vdom.block("router static6"), device, management.static_routes ?? []);
@@ -320,7 +313,7 @@ export class FortiOsRender {
     }
 
     /** A certificate with its key is the device's own; one without is only trusted. */
-    private static certificates(local: FortiOsBlock, trusted: FortiOsBlock, device: Device): void {
+    private static certificates(local: FortiOsNode, trusted: FortiOsNode, device: Device): void {
         for (const [name, certificate] of Object.entries(device.system?.certificates ?? {})) {
             if (!certificate) continue;
 
@@ -335,7 +328,7 @@ export class FortiOsRender {
         }
     }
 
-    private static global(block: FortiOsBlock, device: Device): void {
+    private static global(block: FortiOsNode, device: Device): void {
         const management = device.management ?? {};
 
         block.set("hostname", FortiOsTree.quote(device.name));
@@ -360,8 +353,7 @@ export class FortiOsRender {
         if (vdom) block.set("vdom-mode", "multi-vdom").set("management-vdom", FortiOsTree.quote(vdom));
     }
 
-    /** Each user, with the profile its role takes. */
-    private static users(profiles: FortiOsBlock, admins: FortiOsBlock, device: Device): void {
+    private static users(profiles: FortiOsNode, admins: FortiOsNode, device: Device): void {
         const users = Object.entries(device.system?.users ?? {}).flatMap(([name, user]) => (user ? [[name, user] as const] : []));
         const roles = new Set(users.map(([, user]) => user.role));
 
@@ -385,8 +377,7 @@ export class FortiOsRender {
         }
     }
 
-    /** Ports, then the LAGs they join, VLAN interfaces on them, loopbacks, and the tunnels with their own tables. */
-    private static interfaces(root: FortiOsBlock, device: Device): void {
+    private static interfaces(root: FortiOsNode, device: Device): void {
         const block = root.block("system interface");
         const access = FortiOsRender.allowAccess(device);
 
@@ -394,7 +385,7 @@ export class FortiOsRender {
             const settings = device.interfaces?.ethernet?.[port];
             const entry = block.entry(Catalog.spell(device.platform, device.model, port));
 
-            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.vdomOf(device, port)));
+            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.of(device, port)));
             entry.set("type", "physical");
 
             if (!settings) {
@@ -424,7 +415,7 @@ export class FortiOsRender {
                 .map(([port]) => Catalog.spell(device.platform, device.model, port));
 
             const entry = block.entry(name);
-            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.vdomOf(device, name)));
+            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.of(device, name)));
             entry.set("type", "aggregate");
             if (members.length) entry.set("member", FortiOsTree.quoteAll(members));
             if (iface.mode === "static") entry.set("lacp-mode", "static");
@@ -439,8 +430,8 @@ export class FortiOsRender {
 
             const parent = FortiOsRender.vlanParent(device, iface.vlan);
             const entry = block.entry(name);
-            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.vdomOf(device, name)));
-            if (parent) entry.set("interface", FortiOsTree.quote(FortiOsNames.nameOf(device, parent)));
+            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.of(device, name)));
+            if (parent) entry.set("interface", FortiOsTree.quote(FortiOsNames.of(device, parent)));
             entry.set("vlanid", device.switching?.vlans?.[iface.vlan]?.id ?? 0);
             const domain = FortiOsNames.forwardDomainOf(device, name);
             if (domain) entry.set("forward-domain", domain);
@@ -454,7 +445,7 @@ export class FortiOsRender {
             if (!iface) continue;
 
             const entry = block.entry(name);
-            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.vdomOf(device, name)));
+            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.of(device, name)));
             entry.set("type", "loopback");
             if (iface.description) entry.set("description", FortiOsTree.quote(iface.description));
             FortiOsRender.redirects(entry, device);
@@ -469,7 +460,7 @@ export class FortiOsRender {
             const vxlan = kind === "vxlan" ? (settings as Vxlan) : undefined;
 
             const outgoing = FortiOsNames.holderOf(device, iface.local_address);
-            const via = outgoing ? FortiOsTree.quote(FortiOsNames.nameOf(device, outgoing)) : '""';
+            const via = outgoing ? FortiOsTree.quote(FortiOsNames.of(device, outgoing)) : '""';
 
             // Between IPv6 endpoints the family is stated first: the addresses of the other family are not settings until it is.
             const ipv6 = Address.family(iface.remote_address) === "ipv6";
@@ -486,7 +477,7 @@ export class FortiOsRender {
             }
 
             const entry = block.entry(name);
-            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.vdomOf(device, name)));
+            entry.set("vdom", FortiOsTree.quote(FortiOsVdoms.of(device, name)));
             entry.set("type", vxlan ? "vxlan" : "tunnel");
             entry.set("interface", via);
             if (vxlan?.mac) entry.set("macaddr", vxlan.mac.toLowerCase());
@@ -498,7 +489,7 @@ export class FortiOsRender {
     }
 
     /** The platform sends ICMP redirects unless an interface says otherwise; the config sends them only when asked. */
-    private static redirects(entry: FortiOsBlock, device: Device): void {
+    private static redirects(entry: FortiOsNode, device: Device): void {
         if (!device.system?.ip_stack?.icmp_redirects) entry.set("icmp-send-redirect", "disable");
     }
 
@@ -512,8 +503,7 @@ export class FortiOsRender {
         return carriers.length === 1 ? carriers[0]![0] : undefined;
     }
 
-    /** Addresses and their routing table, the services answered on them, VRRP, DHCP relay, router advertisements, LLDP and flow sampling of a port or an interface. */
-    private static routed(entry: FortiOsBlock, device: Device, name: string, settings: RoutedSettings, access: string): void {
+    private static routed(entry: FortiOsNode, device: Device, name: string, settings: RoutedSettings, access: string): void {
         // In transparent mode no interface holds an address: the management address is the device's, and answers on its interface alone.
         if (FortiOsNames.isTransparent(device)) {
             if (FortiOsNames.transparentManagement(device)?.name === name) entry.set("allowaccess", access);
@@ -618,8 +608,7 @@ export class FortiOsRender {
         if (sampled && flow.protocol === "netflow-v9") entry.set("netflow-sampler", "both");
     }
 
-    /** The device's resolvers, and the interfaces it answers DNS queries on when it serves them. */
-    private static dns(block: FortiOsBlock, servers: FortiOsBlock, device: Device): void {
+    private static dns(block: FortiOsNode, servers: FortiOsNode, device: Device): void {
         const resolvers = device.system?.dns?.servers ?? [];
         const ipv4 = resolvers.filter((server) => Address.family(server) === "ipv4");
         const ipv6 = resolvers.filter((server) => Address.family(server) === "ipv6");
@@ -630,12 +619,10 @@ export class FortiOsRender {
         if (ipv6[1]) block.set("ip6-secondary", ipv6[1]);
 
         // Recursive, the default mode, answers from what the device has resolved itself.
-        if (device.services?.dns_server)
-            for (const name of FortiOsNames.addressed(device)) servers.entry(FortiOsNames.nameOf(device, name));
+        if (device.services?.dns_server) for (const name of FortiOsNames.addressed(device)) servers.entry(FortiOsNames.of(device, name));
     }
 
-    /** The servers the device keeps time from, and the interfaces it answers time queries on when it serves them. */
-    private static ntp(block: FortiOsBlock, device: Device): void {
+    private static ntp(block: FortiOsNode, device: Device): void {
         const ntp = device.system?.ntp;
         const servers = ntp?.servers ?? [];
 
@@ -649,12 +636,11 @@ export class FortiOsRender {
 
         if (device.services?.ntp_server) {
             block.set("server-mode", "enable");
-            block.set("interface", FortiOsTree.quoteAll(FortiOsNames.addressed(device).map((name) => FortiOsNames.nameOf(device, name))));
+            block.set("interface", FortiOsTree.quoteAll(FortiOsNames.addressed(device).map((name) => FortiOsNames.of(device, name))));
         }
     }
 
-    /** SNMP version 2c with one community, guarded by its hosts, and version 3 users. */
-    private static snmp(root: FortiOsBlock, device: Device): void {
+    private static snmp(root: FortiOsNode, device: Device): void {
         const snmp = device.monitoring?.snmp;
         if (!snmp) return;
 
@@ -701,8 +687,7 @@ export class FortiOsRender {
         }
     }
 
-    /** Logs kept in memory from a level up, none on disk, and up to four syslog collectors, each with the least severe message it takes. */
-    private static logging(root: FortiOsBlock, device: Device): void {
+    private static logging(root: FortiOsNode, device: Device): void {
         const logging = device.system?.logging;
 
         // The device prints whether it keeps logs in memory either way, and keeps them unless told not to.
@@ -724,8 +709,7 @@ export class FortiOsRender {
         });
     }
 
-    /** One collector, and sampling on each interface it observes. */
-    private static flowExport(root: FortiOsBlock, device: Device): void {
+    private static flowExport(root: FortiOsNode, device: Device): void {
         const flow = device.monitoring?.flow_export;
         const collector = flow?.collectors[0];
         if (!flow || !collector) return;
@@ -741,13 +725,13 @@ export class FortiOsRender {
         }
     }
 
-    private static dhcpServers(block: FortiOsBlock, device: Device): void {
+    private static dhcpServers(block: FortiOsNode, device: Device): void {
         Object.values(device.services?.dhcp_server ?? {}).forEach((server, index) => {
             const entry = block.entry(index + 1);
-            if (server.lease_time !== undefined && server.lease_time !== 604800) entry.set("lease-time", server.lease_time);
+            if (server.lease_time !== undefined && server.lease_time !== 604_800) entry.set("lease-time", server.lease_time);
             entry.set("default-gateway", server.gateway);
             entry.set("netmask", Address.netmask(Address.split(server.network).len));
-            entry.set("interface", FortiOsTree.quote(FortiOsNames.nameOf(device, server.interface)));
+            entry.set("interface", FortiOsTree.quote(FortiOsNames.of(device, server.interface)));
             entry.set("dns-service", "specify");
             entry.block("ip-range").entry(1).set("start-ip", server.pool[0]).set("end-ip", server.pool[1]);
 
@@ -761,22 +745,22 @@ export class FortiOsRender {
         });
     }
 
-    /** Each route by its position. A route goes in the routing table of the interface it leaves through. A default route is the platform's default destination and is not printed. */
-    /** Each address a VLAN interface answers ARP for, one entry each, numbered in the config's order. */
-    private static proxyArp(block: FortiOsBlock, device: Device): void {
+    /** One entry for each address a VLAN interface answers ARP for, numbered in the config's order. */
+    private static proxyArp(block: FortiOsNode, device: Device): void {
         let number = 0;
 
         for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {})) {
             for (const address of iface?.proxy_arp ?? []) {
                 block
                     .entry(++number)
-                    .set("interface", FortiOsTree.quote(FortiOsNames.nameOf(device, name)))
+                    .set("interface", FortiOsTree.quote(FortiOsNames.of(device, name)))
                     .set("ip", address);
             }
         }
     }
 
-    private static staticRoutes(ipv4: FortiOsBlock, ipv6: FortiOsBlock, device: Device, routes: readonly StaticRoute[]): void {
+    /** A route lands in the routing table of the interface it leaves through. The default route's destination is the platform's default, and is not printed. */
+    private static staticRoutes(ipv4: FortiOsNode, ipv6: FortiOsNode, device: Device, routes: readonly StaticRoute[]): void {
         const counters = { ipv4: 0, ipv6: 0 };
 
         for (const route of routes) {
@@ -792,7 +776,7 @@ export class FortiOsRender {
             // In transparent mode a route names no interface: it carries only the management address's own traffic.
             const outgoing = route.interface ?? (route.next_hop ? FortiOsNames.interfaceFor(device, route.next_hop, route.vrf) : undefined);
             if (outgoing && !route.blackhole && !FortiOsNames.isTransparent(device))
-                entry.set("device", FortiOsTree.quote(FortiOsNames.nameOf(device, outgoing)));
+                entry.set("device", FortiOsTree.quote(FortiOsNames.of(device, outgoing)));
 
             if (route.distance !== undefined && route.distance !== 10) entry.set("distance", route.distance);
             if (route.description) entry.set("comment", FortiOsTree.quote(route.description));
@@ -802,7 +786,7 @@ export class FortiOsRender {
     }
 
     /** BFD runs once a route or a session uses it, or the config sets its timers, which the device shows only while it runs. */
-    private static bfd(settings: FortiOsBlock, device: Device): void {
+    private static bfd(settings: FortiOsNode, device: Device): void {
         const timers = device.routing?.bfd;
         if (!FortiOsRouting.usesBfd(device) && !timers) return;
 
@@ -815,8 +799,8 @@ export class FortiOsRender {
             .set("bfd-detect-mult", timers.multiplier);
     }
 
-    /** The helpers the config lists, each on the protocols and ports the factory gives it. None run otherwise. */
-    private static helpers(block: FortiOsBlock, device: Device): void {
+    /** Only the helpers the config lists run, each on the factory's protocols and ports. */
+    private static helpers(block: FortiOsNode, device: Device): void {
         let number = 0;
 
         for (const helper of device.firewall?.conntrack_helpers ?? []) {
