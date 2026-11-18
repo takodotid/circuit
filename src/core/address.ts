@@ -11,20 +11,43 @@ export class Address {
     private static readonly IPV6_GROUP_BITS = 16;
     private static readonly HEX = 16;
 
-    /** IPv4 space another network cannot reach: this host, private, shared, loopback, link-local, and documentation, after RFC 6890. */
-    private static readonly NOT_GLOBAL_V4 = [
-        "0.0.0.0/8",
-        "10.0.0.0/8",
-        "100.64.0.0/10",
-        "127.0.0.0/8",
-        "169.254.0.0/16",
-        "172.16.0.0/12",
-        "192.0.2.0/24",
-        "192.168.0.0/16",
-        "198.18.0.0/15",
-        "198.51.100.0/24",
-        "203.0.113.0/24",
-    ];
+    /**
+     * Whether another network can reach each block: the Globally Reachable column of IANA's IPv4 and IPv6 Special-Purpose Address Registries (RFC 6890), checked 2026-11-18. IPv4 multicast (RFC 5771) and IPv6 outside 2000::/3 are not global. A block the registry leaves blank, or that says the same as the block around it, is left out.
+     */
+    private static readonly GLOBALLY_REACHABLE: Readonly<Record<string, boolean>> = {
+        "0.0.0.0/0": true,
+        "0.0.0.0/8": false,
+        "10.0.0.0/8": false,
+        "100.64.0.0/10": false,
+        "127.0.0.0/8": false,
+        "169.254.0.0/16": false,
+        "172.16.0.0/12": false,
+        "192.0.0.0/24": false,
+        "192.0.0.9/32": true,
+        "192.0.0.10/32": true,
+        "192.0.2.0/24": false,
+        "192.88.99.2/32": false,
+        "192.168.0.0/16": false,
+        "198.18.0.0/15": false,
+        "198.51.100.0/24": false,
+        "203.0.113.0/24": false,
+        "224.0.0.0/4": false,
+        "240.0.0.0/4": false,
+        "::/0": false,
+        "64:ff9b::/96": true,
+        "2000::/3": true,
+        "2001::/23": false,
+        "2001:1::1/128": true,
+        "2001:1::2/128": true,
+        "2001:1::3/128": true,
+        "2001:3::/32": true,
+        "2001:4:112::/48": true,
+        "2001:20::/28": true,
+        "2001:30::/28": true,
+        "2001:db8::/32": false,
+        "3fff::/20": false,
+        "5f00::/16": false,
+    };
 
     static family(address: string): Family {
         return address.includes(":") ? "ipv6" : "ipv4";
@@ -199,10 +222,11 @@ export class Address {
         return cidr.split("/")[0]! as IP;
     }
 
-    /** Whether another network can reach the address. IPv6 is global only inside 2000::/3, less documentation space. */
+    /** Whether another network can reach the address: the longest block of `GLOBALLY_REACHABLE` that holds it decides. */
     static isGlobal(address: string): boolean {
-        if (Address.family(address) === "ipv6") return Address.contains("2000::/3", address) && !Address.contains("2001:db8::/32", address);
+        const blocks = Object.keys(Address.GLOBALLY_REACHABLE).filter((block) => Address.contains(block, address));
+        const longest = blocks.reduce((best, block) => (Address.split(block).len > Address.split(best).len ? block : best));
 
-        return !Address.NOT_GLOBAL_V4.some((prefix) => Address.contains(prefix, address));
+        return Address.GLOBALLY_REACHABLE[longest]!;
     }
 }

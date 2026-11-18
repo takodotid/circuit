@@ -51,7 +51,7 @@ vlan_interface: {
 },
 ```
 
-Write your real, global addresses. Circuit doesn't publish documentation addresses like these.
+Write your real, global addresses: Circuit publishes no other kind. On this page, documentation addresses stand in for them.
 
 Then set the key:
 

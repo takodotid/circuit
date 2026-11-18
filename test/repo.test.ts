@@ -356,13 +356,13 @@ describe("comments", () => {
 
 // Samples use documentation addresses and AS numbers, as IETF's idnits asks of an Internet-Draft. A real network is written with its name.
 describe("samples", () => {
-    // test/fixtures/v0 holds projects converted from Circuit 0.x, kept as they were. This file holds the rules' own data.
+    // test/fixtures/v0 holds projects converted from Circuit 0.x, kept as they were. This file and src/core/address.ts hold the rules' own data.
     const samples = files
         .filter(
             (file) =>
                 /^(docs|examples|src|test)\/.+\.(md|ts|vue|json|txt|html)$/.test(file) &&
                 !file.startsWith("test/fixtures/v0/") &&
-                file !== "test/repo.test.ts"
+                !["test/repo.test.ts", "src/core/address.ts"].includes(file)
         )
         .map((file) => ({ file, lines: read(file).split("\n") }));
 
@@ -375,41 +375,6 @@ describe("samples", () => {
         );
 
     test("a public address is a documentation address", () => {
-        // Whether another network can reach an address, by the longest block that holds it. From IANA's special-purpose registries (RFC 6890) and IPv6 address space, checked 2026-11-18, and IPv4 multicast (RFC 5771).
-        const REACHABLE: Record<string, boolean> = {
-            "0.0.0.0/0": true,
-            "0.0.0.0/8": false,
-            "10.0.0.0/8": false,
-            "100.64.0.0/10": false,
-            "127.0.0.0/8": false,
-            "169.254.0.0/16": false,
-            "172.16.0.0/12": false,
-            "192.0.0.0/24": false,
-            "192.0.0.9/32": true,
-            "192.0.0.10/32": true,
-            "192.0.2.0/24": false,
-            "192.88.99.2/32": false,
-            "192.168.0.0/16": false,
-            "198.18.0.0/15": false,
-            "198.51.100.0/24": false,
-            "203.0.113.0/24": false,
-            "224.0.0.0/4": false,
-            "240.0.0.0/4": false,
-            "::/0": false,
-            "64:ff9b::/96": true,
-            "2000::/3": true,
-            "2001::/23": false,
-            "2001:1::1/128": true,
-            "2001:1::2/128": true,
-            "2001:1::3/128": true,
-            "2001:3::/32": true,
-            "2001:4:112::/48": true,
-            "2001:20::/28": true,
-            "2001:30::/28": true,
-            "2001:db8::/32": false,
-            "3fff::/20": false,
-            "5f00::/16": false,
-        };
         const DOCUMENTATION = {
             ipv4: "192.0.2.0/24, 198.51.100.0/24, or 203.0.113.0/24 (RFC 5737)",
             ipv6: "2001:db8::/32 (RFC 3849) or 3fff::/20 (RFC 9637)",
@@ -422,12 +387,8 @@ describe("samples", () => {
             "docs/academy/professional/routing-security.md": ["208.65.153.0/24", "208.65.152.0/22"],
             // Cloudflare's public resolvers, as a home router uses them.
             "examples/single-site/sites/home/router.ts": ["1.1.1.1", "1.0.0.1"],
-        };
-
-        const reachable = (address: string) => {
-            const blocks = Object.keys(REACHABLE).filter((block) => Address.contains(block, address));
-            const longest = blocks.reduce((best, block) => (Address.split(block).len > Address.split(best).len ? block : best));
-            return REACHABLE[longest];
+            // Global addresses from IANA's special-purpose registries, which Address.isGlobal must find global.
+            "test/core/address.test.ts": ["192.31.196.1", "192.0.0.9", "2620:4f:8000::1", "2001:1::1", "64:ff9b::c000:201"],
         };
 
         // An address alone, with its length if written: not part of a version number, an OID, a MAC address, or a time.
@@ -436,11 +397,11 @@ describe("samples", () => {
 
         const wrong = found([IPV4, IPV6]).flatMap(({ file, index, match: [value] }) => {
             const prefix = Address.isCidr(value) ? value : `${value.split("/")[0]}/${Address.bits(Address.family(value))}`;
-            if (!Address.isCidr(prefix) || prefix in REACHABLE || REAL[file]?.includes(value)) return [];
+            if (!Address.isCidr(prefix) || REAL[file]?.includes(value)) return [];
 
             const { first, last, family } = Address.range(prefix);
             const ends = [first, last].map((end) => Address.fromNumber(end, family));
-            if (!ends.some(reachable)) return [];
+            if (!ends.some((end) => Address.isGlobal(end))) return [];
 
             return [`${file}:${index + 1}: ${value} is a real address. Use one from ${DOCUMENTATION[family]}.`];
         });

@@ -46,6 +46,8 @@ const bogons = {
         discard_only: "100::/64",
         /** Documentation, RFC 3849. */
         documentation: "2001:db8::/32",
+        /** Documentation, RFC 9637. */
+        documentation2: "3fff::/20",
         /** Unique local, RFC 4193. */
         unique_local: "fc00::/7",
         /** Link-local, RFC 4291. */
