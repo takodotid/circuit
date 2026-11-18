@@ -19,7 +19,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **14.** The sessions of one upstream share a `neighbor_group`, even where that adds a template on the device.
 - **17.** Field names say what they are ([the renames](../docs/reference/model.md#from-circuit-0x)).
 - **22.** The trust boundary check is Circuit's `untrusted_vlans`, with `filtering_devices` and `mixed_links`.
-- **25.** Data is snake_case: every field, every preset and every variable of a project. Functions are camelCase. Presets are one `presets` object. (Includes 59.)
+- **25.** Data is snake_case: every field, every preset, and every variable of a project. Functions are camelCase. Presets are one `presets` object. (Includes 59.)
 - **26.** Circuit's functions and `presets` are globals: a project's files don't import `"circuit"`. Circuit v1 is a binary. It writes the editor types into a project's `.circuit/types`.
 - **33.** An export toward an iBGP neighbor that doesn't write `keep_ours` stops Circuit.
 - **35.** A static route's `prefix` stays one prefix, not a list.
@@ -37,10 +37,10 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **56.** A site's addresses carry their length where an interface needs one. No template strings in a project's files.
 - **57.** `management.allow` takes a list of prefixes or the name of an address set, with completion.
 - **58.** `connection.host` stays apart from any interface's address: Circuit may later log in through a tunnel or a proxy.
-- **62.** Circuit ships address helpers (`address.contains`, `.overlaps` and the rest) for a project's own checks.
+- **62.** Circuit ships address helpers (`address.contains`, `.overlaps`, and the rest) for a project's own checks.
 - **63.** A finding of a project's own check may name its device and path, so Circuit points at the line.
 - **65.** A project's own checks read the network resolved, as the devices run it. The project doesn't change.
-- **66.** A network's prefixes live in `circuit({ prefixes })`, for devices, checks and integrations.
+- **66.** A network's prefixes live in `circuit({ prefixes })`, for devices, checks, and integrations.
 - **72.** `merge` is decided by the field it lands in, in the editor too, and names complete inside it. Replaces 64.
 - **87.** A later Circuit reads YAML projects too: one `!ref` tag, and v1's TypeScript as the schema ([#167](https://github.com/takodotid/circuit/issues/167)).
 - **90.** Project files import each other by relative path. The `circuit` path alias in `tsconfig.json` is for `import type` only: types are erased, and the binary doesn't read `tsconfig.json`.
@@ -49,23 +49,23 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 
 - **18.** Communities: the scheme's `asn` is the network's when absent; sites are written once, in `circuit()`; `learned_at_site` tags by the site's number; every option is an object, with its own `description`, plus `custom_descriptions`; no `requests` block.
 - **29.** Communities: `learned_from_group` and `do_not_announce_to_as`; a `_group` option needs `groups`, `learned_at_site` a site with a number; one `communities` block on a neighbor or neighbor group; an import honors no request unless the policy says so.
-- **39.** Requests about one AS (do not announce, prepend) are offered toward upstreams, exchanges and peers, not between customers. Customers share one export policy; a special customer gets its own.
+- **39.** Requests about one AS (do not announce, prepend) are offered toward upstreams, exchanges, and peers, not between customers. Customers share one export policy; a special customer gets its own.
 - **50.** A customer's routes get no `learned_from_as` tag, so customers share one import policy.
 
 ## A project's files
 
-- **3.** A project has `circuit.ts`, `sites/` and `tenants/`. The rest is free.
+- **3.** A project has `circuit.ts`, `sites/`, and `tenants/`. The rest is free.
 - **15.** Parts are keyed by hostname. A device file writes its own `name`.
 - **16.** No unclear globals in a file. Everything is written in its device first; what to share is decided after.
-- **46.** A device writes its own VLANs. Circuit takes nothing from a site: in `circuit()`, a site is only its name, number and description.
+- **46.** A device writes its own VLANs. Circuit takes nothing from a site: in `circuit()`, a site is only its name, number, and description.
 - **47.** A device takes a VLAN whole from its site file. Facts a site's devices share are named in its site file. A linked port is described `<far device> <far port>`. Defaults are not written: no `routing_table: "main"`, no `distance: 1`, no BGP `asn`.
 - **60.** Tenants merge whole, `merge([tenant_a, tenant_b])`, one name per tenant.
 - **61.** A tenant's secrets are written in its data, never built from its name.
-- **67.** A tenant's addresses, VLAN IDs and ports are written by hand per tenant, never derived from a number.
+- **67.** A tenant's addresses, VLAN IDs, and ports are written by hand per tenant, never derived from a number.
 - **68.** A tenant's names (VLANs, interfaces, sets, DHCP server) are written by hand in its data, so a text search finds them.
 - **69.** A device takes its sources with `include`, right after `name`: `include: [tenants.parts]`.
 
-## The circuit command
+## The `circuit` command
 
 - **27.** `circuit fmt` ships with Circuit. It is Prettier inside Circuit, styled by the project's `.editorconfig`, and not opinionated.
 - **73.** Circuit installs with one shell command, `curl -fsSL https://circuit.tako.id/install | sh` or, on Windows, `irm https://circuit.tako.id/install.ps1 | iex`, which then starts a project. There is no `circuit init`: in a folder without a project, `circuit` offers to start one.
@@ -73,7 +73,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **75.** No snapshots. `diff` and `apply` read the live device. LLDP is compared with `link` while Circuit is connected.
 - **76.** `apply` shows what would change and asks, no by default. `--confirm` sends without asking. `build` is gone: `apply` shows the plan.
 - **79.** A git hook in `.circuit/hooks` stops a commit with a secret in plain text in a secrets file, or with a project that does not validate. A 1Password reference passes. There is no `circuit commit`: VS Code commits.
-- **80.** A full install pins Circuit as a package in the project, with Bun first and Node later. The `circuit` command then runs the project's own version.
+- **80.** A full install pins Circuit as a package in the project (Bun first, Node later). The `circuit` command then runs the project's own version.
 - **83.** Circuit installs like an app: on Windows in `%LOCALAPPDATA%\Programs\Circuit`, on PATH and in Settings > Apps; elsewhere in `~/.local/bin`. The install command, run again, updates Circuit, and sets up a project already in the folder without questions. `circuit uninstall` removes Circuit, never a project. In a full install, the installed `circuit` runs the version the project pins (80).
 - **85.** `circuit env` is `circuit secrets` (`circuit secret` still works).
 - **86.** `circuit migrate` writes a 0.x project again as a v1 project, and lists what did not move.
@@ -82,16 +82,16 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **99.** Circuit remembers the projects it ran in (`~/.circuit/projects.json`). A version kept in `~/.circuit/versions` that none of them pins any more is removed.
 - **100.** The installed `circuit` is the manager. Before every command but `uninstall`, it checks npm, at most every 30 seconds, and updates itself to the newest release of its major, then runs the command as that version. Offline, it warns and goes on. A project's version never changes with it.
 - **101.** Every command in a project runs the version in `.circuit/version`. One not on the machine is downloaded after a yes, or without asking in CI.
-- **106.** Utilities also has `communities` (`--format nlnog`, `alice` or `json`) and `addresses`, and `sync` comes as #170 proposes. No `refresh`: `diff` and `apply` fetch a registry's prefix sets each time and plan them like any list. `wireguard` and `graph` are dropped (owner, 2026-11-09).
+- **106.** Utilities also has `communities` (`--format nlnog`, `alice`, or `json`) and `addresses`, and `sync` comes as #170 proposes. No `refresh`: `diff` and `apply` fetch a registry's prefix sets each time and plan them like any list. `wireguard` and `graph` are dropped (owner, 2026-11-09).
 - **114.** `--experimental` lets through a feature built from public documentation but not tested on a real device yet. It stays until Circuit can test on emulated devices (containerlab, [#178](https://github.com/takodotid/circuit/issues/178)).
 
 ## Secrets
 
 - **92.** Secrets are Circuit's own, without dotenvx: a network's secrets file holds `NAME="value"` lines, names readable, each value AES-256-GCM with a key made from one password by scrypt and the name bound to it. It is committed. Only one password, no key pair.
 - **93.** The secrets file is `.circuit/secrets`, or the file `circuit({ secrets: { file } })` names, such as a lab network's with its own password. The password is never in `circuit.ts`.
-- **94.** The password comes from `CIRCUIT_SECRETS_PASSWORD` in the environment, from `CIRCUIT_SECRETS_PASSWORD="op://..."` in the secrets file, or is typed when Circuit asks. The first `circuit secrets` asks to choose one; left empty, Circuit makes one and shows it once.
+- **94.** The password comes from `CIRCUIT_SECRETS_PASSWORD` in the environment, from `CIRCUIT_SECRETS_PASSWORD="op://..."` in the secrets file, or is typed when Circuit asks. The first `circuit secrets` asks to choose one. If it is left empty, Circuit makes one and shows it once.
 - **95.** `circuit secrets` alone, in a terminal, opens every secret decrypted in a text editor that is part of Circuit, nano-like: Ctrl+S saves encrypted, Esc or Ctrl+X leaves (VS Code's terminal keeps Ctrl+Q for itself). A value that didn't change keeps its encryption. Values are never written to disk in plain text.
-- **105.** Circuit remembers secrets only after a yes: for 10 minutes, 30 minutes or 24 hours, never longer, in the memory of a small Circuit process, never in a file. It answers only a program with its token. The question warns that any program run by the person can get them, and locking 1Password doesn't lock them. `circuit secrets forget` drops them.
+- **105.** Circuit remembers secrets only after a yes: for 10 minutes, 30 minutes, or 24 hours, never longer, in the memory of a small Circuit process, never in a file. It answers only a program with its token. The question warns that any program run by the person can get them, and locking 1Password doesn't lock them. `circuit secrets forget` drops them.
 
 ## Studio
 
@@ -111,7 +111,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **89.** Decisions and design notes live in `design/`, not on the docs site.
 - **91.** Prettier formats Circuit's own repo (`prettier.config.mjs`). `circuit fmt` formats a project, styled by its `.editorconfig`.
 - **107.** Agent instructions live in `AGENTS.md`, the agents.md standard, which Claude Code reads on its own. There is no `CLAUDE.md`. A folder with rules of its own has its own `AGENTS.md`, such as `src/platforms/` and `docs/`.
-- **108.** Tools enforce the repo's rules, not only text: Oxlint with type-aware rules (deprecated APIs), Vale (writing), knip (unused code) and `test/repo.test.ts` (the repo's own rules). The pre-commit hook, CI and a Claude Code Stop hook run them.
+- **108.** Tools enforce the repo's rules, not only text: Oxlint with type-aware rules (deprecated APIs), Vale (writing), knip (unused code), and `test/repo.test.ts` (the repo's own rules). The pre-commit hook, CI, and a Claude Code Stop hook run them.
 - **109.** Commit messages use the imperative mood: `fix(cli): keep remembered secrets for 24 hours`.
-- **110.** The docs have five parts, as mature tools do: Get started, Write a project, Run it, Integrations and Reference. The Academy stays apart.
+- **110.** The docs have five parts, as mature tools do: Get started, Write a project, Run it, Integrations, and Reference. The Academy stays apart.
 - **113.** What Circuit supports is the feature matrix in the docs. A gap Circuit plans to fill is a GitHub issue, with what each vendor offers. There is no separate coverage file. Replaces 111.

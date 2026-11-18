@@ -1,6 +1,6 @@
 ---
 name: Circuit
-description: Cobalt fields, white planes and a highlighter yellow, set in one variable sans-serif, for the docs site and Circuit Studio.
+description: Cobalt fields, white planes, and a highlighter yellow, set in one variable sans-serif, for the docs site and Circuit Studio.
 colors:
     cobalt: "#0a47b8"
     cobalt-deep: "#08337f"

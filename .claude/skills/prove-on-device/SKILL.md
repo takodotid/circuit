@@ -1,6 +1,6 @@
 ---
 name: prove-on-device
-description: Test what a real network device does before Circuit relies on it - try syntax without applying, read and plan against the device, apply and check it converges. Use when an adapter change depends on device behaviour, or when the owner asks to test on a device.
+description: Test what a real network device does before Circuit relies on it - try syntax without applying, read and plan against the device, and apply and check that it converges. Use when an adapter change depends on device behavior, or when the owner asks to test on a device.
 ---
 
 # Test it on a device
@@ -15,7 +15,7 @@ Circuit never guesses what a device does. Test it, then write what you learned i
 
 ## Try syntax without applying
 
-- **RouterOS:** `:put [:parse "<command>"]` compiles without running. It misses text inside `rule=`, named actions and quoted values; check an enum with `/console inspect`.
+- **RouterOS:** `:put [:parse "<command>"]` compiles without running. It misses text inside `rule=`, named actions, and quoted values; check an enum with `/console inspect`.
 - **VRP:** lines into the candidate (`system-view`), `display configuration candidate`, then `clear configuration candidate`.
 - **Junos:** `configure exclusive`, `load set terminal`, `commit check`, `rollback 0`.
 - **FortiOS:** prove under `cfg-save revert`, undo with `execute cfg reload`. Every `next` outside a transaction applies and saves.
@@ -41,5 +41,5 @@ Add `--console` to go through the serial console.
 
 1. The plan shows exactly what you expect.
 2. The apply succeeds and the next `diff` is empty. Not empty: the reader and the renderer disagree; fix that first.
-3. Each surprise is one line in `TRAPS.md`: what happens, what Circuit does, device and version.
+3. Each surprise is one line in `TRAPS.md`: what happens, what Circuit does, and the device and version.
 4. The device is left as found, or the owner is told what changed.

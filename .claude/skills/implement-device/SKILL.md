@@ -1,6 +1,6 @@
 ---
 name: implement-device
-description: Add a device to Circuit - a new operating system (a platform adapter in src/platforms/) or a new hardware model of a platform Circuit has. Use when the owner asks to support, add or implement a device, OS, vendor, model or platform.
+description: Add a device to Circuit - a new operating system (a platform adapter in src/platforms/) or a new hardware model of a platform Circuit has. Use when the owner asks to support, add, or implement a device, OS, vendor, model, or platform.
 ---
 
 # Implement a device
@@ -13,8 +13,8 @@ Two cases; find out which first.
 ## Ask first, in one message
 
 1. Vendor, OS, exact version, hardware model.
-2. Ports: how many of each speed, how the OS spells them, from 0 or 1.
-3. How Circuit reaches it in the lab: SSH address and user, or serial console and baud rate.
+2. Ports: how many of each speed, how the OS spells them, and whether it counts from 0 or 1.
+3. How Circuit reaches it in the lab: its SSH address and user, or its serial console and baud rate.
 4. Is it free to break? A spare port? Can it be reset?
 5. Which features they need first. Everything else goes in `unsupported()`.
 
@@ -32,7 +32,7 @@ Read `src/platforms/platform.ts` (the contract) and the closest adapter in `src/
 2. `index.ts`: `class <Name> extends Platform` (`name`, `os`, `extension`, `console` if it has one), registered in `src/platforms/index.ts`. Other classes are `<Name><Job>`.
 3. `unsupported()` first: every model field it can't express. Never render a field to nothing.
 4. `render()`: the whole config, secrets as `Secrets.marker()`, in the form the device prints back.
-5. `read()`: log in, check the version, read, strip secrets and device-added lines.
+5. `read()`: log in, check the version, read, and strip secrets and device-added lines.
 6. `plan()`: `show` for the reviewer, `send` for the device, `problems` for what can't converge.
 7. `apply()`: a change that can't lock anyone out (commit confirmed, revert timer, or self-restoring backup), then a fresh login before it sticks.
 8. Tests: plans in `test/platforms/plans.test.ts`; a session test over `test/platforms/fake-ssh.ts`.

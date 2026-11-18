@@ -1,6 +1,6 @@
 # Contributing
 
-How to change Circuit's code, from a branch to a release. To report a bug, ask a question or fix the docs, see [Contributing](https://circuit.tako.id/contributing) on the website.
+How to change Circuit's code, from a branch to a release. To report a bug, ask a question, or fix the docs, see [Contributing](https://circuit.tako.id/contributing) on the website.
 
 - [AGENTS.md](AGENTS.md) has the rules for code and writing. They apply to people and AI agents alike.
 - Everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
@@ -39,7 +39,7 @@ cd <project> && bun <repo>/src/cli/index.ts <command>
 
 ## Branches and pull requests
 
-Circuit lives on `main`. Branch from it, and name the branch after what it does: `feat/...`, `fix/...`, `docs/...` or `chore/...`.
+Circuit lives on `main`. Branch from it, and name the branch after what it does: `feat/...`, `fix/...`, `docs/...`, or `chore/...`.
 
 ```bash
 bun run check
@@ -55,7 +55,7 @@ Only maintainers release. AI agents use the skill `release`.
 
 1. On `main`, change `version` in `package.json` and `src/cli/version.ts`. Commit it as `chore(release): vX.Y.Z` and push.
 2. Create a GitHub release from `main` with the tag `vX.Y.Z`. A release candidate is `vX.Y.Z-rc.N`, marked as a pre-release. A backport is released from a branch for its line.
-3. The workflow `.github/workflows/release.yml` runs the typecheck and the tests, and builds a binary for each system. It signs their `SHA256SUMS`, attaches the binaries, the signatures and the installers to the release, and publishes the package to npm.
+3. The workflow `.github/workflows/release.yml` runs the typecheck and the tests, and builds a binary for each system. It signs their `SHA256SUMS`, attaches the binaries, the signatures, and the installers to the release, and publishes the package to npm.
 
 What happens depends on the version:
 
