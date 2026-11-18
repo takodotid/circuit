@@ -104,7 +104,7 @@ Circuit fetches a prefix set with a `source` each time you run `diff` or `apply`
 
 ```ts
 prefix_sets: {
-    "customer-a-v4": { source: { registry: "ripe-stat", query: "AS64501", family: "ipv4" } },
+    "as64501-v4": { source: { registry: "ripe-stat", query: "AS64501", family: "ipv4" } },
 },
 ```
 

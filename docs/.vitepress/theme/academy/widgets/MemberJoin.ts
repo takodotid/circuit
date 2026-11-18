@@ -3,7 +3,7 @@
 
 export type Run = { validate: string; diff?: string };
 
-/** Keyed by asn|port. */
+/** Keyed by asn|port. 13335, the AS of Cloudflare, is the wrong choice. */
 export const RUNS: Record<string, Run> = {
     "54113|10g-2": {
         validate: "✔ 2 device(s), no errors.",

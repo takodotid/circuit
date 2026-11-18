@@ -71,5 +71,5 @@ PeeringDB (AS64500): 2 change(s)
 
 Left alone:
   LINX LON1 (203.0.113.99) is on PeeringDB but not in the project. Remove it there by hand if you left.
-  edge-02 exchange-b: 10.255.0.5 is not a global address, so it is not published.
+  edge-02 nl-ix: 10.255.0.5 is not a global address, so it is not published.
 ```
