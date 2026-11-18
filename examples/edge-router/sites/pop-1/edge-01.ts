@@ -22,7 +22,7 @@ export default as64500.device({
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.0.1/24"] },
             "25g-1": { description: "Hurricane Electric", access_vlan: "transit", ingress_acl: "edge" },
-            "25g-2": { description: "de-cix", access_vlan: "exchange", ingress_acl: "edge" },
+            "25g-2": { description: "DE-CIX", access_vlan: "exchange", ingress_acl: "edge" },
         },
         vlan_interface: {
             transit: { vlan: "transit", addresses: ["203.0.113.2/30"] },
