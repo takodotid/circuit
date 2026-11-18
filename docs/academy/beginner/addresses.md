@@ -20,7 +20,7 @@ An <Term means="The address a network gives a device, used to reach it from anyw
 </TryIt>
 
 ::: tip Your own addresses
-Your phone or laptop shows both addresses in its Wi-Fi settings. Many phones and some laptops give each Wi-Fi network a made-up hardware address instead of the card's own. This makes them harder to track from place to place. The made-up address works the same way.
+Your phone or laptop shows both addresses in its Wi-Fi settings. Many phones and some laptops give each Wi-Fi network a made-up hardware address instead of the card's own. This makes them harder to track from place to place. The made-up address works the same way, only inside the local network.
 :::
 
 <Quiz
