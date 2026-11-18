@@ -62,11 +62,11 @@ const said = computed(() =>
 
         <svg
             class="ac-drawing"
-            viewBox="0 0 700 340"
+            viewBox="0 0 700 360"
             role="img"
             :aria-label="`${count} networks at DE-CIX Frankfurt, with ${total} sessions drawn between them.`"
         >
-            <rect class="lan" x="20" y="10" width="660" height="320" />
+            <rect class="lan" x="20" y="10" width="660" height="340" />
             <text class="lan-name" x="34" y="32">DE-CIX Frankfurt, one shared network</text>
             <line
                 v-for="(session, index) in sessions"
