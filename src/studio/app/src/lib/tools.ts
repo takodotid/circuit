@@ -1,7 +1,7 @@
 // What Studio's tools work out from the project: where an address is and how each device would reach it, and the cables that carry a VLAN from one device to another. They say what the project means, not what a device did: a route learned from BGP or OSPF is not in the project.
 
 import type { Device } from "../../../../model";
-import type { StudioData } from "../../../types";
+import type { AddressBlock, AddressSegment, StudioData } from "../../../types";
 import { Net } from "./net";
 
 /** How one device would reach an address, in one routing table. */
@@ -18,8 +18,17 @@ export type RouteFound = {
 /** A rule that names the address. */
 export type RuleFound = { device: string; where: string; rule: number; description?: string; then: string; side: string };
 
+/** Where an address is in the space the project uses: its segment or block, the space around it, and what else in the segment uses it. */
+export type Place = {
+    segment?: AddressSegment;
+    block?: AddressBlock;
+    space?: { prefix: string; owner: string };
+    uses: { address: string; what: string }[];
+};
+
 export type Trace = {
     held: { device: string; holder: string; address: string }[];
+    place: Place;
     routes: RouteFound[];
     rules: RuleFound[];
 };
@@ -164,7 +173,36 @@ export class Tools {
             for (const [name, acl] of Object.entries(device.switching?.acls ?? {})) look(`ACL ${name}`, acl as never);
         }
 
-        return { held, routes, rules };
+        return { held, place: Tools.placeOf(data, address), routes, rules };
+    }
+
+    /** The segment, block and space an address is in, and the uses in its segment that are this address or a range holding it. */
+    private static placeOf(data: StudioData, address: string): Place {
+        const { spaces, elsewhere } = data.addressSpace;
+        const segment = [...spaces.flatMap((space) => space.segments), ...elsewhere.segments].find((candidate) =>
+            Net.covers(candidate.prefix, address)
+        );
+        const block = [...spaces.flatMap((space) => space.blocks), ...elsewhere.blocks].find((candidate) =>
+            Net.covers(candidate.prefix, address)
+        );
+        const space = spaces.find((candidate) => Net.covers(candidate.prefix, address));
+        const value = Net.parseAddress(address)?.value;
+
+        const uses = (segment?.uses ?? []).filter((use) => {
+            const [first, last] = use.address.split("-");
+            if (!last) return Net.sameAddress(first ?? "", address);
+
+            const from = Net.parseAddress(first ?? "")?.value;
+            const to = Net.parseAddress(last)?.value;
+            return value !== undefined && from !== undefined && to !== undefined && from <= value && value <= to;
+        });
+
+        return {
+            ...(segment ? { segment } : {}),
+            ...(block ? { block } : {}),
+            ...(space ? { space: { prefix: space.prefix, owner: space.owner } } : {}),
+            uses,
+        };
     }
 
     /** Whether a port, or the LAG it is in, carries a VLAN. */

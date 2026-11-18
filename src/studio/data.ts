@@ -3,6 +3,7 @@
 import { basename } from "node:path";
 import { Validation } from "../checks";
 import { Address } from "../core/address";
+import { AddressSpace, type OwnedPrefixes } from "../core/address-space";
 import { Secrets } from "../core/secrets";
 import { Topology } from "../core/topology";
 import type { Device } from "../model";
@@ -77,12 +78,26 @@ export class StudioModel {
             findings,
             graph: Topology.of(devices),
             addresses: StudioModel.addressesOf(devices),
+            addressSpace: AddressSpace.report(devices, StudioModel.ownedOf(read)),
             sessions: StudioModel.sessionsOf(devices),
             cables: StudioModel.cablesOf(devices),
             secrets: [...Secrets.referencesIn(read.networks.map((network) => [network.devices, network.settings.integrations]))]
                 .filter((name) => !name.startsWith("file:"))
                 .sort(),
         };
+    }
+
+    /** The space each network owns, from `circuit({ prefixes })`, named as `circuit addresses` names it. */
+    private static ownedOf(read: ProjectRead): OwnedPrefixes {
+        const owned: Record<string, Record<string, string>> = {};
+
+        for (const network of read.networks) {
+            const prefixes = (network.settings.prefixes ?? {}) as Record<string, Record<string, string>>;
+            const named = (group: string) => (read.networks.length > 1 ? `${network.name}.${group}` : group);
+            for (const [group, members] of Object.entries(prefixes)) owned[named(group)] = { ...members };
+        }
+
+        return owned;
     }
 
     private static addressesOf(devices: readonly Device[]): AddressRow[] {
