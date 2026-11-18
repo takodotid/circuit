@@ -16,19 +16,19 @@ const decisions: Decision[] = [
                 id: "sanity",
                 label: "What passes sanity, tagged",
                 verdict: "good",
-                text: "Routes that should never be on the internet are refused, and every other route is tagged as learned from the transit before it is accepted.",
+                text: "The routes that sanity refuses, and your own space, stay out. Every other route is tagged as learned from the transit, and accepted.",
             },
             {
                 id: "all",
                 label: "Everything it sends",
                 verdict: "warn",
-                text: "validate passes: the file is valid, and Circuit cannot know what you meant. But private ranges, routes longer than /24 and RPKI invalid routes would all reach your table.",
+                text: "validate passes, because the file is valid and Circuit can't know what you meant. But routes longer than /24, your own space, and RPKI invalid routes would all reach your table.",
             },
             {
                 id: "none",
                 label: "Leave import out",
                 verdict: "bad",
-                text: "Without an import, every route from the transit is refused, so the session would bring nothing in. The example's own check in lib/checks.ts catches it.",
+                text: "Without an import policy, the session refuses every route from the transit, so it brings nothing in. The example's own check, in lib/checks.ts, catches it.",
             },
         ],
     },
@@ -46,13 +46,13 @@ const decisions: Decision[] = [
                 id: "all",
                 label: "Everything we know",
                 verdict: "bad",
-                text: "A route leak: the transit's routes would go to the exchange, and the exchange's to the transit. Checks.exportsEndInReject stops it before it reaches the router.",
+                text: "A route leak: the transit's routes would go to the exchange, and the exchange's to the transit. The check exports_end_in_reject stops it before it reaches the router.",
             },
             {
                 id: "noreject",
                 label: "Our two blocks, and stop there",
                 verdict: "warn",
-                text: "Circuit rejects a route no rule accepts, so this announces the same today. The check still wants the end written down, and diff and apply stop until it is.",
+                text: "Circuit rejects a route that no rule accepts, so this announces the same. But the check wants the end written down, and diff and apply stop until it is.",
             },
         ],
     },
@@ -206,7 +206,7 @@ const validate = computed(() => {
         );
     }
 
-    const output = lines.length ? [...lines, "", `${lines.length} error(s).`] : ["1 device(s), no errors."];
+    const output = lines.length ? [...lines, "", `${lines.length} error(s).`] : ["✔ 1 device(s), no errors."];
     return ["$ circuit validate", ...output].join("\n");
 });
 
@@ -241,7 +241,7 @@ const allGood = computed(() => decisions.every((decision) => choiceOf(decision)?
         <CodeView :code="validate" lang="shell" title="Terminal" />
 
         <p v-if="decided < decisions.length" class="ac-say quiet" aria-live="polite">
-            Make all four decisions. The file above already shows the example's own choice wherever you have not picked yet.
+            Where you haven't picked yet, the file shows the example's choice.
             <button type="button" class="ac-button small" @click="bestOfAll">Show the example's choices</button>
         </p>
         <p v-else-if="allGood" class="ac-say good" data-word="Ready" aria-live="polite">
