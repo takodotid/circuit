@@ -59,7 +59,8 @@ function toggleVlan(id: number): void {
             <div v-if="selected.node" :key="key">
                 <h2>{{ selected.node.label }}</h2>
                 <p v-if="KINDS[selected.node.kind]" class="kind">{{ KINDS[selected.node.kind] }}</p>
-                <p v-if="selected.node.kind === 'device'">
+                <p v-if="selected.node.gone"><span class="badge error">gone</span>In {{ store.graphFocus.comparison?.name }}, not now.</p>
+                <p v-else-if="selected.node.kind === 'device'">
                     <RouterLink :to="{ name: 'device', params: { name: selected.node.label } }">Open {{ selected.node.label }}</RouterLink>
                 </p>
                 <ul v-if="selected.node.detail.length">

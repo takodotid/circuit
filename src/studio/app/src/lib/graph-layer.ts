@@ -3,8 +3,8 @@
 import type { GraphEdge, GraphNode, Layer } from "../../../../core/graph";
 import type { StudioData } from "../../../types";
 
-/** A node as drawn, with what `circuit validate` finds on its device. */
-export type ShownNode = GraphNode & { level?: "error" | "warning" };
+/** A node as drawn, with what `circuit validate` finds on its device. In a comparison, a node that is gone, drawn back as the end of a line that is gone. */
+export type ShownNode = GraphNode & { level?: "error" | "warning"; gone?: true };
 
 /** A line as drawn: one of the graph's, or, in a comparison, one that is new or one that is gone, drawn back. */
 export type ShownEdge = GraphEdge & {
@@ -19,8 +19,8 @@ export type ShownEdge = GraphEdge & {
 
 export type Shown = { nodes: ShownNode[]; edges: ShownEdge[] };
 
-/** Another commit's graph against this one, as Compare finds it. */
-export type Comparison = { name: string; added: GraphEdge[]; removed: GraphEdge[] };
+/** Another commit's graph against this one, as Compare finds it: the lines added and removed, and the nodes removed that a removed line ends at. */
+export type Comparison = { name: string; added: GraphEdge[]; removed: GraphEdge[]; removedNodes: GraphNode[] };
 
 export class GraphLayer {
     static readonly LAYERS: readonly Layer[] = ["l1", "l2", "l3", "bgp", "ospf", "tunnels"];
@@ -81,11 +81,13 @@ export class GraphLayer {
         return findings.length ? "warning" : undefined;
     }
 
-    /** What a layer shows. With a comparison, its new lines are marked, and the lines it lost are drawn back where both ends still are. */
+    /** What a layer shows. With a comparison, its new lines are marked, and the lines it lost are drawn back, with each end that is gone too. */
     static of(data: StudioData, layer: Layer, comparison?: Comparison): Shown {
         const added = new Set(comparison?.added.map(GraphLayer.keyOf));
         const nodeIds = new Set(data.graph.nodes.map((node) => node.id));
-        const gone = (comparison?.removed ?? []).filter((edge) => edge.layer === layer && nodeIds.has(edge.from) && nodeIds.has(edge.to));
+        const goneNodes = new Map((comparison?.removedNodes ?? []).filter((node) => !nodeIds.has(node.id)).map((node) => [node.id, node]));
+        const known = (id: string) => nodeIds.has(id) || goneNodes.has(id);
+        const gone = (comparison?.removed ?? []).filter((edge) => edge.layer === layer && known(edge.from) && known(edge.to));
 
         const lines = [
             ...data.graph.edges.filter((edge) => edge.layer === layer).map((edge) => ({ edge, gone: false })),
@@ -111,12 +113,13 @@ export class GraphLayer {
 
         const drawn = GraphLayer.bundled(edges);
         const ends = new Set(drawn.flatMap((edge) => [edge.from, edge.to]));
-        const nodes = data.graph.nodes
+        const nodes: ShownNode[] = data.graph.nodes
             .filter((node) => node.kind === "device" || ends.has(node.id))
             .map((node) => {
                 const level = GraphLayer.levelOf(data, node);
                 return { ...node, ...(level ? { level } : {}) };
             });
+        for (const node of goneNodes.values()) if (ends.has(node.id)) nodes.push({ ...node, gone: true });
 
         return { nodes, edges: drawn };
     }

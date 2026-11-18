@@ -103,10 +103,17 @@ const edgeRows = computed<Row[]>(() => {
 
 /** Show the lines added and gone on the graph, on the first layer that changes. */
 function showChanges(): void {
-    if (!edges.value) return;
+    const then = comparison.value?.network;
+    if (!then || !edges.value) return;
     const changed = [...edges.value.added, ...edges.value.gone];
     const first = GraphLayer.LAYERS.find((layer) => changed.some((edge) => edge.layer === layer)) ?? "l1";
-    showInGraph(router, first, { comparison: { name: asked.value, added: edges.value.added, removed: edges.value.gone } });
+
+    // A line gone can end at a device or AS that is gone too: the graph draws it back from the other commit.
+    const now = new Set(props.data.graph.nodes.map((node) => node.id));
+    const ends = new Set(edges.value.gone.flatMap((edge) => [edge.from, edge.to]));
+    const removedNodes = then.graph.nodes.filter((node) => ends.has(node.id) && !now.has(node.id));
+
+    showInGraph(router, first, { comparison: { name: asked.value, added: edges.value.added, removed: edges.value.gone, removedNodes } });
 }
 
 const findingKey = (finding: { level: string; device?: string; message: string }) =>

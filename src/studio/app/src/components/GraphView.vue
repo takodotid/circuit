@@ -102,6 +102,7 @@ function nodeData(node: ShownNode) {
         label: node.label,
         kind: node.kind,
         level: node.level ?? "",
+        gone: Boolean(node.gone),
         width: tag.width,
         height: tag.height,
         shift: tag.shift,
@@ -463,7 +464,7 @@ function saveSvg(): void {
                       device: {
                           chassis: node.hasClass("touring") ? colors.navy : colors.cobalt,
                           socket: node.hasClass("touring") || node.hasClass("picked") ? colors.yellow : "#ffffff",
-                          sub: props.data.graph.nodes.find((candidate) => candidate.id === node.id())?.detail[0] ?? "",
+                          sub: shown.value.nodes.find((candidate) => candidate.id === node.id())?.detail[0] ?? "",
                           subColor: node.hasClass("touring") ? "#2a3550" : colors.muted,
                           mono: colors.mono,
                       },
@@ -528,7 +529,7 @@ function light(node: NodeSingular | undefined): void {
             detail: [detail, GraphLayer.count(layer.value, node.connectedEdges().length)].filter(Boolean).join(", "),
         };
     } else {
-        const devices = graph.nodes('[kind = "device"]').length;
+        const devices = graph.nodes('[kind = "device"][!gone]').length;
         caption.value = {
             title: GraphLayer.NAMES[layer.value],
             detail: `${devices} ${devices === 1 ? "device" : "devices"}, ${GraphLayer.count(layer.value, graph.edges().length)}`,
@@ -617,7 +618,7 @@ function nextLayer(): Layer {
 function tourNext(): void {
     if (!graph || document.hidden || hovered || dragging || leaving) return;
 
-    const devices = graph.nodes('[kind = "device"]').toArray() as NodeSingular[];
+    const devices = graph.nodes('[kind = "device"][!gone]').toArray() as NodeSingular[];
     const busiest = devices
         .filter((node) => node.degree(false) > 0)
         .sort((a, b) => b.degree(false) - a.degree(false) || String(a.data("label")).localeCompare(String(b.data("label"))))
@@ -722,7 +723,7 @@ function pick(id: string): void {
 
 /** The devices on the layer, by name, for the keyboard: a drawing on a canvas has no element to reach. */
 const deviceList = computed(() =>
-    shown.value.nodes.filter((node) => node.kind === "device").sort((a, b) => a.label.localeCompare(b.label))
+    shown.value.nodes.filter((node) => node.kind === "device" && !node.gone).sort((a, b) => a.label.localeCompare(b.label))
 );
 
 onMounted(() => {
@@ -739,7 +740,7 @@ onMounted(() => {
     graph.on("tap", (event) => {
         if (event.target === graph) select(undefined);
     });
-    graph.on("dbltap", 'node[kind = "device"]', (event) => {
+    graph.on("dbltap", 'node[kind = "device"][!gone]', (event) => {
         void router.push({ name: "device", params: { name: String(event.target.data("label")) } });
     });
     graph.on("dragfree", "node", (event) => remember(event.target));
