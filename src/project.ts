@@ -8,7 +8,7 @@ import { BGP_NEIGHBORS, type Registered, registry } from "./config/define";
 import type { AnyDevice } from "./config/device";
 import type { Community, Finding, ResolvedNetwork } from "./config/network";
 import * as globals from "./config/index";
-import { ACTIONS, CHECKS, DEVICE, NETWORK, POLICY_RULE, closest, unknownKeyHelp, unknownKeys } from "./config/keys";
+import { ACTIONS, CHECKS, DEVICE, NETWORK, POLICY_RULE, closest, plainSecrets, unknownKeyHelp, unknownKeys } from "./config/keys";
 import { isOrdered, lineOf, source, userFrames, writtenAt } from "./config/merge";
 import { NUMBERED_VLANS, portsOf, spell } from "./config/models";
 import { policyRuleProblem } from "./config/routing";
@@ -310,14 +310,20 @@ async function read(folder: string): Promise<ProjectRead> {
     /** The steps of a path that are keys, not list positions: `firewall.nat.source[0].if` is firewall, nat, source, if. */
     const steps = (path: string) => path.match(/[^.[\]]+/g)?.filter((s) => !/^\d+$/.test(s)) ?? [];
 
+    /** What to say about a secret written as plain text, without the text itself. */
+    const plainSecret = (path: string, secretsFile: string) =>
+        `${path}: a secret can't be written as plain text. Write secret("NAME") instead, and set its value with ${SecretsFile.command(secretsFile, "set NAME")}.`;
+
     /**
-     * Every key a device writes, its parts' included, is one Circuit takes there (`DEVICE`, from the types), and each filter, NAT and ACL rule's `then` is one its kind takes. A route policy rule is checked whole by `names`, as its kind decides what it may hold.
+     * Every key a device writes, its parts' included, is one Circuit takes there (`DEVICE`, from the types), every secret is a `secret()` or `secretFile()`, and each filter, NAT and ACL rule's `then` is one its kind takes. A route policy rule is checked whole by `names`, as its kind decides what it may hold.
      */
-    function known(name: string, device: AnyDevice, registeredAt: string) {
+    function known(name: string, device: AnyDevice, registeredAt: string, secretsFile: string) {
         for (const u of unknownKeys(device, DEVICE)) {
             const path = u.path ? `${u.path}.${u.key}` : u.key;
             findings.push(`${foundAt(device, path, registeredAt)}${name}: ${path}: no such field. ${unknownKeyHelp(u)}`);
         }
+        for (const path of plainSecrets(device, DEVICE))
+            findings.push(`${foundAt(device, path, registeredAt)}${name}: ${plainSecret(path, secretsFile)}`);
         const d = device as Json;
         const lists: [keyof typeof ACTIONS, string, unknown][] = [
             ...Object.entries<Json>(d.firewall?.filter ?? {}).map(([chain, c]): [keyof typeof ACTIONS, string, unknown] => [
@@ -348,7 +354,7 @@ async function read(folder: string): Promise<ProjectRead> {
     }
 
     /**
-     * Every key `circuit()` is given is one it takes (`NETWORK`), and so is every setting of a built-in check. A check of the project's own has a name of its own. Returns whether `communities` has a key it doesn't take: the scheme is then not read further.
+     * Every key `circuit()` is given is one it takes (`NETWORK`), and so is every setting of a built-in check. A check of the project's own has a name of its own. Every secret, such as an integration's API key, is a `secret()` or `secretFile()`. Returns whether `communities` has a key it doesn't take: the scheme is then not read further.
      */
     function knownSettings(network: Json, at: string): boolean {
         const { device: _, checks, ...settings } = network;
@@ -362,6 +368,8 @@ async function read(folder: string): Promise<ProjectRead> {
             const path = u.path ? `${u.path}.${u.key}` : u.key;
             findings.push(`${lineOf(at, steps(path))}${path}: no such field. ${unknownKeyHelp(u)}`);
         }
+        for (const path of plainSecrets(settings, NETWORK))
+            findings.push(`${lineOf(at, steps(path))}${plainSecret(path, Project.secretsFile({ settings: network }))}`);
         return found.some((u) => u.path.startsWith("communities"));
     }
 
@@ -574,7 +582,7 @@ async function read(folder: string): Promise<ProjectRead> {
         sameVlanIds(network, devices);
         if (schemeKnown) for (const finding of schemeProblems(network)) findings.push(`${registered.at}: ${finding}`);
         for (const [name, device] of Object.entries(devices)) {
-            known(name, device, registered.devices.find((d) => d.device === device)!.at);
+            known(name, device, registered.devices.find((d) => d.device === device)!.at, Project.secretsFile({ settings: network }));
             names(name, device);
             links(name, device, devices);
             if (device.routing?.bgp && device.routing.bgp.asn === undefined && network.asn === undefined)

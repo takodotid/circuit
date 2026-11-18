@@ -415,6 +415,21 @@ export function unknownKeys(value: unknown, shape: Shape, path = ""): UnknownKey
     );
 }
 
+/** Every path in `value` where `shape` takes a secret but plain text is written, such as `system.users.operator.password`. */
+export function plainSecrets(value: unknown, shape: Shape, path = ""): string[] {
+    if (shape === SECRET) return value !== undefined && (typeof value !== "object" || value === null) ? [path] : [];
+    if (shape === 0 || !value || typeof value !== "object") return [];
+    if (Array.isArray(value)) {
+        const item: Shape = Array.isArray(shape) ? (shape as readonly [Shape])[0] : shape;
+        return value.flatMap((v, i) => plainSecrets(v, item, `${path}[${i}]`));
+    }
+    if (Array.isArray(shape)) return [];
+    const map = shape as { readonly [key: string]: Shape };
+    const at = (key: string) => (path ? `${path}.${key}` : key);
+    if (Object.hasOwn(map, "*")) return Object.entries(value).flatMap(([k, v]) => plainSecrets(v, map["*"]!, at(k)));
+    return Object.entries(value).flatMap(([k, v]) => (Object.hasOwn(map, k) ? plainSecrets(v, map[k]!, at(k)) : []));
+}
+
 /** The closest of `names`, for "Did you mean": at most two letters off, or a quarter of a long name. */
 export function closest(name: string, names: Iterable<string>): string | undefined {
     const distance = (a: string, b: string) => {
