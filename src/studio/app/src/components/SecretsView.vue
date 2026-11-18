@@ -68,7 +68,7 @@ const KIND: Record<string, string> = {
                 >Password
                 <input v-model="typed[file.file]" type="password" autocomplete="off" spellcheck="false" />
             </label>
-            <button class="primary" type="submit" :disabled="busy[file.file]">
+            <button class="primary" type="submit" :disabled="busy[file.file] || !typed[file.file]">
                 {{ busy[file.file] ? "Opening…" : "Show values" }}
             </button>
             <button v-if="shown[file.file]" type="button" @click="delete shown[file.file]">Hide</button>
