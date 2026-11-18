@@ -1,11 +1,11 @@
-// Rules across devices: each mistake that spans two devices is found on the device that makes it, and a network where both ends agree passes.
+// Each mistake that spans two devices is found on the device that makes it.
 
 import { expect, test } from "bun:test";
-import { Validation } from "../../src/checks";
+import { Checks } from "../../src/checks";
 import type { Device, IP, Lag, Port } from "../../src/model";
 
 const findings = (...devices: Device[]) =>
-    Validation.run(devices, undefined).map((finding) => `${finding.level} ${finding.device}: ${finding.message}`);
+    Checks.run(devices, undefined).map((finding) => `${finding.level} ${finding.device}: ${finding.message}`);
 
 const users = { admin: { role: "admin" as const, password: { secret: "PASSWORD" } } };
 
@@ -49,7 +49,6 @@ function withInterfaces<K extends keyof NonNullable<Device["interfaces"]>>(
     return { ...device, interfaces: { ...device.interfaces, [kind]: { ...device.interfaces?.[kind], ...changes } } };
 }
 
-/** A port of the device. */
 const port = (device: Device, name: string): Port => device.interfaces!.ethernet![name]!;
 
 test("two devices that agree pass", () => {

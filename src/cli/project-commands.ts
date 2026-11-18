@@ -2,7 +2,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
-import { Validation } from "../checks";
+import { Checks } from "../checks";
 import { Address } from "../core/address";
 import { AddressSpace } from "../core/address-space";
 import { Cabling } from "../core/cabling";
@@ -207,7 +207,7 @@ export class ProjectCommands {
     /** What the model's checks find, network by network: what each platform can't express, what it does otherwise, and the built-in checks the network turns on. */
     private modelFindings(): Finding[] {
         return this.project.networks.flatMap((network) =>
-            Validation.run(Object.values(network.devices), network.settings.checks, { experimental: this.experimental })
+            Checks.run(Object.values(network.devices), network.settings.checks, { experimental: this.experimental })
         );
     }
 

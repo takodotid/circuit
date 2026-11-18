@@ -7,7 +7,7 @@ import { Vrp } from "../../src/platforms/vrp/index";
 import { RouterOs } from "../../src/platforms/routeros/index";
 import { ConsoleScript, SerialConsole, ConsoleShell } from "../../src/transport/console";
 import { Platforms } from "../../src/platforms";
-import { Validation } from "../../src/checks";
+import { Checks } from "../../src/checks";
 import type { Device } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
@@ -99,7 +99,7 @@ test("an echo that does not match leaves the text as it is", () => {
 test("a device needs a management address or a console", () => {
     const firewall = Fixtures.device("platforms--example-firewall");
     const reach = (connection: Partial<Device["connection"]>) =>
-        Validation.run([{ ...firewall, connection: { user: firewall.connection.user, ...connection } }], undefined);
+        Checks.run([{ ...firewall, connection: { user: firewall.connection.user, ...connection } }], undefined);
     const message = "connection has neither a host nor a console to reach the device through";
 
     expect(reach({}).map((finding) => finding.message)).toContain(message);

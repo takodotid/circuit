@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseEnv } from "node:util";
-import { Validation } from "../checks";
+import { Checks } from "../checks";
 import { OnePassword } from "../core/one-password";
 import { SecretsFile } from "../core/secrets-file";
 import { SecretsPassword } from "./secrets-password";
@@ -494,7 +494,7 @@ export class Migrate {
             return [
                 ...read.warnings.map((warning) => `warning: ${warning.message}`),
                 ...read.networks.flatMap((network) =>
-                    Validation.run(Object.values(network.devices), network.settings.checks).map(
+                    Checks.run(Object.values(network.devices), network.settings.checks).map(
                         (finding) => `${finding.level}: ${finding.device ? `${finding.device}: ` : ""}${finding.message}`
                     )
                 ),

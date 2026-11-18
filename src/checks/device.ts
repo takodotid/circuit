@@ -1,4 +1,4 @@
-// Rules one device has to satisfy, whatever its design. What reading the project already stops on (unknown keys, every name a device refers to, ports the model doesn't have, links that don't link back) is not checked again here.
+// What reading the project already stops on is not checked again here: unknown keys, names a device refers to, ports the model doesn't have, and links that don't link back.
 
 import { X509Certificate } from "node:crypto";
 import { utils } from "ssh2";
@@ -17,6 +17,18 @@ type Checker = (where: string, value: string) => void;
 export type Holder = { where: string; name: string; kind: "ethernet" | InterfaceKind; settings: Routed };
 
 export class DeviceChecks {
+    /** IEEE 802.1Q reserves 0 and 4095. */
+    private static readonly MAX_VLAN_ID = 4094;
+    /** A VRRP virtual router ID is 1 to 255 (RFC 5798). */
+    private static readonly MAX_VRRP_ID = 255;
+    private static readonly MAX_EOIP_TUNNEL_ID = 65535;
+    /** The MSS every IPv4 host takes (RFC 879). */
+    private static readonly MIN_MSS = 536;
+    /** The largest IP packet, less 40 bytes of headers. */
+    private static readonly MAX_MSS = 65495;
+    /** Six pairs of hex digits with colons between them. */
+    private static readonly MAC = /^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/i;
+
     /** Every rule on one device, and what its model's hardware holds. */
     static run(device: Device): Finding[] {
         const findings: Finding[] = [];
@@ -168,8 +180,8 @@ export class DeviceChecks {
         for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {})) {
             if (!vlan) continue;
 
-            if (!Number.isInteger(vlan.id) || vlan.id < 1 || vlan.id > 4094)
-                report(`switching.vlans.${name} id ${vlan.id} is outside 1-4094`);
+            if (!Number.isInteger(vlan.id) || vlan.id < 1 || vlan.id > DeviceChecks.MAX_VLAN_ID)
+                report(`switching.vlans.${name} id ${vlan.id} is outside 1-${DeviceChecks.MAX_VLAN_ID}`);
             if (ids.has(vlan.id)) report(`switching.vlans ${ids.get(vlan.id)} and ${name} share id ${vlan.id}`);
             ids.set(vlan.id, name);
         }
@@ -193,7 +205,8 @@ export class DeviceChecks {
 
             for (const group of settings.vrrp ?? []) {
                 ip(`${where} VRRP ${group.id}`, group.address);
-                if (group.id < 1 || group.id > 255) report(`${where} VRRP id ${group.id} is outside 1-255`);
+                if (group.id < 1 || group.id > DeviceChecks.MAX_VRRP_ID)
+                    report(`${where} VRRP id ${group.id} is outside 1-${DeviceChecks.MAX_VRRP_ID}`);
             }
         }
     }
@@ -227,9 +240,6 @@ export class DeviceChecks {
 
         if (settings.bound_to) DeviceChecks.bound(where, settings, report);
     }
-
-    /** Six pairs of hex digits with colons between them. */
-    private static readonly MAC = /^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/i;
 
     /** A bound port is an access port, with each host's MAC address and each address it sends from written once. */
     private static bound(where: string, settings: Switched, report: Report): void {
@@ -282,8 +292,8 @@ export class DeviceChecks {
 
             if (kind === "eoip") {
                 const id = (settings as Extract<Interface, { tunnel_id: number }>).tunnel_id;
-                if (!(Number.isInteger(id) && id >= 0 && id <= 65535))
-                    report(`${where}.tunnel_id ${id} is not a whole number from 0 to 65535`);
+                if (!(Number.isInteger(id) && id >= 0 && id <= DeviceChecks.MAX_EOIP_TUNNEL_ID))
+                    report(`${where}.tunnel_id ${id} is not a whole number from 0 to ${DeviceChecks.MAX_EOIP_TUNNEL_ID}`);
 
                 const same = Object.entries(device.interfaces?.eoip ?? {}).find(
                     ([other, tunnel]) => other !== name && tunnel?.tunnel_id === id
@@ -338,9 +348,8 @@ export class DeviceChecks {
 
             if (kind === "wireguard") {
                 for (const peer of (settings as Extract<Interface, { listen_port: number }>).peers ?? []) {
-                    for (const address of peer.allowed_addresses) {
-                        if (!Address.isCidr(address)) report(`${where} peer ${peer.name}: '${address}' is not an address with a length`);
-                    }
+                    const wrong = peer.allowed_addresses.filter((address) => !Address.isCidr(address));
+                    for (const address of wrong) report(`${where} peer ${peer.name}: '${address}' is not an address with a length`);
                 }
             }
         }
@@ -490,9 +499,11 @@ export class DeviceChecks {
         ];
 
         (firewall?.tcp_mss ?? []).forEach((rule, index) => {
-            // 536 is the MSS every IPv4 host takes (RFC 879); 65495 is the largest IP packet less 40 bytes of headers.
-            if (rule.mss !== "path_mtu" && !(Number.isInteger(rule.mss) && rule.mss >= 536 && rule.mss <= 65495))
-                report(`firewall.tcp_mss[${index}].mss ${rule.mss} is not "path_mtu" or a whole number from 536 to 65495`);
+            const mss = rule.mss;
+            if (mss !== "path_mtu" && !(Number.isInteger(mss) && mss >= DeviceChecks.MIN_MSS && mss <= DeviceChecks.MAX_MSS))
+                report(
+                    `firewall.tcp_mss[${index}].mss ${mss} is not "path_mtu" or a whole number from ${DeviceChecks.MIN_MSS} to ${DeviceChecks.MAX_MSS}`
+                );
         });
 
         for (const { where, rules } of chains) {

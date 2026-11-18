@@ -1,7 +1,7 @@
 // A plan sends only what changed, in the form each device accepts: what it prints differently is no change, and what it keeps for itself is never touched.
 
 import { expect, test } from "bun:test";
-import { Validation } from "../../src/checks";
+import { Checks } from "../../src/checks";
 import { Platforms } from "../../src/platforms";
 import { LineDiff } from "../../src/platforms/line-diff";
 import { FortiOsFirewall } from "../../src/platforms/fortios/firewall";
@@ -1167,7 +1167,7 @@ test("a next hop with its interface is one gateway on RouterOS", () => {
     ]);
 
     const device: Device = { ...router, routing: { ...router.routing, static_routes: routes } };
-    const findings = Validation.run([device], undefined, {}).filter((finding) => finding.message.includes("next_hop with interface"));
+    const findings = Checks.run([device], undefined, {}).filter((finding) => finding.message.includes("next_hop with interface"));
     expect(findings).toEqual([]);
 });
 

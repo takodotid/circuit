@@ -1,7 +1,5 @@
-// What a model's hardware holds, from the catalog: a LAG with too many members is an error, more switch rules than the chip held a warning. A model without limits takes anything.
-
 import { expect, test } from "bun:test";
-import { Validation } from "../../src/checks";
+import { Checks } from "../../src/checks";
 import type { AclRule, Device } from "../../src/model";
 import { Catalog } from "../../src/core/catalog";
 import { Platforms } from "../../src/platforms";
@@ -11,7 +9,7 @@ const router = Fixtures.device("platforms--example-router");
 const switchDevice = Fixtures.device("platforms--example-switch");
 
 const findings = (device: Device) =>
-    Validation.run([device], undefined).map((finding) => `${finding.level} ${finding.device}: ${finding.message}`);
+    Checks.run([device], undefined).map((finding) => `${finding.level} ${finding.device}: ${finding.message}`);
 
 /** A LAG `uplink` with `count` member ports, from the model's own ports. */
 const withLag = (device: Device, count: number): Device => {

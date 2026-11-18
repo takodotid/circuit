@@ -1,7 +1,7 @@
 // Routing tables beside the main one and the rules that pick them, proved on a CCR2216 on 7.23.5: a BGP session with `routing-table` installed what it learned in that table and not in main, and announced only what that table held; a new `routing-table` on a running session took effect only when it restarted; a rule sent traffic from a block to its table, and `lookup-only-in-table` dropped what the table had no route for where `lookup` fell back to main. Each test feeds the router's own lines to the adapter, with names and addresses replaced.
 
 import { expect, test } from "bun:test";
-import { Validation } from "../../src/checks";
+import { Checks } from "../../src/checks";
 import type { Device } from "../../src/model";
 import { Platforms } from "../../src/platforms";
 import { Fixtures } from "../fixtures";
@@ -56,7 +56,7 @@ function withBlockB(): Device {
 }
 
 const errors = (device: Device) =>
-    Validation.run([device], undefined)
+    Checks.run([device], undefined)
         .filter((finding) => finding.level === "error")
         .map((finding) => finding.message);
 

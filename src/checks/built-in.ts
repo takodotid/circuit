@@ -1,4 +1,4 @@
-// Circuit's built-in checks, which a network turns on by name in `checks` (`Checks` in src/config/network.ts). `same_vlan_ids` is run when the project is read, so it is not here.
+// A network turns each on by name in `checks`. `same_vlan_ids` runs when the project is read, so it is not here.
 
 import { Address } from "../core/address";
 import type { Checks } from "../config/network";
@@ -137,14 +137,15 @@ export class BuiltInChecks {
                 for (const neighbor of BuiltInChecks.neighborPolicies(device)) {
                     if (!subnets.some((subnet) => Address.contains(subnet, neighbor.address))) continue;
 
-                    for (const prefix of BuiltInChecks.offered(device, neighbor.exportPolicy)) {
-                        if (Address.contains(prefix, local)) {
-                            findings.push({
-                                level: "error",
-                                device: device.name,
-                                message: `interfaces.${kind}.${name} is sourced from ${local}, inside ${prefix}, which routing.bgp.neighbors.${neighbor.name} is offered`,
-                            });
-                        }
+                    const covering = BuiltInChecks.offered(device, neighbor.exportPolicy).filter((prefix) =>
+                        Address.contains(prefix, local)
+                    );
+                    for (const prefix of covering) {
+                        findings.push({
+                            level: "error",
+                            device: device.name,
+                            message: `interfaces.${kind}.${name} is sourced from ${local}, inside ${prefix}, which routing.bgp.neighbors.${neighbor.name} is offered`,
+                        });
                     }
                 }
             }
@@ -153,9 +154,7 @@ export class BuiltInChecks {
         return findings;
     }
 
-    /**
-     * `native_vlans_are_dead_ends`: a native VLAN is native on one trunk (a port or a LAG) of a device at most, and never an access VLAN or a tagged VLAN anywhere on that device.
-     */
+    /** `native_vlans_are_dead_ends`: a native VLAN is native on at most one trunk of a device, a port or a LAG. It is never an access or tagged VLAN on that device. */
     static nativeVlansAreDeadEnds(devices: readonly Device[]): Finding[] {
         const findings: Finding[] = [];
 
