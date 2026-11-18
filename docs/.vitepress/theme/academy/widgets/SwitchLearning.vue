@@ -79,6 +79,13 @@ const busy = ref(false);
 type Mark = "sent" | "kept" | "ignored";
 const markWords: Record<Mark, string> = { sent: "sent it", kept: "kept it", ignored: "ignored" };
 const marks = ref<Record<string, Mark>>({});
+/** The devices with a mark, each with its mark. */
+const marked = computed(() =>
+    Lan.HOSTS.flatMap((host) => {
+        const mark = marks.value[host.id];
+        return mark ? [{ host, mark }] : [];
+    })
+);
 const litPorts = ref<number[]>([]);
 const frame = ref<{ to: string; from: string }>();
 
@@ -229,17 +236,16 @@ function clearTable() {
                 :note="host.mac"
             />
 
-            <template v-for="host in Lan.HOSTS" :key="`mark-${host.id}`">
-                <g
-                    v-if="marks[host.id]"
-                    class="mark"
-                    :class="marks[host.id]"
-                    :transform="`translate(${spot(host).x} ${spot(host).y - 42})`"
-                >
-                    <rect x="-36" y="-11" width="72" height="21" />
-                    <text y="4" text-anchor="middle">{{ markWords[marks[host.id]] }}</text>
-                </g>
-            </template>
+            <g
+                v-for="{ host, mark } in marked"
+                :key="`mark-${host.id}`"
+                class="mark"
+                :class="mark"
+                :transform="`translate(${spot(host).x} ${spot(host).y - 42})`"
+            >
+                <rect x="-36" y="-11" width="72" height="21" />
+                <text y="4" text-anchor="middle">{{ markWords[mark] }}</text>
+            </g>
 
             <circle
                 v-for="(packet, index) in packets"

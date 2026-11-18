@@ -31,6 +31,8 @@ jobs:
                   # A release reads no cache, because another workflow could have written it.
                   no-cache: true
             - run: bun install --frozen-lockfile
+            # The docs are a package of their own, which the typecheck checks too.
+            - run: bun install --cwd docs --frozen-lockfile
             - run: bun run typecheck
             - run: bun run test
 

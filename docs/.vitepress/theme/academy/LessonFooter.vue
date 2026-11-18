@@ -12,12 +12,12 @@ const finished = computed(() => Progress.isDone(props.lesson.link));
 const next = computed(() => Academy.LESSONS[Academy.LESSONS.findIndex((entry) => entry.link === props.lesson.link) + 1]);
 
 // The next lesson may start a level that is still closed: then the way on is its entry check.
-const nextLink = computed(() =>
-    next.value && !Progress.isOpen(next.value.level.slug) ? `/academy/checks/${next.value.level.slug}` : next.value?.link
-);
-const nextText = computed(() =>
-    next.value && !Progress.isOpen(next.value.level.slug) ? `Next: the ${next.value.level.name} entry check` : `Next: ${next.value?.title}`
-);
+const wayOn = computed(() => {
+    if (!next.value) return undefined;
+    const { level, link, title } = next.value;
+    if (Progress.isOpen(level.slug)) return { link, text: `Next: ${title}` };
+    return { link: `/academy/checks/${level.slug}`, text: `Next: the ${level.name} entry check` };
+});
 </script>
 
 <template>
@@ -31,7 +31,7 @@ const nextText = computed(() =>
                 Mark as done
             </button>
             <template v-else>
-                <a v-if="next" class="ac-button primary" :href="withBase(nextLink)">{{ nextText }}</a>
+                <a v-if="wayOn" class="ac-button primary" :href="withBase(wayOn.link)">{{ wayOn.text }}</a>
                 <a v-else class="ac-button primary" :href="withBase('/academy/certification')">See the certification</a>
                 <button type="button" class="ac-button" @click="Progress.setDone(lesson.link, false)">Mark not done</button>
             </template>

@@ -5,10 +5,10 @@ import { computed, ref } from "vue";
 import { useNarrow } from "./SwitchLearning";
 
 type Kind = "laptop" | "router" | "switch" | "server" | "cloud";
-type Hop = { kind: Kind; label: string; network: string; title: string; text: string };
+type Hop = { kind: Kind; label: string; network: Network; title: string; text: string };
 
 /** Each network's name, and its AS number where the drawing shows it, on two lines. */
-const NETWORKS: Record<string, [string, string]> = {
+const NETWORKS = {
     home: ["Your home", ""],
     provider: ["Your provider", "AS64500"],
     exchange: ["Exchange", ""],
@@ -17,7 +17,8 @@ const NETWORKS: Record<string, [string, string]> = {
     transit: ["Hurricane Electric", "AS6939"],
     abroad: ["Abroad", ""],
     far: ["Host", ""],
-};
+} satisfies Record<string, [string, string]>;
+type Network = keyof typeof NETWORKS;
 
 const HOME: Hop = {
     kind: "laptop",
@@ -156,7 +157,7 @@ const viewBox = computed(() => (narrow.value ? `0 0 320 ${FIRST_ROW + (destinati
 
 /** Each network's stretch of the drawing, behind the hops it runs: a column wide, or a row narrow. */
 const bands = computed(() => {
-    const groups: { network: string; first: number; last: number }[] = [];
+    const groups: { network: Network; first: number; last: number }[] = [];
     for (const hop of placed.value) {
         const at = narrow.value ? hop.y : hop.x;
         const previous = groups[groups.length - 1];
@@ -174,6 +175,14 @@ const bands = computed(() => {
         return { ...group, x, y: 18, width: group.last - group.first + SPACING - 8, height: 150, textX: x + 6, textY: 36 };
     });
 });
+
+/** The cable into each hop, from the hop before it. */
+const cables = computed(() =>
+    placed.value.flatMap((hop, index, hops) => {
+        const from = hops[index - 1];
+        return from ? [{ index: hop.index, x1: from.x, y1: from.y, x2: hop.x, y2: hop.y }] : [];
+    })
+);
 
 const steps = computed(() => destination.value.hops.map((hop) => ({ title: hop.title, text: hop.text })));
 </script>
@@ -210,14 +219,14 @@ const steps = computed(() => destination.value.hops.map((hop) => ({ title: hop.t
                         <text class="as" :x="band.textX" :y="band.textY + 15">{{ NETWORKS[band.network][1] }}</text>
                     </g>
                     <line
-                        v-for="hop in placed.slice(1)"
-                        :key="`c${hop.index}`"
+                        v-for="cable in cables"
+                        :key="`c${cable.index}`"
                         class="cable"
-                        :class="{ lit: hop.index <= step }"
-                        :x1="placed[hop.index - 1].x"
-                        :y1="placed[hop.index - 1].y"
-                        :x2="hop.x"
-                        :y2="hop.y"
+                        :class="{ lit: cable.index <= step }"
+                        :x1="cable.x1"
+                        :y1="cable.y1"
+                        :x2="cable.x2"
+                        :y2="cable.y2"
                     />
                     <SvgDevice
                         v-for="hop in placed"
