@@ -203,7 +203,7 @@ const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
             <div class="ac-field">
                 <span>4. Registry filters</span>
                 <button type="button" class="ac-button small" :aria-pressed="registry" @click="((registry = !registry), changed())">
-                    Providers accept only what each customer registered
+                    Providers filter customers
                 </button>
             </div>
         </div>
@@ -290,7 +290,7 @@ const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
             <ul v-if="refusals.length">
                 <li v-for="line in refusals" :key="line">{{ line }}</li>
             </ul>
-            <p v-else class="quiet">Nothing yet. Without a defense, a network drops only a loop, or your own space coming back.</p>
+            <p v-else class="quiet">None.</p>
         </div>
     </div>
 </template>

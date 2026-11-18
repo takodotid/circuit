@@ -77,7 +77,7 @@ const said = computed(() => {
         return {
             kind: "bad",
             word: "Dropped",
-            text: `No route holds ${shown}, so the router has nowhere to send it and drops it. A default route would have caught it.`,
+            text: `No route holds ${shown}, so the router drops it. A default route would have caught it.`,
         };
 
     const count = matches.length === 1 ? "only 1 route" : `${matches.length} routes`;
@@ -304,7 +304,7 @@ const code = computed(() => {
                         <option v-for="target in targets" :key="target.value" :value="target.value">{{ target.label }}</option>
                     </select>
                 </label>
-                <button type="submit" class="ac-button primary">Add the route</button>
+                <button type="submit" class="ac-button primary">Add</button>
             </div>
             <p v-if="formError" class="ac-say bad" data-word="Not added" aria-live="polite">{{ formError }}</p>
         </form>

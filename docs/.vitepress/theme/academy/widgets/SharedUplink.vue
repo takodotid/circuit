@@ -34,13 +34,13 @@ const said = computed(() => {
         return {
             kind: "good",
             word: "Full speed",
-            text: `${busy.value} ${busy.value === 1 ? "home is" : "homes are"} busy, needing ${busy.value * PLAN} Mbit/s, and ${SHARED} Mbit/s is there to share. Every busy home gets its full ${PLAN} Mbit/s. Add more busy homes.`,
+            text: `${busy.value} ${busy.value === 1 ? "home needs" : "homes need"} ${busy.value * PLAN} Mbit/s, and ${SHARED} Mbit/s is there to share. Add more busy homes.`,
         };
 
     return {
         kind: "warn",
         word: "Shared",
-        text: `${busy.value} homes are busy at once. ${SHARED} Mbit/s split ${busy.value} ways is ${shown(share.value)} Mbit/s each. No promise is broken: broadband is sold as up to ${PLAN} Mbit/s. The business on DIA still gets its ${COMMITTED} Mbit/s, because that rate is committed.`,
+        text: `${SHARED} Mbit/s split ${busy.value} ways is ${shown(share.value)} Mbit/s each. No promise is broken: broadband is sold as up to ${PLAN} Mbit/s. The business on DIA still gets its ${COMMITTED} Mbit/s, because that rate is committed.`,
     };
 });
 </script>

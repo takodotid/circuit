@@ -5,15 +5,9 @@ description: Take a change from request to device through review, handle an inci
 
 # Running it day to day
 
-Running a network day to day is three jobs:
+Running a network day to day is three jobs: changing it without breaking it, fixing it fast when it breaks anyway, and knowing what you have.
 
-- Changing it without breaking it.
-- Fixing it fast when it breaks anyway.
-- Knowing at all times what you have.
-
-Most days are about the first job. Customers ask for ports, new networks join, and prefixes change. Each of those is a change to a device that carries other people's traffic.
-
-With Circuit, a change is a change to a file. So it can go through the same steps as a change to software. It gets a branch, a plan anyone can read, and a second person who reviews it. Git keeps a record of who did what, and why.
+With Circuit, a change is a change to a file. So it goes through the same steps as a change to software: a branch, a plan anyone can read, and a second person who reviews it. Git records who did what, and why.
 
 ## A change, from request to device
 
@@ -37,7 +31,7 @@ Netflix, a tenant of the [colocation example](/guide/examples#colocation-with-te
 
 </TryIt>
 
-The diff and the plan from `apply` are the same comparison, made at different times. The diff in the pull request was read from the device days before the window, and `apply` reads it again. In the window, the plan from `apply` may be longer than the one in the pull request. Then the device changed since, most likely by hand. Answer no, and find out why. The file is the whole truth, so whatever someone added by hand is about to be removed.
+The diff in the pull request was read from the device days before the window, and `apply` reads it again. If the plan from `apply` is longer, the device changed since, most likely by hand. Answer no, and find out why, because `apply` would remove whatever someone added by hand.
 
 Merge and then apply, or apply and then merge. Do both in the same window.
 
@@ -56,9 +50,9 @@ A reviewer isn't there to check the spelling of a VLAN name. `circuit validate` 
 
 </TryIt>
 
-The second pull request would have taken a paying customer's server off the network, because `10g-1` is the port of Netflix's server 1. Circuit stops when two tenant files write one port differently, so `validate` fails before anyone reads a plan. Not every mistake has a check written for it, though. When none does, the plan shows the mistake in plain words, on its `-` lines. A valid file isn't always the change you meant, and that is what review is for.
+Not every mistake has a check written for it. When none does, the plan shows the mistake on its `-` lines. A valid file isn't always the change you meant, and that is what review is for.
 
-Studio helps the reviewer see the change as a network, not as text. Its [Compare](/studio/#review-a-change) shows each device's config then and now, the lines of the graph that are added or gone, and what `validate` finds now that it didn't before. Compare the pull request's branch with `main` before you approve it.
+Studio's [Compare](/studio/#review-a-change) shows the change as a network. It shows each device's config then and now, the lines of the graph that are added or gone, and what `validate` finds now that it didn't before. Compare the pull request's branch with `main` before you approve it.
 
 <Quiz
   question="CI passed and the plan for tor-01 shows an interface losing two VLANs that belong to a tenant who did not ask for anything. What do you do?"
@@ -70,11 +64,11 @@ Studio helps the reviewer see the change as a network, not as text. Its [Compare
 
 ## The window and the way back
 
-A change that can affect customers goes out in a <Term means="A time agreed in advance, usually at night or early morning when traffic is low, when planned work may interrupt service.">maintenance window</Term>. This is a time when traffic is low, announced in advance to whoever can notice. How far in advance is a matter of contract. One exchange, for example, announces its windows at least seven days ahead. It plans them for the quiet hours of the night or the early morning. An emergency, such as a fix for an outage in progress, skips the wait, but is still written down and announced as one.
+A change that can affect customers goes out in a <Term means="A time agreed in advance, usually at night or early morning when traffic is low, when planned work may interrupt service.">maintenance window</Term>, announced to whoever can notice. How far in advance is a matter of contract: one exchange, for example, announces its windows at least seven days ahead. An emergency, such as a fix for an outage in progress, skips the wait, but is still written down and announced as one.
 
 In the window, apply one device at a time, starting where a mistake hurts least, and check each before the next. Circuit tests the plan first where the platform allows it, and makes sure it doesn't lock you out. [Make a change](/guide/apply#not-locking-you-out) says how, platform by platform.
 
-That protects your access, not your customers. The way back for anything else is the way forward: revert the commit, and apply again.
+That protects your access, not your customers. For anything else, the way back is to revert the commit and apply again.
 
 <Quiz
   question="In the window, circuit apply tor-01 shows a plan of 40 lines. The plan in the pull request had 7. What do you do?"
@@ -86,7 +80,7 @@ That protects your access, not your customers. The way back for anything else is
 
 ## When it breaks
 
-Sooner or later something breaks anyway. A fiber is cut, a device fails, or a change does something nobody expected. Large networks keep a <Term means="Network operations center: the people, often working in shifts, who watch the network and answer when it breaks.">NOC</Term>, a team that watches the network around the clock. Smaller ones have an engineer <Term means="Being the person who must answer alerts and calls outside working hours. People take turns by the week or by the shift.">on call</Term>. Either way, an outage goes better with a few rules agreed before it starts. The Google book on running large systems gives these:
+Something breaks anyway: a fiber is cut, a device fails, or a change does something nobody expected. Large networks keep a <Term means="Network operations center: the people, often working in shifts, who watch the network and answer when it breaks.">NOC</Term>, a team that watches the network around the clock. Smaller ones have an engineer <Term means="Being the person who must answer alerts and calls outside working hours. People take turns by the week or by the shift.">on call</Term>. Either way, an outage goes better with rules agreed before it starts. The Google book on running large systems gives these:
 
 1. **Declare an incident early.** It is one if a second team must help, if customers can see it, or if an hour of focused work hasn't solved it. Closing a small one quickly costs little.
 2. **One person runs it**, the incident commander, who decides and hands out the work. The people fixing it are the only ones changing anything.
@@ -94,23 +88,23 @@ Sooner or later something breaks anyway. A fiber is cut, a device fails, or a ch
 4. **Keep a live document** of what is known, what was tried, and who is doing what, with the most important part at the top.
 5. **Afterwards, write a postmortem** without blame: the impact, what was done, the causes, and what stops it happening again.
 
-If a change went out just before the trouble began, undo it first, and ask why afterwards. That is one more reason to keep every change small, written down, and easy to revert.
+If a change went out just before the trouble began, undo it first, and ask why afterwards. So keep every change small, written down, and easy to revert.
 
-A real outage shows how much the rest matters. On October 4, 2021, during routine maintenance, a command meant to assess the capacity of Facebook's backbone disconnected every link of it. A tool that audits such commands should have stopped it, but had a bug. Facebook's DNS servers stop announcing their routes when they can't reach the data centers. So they withdrew them, and nobody outside could find any of the company's services.
+On October 4, 2021, during routine maintenance, a command meant to assess the capacity of Facebook's backbone disconnected every link of it. A tool that audits such commands should have stopped it, but had a bug. Facebook's DNS servers stop announcing their routes when they can't reach the data centers. So they withdrew them, and nobody outside could find any of the company's services.
 
-The <Term means="A separate path to manage devices, such as a separate network or a console line. It keeps working when the main network does not.">out-of-band</Term> network was down too, so engineers had to travel to the data centers. They then brought services back in stages, because switching everything on at once could itself have overloaded power and systems. Every safeguard in this lesson appears in that story: a check before the change, a way in that doesn't depend on the network, and a careful way back.
+The <Term means="A separate path to manage devices, such as a separate network or a console line. It keeps working when the main network does not.">out-of-band</Term> network was down too, so engineers had to travel to the data centers. They brought services back in stages, because switching everything on at once could have overloaded power and systems. That outage needed every safeguard in this lesson: a check before the change, a way in that doesn't depend on the network, and a careful way back.
 
 ## Keeping the plant written down
 
-You can't run what you can't find. A provider keeps three records besides the configs:
+A provider keeps three records besides the configs:
 
 - **<Term means="Data center infrastructure management: the record of racks, what is mounted where, power feeds, and every cable from one port to another.">DCIM</Term>** holds the racks, what is mounted in which unit, the power feeds, and every cable from end to end.
 - **<Term means="IP address management: the record of which prefixes and addresses are used where, and which are free.">IPAM</Term>** holds every prefix and address, who has it, and what is free.
-- **Capacity** says how full each port, link, and device is, from the monitoring in [Watching the network](/academy/professional/monitoring). Then an upgrade is ordered before a link fills, not after.
+- **Capacity** says how full each port, link, and device is, from the monitoring in [Watching the network](/academy/professional/monitoring), so an upgrade is ordered before a link fills.
 
 Circuit already has part of this. The files know every device, port, cable (`link`), VLAN, and address. Studio and `circuit addresses` list every address in use, and what is free.
 
-What Circuit doesn't know is the physical plant: racks, power, serial numbers, and which building a device is in. Many networks keep that in [NetBox](https://netboxlabs.com/docs/netbox/), which describes itself as a source of truth that combines IPAM and DCIM. `circuit sync netbox` keeps NetBox in sync with your config, one way. Circuit writes, and NetBox shows. Each device's `site` and `role` place it there. See [NetBox](/integrations/netbox).
+What Circuit doesn't know is the physical plant: racks, power, serial numbers, and which building a device is in. Many networks keep that in [NetBox](https://netboxlabs.com/docs/netbox/), which combines IPAM and DCIM. `circuit sync netbox` keeps NetBox in sync with your config, one way. Circuit writes, and NetBox shows. Each device's `site` and `role` place it there. See [NetBox](/integrations/netbox).
 
 ## Further reading
 
@@ -119,11 +113,3 @@ What Circuit doesn't know is the physical plant: racks, power, serial numbers, a
 - [OpenIX maintenance policy](https://p.foundation/OpenIX/sla/maintenance): an exchange's notice period and off-peak windows.
 - [GlobalNOC change management guidelines](https://docs.globalnoc.iu.edu/noc-doc/how-to/noc-tools/change-management/grnoc-global-change-management-guidelines-and-policy.html): how one NOC approves and schedules network maintenance.
 - [NetBox documentation](https://netboxlabs.com/docs/netbox/): one tool for DCIM and IPAM.
-
-## In short
-
-- A change goes request, branch, validate, diff, pull request, review, window, apply, and check.
-- The reviewer reads the plan, most of all its `-` lines, and asks who notices and how it is undone. A valid file isn't always the change you meant.
-- If `apply` plans more than the reviewed diff, someone changed the device by hand. Stop and find out.
-- In an incident, declare early, let one person run it, keep a live document, undo the last change first, and write a postmortem without blame.
-- Circuit's files and Studio have the config side of the plant. Racks, power, and cables beyond `link` live in a DCIM such as NetBox.

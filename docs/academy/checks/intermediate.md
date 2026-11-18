@@ -6,7 +6,7 @@ discussion: false
 
 # Intermediate entry check
 
-Every Intermediate lesson builds on what Elementary teaches: VLANs, trunks, DHCP, NAT, firewall rules, management, and writing a network down in Circuit. If some of it is new to you, start with [Elementary](/academy/#elementary) instead.
+Intermediate builds on Elementary: VLANs, trunks, DHCP, NAT, firewall rules, management, and writing a network down in Circuit. If some of it is new to you, start with [Elementary](/academy/#elementary).
 
 Passing this check opens Elementary too.
 

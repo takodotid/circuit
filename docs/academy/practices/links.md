@@ -15,7 +15,7 @@ A cable has two ends, and a change made at one end only breaks it quietly. The l
 - an MTU that differs drops large packets, and can keep OSPF from forming;
 - a speed that differs, or a LAG on one end only, can leave the link down.
 
-The description is for whoever stands at the rack or reads the device's own config. The port says where its cable goes, with no diagram to open.
+The description tells whoever stands at the rack, or reads the device's config, where the cable goes.
 
 ## In Circuit
 

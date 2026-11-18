@@ -120,12 +120,7 @@ const verdicts = computed<Verdict[]>(() =>
 
 const working = computed(() => verdicts.value.filter((entry) => entry.status === "works"));
 
-const summary = computed(() => {
-    const names = working.value.map((entry) => entry.way.name);
-    const last = names[names.length - 1];
-    const list = names.length > 2 ? `${names.slice(0, -1).join(", ")}, and ${last}` : names.join(" and ");
-    return `${distance.value.name}, ${distance.value.spelled}, at ${speed.value} Gbit/s: ${names.length} of ${ways.length} work. ${list}.`;
-});
+const summary = computed(() => `${distance.value.spelled} at ${speed.value} Gbit/s: ${working.value.length} of ${ways.length} work.`);
 
 const words: Record<Verdict["status"], string> = {
     works: "Works",

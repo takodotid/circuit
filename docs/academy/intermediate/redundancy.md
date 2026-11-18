@@ -7,8 +7,6 @@ description: Join cables into a LAG, watch a broadcast storm grow in a loop of s
 
 Anything your network has only one of, such as a cable, a switch, or a router, takes part of the network down when it fails. It is a <Term means="A part whose failure alone is enough to cut devices off. A second part that can do the same job removes the risk.">single point of failure</Term>. The cure is a second one.
 
-Two cables between the same two switches are joined into one LAG, so both carry traffic and either one can fail. A second path through other switches makes a loop. A loop needs spanning tree, or a single broadcast brings the network down.
-
 ## Two cables, one link: the LAG
 
 A <Term means="Link aggregation group: several links between the same two devices that act as one link. It gives more capacity, and a spare if one link fails. Some platforms call it a bond or a port channel.">LAG</Term> joins several ports into one link. Both switches treat the bundle as a single port. The VLANs are set on it, and spanning tree sees one link, not several.
@@ -25,7 +23,7 @@ Try separate links first, then one LAG. Cut cables in both.
 
 </TryIt>
 
-With separate links, only one cable ever carried traffic. Spanning tree blocked the others, for reasons the next section shows. With a LAG, every working cable carried some of the conversations, and cutting one only moved its conversations elsewhere.
+With separate links, spanning tree blocks all but one cable. With a LAG, every working cable carries some of the conversations.
 
 In Circuit, a LAG is an entry in `interfaces.lag`, and each member port says which LAG it is in with `in_lag`. Every other setting, such as the VLANs, goes on the LAG. `mode` is LACP when absent. Write `mode: "static"` only for a device that can't speak LACP.
 
@@ -63,7 +61,7 @@ The ring is also a loop, and Ethernet can't live with one. In [Switches](/academ
 
 </TryIt>
 
-Without spanning tree, the triangle kept two copies going round for as long as you let it. The printer got the same broadcast again and again. The second cable made two more loops, and the copies grew with every round. Every device on the network has to read each copy. Every switch sees the laptop's address arrive from a different side each time, so its address table never settles.
+In a storm, every device on the network has to read each copy.
 
 ## Spanning tree blocks one port
 
@@ -82,7 +80,7 @@ If you leave the election to chance, the root may be whichever switch has the lo
 switching: { stp: { mode: "rstp", priority: 4096 } },
 ```
 
-A switch without `stp` in its file runs no spanning tree at all, like the widget with spanning tree off.
+A switch without `stp` in its file runs no spanning tree at all.
 
 <Quiz
   question="Three switches all have bridge priority 32768. Which one becomes the root bridge?"
@@ -113,11 +111,3 @@ A LAG and spanning tree protect cables and switches. If the router that is a VLA
   :why="['', 'A switch behind the port can close a loop. Spanning tree must be allowed to block it.', 'An edge port facing a switch skips the very check that stops a loop.']"
   explain="A server is a single device, so it can never close a loop. Its port can forward at once. Ports to other switches must go through spanning tree."
 />
-
-## In short
-
-- Anything you have only one of is a single point of failure. Add a second one.
-- A LAG joins several cables between two devices into one link: an entry in `interfaces.lag`, and `in_lag` on each member port. Each conversation stays on one cable, and LACP checks that both ends agree.
-- Two paths between switches make a loop, and a broadcast in a loop goes round and multiplies: a broadcast storm.
-- Spanning tree elects a root bridge, keeps one path from every switch to it, and blocks every other port. Give the switch you want as root `stp: { mode: "rstp", priority: 4096 }`.
-- A port with a single device behind it gets `stp: { edge: true }`, and forwards at once.

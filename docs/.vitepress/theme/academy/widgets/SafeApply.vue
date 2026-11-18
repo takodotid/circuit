@@ -37,7 +37,7 @@ const steps = computed(() => [
           }
         : {
               title: "Keep the change",
-              text: "Circuit removes the timer, and the backup too, since every password is in it. The change is kept for good.",
+              text: "Circuit removes the timer, and the backup too, since every password is in it.",
           },
 ]);
 

@@ -29,7 +29,7 @@ const decisions: Decision[] = [
                 id: "13335",
                 label: "13335",
                 verdict: "bad",
-                text: "A slip of the keyboard: that is the AS of Cloudflare. Here it is only in the port's description, so Circuit can't tell it is wrong, but the NOC would look up the wrong network. Check it against the request.",
+                text: "That is the AS of Cloudflare. It is only in the port's description, so Circuit can't tell it is wrong, but the NOC would look up the wrong network.",
             },
         ],
     },
@@ -101,13 +101,13 @@ const outcome = computed(() => {
         return {
             kind: "bad",
             word: "Stopped",
-            text: "Circuit stops while reading the files: two files give one port two descriptions, and it gives both. Nothing is checked or planned until it is fixed.",
+            text: "Two files give one port two descriptions, so Circuit stops while reading the files. Nothing is checked or planned until you fix it.",
         };
     }
     return {
         kind: "good",
         word: "Ready",
-        text: "One port, set up from the site's member_port: the peering VLAN only, no spanning tree, no LLDP, and storm control at 1%. Nothing else on the switch changes.",
+        text: "One port, set up from the site's member_port. Nothing else on the switch changes.",
     };
 });
 </script>
@@ -132,7 +132,7 @@ const outcome = computed(() => {
                 </tbody>
             </table>
         </div>
-        <p class="note">On ix-sw-02, Google has 40g-1, and 40g-5 is the trunk to ix-sw-01.</p>
+        <p class="note">On ix-sw-02, 40g-5 is the trunk to ix-sw-01.</p>
 
         <p class="progress">{{ decidedCount }} of {{ decisions.length }} decided</p>
 

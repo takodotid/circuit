@@ -5,13 +5,11 @@ description: The internet is tens of thousands of autonomous systems. Join one t
 
 # Networks of networks
 
-The internet is tens of thousands of separate networks, each run by one organization with its own rules. They are internet providers, content networks, universities, and companies. Each of them is an <Term means="A network run by one organization. It has its own routing policy and its own AS number.">autonomous system</Term>, or AS. Each AS has its own number and its own blocks of addresses.
-
-ASes connect in two ways. With **transit**, a customer pays a provider to reach the whole internet. With **peering**, two networks swap traffic between their own customers, usually without paying each other. Many networks meet at **internet exchanges**, where one shared network lets a network peer with hundreds of others.
+The internet is tens of thousands of separate networks, each run by one organization with its own rules. They are internet providers, content networks, universities, and companies. Each of them is an <Term means="A network run by one organization. It has its own routing policy and its own AS number.">autonomous system</Term>, or AS.
 
 ## AS numbers and address blocks
 
-Every AS has an AS number, an ASN. Other networks tell yours apart by it. In the next lesson, you see it written into every route you announce.
+Every AS has an AS number, an ASN. Other networks tell yours apart by it.
 
 Five regional internet registries hand out AS numbers and address blocks, each for a part of the world:
 
@@ -28,7 +26,7 @@ In some countries, a national registry sits between you and the regional one. A 
 Addresses come in two kinds:
 
 - **From your provider.** The addresses your internet provider lends you are part of its block. If you change provider, you give them back and change every address in your network.
-- **Your own.** A block that a registry gives to you is often called provider-independent space. It goes with you to any provider, and you announce it yourself. The edge router at the end of this level does that.
+- **Your own.** A block that a registry gives to you is often called provider-independent space. It goes with you to any provider, and you announce it yourself.
 
 Some AS numbers are set aside, as the private IPv4 ranges are:
 
@@ -133,11 +131,3 @@ interfaces: {
 ```
 
 `speed` is your port's speed in Mbit/s.
-
-## In short
-
-- The internet is tens of thousands of autonomous systems. Each has its own AS number, and address blocks from a regional registry.
-- With transit, a customer pays a provider to reach the whole internet. With peering, two networks swap their own and their customers' traffic, usually for free.
-- A network passes its customers' routes to everyone, and its providers' and peers' routes only to its customers.
-- At an internet exchange, many networks share one network. A route server lets each keep one session instead of hundreds, while traffic still goes directly between members.
-- In Circuit, the AS number is `asn` in `circuit.ts`, and an exchange interface has an `exchange` field for PeeringDB.

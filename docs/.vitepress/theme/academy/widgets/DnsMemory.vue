@@ -33,10 +33,9 @@ function lookUp() {
     const remembered = memory.value.find((row) => row.name === entry.name);
 
     if (remembered) {
-        const left = remembered.forgetsAt - clock.value;
         said.value = {
             word: "From memory",
-            text: `The resolver still remembers ${entry.name}, for ${time(left)} more, so it answered at once: 1 question, about ${TO_RESOLVER_MS} ms.`,
+            text: `The resolver still remembers ${entry.name}, so it answered at once.`,
         };
         log.value.unshift({
             at: clock.value,
@@ -52,7 +51,7 @@ function lookUp() {
         memory.value.push({ name: entry.name, address: entry.address, forgetsAt: clock.value + entry.ttl });
         said.value = {
             word: "Looked up",
-            text: `The resolver did not remember ${entry.name}. So it asked a root server, the servers for .${top}, and the servers for ${domain}: 4 questions, about ${milliseconds} ms. The answer, ${entry.address}, came with a TTL of ${entry.ttl} seconds, so the resolver remembers it until ${time(clock.value + entry.ttl)}.`,
+            text: `The resolver did not remember ${entry.name}, so it looked it up. The answer came with a TTL of ${entry.ttl} seconds, so the resolver remembers it until ${time(clock.value + entry.ttl)}.`,
         };
         log.value.unshift({
             at: clock.value,
@@ -75,8 +74,8 @@ function wait(seconds: number) {
     said.value = {
         word: "Time passes",
         text: forgotten.length
-            ? `It is now ${time(clock.value)}. The TTL of ${listOf(forgotten)} ran out, so the resolver forgot ${forgotten.length > 1 ? "them" : "it"}.`
-            : `It is now ${time(clock.value)}. Nothing in the memory has run out yet.`,
+            ? `The TTL of ${listOf(forgotten)} ran out, so the resolver forgot ${forgotten.length > 1 ? "them" : "it"}.`
+            : "Nothing in the memory has run out yet.",
     };
 }
 

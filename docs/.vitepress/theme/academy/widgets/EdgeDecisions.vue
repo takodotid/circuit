@@ -246,15 +246,15 @@ const allGood = computed(() => decisions.every((decision) => choiceOf(decision)?
             </p>
         </fieldset>
 
-        <CodeView :code="code" title="edge-01.ts, the parts your choices write" />
+        <CodeView :code="code" title="edge-01.ts, part of it" />
         <CodeView :code="validate" lang="shell" title="Terminal" />
 
         <p v-if="decided < decisions.length" class="ac-say quiet" aria-live="polite">
             Where you haven't picked yet, the file shows the example's choice.
-            <button type="button" class="ac-button small" @click="bestOfAll">Show the example's choices</button>
+            <button type="button" class="ac-button small" @click="bestOfAll">Example's choices</button>
         </p>
         <p v-else-if="allGood" class="ac-say good" data-word="Ready" aria-live="polite">
-            These are the example's choices. validate passes, so the next step is circuit diff.
+            validate passes, so the next step is circuit diff.
         </p>
         <p v-else-if="passes" class="ac-say warn" aria-live="polite">
             validate passes, but not every choice is sound. A valid file is not always the network you meant.

@@ -101,9 +101,7 @@ async function send() {
         <div aria-live="polite">
             <p v-if="decided" class="ac-say">{{ decided }}</p>
             <p v-if="said" class="ac-say" :class="said.kind">{{ said.text }}</p>
-            <p v-if="!decided" class="ac-say hint">
-                The laptop and the recorder share one switch, but not one VLAN. Send from the laptop first, without a router.
-            </p>
+            <p v-if="!decided" class="ac-say hint">Send a packet without a router first. Then plug one in and send again.</p>
         </div>
     </div>
 </template>

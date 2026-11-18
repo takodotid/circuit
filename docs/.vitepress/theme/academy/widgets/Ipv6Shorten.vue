@@ -33,14 +33,14 @@ const verdict = computed(() => {
         return {
             kind: "bad",
             word: "Different address",
-            text: `That is another address. Written in full, yours is ${Ipv6.expand(parsed.groups)}.`,
+            text: `Written in full, yours is ${Ipv6.expand(parsed.groups)}.`,
         };
     }
 
     const reasons = Ipv6.differences(answer.value, challenge.value);
     if (!reasons.length) return { kind: "good", word: "Right", text: `${Ipv6.shorten(challenge.value)} is the standard short form.` };
 
-    return { kind: "warn", word: "Same address", text: `It is the same address, but not its standard short form. ${reasons.join(" ")}` };
+    return { kind: "warn", word: "Same address", text: `It is not the standard short form. ${reasons.join(" ")}` };
 });
 
 function check() {
@@ -92,12 +92,8 @@ function setMode(next: "shorten" | "expand") {
 <template>
     <div class="ipv6-shorten">
         <div class="ac-row" role="group" aria-label="What to do">
-            <button type="button" class="ac-button small" :aria-pressed="mode === 'shorten'" @click="setMode('shorten')">
-                Shorten it yourself
-            </button>
-            <button type="button" class="ac-button small" :aria-pressed="mode === 'expand'" @click="setMode('expand')">
-                Write any address in full
-            </button>
+            <button type="button" class="ac-button small" :aria-pressed="mode === 'shorten'" @click="setMode('shorten')">Shorten</button>
+            <button type="button" class="ac-button small" :aria-pressed="mode === 'expand'" @click="setMode('expand')">Expand</button>
         </div>
 
         <template v-if="mode === 'shorten'">
@@ -118,7 +114,7 @@ function setMode(next: "shorten" | "expand") {
                 </label>
                 <button type="submit" class="ac-button primary">Check</button>
                 <button type="button" class="ac-button" :aria-pressed="showSteps" @click="showSteps = !showSteps">
-                    {{ showSteps ? "Hide the steps" : "Show the steps" }}
+                    {{ showSteps ? "Hide steps" : "Show steps" }}
                 </button>
                 <button type="button" class="ac-button" @click="next">Next address</button>
             </form>

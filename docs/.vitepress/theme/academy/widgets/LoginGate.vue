@@ -221,10 +221,7 @@ const lockedOut = computed(() => !sshOn.value);
         <p v-if="rightCount === attempts.length" class="ac-say good" data-word="Locked down" aria-live="polite">
             Every attempt ends the way it should. Only the management network can reach the router, over SSH, as a user the file lists.
         </p>
-        <p v-else-if="lockedOut" class="ac-say warn" aria-live="polite">
-            With SSH off, nobody can log in, not even Circuit. Applied for real, Circuit would fail to log in again afterwards, and the
-            router would undo the change by itself. The next widget shows how.
-        </p>
+        <p v-else-if="lockedOut" class="ac-say warn" aria-live="polite">With SSH off, nobody can log in, not even Circuit.</p>
         <p v-else class="ac-say hint" aria-live="polite">
             {{ rightCount }} of {{ attempts.length }} attempts end the way they should. Change the settings above until all of them do.
         </p>

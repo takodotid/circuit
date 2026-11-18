@@ -51,14 +51,14 @@ const pulls: Pull[] = [
         ].join("\n"),
         answers: {
             ci: "Yes: no errors.",
-            scope: "Yes. One port, 10GE1/0/3, stops being shut down, and carries VLANs 1001 and 2001 of Netflix. The router has nothing to change.",
+            scope: "Yes. One port, 10GE1/0/3, comes up with VLANs 1001 and 2001 of Netflix. The router has nothing to change.",
             who: "Only Netflix, whose new server comes up. Nothing else on the switch is touched, so it can go out in the next window.",
             undo: "Revert the commit and apply: the plan shuts the port again.",
         },
         approve: true,
         verdict: {
-            approve: "Right: the plan is one port, the one Netflix asked for, and nothing else moves.",
-            changes: "There is nothing to change here. The plan touches one free port, and only the VLANs of Netflix.",
+            approve: "The plan is one port, the one Netflix asked for, and nothing else moves.",
+            changes: "Nothing needs to change: the plan touches one free port, and only the VLANs of Netflix.",
         },
     },
     {
@@ -89,8 +89,7 @@ const pulls: Pull[] = [
         verdict: {
             approve:
                 "validate fails: 10g-1 is the port of Netflix's server 1. Approving it would only leave a change that cannot be applied.",
-            changes:
-                "Right. Circuit caught a port written by two tenants before anyone had to read a plan: ask for a free port, such as 10g-3.",
+            changes: "Circuit caught a port written by two tenants before anyone had to read a plan. Ask for a free port, such as 10g-3.",
         },
     },
     {
@@ -132,7 +131,7 @@ const pulls: Pull[] = [
         approve: false,
         verdict: {
             approve: "validate fails, so this cannot be applied as it is. Ask for the fix first.",
-            changes: "Right. The check failed before anyone had to read a plan: ask for sha1.",
+            changes: "The check failed before anyone had to read a plan. Ask for sha1.",
         },
     },
 ];

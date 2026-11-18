@@ -24,10 +24,6 @@ Here the comparison fails: a port is not a place inside the device. It is a numb
 
 A port number is 16 bits, so it goes from 0 to 65535. An address and a port are written together with a colon. `203.0.113.80:443` is the locked web program on the server at `203.0.113.80`.
 
-::: tip Not the switch kind
-In [Switches](/academy/beginner/switches), a port was a socket for a cable. Here it is a number on a packet. The two share only the word.
-:::
-
 <TryIt title="Knock on a server's ports">
 
 <ServerPorts />
@@ -46,7 +42,7 @@ Your laptop's side has a port too. It is a free number the laptop picks for this
 
 ## Two ways to send
 
-In [Messages in pieces](/academy/beginner/packets), you saw that packets can be lost, or arrive in a different order than they were sent. Some programs must get every piece. Others would rather skip a piece than wait for it. So there are two common <Term means="A set of rules that two programs or devices agree on for how they talk to each other.">protocols</Term> for sending, and every packet uses one of them. Both carry port numbers.
+Packets can be lost, or arrive out of order, as [Messages in pieces](/academy/beginner/packets) showed. Some programs must get every piece. Others would rather skip a piece than wait for it. So there are two common <Term means="A set of rules that two programs or devices agree on for how they talk to each other.">protocols</Term> for sending, and every packet uses one of them. Both carry port numbers.
 
 **TCP** sets up a conversation:
 
@@ -63,7 +59,7 @@ In [Messages in pieces](/academy/beginner/packets), you saw that packets can be 
 
 </TryIt>
 
-UDP is faster, because it never waits for a handshake or a "got it". But when packets are lost, its program gets a word with holes, sometimes in the wrong order. TCP takes longer with every lost piece, but its program always gets the whole word, in order. Neither is better. They are for different jobs.
+UDP is faster, because it never waits for a handshake or a "got it". But when packets are lost, its program gets a word with holes, sometimes in the wrong order. TCP takes longer with every lost piece, but its program always gets the whole word, in order.
 
 ## Which one, when
 
@@ -92,11 +88,3 @@ Some websites now send pages over UDP with <Term means="The newest version of th
   :why="['Locking the data is a separate step, which the next lesson shows. The handshake only opens the conversation.', '', 'That is DNS, which happens before the handshake.', 'The routers choose the way, packet by packet, with their routing tables. TCP does not.']"
   explain="Three short messages (hello?, hello!, and OK) open the conversation, so both sides know the other is ready."
 />
-
-## In short
-
-- One device runs many programs. The port number on a packet says which program it is for.
-- An address and a port together, such as `203.0.113.80:443`, point to one program on one device. Your side of a conversation has a port too.
-- Well-known ports: 80 and 443 for the web, 53 for DNS, 22 for SSH, and 25 for mail between servers.
-- TCP opens with a handshake, checks that every piece arrived, sends lost ones again, and keeps them in order.
-- UDP just sends: it is faster and checks nothing. It suits calls, games, and DNS.

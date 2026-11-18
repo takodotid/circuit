@@ -7,8 +7,6 @@ description: A firewall decides which traffic may pass, by rules read from the t
 
 A firewall is a list of rules on the router that decides, for each packet, whether it may pass. The router reads the rules from the top, and the first rule that matches the packet decides what happens to it. The rules after it are not read. A packet that no rule matches gets the default, which is written at the end.
 
-That is the whole mechanism. Getting it right comes down to three things: the order of the rules, the default, and knowing which list a packet is checked against.
-
 ## Rules, read from the top
 
 A rule has two parts. Its match says which packets it is about, and its action says what to do with them. Accept lets the packet pass, and drop throws it away without a word.
@@ -26,24 +24,17 @@ A match can use any of these fields, and every field it uses must be true for th
 
 A rule that uses none of them matches every packet.
 
-For each packet, the router:
-
-1. Takes the first rule.
-2. If the packet matches it, does what the rule says, and stops.
-3. If not, moves on to the next rule.
-4. If no rule is left, does what the default says.
-
-So the order is part of the meaning. Put "Guests to anywhere: accept" before "Guests stay off the home network: drop", and guests get into your home network. The first rule matches first, and the second is never read. Swap them, and guests are kept out.
+The order is part of the meaning. Put "Guests to anywhere: accept" before "Guests stay off the home network: drop", and guests get into your home network. The first rule matches first, and the second is never read. Swap them, and guests are kept out.
 
 <TryIt title="Make every packet right">
 
-This is the single-site router: the home, guests, and management VLANs on one side, and the internet on its port `1g-1` on the other. These rules are for traffic through the router, and three things are wrong with them.
+These rules are for traffic through the single-site router, and three things are wrong with them.
 
 <FirewallRules part="forward" />
 
 </TryIt>
 
-The guest phone reached the printer because "Guests to anywhere" matched first. Move the drop rule before it to fix that. The stranger reached the laptop because no rule matched it, and the default was accept. With the default set to drop, the stranger is stopped. But so is the website's answer to the laptop, because no rule allows it either. That answer is the next idea.
+The guest phone reached the printer because "Guests to anywhere" matched first. Move the drop rule before it to fix that. The stranger reached the laptop because no rule matched it, and the default was accept. With the default set to drop, the stranger is stopped. But so is the website's answer to the laptop, because no rule allows it either.
 
 <Quiz
   question="The rules are: 1. Home to the internet (in home, out 1g-1): accept. 2. Anything from home (in home): drop. The laptop at home opens a website. What happens?"
@@ -95,7 +86,7 @@ A packet is checked against one chain only. A rule in forward never sees a login
 
 <TryIt title="Two chains">
 
-Both chains now, with all ten packets. The forward chain is fixed, and the input chain has one rule that should not be there. Send the login attempts from the stranger and the guest, and watch which chain decides.
+The forward chain is fixed, and the input chain has one rule that should not be there. Send the login attempts from the stranger and the guest, and watch which chain decides.
 
 <FirewallRules part="both" />
 
@@ -145,7 +136,7 @@ firewall: {
 - `default_action` says what happens to a packet that no rule matched. If you leave it out, it is accept, so both chains here write `drop`. There is no rule that keeps guests off the home network: nothing lets them there, so the default drops them.
 - Each rule is `if`, the packets it matches, and `then`, what happens to them: `accept`, `drop`, or `reject`, which drops the packet but tells the sender it was refused.
 - `fast_path: true` on a rule that accepts sends the rest of the connection down a faster path inside the router, which skips the rules after it. Put it on the rule for replies, which matches most of the traffic.
-- `home.addresses.management` is a value from the site's `site.ts`, which both devices share. It is `"192.168.10.0/24"`, the management network. The next lesson is about why only it may log in.
+- `home.addresses.management` is a value from the site's `site.ts`, which both devices share. It is `"192.168.10.0/24"`, the management network.
 
 A chain is an ordered list, so Circuit swaps a changed chain whole, as [Make a change](/guide/apply#making-the-plan) explains. Say an earlier version of this router had no default in its forward chain, and two rules keeping guests out. On RouterOS, the `/ip firewall filter` part of `circuit diff router` for this change ends like this, with the default as a last rule:
 
@@ -154,11 +145,3 @@ A chain is an ordered list, so Circuit swaps a changed chain whole, as [Make a c
     + add action=accept chain=forward comment=Guests to the internet in-interface=guests out-interface=ether1
     + add action=drop chain=forward comment=Default
 ```
-
-## In short
-
-- A firewall reads its rules from the top. The first rule that matches decides, and a packet nothing matches gets the default.
-- The order of the rules is part of their meaning: a broad accept before a narrow drop hides the drop.
-- Connection tracking marks answers as established or related; one rule near the top lets them back in.
-- Default drop with rules that accept what you want fails safe; default accept fails open.
-- Packets for the router are checked against `input`, packets through it against `forward`. In Circuit both are in `firewall.filter`, each with `default_action` and `rules`.

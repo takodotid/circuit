@@ -48,7 +48,7 @@ export class RouteTable {
 
         if (network === undefined || rest.length)
             return {
-                error: `${text.trim() || "An empty box"} is not a prefix. Write it as an address, a slash and a length, such as 10.0.0.0/8.`,
+                error: `${text.trim() || "An empty box"} is not a prefix. Write it as an address, a slash, and a length, such as 10.0.0.0/8.`,
             };
         if (length === undefined || !/^\d{1,2}$/.test(length) || Number(length) > 32)
             return { error: "The length after the slash must be a number from 0 to 32." };

@@ -172,7 +172,7 @@ async function connectFromOutside() {
 
             said.value = {
                 kind: "good",
-                text: `The port forward sends port ${FORWARDED_PORT} to the camera’s port 443. Anyone on the internet can now reach the camera this way, not only you. Row ${row.number} sends the camera’s replies back out.`,
+                text: `The port forward sends port ${FORWARDED_PORT} to the camera’s port 443. Row ${row.number} sends the camera’s replies back out.`,
             };
             return;
         }
@@ -189,7 +189,7 @@ async function connectFromOutside() {
 
         said.value = {
             kind: "bad",
-            text: `No row in the table is for port ${port}, so the router cannot know which device at home it is meant for. It stops at the router.${forwardOn.value ? "" : " Turn on the port forward and try again."}`,
+            text: `No row in the table is for port ${port}, so the router cannot know which device at home it is for. It stops at the router.${forwardOn.value ? "" : " Turn on the port forward and try again."}`,
         };
     } finally {
         busy.value = false;
@@ -374,7 +374,7 @@ const forwardLines = computed(() => (forwardOn.value ? [4, 5, 6, 7, 8, 9, 10, 11
             {{
                 busy
                     ? "The packet is on its way."
-                    : "Open a connection from the laptop, then one from the phone, and watch the table. Then try to connect from outside."
+                    : `Open a connection from the laptop, then one from the phone. Then connect from outside, first to port ${FORWARDED_PORT}, then to a port in the table.`
             }}
         </p>
 

@@ -337,7 +337,7 @@ const groupCenter = (entry: Port) => (entry.x + (entry.count - 1) * entry.gap + 
         </div>
 
         <div class="ac-field">
-            <span>2. Pick a port to plug it into</span>
+            <span>2. Pick a port</span>
             <div class="ac-row" role="group" aria-label="Ports">
                 <button
                     v-for="entry in ports"

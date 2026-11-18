@@ -113,7 +113,7 @@ const said = computed(() => {
         return `${done} ${missing.join(" and ")} ${missing.length === 1 ? "has" : "have"} no route, because no neighbor may pass it on.`;
     }
 
-    return `Round ${step.value}: the messages above arrive. Every AS whose path changed sends it on, with its own number in front.`;
+    return "Every AS whose path changed sends it on, with its own number in front.";
 });
 
 const label = (as: number) => `${name(as)}, AS${as}`;
@@ -124,7 +124,7 @@ const label = (as: number) => `${name(as)}, AS${as}`;
         <div class="ac-row controls">
             <button v-if="step === 0" type="button" class="ac-button primary" @click="start">Announce {{ PREFIX }}</button>
             <button v-else type="button" class="ac-button primary" :disabled="step === last" @click="next">Next round</button>
-            <button type="button" class="ac-button" :disabled="step === 0" @click="step = 0">Back to the start</button>
+            <button type="button" class="ac-button" :disabled="step === 0" @click="step = 0">Start again</button>
             <span v-if="step" class="count">Round {{ step }} of {{ last }}</span>
         </div>
 

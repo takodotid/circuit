@@ -141,7 +141,6 @@ async function send() {
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" aria-live="polite">{{ said.text }}</p>
-        <p v-else class="ac-say hint" aria-live="polite">Plug in the laptop and the printer, then send a message between them.</p>
     </div>
 </template>
 
@@ -162,9 +161,5 @@ async function send() {
     flex-wrap: wrap;
     align-items: end;
     gap: 10px;
-}
-
-.hint {
-    color: var(--circuit-soft);
 }
 </style>

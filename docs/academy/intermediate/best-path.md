@@ -7,8 +7,6 @@ description: BGP compares several routes to one prefix step by step. Change thei
 
 A router that runs BGP often hears about the same prefix from several neighbors: two transits, a peer at an exchange, and your other router. It puts only one of those routes in its routing table, and all traffic to that prefix goes that way. To choose, it compares the routes by a fixed list of attributes, one at a time. The first attribute on which they differ decides.
 
-You change the choice with policy. Local preference decides how traffic leaves your network. AS path prepending gives other networks a hint about how traffic should come in.
-
 ## The order of comparison
 
 Every route that BGP carries has a few attributes besides its prefix. These are the ones that decide here:
@@ -37,7 +35,7 @@ Real routers follow a longer list, and platforms differ in the details. Some che
 
 </TryIt>
 
-At the start, Cloudflare's route from the exchange wins at step 2. Its path is one AS long, because Cloudflare owns the prefix. Every route had the same local preference, so step 1 changed nothing, and the AS path decided.
+At the start, Cloudflare's route from the exchange wins at step 2. Its path is one AS long, because Cloudflare owns the prefix. Every route had the same local preference, so step 1 changed nothing.
 
 Now look at what it took to make Cogent win: one change of local preference, from 100 to anything higher. Its longer path didn't matter, because step 2 is never reached once step 1 has a winner. That is the idea of the order: an earlier step always beats a later one, however large the difference there.
 
@@ -96,10 +94,3 @@ In Circuit, prepending is `set: { prepend: 2 }` on the export rule that announce
   :why="['The longer path is seen by every network that receives the announcement, not only the first.', '', 'If the far network decides by local preference, no number of prepends changes its mind.']"
   explain="Each network chooses with its own policy. A local preference on its side decides at step 1, so the path length you made longer is never compared."
 />
-
-## In short
-
-- BGP compares the routes to one prefix one attribute at a time, and the first difference decides.
-- In this lesson's simplified order: highest local preference, shortest AS path, lowest origin, lowest MED, eBGP over iBGP, and then a tie-break. Platforms differ in the details.
-- Local preference, set on import with `{ set: { local_pref: 200 } }`, decides how traffic leaves your network. It never leaves your AS.
-- Prepending with `{ set: { prepend: 2 } }` makes a path look longer to others. It is a hint for traffic coming in, and a network's own local preference overrides it.

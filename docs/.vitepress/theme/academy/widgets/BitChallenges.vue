@@ -82,9 +82,7 @@ function check() {
 function cannot() {
     const now = challenge.value;
     if (now.kind === "make" && !possible(now.target)) {
-        return right(
-            "Eight switches make at most 255, when all of them are on. 256 would need a ninth switch, worth 256. So one group of eight bits holds 256 different numbers, 0 to 255, and never more."
-        );
+        return right("Eight switches make at most 255. 256 would need a ninth switch.");
     }
     return wrong("It can be done with these eight switches. Try the hint.");
 }
@@ -153,11 +151,6 @@ function go(next: number) {
         <p v-if="hint && !solved" class="hint-text">{{ hintText }}</p>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
-        <p v-else class="ac-say quiet" aria-live="polite">
-            {{
-                challenge.kind === "read" ? "Type the number the switches show, then press Check." : "Flip the switches, then press Check."
-            }}
-        </p>
 
         <div v-if="solved" class="ac-row next">
             <button v-if="!finished" type="button" class="ac-button primary" @click="go(index + 1)">Next challenge</button>
@@ -228,10 +221,6 @@ function go(next: number) {
     background: var(--circuit-mist);
     font-size: 15px;
     line-height: 1.55;
-}
-
-.quiet {
-    color: var(--circuit-soft);
 }
 
 .next {

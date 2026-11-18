@@ -46,7 +46,7 @@ The internet is all of these networks joined together. Nobody owns all of it. Wh
 
 ## One box, many jobs
 
-The box in the middle of a home is called a router, but it is really several devices in one case. The next lessons talk about each of its jobs as a device of its own.
+The box in the middle of a home is called a router, but it is really several devices in one case.
 
 <TryIt title="Open up the home router">
 
@@ -55,8 +55,6 @@ The box in the middle of a home is called a router, but it is really several dev
 </TryIt>
 
 At home, one box is enough. It has a few devices, one line to the internet, and nobody to look after it. An office has more devices than four sockets can hold, and more rooms than one Wi-Fi radio can reach. So each job gets a box of its own. Each box can be bigger, doubled in case one fails, or replaced on its own.
-
-These are the names of the jobs:
 
 - A **switch** joins the devices in one place, such as the computers on one floor. It passes messages between them. The sockets on the back of a home router are a small switch.
 - A **router** joins one network to another, such as your home to your internet provider.
@@ -71,10 +69,3 @@ When a lesson says "the switch" or "the router", think of that part of your home
   :why="['The router joins your home to the internet. Between two devices at home, the switch does the work.', '', 'The access point is for devices without a cable. The desktop has a cable.']"
   explain="The sockets on the back are a small switch built into the box. It joins every device with a cable to the others."
 />
-
-## In short
-
-- A network is devices joined by links so they can send each other messages.
-- Each device is joined to a box in the middle, which passes each message on.
-- A home router is several devices in one box: a router, a small switch, a Wi-Fi access point, and usually the part for the provider's line.
-- The internet is many networks joined together, and nobody owns all of it.

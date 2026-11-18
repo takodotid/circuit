@@ -9,7 +9,7 @@ export class Ipv6 {
         if (/[^0-9a-fA-F:]/.test(written)) {
             if (written.includes("."))
                 return {
-                    error: "This has an IPv4 address written inside it. That form exists, but this widget only takes the eight groups of hexadecimal digits.",
+                    error: "This has an IPv4 address inside it. This widget takes only the eight groups of hexadecimal digits.",
                 };
             if (written.includes("/")) return { error: "Leave out the slash and the length: type the address alone." };
             return { error: "An IPv6 address only has the digits 0 to 9, the letters a to f, and colons." };
@@ -27,7 +27,7 @@ export class Ipv6 {
 
         for (const group of [...head, ...tail]) {
             if (group === "") return { error: "There is an empty group between two single colons. Only :: may stand for zero groups." };
-            if (group.length > 4) return { error: `The group ${group} has more than four digits. Each group has at most four.` };
+            if (group.length > 4) return { error: `The group ${group} has more than four digits.` };
         }
 
         const writtenCount = head.length + tail.length;

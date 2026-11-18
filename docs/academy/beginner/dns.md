@@ -13,7 +13,7 @@ The addresses here are examples. A real lookup of `circuit.tako.id` gives a diff
 
 ## Why names
 
-A name is easier to remember than four numbers. A name also lets a website move. A website can move to another server with another address. If everyone used the address, everyone would have to learn the new one. With a name, the owner changes the address behind the name, and nobody else notices.
+A name is easier to remember than four numbers. A name also lets a website move to another server, with another address. If everyone used the address, everyone would have to learn the new one. With a name, the owner changes the address behind the name, and nobody else notices.
 
 DNS works like the contacts on your phone: you tap a name, and the phone dials the number behind it. But your contacts are yours alone, kept on your phone. DNS is one book shared by the whole internet. No single computer has all of it. It is split over many servers, and each server has its own part.
 
@@ -40,8 +40,6 @@ Step through it once. Then pick who already remembers the answer, and step throu
 <DnsLookup />
 
 </TryIt>
-
-Each server knows only its own part and where to go next, like each router knows only the next hop. So no server has to know every name in the world.
 
 <Quiz
   question="Which server has the address of circuit.tako.id itself?"
@@ -86,10 +84,3 @@ Almost everything you do on the internet starts with a name. So when your device
   :why="['If the cable were broken, the laptop could not reach 203.0.113.80 either.', '', 'Every website fails, not just one, so the trouble is on your side, before any website is reached.']"
   explain="Packets still reach addresses, so the network works. What fails is the step before: turning each name into an address."
 />
-
-## In short
-
-- People use names, and networks use IP addresses. DNS turns a name into the address it stands for.
-- You read a name from right to left: the ending such as `.id`, then the domain, then the name inside it.
-- Your device asks a resolver. The resolver asks a root server, then the servers for the ending, then the servers for the domain.
-- Every answer has a TTL: how many seconds it may be remembered. Until then, the resolver and your device answer from memory, so the second lookup is instant.

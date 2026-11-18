@@ -9,7 +9,7 @@ A switch joins the devices in one place, such as the computers on one floor of a
 
 ## Ports and frames
 
-A switch has a row of sockets called <Term means="A socket on a switch or router for one cable. Each port has a name or number, so you can tell which cable is which.">ports</Term>, numbered 1, 2, 3, and so on. Each device's cable plugs into one port. The sockets on the back of a home router are a small switch.
+A switch has a row of sockets called <Term means="A socket on a switch or router for one cable. Each port has a name or number, so you can tell which cable is which.">ports</Term>, numbered 1, 2, 3, and so on. Each device's cable plugs into one port.
 
 ::: tip One word, two meanings
 "Port" also means something different: a number that picks one program on a computer. You meet that kind in [Ports and protocols](/academy/beginner/ports). In this lesson, a port is always a socket.
@@ -20,7 +20,7 @@ Inside one local network, messages travel in <Term means="A message on the local
 - **To**: the hardware address of the device the frame is for.
 - **From**: the hardware address of the device that sent it.
 
-A switch reads only these two addresses. It does not look at the IP addresses inside, and it does not change the frame. Ethernet, from [Cables, light, and radio](/academy/beginner/cables), says how a frame is laid out. Wi-Fi sends the same frames over radio.
+A switch reads only these two addresses. It does not look at the IP addresses inside, and it does not change the frame. Wi-Fi sends the same frames over radio.
 
 ## How a switch learns
 
@@ -94,11 +94,3 @@ A switch cannot send a frame to a different network, such as your internet provi
   :why="['The first switch sends the broadcast out of every other port. One of those is the cable to the second switch, which does the same.', '', 'The second switch passes it on to its own ports, just as the first one did.']"
   explain="The two switches and their twenty computers are one local network, and a broadcast reaches all of it."
 />
-
-## In short
-
-- A switch joins the devices in one place, with one cable to each port.
-- On the local network, messages travel in frames, addressed by hardware address.
-- A switch learns which address is behind which port from the sender of each frame. It keeps this in its address table.
-- A frame for an address the switch knows goes out of one port. A frame for an address it does not know is flooded, and a broadcast goes to everyone.
-- Everything a broadcast can reach is one local network, a LAN.

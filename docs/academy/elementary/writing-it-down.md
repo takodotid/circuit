@@ -7,8 +7,6 @@ description: Write a router's whole configuration in one Circuit file, change it
 
 A device's configuration is everything it is set to do: its name, who may log in, what each port is for, its addresses, and its routes. With Circuit, you write each device's configuration in one file, and Circuit makes the device match it.
 
-Circuit checks the file, shows you a plan of exactly what would change on the device, and sends the change only once you say yes. The files are kept in git, so every change is recorded with who made it, when, and why.
-
 ## The old way: log in and type
 
 Without a tool like Circuit, you change a router by logging in to it over SSH and typing commands. Each command takes effect as soon as you press Enter. Every network engineer works this way, but it has problems that grow with the network:
@@ -73,9 +71,9 @@ The most important idea in Circuit is this: **a device runs exactly what its fil
 - A port the file does not list is shut down.
 - A service the file does not turn on, such as the web interface, is turned off.
 
-So you only ever write what is on. To turn something off, you leave it out. There is no `enabled: false` in Circuit. That makes the file worth trusting: if something is not in the file, it is not on the device.
+So you only ever write what is on. To turn something off, you leave it out. There is no `enabled: false` in Circuit.
 
-The plan is written in the router's own language. A line such as `/user` is the part of the router that the commands under it go to. A line that starts with `~` changes something, `+` adds something, and `-` takes a line of the router's configuration away. So `- add group=read name=intern` takes away the line that added the intern's login. Circuit made each plan in the widget from the file shown with it.
+The plan is written in the router's own language. A line such as `/user` is the part of the router that the commands under it go to. A line that starts with `~` changes something, `+` adds something, and `-` takes a line of the router's configuration away. So `- add group=read name=intern` takes away the line that added the intern's login.
 
 <TryIt title="Change the file and read the plan">
 
@@ -130,10 +128,3 @@ git commit -m "Describe the office port"
 ```
 
 In VS Code, the Source Control panel does the same with buttons. A teammate can review a change in a <Term means="A proposed change to the files, which others read and comment on before it is accepted.">pull request</Term> before it is applied. To undo a change, put the old version of the file back with git, and apply it.
-
-## In short
-
-- A device's configuration is everything it is set to do. Circuit keeps it in one TypeScript file per device, written with `<network>.device()`.
-- The file is the whole truth: a user, a port, or a service the file leaves out is removed or turned off.
-- `circuit validate` checks the files, `circuit diff` shows the plan against the device, and `circuit apply` sends it once you say yes.
-- Git keeps every version, so you always know who changed what, when, and why.

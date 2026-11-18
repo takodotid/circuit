@@ -89,7 +89,7 @@ Say your internet provider gives you the block `198.51.100.0/24`, and so far you
 
 The packet only stops when its <Term means="Time to live: a counter in every IP packet that each router lowers by one. At zero the packet is dropped, so it cannot loop forever.">TTL</Term> runs out. Every trip crosses your link to the provider, which you pay for. With the blackhole route, your router drops the packet when it first arrives.
 
-The office server still gets its packets, because `198.51.100.0/26` is longer than `198.51.100.0/24`. The blackhole catches only the addresses that no more specific route holds. That is the longest match working for you.
+The office server still gets its packets, because `198.51.100.0/26` is longer than `198.51.100.0/24`. The blackhole catches only the addresses that no more specific route holds.
 
 A blackhole route has one more use. It keeps your whole block in the routing table, even when nothing in it is up. [BGP](/academy/intermediate/bgp) needs that to announce the block to the internet.
 
@@ -140,11 +140,3 @@ The list is the whole truth. When you apply it, Circuit removes every static rou
 ::: warning Not every platform takes every field
 For example, Raisecom ROS takes only IPv4 routes with a `next_hop`, so it can't have a blackhole route. `circuit validate` reports each field a platform refuses. See [Platforms](/reference/platforms).
 :::
-
-## In short
-
-- A route is a prefix and where to send traffic for it: a next hop, an interface, or nowhere.
-- Connected routes come from the router's own addresses. Static routes are written by hand, and the rest are learned from other routers.
-- The router uses the longest prefix that holds the destination. `0.0.0.0/0` holds every address, so it catches what nothing else does.
-- A blackhole route for your whole block stops traffic to unused addresses from looping between you and your provider.
-- In Circuit, static routes are `routing.static_routes`, each with a `prefix` and a `next_hop` or `blackhole: true`.

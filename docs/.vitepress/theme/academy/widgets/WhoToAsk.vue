@@ -27,7 +27,7 @@ const NEEDS: { id: string; need: string; right: Who[]; why: string; wrong: strin
         id: "block-sg",
         need: "A company in Singapore wants an address block of its own.",
         right: ["apnic"],
-        why: "Singapore has no national registry, so the company goes to APNIC, the regional registry for Asia and the Pacific.",
+        why: "Singapore has no national registry, so the company goes to APNIC.",
         wrong: "IDNIC serves Indonesia only. Singapore is not one of the seven economies in APNIC's region with a national registry.",
     },
     {
@@ -48,14 +48,14 @@ const NEEDS: { id: string; need: string; right: Who[]; why: string; wrong: strin
         id: "port",
         need: "A port on the national exchange's peering LAN, with an address on it.",
         right: ["exchange"],
-        why: "The exchange operator runs the peering LAN and the route servers, and gives each member its port and address. In the data center, a cross-connect then joins your rack to its switch.",
+        why: "The exchange operator runs the peering LAN and the route servers, and gives each member its port and address.",
         wrong: "The peering LAN belongs to whoever runs the exchange.",
     },
     {
         id: "where",
         need: "Before asking a network to peer, you want to know which exchanges and buildings it is at.",
         right: ["peeringdb"],
-        why: "Networks list their exchanges, buildings, and peering contacts on PeeringDB. The command circuit sync peeringdb keeps your own record matching your files.",
+        why: "Networks list their exchanges, buildings, and peering contacts on PeeringDB.",
         wrong: "There is one public database where networks list where they peer.",
     },
     {

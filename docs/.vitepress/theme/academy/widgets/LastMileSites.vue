@@ -25,26 +25,17 @@ const SITES: { id: string; name: string; short: string; about: string; fits: Rec
         short: "Flat",
         about: "The provider's fiber already runs along the street, and the old phone line is still in the wall.",
         fits: {
-            gpon: [
-                "best",
-                "The street has GPON fiber. The flat shares about 2.5 Gbit/s down with the other homes on its splitter, and the fiber adds well under a millisecond.",
-            ],
+            gpon: ["best", "The street has GPON fiber. The flat shares about 2.5 Gbit/s down with the other homes on its splitter."],
             p2p: [
                 "works",
-                "A fiber of its own works, but it costs the provider a fiber and a port for one customer. It is kept for businesses that pay for a committed rate.",
+                "It costs the provider a fiber and a port for one customer, so it is kept for businesses that pay for a committed rate.",
             ],
-            vdsl: [
-                "works",
-                "It works over the phone line, but VDSL2 slows with the length of copper: about 100 Mbit/s at 500 m from the cabinet, and 50 at 1 km.",
-            ],
+            vdsl: ["works", "VDSL2 slows with the length of copper: about 100 Mbit/s at 500 m from the cabinet, and 50 at 1 km."],
             radio: [
                 "works",
-                "It works if the flat has a clear view of the provider's tower, but the fiber in the street is faster and is not weakened by heavy rain.",
+                "It needs a clear view of the provider's tower, and the fiber in the street is faster and not weakened by heavy rain.",
             ],
-            leo: [
-                "poor",
-                "It works under open sky, with tens of milliseconds of delay and capacity shared with other users. Nobody needs it with fiber in the street.",
-            ],
+            leo: ["poor", "Its capacity is shared with other users, and nobody needs it with fiber in the street."],
             geo: [
                 "poor",
                 "Over half a second for every round trip makes calls and games painful. Nobody chooses it with fiber in the street.",
@@ -57,17 +48,14 @@ const SITES: { id: string; name: string; short: string; about: string; fits: Rec
         short: "Office",
         about: "An office in the city center. Its contract must promise a rate and a repair time.",
         fits: {
-            p2p: [
-                "best",
-                "A fiber used by this customer alone. Nobody else shares it, so the provider can commit to a rate and promise a repair time.",
-            ],
+            p2p: ["best", "Nobody else shares this fiber, so the provider can commit to a rate and a repair time."],
             gpon: [
                 "works",
-                "Fine for a small office on a budget, but the splitter's capacity is shared with everyone on it, so a rate is hard to promise.",
+                "The splitter's capacity is shared with everyone on it, so a rate is hard to promise. Fine for a small office on a budget.",
             ],
             vdsl: ["poor", "Only as a cheap spare: it is slow and gets slower with distance."],
-            radio: ["works", "A good second link: it reaches the office by a different path from the fiber, if the roof can see a tower."],
-            leo: ["works", "A spare that shares nothing with the cables in the street, at tens of milliseconds of delay."],
+            radio: ["works", "Best as a second link, by a different path from the fiber, if the roof can see a tower."],
+            leo: ["works", "Best as a spare that shares nothing with the cables in the street."],
             geo: ["poor", "Only as a last-resort spare: over half a second of delay."],
         },
     },
@@ -81,14 +69,11 @@ const SITES: { id: string; name: string; short: string; about: string; fits: Rec
                 "best",
                 "A point-to-point radio link to the tower needs only a clear view across the 8 km. Heavy rain weakens the higher frequencies, so the link is planned with room for it.",
             ],
-            p2p: [
-                "works",
-                "The best link in the end, but the fiber must first be laid along the road, which takes time and money to build.",
-            ],
+            p2p: ["works", "The fiber must first be laid along the road, which takes time and money."],
             gpon: ["none", "No fiber runs along its road, so there is no splitter to join."],
             vdsl: ["none", "No copper runs there, and VDSL2 would be slow over kilometers of it anyway."],
-            leo: ["works", "It works under open sky with tens of milliseconds of delay, and makes a good spare for the radio link."],
-            geo: ["poor", "It works, but over half a second of delay hurts anything the factory runs in real time."],
+            leo: ["works", "Best as a spare for the radio link."],
+            geo: ["poor", "Over half a second of delay hurts anything the factory runs in real time."],
         },
     },
     {
@@ -99,12 +84,9 @@ const SITES: { id: string; name: string; short: string; about: string; fits: Rec
         fits: {
             leo: [
                 "best",
-                "Low-orbit satellites fly about 550 km up, so the trip to space and back adds only a few milliseconds; measured round trips are tens of milliseconds. The dish needs an open view of the sky.",
+                "Low-orbit satellites fly about 550 km up, so measured round trips are tens of milliseconds. The dish needs an open view of the sky.",
             ],
-            geo: [
-                "works",
-                "A VSAT dish works almost anywhere the sky is open, but the satellite is 35,786 km up, and every round trip takes over half a second.",
-            ],
+            geo: ["works", "The satellite is 35,786 km up, so every round trip takes over half a second."],
             radio: ["none", "A radio link needs a clear line of sight to a tower, and there is none in view."],
             gpon: ["none", NO_CABLE],
             p2p: ["none", NO_CABLE],

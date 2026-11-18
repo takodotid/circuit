@@ -40,7 +40,7 @@ const CORE: Hop = {
     label: "PoP",
     network: "provider",
     title: "Your provider's core, to a PoP",
-    text: "The provider's core routers carry the request to a point of presence, a PoP. It is a building, often a data center, where the provider has routers and meets other networks.",
+    text: "The provider's core routers carry the request to a point of presence, a PoP: often a data center, where the provider meets other networks.",
 };
 
 const CROSS: Hop = {
@@ -56,7 +56,7 @@ const EXCHANGE: Hop = {
     label: "Peering LAN",
     network: "exchange",
     title: "The national exchange",
-    text: "The provider and the hosting company each have a port on the exchange's peering LAN, and they peer. The request crosses to the hosting company directly, and neither pays a transit provider for it.",
+    text: "The provider and the hosting company each have a port on the exchange's peering LAN, and they peer. Neither pays a transit provider for this request.",
 };
 
 const DESTINATIONS: { id: string; name: string; hops: Hop[] }[] = [
@@ -74,7 +74,7 @@ const DESTINATIONS: { id: string; name: string; hops: Hop[] }[] = [
                 label: "Web server",
                 network: "host",
                 title: "The hosting company",
-                text: "The hosting company's router takes the request in from the exchange and hands it to the server in its racks. The answer goes back the same way. The page never left the country.",
+                text: "The hosting company's router hands the request to the server in its racks. The answer goes back the same way, and never leaves the country.",
             },
         ],
     },
@@ -90,7 +90,7 @@ const DESTINATIONS: { id: string; name: string; hops: Hop[] }[] = [
                 label: "Cache",
                 network: "content",
                 title: "A cache inside your provider",
-                text: "Netflix gives providers servers of its own to place inside their networks, with copies of its videos on them. The video comes from a rack in your provider's PoP, and never crosses another network.",
+                text: "Netflix places servers with copies of its videos inside providers' networks. The video comes from a rack in your provider's PoP, and crosses no other network.",
             },
         ],
     },
@@ -113,21 +113,21 @@ const DESTINATIONS: { id: string; name: string; hops: Hop[] }[] = [
                 label: "Backbone",
                 network: "transit",
                 title: "Across the transit's backbone",
-                text: "The transit network carries the request over its own long links, across undersea cables, to its routers in Europe. Most of the delay comes from here, from thousands of kilometers of fiber.",
+                text: "The transit network carries the request across undersea cables to its routers in Europe. Most of the delay comes from these thousands of kilometers of fiber.",
             },
             {
                 kind: "switch",
                 label: "Exchange",
                 network: "abroad",
                 title: "Handed over in Europe",
-                text: "In a European data center, the transit network hands the request to the hosting company. It does this at an exchange there, over a cross-connect, or because the hosting company buys transit from it.",
+                text: "In a European data center, the transit network hands the request to the hosting company: at an exchange, over a cross-connect, or as its transit provider.",
             },
             {
                 kind: "server",
                 label: "Web server",
                 network: "far",
                 title: "The hosting company abroad",
-                text: "The server answers, and the answer comes back across the same kinds of networks. It doesn't always take the same path, because each network chooses its own way back.",
+                text: "The answer comes back across the same kinds of networks, but not always on the same path, because each network chooses its own way.",
             },
         ],
     },

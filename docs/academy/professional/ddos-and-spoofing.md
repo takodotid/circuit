@@ -7,12 +7,6 @@ description: Stop forged sources at your edge, shed a flood by blackholing its t
 
 A <Term means="Distributed denial of service: an attack that sends a target more traffic than its links or devices can take, from many sources at once.">DDoS</Term>, a distributed denial of service attack, sends a target more traffic than its links or its devices can take, from many sources at once. A provider meets it from both sides. Its customers are attacked, and its own network can be used to attack others.
 
-Three defenses work at three different places:
-
-1. **At the edge of every network, drop packets with forged sources**, so nobody can launch floods from yours.
-2. **When a flood arrives, drop it as far upstream as you can**, by blackholing the address it is aimed at.
-3. **On every router, filter what reaches its own CPU**, so a flood can't take routing down with it.
-
 ## Forged sources and reflection
 
 The sender of a packet writes its source address. Nothing on the way checks it, unless a router is set to. An attacker who forges, or <Term means="Writing a source address on a packet that is not the sender's own.">spoofs</Term>, a source can do something worse than hide. It can make other servers attack for it.
@@ -29,7 +23,7 @@ Some services answer a small UDP request with a much larger reply. The attacker 
 
 </TryIt>
 
-The check that stopped the flood ran in the attacker's own network, AS64511. It didn't run at the victim or at the reflector. That is **BCP 38**, Best Current Practice 38, published as RFC 2827 in 2000. A provider drops traffic from its customers when the source address is outside the customers' own address space.
+The check that stopped the flood ran in the attacker's own network, AS64511. That is **BCP 38**, Best Current Practice 38, published as RFC 2827 in 2000. A provider drops traffic from its customers when the source address is outside the customers' own address space.
 
 BCP 38 protects everyone else, never the network that runs it. So it only works when most networks do it, and that is why MANRS lists it as one of its actions.
 
@@ -113,7 +107,7 @@ Send a wave of the flood as it is. Then have Netflix ask for a blackhole, and se
 
 </TryIt>
 
-A blackhole on your own router freed Netflix's link, and nothing else. Each upstream that received the route freed your link to it. The rest of the flood kept arriving, and your router dropped it. In every case `192.0.2.10` became unreachable for everyone. Blackholing gives up one address to save every other customer, as RFC 5635 says plainly. Netflix can move its service to another address while the attack lasts.
+A blackhole on your own router freed Netflix's link, and nothing else. Each upstream that received the route freed your link to it. In every case `192.0.2.10` became unreachable for everyone. Blackholing gives up one address to save every other customer, as RFC 5635 says. Netflix can move its service to another address while the attack lasts.
 
 In Circuit, blackholing is part of the [community scheme](/guide/communities). The scheme in `circuit.ts` says which community asks for a blackhole:
 
@@ -211,11 +205,3 @@ A forward chain that drops by default must also accept the state `untracked`, si
 - [RFC 6192](https://www.rfc-editor.org/rfc/rfc6192), on protecting the router control plane.
 - [RFC 4861](https://www.rfc-editor.org/rfc/rfc4861), neighbor discovery for IPv6.
 - [MANRS implementation guide for network operators](https://manrs.org/netops/guide/), on anti-spoofing.
-
-## In short
-
-- Spoofed sources let one attacker reflect and amplify a flood off thousands of servers. BCP 38 stops it in the sender's network. It drops customer traffic from outside the customer's space, by uRPF or, in Circuit, with an ACL on the customer port.
-- Inside one subnet, `bound_to` ties an access port to its hosts' MAC addresses and the addresses they send from.
-- A flood larger than your links must be dropped upstream. Blackholing announces the target's /32 with a community, and every upstream that takes it drops the flood in its own network. The target becomes unreachable, and everyone else is saved.
-- In Circuit, the community scheme in `circuit.ts` says which community asks for a blackhole. Each upstream that takes it writes its own `blackhole` community, and a customer's import may keep the request with `accept_requests: ["blackhole"]`. Circuit has no flowspec.
-- Protect the router's CPU with an input chain that ends in drop, ACL drops in the switch chip, `untracked` for customer space, and SYN cookies.

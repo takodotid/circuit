@@ -128,7 +128,7 @@ const scripts: Record<Mode, Step[]> = {
         },
         {
             title: "The answer comes back",
-            text: "The resolver passes the answer to the laptop, and both remember it for the next 300 seconds. The laptop can now send packets to 203.0.113.80. Four questions, one answer.",
+            text: "The resolver passes the answer to the laptop, and both remember it for the next 300 seconds. The laptop can now send packets to 203.0.113.80.",
             legs: [["resolver", "laptop"]],
             answer: ANSWER,
             questions: 4,
@@ -156,7 +156,7 @@ const scripts: Record<Mode, Step[]> = {
         },
         {
             title: "The resolver remembers",
-            text: "Someone else asked the resolver for this name a minute ago, and the answer is still in its memory. It answers at once, with no root, no .id, and no tako.id. One question instead of four.",
+            text: "Someone else asked the resolver for this name a minute ago, and the answer is still in its memory. It answers at once, with no root, no .id, and no tako.id.",
             legs: [["resolver", "laptop"]],
             answer: "circuit.tako.id is 203.0.113.80. Remember it for the 240 seconds that are left.",
             questions: 1,

@@ -16,7 +16,7 @@ A trunk sends its native VLAN's frames without a tag. That opens two holes:
 
 ## In Circuit
 
-`native_vlans_are_dead_ends: true` in `circuit.ts` turns on the check. It stops on a VLAN that is native on more than one trunk of a device, or that is also an access or tagged VLAN anywhere on that device. So no host on the device is in its native VLAN, and untagged frames from one trunk reach no other port.
+`native_vlans_are_dead_ends: true` in `circuit.ts` turns on the check. It stops on a VLAN that is native on more than one trunk of a device, or that is also an access or tagged VLAN anywhere on that device.
 
 Where the far end sends some frames untagged, end the native VLAN at a VLAN interface on the device itself. If the provider of the [single site example](/guide/examples#a-single-site) sent the internet untagged and its IPTV tagged on one port, the router would write:
 

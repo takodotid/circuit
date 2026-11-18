@@ -32,9 +32,9 @@ At `/24`, the network part is the first three numbers, `192.168.1`. At `/16`, it
 
 ## The mask says the same thing
 
-Another way to write the prefix length is the <Term means="Another way to write a prefix length, such as 255.255.255.0 for /24. It has 32 bits: a 1 for each network bit, and a 0 for each host bit.">mask</Term>. It is 32 bits too, with a 1 under every network bit and a 0 under every host bit. It is written the way an address is written. The widget shows it in the second row of bits.
+Another way to write the prefix length is the <Term means="Another way to write a prefix length, such as 255.255.255.0 for /24. It has 32 bits: a 1 for each network bit, and a 0 for each host bit.">mask</Term>. It is 32 bits too, with a 1 under every network bit and a 0 under every host bit. It is written the way an address is written.
 
-For `/24`, the mask is 24 ones and 8 zeros. Eight ones are 255, and eight zeros are 0, so the mask is `255.255.255.0`. Settings screens often show the mask, and these lessons use the prefix length. This table shows both:
+For `/24`, the mask is 24 ones and 8 zeros. Eight ones are 255, and eight zeros are 0, so the mask is `255.255.255.0`. Settings screens often show the mask, and these lessons use the prefix length.
 
 | Prefix length | Mask              | Addresses in all | For devices |
 | :-----------: | ----------------- | ---------------: | ----------: |
@@ -114,11 +114,3 @@ Anyone may use these **private addresses** inside their own network, so millions
   :why="['', 'No private block starts with 198.', 'No private block starts with 203.']"
   explain="172.16.0.0/12 runs from 172.16.0.0 to 172.31.255.255, and 172.20 is inside it."
 />
-
-## In short
-
-- An IPv4 address is 32 bits, written as four numbers from 0 to 255.
-- The first bits are the network part, the same for every device on the network. The rest are the host part, different for each device.
-- The prefix length, such as `/24`, says how many bits are the network part. The mask, such as `255.255.255.0`, says the same thing another way.
-- Each host bit doubles the size of a block: 8 host bits make 256 addresses. The first address stands for the network and the last is the broadcast address, so neither goes to a device.
-- Two devices are on the same network when their network parts match. Homes and offices use the private blocks `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`.

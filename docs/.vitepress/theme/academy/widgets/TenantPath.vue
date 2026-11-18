@@ -33,7 +33,7 @@ const trips: Trip[] = [
         label: "The internet to Netflix server 1",
         path: ["internet", "edge", "tor", "netflix1"],
         delivered: true,
-        text: "It arrives from the transit, and the edge ACL checks its source in the switch chip. 198.51.100.10 is inside 198.51.100.8/29, the block of Netflix, whose gateway is on netflix-internet. So the router sends it down the trunk tagged 1001, and tor-01 passes it out of 10g-1, still tagged 1001.",
+        text: "It arrives from the transit, and the edge ACL checks its source. 198.51.100.10 is inside 198.51.100.8/29, the block of Netflix, whose gateway is on netflix-internet. So the router sends it down the trunk tagged 1001, and tor-01 passes it out of 10g-1, still tagged 1001.",
     },
     {
         id: "private",

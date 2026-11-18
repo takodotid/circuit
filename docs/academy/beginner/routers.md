@@ -28,7 +28,7 @@ A router sits on more than one network, so it has an address on each of them. In
 
 </TryIt>
 
-To reach its gateway, the laptop puts the packet in a frame for the main router's hardware address. Each router takes the packet out of its frame and looks up the destination. Then it puts the packet in a new frame for the next stop. The IP addresses on the packet stay the same the whole way, as in [Addresses](/academy/beginner/addresses).
+To reach its gateway, the laptop puts the packet in a frame for the main router's hardware address. Each router then puts the packet in a new frame for the next stop, as in [Addresses](/academy/beginner/addresses).
 
 <Quiz
   question="Your laptop is 192.168.1.20/24, and its gateway is 192.168.1.1. Which packet does it send to the gateway?"
@@ -71,7 +71,7 @@ Most tables end with a row for **anything else**: where to send a packet whose n
 
 When a packet arrives, the router looks for the row whose network holds the destination address. If no row does, it uses the row for anything else. If it has no such row either, it drops the packet.
 
-A packet from your home to a website far away may take ten or twenty hops. Every router on the way does the same small thing: it reads the destination, finds a row, and passes the packet on.
+A packet from your home to a website far away may take ten or twenty hops, and every router on the way does the same.
 
 <Quiz
   question="The main router receives a packet for 172.16.8.25. What does it do?"
@@ -136,13 +136,3 @@ So a firewall often lets ICMP through on purpose. A network that drops every ICM
   :why="['Every router on the way lowers the TTL by one, so it cannot still be 64.', '', 'The TTL counts down from where the sender set it. It does not count the hops up from zero.', 'A packet whose TTL reaches 0 is dropped. This one arrived.']"
   explain="Each of the 5 routers lowers it by one: 64 minus 5 is 59."
 />
-
-## In short
-
-- A device sends packets for its own network straight to the receiver. It sends everything else to its default gateway, the router on its network.
-- A router has an address on each network it joins.
-- A router looks up each packet's destination in its routing table. It passes the packet one hop closer: directly, to another router, or by the row for anything else.
-- The IP addresses on a packet stay the same the whole way. The frame around it is new at every hop.
-- A device finds the hardware address for an IP address on its own network with ARP. For a far address, it asks for its gateway's hardware address.
-- Every router lowers the packet's TTL by one, so a router drops a packet caught in a loop instead of passing it on forever.
-- ICMP is how the network sends notes about delivery. Ping and traceroute are built on it.
