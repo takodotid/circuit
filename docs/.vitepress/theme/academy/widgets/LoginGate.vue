@@ -39,7 +39,7 @@ const attempts = computed<Attempt[]>(() => [
     { id: "monitor", who: "The monitoring server, as monitor", source: "192.168.10.30", service: "ssh", user: "monitor", should: "in" },
     {
         id: "intern",
-        who: "The intern who left last month, at the old desk in the server room, as intern",
+        who: "The intern who left last month, from the server room, as intern",
         source: "192.168.10.40",
         service: "ssh",
         user: "intern",
@@ -168,9 +168,7 @@ const lockedOut = computed(() => !sshOn.value);
             <fieldset class="group">
                 <legend>Users in the file</legend>
                 <div class="ac-row">
-                    <button type="button" class="ac-button small" aria-pressed="true" disabled>
-                        operator, admin, Circuit logs in as it
-                    </button>
+                    <button type="button" class="ac-button small" aria-pressed="true" disabled>operator, admin (Circuit's login)</button>
                     <button type="button" class="ac-button small" :aria-pressed="monitorListed" @click="monitorListed = !monitorListed">
                         monitor, read-only
                     </button>
@@ -181,7 +179,7 @@ const lockedOut = computed(() => !sshOn.value);
             </fieldset>
 
             <label class="ac-field group">
-                <span>On the switch, port 10g-4 (the guest access point) is in VLAN</span>
+                <span>Switch port 10g-4, the guest access point, is in VLAN</span>
                 <select v-model="wallPortVlan" class="ac-select">
                     <option value="guests">guests</option>
                     <option value="mgmt">mgmt</option>

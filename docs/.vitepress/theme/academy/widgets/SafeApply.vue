@@ -27,13 +27,13 @@ const steps = computed(() => [
     {
         title: "Log in again",
         text: locksOut.value
-            ? "Circuit logs in again in a new session, to prove that the way in still works. Nothing answers: SSH is off."
-            : "Circuit logs in again in a new session, to prove that the way in still works. It does.",
+            ? "Circuit logs in again in a new session, to check that the way in still works. Nothing answers: SSH is off."
+            : "Circuit logs in again in a new session, to check that the way in still works. It does.",
     },
     locksOut.value
         ? {
               title: "The router undoes the change by itself",
-              text: "Circuit stops and tells you the change could not be confirmed. The timer is still set: when it runs out, the router loads the backup, with SSH on, and you can log in again. Fix the file before you apply again.",
+              text: "Circuit stops and says it could not log in again. The timer is still set: when it runs out, the router loads the backup, with SSH on, and you can log in again. Fix the file before you apply again.",
           }
         : {
               title: "Keep the change",
@@ -52,9 +52,7 @@ function toggle() {
     <div class="safe-apply">
         <div class="ac-row choice">
             <button type="button" class="ac-button small" :aria-pressed="!locksOut" @click="locksOut && toggle()">A safe change</button>
-            <button type="button" class="ac-button small" :aria-pressed="locksOut" @click="!locksOut && toggle()">
-                A change that turns SSH off
-            </button>
+            <button type="button" class="ac-button small" :aria-pressed="locksOut" @click="!locksOut && toggle()">Turn SSH off</button>
         </div>
 
         <StepThrough :steps="steps" v-slot="{ step }">
