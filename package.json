@@ -53,7 +53,7 @@
         "docs:dev": "bun install --cwd docs && bun run --cwd docs dev",
         "docs:build": "bun install --cwd docs --frozen-lockfile && bun run --cwd docs build",
         "docs:preview": "bun run --cwd docs preview",
-        "check": "bun run studio && bun run typecheck && bun run test && bun run format:check && bun run build",
+        "check": "bun run studio && bun run typecheck && bun run lint && bun run test && bun run format:check && bun run build",
         "prepare": "bun run studio; bun run editor-types; vale sync; husky || true"
     },
     "dependencies": {
