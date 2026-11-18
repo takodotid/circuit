@@ -22,9 +22,15 @@ export class Format {
 
         // A field written as `{}`, such as `ssh: {}`, is on with its defaults.
         if (Format.isObject(value) && !Object.keys(value).length) return "on";
+        // A field with nothing in it, such as an empty list, is left out.
         if (Format.isObject(value)) {
             return Object.entries(value)
-                .map(([key, inner]) => (inner === true ? key : `${key} ${Format.compact(inner)}`))
+                .map(([key, inner]) => {
+                    if (inner === true) return key;
+                    const text = Format.compact(inner);
+                    return text ? `${key} ${text}` : "";
+                })
+                .filter(Boolean)
                 .join(", ");
         }
 
