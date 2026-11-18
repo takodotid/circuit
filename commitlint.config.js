@@ -1,8 +1,17 @@
 // Conventional Commits. The scope says which part of the repo a commit changes.
 
+// The subject is a command, as git and Conventional Commits write it: "add", "fix", "remove" (decision 109).
+const imperative = ({ subject }) => {
+    const first = (subject ?? "").split(" ")[0].toLowerCase();
+    const descriptive = ["a", "an", "the", "each", "every"].includes(first) || /ed$/.test(first);
+    return [!descriptive, 'write the subject as a command, such as "add ..." or "fix ...", not as a description'];
+};
+
 export default {
     extends: ["@commitlint/config-conventional"],
+    plugins: [{ rules: { "subject-imperative": imperative } }],
     rules: {
+        "subject-imperative": [2, "always"],
         "scope-empty": [2, "never"],
         "scope-enum": [
             2,
