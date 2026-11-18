@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { Format } from "./lib/format";
+import { GraphLayer } from "./lib/graph-layer";
 import { go, store } from "./lib/store";
 import AddressesView from "./components/AddressesView.vue";
 import CablesView from "./components/CablesView.vue";
@@ -43,12 +44,22 @@ const summary = computed(() => [
     { text: Format.count(warnings.value, "warning"), state: warnings.value ? "warning" : "quiet" },
 ]);
 
-// The search waits for typing to stop, then shows what it finds; an emptied search goes back to the graph.
+// What the Problems page lists: what validate finds, and every line only one end declares.
+const problems = computed(() => (store.data ? store.data.findings.length + GraphLayer.oneSided(store.data).length : 0));
+
+// The search waits for typing to stop, then shows what it finds; an emptied search goes back to the graph. Leaving the search empties it.
 const query = ref(view.value === "search" ? (store.route.parts[0] ?? "") : "");
 let searching: ReturnType<typeof setTimeout> | undefined;
-watch(query, (text) => {
+
+function search(event: Event): void {
+    const text = (event.target as HTMLInputElement).value;
+    query.value = text;
     clearTimeout(searching);
     searching = setTimeout(() => go(text.trim() ? `search/${text.trim()}` : "graph"), 250);
+}
+
+watch(view, (next) => {
+    if (next !== "search") query.value = "";
 });
 </script>
 
@@ -59,10 +70,10 @@ watch(query, (text) => {
         >
         <nav aria-label="Views">
             <button v-for="item in VIEWS" :key="item.id" :aria-pressed="view === item.id" @click="go(item.id)">
-                {{ item.label }}<span v-if="item.id === 'problems'" class="count">{{ store.data?.findings.length || "" }}</span>
+                {{ item.label }}<span v-if="item.id === 'problems'" class="count">{{ problems || "" }}</span>
             </button>
         </nav>
-        <input v-model="query" type="search" placeholder="Search the project" aria-label="Search the project" />
+        <input :value="query" type="search" placeholder="Search the project" aria-label="Search the project" @input="search" />
         <div class="status-rail" aria-label="Network status">
             <span class="summary">
                 <span v-for="item in summary" :key="item.text" :class="['summary-item', item.state]">{{ item.text }}</span>

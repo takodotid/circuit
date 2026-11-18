@@ -63,6 +63,11 @@ export class GraphLayer {
         return `${count} ${count === 1 ? one : many}`;
     }
 
+    /** Every line only one end declares. The VLANs layer repeats the cables layer's cables, so a cable is counted once. */
+    static oneSided(data: StudioData): GraphEdge[] {
+        return data.graph.edges.filter((edge) => edge.oneSided && edge.layer !== "l2");
+    }
+
     /** A line by what it is, the same while the project changes. */
     static keyOf(edge: GraphEdge): string {
         return `${edge.layer} ${edge.from} ${edge.to} ${edge.label}`;
