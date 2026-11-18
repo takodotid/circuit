@@ -1,5 +1,3 @@
-// One device: its name, where it is, what it is, how Circuit logs in, and its groups. A part of a device, written in another file and given to it by a source.
-
 import type { IP, Secret } from "./common";
 import type { Firewall } from "./firewall";
 import type { Interfaces, Port } from "./interfaces";
@@ -57,7 +55,7 @@ export type Names = {
     lag: string;
     /** Keys of `interfaces.vlan_interface`. */
     vlanInterface: string;
-    /** Keys of `interfaces.bridge`, `.loopback`, `.gre`, `.vxlan`, `.wireguard` and `.eoip`. */
+    /** Keys of `interfaces.bridge`, `.loopback`, `.gre`, `.vxlan`, `.wireguard`, and `.eoip`. */
     interface: string;
     /** Keys of `switching.vlans`. */
     vlan: string;
@@ -81,7 +79,7 @@ export type Names = {
     user: string;
     /** Keys of `system.certificates`. */
     certificate: string;
-    /** Every port and interface: `port`, `lag`, `vlanInterface` and `interface` together. */
+    /** Every port and interface: `port`, `lag`, `vlanInterface`, and `interface` together. */
     anyInterface: string;
 };
 
@@ -89,11 +87,11 @@ export type Names = {
  * The groups of a device. A part can add to each of them too. `N` holds the names the device declares, `Ethernet` its ports. `Part` is true in a part, where BGP holds only what the part adds. `Net` is what the network writes: whether it turns on the check `untrusted_vlans`, and its `communities`.
  */
 export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net extends NetworkFacts = AnyFacts> = {
-    /** The device itself: banner, time, the DNS servers it uses, users, certificates, local logs, software and hardware. */
+    /** The device itself: banner, time, the DNS servers it uses, users, certificates, local logs, software, and hardware. */
     system?: System<N["user"], N["certificate"], NoInfer<N["anyInterface"]>>;
-    /** How people and tools log in, such as SSH, HTTPS, the API, the native protocol and the console. */
+    /** How people and tools log in, such as SSH, HTTPS, the API, the native protocol, and the console. */
     management?: Management<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["addressSet"]>>;
-    /** What the device reports to collectors: SNMP, syslog, flow export and optics. */
+    /** What the device reports to collectors: SNMP, syslog, flow export, and optics. */
     monitoring?: Monitoring<NoInfer<N["anyInterface"]>>;
     /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, wireguard, eoip. */
     interfaces?: Interfaces<
@@ -105,13 +103,13 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
         NoInfer<N["vrf"]>,
         NoInfer<N["table"]>
     >;
-    /** Layer 2 settings the ports share: VLANs, STP, LLDP and ACLs. */
+    /** Layer 2 settings the ports share: VLANs, STP, LLDP, and ACLs. */
     switching?: Switching<N["vlan"], N["acl"], NoInfer<N["anyInterface"]>, Net["untrusted"]>;
-    /** What the device serves to hosts: DHCP server, DHCP relay, DNS server, NTP server and UPnP. */
+    /** What the device serves to hosts: DHCP server, DHCP relay, DNS server, NTP server, and UPnP. */
     services?: Services<NoInfer<N["anyInterface"]>>;
-    /** Where packets go: routing tables, VRFs, policy routing, static routes, BGP, OSPF, BFD, RPKI, route policies and prefix sets. */
+    /** Where packets go: routing tables, VRFs, policy routing, static routes, BGP, OSPF, BFD, RPKI, route policies, and prefix sets. */
     routing?: Routing<N["policy"], N["prefixSet"], N["neighborGroup"], N["table"], N["vrf"], NoInfer<N["anyInterface"]>, Part, Net>;
-    /** Which packets pass, and how they are rewritten: address sets, interface sets, filter, NAT, TCP MSS clamps, untracked prefixes and connection-tracking helpers. */
+    /** Which packets pass, and how they are rewritten: address sets, interface sets, filter, NAT, TCP MSS clamps, untracked prefixes, and connection-tracking helpers. */
     firewall?: Firewall<N["addressSet"], NoInfer<N["anyInterface"]>, N["interfaceSet"]>;
 };
 
@@ -144,7 +142,7 @@ export type Device<
 } & Groups<N, Ethernet, false, Net>;
 
 /**
- * A part of a device, which a source gives it under its hostname. It holds what an upstream, a tenant or a monitoring host adds to the device. The device or one of its parts must declare each name it uses.
+ * A part of a device, which a source gives it under its hostname. It holds what an upstream, a tenant, or a monitoring host adds to the device. The device or one of its parts must declare each name it uses.
  */
 export type Part<N extends Names, Ethernet, Net extends NetworkFacts = AnyFacts> = {
     /** How Circuit itself logs in. In a part, only what the part adds, such as the console. */
@@ -163,8 +161,8 @@ export type AnyDevice = Device<string, string, string, AnyNames, Record<string, 
 /**
  * A part of one or more devices, written in its own file. A source gives it to each device under the device's hostname. For example: an upstream's VLAN, sessions and policies on the router; a tenant's ports on a switch; or what every device sends to the monitoring hosts.
  *
- * It has a device's fields, except those only a whole device has: its site, platform and model. Some fields a device needs are optional in a part, so a part can add BGP neighbors without the AS, or a console without the user.
+ * It has a device's fields, except those only a whole device has: its site, platform, and model. Some fields a device needs are optional in a part, so a part can add BGP neighbors without the AS, or a console without the user.
  *
- * Circuit checks the names a part uses, such as a VLAN, an interface or a policy, once the part reaches a device. That device or one of its parts must declare them.
+ * Circuit checks the names a part uses, such as a VLAN, an interface, or a policy, once the part reaches a device. That device or one of its parts must declare them.
  */
 export type DevicePart = Part<AnyNames, Record<string, AnyPort>>;

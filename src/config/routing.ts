@@ -1,5 +1,3 @@
-// Where packets go: `routing.tables`, `.vrfs`, `.policy_routing`, `.static_routes`, `.bgp`, `.ospf`, `.bfd`, `.rpki`, `.policies`, `.prefix_sets`.
-
 import type { Family, HostAddress, IP, Named, Ordered, Prefix, Secret } from "./common";
 import type { CommunitiesRule, NeighborCommunities } from "./communities";
 import { ACTIONS, CALL_RULE, closest, COMMUNITIES_EXPORT, COMMUNITIES_IMPORT, ROUTE_MATCH, ROUTE_RULE, ROUTE_SET } from "./keys";
@@ -283,7 +281,7 @@ export type CallRule<P extends string> = {
     communities?: never;
 };
 
-/** A route policy rule: which routes (`if`), what to change (`set`) and what happens next (`then`). It has `then`, `set` or both. */
+/** A route policy rule: which routes (`if`), what to change (`set`), and what happens next (`then`). It has `then`, `set`, or both. */
 export type RouteRule<S extends string> = {
     /** Shown beside the rule on the device. */
     description?: string;
@@ -315,7 +313,7 @@ export type PolicyRule<P extends string, S extends string, Net extends NetworkFa
           ? CommunitiesRule<Net["requests"]>
           : { communities: "allowed only when circuit.ts writes communities" });
 
-/** What a route policy rule, its `if` and its `set` may hold, at run time: from keys.ts, which the types above check. */
+/** What a route policy rule, its `if`, and its `set` may hold at run time, from keys.ts, which the types above check. */
 const RULE_KEYS = Object.keys(ROUTE_RULE);
 const MATCH_KEYS = Object.keys(ROUTE_MATCH);
 const SET_KEYS = Object.keys(ROUTE_SET);
@@ -396,7 +394,7 @@ export type Routing<
     bgp?: Part extends true ? Partial<Bgp<NoInfer<P>, G, NoInfer<T>, Net>> : Bgp<NoInfer<P>, G, NoInfer<T>, Net>;
     /** OSPF areas and interfaces. */
     ospf?: Ospf<I>;
-    /** BFD timers for every BFD session on the device: BGP, OSPF and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */
+    /** BFD timers for every BFD session on the device: BGP, OSPF, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */
     bfd?: Bfd;
     /** The RPKI validators the device asks for route origin validation. */
     rpki?: readonly RpkiServer[];

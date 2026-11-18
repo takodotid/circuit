@@ -1,4 +1,4 @@
-// The model as Circuit's own code reads it: a device as its project wrote it, after `src/project.ts` turned what the language adds into plain values (a list in a match is one rule per value, an interface set its interfaces, `management.allow` its addresses). Each name is plain text here: the project's types already checked it. The fields and their docs are those of `src/config/`, which a project writes.
+// A device as its project wrote it, after `src/project.ts` turned the language's shorthands into plain values. Each name is plain text here, as the project's types already checked it. The fields and their docs are those of `src/config/`.
 
 import type * as C from "./config/index";
 
@@ -37,7 +37,6 @@ export type {
     Vlan,
 } from "./config/index";
 
-/** A device: name, site, platform, model, connection and its groups. */
 export type Device = C.AnyDevice;
 
 /** A physical port, in `interfaces.ethernet`. */

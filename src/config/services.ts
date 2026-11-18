@@ -1,5 +1,3 @@
-// What the box serves to hosts: `services.dhcp_server`, `.dhcp_relay`, `.dns_server`, `.ntp_server`, `.upnp`.
-
 import type { IP, MacAddress, Prefix } from "./common";
 
 /** An address a DHCP server keeps for one client. */

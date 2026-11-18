@@ -3,7 +3,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, isAbsolute, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { catalogue, schemeProblems, writeCommunities } from "./config/communities";
+import { catalog, schemeProblems, writeCommunities } from "./config/communities";
 import { BGP_NEIGHBORS, type Registered, registry } from "./config/define";
 import type { AnyDevice } from "./config/device";
 import type { Community, Finding, ResolvedNetwork } from "./config/network";
@@ -627,7 +627,7 @@ async function read(folder: string): Promise<ProjectRead> {
         networks: networks.map(({ name, registered, network, devices }) => ({
             name,
             ...(network.asn !== undefined ? { asn: network.asn } : {}),
-            communities: network.communities ? catalogue(network) : [],
+            communities: network.communities ? catalog(network) : [],
             devices: Object.fromEntries(Object.values(devices).map((d) => [d.name, primitive(d, network)])),
             files: Object.fromEntries(registered.devices.map(({ device, file }) => [device.name, short(file)])),
             settings: network,

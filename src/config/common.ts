@@ -1,7 +1,7 @@
-// Shapes every group shares: secrets, addresses, ordered rules, lists in a match.
+// Shapes every group shares: secrets, addresses, ordered rules, and lists in a match.
 
 /**
- * A password, key or other value that is never written in plain text in the project. Circuit reads its value only when it connects to the device, such as for `diff` or `apply`.
+ * A password, key, or other value that is never written in plain text in the project. Circuit reads its value only when it connects to the device, such as for `diff` or `apply`.
  *
  * `secret("NAME")` reads a value from the network's secrets file (`.circuit/secrets` by default) or from the environment. You set it with `circuit secrets`. If the value is an `op://vault/item/field` reference, Circuit reads it from 1Password.
  *
@@ -43,7 +43,7 @@ export type MacAddress = `${string}:${string}:${string}:${string}:${string}:${st
 /** An address family. */
 export type Family = "ipv4" | "ipv6";
 
-/** Bits per second, for example `2G`, `500M` or `64k`. */
+/** Bits per second, for example `2G`, `500M`, or `64k`. */
 export type Rate = `${number}${"k" | "M" | "G"}`;
 
 /** A log severity, from most to least severe. A threshold also takes every more severe level. */

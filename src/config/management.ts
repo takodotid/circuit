@@ -1,4 +1,4 @@
-// How people and tools log in: `management.ssh`, `.https`, `.api`, `.native_protocol`, `.console`, and the rest. SNMP polling is `monitoring.snmp`.
+// SNMP polling is in `monitoring.snmp`, not here.
 
 import type { Prefix, Secret } from "./common";
 
@@ -20,7 +20,7 @@ export type Management<I extends string, C extends string, AS extends string = s
     interfaces?: readonly I[];
     /** Secure shell (SSH). */
     ssh?: Service & {
-        /** Also offer legacy ciphers, MACs and key exchanges. Off when absent. */
+        /** Also offer legacy ciphers, MACs, and key exchanges. Off when absent. */
         weak_crypto?: boolean;
         /** Seconds a login may take. */
         auth_timeout?: number;

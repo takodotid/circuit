@@ -1,5 +1,3 @@
-// Every port and interface, by kind: `interfaces.ethernet`, `.lag`, `.vlan_interface`, `.bridge`, `.loopback`, `.gre`, `.vxlan`, `.wireguard`, `.eoip`.
-
 import type { HostAddress, IP, InterfaceAddress, MacAddress, Named, Prefix, Secret } from "./common";
 
 /** A storm-control threshold: packets per second, or percent of the link's speed. */
@@ -20,7 +18,7 @@ export type Ethertype = "ipv4" | "ipv6" | "arp";
 export type BoundHost = {
     /** The MAC address of the host's network card, or of a virtual machine bridged onto it, for example `02:00:00:00:00:01`. */
     mac: MacAddress;
-    /** The IPv4 and IPv6 addresses it sends from. Each is an address, or a prefix routed to the host. Some addresses are always allowed, so don't list them: `0.0.0.0` while the host asks DHCP for an address, its IPv6 link-local addresses, and `::` while it checks that an address is free. */
+    /** The IPv4 and IPv6 addresses it sends from. Each is an address, or a prefix routed to the host. Some addresses are always allowed, so don't list them. These are `0.0.0.0` while the host asks DHCP for an address, its IPv6 link-local addresses, and `::` while it checks that an address is free. */
     addresses: readonly (IP | Prefix)[];
 };
 
@@ -108,10 +106,10 @@ export type Switched<Vlan extends string> = {
     storm_control?: StormControl;
     /** The most MAC addresses this port or LAG learns, 1 or more. It drops frames from any other source MAC. An exchange sets 1 on a member's port, so each member sends from one router only. No limit when absent. */
     mac_limit?: number;
-    /** The only kinds of frame this port or LAG takes in. It drops every other kind. An exchange allows `ipv4`, `ipv6` and `arp` on a member's port. Every kind when absent. */
+    /** The only kinds of frame this port or LAG takes in. It drops every other kind. An exchange allows `ipv4`, `ipv6`, and `arp` on a member's port. Every kind when absent. */
     ethertypes?: readonly Ethertype[];
     /**
-     * The only hosts allowed on this access port. The port takes frames and ARP only from their MAC addresses, and IP packets only from their addresses. It also takes the addresses every host sends from: `0.0.0.0` for DHCP, IPv6 link-local and `::`. It drops everything else, so a host can't pretend to be its neighbor. For a server with a management card on the same cable, or with virtual machines bridged onto it, list each MAC. Any host when absent.
+     * The only hosts allowed on this access port. The port takes frames and ARP only from their MAC addresses, and IP packets only from their addresses. It also takes the addresses every host sends from: `0.0.0.0` for DHCP, IPv6 link-local, and `::`. It drops everything else, so a host can't pretend to be its neighbor. For a server with a management card on the same cable, or with virtual machines bridged onto it, list each MAC. Any host when absent.
      */
     bound_to?: readonly BoundHost[];
 };
@@ -127,7 +125,7 @@ export type Link = {
     /** The port on that device, such as `10g-2`. */
     port: string;
     /**
-     * What is between the two ends when the cable is not direct, such as a carrier's local loop or layer 2 transport: `"Carrier A local loop"`. LLDP then sees the carrier's switches, not the far end, so Circuit doesn't check LLDP on this port. Write the same carrier at both ends.
+     * What is between the two ends when the cable is not direct, such as a carrier's local loop or layer 2 transport: `"Zayo local loop"`. LLDP then sees the carrier's switches, not the far end, so Circuit doesn't check LLDP on this port. Write the same carrier at both ends.
      */
     through?: string;
 };
@@ -233,7 +231,7 @@ export type Lag<Vlan extends string, Vrf extends string> = Base<Vrf> &
         id?: number;
         /** Use ARP to find a member that no longer carries traffic, and take it out. When absent, only each member's link state counts. */
         link_check?: LinkCheck;
-        /** A fixed MAC address. Without it, the LAG takes a member's MAC. A tunnel may make up a new MAC each time the device starts, while the far end keeps the old one in its ARP table. A member's MAC when absent. */
+        /** A fixed MAC address. Without it, the LAG takes a member's MAC. A tunnel may make up a new MAC each time the device starts, while the far end keeps the old one in its ARP table. */
         mac?: MacAddress;
     };
 

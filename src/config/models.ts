@@ -1,4 +1,4 @@
-// Every platform Circuit runs on, every model it knows, each model's ports and how it prints them. The types read from here, so a model or port that does not exist fails to compile.
+// The types read each platform's models from here, so a model or port that does not exist fails to compile.
 
 import { models as fortios } from "../platforms/fortios/models";
 import { models as junos } from "../platforms/junos/models";

@@ -1,5 +1,3 @@
-// The whole network, what `circuit()` in `circuit.ts` at a project's root takes: `asn`, `prefixes`, `communities`, `sites`, `checks`, `integrations`. Its devices register with it.
-
 import type { Prefix, Secret } from "./common";
 import type { CommunityRequest, CommunityScheme, SchemeCheck } from "./communities";
 import type { AnyDevice } from "./device";
@@ -14,7 +12,7 @@ export type Prefixes = Readonly<Record<string, Readonly<Record<string, Prefix>>>
  * One BGP community the network defines, in the format the NLNOG Ring looking glass uses to describe communities. bgp.tools reads it too.
  */
 export type Community = {
-    /** The community. `nnn` stands for any number, `x` for one digit and `a-b` for a range, such as `65535:0:nnn`. */
+    /** The community. `nnn` stands for any number, `x` for one digit, and `a-b` for a range, such as `65535:0:nnn`. */
     community: string;
     /** What it means. `$0`, `$1` and so on stand for what each wildcard matched, such as `do not announce to AS$0`. */
     description: string;
@@ -63,7 +61,7 @@ export type Finding = {
     message: string;
     /** The device it is about, by name. */
     device?: string;
-    /** Where in that device, as a path of field names, such as `interfaces.ethernet.10g-2` or `routing.policies.transit-a-export[2]`. */
+    /** Where in that device, as a path of field names, such as `interfaces.ethernet.10g-2` or `routing.policies.cogent-export[2]`. */
     path?: string;
 };
 
