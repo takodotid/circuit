@@ -75,7 +75,7 @@ const found = computed<Row[]>(() => {
 
 <template>
     <h2>Search: {{ query }}</h2>
-    <p v-if="!found.length" class="muted">Nothing in the project matches.</p>
+    <p v-if="!found.length" class="muted">No matches.</p>
     <template v-else>
         <p class="muted">
             {{ found.length >= MOST ? `The first ${MOST} matches.` : Format.count(found.length, "match", "matches") + "." }}

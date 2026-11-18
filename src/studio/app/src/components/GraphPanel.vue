@@ -12,7 +12,8 @@ export type Selection = { node: string } | { edge: string } | undefined;
 const props = defineProps<{ data: StudioData; layer: Layer; shown: Shown; selected: { node?: ShownNode; edge?: ShownEdge } }>();
 const emit = defineEmits<{ select: [next: Selection] }>();
 
-const KINDS = { device: "a device", segment: "a prefix several devices share", outside: "outside the network" };
+/** What a node is, when its drawing doesn't say: a device's does. */
+const KINDS = { device: undefined, segment: "a prefix several devices share", outside: "outside the network" };
 
 const nameOf = (id: string) => props.shown.nodes.find((node) => node.id === id)?.label ?? id;
 
@@ -57,7 +58,7 @@ function toggleVlan(id: number): void {
         <Transition name="enter" mode="out-in">
             <div v-if="selected.node" :key="key">
                 <h2>{{ selected.node.label }}</h2>
-                <p class="kind">{{ KINDS[selected.node.kind] }}</p>
+                <p v-if="KINDS[selected.node.kind]" class="kind">{{ KINDS[selected.node.kind] }}</p>
                 <p v-if="selected.node.kind === 'device'">
                     <RouterLink :to="{ name: 'device', params: { name: selected.node.label } }">Open {{ selected.node.label }}</RouterLink>
                 </p>
@@ -74,7 +75,7 @@ function toggleVlan(id: number): void {
                     </ul>
                 </template>
                 <h3>{{ GraphLayer.LINES[layer][1] }}</h3>
-                <p v-if="!nodeLines.length" class="muted">None on this layer.</p>
+                <p v-if="!nodeLines.length" class="muted">None.</p>
                 <ul v-else>
                     <li v-for="{ edge, other } in nodeLines" :key="edge.id">
                         <button type="button" class="link" @click="emit('select', { edge: edge.id })">{{ edge.label }}</button>
@@ -130,10 +131,7 @@ function toggleVlan(id: number): void {
                 <p class="muted">{{ GraphLayer.HELP[layer] }}</p>
                 <template v-if="store.graphFocus.comparison">
                     <h3>Compared with {{ store.graphFocus.comparison.name }}</h3>
-                    <p>
-                        <span class="added">Green lines</span> are new, <span class="removed">red dashed lines</span> are gone.
-                        <button type="button" class="link" @click="delete store.graphFocus.comparison">Stop comparing</button>
-                    </p>
+                    <p><button type="button" class="link" @click="delete store.graphFocus.comparison">Stop comparing</button></p>
                 </template>
                 <template v-if="layer === 'l2' && layerVlans.length">
                     <h3>VLANs</h3>

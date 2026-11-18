@@ -116,9 +116,6 @@ const VERDICTS = { accept: "Accepted", drop: "Dropped", reject: "Rejected" } as 
 </script>
 
 <template>
-    <p class="muted">
-        Walks the chain's rules in order. The first match decides; with none, <code>default_action</code> (accept if unset).
-    </p>
     <form class="tool-form" @submit.prevent="test">
         <label class="field"
             >Device
@@ -153,8 +150,8 @@ const VERDICTS = { accept: "Accepted", drop: "Dropped", reject: "Rejected" } as 
         <label class="field">Destination <input v-model="form.dst" placeholder="192.0.2.1" /></label>
         <label class="field">Source port <input v-model="form.src_port" inputmode="numeric" placeholder="51000" /></label>
         <label class="field">Destination port <input v-model="form.dst_port" inputmode="numeric" placeholder="22" /></label>
-        <label class="field">Arrives on <input v-model="form.in" list="firewall-interfaces" placeholder="an interface" /> </label>
-        <label class="field">Leaves through <input v-model="form.out" list="firewall-interfaces" placeholder="an interface" /> </label>
+        <label class="field">Arrives on <input v-model="form.in" list="firewall-interfaces" /></label>
+        <label class="field">Leaves through <input v-model="form.out" list="firewall-interfaces" /></label>
         <datalist id="firewall-interfaces">
             <option v-for="name in interfaces" :key="name" :value="name" />
         </datalist>
@@ -189,7 +186,7 @@ const VERDICTS = { accept: "Accepted", drop: "Dropped", reject: "Rejected" } as 
     </ul>
 
     <template v-if="tested">
-        <p v-if="!tested.has" class="muted">{{ tested.device.name }} has no {{ tested.chain }} chain in the project.</p>
+        <p v-if="!tested.has" class="muted">{{ tested.device.name }} has no {{ tested.chain }} chain.</p>
         <p v-if="tested.verdict" :class="['verdict', tested.verdict]">{{ VERDICTS[tested.verdict] }}, by {{ tested.by }}.</p>
         <p v-else class="verdict unknown">Stopped at {{ tested.by }}: needs {{ tested.needs.join(", ") }}.</p>
         <DataTable

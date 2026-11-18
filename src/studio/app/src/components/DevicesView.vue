@@ -39,7 +39,7 @@ const rows = computed<Row[]>(() =>
                 device.model,
                 device.connection.host ?? "console only",
                 all ? `${declared} of ${all}` : String(declared),
-                { badges, otherwise: "nothing" },
+                { badges },
                 props.data.files[device.name],
             ],
         };

@@ -120,13 +120,7 @@ export class StudioServer {
             return { name: entry, kind, needed: isNeeded };
         });
 
-        const passwordLocation = file.passwordLocation();
-        return {
-            file: name,
-            networks: networks.map((network) => network.name),
-            ...(passwordLocation ? { passwordLocation } : {}),
-            entries,
-        };
+        return { file: name, entries };
     }
 
     /** Read a device now and plan against what it runs, as `circuit diff` does. Nothing is kept. */

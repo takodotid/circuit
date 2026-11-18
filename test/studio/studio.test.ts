@@ -115,7 +115,6 @@ describe("the server", () => {
         expect(byName.PLAIN_ONE).toEqual({ name: "PLAIN_ONE", kind: "not encrypted", needed: false });
         expect(JSON.stringify(listing)).not.toContain("never-sent");
         expect(JSON.stringify(listing)).not.toContain("s3cret-value");
-        expect(listing.files[0]!.passwordLocation).toBeUndefined();
     });
 
     test("refuses a request addressed to another name", async () => {

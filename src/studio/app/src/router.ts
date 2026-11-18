@@ -1,14 +1,7 @@
 // Studio's pages, each at its own path, such as `/devices/edge-01` or `/tools/firewall?device=edge-01&chain=input`. The server answers every path with the page, so a reload, a bookmark, or a link sent to someone opens the same place.
 
 import { h } from "vue";
-import {
-    RouterLink,
-    createRouter,
-    createWebHistory,
-    type RouteLocationNormalizedLoaded,
-    type RouteRecordRaw,
-    type Router,
-} from "vue-router";
+import { createRouter, createWebHistory, type RouteLocationNormalizedLoaded, type RouteRecordRaw, type Router } from "vue-router";
 import { store } from "./lib/store";
 import AddressesView from "./components/AddressesView.vue";
 import CablesView from "./components/CablesView.vue";
@@ -67,13 +60,7 @@ const routes: RouteRecordRaw[] = [
         component: SearchView,
         props: (route) => ({ data: store.data, query: String(route.query.q ?? "") }),
     },
-    {
-        path: "/:missing(.*)*",
-        name: "missing",
-        component: {
-            render: () => h("p", { class: "muted" }, ["Nothing here. ", h(RouterLink, { to: "/" }, () => "Back to the graph"), "."]),
-        },
-    },
+    { path: "/:missing(.*)*", name: "missing", component: { render: () => h("p", { class: "muted" }, "Nothing here.") } },
 ];
 
 /** The router, which reads the address as it is made. */

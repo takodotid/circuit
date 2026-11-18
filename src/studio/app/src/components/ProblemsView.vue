@@ -32,7 +32,7 @@ const oneSided = computed<Row[]>(() =>
             nameOf(edge.from),
             nameOf(edge.to),
             edge.detail.at(-1),
-            { action: () => showInGraph(router, edge.layer, { path: [GraphLayer.keyOf(edge)] }), label: "in the graph" },
+            { action: () => showInGraph(router, edge.layer, { path: [GraphLayer.keyOf(edge)] }), label: "Show in the graph" },
         ],
     }))
 );

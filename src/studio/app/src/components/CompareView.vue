@@ -4,7 +4,6 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { GraphEdge } from "../../../../core/graph";
 import type { Commit, StudioData } from "../../../types";
-import { Format } from "../lib/format";
 import { GraphLayer } from "../lib/graph-layer";
 import { api, paramOf, showInGraph } from "../lib/store";
 import DataTable, { type Badge, type Row } from "./DataTable.vue";
@@ -127,11 +126,10 @@ const findings = computed(() => {
 
 <template>
     <h2>Compare</h2>
-    <p class="muted">Compare the project with a branch, tag or commit.</p>
     <p v-if="refsError" class="verdict reject">{{ refsError }}</p>
     <form class="tool-form" @submit.prevent="typed.trim() && router.push({ name: 'compare', params: { ref: typed.trim() } })">
         <label class="field"
-            >Branch, tag or commit
+            >Branch, tag, or commit
             <input v-model="typed" list="refs" placeholder="main, HEAD~3" />
             <datalist id="refs">
                 <option v-for="name in refs?.names ?? []" :key="name" :value="name" />
@@ -166,7 +164,7 @@ const findings = computed(() => {
         <h3>The graph</h3>
         <p v-if="!edgeRows.length" class="muted">No changes.</p>
         <template v-else>
-            <p><button type="button" class="link" @click="showChanges">Show the changes in the graph</button></p>
+            <p><button type="button" class="link" @click="showChanges">Show in the graph</button></p>
             <DataTable
                 :head="['Layer', 'Change', 'What', 'From', 'To']"
                 :rows="edgeRows"
@@ -176,9 +174,6 @@ const findings = computed(() => {
 
         <h3>Found by <code>circuit validate</code></h3>
         <p v-if="!findings.added.length && !findings.gone.length" class="muted">No changes.</p>
-        <p v-else class="muted">
-            {{ Format.count(findings.added.length, "new finding") }}, {{ Format.count(findings.gone.length, "finding") }} no longer.
-        </p>
         <ul class="findings">
             <li v-for="(finding, index) in findings.added" :key="`new ${index}`">
                 <span :class="['badge', finding.level]">new {{ finding.level }}</span

@@ -141,7 +141,7 @@ watch(
 <template>
     <div ref="page" class="tables">
         <p class="crumbs"><RouterLink to="/devices">Devices</RouterLink> /</p>
-        <p v-if="!device" class="muted">No device {{ name }} in the project.</p>
+        <p v-if="!device" class="muted">No device {{ name }}.</p>
         <template v-else>
             <h2>
                 {{ device.name }}
@@ -150,7 +150,7 @@ watch(
             </h2>
             <p class="muted">
                 {{ device.platform }} {{ device.model }} at {{ device.site }} · <code>{{ data.files[device.name] }}</code> ·
-                <button type="button" class="link" @click="showOnGraph">show in the graph</button>
+                <button type="button" class="link" @click="showOnGraph">Show in the graph</button>
             </p>
 
             <nav class="tabs" aria-label="Sections">
@@ -175,16 +175,7 @@ watch(
                     </ul>
                 </template>
                 <h3>Device</h3>
-                <SettingsTable
-                    :value="{
-                        name: device.name,
-                        site: device.site,
-                        role: device.role,
-                        platform: device.platform,
-                        model: device.model,
-                        connection: device.connection,
-                    }"
-                />
+                <SettingsTable :value="{ role: device.role, connection: device.connection }" />
             </template>
 
             <template v-else-if="section === 'ports'">
@@ -202,13 +193,10 @@ watch(
             <SettingsTable v-else-if="section === 'monitoring'" :value="device.monitoring" path="monitoring" />
             <SettingsTable v-else-if="section === 'services'" :value="device.services" path="services" />
 
-            <template v-else-if="section === 'config'">
-                <p class="muted">The config Circuit writes for {{ device.platform }}. Secrets show by name.</p>
-                <pre class="code">{{ data.rendered[device.name] }}</pre>
-            </template>
+            <pre v-else-if="section === 'config'" class="code">{{ data.rendered[device.name] }}</pre>
 
             <template v-else-if="section === 'now'">
-                <p class="muted">Reads the device like <code>circuit diff</code> and shows what <code>circuit apply</code> would send.</p>
+                <p class="muted">Reads the device like <code>circuit diff</code>, and changes nothing.</p>
                 <p>
                     <button class="primary" :disabled="reading" @click="readNow">
                         {{ reading ? "Reading the device…" : "Read from the device now" }}
@@ -234,7 +222,7 @@ watch(
             <template v-else-if="section === 'history'">
                 <p v-if="historyError" class="muted">{{ historyError }}</p>
                 <p v-else-if="!history" class="muted">Reading the history…</p>
-                <p v-else-if="!history.length" class="muted">No commit changed {{ data.files[device.name] }} yet.</p>
+                <p v-else-if="!history.length" class="muted">None.</p>
                 <DataTable
                     v-else
                     :head="['Commit', 'When', 'Who', 'What', '']"

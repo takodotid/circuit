@@ -39,7 +39,7 @@ const props = defineProps<{ data: StudioData }>();
 const route = useRoute();
 const router = useRouter();
 
-const LAYERS = GraphLayer.LAYERS.map((id) => ({ id, label: GraphLayer.NAMES[id], legend: GraphLayer.HELP[id] }));
+const LAYERS = GraphLayer.LAYERS.map((id) => ({ id, label: GraphLayer.NAMES[id] }));
 
 // The layer the path names, such as `bgp` in `/graph/bgp`, or the one shown last.
 const layer = computed<Layer>(() => {
@@ -863,19 +863,17 @@ watch(
                     :key="item.id"
                     :to="{ name: 'layer', params: { layer: item.id } }"
                     :aria-current="layer === item.id ? 'page' : undefined"
-                    :title="`${item.legend} Key ${index + 1}.`"
+                    :title="`Press ${index + 1}`"
                 >
                     {{ item.label }} <small>{{ counts[item.id] }}</small>
                 </RouterLink>
             </nav>
             <div class="actions">
-                <button title="Show all of this layer" @click="fit">Fit</button>
-                <button title="Reset this layer's layout" @click="layOutAgain">Lay out again</button>
-                <button title="Save this layer as PNG" @click="saveImage">Save image</button>
-                <button title="Save this layer as SVG" @click="saveSvg">Save SVG</button>
-                <button :aria-pressed="presenting" title="Show it on a big screen, layer by layer (key P)" @click="togglePresenting">
-                    Present
-                </button>
+                <button @click="fit">Fit</button>
+                <button title="Forgets where you moved devices on this layer" @click="layOutAgain">Lay out again</button>
+                <button @click="saveImage">Save PNG</button>
+                <button @click="saveSvg">Save SVG</button>
+                <button :aria-pressed="presenting" title="Press P" @click="togglePresenting">Present</button>
             </div>
         </div>
         <div class="stage">
@@ -899,7 +897,7 @@ watch(
                 <strong>{{ caption.title }}</strong
                 ><span>{{ caption.detail }}</span>
             </p>
-            <button v-if="presenting" class="present-exit" title="Stop presenting (Esc)" @click="togglePresenting">Stop presenting</button>
+            <button v-if="presenting" class="present-exit" title="Press Esc" @click="togglePresenting">Stop presenting</button>
             <GraphPanel :data="data" :layer="layer" :shown="shown" :selected="selected" @select="select" />
         </div>
     </section>

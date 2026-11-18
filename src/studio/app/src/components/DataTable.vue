@@ -12,7 +12,7 @@ export type Cell =
     | { device: string; label?: string }
     | { link: RouteLocationRaw; label: string }
     | { devices: string[] }
-    | { badges: Badge[]; otherwise?: string }
+    | { badges: Badge[] }
     | { action: () => void; label: string };
 export type Row = { cells: Cell[]; muted?: boolean; id?: string };
 /** A column: its label, or a label with the doc of the device field it shows, read when the pointer is on it. */
@@ -28,7 +28,7 @@ function textOf(cell: Cell): string {
     if (typeof cell !== "object") return String(cell);
     if ("device" in cell) return cell.label ?? cell.device;
     if ("devices" in cell) return cell.devices.join(", ");
-    if ("badges" in cell) return cell.badges.map((badge) => badge.text).join(", ") || (cell.otherwise ?? "");
+    if ("badges" in cell) return cell.badges.map((badge) => badge.text).join(", ");
     if ("action" in cell) return "";
     return cell.label;
 }
@@ -76,7 +76,6 @@ function save(): void {
                         </template>
                         <template v-else-if="typeof cell === 'object' && 'badges' in cell">
                             <span v-for="badge in cell.badges" :key="badge.text" :class="['badge', badge.level]">{{ badge.text }}</span>
-                            <span v-if="!cell.badges.length" class="muted">{{ cell.otherwise }}</span>
                         </template>
                         <button v-else-if="typeof cell === 'object' && 'action' in cell" type="button" class="link" @click="cell.action()">
                             {{ cell.label }}

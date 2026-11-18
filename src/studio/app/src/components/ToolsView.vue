@@ -96,9 +96,7 @@ function showPath(): void {
     <PolicyTest v-else-if="tool === 'policy'" :data="data" />
 
     <template v-else-if="tool === 'trace'">
-        <p class="muted">
-            Who holds an address, each device's route to it, and the rules that name it. BGP and OSPF routes aren't in the project.
-        </p>
+        <p class="muted">BGP and OSPF routes aren't in the project.</p>
         <form class="tool-form" @submit.prevent="router.push({ name: 'trace', params: { address: typed.trim() } })">
             <label class="field">Address <input v-model="typed" placeholder="192.0.2.5" /></label>
             <button class="primary" type="submit">Trace</button>
@@ -147,7 +145,6 @@ function showPath(): void {
     </template>
 
     <template v-else>
-        <p class="muted">The fewest cables that carry a VLAN between two devices.</p>
         <form class="tool-form" @submit.prevent="findPath">
             <label class="field"
                 >VLAN
@@ -173,7 +170,7 @@ function showPath(): void {
             <p v-if="!path" class="verdict reject">
                 No path of cables carries {{ question.vlan }} from {{ question.from }} to {{ question.to }}.
             </p>
-            <p v-else-if="!path.length" class="muted">{{ question.from }} and {{ question.to }} are one device.</p>
+            <p v-else-if="!path.length" class="muted">Pick two different devices.</p>
             <template v-else>
                 <p><button type="button" class="link" @click="showPath">Show in the graph</button></p>
                 <DataTable

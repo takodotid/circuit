@@ -25,10 +25,11 @@ const route = useRoute();
 const router = useRouter();
 const view = computed(() => viewOf(route));
 
-const LIVE: Record<typeof store.live, string> = {
-    live: "Watching the project: a saved change shows here at once.",
-    connecting: "Reaching circuit studio.",
-    offline: "Studio isn't answering. Is circuit studio still running?",
+// What the live mark can't say in one word.
+const LIVE: Record<typeof store.live, string | undefined> = {
+    live: "A saved file shows here at once.",
+    connecting: undefined,
+    offline: "Check that circuit studio is still running.",
 };
 
 const errors = computed(() => store.data?.findings.filter((finding) => finding.level === "error").length ?? 0);
@@ -79,7 +80,7 @@ watch(
                 {{ item.label }}<span v-if="item.id === 'problems'" class="count">{{ problems || "" }}</span>
             </RouterLink>
         </nav>
-        <input :value="query" type="search" placeholder="Search the project" aria-label="Search the project" @input="search" />
+        <input :value="query" type="search" placeholder="Search" aria-label="Search" @input="search" />
         <div class="status-rail" aria-label="Network status">
             <span class="summary">
                 <span v-for="item in summary" :key="item.text" :class="['summary-item', item.state]">{{ item.text }}</span>
@@ -91,7 +92,7 @@ watch(
     </header>
 
     <pre v-if="store.error" class="banner">{{
-        store.data ? `The project can't be read, so this is the last that could be:\n${store.error}` : store.error
+        store.data ? `Studio can't read the project. It shows the last version it could read:\n${store.error}` : store.error
     }}</pre>
 
     <!-- Each page fades in from the top; a project read again changes the same page in place. -->

@@ -150,10 +150,6 @@ export type SecretEntry = {
 /** One secrets file as the page may see it: names, how each is kept, ciphertexts. Never a value in plain text, and never the password. */
 export type SecretsFileListing = {
     file: string;
-    /** The networks that keep their secrets here. */
-    networks: string[];
-    /** Where the password comes from, without its value. Absent when a person types it. */
-    passwordLocation?: string;
     entries: SecretEntry[];
 };
 

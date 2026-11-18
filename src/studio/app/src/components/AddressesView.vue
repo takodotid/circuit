@@ -43,7 +43,7 @@ const rows = computed<Row[]>(() => {
     </div>
 
     <template v-if="shown === 'spaces'">
-        <p v-if="!report.spaces.length && !hasElsewhere" class="muted">No device holds an address.</p>
+        <p v-if="!report.spaces.length && !hasElsewhere" class="muted">None.</p>
 
         <section v-for="space in report.spaces" :key="space.prefix">
             <h3>{{ space.prefix }}</h3>

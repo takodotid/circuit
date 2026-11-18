@@ -120,7 +120,6 @@ function carried(attributes: Attributes): string[] {
 </script>
 
 <template>
-    <p class="muted">Walks the policy rule by rule, into called policies. A route no rule accepts is rejected.</p>
     <form class="tool-form" @submit.prevent="test">
         <label class="field"
             >Device
@@ -137,7 +136,7 @@ function carried(attributes: Attributes): string[] {
             </select>
         </label>
         <label class="field">Prefix <input v-model="form.prefix" placeholder="198.51.100.0/24" /></label>
-        <label class="field">AS path <input v-model="form.as_path" placeholder="6939 64501" /><small>each AS, prepends too</small></label>
+        <label class="field">AS path <input v-model="form.as_path" placeholder="6939 64501" /><small>with prepends</small></label>
         <label class="field"
             >RPKI
             <select v-model="form.rpki">

@@ -72,7 +72,7 @@ const rows = computed<Row[]>(() => {
                 entry.gateways.join("; "),
                 entry.ports.join("; "),
                 [...entry.ids].some((id) => onCables.value.has(id))
-                    ? { action: () => showInGraph(router, "l2", { vlan: Math.min(...entry.ids) }), label: "cables in the graph" }
+                    ? { action: () => showInGraph(router, "l2", { vlan: Math.min(...entry.ids) }), label: "Show in the graph" }
                     : "",
             ],
         }));
