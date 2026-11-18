@@ -6,9 +6,12 @@ import { Saved } from "../lib/store";
 
 type View = { zoom: number; pan: { x: number; y: number } };
 
+// Places saved under an older layout are cramped: the version starts every graph fresh once.
+const LAYOUTS_KEY = "layouts-2";
+
 /** Kept while the page is open, as the graph view comes and goes: where each node is, where the reader left each layer, and what is selected. */
 const memory = {
-    layouts: new GraphLayout(Saved.get<Kept>("layouts")),
+    layouts: new GraphLayout(Saved.get<Kept>(LAYOUTS_KEY)),
     views: new Map<Layer, View>(),
     selection: undefined as { node: string } | { edge: string } | undefined,
     /** The network has been drawn in once; later views show it at once. */
@@ -92,7 +95,7 @@ function layOut(name: Layer): void {
     const { nodes, edges } = name === layer.value ? shown.value : GraphLayer.of(props.data, name);
     const boxes = nodes.map((node) => ({ id: node.id, label: node.label, width: widthOf(node), height: tagOf(node).height }));
     layouts.layOut(name, boxes, edges, name === "l1" ? undefined : layouts.places("l1"));
-    Saved.set("layouts", layouts.kept());
+    Saved.set(LAYOUTS_KEY, layouts.kept());
 }
 
 function nodeData(node: ShownNode) {
@@ -428,7 +431,7 @@ function layOutAgain(): void {
 
 function remember(node: NodeSingular): void {
     layouts.places(layer.value).set(node.id(), { ...node.position() });
-    Saved.set("layouts", layouts.kept());
+    Saved.set(LAYOUTS_KEY, layouts.kept());
 }
 
 /** A saved file's name, by the project and the layer as the toolbar names it, such as `colocation-cables.png`. */
