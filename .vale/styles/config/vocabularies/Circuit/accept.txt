@@ -111,3 +111,17 @@ snake_case
 snmp_exporter
 subagent('s|s)?
 systemd('s)?
+(?i)multimode
+BPDUs?
+DNS
+DHCP
+NAT
+Datagrams?
+(?i)firewalls
+(?i)autoconfiguration
+(?i)backhaul
+Clos
+(?i)distinguishers?
+(?i)blackholing
+(?i)flowspec
+(?i)application
