@@ -69,7 +69,7 @@ const said = computed(() => {
         return {
             kind: "warn",
             word: "One cable",
-            text: `${cutText}${blocked ? `Spanning tree blocks ${blocked} of the working cables, because two links between the same switches make a loop. ` : ""}All six conversations share cable ${up.value[0]}, ${SPEED} Gbit/s.${cut.value.length ? " The widget opens the next cable at once; real switches take a while to notice the cut first." : ""}`,
+            text: `${cutText}${blocked ? `Spanning tree blocks ${blocked} of the working cables, because two links between the same switches make a loop. ` : ""}All six conversations share cable ${up.value[0]}, ${SPEED} Gbit/s.${cut.value.length ? " The widget opens the next cable at once, but real switches first take a while to notice the cut." : ""}`,
         };
     }
 
@@ -94,7 +94,7 @@ const code = computed(() => {
         "    ethernet: {",
         ...ports,
         "    },",
-        ...(mode.value === "lag" ? ["    lag: {", `        uplink: { mode: "lacp", trunk_vlans: ["office", "servers"] },`, "    },"] : []),
+        ...(mode.value === "lag" ? ["    lag: {", `        uplink: { trunk_vlans: ["office", "servers"] },`, "    },"] : []),
         "},",
     ].join("\n");
 });

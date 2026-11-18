@@ -5,42 +5,44 @@ description: Build Circuit's edge router example step by step, from your AS numb
 
 # Project: an edge router
 
-In this project you build the router that joins your network to the internet. It announces your own address space under your own AS number to a transit and at an internet exchange, filters the routes it takes in and the routes it sends out, and protects itself and your network from traffic that has no business arriving.
+In this project, you build the router that joins your network to the internet. It announces your own address space, under your own AS number, to a transit and at an internet exchange. It filters the routes it takes in and the routes it sends out. It also protects itself and your network from traffic that has no business there.
 
-It is Circuit's [edge router example](/guide/examples#an-edge-router), and every lesson of this level has a part in it. You start the project, read each part of the router's file and what it does, make its key decisions yourself, then check it and see the plan.
+It is Circuit's [edge router example](/guide/examples#an-edge-router), and every lesson of this level has a part in it.
 
 ## Start the project
 
-[Install Circuit](/guide/install) and give the installer your AS number. Then copy the example's files into the project: `circuit.ts` with your AS, your prefixes and your communities, `sites/pop-1/edge-01.ts` with the router, and `lib/checks.ts` with a check of your own.
+[Install Circuit](/guide/install), and start a project with `circuit new`, which asks for your AS number. Then copy the example's three files into the project:
 
-::: info The names in this lesson
-The example calls the transit `hurricane-electric`, AS64501, and the exchange `de-cix`, whose route servers are AS64502. Replace the addresses, AS numbers and port names with the ones your providers give you.
+- `circuit.ts`, with your AS, your prefixes, and your communities
+- `sites/pop-1/edge-01.ts`, with the router
+- `lib/checks.ts`, with a check of your own
+
+::: info The names in this example
+The transit is Hurricane Electric, AS6939. The exchange is DE-CIX Frankfurt, whose route servers are AS6695. Replace the addresses, AS numbers, and port names with the ones your providers give you.
 :::
 
-## Your AS, your prefixes and your communities
+## Your AS, your prefixes, and your communities
 
 <<< @/../examples/edge-router/circuit.ts
 
-- `asn` is your AS. Every BGP session of every device runs it, unless a device writes another.
-- `prefixes.ours` is your address space, one IPv4 and one IPv6 block, each with a name. The router uses them by name: `as64500.prefixes.ours.v4`.
-- `communities` is your BGP community scheme ([Route policies](/academy/intermediate/route-policy)): each route the router learns is tagged with the group it came from, `transit` or `exchange`, and the AS it came from.
-- `checks` turns on two of Circuit's checks for BGP, one for the VLANs that come from outside, and one of your own, from `lib/checks.ts`.
+- `asn` is your AS. Every BGP session of every device uses it, unless a device writes another.
+- `prefixes.ours` is your address space: one IPv4 block and one IPv6 block, each with a name. The router uses them by name, such as `as64500.prefixes.ours.v4`.
+- `communities` is your BGP community scheme, as in [Route policies](/academy/intermediate/route-policy#communities-tags-on-routes). The router tags each route it learns with the group it came from, `transit` or `exchange`, and with the AS it came from.
+- `checks` turns on two of Circuit's checks for BGP, and one for the VLANs that come from outside. It also adds one of your own, from `lib/checks.ts`.
 
 ## The router
 
 <<< @/../examples/edge-router/sites/pop-1/edge-01.ts
 
-Read it part by part.
-
 ### The transit and the exchange
 
-`25g-1` and `25g-2` are access ports in the VLANs `transit` and `exchange`, and the router's address on each is on a VLAN interface. Both VLANs are written `untrusted: true`: traffic from outside arrives there, and the check `untrusted_vlans` makes sure only `edge-01` gives them an address. Each port runs the ACL `edge` in the switch chip.
+`25g-1` and `25g-2` are access ports in the VLANs `transit` and `exchange`, and the router's address on each is on a VLAN interface. Both VLANs are `untrusted: true`, because traffic from outside arrives there. The check `untrusted_vlans` makes sure that only `edge-01` gives them an address. Each port runs the ACL `edge` in the switch chip.
 
 ### Your prefixes and the BGP sessions
 
-There are three sessions, as in [BGP](/academy/intermediate/bgp): one with the transit, and one per address family with the exchange's route server, which passes on the routes of every member that peers with it. `role` tells each side what the other is, and `max_prefixes` is the fuse from [Route policies](/academy/intermediate/route-policy). `communities: { groups: [...] }` says which group of the scheme each neighbor is in.
+There are three sessions, as in [BGP](/academy/intermediate/bgp): one with the transit, and one per address family with the exchange's route server. `role` tells each side what the other is, and `max_prefixes` is the fuse from [Route policies](/academy/intermediate/route-policy). `communities: { groups: [...] }` says which group of the scheme each neighbor is in.
 
-A blackhole route for each of your blocks keeps it in the routing table at all times, and `originated_prefixes` announces it.
+A blackhole route for each of your blocks keeps the block in the routing table at all times, and `originated_prefixes` announces it.
 
 <Quiz
   question="Why does the router have a blackhole route for 198.51.100.0/24, its own block?"
@@ -52,15 +54,15 @@ A blackhole route for each of your blocks keeps it in the routing table at all t
 
 ### The policies
 
-- Each import first calls `sanity`, which is `presets.bgp_sanity`: it refuses routes that should never be on the internet, such as prefixes that are too long, and RPKI invalid ones.
-- It then refuses your own space coming back, tags the route with `{ communities: "import" }`, and sets a local preference: 100 for the transit, 200 for the exchange, so a route learned at the exchange wins ([Choosing a path](/academy/intermediate/best-path)).
+- Each import first calls `sanity`, which is `presets.bgp_sanity`. It refuses routes that should never be on the internet, such as prefixes that are too long, and RPKI invalid ones.
+- Then the import refuses your own space coming back, and tags the route with `{ communities: "import" }`. It sets a local preference of 100 for the transit and 200 for the exchange, so a route learned at the exchange wins, as in [Choosing the best route](/academy/intermediate/best-path).
 - The export accepts your own space and rejects everything else, so you never pass one provider's routes to another.
 
 ### Protecting the router
 
-The input chain drops by default. It accepts replies, ping, the management network, and BGP only from `bgp-neighbors`, which `bgpNeighbors()` fills with every neighbor's address. `presets.bad_tcp_flags` drops packets with flags no real connection sends.
+The input chain drops by default. It accepts replies, ping, the management network, and BGP from `bgp-neighbors` only. `bgpNeighbors()` fills that address set with every neighbor's address. In the forward chain, `presets.bad_tcp_flags` drops packets with flags that no real connection sends.
 
-The ACL `edge` drops a packet from outside whose source is your own block or a private range. No such sender can be out there, so the packet is forged, and the switch chip drops it before it costs the router's CPU anything.
+The ACL `edge` drops a packet from outside whose source is your own block or a private range. No such sender can be out there, so the packet is forged. The switch chip drops it before it costs the router's CPU anything.
 
 <Quiz
   question="A packet arrives from the transit with the source address 198.51.100.7. What happens to it?"
@@ -74,7 +76,7 @@ The ACL `edge` drops a packet from outside whose source is your own block or a p
 
 <<< @/../examples/edge-router/lib/checks.ts
 
-Circuit cannot know that every session of yours must filter what it takes in, so the example says it in a check of its own. `circuit.ts` turns it on as `imports_filtered`.
+Circuit can't know that each of your sessions should have an import policy. So the example adds a check of its own, and `circuit.ts` turns it on as `imports_filtered`.
 
 ## Make the decisions yourself
 
@@ -84,15 +86,15 @@ Circuit cannot know that every session of yours must filter what it takes in, so
 
 </TryIt>
 
-## Validate, diff and apply
+## Validate, diff, and apply
 
 1. Set the router's password: `circuit secrets set EDGE_01_PASSWORD`.
-2. Run `circuit validate`. On the example it prints `✔ 1 device(s), no errors.`
-3. Run `circuit diff edge-01`. It logs in to the router, reads what it runs now, and shows the plan. It changes nothing.
-4. Run `circuit apply edge-01`. It shows the plan again and asks. Read every line, and say yes only when it is what you want.
+2. Run `circuit validate`. On the example, it prints `✔ 1 device(s), no errors.`
+3. Run `circuit diff edge-01`. It logs in to the router, reads what the router runs now, and shows the plan. It changes nothing.
+4. Run `circuit apply edge-01`. It shows the plan again and asks. Read every line, and say yes only when the plan is what you want.
 5. Commit the files.
 
-Once the router runs the example, a later change shows as a short plan. Here the limit for the exchange's IPv4 route server goes from 100,000 to 150,000:
+Once the router runs the example, a later change shows as a short plan. Here, the limit for the exchange's IPv4 route server goes from 100,000 to 150,000:
 
 ```
 edge-01: 1 command(s) in 1 step(s)
@@ -100,9 +102,9 @@ edge-01: 1 command(s) in 1 step(s)
     ~ {"remote.address":"192.0.2.1/32"} input.limit-process-routes-ipv4=150000
 ```
 
-`~` marks a change to something the router already has. A change inside a policy looks bigger, because policy rules run in order. When the exchange's local preference goes from 200 to 150, the plan removes every filter rule on the router and adds them all again in the order of your file, so each rule is listed twice, once with `-` and once with `+`.
+`~` marks a change to something the router already has. A change inside a policy looks bigger, because Circuit replaces the policies whole, as [Making the plan](/guide/apply#making-the-plan) explains. When the exchange's local preference goes from 200 to 150, the plan lists every filter rule on the router twice: once with `-`, and once with `+`.
 
-Before your routes travel far, your transit and the exchange's route servers must know they are yours. They filter what you send them by the records of an internet routing registry, and many check RPKI too, so publish a route object and a ROA for each block first ([Routing security](/academy/professional/routing-security)).
+Before your routes travel far, your transit and the exchange's route servers must know that the routes are yours. They filter what you send them by the records of an internet routing registry, and many check RPKI too. So first publish a route object and a ROA for each block. [Hijacks and leaks](/academy/professional/routing-security) shows how.
 
 <Quiz
   question="Yesterday circuit diff edge-01 planned nothing. Today someone changed the router by hand. What does circuit apply edge-01 show?"
@@ -114,12 +116,16 @@ Before your routes travel far, your transit and the exchange's route servers mus
 
 ## Where to go from here
 
-The example is one router with one transit. The rest of this level shows how it grows: a second transit, with [prepending](/academy/intermediate/best-path) to steer traffic coming in; a LAG to each provider, so one cable can fail, from [Staying up](/academy/intermediate/redundancy); a second edge router that shares routes with this one over iBGP, with OSPF from [Routers that talk](/academy/intermediate/ospf) finding the way between them.
+The example is one router with one transit. It grows with what you learned in this level:
+
+- A second transit, with prepending from [Choosing the best route](/academy/intermediate/best-path) to steer the traffic coming in.
+- A LAG to each provider, from [Staying up](/academy/intermediate/redundancy), so that one cable can fail.
+- A second edge router that shares routes with this one over iBGP, with OSPF from [Routers that talk: OSPF](/academy/intermediate/ospf) to find the way between them.
 
 ## In short
 
-- Your AS, your prefixes and your community scheme are in `circuit.ts`; the router is one file in `sites/`.
+- Your AS, your prefixes, and your community scheme are in `circuit.ts`. The router is one file in `sites/`.
 - Blackhole routes keep your blocks in the routing table, and `originated_prefixes` announces them.
-- Every import runs `sanity`, refuses your own space, tags the route and sets a local preference, with the exchange at 200. The export accepts your blocks and rejects the rest.
+- Every import runs `sanity`, refuses your own space, tags the route, and sets a local preference, with the exchange at 200. The export accepts your blocks and rejects the rest.
 - The input firewall allows BGP only from the neighbors, and the edge ACL drops forged sources in the switch chip.
 - `validate` runs Circuit's checks and yours, `diff` shows the plan against the router, and `apply` sends it once you say yes.

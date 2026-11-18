@@ -5,7 +5,7 @@ import { computed, ref } from "vue";
 import { Ipv6 } from "./Ipv6Shorten";
 
 const OURS = { as: 64500, address: "203.0.113.2", routerId: "203.0.113.2" };
-const THEIRS = { as: 64501, address: "203.0.113.1", routerId: "192.0.2.1" };
+const THEIRS = { name: "Hurricane Electric", as: 6939, address: "203.0.113.1" };
 
 const address = ref("203.0.113.1");
 const remoteAs = ref("");
@@ -40,17 +40,17 @@ const stages = computed<Stage[]>(() => {
     const wantedAs = Number(typedAs);
     const typedAddress = address.value.trim();
 
-    // What `circuit validate` reports before anything is sent, in its own words.
+    // What `circuit validate` printed for each mistake, run on the edge router example.
     const errors = [
-        ...(isAddress(typedAddress) ? [] : [`neighbor transit: '${typedAddress}' is not an address`]),
-        ...(typedAs === "" ? ["neighbor transit has no remote_as"] : []),
+        ...(isAddress(typedAddress) ? [] : [`edge-01: routing.bgp.neighbors.hurricane-electric: '${typedAddress}' is not an address`]),
+        ...(typedAs === "" ? ["edge-01: routing.bgp.neighbors.hurricane-electric has no remote_as"] : []),
     ];
 
     if (typedAs !== "" && !/^\d+$/.test(typedAs)) {
         list.push({
             state: "Idle",
             title: "Validate",
-            text: "remote_as must be a number, such as 64501. Your editor marks anything else before you even run circuit validate.",
+            text: "remote_as must be a number. Your editor marks anything else as an error.",
             result: "fail",
         });
         return list;
@@ -60,7 +60,7 @@ const stages = computed<Stage[]>(() => {
         list.push({
             state: "Idle",
             title: "Validate",
-            text: `circuit validate stops before anything reaches the router: ${errors.map((error) => `"error edge-01: ${error}"`).join(" and ")}.`,
+            text: `circuit validate reports ${errors.map((error) => `"${error}"`).join(" and ")}, so nothing reaches the router.`,
             result: "fail",
         });
         return list;
@@ -70,7 +70,7 @@ const stages = computed<Stage[]>(() => {
         list.push({
             state: "Active",
             title: "Connect",
-            text: `Your router opens a TCP connection to ${typedAddress}, port 179. Nobody there answers, so the session stays in Active and keeps trying. The provider's router is at ${THEIRS.address}.`,
+            text: `Your router opens a TCP connection to ${typedAddress}, port 179. Nobody there answers, so the session stays in Active and keeps trying. ${THEIRS.name}'s router is at ${THEIRS.address}.`,
             result: "fail",
         });
         return list;
@@ -79,7 +79,7 @@ const stages = computed<Stage[]>(() => {
     list.push({
         state: "Connect",
         title: "Connect",
-        text: `Your router opens a TCP connection to ${THEIRS.address}, port 179, and the provider's router answers.`,
+        text: `Your router opens a TCP connection to ${THEIRS.address}, port 179, and ${THEIRS.name}'s router answers.`,
         result: "ok",
     });
 
@@ -88,7 +88,7 @@ const stages = computed<Stage[]>(() => {
         list.push({
             state: "OpenSent",
             title: "Open",
-            text: `Each router sends an OPEN message with its AS number. The provider's says AS${THEIRS.as}, but remote_as says ${wantedAs}.${own} Your router sends a NOTIFICATION, bad peer AS, and closes the connection. It goes back to Idle and tries again later, with the same result.`,
+            text: `Each router sends an OPEN message with its AS number. ${THEIRS.name}'s says AS${THEIRS.as}, but remote_as says ${wantedAs}.${own} Your router sends a NOTIFICATION, bad peer AS, and closes the connection. It goes back to Idle and tries again later, with the same result.`,
             result: "fail",
         });
         return list;
@@ -97,14 +97,14 @@ const stages = computed<Stage[]>(() => {
     list.push({
         state: "OpenConfirm",
         title: "Open",
-        text: `Each router sends an OPEN: yours says AS${OURS.as} and router ID ${OURS.routerId}, the provider's says AS${THEIRS.as}. Both match what the other expects, and they agree on a hold time: the lower of the two they offer.`,
+        text: `Each router sends an OPEN. Yours says AS${OURS.as} and router ID ${OURS.routerId}, and ${THEIRS.name}'s says AS${THEIRS.as}. Both match what the other side expects. They agree on a hold time, the lower of the two they offer.`,
         result: "ok",
     });
 
     list.push({
         state: "Established",
         title: "Established",
-        text: "Each sends a KEEPALIVE to say yes. The session is up. From now on, a keepalive goes every few seconds, and silence for the whole hold time means the session is down.",
+        text: "Each router sends a KEEPALIVE to say yes, and the session is up. From now on, a KEEPALIVE goes every few seconds. Silence for the whole hold time means the session is down.",
         result: "ok",
     });
 
@@ -114,23 +114,23 @@ const stages = computed<Stage[]>(() => {
         list.push({
             state: "Idle",
             title: "Updates",
-            text: `The provider starts sending ${offered.value.text}. After ${limit.toLocaleString("en-US")} routes, max_prefixes is passed, so your router closes the session. On RouterOS it stays closed until someone clears it by hand.`,
+            text: `${THEIRS.name} starts sending ${offered.value.text}. After ${limit.toLocaleString("en-US")} routes, max_prefixes is passed, so your router closes the session. On RouterOS, it stays closed until someone clears it by hand.`,
             result: "fail",
         });
         return list;
     }
 
     const accepted = importPolicy.value
-        ? `transit-import decides which of them to accept.`
-        : "There is no import policy, and in Circuit that means nothing is accepted: the routing table gets none of them.";
+        ? "transit-import decides which of them to accept."
+        : "There is no import policy, and in Circuit that means nothing is accepted.";
     const announced = exportPolicy.value
-        ? `transit-export announces ${"198.51.100.0/24"} to the provider.`
+        ? `transit-export announces 198.51.100.0/24 to ${THEIRS.name}.`
         : "There is no export policy, so you announce nothing, and nobody on the internet learns how to reach you.";
 
     list.push({
         state: "Established",
         title: "Updates",
-        text: `The provider sends UPDATE messages with ${offered.value.text}. ${accepted} ${announced}`,
+        text: `${THEIRS.name} sends UPDATE messages with ${offered.value.text}. ${accepted} ${announced}`,
         result: importPolicy.value && exportPolicy.value ? "ok" : "stop",
     });
 
@@ -172,7 +172,7 @@ const code = computed(() => {
         "    bgp: {",
         '        originated_prefixes: ["198.51.100.0/24"],',
         "        neighbors: {",
-        "            transit: {",
+        '            "hurricane-electric": {',
         `                address: "${address.value.trim()}",`,
         remoteAs.value.trim() ? `                remote_as: ${remoteAs.value.trim()},` : "",
         '                role: "provider",',
@@ -197,7 +197,10 @@ function changed() {
     <div class="bgp-session">
         <div class="ends">
             <p><strong>Your router</strong><br />AS{{ OURS.as }}, {{ OURS.address }}</p>
-            <p><strong>Provider's router</strong><br />AS{{ THEIRS.as }}, {{ THEIRS.address }}</p>
+            <p>
+                <strong>{{ THEIRS.name }}</strong
+                ><br />AS{{ THEIRS.as }}, {{ THEIRS.address }}
+            </p>
         </div>
 
         <div class="form">
@@ -212,7 +215,7 @@ function changed() {
                     class="ac-input mono"
                     inputmode="numeric"
                     autocomplete="off"
-                    placeholder="the provider's AS"
+                    placeholder="Their AS"
                     @input="changed"
                 />
             </label>
@@ -225,7 +228,7 @@ function changed() {
                 </select>
             </label>
             <label class="ac-field">
-                <span>The provider sends</span>
+                <span>{{ THEIRS.name }} sends</span>
                 <select v-model="sends" class="ac-select" @change="changed">
                     <option value="full">the full table</option>
                     <option value="default">only a default route</option>
@@ -261,7 +264,8 @@ function changed() {
 
         <p v-if="verdict" class="ac-say" :class="verdict.kind" :data-word="verdict.word" aria-live="polite">{{ verdict.text }}</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            Fill in the neighbor, then bring the session up. Start with remote_as empty to see what happens.
+            Bring the session up with remote_as empty, then with a wrong number, then with the right one. Once it is up, try it without the
+            policies, and with max_prefixes at 10.
         </p>
     </div>
 </template>

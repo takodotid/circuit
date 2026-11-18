@@ -63,8 +63,7 @@ const said = computed(() => {
     const wrong = plan.value.find((entry) => entry.error && entry.error !== "No subnet yet.");
 
     if (wrong) return { kind: "bad", word: "Check", text: `${wrong.name}: ${wrong.error}` };
-    if (!filled) return { kind: "hint", text: "Type a subnet number for each VLAN, in hexadecimal, or number them after the VLANs." };
-    if (!ready.value) return { kind: "hint", text: `${filled} of 3 VLANs have a /64. Give the others a number too.` };
+    if (!ready.value) return { kind: "hint", text: `${filled} of 3 VLANs have a /64.` };
 
     return { kind: "good", word: "Planned", text: `Three /64s used, out of the ${count.value} in your /${size.value}.` };
 });
@@ -73,10 +72,10 @@ const code = computed(() => {
     const lines = plan.value.map((entry) => {
         const v6 = entry.router ? `, "${entry.router}"` : "";
         const ra = entry.router && entry.name !== "mgmt" ? ", ipv6_ra: true" : "";
-        return `    ${entry.name}: { type: "vlan", vlan: "${entry.name}", addresses: ["10.0.${entry.id}.1/24"${v6}]${ra} },`;
+        return `        ${entry.name}: { vlan: "${entry.name}", addresses: ["10.0.${entry.id}.1/24"${v6}]${ra} },`;
     });
 
-    return ["interfaces: {", ...lines, "},"].join("\n");
+    return ["interfaces: {", "    vlan_interface: {", ...lines, "    },", "},"].join("\n");
 });
 
 // The 128 bits, drawn as a bar: 5 units for each bit.

@@ -62,7 +62,7 @@ function verdict(route: Row): string {
 }
 
 const said = computed(() => {
-    if (!destination.value.trim()) return { kind: "hint", text: "Pick an address above, or type one, to look it up in the table." };
+    if (!destination.value.trim()) return { kind: "hint", text: "Pick an address above, or type one." };
     if (address.value === undefined)
         return {
             kind: "bad",

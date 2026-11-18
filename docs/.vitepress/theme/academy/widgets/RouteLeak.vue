@@ -7,11 +7,11 @@ import { useTravel } from "../travel";
 type Place = { id: string; kind: "router" | "cloud"; label: string; note: string; x: number; y: number };
 
 const places: Place[] = [
-    { id: "a", kind: "router", label: "Transit A", note: "AS64510", x: 150, y: 70 },
-    { id: "b", kind: "router", label: "Transit B", note: "AS64511", x: 550, y: 70 },
+    { id: "a", kind: "router", label: "Hurricane Electric", note: "AS6939", x: 150, y: 70 },
+    { id: "b", kind: "router", label: "A careless transit", note: "AS64510", x: 550, y: 70 },
     { id: "you", kind: "router", label: "Your network", note: "AS64500", x: 350, y: 180 },
-    { id: "far", kind: "cloud", label: "A far network", note: "AS64520", x: 110, y: 270 },
-    { id: "customers", kind: "cloud", label: "Transit B’s customers", note: "", x: 590, y: 270 },
+    { id: "far", kind: "cloud", label: "Google", note: "AS15169", x: 110, y: 270 },
+    { id: "customers", kind: "cloud", label: "AS64510’s customers", note: "", x: 590, y: 270 },
 ];
 
 const at = (id: string) => places.find((place) => place.id === id)!;
@@ -44,7 +44,7 @@ const learned = computed(() => {
     if (sessionDown.value) return [];
     if (exported.value === "none") return [];
     if (exported.value === "ours") return ["198.51.100.0/24, your own prefix"];
-    return ["198.51.100.0/24, your own prefix", "Every route Transit A sent you: the whole internet"];
+    return ["198.51.100.0/24, your own prefix", "Every route Hurricane Electric sent you: the whole internet"];
 });
 
 function choose(id: Export) {
@@ -71,25 +71,25 @@ async function send() {
         said.value = {
             kind: "bad",
             word: "Overloaded",
-            text: "Transit B now reaches the far network through you, and prefers that way: like most providers, it gives routes from its customers a higher local preference than routes from other networks. Traffic from all its customers squeezes through your links to Transit A, and they fill up. That is a route leak.",
+            text: "AS64510 now reaches Google through you, and prefers that way. Like most providers, it gives the routes from its customers a higher local preference than other routes. Traffic from all its customers squeezes through your links to Hurricane Electric, and they fill up. That is a route leak.",
         };
     } else if (sessionDown.value) {
         said.value = {
             kind: "warn",
             word: "Session down",
-            text: "You announced far more than 10 prefixes, so Transit B closed the session. The leak stopped, but your own prefix went with it: traffic for your network now only comes in through Transit A.",
+            text: "You announced far more than 10 prefixes, so AS64510 closed the session. The leak stopped, but your own prefix went with it. Traffic for your network now comes in only through Hurricane Electric.",
         };
     } else if (exported.value === "none") {
         said.value = {
             kind: "good",
             word: "Delivered",
-            text: "The traffic crossed from Transit B to Transit A without touching you. Transit B learned nothing from you, so even traffic for your own network reaches you only through Transit A.",
+            text: "The traffic crossed from AS64510 to Hurricane Electric without touching you. AS64510 learned nothing from you, so even traffic for your own network reaches you only through Hurricane Electric.",
         };
     } else {
         said.value = {
             kind: "good",
             word: "Delivered",
-            text: "The traffic crossed from Transit B to Transit A without touching you. Transit B learned only your own prefix from you, so only traffic for your network comes your way.",
+            text: "The traffic crossed from AS64510 to Hurricane Electric without touching you. AS64510 learned only your own prefix from you, so only traffic for your network comes your way.",
         };
     }
 }
@@ -101,12 +101,12 @@ const isLit = (from: string, to: string) => {
 
 const code = computed(() => {
     const neighbor = [
-        `"cogent": {`,
+        `as64510: {`,
         `    address: "203.0.113.5",`,
-        `    remote_as: 64511,`,
+        `    remote_as: 64510,`,
         `    role: "provider",`,
-        `    import_policy: "transit-import",`,
-        ...(exported.value === "ours" ? [`    export_policy: "cogent-export",`] : []),
+        `    import_policy: "as64510-import",`,
+        ...(exported.value === "ours" ? [`    export_policy: "as64510-export",`] : []),
         ...(exported.value === "everything" ? [`    export_policy: "everything",`] : []),
         `    max_prefixes: 1_200_000,`,
         `},`,
@@ -116,27 +116,28 @@ const code = computed(() => {
         exported.value === "ours"
             ? [
                   "",
-                  `"cogent-export": [`,
+                  `"as64510-export": [`,
                   `    { description: "Announce 198.51.100.0/24", if: { prefix: "198.51.100.0/24" }, then: "accept" },`,
                   `    { description: "Nothing else leaves", then: "reject" },`,
                   `],`,
               ]
             : exported.value === "everything"
               ? ["", `everything: [{ then: "accept" }],`]
-              : ["", "// No export: nothing is announced to cogent."];
+              : ["", "// No export: nothing is announced to as64510."];
 
     return [...neighbor, ...policy].join("\n");
 });
 
+/** What circuit validate printed for each choice, run on the edge router example with this neighbor added. */
 const validate = computed(() =>
     exported.value === "everything"
         ? [
               "$ circuit validate",
-              "  error  edge-01: routing.bgp.neighbors.cogent: export_policy everything does not end in an unconditional reject",
+              "  error  edge-01: routing.bgp.neighbors.as64510: export_policy everything does not end in an unconditional reject",
               "",
               "1 error(s).",
           ].join("\n")
-        : ["$ circuit validate", "1 device(s), no errors."].join("\n")
+        : ["$ circuit validate", "✔ 1 device(s), no errors."].join("\n")
 );
 </script>
 
@@ -146,7 +147,7 @@ const validate = computed(() =>
             class="ac-drawing"
             viewBox="0 0 700 330"
             role="img"
-            aria-label="Your network between Transit A and Transit B. A far network sits behind Transit A, and Transit B's customers behind Transit B. Transit A and Transit B also reach each other across the rest of the internet."
+            aria-label="Your network between Hurricane Electric and AS64510. Google sits behind Hurricane Electric, and AS64510's customers behind AS64510. The two transits also reach each other across the rest of the internet."
         >
             <line
                 v-for="[from, to] in cables"
@@ -174,8 +175,8 @@ const validate = computed(() =>
 
         <div class="controls">
             <div class="ac-field">
-                <span>What you announce to Transit B</span>
-                <div class="ac-row" role="group" aria-label="What you announce to Transit B">
+                <span>What you announce to AS64510</span>
+                <div class="ac-row" role="group" aria-label="What you announce to AS64510">
                     <button
                         v-for="choice in choices"
                         :key="choice.id"
@@ -189,13 +190,13 @@ const validate = computed(() =>
                 </div>
             </div>
             <div class="ac-field">
-                <span>On Transit B’s side of the session</span>
+                <span>On AS64510’s side of the session</span>
                 <button type="button" class="ac-button small" :aria-pressed="limited" @click="toggleLimit">Limit you to 10 prefixes</button>
             </div>
         </div>
 
         <div class="learned">
-            <p class="heading">What Transit B learns from you</p>
+            <p class="heading">What AS64510 learns from you</p>
             <ul v-if="learned.length">
                 <li v-for="entry in learned" :key="entry">{{ entry }}</li>
             </ul>
@@ -204,7 +205,7 @@ const validate = computed(() =>
 
         <div class="ac-row send">
             <button type="button" class="ac-button primary" :disabled="travelling" @click="send">
-                Send traffic from Transit B’s customers to the far network
+                Send traffic from AS64510’s customers to Google
             </button>
         </div>
 

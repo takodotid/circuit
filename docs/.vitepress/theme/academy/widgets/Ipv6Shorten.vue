@@ -124,9 +124,7 @@ function setMode(next: "shorten" | "expand") {
             </form>
 
             <p v-if="verdict" class="ac-say" :class="verdict.kind" :data-word="verdict.word" aria-live="polite">{{ verdict.text }}</p>
-            <p v-else class="ac-say hint" aria-live="polite">
-                Drop the leading zeros of each group, then write the longest run of zero groups as ::. Type your answer and check it.
-            </p>
+            <p v-else class="ac-say hint" aria-live="polite">Shorten the address above by the four rules, then check it.</p>
         </template>
 
         <template v-else>
