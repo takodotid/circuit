@@ -3,7 +3,7 @@
     "extends": ["local>takodotid/renovate-config"],
     "packageRules": [
         {
-            "description": "typescript-6 is an npm alias of typescript, so it is matched by its dependency name. It is the TypeScript that VS Code bundles, which the editor-types test checks against. It moves to 7 only when VS Code does.",
+            "description": "typescript-6 is an npm alias of typescript, so it is matched by its dependency name. It is the TypeScript that VS Code bundles, which the editor-types test checks against, and the one vue-tsc runs on. It moves to 7 only when VS Code and vue-tsc do.",
             "matchDepNames": ["typescript-6"],
             "allowedVersions": "<7"
         },

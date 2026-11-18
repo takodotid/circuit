@@ -4,9 +4,11 @@ import { as64500 } from "../../circuit";
 import { tenants } from "../../tenants";
 import { dc_1 } from "./site";
 
+// #region include
 export default as64500.device({
     name: "edge-01",
     include: [tenants.parts],
+    // #endregion include
     site: "dc-1",
     role: "Edge router",
     platform: "routeros",
@@ -44,6 +46,7 @@ export default as64500.device({
             transit: { id: 300, description: "IP transit from Hurricane Electric, AS6939" },
             exchange: { id: 200, description: "DE-CIX peering LAN" },
         },
+        // #region acls
         // In the switch chip, before a packet reaches the router's CPU. Each tenant's own rules come last.
         acls: {
             edge: merge([
@@ -52,6 +55,7 @@ export default as64500.device({
                 tenants.rules.edge_acl,
             ]),
         },
+        // #endregion acls
     },
 
     routing: {

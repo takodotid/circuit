@@ -7,8 +7,10 @@ export const as64500 = circuit({
     sites: {
         home: { description: "A home or a small office: one router and one switch." },
     },
+    // #region checks
     checks: {
         same_vlan_ids: true,
         management_stays_on_trunks: managementStaysOnTrunks,
     },
+    // #endregion checks
 });

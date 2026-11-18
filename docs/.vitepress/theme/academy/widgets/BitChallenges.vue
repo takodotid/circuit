@@ -110,7 +110,7 @@ function go(next: number) {
     <div class="bit-challenges">
         <ol class="progress" aria-label="Challenges">
             <li
-                v-for="(entry, number) in challenges"
+                v-for="(_, number) in challenges"
                 :key="number"
                 :class="{ now: number === index, done: number < index || (number === index && solved) }"
             >

@@ -27,8 +27,8 @@ type Layout = {
     /** Where the cable meets the server. */
     door: Point;
     box: { x: number; y: number; width: number; height: number };
-    /** The middle height of each program's row. */
-    rows: number[];
+    /** The middle height of the first program's row. */
+    firstRow: number;
 };
 
 const layouts: Record<"wide" | "narrow", Layout> = {
@@ -37,22 +37,27 @@ const layouts: Record<"wide" | "narrow", Layout> = {
         laptop: [70, 150],
         door: [250, 150],
         box: { x: 250, y: 14, width: 300, height: 276 },
-        rows: [72, 114, 156, 198, 240],
+        firstRow: 72,
     },
     narrow: {
         viewBox: "0 0 360 420",
         laptop: [80, 50],
         door: [180, 132],
         box: { x: 20, y: 132, width: 320, height: 280 },
-        rows: [190, 232, 274, 316, 358],
+        firstRow: 190,
     },
 };
 
 const narrow = useNarrow();
 const layout = computed(() => layouts[narrow.value ? "narrow" : "wide"]);
 
+/** The height of each program's row. */
+const ROW = 42;
+/** The middle height of a program's row. */
+const rowY = (index: number) => layout.value.firstRow + index * ROW;
+
 /** The point inside the server where a program's port number sits. */
-const portPoint = (index: number): Point => [layout.value.box.x + 46, layout.value.rows[index]!];
+const portPoint = (index: number): Point => [layout.value.box.x + 46, rowY(index)];
 
 const port = ref("443");
 const ownPort = ref(51000);
@@ -136,9 +141,9 @@ async function send() {
             </text>
 
             <g v-for="(program, index) in programs" :key="program.port" class="program" :class="{ lit: litIndex === index }">
-                <rect class="number" :x="layout.box.x + 18" :y="layout.rows[index] - 15" width="56" height="30" />
-                <text class="mono" :x="layout.box.x + 46" :y="layout.rows[index] + 5" text-anchor="middle">{{ program.port }}</text>
-                <text class="name" :x="layout.box.x + 88" :y="layout.rows[index] + 5">{{ program.name }}</text>
+                <rect class="number" :x="layout.box.x + 18" :y="rowY(index) - 15" width="56" height="30" />
+                <text class="mono" :x="layout.box.x + 46" :y="rowY(index) + 5" text-anchor="middle">{{ program.port }}</text>
+                <text class="name" :x="layout.box.x + 88" :y="rowY(index) + 5">{{ program.name }}</text>
             </g>
 
             <circle v-if="traveling" class="packet" :cx="position[0]" :cy="position[1]" r="9" />

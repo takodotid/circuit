@@ -45,8 +45,6 @@ function amplified(): string {
     return low === high ? `about ${format(low * REQUESTS)}` : `${format(low * REQUESTS)} to ${format(high * REQUESTS)}`;
 }
 
-const sourceAddress = computed(() => (source.value === "own" ? ATTACKER : VICTIM));
-
 const request = useTravel();
 const reply = useTravel(320);
 

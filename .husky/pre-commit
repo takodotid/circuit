@@ -1,7 +1,11 @@
-# Every commit is linted and formatted. Typecheck and tests run unless the commit only changes the website or Markdown, which they don't read.
+# Every commit is linted and formatted. The typecheck runs unless the commit only changes Markdown. The tests run, except when the commit only changes the website or Markdown: then only the tests that read them run.
 bun run lint
 bun run format:check
-if git diff --cached --name-only | grep -qvE '^docs/|\.md$'; then
+if git diff --cached --name-only | grep -qvE '\.md$'; then
     bun run typecheck
+fi
+if git diff --cached --name-only | grep -qvE '^docs/|\.md$'; then
     bun run test
+else
+    bun run editor-types && bun test test/docs.test.ts test/repo.test.ts
 fi
