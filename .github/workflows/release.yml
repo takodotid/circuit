@@ -17,6 +17,8 @@ permissions:
 jobs:
     release:
         runs-on: ubuntu-latest
+        # GitHub lets only tags v* run in this environment.
+        environment: release
         outputs:
             backport: ${{ steps.tag.outputs.backport }}
         steps:
