@@ -430,8 +430,8 @@ export class DeviceChecks {
             const ownReflection = neighbor.route_reflector_client !== undefined || neighbor.remote_as !== undefined;
             if (client && external(remoteAs) && ownReflection) reflectedToExternal(where, remoteAs);
 
-            if (client && !external(remoteAs) && (neighbor.role ?? group?.role))
-                report(`${where} has role with route_reflector_client, but a role is for eBGP neighbors (RFC 9234). Remove role`);
+            if (remoteAs !== undefined && !external(remoteAs) && (neighbor.role ?? group?.role))
+                report(`${where} has role, but AS${remoteAs} is ours, and a role is for eBGP neighbors (RFC 9234). Remove role`);
         }
 
         for (const areaId of Object.keys(routing?.ospf?.areas ?? {})) {

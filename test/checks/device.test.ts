@@ -141,7 +141,7 @@ test("ttl_security with multihop is an error, once at a group that has both", ()
 });
 
 // A route reflector's clients are iBGP neighbors (RFC 4456), and a role is what an eBGP neighbor is to us (RFC 9234).
-test("route_reflector_client on an eBGP neighbor is an error, once at a group that has both, and so is a client with a role", () => {
+test("route_reflector_client on an eBGP neighbor is an error, once at a group that has both, and so is a role on an iBGP neighbor", () => {
     const bgp = router.routing!.bgp!;
     const device: Device = {
         ...router,
@@ -166,11 +166,11 @@ test("route_reflector_client on an eBGP neighbor is an error, once at a group th
         },
     };
 
-    const found = messages(device).filter((message) => /route_reflector_client|cluster_id/.test(message));
+    const found = messages(device).filter((message) => /route_reflector_client|cluster_id|has role/.test(message));
     expect(found).toEqual([
         "routing.bgp.cluster_id: '192.0.2.256' is not an IPv4 address, such as 192.0.2.1",
         "routing.bgp.neighbor_groups.cogent has route_reflector_client, but AS174 is not ours, AS64500: a route reflector has iBGP clients only (RFC 4456). Remove route_reflector_client",
         "routing.bgp.neighbors.as64501 has route_reflector_client, but AS64501 is not ours, AS64500: a route reflector has iBGP clients only (RFC 4456). Remove route_reflector_client",
-        "routing.bgp.neighbors.edge-03 has role with route_reflector_client, but a role is for eBGP neighbors (RFC 9234). Remove role",
+        "routing.bgp.neighbors.edge-03 has role, but AS64500 is ours, and a role is for eBGP neighbors (RFC 9234). Remove role",
     ]);
 });
