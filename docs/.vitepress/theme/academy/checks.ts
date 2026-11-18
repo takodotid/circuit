@@ -52,7 +52,7 @@ export const checks: Check[] = [
             },
             {
                 question: "A laptop has the address 192.168.1.20/24. Which of these addresses is on the same network?",
-                choices: ["192.168.2.20", "192.168.1.200", "10.168.1.20", "192.169.1.20"],
+                choices: ["192.168.2.20", "192.168.1.200", "10.168.1.20", "192.168.10.20"],
                 answer: 1,
                 lesson: "/academy/beginner/ip-addresses",
             },

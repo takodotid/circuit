@@ -1,0 +1,6 @@
+extends: existence
+message: "'%s' is a placeholder. Name a real network with its AS number, such as Hurricane Electric, AS6939."
+level: error
+tokens:
+    - '\b(?:[Tt]ransit|[Cc]ustomer|[Pp]eer|ISP|[Pp]rovider|[Uu]pstream|[Dd]ownstream|[Cc]arrier|[Mm]ember|[Tt]enant|[Ee]xchange|IX|[Pp]artner|[Cc]ompany|[Oo]perator)s? (?:[A-Z]|\d+)\b(?!\.\d)'
+    - '\b(?:[Ff]oo|[Ff]oobar|[Bb]az|[Qq]ux|[Qq]uux)\b'

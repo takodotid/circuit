@@ -18,9 +18,11 @@ const router = (tables: string[]) => ({
     connection: { host: "192.168.77.1", user: "admin" },
     system: { users: { admin: { role: "admin", password: { secret: "PASSWORD" } } } },
     interfaces: {
-        ethernet: { "1g-1": { dhcp_client: { default_routes: [{ routing_table: "isp1" }, { routing_table: "isp9", distance: 200 }] } } },
+        ethernet: {
+            "1g-1": { dhcp_client: { default_routes: [{ routing_table: "biznet" }, { routing_table: "biznet2", distance: 200 }] } },
+        },
         loopback: { lo: { addresses: ["192.0.2.1/32"] } },
-        wireguard: { wg1: { listen_port: 51811, routing_table: "isp9", private_key: { secret: "WG" } } },
+        wireguard: { wg1: { listen_port: 51811, routing_table: "biznet2", private_key: { secret: "WG" } } },
     },
     routing: { tables: Object.fromEntries(tables.map((table) => [table, {}])) },
     services: { upnp: { internal: ["lan9"], external: "lo" } },
@@ -31,7 +33,7 @@ beforeAll(async () => {
     mkdirSync(join(folder, "sites", "home"), { recursive: true });
     writeFileSync(
         join(folder, "sites", "home", "cpe-01.ts"),
-        `import { net } from "../../circuit";\n\nexport default net.device(${JSON.stringify(router(["isp1"]), null, 4)});\n`
+        `import { net } from "../../circuit";\n\nexport default net.device(${JSON.stringify(router(["biznet"]), null, 4)});\n`
     );
     stopped = await Project.read(folder).then(
         () => [],
@@ -43,14 +45,14 @@ afterAll(() => rmSync(folder, { recursive: true, force: true }));
 
 test("a table or an interface the device does not declare is named", () => {
     expect(stopped).toEqual([
-        "sites/home/cpe-01.ts:24: cpe-01: interfaces.ethernet.1g-1.dhcp_client.default_routes[1].routing_table: no table isp9. Did you mean isp1?",
-        "sites/home/cpe-01.ts:46: cpe-01: interfaces.wireguard.wg1.routing_table: no table isp9. Did you mean isp1?",
+        "sites/home/cpe-01.ts:24: cpe-01: interfaces.ethernet.1g-1.dhcp_client.default_routes[1].routing_table: no table biznet2. Did you mean biznet?",
+        "sites/home/cpe-01.ts:46: cpe-01: interfaces.wireguard.wg1.routing_table: no table biznet2. Did you mean biznet?",
         "cpe-01: services.upnp.internal: no interface lan9",
     ]);
 });
 
 test("a table only a DHCP client fills is not empty", () => {
-    const device = { ...router(["isp1"]), interfaces: { ethernet: router(["isp1"]).interfaces.ethernet } };
+    const device = { ...router(["biznet"]), interfaces: { ethernet: router(["biznet"]).interfaces.ethernet } };
     const findings = Checks.run([JSON.parse(JSON.stringify(device))], undefined).map((finding) => finding.message);
     expect(findings.filter((message) => message.includes("nothing installs routes"))).toEqual([]);
 });

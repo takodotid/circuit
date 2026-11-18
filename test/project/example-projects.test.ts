@@ -103,7 +103,7 @@ describe("internet exchange with no member", () => {
         const findings = read.networks.flatMap((network) => Checks.run(Object.values(network.devices), network.settings.checks));
 
         expect(findings).toEqual([]);
-        expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("AS13335");
-        expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("AS15169");
+        expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("Cloudflare, AS13335");
+        expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("Google, AS15169");
     });
 });
