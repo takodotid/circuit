@@ -1,8 +1,8 @@
-// How the graph looks: Cytoscape's stylesheet, built from the page's colours, so the drawing has the same palette as the rest of Studio.
+// How the graph looks: Cytoscape's stylesheet, built from the page's colors, so the drawing has the same palette as the rest of Studio.
 
 import type { NodeSingular, StylesheetJson } from "cytoscape";
 
-/** The page's colours and fonts the drawing uses, read from its CSS as they are now. */
+/** The page's colors and fonts the drawing uses, read from its CSS as they are now. */
 export type Colors = {
     dark: boolean;
     bg: string;
@@ -23,10 +23,7 @@ export type Colors = {
     mono: string;
 };
 
-/**
- * A node's tag: its size, and for a device, where its name sits and the drawing behind it: a small front panel, a chassis with two rows of
- * sockets, and the platform and model under the name. The drawing comes as it looks normally, selected, and lit while presenting.
- */
+/** A node's tag: its size, and for a device, where its name sits and the drawing behind it. The drawing comes as it looks normally, selected, and lit while presenting. */
 export type Tag = { width: number; height: number; shift: number; image?: string; picked?: string; touring?: string };
 
 export class GraphLook {
@@ -231,8 +228,7 @@ export class GraphLook {
                 style: { "outline-width": 3, "outline-color": colors.yellowDeep, "outline-offset": 4, "outline-opacity": 1 },
             },
             { selector: ".dim", style: { opacity: 0.18 } },
-            // A part that has not come in yet. Without it, the part fades in to how it shows now, dimmed or not. While unseen, it is lit or
-            // dimmed at once: the end of that fade would take back the fade it comes in with.
+            // A part that has not come in yet. Without it, the part fades in to how it shows now, dimmed or not. While unseen, it is lit or dimmed at once: the end of that fade would take back the fade it comes in with.
             { selector: ".unseen", style: { opacity: 0, "text-opacity": 0, "transition-property": "none" } },
         ];
     }

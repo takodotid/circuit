@@ -1,4 +1,4 @@
-// What one layer of the graph shows: its nodes and lines with ids that stay, many lines between two nodes drawn as one, and a comparison's lines added and gone, with the nodes gone at their ends.
+// What one layer of the graph shows: its nodes and lines, with ids that stay. Many lines between two nodes are drawn as one. A comparison shows lines added and gone, with the nodes gone at their ends.
 
 import { describe, expect, test } from "bun:test";
 import type { GraphEdge, GraphNode } from "../../src/core/graph";

@@ -1,7 +1,8 @@
 // Dots that travel each line both ends declare, so a link that works reads as one that carries traffic. Cytoscape draws on a canvas of its own, so the dots are drawn on a second canvas laid over it, from where Cytoscape draws each line, once a frame. A line one end declares, or one a comparison shows is gone, carries none.
 
 import type { Core, EdgeSingular } from "cytoscape";
-import { GraphLayout, type Point } from "./graph-layout";
+import { GraphLayout } from "./graph-layout";
+import type { Point } from "./graph-layout";
 
 export type SignalColors = { dot: string; lit: string; ring: string; added: string };
 
@@ -9,6 +10,23 @@ export type SignalColors = { dot: string; lit: string; ring: string; added: stri
 type Dot = { at: Point; color: string; lit: boolean; opacity: number };
 
 export class GraphSignals {
+    /** How fast the dots travel, in pixels a second, and how fast while presenting. */
+    private static readonly SPEED = 45;
+    private static readonly PRESENTING_SPEED = 110;
+    /** The shortest and longest time a dot takes along a line, in seconds. */
+    private static readonly FASTEST = 1.6;
+    private static readonly SLOWEST = 12;
+    /** A line fainter than this carries no dots. */
+    private static readonly FAINTEST = 0.05;
+    /** How long the dots take to fade in. */
+    private static readonly FADE_IN = 300;
+    /** A dot's radius, a lit dot's radius, and the width of a lit dot's ring. */
+    private static readonly DOT = 3.5;
+    private static readonly LIT_DOT = 4.5;
+    private static readonly RING = 1.5;
+    /** A second, in milliseconds. */
+    private static readonly SECOND = 1000;
+
     /** While presenting, the dots are quicker, and each line carries one each way. */
     presenting = false;
     /** The dots show from this time on, fading in, so they come after the lines while the drawing arrives. */
@@ -56,7 +74,7 @@ export class GraphSignals {
         if (edge.data("oneSided") || edge.data("gone") || !edge.visible()) return [];
 
         const opacity = edge.effectiveOpacity() * appear;
-        if (opacity < 0.05) return [];
+        if (opacity < GraphSignals.FAINTEST) return [];
 
         const from = edge.sourceEndpoint();
         const to = edge.targetEndpoint();
@@ -64,14 +82,15 @@ export class GraphSignals {
 
         // Speed by length, so a long line is not a blur; each line starts at a point of its own.
         const length = Math.hypot(to.x - from.x, to.y - from.y);
-        const seconds = Math.min(Math.max(length / (this.presenting ? 110 : 45), 1.6), 12);
+        const speed = this.presenting ? GraphSignals.PRESENTING_SPEED : GraphSignals.SPEED;
+        const seconds = Math.min(Math.max(length / speed, GraphSignals.FASTEST), GraphSignals.SLOWEST);
         const phase = GraphLayout.hash(edge.id());
         const backwards = this.presenting ? [false, true] : [GraphLayout.hash(String(edge.data("label"))) < 0.5];
         const lit = edge.hasClass("lit") || edge.hasClass("picked");
         const color = edge.data("added") ? this.colors.added : lit ? this.colors.lit : this.colors.dot;
 
         return backwards.map((back, index) => {
-            const travelled = (now / 1000 / seconds + phase + index / 2) % 1;
+            const travelled = (now / GraphSignals.SECOND / seconds + phase + index / 2) % 1;
             const at = GraphSignals.along(points, back ? 1 - travelled : travelled);
             return { at: { x: at.x * zoom, y: at.y * zoom }, color, lit, opacity };
         });
@@ -94,7 +113,7 @@ export class GraphSignals {
         context.setTransform(1, 0, 0, 1, 0, 0);
         context.clearRect(0, 0, width, height);
 
-        const appear = Math.min(Math.max((now - this.showFrom) / 300, 0), 1);
+        const appear = Math.min(Math.max((now - this.showFrom) / GraphSignals.FADE_IN, 0), 1);
         if (appear === 0) return;
 
         const zoom = this.cy.zoom();
@@ -121,12 +140,12 @@ export class GraphSignals {
                 if (underTag(dot.at)) continue;
                 context.globalAlpha = dot.opacity;
                 context.beginPath();
-                context.arc(dot.at.x, dot.at.y, (dot.lit ? 4.5 : 3.5) * zoom, 0, Math.PI * 2);
+                context.arc(dot.at.x, dot.at.y, (dot.lit ? GraphSignals.LIT_DOT : GraphSignals.DOT) * zoom, 0, Math.PI * 2);
                 context.fillStyle = dot.color;
                 context.fill();
 
                 if (dot.lit) {
-                    context.lineWidth = 1.5 * zoom;
+                    context.lineWidth = GraphSignals.RING * zoom;
                     context.strokeStyle = this.colors.ring;
                     context.stroke();
                 }

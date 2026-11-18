@@ -3,7 +3,8 @@
 import { computed, reactive, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
-import { type Attributes, Evaluate, type Route } from "../lib/evaluate";
+import { Evaluate } from "../lib/evaluate";
+import type { Attributes, Route } from "../lib/evaluate";
 import { Format } from "../lib/format";
 import { Net } from "../lib/net";
 import { queryOf } from "../lib/store";

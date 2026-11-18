@@ -3,7 +3,8 @@
 import { computed } from "vue";
 import type { CarriedVlan, Layer } from "../../../../core/graph";
 import type { StudioData } from "../../../types";
-import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
+import { GraphLayer } from "../lib/graph-layer";
+import type { Shown, ShownEdge, ShownNode } from "../lib/graph-layer";
 import { store } from "../lib/store";
 import GraphLegend from "./GraphLegend.vue";
 

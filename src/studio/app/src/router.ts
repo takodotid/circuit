@@ -1,14 +1,8 @@
 // Studio's pages, each at its own path, such as `/devices/edge-01` or `/tools/firewall?device=edge-01&chain=input`. The server answers every path with the page, so a reload, a bookmark, or a link sent to someone opens the same place.
 
 import { h } from "vue";
-import {
-    createRouter,
-    createWebHistory,
-    type RouteLocationNormalizedLoaded,
-    type RouteRecordRaw,
-    type Router,
-    type RouterHistory,
-} from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
+import type { RouteLocationNormalizedLoaded, RouteRecordRaw, Router, RouterHistory } from "vue-router";
 import { store } from "./lib/store";
 import AddressesView from "./components/AddressesView.vue";
 import CablesView from "./components/CablesView.vue";
@@ -24,6 +18,7 @@ import ToolsView from "./components/ToolsView.vue";
 import VlansView from "./components/VlansView.vue";
 
 declare module "vue-router" {
+    // oxlint-disable-next-line typescript/consistent-type-definitions -- Vue Router's RouteMeta grows only by merging an interface.
     interface RouteMeta {
         /** The view in the top bar the page belongs to, when it is not the page's own name. */
         view?: string;

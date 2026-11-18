@@ -3,7 +3,8 @@
 import { computed, ref } from "vue";
 import type { AddressBlock, AddressSegment, StudioData } from "../../../types";
 import { Net } from "../lib/net";
-import DataTable, { type Row } from "./DataTable.vue";
+import DataTable from "./DataTable.vue";
+import type { Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
 const shown = ref<"spaces" | "all">("spaces");

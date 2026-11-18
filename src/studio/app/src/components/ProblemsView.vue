@@ -5,7 +5,8 @@ import { useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
 import { GraphLayer } from "../lib/graph-layer";
 import { showInGraph } from "../lib/store";
-import DataTable, { type Row } from "./DataTable.vue";
+import DataTable from "./DataTable.vue";
+import type { Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
 const router = useRouter();

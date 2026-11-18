@@ -2,7 +2,8 @@
 <script lang="ts">
 import type { Layer } from "../../../../core/graph";
 import type { View } from "../lib/graph-glide";
-import { type Kept, type Point, GraphLayout } from "../lib/graph-layout";
+import { GraphLayout } from "../lib/graph-layout";
+import type { Kept, Point } from "../lib/graph-layout";
 import { Saved } from "../lib/store";
 
 // Places saved under an older layout are cramped: the version starts every graph fresh once.
@@ -19,22 +20,21 @@ const memory = {
 </script>
 
 <script setup lang="ts">
-import cytoscape, {
-    type CollectionReturnValue,
-    type Core,
-    type EdgeCollection,
-    type ElementDefinition,
-    type NodeSingular,
-} from "cytoscape";
+import cytoscape from "cytoscape";
+import type { CollectionReturnValue, Core, EdgeCollection, ElementDefinition, NodeSingular } from "cytoscape";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
 import { Export } from "../lib/export";
-import { type GlideOptions, type Motion, GraphGlide } from "../lib/graph-glide";
-import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
-import { type Tag, GraphLook } from "../lib/graph-look";
+import { GraphGlide } from "../lib/graph-glide";
+import type { GlideOptions, Motion } from "../lib/graph-glide";
+import { GraphLayer } from "../lib/graph-layer";
+import type { Shown, ShownEdge, ShownNode } from "../lib/graph-layer";
+import { GraphLook } from "../lib/graph-look";
+import type { Tag } from "../lib/graph-look";
 import { GraphSignals } from "../lib/graph-signals";
-import { type Drawing, GraphSvg } from "../lib/graph-svg";
+import { GraphSvg } from "../lib/graph-svg";
+import type { Drawing } from "../lib/graph-svg";
 import { paramOf, still, store } from "../lib/store";
 import GraphPanel from "./GraphPanel.vue";
 
@@ -72,7 +72,7 @@ const selected = computed<{ node?: ShownNode; edge?: ShownEdge }>(() => {
 const layouts = memory.layouts;
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-/** Each node's tag, measured once in the colours and fonts it is drawn in, until they change. */
+/** Each node's tag, measured once in the colors and fonts it is drawn in, until they change. */
 let colors = GraphLook.colors();
 const tags = new Map<string, Tag>();
 
@@ -130,9 +130,9 @@ function edgeData(edge: ShownEdge) {
 }
 
 /**
- * Show the layer: add what is new, drop what is gone and update the rest, so nodes keep their places and the selection stays.
- * `arrival` says what is new to the eye: the whole network the first time it is shown, or a new layer, whose devices glide to their
- * places on it while its lines come in. A project read again, or a comparison, fades in what it adds and moves nothing.
+ * Show the layer: add what is new, drop what is gone, and update the rest, so nodes keep their places and the selection stays.
+ * `arrival` says what is new to the eye: the whole network the first time it is shown, or a new layer.
+ * A new layer's devices glide to their places while its lines come in. A project read again, or a comparison, fades in what it adds and moves nothing.
  */
 function draw(arrival?: "network" | "layer"): void {
     if (!graph) return;
@@ -267,11 +267,22 @@ function stopView(): void {
 
 /** The curve of an arrival: quick at first, settling at the end. */
 const ARRIVE = "ease-out-quint";
+/** The time an arrival's rings share, and the longest wait from one ring to the next. */
+const ARRIVAL_TIME = 800;
+const RING_WAIT = 110;
+/** How long a new layer's lines wait for its devices to glide in. */
+const LINE_WAIT = 200;
+/** How long a line takes to draw in, and then its label to fade in. */
+const DRAW_IN = 560;
+const LABEL_FADE = 300;
+/** The dash that draws a line in is longer than the straight line between its ends, so it covers a curved line too. */
+const DASH_STRETCH = 1.3;
+const DASH_EXTRA = 4;
 
 /**
- * Bring new parts in from the busiest device outward, a ring of neighbours at a time: nodes fade in, then the lines, then their labels.
+ * Bring new parts in from the busiest device outward, a ring of neighbors at a time: nodes fade in, then the lines, then their labels.
  * On the first view each line draws in from its nearer end; else its lines fade in. The dots of a new drawing follow once it is all in.
- * A part fades as Cytoscape fades a part that is lit or dimmed, so it comes in to how it shows now, dimmed while something else is lit.
+ * A part comes in to how it shows now, dimmed while something else is lit.
  */
 function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer" | "change"): void {
     if (!graph) return;
@@ -292,7 +303,7 @@ function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer" | "ch
 
     // The whole drawing arrives within about a second, however many rings it has.
     const farthest = Math.max(0, ...ring.values()) + 1;
-    const step = Math.min(110, 800 / farthest);
+    const step = Math.min(RING_WAIT, ARRIVAL_TIME / farthest);
     const ringOf = (node: NodeSingular) => ring.get(node.id()) ?? farthest;
 
     fresh.nodes().forEach((node) => {
@@ -303,8 +314,8 @@ function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer" | "ch
     fresh.edges().forEach((edge) => {
         const from = ringOf(edge.source());
         const to = ringOf(edge.target());
-        const delay = (Math.min(from, to) + 0.5) * step + (arrival === "network" ? 0 : 200);
-        last = Math.max(last, delay + 860);
+        const delay = (Math.min(from, to) + 0.5) * step + (arrival === "network" ? 0 : LINE_WAIT);
+        last = Math.max(last, delay + DRAW_IN + LABEL_FADE);
 
         // Its label waits for the line.
         edge.style("text-opacity", 0);
@@ -314,19 +325,19 @@ function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer" | "ch
         // A line whose ends are not placed yet has no length, and fades in too.
         const a = edge.sourceEndpoint();
         const b = edge.targetEndpoint();
-        const length = Math.hypot(b.x - a.x, b.y - a.y) * 1.3 + 4;
+        const length = Math.hypot(b.x - a.x, b.y - a.y) * DASH_STRETCH + DASH_EXTRA;
         if (arrival === "network" && !edge.data("oneSided") && Number.isFinite(length)) {
             edge.style({
                 "line-style": "dashed",
                 "line-dash-pattern": [length, length],
                 "line-dash-offset": from <= to ? length : -length,
             });
-            edge.animate({ style: { "line-dash-offset": 0 } }, { duration: 560, easing: ARRIVE });
+            edge.animate({ style: { "line-dash-offset": 0 } }, { duration: DRAW_IN, easing: ARRIVE });
         } else edge.delay(GraphLook.FADE);
 
         edge.animate(
             { style: { "text-opacity": 1 } },
-            { duration: 300, complete: () => edge.removeStyle("text-opacity line-style line-dash-pattern line-dash-offset") }
+            { duration: LABEL_FADE, complete: () => edge.removeStyle("text-opacity line-style line-dash-pattern line-dash-offset") }
         );
     });
 
@@ -377,7 +388,7 @@ function emphasize(): void {
     });
 }
 
-/** Dots in the link colour; on a lit line, the highlighter with a navy ring; on a line a comparison adds, green. */
+/** Dots in the link color; on a lit line, the highlighter with a navy ring; on a line a comparison adds, green. */
 function signalColors() {
     const colors = GraphLook.colors();
     return { dot: colors.link, lit: colors.yellow, ring: colors.navy, added: colors.ok };
@@ -427,11 +438,15 @@ function framing(ids: readonly string[], padding: number, readable = false): Vie
     return { zoom, pan: { x: width / 2 - center.x * zoom, y: height / 2 - center.y * zoom } };
 }
 
+/** The room around what a view frames: the whole layer, or a lit device with its neighbors. */
+const LAYER_PADDING = 60;
+const LIT_PADDING = 90;
+
 /** Glide to the whole layer, but never larger than its own size: a network of two devices stays readable. */
 function fit(): void {
     const view = framing(
         shown.value.nodes.map((node) => node.id),
-        60
+        LAYER_PADDING
     );
     if (view) glideView(view);
 }
@@ -445,7 +460,7 @@ function frameLayer(glides = false): void {
         left ??
         framing(
             shown.value.nodes.map((node) => node.id),
-            60,
+            LAYER_PADDING,
             true
         );
     if (!view) return;
@@ -590,7 +605,7 @@ function light(node: NodeSingular | undefined): void {
 /** How long the view takes to glide to the next turn of the tour. */
 const TOUR_GLIDE = 1100;
 
-/** Glide to what is lit with its neighbours, or to the whole layer, then drift. */
+/** Glide to what is lit with its neighbors, or to the whole layer, then drift. */
 function frameLit(time = GraphGlide.TIME): void {
     if (!graph) return;
     const ids = touring
@@ -600,7 +615,7 @@ function frameLit(time = GraphGlide.TIME): void {
               .nodes()
               .map((node) => node.id())
         : shown.value.nodes.map((node) => node.id);
-    const view = framing(ids, 90);
+    const view = framing(ids, LIT_PADDING);
     if (view) glideView(view, { time, done: drift });
 }
 
@@ -628,28 +643,33 @@ function pulse(node: NodeSingular | undefined): void {
 
 /** How long the drift takes each way. */
 const DRIFT_TIME = 7000;
+/** How far the drift goes: its zoom, and its pan across and down. */
+const DRIFT_AWAY = { zoom: 1.03, x: 16, y: 10 };
+/** How far the drift's direction turns from one turn of the tour to the next, in radians. */
+const DRIFT_TURN = 2.4;
 
-/**
- * While presenting, the view drifts slowly away from what it frames and back, so a wall screen does not stand still. It gives way to each
- * turn of the tour, and waits while a device is pointed at or dragged. None with reduced motion.
- */
+/** While presenting, the view drifts slowly away from what it frames and back, so a wall screen does not stand still. It gives way to each turn of the tour, and waits while a device is pointed at or dragged. None with reduced motion. */
 function drift(): void {
     if (!graph || !presenting.value || still.matches || hovered || dragging || viewGlide) return;
     const cy = graph;
 
     const base = { zoom: cy.zoom(), pan: { ...cy.pan() } };
-    const angle = tourStep * 2.4 + layer.value.length;
+    const angle = tourStep * DRIFT_TURN + layer.value.length;
     const center = { x: cy.width() / 2, y: cy.height() / 2 };
     const away = {
-        zoom: base.zoom * 1.03,
+        zoom: base.zoom * DRIFT_AWAY.zoom,
         pan: {
-            x: center.x - (center.x - base.pan.x) * 1.03 + Math.cos(angle) * 16,
-            y: center.y - (center.y - base.pan.y) * 1.03 + Math.sin(angle) * 10,
+            x: center.x - (center.x - base.pan.x) * DRIFT_AWAY.zoom + Math.cos(angle) * DRIFT_AWAY.x,
+            y: center.y - (center.y - base.pan.y) * DRIFT_AWAY.zoom + Math.sin(angle) * DRIFT_AWAY.y,
         },
     };
 
     glideView(away, { time: DRIFT_TIME, done: () => glideView(base, { time: DRIFT_TIME, done: drift }) });
 }
+
+/** How long each turn of the tour lasts, and how long the whole layer shows before the tour moves to the next one. */
+const TURN_TIME = 6000;
+const LAYER_TIME = 2600;
 
 /** The next layer with lines, after this one; this one when no other has any. */
 function nextLayer(): Layer {
@@ -686,7 +706,7 @@ function tourNext(): void {
         leaving = undefined;
         // Replacing the address keeps the history clean, so Back still leaves Studio's last place.
         if (presenting.value) void router.replace({ name: "layer", params: { layer: following } });
-    }, 2600);
+    }, LAYER_TIME);
 }
 
 /** Start the turns again, so the layer shown now has its full time. */
@@ -695,7 +715,7 @@ function restartTour(): void {
     clearTimeout(leaving);
     leaving = undefined;
     tourStep = 0;
-    if (presenting.value) tour = setInterval(tourNext, 6000);
+    if (presenting.value) tour = setInterval(tourNext, TURN_TIME);
 }
 
 /** The page as presenting wants it: the rails and the panel gone, heavier lines, a caption, and the turns running. Or back as it was. */
@@ -767,7 +787,7 @@ function onKey(event: KeyboardEvent): void {
     if (chosen) void router.push({ name: "layer", params: { layer: chosen } });
 }
 
-/** The page's colours changed, with the system's light or dark, or the reader asked for less motion: draw it all again in them. */
+/** The page's colors changed, with the system's light or dark, or the reader asked for less motion: draw it all again in them. */
 function restyle(): void {
     if (!graph) return;
     colors = GraphLook.colors();
@@ -827,8 +847,7 @@ onMounted(() => {
         dragging = false;
         drift();
     });
-    // The drawing follows the canvas's size; presenting keeps what it shows in view. The window's resize comes before Cytoscape draws
-    // the frame, so the drawing never shows where the page moved it.
+    // The drawing follows the canvas's size; presenting keeps what it shows in view. The window's resize comes before Cytoscape draws the frame, so the drawing never shows where the page moved it.
     resizing = new ResizeObserver(() => {
         follow();
         if (presenting.value) frameLit();
@@ -843,8 +862,7 @@ onMounted(() => {
     still.addEventListener("change", restyle);
     scheme.addEventListener("change", restyle);
 
-    // A press or a scroll stops the view where it is, for the reader to move it from there. The nodes go on to their places, but one
-    // being dragged stays with the pointer.
+    // A press or a scroll stops the view where it is, for the reader to move it from there. The nodes go on to their places, but one being dragged stays with the pointer.
     graph.on("tapstart", stopView);
     container.value?.addEventListener("wheel", stopView, { capture: true, passive: true });
     graph.on("drag", "node", (event) => gliding.delete(event.target.id()));
