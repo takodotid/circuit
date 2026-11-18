@@ -16,9 +16,12 @@ export type Drawing = {
         fill: string;
         stroke: string;
         strokeWidth: number;
-        dashed: boolean;
+        /** The frame's dash pattern as Cytoscape draws it, such as `[1, 1]` for dotted: empty when solid. */
+        dash: number[];
         color: string;
         fontSize: number;
+        fontFamily: string;
+        fontWeight: string;
         opacity: number;
         /** A device's tag: its chassis mark's colours, and its platform and model under its name. */
         device?: { chassis: string; socket: string; sub: string; subColor: string; mono: string };
@@ -32,7 +35,8 @@ export type Drawing = {
         label: string;
         color: string;
         width: number;
-        dashed: boolean;
+        /** The line's dash pattern as Cytoscape draws it: empty when solid. */
+        dash: number[];
         labelColor: string;
         fontSize: number;
         opacity: number;
@@ -43,6 +47,11 @@ export class GraphSvg {
     /** Text safe inside an SVG element or attribute. */
     private static escape(text: string): string {
         return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+    }
+
+    /** A stroke's dash pattern as an attribute, or nothing for a solid stroke. */
+    private static dashOf(dash: readonly number[]): string {
+        return dash.length ? ` stroke-dasharray="${dash.join(" ")}"` : "";
     }
 
     /** The graph as an SVG file of its own: lines first, then boxes over them, framed around what is drawn, on the page's background. */
@@ -58,8 +67,7 @@ export class GraphSvg {
             const path = edge.control
                 ? `M${n(edge.from.x)} ${n(edge.from.y)} Q${n(edge.control.x)} ${n(edge.control.y)} ${n(edge.to.x)} ${n(edge.to.y)}`
                 : `M${n(edge.from.x)} ${n(edge.from.y)} L${n(edge.to.x)} ${n(edge.to.y)}`;
-            const dash = edge.dashed ? ` stroke-dasharray="${n(edge.width * 3)} ${n(edge.width * 2)}"` : "";
-            const line = `<path d="${path}" fill="none" stroke="${edge.color}" stroke-width="${edge.width}"${dash}/>`;
+            const line = `<path d="${path}" fill="none" stroke="${edge.color}" stroke-width="${edge.width}"${GraphSvg.dashOf(edge.dash)}/>`;
             if (!edge.label) return `<g opacity="${edge.opacity}">${line}</g>`;
 
             // The label sits on a band of the background, as on screen, so the line does not run through it.
@@ -70,11 +78,10 @@ export class GraphSvg {
         });
 
         const nodes = drawing.nodes.map((node) => {
-            const dash = node.dashed ? ` stroke-dasharray="6 4"` : "";
-            const box = `<rect x="${n(node.x - node.width / 2)}" y="${n(node.y - node.height / 2)}" width="${n(node.width)}" height="${n(node.height)}" rx="8" fill="${node.fill}" stroke="${node.stroke}" stroke-width="${node.strokeWidth}"${dash}/>`;
+            const box = `<rect x="${n(node.x - node.width / 2)}" y="${n(node.y - node.height / 2)}" width="${n(node.width)}" height="${n(node.height)}" rx="8" fill="${node.fill}" stroke="${node.stroke}" stroke-width="${node.strokeWidth}"${GraphSvg.dashOf(node.dash)}/>`;
 
             if (!node.device) {
-                const text = `<text x="${n(node.x)}" y="${n(node.y)}" fill="${node.color}" font-size="${node.fontSize}" font-weight="700" text-anchor="middle" dominant-baseline="central">${GraphSvg.escape(node.label)}</text>`;
+                const text = `<text x="${n(node.x)}" y="${n(node.y)}" fill="${node.color}" font-size="${node.fontSize}" font-family="${GraphSvg.escape(node.fontFamily)}" font-weight="${node.fontWeight}" text-anchor="middle" dominant-baseline="central">${GraphSvg.escape(node.label)}</text>`;
                 return `<g opacity="${node.opacity}">${box}${text}</g>`;
             }
 

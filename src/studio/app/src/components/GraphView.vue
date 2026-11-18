@@ -431,10 +431,13 @@ function remember(node: NodeSingular): void {
     Saved.set("layouts", layouts.kept());
 }
 
+/** A saved file's name, by the project and the layer as the toolbar names it, such as `colocation-cables.png`. */
+const fileName = (extension: string) => `${props.data.project}-${GraphLayer.NAMES[layer.value].toLowerCase()}.${extension}`;
+
 function saveImage(): void {
     if (!graph) return;
     const png = graph.png({ output: "blob", full: true, scale: 2, bg: css("--bg") }) as unknown as Blob;
-    Export.save(`${props.data.project}-${layer.value}.png`, png);
+    Export.save(fileName("png"), png);
 }
 
 /** Save the layer as an SVG, drawn from where each box and line is and how Cytoscape styles it. */
@@ -442,6 +445,9 @@ function saveSvg(): void {
     if (!graph) return;
     const box = graph.elements().boundingBox({});
     const size = (value: string) => parseFloat(value) || 0;
+    // Cytoscape draws a dotted stroke one on, one off, and a dashed one in its pattern, such as "4 2".
+    const dashOf = (style: string, pattern: string) =>
+        style === "dotted" ? [1, 1] : style === "dashed" ? pattern.split(/\s+/).map(size) : [];
 
     const drawing: Drawing = {
         box: { x: box.x1, y: box.y1, width: box.w, height: box.h },
@@ -455,9 +461,11 @@ function saveSvg(): void {
             fill: node.style("background-color"),
             stroke: node.style("border-color"),
             strokeWidth: size(node.style("border-width")),
-            dashed: node.style("border-style") !== "solid",
+            dash: dashOf(node.style("border-style"), node.style("border-dash-pattern")),
             color: node.style("color"),
             fontSize: size(node.style("font-size")),
+            fontFamily: node.style("font-family"),
+            fontWeight: node.style("font-weight"),
             opacity: Number(node.style("opacity")),
             ...(node.data("kind") === "device"
                 ? {
@@ -481,7 +489,7 @@ function saveSvg(): void {
                 label: String(edge.data("label") ?? ""),
                 color: edge.style("line-color"),
                 width: size(edge.style("width")),
-                dashed: edge.style("line-style") === "dashed",
+                dash: dashOf(edge.style("line-style"), edge.style("line-dash-pattern")),
                 labelColor: edge.style("color"),
                 fontSize: size(edge.style("font-size")),
                 opacity: Number(edge.style("opacity")),
@@ -489,7 +497,7 @@ function saveSvg(): void {
         }),
     };
 
-    Export.save(`${props.data.project}-${layer.value}.svg`, new Blob([GraphSvg.of(drawing)], { type: "image/svg+xml" }));
+    Export.save(fileName("svg"), new Blob([GraphSvg.of(drawing)], { type: "image/svg+xml" }));
 }
 
 // Presenting: the network on a big screen, the whole window, going through every layer and lighting its busiest devices in turn. Kept in the browser, so a screen that reloads stays on it.
