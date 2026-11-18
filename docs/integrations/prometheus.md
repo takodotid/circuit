@@ -18,9 +18,10 @@ Neither file holds a secret, so you commit them. Deploy them to the monitoring h
 
 ## Set it up
 
-In `circuit.ts`, say where the two files go, relative to the project:
+Say where the two files go, relative to the project:
 
 ```ts
+// circuit.ts
 integrations: {
     prometheus: { targets: "monitoring/targets.json", auths: "monitoring/snmp-auths.yml" },
 },

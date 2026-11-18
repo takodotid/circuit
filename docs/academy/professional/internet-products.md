@@ -102,6 +102,7 @@ A burst of one or two samples is thrown away with the rest of the busiest, and c
 In Circuit, the two products differ only in what the router sends the customer, its export policy. For full transit, the export accepts everything:
 
 ```ts
+// In routing.policies
 // What the customer pays for: the whole internet, every route we know.
 "netflix-export": [{ description: "The full table", then: "accept" }],
 ```
@@ -109,6 +110,7 @@ In Circuit, the two products differ only in what the router sends the customer, 
 For IX transit, it accepts only your own space and the routes tagged as learned at an exchange or from another customer:
 
 ```ts
+// In routing.policies
 // 64500:1:2 tags routes learned from the exchange group, and 64500:1:3 from the customer group.
 "netflix-export": [
     { description: "Learned at an exchange", if: { large_community: "64500:1:2" }, then: "accept" },

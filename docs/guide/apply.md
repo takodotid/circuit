@@ -103,6 +103,7 @@ The password keeps working beside the keys. On RouterOS, Circuit writes `/ip ssh
 Circuit fetches a prefix set with a `source` each time you run `diff` or `apply`. This one holds every prefix that AS64501 announces, from RIPEstat:
 
 ```ts
+// In routing
 prefix_sets: {
     "customer-a-v4": { source: { registry: "ripe-stat", query: "AS64501", family: "ipv4" } },
 },

@@ -9,6 +9,7 @@ description: Passwords and keys live encrypted in .circuit/secrets, safe to comm
 A device's file never holds a password. It only points to one by its name:
 
 ```ts
+// In system
 users: { operator: { role: "admin", password: secret("EDGE_01_PASSWORD") } },
 ```
 

@@ -117,6 +117,7 @@ routing: {
 OSPF runs directly on IP. It uses neither TCP nor UDP. If the router's [input firewall](/academy/elementary/firewall) drops by default, let OSPF in:
 
 ```ts
+// In firewall.filter.input.rules
 { description: "OSPF", if: { protocol: "ospf" }, then: "accept" },
 ```
 

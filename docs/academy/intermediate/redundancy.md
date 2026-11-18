@@ -95,6 +95,7 @@ A switch without `stp` in its file runs no spanning tree at all.
 A port with one laptop, server, or printer behind it can never close a loop. Mark it as an edge port with `stp: { edge: true }`. Then it forwards as soon as the device is plugged in, instead of waiting until spanning tree is sure that no switch is behind it:
 
 ```ts
+// In interfaces.ethernet
 "10g-3": { description: "Server", access_vlan: "servers", stp: { edge: true } },
 ```
 

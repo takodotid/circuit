@@ -154,14 +154,6 @@ Without `link`, Circuit cannot know which ports face each other, so it cannot ch
 
 A router can be on a trunk too, so one cable carries every VLAN to it. This is how Circuit's [single-site example](/guide/examples#a-single-site) joins its router and switch:
 
-```ts
-// router.ts, in interfaces.ethernet
-"25g-1": {
-    description: "switch 10GE1/0/1",
-    speed: "10g",
-    trunk_vlans: ["mgmt", "home", "guests"],
-    link: { device: "switch", port: "10g-1" },
-},
-```
+<<< @/../examples/single-site/sites/home/router.ts#trunk
 
 The router still needs an address in each VLAN to be its gateway. With every VLAN on one port, those addresses go on a VLAN interface instead of a port. The [DHCP lesson](/academy/elementary/dhcp) sets them up.

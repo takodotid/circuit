@@ -127,6 +127,7 @@ routing: {
 `presets.bgp_sanity` is one of Circuit's ready-made values. It refuses routes that should never be on the internet, and [Route policies](/academy/intermediate/route-policy) opens it up. The input firewall must also let BGP in from your neighbors, so that their side can open the session too:
 
 ```ts
+// In firewall.filter.input.rules
 { description: "BGP", if: { protocol: "tcp", dst_port: presets.ports.bgp, src: "203.0.113.1/32" }, then: "accept" },
 ```
 
