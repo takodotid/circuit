@@ -90,7 +90,7 @@ function layOut(name: Layer): void {
     if (name !== "l1") layOut("l1");
 
     const { nodes, edges } = name === layer.value ? shown.value : GraphLayer.of(props.data, name);
-    const boxes = nodes.map((node) => ({ id: node.id, label: node.label, width: widthOf(node) }));
+    const boxes = nodes.map((node) => ({ id: node.id, label: node.label, width: widthOf(node), height: tagOf(node).height }));
     layouts.layOut(name, boxes, edges, name === "l1" ? undefined : layouts.places("l1"));
     Saved.set("layouts", layouts.kept());
 }
