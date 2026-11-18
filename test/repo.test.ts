@@ -480,16 +480,8 @@ describe("samples", () => {
         // A name that stands for another network, such as transit-a, isp1, or customer_b, and words that stand for nothing. Vale checks prose: Circuit.Placeholders.
         const PLACEHOLDER =
             /\b(?:(?:transit|customer|peer|isp|provider|upstream|downstream|carrier|member|tenant|exchange|partner)(?:[-_][a-z]|[-_]?\d+)|foo|foobar|baz|qux|quux)\b/gi;
-        // Tests whose neighbors still have such names. v0-examples.test.ts keeps the names of the 0.x projects in test/fixtures/v0.
-        const LEFT = [
-            "test/checks/built-in.test.ts",
-            "test/checks/v0-examples.test.ts",
-            "test/core/registries.test.ts",
-            "test/platforms/junos-golden.test.ts",
-            "test/platforms/routeros-plan.test.ts",
-            "test/platforms/routing-tables.test.ts",
-            "test/project/customer-router-names.test.ts",
-        ];
+        // Tests that use the names of the 0.x projects in test/fixtures/v0.
+        const LEFT = ["test/checks/built-in.test.ts", "test/checks/v0-examples.test.ts", "test/platforms/junos-golden.test.ts"];
 
         const wrong = found([PLACEHOLDER])
             .filter(({ file }) => !LEFT.includes(file))
