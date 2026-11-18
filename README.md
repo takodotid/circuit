@@ -83,7 +83,7 @@ bun install
 bun run check   # runs every check
 ```
 
-[CONTRIBUTING.md](CONTRIBUTING.md) explains how to change Circuit. [Decisions](design/decisions.md) says what shaped it, and why.
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how to change Circuit. [Decisions](DECISIONS.md) says what shaped it, and why.
 
 ## License
 

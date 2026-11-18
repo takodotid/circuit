@@ -1,6 +1,6 @@
 # Decisions
 
-What the owner decided while designing Circuit v1. They are binding. A change to one is a new decision, added with the next number. The rules in `AGENTS.md` are not repeated here.
+What we decided while designing Circuit v1. These decisions are binding. A change to one is a new decision, added with the next number. The rules in `AGENTS.md` are not repeated here.
 
 Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were about one network's own data or the design experiment. Git has their history.
 
@@ -8,7 +8,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 
 - **1.** Circuit v1's config is declarative TypeScript.
 - **2.** Circuit is primitive: devices only. Tenants and upstreams are the project's own. A project may build them with its own function in `lib/`.
-- **4.** A device's groups follow [the model](../docs/reference/model.md). Winbox is a reference, not the target.
+- **4.** A device's groups follow [the model](docs/reference/model.md). Winbox is a reference, not the target.
 - **5.** Ordered rules are arrays, with no numbers. Another file's rules are placed with `merge`.
 - **6.** `merge([...])` flattens, and makes a list or a map by the field it lands in.
 - **7.** A match field may take a list. Interface sets exist.
@@ -17,7 +17,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **11.** `checks` takes Circuit's checks (on, or with settings) and the project's own functions.
 - **13.** A rule's description is optional and short. One description for a rule with a list is fine.
 - **14.** The sessions of one upstream share a `neighbor_group`, even where that adds a template on the device.
-- **17.** Field names say what they are ([the renames](../docs/reference/model.md#from-circuit-0x)).
+- **17.** Field names say what they are ([the renames](docs/reference/model.md#from-circuit-0x)).
 - **22.** The trust boundary check is Circuit's `untrusted_vlans`, with `filtering_devices` and `mixed_links`.
 - **25.** Data is snake_case: every field, every preset, and every variable of a project. Functions are camelCase. Presets are one `presets` object. (Includes 59.)
 - **26.** Circuit's functions and `presets` are globals: a project's files don't import `"circuit"`. Circuit v1 is a binary. It writes the editor types into a project's `.circuit/types`.
@@ -84,7 +84,7 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 - **99.** Circuit remembers the projects it ran in (`~/.circuit/projects.json`). A version kept in `~/.circuit/versions` that none of them pins any more is removed.
 - **100.** The installed `circuit` is the manager. Before every command but `uninstall`, it checks npm, at most every 30 seconds, and updates itself to the newest release of its major, then runs the command as that version. Offline, it warns and goes on. A project's version never changes with it.
 - **101.** Every command in a project runs the version in `.circuit/version`. One not on the machine is downloaded after a yes, or without asking in CI.
-- **106.** Utilities also has `communities` (`--format nlnog`, `alice`, or `json`) and `addresses`, and `sync` comes as #170 proposes. No `refresh`: `diff` and `apply` fetch a registry's prefix sets each time and plan them like any list. `wireguard` and `graph` are dropped (owner, 2026-11-09).
+- **106.** Utilities also has `communities` (`--format nlnog`, `alice`, or `json`) and `addresses`, and `sync` comes as #170 proposes. No `refresh`: `diff` and `apply` fetch a registry's prefix sets each time and plan them like any list. `wireguard` and `graph` are dropped (2026-11-09).
 - **114.** `--experimental` lets through a feature built from public documentation but not tested on a real device yet. It stays until Circuit can test on emulated devices (containerlab, [#178](https://github.com/takodotid/circuit/issues/178)).
 
 ## Secrets
@@ -110,10 +110,10 @@ Missing numbers were replaced by a later decision, moved to `AGENTS.md`, or were
 
 ## This repo
 
-- **89.** Decisions and design notes live in `design/`, not on the docs site.
 - **91.** Prettier formats Circuit's own repo (`prettier.config.mjs`). `circuit fmt` formats a project, styled by its `.editorconfig`.
 - **107.** Agent instructions live in `AGENTS.md`, the agents.md standard, which Claude Code reads on its own. There is no `CLAUDE.md`. A folder with rules of its own has its own `AGENTS.md`, such as `src/platforms/` and `docs/`.
 - **108.** Tools enforce the repo's rules, not only text: Oxlint with type-aware rules (deprecated APIs), Vale (writing), knip (unused code), and `test/repo.test.ts` (the repo's own rules). The pre-commit hook, CI, and a Claude Code Stop hook run them.
 - **109.** Commit messages use the imperative mood: `fix(cli): keep remembered secrets for 24 hours`.
 - **110.** The docs have five parts, as mature tools do: Get started, Write a project, Run it, Integrations, and Reference. The Academy stays apart.
 - **113.** What Circuit supports is the feature matrix in the docs. A gap Circuit plans to fill is a GitHub issue, with what each vendor offers. There is no separate coverage file. Replaces 111.
+- **118.** The decisions are `DECISIONS.md` at the root of the repo, not on the docs site. There is no `design/` folder. Replaces 89.

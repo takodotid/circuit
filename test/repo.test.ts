@@ -36,7 +36,8 @@ describe("layout", () => {
 
     test("file and folder names are kebab-case", () => {
         // Names that a standard or a tool sets.
-        const standard = /^(README|AGENTS|TRAPS|SKILL|LICENSE|DESIGN|PRODUCT|SECURITY|CODE_OF_CONDUCT|CONTRIBUTING)(\.md)?$|^CNAME$/;
+        const standard =
+            /^(README|AGENTS|TRAPS|SKILL|LICENSE|DESIGN|DECISIONS|PRODUCT|SECURITY|CODE_OF_CONDUCT|CONTRIBUTING)(\.md)?$|^CNAME$/;
         const kebab = /^[a-z0-9]+([.-][a-z0-9]+)*$/;
 
         const wrong = new Set<string>();

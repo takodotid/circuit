@@ -12,7 +12,7 @@ This repo is Circuit v1. Circuit 0.x is retired on the branch `0.x`. Never use i
 4. Never guess what a device does. Test it on a real device first (skill `prove-on-device`).
 5. Keep changes small and inside the existing structure. Do what was asked.
 6. Keep no memory outside the repo. A rule goes in this file, a device surprise in its `TRAPS.md`, and open work in a GitHub issue.
-7. When the owner approves a new rule or decision, add it here or to `design/decisions.md` in the same change.
+7. When the owner approves a new rule or decision, add it here or to `DECISIONS.md` in the same change.
 8. For work with several parts, act as the orchestrator. Give each part to a subagent with a brief: the context it needs, the files, and what done looks like. Run independent parts in parallel. Then review every result against the owner's request, fix it, and only then hand it on. Never pass on a subagent's work unchecked.
 
 ## Principles
@@ -46,7 +46,7 @@ This repo is Circuit v1. Circuit 0.x is retired on the branch `0.x`. Never use i
 - `test/`: mirrors `src/`. `test/repo.test.ts` checks this repo's own rules.
 - `docs/`: the website, built with VitePress. See `docs/AGENTS.md`.
 - `examples/`: whole example projects. Tests check each one.
-- `design/decisions.md`: the owner's decisions. They are binding.
+- `DECISIONS.md`: the decisions that shaped Circuit. They are binding.
 - Generated and ignored by git: `src/cli/editor-types.generated.ts` and `src/studio/assets.generated.ts`. `bun install` and the checks write them.
 
 ## Code
