@@ -71,6 +71,7 @@ export default as64500.device({
     },
 
     firewall: {
+        // #region filter
         filter: {
             // Traffic to the router itself.
             input: {
@@ -93,6 +94,7 @@ export default as64500.device({
                 ],
             },
         },
+        // #endregion filter
         nat: {
             source: [{ description: "Share the public address", if: { out_interface: "1g-1" }, then: "masquerade" }],
         },

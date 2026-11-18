@@ -107,13 +107,7 @@ Circuit cannot know which of your VLANs is the management one. So the [single-si
 
 <<< @/../examples/single-site/lib/checks.ts
 
-```ts
-// circuit.ts
-checks: {
-    same_vlan_ids: true,
-    management_stays_on_trunks: managementStaysOnTrunks,
-},
-```
+<<< @/../examples/single-site/circuit.ts#checks
 
 Put the guest access point's port on `mgmt`, and `circuit validate` gives the file and line of the port:
 

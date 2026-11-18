@@ -80,14 +80,7 @@ With `sanity` off, the default route, the /25, the /64, and `192.0.2.0/24` all g
 
 An export accepts your own prefixes, and your customers' if you sell them transit. Then it rejects everything else. The [edge router example](/guide/examples#an-edge-router) writes it like this, where the prefix set `ours` holds your own blocks:
 
-```ts
-// In routing.policies
-export: [
-    { communities: "export" },
-    { description: "Our own space", if: { prefix_set: "ours" }, then: "accept" },
-    { description: "Nothing else leaves", then: "reject" },
-],
-```
+<<< @/../examples/edge-router/sites/pop-1/edge-01.ts#export
 
 If you announce more than that, you cause a <Term means="Routes learned from one provider or peer, announced to another, so traffic between two other networks starts to flow through yours.">route leak</Term>. A small network suddenly becomes the way between two large ones, and its links can't carry that.
 
