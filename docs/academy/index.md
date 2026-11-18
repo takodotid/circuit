@@ -18,4 +18,6 @@ Four levels, each building on the last:
 3. **Intermediate** connects networks to each other and to the internet, up to running your own edge router.
 4. **Professional** runs a provider network: what is sold, the hardware, routing at scale, the security of routing, and day-to-day operations.
 
+The [best practices](/academy/practices/) take one practice each, say why Circuit expects it, and need no level to open.
+
 <AcademyHome />
