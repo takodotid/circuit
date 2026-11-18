@@ -21,9 +21,11 @@ Seen on a QFX5100-48S-6Q running Junos 21.4R3.
 - The factory VLAN `default` can be deleted.
 - BGP without a license commits with only a warning, `requires 'bgp' license`, and sessions establish. The same is true for the other licensed features.
 - Junos accepts and announces every route over eBGP unless a policy says otherwise: `Default eBGP mode: advertise - accept, receive - accept`. A session without a policy is given `circuit-reject-all`.
-- An export policy sees every active route, not only BGP's. Every export starts with `circuit-bgp-origin`, which passes on BGP's routes and the prefixes in `routing.bgp.originated_prefixes` and rejects the rest.
+- An export policy sees every active route, not only BGP's. Every export starts with `circuit-bgp-origin`, which passes on BGP's routes, the prefixes in `routing.bgp.originated_prefixes`, and the aggregates, and rejects the rest.
+- An aggregate counts every more specific active route, direct routes too. `circuit-aggregate-contributors` keeps BGP's routes and the originated prefixes. There is no summary-only: `circuit-bgp-origin` rejects the routes inside an aggregate with `summary_only`.
+- No setting sends one neighbor a default route. Circuit adds `aggregate route 0.0.0.0/0 passive preference 4294967295`, which is always there and loses to any other default route, so forwarding stays as it was. The session's export starts with `circuit-default-route`, which announces the active default route. A static default through the neighbor itself went out with the neighbor's own address as next hop, so the term sets `next-hop self`.
 - A policy's or a filter's terms are kept in order, and `set` adds a new term at the end. A change to one rewrites it whole.
-- One policy term cannot filter IPv4 and IPv6 prefixes together: `invalid prefix ::/0 for family inet`. A rule for both families becomes a term for each.
+- One policy term cannot filter IPv4 and IPv6 prefixes together: `invalid prefix ::/0 for family inet`. A rule for both families becomes a term for each, and so do the prefixes a policy of Circuit's own lists, such as `networks` and `networks-v6`.
 - A port filter cannot match the VLAN a frame is switched in: `learn-vlan-id not supported on ingress interface`.
 - IPv4 routes over an IPv6 session need a local IPv4 address under the family: `Local IPv4 address must be configured`.
 - A DHCP server and a DHCP relay cannot share an interface: `Interface irb.10 already configured`.

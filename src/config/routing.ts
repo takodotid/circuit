@@ -73,6 +73,8 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     ttl_security?: boolean;
     /** This router is a route reflector, and the neighbor is its client: the router passes on to it the routes it learns from its other iBGP neighbors (RFC 4456). For iBGP neighbors only. */
     route_reflector_client?: boolean;
+    /** Announce a default route to the neighbor, in each address family the session carries, even when this device has none. The export policy does not apply to it. */
+    send_default_route?: boolean;
     /** TCP MD5 password shared with the neighbor. */
     password?: Secret;
     /** Close the session if the neighbor announces more prefixes than this. It stays closed until you clear it by hand. On RouterOS, use `/routing bgp session clear <session> flag=limit-exceeded`. Write `{ limit, restart_after }` to open it again after that many seconds, or `{ limit, warn_only: true }` to only log a message. */
@@ -109,6 +111,14 @@ export type Neighbor<P extends string, G extends string, T extends string, Net e
     neighbor_group?: G;
 };
 
+/** A prefix BGP announces in place of the more specific routes inside it (RFC 4271). */
+export type BgpAggregate = {
+    /** The aggregate. BGP announces it while it holds a more specific route inside it, learned from a neighbor or in `originated_prefixes`. Like any route, it reaches only the neighbors whose export policy accepts it. Traffic to an address inside it that no more specific route covers is dropped. */
+    prefix: Prefix;
+    /** Announce the aggregate alone, and none of the more specific routes inside it. */
+    summary_only?: true;
+};
+
 /** BGP on this device. `G` is the device's neighbor groups. */
 export type Bgp<P extends string, G extends string, T extends string, Net extends NetworkFacts = AnyFacts> = {
     /** Our AS number. The network's `asn` when absent. */
@@ -117,6 +127,8 @@ export type Bgp<P extends string, G extends string, T extends string, Net extend
     cluster_id?: IPv4;
     /** Prefixes this device originates. Each needs a route, such as a static blackhole route. The export policies still decide who gets them. */
     originated_prefixes?: readonly Prefix[];
+    /** Aggregates BGP announces, such as `{ prefix: "198.51.100.0/24", summary_only: true }`. */
+    aggregates?: readonly BgpAggregate[];
     /** Settings shared by several neighbors, keyed by group name. */
     neighbor_groups?: Named<G, NeighborSettings<P, T, Net>>;
     /** BGP sessions, keyed by name. */

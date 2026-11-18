@@ -81,6 +81,8 @@ A note in a cell means "works, with this limit".
 | Graceful restart (RFC 4724)  | ❌                      | ❌         | ❌                       | ✅ all or no sessions | ✅               |
 | Prefix limit that restarts   | ❌                      | ❌         | ❌                       | ✅ whole minutes      | ❌               |
 | Prefix limit that only warns | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
+| Default route to a neighbor  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
+| BGP aggregates               | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
 
 ### Firewall and services
 

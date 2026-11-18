@@ -4,7 +4,18 @@ import { X509Certificate } from "node:crypto";
 import { utils } from "ssh2";
 import { Address } from "../core/address";
 import { Utils } from "../core/utils";
-import type { Device, Finding, Interface, InterfaceKind, NeighborSettings, Routed, StaticRoute, Switched } from "../model";
+import type {
+    Device,
+    Finding,
+    Interface,
+    InterfaceKind,
+    NeighborSettings,
+    Routed,
+    RouteMatch,
+    RouteRule,
+    StaticRoute,
+    Switched,
+} from "../model";
 import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
@@ -390,6 +401,8 @@ export class DeviceChecks {
         if (bgp?.cluster_id !== undefined && (!Address.isValid(bgp.cluster_id) || Address.family(bgp.cluster_id) !== "ipv4"))
             report(`routing.bgp.cluster_id: '${bgp.cluster_id}' is not an IPv4 address, such as 192.0.2.1`);
 
+        DeviceChecks.aggregates(device, report, cidr);
+
         const ttlWithMultihop = (where: string) =>
             report(
                 `${where} has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected`
@@ -446,6 +459,92 @@ export class DeviceChecks {
         for (const areaId of Object.keys(routing?.ospf?.areas ?? {})) {
             if (!/^\d+\.\d+\.\d+\.\d+$/.test(areaId)) report(`routing.ospf.areas '${areaId}' is not written as a dotted area ID`);
         }
+    }
+
+    /** An aggregate needs a route inside it that BGP holds, and an export policy that accepts it. Without either, BGP announces nothing for it. */
+    private static aggregates(device: Device, report: Report, cidr: Checker): void {
+        const bgp = device.routing?.bgp;
+        const sessions = Object.values(bgp?.neighbors ?? {}).map((neighbor) => {
+            const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
+            const settings = { ...group, ...neighbor };
+            return { ...settings, families: settings.address_families ?? [Address.family(neighbor.address)] };
+        });
+
+        for (const { prefix } of bgp?.aggregates ?? []) {
+            if (!Address.isCidr(prefix)) {
+                cidr("routing.bgp.aggregates", prefix);
+                continue;
+            }
+
+            const where = `routing.bgp.aggregates ${prefix}`;
+            const { len, family } = Address.split(prefix);
+            const carrying = sessions.filter((session) => session.families.includes(family));
+
+            const inside = (bgp?.originated_prefixes ?? []).some(
+                (originated) => Address.isCidr(originated) && Address.split(originated).len > len && Address.contains(prefix, originated)
+            );
+            if (!inside && !carrying.some((session) => session.import_policy))
+                report(
+                    `${where} has no route inside it to stand for: no prefix of originated_prefixes is inside it, and no neighbor that carries ${family} has an import_policy. Add the prefixes inside it to originated_prefixes`
+                );
+
+            const announced = carrying.some(
+                (session) =>
+                    session.export_policy && (DeviceChecks.exportOf(device, session.export_policy, prefix) ?? "reject") !== "reject"
+            );
+            if (!announced)
+                report(
+                    `${where}: no neighbor's export_policy accepts it, so BGP announces it to no one. Add { if: { prefix: "${prefix}" }, then: "accept" } to the export_policy of each neighbor that should get it, before any rule that rejects it`
+                );
+        }
+    }
+
+    /** What an export policy does with a route the device makes itself, which has no AS path and no communities. It is `unknown` when the config can't tell, and nothing when no rule decides. */
+    private static exportOf(
+        device: Device,
+        policy: string,
+        prefix: string,
+        seen: string[] = []
+    ): "accept" | "reject" | "unknown" | undefined {
+        if (seen.includes(policy)) return "unknown";
+
+        for (const rule of device.routing?.policies?.[policy] ?? []) {
+            if ("call" in rule && rule.call) {
+                const called = DeviceChecks.exportOf(device, rule.call, prefix, [...seen, policy]);
+                if (called) return called;
+                continue;
+            }
+
+            if ("communities" in rule && rule.communities) return "unknown";
+
+            const route = rule as RouteRule;
+            const matched = DeviceChecks.matchesOwn(device, route.if ?? {}, prefix);
+            if (!matched || !route.then) continue;
+
+            return matched === "unknown" ? "unknown" : route.then;
+        }
+
+        return undefined;
+    }
+
+    /** Whether a route the device makes itself matches: `unknown` for a condition the config can't answer, such as a registry's prefix set or the RPKI state. */
+    private static matchesOwn(device: Device, match: RouteMatch, prefix: string): boolean | "unknown" {
+        const { len, family } = Address.split(prefix);
+        const set = match.prefix_set ? device.routing?.prefix_sets?.[match.prefix_set] : undefined;
+        const listed = set && "prefixes" in set ? (Array.isArray(set.prefixes) ? set.prefixes : Object.values(set.prefixes)) : undefined;
+
+        if (match.family && match.family !== family) return false;
+        if (match.prefix && Address.canonical(Address.prefixOf(match.prefix)) !== Address.canonical(Address.prefixOf(prefix))) return false;
+        if (listed && !listed.some((outer) => Address.contains(outer, prefix))) return false;
+        if (match.prefix_length && (len < (match.prefix_length.min ?? 0) || len > (match.prefix_length.max ?? Address.bits(family))))
+            return false;
+
+        const unknown =
+            (match.prefix_set !== undefined && !listed) ||
+            [match.as_path_length, match.as_path_contains, match.rpki, match.standard_community, match.large_community].some(
+                (condition) => condition !== undefined
+            );
+        return unknown ? "unknown" : true;
     }
 
     /** Routing tables have names of their own and something installing routes in them, and policy routing rules can each be reached. */

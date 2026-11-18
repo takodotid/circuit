@@ -359,6 +359,7 @@ export class FortiOsRouting {
 
             for (const family of families) {
                 const suffix = family === "ipv4" ? "" : "6";
+                if (settings.send_default_route) entry.set(`capability-default-originate${suffix}`, "enable");
                 if (settings.graceful_restart) entry.set(`capability-graceful-restart${suffix}`, "enable");
                 if (limit) entry.set(`maximum-prefix${suffix}`, limit.limit);
                 if (limit?.warn_only) entry.set(`maximum-prefix-warning-only${suffix}`, "enable");
@@ -382,6 +383,15 @@ export class FortiOsRouting {
             const family = FortiOsNames.familyOfPrefix(prefix);
             const entry = block.block(family === "ipv4" ? "network" : "network6").entry(++networks[family]);
             entry.set(family === "ipv4" ? "prefix" : "prefix6", FortiOsRouting.listPrefix(prefix, family));
+        }
+
+        const aggregates = { ipv4: 0, ipv6: 0 };
+
+        for (const aggregate of bgp.aggregates ?? []) {
+            const family = FortiOsNames.familyOfPrefix(aggregate.prefix);
+            const entry = block.block(family === "ipv4" ? "aggregate-address" : "aggregate-address6").entry(++aggregates[family]);
+            entry.set(family === "ipv4" ? "prefix" : "prefix6", FortiOsRouting.listPrefix(aggregate.prefix, family));
+            if (aggregate.summary_only) entry.set("summary-only", "enable");
         }
     }
 

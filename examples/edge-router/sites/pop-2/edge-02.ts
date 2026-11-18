@@ -1,5 +1,5 @@
-// The second edge router, a Juniper QFX5100 at AMS-IX: peering only, through the exchange's route servers and with Hurricane Electric.
-// The addresses are documentation ranges, so use the ones the exchange gives you.
+// The second edge router, a Juniper QFX5100 at AMS-IX. It peers through the exchange's route servers and with Hurricane Electric, and sells transit to a customer with its own AS.
+// The addresses are documentation ranges, so use the ones the exchange and the customer give you.
 
 import { as64500 } from "../../circuit";
 
@@ -26,6 +26,7 @@ export default as64500.device({
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.1.1/24"] },
             "10g-1": { description: "AMS-IX", addresses: ["203.0.113.130/25", "2001:db8:fffe::130/64"] },
+            "10g-2": { description: "AS64501", addresses: ["198.51.100.129/30"] },
         },
     },
 
@@ -37,6 +38,8 @@ export default as64500.device({
         ],
         bgp: {
             originated_prefixes: [as64500.prefixes.ours.v4, as64500.prefixes.ours.v6],
+            // The customer's block is inside ours, and the export accepts both. Only our block leaves.
+            aggregates: [{ prefix: as64500.prefixes.ours.v4, summary_only: true }],
             // Junos turns graceful restart on for every session at once, so each neighbor has it.
             neighbors: {
                 // #region prefix-limits
@@ -73,6 +76,16 @@ export default as64500.device({
                     communities: { groups: ["exchange"] },
                 },
                 // #endregion prefix-limits
+                as64501: {
+                    address: "198.51.100.130",
+                    remote_as: 64501,
+                    description: "AS64501, a transit customer",
+                    max_prefixes: 10,
+                    graceful_restart: true,
+                    import_policy: "customer-import",
+                    // All it takes from us. Without an export_policy, no other route goes to it.
+                    send_default_route: true,
+                },
             },
         },
         prefix_sets: {
@@ -93,6 +106,10 @@ export default as64500.device({
                 { if: { prefix_set: "ours-v4" }, then: "reject" },
                 { if: { prefix_set: "ours-v6" }, then: "reject" },
                 { set: { local_pref: 200 }, then: "accept" },
+            ],
+            "customer-import": [
+                { description: "The block we gave it", if: { prefix: "198.51.100.192/26" }, then: "accept" },
+                { then: "reject" },
             ],
             export: [
                 { communities: "export" },

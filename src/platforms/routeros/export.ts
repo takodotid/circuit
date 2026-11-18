@@ -58,7 +58,7 @@ export class RouterOsExport {
         "/ipv6 route": { distance: "1" },
         "/routing bgp instance": { "cluster-id": "" },
         // TTLs never set send 255 and accept any, and cannot be unset (TRAPS.md).
-        "/routing bgp connection": { "use-bfd": "no", "local.ttl": "255", "remote.ttl": "1" },
+        "/routing bgp connection": { "use-bfd": "no", "local.ttl": "255", "remote.ttl": "1", "output.default-originate": "never" },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
         "/ip dhcp-server": { "lease-time": "30m" },

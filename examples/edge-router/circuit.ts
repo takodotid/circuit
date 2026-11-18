@@ -14,7 +14,7 @@ export const as64500 = circuit({
     },
     sites: {
         "pop-1": { description: "The point of presence: one router with an IP transit and an internet exchange." },
-        "pop-2": { description: "A second point of presence: one router that peers at another internet exchange." },
+        "pop-2": { description: "A second point of presence: one router at another internet exchange, with a transit customer." },
     },
     checks: {
         exports_end_in_reject: true,
