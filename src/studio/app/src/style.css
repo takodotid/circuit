@@ -385,19 +385,13 @@ header input[type="search"]:focus {
     color: var(--error);
 }
 
-.summary-item.warning,
-.summary-item.changed {
+.summary-item.warning {
     color: var(--warning);
 }
 
 .summary-item.error::before,
-.summary-item.warning::before,
-.summary-item.changed::before {
+.summary-item.warning::before {
     background: currentColor;
-}
-
-.summary-item.changed::before {
-    border-radius: 1px;
 }
 
 .summary-item.quiet {
@@ -521,66 +515,10 @@ main {
     gap: 6px;
 }
 
-.toolbar .actions button,
-.menu summary {
+.toolbar .actions button {
     min-height: 34px;
     padding: 4px 12px;
     font-size: 13px;
-}
-
-.menu {
-    position: relative;
-}
-
-.menu summary {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border: 1.5px solid var(--edge);
-    border-radius: 2px;
-    background: var(--surface);
-    font-weight: 600;
-    list-style: none;
-    cursor: pointer;
-}
-
-.menu summary::-webkit-details-marker {
-    display: none;
-}
-
-.menu summary::after {
-    content: "";
-    width: 7px;
-    height: 7px;
-    margin-top: -4px;
-    border-right: 1.5px solid currentColor;
-    border-bottom: 1.5px solid currentColor;
-    transform: rotate(45deg);
-}
-
-.menu summary:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-
-.menu-items {
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 0;
-    z-index: 5;
-    display: grid;
-    min-width: 120px;
-    padding: 4px;
-    border: 1.5px solid var(--text);
-    border-radius: 2px;
-    background: var(--surface);
-    box-shadow: 0 8px 20px rgba(10, 26, 54, 0.18);
-}
-
-.menu-items button {
-    justify-content: flex-start;
-    border: 0;
-    text-align: left;
 }
 
 /* The drawing board. */
@@ -594,243 +532,6 @@ main {
     background-color: var(--bg);
     background-image: radial-gradient(circle, var(--dots) 1.2px, transparent 1.6px);
     background-size: 24px 24px;
-}
-
-svg.canvas {
-    flex: 1;
-    min-width: 0;
-    height: 100%;
-    cursor: grab;
-    touch-action: none;
-    user-select: none;
-}
-
-svg.canvas.panning {
-    cursor: grabbing;
-}
-
-.edge path {
-    fill: none;
-    stroke: var(--edge);
-    stroke-width: 2;
-    transition:
-        stroke 0.2s,
-        stroke-width 0.2s;
-}
-
-/* Lighting one part dims the rest gently, so the eye follows what changed. */
-.edge,
-.node {
-    transition: opacity 0.25s ease-out;
-}
-
-/* Dots travelling a cable both ends declare: traffic where the link works. On a lit cable they turn to the highlighter. */
-.edge .signal {
-    fill: var(--accent);
-    pointer-events: none;
-}
-
-.edge.lit .signal,
-.edge.selected .signal {
-    r: 4.5px;
-    fill: var(--yellow);
-    stroke: var(--navy);
-    stroke-width: 1.5;
-}
-
-.edge.added .signal {
-    fill: var(--ok);
-}
-
-.edge text {
-    font-size: 12.5px;
-    fill: var(--muted);
-    paint-order: stroke;
-    stroke: var(--bg);
-    stroke-width: 5px;
-    stroke-linejoin: round;
-}
-
-.edge .hit {
-    stroke: transparent;
-    stroke-width: 12;
-    cursor: pointer;
-}
-
-.edge.one-sided path:not(.hit) {
-    stroke: var(--warning);
-    stroke-width: 3;
-    stroke-dasharray: 4 4;
-}
-
-.edge.selected path:not(.hit),
-.edge.lit path:not(.hit) {
-    stroke: var(--accent);
-    stroke-width: 4;
-}
-
-.edge.selected text,
-.edge.lit text {
-    fill: var(--text);
-}
-
-.edge.added path:not(.hit) {
-    stroke: var(--ok);
-    stroke-width: 4;
-}
-
-.edge.gone path:not(.hit) {
-    stroke: var(--error);
-    stroke-width: 4;
-    stroke-dasharray: 10 5;
-}
-
-.node {
-    cursor: pointer;
-}
-
-.node > rect {
-    fill: var(--surface);
-    stroke: var(--text);
-    stroke-width: 2;
-}
-
-.node.segment > rect {
-    fill: var(--segment);
-    stroke: var(--yellow-deep);
-}
-
-.node.outside > rect {
-    fill: var(--bg);
-    stroke: var(--edge);
-    stroke-dasharray: 2 4;
-}
-
-.node.error > rect {
-    stroke: var(--error);
-    stroke-width: 4;
-}
-
-.node.warning > rect {
-    stroke: var(--warning);
-    stroke-width: 4;
-    stroke-dasharray: 10 3;
-}
-
-.node.selected > rect {
-    fill: var(--selected);
-    stroke: var(--cobalt);
-    stroke-width: 4;
-}
-
-.node .chassis > rect:first-child {
-    fill: var(--cobalt);
-    stroke: none;
-}
-
-.node .chassis .socket {
-    fill: #ffffff;
-    stroke: none;
-}
-
-.node.selected .chassis .socket {
-    fill: var(--yellow);
-}
-
-/* The device presenting lights now: a highlighter fill, lit sockets, and a ring around it that keeps leaving it, the way the docs drawing marks the changed device. A warning or error keeps its own frame. */
-.node .beacon {
-    display: none;
-}
-
-.node.touring .beacon {
-    display: inline;
-}
-
-.node .beacon rect {
-    fill: none;
-    stroke: var(--yellow-deep);
-    stroke-width: 3;
-}
-
-.node.touring > rect {
-    fill: var(--yellow);
-}
-
-.node.touring:not(.error):not(.warning) > rect {
-    stroke: #0a1a36;
-    stroke-width: 4;
-}
-
-.node.touring text.name {
-    fill: #11141b;
-}
-
-.node.touring text.sub {
-    fill: #2a3550;
-}
-
-.node.touring .chassis > rect:first-child {
-    fill: #0a1a36;
-}
-
-.node.touring .chassis .socket {
-    fill: var(--yellow);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-    .node.touring .beacon rect {
-        transform-box: fill-box;
-        transform-origin: center;
-        animation: beacon 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-    }
-}
-
-@keyframes beacon {
-    from {
-        opacity: 1;
-        transform: scale(0.96);
-    }
-
-    to {
-        opacity: 0;
-        transform: scale(1.18);
-    }
-}
-
-.node text {
-    fill: var(--text);
-    font-size: 14px;
-    text-anchor: middle;
-    dominant-baseline: central;
-    pointer-events: none;
-}
-
-.node.device text {
-    text-anchor: start;
-}
-
-.node text.name {
-    font-size: 18px;
-    font-weight: 700;
-}
-
-.node text.sub {
-    fill: var(--muted);
-    font-size: 13px;
-}
-
-.node.segment text,
-.node.outside text {
-    font-family: var(--mono);
-    font-size: 12px;
-}
-
-.dim {
-    opacity: 0.18;
-}
-
-svg.far .edge text {
-    display: none;
 }
 
 /* Presenting: the network for a big screen, the whole window. The rails, the toolbar and the panel step aside; Cytoscape draws the heavier lines and the lit device. */
@@ -1532,12 +1233,6 @@ button.primary:hover {
 
     .stage {
         flex-direction: column;
-    }
-
-    svg.canvas {
-        flex: 1 1 auto;
-        width: 100%;
-        min-height: 320px;
     }
 
     aside {

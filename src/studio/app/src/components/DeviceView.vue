@@ -37,6 +37,10 @@ const SECTIONS = [
 const sections = computed(() => (device.value ? SECTIONS.filter((section) => section.has(device.value!)) : []));
 const section = computed(() => store.route.parts[1] ?? "overview");
 
+// Another tab starts at the top of the page.
+const page = ref<HTMLElement>();
+watch(section, () => page.value?.scrollTo(0, 0));
+
 const ports = computed<Row[]>(() => {
     const own = device.value;
     if (!own) return [];
@@ -129,8 +133,8 @@ watch(
 </script>
 
 <template>
-    <div class="tables">
-        <p class="crumbs"><a @click="go('devices')">Devices</a> /</p>
+    <div ref="page" class="tables">
+        <p class="crumbs"><a href="#devices">Devices</a> /</p>
         <p v-if="!device" class="muted">No device {{ name }} in the project.</p>
         <template v-else>
             <h2>
