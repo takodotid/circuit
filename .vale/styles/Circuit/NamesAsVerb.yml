@@ -3,4 +3,4 @@ message: "'%s' uses 'names' as a verb. Say 'gives', 'uses', 'points to' or 'says
 level: warning
 ignorecase: true
 tokens:
-  - '\b(?:that|which|it|this|one|each|who) names\b'
+    - '\b(?:that|which|it|this|one|each|who) names\b'

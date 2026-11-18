@@ -3,5 +3,5 @@ message: "Use a comma, a colon or two sentences instead of a dash."
 level: error
 nonword: true
 tokens:
-  - "—"
-  - " – "
+    - "—"
+    - " – "

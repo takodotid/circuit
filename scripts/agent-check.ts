@@ -11,6 +11,7 @@ if (!changed) process.exit(0);
 const checks: [name: string, command: string[]][] = [
     ["typecheck", ["bun", "run", "typecheck"]],
     ["lint", ["bun", "run", "lint"]],
+    ["format", ["bun", "run", "format:check"]],
     ["repo rules", ["bun", "test", "test/repo.test.ts"]],
 ];
 

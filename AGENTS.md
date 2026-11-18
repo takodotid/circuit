@@ -79,7 +79,7 @@ This applies to docs, UI text, comments, commit messages and replies.
 - `bun run check` runs what CI runs. It must pass before every commit.
 - `bun run lint` runs Oxlint (code and deprecated APIs), Vale (writing) and knip (unused code).
 - `bun run test` runs the tests, including `test/repo.test.ts`.
-- The pre-commit hook runs lint, typecheck and tests. Never skip it.
+- The pre-commit hook runs lint, the format check, typecheck and tests. Never skip it.
 - To run Circuit from the sources on a project: `cd <project> && bun <repo>/src/cli/index.ts <command>`.
 
 ## Git

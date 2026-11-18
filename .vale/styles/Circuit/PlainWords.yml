@@ -3,22 +3,22 @@ message: "Use '%s' instead of '%s'."
 level: error
 ignorecase: true
 swap:
-  additionally: also
-  commence: start
-  denotes?: means|is
-  designates?: marks
-  facilitates?: helps
-  furthermore: also
-  hence: so
-  in order to: to
-  leverages?: uses
-  numerous: many
-  obtains?: gets
-  prior to: before
-  subsequently: then|later
-  sufficient: enough
-  thereby: so
-  therefore: so
-  thus: so
-  utili[sz]es?: uses
-  whereby: so|where
+    additionally: also
+    commence: start
+    denotes?: means|is
+    designates?: marks
+    facilitates?: helps
+    furthermore: also
+    hence: so
+    in order to: to
+    leverages?: uses
+    numerous: many
+    obtains?: gets
+    prior to: before
+    subsequently: then|later
+    sufficient: enough
+    thereby: so
+    therefore: so
+    thus: so
+    utili[sz]es?: uses
+    whereby: so|where
