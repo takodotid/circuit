@@ -807,27 +807,23 @@ Platform columns, all rows:
 
 ### The 15 most important gaps
 
-Each gap is a GitHub issue.
+Each gap is a GitHub issue, which lists its rows. A row is named by its table and its place in it: BGP04 is the fourth row of Routing: BGP. RT is Routing: general, static, policy; IPS is Encrypted VPN; VPN is L2VPN, L3VPN, EVPN.
 
-A row is named by its table and its place in it: BGP04 is the fourth row of Routing: BGP. RT is Routing: general, static, policy; IPS is Encrypted VPN; VPN is L2VPN, L3VPN, EVPN.
-
-| Issue                                                   | Gap                                                                                                                           | Who needs it                                              | Rows                                          |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------- |
-| [#213](https://github.com/takodotid/circuit/issues/213) | iBGP at scale: route reflector and cluster ID, RouterOS `ibgp` / `ibgp-rr` roles, confederation, next-hop-self as a setting   | ISPs, transit and partial-transit sellers                 | BGP04, BGP05, BGP08, BGP32                    |
-| [#214](https://github.com/takodotid/circuit/issues/214) | Admin login through RADIUS or TACACS+, with accounting                                                                        | every operator with a team: ISP, colocation, IX, campus   | AAA07-AAA09, AAA17                            |
-| [#215](https://github.com/takodotid/circuit/issues/215) | QoS: rate limits per customer, policing, DSCP/802.1p classification, marking and queues                                       | ISPs and transit sellers selling committed rates, offices | QOS01, QOS02, QOS04-QOS09                     |
-| [#216](https://github.com/takodotid/circuit/issues/216) | BGP session safety: graceful restart, admin shutdown, GTSM, TCP-AO, max-prefix warning and restart                            | transit sellers, IX members, ISPs                         | BGP14, BGP20, BGP22, BGP23, BGP73             |
-| [#217](https://github.com/takodotid/circuit/issues/217) | Policy language: AS-path regex and community lists, extended communities, source-protocol match, default-originate, aggregate | transit and partial-transit sellers                       | RT21-RT24, BGP42, BGP45, BGP47                |
-| [#218](https://github.com/takodotid/circuit/issues/218) | Anti-spoofing and DDoS: uRPF (BCP 38), source RTBH, FlowSpec                                                                  | ISPs, transit sellers                                     | FW44, BGP55, BGP56                            |
-| [#219](https://github.com/takodotid/circuit/issues/219) | VRF: route leaking, BGP and OSPF in a VRF, VRF-aware management and DHCP                                                      | partial-transit sellers, multi-tenant colocation          | VRF03-VRF05, BGP71, OSPF27                    |
-| [#220](https://github.com/takodotid/circuit/issues/220) | Layer 2 customer isolation: QinQ, port isolation / private VLAN, BPDU and root guard, DHCP snooping, DAI, RA guard            | colocation, IX, campus                                    | SW08-SW10, SW20, SW21, SW39, SW40, SW42, IF28 |
-| [#221](https://github.com/takodotid/circuit/issues/221) | IPv6 delivery: RA prefixes, flags and RDNSS, DHCPv6 server and prefix delegation                                              | ISPs, offices                                             | V604, V605, SVC07, SVC08                      |
-| [#222](https://github.com/takodotid/circuit/issues/222) | MPLS core with L3VPN and L2VPN (LDP, VPWS, VPLS, EVPN)                                                                        | ISPs, colocation selling L2 transport                     | MPLS01-MPLS07, VPN01-VPN10                    |
-| [#223](https://github.com/takodotid/circuit/issues/223) | IPsec site-to-site and remote access (IKEv2, route-based)                                                                     | offices, ISPs with managed CPE                            | IPS01-IPS07                                   |
-| [#224](https://github.com/takodotid/circuit/issues/224) | OSPF area types, authentication and timers; IS-IS                                                                             | ISPs, campus cores                                        | OSPF05-OSPF10, OSPF14-OSPF18, ISIS01-ISIS06   |
-| [#225](https://github.com/takodotid/circuit/issues/225) | Monitoring: SNMP traps, active probes (TWAMP, IP SLA), flow timeouts, syslog over TLS                                         | transit sellers proving SLAs, all                         | MON08, MON12, MON18, MON21, MON22             |
-| [#226](https://github.com/takodotid/circuit/issues/226) | Subscriber access: PPPoE server and client, IPoE, subscriber RADIUS, pools                                                    | access ISPs                                               | TUN16-TUN22                                   |
-| [#227](https://github.com/takodotid/circuit/issues/227) | CGNAT: NAT pools, port block allocation, NAT logging, NAT64                                                                   | access ISPs                                               | FW31, FW33, FW35                              |
+- [#213](https://github.com/takodotid/circuit/issues/213) iBGP at scale: route reflection, confederation and next-hop-self
+- [#214](https://github.com/takodotid/circuit/issues/214) Admin login through RADIUS or TACACS+, with accounting
+- [#215](https://github.com/takodotid/circuit/issues/215) QoS: rate limits per customer, policing, classification, marking and queues
+- [#216](https://github.com/takodotid/circuit/issues/216) BGP session safety: graceful restart, admin shutdown, GTSM, TCP-AO and max-prefix warnings
+- [#217](https://github.com/takodotid/circuit/issues/217) Route policy: AS-path regex, community lists, extended communities, more matches, default route and aggregates
+- [#218](https://github.com/takodotid/circuit/issues/218) Anti-spoofing and DDoS: uRPF, source RTBH and FlowSpec
+- [#219](https://github.com/takodotid/circuit/issues/219) VRF: route leaking, BGP and OSPF in a VRF, and VRF-aware services
+- [#220](https://github.com/takodotid/circuit/issues/220) Layer 2 customer isolation: QinQ, private VLANs, BPDU and root guard, DHCP snooping, DAI and RA guard
+- [#221](https://github.com/takodotid/circuit/issues/221) IPv6 delivery: RA prefixes, flags and RDNSS, DHCPv6 server and prefix delegation
+- [#222](https://github.com/takodotid/circuit/issues/222) MPLS core with L3VPN and L2VPN
+- [#223](https://github.com/takodotid/circuit/issues/223) IPsec site-to-site and remote access
+- [#224](https://github.com/takodotid/circuit/issues/224) OSPF area types, authentication and timers, and IS-IS
+- [#225](https://github.com/takodotid/circuit/issues/225) Monitoring: SNMP traps, syslog over TLS, flow timeouts and active probes
+- [#226](https://github.com/takodotid/circuit/issues/226) Subscriber access: PPPoE, IPoE, subscriber RADIUS and address pools
+- [#227](https://github.com/takodotid/circuit/issues/227) CGNAT: NAT pools, port block allocation, NAT logging and NAT64
 
 ## Caveats
 
