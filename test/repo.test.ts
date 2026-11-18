@@ -16,6 +16,11 @@ const files = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-s
 const SET_ELSEWHERE = [".claude/skills/", ".github/", ".vale/", "docs/public/", "examples/", "test/fixtures/"];
 const setElsewhere = (path: string) => SET_ELSEWHERE.some((prefix) => `${path}/`.startsWith(prefix));
 
+/** Code still to follow the rules on code and comments: Studio's page and its tests, the website's theme, and the file test/studio imports by its name. */
+const NOT_YET = ["src/studio/app/", "test/studio/", "docs/.vitepress/", "src/studio/data.ts"];
+
+const read = (file: string) => readFileSync(join(root, file), "utf8");
+
 describe("layout", () => {
     test("no folder holds only one file or folder", () => {
         const children = new Map<string, Set<string>>();
@@ -71,7 +76,7 @@ describe("agent instructions", () => {
     test("AGENTS.md files stay short", () => {
         const long = instructions
             .filter((file) => basename(file) === "AGENTS.md")
-            .map((file) => ({ file, bytes: readFileSync(join(root, file)).length, most: file === "AGENTS.md" ? 9_000 : 3_000 }))
+            .map((file) => ({ file, bytes: readFileSync(join(root, file)).length, most: file === "AGENTS.md" ? 9000 : 3000 }))
             .filter(({ bytes, most }) => bytes > most)
             .map(
                 ({ file, bytes, most }) =>
@@ -84,7 +89,7 @@ describe("agent instructions", () => {
     test("every path they give exists", () => {
         const missing: string[] = [];
         for (const file of instructions) {
-            const text = readFileSync(join(root, file), "utf8");
+            const text = read(file);
             for (const [, path] of text.matchAll(/`([\w.@-]+\/[\w./@-]*)`/g)) {
                 if (!path || /^[a-z]+:\/\//.test(path) || path.startsWith("@")) continue;
 
@@ -107,7 +112,7 @@ describe("agent instructions", () => {
             taskOutputMaxChars: "nothing, it was removed",
             teammateDefaultModel: "nothing, it was removed",
         };
-        const settings = JSON.parse(readFileSync(join(root, ".claude/settings.json"), "utf8")) as Record<string, unknown>;
+        const settings = JSON.parse(read(".claude/settings.json")) as Record<string, unknown>;
 
         const old = Object.keys(settings)
             .filter((key) => key in replaced)
@@ -120,7 +125,7 @@ describe("agent instructions", () => {
 test("GitHub Actions are pinned to a commit", () => {
     const loose: string[] = [];
     for (const file of files.filter((file) => file.startsWith(".github/workflows/"))) {
-        for (const [, action, ref] of readFileSync(join(root, file), "utf8").matchAll(/uses:\s*([^\s@]+)@(\S+)/g)) {
+        for (const [, action, ref] of read(file).matchAll(/uses:\s*([^\s@]+)@(\S+)/g)) {
             if (!/^[0-9a-f]{40}$/.test(ref!))
                 loose.push(`${file}: ${action}@${ref}. Pin it to a commit SHA, with the version in a comment.`);
         }
@@ -135,19 +140,226 @@ test("every region a page includes is in its example, and every region is includ
     const wrong: string[] = [];
 
     for (const page of files.filter((file) => file.startsWith("docs/") && file.endsWith(".md"))) {
-        for (const [, path, name] of readFileSync(join(root, page), "utf8").matchAll(/^<<< @\/\.\.\/(\S+?)#([\w-]+)\s*$/gm)) {
+        for (const [, path, name] of read(page).matchAll(/^<<< @\/\.\.\/(\S+?)#([\w-]+)\s*$/gm)) {
             included.add(`${path}#${name}`);
-            const text = existsSync(join(root, path!)) ? readFileSync(join(root, path!), "utf8") : "";
+            const text = existsSync(join(root, path!)) ? read(path!) : "";
             if (!text.includes(`// #region ${name}\n`) || !text.includes(`// #endregion ${name}\n`))
                 wrong.push(`${page}: ${path} has no region ${name}`);
         }
     }
 
     for (const example of files.filter((file) => file.startsWith("examples/") && file.endsWith(".ts"))) {
-        for (const [, name] of readFileSync(join(root, example), "utf8").matchAll(/^\s*\/\/ #region ([\w-]+)$/gm)) {
+        for (const [, name] of read(example).matchAll(/^\s*\/\/ #region ([\w-]+)$/gm)) {
             if (!included.has(`${example}#${name}`)) wrong.push(`${example}: region ${name} is on no page`);
         }
     }
 
     expect(wrong).toEqual([]);
+});
+
+describe("code", () => {
+    // The language in src/config is functions and types, and Studio's page is Vue, so these rules skip them.
+    const code = files.filter(
+        (file) =>
+            /^src\/.+\.ts$/.test(file) &&
+            !/^src\/(config|studio\/app)\//.test(file) &&
+            !file.endsWith(".generated.ts") &&
+            !NOT_YET.includes(file)
+    );
+    const squash = (name: string) => name.replace(/[^a-z0-9]/gi, "").toLowerCase();
+
+    /** Each class and its body, as Prettier writes them. The body ends at a `}` that starts a line and ends a paragraph. */
+    const classes = (text: string) =>
+        [...text.matchAll(/^(export )?(?:abstract )?class (\w+)[^\n]*?(?:\{\}$|\{\n([\s\S]*?)^\}(?=\n$))/gm)].map(
+            ([, exported, name, body]) => ({
+                exported: Boolean(exported),
+                name: name!,
+                body: body ?? "",
+            })
+        );
+
+    /** The class a platform's index.ts exports, such as `RouterOs`. */
+    const platformOf = (file: string) => {
+        const folder = /^src\/platforms\/[^/]+\//.exec(file)?.[0];
+        if (!folder) return;
+
+        return classes(read(`${folder}index.ts`)).find((found) => found.exported)?.name;
+    };
+
+    test("a file holds classes and types, and one class is named after the file", () => {
+        // A data file is the exception: a platform's hardware models, and the version the release sets.
+        const data = ["models.ts", "version.ts"];
+
+        const wrong: string[] = [];
+        for (const file of code) {
+            const text = read(file);
+            const values = [...text.matchAll(/^(?:export )?(?:async )?(?:function|const|let|var) (\w+)\s*[=:(<]/gm)].map(
+                ([, name]) => name
+            );
+            if (values.length && !data.includes(basename(file)))
+                wrong.push(`${file}: make ${values.join(", ")} static on the file's class.`);
+
+            const stem = basename(file) === "index.ts" ? basename(dirname(file)) : basename(file, ".ts");
+            const exported = classes(text).filter((found) => found.exported);
+            if (exported.length && !exported.some((found) => squash(found.name).includes(squash(stem))))
+                wrong.push(`${file}: name one of ${exported.map((found) => found.name).join(", ")} after the file, ${stem}.`);
+        }
+
+        expect(wrong).toEqual([]);
+    });
+
+    test("a platform's classes start with its name", () => {
+        // So no two modules export the same name: `RouterOsRender`, not `Render`.
+        const wrong = code.flatMap((file) => {
+            const platform = platformOf(file);
+            return classes(read(file))
+                .filter((found) => platform && found.exported && !found.name.startsWith(platform))
+                .map((found) => `${file}: name ${found.name} ${platform}${found.name}.`);
+        });
+
+        expect(wrong).toEqual([]);
+    });
+
+    test("a member's name doesn't repeat its class's name", () => {
+        // Callers write `Address.contains()`, not `Address.addressContains()`. The platform's name in a class's name doesn't count.
+        const member = /^ {4}(?:(?:private|protected|public|static|readonly|async|override|abstract|get|set) )*#?(\w+)\s*[(<=:?!]/gm;
+
+        const wrong: string[] = [];
+        for (const file of code) {
+            const platform = platformOf(file);
+            for (const found of classes(read(file))) {
+                const job = platform && found.name !== platform ? found.name.slice(platform.length) : found.name;
+                const words = [squash(job), squash(job).replace(/s$/, "")].filter((word) => word.length > 2);
+                for (const [, name] of found.body.matchAll(member)) {
+                    if (name !== "constructor" && words.some((word) => squash(name!).includes(word)))
+                        wrong.push(`${file}: ${found.name}.${name} repeats ${job}.`);
+                }
+            }
+        }
+
+        expect(wrong).toEqual([]);
+    });
+
+    test("the language in src/config is functions and types", () => {
+        const wrong = files.filter((file) => file.startsWith("src/config/") && /^(export )?(abstract )?class /m.test(read(file)));
+
+        expect(wrong).toEqual([]);
+    });
+
+    test("an example needs no cast", () => {
+        // Oxlint refuses `as` and `!` in examples. These two it allows.
+        const wrong = files.filter((file) => file.startsWith("examples/") && /\bas const\b|\bsatisfies\b/.test(read(file)));
+
+        expect(wrong).toEqual([]);
+    });
+
+    test("each platform has its models and its traps", () => {
+        const folders = [...new Set(files.filter((file) => /^src\/platforms\/[^/]+\//.test(file)).map((file) => dirname(file)))];
+        const missing = folders.flatMap((folder) =>
+            ["index.ts", "models.ts", "TRAPS.md"].filter((name) => !files.includes(`${folder}/${name}`)).map((name) => `${folder}/${name}`)
+        );
+
+        expect(missing).toEqual([]);
+    });
+});
+
+describe("comments", () => {
+    const code = files.filter(
+        (file) =>
+            /\.(ts|js|mjs|vue)$/.test(file) &&
+            !file.startsWith("test/fixtures/") &&
+            !file.endsWith(".generated.ts") &&
+            !NOT_YET.some((prefix) => file.startsWith(prefix))
+    );
+
+    /** Each comment, with its file and line: `//` lines in a row are one, as is each `/* *\/` that starts a line. */
+    const comments = code.flatMap((file) => {
+        const found: { file: string; line: number; lines: string[] }[] = [];
+        const lines = read(file).split("\n");
+
+        for (let index = 0; index < lines.length; index++) {
+            const start = index;
+            if (/^\s*\/\//.test(lines[index]!)) {
+                while (index + 1 < lines.length && /^\s*\/\//.test(lines[index + 1]!)) index++;
+                found.push({ file, line: start + 1, lines: lines.slice(start, index + 1).map((line) => line.replace(/^\s*\/\/ ?/, "")) });
+            } else if (/^\s*\/\*/.test(lines[index]!)) {
+                while (index + 1 < lines.length && !lines[index]!.includes("*/")) index++;
+                const body = lines
+                    .slice(start, index + 1)
+                    .map((line) => line.replace(/^\s*(\/\*+|\*\/|\*)? ?/, "").replace(/\s*\*\/$/, ""));
+                found.push({ file, line: start + 1, lines: body });
+            }
+        }
+
+        return found.filter((comment) => !/^(#(end)?region|oxlint-|prettier-ignore|@ts-)/.test(comment.lines[0]!.trim()));
+    });
+
+    /** A comment's prose: no code blocks, each piece of inline code one word. */
+    const prose = (lines: string[]) =>
+        lines
+            .join("\n")
+            .replace(/```[\s\S]*?```/g, " ")
+            .replace(/`[^`\n]*`/g, "code");
+
+    test("no banners", () => {
+        const wrong = comments
+            .filter((comment) => comment.lines.some((line) => /^\s*[-=*#~_]{3,}\s*$/.test(line)))
+            .map((comment) => `${comment.file}:${comment.line}`);
+
+        expect(wrong).toEqual([]);
+    });
+
+    test("a sentence has at most 30 words", () => {
+        const wrong = comments.flatMap((comment) =>
+            prose(comment.lines)
+                .split(/(?<=[.!?])\s+|\n\s*(?:[-*]|\d+\.)\s|\n\s*\n/)
+                .filter((sentence) => (sentence.match(/[\w'-]+/g) ?? []).length > 30)
+                .map((sentence) => `${comment.file}:${comment.line}: ${sentence.trim().slice(0, 60)}...`)
+        );
+
+        expect(wrong).toEqual([]);
+    });
+
+    test("a comment is short", () => {
+        // A field's doc comment in src/config is its documentation, with examples, so it may be longer.
+        const wrong = comments
+            .map((comment) => ({ ...comment, length: prose(comment.lines).replace(/\s+/g, " ").length }))
+            .filter(({ file, length }) => length > (file.startsWith("src/config/") ? 1000 : 400))
+            .map(({ file, line, length }) => `${file}:${line} is ${length} characters. Say why in fewer words, or leave it out.`);
+
+        expect(wrong).toEqual([]);
+    });
+
+    test("no manual line wrapping", () => {
+        // A line that ends mid-sentence, followed by more of the sentence. Lists, code, tables, and HTML are left as they are.
+        const block = /^\s*([-*+]\s|\d+\.\s|[|#>]|<|:::|```|!\[|\[[^\]]+\]:)/;
+        const wrapped = (lines: string[]) => {
+            let fenced = false;
+            let tag = false;
+            return lines.flatMap((line, index) => {
+                if (/^\s*```/.test(line)) fenced = !fenced;
+                if (/^\s*<[A-Za-z]/.test(line)) tag = !/>\s*$/.test(line);
+                else if (tag && />\s*$/.test(line)) tag = false;
+
+                const next = lines[index + 1];
+                const ends = /[.:!?;,)`\]>]$|^\s*$/.test(line);
+                const plain = (text: string) => text.trim() && !block.test(text) && !/^\s{2,}/.test(text);
+                return !fenced && !tag && next !== undefined && !ends && plain(line) && plain(next) ? [index] : [];
+            });
+        };
+
+        const pages = files.filter((file) => file.endsWith(".md") && !file.startsWith("test/fixtures/"));
+        const wrong = [
+            ...pages.flatMap((file) =>
+                wrapped(
+                    read(file)
+                        .replace(/^---\n[\s\S]*?\n---\n/, "")
+                        .split("\n")
+                ).map((index) => `${file}, line ${index + 1}`)
+            ),
+            ...comments.flatMap((comment) => wrapped(comment.lines).map((index) => `${comment.file}:${comment.line + index}`)),
+        ];
+
+        expect(wrong).toEqual([]);
+    });
 });

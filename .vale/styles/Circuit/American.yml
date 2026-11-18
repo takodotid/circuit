@@ -1,0 +1,15 @@
+extends: substitution
+message: "Use American spelling: '%s', not '%s'."
+level: error
+ignorecase: true
+swap:
+    analys(?:e|ed|ing): analyze
+    behaviours?: behavior
+    catalogues?: catalog
+    centres?: center
+    colours?: color
+    favours?: favor
+    fibres?: fiber
+    licences?: license
+    neighbours?: neighbor
+    (?:apolog|author|categor|custom|emphas|final|initial|maxim|memor|minim|normal|optim|organ|priorit|real|recogn|serial|special|standard|summar|synchron|visual)is(?:e|ed|es|ing|ation)s?: the -ize spelling
