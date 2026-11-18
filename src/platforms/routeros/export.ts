@@ -19,6 +19,8 @@ export type Parsed = {
     commands: Command[];
     /** Address lists whose entries are filled by `refresh`, not by the render. */
     generated: Set<string>;
+    /** The device's ports, `# port ether4`, which the read lists for a virtual router. */
+    ports: string[];
 };
 
 export class RouterOsExport {
@@ -30,7 +32,8 @@ export class RouterOsExport {
         "/interface bridge": { "protocol-mode": "rstp", priority: "0x8000", "vlan-filtering": "no", pvid: "1" },
         "/interface bridge port": { pvid: "1", "frame-types": "admit-all", edge: "auto", "path-cost": "10", priority: "0x80" },
         "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
-        "/interface ethernet": { mtu: "1500", "auto-negotiation": "yes" },
+        // A CHR prints `disable-running-check=no` on every port, as it ships. A RouterBOARD has no such property, so this changes nothing there (TRAPS.md).
+        "/interface ethernet": { mtu: "1500", "auto-negotiation": "yes", "disable-running-check": "no" },
         "/interface ethernet switch port": {
             "storm-rate": "100",
             "limit-broadcasts": "yes",
@@ -276,6 +279,7 @@ export class RouterOsExport {
     static parse(text: string): Parsed {
         const commands: Command[] = [];
         const generated = new Set<string>();
+        const ports: string[] = [];
         let menu = "";
 
         for (const raw of RouterOsExport.unwrap(text).split("\n")) {
@@ -287,10 +291,12 @@ export class RouterOsExport {
 
             const marker = /^# generated (\S+)$/.exec(line);
             if (marker) generated.add(marker[1]!);
+            const port = /^# port (\S+)$/.exec(line);
+            if (port) ports.push(port[1]!);
             if (menu && /^(add|set)( |$)/.test(line)) commands.push(RouterOsExport.parseLine(menu, line));
         }
 
-        return { commands, generated };
+        return { commands, generated, ports };
     }
 
     /** The default of one property of a command, or undefined when it is not known. */

@@ -9,7 +9,7 @@ import type { Community, Finding, ResolvedNetwork } from "./config/network";
 import * as globals from "./config/index";
 import { ACTIONS, CHECKS, DEVICE, NETWORK, POLICY_RULE, closest, plainSecrets, unknownKeyHelp, unknownKeys } from "./config/keys";
 import { isOrdered, lineOf, source, userFrames, writtenAt } from "./config/merge";
-import { NUMBERED_VLANS, portsOf, spell } from "./config/models";
+import { isPort, NUMBERED_VLANS, spell } from "./config/models";
 import { policyRuleProblem } from "./config/routing";
 import { Address } from "./core/address";
 import { Secrets } from "./core/secrets";
@@ -578,10 +578,9 @@ export class Project {
 
     /** A linked port's description names the far end, `<far device> <far port as printed there>`. Circuit warns when it doesn't, and writes nothing. */
     private static checkLinks(name: string, device: AnyDevice, devices: Record<string, AnyDevice>): void {
-        const ports = portsOf(device.platform, device.model);
         for (const [port, settings] of Object.entries(device.interfaces?.ethernet ?? {})) {
             const at = `${writtenAt(device.interfaces?.ethernet, port, ["ethernet", port])}${name}: interfaces.ethernet.${port}`;
-            if (!ports.includes(port)) Project.findings.push(`${at}: ${device.model} has no port ${port}`);
+            if (!isPort(device.platform, device.model, port)) Project.findings.push(`${at}: ${device.model} has no port ${port}`);
             const link = settings.link;
             if (!link) continue;
             const far = devices[link.device]?.interfaces?.ethernet?.[link.port];
