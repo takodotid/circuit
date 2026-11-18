@@ -283,6 +283,8 @@ export class RouterOs extends Platform {
                 );
             if (limit?.warn_only)
                 found.push(`routing.bgp.neighbors.${name}.max_prefixes.warn_only, RouterOS always closes the session at its limit`);
+            if (neighbor.graceful_restart ?? group?.graceful_restart)
+                found.push(`routing.bgp.neighbors.${name}.graceful_restart, RouterOS 7 has no setting for it`);
         }
 
         const management = device.management;

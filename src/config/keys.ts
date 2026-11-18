@@ -171,6 +171,7 @@ const NEIGHBOR_SETTINGS = {
     address_families: 0,
     passive: 0,
     bfd: 0,
+    graceful_restart: 0,
     routing_table: 0,
     communities: { groups: 0, blackhole: 0 },
 } as const;

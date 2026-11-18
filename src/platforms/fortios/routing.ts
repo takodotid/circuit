@@ -330,6 +330,12 @@ export class FortiOsRouting {
         if (bgp.asn !== undefined) block.set("as", bgp.asn);
         if (device.routing?.router_id) block.set("router-id", device.routing.router_id);
 
+        // Each neighbor asks for it, and the device as a whole keeps forwarding while BGP restarts.
+        const graceful = Object.values(bgp.neighbors ?? {}).some(
+            (neighbor) => neighbor && FortiOsRouting.neighborSettings(device, neighbor).graceful_restart
+        );
+        if (graceful) block.set("graceful-restart", "enable");
+
         const maps = new RouteMaps(root, device);
 
         for (const neighbor of Object.values(bgp.neighbors ?? {})) {
@@ -352,6 +358,7 @@ export class FortiOsRouting {
 
             for (const family of families) {
                 const suffix = family === "ipv4" ? "" : "6";
+                if (settings.graceful_restart) entry.set(`capability-graceful-restart${suffix}`, "enable");
                 if (limit) entry.set(`maximum-prefix${suffix}`, limit.limit);
                 if (limit?.warn_only) entry.set(`maximum-prefix-warning-only${suffix}`, "enable");
                 entry.set(`route-map-in${suffix}`, FortiOsTree.quote(maps.of(settings.import_policy, family)));

@@ -37,6 +37,7 @@ export default as64500.device({
         ],
         bgp: {
             originated_prefixes: [as64500.prefixes.ours.v4, as64500.prefixes.ours.v6],
+            // Junos turns graceful restart on for every session at once, so each neighbor has it.
             neighbors: {
                 // #region prefix-limits
                 // A leak at the exchange closes the session, and it opens again after 30 minutes without anyone clearing it.
@@ -45,6 +46,7 @@ export default as64500.device({
                     remote_as: 6777,
                     description: "AMS-IX route server",
                     max_prefixes: { limit: 150_000, restart_after: 1800 },
+                    graceful_restart: true,
                     import_policy: "exchange-import",
                     export_policy: "export",
                     communities: { groups: ["exchange"] },
@@ -54,6 +56,7 @@ export default as64500.device({
                     remote_as: 6777,
                     description: "AMS-IX route server",
                     max_prefixes: { limit: 50_000, restart_after: 1800 },
+                    graceful_restart: true,
                     import_policy: "exchange-import",
                     export_policy: "export",
                     communities: { groups: ["exchange"] },
@@ -64,6 +67,7 @@ export default as64500.device({
                     remote_as: 6939,
                     description: "Hurricane Electric, peering at AMS-IX",
                     max_prefixes: { limit: 250_000, warn_only: true },
+                    graceful_restart: true,
                     import_policy: "exchange-import",
                     export_policy: "export",
                     communities: { groups: ["exchange"] },

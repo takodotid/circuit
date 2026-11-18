@@ -99,6 +99,8 @@ export class JunosBgp {
             if (settings.hold_time !== undefined) this.out.set(group, "hold-time", settings.hold_time);
             if (settings.password) this.out.set(group, "authentication-key", Secrets.marker(settings.password));
             if (settings.bfd) this.out.bfd(group, this.device.routing?.bfd);
+            // Only the router-wide statement turns it on: a group's own `graceful-restart` alone does nothing (TRAPS.md). `unsupported()` refuses it on only some neighbors.
+            if (settings.graceful_restart) this.out.set("routing-options graceful-restart");
 
             this.out.set(group, "import", settings.import_policy ?? JunosBgp.REJECT_ALL);
 

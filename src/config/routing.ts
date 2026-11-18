@@ -85,6 +85,8 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     passive?: boolean;
     /** Detect a dead link in under a second with BFD. */
     bfd?: boolean;
+    /** Graceful restart (RFC 4724): while BGP restarts on one side, the other side keeps its routes and traffic keeps flowing. */
+    graceful_restart?: boolean;
     /** The table for the routes learned from this neighbor, from `routing.tables`, or `main`. The main table when absent. On RouterOS, the session also announces from that table, so each prefix of `originated_prefixes` it announces needs a route in that table too. A running session uses a new table only after it restarts. */
     routing_table?: T | "main";
     /**

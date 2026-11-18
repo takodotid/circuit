@@ -62,22 +62,23 @@ A note in a cell means "works, with this limit".
 
 ### Routing
 
-| Feature                      | RouterOS                | VRP        | Raisecom ROS             | Junos            | FortiOS          |
-| ---------------------------- | ----------------------- | ---------- | ------------------------ | ---------------- | ---------------- |
-| Static routes                | ✅                      | ✅         | IPv4 next hop            | ✅               | ✅               |
-| Next hop with its interface  | ✅                      | ❌         | ❌                       | ❌               | ✅               |
-| VRFs                         | ✅                      | ✅         | ❌                       | ✅               | ✅               |
-| Policy routing, more tables  | ✅                      | ❌ not yet | ❌ not yet               | ❌ not yet       | ❌ not yet       |
-| OSPF                         | ✅                      | IPv4       | IPv4                     | outside VRFs     | outside VRFs     |
-| BFD                          | ✅ not on static routes | ✅         | static routes, no timers | ✅               | ✅               |
-| BGP                          | ✅                      | ❌         | ❌                       | ✅               | ✅               |
-| Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅               | ✅               |
-| BGP communities              | ✅                      | ❌         | ❌                       | ✅               | ✅ no large ones |
-| RPKI                         | ✅                      | ❌         | ❌                       | ✅               | ❌               |
-| BGP roles (RFC 9234)         | ✅                      | ❌         | ❌                       | ❌               | ❌               |
-| GTSM (RFC 5082)              | ✅ eBGP                 | ❌         | ❌                       | ❌               | ❌               |
-| Prefix limit that restarts   | ❌                      | ❌         | ❌                       | ✅ whole minutes | ❌               |
-| Prefix limit that only warns | ❌                      | ❌         | ❌                       | ✅               | ✅               |
+| Feature                      | RouterOS                | VRP        | Raisecom ROS             | Junos                 | FortiOS          |
+| ---------------------------- | ----------------------- | ---------- | ------------------------ | --------------------- | ---------------- |
+| Static routes                | ✅                      | ✅         | IPv4 next hop            | ✅                    | ✅               |
+| Next hop with its interface  | ✅                      | ❌         | ❌                       | ❌                    | ✅               |
+| VRFs                         | ✅                      | ✅         | ❌                       | ✅                    | ✅               |
+| Policy routing, more tables  | ✅                      | ❌ not yet | ❌ not yet               | ❌ not yet            | ❌ not yet       |
+| OSPF                         | ✅                      | IPv4       | IPv4                     | outside VRFs          | outside VRFs     |
+| BFD                          | ✅ not on static routes | ✅         | static routes, no timers | ✅                    | ✅               |
+| BGP                          | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
+| Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
+| BGP communities              | ✅                      | ❌         | ❌                       | ✅                    | ✅ no large ones |
+| RPKI                         | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
+| BGP roles (RFC 9234)         | ✅                      | ❌         | ❌                       | ❌                    | ❌               |
+| GTSM (RFC 5082)              | ✅ eBGP                 | ❌         | ❌                       | ❌                    | ❌               |
+| Graceful restart (RFC 4724)  | ❌                      | ❌         | ❌                       | ✅ all or no sessions | ✅               |
+| Prefix limit that restarts   | ❌                      | ❌         | ❌                       | ✅ whole minutes      | ❌               |
+| Prefix limit that only warns | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
 
 ### Firewall and services
 

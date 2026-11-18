@@ -759,6 +759,20 @@ export class Junos extends Platform {
                 );
         }
 
+        // `routing-options graceful-restart` turns it on for the whole router, OSPF too.
+        const graceful = Object.entries(bgp?.neighbors ?? {}).map(([name, neighbor]) => ({
+            name,
+            on: !!neighbor && JunosBgp.settingsOf(device, neighbor).graceful_restart,
+        }));
+        const first = graceful.find(({ on }) => on)?.name;
+        const without = graceful.filter(({ on }) => !on).map(({ name }) => name);
+        if (first && without.length)
+            found.push(
+                `routing.bgp.neighbors.${first}.graceful_restart, but not on ${without.join(", ")}: Junos turns it on for every session at once. Set it on every neighbor or on none`
+            );
+        if (first && device.routing?.ospf)
+            found.push(`routing.bgp.neighbors.${first}.graceful_restart with routing.ospf, Junos turns graceful restart on for OSPF too`);
+
         for (const server of device.routing?.rpki ?? []) {
             if (server.description) found.push(`routing.rpki ${server.address} description`);
         }
