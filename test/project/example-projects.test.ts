@@ -74,3 +74,36 @@ describe("colocation with no tenant", () => {
         expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("netflix");
     });
 });
+
+// The internet exchange once its last member has left: the switches still find members.parts.
+describe("internet exchange with no member", () => {
+    const folder = join(scratch, "internet-exchange-no-member");
+    cpSync(join(examples, "internet-exchange"), folder, { recursive: true });
+    const index = join(folder, "members", "index.ts");
+    const withMembers = readFileSync(index, "utf8");
+    const withoutMembers = withMembers
+        .replace('import { cloudflare } from "./cloudflare";\nimport { google } from "./google";\n\n', "")
+        .replace("merge([empty, cloudflare, google])", "merge([empty])");
+    writeFileSync(index, withoutMembers);
+    EditorTypes.write(folder);
+    writeFileSync(join(folder, "tsconfig.json"), EditorTypes.TSCONFIG);
+
+    test("the editor's types take it", () => {
+        expect(withoutMembers).not.toContain("cloudflare");
+        expect(withoutMembers).not.toContain("google");
+
+        const run = spawnSync("bun", [join(root, "node_modules", "typescript", "bin", "tsc"), "--noEmit", "-p", folder], {
+            encoding: "utf8",
+        });
+        expect(run.stdout + run.stderr).toBe("");
+    }, 30_000);
+
+    test("circuit validate finds nothing", async () => {
+        const read = await Project.read(folder);
+        const findings = read.networks.flatMap((network) => Validation.run(Object.values(network.devices), network.settings.checks));
+
+        expect(findings).toEqual([]);
+        expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("AS13335");
+        expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("AS15169");
+    });
+});

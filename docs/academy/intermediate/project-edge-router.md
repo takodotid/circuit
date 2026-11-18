@@ -55,7 +55,7 @@ A blackhole route for each of your blocks keeps the block in the routing table a
 ### The policies
 
 - Each import first calls `sanity`, which is `presets.bgp_sanity`. It refuses routes that should never be on the internet, such as prefixes that are too long, and RPKI invalid ones.
-- Then the import refuses your own space coming back, and tags the route with `{ communities: "import" }`. It sets a local preference of 100 for the transit and 200 for the exchange, so a route learned at the exchange wins, as in [Choosing the best route](/academy/intermediate/best-path).
+- Then the import refuses the special-purpose blocks in `presets.bogons`, such as the private ranges, and your own space coming back. It tags the route with `{ communities: "import" }`. It sets a local preference of 100 for the transit and 200 for the exchange, so a route learned at the exchange wins, as in [Choosing the best route](/academy/intermediate/best-path).
 - The export accepts your own space and rejects everything else, so you never pass one provider's routes to another.
 
 ### Protecting the router
@@ -126,6 +126,6 @@ The example is one router with one transit. It grows with what you learned in th
 
 - Your AS, your prefixes, and your community scheme are in `circuit.ts`. The router is one file in `sites/`.
 - Blackhole routes keep your blocks in the routing table, and `originated_prefixes` announces them.
-- Every import runs `sanity`, refuses your own space, tags the route, and sets a local preference, with the exchange at 200. The export accepts your blocks and rejects the rest.
+- Every import runs `sanity`, refuses special-purpose blocks and your own space, tags the route, and sets a local preference, with the exchange at 200. The export accepts your blocks and rejects the rest.
 - The input firewall allows BGP only from the neighbors, and the edge ACL drops forged sources in the switch chip.
 - `validate` runs Circuit's checks and yours, `diff` shows the plan against the router, and `apply` sends it once you say yes.

@@ -45,7 +45,7 @@ A port you take out of the file is shut down, as in [Writing a network down](/ac
 Circuit checks every VLAN name a port uses. Write `"guest"` where the VLAN is called `"guests"`, and your editor underlines it. `circuit validate` stops on it too, and gives the file and line. Here it is in the switch of the single-site example:
 
 ```text
-sites/home/switch.ts:30: switch: interfaces.ethernet.10g-4.access_vlan: no VLAN guest. Did you mean guests?
+sites/home/switch.ts:32: switch: interfaces.ethernet.10g-4.access_vlan: no VLAN guest. Did you mean guests?
 ```
 
 It also refuses a VLAN ID outside 1 to 4094, and two VLANs with the same ID. When the file is right, Circuit turns each port into the switch's own commands. For port `10g-5` in the widget, in the cameras VLAN, a Huawei VRP switch gets:

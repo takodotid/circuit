@@ -62,12 +62,16 @@ routing: {
         // A route from the exchange beats the same route from the transit: the higher local preference wins.
         "transit-import": [
             { call: "sanity" },
+            { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },
+            { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },
             { if: { prefix_set: "ours" }, then: "reject" },
             { communities: "import" },
             { set: { local_pref: 100 }, then: "accept" },
         ],
         "exchange-import": [
             { call: "sanity" },
+            { description: "Bogons", if: { prefix_set: "bogons-v4" }, then: "reject" },
+            { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },
             { if: { prefix_set: "ours" }, then: "reject" },
             { communities: "import" },
             { set: { local_pref: 200 }, then: "accept" },

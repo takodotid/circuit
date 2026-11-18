@@ -134,6 +134,15 @@ export default defineConfig({
     // Code is set on a navy ground in both themes, like the editor in the home page's drawing.
     markdown: {
         theme: { light: "github-dark", dark: "github-dark" },
+        // The examples mark the excerpts the practice pages include with `// #region name` lines. A whole file is shown without them. VitePress fills an included file's code in before this rule runs.
+        preConfig(md) {
+            const fence = md.renderer.rules.fence!;
+            md.renderer.rules.fence = (tokens, index, options, env, self) => {
+                const token = tokens[index]!;
+                token.content = token.content.replace(/^[ \t]*\/\/ #(?:end)?region [\w-]+\n/gm, "");
+                return fence(tokens, index, options, env, self);
+            };
+        },
     },
 
     themeConfig: {

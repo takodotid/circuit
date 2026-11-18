@@ -77,8 +77,8 @@ const pulls: Pull[] = [
             "}),",
         ].join("\n"),
         highlight: [6],
-        ci: '$ circuit validate\ntenants/index.ts:6: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:9. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
-        plan: '$ circuit diff tor-01\ntenants/index.ts:6: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:9. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+        ci: '$ circuit validate\ntenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:9. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+        plan: '$ circuit diff tor-01\ntenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "netflix server 1" in tenants/netflix.ts:24, and "akamai server 1" in tenants/akamai.ts:9. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
         answers: {
             ci: "No. Circuit stops while reading the files: the files of Netflix and Akamai both write port 10g-1 on tor-01, with two descriptions. It is the port of Netflix's server 1.",
             scope: "There is no plan yet: an error stops diff and apply. Had it gone out, Netflix's server 1 would have lost its networks.",
@@ -113,13 +113,13 @@ const pulls: Pull[] = [
         highlight: [5],
         ci: [
             "$ circuit validate",
-            "  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not proved yet)",
+            "  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not tested yet)",
             "",
             "1 error(s).",
         ].join("\n"),
         plan: [
             "$ circuit diff edge-01",
-            "  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not proved yet)",
+            "  error  edge-01: routeros cannot express monitoring.snmp.users.monitor.auth sha256: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not tested yet)",
             "",
             "1 error(s).",
         ].join("\n"),

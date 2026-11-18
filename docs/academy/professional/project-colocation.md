@@ -39,7 +39,7 @@ my-network/
 ```
 
 ::: info The names in this project
-As in the edge router, the transit is `hurricane-electric` and the exchange `de-cix`. Replace their addresses, AS numbers, and port names with what your providers give you.
+As in the edge router, the transit is Hurricane Electric and the exchange is DE-CIX. Replace their addresses, AS numbers, and port names with what your providers give you.
 :::
 
 ## A tenant is one file

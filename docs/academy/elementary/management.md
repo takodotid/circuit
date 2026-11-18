@@ -133,7 +133,7 @@ checks: {
 For every device, the check finds each access port whose VLAN is `mgmt`, and reports it as an error. Put the guest access point's port on `mgmt`, and `circuit validate` gives the file and line of the port:
 
 ```text
-sites/home/switch.ts:30: management_stays_on_trunks: switch: interfaces.ethernet.10g-4: gives management to whatever plugs in. Put the port in another VLAN.
+sites/home/switch.ts:32: management_stays_on_trunks: switch: interfaces.ethernet.10g-4: gives management to whatever plugs in. Put the port in another VLAN.
 
 1 error(s).
 ```
