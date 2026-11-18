@@ -1,0 +1,41 @@
+name: links
+
+# Checks every link of the built site and the repo's Markdown once a week, because other sites change on their own.
+
+on:
+    schedule:
+        - cron: "17 3 * * 1"
+    workflow_dispatch:
+    pull_request:
+        paths: [.github/workflows/links.yml]
+
+permissions:
+    contents: read
+
+jobs:
+    links:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+              with:
+                  bun-version: 1.4.4
+            - run: bun install --frozen-lockfile
+            # The built site, so a link to a page, a redirect, or a file the site serves resolves as the site serves it.
+            - run: bun run docs:build
+            - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+              with:
+                  # The live site is left out: it changes only with a release, so a new page isn't there yet. npm and Cisco refuse automated clients. A sample address stands for a device, not a site.
+                  args: >-
+                      --no-progress
+                      --root-dir ${{ github.workspace }}/docs/.vitepress/dist
+                      --fallback-extensions html
+                      --exclude-private --exclude-loopback --exclude-link-local
+                      --exclude '^https://circuit\.tako\.id/'
+                      --exclude '^https://www\.npmjs\.com/'
+                      --exclude '^https://www\.cisco\.com/'
+                      --exclude '^https?://(192\.0\.2|198\.51\.100|203\.0\.113)\.'
+                      --exclude '^https?://\[?(2001:db8|3fff):'
+                      'docs/.vitepress/dist/**/*.html' './*.md' 'src/**/*.md'
