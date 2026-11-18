@@ -2,7 +2,10 @@
 
 import { Address } from "./address";
 import { Utils } from "./utils";
-import type { Device, FilterRule, Interface, InterfaceKind, NatRule, Port } from "../model";
+import type { Device, FilterRule, Interface, InterfaceKind, NatRule, NeighborSettings, Port } from "../model";
+
+/** A BGP neighbor's `max_prefixes` in its long form. Without `restart_after` or `warn_only`, the session stays closed. */
+type PrefixLimit = { limit: number; restart_after?: number; warn_only?: boolean };
 
 /** One interface of a device, with the group it is in. */
 export type NamedInterface = { name: string; kind: InterfaceKind; settings: Interface };
@@ -89,6 +92,12 @@ export class Derive {
         }
 
         return numbers;
+    }
+
+    /** A neighbor's prefix limit in its long form, or none. */
+    static prefixLimit(settings: NeighborSettings): PrefixLimit | undefined {
+        const max = settings.max_prefixes;
+        return typeof max === "number" ? { limit: max } : max;
     }
 
     /** The IPv4 networks of a port's or an interface's addresses. */

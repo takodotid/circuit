@@ -36,6 +36,23 @@ export type StaticRoute<I extends string, F extends string, T extends string> = 
  */
 export type BgpRole = "provider" | "customer" | "peer" | "rs" | "rs-client";
 
+/** A prefix limit that does not keep the session closed: it opens again after a time, or it never closes. */
+export type PrefixLimit =
+    | {
+          /** The most prefixes the neighbor may announce. */
+          limit: number;
+          /** Close the session, then open it again after this many seconds. */
+          restart_after: number;
+          warn_only?: never;
+      }
+    | {
+          /** The most prefixes the neighbor may announce. */
+          limit: number;
+          /** Keep the session up and only log a message. */
+          warn_only: true;
+          restart_after?: never;
+      };
+
 /** Settings a BGP neighbor can set itself or take from its group. `P` is the device's policies, `T` its tables, `Net` what the network writes. */
 export type NeighborSettings<P extends string, T extends string, Net extends NetworkFacts = AnyFacts> = {
     /** The neighbor's AS. If it is our own AS, the session is internal (iBGP). */
@@ -58,8 +75,8 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     route_reflector_client?: boolean;
     /** TCP MD5 password shared with the neighbor. */
     password?: Secret;
-    /** Close the session if the neighbor announces more prefixes than this. It stays closed until you clear it by hand. On RouterOS, use `/routing bgp session clear <session> flag=limit-exceeded`. */
-    max_prefixes?: number;
+    /** Close the session if the neighbor announces more prefixes than this. It stays closed until you clear it by hand. On RouterOS, use `/routing bgp session clear <session> flag=limit-exceeded`. Write `{ limit, restart_after }` to open it again after that many seconds, or `{ limit, warn_only: true }` to only log a message. */
+    max_prefixes?: number | PrefixLimit;
     /** Seconds without a message before the session goes down, 3 or more. */
     hold_time?: number;
     /** Seconds between keepalive messages. */
@@ -70,6 +87,8 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     passive?: boolean;
     /** Detect a dead link in under a second with BFD. */
     bfd?: boolean;
+    /** Graceful restart (RFC 4724): while BGP restarts on one side, the other side keeps its routes and traffic keeps flowing. */
+    graceful_restart?: boolean;
     /** The table for the routes learned from this neighbor, from `routing.tables`, or `main`. The main table when absent. On RouterOS, the session also announces from that table, so each prefix of `originated_prefixes` it announces needs a route in that table too. A running session uses a new table only after it restarts. */
     routing_table?: T | "main";
     /**

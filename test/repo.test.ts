@@ -430,6 +430,7 @@ describe("samples", () => {
             2906: "Netflix",
             3491: "PCCW",
             6695: "DE-CIX",
+            6777: "AMS-IX",
             6939: "Hurricane Electric",
             13335: "Cloudflare",
             15169: "Google",

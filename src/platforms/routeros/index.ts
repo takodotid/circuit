@@ -279,6 +279,16 @@ export class RouterOs extends Platform {
             const internal = (neighbor.remote_as ?? group?.remote_as) === bgp?.asn;
             if ((neighbor.ttl_security ?? group?.ttl_security) && internal)
                 found.push(`routing.bgp.neighbors.${name}.ttl_security on an iBGP session, RouterOS checks the TTL of eBGP sessions only`);
+
+            const limit = Derive.prefixLimit({ ...group, ...neighbor });
+            if (limit?.restart_after !== undefined)
+                found.push(
+                    `routing.bgp.neighbors.${name}.max_prefixes.restart_after, RouterOS keeps the session closed until it is cleared by hand`
+                );
+            if (limit?.warn_only)
+                found.push(`routing.bgp.neighbors.${name}.max_prefixes.warn_only, RouterOS always closes the session at its limit`);
+            if (neighbor.graceful_restart ?? group?.graceful_restart)
+                found.push(`routing.bgp.neighbors.${name}.graceful_restart, RouterOS 7 has no setting for it`);
         }
 
         const management = device.management;

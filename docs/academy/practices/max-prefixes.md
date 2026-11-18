@@ -19,6 +19,10 @@ RFC 7454 sets the limit by who the neighbor is. For a peer, keep it lower than a
 
 `max_prefixes` goes on each neighbor, or on its group. When the neighbor sends more, the session closes, and it stays closed until you clear it. On RouterOS, `circuit bgp` shows why each session is down, and `circuit bgp --clear-limit` opens the closed ones again. If several closed at once, look for a leak upstream before you raise a limit.
 
+Some platforms can also open the session again by itself after some seconds, with `{ limit, restart_after }`, or keep it up and only log a message, with `{ limit, warn_only: true }`. The [feature matrix](/reference/platforms#routing) says which. The example's second router does both:
+
+<<< @/../examples/edge-router/sites/pop-2/edge-02.ts#prefix-limits
+
 The [edge router example](/guide/examples#an-edge-router) sets a limit on each of its three sessions. Its transit:
 
 <<< @/../examples/edge-router/sites/pop-1/edge-01.ts#transit
