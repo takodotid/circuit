@@ -15,19 +15,16 @@ const beforeStart = computed(() => Academy.link(before.value, before.value.lesso
 <template>
     <aside class="level-gate" :aria-label="`${lesson.title} is locked`">
         <p class="chip">Locked</p>
-        <h2>{{ lesson.title }} is part of {{ lesson.level.name }}</h2>
+        <h2 v-text="lesson.title" />
         <p>
-            This lesson builds on everything in {{ before.name }}. To open {{ lesson.level.name }}, pass its entry check: ten questions
-            about {{ before.name }}. If you know networking already, it takes a few minutes; if not, {{ before.name }} teaches every answer.
+            This lesson is part of {{ lesson.level.name }}, which opens when you pass its entry check: ten questions about
+            {{ before.name }}.
         </p>
-        <p class="outcome">After this lesson you can: {{ lesson.outcome.replace(/^./, (letter) => letter.toLowerCase()) }}</p>
+        <p class="outcome">After this lesson, you can {{ lesson.outcome.replace(/^./, (letter) => letter.toLowerCase()) }}</p>
         <div class="actions">
-            <a class="ac-button primary" :href="withBase(`/academy/checks/${lesson.level.slug}`)"
-                >Take the {{ lesson.level.name }} entry check</a
-            >
-            <a class="ac-button" :href="withBase(beforeStart)">Start {{ before.name }} instead</a>
+            <a class="ac-button primary" :href="withBase(`/academy/checks/${lesson.level.slug}`)">Take the entry check</a>
+            <a class="ac-button" :href="withBase(beforeStart)">Start {{ before.name }}</a>
         </div>
-        <p class="note">A passed check is kept in this browser.</p>
     </aside>
 </template>
 
@@ -83,10 +80,5 @@ p {
 .actions a {
     text-decoration: none;
     white-space: normal;
-}
-
-.note {
-    color: var(--circuit-soft);
-    font-size: 13.5px;
 }
 </style>

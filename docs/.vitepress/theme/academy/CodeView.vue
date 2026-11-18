@@ -20,7 +20,7 @@ type Token = { text: string; kind: string };
 
 const KEYWORDS = new Set(["import", "from", "export", "default", "const", "as", "satisfies", "true", "false", "type"]);
 
-/** A line of TypeScript, split into the parts its colours mark. */
+/** A line of TypeScript, split into the parts its colors mark. */
 function typescript(line: string): Token[] {
     const comment = line.indexOf("//");
     const code = comment >= 0 && !/"[^"]*\/\/[^"]*"/.test(line) ? line.slice(0, comment) : line;

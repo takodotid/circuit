@@ -50,18 +50,13 @@ const right = computed(() => drawn.value.filter((question, index) => picked.valu
 const passedNow = computed(() => submitted.value && right.value >= check.pass);
 const passedBefore = computed(() => Progress.passed.value[check.level]);
 
-/** The lessons to read again: the ones behind every question answered wrong. */
-const review = computed(() => [
-    ...new Set(drawn.value.filter((question, index) => picked.value[index] !== question.answer).map((question) => question.lesson)),
-]);
-
 function submit() {
     submitted.value = true;
     if (right.value >= check.pass) Progress.setPassed(check.level);
 }
 
 const first = Academy.link(opens, opens.lessons[0]!);
-const day = (time: number) => new Date(time).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+const day = (time: number) => new Date(time).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" });
 </script>
 
 <template>
@@ -72,14 +67,13 @@ const day = (time: number) => new Date(time).toLocaleDateString("en-GB", { day: 
             <aside v-if="passedBefore && !submitted" class="open">
                 <p class="chip">Open</p>
                 <p>
-                    You passed this check on {{ day(passedBefore) }}, so {{ opens.name }} is open in this browser.
-                    <a :href="withBase(first)">Go to its first lesson</a>, or take the check again below.
+                    You passed this check on {{ day(passedBefore) }}, so {{ opens.name }} is open.
+                    <a :href="withBase(first)">Start its first lesson</a>, or take the check again.
                 </p>
             </aside>
 
             <p class="rule">
-                {{ check.asks }} questions about {{ about.name }}. Answer at least {{ check.pass }} right to open {{ opens.name }}. Each try
-                asks different questions, with the answers in a new order.
+                {{ check.asks }} questions about {{ about.name }}. Answer at least {{ check.pass }} right to open {{ opens.name }}.
             </p>
 
             <ol class="questions">
@@ -95,7 +89,7 @@ const day = (time: number) => new Date(time).toLocaleDateString("en-GB", { day: 
                             <span>{{ question.choices[choice] }}</span>
                         </label>
                         <p v-if="submitted && picked[index] !== question.answer" class="missed">
-                            Not this one. Read <a :href="withBase(question.lesson)">{{ lessonTitle(question.lesson) }}</a> again.
+                            Wrong. Read <a :href="withBase(question.lesson)">{{ lessonTitle(question.lesson) }}</a> again.
                         </p>
                     </fieldset>
                 </li>
@@ -105,26 +99,18 @@ const day = (time: number) => new Date(time).toLocaleDateString("en-GB", { day: 
                 <button v-if="!submitted" type="button" class="ac-button primary" :disabled="answered < drawn.length" @click="submit">
                     {{ answered < drawn.length ? `Answer every question (${answered} of ${drawn.length})` : "Check my answers" }}
                 </button>
-                <button v-else type="button" class="ac-button" @click="draw">Try again with new questions</button>
+                <button v-else type="button" class="ac-button" @click="draw">New questions</button>
             </div>
 
             <div aria-live="polite">
                 <template v-if="submitted">
                     <p v-if="passedNow" class="ac-say good" data-word="Passed">
-                        {{ right }} of {{ drawn.length }} right. {{ opens.name }} is open in this browser.
+                        {{ right }} of {{ drawn.length }} right. {{ opens.name }} is open.
                         <a :href="withBase(first)">Start its first lesson</a>.
                     </p>
-                    <div v-else>
-                        <p class="ac-say bad" data-word="Not yet">
-                            {{ right }} of {{ drawn.length }} right; {{ opens.name }} opens at {{ check.pass }}. The questions marked above
-                            say which lesson to read again:
-                        </p>
-                        <ul class="review">
-                            <li v-for="link in review" :key="link">
-                                <a :href="withBase(link)">{{ lessonTitle(link) }}</a>
-                            </li>
-                        </ul>
-                    </div>
+                    <p v-else class="ac-say bad" data-word="Not yet">
+                        {{ right }} of {{ drawn.length }} right. {{ opens.name }} opens at {{ check.pass }}.
+                    </p>
                 </template>
             </div>
         </template>
@@ -224,10 +210,6 @@ fieldset:disabled .choice {
 
 .actions .ac-button {
     white-space: normal;
-}
-
-.review {
-    margin-top: 8px !important;
 }
 
 .open {
