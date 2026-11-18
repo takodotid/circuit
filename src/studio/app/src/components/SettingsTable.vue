@@ -20,18 +20,24 @@ type Shown =
 /** The fields any of the items hold, in the order first seen. */
 const columnsOf = (items: Record<string, unknown>[]) => [...new Set(items.flatMap((item) => Object.keys(item)))];
 
+/** A list of items with fields, such as a filter's rules: a numbered table of its own. */
+const isList = (value: unknown): value is unknown[] =>
+    Array.isArray(value) && value.some((item) => Format.isObject(item) && !Format.isSecret(item));
+
 function shown(value: unknown): Shown {
     if (Format.isObject(value) && Object.keys(value).length && !Format.isSecret(value)) {
         const inner = Object.entries(value).filter(([, item]) => item !== undefined);
         const allObjects = inner.every(([, item]) => Format.isObject(item) && !Format.isSecret(item));
-        if (!allObjects) return { kind: "settings", value };
+        // A cell can't hold a numbered table: items that hold a list each show as settings, with the list as its own table.
+        const holdsList = inner.some(([, item]) => Format.isObject(item) && Object.values(item).some(isList));
+        if (!allObjects || holdsList) return { kind: "settings", value };
 
         const items = inner.map(([, item]) => item as Record<string, unknown>);
         const head = columnsOf(items);
         return { kind: "record", head, rows: inner.map(([name], index) => ({ name, cells: head.map((column) => items[index]![column]) })) };
     }
 
-    if (Array.isArray(value) && value.some((item) => Format.isObject(item) && !Format.isSecret(item))) {
+    if (isList(value)) {
         const items: Record<string, unknown>[] = value.map((item) => (Format.isObject(item) ? item : { value: item }));
         const head = columnsOf(items);
         return { kind: "list", head, rows: items.map((item) => head.map((column) => item[column])) };

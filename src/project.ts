@@ -36,8 +36,8 @@ export type ProjectNetwork = {
     settings: Json;
 };
 
-/** What reading a project found: each network, and what Circuit tells but doesn't stop on. What stops it is thrown as `ProjectError`. */
-export type ProjectRead = { networks: ProjectNetwork[]; warnings: string[] };
+/** What reading a project found: each network, and what Circuit tells but doesn't stop on, each with the device it is about. What stops it is thrown as `ProjectError`. */
+export type ProjectRead = { networks: ProjectNetwork[]; warnings: { device: string; message: string }[] };
 
 /** A project that can't be read, with each reason. */
 export class ProjectError extends Error {
@@ -61,7 +61,7 @@ const keys = (map: unknown) => Object.keys((map as object | undefined) ?? {});
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 let findings: string[] = [];
 /** What Circuit tells but doesn't stop on. */
-let warnings: string[] = [];
+let warnings: ProjectRead["warnings"] = [];
 
 /**
  * Imports one file of the project. Its `merge` calls and devices run: a value written twice, or an ordered list from two places, stops it there, naming both files. Anything else that stops it, such as a misspelt global, is said with the user's line it stopped at.
@@ -524,9 +524,10 @@ async function read(folder: string): Promise<ProjectRead> {
                 // A name counts as a word of its own: `port6` is not named by `port60`.
                 const names = (text: string) => new RegExp(`(^|\\s)${escape(text)}($|[\\s,.;:)])`).test(settings.description ?? "");
                 if (!names(link.device) || !names(farPort))
-                    warnings.push(
-                        `${at}.description: ${settings.description === undefined ? "none" : JSON.stringify(settings.description)}. Write the far end in it: ${link.device} ${farPort}.`
-                    );
+                    warnings.push({
+                        device: name,
+                        message: `${at}.description: ${settings.description === undefined ? "none" : JSON.stringify(settings.description)}. Write the far end in it: ${link.device} ${farPort}.`,
+                    });
             }
         }
     }
@@ -622,7 +623,7 @@ async function read(folder: string): Promise<ProjectRead> {
     if (findings.length) stop(findings);
 
     return {
-        warnings: warnings.map(short),
+        warnings: warnings.map((warning) => ({ ...warning, message: short(warning.message) })),
         networks: networks.map(({ name, registered, network, devices }) => ({
             name,
             ...(network.asn !== undefined ? { asn: network.asn } : {}),

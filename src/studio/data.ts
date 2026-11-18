@@ -38,7 +38,7 @@ export class StudioModel {
     static build(project: string, read: ProjectRead): StudioData {
         const devices = read.networks.flatMap((network) => Object.values(network.devices));
         const findings: Finding[] = [
-            ...read.warnings.map((message) => ({ level: "warning" as const, message })),
+            ...read.warnings.map((warning) => ({ level: "warning" as const, ...warning })),
             ...read.networks.flatMap((network) => Validation.run(Object.values(network.devices), network.settings.checks)),
         ];
 

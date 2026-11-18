@@ -177,6 +177,17 @@ export class GraphLook {
             },
             { selector: 'node[level = "warning"]', style: { "border-color": colors.warning, "border-width": 4, "border-style": "dashed" } },
             { selector: 'node[level = "error"]', style: { "border-color": colors.error, "border-width": 4 } },
+            // A comparison: a node that is gone is drawn pale with a dashed frame, at the end of the line gone to it.
+            {
+                selector: "node[?gone]",
+                style: {
+                    "background-color": colors.bg,
+                    "background-image-opacity": 0.35,
+                    "border-style": "dashed",
+                    "border-color": colors.muted,
+                    color: colors.muted,
+                },
+            },
             {
                 selector: "edge",
                 style: {

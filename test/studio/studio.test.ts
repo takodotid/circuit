@@ -105,6 +105,17 @@ describe("the server", () => {
         expect(data.secrets).toContain("EDGE_01_PASSWORD");
     });
 
+    test("ties a warning from reading the project to its device", async () => {
+        const data = (await (await get("/api/data")).json()) as StudioData;
+
+        // Each cable's description names the far device but not its port.
+        const farEnd = data.findings.filter((finding) => finding.message.includes("Write the far end in it"));
+        expect(farEnd.map((finding) => `${finding.level} ${finding.device}`).toSorted((a, b) => a.localeCompare(b))).toEqual([
+            "warning edge-01",
+            "warning tor-01",
+        ]);
+    });
+
     test("lists the secrets with ciphertexts only: a value in plain text never leaves", async () => {
         const listing = (await (await get("/api/secrets")).json()) as SecretsListing;
         expect(listing.files.map((file) => file.file)).toEqual([SecretsFile.DEFAULT]);

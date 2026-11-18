@@ -1,15 +1,26 @@
-// Where the graph places its nodes: only new ones move, a new one starts beside a neighbour, devices with no line wait in a row, and no two tags overlap.
+// Where the graph places its nodes: only new ones move, a new one starts beside a neighbour, devices with no line wait in a row, no two tags overlap, and each line is long enough to see.
 
 import { describe, expect, test } from "bun:test";
 import { type Box, GraphLayout, type Point } from "../../src/studio/app/src/lib/graph-layout";
 
-const box = (id: string, width = 120): Box => ({ id, label: id.replace("device:", ""), width });
+const box = (id: string, width = 120): Box => ({ id, label: id.replace("device:", ""), width, height: 62 });
 
 /** Whether two tags overlap, with the layout's gaps. */
 function overlap(places: Map<string, Point>, a: Box, b: Box): boolean {
     const pa = places.get(a.id)!;
     const pb = places.get(b.id)!;
     return Math.abs(pa.x - pb.x) < (a.width + b.width) / 2 && Math.abs(pa.y - pb.y) < 40;
+}
+
+/** How long a line between two tags shows: from where it leaves one tag to where it meets the other. */
+function shown(places: Map<string, Point>, a: Box, b: Box): number {
+    const pa = places.get(a.id)!;
+    const pb = places.get(b.id)!;
+    const distance = Math.hypot(pa.x - pb.x, pa.y - pb.y);
+    const x = Math.abs(pa.x - pb.x) / distance;
+    const y = Math.abs(pa.y - pb.y) / distance;
+    const inside = (tag: Box) => Math.min(tag.width / 2 / x, tag.height / 2 / y);
+    return distance - inside(a) - inside(b);
 }
 
 describe("laying out the graph", () => {
@@ -68,6 +79,22 @@ describe("laying out the graph", () => {
         GraphLayout.arrange(boxes, edges, places);
 
         for (const [index, a] of boxes.entries()) for (const b of boxes.slice(index + 1)) expect(overlap(places, a, b)).toBe(false);
+    });
+
+    test("each line shows long enough beside its label, however wide the tags at its ends", () => {
+        const places = new Map<string, Point>();
+        const boxes = [
+            box("device:core", 320),
+            box("device:edge", 320),
+            ...Array.from({ length: 8 }, (_, index) => box(`device:access-${index}`, 300)),
+        ];
+        const edges = [{ from: "device:core", to: "device:edge" }, ...boxes.slice(2).map((leaf) => ({ from: "device:core", to: leaf.id }))];
+
+        GraphLayout.arrange(boxes, edges, places);
+
+        const byId = new Map(boxes.map((each) => [each.id, each]));
+        for (const edge of edges)
+            expect(shown(places, byId.get(edge.from)!, byId.get(edge.to)!)).toBeGreaterThanOrEqual(GraphLayout.SHORTEST - 1);
     });
 
     test("the same network comes out the same each time", () => {

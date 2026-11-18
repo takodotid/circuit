@@ -492,7 +492,7 @@ export class Migrate {
         try {
             const read = await Project.read(out);
             return [
-                ...read.warnings.map((warning) => `warning: ${warning}`),
+                ...read.warnings.map((warning) => `warning: ${warning.message}`),
                 ...read.networks.flatMap((network) =>
                     Validation.run(Object.values(network.devices), network.settings.checks).map(
                         (finding) => `${finding.level}: ${finding.device ? `${finding.device}: ` : ""}${finding.message}`

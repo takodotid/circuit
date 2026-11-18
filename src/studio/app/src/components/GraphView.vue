@@ -90,7 +90,7 @@ function layOut(name: Layer): void {
     if (name !== "l1") layOut("l1");
 
     const { nodes, edges } = name === layer.value ? shown.value : GraphLayer.of(props.data, name);
-    const boxes = nodes.map((node) => ({ id: node.id, label: node.label, width: widthOf(node) }));
+    const boxes = nodes.map((node) => ({ id: node.id, label: node.label, width: widthOf(node), height: tagOf(node).height }));
     layouts.layOut(name, boxes, edges, name === "l1" ? undefined : layouts.places("l1"));
     Saved.set("layouts", layouts.kept());
 }
@@ -102,6 +102,7 @@ function nodeData(node: ShownNode) {
         label: node.label,
         kind: node.kind,
         level: node.level ?? "",
+        gone: Boolean(node.gone),
         width: tag.width,
         height: tag.height,
         shift: tag.shift,
@@ -144,7 +145,9 @@ function draw(arrival?: "network" | "layer"): void {
     const cy = graph;
     let fresh = cy.collection();
 
-    settle();
+    // A new layer's glide starts each node from where it is, even halfway through the last glide. Anything else ends a glide at its end.
+    if (arrival === "layer" && moving) halt();
+    else settle();
     cy.batch(() => {
         cy.edges()
             .filter((edge) => !edgeIds.has(edge.id()))
@@ -163,7 +166,7 @@ function draw(arrival?: "network" | "layer"): void {
             }
 
             existing.data(nodeData(node));
-            if (arrival === "layer" && moving) gliding.push(existing);
+            if (arrival === "layer" && moving) gliding.push({ node: existing, to: { ...places.get(node.id)! } });
             else if (arrival === "layer") existing.position({ ...places.get(node.id)! });
         }
 
@@ -180,7 +183,10 @@ function draw(arrival?: "network" | "layer"): void {
     });
 
     // The devices on both layers glide to their places on this one, so the eye can follow each.
-    for (const node of gliding) node.animate({ position: { ...places.get(node.id())! } }, { duration: 700, easing: "ease-in-out-cubic" });
+    for (const glide of gliding) {
+        const done = () => (gliding = gliding.filter((other) => other !== glide));
+        glide.node.animate({ position: { ...glide.to } }, { duration: 700, easing: "ease-in-out-cubic", complete: done });
+    }
     if (moving) arrive(fresh, arrival);
 
     // Presenting draws every line heavier, a line the project just added too.
@@ -192,16 +198,21 @@ function draw(arrival?: "network" | "layer"): void {
     else emphasize();
 }
 
-/** The nodes gliding to a new layer's places. */
-let gliding: CollectionReturnValue[] = [];
+/** The nodes gliding to a new layer's places, each with the place it glides to. A node leaves the list when it gets there. */
+let gliding: { node: CollectionReturnValue; to: { x: number; y: number } }[] = [];
 
-/** End a glide between layers: each node at its place on this layer, so a press moves it from there. */
+/** End a glide between layers: each node at the place it was gliding to, so a press moves it from there. */
 function settle(): void {
-    const places = layouts.places(layer.value);
-    for (const node of gliding) {
+    for (const { node, to } of gliding) {
         node.stop(true);
-        if (node.inside()) node.position({ ...places.get(node.id())! });
+        if (node.inside()) node.position({ ...to });
     }
+    gliding = [];
+}
+
+/** Stop a glide between layers where it is, for the next layer's glide to start from there. */
+function halt(): void {
+    for (const { node } of gliding) node.stop(true);
     gliding = [];
 }
 
@@ -420,10 +431,13 @@ function remember(node: NodeSingular): void {
     Saved.set("layouts", layouts.kept());
 }
 
+/** A saved file's name, by the project and the layer as the toolbar names it, such as `colocation-cables.png`. */
+const fileName = (extension: string) => `${props.data.project}-${GraphLayer.NAMES[layer.value].toLowerCase()}.${extension}`;
+
 function saveImage(): void {
     if (!graph) return;
     const png = graph.png({ output: "blob", full: true, scale: 2, bg: css("--bg") }) as unknown as Blob;
-    Export.save(`${props.data.project}-${layer.value}.png`, png);
+    Export.save(fileName("png"), png);
 }
 
 /** Save the layer as an SVG, drawn from where each box and line is and how Cytoscape styles it. */
@@ -431,6 +445,9 @@ function saveSvg(): void {
     if (!graph) return;
     const box = graph.elements().boundingBox({});
     const size = (value: string) => parseFloat(value) || 0;
+    // Cytoscape draws a dotted stroke one on, one off, and a dashed one in its pattern, such as "4 2".
+    const dashOf = (style: string, pattern: string) =>
+        style === "dotted" ? [1, 1] : style === "dashed" ? pattern.split(/\s+/).map(size) : [];
 
     const drawing: Drawing = {
         box: { x: box.x1, y: box.y1, width: box.w, height: box.h },
@@ -444,16 +461,18 @@ function saveSvg(): void {
             fill: node.style("background-color"),
             stroke: node.style("border-color"),
             strokeWidth: size(node.style("border-width")),
-            dashed: node.style("border-style") !== "solid",
+            dash: dashOf(node.style("border-style"), node.style("border-dash-pattern")),
             color: node.style("color"),
             fontSize: size(node.style("font-size")),
+            fontFamily: node.style("font-family"),
+            fontWeight: node.style("font-weight"),
             opacity: Number(node.style("opacity")),
             ...(node.data("kind") === "device"
                 ? {
                       device: {
                           chassis: node.hasClass("touring") ? colors.navy : colors.cobalt,
                           socket: node.hasClass("touring") || node.hasClass("picked") ? colors.yellow : "#ffffff",
-                          sub: props.data.graph.nodes.find((candidate) => candidate.id === node.id())?.detail[0] ?? "",
+                          sub: shown.value.nodes.find((candidate) => candidate.id === node.id())?.detail[0] ?? "",
                           subColor: node.hasClass("touring") ? "#2a3550" : colors.muted,
                           mono: colors.mono,
                       },
@@ -470,7 +489,7 @@ function saveSvg(): void {
                 label: String(edge.data("label") ?? ""),
                 color: edge.style("line-color"),
                 width: size(edge.style("width")),
-                dashed: edge.style("line-style") === "dashed",
+                dash: dashOf(edge.style("line-style"), edge.style("line-dash-pattern")),
                 labelColor: edge.style("color"),
                 fontSize: size(edge.style("font-size")),
                 opacity: Number(edge.style("opacity")),
@@ -478,7 +497,7 @@ function saveSvg(): void {
         }),
     };
 
-    Export.save(`${props.data.project}-${layer.value}.svg`, new Blob([GraphSvg.of(drawing)], { type: "image/svg+xml" }));
+    Export.save(fileName("svg"), new Blob([GraphSvg.of(drawing)], { type: "image/svg+xml" }));
 }
 
 // Presenting: the network on a big screen, the whole window, going through every layer and lighting its busiest devices in turn. Kept in the browser, so a screen that reloads stays on it.
@@ -518,7 +537,7 @@ function light(node: NodeSingular | undefined): void {
             detail: [detail, GraphLayer.count(layer.value, node.connectedEdges().length)].filter(Boolean).join(", "),
         };
     } else {
-        const devices = graph.nodes('[kind = "device"]').length;
+        const devices = graph.nodes('[kind = "device"][!gone]').length;
         caption.value = {
             title: GraphLayer.NAMES[layer.value],
             detail: `${devices} ${devices === 1 ? "device" : "devices"}, ${GraphLayer.count(layer.value, graph.edges().length)}`,
@@ -607,7 +626,7 @@ function nextLayer(): Layer {
 function tourNext(): void {
     if (!graph || document.hidden || hovered || dragging || leaving) return;
 
-    const devices = graph.nodes('[kind = "device"]').toArray() as NodeSingular[];
+    const devices = graph.nodes('[kind = "device"][!gone]').toArray() as NodeSingular[];
     const busiest = devices
         .filter((node) => node.degree(false) > 0)
         .sort((a, b) => b.degree(false) - a.degree(false) || String(a.data("label")).localeCompare(String(b.data("label"))))
@@ -712,7 +731,7 @@ function pick(id: string): void {
 
 /** The devices on the layer, by name, for the keyboard: a drawing on a canvas has no element to reach. */
 const deviceList = computed(() =>
-    shown.value.nodes.filter((node) => node.kind === "device").sort((a, b) => a.label.localeCompare(b.label))
+    shown.value.nodes.filter((node) => node.kind === "device" && !node.gone).sort((a, b) => a.label.localeCompare(b.label))
 );
 
 onMounted(() => {
@@ -729,7 +748,7 @@ onMounted(() => {
     graph.on("tap", (event) => {
         if (event.target === graph) select(undefined);
     });
-    graph.on("dbltap", 'node[kind = "device"]', (event) => {
+    graph.on("dbltap", 'node[kind = "device"][!gone]', (event) => {
         void router.push({ name: "device", params: { name: String(event.target.data("label")) } });
     });
     graph.on("dragfree", "node", (event) => remember(event.target));

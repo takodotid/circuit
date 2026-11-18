@@ -59,7 +59,8 @@ function toggleVlan(id: number): void {
             <div v-if="selected.node" :key="key">
                 <h2>{{ selected.node.label }}</h2>
                 <p v-if="KINDS[selected.node.kind]" class="kind">{{ KINDS[selected.node.kind] }}</p>
-                <p v-if="selected.node.kind === 'device'">
+                <p v-if="selected.node.gone"><span class="badge error">gone</span>In {{ store.graphFocus.comparison?.name }}, not now.</p>
+                <p v-else-if="selected.node.kind === 'device'">
                     <RouterLink :to="{ name: 'device', params: { name: selected.node.label } }">Open {{ selected.node.label }}</RouterLink>
                 </p>
                 <ul v-if="selected.node.detail.length">
@@ -96,7 +97,7 @@ function toggleVlan(id: number): void {
                         {{ nameOf(selected.edge.to) }}
                     </button>
                 </p>
-                <p v-if="selected.edge.oneSided"><span class="badge warning">one end</span>Only one end declares it.</p>
+                <p v-if="selected.edge.oneSided">Only one end declares it.</p>
                 <p v-if="selected.edge.added"><span class="badge added">new</span>Not in {{ store.graphFocus.comparison?.name }}.</p>
                 <p v-if="selected.edge.gone"><span class="badge error">gone</span>In {{ store.graphFocus.comparison?.name }}, not now.</p>
                 <template v-if="selected.edge.members">
@@ -162,7 +163,7 @@ function toggleVlan(id: number): void {
                 </template>
                 <h3>Legend</h3>
                 <GraphLegend :layer="layer" :comparing="Boolean(store.graphFocus.comparison)" />
-                <p class="muted">Pick a device or a line to see it here. Double-click a device to open its page.</p>
+                <p class="muted">Double-click a device to open its page.</p>
             </div>
         </Transition>
     </aside>

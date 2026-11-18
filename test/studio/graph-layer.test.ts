@@ -1,4 +1,4 @@
-// What one layer of the graph shows: its nodes and lines with ids that stay, many lines between two nodes drawn as one, and a comparison's lines added and gone.
+// What one layer of the graph shows: its nodes and lines with ids that stay, many lines between two nodes drawn as one, and a comparison's lines added and gone, with the nodes gone at their ends.
 
 import { describe, expect, test } from "bun:test";
 import type { GraphEdge, GraphNode } from "../../src/core/graph";
@@ -56,18 +56,41 @@ describe("a layer of the graph", () => {
         expect(shown.edges.filter((edge) => edge.to === "device:tor-02")).toHaveLength(3);
     });
 
-    test("marks a comparison's new lines, and draws the lines gone back while both ends are there", () => {
+    test("marks a comparison's new lines, and draws the lines gone back, with an end that is gone too", () => {
         const kept = cable("edge-01", "tor-01", "1 to 1");
         const added = cable("edge-01", "tor-02", "2 to 1");
         const gone = cable("tor-01", "tor-02", "5 to 5");
         const goneWithItsDevice = cable("edge-01", "tor-09", "3 to 1");
 
-        const shown = GraphLayer.of(data([kept, added]), "l1", { name: "main", added: [added], removed: [gone, goneWithItsDevice] });
+        const shown = GraphLayer.of(data([kept, added]), "l1", {
+            name: "main",
+            added: [added],
+            removed: [gone, goneWithItsDevice],
+            removedNodes: [device("tor-09")],
+        });
 
         expect(shown.edges.map((edge) => [edge.label, Boolean(edge.added), Boolean(edge.gone)])).toEqual([
             ["1 to 1", false, false],
             ["2 to 1", true, false],
             ["5 to 5", false, true],
+            ["3 to 1", false, true],
+        ]);
+        expect(shown.nodes.map((node) => [node.id, Boolean(node.gone)])).toEqual([
+            ["device:edge-01", false],
+            ["device:tor-01", false],
+            ["device:tor-02", false],
+            ["device:tor-09", true],
+        ]);
+    });
+
+    test("draws a node that is gone only on a layer where a line gone ends at it", () => {
+        const goneWithItsDevice = cable("edge-01", "tor-09", "3 to 1");
+        const comparison = { name: "main", added: [], removed: [goneWithItsDevice], removedNodes: [device("tor-09")] };
+
+        expect(GraphLayer.of(data([]), "bgp", comparison).nodes.map((node) => node.id)).toEqual([
+            "device:edge-01",
+            "device:tor-01",
+            "device:tor-02",
         ]);
     });
 });

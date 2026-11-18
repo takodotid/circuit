@@ -104,10 +104,11 @@ function showPath(): void {
         <p v-if="traceFailed" class="verdict reject">That is not one address, such as 192.0.2.5 or 2001:db8::5.</p>
         <template v-if="traced">
             <p>{{ placed }}</p>
-            <template v-if="traced.place.uses.length">
-                <h3>Used by</h3>
-                <DataTable :head="['Address', 'Used by']" :rows="traced.place.uses.map((use) => ({ cells: [use.address, use.what] }))" />
-            </template>
+            <DataTable
+                v-if="traced.place.uses.length"
+                :head="['Address', 'Used by']"
+                :rows="traced.place.uses.map((use) => ({ cells: [use.address, use.what] }))"
+            />
             <h3>Held by</h3>
             <DataTable
                 :head="['Device', 'On', 'Address']"

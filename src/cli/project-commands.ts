@@ -82,7 +82,7 @@ export class ProjectCommands {
             throw error;
         }
 
-        for (const warning of project.warnings) Ui.warn(warning);
+        for (const warning of project.warnings) Ui.warn(warning.message);
 
         const names = project.networks.flatMap((network) => Object.keys(network.devices));
         const twice = names.filter((name, i) => names.indexOf(name) !== i);

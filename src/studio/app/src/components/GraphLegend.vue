@@ -28,8 +28,19 @@ defineProps<{ layer: Layer; comparing: boolean }>();
                 New since the commit compared.
             </li>
             <li>
-                <svg width="34" height="12" aria-hidden="true">
-                    <line x1="2" y1="6" x2="32" y2="6" stroke-width="4" stroke-dasharray="10 5" style="stroke: var(--error)" />
+                <svg width="34" height="18" aria-hidden="true">
+                    <line x1="2" y1="9" x2="19" y2="9" stroke-width="4" stroke-dasharray="7 3" style="stroke: var(--error)" />
+                    <rect
+                        x="20"
+                        y="3"
+                        width="12"
+                        height="12"
+                        rx="3"
+                        fill="none"
+                        stroke-width="2"
+                        stroke-dasharray="3 2"
+                        style="stroke: var(--muted)"
+                    />
                 </svg>
                 Gone since then.
             </li>
