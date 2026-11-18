@@ -11,7 +11,7 @@ export type StaticRoute<I extends string, F extends string, T extends string> = 
     prefix: Prefix;
     /** Next-hop address, alone or with its length. A link-local next hop, in `fe80::/10`, needs `interface` too. */
     next_hop?: HostAddress;
-    /** The port or interface to send the traffic out of. Alone, for a link without a next-hop address. With `next_hop`, the interface that reaches the next hop, such as `{ next_hop: "fe80::1", interface: "10g-1" }`. Some platforms use only the next hop then: the feature matrix in the platforms reference says which. */
+    /** The port or interface to send the traffic out of. Alone, for a link without a next-hop address. With `next_hop`, the interface that reaches the next hop, such as `{ next_hop: "fe80::1", interface: "10g-1" }`. Some platforms refuse the two together: the feature matrix in the platforms reference says which. */
     interface?: I;
     /** Drop the traffic. This is the usual way to originate an aggregate in BGP. */
     blackhole?: true;

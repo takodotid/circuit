@@ -226,6 +226,9 @@ export class Junos extends Platform {
 
         for (const route of routing?.static_routes ?? []) {
             if (route.description) found.push(`routing.static_routes ${route.prefix} description`);
+            // The render writes the next hop alone, so the interface would be lost.
+            if (route.next_hop && route.interface)
+                found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
 
             const table = `${route.vrf ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
             tables.set(table, (tables.get(table) ?? 0) + 1);

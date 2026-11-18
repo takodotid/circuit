@@ -174,6 +174,9 @@ export class Vrp extends Platform {
         for (const [index, route] of (routing?.static_routes ?? []).entries()) {
             if (route.description && Address.family(Address.split(route.prefix).addr) === "ipv6")
                 found.push(`routing.static_routes[${index}].description for IPv6`);
+            // The render writes the next hop alone, so the interface would be lost.
+            if (route.next_hop && route.interface)
+                found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
         }
 
         const refusedGroups = [

@@ -224,6 +224,8 @@ export class RaisecomRos extends Platform {
                 found.push(`${where}, only an IPv4 next_hop in the default table`);
             }
 
+            if (route.next_hop && route.interface) found.push(`${where} next_hop with interface, write the next_hop alone`);
+
             if (route.description || route.distance) found.push(`${where} description and distance`);
 
             if (route.bfd && route.next_hop && !RaisecomRosRender.bfdSessions(device).has(route.next_hop)) {
