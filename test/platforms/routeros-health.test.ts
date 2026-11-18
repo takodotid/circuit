@@ -80,11 +80,11 @@ afterAll(() => {
 });
 
 /** As `circuit apply --confirm` does: plan, read the sessions, apply, and run the checks. */
-async function applyAndCheck(): Promise<string[]> {
-    const plan = platform.plan(platform.render(device), await platform.read(device, [device]), options);
-    const health = await platform.health!(device, plan, quick);
+async function applyAndCheck(target: Device = device): Promise<string[]> {
+    const plan = platform.plan(platform.render(target), await platform.read(target, [target]), options);
+    const health = await platform.health!(target, plan, quick);
 
-    await platform.apply(device, [device], plan, options);
+    await platform.apply(target, [target], plan, options);
     return health.run();
 }
 
@@ -138,6 +138,37 @@ test("a session that stays up but stops announcing an originated prefix is named
     advertisementReads = [ANNOUNCED, [ANNOUNCED[0]!]];
     const problems = await applyAndCheck();
     expect(problems).toHaveLength(1);
-    expect(problems[0]).toStartWith("BGP session sgix-rs-v4 announced 198.51.100.0/24 before the apply and does not 0.5 s after it");
+    expect(problems[0]).toStartWith(
+        "BGP session sgix-rs-v4 announced 198.51.100.0/24 before the apply and does not 0.5 s after it, though the config says it should"
+    );
     expect(problems[0]).toContain("circuit exec edge-01 '/routing bgp advertisements print'");
+});
+
+test("an announcement the config stops is not waited for; a default route the config still sends is", async () => {
+    const routing = device.routing!;
+    const bgp = routing.bgp!;
+    // Hurricane Electric now gets a default route, and nothing else.
+    const defaultOnly: Device = {
+        ...device,
+        routing: {
+            ...routing,
+            policies: { ...routing.policies, NOTHING: [{ then: "reject" }] },
+            bgp: {
+                ...bgp,
+                neighbors: {
+                    ...bgp.neighbors,
+                    "hurricane-electric": { ...bgp.neighbors!["hurricane-electric"]!, export_policy: "NOTHING", send_default_route: true },
+                },
+            },
+        },
+    };
+    const heDefault = "ADV|hurricane-electric-1|0.0.0.0/0";
+
+    advertisementReads = [[...ANNOUNCED, heDefault], [ANNOUNCED[1]!]];
+    const problems = await applyAndCheck(defaultOnly);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toStartWith("BGP session hurricane-electric announced 0.0.0.0/0 before the apply and does not 0.5 s after it");
+    expect(fake.commands).toContain(
+        ':foreach a in=[/routing bgp advertisements print as-value where dst=0.0.0.0/0 or dst=198.51.100.0/24 or dst=2001:db8:100::/48] do={ :put ("ADV|" . ($a->"peer") . "|" . ($a->"dst")) }'
+    );
 });

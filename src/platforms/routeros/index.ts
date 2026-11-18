@@ -672,7 +672,7 @@ export class RouterOs extends Platform {
     }
 
     /**
-     * Three checks after an apply. When the plan touched switch rules, none may be invalid. Each BGP session established before must be established again, and announce again what it announced of `originated_prefixes`. A session can stay up and stop announcing (TRAPS.md).
+     * Three checks after an apply. When the plan touched switch rules, none may be invalid. Each BGP session established before must be established again. It must announce again what it announced before, unless the config stops it (`Derive.announcements`): a session can stay up and stop announcing (TRAPS.md).
      */
     override async health(device: Device, plan: Plan, options: HealthOptions = {}): Promise<HealthCheck> {
         const switchRules = plan.steps.some((step) => step.send.some((command) => command.startsWith(RouterOs.SWITCH_RULES)));
@@ -803,9 +803,9 @@ export class RouterOs extends Platform {
         );
     }
 
-    /** `announced`, over a session of its own. None, without logging in, on a device that originates none. */
+    /** `announced`, over a session of its own. None, without logging in, when the config has no session announce a route the device makes. */
     private async announcedNow(device: Device, options: ReadOptions): Promise<string[]> {
-        if (!device.routing?.bgp?.originated_prefixes?.length) return [];
+        if (!Derive.announcements(device).length) return [];
 
         const session = await this.session(device, options);
 
@@ -816,11 +816,12 @@ export class RouterOs extends Platform {
         }
     }
 
-    /** The `originated_prefixes` each session announces, as `neighbor prefix`, sorted. An advertisement names its session, which is matched to its neighbor by address first, as in `bgpSessions`. */
+    /** What each session announces of what the config has it announce, as `neighbor prefix`, sorted. An advertisement names its session, which is matched to its neighbor by address first, as in `bgpSessions`. */
     private static async announced(device: Device, session: ReadSession): Promise<string[]> {
         const bgp = device.routing?.bgp;
-        const originated = bgp?.originated_prefixes ?? [];
-        if (!originated.length) return [];
+        const announcements = Derive.announcements(device);
+        if (!announcements.length) return [];
+        const wanted = announcements.map(({ neighbor, prefix }) => `${neighbor} ${prefix}`);
 
         const sessions = (await session.run(RouterOs.LIST_BGP_SESSIONS, RouterOs.LIST_TIMEOUT_MS))
             .split(/\r?\n/)
@@ -834,13 +835,15 @@ export class RouterOs extends Platform {
             return (byAddress ?? byName)?.[0];
         };
 
-        const output = await session.run(RouterOs.listAdvertisements(originated), RouterOs.LIST_TIMEOUT_MS);
+        const prefixes = [...new Set(announcements.map(({ prefix }) => prefix))];
+        const output = await session.run(RouterOs.listAdvertisements(prefixes), RouterOs.LIST_TIMEOUT_MS);
         return output
             .split(/\r?\n/)
             .map((line) => line.trim().split("|"))
             .flatMap(([marker, peer, prefix]) => {
                 const neighbor = marker === "ADV" && peer ? neighborOf(peer) : undefined;
-                return neighbor && prefix ? [`${neighbor} ${prefix}`] : [];
+                const pair = neighbor && prefix ? `${neighbor} ${Address.canonical(prefix)}` : undefined;
+                return pair && wanted.includes(pair) ? [pair] : [];
             })
             .sort();
     }
@@ -851,7 +854,7 @@ export class RouterOs extends Platform {
         return `:foreach a in=[/routing bgp advertisements print as-value where ${where}] do={ :put ("ADV|" . ($a->"peer") . "|" . ($a->"dst")) }`;
     }
 
-    /** Wait until each session announces again what it announced before. When time runs out, each prefix a session no longer announces is a problem. */
+    /** Wait until each session announces again what it announced before. When time runs out, each prefix a session no longer announces is a problem. `before` holds only what the config still has it announce. */
     private static async announcedBack(
         device: Device,
         session: ReadSession,
@@ -870,13 +873,13 @@ export class RouterOs extends Platform {
 
         const gone = missing(after);
         if (!gone.length) {
-            console.log(`  BGP: every session announces what it announced before`);
+            console.log("  BGP: no session lost an announcement the config still makes");
             return [];
         }
 
         return gone.map((pair) => {
             const [neighbor, prefix] = pair.split(" ");
-            return `BGP session ${neighbor} announced ${prefix} before the apply and does not ${limits.seconds} s after it, though it may still be established. A RouterOS session announces from its routing table: that table needs a route for ${prefix}, and a session whose table changed must restart. Look with: circuit exec ${device.name} '/routing bgp advertisements print'`;
+            return `BGP session ${neighbor} announced ${prefix} before the apply and does not ${limits.seconds} s after it, though the config says it should. A RouterOS session announces from its routing table: that table needs a route for ${prefix}, and a session whose table changed must restart. Look with: circuit exec ${device.name} '/routing bgp advertisements print'`;
         });
     }
 
