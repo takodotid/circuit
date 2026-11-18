@@ -92,8 +92,7 @@ const verdict = computed(() => {
         </svg>
 
         <p class="setting">
-            Both devices use <strong class="ac-mono">{{ sizeText }}</strong
-            >.
+            Both devices use <strong class="ac-mono">{{ sizeText }}</strong>.
         </p>
 
         <div class="ac-row">

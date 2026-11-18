@@ -70,8 +70,7 @@ function toggleVlan(id: number): void {
                     <h3>Found by <code>circuit validate</code></h3>
                     <ul>
                         <li v-for="(finding, index) in nodeFindings" :key="index">
-                            <span :class="['badge', finding.level]">{{ finding.level }}</span
-                            >{{ finding.message }}
+                            <span :class="['badge', finding.level]">{{ finding.level }}</span>{{ finding.message }}
                         </li>
                     </ul>
                 </template>
@@ -154,8 +153,7 @@ function toggleVlan(id: number): void {
                             <span :class="['badge', finding.level]">{{ finding.level }}</span>
                             <template v-if="finding.device">
                                 <button type="button" class="link" @click="emit('select', { node: `device:${finding.device}` })">
-                                    {{ finding.device }}</button
-                                >:
+                                    {{ finding.device }}</button>:
                             </template>
                             {{ finding.message }}
                         </li>

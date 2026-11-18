@@ -916,8 +916,7 @@ watch(
                 </nav>
             </div>
             <p v-if="presenting && caption" class="present-caption">
-                <strong>{{ caption.title }}</strong
-                ><span>{{ caption.detail }}</span>
+                <strong>{{ caption.title }}</strong><span>{{ caption.detail }}</span>
             </p>
             <button v-if="presenting" class="present-exit" title="Press Esc" @click="togglePresenting">Stop presenting</button>
             <GraphPanel :data="data" :layer="layer" :shown="shown" :selected="selected" @select="select" />

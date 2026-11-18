@@ -198,8 +198,7 @@ function changed() {
         <div class="ends">
             <p><strong>Your router</strong><br />AS{{ OURS.as }}, {{ OURS.address }}</p>
             <p>
-                <strong>{{ THEIRS.name }}</strong
-                ><br />AS{{ THEIRS.as }}, {{ THEIRS.address }}
+                <strong>{{ THEIRS.name }}</strong><br />AS{{ THEIRS.as }}, {{ THEIRS.address }}
             </p>
         </div>
 

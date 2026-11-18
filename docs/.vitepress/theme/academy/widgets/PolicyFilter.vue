@@ -269,8 +269,7 @@ function verdictWord(route: Incoming, decision: Decision) {
                 <div v-if="current" class="card">
                     <p class="ac-mono prefix">{{ current.route.prefix }}</p>
                     <p class="quiet">
-                        AS path <span class="ac-mono">{{ current.route.path }}</span
-                        >, RPKI {{ current.route.rpki }}
+                        AS path <span class="ac-mono">{{ current.route.path }}</span>, RPKI {{ current.route.rpki }}
                     </p>
                     <p>{{ current.route.note }}</p>
                 </div>

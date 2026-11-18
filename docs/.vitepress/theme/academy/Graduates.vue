@@ -44,8 +44,8 @@ onMounted(() => {
                 {{ day(found.date) }}.
             </p>
             <p v-else-if="checked" class="ac-say bad" data-word="Not found">
-                No certificate has the ID <span class="ac-mono">{{ checked }}</span
-                >. Check it for typos. A certificate that is not listed here was not given by Circuit Academy.
+                No certificate has the ID <span class="ac-mono">{{ checked }}</span>. Check it for typos. A certificate that is not listed
+                here was not given by Circuit Academy.
             </p>
         </div>
 

@@ -153,15 +153,13 @@ const splitText = computed(() => {
                     <tr>
                         <th scope="row">First address</th>
                         <td>
-                            <span class="ac-mono">{{ Ipv4.format(network) }}</span
-                            >, the network address, for the network itself
+                            <span class="ac-mono">{{ Ipv4.format(network) }}</span>, the network address, for the network itself
                         </td>
                     </tr>
                     <tr>
                         <th scope="row">Last address</th>
                         <td>
-                            <span class="ac-mono">{{ Ipv4.format(broadcast) }}</span
-                            >, the broadcast address, for every device at once
+                            <span class="ac-mono">{{ Ipv4.format(broadcast) }}</span>, the broadcast address, for every device at once
                         </td>
                     </tr>
                     <tr class="lit">
