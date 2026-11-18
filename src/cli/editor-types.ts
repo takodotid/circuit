@@ -1,14 +1,15 @@
-// The files a project's editor reads, in `.circuit/types/`: Circuit's functions and types, so a project's files complete and check with nothing installed.
+// Circuit's functions and types for a project's editor, so a project's files complete and check with nothing installed.
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { EDITOR_FILES } from "./editor-types.generated";
 
 export class EditorTypes {
-    /** Where they go, in the project. */
     static readonly FOLDER = join(".circuit", "types");
 
-    /** The project's `tsconfig.json`: Circuit writes it when it starts a project. It reads Circuit's globals, and `circuit` for `import type` in `lib/`. */
+    private static readonly JSON_INDENT = 4;
+
+    /** The `tsconfig.json` Circuit writes in a new project. It reads Circuit's globals, and `circuit` for `import type` in `lib/`. */
     static readonly TSCONFIG = `${JSON.stringify(
         {
             compilerOptions: {
@@ -24,7 +25,7 @@ export class EditorTypes {
             include: ["**/*.ts", ".circuit/types/config/circuit.d.ts"],
         },
         null,
-        4
+        EditorTypes.JSON_INDENT
     )}\n`;
 
     /** A full install's `tsconfig.json`: the types come from the Circuit package in `node_modules`, so the project has no `.circuit/types`. */
@@ -44,7 +45,7 @@ export class EditorTypes {
             exclude: ["node_modules/@takodotid/circuit/src/cli", "node_modules/@takodotid/circuit/src/studio"],
         },
         null,
-        4
+        EditorTypes.JSON_INDENT
     )}\n`;
 
     /** Writes every file again, removing the old ones first. */
@@ -58,7 +59,7 @@ export class EditorTypes {
         }
     }
 
-    /** Whether the project's types are this Circuit's: every file as this Circuit writes it. No version is kept beside them: the project's version is `.circuit/version`, and the files themselves say whether they are current. */
+    /** Whether every file is as this Circuit writes it. No version is kept beside them, as the files themselves say whether they are current. */
     static current(root: string): boolean {
         const folder = join(root, EditorTypes.FOLDER);
         return Object.entries(EDITOR_FILES).every(([path, text]) => {

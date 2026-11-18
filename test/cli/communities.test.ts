@@ -1,5 +1,3 @@
-// `circuit communities` prints the scheme's catalogue in each published format: NLNOG's lines, Alice-LG's section, and the JSON of draft-ietf-grow-yang-bgp-communities.
-
 import { expect, test } from "bun:test";
 import { Communities } from "../../src/cli/communities";
 import { catalog } from "../../src/config/communities";

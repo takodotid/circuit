@@ -1,7 +1,6 @@
-// The flow every `circuit sync <target>` shares, on a fake target: nothing to change, the answer No, no person to answer without --confirm, a send that leaves nothing, and a send that leaves something.
-
 import { expect, test } from "bun:test";
-import { type SyncAnswers, SyncCommand } from "../../src/cli/sync";
+import { SyncCommand } from "../../src/cli/sync";
+import type { SyncAnswers } from "../../src/cli/sync";
 import type { SyncPlan, SyncTarget } from "../../src/integrations/sync";
 
 /** A target whose plans come one after another from `plans`, and which counts what it was sent. */

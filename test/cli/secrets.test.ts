@@ -1,5 +1,3 @@
-// A network's secrets file: each value encrypted with a key made from its password, read back with it, the password from the environment or a 1Password reference, and the commit hook that keeps plain text out of git.
-
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -26,7 +24,6 @@ afterEach(() => {
     if (root) rmSync(root, { recursive: true, force: true });
 });
 
-/** The file, opened with the test's password. */
 const opened = (name?: string) => {
     const file = SecretsFile.at(root, name);
     file.unlock(PASSWORD);

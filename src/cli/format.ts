@@ -1,4 +1,4 @@
-// `circuit fmt`: the project's files in its style. It is Prettier, carried inside Circuit, so nothing else is installed. The style is Prettier's own, set by `.editorconfig` (indent, line length, line ends), as VS Code's Prettier extension reads it, so saving in the editor and `circuit fmt` agree. A `.prettierrc.json`, when a project adds one, goes on top, for both. Both are looked up from each file's folder, as the editor does, so a project inside another project's folder takes the outer one's style.
+// `circuit fmt` is Prettier, carried inside Circuit. It reads `.editorconfig` as VS Code's Prettier extension does, so saving in the editor and `circuit fmt` agree.
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -10,7 +10,6 @@ import { format } from "prettier/standalone";
 import { Ui } from "./ui";
 
 export class Format {
-    /** What a new project's `.editorconfig` says: four spaces, lines up to 140, LF. */
     static readonly EDITORCONFIG =
         "root = true\n\n[*]\ncharset = utf-8\nend_of_line = lf\ninsert_final_newline = true\nindent_style = space\nindent_size = 4\nmax_line_length = 140\n";
 
@@ -48,7 +47,7 @@ export class Format {
     }
 
     /**
-     * The style of the files in `folder`: Prettier's own, then what `.editorconfig` sets, mapped as Prettier's `editorConfigToPrettier` maps it, then a `.prettierrc.json`. As in the editor, every `.editorconfig` from the folder up counts, the nearest winning, up to one that says `root = true`; the nearest `.prettierrc.json` counts.
+     * Prettier's own style, then what `.editorconfig` sets, mapped as Prettier's `editorConfigToPrettier` maps it, then a `.prettierrc.json`. As in the editor, every `.editorconfig` from `folder` up counts, the nearest winning, up to one that says `root = true`. Only the nearest `.prettierrc.json` counts.
      */
     static style(folder: string): Options {
         const style: Options = {};
@@ -108,13 +107,12 @@ export class Format {
         });
     }
 
-    /** A file's text in the style. */
     static async text(text: string, file: string, style: Options): Promise<string> {
         const parser = file.endsWith(".json") ? "json" : "typescript";
         return format(text, { ...style, parser, plugins: [estree, typescript, babel] });
     }
 
-    /** Format the files named, or every file of the project. With `check`, change nothing and exit 1 when a file is not in the style. */
+    /** With `check`, changes nothing and exits 1 when a file is not in the style. */
     static async run(root: string, named: readonly string[], check: boolean): Promise<void> {
         const styles = new Map<string, Options>();
         const styleOf = (path: string) => {

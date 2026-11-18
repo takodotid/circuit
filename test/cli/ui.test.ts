@@ -1,5 +1,3 @@
-// A table on the command line: every row as wide as the heading, numbers on the right, and the last column on more lines in a narrow terminal.
-
 import { afterEach, describe, expect, test } from "bun:test";
 import { Ui } from "../../src/cli/ui";
 

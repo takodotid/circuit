@@ -1,4 +1,4 @@
-// `circuit apply` ends on one line that says the device was applied, on a platform that checks the device after the change and on one that doesn't. The device is faked: its read finds nothing, and its apply sends nowhere.
+// The devices are faked: a read finds nothing, and an apply sends nowhere. The router's platform checks the device after the change, and the switch's doesn't.
 
 import { afterAll, beforeAll, expect, mock, spyOn, test } from "bun:test";
 import { cpSync, mkdtempSync, realpathSync, rmSync } from "node:fs";

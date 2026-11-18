@@ -1,23 +1,20 @@
-// Which Circuit is current, and getting it. The installed `circuit` is the manager: before every command but `uninstall`, it asks the npm registry, at most every 30 seconds, and updates itself to the newest release of its major version: `latest` on npm, or `rc` while it runs a release candidate. A project's own version changes only when the person picks one (`circuit update`). A version a security advisory affects (see `Advisories`) never runs. Every binary Circuit downloads is checked against its release's SHA256SUMS, signed with the release key (see `Signing`).
-
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 import { Installation } from "../core/installation";
-import { type Advisory, Advisories } from "./advisories";
+import { Advisories } from "./advisories";
+import type { Advisory } from "./advisories";
 import { Signing } from "./signing";
 import { Ui } from "./ui";
 import { VERSION } from "./version";
 
-/** One published version, and why it is deprecated, when it is. */
 export type Release = { version: string; deprecated?: string };
 
 /** What Circuit learns from the registry. */
 export type Latest = {
     /** The npm dist-tags, such as `{ latest: "1.0.0", rc: "1.1.0-rc.1", "latest-1.9": "1.9.5" }`. */
     tags: Record<string, string>;
-    /** Why this version is deprecated, when it is. */
     deprecated?: string;
 };
 
@@ -36,6 +33,17 @@ export class Releases {
     /** How many versions `circuit update` offers, newest first. */
     static readonly OFFERED = 5;
 
+    /** The list of every version is larger than the dist-tags, so it gets longer. */
+    private static readonly VERSIONS_TIMEOUT_MS = 9000;
+
+    private static readonly SECOND_MS = 1000;
+
+    /** Major, minor, and patch. */
+    private static readonly CORE_PARTS = 3;
+
+    /** A binary's mode on Linux and macOS. */
+    static readonly EXECUTABLE_MODE = 0o755;
+
     private static cachePath(): string {
         return join(Installation.home(), "latest.json");
     }
@@ -49,7 +57,7 @@ export class Releases {
         const left = parse(a);
         const right = parse(b);
 
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < Releases.CORE_PARTS; i++) {
             const difference = (left.core[i] ?? 0) - (right.core[i] ?? 0);
             if (difference) return difference;
         }
@@ -74,7 +82,7 @@ export class Releases {
         return Number(version.replace(/^v/, "").split(".")[0]);
     }
 
-    /** The version this Circuit should be at: the newest stable one of its major version, or the newest release candidate while it runs one. Undefined when the registry names none. */
+    /** The newest stable version of this major version, or the newest release candidate while it runs one. Undefined when the registry names none. */
     static target(latest: Latest, current = VERSION): string | undefined {
         const candidates = [latest.tags.latest, current.includes("-") ? latest.tags.rc : undefined].filter(
             (version): version is string => version !== undefined && Releases.major(version) === Releases.major(current)
@@ -83,7 +91,6 @@ export class Releases {
         return candidates.sort((a, b) => Releases.compare(b, a))[0];
     }
 
-    /** A newer major version than this one, when the registry's stable release is one. */
     static newerMajor(latest: Latest, current = VERSION): string | undefined {
         const stable = latest.tags.latest;
         return stable && Releases.major(stable) > Releases.major(current) ? stable : undefined;
@@ -104,10 +111,10 @@ export class Releases {
         return (await response.json()) as Record<string, unknown>;
     }
 
-    /** The registry's dist-tags, and whether this version is deprecated, from the cache when read in the last 30 seconds. `offline` when the registry could not be read, with the last answer, if any. */
+    /** From the cache when read in the last `FRESH_SECONDS`. `offline` when the registry could not be read, with the last answer, if any. */
     static async latest(fresh = false): Promise<{ latest?: Latest; offline: boolean }> {
         const cached = Releases.readCache();
-        if (!fresh && cached && Date.now() - cached.checked < Releases.FRESH_SECONDS * 1000)
+        if (!fresh && cached && Date.now() - cached.checked < Releases.FRESH_SECONDS * Releases.SECOND_MS)
             return { latest: cached.latest, offline: false };
 
         try {
@@ -131,18 +138,16 @@ export class Releases {
         }
     }
 
-    /** The security advisories, from the cache when read in the last two minutes. */
     static advisories(fresh = false): Promise<{ advisories: Advisory[]; offline: boolean }> {
         return Advisories.read(Installation.home(), fresh);
     }
 
-    /** The advisories that affect `version`. */
     static affecting(advisories: readonly Advisory[], version: string): Advisory[] {
         return Advisories.affecting(advisories, version, Releases.compare);
     }
 
     /**
-     * Before every command but `uninstall`: the manager updates itself to the newest release of its major and runs the command again as that version; it warns when it could not check, and when this version is deprecated. Run from the sources, or as a version a manager started, it only checks.
+     * Before every command but `uninstall`, the manager updates itself to the newest release of its major version. Then it runs the command again as that version. A project's own version changes only with `circuit update`. Run from the sources, or started by a manager, it only checks.
      */
     static async check(argv: readonly string[]): Promise<void> {
         const [{ latest, offline }, advisories] = await Ui.wait("Checking for a newer Circuit", () =>
@@ -176,7 +181,6 @@ export class Releases {
         }
         Ui.done(`Updated Circuit to ${target}. Projects keep the version they pin.`);
 
-        // The command runs on as the new version.
         const result = spawnSync(binary, argv, { stdio: "inherit", env: { ...process.env, [Releases.UPDATED]: "1" } });
         if (result.error) Ui.fail(`Circuit ${target} could not start: ${result.error.message}`);
         process.exit(result.status ?? 1);
@@ -205,7 +209,7 @@ export class Releases {
         }
     }
 
-    /** The file of a release's SHA256SUMS that uses `asset`, when the signature is the release key's. Throws otherwise. */
+    /** `asset`'s hash in a release's SHA256SUMS. Throws when a release key didn't sign SHA256SUMS, or it has no line for `asset`. */
     static expectedHash(sums: Buffer, signature: string, asset: string, keys: readonly string[] = Signing.KEYS): string {
         if (!Signing.verify(sums, signature, keys))
             throw new Error("the release's SHA256SUMS is not signed with Circuit's release key, so nothing was installed");
@@ -219,7 +223,7 @@ export class Releases {
         return expected;
     }
 
-    /** One release's binary for this system, checked against the release's SHA256SUMS and its signature. */
+    /** Checked against the release's SHA256SUMS and its signature. */
     static async fetchBinary(version: string): Promise<Buffer> {
         const asset = Releases.asset() ?? Ui.fail(`Circuit is not built for ${process.platform} ${process.arch}.`);
         const download = async (file: string) => {
@@ -236,12 +240,12 @@ export class Releases {
         return file;
     }
 
-    /** Every published version, and which are deprecated. A stop when the registry can't be read. */
+    /** Every published version, and which are deprecated. Stops when the registry can't be read. */
     static async all(): Promise<Release[]> {
         try {
             const packument = await Ui.step("Checking for a newer Circuit", async () => {
                 const response = await fetch(`${Releases.REGISTRY}/${Releases.PACKAGE}`, {
-                    signal: AbortSignal.timeout(Releases.TIMEOUT_MS * 3),
+                    signal: AbortSignal.timeout(Releases.VERSIONS_TIMEOUT_MS),
                     // The short form npm itself installs from: each version and whether it is deprecated.
                     headers: { accept: "application/vnd.npm.install-v1+json" },
                 });
@@ -283,7 +287,7 @@ export class Releases {
     }
 
     /**
-     * Which version `what` moves to: the person picks from the newest few, the newest at the top, or stays, unless an advisory affects the version it runs: then it must move. With `confirmed`, the newest. Undefined when it stays.
+     * The version `what` moves to, picked by the person from the newest few. They may stay, unless an advisory affects the version it runs. With `confirmed`, the newest. Undefined when it stays.
      */
     static async pick(current: string, confirmed: boolean, what: string): Promise<string | undefined> {
         const [releases, { advisories }] = await Promise.all([Releases.all(), Releases.advisories(true)]);
@@ -337,13 +341,13 @@ export class Releases {
         return target;
     }
 
-    /** Put `bytes` in place of the running binary. Windows does not let a running program be overwritten, but lets it be renamed, so the old one is moved aside and removed on the next run. */
+    /** Windows does not let a running program be overwritten, but lets it be renamed. So the old binary is moved aside and removed on the next run. */
     static replace(binary: string, bytes: Buffer): void {
         const next = `${binary}.new`;
         writeFileSync(next, bytes);
 
         if (process.platform === "win32") {
-            // An old one still running elsewhere can't be removed: the new one goes in beside it, under another name.
+            // An older one still running elsewhere can't be removed, so it moves aside under another name.
             try {
                 rmSync(`${binary}.old`, { force: true });
             } catch {}
@@ -353,7 +357,7 @@ export class Releases {
             return;
         }
 
-        chmodSync(next, 0o755);
+        chmodSync(next, Releases.EXECUTABLE_MODE);
         renameSync(next, binary);
     }
 }

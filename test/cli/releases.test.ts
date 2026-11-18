@@ -1,13 +1,13 @@
-// Which Circuit is current: versions compared as semver orders them, the version to update to, the release file for each system, and `circuit --version`.
-
 import { expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type Advisory, Advisories } from "../../src/cli/advisories";
-import { type Release, Releases } from "../../src/cli/releases";
+import { Advisories } from "../../src/cli/advisories";
+import type { Advisory } from "../../src/cli/advisories";
+import { Releases } from "../../src/cli/releases";
+import type { Release } from "../../src/cli/releases";
 import { Signing } from "../../src/cli/signing";
 import { VERSION } from "../../src/cli/version";
 

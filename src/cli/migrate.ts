@@ -1,4 +1,4 @@
-// `circuit migrate`: a Circuit 0.x project written again as a v1 project. 0.x's `circuit.config.ts` is plain data made by functions that only return what they are given (`defineNetwork`, `defineDevice`), so Circuit imports it as it is, with the 0.x package the project installed, and writes each device in v1's groups and names. What v1 cannot take is listed in MIGRATION.md, for a person to do.
+// 0.x's `circuit.config.ts` is plain data, as `defineNetwork` and `defineDevice` only return what they are given. So Circuit imports it with the project's own 0.x package. What v1 cannot take goes in MIGRATION.md.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
@@ -10,12 +10,12 @@ import { SecretsFile } from "../core/secrets-file";
 import { SecretsPassword } from "./secrets-password";
 import { ProjectError, Project } from "../project";
 import { EditorTypes } from "./editor-types";
-import { GITIGNORE, Setup } from "./setup";
+import { Setup } from "./setup";
 import { Ui } from "./ui";
 
 type Json = any;
 
-/** What 0.x's `defineNetwork` holds, as far as a migration reads it. */
+/** The part of 0.x's `defineNetwork` that a migration reads. */
 type V0Network = {
     devices: readonly Json[];
     checks?: readonly unknown[];
@@ -27,99 +27,16 @@ type V0Network = {
     netbox?: { url: string; api_token: Json; device?: (device: Json) => { role?: string; device_type?: string } };
 };
 
-/** A project written in v1: its network, its devices by site, its certificate files, and what a person has to do. */
 export type Migrated = {
     /** The network's name in `circuit.ts`, such as `as64500`. */
     name: string;
     settings: Json;
     devices: { site: string; device: Json }[];
-    /** Certificate files, by path from the project. */
+    /** Certificate text, by path in the project. */
     files: Record<string, string>;
-    /** What did not move, by device; the network's under "". */
+    /** What did not move, by device. The network's notes are under "". */
     notes: Record<string, string[]>;
 };
-
-/** Drops each key whose value is undefined, and the map itself when nothing is left. */
-function clean(map: Json): Json {
-    if (!map || typeof map !== "object" || Array.isArray(map)) return map;
-    const kept = Object.fromEntries(Object.entries(map).filter(([, v]) => v !== undefined));
-    return Object.keys(kept).length ? kept : undefined;
-}
-
-/** A map with each value changed by `change`. */
-const each = (map: Json, change: (v: Json, k: string) => Json) =>
-    map && Object.fromEntries(Object.entries<Json>(map).map(([k, v]) => [k, change(v, k)]));
-
-/** A filter or NAT rule's match. */
-const filterMatch = (m: Json) =>
-    m &&
-    clean({
-        ...m,
-        src_set: undefined,
-        dst_set: undefined,
-        state: undefined,
-        src_address_set: m.src_set,
-        dst_address_set: m.dst_set,
-        connection_state: m.state,
-    });
-
-const filterRule = ({ match, action, offload, ...rest }: Json) =>
-    clean({ ...rest, if: filterMatch(match), then: action, fast_path: offload });
-
-const natRule = ({ match, action, to, ...rest }: Json) => clean({ ...rest, if: filterMatch(match), then: action, to_address: to });
-
-const aclRule = ({ match, action, ...rest }: Json) => clean({ ...rest, if: match, then: action });
-
-function policyRule(rule: Json): Json {
-    // A v1 call rule holds nothing but `call`: 0.x's description on one has no place.
-    if (rule.call !== undefined) return { call: rule.call };
-    const { match, set, action, ...rest } = rule;
-    const m =
-        match &&
-        clean({
-            ...match,
-            through_as: undefined,
-            community: undefined,
-            as_path_contains: match.through_as,
-            standard_community: match.community,
-        });
-    const s =
-        set &&
-        clean({
-            ...set,
-            communities: undefined,
-            add_communities: undefined,
-            remove_communities: undefined,
-            standard_communities: set.communities,
-            add_standard_communities: set.add_communities,
-            remove_standard_communities: set.remove_communities,
-        });
-    return clean({ ...rest, if: m, set: s, then: action });
-}
-
-const staticRoute = ({ via, table, ...rest }: Json) => clean({ ...rest, next_hop: via, routing_table: table });
-
-const neighbor = ({ import: imp, export: exp, families, table, group, ...rest }: Json) =>
-    clean({ ...rest, import_policy: imp, export_policy: exp, address_families: families, routing_table: table, neighbor_group: group });
-
-const addresses = (list: Json) => list?.map((a: Json) => (typeof a === "string" ? a : clean({ address: a.address, peer_address: a.peer })));
-
-/** A port or an interface, in v1's names. */
-function routed(x: Json): Json {
-    const { lag, acl, local, remote, members, addresses: list, ...rest } = x;
-    // A port with no settings stays: it is on, where a port left out is shut down.
-    return (
-        clean({
-            ...rest,
-            addresses: addresses(list),
-            in_lag: lag,
-            ingress_acl: acl,
-            local_address: local,
-            remote_address: remote,
-            member_interfaces: members,
-        }) ?? {}
-    );
-}
 
 export class Migrate {
     /** 0.x's built-in checks, by their name in v1's `checks`. */
@@ -133,9 +50,10 @@ export class Migrate {
     /** The site a device is at when 0.x's network names none. */
     static readonly DEFAULT_SITE = "site-1";
 
-    /**
-     * A device written for Circuit 0.x, as the v1 model has it: the same values, in v1's groups and field names, every rule as `{ if, then }`. `certificate` gives the path a certificate's text is kept at.
-     */
+    /** The longest value `print` writes on one line, in characters. */
+    private static readonly LINE_LENGTH = 100;
+
+    /** A 0.x device in v1's groups and field names, every rule as `{ if, then }`. `certificate` gives the path where a certificate's text is kept. */
     static device(d: Json, site: string, certificate: (name: string, pem: string) => string): Json {
         const {
             name,
@@ -171,17 +89,20 @@ export class Migrate {
 
         const byType: Json = {};
         for (const [key, { type, ...rest }] of Object.entries<Json>(interfaces ?? {}))
-            (byType[type === "vlan" ? "vlan_interface" : type] ??= {})[key] = routed(rest);
+            (byType[type === "vlan" ? "vlan_interface" : type] ??= {})[key] = Migrate.routed(rest);
 
         const { static: statics, rules, bgp, ospf, ...routingRest } = routing;
 
-        return clean({
+        return Migrate.clean({
             name,
             site,
             platform,
             model,
-            connection: clean({ ...conn, console: con && clean({ ...con, passwordOnly: undefined, password_only: con.passwordOnly }) }),
-            system: clean({
+            connection: Migrate.clean({
+                ...conn,
+                console: con && Migrate.clean({ ...con, passwordOnly: undefined, password_only: con.passwordOnly }),
+            }),
+            system: Migrate.clean({
                 ...systemRest,
                 ip_stack: ip,
                 dns: dns?.servers && { servers: dns.servers },
@@ -190,48 +111,157 @@ export class Migrate {
                 alarms,
                 hardware_offload,
                 users,
-                certificates: each(certs, (c, k) => clean({ certificate_file: certificate(k, c.certificate), private_key: c.private_key })),
-                vdoms: each(vdoms, ({ static: s, ...v }) => clean({ ...v, static_routes: s?.map(staticRoute) })),
+                certificates: Migrate.mapValues(certs, (c, k) =>
+                    Migrate.clean({ certificate_file: certificate(k, c.certificate), private_key: c.private_key })
+                ),
+                vdoms: Migrate.mapValues(vdoms, ({ static: s, ...v }) =>
+                    Migrate.clean({ ...v, static_routes: s?.map(Migrate.staticRoute) })
+                ),
             }),
-            management: clean({ ...managementRest, native_protocol: native }),
-            monitoring: clean({ snmp, syslog: logging?.remote, flow_export, transceivers: transceiver_monitoring }),
-            interfaces: clean({ ethernet: each(ports, routed), ...byType }),
-            switching: clean({ vlans, stp, lldp, acls: each(acls, (rules) => rules.map(aclRule)) }),
-            services: clean({ dhcp_server: dhcp, dhcp_relay, dns_server: dns?.serve, ntp_server: ntp?.serve }),
-            routing: clean({
+            management: Migrate.clean({ ...managementRest, native_protocol: native }),
+            monitoring: Migrate.clean({ snmp, syslog: logging?.remote, flow_export, transceivers: transceiver_monitoring }),
+            interfaces: Migrate.clean({ ethernet: Migrate.mapValues(ports, Migrate.routed), ...byType }),
+            switching: Migrate.clean({ vlans, stp, lldp, acls: Migrate.mapValues(acls, (rules) => rules.map(Migrate.aclRule)) }),
+            services: Migrate.clean({ dhcp_server: dhcp, dhcp_relay, dns_server: dns?.serve, ntp_server: ntp?.serve }),
+            routing: Migrate.clean({
                 ...routingRest,
                 vrfs,
-                static_routes: statics?.map(staticRoute),
-                policy_routing: rules?.map(({ table, ...r }: Json) => clean({ ...r, routing_table: table })),
-                ospf: ospf && clean({ ...ospf, families: undefined, address_families: ospf.families }),
+                static_routes: statics?.map(Migrate.staticRoute),
+                policy_routing: rules?.map(({ table, ...r }: Json) => Migrate.clean({ ...r, routing_table: table })),
+                ospf: ospf && Migrate.clean({ ...ospf, families: undefined, address_families: ospf.families }),
                 bgp:
                     bgp &&
-                    clean({
+                    Migrate.clean({
                         asn: bgp.asn,
                         originated_prefixes: bgp.networks,
-                        neighbor_groups: each(bgp.groups, neighbor),
-                        neighbors: each(bgp.neighbors, neighbor),
+                        neighbor_groups: Migrate.mapValues(bgp.groups, Migrate.neighbor),
+                        neighbors: Migrate.mapValues(bgp.neighbors, Migrate.neighbor),
                     }),
-                policies: each(policies, (rules) => rules.map(policyRule)),
+                policies: Migrate.mapValues(policies, (rules) => rules.map(Migrate.policyRule)),
                 prefix_sets,
             }),
             firewall:
                 firewall &&
-                clean({
+                Migrate.clean({
                     address_sets: firewall.address_sets,
-                    filter: each(firewall.filter, ({ default: def, rules: r }) =>
-                        clean({ default_action: def, rules: r?.map(filterRule) })
+                    filter: Migrate.mapValues(firewall.filter, ({ default: def, rules: r }) =>
+                        Migrate.clean({ default_action: def, rules: r?.map(Migrate.filterRule) })
                     ),
                     nat:
                         firewall.nat &&
-                        clean({ source: firewall.nat.source?.map(natRule), destination: firewall.nat.destination?.map(natRule) }),
+                        Migrate.clean({
+                            source: firewall.nat.source?.map(Migrate.natRule),
+                            destination: firewall.nat.destination?.map(Migrate.natRule),
+                        }),
                     conntrack_helpers: firewall.helpers,
                     untracked: firewall.untracked,
                 }),
         });
     }
 
-    /** What a person has to do for one 0.x device that the migration cannot: values that have no place in v1. */
+    /** Drops each key whose value is undefined, and the map itself when nothing is left. */
+    private static clean(map: Json): Json {
+        if (!map || typeof map !== "object" || Array.isArray(map)) return map;
+        const kept = Object.fromEntries(Object.entries(map).filter(([, v]) => v !== undefined));
+        return Object.keys(kept).length ? kept : undefined;
+    }
+
+    private static mapValues(map: Json, change: (v: Json, k: string) => Json): Json {
+        return map && Object.fromEntries(Object.entries<Json>(map).map(([k, v]) => [k, change(v, k)]));
+    }
+
+    /** A filter or NAT rule's match. */
+    private static filterMatch(m: Json): Json {
+        return (
+            m &&
+            Migrate.clean({
+                ...m,
+                src_set: undefined,
+                dst_set: undefined,
+                state: undefined,
+                src_address_set: m.src_set,
+                dst_address_set: m.dst_set,
+                connection_state: m.state,
+            })
+        );
+    }
+
+    private static filterRule({ match, action, offload, ...rest }: Json): Json {
+        return Migrate.clean({ ...rest, if: Migrate.filterMatch(match), then: action, fast_path: offload });
+    }
+
+    private static natRule({ match, action, to, ...rest }: Json): Json {
+        return Migrate.clean({ ...rest, if: Migrate.filterMatch(match), then: action, to_address: to });
+    }
+
+    private static aclRule({ match, action, ...rest }: Json): Json {
+        return Migrate.clean({ ...rest, if: match, then: action });
+    }
+
+    private static policyRule(rule: Json): Json {
+        // A v1 call rule holds nothing but `call`: 0.x's description on one has no place.
+        if (rule.call !== undefined) return { call: rule.call };
+        const { match, set, action, ...rest } = rule;
+        const m =
+            match &&
+            Migrate.clean({
+                ...match,
+                through_as: undefined,
+                community: undefined,
+                as_path_contains: match.through_as,
+                standard_community: match.community,
+            });
+        const s =
+            set &&
+            Migrate.clean({
+                ...set,
+                communities: undefined,
+                add_communities: undefined,
+                remove_communities: undefined,
+                standard_communities: set.communities,
+                add_standard_communities: set.add_communities,
+                remove_standard_communities: set.remove_communities,
+            });
+        return Migrate.clean({ ...rest, if: m, set: s, then: action });
+    }
+
+    private static staticRoute({ via, table, ...rest }: Json): Json {
+        return Migrate.clean({ ...rest, next_hop: via, routing_table: table });
+    }
+
+    private static neighbor({ import: imp, export: exp, families, table, group, ...rest }: Json): Json {
+        return Migrate.clean({
+            ...rest,
+            import_policy: imp,
+            export_policy: exp,
+            address_families: families,
+            routing_table: table,
+            neighbor_group: group,
+        });
+    }
+
+    private static addresses(list: Json): Json {
+        return list?.map((a: Json) => (typeof a === "string" ? a : Migrate.clean({ address: a.address, peer_address: a.peer })));
+    }
+
+    /** A port or an interface, in v1's names. */
+    private static routed(x: Json): Json {
+        const { lag, acl, local, remote, members, addresses: list, ...rest } = x;
+        // A port with no settings stays: it is on, where a port left out is shut down.
+        return (
+            Migrate.clean({
+                ...rest,
+                addresses: Migrate.addresses(list),
+                in_lag: lag,
+                ingress_acl: acl,
+                local_address: local,
+                remote_address: remote,
+                member_interfaces: members,
+            }) ?? {}
+        );
+    }
+
+    /** Values of a 0.x device that have no place in v1, for a person to handle. */
     private static deviceNotes(d: Json): string[] {
         const notes: string[] = [];
 
@@ -246,7 +276,7 @@ export class Migrate {
         return notes;
     }
 
-    /** Import 0.x's `circuit.config.ts`, with the 0.x package the project installed. Its default export is the network. */
+    /** Imports 0.x's `circuit.config.ts` with the project's own 0.x package. */
     static async load(folder: string, config: string): Promise<{ network: V0Network; checks: Record<string, unknown> }> {
         const path = resolve(folder, config);
         if (!existsSync(path)) Ui.fail(`No ${config} in ${folder}. Give the 0.x project's folder, or its config file with --config.`);
@@ -269,7 +299,7 @@ export class Migrate {
         if (!network || !Array.isArray(network.devices))
             Ui.fail(`${config} does not export a network: export default defineNetwork({ devices: [...] }).`);
 
-        // 0.x's own checks, the same functions the config placed in `checks`, so they can be told apart from a project's.
+        // 0.x's built-in checks, the same functions the config put in `checks`, so a project's own can be told apart.
         let checks: Record<string, unknown> = {};
         try {
             const helpers = join(dirname(installed), "src", "helpers", "index.ts");
@@ -281,7 +311,6 @@ export class Migrate {
         return { network, checks };
     }
 
-    /** The network and its devices in v1, and what did not move. */
     static convert(network: V0Network, v0Checks: Record<string, unknown> = {}): Migrated {
         const notes: Record<string, string[]> = { "": [] };
         const files: Record<string, string> = {};
@@ -333,17 +362,17 @@ export class Migrate {
                 "NetBox: each device's `role` came from `netbox.device`. A `device_type` other than the model has no place in v1."
             );
 
-        const integrations = clean({
+        const integrations = Migrate.clean({
             peeringdb: network.peeringdb && { api_key: network.peeringdb.api_key },
             librenms: network.librenms && { url: network.librenms.url, api_token: network.librenms.api_token },
             netbox: network.netbox && { url: network.netbox.url, api_token: network.netbox.api_token },
         });
 
         const sites = Object.fromEntries([...new Set(devices.map((entry) => entry.site))].sort().map((site) => [site, {}]));
-        const settings = clean({
+        const settings = Migrate.clean({
             asn: network.asn,
             sites,
-            checks: clean(checks),
+            checks: Migrate.clean(checks),
             integrations,
         });
 
@@ -370,8 +399,7 @@ export class Migrate {
                   .map(([key, item]) => `${Migrate.key(key)}: ${Migrate.print(item, inner)}`)
                   .join(", ")} }`;
 
-        // One line when it is short and holds nothing nested over lines.
-        if (!flat.includes("\n") && flat.length + indent.length <= 100) return flat;
+        if (!flat.includes("\n") && flat.length + indent.length <= Migrate.LINE_LENGTH) return flat;
 
         const lines = Array.isArray(value)
             ? value.map((item) => `${inner}${Migrate.print(item, inner)},`)
@@ -384,7 +412,7 @@ export class Migrate {
         return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : JSON.stringify(key);
     }
 
-    /** Write the project into `out`, which must be empty or not there yet. 0.x's `.env` goes into `.circuit/secrets`, encrypted, only when a password is given. */
+    /** `out` must be empty or missing. 0.x's `.env` is copied into `.circuit/secrets`, encrypted, only when a password is given. */
     static write(out: string, migrated: Migrated, from: { root: string; password?: string }): void {
         if (existsSync(out) && readdirSync(out).length) Ui.fail(`${out} already holds files. Give an empty folder with --out.`);
 
@@ -417,7 +445,7 @@ export class Migrate {
             join(out, "tenants", "README.md"),
             "What tenants share with your devices, one file each, merged in `tenants/index.ts`.\n"
         );
-        writeFileSync(join(out, ".gitignore"), GITIGNORE);
+        writeFileSync(join(out, ".gitignore"), Setup.GITIGNORE);
         writeFileSync(join(out, "tsconfig.json"), EditorTypes.TSCONFIG);
         EditorTypes.write(out);
         Setup.writeNotice(out);
@@ -425,7 +453,7 @@ export class Migrate {
         Migrate.writeSecrets(out, from);
     }
 
-    /** 0.x's `.env` values in `.circuit/secrets`, each encrypted with `password`. A value 0.x had encrypted itself is left out, to set again. No value is ever printed. */
+    /** A value 0.x encrypted itself is left out, to set again. No value is ever printed. */
     private static writeSecrets(out: string, from: { root: string; password?: string }): void {
         const source = join(from.root, ".env");
         if (from.password === undefined || !existsSync(source)) return;
@@ -442,7 +470,7 @@ export class Migrate {
             Ui.warn(`${skipped.join(", ")}: encrypted in 0.x's .env, so not copied. Set each with circuit secrets set NAME.`);
     }
 
-    /** Files a `secretFile()` names, which a migration does not copy: they stay out of git, by hand. */
+    /** The files `secretFile()` uses. A migration doesn't copy them, as they stay out of git. */
     private static secretFiles(value: Json, found = new Set<string>()): Set<string> {
         if (value && typeof value === "object") {
             if (typeof value.secret_file === "string") found.add(value.secret_file);
@@ -451,7 +479,7 @@ export class Migrate {
         return found;
     }
 
-    /** MIGRATION.md: what a person still has to do, the network's first, then each device's, then what Circuit v1 finds in the project. */
+    /** MIGRATION.md: the network's notes, then each device's, then what Circuit v1 finds in the project. */
     static report(migrated: Migrated, found: string[]): string {
         const lines = [
             "# Moved from Circuit 0.x",
@@ -487,7 +515,7 @@ export class Migrate {
         return `${lines.join("\n")}\n`;
     }
 
-    /** What Circuit v1 finds in the project just written: errors reading it, then each error and warning of the model's checks. */
+    /** Errors reading the new project, then each error and warning of its checks. */
     static async findings(out: string): Promise<string[]> {
         try {
             const read = await Project.read(out);
@@ -505,7 +533,6 @@ export class Migrate {
         }
     }
 
-    /** The whole of `circuit migrate`: read 0.x, write v1, and say what is left. */
     static async run(folder: string, options: { out?: string; config: string; yes: boolean }): Promise<void> {
         const root = resolve(process.cwd(), folder);
         const out = resolve(process.cwd(), options.out ?? `${root}-v1`);

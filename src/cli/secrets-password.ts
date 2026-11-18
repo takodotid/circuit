@@ -1,15 +1,15 @@
-// Getting a secrets file's password: from the environment or 1Password without asking, or typed by the person. A new password is chosen, or made by Circuit.
-
 import { SecretsFile } from "../core/secrets-file";
 import { Remember } from "./remember";
 import { Ui } from "./ui";
 
-/** Getting a secrets file's password from the person, when the environment and 1Password don't give it. */
+/** A secrets file's password from the person, when the environment and 1Password don't give it. */
 export class SecretsPassword {
     /** The shortest password a person may choose. */
     private static readonly SHORTEST = 12;
 
-    /** Open a locked file: the person types its password, with three tries. Nothing to do when `file` is undefined or already open. */
+    private static readonly TRIES = 3;
+
+    /** Nothing to do when `file` is undefined or already open. */
     static async unlock(file: SecretsFile | undefined): Promise<void> {
         if (!file || file.unlocked() || file.tryUnlock()) return;
         if (!Ui.interactive)
@@ -17,7 +17,7 @@ export class SecretsPassword {
                 `${file.name} is encrypted, and no password was given. Give it in ${SecretsFile.PASSWORD}, or keep it in 1Password and write ${SecretsFile.PASSWORD}="op://vault/item/field" in ${file.name}.`
             );
 
-        for (let tries = 3; tries > 0; tries--) {
+        for (let tries = SecretsPassword.TRIES; tries > 0; tries--) {
             const typed = await Ui.secret(`Password of ${file.name}`);
             try {
                 file.unlock(typed);

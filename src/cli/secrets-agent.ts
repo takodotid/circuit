@@ -1,4 +1,4 @@
-// The small process that remembers secrets between commands, only when the person opts in: values read from 1Password and passwords typed for a secrets file, kept for 10 minutes, 30 minutes or 24 hours, so the next commands don't ask again. Circuit asks after a command read them. A small Circuit process keeps them in its memory, never in a file, and stops when the time is up, when the computer restarts, or with `circuit secrets forget`. It is like ssh-agent: it answers only a program that shows the token in `~/.circuit/secrets-agent.json`, a file only its owner can read.
+// Like ssh-agent, a small process keeps the secrets a person chose to remember in memory, never in a file. It answers only a program that shows the token in `~/.circuit/secrets-agent.json`, which only its owner can read. It stops when the time is up, when the computer restarts, or with `circuit secrets forget`.
 
 import { spawn } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
@@ -15,14 +15,30 @@ export type Answer = { ok: true; until: number } & Partial<Held>;
 /** Where the process listens, the token it asks for, and when it stops. */
 export type Info = { endpoint: string; token: string; until: number };
 
-/** The small process that keeps remembered secrets in memory, and how a command talks to it. */
 export class SecretsAgent {
     /** The hidden command that starts the process. */
     static readonly COMMAND = "__secrets-agent";
-    /** The longest Circuit remembers, in minutes: 24 hours. */
-    static readonly LONGEST = 24 * 60;
-    /** The largest request the process reads, so a stray program can't fill its memory. */
-    private static readonly LARGEST = 1024 * 1024;
+
+    /** The longest Circuit remembers: 24 hours. */
+    static readonly LONGEST_MINUTES = 1440;
+
+    /** The largest request the process reads, 1 MiB, so a stray program can't fill its memory. */
+    private static readonly LARGEST_BYTES = 1_048_576;
+
+    private static readonly MINUTE_MS = 60_000;
+
+    /** The info file and the socket: only their owner can read them. */
+    private static readonly OWNER_ONLY_MODE = 0o600;
+
+    private static readonly ANSWER_TIMEOUT_MS = 2000;
+
+    /** How often, and how many times, `start` asks the new process whether it is up. */
+    private static readonly START_POLL_MS = 100;
+    private static readonly START_TRIES = 50;
+
+    private static readonly ID_BYTES = 8;
+    private static readonly TOKEN_BYTES = 32;
+
     /** What the process keeps of the environment it starts with: enough to run, and no secret given in a variable. */
     private static readonly ENVIRONMENT = [
         "PATH",
@@ -50,7 +66,7 @@ export class SecretsAgent {
         }
     }
 
-    /** Ask the running process. Undefined when none is running, or it does not answer within two seconds. */
+    /** Undefined when no process runs, or it does not answer in time. */
     static ask(request: Request): Promise<Answer | undefined> {
         const info = SecretsAgent.info();
         if (!info) return Promise.resolve(undefined);
@@ -63,13 +79,13 @@ export class SecretsAgent {
                 socket.destroy();
                 done(value);
             };
-            const timer = setTimeout(() => finish(), 2000);
+            const timer = setTimeout(() => finish(), SecretsAgent.ANSWER_TIMEOUT_MS);
 
             socket.on("connect", () => socket.write(`${JSON.stringify({ ...request, token: info.token })}\n`));
             socket.on("data", (chunk) => {
                 answer += chunk.toString("utf8");
                 const end = answer.indexOf("\n");
-                if (end < 0) return;
+                if (end === -1) return;
                 try {
                     const parsed = JSON.parse(answer.slice(0, end)) as Answer;
                     finish(parsed.ok ? parsed : undefined);
@@ -87,10 +103,10 @@ export class SecretsAgent {
         const home = Installation.home();
         mkdirSync(home, { recursive: true });
 
-        const id = randomBytes(8).toString("hex");
+        const id = randomBytes(SecretsAgent.ID_BYTES).toString("hex");
         const config = {
             endpoint: process.platform === "win32" ? `\\\\.\\pipe\\circuit-secrets-${id}` : join(home, `secrets-${id}.sock`),
-            token: randomBytes(32).toString("base64url"),
+            token: randomBytes(SecretsAgent.TOKEN_BYTES).toString("base64url"),
             until: SecretsAgent.limit(until),
         };
 
@@ -109,16 +125,16 @@ export class SecretsAgent {
         child.stdin!.end(JSON.stringify(config));
         child.unref();
 
-        for (let tries = 0; tries < 50; tries++) {
-            await new Promise((wait) => setTimeout(wait, 100));
+        for (let tries = 0; tries < SecretsAgent.START_TRIES; tries++) {
+            await new Promise((wait) => setTimeout(wait, SecretsAgent.START_POLL_MS));
             if (await SecretsAgent.ask({ op: "get" })) return true;
         }
         return false;
     }
 
-    /** No later than LONGEST minutes from now. */
+    /** No later than `LONGEST_MINUTES` from now. */
     private static limit(until: number): number {
-        return Math.min(until, Date.now() + SecretsAgent.LONGEST * 60_000);
+        return Math.min(until, Date.now() + SecretsAgent.LONGEST_MINUTES * SecretsAgent.MINUTE_MS);
     }
 
     private static same(given: unknown, token: string): boolean {
@@ -139,7 +155,9 @@ export class SecretsAgent {
         let timer: ReturnType<typeof setTimeout> | undefined;
 
         const write = () =>
-            writeFileSync(SecretsAgent.infoPath(), JSON.stringify({ endpoint, token, until: deadline } satisfies Info), { mode: 0o600 });
+            writeFileSync(SecretsAgent.infoPath(), JSON.stringify({ endpoint, token, until: deadline } satisfies Info), {
+                mode: SecretsAgent.OWNER_ONLY_MODE,
+            });
         // Remove the file only while it is still this process's, not a newer one's.
         const unlist = () => {
             try {
@@ -162,10 +180,10 @@ export class SecretsAgent {
             socket.on("error", () => socket.destroy());
             socket.on("data", (chunk) => {
                 request += chunk.toString("utf8");
-                if (request.length > SecretsAgent.LARGEST) return socket.destroy();
+                if (request.length > SecretsAgent.LARGEST_BYTES) return socket.destroy();
 
                 const end = request.indexOf("\n");
-                if (end < 0) return;
+                if (end === -1) return;
 
                 let asked: Request & { token?: unknown };
                 try {
@@ -195,7 +213,7 @@ export class SecretsAgent {
 
         if (process.platform !== "win32") rmSync(endpoint, { force: true });
         server.listen(endpoint, () => {
-            if (process.platform !== "win32") chmodSync(endpoint, 0o600);
+            if (process.platform !== "win32") chmodSync(endpoint, SecretsAgent.OWNER_ONLY_MODE);
             write();
             schedule();
         });

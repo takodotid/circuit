@@ -1,5 +1,3 @@
-// Remembering secrets between commands: the small process that keeps them answers only with its token, stops when told or when the time is up, and a remembered password opens its secrets file without anyone typing it.
-
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { connect } from "node:net";
@@ -69,7 +67,7 @@ describe("SecretsAgent", () => {
     test("never keeps longer than 24 hours, and stops when the time is up", async () => {
         expect(await SecretsAgent.start(Date.now() + 48 * 60 * 60_000)).toBe(true);
         const answer = await SecretsAgent.ask({ op: "get" });
-        expect(answer!.until).toBeLessThanOrEqual(Date.now() + SecretsAgent.LONGEST * 60_000);
+        expect(answer!.until).toBeLessThanOrEqual(Date.now() + SecretsAgent.LONGEST_MINUTES * 60_000);
 
         await SecretsAgent.ask({ op: "put", until: Date.now() + 300 });
         await new Promise((wait) => setTimeout(wait, 1000));

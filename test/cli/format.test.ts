@@ -1,5 +1,3 @@
-// `circuit fmt` tidies a project's files in its style, or with --check only says which are not.
-
 import { afterEach, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

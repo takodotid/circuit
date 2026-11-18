@@ -1,17 +1,38 @@
-// How the command line talks to a person: a spinner while it waits, questions with a safe default, and messages in colour. Without a terminal, such as in a script, nothing spins and nothing is asked.
+// Without a terminal, such as in a script, nothing spins and nothing is asked.
 
 import * as prompts from "@clack/prompts";
 import { styleText } from "node:util";
 
-/** One choice in a list: what it gives back, what it says, a hint beside it, and whether it can be picked. */
 export type Choice<T> = { value: T; label: string; hint?: string; disabled?: boolean };
 
 export class Ui {
-    /** A person is at a terminal: Circuit may spin and ask. */
+    /** 128 + SIGINT, as a shell reports a program stopped with Ctrl-C. */
+    static readonly INTERRUPTED_EXIT_CODE = 130;
+
+    private static readonly SECOND_MS = 1000;
+    private static readonly SPINNER_FRAME_MS = 100;
+
+    /** How long `wait` waits before its spinner shows. */
+    private static readonly WAIT_DELAY_MS = 150;
+
+    /** The width when the terminal doesn't say. */
+    private static readonly DEFAULT_COLUMNS = 80;
+
+    /** What the spinner's frame and its seconds take beside the message, and the least room left for the message. */
+    private static readonly SPINNER_CHARS = 12;
+    private static readonly MIN_MESSAGE_CHARS = 20;
+
+    /** The borders and padding of each table column. */
+    private static readonly CELL_BORDER_CHARS = 3;
+    private static readonly MIN_LAST_COLUMN_CHARS = 12;
+
+    /** The narrowest terminal the logotype fits in. */
+    private static readonly LOGO_COLUMNS = 64;
+
     // oxlint-disable-next-line typescript/no-unnecessary-type-conversion -- off a terminal, isTTY is undefined, not false
     static readonly interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
 
-    /** Colour only for a terminal, and never when NO_COLOR is set. */
+    /** Color only for a terminal, and never when NO_COLOR is set. */
     private static paint(format: Parameters<typeof styleText>[0], text: string, stream: NodeJS.WriteStream = process.stdout): string {
         return stream.isTTY && !process.env.NO_COLOR ? styleText(format, text) : text;
     }
@@ -40,7 +61,6 @@ export class Ui {
         return Ui.paint("magenta", text);
     }
 
-    /** Print why Circuit stops, and stop. */
     static fail(message: string): never {
         Ui.active?.halt();
         console.error(Ui.red(message, process.stderr));
@@ -63,17 +83,17 @@ export class Ui {
     private static active: { draw: () => void; halt: () => void } | undefined;
 
     /**
-     * Run `work` behind a spinner that says what Circuit waits for, with the seconds it has taken. Lines printed meanwhile, such as a platform's progress, go above it. When done it leaves a line, ◇ when it worked or ■ when it failed.
+     * Runs `work` behind a spinner with the seconds it has taken. Lines printed meanwhile, such as a platform's progress, go above it. When done it leaves a line: ◇ when it worked, ■ when it failed.
      */
     static step<T>(message: string, work: () => Promise<T>): Promise<T> {
         return Ui.spin(message, work, { leave: true, delay: 0 });
     }
 
     /**
-     * Wait for `work` with a spinner that leaves nothing behind, for a short wait such as the check before each command. It shows only after a moment, so a quick answer, such as one from the cache, shows nothing.
+     * A spinner that leaves nothing behind, for a short wait such as the check before each command. It shows only after a moment, so a quick answer, such as one from the cache, shows nothing.
      */
     static wait<T>(message: string, work: () => Promise<T>): Promise<T> {
-        return Ui.spin(message, work, { leave: false, delay: 150 });
+        return Ui.spin(message, work, { leave: false, delay: Ui.WAIT_DELAY_MS });
     }
 
     private static async spin<T>(message: string, work: () => Promise<T>, options: { leave: boolean; delay: number }): Promise<T> {
@@ -81,7 +101,7 @@ export class Ui {
         if (!Ui.interactive || Ui.active) return work();
 
         // One line only: a longer one would wrap, and could not be drawn over.
-        const width = Math.max(20, (process.stdout.columns ?? 80) - 12);
+        const width = Math.max(Ui.MIN_MESSAGE_CHARS, (process.stdout.columns ?? Ui.DEFAULT_COLUMNS) - Ui.SPINNER_CHARS);
         const text = message.length > width ? `${message.slice(0, width - 1)}…` : message;
         const frames = ["◒", "◐", "◓", "◑"];
         const started = Date.now();
@@ -89,7 +109,7 @@ export class Ui {
         let shown = false;
 
         const seconds = () => {
-            const taken = Math.floor((Date.now() - started) / 1000);
+            const taken = Math.floor((Date.now() - started) / Ui.SECOND_MS);
             return taken >= 1 ? Ui.dim(` [${taken}s]`) : "";
         };
         const draw = () => {
@@ -100,7 +120,6 @@ export class Ui {
             if (shown) process.stdout.write("\r\x1b[K");
         };
 
-        // A line printed while the spinner is on goes above it, and the spinner is drawn again under it.
         const printers = { log: console.log, info: console.info, warn: console.warn, error: console.error };
         for (const name of Object.keys(printers) as (keyof typeof printers)[])
             console[name] = (...args: unknown[]) => {
@@ -112,7 +131,7 @@ export class Ui {
         let ticker: ReturnType<typeof setInterval> | undefined;
         const start = setTimeout(() => {
             draw();
-            ticker = setInterval(draw, 100);
+            ticker = setInterval(draw, Ui.SPINNER_FRAME_MS);
         }, options.delay);
 
         const halt = () => {
@@ -155,13 +174,13 @@ export class Ui {
     private static answered<T>(value: T): Exclude<T, symbol> {
         if (prompts.isCancel(value)) {
             prompts.cancel("Stopped. Nothing changed.");
-            process.exit(130);
+            process.exit(Ui.INTERRUPTED_EXIT_CODE);
         }
 
         return value as Exclude<T, symbol>;
     }
 
-    /** A yes or no question. The default is no, so a stray Enter changes nothing. */
+    /** The default is no, so a stray Enter changes nothing. */
     static async confirm(message: string, initial = false): Promise<boolean> {
         return Ui.answered(await prompts.confirm({ message, initialValue: initial }));
     }
@@ -191,12 +210,12 @@ export class Ui {
         return Ui.answered(answer) ?? "";
     }
 
-    /** How wide text is on screen: colours take no room. */
+    /** Colors take no room on screen. */
     private static width(text: string): number {
         return text.replace(/\x1b\[[0-9;]*m/g, "").length;
     }
 
-    /** Words of `text` in lines of at most `width` characters; a longer word is cut. Colours are dropped, as a cut could break one. */
+    /** Words of `text` in lines of at most `width` characters; a longer word is cut. Colors are dropped, as a cut could break one. */
     private static wrap(text: string, width: number): string[] {
         const plain = text.replace(/\x1b\[[0-9;]*m/g, "");
         if (plain.length <= width) return [text];
@@ -222,16 +241,16 @@ export class Ui {
     }
 
     /**
-     * Rows in a table with lines around each cell and a heading row. A column with `right` lines up its numbers on the right. In a terminal too narrow for it, the last column's text goes on more lines.
+     * A column with `right` lines up its numbers on the right. In a terminal too narrow for the table, the last column's text goes on more lines.
      */
     static table(columns: readonly { title: string; right?: boolean }[], rows: readonly (readonly string[])[]): string {
         const widths = columns.map((column, at) => Math.max(column.title.length, ...rows.map((row) => Ui.width(row[at] ?? ""))));
 
-        // The borders and padding take 3 characters a column, and 1 more.
-        const room = (process.stdout.isTTY ? (process.stdout.columns ?? 0) : 0) - 1 - 3 * columns.length;
+        // The last border takes 1 more character.
+        const room = (process.stdout.isTTY ? (process.stdout.columns ?? 0) : 0) - 1 - Ui.CELL_BORDER_CHARS * columns.length;
         const others = widths.slice(0, -1).reduce((sum, width) => sum + width, 0);
         if (room > 0 && others + widths.at(-1)! > room)
-            widths[widths.length - 1] = Math.max(columns.at(-1)!.title.length, room - others, 12);
+            widths[widths.length - 1] = Math.max(columns.at(-1)!.title.length, room - others, Ui.MIN_LAST_COLUMN_CHARS);
 
         const line = (left: string, middle: string, right: string) =>
             Ui.dim(`${left}${widths.map((width) => "─".repeat(width + 2)).join(middle)}${right}`);
@@ -258,7 +277,7 @@ export class Ui {
         ].join("\n");
     }
 
-    /** The CIRCUIT logotype, in the font of the one on the site, drawn with blocks. */
+    /** In the font of the logotype on the site, drawn with blocks. */
     static readonly LOGO = [
         " ▄██████▄   ██  ███████▄    ▄██████▄   ██     ██  ██  ████████",
         "███    ███  ██  ██    ███  ███    ███  ██     ██  ██     ██",
@@ -270,7 +289,7 @@ export class Ui {
     /** The logotype and a line under it, in a terminal wide enough; elsewhere, the line alone. */
     static logo(line: string): void {
         if (!Ui.interactive) return;
-        if ((process.stdout.columns ?? 0) < 64) {
+        if ((process.stdout.columns ?? 0) < Ui.LOGO_COLUMNS) {
             console.log(Ui.bold(line));
             return;
         }
@@ -287,7 +306,6 @@ export class Ui {
         else console.log(message);
     }
 
-    /** A boxed note, such as the next steps. */
     static note(message: string, title?: string): void {
         if (Ui.interactive) prompts.note(message, title);
         else console.log(title ? `${title}\n${message}` : message);

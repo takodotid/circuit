@@ -1,5 +1,3 @@
-// The commands that read a project: `validate`, `diff` and `apply`, and the utilities that reach a device, `exec`, `bgp` and `access-console`. Each reads the project in the working directory, or the nearest folder above it that holds `circuit.ts`.
-
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { Checks } from "../checks";
@@ -12,32 +10,45 @@ import type { Device, Finding } from "../model";
 import { Platforms } from "../platforms";
 import { BgpWait } from "../platforms/bgp-wait";
 import type { ApplyOptions, BgpLogLine, BgpSession, Plan, Platform, ReadSession } from "../platforms/platform";
-import { ProjectError, type ProjectRead, Project } from "../project";
-import { ConsoleScript, type ConsoleSession, SerialConsole } from "../transport/console";
+import { ProjectError, Project } from "../project";
+import type { ProjectRead } from "../project";
+import { ConsoleScript, SerialConsole } from "../transport/console";
+import type { ConsoleSession } from "../transport/console";
 import { PathCheck } from "../transport/path-check";
-import { Communities, type CommunityFormat } from "./communities";
+import { Communities } from "./communities";
+import type { CommunityFormat } from "./communities";
 import { Remember } from "./remember";
-import { Rename, type RenamePlan } from "./rename";
+import { Rename } from "./rename";
+import type { RenamePlan } from "./rename";
 import { SecretsPassword } from "./secrets-password";
 import { Setup } from "./setup";
 import { Ui } from "./ui";
 
-/** How a device is reached and what a plan sends, as `diff` and `apply` take them. */
+/** The flags of `diff` and `apply`: how a device is reached and what a plan sends. */
 export type ReachFlags = { secrets?: boolean; rollback?: number; console?: boolean; experimental?: boolean };
 
-/** One project, read, and how it reaches devices. */
 export class ProjectCommands {
     /** Ctrl-], the key that leaves `circuit access-console`, as telnet uses it. */
     private static readonly LEAVE_KEY = 0x1d;
 
-    /** Every device of every network of the project. */
+    /** `apply --rollback`'s default. */
+    static readonly ROLLBACK_MINUTES = 10;
+
+    /** `bgp --log`'s default. */
+    static readonly BGP_LOG_MINUTES = 5;
+
+    private static readonly SECOND_MS = 1000;
+
+    /** How much of a plan's line, or of a line that mentions a renamed device, is printed. */
+    private static readonly PLAN_LINE_CHARS = 220;
+    private static readonly MENTION_CHARS = 160;
+
     readonly devices: Device[];
 
     private constructor(
-        /** The project's folder. */
         readonly root: string,
         readonly project: ProjectRead,
-        /** How a device is reached and what a plan sends: `apply`'s flags, the defaults for every other command. */
+        /** `apply`'s flags, or the defaults for every other command. */
         private readonly options: ApplyOptions,
         /** `--experimental`: fields a platform renders but has not tested are warnings, not errors. */
         private readonly experimental = false
@@ -45,7 +56,7 @@ export class ProjectCommands {
         this.devices = project.networks.flatMap((network) => Object.values(network.devices));
     }
 
-    /** The project's folder: the working directory, or the nearest folder above it with `circuit.ts`. Undefined when there is none. */
+    /** The working directory, or the nearest folder above it with `circuit.ts`. */
     static find(): string | undefined {
         let current = process.cwd();
         while (true) {
@@ -57,7 +68,6 @@ export class ProjectCommands {
         }
     }
 
-    /** The project's folder, or a stop that says how to get one. */
     static findOrFail(): string {
         return (
             ProjectCommands.find() ??
@@ -67,7 +77,7 @@ export class ProjectCommands {
         );
     }
 
-    /** Read the project. Stops with every reason when it can't be read. */
+    /** Stops with every error when the project can't be read. */
     static async open(flags: ReachFlags = {}): Promise<ProjectCommands> {
         const root = ProjectCommands.findOrFail();
 
@@ -90,14 +100,14 @@ export class ProjectCommands {
 
         const options: ApplyOptions = {
             secrets: flags.secrets ?? false,
-            rollback: flags.rollback ?? 10,
+            rollback: flags.rollback ?? ProjectCommands.ROLLBACK_MINUTES,
             ...(flags.console ? { console: true } : {}),
         };
 
         return new ProjectCommands(root, project, options, flags.experimental ?? false);
     }
 
-    /** The device with this name. Without one, a person picks it from a list; a script must name it. */
+    /** Without a name, a person picks the device from a list. A script must name it. */
     async pick(name: string | undefined, devices: readonly Device[] = this.devices): Promise<Device> {
         if (name !== undefined) {
             const known = this.devices.map((device) => device.name).join(", ");
@@ -113,7 +123,7 @@ export class ProjectCommands {
         );
     }
 
-    /** Keep NetBox, LibreNMS, PeeringDB or Prometheus in sync with the project: plan, ask, send. Stops on validation errors first, as `apply` does. */
+    /** Stops on validation errors first, as `apply` does. */
     async sync(target: string | undefined, confirmed: boolean): Promise<void> {
         this.guard(this.devices);
 
@@ -121,7 +131,7 @@ export class ProjectCommands {
         await SyncCommand.run(this.root, this.project, target, confirmed);
     }
 
-    /** What address space the project uses and what is free, under the prefix given or the space every network owns. */
+    /** The address space used and free under `prefix`, or under the space every network owns. */
     addresses(prefix: string | undefined, length: number | undefined, format: "text" | "json"): void {
         if (prefix !== undefined && !Address.isCidr(prefix)) Ui.fail(`${prefix} is not a prefix. Write one such as 192.0.2.0/24.`);
 
@@ -136,7 +146,7 @@ export class ProjectCommands {
         process.stdout.write(format === "json" ? `${JSON.stringify(report, null, 2)}\n` : AddressSpace.text(report, length));
     }
 
-    /** What each community of a network's scheme means, printed in `format`: the network named, or the only one with a scheme. */
+    /** Without a name, the only network with a scheme, or one a person picks. */
     async communities(name: string | undefined, format: CommunityFormat): Promise<void> {
         const schemes = this.project.networks.filter((network) => network.communities.length);
         if (!schemes.length) Ui.fail("No network has communities in circuit.ts.");
@@ -161,8 +171,8 @@ export class ProjectCommands {
         process.stdout.write(Communities.text(network, format));
     }
 
-    /** The device with the prefix sets a registry fills fetched now, so the plan holds them like any list written out. */
-    private async fetched(device: Device): Promise<Device> {
+    /** The device with its prefix sets from a registry fetched now, so the plan holds them like any list written out. */
+    private static async fetched(device: Device): Promise<Device> {
         const sourced = Object.values(device.routing?.prefix_sets ?? {}).filter((set) => set && "source" in set).length;
         if (!sourced) return device;
 
@@ -175,7 +185,7 @@ export class ProjectCommands {
         }
     }
 
-    /** The device, its secrets read from its network's file, the person asked for that file's password when nothing else gives it. */
+    /** Opens the device's secrets file, asking the person for its password when nothing else gives it. */
     private async withSecrets(device: Device): Promise<Device> {
         const network = this.project.networks.find((each) => device.name in each.devices);
         Secrets.useFile(network ? Project.secretsFile(network) : undefined);
@@ -184,7 +194,7 @@ export class ProjectCommands {
         return device;
     }
 
-    /** Every secrets file the networks use, relative to the project. */
+    /** Relative to the project. */
     secretsFiles(): string[] {
         return [...new Set(this.project.networks.map((network) => Project.secretsFile(network)))];
     }
@@ -194,7 +204,7 @@ export class ProjectCommands {
         return this.options.console || !device.connection.host ? { ...this.options, console: true } : this.options;
     }
 
-    /** The adapter of a device, which must be able to use its console when the device is reached through it. */
+    /** Stops when the device is reached through its console and the adapter or the device has none. */
     private adapterOf(device: Device): Platform {
         const adapter = Platforms.find(device.platform) ?? Ui.fail(`No adapter for ${device.platform}.`);
         if (!this.optionsFor(device).console) return adapter;
@@ -204,7 +214,7 @@ export class ProjectCommands {
         return adapter;
     }
 
-    /** What the model's checks find, network by network: what each platform can't express, what it does otherwise, and the built-in checks the network turns on. */
+    /** What each platform can't express or does otherwise, and the built-in checks each network turns on. */
     private modelFindings(): Finding[] {
         return this.project.networks.flatMap((network) =>
             Checks.run(Object.values(network.devices), network.settings.checks, { experimental: this.experimental })
@@ -226,7 +236,7 @@ export class ProjectCommands {
         if (errors) Ui.fail(`\n${errors} error(s).`);
     }
 
-    /** Print a plan. Returns how many commands and problems it holds. */
+    /** Returns how many commands and problems the plan holds. */
     private static printPlan(device: Device, plan: Plan): number {
         const commands = plan.steps.reduce((count, step) => count + step.send.length, 0);
         if (!commands && !plan.problems.length) {
@@ -238,7 +248,7 @@ export class ProjectCommands {
 
         for (const step of plan.steps) {
             console.log(`  ${Ui.bold(step.title)}`);
-            for (const line of step.show) console.log(`    ${line.slice(0, 220)}`);
+            for (const line of step.show) console.log(`    ${line.slice(0, ProjectCommands.PLAN_LINE_CHARS)}`);
         }
 
         for (const problem of plan.problems) Ui.error(problem);
@@ -246,7 +256,7 @@ export class ProjectCommands {
         return commands + plan.problems.length;
     }
 
-    /** Where LLDP and `link` disagree on this device, read while Circuit is connected. Warnings only: LLDP can be off at the far end. */
+    /** Warns where LLDP and `link` disagree. It only warns, as LLDP can be off at the far end. */
     private async checkCabling(device: Device, adapter: Platform): Promise<void> {
         if (!Cabling.runsAnywhere(device) || !adapter.neighbors) return;
 
@@ -257,7 +267,6 @@ export class ProjectCommands {
             Ui.warn(`${device.name}: ${finding.message}`);
     }
 
-    /** Read the device and plan against what it runs now. */
     private async plan(device: Device, adapter: Platform): Promise<Plan> {
         const live = await Ui.step(`Reading ${device.name}'s running config`, () =>
             adapter.read(device, this.devices, this.optionsFor(device))
@@ -272,9 +281,9 @@ export class ProjectCommands {
         Ui.done(`${this.devices.length} device(s), no errors.`);
     }
 
-    /** What `apply` would send, against what the device runs now. Exits 1 when something would change. */
+    /** Exits 1 when something would change. */
     async diff(name: string | undefined): Promise<void> {
-        const device = await this.fetched(await this.withSecrets(await this.pick(name)));
+        const device = await ProjectCommands.fetched(await this.withSecrets(await this.pick(name)));
         this.guard([device]);
 
         const adapter = this.adapterOf(device);
@@ -284,9 +293,9 @@ export class ProjectCommands {
         process.exit(changes ? 1 : 0);
     }
 
-    /** Plan against what the device runs, show the plan, and send it once the person says yes, or with `--confirm`. */
+    /** Sends the plan once the person says yes, or with `--confirm`. */
     async apply(name: string | undefined, confirmed: boolean, force: boolean): Promise<void> {
-        const device = await this.fetched(await this.withSecrets(await this.pick(name)));
+        const device = await ProjectCommands.fetched(await this.withSecrets(await this.pick(name)));
         this.guard([device]);
         const adapter = this.adapterOf(device);
 
@@ -327,7 +336,7 @@ export class ProjectCommands {
         Ui.done(`${device.name} applied. No problems found.`);
     }
 
-    /** Run commands that only read, each under a header with how long it took. Every command is checked before anything connects. */
+    /** Runs read-only commands, each under a header with how long it took. Every command is checked before anything connects. */
     async exec(name: string | undefined, given: string[], file: string | undefined, timeoutSeconds: number): Promise<void> {
         const device = await this.withSecrets(await this.pick(name));
         const adapter = this.adapterOf(device);
@@ -347,7 +356,7 @@ export class ProjectCommands {
         }
 
         const session = await Ui.step(`Connecting to ${device.name}`, () => adapter.session(device, this.optionsFor(device)));
-        const timeout = timeoutSeconds * 1000;
+        const timeout = timeoutSeconds * ProjectCommands.SECOND_MS;
         let failed = false;
 
         try {
@@ -364,7 +373,7 @@ export class ProjectCommands {
 
                 const took = Date.now() - started;
                 const stoppedAtLimit = !failed && took >= timeout ? `\n(stopped at the ${timeoutSeconds} second limit)` : "";
-                const block = `${Ui.bold(`>>> ${command}`)}  ${Ui.dim(`(${(took / 1000).toFixed(1)}s)`)}\n${output.replace(/\r/g, "").trimEnd()}${stoppedAtLimit}\n\n`;
+                const block = `${Ui.bold(`>>> ${command}`)}  ${Ui.dim(`(${(took / ProjectCommands.SECOND_MS).toFixed(1)}s)`)}\n${output.replace(/\r/g, "").trimEnd()}${stoppedAtLimit}\n\n`;
                 process.stdout.write(Secrets.scrub(block, { network: this.devices }));
 
                 // A shell or a console still runs a command that did not finish, so nothing more can be sent.
@@ -377,7 +386,7 @@ export class ProjectCommands {
         if (failed) process.exitCode = 1;
     }
 
-    /** A device's new name everywhere the project's files write it, and its file's when asked. Shows every change, and writes once the person says yes, or with `--confirm`. */
+    /** Shows every change, and writes once the person says yes, or with `--confirm`. */
     async rename(from: string | undefined, to: string | undefined, file: boolean | undefined, confirmed: boolean): Promise<void> {
         const device = await this.pick(from);
         const network = this.project.networks.find((candidate) => device.name in candidate.devices)!;
@@ -386,7 +395,7 @@ export class ProjectCommands {
         const check = (name: string) => {
             if (!Rename.HOSTNAME.test(name)) return `${name} is not a hostname. Use letters, digits, dots, dashes, and underscores.`;
             if (this.devices.some((candidate) => candidate.name === name)) return `There is already a device ${name}.`;
-            return undefined;
+            return;
         };
         const name = to ?? (Ui.interactive ? await Ui.text(`New name for ${device.name}`, { check }) : Ui.fail("Give the new name."));
         const wrong = check(name);
@@ -414,7 +423,8 @@ export class ProjectCommands {
 
         if (plan.mentions.length) {
             console.log(`\nThese lines mention ${device.name} inside other text. Change them by hand if they mean the device:`);
-            for (const mention of plan.mentions) console.log(`  ${mention.file}:${mention.line}  ${mention.text.slice(0, 160)}`);
+            for (const mention of plan.mentions)
+                console.log(`  ${mention.file}:${mention.line}  ${mention.text.slice(0, ProjectCommands.MENTION_CHARS)}`);
         }
 
         if (!confirmed) {
@@ -436,7 +446,7 @@ export class ProjectCommands {
     }
 
     /**
-     * Each BGP neighbor in the config next to its live session, on the device named or the only one with BGP neighbors, and only those whose name matches `neighbors` when given. With `wait`, reads again until every neighbor shown, or that many, is up, and fails when time runs out. With `clearLimit`, opens again the neighbors shown that closed on their prefix limit, and fails when none did.
+     * Each BGP neighbor in the config next to its live session, only those whose name matches `neighbors` when given. With `wait`, reads again until every neighbor shown, or that many, is up. With `clearLimit`, opens again the neighbors shown that closed on their prefix limit.
      */
     async bgp(
         deviceName: string | undefined,
@@ -499,7 +509,7 @@ export class ProjectCommands {
             ProjectCommands.printBgp(sessions);
             if (BgpWait.upCount(sessions) < want) process.exitCode = 1;
 
-            if (flags.log) await this.printBgpLog(adapter, session, flags.log === true ? 5 : flags.log);
+            if (flags.log) await this.printBgpLog(adapter, session, flags.log === true ? ProjectCommands.BGP_LOG_MINUTES : flags.log);
         } finally {
             session.close();
         }
@@ -538,7 +548,6 @@ export class ProjectCommands {
         return Ui.fail(`Several devices have BGP neighbors. Give one: ${withBgp.map((device) => device.name).join(", ")}.`);
     }
 
-    /** One line per neighbor: name, up or down, prefixes received, uptime, remote address. Then how many are up. */
     private static printBgp(sessions: readonly BgpSession[]): void {
         const why = sessions.some((session) => session.reason);
         const columns = [
@@ -564,7 +573,7 @@ export class ProjectCommands {
         for (const burst of BgpWait.limitBursts(sessions)) {
             const names = burst.map((session) => session.neighbor);
             const listed = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
-            const seconds = Math.round((burst.at(-1)!.limit!.stoppedAt! - burst[0]!.limit!.stoppedAt!) / 1000);
+            const seconds = Math.round((burst.at(-1)!.limit!.stoppedAt! - burst[0]!.limit!.stoppedAt!) / ProjectCommands.SECOND_MS);
 
             console.log(
                 `
@@ -573,7 +582,7 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
         }
     }
 
-    /** Why a session is down, with its limit and when it closed when that is why. */
+    /** With the limit and when the session closed, when the limit is why. */
     private static downReason(session: BgpSession): string {
         const { limit } = session;
         if (!limit) return session.reason ?? "";
@@ -583,7 +592,7 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
         return `${session.reason}${over}${when}`;
     }
 
-    /** The device's BGP log lines from the last `minutes`, a message repeated folded into one line, secrets hidden. */
+    /** A message repeated is folded into one line, and secrets are hidden. */
     private async printBgpLog(adapter: Platform, session: ReadSession, minutes: number): Promise<void> {
         const lines = ProjectCommands.foldLog(
             await Ui.step(`Reading the BGP log of the last ${minutes} min`, () => adapter.bgpLog!(session, minutes))
@@ -614,7 +623,7 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
     }
 
     /**
-     * A device's console, for a person: logged in with the platform's own login, then joined to this terminal, or sent each line. Logs out when done, and lets the port go on Ctrl-C or when the terminal closes, so no other program finds it held.
+     * Logs in with the platform's own login, then joins the console to this terminal, or sends each line. Logs out when done, and frees the port on Ctrl-C or when the terminal closes, so no other program finds it held.
      */
     async accessConsole(name: string | undefined, lines: string[], raw: boolean): Promise<void> {
         const device = await this.withSecrets(await this.pick(name));
@@ -648,7 +657,7 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
             process.exit(code);
         };
 
-        for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.once(signal, () => void leave(130));
+        for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.once(signal, () => void leave(Ui.INTERRUPTED_EXIT_CODE));
 
         opened.channel.on("close", () => {
             if (leaving) return;
@@ -677,11 +686,11 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
             return;
         }
 
-        this.join(opened, device, loggedIn ? login?.user : undefined, leave);
+        ProjectCommands.join(opened, device, loggedIn ? login?.user : undefined, leave);
     }
 
-    /** Join the console to this terminal until Ctrl-] or the end of input. Every other key, Ctrl-C too, goes to the device. */
-    private join(opened: ConsoleSession, device: Device, user: string | undefined, leave: (code: number) => Promise<void>): void {
+    /** Joins the console to this terminal until Ctrl-] or the end of input. Every other key, Ctrl-C too, goes to the device. */
+    private static join(opened: ConsoleSession, device: Device, user: string | undefined, leave: (code: number) => Promise<void>): void {
         const stdin = process.stdin;
         const as = user ? `, logged in as ${user}` : "";
         console.error(`${device.name}'s console${as}. Ctrl-] leaves.`);
@@ -692,11 +701,11 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
 
         stdin.on("data", (data: Buffer) => {
             const at = data.indexOf(ProjectCommands.LEAVE_KEY);
-            const keys = at >= 0 ? data.subarray(0, at) : data;
+            const keys = at !== -1 ? data.subarray(0, at) : data;
 
-            // A terminal sends a carriage return for Enter; text piped in ends its lines with a line feed, which the console takes as a keyboard's Enter.
+            // A terminal sends a carriage return for Enter. Text piped in ends its lines with a line feed, which the console takes as Enter too.
             if (keys.length) opened.channel.write(stdin.isTTY ? keys : keys.toString("utf8"));
-            if (at >= 0) void leave(0);
+            if (at !== -1) void leave(0);
         });
 
         stdin.on("end", () => void leave(0));

@@ -1,5 +1,3 @@
-// Uninstalling takes out of a shell's startup file the line the installer added, and nothing else.
-
 import { expect, test } from "bun:test";
 import { App } from "../../src/cli/app";
 
