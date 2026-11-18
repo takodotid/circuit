@@ -3,7 +3,7 @@
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, PrefixSet, RouteRule } from "../../model";
+import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, PrefixSet, RouteMatch, RouteRule } from "../../model";
 import { FortiOsNames } from "./names";
 import type { FortiOsNode } from "./tree";
 import { FortiOsTree } from "./tree";
@@ -89,13 +89,16 @@ class RouteMaps {
             entry.set(address, FortiOsTree.quote(name));
         }
 
-        if (match.standard_community)
-            entry.set(
-                "match-community",
-                FortiOsTree.quote(
-                    this.communities(`circuit-match-${RouteMaps.slug(match.standard_community)}`, [match.standard_community], false)
-                )
-            );
+        const asPath = FortiOsRouting.asPathRegexes(match);
+        if (asPath.length) entry.set("match-as-path", FortiOsTree.quote(this.asPathList(label, asPath)));
+
+        if (match.standard_community) {
+            // A list takes the rule's name: one named after its values would pass the 35 characters a name may have.
+            const values = [match.standard_community].flat();
+            const name = values.length === 1 ? `circuit-match-${RouteMaps.slug(values[0]!)}` : label;
+            const patterns = values.some((value) => value.includes("*"));
+            entry.set("match-community", FortiOsTree.quote(this.communities(name, values, patterns)));
+        }
 
         if (set.local_pref !== undefined) entry.set("set-local-preference", set.local_pref);
         if (set.med !== undefined) entry.set("set-metric", set.med);
@@ -134,7 +137,19 @@ class RouteMaps {
         for (const [prefix, lengths] of rules) if (lengths) FortiOsRouting.listRule(rulesBlock.entry(++number), family, prefix, lengths);
     }
 
-    /** A community list matching these communities, or, expanded, these patterns. */
+    /** An AS path list that permits a route any of these regular expressions matches. */
+    private asPathList(name: string, regexes: readonly string[]): string {
+        const rules = this.root.block("router aspath-list").entry(name).block("rule");
+        regexes.forEach((regexp, index) =>
+            rules
+                .entry(index + 1)
+                .set("action", "permit")
+                .set("regexp", FortiOsTree.quote(regexp))
+        );
+        return name;
+    }
+
+    /** A community list matching any of these communities, one rule each, or, expanded, any of these patterns. */
     private communities(name: string, values: readonly string[], patterns: boolean): string {
         const list = this.root.block("router community-list").entry(name);
         if (patterns) list.set("type", "expanded");
@@ -163,6 +178,19 @@ export class FortiOsRouting {
 
     /** The longest prefix of each family. */
     static readonly BITS = { ipv4: 32, ipv6: 128 } as const;
+
+    /** The route match fields that hold AS numbers. */
+    private static readonly AS_FIELDS = ["as_path_contains", "first_as", "origin_as"] as const;
+
+    /** Where in the path each AS field looks: anywhere, at the start, at the end. */
+    private static readonly AS_ANCHORS = {
+        as_path_contains: { before: "_", after: "_" },
+        first_as: { before: "^", after: "_" },
+        origin_as: { before: "_", after: "$" },
+    } as const;
+
+    /** The conditions a route map rule matches with its one AS path list. */
+    private static readonly AS_PATH_FIELDS = ["as_path_length", ...FortiOsRouting.AS_FIELDS] as const;
 
     /** A neighbor's settings with its group's beneath them. */
     static neighborSettings(device: Device, neighbor: Neighbor): NeighborSettings {
@@ -395,6 +423,58 @@ export class FortiOsRouting {
         }
     }
 
+    /**
+     * The regular expressions an AS path list permits for a rule's one AS path condition, or none. In the AS path the device matches, ASes have spaces between them, and `_` stands for a space, the start, or the end. A range of ASes is several expressions, since a regular expression has no number ranges.
+     */
+    static asPathRegexes(match: RouteMatch): string[] {
+        const length = match.as_path_length;
+        if (length) return FortiOsRouting.lengthRegexes(length.min ?? 0, length.max);
+
+        const field = FortiOsRouting.AS_FIELDS.find((each) => match[each] !== undefined);
+        if (!field) return [];
+
+        const { before, after } = FortiOsRouting.AS_ANCHORS[field];
+        const numbers = Derive.asRanges(match[field]!).flatMap(({ min, max }) => FortiOsRouting.numberPatterns(min, max));
+        return numbers.map((number) => `${before}${number}${after}`);
+    }
+
+    /**
+     * Patterns that together match the numbers from `min` to `max`, with no repetition count, as the NLNOG BGP Filter Guide writes them. 65552 to 131071 is `6555[2-9]`, `655[6-9][0-9]`, and on to `13107[0-1]`.
+     */
+    static numberPatterns(min: number, max: number): string[] {
+        const patterns: string[] = [];
+
+        for (let low = min; low <= max;) {
+            // One length of number at a time, so no pattern needs a leading zero.
+            const length = String(low).length;
+            const high = Math.min(max, 10 ** length - 1);
+
+            // The most trailing digits that can be any digit, then how far the digit before them goes.
+            let any = 0;
+            while (any < length - 1 && low % 10 ** (any + 1) === 0 && low + 10 ** (any + 1) - 1 <= high) any++;
+            const block = 10 ** any;
+            const first = Math.floor(low / block) % 10;
+            let last = first;
+            while (last < 9 && low + (last - first + 2) * block - 1 <= high) last++;
+
+            const above = Math.floor(low / (block * 10));
+            const digit = first === last ? `${first}` : `[${first}-${last}]`;
+            patterns.push(`${above || ""}${digit}${"[0-9]".repeat(any)}`);
+            low += (last - first + 1) * block;
+        }
+
+        return patterns;
+    }
+
+    /** A path of `min` ASes or more, and `max` or fewer when given: one AS, then one more after each space. `^[0-9]+( [0-9]+){50}` is 51 or more, and `^$` the empty path. */
+    private static lengthRegexes(min: number, max: number | undefined): string[] {
+        if (max === 0) return ["^$"];
+
+        const after = Math.max(min, 1) - 1;
+        const ases = max === undefined ? `^[0-9]+( [0-9]+){${after}}` : `^[0-9]+( [0-9]+){${after},${max - 1}}$`;
+        return min === 0 ? ["^$", ases] : [ases];
+    }
+
     /** The family a rule is limited to, by its match: a family, a prefix, or a prefix set of one family. */
     static familyOfRule(device: Device, rule: RouteRule): Family | undefined {
         const match = rule.if;
@@ -491,6 +571,19 @@ export class FortiOsRouting {
         return found;
     }
 
+    /** AS path matches, rendered from Fortinet's documentation. A FortiGate puts no AS path on the routes it originates, so without a BGP neighbor no test reaches them (TRAPS.md). */
+    static experimental(device: Device): string[] {
+        return Object.entries(device.routing?.policies ?? {}).flatMap(([name, rules]) =>
+            (rules ?? []).flatMap((rule, index) =>
+                FortiOsRouting.isRouteRule(rule)
+                    ? FortiOsRouting.AS_PATH_FIELDS.filter((field) => rule.if?.[field] !== undefined).map(
+                          (field) => `routing.policies.${name}[${index}].if.${field}`
+                      )
+                    : []
+            )
+        );
+    }
+
     private static ruleGaps(device: Device, where: string, rule: PolicyRule): string[] {
         if (!FortiOsRouting.isRouteRule(rule)) {
             return "communities" in rule && rule.communities !== undefined
@@ -505,9 +598,15 @@ export class FortiOsRouting {
         if ((rule.if || rule.set) && !rule.then)
             found.push(`${where}, a rule without then: the platform stops at the first rule that matches`);
 
-        for (const field of ["as_path_length", "as_path_contains", "rpki", "large_community"] as const) {
+        for (const field of ["rpki", "large_community"] as const) {
             if (match[field] !== undefined) found.push(`${where}.if.${field}`);
         }
+
+        const asPath = FortiOsRouting.AS_PATH_FIELDS.filter((field) => match[field] !== undefined);
+        if (asPath.length > 1)
+            found.push(
+                `${where}.if.${asPath[1]} with ${asPath[0]}: a route map rule matches one AS path list. Match each in a rule of its own`
+            );
 
         for (const field of [
             "large_communities",

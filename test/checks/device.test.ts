@@ -223,6 +223,29 @@ test("route_reflector_client on an eBGP neighbor is an error, once at a group th
     ]);
 });
 
+test("an AS number is a whole number from 0 to 4294967295, and a range starts before it ends", () => {
+    const device: Device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            policies: {
+                ...router.routing?.policies,
+                checked: [
+                    { if: { first_as: -1, origin_as: [64501, { min: 65534, max: 64512 }], as_path_contains: 64500.5 }, then: "reject" },
+                ],
+            },
+        },
+    };
+
+    expect(messages(device)).toEqual(
+        expect.arrayContaining([
+            "routing.policies.checked[0].if.first_as: -1 is no AS number; write 0 to 4294967295",
+            "routing.policies.checked[0].if.origin_as: the range ends before it starts; write { min: 64512, max: 65534 }",
+            "routing.policies.checked[0].if.as_path_contains: 64500.5 is no AS number; write 0 to 4294967295",
+        ])
+    );
+});
+
 test("logins through servers name one kind of server, at least one, each once, sending from an address of its own family", () => {
     const key = { secret: "AAA_KEY" };
     const withAaa = (aaa: NonNullable<Device["system"]>["aaa"]): Device => ({ ...router, system: { ...router.system, aaa } });

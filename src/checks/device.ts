@@ -25,6 +25,10 @@ export class DeviceChecks {
     private static readonly MAX_MSS = 65495;
     /** Six pairs of hex digits with colons between them. */
     private static readonly MAC = /^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/i;
+    /** The highest 4-byte AS number (RFC 6793). */
+    private static readonly MAX_ASN = 4294967295;
+    /** The route match fields that hold AS numbers. */
+    private static readonly AS_FIELDS = ["as_path_contains", "first_as", "origin_as"] as const;
     private static readonly FAMILY_NAMES = [
         ["ipv4", "IPv4"],
         ["ipv6", "IPv6"],
@@ -546,9 +550,15 @@ export class DeviceChecks {
 
         const unknown =
             (match.prefix_set !== undefined && !listed) ||
-            [match.as_path_length, match.as_path_contains, match.rpki, match.standard_community, match.large_community].some(
-                (condition) => condition !== undefined
-            );
+            [
+                match.as_path_length,
+                match.as_path_contains,
+                match.first_as,
+                match.origin_as,
+                match.rpki,
+                match.standard_community,
+                match.large_community,
+            ].some((condition) => condition !== undefined);
         return unknown ? "unknown" : true;
     }
 
@@ -611,8 +621,20 @@ export class DeviceChecks {
 
         for (const [name, rules] of Object.entries(policies)) {
             (rules ?? []).forEach((rule, index) => {
-                const prefix = "if" in rule ? rule.if?.prefix : undefined;
-                if (prefix) cidr(`routing.policies.${name}[${index}]`, prefix);
+                const match = "if" in rule ? rule.if : undefined;
+                if (match?.prefix) cidr(`routing.policies.${name}[${index}]`, match.prefix);
+
+                for (const field of DeviceChecks.AS_FIELDS) {
+                    const numbers = match?.[field];
+                    if (numbers === undefined) continue;
+
+                    for (const { min, max } of Derive.asRanges(numbers)) {
+                        const where = `routing.policies.${name}[${index}].if.${field}`;
+                        const wrong = [min, max].find((asn) => !Number.isInteger(asn) || asn < 0 || asn > DeviceChecks.MAX_ASN);
+                        if (wrong !== undefined) report(`${where}: ${wrong} is no AS number; write 0 to ${DeviceChecks.MAX_ASN}`);
+                        else if (min > max) report(`${where}: the range ends before it starts; write { min: ${max}, max: ${min} }`);
+                    }
+                }
             });
         }
 

@@ -2,7 +2,7 @@ import { presets } from "../../config/presets";
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, Prefix, PrefixSet, RouteRule } from "../../model";
+import type { AsNumbers, Device, Family, Neighbor, NeighborSettings, PolicyRule, Prefix, PrefixSet, RouteRule } from "../../model";
 import { JunosStatements } from "./statements";
 
 /** BGP sessions, the policies they use, prefix sets, and RPKI servers. */
@@ -30,6 +30,26 @@ export class JunosBgp {
     private static readonly FAMILY = { ipv4: "inet", ipv6: "inet6" } as const;
 
     private static readonly VALIDATION = { valid: "valid", invalid: "invalid", "not-found": "unknown" } as const;
+
+    /** The route match fields that hold AS numbers. */
+    static readonly AS_FIELDS = ["as_path_contains", "first_as", "origin_as"] as const;
+
+    /** Where in the path each AS field looks, as an AS list matcher: any AS, the first, the last. Junos 21.3 has them. */
+    private static readonly AS_LIST_MATCH = {
+        as_path_contains: "as-path-transits",
+        first_as: "as-path-neighbors",
+        origin_as: "as-path-origins",
+    } as const;
+
+    /** The same as a regular expression around the ASes, and the name it goes by. */
+    private static readonly AS_REGEX = {
+        as_path_contains: { name: "through", before: ".* ", after: " .*" },
+        first_as: { name: "first", before: "", after: " .*" },
+        origin_as: { name: "origin", before: ".* ", after: "" },
+    } as const;
+
+    /** The highest AS number, which an AS list refuses, as it does AS 0 (TRAPS.md). */
+    private static readonly MAX_ASN = 4294967295;
 
     /** The device waits whole minutes before it opens a session closed on its prefix limit. */
     static readonly SECONDS_PER_MINUTE = 60;
@@ -339,21 +359,22 @@ export class JunosBgp {
             from.push(["as-path", name]);
         }
 
-        if (match.as_path_contains !== undefined) {
-            const name = `circuit-through-${match.as_path_contains}`;
-            this.out.set(`policy-options as-path ${name}`, JunosStatements.quote(`.* ${match.as_path_contains} .*`));
-            from.push(["as-path", name]);
+        for (const field of JunosBgp.AS_FIELDS) {
+            const numbers = match[field];
+            if (numbers !== undefined) from.push(this.asPathMatch(field, numbers));
         }
 
         if (match.rpki) from.push(["validation-database", JunosBgp.VALIDATION[match.rpki]]);
 
-        // Members of one named community must all be present, so a rule matching both kinds names them together.
-        const wanted = [
-            ...(match.standard_community ? [JunosBgp.member(match.standard_community, false)] : []),
-            ...(match.large_community ? [JunosBgp.member(match.large_community, true)] : []),
-        ];
+        // A term matches any of the communities in its list, and a named community needs all of its members. So each value is a community of its own, and a rule matching both kinds lists each pair of a standard and a large value.
+        const standard = [match.standard_community ?? []].flat().map((value) => JunosBgp.member(value, false));
+        const large = [match.large_community ?? []].flat().map((value) => JunosBgp.member(value, true));
+        const wanted =
+            standard.length && large.length
+                ? standard.flatMap((one) => large.map((other) => [one, other]))
+                : [...standard, ...large].map((one) => [one]);
 
-        if (wanted.length) from.push(["community", this.community("match", wanted)]);
+        for (const members of wanted) from.push(["community", this.community("match", members)]);
 
         if (set.local_pref !== undefined) then.push(["local-preference", set.local_pref]);
         if (set.med !== undefined) then.push(["metric", set.med]);
@@ -392,6 +413,31 @@ export class JunosBgp {
         for (const words of then) this.out.set(term, "then", ...words);
 
         if (!from.length && !then.length) this.out.set(term);
+    }
+
+    /**
+     * The match for one AS field: an AS list, `circuit-as-64501-64512to65534`, under the field's matcher. Several matchers in a term must all match. An AS list refuses AS 0 and AS 4294967295, so ASes that hold one are a regular expression instead, which the device anchors at both ends.
+     */
+    private asPathMatch(field: (typeof JunosBgp.AS_FIELDS)[number], numbers: AsNumbers): (string | number)[] {
+        const ranges = Derive.asRanges(numbers);
+        const slug = ranges.map(({ min, max }) => (min === max ? `${min}` : `${min}to${max}`)).join("-");
+        const each = ranges.map(({ min, max }) => (min === max ? `${min}` : `${min}-${max}`));
+
+        if (JunosBgp.listable(numbers)) {
+            const list = `circuit-as-${slug}`;
+            for (const member of each) this.out.set(`policy-options as-list ${list} members`, member);
+            return [JunosBgp.AS_LIST_MATCH[field], "as-list", list];
+        }
+
+        const { name, before, after } = JunosBgp.AS_REGEX[field];
+        const regex = `${before}${each.length === 1 ? each[0] : `(${each.join("|")})`}${after}`;
+        this.out.set(`policy-options as-path circuit-${name}-${slug}`, JunosStatements.quote(regex));
+        return ["as-path", `circuit-${name}-${slug}`];
+    }
+
+    /** Whether an AS list can hold these ASes. */
+    static listable(numbers: AsNumbers): boolean {
+        return Derive.asRanges(numbers).every(({ min, max }) => min > 0 && max < JunosBgp.MAX_ASN);
     }
 
     /** A named community holding these members, named after them. */

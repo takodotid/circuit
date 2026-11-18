@@ -3,7 +3,7 @@ import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, RouteRule } from "../../model";
+import type { AsNumbers, Device, Family, Neighbor, NeighborSettings, PolicyRule, RouteRule } from "../../model";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
 
@@ -61,10 +61,10 @@ export class RouterOsRouting {
         return family === "ipv4" ? "V4" : "V6";
     }
 
-    /** A community pattern with `*` as a regular expression the platform matches on: `64500:*:*` becomes `^64500:[0-9]+:[0-9]+$`. */
-    private static communityPattern(pattern: string): string {
-        const fields = pattern.split(":").map((field) => (field === "*" ? "[0-9]+" : field));
-        return `^${fields.join(":")}$`;
+    /** Community patterns with `*` as one regular expression the platform matches on: `64500:*:*` becomes `^64500:[0-9]+:[0-9]+$`, and several become `^(a|b)$`. */
+    private static communityPattern(patterns: readonly string[]): string {
+        const each = patterns.map((pattern) => pattern.replace(/\*/g, "[0-9]+"));
+        return `^${each.length === 1 ? each[0] : `(${each.join("|")})`}$`;
     }
 
     /** The chain a policy is rendered as for one family. A policy can test prefix lengths that mean different things per family, so each family gets its own. */
@@ -89,11 +89,31 @@ export class RouterOsRouting {
         if (match.as_path_length?.min !== undefined) tests.push(`bgp-path-len>${match.as_path_length.min - 1}`);
         if (match.as_path_length?.max !== undefined) tests.push(`bgp-path-len<${match.as_path_length.max + 1}`);
         // The platform's AS path regexp matches each AS as a whole number, so a bare number is that AS anywhere in the path.
-        if (match.as_path_contains !== undefined) tests.push(`bgp-as-path ${match.as_path_contains}`);
+        if (match.as_path_contains !== undefined) tests.push(RouterOsRouting.asPath(match.as_path_contains));
+        if (match.first_as !== undefined) tests.push(RouterOsRouting.asPath(match.first_as, "^"));
+        if (match.origin_as !== undefined) tests.push(RouterOsRouting.asPath(match.origin_as, "", "$"));
         if (match.rpki) tests.push(`rpki ${match.rpki}`);
-        if (match.standard_community) tests.push(`bgp-communities includes ${match.standard_community}`);
-        if (match.large_community) tests.push(`bgp-large-communities includes ${match.large_community}`);
+        if (match.standard_community) tests.push(RouterOsRouting.communities("bgp-communities", match.standard_community));
+        if (match.large_community) tests.push(RouterOsRouting.communities("bgp-large-communities", match.large_community));
         return tests;
+    }
+
+    /** An AS path test: one AS, `64501`, or a set, `[64501 64512-65534]`, between the anchors given, such as `^` for the first AS. */
+    private static asPath(numbers: AsNumbers, before = "", after = ""): string {
+        const ranges = Derive.asRanges(numbers);
+        const single = ranges.length === 1 && ranges[0]!.min === ranges[0]!.max;
+        const set = ranges.map(({ min, max }) => (min === max ? `${min}` : `${min}-${max}`)).join(" ");
+        const regexp = `${before}${single ? set : `[${set}]`}${after}`;
+        // The device refuses a set with spaces unless it is quoted (TRAPS.md).
+        return `bgp-as-path ${regexp.includes(" ") ? `"${regexp}"` : regexp}`;
+    }
+
+    /** A test that the route has any of these communities. One with a `*` part is matched by regular expression. */
+    private static communities(property: string, values: string | readonly string[]): string {
+        const list = [values].flat();
+        if (list.some((value) => value.includes("*"))) return `${property} any-regexp "${RouterOsRouting.communityPattern(list)}"`;
+
+        return list.length === 1 ? `${property} includes ${list[0]}` : `${property} any ${list.join(",")}`;
     }
 
     /** What a rule does to a matching route, then its decision. */
@@ -104,13 +124,13 @@ export class RouterOsRouting {
         if (set.med !== undefined) steps.push(`set bgp-med ${set.med}`);
         if (set.prepend !== undefined) steps.push(`set bgp-path-prepend ${set.prepend}`);
         for (const pattern of set.remove_standard_communities ?? []) {
-            steps.push(`delete bgp-communities regexp "${RouterOsRouting.communityPattern(pattern)}"`);
+            steps.push(`delete bgp-communities regexp "${RouterOsRouting.communityPattern([pattern])}"`);
         }
         if (set.standard_communities) steps.push(`set bgp-communities ${set.standard_communities.join(",")}`);
         if (set.add_standard_communities) steps.push(`append bgp-communities ${set.add_standard_communities.join(",")}`);
 
         for (const pattern of set.remove_large_communities ?? []) {
-            steps.push(`delete bgp-large-communities regexp "${RouterOsRouting.communityPattern(pattern)}"`);
+            steps.push(`delete bgp-large-communities regexp "${RouterOsRouting.communityPattern([pattern])}"`);
         }
 
         if (set.large_communities) steps.push(`set bgp-large-communities ${set.large_communities.join(",")}`);

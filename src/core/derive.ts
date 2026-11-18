@@ -2,7 +2,19 @@
 
 import { Address } from "./address";
 import { Utils } from "./utils";
-import type { Device, Family, FilterRule, Interface, InterfaceKind, NatRule, NeighborSettings, Port, Routed } from "../model";
+import type {
+    AsNumbers,
+    AsRange,
+    Device,
+    Family,
+    FilterRule,
+    Interface,
+    InterfaceKind,
+    NatRule,
+    NeighborSettings,
+    Port,
+    Routed,
+} from "../model";
 
 /** A BGP neighbor's `max_prefixes` in its long form. Without `restart_after` or `warn_only`, the session stays closed. */
 type PrefixLimit = { limit: number; restart_after?: number; warn_only?: boolean };
@@ -151,6 +163,11 @@ export class Derive {
     static prefixLimit(settings: NeighborSettings): PrefixLimit | undefined {
         const max = settings.max_prefixes;
         return typeof max === "number" ? { limit: max } : max;
+    }
+
+    /** AS numbers as ranges, a single number as a range of one. */
+    static asRanges(numbers: AsNumbers): AsRange[] {
+        return [numbers].flat().map((each) => (typeof each === "number" ? { min: each, max: each } : each));
     }
 
     /** The IPv4 networks of a port's or an interface's addresses. */
