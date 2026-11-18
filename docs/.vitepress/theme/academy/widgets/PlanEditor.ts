@@ -69,7 +69,7 @@ export class RouterFile {
 
     /** What `circuit diff router` printed for each set of edits. */
     static readonly PLANS: Record<string, string> = {
-        "0000": "✔ router already runs its config. Nothing to change.\n",
+        "0000": "✔ router already matches its config.\n",
         "0001": "router: 1 command(s) in 1 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-5 ] disabled=yes comment=\n",
         "0010": "router: 1 command(s) in 1 step(s)\n  /ip dns\n    ~ set servers=203.0.113.53\n",
         "0011": "router: 2 command(s) in 2 step(s)\n  /interface ethernet\n    ~ set [ find default-name=sfp28-5 ] disabled=yes comment=\n  /ip dns\n    ~ set servers=203.0.113.53\n",

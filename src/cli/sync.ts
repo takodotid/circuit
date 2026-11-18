@@ -1,4 +1,4 @@
-// `circuit sync <target>`: picks the target, puts together the networks that name the same system, unlocks the secrets it needs, and runs each through `Sync.run`.
+// `circuit sync <target>`: picks the target, puts together the networks that use the same system, and unlocks the secrets it needs. For each system it reads, prints the plan, asks, sends, then reads and plans again. The targets in src/integrations only read, plan and send.
 
 import { Secrets } from "../core/secrets";
 import type { Device } from "../model";
@@ -6,21 +6,37 @@ import { LibreNms } from "../integrations/librenms";
 import { NetBox } from "../integrations/netbox";
 import { PeeringDb } from "../integrations/peeringdb";
 import { Prometheus } from "../integrations/prometheus";
-import { Sync, type SyncNetwork, type SyncOutcome, type SyncTarget } from "../integrations/sync";
+import type { SyncNetwork, SyncPlan, SyncTarget } from "../integrations/sync";
 import { type ProjectNetwork, type ProjectRead, Project } from "../project";
 import { Remember } from "./remember";
 import { SecretsPassword } from "./secrets-password";
 import { type Choice, Ui } from "./ui";
 
-export type SyncTargetName = (typeof Sync.TARGETS)[number];
+export type SyncTargetName = (typeof SyncCommand.TARGETS)[number];
+
+/** How a sync ended: `matches` and `sent` and `declined` exit 0; `not-sent` and `left` exit 1. */
+export type SyncOutcome = "matches" | "declined" | "not-sent" | "sent" | "left";
+
+/** Whether to send without asking, whether a person can answer, and how to ask them. */
+export type SyncAnswers = {
+    /** `--confirm`: send without asking. */
+    confirmed: boolean;
+    /** A person is at a terminal. */
+    interactive: boolean;
+    /** Ask a yes or no question, No by default. */
+    ask: (question: string) => Promise<boolean>;
+};
 
 export class SyncCommand {
+    /** The targets, in the order Circuit lists them. */
+    static readonly TARGETS = ["netbox", "librenms", "peeringdb", "prometheus"] as const;
+
     /** Each target's name as people write it, and what it sends, for the list. */
     private static readonly LABELS: Record<SyncTargetName, { label: string; hint: string }> = {
-        netbox: { label: "NetBox", hint: "devices, ports, VLANs, addresses and cables" },
-        librenms: { label: "LibreNMS", hint: "every device monitored, with its SNMP settings and site" },
+        netbox: { label: "NetBox", hint: "devices, ports, VLANs, addresses, and cables" },
+        librenms: { label: "LibreNMS", hint: "the devices to monitor, with SNMP settings and sites" },
         peeringdb: { label: "PeeringDB", hint: "your exchange presence" },
-        prometheus: { label: "Prometheus", hint: "the targets and snmp_exporter auths files, in the project" },
+        prometheus: { label: "Prometheus", hint: "the targets and snmp_exporter auths files" },
     };
 
     /** How each target is set in `circuit.ts`, for a message. */
@@ -48,7 +64,9 @@ export class SyncCommand {
             }
 
             try {
-                outcomes.push(await Sync.run(target, { confirmed, interactive: Ui.interactive, ask: (question) => Ui.confirm(question) }));
+                outcomes.push(
+                    await SyncCommand.apply(target, { confirmed, interactive: Ui.interactive, ask: (question) => Ui.confirm(question) })
+                );
             } catch (error) {
                 Ui.fail(`${target.where}: ${(error as Error).message}`);
             }
@@ -59,11 +77,11 @@ export class SyncCommand {
 
     /** The target named, or one a person picks; a script must name it. */
     private static async pick(project: ProjectRead, given: string | undefined): Promise<SyncTargetName> {
-        const all = Sync.TARGETS.join(", ").replace(/, (\w+)$/, " or $1");
+        const all = SyncCommand.TARGETS.join(", ").replace(/, (\w+)$/, ", or $1");
         const isSet = (name: SyncTargetName) => project.networks.some((network) => network.settings.integrations?.[name]);
 
         if (given !== undefined) {
-            const name = Sync.TARGETS.find((target) => target === given) ?? Ui.fail(`No target ${given}. Name the target: ${all}.`);
+            const name = SyncCommand.TARGETS.find((target) => target === given) ?? Ui.fail(`No target ${given}. Give one of: ${all}.`);
             if (!isSet(name))
                 Ui.fail(
                     `No network in circuit.ts sets integrations.${name}. Write it in circuit({ integrations }), such as ${SyncCommand.EXAMPLES[name]}.`
@@ -71,19 +89,78 @@ export class SyncCommand {
             return name;
         }
 
-        if (!Ui.interactive) Ui.fail(`Name the target: ${all}.`);
-        if (!Sync.TARGETS.some(isSet))
+        if (!Ui.interactive) Ui.fail(`Give the target: ${all}.`);
+        if (!SyncCommand.TARGETS.some(isSet))
             Ui.fail(
                 `No network in circuit.ts sets integrations. Write them in circuit({ integrations }), such as ${SyncCommand.EXAMPLES.netbox}.`
             );
 
-        const choices: Choice<SyncTargetName>[] = Sync.TARGETS.map((name) => ({
+        const choices: Choice<SyncTargetName>[] = SyncCommand.TARGETS.map((name) => ({
             value: name,
             label: SyncCommand.LABELS[name].label,
             hint: isSet(name) ? SyncCommand.LABELS[name].hint : "not set in circuit.ts",
             disabled: !isSet(name),
         }));
         return Ui.select("Which system?", choices);
+    }
+
+    /** The plan as the lines Circuit prints: the changes, the counts, then what is left alone. */
+    static text(heading: string, plan: SyncPlan): string[] {
+        const lines: string[] = [];
+
+        if (plan.changes.length) {
+            lines.push(Ui.bold(`${heading}: ${plan.changes.length} change(s)`));
+
+            for (const change of plan.changes) {
+                const paint = change.sign === "+" ? Ui.green : change.sign === "-" ? Ui.red : Ui.yellow;
+                lines.push(`  ${paint(change.sign)} ${change.what}`);
+                for (const detail of change.details) lines.push(`      ${detail}`);
+            }
+
+            if (plan.summary.length) lines.push("", ...plan.summary.map((line) => `  ${line}`));
+        }
+
+        if (plan.leftAlone.length) {
+            if (lines.length) lines.push("");
+            lines.push("Left alone:", ...plan.leftAlone.map((line) => `  ${line}`));
+        }
+
+        return lines;
+    }
+
+    /** Read, plan, print, ask, send, then read and plan again. Returns how it ended; the caller sets the exit code. */
+    static async apply<P extends SyncPlan>(target: SyncTarget<P>, answers: SyncAnswers): Promise<SyncOutcome> {
+        const plan = await Ui.step(`Reading ${target.where}`, () => target.plan());
+        const lines = SyncCommand.text(target.heading, plan);
+        if (lines.length) console.log(`\n${lines.join("\n")}\n`);
+
+        if (!plan.changes.length) {
+            Ui.done(`${target.name} already matches the project.`);
+            return "matches";
+        }
+
+        if (!answers.confirmed) {
+            if (!answers.interactive) {
+                console.error(Ui.red("Not sent. Without a terminal, add --confirm to send.", process.stderr));
+                return "not-sent";
+            }
+            if (!(await answers.ask(`Send these changes to ${target.name}?`))) {
+                console.log("Nothing sent.");
+                return "declined";
+            }
+        }
+
+        await Ui.step(`Sending the changes to ${target.name}`, () => target.send(plan));
+
+        const left = await Ui.step(`Reading ${target.where} again`, () => target.plan());
+        if (left.changes.length) {
+            console.log(`\n${SyncCommand.text(target.heading, left).join("\n")}\n`);
+            console.error(Ui.red(`Sent, but ${target.name} still differs from the project as shown above.`, process.stderr));
+            return "left";
+        }
+
+        Ui.done(`${target.name} matches the project now.`);
+        return "sent";
     }
 
     /** The networks that set the target, put together when they name the same system: the same NetBox or LibreNMS, the same AS, the same files. */

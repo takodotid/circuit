@@ -225,7 +225,7 @@ export class NetBox implements SyncTarget<NetBoxPlan> {
                 }
 
                 if (kind !== "tag" && !NetBox.isTagged(found)) {
-                    untagged.push(`${path} ${key}: in NetBox without the tag ${NetBox.TAG}, so it is used as it is.`);
+                    untagged.push(`${path} ${key}: in NetBox without the tag ${NetBox.TAG}, so Circuit uses it as it is.`);
                     continue;
                 }
 
@@ -572,7 +572,7 @@ export class NetBox implements SyncTarget<NetBoxPlan> {
         const [example] = elsewhere;
         if (example)
             this.notes.push(
-                `${elsewhere.length} prefix(es) on no link of ours, such as ${example.prefix} (${example.what}): no interface of ours is on them, so they are not in NetBox.`
+                `${elsewhere.length} prefix(es) on no interface of ours, such as ${example.prefix} (${example.what}), so they are not in NetBox.`
             );
     }
 

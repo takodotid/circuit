@@ -158,7 +158,7 @@ export class SecretsFile {
     passwordLocation(): string | undefined {
         const source = this.passwordSource();
         if (!source) return undefined;
-        return source.value.startsWith("op://") ? `1Password, ${source.value} (named in ${source.where})` : source.where;
+        return source.value.startsWith("op://") ? `1Password, ${source.value} (set in ${source.where})` : source.where;
     }
 
     /** Whether a value of the file can be read now: the password is known, or there is nothing encrypted. */

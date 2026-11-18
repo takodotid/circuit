@@ -3,6 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { Installation } from "../core/installation";
 import { Releases } from "./releases";
 import { Ui } from "./ui";
 import { VERSION } from "./version";
@@ -30,7 +31,7 @@ export class Versions {
 
     /** The projects Circuit ran in on this machine, by folder. */
     private static projectsFile(): string {
-        return join(Releases.home(), "projects.json");
+        return join(Installation.home(), "projects.json");
     }
 
     /** The projects Circuit remembers. */
@@ -45,7 +46,7 @@ export class Versions {
 
     private static save(projects: readonly string[]): void {
         try {
-            mkdirSync(Releases.home(), { recursive: true });
+            mkdirSync(Installation.home(), { recursive: true });
             writeFileSync(Versions.projectsFile(), `${JSON.stringify({ projects }, null, 4)}\n`);
         } catch {}
     }
@@ -64,7 +65,7 @@ export class Versions {
         const projects = Versions.known().filter((root) => existsSync(join(root, "circuit.ts")));
         Versions.save(projects);
 
-        const folder = join(Releases.home(), "versions");
+        const folder = join(Installation.home(), "versions");
         if (!existsSync(folder)) return [];
 
         const used = new Set(projects.map((root) => Versions.pinned(root)));
@@ -82,7 +83,7 @@ export class Versions {
 
     /** Where a version is kept once downloaded. */
     static path(version: string): string {
-        return join(Releases.home(), "versions", version, process.platform === "win32" ? "circuit.exe" : "circuit");
+        return join(Installation.home(), "versions", version, process.platform === "win32" ? "circuit.exe" : "circuit");
     }
 
     /** A version's binary: downloaded, signed and checked, once the person says yes, when it is not here yet. Without a person to ask, such as in CI, it is downloaded. */
@@ -94,7 +95,7 @@ export class Versions {
             Ui.interactive &&
             !(await Ui.confirm(`This project runs Circuit ${version}, which is not on this machine yet. Download it?`, true))
         )
-            Ui.fail(`Not run. This project needs Circuit ${version}; or move it to another version with circuit update.`);
+            Ui.fail(`Not run. This project needs Circuit ${version}. To use another version, run circuit update.`);
 
         const bytes = await Ui.step(`Downloading Circuit ${version}`, () => Releases.fetchBinary(version));
         mkdirSync(join(path, ".."), { recursive: true });
@@ -109,7 +110,7 @@ export class Versions {
      * Before a command in a project: a version a security advisory affects never runs, so the person moves the project to a fixed one first. Then, when the project pins another version than this one, run that version with these arguments, and end with its exit code. Nothing to do when this Circuit is the one to run.
      */
     static async run(root: string, argv: string[]): Promise<void> {
-        if (process.env[Versions.RUNNING] || !Releases.binary()) return;
+        if (process.env[Versions.RUNNING] || !Installation.binary()) return;
 
         let pinned = Versions.pinned(root) ?? VERSION;
         const { advisories } = await Ui.wait("Checking the project's Circuit for security problems", () => Releases.advisories());
@@ -141,7 +142,7 @@ export class Versions {
         const target = await Releases.pick(current, confirmed, "This project");
         if (!target) return undefined;
 
-        const binary = target === VERSION ? (Releases.binary() ?? (await Versions.ensure(target))) : await Versions.ensure(target);
+        const binary = target === VERSION ? (Installation.binary() ?? (await Versions.ensure(target))) : await Versions.ensure(target);
         Versions.pin(root, target);
         Versions.remember(root);
 

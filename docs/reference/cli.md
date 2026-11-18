@@ -34,12 +34,12 @@ Run `circuit` alone for a menu, and Circuit asks for the rest, such as the devic
 
 | Command                             | Does                                                                           |
 | ----------------------------------- | ------------------------------------------------------------------------------ |
-| `exec [device] [command...]`        | Runs commands that only read on the device. Also `execute`.                    |
+| `exec [device] [command...]`        | Runs read-only commands on the device. Also `execute`.                         |
 | `bgp [device]`                      | Shows each BGP neighbor next to its live session.                              |
 | `access-console [device] [line...]` | Opens the device's serial console, already logged in.                          |
 | `communities [network]`             | Prints what each BGP community means, for a looking glass.                     |
 | `addresses [prefix]`                | Shows what address space is used, and what is free.                            |
-| `sync [target]`                     | Keeps NetBox, LibreNMS, PeeringDB, or Prometheus in sync with the project.     |
+| `sync [target]`                     | Updates NetBox, LibreNMS, PeeringDB, or Prometheus to match the project.       |
 | `studio`                            | Opens Circuit Studio in your browser. For its options, see [Studio](/studio/). |
 | `rename [device] [new-name]`        | Renames a device everywhere in the project.                                    |
 | `fmt [file...]`                     | Tidies spacing and line breaks. Nothing else changes.                          |
@@ -65,7 +65,7 @@ Circuit refuses any command that could change the device, before it connects.
 | --------------------- | ---------------------------------------------------------------------------------------- |
 | `--file <path>`       | Also runs each line of this file. Blank lines and lines that start with `#` are skipped. |
 | `--timeout <seconds>` | How long each command may take. Default 90.                                              |
-| `--console`           | Goes through the serial console instead of SSH.                                          |
+| `--console`           | Goes through the serial console on a jump host instead of SSH.                           |
 
 Secrets in the output show as `<redacted>`. In Git Bash on Windows, set `MSYS_NO_PATHCONV=1` first, or `/ip ...` turns into a Windows path.
 
@@ -89,13 +89,13 @@ circuit bgp edge-01 --log 10                       # plus 10 minutes of BGP log
 1/2 up
 ```
 
-| Option                | Does                                                                                                                   |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `--neighbors <regex>` | Shows only the neighbors whose name matches this regular expression.                                                   |
-| `--wait [count]`      | Reads again every 15 seconds until every neighbor shown is up, or `count` of them. Exits 1 if time runs out.           |
-| `--max <seconds>`     | How long `--wait` waits at most. Default 600.                                                                          |
-| `--log [minutes]`     | Also prints the device's BGP log of the last minutes. Default 5.                                                       |
-| `--clear-limit`       | Opens again the sessions that closed on their prefix limit. If several closed at once, look for a leak upstream first. |
+| Option                | Does                                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `--neighbors <regex>` | Shows only the neighbors whose name matches this regular expression.                                              |
+| `--wait [count]`      | Reads again every 15 seconds until every neighbor shown is up, or `count` of them. Exits 1 if time runs out.      |
+| `--max <seconds>`     | How long `--wait` waits at most. Default 600.                                                                     |
+| `--log [minutes]`     | Also prints the device's BGP log of the last minutes. Default 5.                                                  |
+| `--clear-limit`       | Clears the sessions that closed on their prefix limit. If several closed at once, look for a leak upstream first. |
 
 ### `access-console`
 
@@ -194,12 +194,12 @@ Each `secrets` command works on `.circuit/secrets`, or on another file with `--f
 | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `secrets`                    | In a terminal, the same as `secrets edit`. Without one, the same as `secrets list`.                      |
 | `secrets edit`               | Opens every secret, decrypted, in a text editor in the terminal.                                         |
-| `secrets list`               | Lists every secret and how it is kept, and the ones the config needs but the file lacks.                 |
+| `secrets list`               | Lists every secret and how it is stored, and the ones the config needs but the file lacks.               |
 | `secrets get [name]`         | Prints one secret, decrypted.                                                                            |
 | `secrets set [name] [value]` | Adds or changes a secret. Leave out the value to type it hidden. An `op://` value keeps it in 1Password. |
-| `secrets delete [name]`      | Removes a secret. `--confirm` skips the question.                                                        |
+| `secrets delete [name]`      | Deletes a secret. `--confirm` skips the question.                                                        |
 | `secrets encrypt`            | Encrypts every value typed into the file in plain text.                                                  |
-| `secrets password`           | Changes the password, and encrypts every secret again.                                                   |
+| `secrets password`           | Changes the password of the secrets file. The old one stops working.                                     |
 | `secrets forget`             | Forgets every secret that Circuit remembers for a while.                                                 |
 
 | `secrets password` option | Does                                                                                                               |
@@ -215,7 +215,7 @@ Each `secrets` command works on `.circuit/secrets`, or on another file with `--f
 | `new [folder]`        | Starts a project. `--full` makes a [full install](/guide/install#full-install). See [Start a project](/guide/install#start-a-project).              |
 | `update`              | Moves the project to a newer version you pick. Outside a project, or with `--app`, updates Circuit itself. See [Updating](/guide/install#updating). |
 | `uninstall`           | Removes Circuit from this machine. Your projects stay.                                                                                              |
-| `migrate <v0-folder>` | Writes a Circuit 0.x project, with its packages installed, again as a v1 project. Its `MIGRATION.md` lists what didn't move.                        |
+| `migrate <v0-folder>` | Converts a Circuit 0.x project, with its packages installed, to v1. Its `MIGRATION.md` lists what didn't move.                                      |
 
 `update` and `uninstall` take `--confirm` to go ahead without asking. `update --confirm` takes the newest version.
 

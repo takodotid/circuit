@@ -57,13 +57,19 @@ export class ProjectCommands {
         }
     }
 
-    /** Read the project. Stops with every reason when it can't be read. */
-    static async open(flags: ReachFlags = {}): Promise<ProjectCommands> {
-        const root =
+    /** The project's folder, or a stop that says how to get one. */
+    static findOrFail(): string {
+        return (
             ProjectCommands.find() ??
             Ui.fail(
-                "No Circuit project here: no circuit.ts in this folder or above it. Run circuit in a project's folder, or start one with circuit."
-            );
+                "No Circuit project here: no circuit.ts in this folder or above it. Go to a project's folder, or start one with circuit new."
+            )
+        );
+    }
+
+    /** Read the project. Stops with every reason when it can't be read. */
+    static async open(flags: ReachFlags = {}): Promise<ProjectCommands> {
+        const root = ProjectCommands.findOrFail();
 
         Setup.prepare(root);
         Secrets.useRoot(root);
@@ -80,7 +86,7 @@ export class ProjectCommands {
 
         const names = project.networks.flatMap((network) => Object.keys(network.devices));
         const twice = names.filter((name, i) => names.indexOf(name) !== i);
-        if (twice.length) Ui.fail(`${twice.join(", ")}: one hostname in two networks. A hostname is one device.`);
+        if (twice.length) Ui.fail(`${twice.join(", ")}: the same hostname in two networks. Give each device its own hostname.`);
 
         const options: ApplyOptions = {
             secrets: flags.secrets ?? false,
@@ -99,7 +105,7 @@ export class ProjectCommands {
         }
 
         if (!devices.length) Ui.fail("The project has no device yet.");
-        if (!Ui.interactive) Ui.fail("Name the device.");
+        if (!Ui.interactive) Ui.fail("Give the device's name.");
 
         return Ui.select(
             "Which device?",
@@ -117,7 +123,7 @@ export class ProjectCommands {
 
     /** What address space the project uses and what is free, under the prefix given or the space every network owns. */
     addresses(prefix: string | undefined, length: number | undefined, format: "text" | "json"): void {
-        if (prefix !== undefined && !Address.isCidr(prefix)) Ui.fail(`${prefix} is not a prefix, such as 192.0.2.0/24`);
+        if (prefix !== undefined && !Address.isCidr(prefix)) Ui.fail(`${prefix} is not a prefix. Write one such as 192.0.2.0/24.`);
 
         const owned: Record<string, Record<string, string>> = {};
         for (const network of this.project.networks) {
@@ -133,7 +139,7 @@ export class ProjectCommands {
     /** What each community of a network's scheme means, printed in `format`: the network named, or the only one with a scheme. */
     async communities(name: string | undefined, format: CommunityFormat): Promise<void> {
         const schemes = this.project.networks.filter((network) => network.communities.length);
-        if (!schemes.length) Ui.fail("No network of the project has communities in circuit.ts.");
+        if (!schemes.length) Ui.fail("No network has communities in circuit.ts.");
 
         const named = name === undefined ? undefined : this.project.networks.find((network) => network.name === name);
         if (name !== undefined && !named)
@@ -150,7 +156,7 @@ export class ProjectCommands {
                         "Which network?",
                         schemes.map((each) => ({ value: each, label: each.name, hint: each.asn === undefined ? "" : `AS${each.asn}` }))
                     )
-                  : Ui.fail(`Name the network: ${schemes.map((each) => each.name).join(", ")}.`));
+                  : Ui.fail(`Give one of the networks: ${schemes.map((each) => each.name).join(", ")}.`));
 
         process.stdout.write(Communities.text(network, format));
     }
@@ -193,7 +199,7 @@ export class ProjectCommands {
         const adapter = Platforms.find(device.platform) ?? Ui.fail(`No adapter for ${device.platform}.`);
         if (!this.optionsFor(device).console) return adapter;
 
-        if (!adapter.console) Ui.fail(`${device.name}: ${device.platform} cannot be reached through a console yet.`);
+        if (!adapter.console) Ui.fail(`${device.name}: Circuit can't reach ${device.platform} through a console yet.`);
         if (!device.connection.console) Ui.fail(`${device.name}: --console needs connection.console.`);
         return adapter;
     }
@@ -224,7 +230,7 @@ export class ProjectCommands {
     private static printPlan(device: Device, plan: Plan): number {
         const commands = plan.steps.reduce((count, step) => count + step.send.length, 0);
         if (!commands && !plan.problems.length) {
-            Ui.done(`${device.name} already runs its config. Nothing to change.`);
+            Ui.done(`${device.name} already matches its config.`);
             return 0;
         }
 
@@ -253,7 +259,9 @@ export class ProjectCommands {
 
     /** Read the device and plan against what it runs now. */
     private async plan(device: Device, adapter: Platform): Promise<Plan> {
-        const live = await Ui.step(`Reading what ${device.name} runs`, () => adapter.read(device, this.devices, this.optionsFor(device)));
+        const live = await Ui.step(`Reading ${device.name}'s running config`, () =>
+            adapter.read(device, this.devices, this.optionsFor(device))
+        );
         await this.checkCabling(device, adapter);
 
         return adapter.plan(adapter.render(device), live, this.options);
@@ -288,10 +296,10 @@ export class ProjectCommands {
         const plan = await this.plan(device, adapter);
         if (!ProjectCommands.printPlan(device, plan)) return;
 
-        if (plan.problems.length) Ui.fail("\nNot sent: resolve the problems first.");
+        if (plan.problems.length) Ui.fail("\nNot sent. Fix the problems above first.");
 
         if (!confirmed) {
-            if (!Ui.interactive) Ui.fail("\nNot sent. Without a person to answer, add --confirm to send.");
+            if (!Ui.interactive) Ui.fail("\nNot sent. Without a terminal, add --confirm to send.");
             console.log();
             if (!(await Ui.confirm(`Send these changes to ${device.name}?`))) {
                 console.log("Nothing sent.");
@@ -302,7 +310,7 @@ export class ProjectCommands {
         // What the checks after the apply compare against, such as the BGP sessions up now, is read before anything is sent.
         const health =
             adapter.health &&
-            (await Ui.step(`Reading what to check on ${device.name} after the apply`, () =>
+            (await Ui.step(`Reading ${device.name}'s state before the change`, () =>
                 adapter.health!(device, plan, this.optionsFor(device))
             ));
 
@@ -310,10 +318,10 @@ export class ProjectCommands {
 
         if (!health) return;
 
-        const problems = await Ui.step("Checking the device after the apply", () => health.run());
+        const problems = await Ui.step(`Checking ${device.name} after the change`, () => health.run());
         if (problems.length) Ui.fail(`\nApplied, but the device is not healthy:\n${problems.map((problem) => `  ${problem}`).join("\n")}`);
 
-        Ui.done("No problems found.");
+        Ui.done("Applied. No problems found.");
     }
 
     /** Run commands that only read, each under a header with how long it took. Every command is checked before anything connects. */
@@ -331,7 +339,7 @@ export class ProjectCommands {
         const refused = commands.filter((command) => !adapter.readOnly(command));
         if (refused.length) {
             Ui.fail(
-                `Not known to only read on ${device.platform}, so nothing was sent. A change goes through circuit apply.\n${refused.map((command) => `  ${command}`).join("\n")}`
+                `Nothing sent: Circuit can't tell that these commands only read on ${device.platform}. Make changes with circuit apply.\n${refused.map((command) => `  ${command}`).join("\n")}`
             );
         }
 
@@ -370,11 +378,11 @@ export class ProjectCommands {
     async rename(from: string | undefined, to: string | undefined, file: boolean | undefined, confirmed: boolean): Promise<void> {
         const device = await this.pick(from);
         const network = this.project.networks.find((candidate) => device.name in candidate.devices)!;
-        const declaring = network.files[device.name] ?? Ui.fail(`No file of the project writes ${device.name}, so rename it by hand.`);
+        const declaring = network.files[device.name] ?? Ui.fail(`Circuit can't find the file of ${device.name}, so rename it by hand.`);
 
         const check = (name: string) => {
-            if (!Rename.HOSTNAME.test(name)) return `${name} is not a hostname: letters, digits, dots, dashes and underscores.`;
-            if (this.devices.some((candidate) => candidate.name === name)) return `${name} is already a device.`;
+            if (!Rename.HOSTNAME.test(name)) return `${name} is not a hostname. Use letters, digits, dots, dashes, and underscores.`;
+            if (this.devices.some((candidate) => candidate.name === name)) return `There is already a device ${name}.`;
             return undefined;
         };
         const name = to ?? (Ui.interactive ? await Ui.text(`New name for ${device.name}`, { check }) : Ui.fail("Give the new name."));
@@ -402,12 +410,12 @@ export class ProjectCommands {
         for (const move of plan.moves) console.log(`${Ui.bold("move")} ${move.from} to ${move.to}`);
 
         if (plan.mentions.length) {
-            console.log(`\nStill naming ${device.name}, left as they are. Change them by hand if they mean the device:`);
+            console.log(`\nThese lines mention ${device.name} inside other text. Change them by hand if they mean the device:`);
             for (const mention of plan.mentions) console.log(`  ${mention.file}:${mention.line}  ${mention.text.slice(0, 160)}`);
         }
 
         if (!confirmed) {
-            if (!Ui.interactive) Ui.fail("\nNothing written. Without a person to answer, add --confirm.");
+            if (!Ui.interactive) Ui.fail("\nNothing written. Without a terminal, add --confirm.");
             console.log();
             if (!(await Ui.confirm(`Rename ${device.name} to ${name}?`))) {
                 console.log("Nothing written.");
@@ -439,23 +447,23 @@ export class ProjectCommands {
             .filter((platform) => platform.bgpSessions)
             .map((platform) => platform.name)
             .join(", ");
-        if (!adapter.bgpSessions) Ui.fail(`circuit bgp does not support ${device.platform} yet, only ${supported}`);
-        if (flags.log && !adapter.bgpLog) Ui.fail(`circuit bgp --log does not support ${device.platform} yet`);
-        if (flags.clearLimit && !adapter.bgpClearLimit) Ui.fail(`circuit bgp --clear-limit does not support ${device.platform} yet`);
-        if (flags.clearLimit && flags.wait !== undefined) Ui.fail("--clear-limit and --wait go in two runs: clear first, then wait");
+        if (!adapter.bgpSessions) Ui.fail(`circuit bgp doesn't support ${device.platform} yet. It supports ${supported}.`);
+        if (flags.log && !adapter.bgpLog) Ui.fail(`circuit bgp --log doesn't support ${device.platform} yet.`);
+        if (flags.clearLimit && !adapter.bgpClearLimit) Ui.fail(`circuit bgp --clear-limit doesn't support ${device.platform} yet.`);
+        if (flags.clearLimit && flags.wait !== undefined) Ui.fail("Use --clear-limit and --wait in two runs: clear first, then wait.");
 
         let matcher: RegExp;
         try {
             matcher = new RegExp(pattern ?? ".");
         } catch (error) {
-            Ui.fail(`${pattern} is not a regular expression: ${(error as Error).message}`);
+            Ui.fail(`${pattern} is not a regular expression: ${(error as Error).message}.`);
         }
 
         const names = Object.keys(device.routing?.bgp?.neighbors ?? {});
-        if (!names.length) Ui.fail(`${device.name} has no BGP neighbors`);
+        if (!names.length) Ui.fail(`${device.name} has no BGP neighbors.`);
 
         const shown = names.filter((name) => matcher.test(name));
-        if (!shown.length) Ui.fail(`no BGP neighbor of ${device.name} matches ${matcher}; known: ${names.join(", ")}`);
+        if (!shown.length) Ui.fail(`No BGP neighbor of ${device.name} matches ${matcher}. Its neighbors: ${names.join(", ")}.`);
 
         const want = flags.wait === undefined ? 0 : flags.wait === true ? shown.length : flags.wait;
         const session = await Ui.step(`Connecting to ${device.name}`, () => adapter.session(device, this.optionsFor(device)));
@@ -501,15 +509,15 @@ export class ProjectCommands {
 
         if (!closed.length) {
             ProjectCommands.printBgp(sessions);
-            console.error("\nno neighbor shown is closed on its prefix limit, so nothing was cleared");
+            console.error("\nNo neighbor shown closed on its prefix limit, so nothing was cleared.");
             process.exitCode = 1;
             return;
         }
 
-        for (const bgp of sessions) if (!bgp.limit) console.log(`${bgp.neighbor}: left alone, not closed on its limit`);
+        for (const bgp of sessions) if (!bgp.limit) console.log(`${bgp.neighbor}: not closed on its limit, left alone`);
         await Ui.step(`Clearing ${closed.map((bgp) => bgp.neighbor).join(", ")}`, () => adapter.bgpClearLimit!(session, closed));
         console.log(
-            `cleared ${closed.map((bgp) => bgp.neighbor).join(", ")}: each connects again, and closes again if it still sends too much\n`
+            `Cleared ${closed.map((bgp) => bgp.neighbor).join(", ")}. Each one closes again if it still sends too many prefixes.\n`
         );
 
         ProjectCommands.printBgp(await read());
@@ -524,7 +532,7 @@ export class ProjectCommands {
         if (!withBgp.length) Ui.fail("No device has BGP neighbors.");
         if (Ui.interactive) return this.pick(undefined, withBgp);
 
-        return Ui.fail(`Several devices have BGP neighbors, so name one: ${withBgp.map((device) => device.name).join(", ")}`);
+        return Ui.fail(`Several devices have BGP neighbors. Give one: ${withBgp.map((device) => device.name).join(", ")}.`);
     }
 
     /** One line per neighbor: name, up or down, prefixes received, uptime, remote address. Then how many are up. */
@@ -557,7 +565,7 @@ export class ProjectCommands {
 
             console.log(
                 `
-${listed} closed on their prefix limit within ${seconds} s of each other, from ${burst[0]!.limit!.stopped}. Several limits at once is usually a leak upstream, not growth: find the leak before raising a limit, then clear them with --clear-limit.`
+${listed} closed on their prefix limit within ${seconds} s of each other, from ${burst[0]!.limit!.stopped}. Several limits hit at once usually means a leak upstream, not growth. Find the leak before you raise a limit, then clear them with --clear-limit.`
             );
         }
     }
@@ -607,8 +615,9 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
      */
     async accessConsole(name: string | undefined, lines: string[], raw: boolean): Promise<void> {
         const device = await this.withSecrets(await this.pick(name));
-        const dialect = Platforms.find(device.platform)?.console ?? Ui.fail(`${device.platform} cannot be reached through a console yet`);
-        const serial = device.connection.console ?? Ui.fail(`${device.name} has no connection.console`);
+        const dialect =
+            Platforms.find(device.platform)?.console ?? Ui.fail(`Circuit can't reach ${device.platform} through a console yet.`);
+        const serial = device.connection.console ?? Ui.fail(`${device.name} has no connection.console.`);
         const login = raw ? undefined : SerialConsole.of(device);
 
         let opened: ConsoleSession;
@@ -617,9 +626,7 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
         } catch (error) {
             const message = (error as Error).message;
             if (message.startsWith("busy:")) {
-                Ui.fail(
-                    `${device.name}: ${serial.port} is in use. Only one program can hold a console port: close the other one, then try again.`
-                );
+                Ui.fail(`${device.name}: another program is using ${serial.port}. Close it, then try again.`);
             }
             Ui.fail(`${device.name}: ${message}`);
         }
@@ -643,7 +650,7 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
         opened.channel.on("close", () => {
             if (leaving) return;
 
-            console.error("\nthe console closed");
+            console.error("\nThe console closed.");
             process.exit(1);
         });
 
@@ -700,7 +707,7 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
 
         const measure = await Ui.step(`Measuring the path to ${host}`, () => PathCheck.measure(host));
         if (!measure) {
-            console.log(`path: no ping program here, so the path to ${host} was not measured`);
+            console.log(`path: not measured, because ping is not installed`);
             return;
         }
 
@@ -710,12 +717,12 @@ ${listed} closed on their prefix limit within ${seconds} s of each other, from $
 
         const limits = `at most ${PathCheck.MAX_LOSS_PERCENT}% lost and ${PathCheck.MAX_AVERAGE_MS} ms on average`;
         if (force) {
-            console.log(`path: worse than ${limits}; going ahead, as --force asks`);
+            console.log(`path: worse than ${limits}; sending anyway because of --force`);
             return;
         }
 
         Ui.fail(
-            `\nNot sent: the path is worse than ${limits}. A change sent over a path that drops packets can cut the device off halfway. Fix the path, or add --force to go ahead anyway.`
+            `\nNot sent: the path is worse than ${limits}. A change sent over a lossy path can stop halfway and cut the device off. Fix the path, or add --force to send anyway.`
         );
     }
 }

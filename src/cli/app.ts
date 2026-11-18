@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { Releases } from "./releases";
+import { Installation } from "../core/installation";
 import { Ui } from "./ui";
 
 export class App {
@@ -25,18 +25,23 @@ export class App {
             .join("\n");
     }
 
+    /** How this Circuit runs itself again: the installed binary, or Bun with these sources. */
+    static self(): string[] {
+        return Installation.binary() ? [process.execPath] : [process.execPath, join(import.meta.dir, "index.ts")];
+    }
+
     /** Take Circuit off this machine, once the person says yes, or with `--confirm`. */
     static async uninstall(confirmed: boolean): Promise<void> {
-        const binary = Releases.binary() ?? Ui.fail("This Circuit runs from its sources, so there is nothing installed to remove.");
+        const binary = Installation.binary() ?? Ui.fail("This Circuit runs from its sources, so there is nothing installed to remove.");
         const folder = dirname(binary);
 
         if (!confirmed) {
-            if (!Ui.interactive) Ui.fail("Not removed. Without a person to answer, add --confirm.");
-            Ui.note(`${binary}\n${Releases.home()}\nYour projects stay as they are.`, "This removes");
+            if (!Ui.interactive) Ui.fail("Not removed. Without a terminal, add --confirm.");
+            Ui.note(`${binary}\n${Installation.home()}\nYour projects stay as they are.`, "This removes");
             if (!(await Ui.confirm("Uninstall Circuit?"))) return;
         }
 
-        rmSync(Releases.home(), { recursive: true, force: true });
+        rmSync(Installation.home(), { recursive: true, force: true });
 
         if (process.platform === "win32") {
             App.removeFromWindowsPath(folder);

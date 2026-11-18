@@ -95,7 +95,7 @@ async function read(folder: string): Promise<ProjectRead> {
     source.read = (file) => readFileSync(file, "utf8");
 
     if (!existsSync(resolve(project, "circuit.ts")))
-        stop([`${project} has no circuit.ts. Start one by running circuit, or give the project's folder.`]);
+        stop([`${project} has no circuit.ts. Start a project with circuit new, or give the project's folder.`]);
 
     // circuit.ts first: the networks it exports.
     const root = await load(resolve(project, "circuit.ts"));
@@ -130,7 +130,7 @@ async function read(folder: string): Promise<ProjectRead> {
             (typeof file !== "string" || !file.trim() || isAbsolute(file) || file.split(/[\\/]/).includes(".."))
         )
             findings.push(
-                `${registered.at}: secrets.file is a path inside the project, such as ".circuit/lab-secrets". Leave secrets out for .circuit/secrets.`
+                `${registered.at}: secrets.file must be a path inside the project, such as ".circuit/lab-secrets". Leave secrets out to use .circuit/secrets.`
             );
     }
     if (!registry.networks.length)
@@ -146,7 +146,7 @@ async function read(folder: string): Promise<ProjectRead> {
         const names = registeredBy.get(file) ?? [];
         if (!names.length)
             findings.push(
-                `${file}: registers no device. Each .ts under sites/, but site.ts, is one device: export default as64500.device({ ... }), with your network's name. What a site's devices share goes in its site.ts.`
+                `${file}: registers no device. Each .ts file under sites/, except site.ts, is one device: export default as64500.device({ ... }), with your network's name. What a site's devices share goes in its site.ts.`
             );
         else if (names.length > 1)
             findings.push(`${file}: registers ${names.length} devices, ${names.join(", ")}. Write one file per device.`);
@@ -200,7 +200,9 @@ async function read(folder: string): Promise<ProjectRead> {
             const where = written ? `${written}the source made here` : `${file}: a source given to ${device}`;
             if (devices[host] || reported.has(`${where} ${host}`)) continue;
             reported.add(`${where} ${host}`);
-            findings.push(`${where} has a part for ${host}, which is no device of the network. The devices: ${keys(devices).join(", ")}.`);
+            findings.push(
+                `${where} has a part for ${host}, which is not a device of the network. The devices: ${keys(devices).join(", ")}.`
+            );
         }
     }
 
@@ -231,7 +233,7 @@ async function read(folder: string): Promise<ProjectRead> {
             if (!sites.includes(d.site)) {
                 const hint = closest(d.site, sites);
                 findings.push(
-                    `${at(name)}${name}: site ${d.site} is no site of the network${hint ? `. Did you mean ${hint}?` : `. The sites: ${sites.join(", ")}.`}`
+                    `${at(name)}${name}: site ${d.site} is not a site of the network${hint ? `. Did you mean ${hint}?` : `. The sites: ${sites.join(", ")}.`}`
                 );
             }
         for (const site of sites)
@@ -338,7 +340,7 @@ async function read(folder: string): Promise<ProjectRead> {
                 const path = `${at}[${i}].then`;
                 const hint = typeof rule.then === "string" ? closest(rule.then, takes) : undefined;
                 const what =
-                    rule.then === undefined ? `a ${kind} rule needs then` : `${JSON.stringify(rule.then)} is no then of a ${kind} rule`;
+                    rule.then === undefined ? `a ${kind} rule needs then` : `then can't be ${JSON.stringify(rule.then)} in a ${kind} rule`;
                 findings.push(
                     `${foundAt(device, rule.then === undefined ? `${at}[${i}]` : path, registeredAt)}${name}: ${path}: ${what}. ${hint ? `Did you mean ${hint}?` : `It takes: ${takes.join(", ")}.`}`
                 );
@@ -508,14 +510,14 @@ async function read(folder: string): Promise<ProjectRead> {
             else if (!far) findings.push(`${at}.link: ${link.device} has no port ${link.port}`);
             else if (far.link?.device !== name || far.link.port !== port)
                 findings.push(`${at}.link: ${link.device} ${link.port} does not link back to ${name} ${port}`);
-            else if (far.link.through !== link.through) findings.push(`${at}.link: the two ends name another \`through\``);
+            else if (far.link.through !== link.through) findings.push(`${at}.link: the two ends give different \`through\` values`);
             else {
                 const farPort = spell(devices[link.device]!.platform, devices[link.device]!.model, link.port);
                 // A name counts as a word of its own: `port6` is not named by `port60`.
                 const names = (text: string) => new RegExp(`(^|\\s)${escape(text)}($|[\\s,.;:)])`).test(settings.description ?? "");
                 if (!names(link.device) || !names(farPort))
                     warnings.push(
-                        `${at}.description: ${settings.description === undefined ? "none" : JSON.stringify(settings.description)}, which doesn't name the far end of its link as printed there: ${link.device} ${farPort}.`
+                        `${at}.description: ${settings.description === undefined ? "none" : JSON.stringify(settings.description)}. Write the far end in it: ${link.device} ${farPort}.`
                     );
             }
         }
@@ -588,7 +590,7 @@ async function read(folder: string): Promise<ProjectRead> {
             if (typeof value !== "function" && !BUILT_IN.includes(check)) {
                 const hint = closest(check, BUILT_IN);
                 findings.push(
-                    `checks.${check}: Circuit has no check of this name${hint ? `. Did you mean ${hint}?` : ""} A check of your own takes a function.`
+                    `checks.${check}: Circuit has no check of this name.${hint ? ` Did you mean ${hint}?` : ""} A check of your own is a function.`
                 );
             }
         const own = Object.entries<Json>(network.checks ?? {}).filter(([, check]) => typeof check === "function");

@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { SecretsFile } from "../core/secrets-file";
 import { Secrets } from "../core/secrets";
 import { Platforms } from "../platforms";
-import { Releases } from "../cli/releases";
+import { Installation } from "../core/installation";
 import { STUDIO_ASSETS } from "./assets.generated";
 import { Git } from "./git";
 import type { LiveRead, SecretEntry, SecretsFileListing, SecretsListing, StudioData } from "./types";
@@ -49,7 +49,7 @@ export class StudioServer {
 
     /** Circuit itself, to run again: the binary, or Bun with Circuit's sources. */
     private static self(): { command: string; args: string[] } {
-        return Releases.binary()
+        return Installation.binary()
             ? { command: process.execPath, args: [] }
             : { command: process.execPath, args: [...process.execArgv, process.argv[1]!] };
     }

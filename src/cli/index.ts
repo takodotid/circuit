@@ -4,6 +4,7 @@
 import { Command, InvalidArgumentError, Option } from "@commander-js/extra-typings";
 import { spawnSync } from "node:child_process";
 import { relative } from "node:path";
+import { Installation } from "../core/installation";
 import { OnePassword } from "../core/one-password";
 import { SecretsFile } from "../core/secrets-file";
 import { BgpWait } from "../platforms/bgp-wait";
@@ -46,7 +47,7 @@ class Cli {
             Cli.runLocal(argv);
             const root = ProjectCommands.find();
             if (root) {
-                if (Releases.binary()) Versions.remember(root);
+                if (Installation.binary()) Versions.remember(root);
                 await Versions.run(root, argv);
             }
         }
@@ -67,7 +68,7 @@ class Cli {
 
     /** In a project with a full install, run the Circuit pinned in it instead of this one, so a team runs one version. */
     private static runLocal(argv: string[]): void {
-        if (process.env.CIRCUIT_LOCAL || !Releases.binary()) return;
+        if (process.env.CIRCUIT_LOCAL || !Installation.binary()) return;
 
         const root = ProjectCommands.find();
         const local = root && Setup.localCircuit(root);
@@ -97,35 +98,40 @@ class Cli {
             .description("Describe each network device in TypeScript, see what would change, then make the device match.")
             .version(VERSION)
             .usage("[command] [device] [options]")
-            .showHelpAfterError("(add --help to see what it takes)");
+            .showHelpAfterError("(add --help to see the options)");
 
         program.commandsGroup("Core:");
 
         program
             .command("validate")
-            .description("check every file of the project, and every check in circuit.ts")
-            .option("--experimental", "allow what a platform renders but has not proved on a device yet, as a warning")
+            .description("check the whole project, without touching a device")
+            .option("--experimental", "allow features not yet tested on a real device (as warnings)")
             .action(async (flags) => (await ProjectCommands.open(flags)).validate());
 
         program
             .command("diff")
-            .description("read the device, and show what apply would change on it")
-            .argument("[device]", "picked from a list when left out")
-            .option("--secrets", "plan as apply --secrets would, sending every secret again")
-            .option("--console", "through the device's serial console on its jump host, instead of SSH")
-            .option("--experimental", "allow what a platform renders but has not proved on a device yet, as a warning")
+            .description("show what apply would change on a device, without sending anything")
+            .argument("[device]", "if left out, you pick from a list")
+            .option("--secrets", "plan with every secret sent again, as apply --secrets does")
+            .option("--console", "connect through the device's serial console on its jump host, not SSH")
+            .option("--experimental", "allow features not yet tested on a real device (as warnings)")
             .action(async (device, flags) => (await ProjectCommands.open(flags)).diff(device));
 
         program
             .command("apply")
-            .description("read the device, show what would change, and send it once you say yes")
-            .argument("[device]", "picked from a list when left out")
+            .description("show what would change on a device, then send it when you say yes")
+            .argument("[device]", "if left out, you pick from a list")
             .option("--confirm", "send without asking")
             .option("--secrets", "also send every secret, to change a password")
-            .option("--rollback <minutes>", "minutes before a device that can restore itself does", Cli.whole("minutes", 10), 10)
-            .option("--console", "through the device's serial console on its jump host, instead of SSH")
-            .option("--force", "send even when the path to the device loses too much or is too slow")
-            .option("--experimental", "allow what a platform renders but has not proved on a device yet, as a warning")
+            .option(
+                "--rollback <minutes>",
+                "RouterOS, Junos, and FortiOS: minutes before the device undoes the change if Circuit can't log back in",
+                Cli.whole("minutes", 10),
+                10
+            )
+            .option("--console", "connect through the device's serial console on its jump host, not SSH")
+            .option("--force", "send even if the network path to the device is lossy or slow")
+            .option("--experimental", "allow features not yet tested on a real device (as warnings)")
             .action(async (device, flags) =>
                 (await ProjectCommands.open(flags)).apply(device, flags.confirm ?? false, flags.force ?? false)
             );
@@ -135,56 +141,54 @@ class Cli {
         program
             .command("exec")
             .alias("execute")
-            .description("run commands that only read on a device, and print what it answers, secrets hidden")
-            .argument("[device]", "picked from a list when left out")
+            .description("run read-only commands on a device and print the output, with secrets hidden")
+            .argument("[device]", "if left out, you pick from a list")
             .argument("[command...]", "each command in quotes, such as '/ip route print'")
-            .option("--file <path>", "also each line of this file; blank lines and lines starting with # are skipped")
-            .option("--timeout <seconds>", "how long each command may take", Cli.whole("seconds", 90), 90)
-            .option("--console", "through the device's serial console, instead of SSH")
+            .option("--file <path>", "also run each line of this file, except blank lines and lines starting with #")
+            .option("--timeout <seconds>", "the time limit for each command, in seconds", Cli.whole("seconds", 90), 90)
+            .option("--console", "connect through the device's serial console on its jump host, not SSH")
             .action(async (device, commands, flags) =>
                 (await ProjectCommands.open(flags)).exec(device, commands, flags.file, flags.timeout)
             );
 
         program
             .command("bgp")
-            .description("each BGP neighbor in the config next to its live session: up or down and why, prefixes, uptime")
-            .argument("[device]", "may be left out when only one device has BGP neighbors")
-            .option("--neighbors <regex>", "only the neighbors whose name matches")
+            .description("show each BGP neighbor's live session: up or down, why, prefixes, and uptime")
+            .argument("[device]", "if left out, the only device with BGP neighbors, or you pick one")
+            .option("--neighbors <regex>", "show only the neighbors whose name matches this regular expression")
             .option(
                 "--wait [count]",
-                `read again every ${BgpWait.COMMAND.every} seconds until every neighbor shown, or this many, is up`,
+                `check again every ${BgpWait.COMMAND.every} seconds until all neighbors shown, or this many, are up`,
                 Cli.whole("sessions", 4)
             )
-            .option("--max <seconds>", "how long --wait waits at most", Cli.whole("seconds", 90), BgpWait.COMMAND.seconds)
-            .option("--log [minutes]", "also print the device's BGP log lines from the last minutes, 5 by default", Cli.whole("minutes", 5))
-            .option("--clear-limit", "open again the neighbors shown that closed on their prefix limit; any other is left alone")
+            .option("--max <seconds>", "the longest time --wait waits, in seconds", Cli.whole("seconds", 90), BgpWait.COMMAND.seconds)
+            .option("--log [minutes]", "also print the BGP log of the last few minutes (default: 5)", Cli.whole("minutes", 5))
+            .option("--clear-limit", "clear the sessions shown that closed on their prefix limit")
             .action(async (device, flags) => (await ProjectCommands.open()).bgp(device, flags));
 
         program
             .command("addresses")
-            .description("what address space the project uses, and what is free")
-            .argument("[prefix]", "only what falls inside this prefix; the space the networks own when left out")
+            .description("show the address space the project uses, and what is free")
+            .argument("[prefix]", "show only this prefix; if left out, all the space your networks own")
             .option("--length <n>", "list the free prefixes of this length instead", Cli.whole("length", 24))
             .addOption(new Option("--format <format>", "text, or json for a script").choices(["text", "json"] as const).default("text"))
             .action(async (prefix, flags) => (await ProjectCommands.open()).addresses(prefix, flags.length, flags.format));
 
         program
             .command("sync")
-            .description(
-                "keep NetBox, LibreNMS, PeeringDB or Prometheus in step with the project: show what would change, then send it once you say yes"
-            )
-            .argument("[target]", "netbox, librenms, peeringdb or prometheus; picked from a list when left out")
+            .description("update NetBox, LibreNMS, PeeringDB, or Prometheus to match the project")
+            .argument("[target]", "netbox, librenms, peeringdb, or prometheus; if left out, you pick from a list")
             .option("--confirm", "send without asking")
             .action(async (target, flags) => (await ProjectCommands.open()).sync(target, flags.confirm ?? false));
 
         program
             .command("communities")
-            .description("what each BGP community of a network means, for a looking glass or bgp.tools")
-            .argument("[network]", "the network in circuit.ts; needed only when several have communities")
+            .description("print what each BGP community means, for a looking glass or bgp.tools")
+            .argument("[network]", "the network in circuit.ts, needed only if several have communities")
             .addOption(
                 new Option(
                     "--format <format>",
-                    "nlnog: community,description lines; alice: Alice-LG's [bgp_communities]; json: the IETF YANG model's"
+                    "nlnog: community,description lines; alice: an Alice-LG [bgp_communities] section; json: the IETF YANG model"
                 )
                     .choices(COMMUNITY_FORMATS)
                     .default("nlnog")
@@ -193,60 +197,47 @@ class Cli {
 
         program
             .command("access-console")
-            .description("open a device's serial console here, logged in; or send it lines and print what it answers")
-            .argument("[device]", "picked from a list when left out")
-            .argument("[line...]", "lines to send, each in quotes; none joins the console to this terminal, Ctrl-] leaves")
-            .option("--raw", "do not log in or out: only join the console, or send the lines")
+            .description("open a device's serial console, logged in, or send it lines and print the output")
+            .argument("[device]", "if left out, you pick from a list")
+            .argument("[line...]", "lines to send, each in quotes; with none, the console opens here and Ctrl-] leaves")
+            .option("--raw", "don't log in or out")
             .action(async (device, lines, flags) => (await ProjectCommands.open()).accessConsole(device, lines, flags.raw ?? false));
 
         program
             .command("studio")
-            .description("the project in your browser: the graph, every table, tools, compare and secrets")
-            .option("--port <number>", "the port it listens on", Cli.port, 4600)
-            .option(
-                "--host <address>",
-                "the address it listens on: this machine only by default; a server's address to share it",
-                "127.0.0.1"
-            )
-            .option(
-                "--allow-host <names...>",
-                "names besides this machine's that requests may be addressed to, such as studio.example.com behind a proxy"
-            )
-            .option("--no-open", "do not open the browser")
+            .description("open the project in Circuit Studio, in your browser")
+            .option("--port <number>", "the port to listen on", Cli.port, 4600)
+            .option("--host <address>", "the address to listen on; give a server's address to share Studio", "127.0.0.1")
+            .option("--allow-host <names...>", "other host names Studio answers to, such as studio.example.com behind a proxy")
+            .option("--no-open", "don't open the browser")
             .action(async (flags) => Cli.studio(flags));
 
         program
             .command("rename")
-            .description("give a device a new name everywhere the project writes it, and its file too")
-            .argument("[device]", "picked from a list when left out")
-            .argument("[new-name]", "asked for when left out")
-            .option("--file", "also rename the file that writes the device")
-            .option("--no-file", "leave the file's name as it is")
+            .description("rename a device everywhere in the project")
+            .argument("[device]", "if left out, you pick from a list")
+            .argument("[new-name]", "if left out, Circuit asks")
+            .option("--file", "also rename the device's file")
+            .option("--no-file", "keep the device's file name")
             .option("--confirm", "write without asking")
             .action(async (device, name, flags) => (await ProjectCommands.open()).rename(device, name, flags.file, flags.confirm ?? false));
 
         program
             .command("fmt")
-            .description("tidy the spacing and line breaks of the project's .ts files; what they say stays the same")
-            .argument("[file...]", "every TypeScript file of the project when left out")
-            .option("--check", "change nothing; fail when a file is not in the style")
-            .action(async (files, flags) =>
-                Format.run(
-                    ProjectCommands.find() ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it."),
-                    files,
-                    flags.check ?? false
-                )
-            );
+            .description("tidy spacing and line breaks in the project's .ts files; nothing else changes")
+            .argument("[file...]", "if left out, every .ts file of the project")
+            .option("--check", "change nothing; fail if a file needs tidying")
+            .action(async (files, flags) => Format.run(ProjectCommands.findOrFail(), files, flags.check ?? false));
 
         program.commandsGroup("Secrets:");
 
         const FILE_FLAGS = "--file <path>";
-        const FILE_HELP = "the secrets file, when it isn't .circuit/secrets";
+        const FILE_HELP = "use this secrets file instead of .circuit/secrets";
         // `--file` after a command, such as `circuit secrets list --file x`, lands on `secrets` itself, so each command reads it from there too.
         const secrets = program
             .command("secrets")
             .alias("secret")
-            .description("the project's secrets, each one encrypted: alone, in a terminal, opens every one in a text editor")
+            .description("the project's encrypted secrets; alone, opens them in an editor")
             .option(FILE_FLAGS, FILE_HELP)
             .action(async (flags) => {
                 const commands = await SecretCommands.open(flags.file);
@@ -255,12 +246,12 @@ class Cli {
             });
         secrets
             .command("edit")
-            .description("every secret, decrypted, in a text editor in the terminal; saved encrypted")
+            .description("open every secret in an editor in the terminal")
             .option(FILE_FLAGS, FILE_HELP)
             .action(async (flags) => (await SecretCommands.open(flags.file ?? secrets.opts().file)).edit());
         secrets
             .command("list")
-            .description("every secret, how it is kept, and the ones the config needs that the file lacks")
+            .description("list every secret, how it is stored, and the ones the config needs but the file lacks")
             .option(FILE_FLAGS, FILE_HELP)
             .action(async (flags) => (await SecretCommands.open(flags.file ?? secrets.opts().file)).list());
         secrets
@@ -271,14 +262,14 @@ class Cli {
             .action(async (name, flags) => (await SecretCommands.open(flags.file ?? secrets.opts().file)).get(name));
         secrets
             .command("set")
-            .description("add or change a secret, encrypted; leave out the value to type it hidden")
+            .description("add or change a secret; leave out the value to type it hidden")
             .argument("[name]")
             .argument("[value]", "an op://vault/item/field reference keeps the value in 1Password")
             .option(FILE_FLAGS, FILE_HELP)
             .action(async (name, value, flags) => (await SecretCommands.open(flags.file ?? secrets.opts().file)).set(name, value));
         secrets
             .command("delete")
-            .description("remove a secret")
+            .description("delete a secret")
             .argument("[name]")
             .option("--confirm", "delete without asking")
             .option(FILE_FLAGS, FILE_HELP)
@@ -287,15 +278,15 @@ class Cli {
             );
         secrets
             .command("encrypt")
-            .description("encrypt every value typed into the file in plain text")
+            .description("encrypt every plain-text value in the file")
             .option(FILE_FLAGS, FILE_HELP)
             .action(async (flags) => (await SecretCommands.open(flags.file ?? secrets.opts().file)).encrypt());
         secrets
             .command("password")
-            .description("change the password; every secret is encrypted again and the old password stops working")
-            .option("--1password <reference>", "read the password from 1Password instead of asking: op://vault/item/field")
-            .option("--forget-1password", "stop reading it from 1Password, and ask for it")
-            .option("--confirm", "change without asking; the new password comes from CIRCUIT_SECRETS_NEW_PASSWORD")
+            .description("change the password of the secrets file; the old one stops working")
+            .option("--1password <reference>", "read the password from 1Password, such as op://vault/item/field, instead of asking")
+            .option("--forget-1password", "stop reading the password from 1Password")
+            .option("--confirm", "change without asking, to the value of CIRCUIT_SECRETS_NEW_PASSWORD")
             .option(FILE_FLAGS, FILE_HELP)
             .action(async (flags) =>
                 (await SecretCommands.open(flags.file ?? secrets.opts().file)).password({
@@ -307,16 +298,14 @@ class Cli {
 
         secrets
             .command("forget")
-            .description("forget every secret Circuit remembers, now")
+            .description("forget every remembered secret now")
             .action(async () => Remember.forget());
 
         program.commandsGroup("Circuit:");
 
         program
             .command("update")
-            .description(
-                "pick a newer Circuit, the newest first: in a project, for the project and the app with it; elsewhere, for the app"
-            )
+            .description("move the project to a newer Circuit you pick; outside a project, update the app")
             .option("--app", "update the installed app, even in a project")
             .option("--confirm", "update to the newest without asking")
             .action(async (flags) => Cli.update(flags.app ?? false, flags.confirm ?? false));
@@ -324,8 +313,8 @@ class Cli {
         program
             .command("new")
             .description("start a new project")
-            .argument("[folder]", "asked for when left out")
-            .option("--full", "Circuit as a package in the project, run with bun circuit")
+            .argument("[folder]", "if left out, Circuit asks")
+            .option("--full", "install Circuit as a package in the project, run with bun circuit")
             .action(async (folder, flags) => Setup.run(folder, { existing: "refuse", ...(flags.full ? { kind: "full" as const } : {}) }));
 
         program
@@ -336,7 +325,7 @@ class Cli {
 
         program
             .command("migrate")
-            .description("write a Circuit 0.x project again as a v1 project, and list what did not move")
+            .description("convert a Circuit 0.x project to v1, and list what did not move")
             .argument("<v0-folder>", "the 0.x project, with its packages installed")
             .option("--out <folder>", "an empty folder for the v1 project; <v0-folder>-v1 by default")
             .option("--config <file>", "0.x's config file in that folder", "circuit.config.ts")
@@ -380,7 +369,7 @@ class Cli {
 
     /** Serve Studio for the project until Ctrl+C, and open it in the browser. */
     private static async studio(flags: { port: number; host: string; allowHost?: string[]; open: boolean }): Promise<void> {
-        const root = ProjectCommands.find() ?? Ui.fail("No Circuit project here: no circuit.ts in this folder or above it.");
+        const root = ProjectCommands.findOrFail();
         Setup.prepare(root);
 
         // Studio carries its page, so it is loaded only when asked for.
@@ -390,20 +379,15 @@ class Cli {
         );
         const local = StudioServer.isLoopback(flags.host);
 
-        Ui.done(
-            `Circuit Studio at ${url}${local ? "" : `, listening on ${flags.host}:${flags.port}`}. It reads the project again when a file changes. Stop it with Ctrl+C.`
-        );
-        if (!local)
-            Ui.warn(
-                "Studio on a server shows the project to everyone who reaches it, and does not read devices. Put it behind a proxy that asks who people are."
-            );
+        Ui.done(`Circuit Studio is at ${url}${local ? "" : `, listening on ${flags.host}:${flags.port}`}. Stop it with Ctrl+C.`);
+        if (!local) Ui.warn("Anyone who can reach this address sees the project. Put Studio behind a proxy that asks people to log in.");
         if (flags.open && local) StudioServer.openBrowser(url);
     }
 
     /** In a project: move it to a version the person picks, and the app with it. Elsewhere, or with `--app`: update the app. Either way, versions no project pins any more are removed. */
     private static async update(app: boolean, confirmed: boolean): Promise<void> {
         const root = ProjectCommands.find();
-        if (root && Releases.binary()) Versions.remember(root);
+        if (root && Installation.binary()) Versions.remember(root);
         if (app || !root) {
             const target = await Releases.updateApp(confirmed);
             Versions.prune(target ?? VERSION);
@@ -432,13 +416,13 @@ class Cli {
 
     /** Before a commit: every secret encrypted, and a project that validates. */
     private static async hook(name: string): Promise<void> {
-        if (name !== "pre-commit") Ui.fail(`No hook ${name}.`);
+        if (name !== "pre-commit") Ui.fail(`Circuit has no hook ${name}. It has pre-commit.`);
 
         const stop = (files: readonly string[]) => {
             const problems = GitHooks.stagedProblems(ProjectCommands.find() ?? process.cwd(), files);
             if (!problems.length) return;
             for (const problem of problems) Ui.error(problem);
-            Ui.fail("\nThe commit was stopped, so no secret reaches git.");
+            Ui.fail("\nCommit stopped, so no secret reaches git.");
         };
 
         // `.circuit/secrets` before the project is read, so a project with errors still has it checked; then the files the networks name.
@@ -451,7 +435,7 @@ class Cli {
         project.validate();
 
         // A project inside this one, such as a customer's, is checked by its own Circuit: the version it pins, its secrets, its files.
-        const [command = process.execPath, ...args] = Releases.self();
+        const [command = process.execPath, ...args] = App.self();
         const env: Record<string, string | undefined> = { ...process.env };
         delete env[Versions.RUNNING];
 
@@ -460,13 +444,13 @@ class Cli {
             console.log(Ui.bold(`\nThe project in ${name}`));
 
             const result = spawnSync(command, [...args, "hook", "pre-commit"], { cwd: inner, stdio: "inherit", env });
-            if (result.error || result.status !== 0) Ui.fail(`\nThe commit was stopped by the project in ${name}.`);
+            if (result.error || result.status !== 0) Ui.fail(`\nCommit stopped by the project in ${name}.`);
         }
     }
 
     /** The menu `circuit` opens alone: pick what to do, answer what it needs, and get the command it runs. */
     private static async menu(): Promise<string[]> {
-        Ui.logo(`Your network, written down. Circuit ${VERSION}`);
+        Ui.logo("Your network, written down.");
         Ui.intro(`Circuit ${VERSION}`);
 
         if (!ProjectCommands.find()) {
@@ -483,21 +467,21 @@ class Cli {
         const heading = (label: string): Choice<string> => ({ value: `#${label}`, label: Ui.dim(`── ${label} ──`), disabled: true });
         const choice = await Ui.select("What do you want to do?", [
             heading("Core"),
-            { value: "validate", label: "Validate", hint: "check every file of the project" },
-            { value: "diff", label: "Diff", hint: "what apply would change on a device" },
+            { value: "validate", label: "Validate", hint: "check the whole project" },
+            { value: "diff", label: "Diff", hint: "show what would change on a device" },
             { value: "apply", label: "Apply", hint: "make a device match its config" },
             heading("Utilities"),
-            { value: "exec", label: "Execute", hint: "run a command that only reads on a device" },
-            { value: "bgp", label: "BGP", hint: "each BGP session of a device" },
-            { value: "access-console", label: "Access console", hint: "a device's serial console" },
-            { value: "communities", label: "Communities", hint: "the list for a looking glass or bgp.tools" },
-            { value: "addresses", label: "Addresses", hint: "what address space is used and what is free" },
-            { value: "sync", label: "Sync", hint: "NetBox, LibreNMS, PeeringDB or Prometheus, from the project" },
-            { value: "studio", label: "Studio", hint: "the project in your browser" },
-            { value: "rename", label: "Rename", hint: "give a device a new name everywhere" },
-            { value: "fmt", label: "Tidy files", hint: "spacing and line breaks only; what the files say stays the same" },
+            { value: "exec", label: "Execute", hint: "run read-only commands on a device" },
+            { value: "bgp", label: "BGP", hint: "show a device's BGP sessions" },
+            { value: "access-console", label: "Access console", hint: "open a device's serial console" },
+            { value: "communities", label: "Communities", hint: "what each BGP community means" },
+            { value: "addresses", label: "Addresses", hint: "used and free address space" },
+            { value: "sync", label: "Sync", hint: "update NetBox, LibreNMS, PeeringDB, or Prometheus" },
+            { value: "studio", label: "Studio", hint: "open the project in your browser" },
+            { value: "rename", label: "Rename", hint: "rename a device everywhere in the project" },
+            { value: "fmt", label: "Tidy files", hint: "fix spacing and line breaks" },
             heading("Secrets"),
-            { value: "secrets", label: "Secrets", hint: "every secret in a text editor, saved encrypted" },
+            { value: "secrets", label: "Secrets", hint: "edit the secrets in a text editor" },
             heading("Circuit"),
             { value: "update", label: "Update Circuit" },
             { value: "uninstall", label: "Uninstall Circuit", hint: "your projects stay" },

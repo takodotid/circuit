@@ -135,7 +135,7 @@ export class CrossChecks {
         for (const entry of here.addresses ?? []) {
             if (typeof entry === "string" || !CrossChecks.keyOf(entry.peer_address) || farHosts.has(CrossChecks.keyOf(entry.peer_address)))
                 continue;
-            return `${entry.address} names peer ${entry.peer_address}, which ${far.name} ${farWhere} does not hold`;
+            return `${entry.address} gives peer ${entry.peer_address}, which ${far.name} ${farWhere} does not hold`;
         }
 
         return undefined;
