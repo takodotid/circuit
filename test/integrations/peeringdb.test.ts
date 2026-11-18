@@ -1,5 +1,3 @@
-// `circuit sync peeringdb` against a fake PeeringDB, never the real one: it adds a presence, changes one that differs, lists one only PeeringDB has and an address that isn't global, sends with the key only, and never deletes or changes `operational`.
-
 import { afterEach, expect, test } from "bun:test";
 import { Address } from "../../src/core/address";
 import { PeeringDb } from "../../src/integrations/peeringdb";
@@ -54,12 +52,12 @@ const router = {
             "de-cix": {
                 vlan: "de-cix",
                 addresses: ["192.0.2.10/24", "2001:db8:ffff::10/64"],
-                exchange: { name: "DE-CIX Frankfurt", speed: 25000, peeringdb_ixlan: 31 },
+                exchange: { name: "DE-CIX Frankfurt", speed: 25_000, peeringdb_ixlan: 31 },
             },
             "ams-ix": {
                 vlan: "ams-ix",
                 addresses: ["198.51.100.20/24"],
-                exchange: { name: "AMS-IX", speed: 100000, peeringdb_ixlan: 26 },
+                exchange: { name: "AMS-IX", speed: 100_000, peeringdb_ixlan: 26 },
             },
             local: { vlan: "local", addresses: ["203.0.113.5/24"], exchange: { name: "A local exchange", speed: 1000 } },
         },
@@ -88,7 +86,7 @@ const amsIx = {
     net_id: 777,
     ixlan_id: 26,
     name: "AMS-IX",
-    speed: 10000,
+    speed: 10_000,
     ipaddr4: "198.51.100.20",
     ipaddr6: null,
     is_rs_peer: false,
@@ -99,7 +97,7 @@ const linx = {
     net_id: 777,
     ixlan_id: 18,
     name: "LINX LON1",
-    speed: 10000,
+    speed: 10_000,
     ipaddr4: "203.0.113.99",
     ipaddr6: null,
     is_rs_peer: false,
@@ -134,7 +132,7 @@ test("adds a presence, changes one that differs, and lists what it leaves alone"
                 net_id: 777,
                 ixlan_id: 31,
                 asn: 64500,
-                speed: 25000,
+                speed: 25_000,
                 ipaddr4: "192.0.2.10",
                 ipaddr6: "2001:db8:ffff::10",
                 is_rs_peer: true,
@@ -150,7 +148,7 @@ test("adds a presence, changes one that differs, and lists what it leaves alone"
                 net_id: 777,
                 ixlan_id: 26,
                 asn: 64500,
-                speed: 100000,
+                speed: 100_000,
                 ipaddr4: "198.51.100.20",
                 ipaddr6: null,
                 is_rs_peer: false,
