@@ -45,6 +45,7 @@ These decisions are binding. A change to one is a new decision with the next num
 - **116.** A static route's `next_hop` is a plain address, and its interface goes in `interface`, never after `%`. A platform that can't write both refuses them.
 - **117.** The docs show part of an example with a VitePress region include.
 - **119.** RouterOS writes a next hop with its interface as `gateway=<next_hop>%<interface>`, tested on a CCR2216 with RouterOS 7.24.6.
+- **120.** A BGP neighbor or neighbor group turns on GTSM (RFC 5082) with `ttl_security: true`, never with `multihop` ([#216](https://github.com/takodotid/circuit/issues/216)).
 
 ## BGP communities
 

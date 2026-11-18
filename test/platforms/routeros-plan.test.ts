@@ -157,6 +157,20 @@ test("a BGP connection that keeps its name on a new peer address is removed befo
     ]);
 });
 
+// A CCR2216 on 7.24.6 printed each TTL after another property of its group, and could not unset either (TRAPS.md).
+test("BGP TTLs the config does not state are set back to what the router uses unset", () => {
+    const adapter = Platforms.get("routeros");
+    const connection = (local: string, remote: string) =>
+        `/routing bgp connection\nadd instance=default local.role=ebgp${local} name=transit-v4 remote.address=198.51.100.1/32 .as=64501${remote}\n`;
+    const sent = (current: string) =>
+        adapter.plan(connection("", ""), current, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+
+    expect(sent(connection(" .ttl=255", " .ttl=255"))).toEqual([
+        '/routing bgp connection set [ find remote.address="198.51.100.1/32" ] remote.ttl=1',
+    ]);
+    expect(sent(connection(" .ttl=255", " .ttl=1"))).toEqual([]);
+});
+
 // A VLAN interface on the bridge adds a dynamic bridge VLAN entry beside the static one, which a set must not select.
 test("a change to a bridge VLAN selects only its static entry", () => {
     const adapter = Platforms.get("routeros");

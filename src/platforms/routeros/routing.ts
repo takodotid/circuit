@@ -13,6 +13,9 @@ export class RouterOsRouting {
     /** The chain a session without a policy uses, so that it learns or announces nothing. */
     private static readonly REJECT_ALL = "REJECT-ALL";
 
+    /** The TTL a session with GTSM sends with and requires on arrival, the highest there is (RFC 5082). */
+    private static readonly GTSM_TTL = 255;
+
     /** RouterOS takes our own role, and the config states the neighbor's, so each becomes its opposite. A neighbor that is our provider makes us its customer. */
     private static readonly ROLES = {
         provider: "ebgp-customer",
@@ -299,12 +302,15 @@ export class RouterOsRouting {
                 listen: settings.passive ? "yes" : undefined,
                 "local.address": settings.local_address && Address.host(settings.local_address),
                 "local.role": role,
+                "local.ttl": settings.ttl_security ? RouterOsRouting.GTSM_TTL : undefined,
                 multihop: settings.multihop ? "yes" : undefined,
                 name,
                 "output.filter-chain": RouterOsRouting.chainName(settings.export_policy ?? RouterOsRouting.REJECT_ALL, family),
                 "output.network": originates ? RouterOsSyntax.NETWORKS[family] : undefined,
                 "remote.address": `${neighbor.address}/${addressFamily === "ipv4" ? 32 : 128}`,
                 "remote.as": settings.remote_as,
+                // The lowest TTL accepted on arrival.
+                "remote.ttl": settings.ttl_security ? RouterOsRouting.GTSM_TTL : undefined,
                 "routing-table": Utils.otherTable(settings.routing_table),
                 "tcp-md5-key": settings.password && Secrets.marker(settings.password),
                 "use-bfd": settings.bfd ? "yes" : undefined,
