@@ -125,3 +125,13 @@ Clos
 (?i)blackholing
 (?i)flowspec
 (?i)application
+ROAs?
+PEs?
+Akamai('s)?
+Arelion
+(?i)memcached
+Telecom
+Starlink
+Routinator
+Mplify
+Grapher
