@@ -535,3 +535,12 @@ test("a model without a serial console gets no bootloader setup key", () => {
     expect(adapter.render(rb5009)).not.toContain("enter-setup-on");
     expect(adapter.unsupported(withConsole)).toContain("connection.console, the RB5009UG+S+ has no serial console");
 });
+
+// A CHR on 7.24.6 took `::ffff:0:0/96`, printed it as `::ffff:0.0.0.0/96`, and refused it again: `already have such entry`.
+test("an IPv6 address the device prints with an IPv4 address in it is the same address", () => {
+    const adapter = Platforms.get("routeros");
+    const rendered = ["/ipv6 firewall address-list", "add address=::ffff:0:0/96 list=bogons-v6"].join("\n");
+    const printed = ["/ipv6 firewall address-list", "add address=::ffff:0.0.0.0/96 list=bogons-v6"].join("\n");
+
+    expect(adapter.plan(rendered, printed, { secrets: false, rollback: 10 })).toEqual({ steps: [], problems: [] });
+});
