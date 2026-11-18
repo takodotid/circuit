@@ -98,6 +98,7 @@ export default as64500.device({
             "bogons-v6": { prefixes: presets.bogons.ipv6 },
         },
         policies: {
+            // #region local-pref
             sanity: presets.bgp_sanity,
             // A route from the exchange beats the same route from the transit: the higher local preference wins.
             "transit-import": [
@@ -117,6 +118,7 @@ export default as64500.device({
                 { communities: "import" },
                 { set: { local_pref: 200 }, then: "accept" },
             ],
+            // #endregion local-pref
             // #region export
             export: [
                 { communities: "export" },
