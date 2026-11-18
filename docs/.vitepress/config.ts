@@ -54,6 +54,7 @@ const sidebar: DefaultTheme.SidebarItem[] = [
         items: [
             { text: "The circuit command", link: "/reference/cli" },
             { text: "Platforms", link: "/reference/platforms" },
+            { text: "Standards", link: "/reference/standards" },
             { text: "Glossary", link: "/reference/glossary" },
             { text: "FAQ", link: "/guide/faq" },
             { text: "The model", link: "/reference/model" },

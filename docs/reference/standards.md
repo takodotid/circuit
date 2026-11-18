@@ -1,9 +1,15 @@
+---
+description: The RFC, IANA list or published practice behind each feature Circuit writes or checks.
+---
+
 # Standards
 
-Each feature that Circuit's model writes or checks, and the standard behind it. [Platforms](../docs/reference/platforms.md#feature-matrix) shows which platforms write each feature. Each RFC's status was checked at the RFC Editor on 2026-11-01.
+What Circuit ships follows a published standard. This page lists each feature Circuit writes or checks, and the standard behind it. The [feature matrix](/reference/platforms#feature-matrix) shows which platforms have each feature.
 
-- **In model** is the field, preset or check that carries the feature.
+- **In model** is the field, preset or check you write.
 - **Practice** marks a published practice or an Informational RFC, not a standard.
+
+We checked each RFC's status at the RFC Editor on 2026-11-01.
 
 ## Routing
 

@@ -23,7 +23,7 @@ Good to know:
 
 ## Feature matrix
 
-What each platform can do today. The table comes from Circuit's code, not from datasheets.
+What each platform can do today. The table comes from Circuit's code, not from datasheets. [Standards](/reference/standards) lists the RFC behind each feature.
 
 | Mark | Means                                                                                                                               |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------- |

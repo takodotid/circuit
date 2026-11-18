@@ -26,6 +26,7 @@ You keep one TypeScript file per device in a git repository. Circuit reads the f
 4. **Names are checked as you type.** Every VLAN, interface, policy and port you use must exist on that device. Your editor shows a typo as an error.
 5. **Nothing is filled in for you.** Circuit writes no default and no description that you didn't write. It may warn, but it never fills in.
 6. **Secrets are encrypted.** A password is `secret("NAME")` in the file. Its value is encrypted in `.circuit/secrets`, and Circuit reads it only when it sends a command. See [Secrets](/guide/secrets).
+7. **Standards first.** What Circuit ships, such as BGP roles or the bogon list, follows an RFC, IANA or another published source. See [Standards](/reference/standards). Your network's own choices stay in your project.
 
 ## Which devices
 

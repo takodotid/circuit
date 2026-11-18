@@ -45,7 +45,7 @@ This repo is Circuit v1. Circuit 0.x is retired on the branch `0.x`. Never use i
 - `test/`: mirrors `src/`. `test/repo.test.ts` checks this repo's own rules.
 - `docs/`: the website, built with VitePress. See `docs/AGENTS.md`.
 - `examples/`: whole example projects. Tests check each one.
-- `design/`: `decisions.md` (the owner's decisions, binding) and `standards.md`.
+- `design/decisions.md`: the owner's decisions. They are binding.
 - Generated and ignored by git: `src/cli/editor-types.generated.ts` and `src/studio/assets.generated.ts`. `bun install` and the checks write them.
 
 ## Code
