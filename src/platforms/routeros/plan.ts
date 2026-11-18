@@ -214,6 +214,15 @@ export class RouterOsPlan {
         return [menu, verb, selector, ...flags, ...properties].filter(Boolean).join(" ");
     }
 
+    /** A `set` of the properties that change, and an `unset` of each one the device clears only that way. */
+    private static setLines(menu: string, selector: string, update: Record<string, string>): string[] {
+        const cleared = (RouterOsExport.UNSET[menu] ?? []).filter((property) => update[property] === "");
+        const values = Object.fromEntries(Object.entries(update).filter(([property]) => !cleared.includes(property)));
+        const set = Object.keys(values).length ? [RouterOsPlan.line(menu, "set", selector, [], values)] : [];
+
+        return [...set, ...cleared.map((property) => `${menu} unset ${selector} ${property}`)];
+    }
+
     private static describe(attrs: Record<string, string>): string {
         return Object.entries(attrs)
             .map(([property, raw]) => `${property}=${raw}`)
@@ -361,13 +370,13 @@ export class RouterOsPlan {
                 changeStep.show.push(
                     `~ ${entryKey} ${RouterOsPlan.describe(update)}, restarting the session: it takes a new ${restartsOn.join(" and ")} only when it restarts`
                 );
-                changeStep.send.push(RouterOsPlan.line(menu, "set", selector, [], { disabled: "yes", ...update }));
+                changeStep.send.push(...RouterOsPlan.setLines(menu, selector, { disabled: "yes", ...update }));
                 changeStep.send.push(RouterOsPlan.line(menu, "set", selector, [], { disabled: "no" }));
                 continue;
             }
 
             changeStep.show.push(`~ ${entryKey} ${RouterOsPlan.describe(update)}`);
-            changeStep.send.push(RouterOsPlan.line(menu, "set", selector, [], update));
+            changeStep.send.push(...RouterOsPlan.setLines(menu, selector, update));
         }
 
         const removed = existingEntries.filter((entry) => !kept.has(key(entry)));

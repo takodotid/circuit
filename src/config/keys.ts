@@ -164,6 +164,7 @@ const NEIGHBOR_SETTINGS = {
     role: 0,
     multihop: 0,
     ttl_security: 0,
+    route_reflector_client: 0,
     password: SECRET,
     max_prefixes: 0,
     hold_time: 0,
@@ -303,6 +304,7 @@ export const DEVICE = {
         static_routes: [STATIC_ROUTE],
         bgp: {
             asn: 0,
+            cluster_id: 0,
             originated_prefixes: 0,
             neighbor_groups: { "*": NEIGHBOR_SETTINGS },
             neighbors: { "*": { ...NEIGHBOR_SETTINGS, address: 0, neighbor_group: 0 } },

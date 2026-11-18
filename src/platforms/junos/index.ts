@@ -750,7 +750,18 @@ export class Junos extends Platform {
 
             if (settings.keepalive !== undefined)
                 found.push(`routing.bgp.neighbors.${name}.keepalive, the platform keeps it at a third of hold_time`);
+
+            if (settings.route_reflector_client && !bgp?.cluster_id)
+                found.push(
+                    `routing.bgp.neighbors.${name}.route_reflector_client without routing.bgp.cluster_id: Junos needs a cluster ID, so write one`
+                );
         }
+
+        const clients = Object.values(bgp?.neighbors ?? {}).some(
+            (neighbor) => neighbor && JunosBgp.settingsOf(device, neighbor).route_reflector_client
+        );
+        if (bgp?.cluster_id && !clients)
+            found.push("routing.bgp.cluster_id without a route_reflector_client: Junos holds the cluster ID on its clients' sessions");
 
         for (const server of device.routing?.rpki ?? []) {
             if (server.description) found.push(`routing.rpki ${server.address} description`);

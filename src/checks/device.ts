@@ -387,13 +387,24 @@ export class DeviceChecks {
 
         for (const prefix of bgp?.originated_prefixes ?? []) cidr("routing.bgp.originated_prefixes", prefix);
 
+        if (bgp?.cluster_id !== undefined && (!Address.isValid(bgp.cluster_id) || Address.family(bgp.cluster_id) !== "ipv4"))
+            report(`routing.bgp.cluster_id: '${bgp.cluster_id}' is not an IPv4 address, such as 192.0.2.1`);
+
         const ttlWithMultihop = (where: string) =>
             report(
                 `${where} has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected`
             );
 
+        const external = (remoteAs: number | undefined) => remoteAs !== undefined && remoteAs !== bgp?.asn;
+        const reflectedToExternal = (where: string, remoteAs: number | undefined) =>
+            report(
+                `${where} has route_reflector_client, but AS${remoteAs} is not ours, AS${bgp?.asn}: a route reflector has iBGP clients only (RFC 4456). Remove route_reflector_client`
+            );
+
         for (const [name, group] of Object.entries(bgp?.neighbor_groups ?? {})) {
-            if (group?.ttl_security && group.multihop) ttlWithMultihop(`routing.bgp.neighbor_groups.${name}`);
+            const where = `routing.bgp.neighbor_groups.${name}`;
+            if (group?.ttl_security && group.multihop) ttlWithMultihop(where);
+            if (group?.route_reflector_client && external(group.remote_as)) reflectedToExternal(where, group.remote_as);
         }
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
@@ -411,6 +422,14 @@ export class DeviceChecks {
             const ownChoice = neighbor.ttl_security !== undefined || neighbor.multihop !== undefined;
             if ((neighbor.ttl_security ?? group?.ttl_security) && (neighbor.multihop ?? group?.multihop) && ownChoice)
                 ttlWithMultihop(where);
+
+            const remoteAs = neighbor.remote_as ?? group?.remote_as;
+            const client = neighbor.route_reflector_client ?? group?.route_reflector_client;
+            const ownReflection = neighbor.route_reflector_client !== undefined || neighbor.remote_as !== undefined;
+            if (client && external(remoteAs) && ownReflection) reflectedToExternal(where, remoteAs);
+
+            if (remoteAs !== undefined && !external(remoteAs) && (neighbor.role ?? group?.role))
+                report(`${where} has role, but AS${remoteAs} is ours, and a role is for eBGP neighbors (RFC 9234). Remove role`);
         }
 
         for (const areaId of Object.keys(routing?.ospf?.areas ?? {})) {
