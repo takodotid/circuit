@@ -7,13 +7,11 @@ description: Give each customer a routing table of its own with VRFs, keep two c
 
 A provider carries many customers over the same routers, and each customer picks its own private addresses. Sooner or later, two of them both use `10.1.1.0/24`. A <Term means="Virtual routing and forwarding: a separate routing table on one router. Each interface belongs to one VRF, and a packet arriving there is looked up only in that table.">VRF</Term> gives each customer a routing table of its own on the shared router. A packet is looked up only in the table of the port it arrived on, so the two `10.1.1.0/24` never meet.
 
-Across a whole network, the provider also carries each customer's packets between its routers, and must remember whose they are. That is what <Term means="Multiprotocol Label Switching: routers forward each packet by a short label put in front of it, instead of by the packet's own address.">MPLS</Term> and <Term means="Virtual Extensible LAN: a frame carried inside a UDP packet between two routers or switches, with a number that says which network it belongs to.">VXLAN</Term> do. Each wraps the customer's packet in an outer header that the core reads, with a number inside that says which customer it is.
-
 ## Two customers, the same addresses
 
 A provider router facing customers is a <Term means="Provider edge: a router of the provider that customers connect to. It keeps each customer's routes in that customer's VRF.">PE</Term>, provider edge. The customer's own router on the other end of the link is the <Term means="Customer edge: the customer's router on its side of the link to the provider.">CE</Term>, customer edge. With an [IP VPN](/academy/professional/private-circuits), the provider joins a customer's offices into one private network. Office 1 reaches office 2 through the provider, by the private addresses the customer chose.
 
-Here one PE, `pe-01`, has two such customers: a bank and a school. Each has two offices, and both numbered them the same way. Both started from the same private ranges you met in [NAT](/academy/elementary/nat).
+Here one PE, `pe-01`, has two such customers: a bank and a school. Each has two offices, and both numbered them the same way, from the private ranges in [NAT](/academy/elementary/nat).
 
 <TryIt title="Keep two customers apart">
 
@@ -21,11 +19,11 @@ Here one PE, `pe-01`, has two such customers: a bank and a school. Each has two 
 
 </TryIt>
 
-With one table, the router has two routes to `10.1.2.0/24`, one for each customer. They have the same prefix and the same length, so the longest match can't choose between them. Depending on the router, it uses one of them, or shares traffic between both. Either way, some of one customer's traffic is delivered into the other customer's network.
+With one table, the two customers' routes to `10.1.2.0/24` have the same prefix and length, so the longest match can't choose between them. Depending on the router, it uses one of them, or shares traffic between both. Either way, some of one customer's traffic is delivered into the other customer's network.
 
 Here `circuit validate` stops the file, but only because the two customers' links also share addresses. Two routes to one prefix alone are a normal thing to write, as a backup for each other, and Circuit can't know they belong to two customers.
 
-With a VRF each, the port says which table to use. A packet from the school's office arrives on a port in VRF `school`, and the bank's `10.1.2.0/24` is in a table that packet never sees. The router itself keeps the customers apart, not a filter someone could forget.
+With a VRF each, the router itself keeps the customers apart, not a filter someone could forget.
 
 <Quiz
   question="The bank and the school both use 10.20.0.0/16. On pe-01, each has its own VRF. The bank sends a packet to 10.20.5.5. Where can it go?"
@@ -37,7 +35,7 @@ With a VRF each, the port says which table to use. A packet from the school's of
 
 ## VRFs in Circuit
 
-A VRF is `vrfs` in the device file. Each port, interface, or static route says which VRF it is in with `vrf`. This is `pe-01` from the widget, with a VRF for each customer. Both customers' links use the same addresses, just as their offices do. That is fine, because each `172.16.0.1` is in a different table.
+This is `pe-01` from the widget, with a VRF for each customer. Both customers' links use the same addresses, just as their offices do. That is fine, because each `172.16.0.1` is in a different table.
 
 ```ts
 interfaces: {
@@ -65,11 +63,11 @@ routing: {
 },
 ```
 
-| Field            | What it does                                                                     |
-| ---------------- | -------------------------------------------------------------------------------- |
-| `vrfs`           | The device's VRFs, each under a name, with an optional `description`.            |
-| `vrf` on a port  | The table this port routes in. A port without `vrf` routes in the default table. |
-| `vrf` on a route | The table a static route is in. Without it, the route is in the default table.   |
+| Field                        | What it does                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| `vrfs`                       | The device's VRFs, each under a name, with an optional `description`.          |
+| `vrf` on a port or interface | The table it routes in. Without `vrf`, it routes in the default table.         |
+| `vrf` on a route             | The table a static route is in. Without it, the route is in the default table. |
 
 A name that isn't in `vrfs` is an error before anything reaches the router:
 
@@ -87,8 +85,8 @@ One PE is the easy case. A provider has PEs in many places, with the core betwee
 
 So the PE wraps the customer's packet. The core reads only the wrapping, which says "from this PE to that PE." The network the core routes is called the <Term means="The network that carries an overlay's wrapped packets: the provider's own links, routers, and addresses.">underlay</Term>. The customers' networks carried across it are the <Term means="A network carried inside another network, such as customers' networks wrapped and sent across a provider's own network, the underlay.">overlay</Term>. Two ways of wrapping are in wide use:
 
-1. **MPLS**. The PE puts short numbers, <Term means="A short number put in front of a packet on an MPLS network. Each router forwards by the label, and swaps it for the label the next router expects.">labels</Term>, in front of the packet. A BGP/MPLS IP VPN, or **L3VPN**, is defined in RFC 4364. It uses two labels: an outer label that leads to the far PE, and an inner one that the far PE gave out for that customer's VRF. PEs tell each other the customers' routes over iBGP, as in [BGP inside a network](/academy/professional/ibgp-at-scale). A <Term means="Eight bytes put in front of a customer's prefix inside BGP, so two customers' identical prefixes stay two different routes.">route distinguisher</Term> keeps two customers' identical prefixes apart inside BGP. A <Term means="A tag on a VPN route that says which VRFs on other PE routers take it in.">route target</Term> says which VRFs take a route in.
-2. **VXLAN**, defined in RFC 7348. The PE puts the customer's Ethernet frame inside a UDP packet to port 4789, addressed to the far end. A <Term means="VXLAN network identifier: the 24-bit number in a VXLAN header that says which customer or segment a frame belongs to.">VNI</Term> in the VXLAN header says which segment the frame is from. A VNI has 24 bits, for about 16 million segments, where a VLAN ID has 4094. Each tunnel end is a <Term means="VXLAN tunnel endpoint: a router or switch that wraps frames in VXLAN and unwraps them.">VTEP</Term>.
+1. **<Term means="Multiprotocol Label Switching: routers forward each packet by a short label put in front of it, instead of by the packet's own address.">MPLS</Term>**. The PE puts short numbers, <Term means="A short number put in front of a packet on an MPLS network. Each router forwards by the label, and swaps it for the label the next router expects.">labels</Term>, in front of the packet. A BGP/MPLS IP VPN, or **L3VPN**, is defined in RFC 4364. It uses two labels: an outer label that leads to the far PE, and an inner one that the far PE gave out for that customer's VRF. PEs tell each other the customers' routes over iBGP, as in [BGP inside a network](/academy/professional/ibgp-at-scale). A <Term means="Eight bytes put in front of a customer's prefix inside BGP, so two customers' identical prefixes stay two different routes.">route distinguisher</Term> keeps two customers' identical prefixes apart inside BGP. A <Term means="A tag on a VPN route that says which VRFs on other PE routers take it in.">route target</Term> says which VRFs take a route in.
+2. **<Term means="Virtual Extensible LAN: a frame carried inside a UDP packet between two routers or switches, with a number that says which network it belongs to.">VXLAN</Term>**, defined in RFC 7348. The PE puts the customer's Ethernet frame inside a UDP packet to port 4789, addressed to the far end. A <Term means="VXLAN network identifier: the 24-bit number in a VXLAN header that says which customer or segment a frame belongs to.">VNI</Term> in the VXLAN header says which segment the frame is from. A VNI has 24 bits, for about 16 million segments, where a VLAN ID has 4094. Each tunnel end is a <Term means="VXLAN tunnel endpoint: a router or switch that wraps frames in VXLAN and unwraps them.">VTEP</Term>.
 
 Both still leave a question: how does a PE learn which customer addresses are behind which other PE? Plain VXLAN learns by flooding. It sends unknown traffic to every other VTEP, and remembers where the answers come from. With <Term means="Ethernet VPN: routers announce in BGP which MAC and IP addresses are behind each of them, so nobody has to flood to find out.">EVPN</Term>, the PEs announce it in BGP instead. RFC 7432 defines EVPN for MPLS, and RFC 8365 for VXLAN. RFC 7348 made VXLAN for data centers, where it carries segments between the switches of a [leaf-spine](/academy/professional/device-roles) fabric.
 
@@ -166,13 +164,13 @@ routing: {
 
 `pe-02` has the same two tunnels the other way round. When both routers are in your network, `circuit validate` checks that each tunnel has one back at the far end. The ends must be swapped, and the VNI and port must match.
 
-Circuit doesn't do the rest of this lesson, and it is better to know that now:
+Circuit doesn't do the rest of this lesson:
 
 - **No MPLS.** It has no labels, no L3VPN, and no route distinguishers or route targets.
 - **No EVPN.** Each VXLAN tunnel is point to point, with its far end written by hand, and the routes through it are static.
 - **No BGP inside a VRF.**
 
-For a few sites, tunnels and static routes written in files are easy to read and to review. A provider with hundreds of customers needs PEs that announce routes to each other with MPLS or EVPN. Hand-written tunnels can't do that work, and today it happens outside Circuit, on platforms that run them.
+Tunnels and static routes written in files suit a few sites. A provider with hundreds of customers needs PEs that announce routes to each other with MPLS or EVPN, which Circuit doesn't write.
 
 ## Further reading
 
@@ -181,11 +179,3 @@ For a few sites, tunnels and static routes written in files are easy to read and
 - [RFC 7348](https://www.rfc-editor.org/rfc/rfc7348), VXLAN: the 24-bit VNI, UDP port 4789, and why a VTEP must not fragment.
 - [RFC 7432](https://www.rfc-editor.org/rfc/rfc7432), on EVPN over MPLS.
 - [RFC 8365](https://www.rfc-editor.org/rfc/rfc8365), on EVPN for VXLAN.
-
-## In short
-
-- A VRF is a routing table of its own on a shared router. A packet is looked up only in the VRF of the port it arrived on, so customers with the same addresses stay apart.
-- In Circuit, `vrfs` declares them, and `vrf` on a port, interface, or static route puts it in one.
-- Across a network, PEs wrap customer packets so the core reads only the outer header. MPLS does it with labels, as in an L3VPN. VXLAN does it inside UDP, with a VNI for each segment. EVPN announces in BGP what sits behind each PE.
-- Wrapping adds bytes: 50 for VXLAN, and 4 per MPLS label. The core's MTU must make room, or the tunnel's must shrink.
-- Circuit writes point-to-point VXLAN tunnels and static routes in VRFs. It has no MPLS, no EVPN, and no BGP inside a VRF.

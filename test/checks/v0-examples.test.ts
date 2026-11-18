@@ -1,7 +1,8 @@
-// Circuit 0.x's examples, templates and use cases validated with no error, with the built-in checks each network turned on. Each still does in v1, what its platform cannot express included. And a field a platform renders nothing for is an error, so it never goes missing without a word.
+// Circuit 0.x's examples, templates, and use cases validated with no error, with the built-in checks each network turned on. Each still does in v1, with nothing its platform cannot express. A field a platform renders nothing for is an error, so it never goes missing without a word.
 
 import { expect, test } from "bun:test";
-import { Validation, type NetworkChecks } from "../../src/checks";
+import { Checks } from "../../src/checks";
+import type { NetworkChecks } from "../../src/checks";
 import type { Device } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
@@ -60,12 +61,12 @@ for (const [group, names] of groups) {
         const { checks, untrusted } = CHECKS[group] ?? { checks: undefined, untrusted: [] };
         const devices = names.map((name) => markUntrusted(Fixtures.device(name), untrusted));
 
-        const errors = Validation.run(devices, checks).filter((finding) => finding.level === "error");
+        const errors = Checks.run(devices, checks).filter((finding) => finding.level === "error");
         expect(errors).toEqual([]);
     });
 }
 
-// Each path is 0.x's in v1's groups and names (`scripts/from-v0.ts`), and each reason as 0.x wrote it, a field it names in v1's name.
+// Each path is 0.x's in v1's groups and names (`scripts/from-v0.ts`), and each reason as 0.x wrote it, with each field it gives by its v1 name.
 test("a field a platform renders nothing for is unsupported", () => {
     const router = Fixtures.device("platforms--example-router");
     const switchDevice = Fixtures.device("platforms--example-switch");
@@ -75,7 +76,7 @@ test("a field a platform renders nothing for is unsupported", () => {
 
     /** What validation says the device's platform cannot express. */
     const unsupported = (device: Device) =>
-        Validation.run([device], undefined)
+        Checks.run([device], undefined)
             .filter((finding) => finding.device === device.name && finding.message.startsWith(`${device.platform} cannot express `))
             .map((finding) => finding.message.slice(`${device.platform} cannot express `.length));
 

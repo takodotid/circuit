@@ -2,7 +2,8 @@
 
 import DefaultTheme from "vitepress/theme";
 import type { Theme } from "vitepress";
-import { nextTick, type Component } from "vue";
+import { nextTick } from "vue";
+import type { Component } from "vue";
 import AcademyHome from "./academy/AcademyHome.vue";
 import AcademyLayout from "./academy/AcademyLayout.vue";
 import CodeView from "./academy/CodeView.vue";
@@ -15,7 +16,6 @@ import Term from "./academy/Term.vue";
 import TryIt from "./academy/TryIt.vue";
 import FlowDiagram from "./diagrams/FlowDiagram.vue";
 import InstallTabs from "./diagrams/InstallTabs.vue";
-import LayoutDiagram from "./diagrams/LayoutDiagram.vue";
 import MenuDiagram from "./diagrams/MenuDiagram.vue";
 import SecretsDiagram from "./diagrams/SecretsDiagram.vue";
 import Home from "./home/Home.vue";
@@ -54,7 +54,6 @@ export default {
             FlowDiagram,
             Graduates,
             InstallTabs,
-            LayoutDiagram,
             MenuDiagram,
             SecretsDiagram,
             LevelCheck,

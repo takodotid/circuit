@@ -1,24 +1,11 @@
-// SSH sessions to devices. Adapters choose how to talk to their platform; this holds what they share.
-//
-// Circuit logs in with a key first, then the password. It offers only the keys the connection user takes (`ssh_keys`), since some devices lock an account after a few refused tries: those an SSH agent holds (1Password's, or the system's), then `~/.ssh/id_*` whose `.pub` is one of them. The password is revealed only when no key logged in.
+// Circuit logs in with a key first, and reveals the password only when no key logged in. It offers only the keys the connection user takes (`ssh_keys`), since some devices lock an account after a few refused tries. It tries those an SSH agent holds, then `~/.ssh/id_*` whose `.pub` is one of them.
 
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Duplex } from "node:stream";
-import {
-    AgentProtocol,
-    type AnyAuthMethod,
-    BaseAgent,
-    Client,
-    type ClientChannel,
-    createAgent,
-    type IdentityCallback,
-    type ParsedKey,
-    type SignCallback,
-    type SigningRequestOptions,
-    utils,
-} from "ssh2";
+import { AgentProtocol, BaseAgent, Client, createAgent, utils } from "ssh2";
+import type { AnyAuthMethod, ClientChannel, IdentityCallback, ParsedKey, SignCallback, SigningRequestOptions } from "ssh2";
 import type { Device } from "../model";
 
 export type Login = {
@@ -40,10 +27,11 @@ type Way = { how: string; method: () => AnyAuthMethod; agent?: true };
 class AgentTimeout extends Error {}
 
 /**
- * An SSH agent that offers only some of the keys another agent holds. An agent such as 1Password's may ask the person to approve the key first: past `SIGN_TIMEOUT` the key counts as refused, and the password is tried.
+ * An SSH agent that offers only some of the keys another agent holds. An agent such as 1Password's may ask the person to approve the key first: past `SIGN_TIMEOUT_MS` the key counts as refused, and the password is tried.
  */
 class OnlyKeys extends BaseAgent<ParsedKey> {
-    static readonly SIGN_TIMEOUT = 15_000;
+    static readonly SIGN_TIMEOUT_MS = 15_000;
+    private static readonly SLOW_SIGN_MS = 1000;
 
     constructor(
         private readonly agent: BaseAgent,
@@ -73,14 +61,14 @@ class OnlyKeys extends BaseAgent<ParsedKey> {
         // Said only when the agent takes a moment, as it does while it asks the person.
         const waiting = setTimeout(
             () => (cleared = Ssh.waiting?.(`Waiting for the SSH agent to sign with ${key.comment || key.type}`)),
-            1_000
+            OnlyKeys.SLOW_SIGN_MS
         );
         // The request runs on a connection of its own, closed when it ends or times out, so a question nobody answers keeps nothing open.
         let stream: Duplex | undefined;
         const timer = setTimeout(() => {
             stream?.destroy();
             answer(new Error("the SSH agent did not sign in time"));
-        }, OnlyKeys.SIGN_TIMEOUT);
+        }, OnlyKeys.SIGN_TIMEOUT_MS);
 
         const signOptions = typeof options === "function" ? {} : options;
         if (!this.agent.getStream)
@@ -102,6 +90,10 @@ class OnlyKeys extends BaseAgent<ParsedKey> {
 }
 
 export class Ssh {
+    static readonly PORT = 22;
+    static readonly READY_TIMEOUT_MS = 60_000;
+    private static readonly AGENT_TIMEOUT_MS = 5000;
+
     /** Where Circuit says how it logged in to a device, once per device and way. Set by the command line; silent when absent. */
     static report: ((message: string, refused: boolean) => void) | undefined;
 
@@ -118,7 +110,7 @@ export class Ssh {
         return process.env.SSH_AUTH_SOCK || (process.platform === "win32" ? "\\\\.\\pipe\\openssh-ssh-agent" : undefined);
     }
 
-    /** Where the person's own key files are: `~/.ssh`. */
+    /** A test swaps it, so it never reads the machine's own keys. */
     static keyFolder = (): string => join(homedir(), ".ssh");
 
     /** The key itself, the second word of an OpenSSH public key line. */
@@ -126,10 +118,10 @@ export class Ssh {
         return line.trim().split(/\s+/)[1] ?? "";
     }
 
-    /** The agent's keys that are among `wanted`, or none when there is no agent or it doesn't answer within 5 seconds. */
+    /** The agent's keys that are among `wanted`, or none when there is no agent or it doesn't answer in time. */
     private static agentKeys(agent: BaseAgent, wanted: ReadonlySet<string>): Promise<ParsedKey[]> {
         return new Promise((resolve) => {
-            const timer = setTimeout(() => resolve([]), 5_000);
+            const timer = setTimeout(() => resolve([]), Ssh.AGENT_TIMEOUT_MS);
 
             agent.getIdentities((error, keys) => {
                 clearTimeout(timer);
@@ -142,7 +134,7 @@ export class Ssh {
         });
     }
 
-    /** The ways to log in, in the order to try them: the agent's keys, the files' keys, then the password. */
+    /** The ways to log in, in the order to try them. */
     private static async ways(login: Login): Promise<Way[]> {
         const username = login.user;
         const wanted = new Set((login.keys ?? []).map((line) => Ssh.blob(line)).filter(Boolean));
@@ -205,13 +197,12 @@ export class Ssh {
             );
     }
 
-    /** The address SSH reaches a device at. A device without one is reached only through its console. */
+    /** A device without a management address is reached only through its console. */
     static hostOf(device: Device): string {
         if (!device.connection.host) throw new Error(`${device.name} has no management address; it is reached through its console`);
         return device.connection.host;
     }
 
-    /** Open a session, with the user's keys first, then the password. */
     static async connect(login: Login): Promise<Client> {
         const ways = await Ssh.ways(login);
 
@@ -252,9 +243,9 @@ export class Ssh {
                 })
                 .connect({
                     host: login.host,
-                    port: login.port ?? 22,
+                    port: login.port ?? Ssh.PORT,
                     username: login.user,
-                    readyTimeout: 60_000,
+                    readyTimeout: Ssh.READY_TIMEOUT_MS,
                     ...(login.hostKeys ? { algorithms: { serverHostKey: login.hostKeys as never } } : {}),
                     authHandler: (_left, _partial, done) => {
                         used = ways[next++];
@@ -265,7 +256,7 @@ export class Ssh {
         });
     }
 
-    /** Run one command and return what it printed, stderr included. */
+    /** Returns what the command printed, stderr included. */
     static exec(client: Client, command: string, timeout = 120_000): Promise<string> {
         return new Promise((resolve, reject) => {
             client.exec(command, (error, stream) => {
@@ -321,7 +312,7 @@ export class Ssh {
 
     /** Send one line into an interactive shell and collect output until it goes quiet for `settle`. */
     static send(channel: ClientChannel, line: string, timeout = 20_000, settle = 1500): Promise<string> {
-        channel.write(line + "\n");
+        channel.write(`${line}\n`);
 
         return new Promise((resolve) => {
             let output = "";

@@ -23,7 +23,7 @@ const KEYWORDS = new Set(["import", "from", "export", "default", "const", "as", 
 /** A line of TypeScript, split into the parts its colors mark. */
 function typescript(line: string): Token[] {
     const comment = line.indexOf("//");
-    const code = comment >= 0 && !/"[^"]*\/\/[^"]*"/.test(line) ? line.slice(0, comment) : line;
+    const code = comment !== -1 && !/"[^"]*\/\/[^"]*"/.test(line) ? line.slice(0, comment) : line;
     const rest = code === line ? "" : line.slice(comment);
 
     const tokens = code

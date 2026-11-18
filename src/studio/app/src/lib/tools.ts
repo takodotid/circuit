@@ -1,4 +1,4 @@
-// What Studio's tools work out from the project: where an address is and how each device would reach it, and the cables that carry a VLAN from one device to another. They say what the project means, not what a device did: a route learned from BGP or OSPF is not in the project.
+// What Studio's tools work out from the project: where an address is, how each device would reach it, and which cables carry a VLAN between two devices. They say what the project means, not what a device did: a route learned from BGP or OSPF is not in the project.
 
 import type { Device } from "../../../../model";
 import type { AddressBlock, AddressSegment, StudioData } from "../../../types";
@@ -15,7 +15,7 @@ export type RouteFound = {
     note?: string;
 };
 
-/** A rule that names the address. */
+/** A rule that uses the address. */
 export type RuleFound = { device: string; where: string; rule: number; description?: string; then: string; side: string };
 
 /** Where an address is in the space the project uses: its segment or block, the space around it, and what else in the segment uses it. */
@@ -56,7 +56,7 @@ export class Tools {
         );
     }
 
-    /** Where an address is, how each device would reach it from what the project says, and every rule that names it. Undefined when the text is not one address. */
+    /** Where an address is, how each device would reach it from what the project says, and every rule that uses it. Undefined when the text is not one address. */
     static trace(data: StudioData, text: string): Trace | undefined {
         const target = Net.parseRange(text.trim());
         if (!target || target.first !== target.last) return undefined;

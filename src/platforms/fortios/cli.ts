@@ -1,6 +1,4 @@
-// FortiOS's CLI over a channel: one line at a time, and what the device printed until its prompt came back.
-
-/** What a session reads and writes: an SSH shell, or anything else that streams the CLI. */
+/** An SSH shell, a serial console, or anything else that streams the CLI. */
 export type Channel = {
     write(data: string): unknown;
     on(event: "data", listener: (chunk: Buffer) => void): unknown;
@@ -12,9 +10,8 @@ export type Channel = {
 /** How a change that could cut access is guarded: the device reloads its saved configuration after `seconds` unless `prove` shows access survived. */
 export type Guard = { seconds: number; prove: () => Promise<void> };
 
-/** A CLI over a channel: one line at a time, and what the device printed until its prompt came back. */
 export class FortiOsCli {
-    /** The prompt at the end of what the device printed, `host # ` or `host (context) # `, or a question it waits on. */
+    /** `host # `, or `host (context) # ` inside a level. */
     private static readonly PROMPT = /(?:^|\n)[^\n]*[#$] $/;
     static readonly QUESTION = /\(y\/n\)\s*$/;
 
@@ -40,7 +37,7 @@ export class FortiOsCli {
         await this.collect(timeout);
     }
 
-    /** Send one line and return what the device printed after it, without the echo or the prompt. */
+    /** What the device printed after the line, without the echo or the prompt. */
     async run(line: string, timeout = 60_000): Promise<string> {
         this.channel.write(line + this.newline);
         const output = await this.collect(timeout);
@@ -49,7 +46,6 @@ export class FortiOsCli {
         return lines.slice(1, -1).join("\n");
     }
 
-    /** Answer a question the device asked. */
     answer(reply: "y" | "n", timeout = 60_000): Promise<string> {
         this.channel.write(reply);
         return this.collect(timeout);

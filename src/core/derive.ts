@@ -1,4 +1,4 @@
-// Values Circuit derives from a device the same way everywhere: in checks, adapters and integrations.
+// Values derived from a device the same way everywhere: in checks, adapters, and integrations.
 
 import { Address } from "./address";
 import { Utils } from "./utils";
@@ -6,9 +6,6 @@ import type { Device, FilterRule, Interface, InterfaceKind, NatRule, Port } from
 
 /** One interface of a device, with the group it is in. */
 export type NamedInterface = { name: string; kind: InterfaceKind; settings: Interface };
-
-/** The groups of `interfaces` besides `ethernet`, in the order Circuit reads them. */
-const KINDS: readonly InterfaceKind[] = ["lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "wireguard", "eoip"];
 
 /** A feature a platform renders once tested on one of its devices. */
 export type TestedFeature =
@@ -38,9 +35,31 @@ export type BuiltFeature =
     | "nat-state";
 
 export class Derive {
+    /** The groups of `interfaces` besides `ethernet`, in the order Circuit reads them. */
+    private static readonly KINDS: readonly InterfaceKind[] = [
+        "lag",
+        "vlan_interface",
+        "bridge",
+        "loopback",
+        "gre",
+        "vxlan",
+        "wireguard",
+        "eoip",
+    ];
+
+    /** Fields a platform renders only once they are tested on one of its devices. */
+    private static readonly UNTESTED_PORT_FIELDS = [
+        ["mac_limit", "mac-limit"],
+        ["ethertypes", "ethertype-filter"],
+        ["bound_to", "port-binding"],
+    ] as const;
+
+    /** Each takes its sources from `management.allow`, on the protocol's own port. */
+    private static readonly SWITCH_SERVICES = ["ssh", "telnet", "snmp"] as const;
+
     /** Every interface that is not a port, group by group (`KINDS`), each in the order it is written. */
     static interfaces(device: Device): NamedInterface[] {
-        return KINDS.flatMap((kind) =>
+        return Derive.KINDS.flatMap((kind) =>
             Object.entries<Interface | undefined>(device.interfaces?.[kind] ?? {}).flatMap(([name, settings]) =>
                 settings ? [{ name, kind, settings }] : []
             )
@@ -54,7 +73,7 @@ export class Derive {
         );
     }
 
-    /** A port or an interface by its name, whatever group it is in. */
+    /** A port or an interface by its name, in any group. */
     static settings(device: Device, name: string): Port | Interface | undefined {
         return device.interfaces?.ethernet?.[name] ?? Derive.interfaces(device).find((entry) => entry.name === name)?.settings;
     }
@@ -80,13 +99,6 @@ export class Derive {
 
         return addresses.filter((address) => Address.family(address) === "ipv4").map((address) => Address.prefixOf(address));
     }
-
-    /** Fields a platform renders only once they are tested on one of its devices. */
-    private static readonly UNTESTED_PORT_FIELDS = [
-        ["mac_limit", "mac-limit"],
-        ["ethertypes", "ethertype-filter"],
-        ["bound_to", "port-binding"],
-    ] as const;
 
     /** Fields of features a platform does not build, each refused by name. A platform names the ones it builds. */
     static unbuilt(device: Device, built: readonly BuiltFeature[] = []): string[] {
@@ -200,10 +212,9 @@ export class Derive {
         return found;
     }
 
-    /** Services the switch platforms run. Each takes its sources from `management.allow`, on the protocol's own port. */
-    private static readonly SWITCH_SERVICES = ["ssh", "telnet", "snmp"] as const;
-
-    /** Fields neither switch platform, VRP nor Raisecom ROS, expresses: a service's own sources or port, a user's description or keys, the IP stack's host settings, a point-to-point address, and offload per interface. `ownSources` names the services a platform gives their own sources. */
+    /**
+     * Fields neither switch platform, VRP nor Raisecom ROS, expresses. They are a service's own sources or port, a user's description or keys, the IP stack's host settings, a point-to-point address, and offload per interface. `ownSources` names the services a platform gives their own sources.
+     */
     static switchUnsupported(device: Device, ownSources: readonly ("ssh" | "telnet" | "snmp")[] = [], takesKeys = false): string[] {
         const found: string[] = [];
 

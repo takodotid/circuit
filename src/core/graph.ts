@@ -1,4 +1,4 @@
-// The network as a graph: the shapes `Topology` draws, without its code, so Studio's page can share them.
+// The shapes `Topology` draws, without its code, so Studio's page can import them.
 
 /** One view of the network. Every edge belongs to one. */
 export type Layer = "l1" | "l2" | "l3" | "bgp" | "ospf" | "tunnels";
@@ -14,7 +14,6 @@ export type GraphNode = {
     detail: string[];
 };
 
-/** A VLAN a cable carries. */
 export type CarriedVlan = {
     name: string;
     id: number;

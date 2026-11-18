@@ -1,20 +1,16 @@
-// BGP, route policies, prefix sets and route origin validation, as Junos `set` statements.
-
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, Prefix, PrefixSet, RouteRule } from "../../model";
-import { JunosRender } from "./render";
-import type { JunosStatements } from "./statements";
+import { JunosStatements } from "./statements";
 
-/** BGP sessions, the policies they use, prefix sets and RPKI servers, added to one device's statements. */
+/** BGP sessions, the policies they use, prefix sets, and RPKI servers. */
 export class JunosBgp {
-    /** The policy a session uses when it states none, so that it learns or announces nothing. */
+    /** The policy of a session that states none, so it learns or announces nothing. */
     private static readonly REJECT_ALL = "circuit-reject-all";
 
-    /** The policy every export starts with. BGP's own routes and the prefixes the device originates go on to the session's policy; the device's other routes never reach it. */
+    /** The policy every export starts with. BGP's own routes and the prefixes the device originates go on to the session's policy. The device's other routes never reach it. */
     private static readonly ORIGIN = "circuit-bgp-origin";
 
-    /** The validator group every RPKI server joins. */
     private static readonly RPKI_GROUP = "circuit";
 
     /** A comment in the render naming a path whose statements `refresh` fills, so the plan keeps what the device holds there. */
@@ -29,7 +25,6 @@ export class JunosBgp {
         private readonly device: Device
     ) {}
 
-    /** Add the device's prefix sets, RPKI servers, BGP sessions and the policies they use. */
     static render(out: JunosStatements, device: Device): void {
         const bgp = new JunosBgp(out, device);
 
@@ -44,7 +39,7 @@ export class JunosBgp {
         return { ...group, ...neighbor };
     }
 
-    /** A prefix set's prefixes, written as a list or as a map of named prefixes. A set fetched by `refresh` has none here. */
+    /** Written as a list or as a map of named prefixes. A set that `refresh` fetches has none here. */
     static prefixesOf(set: PrefixSet): Prefix[] {
         if (!("prefixes" in set)) return [];
 
@@ -66,14 +61,14 @@ export class JunosBgp {
         return large ? `large:${community}` : community;
     }
 
-    /** A term's name: its place, then the rule's description so a reader sees it on the device. */
+    /** Its place, then the rule's description so a reader sees it on the device. */
     private static termName(label: string, rule: RouteRule): string {
-        return JunosRender.quote(rule.description ? `${label} ${rule.description}` : label);
+        return JunosStatements.quote(rule.description ? `${label} ${rule.description}` : label);
     }
 
     private sessions(): void {
         const bgp = this.device.routing?.bgp;
-        // Without our AS there is no BGP to write; `unsupported()` names it.
+        // Without our AS there is no BGP to write. `unsupported()` names it.
         if (!bgp || bgp.asn === undefined) return;
 
         this.out.set("routing-options autonomous-system", bgp.asn);
@@ -91,13 +86,13 @@ export class JunosBgp {
 
             this.out.set(group, "type", settings.remote_as === bgp.asn ? "internal" : "external");
             this.out.set(group, "peer-as", settings.remote_as!);
-            if (settings.description) this.out.set(group, "description", JunosRender.quote(settings.description));
+            if (settings.description) this.out.set(group, "description", JunosStatements.quote(settings.description));
             if (settings.local_address) this.out.set(group, "local-address", Address.host(settings.local_address));
             if (settings.multihop) this.out.set(group, "multihop");
             if (settings.passive) this.out.set(group, "passive");
             if (settings.hold_time !== undefined) this.out.set(group, "hold-time", settings.hold_time);
             if (settings.password) this.out.set(group, "authentication-key", Secrets.marker(settings.password));
-            if (settings.bfd) JunosRender.bfd(this.out, group, this.device);
+            if (settings.bfd) this.out.bfd(group, this.device.routing?.bfd);
 
             this.out.set(group, "import", settings.import_policy ?? JunosBgp.REJECT_ALL);
 
@@ -133,13 +128,12 @@ export class JunosBgp {
         for (const policy of [...used].sort()) this.policyStatement(policy);
     }
 
-    /** BGP's routes and the originated prefixes go on to the session's policy; anything else is rejected. */
     private origin(): void {
         const statement = `policy-options policy-statement ${JunosBgp.ORIGIN}`;
         this.out.set(statement, "term bgp from protocol bgp");
         this.out.set(statement, "term bgp then next policy");
 
-        // The term keeps its 0.x name, `networks`, so a device that holds it is not rewritten.
+        // `networks` is 0.x's name for the term, kept so a device that holds it is not rewritten.
         const originated = this.device.routing?.bgp?.originated_prefixes ?? [];
         for (const prefix of originated) this.out.set(statement, "term networks from route-filter", prefix, "exact");
         if (originated.length) this.out.set(statement, "term networks then next policy");
@@ -193,7 +187,7 @@ export class JunosBgp {
 
             if ("call" in rule && rule.call && !seen.includes(rule.call)) flat.push(...this.flatten(rule.call, here, [...seen, rule.call]));
 
-            // A communities rule is not written here; `unsupported()` names it.
+            // A communities rule is not written here. `unsupported()` names it.
             if (JunosBgp.isRouteRule(rule) && (rule.if || rule.set || rule.then)) flat.push({ label: here, rule });
         });
 
@@ -207,7 +201,7 @@ export class JunosBgp {
 
         for (const { label, rule } of flat) {
             const family = this.familyOfRule(rule);
-            // A next hop only means something to routes of its own family, and one term cannot filter prefixes of both, so a rule for both families splits into a term for each.
+            // A next hop fits routes of its own family only, and one term cannot filter prefixes of both. So a rule for both families splits into a term for each.
             const split = !family && (rule.set?.next_hop || rule.if?.prefix_length) ? (["ipv4", "ipv6"] as const) : [family];
 
             for (const part of split) {
@@ -247,13 +241,13 @@ export class JunosBgp {
         if (match.as_path_length) {
             const { min = 0, max } = match.as_path_length;
             const name = `circuit-path-length-${min}-${max ?? "any"}`;
-            this.out.set(`policy-options as-path ${name}`, JunosRender.quote(`.{${min},${max ?? ""}}`));
+            this.out.set(`policy-options as-path ${name}`, JunosStatements.quote(`.{${min},${max ?? ""}}`));
             from.push(["as-path", name]);
         }
 
         if (match.as_path_contains !== undefined) {
             const name = `circuit-through-${match.as_path_contains}`;
-            this.out.set(`policy-options as-path ${name}`, JunosRender.quote(`.* ${match.as_path_contains} .*`));
+            this.out.set(`policy-options as-path ${name}`, JunosStatements.quote(`.* ${match.as_path_contains} .*`));
             from.push(["as-path", name]);
         }
 
@@ -272,7 +266,7 @@ export class JunosBgp {
 
         if (set.prepend !== undefined) {
             const asn = this.device.routing!.bgp!.asn!;
-            then.push(["as-path-prepend", JunosRender.quote(Array(set.prepend).fill(asn).join(" "))]);
+            then.push(["as-path-prepend", JunosStatements.quote(Array(set.prepend).fill(asn).join(" "))]);
         }
 
         // Replacing communities of one kind is removing every one of that kind, then adding the new ones.
@@ -309,7 +303,7 @@ export class JunosBgp {
     /** A named community holding these members, named after them. */
     private community(purpose: string, members: string[]): string {
         const name = `circuit-${purpose}-${JunosBgp.slug(members.join(" "))}`;
-        for (const value of members) this.out.set(`policy-options community ${name} members`, JunosRender.quote(value));
+        for (const value of members) this.out.set(`policy-options community ${name} members`, JunosStatements.quote(value));
         return name;
     }
 }

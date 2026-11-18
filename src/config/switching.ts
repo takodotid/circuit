@@ -1,5 +1,3 @@
-// Layer 2 shared by ports: `switching.vlans`, `.stp`, `.lldp`, `.acls`.
-
 import type { Family, Named, OneOrMore, Ordered, Prefix, Rate } from "./common";
 import type { Ports, Protocol } from "./firewall";
 
@@ -20,7 +18,7 @@ export type Vlan<Untrusted extends boolean = true> = {
 /**
  * Which packets an ACL rule applies to. All must be true.
  *
- * `vlan`, `src` and `dst` each take a list. If the platform has no lists, Circuit writes one rule for each combination, in this order: VLAN first, then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so Circuit leaves that combination out. If no combination is left, the rule is an error.
+ * `vlan`, `src`, and `dst` each take a list. If the platform has no lists, Circuit writes one rule for each combination, in this order: VLAN first, then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so Circuit leaves that combination out. If no combination is left, the rule is an error.
  */
 export type AclMatch<V extends string> = {
     /** Only packets of this family. */
@@ -63,7 +61,7 @@ export type Stp = {
 
 /** Layer 2 that the ports share. `V` is the device's VLAN names, `A` its ACL names, `I` its ports and interfaces. `Untrusted` is whether the network turns on `untrusted_vlans`. */
 export type Switching<V extends string, A extends string, I extends string, Untrusted extends boolean = true> = {
-    /** VLANs, keyed by name. Ports, LAGs and VLAN interfaces use these names. */
+    /** VLANs, keyed by name. Ports, LAGs, and VLAN interfaces use these names. */
     vlans?: Named<V, Vlan<Untrusted>>;
     /** Spanning tree on every switched port. A port may override it. */
     stp?: Stp;

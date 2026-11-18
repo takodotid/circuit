@@ -2,7 +2,8 @@
 // Lesson: firewalls. The reader reorders, changes, removes, and adds rules, sends test packets through them, and sees which rule matched first, or the default, until every packet gets what it should.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 const props = withDefaults(
     defineProps<{
@@ -455,10 +456,10 @@ const verdictText = computed(() => {
     const decided =
         outcome.matched === undefined
             ? `No rule matches it, so the default decides: ${outcome.verdict}.`
-            : `Rule ${outcome.matched + 1}, ${outcome.lines[outcome.matched]!.rule.description}, is the first that matches, so it is ${outcome.verdict === "accept" ? "accepted" : "dropped"}. Rules below it are not read.`;
+            : `Rule ${outcome.matched + 1}, ${outcome.lines[outcome.matched]!.rule.description}, is the first that matches, so it is ${outcome.verdict === "accept" ? "accepted" : "dropped"}.`;
     const verdictMatches = outcome.verdict === packet.should;
     const judgment = verdictMatches
-        ? "That is what should happen."
+        ? "That is right."
         : `It should be ${packet.should === "accept" ? "accepted" : "dropped"}: change the rules.`;
 
     return {
@@ -589,9 +590,7 @@ const code = computed(() => {
         <p v-if="verdictText" class="ac-say" :class="verdictText.kind" :data-word="verdictText.word" aria-live="polite">
             {{ verdictText.text }}
         </p>
-        <p v-else class="ac-say hint" aria-live="polite">
-            Click a packet to send it through the rules. Then change the rules until every packet is right.
-        </p>
+        <p v-else class="ac-say hint" aria-live="polite">Change the rules until every packet is right.</p>
 
         <p class="score" :class="{ done: rightCount === packets.length }">
             {{

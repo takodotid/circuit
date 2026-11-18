@@ -54,8 +54,8 @@ async function go(id: string) {
 
     const place = at(id);
     said.value = place.address
-        ? `The ${place.name.toLowerCase()} network gave the laptop the IP address ${place.address}. Its hardware address is still ${HARDWARE_ADDRESS}.`
-        : `Off the network, nobody gives the laptop an IP address, so it has none. Its hardware address is still ${HARDWARE_ADDRESS}, because it is part of the network card.`;
+        ? "The laptop got a new IP address. Its hardware address stayed the same."
+        : "Off the network, the laptop has no IP address. Its hardware address stayed the same.";
 }
 </script>
 

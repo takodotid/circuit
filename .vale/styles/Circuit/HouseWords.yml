@@ -1,6 +1,6 @@
 extends: substitution
 message: "Plain words: use '%s' instead of '%s'."
-level: warning
+level: error
 ignorecase: true
 swap:
     proved on: tested on

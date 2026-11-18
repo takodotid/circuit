@@ -48,30 +48,21 @@ The routers on the way still see the addresses and ports on every packet, becaus
 
 ## The ideas of this level
 
-Every lesson of the Beginner level had a part in opening one page:
-
-| Lesson                                                       | The idea                                                              | Where it was in the journey                                     |
-| ------------------------------------------------------------ | --------------------------------------------------------------------- | --------------------------------------------------------------- |
-| 1. [What is a network?](/academy/beginner/what-is-a-network) | Devices joined by links. The internet is networks joined together.    | The whole drawing: your home, your provider, and the internet.  |
-| 2. [Cables, light, and radio](/academy/beginner/cables)      | Copper, fiber, and radio carry the bits.                              | Every link the messages crossed.                                |
-| 3. [Messages in pieces](/academy/beginner/packets)           | Data travels in numbered packets, and is put back in order.           | The page coming back.                                           |
-| 4. [Addresses](/academy/beginner/addresses)                  | A hardware address for the local network, an IP address for anywhere. | The frame to the home router, and the IP address of the server. |
-| 5. [Counting like a computer](/academy/beginner/binary)      | Numbers in bits, so each part of an address is 0 to 255.              | Every address on every card.                                    |
-| 6. [Reading an IP address](/academy/beginner/ip-addresses)   | The network part, and the prefix length, such as `/24`.               | Near or far.                                                    |
-| 7. [Switches](/academy/beginner/switches)                    | Frames delivered by hardware address, learned from the sender.        | Inside the home, in the switch built into the home router.      |
-| 8. [Routers and the gateway](/academy/beginner/routers)      | The gateway, routing tables, hop by hop, and the TTL.                 | Every hop out and back.                                         |
-| 9. [DNS](/academy/beginner/dns)                              | A resolver turns a name into an address, and remembers it.            | The first question.                                             |
-| 10. [Ports and protocols](/academy/beginner/ports)           | Port numbers. TCP checks every piece, and UDP just sends.             | DNS on port 53 over UDP, and the web on port 443 over TCP.      |
+| Lesson                                                       | Where it was in the journey                                     |
+| ------------------------------------------------------------ | --------------------------------------------------------------- |
+| 1. [What is a network?](/academy/beginner/what-is-a-network) | The whole drawing: your home, your provider, and the internet.  |
+| 2. [Cables, light, and radio](/academy/beginner/cables)      | Every link the messages crossed.                                |
+| 3. [Messages in pieces](/academy/beginner/packets)           | The page coming back.                                           |
+| 4. [Addresses](/academy/beginner/addresses)                  | The frame to the home router, and the IP address of the server. |
+| 5. [Counting like a computer](/academy/beginner/binary)      | Every address on every card.                                    |
+| 6. [Reading an IP address](/academy/beginner/ip-addresses)   | Near or far.                                                    |
+| 7. [Switches](/academy/beginner/switches)                    | Inside the home, in the switch built into the home router.      |
+| 8. [Routers and the gateway](/academy/beginner/routers)      | Every hop out and back.                                         |
+| 9. [DNS](/academy/beginner/dns)                              | The first question.                                             |
+| 10. [Ports and protocols](/academy/beginner/ports)           | DNS on port 53 over UDP, and the web on port 443 over TCP.      |
 
 <TryIt title="Put the steps in order">
 
 <JourneyOrder />
 
 </TryIt>
-
-## In short
-
-- Opening a page starts with DNS. The laptop asks the resolver, through the gateway, to turn the name into an address.
-- The laptop sends everything for another network to its gateway, and routers pass it on hop by hop.
-- The browser opens a TCP conversation with port 443, then locks it. The lock is a secret key that only the two sides know, and a certificate that proves the server's name.
-- The page comes back in numbered packets, is put back in order, and is drawn. The lock means nobody on the way can read it.

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: watching the network. The reader looks for the incident in a day of traffic on the transit port, reads the flow records at that moment to see who sent it, then sets an alert rule and counts the pages it would send.
+// Lesson: watching the network. The reader looks for the incident in a day of traffic on the transit port, and reads the flow records at that moment to see who sent it. Then they set an alert rule and count the pages it would send.
 
 import { computed, ref } from "vue";
 
@@ -58,7 +58,7 @@ function mark() {
         verdict.value = {
             kind: "good",
             word: "Found",
-            text: `${timeOf(cursor.value)}, ${current.value.toFixed(1)} Gbit/s. From 14:20 to 14:45 inbound traffic leapt from about 6 Gbit/s to over 20, and fell back as fast. Now read the flow records below to see who sent it.`,
+            text: `${timeOf(cursor.value)}, ${current.value.toFixed(1)} Gbit/s. From 14:20 to 14:45 inbound traffic leapt from about 6 Gbit/s to over 20. Read the flow records below to see who sent it.`,
         };
         return;
     }
@@ -108,8 +108,8 @@ const flows = computed(() => {
 /* 3. An alert rule, and the pages it would have sent today. */
 const thresholds = [8, 16, 20];
 const durations = [
-    { samples: 1, label: "in one sample" },
-    { samples: 3, label: "for 15 minutes" },
+    { samples: 1, label: "one sample" },
+    { samples: 3, label: "15 minutes" },
 ];
 const threshold = ref<number>();
 const duration = ref(1);
@@ -213,9 +213,7 @@ const ruleVerdict = computed(() => {
         </div>
 
         <p v-if="verdict" class="ac-say" :class="verdict.kind" :data-word="verdict.word" aria-live="polite">{{ verdict.text }}</p>
-        <p v-else class="ac-say hint" aria-live="polite">
-            Move the slider along the day, or use the arrow keys on it, and mark the moment something went wrong.
-        </p>
+        <p v-else class="ac-say hint" aria-live="polite">Move along the day, and mark the moment something went wrong.</p>
 
         <h4 class="part">Flow records at {{ moment }}</h4>
         <div class="table-frame">
@@ -241,10 +239,7 @@ const ruleVerdict = computed(() => {
                 </tbody>
             </table>
         </div>
-        <p class="note">
-            Estimated by the collector from one packet in 1,000, multiplied back up. SNMP says how much; these records say to whom and from
-            where.
-        </p>
+        <p class="note">Estimated by the collector from one packet in 1,000.</p>
 
         <h4 class="part">Alert when inbound traffic is above</h4>
         <div class="ac-row">

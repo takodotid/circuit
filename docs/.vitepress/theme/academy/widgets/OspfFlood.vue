@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Lesson: OSPF. The reader steps through four routers finding their neighbors, sharing their links until each holds the same map, computing paths, and doing it again when a link fails.
 
-import { type Link, Spf } from "./OspfMap";
+import { Spf } from "./OspfMap";
+import type { Link } from "./OspfMap";
 
 const routers = [
     { id: "R1", x: 70, y: 70 },

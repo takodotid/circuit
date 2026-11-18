@@ -1,4 +1,4 @@
-// A secret is always a reference, `secret("NAME")` or `secretFile("path")`. A password written as plain text in a device file or in circuit.ts stops `circuit validate`, which names the file, the line, and the key, and never repeats the text.
+// A password written as plain text, in a device file or in circuit.ts, stops `circuit validate`. The message gives the file, the line, and the key, and never repeats the text.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";

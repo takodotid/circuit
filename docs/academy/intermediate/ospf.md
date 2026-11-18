@@ -5,19 +5,17 @@ description: With OSPF, routers share a map of their links and each computes the
 
 # Routers that talk: OSPF
 
-A static route never changes by itself. When a link breaks, the router has another way only if someone wrote one in advance. With a <Term means="A way for routers to tell each other which addresses they can reach, so nobody has to write every route by hand.">routing protocol</Term>, routers tell each other what they can reach. So they find their own way, and a new one when a link fails.
-
-OSPF is a routing protocol that many networks run inside themselves. Every router learns the whole map of links and what each link costs. It computes the cheapest path to every network, and computes again whenever the map changes.
+With a <Term means="A way for routers to tell each other which addresses they can reach, so nobody has to write every route by hand.">routing protocol</Term>, routers tell each other what they can reach. So they find their own way, and a new one when a link fails. OSPF is a routing protocol that many networks run inside themselves.
 
 ## Why static routes are not enough
 
 Picture three offices, each with a router, joined in a triangle. With static routes, each router needs a route for each other office's networks. It also needs a second route, with a higher distance, for the long way round. Add a fourth office, and every router needs more routes. Add a VLAN, and every other router needs a route for it.
 
-That is a lot of writing, and it is easy to forget one. Worse, a router usually stops using a static route only when the route's own link goes down. If the trouble is one hop further on, the router keeps sending into it. A routing protocol replaces all of this with routers that ask each other.
+That is a lot of writing, and it is easy to forget one. Worse, a router usually stops using a static route only when the route's own link goes down. If the trouble is one hop further on, the router keeps sending into it.
 
 ## How OSPF works
 
-OSPF is a <Term means="A kind of routing protocol in which every router learns every link in the network, then works out its own paths from that map.">link-state</Term> protocol. Every router has the same map of links, and each one works out its own routes from it.
+OSPF is a <Term means="A kind of routing protocol in which every router learns every link in the network, then works out its own paths from that map.">link-state</Term> protocol. Every router learns the same map of links and what each link costs. Each one computes the cheapest path to every network, and computes again whenever the map changes.
 
 <TryIt title="Watch routers build a map and recover">
 
@@ -25,7 +23,7 @@ OSPF is a <Term means="A kind of routing protocol in which every router learns e
 
 </TryIt>
 
-The grid shows what people often miss. Every router ends up with the same map, but not with the same routing table. R1 and R4 read the same map from different places, so each has its own paths.
+Every router ends up with the same map, but not with the same routing table. R1 and R4 read the same map from different places, so each has its own paths.
 
 <Quiz
   question="OSPF has finished flooding in a network. What do all the routers now have in common?"
@@ -127,11 +125,3 @@ To see which routers become neighbors before you apply anything, open the OSPF l
 ::: warning Not every platform runs every part
 VRP and Raisecom ROS run OSPF for IPv4 only, and Raisecom ROS runs it only on VLAN interfaces. Junos and FortiOS don't run it in a VRF. `circuit validate` reports anything a platform can't do. See [Platforms](/reference/platforms).
 :::
-
-## In short
-
-- A routing protocol lets routers tell each other what they reach, so they find a new way when a link fails.
-- In OSPF, routers find neighbors with hellos and flood descriptions of their links, so all of them end up with the same map.
-- Each router computes the cheapest path to every network from that map. The cost of a path is the sum of its links' costs.
-- A failed link is flooded as a change, and every router computes again. BFD notices the failure in under a second.
-- Area 0 is the backbone. In Circuit, OSPF is `routing.ospf`, with an area's interfaces, their `cost`, and `passive` for user VLANs.

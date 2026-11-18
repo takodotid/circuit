@@ -13,7 +13,7 @@ A route you learned from a provider or a peer must never go on to another provid
 
 On June 24, 2019, a company passed more specific routes it had learned from one provider to its other provider, which announced them to the internet. At the worst point, Cloudflare lost about 15% of its global traffic. An export that accepted the company's own space and rejected the rest would have kept the leak in.
 
-Circuit already rejects a route that no rule accepts. The last rule says so where a reviewer reads it, and the check fails on an export that ends any other way, such as in an accept for every route.
+Circuit already rejects a route that no rule accepts. The last rule says so where a reviewer reads it.
 
 ## In Circuit
 

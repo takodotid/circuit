@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: reading an IP address. The reader types an address and slides the prefix length, and sees its 32 bits split into network and host, the mask, the first and last address, and how many the block holds.
+// Lesson: reading an IP address. The reader types an address and slides the prefix length. The widget shows its 32 bits split into network and host, the mask, the first and last address, and how many the block holds.
 
 import { computed, ref, watch } from "vue";
 import { Ipv4 } from "./PrefixSlider";

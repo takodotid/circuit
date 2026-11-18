@@ -1,4 +1,4 @@
-// RouterOS read and apply over a real SSH session, against a fake device that answers like RouterOS 7: the version check, the export, the dry parse of each command, the backup and rollback, and the fresh login that proves access.
+// RouterOS read and apply over a real SSH session, against a fake device that answers like RouterOS 7.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
@@ -21,7 +21,7 @@ const before: Device = {
 let version = "7.23.5";
 let running = platform.render(before);
 
-/** What RouterOS prints for a command. Any command that is not a read, a dry parse or the rollback guard changes it to the desired config. */
+/** Any command that is not a read, a dry parse, or the rollback guard changes the device to the desired config. */
 const fake = new FakeSshDevice("operator", (command) => {
     if (command === ":put [/system resource get version]") return `${version}\n`;
     if (command === "/export") return `# 2026-10-23 10:00:00 by RouterOS ${version}\n${running}`;

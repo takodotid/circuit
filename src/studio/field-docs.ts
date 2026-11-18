@@ -1,10 +1,12 @@
-// The doc comment of every field a device can hold, read from src/config/ when Studio's page is built, so the page shows a field's documentation when the pointer is on its name. Only the build runs it: the TypeScript compiler API is not in the `circuit` binary.
+// Studio's build reads the doc comment of every device field from src/config/, so the page shows it when the pointer is on the field. Only the build runs this file: the `circuit` binary has no TypeScript compiler.
 
 import { join } from "node:path";
 import ts from "typescript-6";
 import type { FieldTree, PackedFieldDocs } from "./app/src/lib/field-docs.ts";
 
 export class FieldDocsReader {
+    private static readonly MAX_DEPTH = 12;
+
     /**
      * Every field of a device, by path, with its doc comment: `routing.bgp.neighbors.*.remote_as`. `*` stands for any name in a map keyed by name, and for any item of a list.
      */
@@ -56,7 +58,7 @@ export class FieldDocsReader {
 
     private static walk(checker: ts.TypeChecker, type: ts.Type, path: string, docs: Record<string, string>, seen: ts.Type[]): void {
         // A type inside itself, such as a nested group, is read once.
-        if (seen.includes(type) || seen.length > 12) return;
+        if (seen.includes(type) || seen.length > FieldDocsReader.MAX_DEPTH) return;
 
         for (const property of checker.getPropertiesOfType(type)) {
             const at = path ? `${path}.${property.name}` : property.name;
@@ -82,8 +84,10 @@ export class FieldDocsReader {
             let children = tree;
             let node: FieldTree | undefined;
             for (const part of path.split(".")) {
-                node = children[part] ??= [-1];
-                children = node[1] ??= {};
+                node = children[part] ?? [-1];
+                children[part] = node;
+                node[1] ??= {};
+                children = node[1];
             }
             if (node) node[0] = texts.indexOf(doc);
         }

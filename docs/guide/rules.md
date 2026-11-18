@@ -26,7 +26,7 @@ In these lists, the first rule runs first:
 - each route policy, and `routing.policy_routing`
 - each switch ACL
 
-Rules have no line numbers: the order of the list is the order on the device. You write each list in one place, and [`merge`](/guide/parts) brings in rules from other files, so you can read the whole order there.
+Rules have no line numbers: the order of the list is the order on the device. You write each list in one place, and [`merge`](/guide/parts) brings in rules from other files.
 
 In other lists the order doesn't matter, except in DNS and NTP `servers`, which go in order of preference.
 

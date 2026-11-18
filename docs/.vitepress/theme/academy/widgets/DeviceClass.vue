@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: choosing a device. The reader states what a device must do, how many routes, how much traffic, and whether it tracks connections, and sees the kind of device that fits, why, and how many packets a second that is.
+// Lesson: choosing a device. The reader states what a device must do: how many routes, how much traffic, and whether it tracks connections. The widget shows the kind of device that fits, why, and how many packets a second that is.
 
 import { computed, ref } from "vue";
 
@@ -26,7 +26,7 @@ const trafficChoices = [
 
 const workChoices: { id: Work; label: string }[] = [
     { id: "forward", label: "Forward, and filter by address" },
-    { id: "track", label: "Track every connection: a stateful firewall or NAT for all of it" },
+    { id: "track", label: "Track every connection, for a stateful firewall or NAT" },
 ];
 
 /** Packets a second at the chosen rate and frame size. Each frame also takes 20 bytes of preamble and gap on the wire. */
@@ -47,7 +47,7 @@ const verdict = computed<Verdict | undefined>(() => {
 
     if (work.value === "track") {
         const tracking =
-            "Tracking connections means keeping a record of every conversation and checking each packet against it, which is CPU work. On the CCR2216 in Circuit's examples, traffic routed in the switch chip skips the firewall, and the chip holds only a few thousand tracked connections.";
+            "Tracking connections is CPU work. On the CCR2216 in Circuit's examples, traffic routed in the switch chip skips the firewall, and the chip holds only a few thousand tracked connections.";
 
         if (fast)
             return {
@@ -57,7 +57,6 @@ const verdict = computed<Verdict | undefined>(() => {
                 reasons: [
                     tracking,
                     `${gigabits.value} Gbit/s is ${rate}, all of it through a CPU. Forward in a chip where most traffic passes, and track connections only for the traffic that needs it, on a CPU router or a firewall of its own.`,
-                    "A small version of this: an edge router forwards in its chip, but keeps the exchange interface on the CPU with hardware_offload: false, so the firewall applies to that traffic.",
                 ],
             };
 
@@ -84,7 +83,7 @@ const verdict = computed<Verdict | undefined>(() => {
                 word: "Fits",
                 title: "A router that forwards on its CPU, or an x86 server running router software",
                 reasons: [
-                    "On a CPU the routes live in the router's main memory, not in a chip's small, fast table, so over a million IPv4 routes and a quarter of a million IPv6 are not what limits it.",
+                    "On a CPU the routes live in the router's main memory, so the full table is not what limits it.",
                     `${gigabits.value} Gbit/s is ${rate}. That figure, at small frames, is the one to check.`,
                     "To forward this in a chip instead, the chip itself would have to hold the full table.",
                 ],
@@ -97,7 +96,6 @@ const verdict = computed<Verdict | undefined>(() => {
             reasons: [
                 `${gigabits.value} Gbit/s is ${rate}. A router reaches that by forwarding in its chip.`,
                 "Then the chip must hold over a million IPv4 routes and a quarter of a million IPv6, and the table grows every year. Read the figure for each family on the datasheet, and leave room.",
-                "The CCR2216 in Circuit's examples holds up to 120,000 IPv4 routes in its switch chip, so a full table does not fit there: it routes the longer prefixes in the chip and the rest on its CPU.",
                 "The other way out: take only a default route from the transit, or a default and the few routes you care about, and a smaller table will do.",
             ],
         };

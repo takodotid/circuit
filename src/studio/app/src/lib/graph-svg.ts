@@ -1,8 +1,8 @@
-// The graph saved as an SVG: Cytoscape draws on a canvas and has no SVG of its own, so this one is drawn from where each box and line is and how Cytoscape styles it.
+// The graph saved as an SVG. Cytoscape draws on a canvas and has no SVG of its own, so this one is drawn from where each box and line is and how Cytoscape styles it.
 
 type Point = { x: number; y: number };
 
-/** The graph as drawn on screen, in the drawing's own coordinates, for `GraphSvg.of`. Colours as CSS colours. */
+/** The graph as drawn on screen, in the drawing's own coordinates, for `GraphSvg.of`. Colors as CSS colors. */
 export type Drawing = {
     box: { x: number; y: number; width: number; height: number };
     background: string;
@@ -23,7 +23,7 @@ export type Drawing = {
         fontFamily: string;
         fontWeight: string;
         opacity: number;
-        /** A device's tag: its chassis mark's colours, and its platform and model under its name. */
+        /** A device's tag: its chassis mark's colors, and its platform and model under its name. */
         device?: { chassis: string; socket: string; sub: string; subColor: string; mono: string };
     }[];
     edges: {

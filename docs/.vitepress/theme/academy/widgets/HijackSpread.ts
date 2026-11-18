@@ -1,6 +1,7 @@
 // Hijacks and leaks lesson: one address block spreading through seven ASes, with a hijack or a leak from AS64510, and the defenses that stop it.
 
-import { type Roa, Rov } from "./OriginCheck";
+import { Rov } from "./OriginCheck";
+import type { Roa } from "./OriginCheck";
 
 export type Scenario = "normal" | "same" | "specific" | "forged" | "leak";
 export type RoaChoice = "none" | "40" | "48";
@@ -221,7 +222,7 @@ export class RouteSpread {
         return { tables, refused };
     }
 
-    /** Where traffic to the target goes from an AS: each AS on the way uses its longest matching route, and hands the traffic to the neighbor it learned that route from. */
+    /** Where traffic to the target goes from an AS. Each AS on the way uses its longest matching route, and hands the traffic to the neighbor it learned that route from. */
     static deliver(outcome: Outcome, start: number): Delivery {
         const { YOU, TARGET } = RouteSpread;
 
@@ -230,7 +231,7 @@ export class RouteSpread {
         let first: Route | undefined;
 
         for (let step = 0; step < 10; step++) {
-            const routes = [...outcome.tables.get(as)!.values()].filter((route) => Rov.inside(TARGET + "/128", route.prefix));
+            const routes = [...outcome.tables.get(as)!.values()].filter((route) => Rov.inside(`${TARGET}/128`, route.prefix));
             const route = routes.sort((a, b) => Number(b.prefix.split("/")[1]) - Number(a.prefix.split("/")[1]))[0];
             if (step === 0) first = route;
 

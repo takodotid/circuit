@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: what an ISP sells. The reader guesses where a 95th percentile bill lands, then sorts an evening of five-minute samples, throws away the busiest 5 percent, bills the highest left, and adds a burst to see when it starts to cost.
+// Lesson: what an ISP sells. The reader guesses where a 95th percentile bill lands. Then they sort an evening of five-minute samples, throw away the busiest 5 percent, and bill the highest left. A burst shows when it starts to cost.
 
 import { computed, ref, watch } from "vue";
 import { Percentile95 } from "./PercentileBill";
@@ -80,7 +80,7 @@ const billText = computed(() => {
     const { burst: over, unused } = money.value;
 
     if (over > 0)
-        return `You committed to ${commit.value} Mbit/s, and pay for it whatever you use. The billed rate is ${billed} Mbit/s, so ${over} Mbit/s over the commit is billed as burst.`;
+        return `The billed rate is ${billed} Mbit/s, so ${over} Mbit/s over your commit of ${commit.value} Mbit/s is billed as burst.`;
     if (unused > 0)
         return `The billed rate, ${billed} Mbit/s, is under your commit of ${commit.value} Mbit/s. You pay for the whole commit, and ${unused} Mbit/s of it went unused.`;
     return `The billed rate is exactly your commit of ${commit.value} Mbit/s. You pay for the commit and no burst.`;

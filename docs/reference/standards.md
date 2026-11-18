@@ -4,7 +4,7 @@ description: The RFC, IANA list, or published practice behind each feature Circu
 
 # Standards
 
-What Circuit ships follows a published standard. This page lists each feature Circuit writes or checks, and the standard behind it. The [feature matrix](/reference/platforms#feature-matrix) shows which platforms have each feature.
+The [feature matrix](/reference/platforms#feature-matrix) shows which platforms have each feature.
 
 - **In model** is the field, preset, or check you write.
 - **Practice** marks a published practice or an Informational RFC, not a standard.
@@ -53,13 +53,13 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 
 <!-- vale Google.Units = NO -->
 
-| Feature                      | Standard                                                                                                                                                      | In model                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| VLANs: access, trunk, native | IEEE 802.1Q-2022                                                                                                                                              | `switching.vlans`, `access_vlan`, `trunk_vlans`, `native_vlan` |
-| Link aggregation, LACP       | IEEE 802.1AX-2020 (LACP began as IEEE 802.3ad in 2000)                                                                                                        | `interfaces.lag`, `mode`                                       |
-| STP, RSTP, MSTP              | IEEE 802.1Q-2022, which now holds 802.1D, 802.1w, and 802.1s (802.1D is withdrawn). The model only picks MSTP as a mode. It has no MSTP regions or instances. | `switching.stp`, port `stp`                                    |
-| LLDP                         | IEEE 802.1AB-2016                                                                                                                                             | `switching.lldp`, port `lldp`                                  |
-| Ethertypes (IPv4, IPv6, ARP) | IEEE EtherType registry                                                                                                                                       | port `ethertypes`                                              |
+| Feature                      | Standard                                                                                                                                | In model                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| VLANs: access, trunk, native | IEEE 802.1Q-2022                                                                                                                        | `switching.vlans`, `access_vlan`, `trunk_vlans`, `native_vlan` |
+| Link aggregation, LACP       | IEEE 802.1AX-2020                                                                                                                       | `interfaces.lag`, `mode`                                       |
+| STP, RSTP, MSTP              | IEEE 802.1Q-2022, which now holds 802.1D, 802.1w, and 802.1s. The model only picks MSTP as a mode. It has no MSTP regions or instances. | `switching.stp`, port `stp`                                    |
+| LLDP                         | IEEE 802.1AB-2016                                                                                                                       | `switching.lldp`, port `lldp`                                  |
+| Ethertypes (IPv4, IPv6, ARP) | IEEE EtherType registry                                                                                                                 | port `ethertypes`                                              |
 
 <!-- vale Google.Units = YES -->
 

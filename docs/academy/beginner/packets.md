@@ -9,7 +9,7 @@ A device never sends a message over a network in one go. It cuts the message int
 
 ## Cutting a message into packets
 
-Everything a device sends is <Term means="Anything a device stores or sends, such as the letters of a message, a photo, or a call.">data</Term>. Before data leaves your device, the device cuts it into pieces and puts each piece into a <Term means="A small piece of data with a label that says where it comes from, where it goes, and which piece it is. Everything on a network travels in packets.">packet</Term>. On most networks, one packet holds at most about 1,500 letters of plain text. That limit is the MTU from [Cables, light, and radio](/academy/beginner/cables).
+Everything a device sends is <Term means="Anything a device stores or sends, such as the letters of a message, a photo, or a call.">data</Term>. Each piece of data travels in a <Term means="A small piece of data with a label that says where it comes from, where it goes, and which piece it is. Everything on a network travels in packets.">packet</Term>. On most networks, one packet holds at most about 1,500 letters of plain text. That limit is the MTU from [Cables, light, and radio](/academy/beginner/cables).
 
 Every packet has a label with three things on it:
 
@@ -19,7 +19,7 @@ Every packet has a label with three things on it:
 | To           | Every box on the way reads it to know where to pass the packet on.           |
 | Its number   | The receiver puts the pieces back in order, and notices when one is missing. |
 
-On a real network, "from" and "to" are addresses, the subject of the [next lesson](/academy/beginner/addresses). In the widget below, they are the names of the devices.
+On a real network, "from" and "to" are addresses, the subject of the [next lesson](/academy/beginner/addresses).
 
 <TryIt title="Send a message in packets">
 
@@ -47,17 +47,12 @@ The receiver does not mind the order. It puts each packet in its place by its nu
 
 Sometimes a packet never arrives. A box in the middle that is too busy may have no room for one more packet, so it throws the packet away. Radio waves, which Wi-Fi uses, can be disturbed, and a damaged packet is thrown away too. Either way, the packet is lost.
 
-The receiver notices from the numbers. If it has packets 1, 2, 4, and 5, then 3 is missing. In the widget, the phone sent a question mark back to the laptop. These are the steps:
-
-1. The receiver sees a gap in the numbers.
-2. It tells the sender which packet it is missing.
-3. The sender sends that one packet again.
-4. When the gap is filled, the receiver puts the message together.
+The receiver notices from the numbers. If it has packets 1, 2, 4, and 5, then 3 is missing. It tells the sender which packet is missing, and the sender sends that one packet again. When the gap is filled, the receiver puts the message together.
 
 This happens all the time when you open web pages, send messages, or download files, and you never notice it. Video calls and games work another way. They skip a lost piece, because waiting for it would be worse. [Ports and protocols](/academy/beginner/ports) shows how.
 
 ::: tip A packet sent again can be lost again
-In the widget, a packet sent again always arrives. On a real network, the receiver asks again until the packet arrives, or the sender gives up.
+The receiver then asks again until the packet arrives, or the sender gives up.
 :::
 
 <Quiz
@@ -70,7 +65,7 @@ In the widget, a packet sent again always arrives. On a real network, the receiv
 
 ## Why cut messages up at all?
 
-Packets take work. Each one needs a label, and the receiver must put them back together. Networks use them anyway, for two reasons.
+Each packet needs a label, and the receiver must put the packets back together. Networks use them anyway, for two reasons.
 
 <TryIt title="Share one cable">
 
@@ -78,11 +73,11 @@ Packets take work. Each one needs a label, and the receiver must put them back t
 
 </TryIt>
 
-**Packets let devices share a link fairly.** A cable carries one thing at a time. Without packets, the chat message waited until the whole video had crossed, even though it was tiny. With packets, the laptop and the phone took turns. The chat message got through almost at once, and the video was hardly slower. So a message from your phone still arrives quickly while someone else at home watches a film.
+**Packets let devices share a link fairly.** A cable carries one thing at a time. With packets, devices take turns, so a short message does not wait behind a long one. So a message from your phone still arrives quickly while someone else at home watches a film.
 
-**Packets turn a big loss into a small one.** When noise damaged the video sent as one big piece, the whole video was sent again. When the video was sent as packets, only the damaged packet was sent again.
+**Packets turn a big loss into a small one.** When noise damages one packet, only that packet is sent again, not the whole message.
 
-Packets have a cost too. Each packet carries its own label, so smaller packets mean more labels for the same message. Real networks use packets of up to about 1,500 letters. That is small enough to share a link, and large enough to keep the labels a small part of each packet.
+Smaller packets mean more labels for the same message. Real networks use packets of up to about 1,500 letters. That is small enough to share a link, and large enough to keep the labels a small part of each packet.
 
 <Quiz
   question="Why is a big file sent as many small packets instead of one big piece?"
@@ -91,11 +86,3 @@ Packets have a cost too. Each packet carries its own label, so smaller packets m
   :why="['', 'A cable carries a whole packet of many letters at once. Packets are cut small so a link can be shared, not because a cable takes letters one by one.', 'On an empty network, one big piece would not be slower. Each packet even adds a label to carry. Packets help when the link is shared or something is lost.']"
   explain="Packets let devices take turns on a link. When one is lost, only that small piece is sent again."
 />
-
-## In short
-
-- Data crosses a network cut into small pieces called packets.
-- Each packet has a label that says where it comes from, where it goes, and its number in the message.
-- Packets may take different ways and arrive out of order. The receiver puts them back in order by number.
-- The receiver notices a lost packet from the gap in the numbers, and only that packet is sent again.
-- Packets let many devices share one link, and they turn a big loss into a small one.

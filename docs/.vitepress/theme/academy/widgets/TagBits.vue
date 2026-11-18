@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: trunks. The reader types a VLAN ID and sees it as the twelve bits of an 802.1Q tag, finds where the range 1 to 4094 comes from, and sees what `circuit validate` says about each number.
+// Lesson: trunks. The reader types a VLAN ID and sees it as the twelve bits of an 802.1Q tag. They find where the range 1 to 4094 comes from, and what `circuit validate` says about each number.
 
 import { computed, ref } from "vue";
 
@@ -36,8 +36,7 @@ const verdict = computed<{ kind: "good" | "bad" | "warn"; word: string; text: st
     const value = id.value;
 
     if (value === undefined) return { kind: "bad", word: "Not a number", text: "Type a whole number, such as 20." };
-    if (!Number.isInteger(value))
-        return { kind: "bad", word: "Not whole", text: "Bits only count whole numbers, so a VLAN ID is always a whole number." };
+    if (!Number.isInteger(value)) return { kind: "bad", word: "Not whole", text: "A VLAN ID is a whole number." };
     if (value < 0) return { kind: "bad", word: "Too small", text: "Bits count up from 0. There is no negative VLAN ID." };
     if (value > 4095) {
         const needed = value.toString(2).length;

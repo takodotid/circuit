@@ -1,12 +1,10 @@
-// A small text editor in the terminal, for `circuit secrets`: the whole text on one screen, typed into as in any editor. Ctrl+S saves; Esc leaves, or Ctrl+X, or Ctrl+Q where the terminal passes it on (VS Code's keeps Ctrl+Q for itself). It draws on the terminal's alternate screen, so what it showed is gone from the scrollback when it closes, and it never writes the text anywhere but through `save`.
+// The editor `circuit secrets` opens. Ctrl+S saves. Esc or Ctrl+X leaves, and so does Ctrl+Q where the terminal passes it on. VS Code's terminal keeps Ctrl+Q for itself. It draws on the alternate screen, so the secrets are gone from the scrollback when it closes. It writes the text only through `save`.
 
-/** One key, as the terminal sends it. */
 export type Key =
     | { kind: "text"; text: string }
     | { kind: "up" | "down" | "left" | "right" | "home" | "end" | "page-up" | "page-down" | "enter" | "backspace" | "delete" }
     | { kind: "save" | "quit" };
 
-/** The text being edited, its cursor, and whether it changed since the last save. */
 export class EditorBuffer {
     lines: string[];
     row = 0;
@@ -25,7 +23,7 @@ export class EditorBuffer {
         return this.lines[this.row]!;
     }
 
-    /** Type text at the cursor. A paste may hold several lines. */
+    /** A paste may hold several lines. */
     insert(text: string): void {
         const parts = text.replace(/\r\n?/g, "\n").replace(/\t/g, "    ").split("\n");
         const before = this.line.slice(0, this.col);
@@ -86,14 +84,18 @@ export class EditorBuffer {
     }
 }
 
-/** What the editor reads keys from: a terminal in raw mode. */
 export type TerminalInput = Pick<NodeJS.ReadStream, "on" | "off" | "resume" | "pause" | "setEncoding"> & {
     setRawMode(mode: boolean): unknown;
 };
-/** What the editor draws on. */
 export type TerminalOutput = Pick<NodeJS.WriteStream, "write" | "on" | "off"> & { rows?: number; columns?: number };
 
 export class TextEditor {
+    /** The terminal's size when it doesn't say, and the least the editor draws. */
+    private static readonly DEFAULT_ROWS = 24;
+    private static readonly DEFAULT_COLUMNS = 80;
+    private static readonly MIN_ROWS = 3;
+    private static readonly MIN_COLUMNS = 20;
+
     private static readonly SEQUENCES: Record<string, Key["kind"]> = {
         "\x1b[A": "up",
         "\x1b[B": "down",
@@ -117,7 +119,7 @@ export class TextEditor {
     private static readonly PASTE_START = "\x1b[200~";
     private static readonly PASTE_END = "\x1b[201~";
 
-    /** The keys in what the terminal sent. An escape sequence it doesn't know is dropped. */
+    /** An escape sequence it doesn't know is dropped. */
     static keys(data: string): Key[] {
         const keys: Key[] = [];
         let text = "";
@@ -130,9 +132,9 @@ export class TextEditor {
             if (data.startsWith(TextEditor.PASTE_START, i)) {
                 flush();
                 const end = data.indexOf(TextEditor.PASTE_END, i);
-                const pasted = data.slice(i + TextEditor.PASTE_START.length, end < 0 ? data.length : end);
+                const pasted = data.slice(i + TextEditor.PASTE_START.length, end === -1 ? data.length : end);
                 if (pasted) keys.push({ kind: "text", text: pasted });
-                i = end < 0 ? data.length : end + TextEditor.PASTE_END.length;
+                i = end === -1 ? data.length : end + TextEditor.PASTE_END.length;
                 continue;
             }
 
@@ -173,14 +175,14 @@ export class TextEditor {
     }
 
     /**
-     * Edit `text` on the whole screen until the person leaves. `save` gets the text on Ctrl+S and gives back why it can't be saved, or undefined once saved. `note` shows at the bottom until the first key. Leaving with changes not saved asks to leave a second time.
+     * Edits `text` on the whole screen until the person leaves. `save` gets the text on Ctrl+S, and gives back why it can't be saved, or undefined once saved. `note` shows at the bottom until the first key. Leaving with changes not saved asks to leave a second time.
      */
     static async open(options: {
         title: string;
         text: string;
         note?: string;
         save: (text: string) => string | undefined;
-        /** The terminal: the process's own unless a test gives another. */
+        /** A test's own terminal, in place of the process's. */
         terminal?: { input: TerminalInput; output: TerminalOutput };
     }): Promise<void> {
         const stdin = options.terminal?.input ?? (process.stdin as TerminalInput);
@@ -193,8 +195,8 @@ export class TextEditor {
         let leaving = false;
 
         const draw = () => {
-            const rows = Math.max(3, out.rows ?? 24);
-            const cols = Math.max(20, out.columns ?? 80);
+            const rows = Math.max(TextEditor.MIN_ROWS, out.rows ?? TextEditor.DEFAULT_ROWS);
+            const cols = Math.max(TextEditor.MIN_COLUMNS, out.columns ?? TextEditor.DEFAULT_COLUMNS);
             const height = rows - 2;
 
             if (buffer.row < top) top = buffer.row;

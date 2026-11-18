@@ -21,7 +21,7 @@ const HAPPENINGS: { id: Happening; label: string; outcome: Outcome }[] = [
         label: "A loop inside the network of AS64511",
         outcome: {
             rule: "storm",
-            safe: "Its broadcasts multiply inside its own network and pour into its port. ix-sw-02 lets through 1% of the port's speed of broadcast, multicast, and unknown unicast, and drops the rest. The other members see a trickle.",
+            safe: "ix-sw-02 lets through broadcast, multicast, and unknown unicast up to 1% of the port's speed, and drops the rest. The other members see a trickle.",
             harm: "Its broadcast storm pours onto the peering LAN: across the trunk, out of every member's port, and into every member's router, until AS64511 finds its loop.",
             spreads: true,
         },
@@ -32,7 +32,7 @@ const HAPPENINGS: { id: Happening; label: string; outcome: Outcome }[] = [
         outcome: {
             rule: "stp",
             safe: "The port takes no part in spanning tree, so nothing its switch says can change which of the exchange's own ports are blocked.",
-            harm: "Its switch joins the exchange's spanning tree. With a low enough priority it wins the root election. Then the exchange's switches work out their paths again around a member's switch, while every member's traffic waits.",
+            harm: "Its switch joins the exchange's spanning tree, and with a low enough priority it becomes the root. The exchange's switches then work out their paths again around it, while every member's traffic waits.",
             spreads: true,
         },
     },
@@ -51,7 +51,7 @@ const HAPPENINGS: { id: Happening; label: string; outcome: Outcome }[] = [
         label: "It tries the management VLAN",
         outcome: {
             rule: "vlan",
-            safe: "Its port is an access port in the peering VLAN, 100. Whatever it sends lands there. VLAN 10, where the switches are managed, is not on its port.",
+            safe: "Its port is an access port in the peering VLAN, 100, so whatever it sends lands there. VLAN 10, where the switches are managed, is not on its port.",
             harm: "If its port also carried VLAN 10, its router would sit on the switches' management network, and could try to log in to them.",
             spreads: false,
         },
@@ -160,8 +160,7 @@ const members = [
             {{ current.outcome.harm }} The protection that stops it: {{ ruleLabel }}.
         </p>
         <p v-else class="ac-say hint" aria-live="polite">
-            All four protections start on, as member_port writes them. Make AS64511 misbehave, then turn the protection that stopped it off,
-            and try again.
+            All four protections start on. Make AS64511 misbehave, then turn off the protection that stopped it, and try again.
         </p>
     </div>
 </template>

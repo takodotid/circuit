@@ -6,7 +6,8 @@ import type { GraphEdge } from "../../../../core/graph";
 import type { Commit, StudioData } from "../../../types";
 import { GraphLayer } from "../lib/graph-layer";
 import { api, paramOf, showInGraph } from "../lib/store";
-import DataTable, { type Badge, type Row } from "./DataTable.vue";
+import DataTable from "./DataTable.vue";
+import type { Badge, Row } from "./DataTable.vue";
 import LineDiff from "./LineDiff.vue";
 
 const props = defineProps<{ data: StudioData }>();

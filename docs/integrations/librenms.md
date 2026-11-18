@@ -4,9 +4,7 @@ description: Keep every device monitored in LibreNMS, with its name, SNMP settin
 
 # LibreNMS
 
-[LibreNMS](https://www.librenms.org) monitors network devices over SNMP. It draws traffic graphs, shows port status, and alerts you when something goes down.
-
-`circuit sync librenms` keeps LibreNMS in sync with your project. It adds every device that LibreNMS doesn't monitor yet. It changes a device whose name, SNMP credentials, or location differ. So nobody types a new device into LibreNMS by hand. [How sync works](/integrations/) explains the plan, CI, and several networks.
+`circuit sync librenms` adds each device that [LibreNMS](https://www.librenms.org) doesn't monitor yet. It changes a device whose name, SNMP credentials, or location differ. [How sync works](/integrations/) explains the plan, CI, and several networks.
 
 ## Before you start
 
@@ -25,7 +23,7 @@ integrations: {
 },
 ```
 
-Then keep the token in your secrets, encrypted:
+Then set the token:
 
 ```sh
 circuit secrets set LIBRENMS_API_TOKEN
@@ -33,10 +31,7 @@ circuit secrets set LIBRENMS_API_TOKEN
 
 ## Sync LibreNMS
 
-```sh
-circuit sync librenms             # shows what would change, then asks
-circuit sync librenms --confirm   # sends without asking
-```
+`circuit sync librenms` shows a plan such as this one, then asks:
 
 ```
 LibreNMS: 3 change(s)

@@ -1,6 +1,7 @@
-// A release's SHA256SUMS signed the way `ssh-keygen -Y sign` signs (OpenSSH's PROTOCOL.sshsig), with the same Ed25519 release key as SHA256SUMS.sig. The installers check it with `ssh-keygen -Y verify`, which Windows, macOS and Linux carry, as none of them checks a bare Ed25519 signature with what it has built in.
+// A signature as `ssh-keygen -Y sign` makes it (OpenSSH's PROTOCOL.sshsig). The installers check it with `ssh-keygen -Y verify`, which Windows, macOS, and Linux carry, as none of them checks a bare Ed25519 signature with what it has built in.
 
-import { createHash, createPublicKey, type KeyObject, sign } from "node:crypto";
+import { createHash, createPublicKey, sign } from "node:crypto";
+import type { KeyObject } from "node:crypto";
 
 export class SshSig {
     /** What a release signature is for, so it can't stand for a signature made for anything else. */
@@ -8,10 +9,16 @@ export class SshSig {
     /** The name the installers' allowed signers give the release key. */
     static readonly PRINCIPAL = "circuit-release";
 
+    /** The length before each SSH wire-format string. */
+    private static readonly LENGTH_BYTES = 4;
+
+    /** The SPKI form of an Ed25519 key ends with the key's bytes. */
+    private static readonly ED25519_KEY_BYTES = 32;
+
     /** An SSH wire-format string: its length, then its bytes. */
     private static string(value: Buffer | string): Buffer {
         const bytes = typeof value === "string" ? Buffer.from(value) : value;
-        const length = Buffer.alloc(4);
+        const length = Buffer.alloc(SshSig.LENGTH_BYTES);
         length.writeUInt32BE(bytes.length);
         return Buffer.concat([length, bytes]);
     }
@@ -22,8 +29,7 @@ export class SshSig {
     }
 
     private static publicBlob(key: KeyObject): Buffer {
-        // The SPKI form of an Ed25519 key ends with its 32 bytes.
-        const raw = key.export({ type: "spki", format: "der" }).subarray(-32);
+        const raw = key.export({ type: "spki", format: "der" }).subarray(-SshSig.ED25519_KEY_BYTES);
         return Buffer.concat([SshSig.string("ssh-ed25519"), SshSig.string(raw)]);
     }
 

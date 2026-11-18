@@ -8,7 +8,7 @@ import circuit from "../package.json";
 
 # License and credits
 
-Circuit is released under the [Business Source License 1.1](https://github.com/takodotid/circuit/blob/main/LICENSE). It is source-available: you can read, change, and run the code, within these terms.
+Circuit is released under the [Business Source License 1.1](https://github.com/takodotid/circuit/blob/main/LICENSE).
 
 | Who                            | What they may do                                   |
 | ------------------------------ | -------------------------------------------------- |

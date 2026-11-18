@@ -32,7 +32,7 @@ onMounted(() => {
     <div class="graduates">
         <form class="lookup" @submit.prevent="check">
             <label class="ac-field">
-                <span>Check a certificate by its ID</span>
+                <span>Certificate ID</span>
                 <input v-model="query" class="ac-input mono" type="text" autocomplete="off" spellcheck="false" />
             </label>
             <button type="submit" class="ac-button primary" :disabled="!query.trim()">Check</button>
@@ -44,8 +44,8 @@ onMounted(() => {
                 {{ day(found.date) }}.
             </p>
             <p v-else-if="checked" class="ac-say bad" data-word="Not found">
-                No certificate has the ID <span class="ac-mono">{{ checked }}</span>. Check it for typos. A certificate that is not listed
-                here was not given by Circuit Academy.
+                No certificate has the ID <span class="ac-mono">{{ checked }}</span>. Check it for typos. A certificate not listed here is
+                not from Circuit Academy.
             </p>
         </div>
 

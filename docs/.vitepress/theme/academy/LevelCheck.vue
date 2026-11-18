@@ -4,7 +4,8 @@
 import { computed, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
 import { Academy } from "../../academy";
-import { checks, type Question } from "./checks";
+import { checks } from "./checks";
+import type { Question } from "./checks";
 import { Progress } from "./progress";
 
 const props = defineProps<{ level: string }>();
@@ -67,8 +68,8 @@ const day = (time: number) => new Date(time).toLocaleDateString("en-US", { day: 
             <aside v-if="passedBefore && !submitted" class="open">
                 <p class="chip">Open</p>
                 <p>
-                    You passed this check on {{ day(passedBefore) }}, so {{ opens.name }} is open.
-                    <a :href="withBase(first)">Start its first lesson</a>, or take the check again.
+                    You passed this check on {{ day(passedBefore) }}. <a :href="withBase(first)">Start {{ opens.name }}</a
+                    >.
                 </p>
             </aside>
 
@@ -97,7 +98,7 @@ const day = (time: number) => new Date(time).toLocaleDateString("en-US", { day: 
 
             <div class="actions">
                 <button v-if="!submitted" type="button" class="ac-button primary" :disabled="answered < drawn.length" @click="submit">
-                    {{ answered < drawn.length ? `Answer every question (${answered} of ${drawn.length})` : "Check my answers" }}
+                    {{ answered < drawn.length ? `${answered} of ${drawn.length} answered` : "Check my answers" }}
                 </button>
                 <button v-else type="button" class="ac-button" @click="draw">New questions</button>
             </div>

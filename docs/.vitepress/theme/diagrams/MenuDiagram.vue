@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import circuit from "../../../../package.json";
 // The menu `circuit` opens alone, as it looks in a terminal: the same entries, in the same groups, as src/cli/index.ts lists them.
 
 const entries = [
@@ -32,7 +33,7 @@ const row = 26;
         <svg :viewBox="`0 0 760 ${entries.length * row + 90}`" role="img" aria-labelledby="menu-title">
             <title id="menu-title">The menu circuit opens: Core, Utilities, Secrets, and Circuit, each with its commands.</title>
             <rect x="0" y="0" width="760" :height="entries.length * row + 90" class="code-box" />
-            <text x="24" y="34" class="code-dim">┌ Circuit 1.0.0</text>
+            <text x="24" y="34" class="code-dim">┌ Circuit {{ circuit.version }}</text>
             <text x="24" y="60" class="code">◆ What do you want to do?</text>
             <g v-for="(entry, index) in entries" :key="index" :transform="`translate(0, ${index * row + 86})`">
                 <text v-if="entry.heading" x="24" y="0" class="code-dim">│ ── {{ entry.heading }} ──</text>

@@ -5,7 +5,7 @@ description: Build a router and a switch for a small site from the single-site e
 
 # Project: a single site
 
-In this project you put the whole level together: a router and a switch for a home or a small office, written in Circuit, checked, and applied. You do not start from an empty folder. Circuit's [single-site example](/guide/examples#a-single-site) is a working project of exactly this network, and you make it your own. You read every file, find each lesson in it, and fix the mistakes `circuit validate` catches.
+You build a router and a switch for a home or a small office. You start from Circuit's [single-site example](/guide/examples#a-single-site), a working project of exactly this network, and make it your own.
 
 ## The site
 
@@ -50,8 +50,6 @@ The VLANs are written once, by name, and both devices take the same ones, so the
 
 <<< @/../examples/single-site/sites/home/router.ts
 
-Each part of it is a lesson of this level:
-
 - **`25g-1`** is the other end of the trunk, with the same three VLANs and a `link` back ([Trunks](/academy/elementary/trunks)).
 - **`vlan_interface`** gives the router an address on each VLAN, the gateway for that VLAN. **`dhcp_server`** hands out addresses, the gateway, and the DNS server to every device that joins ([DHCP](/academy/elementary/dhcp)).
 - **`1g-1`** has the public address from your provider, and the static route sends everything that is not at home to the provider. Change both to what your provider gave you.
@@ -72,8 +70,6 @@ Each part of it is a lesson of this level:
 `circuit validate` checks every file, the two ends of every cable, and your checks. Your editor catches some mistakes before that, such as a VLAN name that does not exist. Here are five mistakes that are easy to make while you change the example to your own.
 
 <TryIt title="Fix the files">
-
-Each mistake was made in the single-site example, one at a time. The output is what `circuit validate` printed for it.
 
 <FixTheSite />
 
@@ -101,8 +97,6 @@ An error stops `diff` and `apply`, so none of these can reach a device. A warnin
 
 ## From the files to the devices
 
-With the files right, the rest is a handful of commands. Each output shown is what Circuit prints for this example.
-
 <TryIt title="From the files to a change">
 
 <SiteCommands />
@@ -120,21 +114,3 @@ A device that was set up by hand runs many things your files do not describe yet
   :why="['', 'Circuit keeps no copy of what a device ran. Every diff and apply reads the device again.', 'apply reads the device itself. It needs no diff before it.']"
   explain="diff and apply both read the device every time, so the plan always starts from what it runs now, the colleague’s change included."
 />
-
-## In short
-
-| Lesson                                                        | Where it is in the project                                                 |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| [Layers](/academy/elementary/layers)                          | the switch moves frames inside VLANs, the router routes between them       |
-| [Writing a network down](/academy/elementary/writing-it-down) | one file per device, `validate`, `diff`, `apply`, and git for history      |
-| [VLANs](/academy/elementary/vlans)                            | `vlans` in `site.ts`, `access_vlan` on the switch's ports                  |
-| [Trunks](/academy/elementary/trunks)                          | `trunk_vlans` and `link` on `10g-1` and `25g-1`                            |
-| [DHCP](/academy/elementary/dhcp)                              | the router's `vlan_interface` and `services.dhcp_server`                   |
-| [NAT](/academy/elementary/nat)                                | `firewall.nat.source`                                                      |
-| [Firewalls](/academy/elementary/firewall)                     | `firewall.filter.input` and `forward`                                      |
-| [Keeping the keys](/academy/elementary/management)            | `system.users`, `management`, `secret()`, and the check in `lib/checks.ts` |
-
-- Start from the single-site example, and change `site.ts` first.
-- `validate` catches mismatched trunks, missing names, addresses used twice, and what your own checks find. An error stops every change.
-- `diff` reads the device and shows the plan. `apply` shows it again, and sends it only once you say yes.
-- Commit the files after every apply.

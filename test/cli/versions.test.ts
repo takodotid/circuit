@@ -1,5 +1,3 @@
-// A project pins its Circuit in .circuit/version; the version kept for it lives in ~/.circuit/versions.
-
 import { afterEach, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

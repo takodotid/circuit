@@ -5,13 +5,11 @@ description: Carry many VLANs over one cable between two switches. Watch each fr
 
 # Trunks
 
-A trunk is a port that carries several VLANs over one cable. On a trunk, each frame carries a small tag with its VLAN number, so the device at the other end knows which VLAN the frame is in. The tag is added when a frame goes onto the trunk and removed when it leaves it.
-
-Both ends of a trunk must carry the same VLANs. If they do not, frames of the missing VLAN are dropped, and Circuit catches that before anything is sent.
+A trunk is a port that carries several VLANs over one cable. On a trunk, each frame carries a small tag with its VLAN number, so the device at the other end knows which VLAN the frame is in.
 
 ## One cable, many VLANs
 
-In [VLANs](/academy/elementary/vlans), the router needed one cable for each VLAN. Two switches on two floors have the same problem. If both floors have staff, guests, and cameras, one cable per VLAN takes three cables, and every new VLAN takes another.
+In [VLANs](/academy/elementary/vlans), the router needed one cable for each VLAN. Two switches on two floors have the same problem: three VLANs take three cables, and every new VLAN takes another.
 
 A <Term means="A port that carries several VLANs at once, with a tag on each frame that says which VLAN it is in. Trunks join switches to each other, and to routers.">trunk</Term> carries them all on one. Here is what happens to a frame from a camera on the first floor to a recorder on the second:
 
@@ -37,7 +35,7 @@ So the same two kinds of port are often described by what goes over them:
 | Trunk port   | A tagged port                                | Frames of several VLANs, each tagged        | `trunk_vlans: [...]`            |
 | Both at once | A trunk with a native VLAN, or a hybrid port | Several VLANs tagged, and one VLAN untagged | `trunk_vlans` and `native_vlan` |
 
-Vendors use both ways of speaking. Some ask whether a port is access or trunk. Others, such as a MikroTik router's bridge, ask VLAN by VLAN which ports carry it tagged and which carry it untagged. Both describe the same thing, and Circuit writes it in the form each device expects.
+Vendors use both ways of speaking. Some ask whether a port is access or trunk. Others, such as a MikroTik router's bridge, ask VLAN by VLAN which ports carry it tagged and which carry it untagged. Circuit writes it in the form each device expects.
 
 The last row is for a device that sends some frames untagged on a trunk, such as a wireless access point. Its own management traffic comes untagged, and the Wi-Fi networks it offers arrive tagged. The <Term means="On a trunk, the one VLAN whose frames cross it untagged. Every other VLAN on the trunk is tagged.">native VLAN</Term> is the VLAN those untagged frames go into. Leave it out unless the other end needs it. When you use it, both ends must agree on it.
 
@@ -49,7 +47,7 @@ The last row is for a device that sends some frames untagged on a trunk, such as
   explain="Untagged frames on a trunk go into its native VLAN. Every other VLAN on it is told apart by its tag."
 />
 
-All the VLANs on a trunk share its speed. If the guests on one floor download a large file, there is that much less room on the trunk for everyone else. So a trunk is usually the fastest port a switch has. In this lesson, the switches are joined by their 40G ports, and each device is on a 10G port.
+All the VLANs on a trunk share its speed. If the guests on one floor download a large file, there is that much less room on the trunk for everyone else. So a trunk is usually the fastest port a switch has.
 
 <TryIt title="Send frames over a trunk">
 
@@ -144,7 +142,7 @@ The `link` says what is at the other end of the cable: `switch-b`, port `40g-1`.
 2 error(s).
 ```
 
-This is the most common trunk mistake. Someone adds a VLAN for a new team, puts it on the trunk of the switch on their own floor, and forgets the other end. The new VLAN works on one floor and nowhere else. Each switch on its own is set up correctly, so only a check that reads both ends finds it.
+This is the most common trunk mistake: someone adds a new VLAN to the trunk at one end and forgets the other. Each switch on its own is set up correctly, so only a check that reads both ends finds it.
 
 Without `link`, Circuit cannot know which ports face each other, so it cannot check them. Write it on both ends of every cable between two of your devices. [Circuit Studio](/studio/#the-graph) draws your cables from the same links.
 
@@ -167,11 +165,3 @@ A router can be on a trunk too, so one cable carries every VLAN to it. This is h
 ```
 
 The router still needs an address in each VLAN to be its gateway. With every VLAN on one port, those addresses go on a VLAN interface instead of a port. The [DHCP lesson](/academy/elementary/dhcp) sets them up.
-
-## In short
-
-- A trunk carries several VLANs on one cable, between two switches, or between a switch and a router.
-- On a trunk, each frame carries an 802.1Q tag with its VLAN ID. The tag is added as the frame goes onto the trunk and removed as it leaves.
-- The VLAN ID has 12 bits in the tag, and 0 and 4095 are kept back, so VLANs are 1 to 4094.
-- Both ends must carry the same VLANs, or frames of the missing VLAN are dropped.
-- In Circuit, a trunk port lists `trunk_vlans`, and a `link` on both ends lets `circuit validate` check that they match.

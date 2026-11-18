@@ -2,7 +2,8 @@
 
 import { describe, expect, test } from "bun:test";
 import type { Device } from "../../src/model";
-import { Evaluate, type Route } from "../../src/studio/app/src/lib/evaluate";
+import { Evaluate } from "../../src/studio/app/src/lib/evaluate";
+import type { Route } from "../../src/studio/app/src/lib/evaluate";
 
 const base = {
     site: "dc-1",

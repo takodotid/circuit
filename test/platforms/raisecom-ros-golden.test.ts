@@ -1,4 +1,4 @@
-// Each Raisecom ROS device of Circuit 0.x's examples, templates and use cases renders in v1 exactly as 0.x rendered it, and is refused the same fields, by their v1 paths.
+// Each Raisecom ROS device of Circuit 0.x's examples, templates, and use cases renders as 0.x rendered it. It is refused the same fields, by their v1 paths.
 
 import { expect, test } from "bun:test";
 import type { Device } from "../../src/model";
@@ -43,7 +43,7 @@ const V1_PREFIXES: [RegExp, string][] = [
     [/^flow_export$/, "monitoring.flow_export"],
 ];
 
-/** A 0.x finding in v1's words. An interface's path takes its group, which the device says; 0.x wrote a bridge's kind in the text instead. */
+/** A 0.x finding in v1's words. An interface's path takes its group, which the device says. 0.x wrote a bridge's kind in the text instead. */
 function v1Path(finding: string, device: Device): string {
     if (V1_PATHS[finding]) return V1_PATHS[finding];
 
@@ -96,7 +96,7 @@ test("a v1 field 0.x did not have is refused unless it is Circuit's own, and pat
         "system.dns, system.logging.local, system.release_channel, system.banner, services.dns_server and services.ntp_server",
     ]);
 
-    // Address sets alone build nothing; `management.allow` may name one.
+    // Address sets alone build nothing, but `management.allow` may name one.
     expect(unsupported({ firewall: { address_sets: { admins: ["192.0.2.0/24"] } } })).toEqual([]);
     expect(unsupported({ firewall: { filter: { input: { default_action: "drop" } } } })).toEqual(["firewall"]);
 

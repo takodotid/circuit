@@ -19,14 +19,15 @@ export class PathCheck {
     /** The most loss allowed, in percent: one of 20 pings may be lost, two may not. */
     static readonly MAX_LOSS_PERCENT = 5;
 
-    /** The highest average round trip allowed, in milliseconds. */
     static readonly MAX_AVERAGE_MS = 300;
 
     /** How long one ping program may run before it is stopped and what it printed is counted. */
     private static readonly LIMIT_MS = 15_000;
 
+    private static readonly PERCENT = 100;
+
     /**
-     * The round trip of every reply in what `ping` printed, in milliseconds. A reply is the one line with a time after `=` or `<` and before `ms`, as in `time=12 ms` or `time<1ms`: the same in every language `ping` prints in. A summary line has several times, or none right before `ms`, and is not counted.
+     * The round trip of every reply in what `ping` printed, in milliseconds. A reply is a line with one time between `=` or `<` and `ms`, as in `time=12 ms` or `time<1ms`, in every language `ping` prints in. A summary line has several times, or none right before `ms`.
      */
     static parse(output: string): number[] {
         const times: number[] = [];
@@ -46,7 +47,7 @@ export class PathCheck {
         if (!received) return { refuse: false, summary: `${host} answers no ping, so the path to it was not measured` };
 
         const lost = measure.sent - received;
-        const lossPercent = Math.round((lost / measure.sent) * 100);
+        const lossPercent = Math.round((lost / measure.sent) * PathCheck.PERCENT);
         const average = Math.round(measure.times.reduce((sum, time) => sum + time, 0) / measure.times.length);
         const summary = `${host}: ${lost} of ${measure.sent} pings lost (${lossPercent}%), ${average} ms on average`;
 
@@ -60,7 +61,7 @@ export class PathCheck {
         const outputs = await Promise.all(Array.from({ length: PathCheck.RUNS }, () => PathCheck.ping(host, count)));
         if (outputs.some((output) => output === undefined)) return undefined;
 
-        // A duplicate reply is printed as a reply too; no run counts more replies than it sent.
+        // A duplicate reply is printed as a reply too, so no run counts more replies than it sent.
         const times = outputs.flatMap((output) => PathCheck.parse(output!).slice(0, count));
         return { sent: PathCheck.PINGS, times };
     }

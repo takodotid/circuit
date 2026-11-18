@@ -1,4 +1,4 @@
-// `merge` (https://circuit.tako.id/guide/parts), and the types that check a merge in the editor. Each map remembers the file that wrote each of its keys, so an error names both.
+// `merge` (https://circuit.tako.id/guide/parts) at run time and in the editor's types. Each map remembers the file that wrote each of its keys, so an error names both files.
 
 /** Where each key of a map was written, `file:line`. Not enumerable, so the JSON never shows it. */
 const WRITTEN = Symbol("written in");
@@ -15,11 +15,10 @@ const CIRCUIT = decodeURIComponent(new URL("..", import.meta.url).pathname)
     .replace(/^\/([A-Za-z]:)/, "$1")
     .toLowerCase();
 
-/** Whether a file on the stack is one of Circuit's own. */
 const isCircuit = (file: string) => file.replaceAll("\\", "/").toLowerCase().startsWith(CIRCUIT);
 
 /**
- * The user's frames on the stack of `error`, innermost first, each `file:line`. A frame of code outside any function, such as a device file's own lines, is `at /path/file.ts:3:16` on Linux and macOS, with no brackets: the `at ` is not part of the file. Only the lines that start with `at` are frames: the lines before them are the error's message, which may name a file too.
+ * The user's frames on the stack of `error`, innermost first, each `file:line`. On Linux and macOS, code outside any function, such as a device file's own lines, has no brackets: `at /path/file.ts:3:16`. The `at ` is not part of the file. Only lines that start with `at` are frames, because the message before them may name a file too.
  */
 export function userFrames(error: Error = new Error()): string[] {
     return (error.stack ?? "")
@@ -70,7 +69,7 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  */
 function find(written: string, path: string[]): string | undefined {
     const colon = written.lastIndexOf(":");
-    if (colon < 0) return undefined;
+    if (colon === -1) return undefined;
     const file = written.slice(0, colon);
     let line = Number(written.slice(colon + 1)) - 1;
     if (!lines.has(file))
@@ -84,14 +83,18 @@ function find(written: string, path: string[]): string | undefined {
     path.forEach((name, p) => {
         const writes = new RegExp(`(^|[\\s{,])(["']?)${escape(name)}\\2\\s*:`);
         const i = text.findIndex((t, n) => n >= line && !t.trim().startsWith("//") && writes.test(t));
-        if (i >= 0) line = found = i;
-        else if (p === path.length - 1) found = -1;
+        if (i !== -1) {
+            line = i;
+            found = i;
+        } else if (p === path.length - 1) {
+            found = -1;
+        }
     });
     return found >= 0 ? `${file}:${found + 1}` : undefined;
 }
 
 /**
- * Where `key` of `map` is written, as `file:line: `, or nothing when no file is known. `writtenIn` knows the line that made the map (a network's `device()`, a `literal`, a `part`); from there, the file is read for the first line that writes each of `path` in turn, `path` ending in the key: `["vlans", "exchange-a"]`. A key written through `lib/` is looked for there first. When the key is not found, the line that made the map stays.
+ * Where `key` of `map` is written, as `file:line: `, or nothing when no file is known. `writtenIn` knows the line that made the map, such as a network's `device()`, a `literal`, or a `part`. From there, the file is read for the first line that writes each of `path` in turn, ending in the key: `["vlans", "exchange-a"]`. A key written through `lib/` is looked for there first. When the key is not found, the line that made the map stays.
  */
 export function writtenAt(map: unknown, key: string, path: string[] = [key]): string {
     const outer = writtenIn(map as object, key);
@@ -125,8 +128,7 @@ export const ruleList = <T extends object>(list: T): T => Object.defineProperty(
 const isRuleList = (v: unknown) => Array.isArray(v) && Object.hasOwn(v, RULE_LIST);
 
 /**
- * Merges `b` into a copy of `a`. Two rule lists `part` made, at one path that is no ordered list, join in order with every rule kept:
- * each tenant's router input rules, one tenant after another, for the router to place.
+ * Merges `b` into a copy of `a`. Two rule lists that `part` made, at a path that is not an ordered list, join in order with every rule kept. So each tenant's router input rules come one tenant after another, for the router to place.
  */
 function mergeTwo(a: Obj, b: Obj, path: string): Obj {
     const out: Obj = { ...a };
@@ -174,8 +176,6 @@ export function mergeAll(parts: readonly unknown[], file: string, path = ""): Ob
     return out;
 }
 
-// `merge([...])`: one list or one map, by where it lands.
-
 /** What a `merge` call was given, flat, and the file that called it. Not enumerable, so nothing else sees it. */
 const MADE = Symbol("merge items");
 type Made = { [MADE]: { values: readonly unknown[]; file: string } };
@@ -198,7 +198,7 @@ export function made(items: readonly unknown[], file: string): object {
         try {
             out = mergeAll(values, file);
         } catch (error) {
-            // Maps that clash may be single rules, which a list field takes as they are: they stay a list until they land (`resolve`). A field of them read before, such as `tenants.parts` of two tenants with one VLAN name, says what clashed, naming both values and where each is written, not that the field is missing. Never `then`, which a promise reads.
+            // Maps that clash may be single rules, which a list field takes as they are, so they stay a list until they land (`resolve`). Reading a field before then, such as `tenants.parts` of two tenants with one VLAN name, throws what clashed and where, not that the field is missing. Never `then`, which a promise reads.
             const clash = `${file}: merge: ${error instanceof Error ? error.message : String(error)}`;
             for (const key of new Set(values.flatMap((v) => Object.keys(v as object))))
                 if (key !== "then")
@@ -245,8 +245,6 @@ export function resolve(value: unknown, path: string): unknown {
         for (const [k, v] of Object.entries(value)) if (v && typeof v === "object") value[k] = resolve(v, path ? `${path}.${k}` : k);
     return value;
 }
-
-// The types: what the editor checks.
 
 /**
  * Two parts merged as `merge` merges them: maps key by key, lists joined, anything else the later one. A key one side writes out keeps its own type, even when the other side has an index signature.

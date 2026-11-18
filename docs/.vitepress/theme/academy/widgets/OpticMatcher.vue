@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: choosing a device. For a link of the two-site provider from the lesson on roles, the reader picks an optic for each end and the fiber between them, and the link comes up or is refused with the reason.
+// Lesson: choosing a device. For a link of the two-site provider from the lesson on roles, the reader picks an optic for each end and the fiber between them. The link comes up, or is refused with the reason.
 
 import { computed, ref, watch } from "vue";
 
@@ -81,9 +81,9 @@ const links: Link[] = [
     {
         id: "edge-transit",
         title: "edge-a1 to Hurricane Electric",
-        meters: 2_000,
+        meters: 2000,
         fibers: ["OS2"],
-        why: "To the router of Hurricane Electric in another building, 2 km away. The fiber between the buildings is single mode.",
+        why: "To the router of Hurricane Electric in another building, 2 km away.",
         a: { device: "edge-a1", kind: "router", port: "25g-1", spelled: "sfp28-1", cage: "SFP28", gigabits: 25 },
         b: { device: "Hurricane Electric", kind: "router", spelled: "a 25G port", cage: "SFP28", gigabits: 25 },
     },

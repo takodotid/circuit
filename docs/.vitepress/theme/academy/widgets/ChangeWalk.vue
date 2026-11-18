@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: running it day to day. The reader steps through one change to the colocation example, from the request to the check, with what each command prints. Output is Circuit's own, run on the example; diff compares against the example's own render, which stands in for the device, and commands that need a device show the command alone.
+// Lesson: running it day to day. The reader steps through one change to the colocation example, from the request to the check, with what each command prints. Output is Circuit's own, run on the example. Diff compares against the example's own render, which stands in for the device. A command that needs a device shows the command alone.
 
 type Step = { title: string; text: string; code: string; lang: "shell" | "text" | "ts"; file: string; highlight?: number[] };
 
@@ -8,7 +8,7 @@ const steps: Step[] = [
         title: "The request",
         file: "Ticket",
         lang: "text",
-        text: "Every change starts as a request someone can point to later: who asked, for what, and by when.",
+        text: "A request someone can point to later.",
         code: [
             "From:     Netflix",
             "Asks for: a port for a third server, server 3, rack A1",
@@ -20,7 +20,7 @@ const steps: Step[] = [
         title: "A branch of its own",
         file: "Terminal",
         lang: "shell",
-        text: "Make the change on a git branch, not on main, so nothing reaches a device until someone else has read it.",
+        text: "Work on a git branch, so nothing reaches a device until someone else has read it.",
         code: ["$ git switch -c netflix-server-3", "Switched to a new branch 'netflix-server-3'"].join("\n"),
     },
     {
@@ -79,7 +79,7 @@ const steps: Step[] = [
         title: "Review",
         file: "What the reviewer checks",
         lang: "text",
-        text: "Someone else reads it. Studio's Compare, against main, shows the same change device by device and on the graph. Approve only when every answer is yes.",
+        text: "Someone else reads it, and approves only when every answer is yes.",
         code: [
             "Does validate pass?                  yes",
             "Does the plan do only what was asked? yes: one port, 10GE1/0/3",
@@ -99,7 +99,7 @@ const steps: Step[] = [
         title: "Check",
         file: "Terminal",
         lang: "shell",
-        text: "Watch the port come up in your monitoring, and ask Netflix to confirm the server answers. diff now plans nothing: the switch runs what main says.",
+        text: "Watch the port come up in your monitoring, and ask Netflix to confirm the server answers. diff now plans nothing.",
         code: ["$ circuit diff tor-01", "✔ tor-01 already matches its config."].join("\n"),
     },
 ];

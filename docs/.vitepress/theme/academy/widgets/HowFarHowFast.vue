@@ -8,7 +8,7 @@ type Speed = 1 | 10 | 100;
 const distances = [
     { meters: 3, name: "At a desk", spelled: "3 m" },
     { meters: 60, name: "Across a floor", spelled: "60 m" },
-    { meters: 2_000, name: "Between two buildings", spelled: "2 km" },
+    { meters: 2000, name: "Between two buildings", spelled: "2 km" },
     { meters: 25_000, name: "Across a city", spelled: "25 km" },
 ];
 
@@ -16,7 +16,7 @@ const speeds: Speed[] = [1, 10, 100];
 
 const NO_COPPER_100 = "No LAN cable carries 100 Gbit/s. Use fiber, or a DAC inside a rack.";
 const WIFI_RANGE = 20;
-const SHORT_FOR_40_KM = 2_000;
+const SHORT_FOR_40_KM = 2000;
 
 type Way = {
     id: string;
@@ -120,12 +120,7 @@ const verdicts = computed<Verdict[]>(() =>
 
 const working = computed(() => verdicts.value.filter((entry) => entry.status === "works"));
 
-const summary = computed(() => {
-    const names = working.value.map((entry) => entry.way.name);
-    const last = names[names.length - 1];
-    const list = names.length > 2 ? `${names.slice(0, -1).join(", ")}, and ${last}` : names.join(" and ");
-    return `${distance.value.name}, ${distance.value.spelled}, at ${speed.value} Gbit/s: ${names.length} of ${ways.length} work. ${list}.`;
-});
+const summary = computed(() => `${distance.value.spelled} at ${speed.value} Gbit/s: ${working.value.length} of ${ways.length} work.`);
 
 const words: Record<Verdict["status"], string> = {
     works: "Works",
@@ -142,7 +137,7 @@ const ROW = 30;
 
 const across = (meters: number) => LEFT + Math.log10(meters) * PER_TEN;
 const rowY = (index: number) => TOP + index * ROW;
-const ticks = [1, 10, 100, 1_000, 10_000, 100_000];
+const ticks = [1, 10, 100, 1000, 10_000, 100_000];
 const bottom = TOP + ways.length * ROW;
 </script>
 

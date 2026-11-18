@@ -1,12 +1,11 @@
-// `circuit communities`: what each community of a network's scheme means, for a looking glass or bgp.tools to show. The catalogue is written by `catalogue()` in `src/config/communities.ts`, in NLNOG's notation: `nnn` for any number, `$0` for what it matched. Each format here is a published one:
+// The catalog that `catalog()` in `src/config/communities.ts` writes, in NLNOG's notation: `nnn` for any number, `$0` for what it matched. Each format is a published one:
 //
-// - `nlnog`: `community,description`, one per line, as the NLNOG Looking Glass reads its `communities/asNNN.txt` and bgp.tools takes it.
-// - `alice`: the `[bgp_communities]` section of Alice-LG's config, `community = description`, `*` for any number and `$N` for part N.
-// - `json`: draft-ietf-grow-yang-bgp-communities (version 10), the YANG model's JSON, which the NLNOG Looking Glass also reads.
+// - `nlnog`: `community,description` lines, as the NLNOG Looking Glass reads its `communities/asNNN.txt` and bgp.tools takes it.
+// - `alice`: the `[bgp_communities]` section of Alice-LG's config.
+// - `json`: the YANG model of draft-ietf-grow-yang-bgp-communities (version 10), which the NLNOG Looking Glass also reads.
 
 import type { Community } from "../config/network";
 
-/** A network as the command needs it: its name, its catalogue, and its scheme as written. */
 export type CommunitiesNetwork = {
     name: string;
     asn?: number;
@@ -14,15 +13,15 @@ export type CommunitiesNetwork = {
     settings: { asn?: number; communities?: { asn?: number; [option: string]: unknown } };
 };
 
-/** The formats `--format` takes. */
-export const COMMUNITY_FORMATS = ["nlnog", "alice", "json"] as const;
-export type CommunityFormat = (typeof COMMUNITY_FORMATS)[number];
-
-/** The scheme's tags: they only tell where a route was learned. Every other option asks for something. */
-const TAGS = ["learned_from_group", "learned_at_site", "learned_from_as"];
+export type CommunityFormat = (typeof Communities.FORMATS)[number];
 
 export class Communities {
-    /** The network's catalogue in `format`, ending with a newline. */
+    /** The formats `--format` takes. */
+    static readonly FORMATS = ["nlnog", "alice", "json"] as const;
+
+    /** The scheme's tags: they only tell where a route was learned. Every other option asks for something. */
+    private static readonly TAGS = ["learned_from_group", "learned_at_site", "learned_from_as"];
+
     static text(network: CommunitiesNetwork, format: CommunityFormat): string {
         const asn = network.settings.communities?.asn ?? network.asn;
         if (format === "alice") return Communities.alice(network.communities);
@@ -30,7 +29,7 @@ export class Communities {
         return Communities.nlnog(network.communities, asn);
     }
 
-    /** NLNOG's file: a first line that says where it comes from, then one community per line. */
+    /** A first line that says where the file comes from, then one community per line. */
     static nlnog(communities: readonly Community[], asn: number | undefined): string {
         const source = `# AS${asn ?? "?"} communities written by Circuit from the network's scheme`;
         return `${[source, ...communities.map((c) => `${c.community},${c.description}`)].join("\n")}\n`;
@@ -64,7 +63,7 @@ export class Communities {
             return [
                 {
                     name: `${option.replaceAll("_", "-")}-${any ? "any" : value}`,
-                    category: TAGS.includes(option) ? "informational" : "action",
+                    category: Communities.TAGS.includes(option) ? "informational" : "action",
 
                     description: any ? description.replace(/\s*(AS)?\$0/, "").trim() : description,
                     "global-admin": Number(global),

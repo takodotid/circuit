@@ -1,11 +1,10 @@
-// What it takes to turn the configuration a FortiGate prints into the one the render holds.
-//
-// A setting the render holds is set; one only the device holds is unset, which returns it to its default. A table entry only the device holds is deleted, except one the factory put there. Deletions of whole entries run last, in the reverse of the render's order, so an address goes only after the policies that named it.
+// A setting only the device holds is unset, which returns it to its default. A table entry only the device holds is deleted, unless the factory put it there.
 
 import type { ApplyOptions, Plan, Step } from "../platform";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
-import { type Entry, FortiOsBlock, FortiOsTree } from "./tree";
+import { FortiOsNode, FortiOsTree } from "./tree";
+import type { Entry } from "./tree";
 
 /** How the plan treats the entries of one table. */
 type Table = {
@@ -13,14 +12,12 @@ type Table = {
     factory?: readonly string[];
     /** The device keeps the entries in an order of their own, which `move` changes. */
     ordered?: true;
-    /**
-     * The render numbers the entries by their place, but on the device each keeps the number it was created with. An entry is known by what it holds, or else by the settings of the first of `keys` that only it holds, such as its description. A new entry takes a number the device does not use, after `prefix` when the render names entries so.
-     */
+    /** An entry is known by what it holds, or else by the first of `keys` that only it holds, such as its description. A new entry's name is `prefix` and a number the device does not use. */
     numbered?: { keys: readonly (readonly string[])[]; prefix?: string };
     /** An entry is known by what it holds, not by its number. */
     byContent?: true;
     /** Settings the device gives an entry it creates. They are unset when the render does not hold them. */
-    created?: (entry: FortiOsBlock) => readonly string[];
+    created?: (entry: FortiOsNode) => readonly string[];
     /** Settings an entry keeps for life. A change deletes the entry and creates it again. */
     fixed?: readonly string[];
     /** Every entry that changes or goes is deleted before any is created. The device refuses a static route the same as another, `Duplicated entry`, even for a moment. */
@@ -219,7 +216,7 @@ export class FortiOsPlan {
     /** A policy denies unless told otherwise. */
     private static readonly DENY = { action: "deny" };
 
-    /** Defaults the device does not print, by section. A config may state one, such as SSH on port 22, and the render states some because other settings appear only once they hold: a DHCP server's resolvers show only while it uses them itself, and a policy answers a denied sender only while it denies. */
+    /** Defaults the device does not print, by section. A config may state one, such as SSH on port 22. The render states some because other settings exist only while they hold: `dns-server1` needs `dns-service specify`, and `send-deny-packet` needs `action deny`. */
     private static readonly DEFAULTS: Record<string, Record<string, string>> = {
         "system global": {
             "admin-ssh-port": "22",
@@ -245,7 +242,7 @@ export class FortiOsPlan {
     /** Settings holding a certificate's text, compared without its line breaks. */
     private static readonly CERTIFICATES = new Set(["certificate", "ca"]);
 
-    /** Settings undone before a nested list is deleted. Any other goes after it. */
+    /** Settings undone before a nested list is deleted: NTP refuses to delete its last server while `ntpsync` is on. Any other goes after it. */
     private static readonly FIRST = new Set(["ntpsync"]);
 
     /** Settings holding a list in no particular order. */
@@ -304,12 +301,11 @@ export class FortiOsPlan {
     }
 
     /** Whether an entry changes a setting it keeps for life, so it must be created again. */
-    private static changesFixed(table: Table | undefined, before: FortiOsBlock, after: FortiOsBlock): boolean {
-        const value = (block: FortiOsBlock, key: string) => FortiOsPlan.canonical(key, block.settings.get(key) ?? "");
+    private static changesFixed(table: Table | undefined, before: FortiOsNode, after: FortiOsNode): boolean {
+        const value = (block: FortiOsNode, key: string) => FortiOsPlan.canonical(key, block.settings.get(key) ?? "");
         return (table?.fixed ?? []).some((key) => value(before, key) !== value(after, key));
     }
 
-    /** Whether the device holds an entry the plan leaves alone. */
     private static isFactory(table: Table | undefined, entry: Entry): boolean {
         return table?.factory?.includes(FortiOsTree.bare(entry.id)) ?? false;
     }
@@ -337,7 +333,7 @@ export class FortiOsPlan {
         return FortiOsTree.print(root);
     }
 
-    private static dropIgnored(block: FortiOsBlock): void {
+    private static dropIgnored(block: FortiOsNode): void {
         for (const key of block.settings.keys()) if (FortiOsPlan.IGNORED.has(key)) block.settings.delete(key);
         for (const child of block.blocks.values()) FortiOsPlan.dropIgnored(child);
         for (const { block: entry } of block.entries.values()) FortiOsPlan.dropIgnored(entry);
@@ -349,7 +345,7 @@ export class FortiOsPlan {
     }
 
     /** A block's lines as reviewer lines, each with its place. An entry that holds nothing, such as an extra IPv6 address, is its own line. */
-    private static shown(sign: "+" | "-", path: string[], block: FortiOsBlock): string[] {
+    private static shown(sign: "+" | "-", path: string[], block: FortiOsNode): string[] {
         const label = FortiOsPlan.labelOf(path);
         const lines = FortiOsTree.lines(block).map((line) => `${sign} ${label}${line.trim()}`);
         return lines.length ? lines : [`${sign} ${path.join(" ")}`];
@@ -362,14 +358,12 @@ export class FortiOsPlan {
     }
 
     /**
-     * Compare one block. `table` applies to its entries; `top` sends their removal to the end of the plan.
-     *
-     * What goes is undone before what comes is set, since a setting can hide another: `send-deny-packet` exists only while a policy denies. A nested list that goes is deleted before the settings, since one can hide the list and keep its entries hidden, such as `secondary-IP`; NTP refuses to delete its last server while it synchronises, so `ntpsync` goes before its list.
+     * `table` applies to the block's entries, and `top` sends their removal to the end of the plan. What goes is undone before what comes is set, since a setting can hide another: `send-deny-packet` exists only while a policy denies. A nested list goes before the settings, since one such as `secondary-IP` can hide the list and keep its entries hidden.
      */
     private static compare(
         path: string[],
-        want: FortiOsBlock,
-        have: FortiOsBlock,
+        want: FortiOsNode,
+        have: FortiOsNode,
         table: Table | undefined,
         top: boolean,
         context: Context
@@ -380,7 +374,7 @@ export class FortiOsPlan {
         const removed: string[] = [];
         const label = FortiOsPlan.labelOf(path);
 
-        const nested = (header: string, wanted: FortiOsBlock, held: FortiOsBlock) => {
+        const nested = (header: string, wanted: FortiOsNode, held: FortiOsNode) => {
             const diff = FortiOsPlan.compare([...path, header], wanted, held, undefined, false, context);
             if (!diff.send.length) return;
 
@@ -397,7 +391,7 @@ export class FortiOsPlan {
         for (const [key, old] of gone) if (FortiOsPlan.FIRST.has(key)) unset(key, old);
 
         // In reverse, so a list that uses another, such as OSPF's networks naming its areas, goes first.
-        for (const [header, child] of [...have.blocks].reverse()) if (!want.blocks.has(header)) nested(header, new FortiOsBlock(), child);
+        for (const [header, child] of [...have.blocks].reverse()) if (!want.blocks.has(header)) nested(header, new FortiOsNode(), child);
 
         // In reverse, so a setting that shows others, such as port forwarding, goes after them.
         for (const [key, old] of gone.reverse()) if (!FortiOsPlan.FIRST.has(key)) unset(key, old);
@@ -413,7 +407,7 @@ export class FortiOsPlan {
             show.push(`+ ${label}set ${key} ${value}`);
         }
 
-        for (const [header, child] of want.blocks) nested(header, child, have.blocks.get(header) ?? new FortiOsBlock());
+        for (const [header, child] of want.blocks) nested(header, child, have.blocks.get(header) ?? new FortiOsNode());
 
         const entries = table?.byContent
             ? FortiOsPlan.byContent(path, want, have)
@@ -434,8 +428,7 @@ export class FortiOsPlan {
         return { send, show, removals, removed };
     }
 
-    /** Entries matched by name: new ones created, changed ones edited, gone ones deleted. */
-    private static byId(path: string[], want: FortiOsBlock, have: FortiOsBlock, table: Table | undefined, context: Context): Diff {
+    private static byId(path: string[], want: FortiOsNode, have: FortiOsNode, table: Table | undefined, context: Context): Diff {
         const send: string[] = [];
         const show: string[] = [];
         const removals: string[] = [];
@@ -478,16 +471,12 @@ export class FortiOsPlan {
     }
 
     /**
-     * Entries the render numbers by their place, while on the device each keeps the number it was created with, so they are matched by what they are.
-     *
-     * An entry that holds the same as one on the device is kept. One that changes is found by the first of the table's keys that no other entry left to match shares, such as its description, and edited under its own number. Any other is new and takes a number the device does not use; in a table the device keeps in order, it is created at the end and moved into place. An entry on the device that nothing matched is deleted last, so every entry the render keeps stays on the device through the whole change.
-     *
-     * In a `distinct` table, an entry that changes is deleted and created again under its own number, and every deletion comes before any creation.
+     * The render numbers entries by their place, but on the device each keeps the number it was created with. So an entry that holds the same as one on the device keeps that one's number, one that changes is edited under its own number, and any other is new.
      */
     private static numbered(
         path: string[],
-        want: FortiOsBlock,
-        have: FortiOsBlock,
+        want: FortiOsNode,
+        have: FortiOsNode,
         table: Table,
         numbered: NonNullable<Table["numbered"]>,
         context: Context
@@ -515,9 +504,10 @@ export class FortiOsPlan {
         for (const [key, entry] of want.entries) {
             const candidates = alike.get(FortiOsPlan.signature(entry.block, context.section)) ?? [];
             const index = candidates.findIndex((old) => same(entry, old));
-            if (index >= 0) keep(key, candidates.splice(index, 1)[0]!);
+            if (index !== -1) keep(key, candidates.splice(index, 1)[0]!);
         }
 
+        // An entry that changes is found by the first key that no other entry left to match shares.
         for (const settings of numbered.keys) {
             const valueOf = (entry: Entry) => {
                 const parts = settings.map((setting) => FortiOsPlan.canonical(setting, entry.block.settings.get(setting) ?? ""));
@@ -579,6 +569,7 @@ export class FortiOsPlan {
             show.push(...moved.map((line) => `+ ${FortiOsPlan.labelOf(path)}${line}`));
         }
 
+        // Deleted last, so every entry the render keeps stays on the device through the whole change.
         const gone = held.filter((entry) => !keptEntries.has(entry));
         const removals = gone.map((entry) => `delete ${entry.id}`);
         const removed = gone.flatMap((entry) => FortiOsPlan.shown("-", [...path, FortiOsTree.bare(entry.id)], entry.block));
@@ -587,7 +578,7 @@ export class FortiOsPlan {
         return { send, show, removals, removed };
     }
 
-    /** The `move` commands that put a table's entries in the render's order, by the device's numbers: `wanted` in the render's order, `held` the kept ones in the device's. Kept entries hold their place on the device and new ones are added at the end. */
+    /** `wanted` is in the render's order, and `held` holds the kept entries in the device's. New entries start at the end. */
     private static moves(wanted: readonly string[], held: readonly string[]): string[] {
         const order = [...held, ...wanted.filter((id) => !held.includes(id))];
         const send: string[] = [];
@@ -605,7 +596,7 @@ export class FortiOsPlan {
     }
 
     /** An entry's settings in the form two entries compare in, whatever their numbers. A setting at its section's default is left out, as the device does not print it. */
-    private static signature(block: FortiOsBlock, section = ""): string {
+    private static signature(block: FortiOsNode, section = ""): string {
         const defaults = FortiOsPlan.DEFAULTS[section] ?? {};
         const isDefault = (key: string, value: string) =>
             defaults[key] !== undefined && FortiOsPlan.canonical(key, defaults[key]) === FortiOsPlan.canonical(key, value);
@@ -618,7 +609,7 @@ export class FortiOsPlan {
     }
 
     /** Entries matched by what they hold. One the device holds and the render does not is deleted; one the render adds takes a number the device does not use. */
-    private static byContent(path: string[], want: FortiOsBlock, have: FortiOsBlock): Diff {
+    private static byContent(path: string[], want: FortiOsNode, have: FortiOsNode): Diff {
         const send: string[] = [];
         const show: string[] = [];
         const removals: string[] = [];
@@ -629,7 +620,7 @@ export class FortiOsPlan {
 
         for (const entry of want.entries.values()) {
             const index = unmatched.findIndex((old) => FortiOsPlan.signature(old.block) === FortiOsPlan.signature(entry.block));
-            if (index >= 0) unmatched.splice(index, 1);
+            if (index !== -1) unmatched.splice(index, 1);
             else added.push(entry);
         }
 
@@ -649,24 +640,19 @@ export class FortiOsPlan {
         return { send, show, removals, removed };
     }
 
-    /** The interface names a block's settings hold. */
-    private static interfacesNamed(block: FortiOsBlock): string[] {
+    private static interfacesNamed(block: FortiOsNode): string[] {
         return [...block.settings]
             .filter(([key]) => FortiOsPlan.NAMES_INTERFACE.has(key))
             .flatMap(([, value]) => FortiOsTree.words(value).map(FortiOsTree.bare));
     }
 
     /**
-     * What goes before anything else changes.
-     *
-     * A port joins a LAG only while nothing names it, and its speed cannot change while it is in one. So a LAG that keeps some of its ports lets the others go first, a port whose speed changes leaves its LAG and joins again later, a LAG whose ports join another goes first, and an interface whose type or parent changes is deleted and created again. Whatever names such an interface on the device is deleted first, or unset when a list names it, and set again later if the render holds it; an interface or tunnel deleted this way frees what names it in turn.
-     *
-     * A LAG that goes otherwise is deleted with everything else that goes, after what names it; its ports are changed after that.
+     * What goes before anything else changes. A port joins a LAG only while nothing names it, and its speed cannot change while it is in one. Whatever names a freed interface is deleted first, or unset when a list names it, and set again later if the render holds it.
      */
-    private static released(want: FortiOsBlock, have: FortiOsBlock): Release {
-        const interfaces = have.blocks.get("system interface") ?? new FortiOsBlock();
-        const wanted = want.blocks.get("system interface") ?? new FortiOsBlock();
-        const members = (block: FortiOsBlock | undefined) => FortiOsTree.words(block?.settings.get("member") ?? "").map(FortiOsTree.bare);
+    private static released(want: FortiOsNode, have: FortiOsNode): Release {
+        const interfaces = have.blocks.get("system interface") ?? new FortiOsNode();
+        const wanted = want.blocks.get("system interface") ?? new FortiOsNode();
+        const members = (block: FortiOsNode | undefined) => FortiOsTree.words(block?.settings.get("member") ?? "").map(FortiOsTree.bare);
 
         const freed = new Set<string>();
         const gone = new Set<string>();
@@ -675,10 +661,11 @@ export class FortiOsPlan {
 
         // A port in a LAG keeps its speed until it leaves.
         const changesSpeed = (port: string) => {
-            const speed = (block: FortiOsBlock | undefined) => FortiOsPlan.canonical("speed", block?.settings.get("speed") ?? "");
+            const speed = (block: FortiOsNode | undefined) => FortiOsPlan.canonical("speed", block?.settings.get("speed") ?? "");
             return speed(interfaces.entries.get(port)?.block) !== speed(wanted.entries.get(port)?.block);
         };
 
+        // A port that joins a LAG is freed, and so is an interface whose type or parent changes, which is created again.
         for (const [key, entry] of wanted.entries) {
             const before = interfaces.entries.get(key)?.block;
             for (const member of members(entry.block)) if (!members(before).includes(member)) freed.add(member);
@@ -694,23 +681,25 @@ export class FortiOsPlan {
             );
             if (kept.length === members(entry.block).length) continue;
 
+            // A LAG that keeps some of its ports lets the others go first. A port whose speed changes leaves, and joins again later.
             if (kept.length && wanted.entries.has(key)) {
                 trims.push({ id: entry.id, members: kept });
                 continue;
             }
 
-            // A LAG that goes, and whose ports join no other, goes with the rest.
+            // A LAG that goes, and whose ports join no other, goes with the rest, after what names it. Its ports change after that.
             if (!wanted.entries.has(key) && !members(entry.block).some((member) => freed.has(member))) {
                 for (const member of members(entry.block)) deferred.add(member);
                 continue;
             }
 
+            // A LAG whose ports join another goes first.
             freed.add(key);
             gone.add(key);
         }
 
-        // A VLAN interface whose VLAN ID and parent another entry takes under a new name, a rename: the device holds one entry per pair, so the old one goes first, with what names it.
-        const pair = (block: FortiOsBlock) => {
+        // The device holds one VLAN interface per VLAN ID and parent. When another entry takes the pair under a new name, the old one goes first, with what names it.
+        const pair = (block: FortiOsNode) => {
             const vlan = block.settings.get("vlanid");
             const parent = block.settings.get("interface");
             return vlan && parent ? `${FortiOsTree.bare(parent)}|${vlan}` : undefined;
@@ -724,6 +713,7 @@ export class FortiOsPlan {
             gone.add(key);
         }
 
+        // An interface or tunnel freed this way frees what names it in turn.
         let grew = true;
 
         while (grew) {
@@ -748,7 +738,7 @@ export class FortiOsPlan {
      * The lines, inside one block, that release what names a freed interface: an entry that uses one is deleted, and a list a block holds that uses one is unset. The device's tree loses them too, so the plan creates or sets them again. An interface the release deletes itself is in `gone`.
      */
     private static release(
-        block: FortiOsBlock,
+        block: FortiOsNode,
         path: string[],
         freed: Set<string>,
         gone: Set<string>,
@@ -812,7 +802,7 @@ export class FortiOsPlan {
     /**
      * Addresses that leave an interface, taken off before any is set: the device refuses an address in a subnet another interface still holds, `Subnets overlap`. A primary address that changes takes the secondary ones with it, since they hang on it.
      */
-    private static movedAddresses(want: FortiOsBlock, have: FortiOsBlock): Step | undefined {
+    private static movedAddresses(want: FortiOsNode, have: FortiOsNode): Step | undefined {
         const wanted = want.blocks.get("system interface");
         const held = have.blocks.get("system interface");
         if (!wanted || !held) return undefined;
@@ -884,9 +874,7 @@ export class FortiOsPlan {
     }
 
     /**
-     * What changes, by section, in the order the render lists them. Entries that go are deleted after everything else, in the reverse order, so nothing is deleted while another section still names it.
-     *
-     * A secret is sent when its entry is new, or with `secrets` set; it cannot be read back to compare.
+     * What changes, by section, in the order the render lists them. Entries that go are deleted last, in the reverse order, so an address goes only after the policies that name it. A secret cannot be read back to compare, so it is sent when its entry is new, or with `secrets` set.
      */
     static of(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
         const want = FortiOsPlan.separateTunnels(FortiOsTree.parse(desired));
@@ -894,35 +882,14 @@ export class FortiOsPlan {
         FortiOsPlan.keepFilled(want, have);
         // A section the config doesn't use is still planned when the device has it, so its entries are removed.
         for (const section of FortiOsRender.OPTIONAL_SECTIONS)
-            if (have.blocks.has(section) && !want.blocks.has(section)) want.blocks.set(section, new FortiOsBlock());
+            if (have.blocks.has(section) && !want.blocks.has(section)) want.blocks.set(section, new FortiOsNode());
 
-        const first: Step[] = [];
         const steps: Step[] = [];
         const removals: Step[] = [];
 
         const { freed, gone, trims, deferred } = FortiOsPlan.released(want, have);
         const late = FortiOsPlan.deferredPorts(want, have, deferred, options.secrets);
-
-        if (freed.size) {
-            for (const section of [...have.blocks.keys()].reverse()) {
-                const block = have.blocks.get(section)!;
-
-                // A tunnel's interface goes with its tunnel, which the release deletes.
-                if (section === FortiOsPlan.TUNNELS) {
-                    for (const key of [...block.entries.keys()]) if (freed.has(key)) block.entries.delete(key);
-                    continue;
-                }
-
-                const { send, show } = FortiOsPlan.release(
-                    block,
-                    [],
-                    freed,
-                    FortiOsPlan.KEYED_BY_INTERFACE.has(section) ? freed : section === "system interface" ? gone : new Set(),
-                    false
-                );
-                if (send.length) first.push({ title: `${section}, released`, show, send: [`config ${section}`, ...send, "end"] });
-            }
-        }
+        const first = FortiOsPlan.releaseAll(have, freed, gone);
 
         if (trims.length) {
             const interfaces = have.blocks.get("system interface")!;
@@ -941,7 +908,7 @@ export class FortiOsPlan {
             const header = section === FortiOsPlan.TUNNELS ? "system interface" : section;
             const context = { section: header, secrets: options.secrets };
             const table = section === FortiOsPlan.TUNNELS ? undefined : FortiOsPlan.TABLES[header];
-            const diff = FortiOsPlan.compare([], block, have.blocks.get(section) ?? new FortiOsBlock(), table, true, context);
+            const diff = FortiOsPlan.compare([], block, have.blocks.get(section) ?? new FortiOsNode(), table, true, context);
 
             if (diff.send.length) steps.push({ title: section, show: diff.show, send: [`config ${header}`, ...diff.send, "end"] });
 
@@ -952,7 +919,7 @@ export class FortiOsPlan {
         }
 
         // Leaving transparent mode needs an address and an interface for it, which the config of a device without a bridge does not say.
-        const opmode = (root: FortiOsBlock) => root.blocks.get("system settings")?.settings.get("opmode");
+        const opmode = (root: FortiOsNode) => root.blocks.get("system settings")?.settings.get("opmode");
         const problems =
             opmode(have) === "transparent" && opmode(want) !== "transparent"
                 ? [
@@ -963,12 +930,40 @@ export class FortiOsPlan {
         return { steps: [...first, ...steps, ...removals, ...late], problems };
     }
 
+    /** Release what names a freed interface, section by section from the last. */
+    private static releaseAll(have: FortiOsNode, freed: Set<string>, gone: Set<string>): Step[] {
+        if (!freed.size) return [];
+
+        const steps: Step[] = [];
+
+        for (const section of [...have.blocks.keys()].reverse()) {
+            const block = have.blocks.get(section)!;
+
+            // A tunnel's interface goes with its tunnel, which the release deletes.
+            if (section === FortiOsPlan.TUNNELS) {
+                for (const key of [...block.entries.keys()]) if (freed.has(key)) block.entries.delete(key);
+                continue;
+            }
+
+            const { send, show } = FortiOsPlan.release(
+                block,
+                [],
+                freed,
+                FortiOsPlan.KEYED_BY_INTERFACE.has(section) ? freed : section === "system interface" ? gone : new Set(),
+                false
+            );
+            if (send.length) steps.push({ title: `${section}, released`, show, send: [`config ${section}`, ...send, "end"] });
+        }
+
+        return steps;
+    }
+
     /** The tree with each tunnel's interface moved from `system interface` to a section of its own, just after the tunnels' tables. The interface it leaves through is its tunnel's, and is left to the tunnel's table. */
-    private static separateTunnels(root: FortiOsBlock): FortiOsBlock {
+    private static separateTunnels(root: FortiOsNode): FortiOsNode {
         const interfaces = root.blocks.get("system interface");
         if (!interfaces) return root;
 
-        const tunnels = new FortiOsBlock();
+        const tunnels = new FortiOsNode();
 
         for (const [key, entry] of interfaces.entries) {
             const type = entry.block.settings.get("type");
@@ -992,7 +987,7 @@ export class FortiOsPlan {
     }
 
     /** A prefix list `refresh` fills keeps the entries the device holds. */
-    private static keepFilled(want: FortiOsBlock, have: FortiOsBlock): void {
+    private static keepFilled(want: FortiOsNode, have: FortiOsNode): void {
         for (const table of Object.values(FortiOsRouting.PREFIX_LIST)) {
             for (const [key, entry] of want.blocks.get(table)?.entries ?? []) {
                 if (!FortiOsTree.bare(entry.block.settings.get("comments") ?? "").startsWith(FortiOsRouting.FILLED)) continue;
@@ -1004,12 +999,12 @@ export class FortiOsPlan {
     }
 
     /** The ports of a LAG that goes, taken out of the main comparison and changed in a step of their own once the LAG is deleted. */
-    private static deferredPorts(want: FortiOsBlock, have: FortiOsBlock, ports: Set<string>, secrets: boolean): Step[] {
+    private static deferredPorts(want: FortiOsNode, have: FortiOsNode, ports: Set<string>, secrets: boolean): Step[] {
         const wanted = want.blocks.get("system interface");
         const held = have.blocks.get("system interface");
         if (!ports.size || !wanted || !held) return [];
 
-        const later = { want: new FortiOsBlock(), have: new FortiOsBlock() };
+        const later = { want: new FortiOsNode(), have: new FortiOsNode() };
 
         for (const port of ports) {
             const after = wanted.entries.get(port);

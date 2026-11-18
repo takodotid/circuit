@@ -17,6 +17,7 @@ type Site = {
 export class Seo {
     /** The longest description search results show in full. */
     private static readonly LONGEST = 160;
+    private static readonly CUT = "...";
 
     /** How search engines are told that a lesson's text is behind a check, so hiding it is not read as hiding it from them alone. */
     private static readonly BEHIND_CHECK = {
@@ -79,8 +80,8 @@ export class Seo {
             return description
                 ? restore(description)
                 : `${restore(sentences[0] ?? "")
-                      .slice(0, Seo.LONGEST - 3)
-                      .replace(/\s+\S*$/, "")}...`;
+                      .slice(0, Seo.LONGEST - Seo.CUT.length)
+                      .replace(/\s+\S*$/, "")}${Seo.CUT}`;
         }
 
         return undefined;

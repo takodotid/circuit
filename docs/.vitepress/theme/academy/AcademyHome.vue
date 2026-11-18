@@ -4,6 +4,7 @@
 import { computed, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
 import { Academy } from "../../academy";
+import { checks } from "./checks";
 import { Progress } from "./progress";
 
 // What this browser remembers is only known once the page is in it, so the first paint shows a fresh start.
@@ -34,7 +35,7 @@ const levelDone = (slug: string) =>
     ready.value ? Academy.LESSONS.filter((lesson) => lesson.level.slug === slug && Progress.isDone(lesson.link)).length : 0;
 
 function clear() {
-    if (confirm("Clear every lesson you marked done, and every entry check you passed, in this browser?")) Progress.reset();
+    if (confirm("Clear every lesson marked done and every entry check passed?")) Progress.reset();
 }
 </script>
 
@@ -80,7 +81,8 @@ function clear() {
                 <p v-if="Progress.GATED.includes(level.slug)" class="gate" :class="{ closed: closed(level.slug) }">
                     <template v-if="closed(level.slug)">
                         <span class="lock">Locked</span>
-                        Opens with its <a :href="withBase(`/academy/checks/${level.slug}`)">entry check</a>: ten questions about
+                        Opens with its <a :href="withBase(`/academy/checks/${level.slug}`)">entry check</a>:
+                        {{ checks.find((check) => check.level === level.slug)?.asks }} questions about
                         {{ Academy.LEVELS[index - 1]?.name }}.
                     </template>
                     <span v-else class="lock open">Open</span>
@@ -110,8 +112,8 @@ function clear() {
                 <p class="soon">Coming soon</p>
                 <h2 id="certify-title">Certification</h2>
                 <p>
-                    When you finish the levels, ask for a case: a network someone needs, which you write in Circuit. If your work passes
-                    review, you get a certificate that anyone can check.
+                    Finish the levels, ask for a network to build, and write it in Circuit. If your work passes review, you get a
+                    certificate anyone can check.
                 </p>
                 <div class="actions">
                     <a class="ac-button" :href="withBase('/academy/certification')">How it works</a>

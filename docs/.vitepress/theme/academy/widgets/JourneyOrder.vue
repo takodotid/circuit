@@ -113,9 +113,6 @@ function restart() {
             {{ rightCount }} of {{ steps.length }} are in the right place. Ask yourself what each step needs first: you cannot send to an
             address you do not know yet.
         </p>
-        <p v-else class="ac-say hint" aria-live="polite">
-            Move the steps with Up and Down until they are in the order they happen, then press Check the order.
-        </p>
     </div>
 </template>
 
@@ -192,10 +189,6 @@ function restart() {
 
 .actions {
     margin-top: 12px;
-}
-
-.hint {
-    color: var(--circuit-soft);
 }
 
 @media (max-width: 640px) {

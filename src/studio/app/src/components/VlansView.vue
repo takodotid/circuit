@@ -6,7 +6,8 @@ import type { StudioData } from "../../../types";
 import { FieldDocs } from "../lib/field-docs";
 import { Format } from "../lib/format";
 import { showInGraph } from "../lib/store";
-import DataTable, { type Row } from "./DataTable.vue";
+import DataTable from "./DataTable.vue";
+import type { Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData }>();
 const router = useRouter();

@@ -1,6 +1,6 @@
-// `circuit sync librenms`: every device of the project is monitored in LibreNMS, under its name, polled with the SNMP credentials of its `monitoring.snmp`, at its location, and in a static group for its site. A device or group LibreNMS holds that the project doesn't is listed, never deleted.
+// LibreNMS monitors each device under its name, at its location, and in a static group for its site. It polls with the credentials of `monitoring.snmp`. A device or group the project doesn't have is listed, never deleted.
 //
-// Written against LibreNMS's API v0 as LibreNMS 26.10 serves it: a device's name is its `display_template`, which LibreNMS 26.5 and later take.
+// Written against API v0 as LibreNMS 26.10 serves it. A device's name is its `display_template`, which LibreNMS 26.5 and later take.
 
 import type { Device } from "../model";
 import type { SyncChange, SyncNetwork, SyncPlan, SyncTarget } from "./sync";
@@ -17,7 +17,6 @@ type Monitored = {
 /** A device of the project, with the network it is in, for its secrets. */
 type Member = { device: Device; network: SyncNetwork; host: string };
 
-/** A device to add. */
 type Addition = { member: Member; fields: Record<string, string> };
 
 /** A device LibreNMS monitors whose settings differ from the project. */
@@ -26,7 +25,6 @@ type Change = { member: Member; id: number; fields: Record<string, string> };
 /** A device group for one site, to make or whose devices change. */
 type Group = { name: string; create: boolean; add: Member[]; remove: Member[] };
 
-/** What `circuit sync librenms` would do. */
 export type LibreNmsPlan = SyncPlan & {
     additions: Addition[];
     updates: Change[];
@@ -42,6 +40,9 @@ export class LibreNms implements SyncTarget<LibreNmsPlan> {
 
     /** Fields that hold a secret: compared, never printed. */
     private static readonly SECRET_FIELDS = new Set(["authpass", "cryptopass", "community"]);
+
+    private static readonly TIMEOUT_MS = 60_000;
+    private static readonly NOT_FOUND = 404;
 
     readonly name = "LibreNMS";
     readonly heading = "LibreNMS";
@@ -73,7 +74,7 @@ export class LibreNms implements SyncTarget<LibreNmsPlan> {
         }
     }
 
-    /** Compare the project with what LibreNMS monitors. A device is known to LibreNMS by its management address. */
+    /** A device is known to LibreNMS by its management address. */
     async plan(): Promise<LibreNmsPlan> {
         const listed = await this.call<{ devices?: Monitored[] }>("GET", "devices?type=all");
         const devices = listed.devices ?? [];
@@ -95,7 +96,7 @@ export class LibreNms implements SyncTarget<LibreNmsPlan> {
                     continue;
                 }
 
-                const credentials = this.credentials(member) ?? {};
+                const credentials = LibreNms.credentials(member) ?? {};
                 const fields = {
                     hostname: member.host,
                     display_template: member.device.name,
@@ -107,7 +108,7 @@ export class LibreNms implements SyncTarget<LibreNmsPlan> {
                 continue;
             }
 
-            const change = this.changeOf(member, current);
+            const change = LibreNms.changeOf(member, current);
             if (change) {
                 updates.push(change);
                 changes.push({
@@ -185,13 +186,13 @@ export class LibreNms implements SyncTarget<LibreNmsPlan> {
         }
     }
 
-    /** What differs between a device's file and LibreNMS's record of it: its name, SNMP credentials and location. */
-    private changeOf(member: Member, current: Monitored): Change | undefined {
+    /** What differs between a device's file and LibreNMS's record of it: its name, SNMP credentials, and location. */
+    private static changeOf(member: Member, current: Monitored): Change | undefined {
         let fields: Record<string, string> = {};
 
         if (current.display !== member.device.name) fields.display_template = member.device.name;
 
-        const credentials = this.credentials(member);
+        const credentials = LibreNms.credentials(member);
         const text = (value: unknown) => (typeof value === "string" || typeof value === "number" ? String(value) : "");
         if (credentials && Object.entries(credentials).some(([field, value]) => text(current[field]) !== value))
             fields = { ...fields, ...credentials };
@@ -253,10 +254,10 @@ export class LibreNms implements SyncTarget<LibreNmsPlan> {
             method,
             headers: this.headers,
             ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-            signal: AbortSignal.timeout(60_000),
+            signal: AbortSignal.timeout(LibreNms.TIMEOUT_MS),
         });
 
-        if (response.status === 404 && emptyOn404) return {} as T;
+        if (response.status === LibreNms.NOT_FOUND && emptyOn404) return {} as T;
 
         const answer = (await response.json().catch(() => ({}))) as T & { status?: string; message?: string };
         if (!response.ok || answer.status === "error")
@@ -266,7 +267,7 @@ export class LibreNms implements SyncTarget<LibreNmsPlan> {
     }
 
     /** How LibreNMS polls a device: its first SNMP version 3 user, or else its version 2c community. */
-    private credentials(member: Member): Record<string, string> | undefined {
+    private static credentials(member: Member): Record<string, string> | undefined {
         const snmp = member.device.monitoring?.snmp;
         const [name, user] = Object.entries(snmp?.users ?? {})[0] ?? [];
 

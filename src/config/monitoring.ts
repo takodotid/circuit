@@ -1,5 +1,3 @@
-// What the box reports to collectors: `monitoring.snmp`, `.syslog`, `.flow_export`, `.transceivers`.
-
 import type { IP, Secret, Severity } from "./common";
 import type { Service } from "./management";
 
@@ -59,6 +57,6 @@ export type Monitoring<I extends string> = {
     syslog?: readonly SyslogServer[];
     /** Flow records or packet samples sent to collectors. */
     flow_export?: FlowExport<I>;
-    /** Read the optics' temperature, power and voltage. */
+    /** Read the optics' temperature, power, and voltage. */
     transceivers?: boolean;
 };

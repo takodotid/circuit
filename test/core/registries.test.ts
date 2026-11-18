@@ -1,4 +1,4 @@
-// A prefix set a registry fills is fetched by `diff` and `apply`, and then planned like any list written out: each prefix added or removed, never the list emptied first. An answer that can't be right stops before anything is sent.
+// `diff` and `apply` fetch a prefix set a registry fills, then plan it like any list written out.
 
 import { afterEach, expect, test } from "bun:test";
 import { Registries } from "../../src/core/registries";
@@ -76,8 +76,10 @@ test("nothing to go on stops before anything is sent: no answer, an empty one, o
     ripeStat([], 503);
     expect(Registries.resolve(device)).rejects.toThrow("routing.prefix_sets.customer-a-v4: ripe-stat AS64501: ripe-stat answered 503");
 
-    ripeStat(Array.from({ length: Registries.MOST + 1 }, (_, index) => `10.${index >> 16}.${(index >> 8) & 255}.${index & 255}/32`));
-    expect(Registries.resolve(device)).rejects.toThrow(`more than ${Registries.MOST}: check the query`);
+    ripeStat(
+        Array.from({ length: Registries.MAX_PREFIXES + 1 }, (_, index) => `10.${index >> 16}.${(index >> 8) & 255}.${index & 255}/32`)
+    );
+    expect(Registries.resolve(device)).rejects.toThrow(`more than ${Registries.MAX_PREFIXES}: check the query`);
 });
 
 test("a device with no such set is left as it is, without asking any registry", async () => {

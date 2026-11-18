@@ -5,9 +5,7 @@ description: How a whole home reaches the internet through one public address. O
 
 # Sharing one address: NAT
 
-Every device in your home has a private address, such as 192.168.20.10. The internet does not carry packets to private addresses, so the router swaps it. On the way out, the router replaces the private address and port of each connection with its own public address and a port of its own. It writes the pair down. When the reply comes back to that port, the router looks it up and swaps it back. This is <Term means="Network address translation: rewriting the addresses in packets as they pass through a router, so that many devices can share one public address.">NAT</Term>.
-
-The list the router keeps is the whole trick. It is also why nobody outside can start a connection to a device at home, unless you add a rule that says where it should go.
+Every device in your home has a private address, such as 192.168.20.10. The internet does not carry packets to private addresses, so the router swaps each one for its own public address on the way out, and back on the way in. This is <Term means="Network address translation: rewriting the addresses in packets as they pass through a router, so that many devices can share one public address.">NAT</Term>.
 
 ## Why one address is shared
 
@@ -15,7 +13,7 @@ An IPv4 address is 32 bits, so there are about 4.3 billion of them. There are mo
 
 The private ranges from [Reading an IP address](/academy/beginner/ip-addresses) are the way out: `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`. Any home or office may use them, so millions of homes use `192.168.1.0/24` at the same time. That is why they cannot be used on the internet: a reply to 192.168.20.10 could be meant for any of those homes. Routers on the internet have no routes to private addresses at all.
 
-Your internet provider gives your router one <Term means="An address that belongs to one place on the whole internet, so a reply to it can find its way back. Your internet provider gives you one.">public address</Term>. In the single-site network of this level's project, it is 203.0.113.2, on the router's port to the provider. Every device at home shares it.
+Your internet provider gives your router one <Term means="An address that belongs to one place on the whole internet, so a reply to it can find its way back. Your internet provider gives you one.">public address</Term>. In the single-site network, it is 203.0.113.2, on the router's port to the provider. Every device at home shares it.
 
 ## What the router rewrites
 
@@ -29,8 +27,6 @@ An address and a port are often written together with a colon, such as 192.168.2
 The port is what makes sharing work. With one public address for everyone, the address alone cannot say which device an answer is for, but the router's port can.
 
 <TryIt title="Open connections through one address">
-
-Open a connection from the laptop, then one from the phone, and watch the table and what the packet says at each moment. Then be the stranger: connect from outside, first to port 8443, then to a port that is in the table.
 
 <NatTable />
 
@@ -76,7 +72,7 @@ Because nobody can start a connection in, NAT is often said to protect a home. O
 - It does not stop a packet sent straight to a private address. A computer in your provider's network can send a packet for 192.168.20.10 to your router's outside port. NAT has no row for it, and needs none: the router knows the way to 192.168.20.0/24, so it routes the packet in.
 - It does nothing for the router itself. A login attempt to 203.0.113.2, port 22, is for the router, and NAT never touches it.
 
-Deciding what may pass is the job of a firewall, and that is the next lesson. In the single-site router, its forward chain is what drops that packet for 192.168.20.10.
+Deciding what may pass is the job of a [firewall](/academy/elementary/firewall). In the single-site router, its forward chain drops that packet for 192.168.20.10.
 
 <Quiz
   question="Which of these does NAT stop on its own?"
@@ -103,20 +99,12 @@ firewall: {
 - `if: { out_interface: "1g-1" }` limits the rule to packets leaving through `1g-1`, the port to the provider. Traffic between the VLANs at home keeps its own addresses.
 - `then: "masquerade"` means: use the address of the port the packet leaves through, whatever it is now. If your provider changes your public address, the rule still works. With a fixed address, `then: "snat"` and `to_address: "203.0.113.2"` write it out instead.
 
-A port forward goes in `destination`, with `then: "dnat"`, `to_address`, and `to_port`. The widget writes one when you turn the port forward on. If the router's forward chain drops by default, as the single-site router's does, the forwarded connection also needs a rule there that accepts it. The next lesson writes such rules.
+A port forward goes in `destination`, with `then: "dnat"`, `to_address`, and `to_port`. If the router's forward chain drops by default, as the single-site router's does, the forwarded connection also needs a rule there that accepts it.
 
-Circuit turns each rule into the vendor's own command. The single-site router runs RouterOS, so Circuit writes this command for it:
+Circuit turns each rule into the vendor's own command. For the single-site router, which runs RouterOS, that is:
 
 ```text
 add action=masquerade chain=srcnat comment="Share the public address" out-interface=ether1
 ```
 
 `1g-1` became `ether1`, the router's own name for its first 1G port: see [A device](/guide/project#a-device).
-
-## In short
-
-- Homes and offices use private addresses inside, and share one public address outside.
-- The router rewrites the sender's address and port of each connection going out, and remembers the pair in its translation table so the answer finds its way back.
-- Nothing from outside can start a connection in, unless a port forward says where it goes, and then anyone can.
-- NAT is not a firewall: it lets everything out, and does not stop packets sent straight to a private address.
-- In Circuit, `firewall.nat.source` with `then: "masquerade"` shares the address; `firewall.nat.destination` with `then: "dnat"` forwards a port.

@@ -1,5 +1,3 @@
-// The address arithmetic the checks rely on holds at the edges.
-
 import { expect, test } from "bun:test";
 import { Address } from "../../src/core/address";
 

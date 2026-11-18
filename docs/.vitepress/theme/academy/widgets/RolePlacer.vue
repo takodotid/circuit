@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: roles in a network. The reader gives each device of a small provider with two sites a role from what is plugged into it, sees it take its place in the drawing, and sees the name and file that follow.
+// Lesson: roles in a network. The reader gives each device of a small provider with two sites a role from what is plugged into it. The device takes its place in the drawing, with the name and file that follow.
 
 import { computed, ref } from "vue";
 
@@ -163,12 +163,10 @@ const said = ref<{ kind: "good" | "bad" | "warn"; word: string; text: string }>(
 
 /** Why a role does not fit a kind of device. */
 function refusal(kind: Kind, role: Role): string {
-    if (kind === "border")
-        return "It has a link to a transit provider, so it is where your network meets other networks. That is the edge, whatever else it does.";
-    if (role === "edge")
-        return "Nothing on it leads to another network: everything around it is your own. The edge is where your network meets others.";
+    if (kind === "border") return "It has a link to a transit provider, so it is the edge, whatever else it does.";
+    if (role === "edge") return "Nothing on it leads to another network, so it is not the edge.";
     if (kind === "middle") return "Other switches hang under it, so it is more than a place where servers plug in.";
-    return "Nothing hangs under it: servers plug into it, and its cables only go up. The middle layers are what other switches hang from.";
+    return "Nothing hangs under it: servers plug into it, and its cables only go up.";
 }
 
 /** The name a placed device gets: its role's prefix, its site, and its number among the devices of that role at the site. A device not placed yet counts in the role this network gives it, so names do not shift as the reader goes. */
@@ -239,7 +237,7 @@ const summary = computed(() => {
     if (!renamed.value.length) return "Every device has a role, and every name matches this network's own.";
 
     const changes = renamed.value.map((device) => `${device.example} is ${nameOf(device)}`).join(", ");
-    return `Every device has a role. ${renamed.value.length} of your names differ from this network's: ${changes}. Both work if every device follows one rule.`;
+    return `Every device has a role. ${renamed.value.length} of your names differ from this network's: ${changes}.`;
 });
 </script>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Lesson: counting like a computer. Two counters count up together, one with wheels of ten digits and one with wheels of two, so the reader sees the same push to the next wheel happen in both.
+// Lesson: counting like a computer. Two counters count up together, one with wheels of ten digits and one with wheels of two. The reader sees the same push to the next wheel happen in both.
 
 import { computed, onBeforeUnmount, ref } from "vue";
 
@@ -41,7 +41,7 @@ function step() {
         said.value = {
             kind: "warn",
             word: "Full",
-            text: "The two-digit counter shows 11111111, all eight wheels at their last digit. One more would push past the leftmost wheel, and there is no ninth wheel to push.",
+            text: "The two-digit counter is full. One more would need a ninth wheel.",
         };
         return;
     }
@@ -149,7 +149,7 @@ const moved = (size: number, index: number, turning: number) => size - 1 - index
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
-        <p v-else class="ac-say hint" aria-live="polite">Press Add one a few times, and watch which wheels turn on each counter.</p>
+        <p v-else class="ac-say hint" aria-live="polite">Press Add one, and watch which wheels turn.</p>
     </div>
 </template>
 

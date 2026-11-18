@@ -1,10 +1,10 @@
-// Virtual domains: a management VDOM beside `root`. In multi-VDOM mode some sections are the device's own, under `config global`, and the rest belong to one VDOM, under `config vdom` and `edit <name>`. The render and the read write a management VDOM's sections as `@<name> <section>`, so both sides compare like any other section; a plan is made for each scope on its own, and each of its steps sent in that scope.
+// In multi-VDOM mode some sections are the device's own, under `config global`, and the rest belong to one VDOM. The render and the read name a management VDOM's sections `@<name> <section>`, so both sides compare like any other section.
 
 import type { Device } from "../../model";
 import { Derive } from "../../core/derive";
 import type { Plan, Step } from "../platform";
 import { FortiOsNames } from "./names";
-import { FortiOsBlock, FortiOsTree } from "./tree";
+import { FortiOsNode, FortiOsTree } from "./tree";
 
 /** Where a section lives in multi-VDOM mode: the device's own, or one VDOM's. */
 type Scope = { kind: "global" } | { kind: "vdom"; vdom: string };
@@ -13,9 +13,7 @@ export class FortiOsVdoms {
     /** The VDOM everything is in unless named otherwise. */
     static readonly ROOT = "root";
 
-    /**
-     * Sections under `config global` in multi-VDOM mode, as a FG-3700D on FortiOS 6.2.2 has them: the device's identity, logins, interfaces, name resolution, time, SNMP, syslog, flow export and session helpers. Every other section belongs to a VDOM, the certificates and `log disk setting` too.
-     */
+    /** Sections under `config global` in multi-VDOM mode, as a FG-3700D on FortiOS 6.2.2 has them. Every other section belongs to a VDOM, the certificates and `log disk setting` too. */
     static readonly GLOBAL = new Set([
         "system global",
         'system replacemsg admin "pre_admin-disclaimer-text"',
@@ -46,13 +44,12 @@ export class FortiOsVdoms {
         "firewall local-in-policy6",
     ] as const;
 
-    /** The management VDOM's name, when the device has one. */
     static managementOf(device: Device): string | undefined {
         return device.system?.vdoms?.management.name;
     }
 
     /** The VDOM a port or interface is in, by Circuit's name. A port in a LAG is where its LAG is. */
-    static vdomOf(device: Device, name: string): string {
+    static of(device: Device, name: string): string {
         const management = device.system?.vdoms?.management;
         if (!management) return FortiOsVdoms.ROOT;
 
@@ -61,7 +58,6 @@ export class FortiOsVdoms {
         return (management.interfaces as readonly string[]).includes(holder) ? management.name : FortiOsVdoms.ROOT;
     }
 
-    /** A management VDOM's section as the render and the read write it. */
     static key(vdom: string, section: string): string {
         return `@${vdom} ${section}`;
     }
@@ -76,19 +72,17 @@ export class FortiOsVdoms {
             : { scope: { kind: "vdom", vdom: FortiOsVdoms.ROOT }, section: key };
     }
 
-    /** Whether a configuration runs in multi-VDOM mode. */
-    static isMulti(tree: FortiOsBlock): boolean {
+    static isMulti(tree: FortiOsNode): boolean {
         return tree.blocks.get("system global")?.settings.get("vdom-mode") === "multi-vdom";
     }
 
-    /** Lines sent in a scope: inside `config global`, or inside one VDOM. */
     static wrap(scope: Scope, lines: readonly string[]): string[] {
         return scope.kind === "global"
             ? ["config global", ...lines, "end"]
             : ["config vdom", `edit ${scope.vdom}`, ...lines, "next", "end"];
     }
 
-    /** What `show` printed in a management VDOM, each top-level section named as the render names it. */
+    /** What `show` printed in a management VDOM, each section named as the render names it. */
     static named(vdom: string, text: string): string {
         return text.replace(/^config /gm, `config @${vdom} `);
     }
@@ -99,9 +93,7 @@ export class FortiOsVdoms {
     }
 
     /**
-     * A plan for a device that may run in multi-VDOM mode. In one VDOM it is `planOne` as it is. In several, each scope is planned on its own and its steps sent in that scope: the global steps first, then each VDOM's, then the global removals, so an interface is gone only once no VDOM names it.
-     *
-     * Turning multi-VDOM mode on or off, and moving an interface into another VDOM, are left to an operator: the first moves everything into `root` and ends every session, and the second can cut the way in. A plan that needs either holds only the problem.
+     * In multi-VDOM mode each scope is planned on its own. The global steps go first, then each VDOM's, then the global removals, so an interface goes only once no VDOM names it. Turning multi-VDOM mode on or off, or moving an interface into another VDOM, is left to an operator. The first ends every session, and the second can cut the way in.
      */
     static plan(desired: string, current: string, planOne: (desired: string, current: string) => Plan): Plan {
         const want = FortiOsTree.parse(desired);
@@ -130,10 +122,10 @@ export class FortiOsVdoms {
             );
         }
 
-        const scopes = new Map<string, { scope: Scope; want: FortiOsBlock; have: FortiOsBlock }>();
+        const scopes = new Map<string, { scope: Scope; want: FortiOsNode; have: FortiOsNode }>();
         const scopeFor = (scope: Scope) => {
             const name = scope.kind === "global" ? "" : scope.vdom;
-            if (!scopes.has(name)) scopes.set(name, { scope, want: new FortiOsBlock(), have: new FortiOsBlock() });
+            if (!scopes.has(name)) scopes.set(name, { scope, want: new FortiOsNode(), have: new FortiOsNode() });
             return scopes.get(name)!;
         };
 
@@ -172,7 +164,7 @@ export class FortiOsVdoms {
     }
 
     /** Interfaces the config puts in another VDOM than the device has them in. */
-    private static moved(want: FortiOsBlock, have: FortiOsBlock): { name: string; from: string; to: string }[] {
+    private static moved(want: FortiOsNode, have: FortiOsNode): { name: string; from: string; to: string }[] {
         const wanted = want.blocks.get("system interface");
         const had = have.blocks.get("system interface");
         if (!wanted || !had) return [];
@@ -186,7 +178,7 @@ export class FortiOsVdoms {
         });
     }
 
-    /** What makes a management VDOM wrong, whatever the platform can express: it is not `root`, it lists a LAG rather than its ports, and each of its routes has a next hop and leaves through one of its interfaces. */
+    /** Mistakes in a management VDOM: named `root`, a LAG's port listed instead of the LAG, or a route with no next hop or through an interface outside it. */
     static problems(device: Device): string[] {
         const management = device.system?.vdoms?.management;
         if (!management) return [];
@@ -213,7 +205,6 @@ export class FortiOsVdoms {
     }
 
     /** What a management VDOM can't hold yet, or a config with one can't have. */
-
     static gaps(device: Device): string[] {
         const management = device.system?.vdoms?.management;
         if (!management) return [];

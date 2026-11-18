@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// Lesson: routing tables. The reader sends a packet from the internet to an address in their block that nothing uses, and watches it bounce between two routers until its TTL runs out, then adds a blackhole route and sends again.
+// Lesson: routing tables. The reader sends a packet from the internet to an address in their block that nothing uses. It bounces between two routers until its TTL runs out. Then the reader adds a blackhole route and sends again.
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
-import { type Prefix, RouteTable } from "./RouteLookup";
+import { RouteTable } from "./RouteLookup";
+import type { Prefix } from "./RouteLookup";
 
 type Place = "internet" | "provider" | "yours" | "server";
 
@@ -228,7 +229,7 @@ const cables: [Place, Place][] = [
             <button type="button" class="ac-button" :aria-pressed="blackhole" :disabled="busy" @click="toggle">
                 {{ blackhole ? "Blackhole route: on" : "Blackhole route: off" }}
             </button>
-            <button type="button" class="ac-button primary" :disabled="busy" @click="send">Send the packet</button>
+            <button type="button" class="ac-button primary" :disabled="busy" @click="send">Send</button>
         </div>
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>

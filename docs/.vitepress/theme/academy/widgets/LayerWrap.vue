@@ -54,7 +54,7 @@ const layers: Layer[] = [
         adds: "Signals",
         fields: "00000000 00000000 01011110 00000000 ...",
         size: "every bit",
-        added: "The physical layer sends every bit of the frame as light or electricity on the cable, starting with the router's hardware address. The question is ready to leave the laptop.",
+        added: "The physical layer sends every bit of the frame as light or electricity on the cable, starting with the router's hardware address.",
     },
 ];
 
@@ -81,7 +81,7 @@ function wrap(id: LayerId) {
         said.value = {
             kind: "warn",
             word: "Not yet",
-            text: `The ${chosen.name.toLowerCase()} layer wraps whatever the layer above it hands down, and the ${next.name.toLowerCase()} layer has not wrapped the message yet. Work from the inside out.`,
+            text: `The ${next.name.toLowerCase()} layer wraps it first. Work from the inside out.`,
         };
         return;
     }
@@ -152,8 +152,7 @@ function reset() {
 
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            The DNS program has written its question. Add the headers in the order the laptop adds them, starting with the one closest to
-            the question.
+            Add the headers in the order the laptop adds them, starting with the one closest to the question.
         </p>
     </div>
 </template>

@@ -1,4 +1,4 @@
-// The network as a graph, read from the project alone: cables, the VLANs they carry, shared segments, BGP sessions, OSPF adjacencies and tunnels. `circuit studio` draws it.
+// What `circuit studio` draws: cables, the VLANs they carry, shared segments, BGP sessions, OSPF adjacencies, and tunnels.
 
 import type { Device, Gre, Port, Routed, Switched, Vrrp, Vxlan, WireGuardPeer } from "../model";
 import { Derive } from "./derive";
@@ -12,6 +12,10 @@ export type Holder = {
     device: Device;
     /** The port or interface. */
     name: string;
+    /** The port or interface, as a path: `interfaces.ethernet.10g-1`, `interfaces.loopback.lo`. */
+    where: string;
+    /** Whether it is a loopback, which may hold an address another loopback holds, for anycast. */
+    loopback: boolean;
     /** With its length. */
     address: string;
     /** The far end of a point-to-point address. */
@@ -42,6 +46,11 @@ class Builder {
 }
 
 export class Topology {
+    /** An edge label names up to this many VLANs, and counts more. */
+    private static readonly MOST_VLANS_NAMED = 3;
+    /** A VRRP router's priority when the config gives none (RFC 5798). */
+    private static readonly VRRP_PRIORITY = 100;
+
     static deviceId(name: string): string {
         return `device:${name}`;
     }
@@ -68,7 +77,10 @@ export class Topology {
     /** Every valid address the devices hold. An invalid one is left for `validate` to report. */
     static holders(devices: readonly Device[]): Holder[] {
         return devices.flatMap((device) =>
-            Topology.routedOf(device).flatMap(([name, settings]) =>
+            [
+                ...Derive.ports(device).map(([name, settings]) => ({ name, kind: "ethernet", settings: settings as Routed })),
+                ...Derive.interfaces(device).map(({ name, kind, settings }) => ({ name, kind, settings: settings as Routed })),
+            ].flatMap(({ name, kind, settings }) =>
                 (settings.addresses ?? []).flatMap((entry) => {
                     const address = typeof entry === "string" ? entry : entry.address;
                     if (!Address.isCidr(address)) return [];
@@ -78,6 +90,8 @@ export class Topology {
                         {
                             device,
                             name,
+                            where: `interfaces.${kind}.${name}`,
+                            loopback: kind === "loopback",
                             address,
                             vrrp: settings.vrrp ?? [],
                             ...(peer ? { peer } : {}),
@@ -140,7 +154,7 @@ export class Topology {
 
     private static vlanLabel(vlans: CarriedVlan[]): string {
         if (vlans.length === 1) return `${vlans[0]!.name}${vlans[0]!.untagged ? ", untagged" : ""}`;
-        if (vlans.length <= 3) return vlans.map((vlan) => vlan.name).join(", ");
+        if (vlans.length <= Topology.MOST_VLANS_NAMED) return vlans.map((vlan) => vlan.name).join(", ");
 
         return `${vlans.length} VLANs`;
     }
@@ -254,7 +268,10 @@ export class Topology {
 
             const memberLines = members.map((member) => `${member.device.name} ${member.name} ${member.address}`);
             const vrrpLines = members.flatMap((member) =>
-                member.vrrp.map((group) => `VRRP ${group.id} ${group.address} on ${member.device.name}, priority ${group.priority ?? 100}`)
+                member.vrrp.map(
+                    (group) =>
+                        `VRRP ${group.id} ${group.address} on ${member.device.name}, priority ${group.priority ?? Topology.VRRP_PRIORITY}`
+                )
             );
 
             // Two ends are a line between them; more share a segment drawn as its own node.
@@ -383,21 +400,23 @@ export class Topology {
         const byKey = new Map<string, { device: Device; name: string; line: string }[]>();
 
         for (const device of devices) {
-            for (const [area, { interfaces }] of Object.entries(device.routing?.ospf?.areas ?? {})) {
-                for (const [name, settings] of Object.entries(interfaces ?? {})) {
-                    if (settings?.passive) continue;
+            const enabled = Object.entries(device.routing?.ospf?.areas ?? {}).flatMap(([area, { interfaces }]) =>
+                Object.entries(interfaces ?? {}).map(([name, settings]) => ({ area, name, settings }))
+            );
 
-                    const routed = Derive.settings(device, name) as Routed | undefined;
-                    const cost = settings?.cost ? `, cost ${settings.cost}` : "";
+            for (const { area, name, settings } of enabled) {
+                if (settings?.passive) continue;
 
-                    for (const entry of routed?.addresses ?? []) {
-                        const address = typeof entry === "string" ? entry : entry.address;
-                        if (!Address.isCidr(address) || Topology.isHostRoute(address)) continue;
+                const routed = Derive.settings(device, name) as Routed | undefined;
+                const cost = settings?.cost ? `, cost ${settings.cost}` : "";
 
-                        const key = `${area} ${Address.prefixOf(address)}`;
-                        const member = { device, name, line: `${device.name} ${name} ${address}${cost}` };
-                        byKey.set(key, [...(byKey.get(key) ?? []), member]);
-                    }
+                for (const entry of routed?.addresses ?? []) {
+                    const address = typeof entry === "string" ? entry : entry.address;
+                    if (!Address.isCidr(address) || Topology.isHostRoute(address)) continue;
+
+                    const key = `${area} ${Address.prefixOf(address)}`;
+                    const member = { device, name, line: `${device.name} ${name} ${address}${cost}` };
+                    byKey.set(key, [...(byKey.get(key) ?? []), member]);
                 }
             }
         }
@@ -592,7 +611,7 @@ export class Topology {
         }
     }
 
-    /** The network as a graph. It reads the project only, never a device, and works on a project that does not validate. */
+    /** It reads the project only, never a device, and works on a project that does not validate. */
     static of(devices: readonly Device[]): Graph {
         const graph = new Builder();
 

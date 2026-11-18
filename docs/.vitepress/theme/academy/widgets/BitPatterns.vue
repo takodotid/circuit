@@ -65,11 +65,9 @@ const sum = computed(() => Array.from({ length: switches.value }, () => "2").joi
         </div>
 
         <p class="ac-say good" data-word="Patterns" aria-live="polite">
-            <template v-if="switches === 1">One switch makes 2 patterns: off and on. They stand for 0 and 1.</template>
+            <template v-if="switches === 1">One switch makes 2 patterns: 0 and 1.</template>
             <template v-else>
-                {{ switches }} switches make {{ sum }} = <strong>{{ all.length }}</strong> patterns. The {{ half }} patterns of
-                {{ switches - 1 === 1 ? "one switch" : `${switches - 1} switches` }} appear twice, once with the new switch off and once
-                with it on. The first stands for 0, so the last is {{ all.length - 1 }}.
+                {{ switches }} switches make {{ sum }} = <strong>{{ all.length }}</strong> patterns, for 0 to {{ all.length - 1 }}.
             </template>
         </p>
     </div>

@@ -1,4 +1,4 @@
-// Every address the project uses, by prefix, and what is still free: what `circuit addresses` prints. It reads the project only, so an address a device gave out by itself, such as a DHCP lease, is not known.
+// What `circuit addresses` prints. It reads only the project, so an address a device gave out itself, such as a DHCP lease, is not in it.
 
 import type { Device } from "../model";
 import { Address } from "./address";
@@ -51,6 +51,13 @@ export type OwnedPrefixes = Readonly<Record<string, Readonly<Record<string, stri
 type Taken = { first: bigint; last: bigint };
 
 export class AddressSpace {
+    /** A /31 has no network or broadcast address (RFC 3021). */
+    private static readonly IPV4_POINT_TO_POINT = 31;
+    /** A /127 has no subnet-router anycast address (RFC 6164). */
+    private static readonly IPV6_POINT_TO_POINT = 127;
+    /** How many free prefixes of one length the text lists before it says how many more. */
+    private static readonly FREE_LISTED = 16;
+
     private static isHostRoute(cidr: string): boolean {
         const { len, family } = Address.split(cidr);
         return len === Address.bits(family);
@@ -60,17 +67,17 @@ export class AddressSpace {
         return Address.toNumber(address) ?? 0n;
     }
 
-    /** Addresses a segment can give out: IPv4 leaves out the network and broadcast addresses below /31, IPv6 the subnet-router anycast address. */
+    /** Addresses a segment can give out: IPv4 leaves out the network and broadcast addresses, IPv6 the subnet-router anycast address. */
     private static usable(prefix: string): Taken {
         const { first, last, family } = Address.range(prefix);
         const { len } = Address.split(prefix);
 
-        if (family === "ipv4" && len <= 30) return { first: first + 1n, last: last - 1n };
-        if (family === "ipv6" && len < 127) return { first: first + 1n, last };
+        if (family === "ipv4" && len < AddressSpace.IPV4_POINT_TO_POINT) return { first: first + 1n, last: last - 1n };
+        if (family === "ipv6" && len < AddressSpace.IPV6_POINT_TO_POINT) return { first: first + 1n, last };
         return { first, last };
     }
 
-    /** Ranges merged, so overlapping ones count once. */
+    /** Overlapping ranges count once. */
     private static merged(ranges: readonly Taken[]): Taken[] {
         const sorted = [...ranges].sort((a, b) => (a.first < b.first ? -1 : a.first > b.first ? 1 : 0));
         const result: Taken[] = [];
@@ -125,7 +132,7 @@ export class AddressSpace {
     }
 
     /**
-     * Every address in use, by segment, under the space the network owns: each prefix of `owned`, from `circuit({ prefixes })`, and each prefix a device originates in BGP. With `within`, only what falls inside that prefix, as the one space.
+     * Every address in use, by segment, under the space the network owns: each prefix of `owned`, and each prefix a device originates in BGP. With `within`, only what falls inside that prefix.
      */
     static report(devices: readonly Device[], owned: OwnedPrefixes = {}, within?: string): AddressReport {
         const segments = new Map<string, { uses: Use[]; taken: Taken[] }>();
@@ -203,15 +210,14 @@ export class AddressSpace {
                     take(neighbor.address, `BGP neighbor ${name} of ${device.name}`);
             }
 
-            for (const [name, tunnel] of Object.entries(device.interfaces?.wireguard ?? {})) {
-                for (const peer of tunnel?.peers ?? []) {
-                    for (const allowed of peer.allowed_addresses) {
-                        if (!Address.isCidr(allowed)) continue;
-
-                        const what = `WireGuard peer ${peer.name} on ${device.name} ${name}`;
-                        if (AddressSpace.isHostRoute(allowed) && take(Address.host(allowed), what)) continue;
-                        if (!segmentOf(Address.host(allowed))) blocks.push({ prefix: Address.prefixOf(allowed), what });
-                    }
+            const peers = Object.entries(device.interfaces?.wireguard ?? {}).flatMap(([name, tunnel]) =>
+                (tunnel?.peers ?? []).map((peer) => ({ peer, what: `WireGuard peer ${peer.name} on ${device.name} ${name}` }))
+            );
+            for (const { peer, what } of peers) {
+                for (const allowed of peer.allowed_addresses) {
+                    if (!Address.isCidr(allowed)) continue;
+                    if (AddressSpace.isHostRoute(allowed) && take(Address.host(allowed), what)) continue;
+                    if (!segmentOf(Address.host(allowed))) blocks.push({ prefix: Address.prefixOf(allowed), what });
                 }
             }
         }
@@ -344,7 +350,6 @@ export class AddressSpace {
         return { prefixes, total };
     }
 
-    /** The report as text, as `circuit addresses` prints it: each space, its segments and their uses, its blocks, and what is free. */
     static text(report: AddressReport, length?: number): string {
         const lines: string[] = [];
         const segment = (each: Segment) => {
@@ -360,7 +365,7 @@ export class AddressSpace {
 
             if (length === undefined) lines.push(`  free: ${space.free.join(", ") || "none"}`);
             else {
-                const { prefixes, total } = AddressSpace.freeOfLength(space.free, length, 16);
+                const { prefixes, total } = AddressSpace.freeOfLength(space.free, length, AddressSpace.FREE_LISTED);
                 const more = total > BigInt(prefixes.length) ? `, and ${total - BigInt(prefixes.length)} more` : "";
                 lines.push(`  free /${length}: ${prefixes.join(", ") || "none"}${more}`);
             }

@@ -1,5 +1,3 @@
-// The configuration a VRP device should run, in the form the device prints it.
-
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
@@ -7,8 +5,17 @@ import type { Device, Lag, Port, VlanInterface, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 
-/** Builds the configuration as blocks: a header line, its indented lines, then `#`. */
+/** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
 export class VrpRender {
+    /** The longest name a key takes. */
+    static readonly KEY_NAME = 30;
+
+    /** How long each line of a key's text is sent: the CLI refuses a whole RSA key on one line, and takes 200 characters. */
+    static readonly KEY_LINE = 200;
+
+    /** What the switch writes after a key that came without a comment. */
+    static readonly KEY_COMMENT = "rsa-key";
+
     /** The ACL that guards every management service. */
     private static readonly MANAGEMENT_ACL = 2000;
 
@@ -39,7 +46,7 @@ export class VrpRender {
         debug: "debugging",
     } as const;
 
-    /** The OSPF process number. One process per device. */
+    /** One process per device. */
     private static readonly OSPF_PROCESS = 1;
 
     /** The sFlow collectors are numbered from here, in the order the config lists them. */
@@ -48,7 +55,6 @@ export class VrpRender {
     /** The SNMPv3 group every user joins, with read access to everything. */
     private static readonly SNMP_GROUP = "circuit";
 
-    /** An alarm severity as the platform prints it. */
     private static readonly ALARM_SEVERITY = { critical: "Critical", major: "Major", minor: "Minor", warning: "Warning" } as const;
 
     private static readonly USER_LEVEL = { admin: 3, operator: 2, "read-only": 1 } as const;
@@ -81,12 +87,10 @@ export class VrpRender {
         }
     }
 
-    /** The whole configuration the device should run. Secrets appear as markers, never values. */
     static of(device: Device): string {
         return new VrpRender(device).build();
     }
 
-    /** `99 999 to 1000 2000`, the platform's compression of a VLAN list. */
     /** `management.allow` as a list. The project turns an address set named there into its addresses before rendering. */
     static managementAllow(device: Device): readonly string[] {
         const allow = device.management?.allow ?? [];
@@ -94,6 +98,7 @@ export class VrpRender {
         return allow;
     }
 
+    /** `99 999 to 1000 2000`, the platform's compression of a VLAN list. */
     static vlanBatch(ids: number[]): string {
         const sorted = [...new Set(ids)].sort((a, b) => a - b);
         const ranges: string[] = [];
@@ -149,15 +154,6 @@ export class VrpRender {
         return this.text();
     }
 
-    /** The longest name a key takes. */
-    static readonly KEY_NAME = 30;
-
-    /** How long each line of a key's text is sent: the CLI refuses a whole RSA key on one line, and takes 200 characters. */
-    static readonly KEY_LINE = 200;
-
-    /** What the switch writes after a key that came without a comment. */
-    static readonly KEY_COMMENT = "rsa-key";
-
     /** The lines that put a key block on the switch: its text sent in lines the CLI takes, without the comment the switch adds. */
     static keyLines(block: readonly string[]): string[] {
         const [header = "", , ...rest] = block;
@@ -191,14 +187,14 @@ export class VrpRender {
     }
 
     private text(): string {
-        return this.lines.join("\n") + "\n";
+        return `${this.lines.join("\n")}\n`;
     }
 
     private vlanId(name: string): number {
         return this.vlans[name]!.id;
     }
 
-    /** What the platform calls a port, a LAG or a VLAN interface. */
+    /** What the platform calls a port, a LAG, or a VLAN interface. */
     private nameOf(portOrInterface: string): string {
         if (this.lags[portOrInterface]) return `Eth-Trunk${this.lagNumbers.get(portOrInterface)}`;
 
@@ -220,7 +216,7 @@ export class VrpRender {
             const absolute = Math.abs(minutes);
             const hours = String(Math.floor(absolute / 60)).padStart(2, "0");
             const remainder = String(absolute % 60).padStart(2, "0");
-            // The platform names the zone with one word; the last part of the IANA name serves.
+            // The platform names the zone with one word, so the last part of the IANA name serves.
             this.line(`clock timezone ${timezone.split("/").at(-1)} ${minutes < 0 ? "minus" : "add"} ${hours}:${remainder}:00`);
             this.separator();
         }
@@ -280,7 +276,6 @@ export class VrpRender {
         }
     }
 
-    /** One ACL guards every management service: a permit per source, then an explicit deny. */
     private managementAcl(): void {
         const allow = VrpRender.managementAllow(this.device);
         if (!allow.length) return;
@@ -288,7 +283,6 @@ export class VrpRender {
         this.block(`acl number ${VrpRender.MANAGEMENT_ACL}`, ["description Management access", ...VrpRender.aclRules(allow)]);
     }
 
-    /** SNMP with sources of its own gets an ACL of its own, built the same way. */
     private ethertypeAclBlocks(): void {
         for (const [key, number] of this.ethertypeAcls) {
             const kinds = key.split(" ") as (keyof typeof VrpRender.ETHERTYPE)[];
@@ -340,7 +334,6 @@ export class VrpRender {
         return lines;
     }
 
-    /** Layer 2 membership of a port or LAG. */
     private switching(settings: Port | Lag): string[] {
         const lines: string[] = [];
         if (settings.access_vlan) lines.push(`port default vlan ${this.vlanId(settings.access_vlan)}`);
@@ -386,7 +379,7 @@ export class VrpRender {
     private static vrrpLines(group: Vrrp): string[] {
         const lines = [`vrrp vrid ${group.id} virtual-ip ${group.address}`];
         if (group.priority !== undefined) lines.push(`vrrp vrid ${group.id} priority ${group.priority}`);
-        // The platform preempts by default; the config only does when asked.
+        // The platform preempts by default, and the config only does when asked.
         if (!group.preempt) lines.push(`vrrp vrid ${group.id} preempt disable`);
         if (group.interval !== undefined && group.interval !== 1) lines.push(`vrrp vrid ${group.id} timer advertise ${group.interval}`);
         return lines;
@@ -455,9 +448,7 @@ export class VrpRender {
         return lines;
     }
 
-    /**
-     * Static routes. A route watched by BFD needs a BFD template for its next hop first, from the device's own address on that network, with the device's timers.
-     */
+    /** A route watched by BFD needs a BFD template for its next hop first, from the device's own address on that network, with the device's timers. */
     private staticRoutes(): void {
         const routes = this.device.routing?.static_routes ?? [];
         // A next hop written with its length is written as the address alone.
@@ -496,7 +487,7 @@ export class VrpRender {
         return undefined;
     }
 
-    /** The BFD timers of `routing.bfd`, after `prefix`, or nothing for the platform's own. The platform does not print its default multiplier, 3. */
+    /** The BFD timers of `routing.bfd`, after `prefix`, or nothing for the platform's own. */
     private bfdTimers(prefix: string): string[] {
         const bfd = this.device.routing?.bfd;
         if (!bfd) return [];
@@ -505,9 +496,7 @@ export class VrpRender {
         return [`${prefix} min-tx-interval ${bfd.interval} min-rx-interval ${bfd.interval}${multiplier}`.trim()];
     }
 
-    /**
-     * OSPF for IPv4. An area announces the networks of its interfaces; a passive interface is silent. `unsupported()` refuses IPv6.
-     */
+    /** An area announces the networks of its interfaces, and a passive interface is silent. `unsupported()` refuses IPv6. */
     private ospf(): void {
         const device = this.device;
         const ospf = device.routing?.ospf;
@@ -540,7 +529,6 @@ export class VrpRender {
         return onOspf || onStatic;
     }
 
-    /** sFlow from the management address, to each collector in order. */
     private flowExport(): void {
         const device = this.device;
         const flow = device.monitoring?.flow_export;
@@ -556,7 +544,6 @@ export class VrpRender {
         this.separator();
     }
 
-    /** The log files' level and count, then each syslog collector. A default the device does not print is not written: level `debugging`, 200 files, port 514. */
     private logging(): void {
         const local = this.device.system?.logging?.local;
         const collectors = this.device.monitoring?.syslog;

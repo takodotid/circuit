@@ -1,15 +1,13 @@
-// Remembering secrets between commands, only after the person says yes. The secrets stay in a small process's memory (src/cli/secrets-agent.ts), never in a file.
-
 import { existsSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { OnePassword } from "../core/one-password";
 import { SecretsFile } from "../core/secrets-file";
 import { Ui } from "./ui";
-
 import { SecretsAgent } from "./secrets-agent";
 
-/** When a command remembers what it read, asks to, or says it used what was remembered. */
 export class Remember {
+    private static readonly MINUTE_MS = 60_000;
+
     /** Passwords typed in this run, by the secrets file's full path. */
     private static readonly typed = new Map<string, string>();
     /** When the process stops, while one runs. */
@@ -22,7 +20,7 @@ export class Remember {
         Remember.typed.set(resolve(file.path), password);
     }
 
-    /** At the start of a command: what Circuit remembers, when it does. */
+    /** At the start of a command, takes what the process remembers. */
     static async load(): Promise<void> {
         if (!existsSync(SecretsAgent.infoPath())) return;
 
@@ -54,7 +52,6 @@ export class Remember {
         return parts.join(", and ");
     }
 
-    /** What remembering means, before the person says yes. */
     private static warning(what: string): string {
         return [
             `Circuit can keep ${what}, so the next commands don't ask again.`,
@@ -103,7 +100,7 @@ export class Remember {
         }
     }
 
-    /** How long to remember: 10 minutes, 30 minutes or 24 hours, or undefined for no. */
+    /** Minutes to remember, or undefined for no. */
     private static async choose(warning: string): Promise<number | undefined> {
         Ui.note(warning, "Remember secrets?");
         const minutes = await Ui.select(
@@ -112,16 +109,15 @@ export class Remember {
                 { value: 0, label: "No" },
                 { value: 10, label: "For 10 minutes" },
                 { value: 30, label: "For 30 minutes" },
-                { value: 24 * 60, label: "For 24 hours" },
+                { value: SecretsAgent.LONGEST_MINUTES, label: "For 24 hours" },
             ],
             0
         );
         return minutes || undefined;
     }
 
-    /** Start remembering for `minutes`. */
     private static async turnOn(minutes: number): Promise<boolean> {
-        const until = Date.now() + minutes * 60_000;
+        const until = Date.now() + minutes * Remember.MINUTE_MS;
         if (!(await Ui.wait("Remembering the secrets", () => SecretsAgent.start(until)))) {
             Ui.warn("Circuit could not start the process that remembers secrets, so nothing is remembered.");
             return false;

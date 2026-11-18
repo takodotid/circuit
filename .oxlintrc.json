@@ -13,6 +13,40 @@
     "rules": {
         "typescript/no-deprecated": "error",
 
+        // AGENTS.md rules, so no one has to remember them.
+        "eslint/no-warning-comments": "error", // Planned work is a GitHub issue.
+        "eslint/class-methods-use-this": ["error", { "ignoreOverrideMethods": true }], // A helper without state is static.
+        "eslint/max-depth": "error", // Code is read top to bottom.
+        "eslint/max-lines": ["error", { "max": 800, "skipBlankLines": true, "skipComments": true }], // A file does one job.
+        "eslint/no-multi-assign": "error", // One step per line.
+        "eslint/no-magic-numbers": [
+            "error",
+            {
+                "ignore": [-1, 0, 0.5, 1, 2],
+                "ignoreArrayIndexes": true,
+                "ignoreDefaultValues": true,
+                "ignoreEnums": true,
+                "ignoreNumericLiteralTypes": true,
+                "ignoreReadonlyClassProperties": true,
+                "ignoreTypeIndexes": true
+            }
+        ],
+
+        // One way to write each thing.
+        "eslint/capitalized-comments": ["error", "always", { "ignorePattern": "\\S*[-_.\\d]", "ignoreConsecutiveComments": true }], // A name such as dc-1 keeps its case.
+        "eslint/prefer-template": "error",
+        "unicorn/numeric-separators-style": ["error", { "onlyIfContainsSeparator": true }], // An ASN or a port is written out: 64500.
+        "unicorn/catch-error-name": "error",
+        "unicorn/consistent-existence-index-check": "error",
+        "unicorn/no-useless-undefined": ["error", { "checkArguments": false, "checkArrowFunctionBody": false }],
+        "import/consistent-type-specifier-style": "error",
+        "import/no-duplicates": "error",
+        "import/no-cycle": "error",
+        "typescript/consistent-type-imports": "error",
+        "typescript/consistent-indexed-object-style": "error",
+        "typescript/consistent-type-definitions": ["error", "type"],
+        "typescript/switch-exhaustiveness-check": "error",
+
         // Circuit's style: classes with static methods, `{ if, then }` rules, and casts where TypeScript can't see the type.
         "typescript/no-extraneous-class": "off",
         "unicorn/no-thenable": "off",
@@ -46,6 +80,58 @@
                 "typescript/await-thenable": "off",
                 "typescript/no-base-to-string": "off",
                 "typescript/restrict-template-expressions": "off"
+            }
+        },
+        {
+            // A number in the language, a vendor's syntax, a test, or an example is the value itself: a port, a limit, a fixture.
+            "files": ["src/config/**", "src/platforms/*/*.ts", "test/**", "examples/**"],
+            "rules": { "eslint/no-magic-numbers": "off" }
+        },
+        {
+            // A drawing's numbers are read as they are, as in CSS: positions, sizes, and the curve of a motion. A lesson's widget also shows the values it teaches.
+            "files": [
+                "docs/.vitepress/theme/academy/widgets/**",
+                "docs/.vitepress/theme/home/home-drawing.ts",
+                "src/studio/app/src/lib/graph-glide.ts",
+                "src/studio/app/src/lib/graph-look.ts",
+                "src/studio/app/src/lib/graph-svg.ts"
+            ],
+            "rules": { "eslint/no-magic-numbers": "off" }
+        },
+        {
+            // Vue's rule asks a computed property to return a value on every path, so one writes `return undefined`.
+            "files": ["**/*.vue"],
+            "rules": { "unicorn/no-useless-undefined": "off" }
+        },
+        {
+            // How a platform talks to a device: its waits and retries are named.
+            "files": ["src/platforms/*/index.ts"],
+            "rules": {
+                "eslint/no-magic-numbers": [
+                    "error",
+                    {
+                        "ignore": [-1, 0, 0.5, 1, 2],
+                        "ignoreArrayIndexes": true,
+                        "ignoreDefaultValues": true,
+                        "ignoreEnums": true,
+                        "ignoreNumericLiteralTypes": true,
+                        "ignoreReadonlyClassProperties": true,
+                        "ignoreTypeIndexes": true
+                    }
+                ]
+            }
+        },
+        {
+            // The editor shows the language's types on hover, so they keep the form a person reads: `{ readonly [K in Name]?: P }`.
+            "files": ["src/config/**"],
+            "rules": { "typescript/consistent-indexed-object-style": "off" }
+        },
+        {
+            // A project never needs a cast. If it does, the language has a bug.
+            "files": ["examples/**"],
+            "rules": {
+                "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
+                "typescript/no-non-null-assertion": "error"
             }
         }
     ],

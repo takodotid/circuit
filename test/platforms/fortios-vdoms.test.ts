@@ -1,10 +1,10 @@
-// A management VDOM on FortiOS: its interfaces and routes apart from `root`, each section read and sent where it lives, and what is left to an operator refused. Proved on a FG-3700D running FortiOS 6.2.2; the fake device answers as it did.
+// Tested on a FG-3700D running FortiOS 6.2.2. The fake device answers as it did.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Device } from "../../src/model";
 import { FortiOs } from "../../src/platforms/fortios";
 import { FortiOsVdoms } from "../../src/platforms/fortios/vdoms";
-import { Validation } from "../../src/checks";
+import { Checks } from "../../src/checks";
 import { FakeSshDevice } from "./fake-ssh";
 
 const platform = new FortiOs();
@@ -54,9 +54,9 @@ test("a management VDOM is not root, and has its own interfaces and routes", () 
     ]);
 });
 
-// Proved on tako-fwl-01 (FG-3700D, 6.2.2): multi-VDOM on and the management interface moved by hand, then the config applied and an empty second plan.
+// Tested on tako-fwl-01 (FG-3700D, 6.2.2): multi-VDOM on and the management interface moved by hand, then the config applied and an empty second plan.
 test("validate takes the management VDOM without --experimental", () => {
-    const found = Validation.run([firewall], undefined, {}).filter((finding) => finding.message.startsWith("system.vdoms"));
+    const found = Checks.run([firewall], undefined, {}).filter((finding) => finding.message.startsWith("system.vdoms"));
     expect(found).toEqual([]);
 });
 
@@ -172,13 +172,13 @@ const fake = new FakeSshDevice(
         const section = /^show (?:full-configuration )?(.+)$/.exec(command)?.[1];
         if (!section) return "";
 
-        // The device prints a management VDOM's section under its own name.
+        // The render names a management VDOM's section `@mgmt <section>`, and the device prints it plain.
         const header = context === "mgmt" ? `config @mgmt ${section}` : `config ${section}`;
         const lines = platform.render(firewall).split("\n");
         const start = lines.indexOf(header);
-        if (start < 0) return "";
+        if (start === -1) return "";
         const end = lines.indexOf("end", start);
-        return [`config ${section}`, ...lines.slice(start + 1, end + 1)].join("\r\n") + "\r\n";
+        return `${[`config ${section}`, ...lines.slice(start + 1, end + 1)].join("\r\n")}\r\n`;
     },
     { banner: "fw-01 # ", prompt: () => (context === "top" ? "fw-01 # " : `fw-01 (${context}) # `) }
 );

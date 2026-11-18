@@ -2,7 +2,8 @@
 // Lesson: ports and protocols. The reader sends requests from a laptop to different port numbers on one server, and sees which program answers each one, or that nobody does.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 import { useNarrow } from "./SwitchLearning";
 
 type Program = {
@@ -86,7 +87,7 @@ async function send() {
     const index = programs.findIndex((program) => program.port === number);
     const { laptop, door } = layout.value;
 
-    if (index < 0) {
+    if (index === -1) {
         await travel([laptop, door]);
         await travel([door, laptop]);
         said.value = {

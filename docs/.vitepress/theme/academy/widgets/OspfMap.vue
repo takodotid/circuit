@@ -3,7 +3,8 @@
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
-import { type Link, Spf } from "./OspfMap";
+import { Spf } from "./OspfMap";
+import type { Link } from "./OspfMap";
 
 const routers = [
     { id: "R1", x: 70, y: 165 },
@@ -72,7 +73,7 @@ const said = computed(() => {
         return {
             kind: "bad",
             word: "No path",
-            text: `With these links down, ${from.value} has no way to ${to.value}. Its routing table has no route for ${networkOf(to.value)}.`,
+            text: `With these links down, ${from.value} has no way to ${to.value}.`,
         };
 
     const written = (path: string[]) => path.join(", ");
@@ -224,7 +225,7 @@ const code = computed(() => {
             </table>
         </div>
         <div class="ac-row reset">
-            <button type="button" class="ac-button small" @click="reset">Put every link back</button>
+            <button type="button" class="ac-button small" @click="reset">Start again</button>
         </div>
 
         <p class="table-name">{{ from }}'s routing table</p>

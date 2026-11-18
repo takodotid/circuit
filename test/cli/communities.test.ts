@@ -1,8 +1,6 @@
-// `circuit communities` prints the scheme's catalogue in each published format: NLNOG's lines, Alice-LG's section, and the JSON of draft-ietf-grow-yang-bgp-communities.
-
 import { expect, test } from "bun:test";
 import { Communities } from "../../src/cli/communities";
-import { catalogue } from "../../src/config/communities";
+import { catalog } from "../../src/config/communities";
 
 const settings = {
     asn: 64500,
@@ -16,7 +14,7 @@ const settings = {
         blackhole: { code: 6 },
     },
 };
-const network = { name: "as64500", asn: 64500, communities: catalogue(settings), settings };
+const network = { name: "as64500", asn: 64500, communities: catalog(settings), settings };
 
 test("NLNOG's lines: where the file comes from, then community,description", () => {
     expect(Communities.text(network, "nlnog")).toBe(

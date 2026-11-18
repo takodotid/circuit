@@ -7,11 +7,7 @@ description: Networking is split into layers, each with one job. Wrap a message 
 
 Sending a message across a network is split into layers, and each layer has one job. On the way out, each layer wraps the message in a small label of its own. On the way in, each layer reads its label and hands what is inside to the next layer up.
 
-A switch reads only the bottom two layers, and a router the bottom three. Only the two devices at the ends of the trip open all of them. You met every layer in Beginner, and this lesson puts them in order.
-
 ## Five layers, five jobs
-
-Here is a simple model with five layers, from the bottom up:
 
 | Layer         | Its job                                                          | What it uses                                        | Where you met it                                          |
 | ------------- | ---------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------- |
@@ -45,7 +41,7 @@ The headers are not free. On this small question they add 46 bytes: 8 for UDP, 2
 
 ## Who opens which layer
 
-On the way in, it all happens in reverse: each layer reads its header, takes it off, and hands the rest up. The devices in the middle of the trip open only as many layers as their job needs:
+The devices in the middle of the trip open only as many layers as their job needs:
 
 - A **switch** works at layer 2. It reads the hardware address in the frame header, sends the frame out of the right port, and changes nothing.
 - A **router** works at layer 3. It takes off the frame header, reads the IP address, lowers the TTL, and wraps the packet in a new frame for the next hop.
@@ -57,7 +53,7 @@ On the way in, it all happens in reverse: each layer reads its header, takes it 
 
 </TryIt>
 
-The router wrote a new frame header, with new hardware addresses. The IP addresses stayed the same from the laptop to the server, and only the TTL went down. This is the envelope inside an envelope from [Addresses](/academy/beginner/addresses): the outer label changes at every hop, and the inner one does not.
+The IP addresses stay the same from the laptop to the server, and only the frame changes at each hop. This is the envelope inside an envelope from [Addresses](/academy/beginner/addresses).
 
 <Quiz
   question="A packet crosses three routers on its way to a server. What is still the same when it arrives?"
@@ -86,12 +82,12 @@ So a "layer 2 problem" is about frames, hardware addresses, and switches. A "lay
   :choices="['Hardware addresses', 'Ports, and whether it is TCP or UDP', 'The words on the web page']"
   :answer="1"
   :why="['Hardware addresses are layer 2, in the frame header.', '', 'The page itself is layer 7. A layer 4 rule never opens it.']"
-  explain="Layer 4 is transport: ports and the protocol, TCP or UDP. A rule such as allow UDP port 53 works at layer 4. The Firewalls lesson writes rules like this."
+  explain="Layer 4 is transport: ports and the protocol, TCP or UDP. A rule such as allow UDP port 53 works at layer 4."
 />
 
 ## Layers in a Circuit file
 
-From the next lesson on, you write your network down in Circuit files. The fields in them follow the layers too:
+The fields of a Circuit device file follow the layers too:
 
 | Layer         | In a Circuit device file                                                  | Lesson                                                        |
 | ------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -101,7 +97,7 @@ From the next lesson on, you write your network down in Circuit files. The field
 | 4 Transport   | `protocol` and `dst_port` in a firewall rule                              | [Firewalls](/academy/elementary/firewall)                     |
 | 7 Application | `system.dns`, and `management.ssh`: programs the device itself runs       | [Writing a network down](/academy/elementary/writing-it-down) |
 
-Here is part of a router's file, with the layer of each line in its comment. The next lesson reads a whole one.
+Here is part of a router's file, with the layer of each line in its comment.
 
 ```ts
 system: { dns: { servers: ["203.0.113.53"] } }, // 7: the DNS server this router asks
@@ -113,12 +109,4 @@ interfaces: {
 routing: { static_routes: [{ prefix: "0.0.0.0/0", next_hop: "203.0.113.1" }] }, // 3: everything else goes to the provider
 ```
 
-[Circuit Studio](/studio/#the-graph) draws your network one layer at a time too. It shows which cable goes where, which VLANs each cable carries, and which devices share an address range.
-
-## In short
-
-- Networking is split into layers: physical, link, network, transport, and application. Each does one job and uses only the layer under it.
-- On the way out, each layer wraps the message in its header. On the way in, each layer reads and removes its own. This is encapsulation.
-- A switch reads up to layer 2, a router up to layer 3, and only the devices at the ends open every layer.
-- A router writes a new frame header at every hop, but the IP addresses inside stay the same.
-- "Layer 2" and "layer 3" come from the seven-layer OSI model, whose bottom four match the five layers here.
+[Circuit Studio](/studio/#the-graph) draws your network one layer at a time too: the cables, the VLANs on each cable, and which devices share an address range.

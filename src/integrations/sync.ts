@@ -1,4 +1,4 @@
-// What every `circuit sync <target>` target shares: the networks it reads and the plan it makes. Each target (NetBox, LibreNMS, PeeringDB, Prometheus) only reads, plans and sends. The command in src/cli/sync.ts prints the plan and asks the person.
+// A target only reads, plans, and sends. The command in src/cli/sync.ts prints the plan and asks the person.
 
 import type { Integrations, Site } from "../config/network";
 import type { Device, Secret } from "../model";
@@ -8,7 +8,6 @@ export type SyncNetwork = {
     /** Its name in `circuit.ts`, such as `as64500`. */
     name: string;
     asn?: number;
-    /** Each site, by name. */
     sites: Readonly<Record<string, Site>>;
     integrations: Integrations;
     devices: readonly Device[];
@@ -16,7 +15,7 @@ export type SyncNetwork = {
     reveal: (secret: Secret) => string;
 };
 
-/** One thing to make (`+`), change (`~`) or delete (`-`) in the other system. */
+/** One thing to make (`+`), change (`~`), or delete (`-`) in the other system. */
 export type SyncChange = {
     sign: "+" | "~" | "-";
     /** What it is, such as `dcim/devices edge-02`. */
@@ -25,7 +24,6 @@ export type SyncChange = {
     details: string[];
 };
 
-/** What a sync would do. */
 export type SyncPlan = {
     changes: SyncChange[];
     /** Counts after the changes, such as `dcim/devices: 1 to create, 0 to change, 1 to delete`. */
@@ -44,6 +42,5 @@ export type SyncTarget<P extends SyncPlan = SyncPlan> = {
     readonly where: string;
     /** Compare the project with what the system holds. Reads only. */
     plan(): Promise<P>;
-    /** Send the plan. */
     send(plan: P): Promise<void>;
 };

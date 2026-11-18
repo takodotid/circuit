@@ -9,8 +9,6 @@ Communities are labels on a route. Circuit uses BGP large communities, `asn:code
 - **Tags** say where a route came from, such as "learned from a transit" or "learned in Frankfurt".
 - **Requests** come from your customers, such as "don't send this route to Cogent", "prepend twice", or "blackhole this".
 
-You write them in three places, and Circuit writes the matching and rewriting on each device.
-
 ## 1. The scheme, once, in `circuit.ts`
 
 ```ts
@@ -40,7 +38,7 @@ export const as64500 = circuit({
 });
 ```
 
-This scheme gives you communities such as these:
+This scheme gives you communities such as these. A group's `value` and a site's `number` become the last number of the community.
 
 | Community        | Kind    | Means                                   |
 | ---------------- | ------- | --------------------------------------- |
@@ -53,7 +51,7 @@ This scheme gives you communities such as these:
 | `64500:202:6939` | request | prepend twice toward AS6939             |
 | `64500:666:0`    | request | blackhole this                          |
 
-Write only the options you want. A group's `value` and a site's `number` become the last number of the community.
+Write only the options you want.
 
 ## 2. Each neighbor says which group it's in
 
@@ -122,4 +120,4 @@ You don't write these policies, but you see them in `circuit diff`.
 
 ## Publish your communities
 
-Circuit can list every community of your scheme with what it means. Looking glasses and bgp.tools read this list. `circuit communities` prints it in [several formats](/reference/cli#communities). To change the wording, add `custom_descriptions` to the scheme.
+`circuit communities` prints every community of your scheme with what it means. Looking glasses and bgp.tools read this list. See [its formats](/reference/cli#communities). To change the wording, add `custom_descriptions` to the scheme.

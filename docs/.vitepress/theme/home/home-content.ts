@@ -1,5 +1,3 @@
-// What the home page lists below its opening: the steps of a change, the example projects, the platforms, the Academy's levels, and the networks that run Circuit.
-
 import circuit from "../../../../package.json";
 import { MODELS } from "../../../../src/config/models";
 import { Academy } from "../../academy";
@@ -69,12 +67,14 @@ export class HomeContent {
         { name: "Fortinet FortiOS", platform: "fortios" },
     ].map((entry) => ({ ...entry, models: Object.keys(MODELS[entry.platform as keyof typeof MODELS]) }));
 
-    // Circuit Academy's levels, each with the first lessons it teaches.
+    /** How many of a level's lessons the home page lists by name. */
+    private static readonly LESSONS_LISTED = 4;
+
     static readonly LEVELS = Academy.LEVELS.map((level) => ({
         ...level,
         link: `/academy/#${level.slug}`,
-        first: level.lessons.slice(0, 4).map((lesson) => lesson.title),
-        more: Math.max(0, level.lessons.length - 4),
+        first: level.lessons.slice(0, HomeContent.LESSONS_LISTED).map((lesson) => lesson.title),
+        more: Math.max(0, level.lessons.length - HomeContent.LESSONS_LISTED),
     }));
 
     static readonly FIRST_LESSON = `/academy/${Academy.LEVELS[0]!.slug}/${Academy.LEVELS[0]!.lessons[0]!.slug}`;

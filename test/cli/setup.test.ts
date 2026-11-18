@@ -1,5 +1,3 @@
-// A new project, as the installer sets it up: its files, the git hook, the secrets file kept in git, and a project Circuit reads.
-
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -73,7 +71,7 @@ test("Circuit reads the new project", async () => {
     expect(read.networks.map((network) => network.name)).toEqual(["as64500"]);
 });
 
-// Every project has a circuit.ts, and `bun circuit` with no script of that name runs it instead of the package's `circuit`. The script runs whichever `circuit` it finds, the package's in a full install: here the app, or none, so it only must not be circuit.ts.
+// Here the script finds the app, or no `circuit` at all, so the test only checks that it doesn't run circuit.ts.
 test("in a full install, bun circuit runs the script, never the project's circuit.ts", () => {
     const folder = join(parent, "full");
     mkdirSync(folder);

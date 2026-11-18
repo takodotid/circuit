@@ -5,8 +5,6 @@ description: Test what a real network device does before Circuit relies on it - 
 
 # Test it on a device
 
-Circuit never guesses what a device does. Test it, then write what you learned in `src/platforms/<platform>/TRAPS.md`.
-
 ## Before
 
 1. Get the owner's OK for this device, now. Say what you'll send and whether it changes anything.

@@ -1,4 +1,4 @@
-// A network's secrets file, `.circuit/secrets` unless `circuit({ secrets: { file } })` gives another: `NAME="value"` lines, each value encrypted, so the file is safe to commit. A value is AES-256-GCM, with a key made from the file's password by scrypt and bound to the secret's name. The password is never in the file. Where the password comes from: docs/guide/secrets.md. The crypto: SECURITY.md.
+// `NAME="value"` lines, each value encrypted, so the file is safe to commit. A value is AES-256-GCM, with a key made from the file's password by scrypt, and bound to its name. The password is never in the file. Where it comes from is in docs/guide/secrets.md, and the crypto in SECURITY.md.
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -14,17 +14,29 @@ export class SecretsFile {
     static readonly DEFAULT = ".circuit/secrets";
     /** The name that holds the password: in the environment as the password or a 1Password reference, in the file only as a 1Password reference. */
     static readonly PASSWORD = "CIRCUIT_SECRETS_PASSWORD";
+    static readonly HEADER =
+        "# Circuit's secrets, each value encrypted, so this file is safe to commit. Change them with: circuit secrets\n";
 
     private static readonly ENCRYPTED = "encrypted:";
     private static readonly VERSION = 1;
-    private static readonly SALT = 16;
-    private static readonly IV = 12;
-    private static readonly TAG = 16;
-    /** scrypt's cost, OWASP's minimum: N = 2^17, r = 8, p = 1. About 0.2 s, once per run. */
-    static readonly SCRYPT = { N: 2 ** 17, r: 8, p: 1, maxmem: 256 * 1024 * 1024 };
+    private static readonly SALT_BYTES = 16;
+    private static readonly IV_BYTES = 12;
+    private static readonly TAG_BYTES = 16;
+    private static readonly KEY_BYTES = 32;
+    /** 24 bytes are 32 characters in base64url, 192 bits. */
+    private static readonly PASSWORD_BYTES = 24;
+    /** Scrypt's cost, OWASP's minimum: N = 2^17, r = 8, p = 1. About 0.2 s, once per run. It needs 128 MiB, above Node's default `maxmem` of 32 MiB, so `maxmem` is 256 MiB. */
+    static readonly SCRYPT = { N: 131_072, r: 8, p: 1, maxmem: 268_435_456 };
+
+    /** A name at the start of a line, `NAME=` or `export NAME=`. */
+    private static readonly ASSIGNMENT = /^[ \t]*(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_]*)[ \t]*=(.*)$/;
 
     /** One file per path, so a password typed once opens it for the whole run. */
     private static readonly opened = new Map<string, SecretsFile>();
+    /** Passwords typed in an earlier run that Circuit remembers after a yes, by the file's full path. */
+    private static readonly held = new Map<string, string>();
+    /** Whether a remembered password was used in this run. */
+    static usedHeld = false;
 
     readonly path: string;
     private password: string | undefined;
@@ -38,7 +50,6 @@ export class SecretsFile {
         this.path = join(root, name);
     }
 
-    /** The secrets file at `name` in the project at `root`. */
     static at(root: string, name: string = SecretsFile.DEFAULT): SecretsFile {
         const path = join(root, name);
         let file = SecretsFile.opened.get(path);
@@ -46,17 +57,12 @@ export class SecretsFile {
         return file;
     }
 
-    /** Forget every password of this run, as a new run starts with none. */
+    /** A new run starts with no password. */
     static forget(): void {
         SecretsFile.opened.clear();
         SecretsFile.held.clear();
         SecretsFile.usedHeld = false;
     }
-
-    /** Passwords typed in an earlier run that Circuit remembers after a yes, by the file's full path. */
-    private static readonly held = new Map<string, string>();
-    /** Whether a remembered password was used in this run. */
-    static usedHeld = false;
 
     /** Passwords Circuit remembers, by the file's full path, so this run opens those files without asking. */
     static hold(passwords: Readonly<Record<string, string>>): void {
@@ -77,7 +83,6 @@ export class SecretsFile {
         return value.startsWith(SecretsFile.ENCRYPTED);
     }
 
-    /** What a value is, by how it is written. */
     static kindOf(value: string): SecretKind {
         if (!value.trim()) return "empty";
         if (SecretsFile.isEncrypted(value)) return "encrypted";
@@ -122,19 +127,16 @@ export class SecretsFile {
         return Object.keys(this.values()).filter((name) => name !== SecretsFile.PASSWORD);
     }
 
-    /** The names whose value is plain text. */
     plaintext(): string[] {
         return Object.entries(this.values())
             .filter(([name, value]) => name !== SecretsFile.PASSWORD && SecretsFile.kindOf(value) === "not encrypted")
             .map(([name]) => name);
     }
 
-    /** What stops a commit of the file as it is now. */
     problems(): string[] {
         return SecretsFile.problemsIn(this.source(), this.name);
     }
 
-    /** The encrypted values, by name. */
     private encrypted(): [string, string][] {
         return Object.entries(this.values()).filter(([name, value]) => name !== SecretsFile.PASSWORD && SecretsFile.isEncrypted(value));
     }
@@ -209,21 +211,21 @@ export class SecretsFile {
         this.password = password;
     }
 
-    /** A password made for a person who left it empty: 32 characters, 192 bits. */
+    /** A password made for a person who left it empty. */
     static generatePassword(): string {
-        return randomBytes(24).toString("base64url");
+        return randomBytes(SecretsFile.PASSWORD_BYTES).toString("base64url");
     }
 
     private key(password: string, salt: Buffer): Buffer {
         const id = `${password}\0${salt.toString("hex")}`;
         let key = this.keys.get(id);
-        if (!key) this.keys.set(id, (key = scryptSync(password, salt, 32, SecretsFile.SCRYPT)));
+        if (!key) this.keys.set(id, (key = scryptSync(password, salt, SecretsFile.KEY_BYTES, SecretsFile.SCRYPT)));
         return key;
     }
 
     /** A value, encrypted for `name`: `encrypted:` then base64 of the version, salt, IV, ciphertext and tag. */
     private seal(name: string, value: string, password: string, salt: Buffer): string {
-        const iv = randomBytes(SecretsFile.IV);
+        const iv = randomBytes(SecretsFile.IV_BYTES);
         const cipher = createCipheriv("aes-256-gcm", this.key(password, salt), iv);
         cipher.setAAD(Buffer.from(name, "utf8"));
         const body = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
@@ -234,17 +236,17 @@ export class SecretsFile {
         );
     }
 
-    /** The parts of an encrypted value. */
     static partsOf(value: string): { salt: Buffer; iv: Buffer; body: Buffer; tag: Buffer } {
         const bytes = Buffer.from(value.slice(SecretsFile.ENCRYPTED.length), "base64");
-        const head = 1 + SecretsFile.SALT + SecretsFile.IV;
-        if (bytes[0] !== SecretsFile.VERSION || bytes.length < head + SecretsFile.TAG) throw new Error("not a value Circuit encrypted");
+        const head = 1 + SecretsFile.SALT_BYTES + SecretsFile.IV_BYTES;
+        if (bytes[0] !== SecretsFile.VERSION || bytes.length < head + SecretsFile.TAG_BYTES)
+            throw new Error("not a value Circuit encrypted");
 
         return {
-            salt: bytes.subarray(1, 1 + SecretsFile.SALT),
-            iv: bytes.subarray(1 + SecretsFile.SALT, head),
-            body: bytes.subarray(head, bytes.length - SecretsFile.TAG),
-            tag: bytes.subarray(bytes.length - SecretsFile.TAG),
+            salt: bytes.subarray(1, 1 + SecretsFile.SALT_BYTES),
+            iv: bytes.subarray(1 + SecretsFile.SALT_BYTES, head),
+            body: bytes.subarray(head, bytes.length - SecretsFile.TAG_BYTES),
+            tag: bytes.subarray(bytes.length - SecretsFile.TAG_BYTES),
         };
     }
 
@@ -259,7 +261,7 @@ export class SecretsFile {
     /** The salt new values take: the one the file's values have, so one key opens them all. A file without one gets a new one. */
     private salt(): Buffer {
         const first = this.encrypted()[0];
-        return first ? Buffer.from(SecretsFile.partsOf(first[1]).salt) : randomBytes(SecretsFile.SALT);
+        return first ? Buffer.from(SecretsFile.partsOf(first[1]).salt) : randomBytes(SecretsFile.SALT_BYTES);
     }
 
     private needPassword(): string {
@@ -336,9 +338,6 @@ export class SecretsFile {
         return true;
     }
 
-    /** A name at the start of a line, `NAME=` or `export NAME=`. */
-    private static readonly ASSIGNMENT = /^[ \t]*(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_]*)[ \t]*=(.*)$/;
-
     /** A value as the editor shows it: as it is, in quotes only when it starts or ends with a space or a quote, which the quotes then keep. */
     private static shown(value: string): string {
         return /^\s|\s$|^["']/.test(value) ? `"${value}"` : value;
@@ -369,7 +368,7 @@ export class SecretsFile {
     }
 
     /**
-     * Write the file from the text the editor holds: comments and blank lines as they are, each value encrypted, a value that did not change kept as it was encrypted, so git shows only what changed. Gives back why it can't be written, or undefined once written.
+     * Comments and blank lines stay as they are, and each value is encrypted. A value that did not change keeps its old ciphertext, so git shows only what changed. Gives back why it can't be written, or undefined once written.
      */
     saveEditable(text: string): string | undefined {
         const before = new Map<string, { stored: string; value: string }>();
@@ -436,7 +435,7 @@ export class SecretsFile {
         if (!next) throw new Error(`The password of ${this.name} cannot be empty.`);
 
         const old = this.needPassword();
-        const salt = randomBytes(SecretsFile.SALT);
+        const salt = randomBytes(SecretsFile.SALT_BYTES);
         let text = this.source();
         for (const [name, value] of this.encrypted())
             text = SecretsFile.upsert(text, name, this.seal(name, this.open(name, value, old), next, salt));
@@ -449,10 +448,6 @@ export class SecretsFile {
         mkdirSync(dirname(this.path), { recursive: true });
         writeFileSync(this.path, text || SecretsFile.HEADER);
     }
-
-    /** What a new file starts with. */
-    static readonly HEADER =
-        "# Circuit's secrets, each value encrypted, so this file is safe to commit. Change them with: circuit secrets\n";
 
     /** The line that sets `name`, matched however it is written. */
     private static line(name: string): RegExp {
@@ -468,7 +463,6 @@ export class SecretsFile {
         return `${base}${base.endsWith("\n") ? "" : "\n"}${line}\n`;
     }
 
-    /** Text without the line that sets `name`. */
     static without(text: string, name: string): string {
         return text.replace(new RegExp(`${SecretsFile.line(name).source}\\r?\\n?`, "m"), "");
     }

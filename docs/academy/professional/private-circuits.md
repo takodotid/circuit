@@ -37,7 +37,7 @@ The same Ethernet services between cities are often sold as **L2 transport**, an
 
 </TryIt>
 
-An EPL hands you one link, so in Circuit the port itself is the link and gets the address. An EVPL hands you a trunk. The port carries VLANs, and each VLAN gets an interface with its own address, like the [trunks](/academy/elementary/trunks) you already know. The [colocation example](/guide/examples#colocation-with-tenants) hands tenants their networks the same way, as VLANs on a port.
+An EPL hands you one link, so in Circuit the port itself is the link and gets the address. An EVPL hands you a trunk. The port carries VLANs, and each VLAN gets an interface with its own address, like the [trunks](/academy/elementary/trunks) you know. The [colocation example](/guide/examples#colocation-with-tenants) hands tenants their networks the same way, as VLANs on a port.
 
 Each circuit is a small network of two routers, usually a /30 or a /31. You route over it with static routes or OSPF, as between any two of your routers.
 
@@ -51,14 +51,14 @@ Each circuit is a small network of two routers, usually a /30 or a /31. You rout
 
 ### Your VLANs inside theirs with QinQ
 
-An EPL carries your frames as they are, with their tags. A provider carries the EPL circuits of many customers across the same switches, and two customers may both use VLAN 20. So the provider can't use your tag to keep you apart. Instead, when your frame enters its network, the provider adds a tag of its own outside yours, and takes it off again at the far end. A frame with two tags, one inside the other, is called <Term means="Two VLAN tags on one frame, one inside the other. The provider's outer tag keeps customers apart, and the customer's own tag rides inside it untouched. The standard is IEEE 802.1ad.">QinQ</Term>, after 802.1Q in 802.1Q.
+A provider carries the EPL circuits of many customers across the same switches, and two customers may both use VLAN 20. So the provider can't use your tag to keep you apart. Instead, when your frame enters its network, the provider adds a tag of its own outside yours, and takes it off again at the far end. A frame with two tags, one inside the other, is called <Term means="Two VLAN tags on one frame, one inside the other. The provider's outer tag keeps customers apart, and the customer's own tag rides inside it untouched. The standard is IEEE 802.1ad.">QinQ</Term>, after 802.1Q in 802.1Q.
 
 - The **outer tag**, the service tag or S-tag, is the provider's. It says which customer, or which circuit, the frame is for.
 - The **inner tag**, the customer tag or C-tag, is yours. It is the ordinary 802.1Q tag from [Trunks](/academy/elementary/trunks), carried across untouched.
 
-So you keep your own VLAN numbers end to end, and they never clash with another customer's. The cost is size. Each tag adds 4 bytes to the frame, so the provider's links must carry frames a little larger than yours. This is the same [MTU](/academy/beginner/cables) question as for any tunnel.
+So you keep your own VLAN numbers end to end, and they never clash with another customer's. The cost is size: each tag adds 4 bytes to the frame, so the provider's links must carry frames a little larger than yours. This is the same [MTU](/academy/beginner/cables) question as for any tunnel.
 
-You don't write QinQ in your own files. At your port you send and receive ordinary frames, tagged or not, and the provider adds and removes its outer tag. Circuit has no field for an outer tag today, so it can write your side of such a circuit, but not the provider's.
+You don't write QinQ in your own files, because your port sends and receives ordinary frames. Circuit has no field for an outer tag, so it writes your side of such a circuit, but not the provider's.
 
 ## Routed for you with an IP VPN
 
@@ -76,14 +76,14 @@ An IEPL, international Ethernet private line, is the same idea handed over as Et
 
 ## Light itself: dark fiber and wavelengths
 
-<Term means="A fiber already in the ground or on poles, rented with no equipment at either end. The customer lights it with its own optics.">Dark fiber</Term> is a fiber already in the ground, rented with nothing on it. You put your own optics at both ends, and run it at whatever speed they support. When you need more, you change the optics. It is rented where spare fiber already runs. Most spare fiber is in cities and between data centers. It is often rented for a long term, under a contract called an <Term means="Indefeasible right of use: a long contract that gives the right to use a fiber, or capacity on it, and cannot be taken back.">IRU</Term>. The fiber is the provider's, and everything that lights it is yours, faults included.
+<Term means="A fiber already in the ground or on poles, rented with no equipment at either end. The customer lights it with its own optics.">Dark fiber</Term> is a fiber already in the ground, rented with nothing on it. You put your own optics at both ends, and run it at whatever speed they support. When you need more, you change the optics. Most spare fiber for rent is in cities and between data centers. It is often rented for a long term, under a contract called an <Term means="Indefeasible right of use: a long contract that gives the right to use a fiber, or capacity on it, and cannot be taken back.">IRU</Term>. The fiber is the provider's, and everything that lights it is yours, faults included.
 
 One fiber can carry many links at once, each on its own wavelength, its own color of light. This is <Term means="Wavelength division multiplexing: sending several links down one fiber at once, each on its own wavelength of light.">WDM</Term>, wavelength division multiplexing. It comes in two common kinds:
 
 - **CWDM**, coarse WDM, spaces its colors widely, with up to 18 channels 20 nanometers apart, from 1,270 to 1,610 nanometers (ITU-T G.694.2). The wide gaps let the optics be simple and cheap. But the light can't be amplified on the way, so CWDM suits distances across a city, a few tens of kilometers.
 - **DWDM**, dense WDM, packs its colors tightly, with 40 channels 100 GHz apart, or 80 channels 50 GHz apart, on the ITU-T G.694.1 grid. They sit in the band that optical amplifiers work in. So a DWDM line can run between cities and across countries, with an amplifier every 80 to 100 km.
 
-So CWDM gets more out of your own dark fiber across a city, and long fiber routes run on DWDM. A provider with DWDM on its fiber can sell one **wavelength**. It is a link at a fixed rate, such as 10 or 100 Gbit/s, that carries whatever you send on it. You get a whole link's capacity without lighting the fiber yourself, and other customers ride other colors on the same fiber.
+A provider with DWDM on its fiber can sell one **wavelength**. It is a link at a fixed rate, such as 10 or 100 Gbit/s, that carries whatever you send on it. You get a whole link's capacity without lighting the fiber yourself, and other customers ride other colors on the same fiber.
 
 ## Over the internet with SD-WAN
 
@@ -97,7 +97,7 @@ It costs far less than a private circuit to every site, and a site with two inte
 
 </TryIt>
 
-Most needs have more than one answer. Distance rules out the rest. Metro-E stays in a city, IPLC and IEPL cross borders, and dark fiber goes only where spare fiber already runs.
+Most needs have more than one answer, and distance rules out the rest.
 
 <Quiz
   question="Two data centers 30 km apart copy 100 Gbit/s of storage between them, and the team does not want to run optical equipment. What fits?"
@@ -130,13 +130,3 @@ Most needs have more than one answer. Distance rules out the rest. Metro-E stays
 - [Wavelength-division multiplexing](https://en.wikipedia.org/wiki/Wavelength-division_multiplexing): the CWDM and DWDM grids, and why only DWDM is amplified.
 - [Wavelengths](https://arelion.com/products-and-services/networking/wavelengths), Arelion: a wavelength service as a transit provider sells it.
 - [MEF 70 SD-WAN Service Attributes and Services](https://www.lightwaveonline.com/network-automation/article/14038725/mef-releases-mef-70-sd-wan-service-attributes-and-services-standard), and the [MEF 3.0 SD-WAN Services](https://www.mplify.net/wp-content/uploads/2019/11/MEF-Presentation-WS-Vid-MEF-3-0-SD-WAN-Services.pdf) presentation: flows, policies, encryption between edges, and the links under them.
-
-## In short
-
-- Private circuits carry a company's traffic between its own sites, off the internet.
-- Metro-E is Ethernet across a city. An EPL takes the whole port to one place, and EVPL circuits share a port, one VLAN each. Between cities it is L2 transport, and between countries IEPL.
-- Inside its network, a provider keeps customers apart by adding its own outer tag around theirs. This is QinQ.
-- An IP VPN routes between all your sites for you. An IPLC is a fixed circuit between two countries.
-- Leased line is the general word for a private circuit rented between your places.
-- Dark fiber is a bare fiber you light yourself. WDM puts many links on one fiber, CWDM cheaply across a city, and DWDM over long distances. A wavelength is one color on the provider's DWDM.
-- SD-WAN builds encrypted tunnels over the links you already have. It is cheap, but nothing under it is committed.

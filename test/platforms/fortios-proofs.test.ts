@@ -1,4 +1,4 @@
-// What a FortiGate 3700D on FortiOS 6.2.2 printed while a feature was proved on it, and what Circuit makes of it.
+// What a FortiGate 3700D on FortiOS 6.2.2 printed while a feature was tested on it, and what Circuit makes of it.
 
 import { expect, test } from "bun:test";
 import type { Device } from "../../src/model";
@@ -7,7 +7,6 @@ import { Fixtures } from "../fixtures";
 
 const platform = new FortiOs();
 
-/** The FortiOS example. */
 const firewall = Fixtures.device("platforms--example-firewall");
 
 test("circuit exec may read what LLDP received", () => {
@@ -265,17 +264,19 @@ end`,
 test("BFD on a multihop BGP session is taken and read back, but refused: the device runs it single-hop", () => {
     expect(platform.plan(platform.render(multihop), asPrinted(multihop, PRINTED_MULTIHOP), options).steps).toEqual([]);
 
-    // With BGP up, the device asked for a session and sent single-hop BFD, to port 3784, while the peer sent multihop BFD to port 4784:
-    //   get router info bfd requests:  src=192.0.2.2  dst=198.51.100.1  ct=08 ifi=70
-    //   get router info bfd neighbor:  192.0.2.2  198.51.100.1  DOWN  port5  18/0
-    //   diagnose sniffer packet:       port5 in 198.51.100.1.49197 -> 192.0.2.2.4784: udp 24
-    //                                  port5 out 192.0.2.2.49162 -> 198.51.100.1.3784: udp 24
+    // With BGP up, the device sent single-hop BFD to port 3784, and the peer multihop BFD to port 4784.
+    // ```
+    // get router info bfd requests:  src=192.0.2.2  dst=198.51.100.1  ct=08 ifi=70
+    // get router info bfd neighbor:  192.0.2.2  198.51.100.1  DOWN  port5  18/0
+    // diagnose sniffer packet:       port5 in 198.51.100.1.49197 -> 192.0.2.2.4784: udp 24
+    //                                port5 out 192.0.2.2.49162 -> 198.51.100.1.3784: udp 24
+    // ```
     expect(platform.unsupported(multihop)).toEqual([
         "routing.bgp.neighbors.far.bfd, FortiOS 6.2 runs single-hop BFD on a multihop session, which a peer running multihop BFD never answers",
     ]);
 });
 
-// Proved on tako-fwl-01 (FG-3700D, 6.2.2): a loopback in VRF 1 and a route through it with BFD, applied, then an empty second plan; `get router info routing-table all` listed it under VRF=1.
+// Tested on tako-fwl-01 (FG-3700D, 6.2.2): a loopback in VRF 1 and a route through it with BFD, applied, then an empty second plan. `get router info routing-table all` listed the route under VRF=1.
 test("BFD on a route in a VRF is built and proved", () => {
     const inVrf: Device = {
         ...firewall,

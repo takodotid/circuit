@@ -226,7 +226,7 @@ function toggleCut(id: LinkId) {
 const shownLinks = computed(() => links.filter((link) => !link.extra || extraCable.value));
 
 const code = computed(() => {
-    if (!stpOn.value) return "// sw-01.ts, sw-02.ts and sw-03.ts have no stp field, so spanning tree is off.";
+    if (!stpOn.value) return "// sw-01.ts, sw-02.ts, and sw-03.ts have no stp field, so spanning tree is off.";
 
     const line = (id: SwitchId) =>
         preferred.value === id ? `switching: { stp: { mode: "rstp", priority: 4096 } },` : `switching: { stp: { mode: "rstp" } },`;
@@ -303,8 +303,8 @@ const code = computed(() => {
 
         <p class="counters">
             <template v-if="round"
-                >Round {{ round }}. Copies on the cables: {{ inFlight.length }}. The printer got the broadcast {{ printerGot }} times; the
-                laptop got its own broadcast back {{ laptopGotBack }} times.</template
+                >Round {{ round }}. Copies on the cables: {{ inFlight.length }}. The printer got it {{ printerGot }} times. The laptop got
+                its own broadcast back {{ laptopGotBack }} times.</template
             >
             <template v-else>The laptop sends one broadcast, such as an ARP question, to everyone on the network.</template>
         </p>
@@ -338,7 +338,7 @@ const code = computed(() => {
                         {{ cut.includes(link.id) ? "Reconnect" : "Cut" }} {{ link.name }}
                     </button>
                     <button type="button" class="ac-button small" :aria-pressed="extraCable" @click="extraCable = !extraCable">
-                        {{ extraCable ? "Remove" : "Add" }} a second cable, sw-02 to sw-03
+                        {{ extraCable ? "Remove the second cable" : "Add a second cable" }}
                     </button>
                 </div>
             </div>
@@ -355,9 +355,8 @@ const code = computed(() => {
             cable between sw-01 and sw-02.
         </p>
         <p class="note">
-            Each round, every copy crosses one cable. The widget counts rounds, not time. It opens a blocked port as soon as you cut a
-            cable, but real switches first have to notice the cut. The MAC addresses end in 01, 02, and 03, in the order of the switch
-            names.
+            Each round, every copy crosses one cable. The widget opens a blocked port as soon as you cut a cable, but real switches first
+            have to notice the cut. The MAC addresses end in 01, 02, and 03, in the order of the switch names.
         </p>
 
         <CodeView :code="code" title="The switches’ files" />

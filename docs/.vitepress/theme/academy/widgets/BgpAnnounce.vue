@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Lesson: BGP. The reader announces a prefix from their AS and steps through the rounds as it spreads, the AS path growing at each hop and loops dropped; cutting links changes the paths.
+// Lesson: BGP. The reader announces a prefix from their AS and steps through the rounds as it spreads, the AS path growing at each hop and loops dropped. Cutting links changes the paths.
 
 import { computed, ref } from "vue";
-import { Announcement, type Arrival, type AsLink } from "./BgpAnnounce";
+import { Announcement } from "./BgpAnnounce";
+import type { Arrival, AsLink } from "./BgpAnnounce";
 
 const ORIGIN = 64500;
 const PREFIX = "198.51.100.0/24";
@@ -113,7 +114,7 @@ const said = computed(() => {
         return `${done} ${missing.join(" and ")} ${missing.length === 1 ? "has" : "have"} no route, because no neighbor may pass it on.`;
     }
 
-    return `Round ${step.value}: the messages above arrive. Every AS whose path changed sends it on, with its own number in front.`;
+    return "Every AS whose path changed sends it on, with its own number in front.";
 });
 
 const label = (as: number) => `${name(as)}, AS${as}`;
@@ -124,7 +125,7 @@ const label = (as: number) => `${name(as)}, AS${as}`;
         <div class="ac-row controls">
             <button v-if="step === 0" type="button" class="ac-button primary" @click="start">Announce {{ PREFIX }}</button>
             <button v-else type="button" class="ac-button primary" :disabled="step === last" @click="next">Next round</button>
-            <button type="button" class="ac-button" :disabled="step === 0" @click="step = 0">Back to the start</button>
+            <button type="button" class="ac-button" :disabled="step === 0" @click="step = 0">Start again</button>
             <span v-if="step" class="count">Round {{ step }} of {{ last }}</span>
         </div>
 

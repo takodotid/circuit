@@ -98,11 +98,9 @@ const bar = computed(() => [
         <div class="ac-field">
             <span>1. What your provider gives the site</span>
             <div class="ac-row">
-                <button type="button" class="ac-button small" :aria-pressed="size === 48" @click="choose(48)">
-                    A /48: 2001:db8:100::/48
-                </button>
+                <button type="button" class="ac-button small" :aria-pressed="size === 48" @click="choose(48)">2001:db8:100::/48</button>
                 <button type="button" class="ac-button small" :aria-pressed="size === 56" @click="choose(56)">
-                    A /56: 2001:db8:100:ab00::/56
+                    2001:db8:100:ab00::/56
                 </button>
             </div>
         </div>
@@ -162,7 +160,7 @@ const bar = computed(() => [
                 </tbody>
             </table>
             <div class="ac-row">
-                <button type="button" class="ac-button" @click="byVlan">Number them after the VLANs</button>
+                <button type="button" class="ac-button" @click="byVlan">Use VLAN numbers</button>
             </div>
         </div>
 

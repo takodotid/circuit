@@ -1,5 +1,3 @@
-// `circuit addresses`: every address the project uses, under the space the network owns, and what is free there.
-
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { AddressSpace } from "../../src/core/address-space";

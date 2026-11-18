@@ -12,8 +12,6 @@ Pick a device by what its role asks of it:
 - What it does to each packet.
 - Which ports it needs.
 
-The answers decide whether it forwards in a chip or on a CPU, and how big a table that chip must hold. Then pick an optic for each port, to match the far end and the fiber between them.
-
 ## Two ways to forward a packet
 
 Every router has a CPU that runs its software, such as the routing protocols, the logins, and the configuration. That part is called the <Term means="The part of a router that decides: it runs BGP and OSPF, builds the routing table, and handles logins. It runs on the CPU.">control plane</Term>. Moving each packet from one port to another is the <Term means="The part of a router that moves packets from port to port, by looking up each one in the forwarding table. It runs on the CPU or in a chip.">data plane</Term>, and a device does it in one of two places.
@@ -82,7 +80,7 @@ A router can also be software on an ordinary server. This is an x86 router, name
 
 An x86 router forwards on its CPU, with everything that means. It has whatever features its software has, and a table as big as its memory. Its processor and its network cards set its limit in packets a second. It is a good fit for a router with modest traffic and many features, and for a lab.
 
-Licenses decide part of what you get from hardware as well as from software. CHR is an example. Its free license limits each interface to 1 Mbit/s of upload. Its paid levels limit it to 1 Gbit/s or 10 Gbit/s, or set no limit. Before you count on a port, a speed, or a feature, read what the license covers.
+Licenses decide part of what you get, from hardware as well as from software. The free license of CHR limits each interface to 1 Mbit/s of upload. Its paid levels limit it to 1 Gbit/s or 10 Gbit/s, or set no limit. Before you count on a port, a speed, or a feature, read what the license covers.
 
 <TryIt title="State what a device must do, and see what kind fits">
 
@@ -195,11 +193,3 @@ On Raisecom switches, `monitoring.transceivers` turns on reading each optic's te
 - [Small Form-factor Pluggable](https://en.wikipedia.org/wiki/Small_Form-factor_Pluggable), on Wikipedia: the cages from SFP to QSFP28, the optics each takes, breakouts, and direct attach cables.
 - Reaches, on Wikipedia: [10 Gigabit Ethernet](https://en.wikipedia.org/wiki/10_Gigabit_Ethernet), [25 Gigabit Ethernet](https://en.wikipedia.org/wiki/25_Gigabit_Ethernet), and [100 Gigabit Ethernet](https://en.wikipedia.org/wiki/100_Gigabit_Ethernet), which also covers 40G.
 - [Multi-mode optical fiber](https://en.wikipedia.org/wiki/Multi-mode_optical_fiber) and [Single-mode optical fiber](https://en.wikipedia.org/wiki/Single-mode_optical_fiber), on Wikipedia.
-
-## In short
-
-- A chip forwards at wire speed, but holds a fixed table and does only what it was built for. A CPU does anything to a packet and holds a big table, but has a limit in packets a second.
-- The full table was about 1,050,000 IPv4 and 242,000 IPv6 routes at the start of 2026, and grows every year. A router that forwards it in a chip needs a FIB with room to grow. A router that doesn't need it can take a default route.
-- Check forwarding rates in packets a second at small frames, and read what a license covers.
-- An optic must fit its cage, match the far end, suit the fiber, and reach the distance. Use SR on multimode for short runs, and LR or ER on single mode for long ones.
-- In Circuit, a port's name is its speed and position from `models.ts`, `speed` marks a slower optic, and `hardware_offload` chooses chip or CPU.

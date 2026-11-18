@@ -1,5 +1,3 @@
-// `circuit migrate` on Circuit 0.x's examples: each example's devices, as 0.x held them, become a v1 project that the editor's types take, in TypeScript 6 and 7, and that Circuit reads back into the same devices as the golden fixtures.
-
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";

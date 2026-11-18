@@ -30,15 +30,13 @@ Circuit asks for the value without showing it. In all output, a secret shows as 
     2. `CIRCUIT_SECRETS_PASSWORD="op://vault/item/field"` in the secrets file. Only a 1Password reference can go there. See [1Password](/integrations/1password).
     3. The password Circuit [remembers](#remembering-for-a-while).
     4. You, when a command needs a secret: `diff`, `apply`, `exec`, `bgp`, `access-console`, `sync`, or `circuit secrets`.
-- **Any value can be a 1Password reference** (`op://...`), which Circuit reads with the 1Password CLI.
-
-Keep the password in your password manager. If you lose it, you have to set every secret again.
+- **Any value can be a [1Password](/integrations/1password) reference** (`op://...`).
 
 ## The first password
 
-The first `circuit secrets set` asks you to choose a password of 12 characters or more. If you leave it empty, Circuit makes one and shows it once. Save it in your password manager right away, because Circuit doesn't keep it.
+The first `circuit secrets set` asks you to choose a password of 12 characters or more. If you leave it empty, Circuit makes one and shows it once. Save it in your password manager right away. If you lose it, you have to set every secret again.
 
-## Commands
+## Edit secrets
 
 `circuit secrets` alone opens every secret, decrypted, in a text editor in the terminal:
 
@@ -52,17 +50,7 @@ Change, add, or delete lines. **Ctrl+S** saves, and **Esc** leaves. Only the val
 
 If a value starts or ends with a space, put it in quotes: `NAME=" value "`.
 
-| Command                       | What it does                                                                                                 |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `circuit secrets list`        | Lists every secret and how it is kept, and the ones the config needs but the file lacks. Never shows values. |
-| `circuit secrets set NAME`    | Adds or changes one secret.                                                                                  |
-| `circuit secrets get NAME`    | Prints one secret, decrypted.                                                                                |
-| `circuit secrets delete NAME` | Removes one secret, after asking.                                                                            |
-| `circuit secrets encrypt`     | Encrypts values typed into the file by hand.                                                                 |
-| `circuit secrets password`    | Changes the password. Every value is encrypted again, and the old password stops working.                    |
-| `circuit secrets forget`      | Forgets the secrets Circuit [remembers](#remembering-for-a-while).                                           |
-
-`circuit secrets set NAME value` also works, but then your shell history keeps the value.
+The other `secrets` commands are in [the circuit command](/reference/cli#secrets).
 
 ## Remembering for a while
 
@@ -83,8 +71,6 @@ Change it when someone who knows it leaves, or when it may have leaked.
 3. Give the new password to your team. If it is in 1Password, put the new one in the same item.
 
 This password only opens the file. If a device's password leaked, set a new one with `circuit secrets set`, then send it with `circuit apply <device> --secrets`.
-
-In a script, `circuit secrets password --confirm` takes the new password from `CIRCUIT_SECRETS_NEW_PASSWORD`.
 
 ## Lab and staging
 
@@ -125,7 +111,7 @@ Circuit also refuses a value in plain text when it runs.
 
 ## In Studio
 
-Studio's **Secrets** page lists the secrets file by file, as `circuit secrets list` does. For each secret it shows the name and how it is stored. It also lists each secret the project needs that the file doesn't have. It shows no value until you ask for it.
+Studio's **Secrets** page lists what `circuit secrets list` lists, and shows the values only when you ask.
 
 1. Open **Secrets**.
 2. Type the file's password.
@@ -134,6 +120,4 @@ Studio's **Secrets** page lists the secrets file by file, as `circuit secrets li
 <img class="screenshot light" src="/screenshots/studio-secrets-light.png" alt="Studio's Secrets page: each secret's name and how it is stored, and the field for the password.">
 <img class="screenshot dark" src="/screenshots/studio-secrets-dark.png" alt="Studio's Secrets page: each secret's name and how it is stored, and the field for the password.">
 
-Your browser decrypts the values. The password never goes to the server, and Studio keeps nothing: after a reload you type it again. A 1Password value shows where it lives, never the value. A value in plain text shows **NOT ENCRYPTED**, with the command that fixes it.
-
-Studio only reads. To change a value, use `circuit secrets`.
+Your browser decrypts the values, so the password never goes to the server. After a reload, you type it again. Studio only reads: to change a value, use `circuit secrets`.

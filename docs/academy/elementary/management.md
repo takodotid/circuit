@@ -5,7 +5,7 @@ description: Whoever can log in to a router controls the network. Decide who may
 
 # Keeping the keys
 
-Whoever can log in to a router or a switch controls your network: they can read what passes through it, open its firewall, or turn it off. So a device should answer logins only from the management network, only over SSH, and only for the users its file lists. Its passwords stay out of the files, encrypted in `.circuit/secrets` or in a password manager. The files only give their names.
+Whoever can log in to a router or a switch controls your network: they can read what passes through it, open its firewall, or turn it off.
 
 ## Three locks on the door
 
@@ -33,7 +33,7 @@ To show what each lock does on its own, this router has no input firewall in fro
 
 </TryIt>
 
-Each lock stopped someone different. The allowed sources stopped the guest phone, the stranger, and the visitor on the guest network, whatever password they tried. Turning telnet off stopped the old script, which was sending your password in plain text. Only removing the intern's user stopped the intern, who was sitting on the management network with a password that still worked.
+Each lock stopped someone different. The allowed sources stopped the guest phone, the stranger, and the visitor, whatever password they tried. Turning telnet off stopped the old script. Only removing the intern's user stopped the intern, who was on the management network with a password that still worked.
 
 On a real router, the input chain from the [firewall](/academy/elementary/firewall) lesson is a fourth lock on the same door. The single-site router's "Management" rule accepts only `192.168.10.0/24` too. Two locks that say the same thing are not wasted: if one of them is changed by mistake, the other still keeps people out.
 
@@ -96,31 +96,16 @@ router: 1 command(s) in 1 step(s)
   :choices="['In router.ts, next to the user it belongs to', 'In .circuit/secrets, encrypted, and router.ts gives only its name, with secret', 'In .circuit/types, which Circuit writes']"
   :answer="1"
   :why="['router.ts goes into git as you wrote it, and git keeps it forever for everyone who can read the repository. Your editor also marks a plain password as an error.', '', 'That folder holds what your editor reads. Circuit writes it again whenever it is updated, and it never holds a secret.']"
-  explain="The file gives only the name of the secret. Its value is in .circuit/secrets, encrypted, and the password that opens it stays out of git. Circuit reads the value only when a command such as diff or apply needs it."
+  explain="The file gives only the name of the secret. Its value is in .circuit/secrets, encrypted, and the password that opens it stays out of git."
 />
 
 ## Keep management off the wall sockets
 
-The management VLAN should only travel on trunks between devices. If an access port is in it, whoever plugs into that socket is on the management network, and the first lock lets them through. You saw this with the visitor in the widget.
+The management VLAN should only travel on trunks between devices. If an access port is in it, whoever plugs into that socket is on the management network, and the first lock lets them through.
 
 Circuit cannot know which of your VLANs is the management one. So the [single-site example](/guide/examples#a-single-site) says it in a check of its own, in `lib/checks.ts`, and turns it on in `circuit.ts`:
 
-```ts
-// lib/checks.ts
-import type { Check } from "circuit";
-
-/** Someone who plugs into a wall socket must not land on the management network: only a trunk between devices carries it. */
-export const managementStaysOnTrunks: Check = (network) =>
-    network.devices.flatMap((device) =>
-        Object.entries(device.interfaces?.ethernet ?? {})
-            .filter(([, port]) => port?.access_vlan === "mgmt")
-            .map(([name]) => ({
-                device: device.name,
-                path: `interfaces.ethernet.${name}`,
-                message: "gives management to whatever plugs in. Put the port in another VLAN.",
-            }))
-    );
-```
+<<< @/../examples/single-site/lib/checks.ts
 
 ```ts
 // circuit.ts
@@ -130,7 +115,7 @@ checks: {
 },
 ```
 
-For every device, the check finds each access port whose VLAN is `mgmt`, and reports it as an error. Put the guest access point's port on `mgmt`, and `circuit validate` gives the file and line of the port:
+Put the guest access point's port on `mgmt`, and `circuit validate` gives the file and line of the port:
 
 ```text
 sites/home/switch.ts:32: management_stays_on_trunks: switch: interfaces.ethernet.10g-4: gives management to whatever plugs in. Put the port in another VLAN.
@@ -177,10 +162,3 @@ What happens when the new login fails depends on the platform. [Make a change](/
   :why="['That is what the backup and its timer are for: the router undoes the change by itself.', '', 'validate does not know where your computer is, so it accepts the change. The protection comes when Circuit applies it.']"
   explain="Circuit logs in again after every change. When that fails, the timer it set before sending runs out, and the router loads the backup it saved."
 />
-
-## In short
-
-- Whoever can log in to a device controls the network, so lock the door three ways: where from (`management.allow`), how (SSH only), and who (`users`, where anyone not listed is removed).
-- Passwords never go in the files. Write `secret("NAME")`, and set the value with `circuit secrets set NAME`, encrypted in `.circuit/secrets`.
-- A check of your own in `lib/checks.ts` keeps the management VLAN off access ports, and an error stops the change.
-- `validate` cannot always see a change that locks you out, so Circuit logs in again after every change, and keeps it only if that works.

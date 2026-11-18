@@ -2,7 +2,8 @@
 // Lesson: VLANs. The reader tries to send from a laptop in one VLAN to a recorder in another, then plugs in a router with a port in each VLAN and tries again.
 
 import { ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 const LAPTOP: Point = [100, 225];
 const RECORDER: Point = [540, 225];
@@ -101,9 +102,7 @@ async function send() {
         <div aria-live="polite">
             <p v-if="decided" class="ac-say">{{ decided }}</p>
             <p v-if="said" class="ac-say" :class="said.kind">{{ said.text }}</p>
-            <p v-if="!decided" class="ac-say hint">
-                The laptop and the recorder share one switch, but not one VLAN. Send from the laptop first, without a router.
-            </p>
+            <p v-if="!decided" class="ac-say hint">Send a packet without a router first. Then plug one in and send again.</p>
         </div>
     </div>
 </template>

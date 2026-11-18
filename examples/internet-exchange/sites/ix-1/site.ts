@@ -7,7 +7,7 @@ export const ix_1 = literal({
         mgmt: { id: 10, description: "Management, never on a member port" },
         peering: { id: 100, description: "Peering LAN" },
     },
-    /** A member's port: on the peering LAN, no spanning tree or LLDP toward the member, one MAC address, IPv4, ARP and IPv6 only, and a cap on flooded traffic. */
+    /** A member's port, on the peering LAN with no spanning tree or LLDP toward the member. It takes one MAC address and only IPv4, ARP, and IPv6, and it caps flooded traffic. */
     member_port: {
         access_vlan: "peering",
         stp: false,

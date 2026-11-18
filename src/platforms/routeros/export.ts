@@ -1,4 +1,4 @@
-// Reading an export into commands, and normalising both sides so that only a real difference survives a comparison.
+// Reads an export into commands, and normalizes both sides so that only a real difference survives a comparison.
 
 import { createHash } from "node:crypto";
 import { Address } from "../../core/address";
@@ -23,9 +23,7 @@ export type Parsed = {
 
 export class RouterOsExport {
     /**
-     * Values the platform holds when nothing was set, per menu, and under `*` for every menu.
-     *
-     * A property at its default is dropped from both sides of a comparison, and this is the value a property the config does not state is reset to. A property the device holds that is not here cannot be reset, which the plan reports as a problem.
+     * Values the platform holds when nothing was set, per menu, and under `*` for every menu. A property at its default is dropped from both sides of a comparison. A property the config does not state is reset to it, and one without a default here is a problem in the plan.
      */
     private static readonly DEFAULTS: Record<string, Record<string, string>> = {
         "*": { disabled: "no", comment: "", instance: "default", "routing-table": "main", vrf: "main" },
@@ -125,14 +123,12 @@ export class RouterOsExport {
         "api-ssl": "no",
     };
 
-    /**
-     * Defaults of one entry addressed by a selector, where they differ from the menu's. RouterOS 7.24 prints the default neighbor discovery entry as `set [ find default=yes ] advertise-dns=yes`, under `# automatic dns option advertising is not started`, on a device nobody changed it on.
-     */
+    /** Defaults of one entry addressed by a selector, where they differ from the menu's (TRAPS.md). */
     private static readonly SELECTOR_DEFAULTS: Record<string, Record<string, Record<string, string>>> = {
         "/ipv6 nd": { "[ find default=yes ]": { "advertise-dns": "yes" } },
     };
 
-    /** Properties a newer RouterOS prints under another name, read as the name the render writes. RouterOS 7.24 prints a service's `address` as `available-from` and still takes `address`. */
+    /** Properties RouterOS 7.24 prints under another name, read as the name the render writes (TRAPS.md). */
     private static readonly RENAMED: Record<string, Record<string, string>> = { "/ip service": { "available-from": "address" } };
 
     /** Helpers of `/ip firewall service-port` that ship disabled. The rest ship enabled. */
@@ -259,7 +255,7 @@ export class RouterOsExport {
 
         for (const word of rest) {
             const equals = word.indexOf("=");
-            if (equals < 0) {
+            if (equals === -1) {
                 flags.push(word);
                 continue;
             }
@@ -308,7 +304,7 @@ export class RouterOsExport {
         return RouterOsExport.DEFAULTS[command.menu]?.[property] ?? RouterOsExport.DEFAULTS["*"]![property];
     }
 
-    /** How the renderer writes a secret. */
+    /** Whether a value is a secret, as the render writes one. */
     static isSecretMarker(value: string): boolean {
         return value.startsWith("<secret:");
     }
@@ -348,7 +344,7 @@ export class RouterOsExport {
     /** A route's gateway in one spelling: an address as `Address.canonical` writes it, and the interface after a `%`, as in `fe80::1%ether1`, as it is. An interface alone stays as it is. */
     private static gateway(value: string): string {
         const at = value.indexOf("%");
-        if (at < 0) return Address.canonical(value);
+        if (at === -1) return Address.canonical(value);
 
         return `${Address.canonical(value.slice(0, at))}${value.slice(at)}`;
     }
@@ -408,9 +404,7 @@ export class RouterOsExport {
         return result;
     }
 
-    /**
-     * What a selector finds an entry by: its identity, with an IPv4 route's host destination written as a prefix. `find` takes a prefix whole: `dst-address="192.0.2.82/32" and !dynamic` matches the route, `dst-address=192.0.2.82 and !dynamic` nothing, and so does a bare address on an interface (RB5009, 7.24.6). A selector nothing matches removes nothing, silently.
-     */
+    /** What a selector finds an entry by: its identity, with an IPv4 route's host destination written as a prefix. `find` takes a prefix whole, so a bare host matches nothing, silently (TRAPS.md). */
     static selector(command: Command): Record<string, string> {
         const identity = RouterOsExport.identity(command);
         const destination = identity["dst-address"];

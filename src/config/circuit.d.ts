@@ -1,4 +1,4 @@
-// Circuit's functions, `presets` and `address`, declared as globals, so a project's files use them with no import. The project's tsconfig.json includes this file (Circuit writes both). Each is the same as index.ts gives, which Circuit puts on `globalThis` when it reads a project.
+// The values of index.ts, declared as globals for the editor. The project's tsconfig.json includes this file, and Circuit writes both.
 
 import type * as Circuit from "./index";
 

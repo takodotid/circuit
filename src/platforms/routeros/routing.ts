@@ -1,12 +1,11 @@
-// Routing tables and rules, static routes, RPKI, BGP with the filter chains its policies become, OSPF, and BFD, as RouterOS commands.
-
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Neighbor, NeighborSettings, PolicyRule, RouteRule } from "../../model";
-import { RouterOsRender } from "./render";
+import type { RouterOsRender } from "./render";
+import { RouterOsSyntax } from "./syntax";
 
-/** Routing, added to one device's render. */
+/** Routing tables and rules, static routes, RPKI, BGP with its policies' filter chains, OSPF, and BFD, added to one device's render. */
 export class RouterOsRouting {
     /** The validator group every RPKI server joins. */
     private static readonly RPKI_GROUP = "rpki";
@@ -14,7 +13,7 @@ export class RouterOsRouting {
     /** The chain a session without a policy uses, so that it learns or announces nothing. */
     private static readonly REJECT_ALL = "REJECT-ALL";
 
-    // RouterOS takes our own role. The config states the neighbor's, so each becomes its opposite: a neighbor that is our provider makes us its customer.
+    /** RouterOS takes our own role, and the config states the neighbor's, so each becomes its opposite. A neighbor that is our provider makes us its customer. */
     private static readonly ROLES = {
         provider: "ebgp-customer",
         customer: "ebgp-provider",
@@ -28,12 +27,11 @@ export class RouterOsRouting {
         private readonly device: Device
     ) {}
 
-    /** Add the device's routing tables, rules, static routes, RPKI servers, BGP, OSPF, and BFD. */
     static render(render: RouterOsRender, device: Device): void {
         const routing = new RouterOsRouting(render, device);
 
-        routing.routingTables();
-        routing.routingRules();
+        routing.tables();
+        routing.rules();
         routing.staticRoutes();
         routing.rpki();
         if (device.routing?.bgp) {
@@ -51,7 +49,6 @@ export class RouterOsRouting {
         return rule.call === undefined && rule.communities === undefined;
     }
 
-    /** `V4` or `V6`, the suffix of a chain rendered for one family. */
     private static familySuffix(family: Family): string {
         return family === "ipv4" ? "V4" : "V6";
     }
@@ -130,14 +127,14 @@ export class RouterOsRouting {
     }
 
     /** A table beside the main one. `fib` puts its routes in the forwarding table, so traffic can be routed by them. */
-    private routingTables(): void {
-        for (const [name, table] of RouterOsRender.entries(this.device.routing?.tables)) {
+    private tables(): void {
+        for (const [name, table] of RouterOsSyntax.entries(this.device.routing?.tables)) {
             this.render.add("/routing table", "add fib", { comment: table.description, name });
         }
     }
 
     /** Rules in the order written. `lookup-only-in-table` drops what the table has no route for, and `lookup` falls back to the main table. */
-    private routingRules(): void {
+    private rules(): void {
         for (const rule of this.device.routing?.policy_routing ?? []) {
             const onlyInTable = rule.routing_table !== "main" && (rule.fallback ?? "none") === "none";
             this.render.add("/routing rule", "add", {
@@ -157,7 +154,7 @@ export class RouterOsRouting {
             const verb = route.blackhole ? "add blackhole" : "add";
             const nextHop = route.next_hop && Address.host(route.next_hop);
             const out = route.interface && this.render.name(route.interface);
-            // A next hop with its interface is written `fe80::1%ether1`, the form a link-local next hop needs. Experimental: not tested on a device yet.
+            // A next hop with its interface is written `fe80::1%ether1`, the form a link-local next hop needs (TRAPS.md).
             const gateway = nextHop && out ? `${nextHop}%${out}` : (nextHop ?? out);
             this.render.add(menu, verb, {
                 comment: route.description,
@@ -197,7 +194,7 @@ export class RouterOsRouting {
         return this.settingsOf(neighbor).address_families ?? [Address.family(neighbor.address)];
     }
 
-    /** Does a rule belong on a family's chain? A rule naming a prefix, a family, or a prefix set with none of that family belongs elsewhere. A set of both families belongs on both. */
+    /** Whether a rule belongs on a family's chain. A rule naming another family, or a prefix or prefix set of another family, does not. A set of both families belongs on both. */
     private appliesTo(rule: PolicyRule, family: Family): boolean {
         const match = RouterOsRouting.onRoutes(rule) ? rule.if : undefined;
         if (match?.family && match.family !== family) return false;
@@ -208,7 +205,7 @@ export class RouterOsRouting {
             const set = this.device.routing?.prefix_sets?.[match.prefix_set];
             if (!set) return false;
 
-            const prefixes = RouterOsRender.prefixesOf(this.device, match.prefix_set) ?? [];
+            const prefixes = RouterOsSyntax.prefixesOf(this.device, match.prefix_set) ?? [];
             const families = "source" in set ? [set.source.family] : prefixes.map((prefix) => Address.family(Address.host(prefix)));
             if (!families.includes(family)) return false;
         }
@@ -217,9 +214,7 @@ export class RouterOsRouting {
     }
 
     /**
-     * Policies become filter chains, one per family a session uses, plus every chain those call.
-     *
-     * A chain a session uses directly ends in a reject when its last rule does not decide, so a route nothing accepted is rejected on any platform default. A chain only called returns to its caller instead.
+     * Policies become filter chains, one per family a session uses, plus every chain those call. A chain a session uses ends in a reject when its last rule does not decide, whatever the platform's default. A chain only called returns to its caller instead.
      */
     private policies(): void {
         const bgp = this.device.routing!.bgp!;
@@ -295,19 +290,19 @@ export class RouterOsRouting {
                 afi: addressFamily === family ? undefined : family === "ipv6" ? "ipv6" : "ip",
                 as: bgp.asn,
                 connect: settings.passive ? "no" : undefined,
-                "hold-time": settings.hold_time ? RouterOsRender.duration(settings.hold_time) : undefined,
+                "hold-time": settings.hold_time ? RouterOsSyntax.duration(settings.hold_time) : undefined,
                 "input.filter": RouterOsRouting.chainName(settings.import_policy ?? RouterOsRouting.REJECT_ALL, family),
                 // The one instance bgpInstance adds. 7.23 refuses a new connection without it.
                 instance: "default",
                 [`input.limit-process-routes-${family}`]: settings.max_prefixes,
-                "keepalive-time": settings.keepalive ? RouterOsRender.duration(settings.keepalive) : undefined,
+                "keepalive-time": settings.keepalive ? RouterOsSyntax.duration(settings.keepalive) : undefined,
                 listen: settings.passive ? "yes" : undefined,
                 "local.address": settings.local_address && Address.host(settings.local_address),
                 "local.role": role,
                 multihop: settings.multihop ? "yes" : undefined,
                 name,
                 "output.filter-chain": RouterOsRouting.chainName(settings.export_policy ?? RouterOsRouting.REJECT_ALL, family),
-                "output.network": originates ? RouterOsRender.NETWORKS[family] : undefined,
+                "output.network": originates ? RouterOsSyntax.NETWORKS[family] : undefined,
                 "remote.address": `${neighbor.address}/${addressFamily === "ipv4" ? 32 : 128}`,
                 "remote.as": settings.remote_as,
                 "routing-table": Utils.otherTable(settings.routing_table),
@@ -352,7 +347,7 @@ export class RouterOsRouting {
     }
 
     /**
-     * BFD runs where a session or an OSPF interface asks for it, with the device's timers when it states them. One configuration covers every interface. A multihop session has no interface, and BFD for it is forbidden unless a configuration names its address, so each gets one of its own.
+     * BFD runs where a session or an OSPF interface asks for it, with the device's timers when it states them. One configuration covers every interface. A multihop session has no interface, and BFD for it is forbidden unless a configuration names its address, so each gets one of its own (TRAPS.md).
      */
     private bfd(): void {
         const routing = this.device.routing;

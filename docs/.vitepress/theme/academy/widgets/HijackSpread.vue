@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// Lesson: hijacks and leaks. The reader has AS64510 hijack or leak their address block, then publishes a ROA, turns on origin validation and registry filters network by network, and sees where each network's traffic ends up. Every network but yours has a documentation AS number, since any of them may be shown careless.
+// Lesson: hijacks and leaks. The reader has AS64510 hijack or leak their address block. Then they publish a ROA, and turn on origin validation and registry filters network by network. They see where each network's traffic ends up. Every network but yours has a documentation AS number, since any of them may be shown careless.
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
-import { type Delivery, type RoaChoice, RouteSpread, type Scenario } from "./HijackSpread";
+import { RouteSpread } from "./HijackSpread";
+import type { Delivery, RoaChoice, Scenario } from "./HijackSpread";
 
 type Place = { label: string; x: number; y: number };
 
@@ -203,7 +204,7 @@ const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
             <div class="ac-field">
                 <span>4. Registry filters</span>
                 <button type="button" class="ac-button small" :aria-pressed="registry" @click="((registry = !registry), changed())">
-                    Providers accept only what each customer registered
+                    Providers filter customers
                 </button>
             </div>
         </div>
@@ -290,7 +291,7 @@ const tagWidth = (fate: Fate) => FATE_WORDS[fate].length * 7.2 + 14;
             <ul v-if="refusals.length">
                 <li v-for="line in refusals" :key="line">{{ line }}</li>
             </ul>
-            <p v-else class="quiet">Nothing yet. Without a defense, a network drops only a loop, or your own space coming back.</p>
+            <p v-else class="quiet">None.</p>
         </div>
     </div>
 </template>

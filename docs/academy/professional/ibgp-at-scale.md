@@ -5,16 +5,7 @@ description: Run iBGP between loopbacks over OSPF, count the sessions a full mes
 
 # BGP inside a network
 
-Every router in your AS that must know the routes from outside runs iBGP with the others. The sessions run between loopback addresses, and OSPF carries the way to those loopbacks. So a session survives the loss of any one link.
-
-A router never passes a route it learned over iBGP on to another iBGP neighbor. So every router needs a session with every other, a **full mesh**, or **route reflectors** that pass routes on for the rest.
-
-Four more things keep iBGP working at scale:
-
-- A next hop that every router can reach.
-- Equal paths, shared with ECMP.
-- Failures noticed in under a second, with BFD.
-- The same <Term means="Maximum transmission unit: the largest single piece of data a link carries, in bytes. On ordinary Ethernet it is 1,500 bytes.">MTU</Term> at both ends of every link.
+Every router in your AS that must know the routes from outside runs iBGP with the others.
 
 ## Why iBGP needs a full mesh
 
@@ -30,7 +21,7 @@ After you add routers, fail a reflector with one reflector, and again with two.
 
 </TryIt>
 
-The count is only half of it. At 50 routers, a full mesh has 1,225 sessions, and one new router changes 50 device files at once.
+At 50 routers, a full mesh has 1,225 sessions, and one new router changes 50 device files at once.
 
 <Quiz
   question="An AS has 20 routers that run BGP, in a full mesh. How many iBGP sessions is that?"
@@ -59,7 +50,7 @@ A single reflector is a single point of failure: when it fails, its clients hear
 A reflector also changes what its clients see. It picks its own best route to each prefix and reflects only that one. So a client chooses its way out from the reflector's point of view, not its own. A client far from the reflector may then leave the network through an exit near the reflector but far from itself. The usual answer is to place reflectors so they see what their clients see. Put a pair in each point of presence for the routers there, with every reflector in a full mesh with the others.
 
 ::: warning Circuit has no route reflector setting
-Circuit can't make a router a route reflector, mark a client, or set a cluster ID. A network written in Circuit today runs iBGP as a full mesh. That is fine for a handful of routers.
+Circuit can't make a router a route reflector, mark a client, or set a cluster ID. A network written in Circuit runs iBGP as a full mesh. That is fine for a handful of routers.
 :::
 
 <Quiz
@@ -165,7 +156,7 @@ In Circuit, `bfd: true` on an OSPF interface or a BGP neighbor turns BFD on. `ro
 
 ## The same MTU at both ends
 
-The MTU of a link must be the same at both ends. When it isn't, the trouble hides until there is a lot to send:
+The <Term means="Maximum transmission unit: the largest single piece of data a link carries, in bytes. On ordinary Ethernet it is 1,500 bytes.">MTU</Term> of a link must be the same at both ends. When it isn't, the trouble hides until there is a lot to send:
 
 - **OSPF** neighbors describe their maps to each other in large packets. The standard has a router reject one whose MTU is larger than its own interface takes. The neighbors see each other's hellos, and then stop short of exchanging their maps.
 - **BGP** sessions come up, because the first messages are small. Then they fail when the routers start sending each other the full table in large packets. The small keepalive messages get through, but the large updates don't. Nothing useful arrives, and the session is torn down when the hold time runs out. It comes up again, and fails the same way.
@@ -187,11 +178,3 @@ Raise the MTU on the links between your own routers to about 9,000 bytes, a <Ter
 - [RFC 5882](https://www.rfc-editor.org/rfc/rfc5882.html), sections 4.4 and 10.2: BFD with OSPF and eBGP, rather than with iBGP.
 - [RFC 2328](https://www.rfc-editor.org/rfc/rfc2328.html), OSPF version 2: section 10.6 on the MTU check, and appendix C on hello and dead intervals.
 - [BGP flapping: why a peer keeps resetting](https://www.netdata.cloud/guides/network/network-bgp-flapping/), a guide on sessions that come up and then fail when large updates are dropped.
-
-## In short
-
-- A router doesn't pass routes learned over iBGP on to other iBGP neighbors. So every router needs a full mesh of n(n-1)/2 sessions, or route reflectors that pass routes on for their clients.
-- Reflectors come in pairs and reflect only their best route, so place them near their clients. Circuit has no route reflector setting yet, so write a full mesh.
-- Run iBGP between loopbacks with `local_address`, and let OSPF carry the loopbacks, so no single link takes a session down.
-- Make the next hop reachable. Carry the outside links in OSPF, or use next-hop-self, which Circuit doesn't have.
-- Put BFD on the OSPF links and eBGP sessions, share equal paths with equal OSPF costs, and keep the MTU the same at both ends of every link.

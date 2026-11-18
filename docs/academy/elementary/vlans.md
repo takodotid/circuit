@@ -7,15 +7,13 @@ description: Split one switch into separate networks with VLANs. Put ports in VL
 
 A VLAN is a separate network inside one switch. You put each port of the switch in a VLAN. The switch passes frames only between ports in the same VLAN, as if each VLAN were a switch of its own.
 
-Devices in different VLANs cannot reach each other through the switch at all. To cross from one VLAN to another, traffic has to go through a router.
-
 ## One switch, several networks
 
 Think of an office with one switch. Staff laptops, a printer, a Wi-Fi access point for guests, and some security cameras all plug into it. Without VLANs, they are all one local network: a guest's phone can find the printer, and the cameras can be reached from any laptop. Every broadcast from every device reaches every other device.
 
 You could buy a switch for each group, but VLANs do the same with one. A <Term means="Virtual LAN: a separate local network on the same switches, with a number from 1 to 4094. A device in one VLAN reaches another VLAN only through a router.">VLAN</Term> has a number from 1 to 4094, called its ID, and people usually give it a name too, such as "guests". The [Trunks](/academy/elementary/trunks) lesson shows where that number comes from.
 
-The simplest way to use a VLAN is an <Term means="A switch port in exactly one VLAN. The device on it sends and receives untagged frames, and does not know the VLAN exists.">access port</Term>: a port that is in one VLAN. The device plugged into it does not know VLANs exist. It sends and receives ordinary frames, exactly as before. Only the switch knows which VLAN each port is in, and it keeps a separate address table for each VLAN.
+The simplest way to use a VLAN is an <Term means="A switch port in exactly one VLAN. The device on it sends and receives untagged frames, and does not know the VLAN exists.">access port</Term>: a port that is in one VLAN. The device plugged into it sends and receives ordinary frames, and does not know VLANs exist. Only the switch knows which VLAN each port is in, and it keeps a separate address table for each VLAN.
 
 <TryIt title="Split a switch into VLANs">
 
@@ -35,7 +33,7 @@ A broadcast stays inside its VLAN. That is a second reason to use VLANs: a big n
 
 ## Writing VLANs in Circuit
 
-Look at the file the widget wrote. Two fields do all the work:
+Two fields in the widget's file do all the work:
 
 - `switching.vlans` lists the VLANs the switch has. Each one is written under its name, with its `id` and a `description` for people.
 - `access_vlan` on each port says which VLAN that port is in. You write the VLAN's name, not its number: `access_vlan: "guests"`, never `30`.
@@ -58,7 +56,7 @@ interface 10GE1/0/5
 
 ## Choosing your VLANs
 
-Split by who needs to reach what, not by where people sit. A small site usually needs only a few VLANs. Circuit's [single-site example](/guide/examples#a-single-site), which the last lesson of this level builds, uses three:
+Split by who needs to reach what, not by where people sit. A small site usually needs only a few VLANs. Circuit's [single-site example](/guide/examples#a-single-site) uses three:
 
 | VLAN     | ID  | For                                                                |
 | -------- | --- | ------------------------------------------------------------------ |
@@ -70,7 +68,7 @@ A VLAN for cameras, or for phones, is common too. The IDs are your choice. An ID
 
 ## Crossing from one VLAN to another
 
-Each VLAN is usually its own IP network, too: here, VLAN 20 uses `192.168.20.0/24` and VLAN 40 uses `192.168.40.0/24`. You know from [Routers and the gateway](/academy/beginner/routers) what a device does with an address that is not on its own network: it sends the packet to its gateway, a router. So to join two VLANs, you need a router with an address in each one, and that address is the gateway of the VLAN.
+Each VLAN is usually its own IP network, too: here, VLAN 20 uses `192.168.20.0/24` and VLAN 40 uses `192.168.40.0/24`. As in [Routers and the gateway](/academy/beginner/routers), a device sends a packet for another network to its gateway: a router. So to join two VLANs, you need a router with an address in each one, and that address is the gateway of the VLAN.
 
 <TryIt title="Join two VLANs with a router">
 
@@ -108,12 +106,4 @@ interfaces: {
 },
 ```
 
-This works, but it takes one cable and one router port for every VLAN. With ten VLANs, that is ten cables. The next lesson puts them all on one cable.
-
-## In short
-
-- A VLAN is a separate network inside a switch, with an ID from 1 to 4094 and usually a name.
-- An access port is in one VLAN, and the device on it does not know VLANs exist.
-- A broadcast stays inside its VLAN, and the switch never passes a frame from one VLAN to another.
-- To cross between VLANs you need a router with an address in each, which is the gateway of that VLAN.
-- In Circuit, `vlans` lists each VLAN by name, and `access_vlan` says which one a port is in.
+This works, but it takes one cable and one router port for every VLAN. The next lesson puts them all on one cable.

@@ -1,4 +1,4 @@
-// Every RouterOS device of Circuit 0.x's examples, templates and use cases, in the v1 model, renders what 0.x rendered and is refused for what 0.x refused.
+// Every RouterOS device of Circuit 0.x's examples, templates, and use cases, in the v1 model, renders what 0.x rendered and is refused for what 0.x refused.
 
 import { describe, expect, test } from "bun:test";
 import type { Device } from "../../src/model";
@@ -9,7 +9,7 @@ const platform = Platforms.get("routeros");
 const options = { secrets: false, rollback: 10 };
 
 /**
- * Fixtures whose render differs from 0.x's only in order, inside menus the plan treats as unordered. v1 groups interfaces by kind, and the loopback comes after the VLAN interfaces, so its addresses move down `/ip address` and `/ipv6 address`, which are keyed by address.
+ * Fixtures whose render differs from 0.x's only in order, inside menus the plan treats as unordered. v1 groups interfaces by kind, so the loopback's addresses move down `/ip address` and `/ipv6 address`.
  */
 const ORDER_ONLY: Record<string, string> = {
     "platforms--example-router": "the loopback's address comes after every VLAN interface's in /ip address",
@@ -22,19 +22,18 @@ const ORDER_ONLY: Record<string, string> = {
 };
 
 /**
- * v1 sends router advertisements only on the interfaces that set `ipv6_ra`: it turns the platform's default entry off and gives each such interface its own. 0.x left the default entry, which sends them on every interface. That menu is left out of the comparison.
+ * v1 turns the platform's default router advertisement entry off, and gives each interface that sets `ipv6_ra` its own. 0.x left the default entry, which sends them on every interface. That menu is left out of the comparison.
  */
 function withoutRouterAdvertisements(text: string): string {
     const lines = text.split("\n");
     const start = lines.indexOf("/ipv6 nd");
-    if (start < 0) return text;
+    if (start === -1) return text;
 
     let end = start + 1;
     while (end < lines.length && !(lines[end] ?? "").startsWith("/")) end++;
     return [...lines.slice(0, start), ...lines.slice(end)].join("\n");
 }
 
-/** Whether any port or interface of the device sends router advertisements. */
 function advertises(device: Device): boolean {
     return Object.values(device.interfaces ?? {}).some((group) =>
         Object.values(group ?? {}).some((settings) => typeof settings === "object" && settings !== null && "ipv6_ra" in settings)
@@ -57,7 +56,6 @@ const PATHS: [RegExp, string][] = [
     [/^routing\.bgp\.neighbors\.([^.]+)\.families/, "routing.bgp.neighbors.$1.address_families"],
 ];
 
-/** A 0.x unsupported message with its path written as v1's. */
 function toV1(message: string, device: Device): string {
     for (const [old, now] of PATHS) {
         const match = old.exec(message);

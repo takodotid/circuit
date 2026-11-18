@@ -119,7 +119,7 @@ const lit = (id: Job) => chosen.value === id;
         <p v-if="job" class="ac-say" aria-live="polite">
             <strong>{{ job.name }}.</strong> {{ view === "home" ? job.home : job.office }}
         </p>
-        <p v-else class="ac-say hint" aria-live="polite">Pick a job to see which part of the box does it. Then switch to the office.</p>
+        <p v-else class="ac-say hint" aria-live="polite">Pick a job, then switch to the office.</p>
     </div>
 </template>
 

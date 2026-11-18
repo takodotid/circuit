@@ -1,16 +1,16 @@
-// Packet filtering as policies through the device and local-in policies to it, who reaches the device's own services, NAT as central source NAT and virtual IPs, and stateless ACLs on ports.
+// Filtering becomes policies through the device and local-in policies to it. NAT becomes central source NAT and virtual IPs, and a port's ACL a stateless ACL.
 
 import { Address } from "../../core/address";
 import type { AclRule, Device, Family, FilterMatch, FilterRule, NatRule, Ports, Prefix, Protocol, Service } from "../../model";
 import { Derive } from "../../core/derive";
 import { FortiOsNames } from "./names";
 
-import { FortiOsBlock, FortiOsTree } from "./tree";
+import { FortiOsNode, FortiOsTree } from "./tree";
 
 /** The address objects, groups and services rules name, each created once. */
 class Objects {
     constructor(
-        private readonly root: FortiOsBlock,
+        private readonly root: FortiOsNode,
         private readonly device: Device
     ) {}
 
@@ -81,15 +81,15 @@ export class FortiOsFirewall {
         native: { protocol: "tcp", port: 541 },
     } as const;
 
+    /** Every protocol, as a service of Circuit's own, for a device in transparent mode. */
+    static readonly ALL_IN_TRANSPARENT = "circuit-all";
+
     /** A service's settings in the config: SNMP is in `monitoring`, the native protocol is `management.native_protocol`. */
     private static serviceSettings(device: Device, service: keyof typeof FortiOsFirewall.SERVICES): Service | undefined {
         if (service === "snmp") return device.monitoring?.snmp;
         if (service === "native") return device.management?.native_protocol;
         return device.management?.[service];
     }
-
-    /** Every protocol, as a service of Circuit's own, for a device in transparent mode. */
-    static readonly ALL_IN_TRANSPARENT = "circuit-all";
 
     /** NAT rules of both directions, which central NAT needs turned on. */
     static natRules(device: Device): NatRule[] {
@@ -127,7 +127,7 @@ export class FortiOsFirewall {
     }
 
     /** The service a rule matches, by name, with what it holds. `ALL` when the rule names no protocol and no port; ports without a protocol are TCP's and UDP's. */
-    static serviceOf(match: FilterMatch | undefined, family: Family): { name: string; block?: FortiOsBlock } {
+    static serviceOf(match: FilterMatch | undefined, family: Family): { name: string; block?: FortiOsNode } {
         const protocol = match?.protocol;
         const destinations = FortiOsFirewall.portList(match?.dst_port);
         const sources = FortiOsFirewall.portList(match?.src_port);
@@ -141,18 +141,18 @@ export class FortiOsFirewall {
 
             const protocols = protocol ? [protocol] : (["tcp", "udp"] as const);
             const name = `${protocols.join("+")}/${destinations.join(",") || "any"}${sources.length ? ` from ${sources.join(",")}` : ""}`;
-            const block = new FortiOsBlock();
+            const block = new FortiOsNode();
             for (const each of protocols) block.set(`${each}-portrange`, ranges.join(" "));
             return { name, block };
         }
 
         if (protocol === "icmp") {
             const kind = family === "ipv4" ? "ICMP" : "ICMP6";
-            return { name: kind.toLowerCase(), block: new FortiOsBlock().set("protocol", kind).set("icmptype", FortiOsTree.UNSET) };
+            return { name: kind.toLowerCase(), block: new FortiOsNode().set("protocol", kind).set("icmptype", FortiOsTree.UNSET) };
         }
 
         const number = FortiOsFirewall.PROTOCOL_NUMBER[protocol];
-        return { name: `protocol/${number}`, block: new FortiOsBlock().set("protocol", "IP").set("protocol-number", number) };
+        return { name: `protocol/${number}`, block: new FortiOsNode().set("protocol", "IP").set("protocol-number", number) };
     }
 
     /** A rule the platform keeps without being told: replies to a session it let through, and packets that belong to one, pass on their own. */
@@ -167,7 +167,7 @@ export class FortiOsFirewall {
     }
 
     /** Who reaches the device's own services, alone: for a management VDOM, which routes no traffic of its own. */
-    static managementOnly(root: FortiOsBlock, device: Device): void {
+    static managementOnly(root: FortiOsNode, device: Device): void {
         const localIns = { ipv4: 0, ipv6: 0 };
         const localInEntry = (family: Family) =>
             root.block(family === "ipv4" ? "firewall local-in-policy" : "firewall local-in-policy6").entry(++localIns[family]);
@@ -175,8 +175,7 @@ export class FortiOsFirewall {
         FortiOsFirewall.management(localInEntry, new Objects(root, device), device);
     }
 
-    /** Packet filtering, who reaches the device, NAT and stateless ACLs. */
-    static render(root: FortiOsBlock, device: Device): void {
+    static render(root: FortiOsNode, device: Device): void {
         const fw = device.firewall;
         const objects = new Objects(root, device);
 
@@ -235,7 +234,7 @@ export class FortiOsFirewall {
     /**
      * Who reaches the device's own services: each service with sources to allow accepts them and refuses everyone else, ahead of the input chain. Services sharing their sources share the policies, named after `management.allow` or the service.
      */
-    private static management(entry: (family: Family) => FortiOsBlock, objects: Objects, device: Device): void {
+    private static management(entry: (family: Family) => FortiOsNode, objects: Objects, device: Device): void {
         type Services = typeof FortiOsFirewall.SERVICES;
 
         const guards = new Map<string, { sources: readonly string[]; services: string[] }>();
@@ -278,13 +277,12 @@ export class FortiOsFirewall {
         }
     }
 
-    /** The interface a rule names on one side, or `any`, quoted. */
     private static interfaceOf(device: Device, name: string | undefined): string {
-        return FortiOsTree.quote(name ? FortiOsNames.nameOf(device, name) : "any");
+        return FortiOsTree.quote(name ? FortiOsNames.of(device, name) : "any");
     }
 
-    /** A policy for traffic through the device. A rejection answers the sender; the platform's deny is silent otherwise. */
-    private static policy(entry: FortiOsBlock, objects: Objects, device: Device, rule: FilterRule, family: Family): void {
+    /** A rejection answers the sender, and the platform's deny is silent otherwise. */
+    private static policy(entry: FortiOsNode, objects: Objects, device: Device, rule: FilterRule, family: Family): void {
         const match = rule.if;
 
         entry.set("srcintf", FortiOsFirewall.interfaceOf(device, FortiOsNames.single(match?.in_interface)));
@@ -302,8 +300,7 @@ export class FortiOsFirewall {
         if (rule.then === "reject") entry.set("send-deny-packet", "enable");
     }
 
-    /** A local-in policy, for traffic to the device itself. */
-    private static localIn(entry: FortiOsBlock, objects: Objects, device: Device, rule: FilterRule, family: Family): void {
+    private static localIn(entry: FortiOsNode, objects: Objects, device: Device, rule: FilterRule, family: Family): void {
         const match = rule.if;
 
         entry.set("intf", FortiOsFirewall.interfaceOf(device, FortiOsNames.single(match?.in_interface)));
@@ -316,7 +313,7 @@ export class FortiOsFirewall {
     }
 
     /** Source NAT: to the outgoing interface's address, or to a pool of one address. */
-    private static sourceNat(entry: FortiOsBlock, objects: Objects, device: Device, rule: NatRule): void {
+    private static sourceNat(entry: FortiOsNode, objects: Objects, device: Device, rule: NatRule): void {
         const match = rule.if;
 
         entry.set("orig-addr", FortiOsTree.quote(objects.address(FortiOsNames.single(match?.src), match?.src_address_set, "ipv4")));
@@ -340,7 +337,7 @@ export class FortiOsFirewall {
     }
 
     /** Destination NAT, as a virtual IP: the address it answers on, and the port it forwards when the rule names one. */
-    private static destinationNat(entry: FortiOsBlock, device: Device, rule: NatRule): void {
+    private static destinationNat(entry: FortiOsNode, device: Device, rule: NatRule): void {
         if (rule.then !== "dnat") return;
 
         const match = rule.if;
@@ -367,7 +364,7 @@ export class FortiOsFirewall {
     /**
      * A port's ACL as the platform's stateless ACLs, which only drop: each rule that drops becomes one, of each family it applies to. What no rule drops passes, so the rules that accept after the last drop are already there; `unsupported()` refuses one before a drop.
      */
-    private static acls(root: FortiOsBlock, objects: Objects, device: Device): void {
+    private static acls(root: FortiOsNode, objects: Objects, device: Device): void {
         const counters = { ipv4: 0, ipv6: 0 };
 
         for (const [port, settings] of Derive.ports(device)) {
@@ -381,7 +378,7 @@ export class FortiOsFirewall {
                 for (const family of FortiOsFirewall.familiesOf(device, match)) {
                     const entry = root.block(family === "ipv4" ? "firewall acl" : "firewall acl6").entry(++counters[family]);
                     if (rule.description) entry.set("comments", FortiOsTree.quote(rule.description));
-                    entry.set("interface", FortiOsTree.quote(FortiOsNames.nameOf(device, port)));
+                    entry.set("interface", FortiOsTree.quote(FortiOsNames.of(device, port)));
                     entry.set("srcaddr", FortiOsTree.quote(objects.address(FortiOsNames.single(match.src), undefined, family)));
                     entry.set("dstaddr", FortiOsTree.quote(objects.address(FortiOsNames.single(match.dst), undefined, family)));
                     entry.set("service", FortiOsTree.quote(objects.service(match, family)));

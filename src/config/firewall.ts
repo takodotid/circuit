@@ -1,5 +1,3 @@
-// Which packets pass and how they are rewritten: `firewall.address_sets`, `.interface_sets`, `.filter`, `.nat`, `.untracked`, `.conntrack_helpers`.
-
 import type { Family, HostAddress, IP, Named, OneOrMore, Ordered, Prefix } from "./common";
 
 /** An IP protocol. `icmp` means ICMPv6 in an IPv6 rule. */
@@ -25,7 +23,7 @@ export type TcpFlag = "fin" | "syn" | "rst" | "psh" | "ack" | "urg";
 /**
  * Conditions on a packet. All must be true. A rule with addresses of one family applies to that family only. `I` is the device's ports and interfaces, `AS` its address sets, `IS` its interface sets.
  *
- * `src`, `dst`, `in_interface` and `out_interface` each take a list, and an interface set stands for its interfaces. If the platform has no lists, Circuit writes one rule for each combination, in this order: interfaces first (`in` before `out`), then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so Circuit leaves that combination out. If no combination is left, the rule is an error.
+ * `src`, `dst`, `in_interface`, and `out_interface` each take a list, and an interface set stands for its interfaces. If the platform has no lists, Circuit writes one rule for each combination, in this order: interfaces first (`in` before `out`), then `src`, then `dst`. A `src` and a `dst` of different families match no packet, so Circuit leaves that combination out. If no combination is left, the rule is an error.
  */
 export type FilterMatch<I extends string, AS extends string, IS extends string> = {
     /** Only packets of this family. */

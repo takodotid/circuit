@@ -1,4 +1,4 @@
-// The user's file and line on the stack, as each operating system prints it: Windows always in brackets, Linux and macOS without them for code outside any function, such as a device file's own lines.
+// The user's file and line on the stack, as each operating system prints it. Only Linux and macOS leave out the brackets, and only for code outside any function, such as a device file's own lines.
 
 import { expect, test } from "bun:test";
 import { cpSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -66,7 +66,7 @@ test("a member that writes a switch's own port is said once, at the switch's fil
     try {
         const error = await Project.read(folder).then(
             () => undefined,
-            (thrown: unknown) => thrown
+            (error_: unknown) => error_
         );
 
         expect(error).toBeInstanceOf(ProjectError);

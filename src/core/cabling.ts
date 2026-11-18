@@ -1,4 +1,4 @@
-// The cabling as LLDP sees it, compared with what `link` says. `diff` and `apply` read a device's LLDP neighbors while they are connected, and warn where they disagree.
+// `diff` and `apply` read each device's LLDP neighbors while connected, and warn where they disagree with `link`.
 
 import { Catalog } from "./catalog";
 import type { Device, Finding } from "../model";
@@ -29,9 +29,9 @@ export class Cabling {
     }
 
     /**
-     * Warnings where LLDP and `link` disagree, from each device's own view: a cable in another port than `link` names, a cable `link` names that LLDP does not see, and another of our devices on a port without `link`.
+     * Where LLDP and `link` disagree: a cable in another port, a cable LLDP does not see, or another of our devices on a port without `link`.
      *
-     * Only ports where both ends run LLDP, by the config, are compared, and only on devices whose neighbors were read. A link `through` a carrier is not compared. LLDP can be off at the far end, so each is a warning.
+     * Only ports where both ends run LLDP, by the config, are compared, on devices whose neighbors were read. LLDP can be off at the far end, so each is a warning.
      */
     static compare(devices: readonly Device[], neighbors: ReadonlyMap<string, readonly Neighbor[]>): Finding[] {
         const findings: Finding[] = [];
@@ -51,13 +51,8 @@ export class Cabling {
                 const link = device.interfaces?.ethernet?.[port]?.link;
 
                 if (!link) {
-                    for (const neighbor of here) {
-                        const far = Cabling.deviceOf(devices, neighbor.system);
-                        if (!far) continue;
-
-                        const farPort = Cabling.portOf(far, neighbor.remote_port);
-                        if (Cabling.runsOn(far, farPort)) warn(`port ${port}: LLDP sees ${far.name} ${farPort}, but the port has no link`);
-                    }
+                    for (const far of Cabling.ours(devices, here))
+                        warn(`port ${port}: LLDP sees ${far.name} ${far.port}, but the port has no link`);
                     continue;
                 }
 
@@ -83,6 +78,17 @@ export class Cabling {
         }
 
         return findings;
+    }
+
+    /** Our devices among the neighbors, each with its port by Circuit's name, where that port runs LLDP. */
+    private static ours(devices: readonly Device[], neighbors: readonly Neighbor[]): { name: string; port: string }[] {
+        return neighbors.flatMap((neighbor) => {
+            const far = Cabling.deviceOf(devices, neighbor.system);
+            if (!far) return [];
+
+            const port = Cabling.portOf(far, neighbor.remote_port);
+            return Cabling.runsOn(far, port) ? [{ name: far.name, port }] : [];
+        });
     }
 
     /** A system name is the device's name, alone or with a domain after it. */

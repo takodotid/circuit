@@ -3,12 +3,16 @@
 import { computed } from "vue";
 import type { StudioData } from "../../../types";
 import { Format } from "../lib/format";
-import DataTable, { type Row } from "./DataTable.vue";
+import DataTable from "./DataTable.vue";
+import type { Row } from "./DataTable.vue";
 
 const props = defineProps<{ data: StudioData; query: string }>();
 
 /** Past this many matches the search stops, so a short word does not fill the page. */
 const MOST = 200;
+/** A value longer than this is cut, and a config shows this many of its matching lines. */
+const LONGEST = 120;
+const CONFIG_LINES = 3;
 
 /** The tab of a device's page that shows a field, by where the field is. */
 function sectionOf(path: readonly string[]): string {
@@ -28,7 +32,7 @@ const found = computed<Row[]>(() => {
             cells: [
                 { device },
                 { link: { name: "device", params: { name: device, section: sectionOf(path) } }, label: path.join(" › ") },
-                text.length > 120 ? `${text.slice(0, 120)}…` : text,
+                text.length > LONGEST ? `${text.slice(0, LONGEST)}…` : text,
             ],
         });
     };
@@ -62,9 +66,9 @@ const found = computed<Row[]>(() => {
                     label: `config, ${Format.count(lines.length, "line")}`,
                 },
                 lines
-                    .slice(0, 3)
+                    .slice(0, CONFIG_LINES)
                     .map((line) => line.trim())
-                    .join(" · ") + (lines.length > 3 ? " …" : ""),
+                    .join(" · ") + (lines.length > CONFIG_LINES ? " …" : ""),
             ],
         });
     }

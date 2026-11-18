@@ -1,4 +1,4 @@
-// The devices of Circuit 0.x's examples, written as a v1 project (one network per example, one file per device, each `<network>.device({...})`): the editor's types take every one, Circuit reads the project, and each device comes out of it in the model exactly as written.
+// The devices of Circuit 0.x's examples, written as a v1 project, one file per device.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -6,7 +6,8 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EditorTypes } from "../../src/cli/editor-types";
-import { type ProjectRead, Project } from "../../src/project";
+import { Project } from "../../src/project";
+import type { ProjectRead } from "../../src/project";
 import { Fixtures } from "../fixtures";
 
 const folder = mkdtempSync(join(tmpdir(), "circuit-examples-"));

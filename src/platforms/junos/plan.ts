@@ -1,5 +1,3 @@
-// What it takes to make a Junos device run exactly what was rendered.
-
 import type { ApplyOptions, Plan, Step } from "../platform";
 import { JunosBgp } from "./bgp";
 
@@ -57,13 +55,7 @@ export class JunosPlan {
         "vrrp-group",
     ]);
 
-    /**
-     * What changes, by section.
-     *
-     * A statement the render holds and the device does not is set. One the device holds and the render does not is deleted at the shortest path that holds nothing the render wants, so a removed port goes as a whole and a changed value goes alone. A hidden value ends a path by its name alone; a hidden name in a list, such as a community, stays `<redacted>` and the session names each entry when it sends the plan. A statement the device holds deactivated is activated when the render wants it.
-     *
-     * A policy, a filter or an import or export chain is ordered, so when anything in one changes it is deleted and set again whole, in the render's order. A path the render marks as generated, such as a prefix list `refresh` fills, keeps what the device holds.
-     */
+    /** A statement only the render holds is set. One only the device holds is deleted at the shortest path that holds nothing the render wants, so a removed port goes whole and a changed value goes alone. */
     static of(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
         const lines = (text: string, verb: string) => text.split("\n").filter((line) => line.startsWith(`${verb} `));
 
@@ -75,6 +67,8 @@ export class JunosPlan {
             .map((line) => JunosPlan.wordsOf(line.slice(JunosBgp.GENERATED.length)).map(JunosPlan.bare));
 
         const printed = lines(current, "set").filter((line) => !JunosPlan.DEVICE_FACTS.some((fact) => fact.test(line)));
+
+        // A path the render marks as generated, such as a prefix list `refresh` fills, keeps what the device holds.
         const isGenerated = (line: string) =>
             generated.some((path) => JunosPlan.keyOf(line).length > path.length && JunosPlan.startsWith(JunosPlan.keyOf(line), path));
         const existing = printed.filter((line) => !isGenerated(line));
@@ -96,7 +90,7 @@ export class JunosPlan {
         // Sections in the order the render lists them, then the ones only the device has.
         for (const path of wantedPaths) sectionFor(path);
 
-        // Ordered blocks the render holds whose items or order differ from the device's are rewritten whole.
+        // An ordered block whose items or order differ from the device's is deleted and set again whole, in the render's order.
         const rewritten: string[][] = [];
         const blocks = new Map<string, string[]>();
         for (const path of wantedPaths) {
@@ -149,8 +143,9 @@ export class JunosPlan {
             while (wantedUnder(path.slice(0, length)).length) length++;
             while (length < path.length && !JunosPlan.canStopAt(path, length - 1)) length++;
 
+            // A hidden value ends a path by its name alone. A hidden name in a list, such as a community, stays `<redacted>` for the session to name each entry.
             const hidden = path.indexOf("<secret>");
-            if (hidden >= 0 && hidden < length && !JunosPlan.NAMED_LISTS.has(path[hidden - 1]!)) length = hidden;
+            if (hidden !== -1 && hidden < length && !JunosPlan.NAMED_LISTS.has(path[hidden - 1]!)) length = hidden;
 
             removed.push(JunosPlan.wordsOf(line).slice(1, 1 + length));
         }
@@ -209,7 +204,7 @@ export class JunosPlan {
         return { steps, problems: [] };
     }
 
-    /** A statement's words; a quoted value is one word with its quotes. */
+    /** A quoted value is one word, with its quotes. */
     static wordsOf(statement: string): string[] {
         return statement.match(/"(?:[^"\\]|\\.)*"|\S+/g) ?? [];
     }
@@ -239,9 +234,7 @@ export class JunosPlan {
         return path.slice(0, 2).join(" ");
     }
 
-    /**
-     * The ordered block a statement sits in, and its item there: a policy's or a filter's term, or one policy of an import or export chain. The device keeps their order, and `set` adds at the end.
-     */
+    /** The ordered block a statement sits in, and its item there: a policy's or a filter's term, or one policy of an import or export chain. The device keeps their order, and `set` adds at the end. */
     private static orderedBlockOf(path: string[]): { block: string[]; item: string } | undefined {
         if (path[0] === "policy-options" && path[1] === "policy-statement" && path[3] === "term") {
             return { block: path.slice(0, 3), item: path[4]! };
@@ -259,7 +252,6 @@ export class JunosPlan {
         return undefined;
     }
 
-    /** Whether a path starts with another. */
     private static startsWith(path: string[], prefix: string[]): boolean {
         return prefix.every((word, index) => path[index] === word);
     }

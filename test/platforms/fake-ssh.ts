@@ -1,4 +1,4 @@
-// A fake device over SSH, for tests of a platform's read and apply. It takes one password, for one user or for each of a list, such as a user with and without RouterOS's flags. Each exec command, and each line typed into its shell, is answered with what `answer` returns, and kept in `commands`. The shell starts with `banner` and ends each answer with `prompt`.
+// A fake device over SSH. It takes one password, for one user or each of a list, such as a user with and without RouterOS's flags. `answer` answers each exec command and each line typed into the shell, and `commands` keeps them.
 
 import { generateKeyPairSync } from "node:crypto";
 import type { AddressInfo } from "node:net";
@@ -108,7 +108,7 @@ export class FakeSshDevice {
         return this.answer(command);
     }
 
-    /** Start listening on a free port on 127.0.0.1, and give the port. */
+    /** Listen on a free port on 127.0.0.1, and give the port. */
     listen(): Promise<number> {
         return new Promise((done) => this.server.listen(0, "127.0.0.1", () => done((this.server.address() as AddressInfo).port)));
     }

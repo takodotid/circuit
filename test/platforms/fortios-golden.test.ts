@@ -1,4 +1,4 @@
-// Every FortiOS device of Circuit 0.x's examples, templates and use cases, in the v1 model, renders what 0.x rendered, byte for byte, and is refused for what 0.x refused, each path written as v1 names it.
+// The FortiOS devices of Circuit 0.x's examples, templates, and use cases, written in the v1 model.
 
 import { describe, expect, test } from "bun:test";
 import { FortiOs } from "../../src/platforms/fortios";
@@ -33,7 +33,6 @@ const PATHS: Record<string, string> = {
     "firewall.helpers": "firewall.conntrack_helpers",
 };
 
-/** A 0.x path as v1 writes it. */
 function v1Path(old: string): string {
     const start = Object.keys(PATHS)
         .filter((key) => old.startsWith(key))
@@ -41,7 +40,7 @@ function v1Path(old: string): string {
     return start ? PATHS[start] + old.slice(start.length) : old;
 }
 
-/** Fixtures whose render differs from 0.x's only in the order of a section the platform treats as unordered, each with the reason. None so far. */
+/** Fixtures whose render differs from 0.x's only in the order of a section the platform treats as unordered, each with the reason. */
 const REORDERED: Record<string, string> = {};
 
 describe("0.x's FortiOS devices", () => {

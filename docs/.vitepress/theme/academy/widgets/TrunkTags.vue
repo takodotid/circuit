@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Lesson: trunks. The reader chooses the VLANs each end of a trunk carries, sends frames between two switches, and watches the tag appear on the trunk and go again, with each end's Circuit port and what `circuit validate` says.
+// Lesson: trunks. The reader chooses the VLANs each end of a trunk carries, and sends frames between two switches. The tag appears on the trunk and goes again, with each end's Circuit port and what `circuit validate` says.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 type SwitchId = "switch-a" | "switch-b";
 
@@ -135,7 +136,7 @@ async function send() {
     } else if (!carried.value[source.on].includes(vlan.id)) {
         said.value = {
             kind: "bad",
-            text: `${source.on} does not carry VLAN ${vlan.id} on its trunk port, so it has no way to send the frame on. It stays on ${source.on}.`,
+            text: `${source.on} does not carry VLAN ${vlan.id} on its trunk port, so the frame stays on ${source.on}.`,
         };
     } else {
         tag.value = `tagged: VLAN ${vlan.id}`;

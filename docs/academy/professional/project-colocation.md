@@ -5,14 +5,9 @@ description: Host tenants on Circuit's colocation example. Read how one small fi
 
 # Project: a colocation
 
-In this project you run the network of a <Term means="Renting space, power, and cooling in someone else's data center for your own servers and network equipment.">colocation</Term> business. Customers, the <Term means="A customer that gets its own networks inside yours, such as a colocation customer with its own servers in your racks.">tenants</Term>, put their servers in your racks. You give each of them its own network:
+In this project you run the network of a <Term means="Renting space, power, and cooling in someone else's data center for your own servers and network equipment.">colocation</Term> business. Customers, the <Term means="A customer that gets its own networks inside yours, such as a colocation customer with its own servers in your racks.">tenants</Term>, put their servers in your racks, and you give each one its own network.
 
-- A VLAN for its public addresses.
-- A block of those addresses, with your router as its gateway.
-- Ports on your switch.
-- If it wants one, a private network between its own servers.
-
-This is Circuit's [colocation example](/guide/examples#colocation-with-tenants). It adds a switch to the [edge router](/academy/intermediate/project-edge-router) you already built, and tenants on both. Each tenant is one small file that holds everything the router and the switch need for it.
+This is Circuit's [colocation example](/guide/examples#colocation-with-tenants). It adds a switch and tenants to the [edge router](/academy/intermediate/project-edge-router) you already built.
 
 ## What a tenant buys
 
@@ -50,7 +45,7 @@ The file of the tenant Netflix holds everything Netflix has, on every device, as
 
 - **On the router**, `edge-01`, it adds the VLAN `netflix-internet`, carried on the trunk to the switch. It also adds a VLAN interface with the gateways of Netflix, the first address of each of its blocks.
 - **On the switch**, `tor-01`, it adds both VLANs of Netflix: the public one on the uplink to the router, and both on its two server ports.
-- **A rule** for the router's switch chip caps UDP toward the block of Netflix at 1G. Then a flood aimed at Netflix can't fill the uplinks of everyone else.
+- **A rule** for the router's switch chip caps UDP toward the block of Netflix at 1G, so a flood aimed at Netflix can't fill everyone else's uplinks.
 
 The file writes out every name, address, VLAN ID, and port of Netflix by hand, so a search for `netflix` finds every one.
 
@@ -62,7 +57,7 @@ The file writes out every name, address, VLAN ID, and port of Netflix by hand, s
 
 <<< @/../examples/colocation/sites/dc-1/tor-01.ts
 
-The switch writes only what is its own: its management VLAN, its uplink, and its address. `include: [tenants.parts]` takes from every tenant the part keyed by `tor-01`. So the VLANs and ports of Netflix join the switch as if they were written there.
+The switch writes only what is its own: its management VLAN, its uplink, and its address. `include: [tenants.parts]` takes from every tenant the part keyed by `tor-01`, as if it were written there.
 
 <<< @/../examples/colocation/sites/dc-1/edge-01.ts
 
@@ -75,8 +70,6 @@ Here a second tenant, Akamai, has joined. It has a public network and a private 
 <TenantPath />
 
 </TryIt>
-
-Two tenants are as far apart as any two networks on the internet: the router routes traffic between their public VLANs. A tenant's private network is further still, because only the switch carries it, and only on that tenant's ports.
 
 <Quiz
   question="The first server of Netflix sends a backup to its second server over netflix-private. Which devices does it pass?"
@@ -100,13 +93,9 @@ A new tenant, Akamai, wants one server on its public network. Copy `tenants/netf
 
 <TryIt title="Write the file of Akamai">
 
-Each plan here is made against the example's own render, not read from a device.
-
 <TenantJoin />
 
 </TryIt>
-
-When every choice is sound, the plan is exactly what the tenant's file promised. The router gets a VLAN interface and the two gateway addresses. The switch gets the VLAN, the port, and the VLAN added to the uplink. The lines of Netflix don't move.
 
 Every clash stops `validate`, and each message says where it is:
 
@@ -114,7 +103,7 @@ Every clash stops `validate`, and each message says where it is:
 - Two tenants' VLANs with one ID.
 - Blocks that overlap, from the example's own check.
 
-The port matters most. Without the stop, one tenant would silently take the other's port, and `10GE1/0/1` would lose the VLANs of Netflix. Instead Circuit gives both files, and the line in each.
+The port matters most: without the stop, one tenant would silently take the other's port.
 
 <Quiz
   question="Akamai is given 10g-1, which Netflix already uses. Which step of the workflow catches it?"
@@ -126,7 +115,7 @@ The port matters most. Without the stop, one tenant would silently take the othe
 
 ## When a tenant leaves
 
-A tenant leaves when you remove it from `tenants/index.ts`. The next apply takes away everything it had, everywhere, because the file is the whole truth. Say Akamai has joined, and then Netflix leaves. `circuit diff` plans 22 commands for the router and 19 for the switch. On the switch:
+A tenant leaves when you remove it from `tenants/index.ts`. The next apply takes away everything it had, everywhere. Say Akamai has joined, and then Netflix leaves. `circuit diff` plans 22 commands for the router and 19 for the switch. On the switch:
 
 ```text
 tor-01: 19 command(s) in 4 step(s)
@@ -151,21 +140,14 @@ tor-01: 19 command(s) in 4 step(s)
     + port trunk allow-pass vlan 99 1002
 ```
 
-The ports of Netflix are shut, not left open for whoever plugs in next. On the router, its VLAN, interface, and addresses go. The switch-chip rules are replaced as a whole, because Circuit rewrites an ordered list in its new order rather than editing it in place. The block of Netflix, `198.51.100.8/29`, is free again. Before you hand it to someone else, wait until the old tenant's servers are really unplugged.
+The ports of Netflix are shut, not left open for whoever plugs in next. On the router, its VLAN, interface, and addresses go. The switch-chip rules are replaced as a whole, because Circuit rewrites an ordered list in its new order rather than editing it in place. The block of Netflix, `198.51.100.8/29`, is free again, but wait until its servers are unplugged before you hand it to someone else.
 
 ## Where to go from here
 
-The example grows the same way it started. Another switch is another device file with `include: [tenants.parts]`, and each tenant's file gets a part keyed by that switch. When many tenants share one shape, a function in `lib/` may build their parts from their data. Whoever changes that function then needs to read TypeScript.
+Another switch is another device file with `include: [tenants.parts]`, and each tenant's file gets a part keyed by that switch. When many tenants share one shape, a function in `lib/` may build their parts from their data. Whoever changes that function then needs to read TypeScript.
 
 ## Further reading
 
 - [Data center glossary](https://www.datacentres.com/glossary): colocation, cross-connects, and other words of the trade.
 - [Rack unit](https://en.wikipedia.org/wiki/Rack_unit): the size of 1U and the usual 42U rack.
 - [Data centers 101](https://resources.telegeography.com/data-centers-101-technical-terms-you-should-know), from TeleGeography: cross-connects and rack density.
-
-## In short
-
-- A colocation hosts tenants' servers. It gives each tenant a public VLAN, a block of addresses with the router as gateway, ports, and if it wants, a private VLAN that stays on the switch.
-- Each tenant is one file of parts, keyed by device. Each device takes them with `include: [tenants.parts]`.
-- Circuit stops a port or a VLAN that two tenants give two values. Your own check stops blocks that overlap. The plan shows the rest, so read it.
-- Removing a tenant from the list removes everything it had, and shuts its ports.

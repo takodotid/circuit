@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// Lesson: carrying your own traffic. The reader buys an EPL or EVPLs on one port, sends frames with different VLAN tags into the provider, sees where each arrives, and reads the Circuit excerpt for the port.
+// Lesson: carrying your own traffic. The reader buys an EPL or EVPLs on one port, and sends frames with different VLAN tags into the provider. They see where each arrives, and read the Circuit excerpt for the port.
 
 import { computed, ref } from "vue";
 import { useTravel } from "../travel";
-import { Handoff, type Mode, type Service } from "./EvplHandoff";
+import { Handoff } from "./EvplHandoff";
+import type { Mode, Service } from "./EvplHandoff";
 
 const mode = ref<Mode>("evpl");
 const bought = ref<Service["id"][]>(["branch"]);
@@ -46,7 +47,7 @@ async function send() {
         said.value = {
             kind: "good",
             word: "Arrived",
-            text: `With an EPL the whole port is one circuit. ${tagText.value.replace(/^./, (letter) => letter.toUpperCase())} reaches the branch office as it left, tag and all. The provider does not look at the tag.`,
+            text: `With an EPL the whole port is one circuit. ${tagText.value.replace(/^./, (letter) => letter.toUpperCase())} reaches the branch office as it left, tag and all.`,
         };
         return;
     }
@@ -70,7 +71,7 @@ async function send() {
     said.value = {
         kind: "good",
         word: "Arrived",
-        text: `VLAN ${service.vlan} is the EVPL to ${service.place}, so the provider carries the frame there, and nowhere else. Each VLAN on the port is a circuit of its own.`,
+        text: `VLAN ${service.vlan} is the EVPL to ${service.place}, so the provider carries the frame there, and nowhere else.`,
     };
 }
 </script>

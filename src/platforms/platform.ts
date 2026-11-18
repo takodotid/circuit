@@ -4,33 +4,31 @@ import type { ConsoleDialect } from "../transport/console";
 import type { WaitLimits } from "./bgp-wait";
 import type { Platform as PlatformName } from "../config/models";
 
-/** One part of a plan: what a reviewer reads, and what is sent. */
+/** One part of a plan: `show` is what a reviewer reads, `send` what is sent. */
 export type Step = { title: string; show: string[]; send: string[] };
 
-/** The commands that turn what a device runs into what its config says. `problems` blocks an apply: something the adapter cannot converge. */
+/** The commands that turn what a device runs into its config. Any of `problems` blocks an apply: something the adapter can't converge. */
 export type Plan = { steps: Step[]; problems: string[] };
 
 export type ApplyOptions = {
-    /** Also send every secret, so a rotated value reaches the device. Secrets cannot be read back, so they are otherwise only sent when the object holding them is new. */
+    /** Also send every secret, so a rotated value reaches the device. Secrets can't be read back, so otherwise they are sent only when the object holding them is new. */
     secrets: boolean;
-    /** Minutes before a platform that can restore itself does so, if the run does not test that access survived. */
+    /** Minutes before a platform that can restore itself does so, if the run doesn't test that access survived. */
     rollback: number;
-    /** Reach the device through its serial console, `connection.console`, instead of SSH to its management address. */
+    /** Reach the device through its serial console, `connection.console`, instead of SSH. */
     console?: boolean;
 };
 
-/** How a device is read. */
 export type ReadOptions = Pick<ApplyOptions, "console">;
 
-/** A login on a device for commands that only read, as `circuit exec` runs them. */
+/** A login for commands that only read, as `circuit exec` runs them. */
 export type ReadSession = {
     /**
-     * Run one command and return what it printed, without its echo or the prompt.
+     * What one command printed, without its echo or the prompt.
      *
      * At `timeout` milliseconds, a command run on its own over SSH is left, and what it printed so far is returned. In a shell or on a console, where it would hold up every command after it, the run fails instead.
      */
     run(command: string, timeout?: number): Promise<string>;
-    /** Log out. */
     close(): void;
 };
 
@@ -40,19 +38,18 @@ export type HealthOptions = ReadOptions & {
     bgp?: WaitLimits;
 };
 
-/** The checks after an apply, holding what they compare against, which was read before the plan was sent. */
+/** The checks after an apply. They hold what they compare against, read before the plan was sent. */
 export type HealthCheck = {
-    /** Run the checks. Gives one line per problem, each saying what to do; none when the device is healthy. */
+    /** One line per problem, each saying what to do. None when the device is healthy. */
     run(): Promise<string[]>;
 };
 
 /** A BGP neighbor in the config and its live session, as `circuit bgp` shows it. A neighbor with no session is not established. */
 export type BgpSession = {
-    /** The neighbor's name in the config. */
+    /** Its name in the config. */
     neighbor: string;
     /** The session's remote address, or `-` when there is no session. */
     remote: string;
-    /** Whether the session is established. */
     established: boolean;
     /** How many prefixes it received, as the device prints it, or `-`. */
     prefixes: string;
@@ -72,7 +69,7 @@ export type BgpLogLine = { at: string; message: string };
 
 /** The operating system a platform runs, and the versions it is tested on. */
 export type OsSupport = {
-    /** Its name in full, such as `MikroTik RouterOS`. */
+    /** Its full name, such as `MikroTik RouterOS`. */
     name: string;
     /** The versions the adapter renders for, such as `7`. */
     versions: string;
@@ -84,52 +81,49 @@ export type OsSupport = {
 
 /** The switch rules a render makes from a device's hardware ACLs, counted. */
 export type SwitchRules = {
-    /** How many rules there are. */
     count: number;
     /** How many distinct port ranges they use, such as `0-1023`. */
     ranges: number;
 };
 
 export abstract class Platform {
-    /** The name a device's `platform` field takes. */
+    /** The value of a device's `platform` field. */
     abstract readonly name: PlatformName;
     abstract readonly os: OsSupport;
-    /** File extension of the device's config, for syntax highlighting. */
+    /** The config's file extension, for syntax highlighting. */
     abstract readonly extension: string;
-    /** How the platform's serial console asks for a login and shows its prompt. Present when the platform can be read and applied through a console, `--console`, and opened with `circuit access-console`. */
+    /** How the serial console asks for a login and shows its prompt. Present when `--console` and `circuit access-console` work on the platform. */
     readonly console: ConsoleDialect | undefined = undefined;
-    /** Fields this platform cannot express. Validation fails on any of them, so nothing is skipped silently. */
+    /** Fields this platform can't express. Validation fails on any of them, so nothing is skipped silently. */
     abstract unsupported(device: Device): string[];
-    /** Fields this platform renders but has not tested on a device yet. Validation refuses them, unless `--experimental` asks for them, which makes each a warning. Absent on a platform with none. */
+    /** Fields this platform renders but hasn't tested on a device yet. Validation refuses them, unless `--experimental` makes each a warning. Absent on a platform with none. */
     experimental?(device: Device): string[];
-    /** What the platform does with a config that it may not do elsewhere, each as `validate` reports it: an error stops `diff` and `apply`, a warning is reported only. Absent on a platform with none. */
+    /** What the platform does with a config that it may not do elsewhere, as `validate` reports it. An error stops `diff` and `apply`; a warning is only reported. Absent on a platform with none. */
     checks?(device: Device): Finding[];
-    /** The switch rules the render makes from the device's hardware ACLs, so `validate` can hold them to the model's limits. Absent on a platform whose rules are not counted. */
+    /** The switch rules the render makes from the hardware ACLs, so `validate` can hold them to the model's limits. Absent on a platform whose rules are not counted. */
     switchRules?(device: Device): SwitchRules;
     /** The whole configuration the device should run. Secrets appear as markers, never values. */
     abstract render(device: Device): string;
     /** What the device runs now, secrets removed, in the form `render` produces where the platform allows. */
     abstract read(device: Device, network: readonly Device[], options?: ReadOptions): Promise<string>;
-    /** The LLDP neighbors the device sees, by Circuit's port names, for `diff` and `apply` to compare with each port's `link`. Absent on a platform whose LLDP command and its output are not tested on a device yet. */
+    /** The LLDP neighbors the device sees, by Circuit's port names, which `diff` and `apply` compare with each port's `link`. Absent on a platform whose LLDP command isn't tested on a device yet. */
     neighbors?(device: Device, network: readonly Device[], options?: ReadOptions): Promise<Neighbor[]>;
     /** What it takes to go from `current` to `desired`. */
     abstract plan(desired: string, current: string, options: ApplyOptions): Plan;
-    /** Replace the contents of a prefix set fetched from a registry. Absent on a platform that cannot hold one. */
+    /** Replace the contents of a prefix set fetched from a registry. Absent on a platform that can't hold one. */
     fill?(device: Device, network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void>;
     /** Send a plan, keeping the device reachable or restoring it. */
     abstract apply(device: Device, network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void>;
-    /** Whether a command only reads on this platform, so `circuit exec` may send it. Anything not known to only read is refused. */
+    /** Whether a command only reads, so `circuit exec` may send it. Anything not known to only read is refused. */
     abstract readOnly(command: string): boolean;
-    /** Log in for commands that only read, over SSH or on the console, the way the platform's read logs in. */
+    /** Log in for commands that only read, over SSH or the console, as the platform's read does. */
     abstract session(device: Device, options?: ReadOptions): Promise<ReadSession>;
-    /** Each BGP neighbor in the config, in its order, with its live session, read over a `session()`. Absent on a platform `circuit bgp` does not support yet. */
+    /** Each BGP neighbor in the config, in its order, with its live session. Absent on a platform `circuit bgp` doesn't support yet. */
     bgpSessions?(device: Device, session: ReadSession): Promise<BgpSession[]>;
-    /** The device's BGP log lines from the last `minutes`, by the device's own clock, read over a `session()`. */
+    /** The device's BGP log lines from the last `minutes`, by the device's own clock. */
     bgpLog?(session: ReadSession, minutes: number): Promise<BgpLogLine[]>;
-    /** Open again these sessions, each closed on its prefix limit, read by `bgpSessions`. Only a session still closed on its limit is touched. */
+    /** Open again these sessions, each closed on its prefix limit, as `bgpSessions` read them. Only a session still closed on its limit is touched. */
     bgpClearLimit?(session: ReadSession, sessions: readonly BgpSession[]): Promise<void>;
-    /**
-     * Checks that the device is healthy after an apply, not only that it took the commands. Called before the plan is sent, to read what the checks compare against; the CLI runs them after the apply. Absent on a platform with no checks yet.
-     */
+    /** Checks that the device is healthy after an apply, not only that it took the commands. Called before the plan is sent, to read what the checks compare against; the CLI runs them after the apply. Absent on a platform with no checks yet. */
     health?(device: Device, plan: Plan, options?: HealthOptions): Promise<HealthCheck>;
 }

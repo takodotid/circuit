@@ -40,11 +40,14 @@ const bySpeed = computed(() => {
     return [...groups];
 });
 
+/** How long a port's row flashes when its port is clicked. */
+const FLASH_TIME = 1600;
+
 function show(name: string): void {
     const row = document.getElementById(`port-${name}`);
     row?.scrollIntoView({ block: "center", behavior: "smooth" });
     row?.classList.add("flash");
-    setTimeout(() => row?.classList.remove("flash"), 1600);
+    setTimeout(() => row?.classList.remove("flash"), FLASH_TIME);
 }
 </script>
 

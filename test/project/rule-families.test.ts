@@ -1,11 +1,12 @@
-// A firewall rule whose `src` and `dst` lists hold both families: each src and dst of different families matches no packet, so reading the project leaves that combination out. A rule that has nothing else is reported. RouterOS refuses an IPv6 dst on its IPv4 filter, and a refused command mid-apply restores the backup and reboots the router.
+// A firewall rule whose `src` and `dst` lists hold both families. RouterOS refuses an IPv6 dst on its IPv4 filter, and a refused command mid-apply restores the backup and reboots the router.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Validation } from "../../src/checks";
-import { type ProjectRead, Project } from "../../src/project";
+import { Checks } from "../../src/checks";
+import { Project } from "../../src/project";
+import type { ProjectRead } from "../../src/project";
 
 const folder = mkdtempSync(join(tmpdir(), "circuit-rule-families-"));
 let read: ProjectRead;
@@ -51,7 +52,7 @@ test("a src and a dst of different families are left out, and a rule with nothin
         { description: "never", if: { src: "10.0.20.0/24", dst: "2001:db8::2/128" }, then: "accept" },
     ]);
 
-    const messages = device ? Validation.run([device], undefined).map((finding) => finding.message) : [];
+    const messages = device ? Checks.run([device], undefined).map((finding) => finding.message) : [];
     expect(messages).toContain("firewall.filter.forward.rules (never): src and dst differ in family, so no packet matches both");
     expect(messages.filter((message) => message.includes("differ in family"))).toHaveLength(1);
 });

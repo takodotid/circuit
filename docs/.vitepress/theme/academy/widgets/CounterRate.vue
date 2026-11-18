@@ -250,8 +250,7 @@ const yearsToWrap64 = computed(() => (2 ** 64 * 8) / (speed.value * 1e6) / (365.
             {{ formatMbit(run.rateSeen) }} Mbit/s, and that is what a graph would show. Open the working to see why.
         </p>
         <p v-else-if="checked && !answerRight" class="ac-say bad" data-word="Not quite" aria-live="polite">
-            Two polls make {{ formatMbit(run.rateSeen) }} Mbit/s, not {{ answer }}. Subtract, times 8 for bits, then divide by the
-            {{ interval }} seconds between the polls. Open the working to see each step.
+            Two polls make {{ formatMbit(run.rateSeen) }} Mbit/s, not {{ answer }}. Open the working to see each step.
         </p>
         <p
             v-else-if="(checked || working) && truthMatches"
@@ -268,9 +267,7 @@ const yearsToWrap64 = computed(() => (2 ** 64 * 8) / (speed.value * 1e6) / (365.
             polls, and two readings cannot tell how many times. The graph would show {{ formatMbit(run.rateSeen) }} Mbit/s. Try the 64-bit
             counter.
         </p>
-        <p v-else class="ac-say hint" aria-live="polite">
-            Work out the traffic from the two readings and type it in Mbit/s. Then try a faster port, a longer poll, and the other counter.
-        </p>
+        <p v-else class="ac-say hint" aria-live="polite">Work it out, then try a faster port, a longer poll, and the other counter.</p>
 
         <p v-if="width === 64 && (checked || working)" class="note">
             At {{ speed }} Mbit/s, a 64-bit counter would take about {{ Math.round(yearsToWrap64).toLocaleString("en-US") }} years to wrap.

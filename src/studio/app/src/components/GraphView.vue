@@ -1,10 +1,10 @@
 <!-- The network drawn, one layer at a time: cables, VLANs, address segments, BGP, OSPF and tunnels. Drawn with Cytoscape; a node or line picked shows what it is in the panel. Present shows it on a big screen, going through every layer and lighting the busiest devices in turn. -->
 <script lang="ts">
 import type { Layer } from "../../../../core/graph";
-import { type Kept, GraphLayout } from "../lib/graph-layout";
+import type { View } from "../lib/graph-glide";
+import { GraphLayout } from "../lib/graph-layout";
+import type { Kept, Point } from "../lib/graph-layout";
 import { Saved } from "../lib/store";
-
-type View = { zoom: number; pan: { x: number; y: number } };
 
 // Places saved under an older layout are cramped: the version starts every graph fresh once.
 const LAYOUTS_KEY = "layouts-2";
@@ -20,21 +20,21 @@ const memory = {
 </script>
 
 <script setup lang="ts">
-import cytoscape, {
-    type CollectionReturnValue,
-    type Core,
-    type EdgeCollection,
-    type ElementDefinition,
-    type NodeSingular,
-} from "cytoscape";
+import cytoscape from "cytoscape";
+import type { CollectionReturnValue, Core, EdgeCollection, ElementDefinition, NodeSingular } from "cytoscape";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { StudioData } from "../../../types";
 import { Export } from "../lib/export";
-import { type Shown, type ShownEdge, type ShownNode, GraphLayer } from "../lib/graph-layer";
-import { type Tag, GraphLook } from "../lib/graph-look";
+import { GraphGlide } from "../lib/graph-glide";
+import type { GlideOptions, Motion } from "../lib/graph-glide";
+import { GraphLayer } from "../lib/graph-layer";
+import type { Shown, ShownEdge, ShownNode } from "../lib/graph-layer";
+import { GraphLook } from "../lib/graph-look";
+import type { Tag } from "../lib/graph-look";
 import { GraphSignals } from "../lib/graph-signals";
-import { type Drawing, GraphSvg } from "../lib/graph-svg";
+import { GraphSvg } from "../lib/graph-svg";
+import type { Drawing } from "../lib/graph-svg";
 import { paramOf, still, store } from "../lib/store";
 import GraphPanel from "./GraphPanel.vue";
 
@@ -72,7 +72,7 @@ const selected = computed<{ node?: ShownNode; edge?: ShownEdge }>(() => {
 const layouts = memory.layouts;
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-/** Each node's tag, measured once in the colours and fonts it is drawn in, until they change. */
+/** Each node's tag, measured once in the colors and fonts it is drawn in, until they change. */
 let colors = GraphLook.colors();
 const tags = new Map<string, Tag>();
 
@@ -130,12 +130,13 @@ function edgeData(edge: ShownEdge) {
 }
 
 /**
- * Show the layer: add what is new, drop what is gone and update the rest, so nodes keep their places and the selection stays.
- * `arrival` says what is new to the eye: the whole network the first time it is shown, or a new layer, whose devices glide to their
- * places on it while its lines come in. A project read again changes in place.
+ * Show the layer: add what is new, drop what is gone, and update the rest, so nodes keep their places and the selection stays.
+ * `arrival` says what is new to the eye: the whole network the first time it is shown, or a new layer.
+ * A new layer's devices glide to their places while its lines come in. A project read again, or a comparison, fades in what it adds and moves nothing.
  */
 function draw(arrival?: "network" | "layer"): void {
     if (!graph) return;
+    const cy = graph;
 
     shown.value = GraphLayer.of(props.data, layer.value, store.graphFocus.comparison);
     Saved.set("layer", layer.value);
@@ -144,13 +145,10 @@ function draw(arrival?: "network" | "layer"): void {
 
     const nodeIds = new Set(shown.value.nodes.map((node) => node.id));
     const edgeIds = new Set(shown.value.edges.map((edge) => edge.id));
-    const moving = arrival !== undefined && !still.matches;
-    const cy = graph;
+    // What is new comes in, but a drawing shown again, as when the reader comes back to the graph, shows at once.
+    const coming = still.matches ? undefined : (arrival ?? (cy.elements().nonempty() ? "change" : undefined));
     let fresh = cy.collection();
 
-    // A new layer's glide starts each node from where it is, even halfway through the last glide. Anything else ends a glide at its end.
-    if (arrival === "layer" && moving) halt();
-    else settle();
     cy.batch(() => {
         cy.edges()
             .filter((edge) => !edgeIds.has(edge.id()))
@@ -163,14 +161,8 @@ function draw(arrival?: "network" | "layer"): void {
 
         for (const node of shown.value.nodes) {
             const existing = cy.getElementById(node.id);
-            if (existing.empty()) {
-                added.push({ group: "nodes", data: nodeData(node), position: { ...places.get(node.id)! } });
-                continue;
-            }
-
-            existing.data(nodeData(node));
-            if (arrival === "layer" && moving) gliding.push({ node: existing, to: { ...places.get(node.id)! } });
-            else if (arrival === "layer") existing.position({ ...places.get(node.id)! });
+            if (existing.empty()) added.push({ group: "nodes", data: nodeData(node), position: { ...places.get(node.id)! } });
+            else existing.data(nodeData(node));
         }
 
         fresh = fresh.union(cy.add(added));
@@ -182,15 +174,12 @@ function draw(arrival?: "network" | "layer"): void {
         }
 
         // What arrives starts unseen.
-        if (moving) fresh.style({ opacity: 0, "text-opacity": 0 });
+        if (coming) fresh.addClass("unseen");
     });
 
     // The devices on both layers glide to their places on this one, so the eye can follow each.
-    for (const glide of gliding) {
-        const done = () => (gliding = gliding.filter((other) => other !== glide));
-        glide.node.animate({ position: { ...glide.to } }, { duration: 700, easing: "ease-in-out-cubic", complete: done });
-    }
-    if (moving) arrive(fresh, arrival);
+    if (arrival === "layer") glideNodes(places);
+    if (coming) arrive(fresh, coming);
 
     // Presenting draws every line heavier, a line the project just added too.
     if (presenting.value) cy.edges().addClass("heavy");
@@ -201,32 +190,101 @@ function draw(arrival?: "network" | "layer"): void {
     else emphasize();
 }
 
-/** The nodes gliding to a new layer's places, each with the place it glides to. A node leaves the list when it gets there. */
-let gliding: { node: CollectionReturnValue; to: { x: number; y: number } }[] = [];
-
-/** End a glide between layers: each node at the place it was gliding to, so a press moves it from there. */
-function settle(): void {
-    for (const { node, to } of gliding) {
-        node.stop(true);
-        if (node.inside()) node.position({ ...to });
-    }
-    gliding = [];
+/** A glide, or, when the reader asks for less motion, its end at once. */
+function glide(step: (s: number) => void, options: GlideOptions = {}): GraphGlide | undefined {
+    if (!still.matches) return new GraphGlide(step, (next) => requestAnimationFrame(next), options);
+    step(1);
+    options.done?.();
+    return undefined;
 }
 
-/** Stop a glide between layers where it is, for the next layer's glide to start from there. */
-function halt(): void {
-    for (const { node } of gliding) node.stop(true);
-    gliding = [];
+/** The nodes gliding to their places on the layer, by id. A node being dragged leaves. */
+let gliding = new Map<string, { node: NodeSingular; motion: Motion }>();
+let nodeGlide: GraphGlide | undefined;
+
+/** Glide every node from where it is, at the speed it has, even halfway through the last glide, to its place. */
+function glideNodes(places: ReadonlyMap<string, Point>): void {
+    if (!graph) return;
+    const cy = graph;
+
+    const last = nodeGlide;
+    last?.stop();
+    const moving = new Map<string, { node: NodeSingular; motion: Motion }>();
+    cy.nodes().forEach((node) => {
+        const to = places.get(node.id());
+        if (!to) return;
+        const was = gliding.get(node.id());
+        const speed = was && last ? GraphGlide.speedAt(was.motion, last.share, last.time) : GraphGlide.AT_REST;
+        moving.set(node.id(), { node, motion: { from: { ...node.position(), z: 0 }, to: { ...to, z: 0 }, speed } });
+    });
+    gliding = moving;
+
+    nodeGlide = glide(
+        (s) =>
+            cy.batch(() => {
+                for (const { node, motion } of moving.values()) {
+                    const { x, y } = GraphGlide.at(motion, s, GraphGlide.TIME);
+                    if (node.inside()) node.position({ x, y });
+                }
+            }),
+        { since: last?.lastFrame }
+    );
+}
+
+/** The view's glide, and where it goes: a layer left halfway keeps where its view was going. */
+type ViewGlide = { glide?: GraphGlide; motion: Motion; to: View };
+let viewGlide: ViewGlide | undefined;
+
+/** Glide the view from where it is, at the speed it has, to `to`. */
+function glideView(to: View, options: GlideOptions = {}): void {
+    if (!graph) return;
+    const cy = graph;
+
+    const last = viewGlide;
+    const speed = last?.glide ? GraphGlide.speedAt(last.motion, last.glide.share, last.glide.time) : GraphGlide.AT_REST;
+    stopView();
+
+    const size = { width: cy.width(), height: cy.height() };
+    const time = options.time ?? GraphGlide.TIME;
+    const motion = { from: GraphGlide.placeOf({ zoom: cy.zoom(), pan: cy.pan() }, size), to: GraphGlide.placeOf(to, size), speed };
+    const going: ViewGlide = { motion, to };
+    viewGlide = going;
+    going.glide = glide((s) => cy.viewport(GraphGlide.viewAt(GraphGlide.at(motion, s, time), size)), {
+        time,
+        since: last?.glide?.lastFrame,
+        done: () => {
+            if (viewGlide === going) viewGlide = undefined;
+            options.done?.();
+        },
+    });
+}
+
+/** Stop the view where it is. */
+function stopView(): void {
+    viewGlide?.glide?.stop();
+    viewGlide = undefined;
 }
 
 /** The curve of an arrival: quick at first, settling at the end. */
 const ARRIVE = "ease-out-quint";
+/** The time an arrival's rings share, and the longest wait from one ring to the next. */
+const ARRIVAL_TIME = 800;
+const RING_WAIT = 110;
+/** How long a new layer's lines wait for its devices to glide in. */
+const LINE_WAIT = 200;
+/** How long a line takes to draw in, and then its label to fade in. */
+const DRAW_IN = 560;
+const LABEL_FADE = 300;
+/** The dash that draws a line in is longer than the straight line between its ends, so it covers a curved line too. */
+const DASH_STRETCH = 1.3;
+const DASH_EXTRA = 4;
 
 /**
- * Bring new parts in from the busiest device outward, a ring of neighbours at a time: nodes fade in, then the lines, then their labels.
- * On the first view each line draws in from its nearer end; on a new layer its lines fade in. The dots follow once it is all in.
+ * Bring new parts in from the busiest device outward, a ring of neighbors at a time: nodes fade in, then the lines, then their labels.
+ * On the first view each line draws in from its nearer end; else its lines fade in. The dots of a new drawing follow once it is all in.
+ * A part comes in to how it shows now, dimmed while something else is lit.
  */
-function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer"): void {
+function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer" | "change"): void {
     if (!graph) return;
     const cy = graph;
 
@@ -245,49 +303,45 @@ function arrive(fresh: CollectionReturnValue, arrival: "network" | "layer"): voi
 
     // The whole drawing arrives within about a second, however many rings it has.
     const farthest = Math.max(0, ...ring.values()) + 1;
-    const step = Math.min(110, 800 / farthest);
+    const step = Math.min(RING_WAIT, ARRIVAL_TIME / farthest);
     const ringOf = (node: NodeSingular) => ring.get(node.id()) ?? farthest;
 
     fresh.nodes().forEach((node) => {
-        node.delay(ringOf(node) * step).animate(
-            { style: { opacity: 1, "text-opacity": 1 } },
-            { duration: 360, easing: ARRIVE, complete: () => node.removeStyle("opacity text-opacity") }
-        );
+        node.delay(ringOf(node) * step, () => node.removeClass("unseen"));
     });
 
     let last = 0;
     fresh.edges().forEach((edge) => {
         const from = ringOf(edge.source());
         const to = ringOf(edge.target());
-        const delay = (Math.min(from, to) + 0.5) * step + (arrival === "layer" ? 200 : 0);
-        last = Math.max(last, delay + 860);
+        const delay = (Math.min(from, to) + 0.5) * step + (arrival === "network" ? 0 : LINE_WAIT);
+        last = Math.max(last, delay + DRAW_IN + LABEL_FADE);
 
-        const done = () => edge.removeStyle("opacity text-opacity line-style line-dash-pattern line-dash-offset");
+        // Its label waits for the line.
+        edge.style("text-opacity", 0);
+        edge.delay(delay, () => edge.removeClass("unseen"));
 
         // A line both ends declare draws in from its nearer end: a dash as long as the line slides along it. A dashed line fades in.
         // A line whose ends are not placed yet has no length, and fades in too.
         const a = edge.sourceEndpoint();
         const b = edge.targetEndpoint();
-        const length = Math.hypot(b.x - a.x, b.y - a.y) * 1.3 + 4;
+        const length = Math.hypot(b.x - a.x, b.y - a.y) * DASH_STRETCH + DASH_EXTRA;
         if (arrival === "network" && !edge.data("oneSided") && Number.isFinite(length)) {
             edge.style({
-                opacity: 1,
                 "line-style": "dashed",
                 "line-dash-pattern": [length, length],
                 "line-dash-offset": from <= to ? length : -length,
             });
-            edge.delay(delay)
-                .animate({ style: { "line-dash-offset": 0 } }, { duration: 560, easing: ARRIVE })
-                .animate({ style: { "text-opacity": 1 } }, { duration: 300, complete: done });
-            return;
-        }
+            edge.animate({ style: { "line-dash-offset": 0 } }, { duration: DRAW_IN, easing: ARRIVE });
+        } else edge.delay(GraphLook.FADE);
 
-        edge.delay(delay)
-            .animate({ style: { opacity: 1 } }, { duration: 420, easing: ARRIVE })
-            .animate({ style: { "text-opacity": 1 } }, { duration: 300, complete: done });
+        edge.animate(
+            { style: { "text-opacity": 1 } },
+            { duration: LABEL_FADE, complete: () => edge.removeStyle("text-opacity line-style line-dash-pattern line-dash-offset") }
+        );
     });
 
-    if (signals) signals.showFrom = performance.now() + last;
+    if (signals && arrival !== "change") signals.showFrom = performance.now() + last;
 }
 
 /** Select a node or a line, or nothing. A selection ends a lit path; selecting something ends a lit VLAN too. */
@@ -334,7 +388,7 @@ function emphasize(): void {
     });
 }
 
-/** Dots in the link colour; on a lit line, the highlighter with a navy ring; on a line a comparison adds, green. */
+/** Dots in the link color; on a lit line, the highlighter with a navy ring; on a line a comparison adds, green. */
 function signalColors() {
     const colors = GraphLook.colors();
     return { dot: colors.link, lit: colors.yellow, ring: colors.navy, added: colors.ok };
@@ -384,17 +438,21 @@ function framing(ids: readonly string[], padding: number, readable = false): Vie
     return { zoom, pan: { x: width / 2 - center.x * zoom, y: height / 2 - center.y * zoom } };
 }
 
-/** Show the whole layer, but never larger than its own size: a network of two devices stays readable. */
+/** The room around what a view frames: the whole layer, or a lit device with its neighbors. */
+const LAYER_PADDING = 60;
+const LIT_PADDING = 90;
+
+/** Glide to the whole layer, but never larger than its own size: a network of two devices stays readable. */
 function fit(): void {
     const view = framing(
         shown.value.nodes.map((node) => node.id),
-        60
+        LAYER_PADDING
     );
-    if (view) graph?.viewport(view);
+    if (view) glideView(view);
 }
 
 /** Show the layer as the reader left it, or, the first time, framed so names can be read: gliding there, or at once. */
-function frameLayer(glide = false): void {
+function frameLayer(glides = false): void {
     if (!graph) return;
 
     const left = memory.views.get(layer.value);
@@ -402,30 +460,26 @@ function frameLayer(glide = false): void {
         left ??
         framing(
             shown.value.nodes.map((node) => node.id),
-            60,
+            LAYER_PADDING,
             true
         );
     if (!view) return;
 
-    graph.stop(true);
-    if (glide && !still.matches) graph.animate(view, { duration: 1100, easing: "ease-in-out-cubic" });
-    else graph.viewport(view);
+    if (glides) return glideView(view);
+    stopView();
+    graph.viewport(view);
 }
 
-/** Keep where the reader left this layer. */
+/** Keep where the reader left this layer, or where its view was gliding to. */
 function keepView(name: Layer): void {
-    if (graph && !presenting.value) memory.views.set(name, { zoom: graph.zoom(), pan: { ...graph.pan() } });
+    if (graph && !presenting.value) memory.views.set(name, viewGlide?.to ?? { zoom: graph.zoom(), pan: { ...graph.pan() } });
 }
 
 /** Forget where nodes were moved on this layer, and lay it out again. */
 function layOutAgain(): void {
-    settle();
     layouts.forget(layer.value);
     layOut(layer.value);
-    const places = layouts.places(layer.value);
-    graph?.nodes().forEach((node) => {
-        node.position({ ...places.get(node.id())! });
-    });
+    glideNodes(layouts.places(layer.value));
     fit();
 }
 
@@ -548,8 +602,11 @@ function light(node: NodeSingular | undefined): void {
     }
 }
 
-/** Frame what is lit with its neighbours, or the whole layer: gliding there, or at once. */
-function frameLit(glide: boolean): void {
+/** How long the view takes to glide to the next turn of the tour. */
+const TOUR_GLIDE = 1100;
+
+/** Glide to what is lit with its neighbors, or to the whole layer, then drift. */
+function frameLit(time = GraphGlide.TIME): void {
     if (!graph) return;
     const ids = touring
         ? graph
@@ -558,16 +615,8 @@ function frameLit(glide: boolean): void {
               .nodes()
               .map((node) => node.id())
         : shown.value.nodes.map((node) => node.id);
-    const view = framing(ids, 90);
-    if (!view) return;
-
-    graph.stop(true);
-    if (glide && !still.matches) {
-        graph.animate(view, { duration: 1100, easing: "ease-in-out-cubic", complete: drift });
-        return;
-    }
-    graph.viewport(view);
-    drift();
+    const view = framing(ids, LIT_PADDING);
+    if (view) glideView(view, { time, done: drift });
 }
 
 /** The device presenting lights now, with a ring that keeps leaving it, the way the docs drawing marks the changed device. */
@@ -592,31 +641,35 @@ function pulse(node: NodeSingular | undefined): void {
     ring();
 }
 
-/**
- * While presenting, the view drifts slowly away from what it frames and back, so a wall screen does not stand still. It gives way to each
- * turn of the tour, and waits while a device is pointed at or dragged. None with reduced motion.
- */
+/** How long the drift takes each way. */
+const DRIFT_TIME = 7000;
+/** How far the drift goes: its zoom, and its pan across and down. */
+const DRIFT_AWAY = { zoom: 1.03, x: 16, y: 10 };
+/** How far the drift's direction turns from one turn of the tour to the next, in radians. */
+const DRIFT_TURN = 2.4;
+
+/** While presenting, the view drifts slowly away from what it frames and back, so a wall screen does not stand still. It gives way to each turn of the tour, and waits while a device is pointed at or dragged. None with reduced motion. */
 function drift(): void {
-    if (!graph || !presenting.value || still.matches || hovered || dragging) return;
+    if (!graph || !presenting.value || still.matches || hovered || dragging || viewGlide) return;
     const cy = graph;
 
     const base = { zoom: cy.zoom(), pan: { ...cy.pan() } };
-    const angle = tourStep * 2.4 + layer.value.length;
+    const angle = tourStep * DRIFT_TURN + layer.value.length;
     const center = { x: cy.width() / 2, y: cy.height() / 2 };
     const away = {
-        zoom: base.zoom * 1.03,
+        zoom: base.zoom * DRIFT_AWAY.zoom,
         pan: {
-            x: center.x - (center.x - base.pan.x) * 1.03 + Math.cos(angle) * 16,
-            y: center.y - (center.y - base.pan.y) * 1.03 + Math.sin(angle) * 10,
+            x: center.x - (center.x - base.pan.x) * DRIFT_AWAY.zoom + Math.cos(angle) * DRIFT_AWAY.x,
+            y: center.y - (center.y - base.pan.y) * DRIFT_AWAY.zoom + Math.sin(angle) * DRIFT_AWAY.y,
         },
     };
 
-    cy.animate(away, {
-        duration: 7000,
-        easing: "ease-in-out-sine",
-        complete: () => cy.animate(base, { duration: 7000, easing: "ease-in-out-sine", complete: drift }),
-    });
+    glideView(away, { time: DRIFT_TIME, done: () => glideView(base, { time: DRIFT_TIME, done: drift }) });
 }
+
+/** How long each turn of the tour lasts, and how long the whole layer shows before the tour moves to the next one. */
+const TURN_TIME = 6000;
+const LAYER_TIME = 2600;
 
 /** The next layer with lines, after this one; this one when no other has any. */
 function nextLayer(): Layer {
@@ -640,20 +693,20 @@ function tourNext(): void {
     if (next || nextLayer() === layer.value) {
         if (!next) tourStep = 0;
         light(next);
-        frameLit(true);
+        frameLit(TOUR_GLIDE);
         return;
     }
 
     // Every busy device has had its turn: back out to the whole layer, then on to the next one.
     tourStep = 0;
     light(undefined);
-    frameLit(true);
+    frameLit(TOUR_GLIDE);
     const following = nextLayer();
     leaving = setTimeout(() => {
         leaving = undefined;
         // Replacing the address keeps the history clean, so Back still leaves Studio's last place.
         if (presenting.value) void router.replace({ name: "layer", params: { layer: following } });
-    }, 2600);
+    }, LAYER_TIME);
 }
 
 /** Start the turns again, so the layer shown now has its full time. */
@@ -662,7 +715,7 @@ function restartTour(): void {
     clearTimeout(leaving);
     leaving = undefined;
     tourStep = 0;
-    if (presenting.value) tour = setInterval(tourNext, 6000);
+    if (presenting.value) tour = setInterval(tourNext, TURN_TIME);
 }
 
 /** The page as presenting wants it: the rails and the panel gone, heavier lines, a caption, and the turns running. Or back as it was. */
@@ -671,20 +724,40 @@ function showPresenting(): void {
     if (signals) signals.presenting = presenting.value;
     touring = undefined;
     pulse(undefined);
-    graph?.stop(true);
     select(undefined);
     graph?.edges().removeClass("heavy");
     caption.value = undefined;
     restartTour();
 
-    // The drawing takes the window's size once the rails are gone, or back.
+    // The drawing takes the window's size once the rails are gone, or back, then glides to what it shows.
     void nextTick(() => {
-        graph?.resize();
+        follow();
         if (!presenting.value) return fit();
         graph?.edges().addClass("heavy");
         light(undefined);
-        frameLit(false);
+        frameLit();
     });
+}
+
+/** Where the canvas was laid out on the page, so the drawing can stay where it is on the screen when the page around it changes. */
+let corner: Point | undefined;
+
+/** The canvas changed its size or its place: Cytoscape takes the new size, and the drawing stays where it is on the screen. */
+function follow(): void {
+    if (!graph || !container.value) return;
+    graph.resize();
+
+    // Offsets leave out transforms, such as the page's own fade-in.
+    const now = { x: 0, y: 0 };
+    for (let at: HTMLElement | null = container.value; at; at = at.offsetParent as HTMLElement | null) {
+        now.x += at.offsetLeft;
+        now.y += at.offsetTop;
+    }
+    if (corner && (corner.x !== now.x || corner.y !== now.y)) {
+        stopView();
+        graph.panBy({ x: corner.x - now.x, y: corner.y - now.y });
+    }
+    corner = now;
 }
 
 /** Present, or stop. From a click, the whole screen too, where the browser allows it. */
@@ -714,7 +787,7 @@ function onKey(event: KeyboardEvent): void {
     if (chosen) void router.push({ name: "layer", params: { layer: chosen } });
 }
 
-/** The page's colours changed, with the system's light or dark, or the reader asked for less motion: draw it all again in them. */
+/** The page's colors changed, with the system's light or dark, or the reader asked for less motion: draw it all again in them. */
 function restyle(): void {
     if (!graph) return;
     colors = GraphLook.colors();
@@ -760,7 +833,7 @@ onMounted(() => {
     graph.on("mouseover", "node", (event) => {
         hovered = event.target.id();
         emphasize();
-        if (presenting.value) graph?.stop(true);
+        if (presenting.value) stopView();
         if (container.value) container.value.style.cursor = "pointer";
     });
     graph.on("mouseout", "node", () => {
@@ -774,12 +847,13 @@ onMounted(() => {
         dragging = false;
         drift();
     });
-    // The drawing follows the window's size; presenting keeps what it shows in view.
+    // The drawing follows the canvas's size; presenting keeps what it shows in view. The window's resize comes before Cytoscape draws the frame, so the drawing never shows where the page moved it.
     resizing = new ResizeObserver(() => {
-        graph?.resize();
-        if (presenting.value) frameLit(false);
+        follow();
+        if (presenting.value) frameLit();
     });
     if (container.value) resizing.observe(container.value);
+    addEventListener("resize", follow);
     addEventListener("keydown", onKey);
 
     // Dots travel the lines that work, unless the reader asks for less motion.
@@ -788,12 +862,10 @@ onMounted(() => {
     still.addEventListener("change", restyle);
     scheme.addEventListener("change", restyle);
 
-    // A press or a scroll stops a glide: the nodes are at their places at once, and the view stays where it is.
-    graph.on("tapstart", () => {
-        settle();
-        graph?.stop(true);
-    });
-    container.value?.addEventListener("wheel", () => graph?.stop(true), { capture: true, passive: true });
+    // A press or a scroll stops the view where it is, for the reader to move it from there. The nodes go on to their places, but one being dragged stays with the pointer.
+    graph.on("tapstart", stopView);
+    container.value?.addEventListener("wheel", stopView, { capture: true, passive: true });
+    graph.on("drag", "node", (event) => gliding.delete(event.target.id()));
 
     // The first view of the page draws the network in.
     draw(memory.arrived || !props.data.devices.length ? undefined : "network");
@@ -819,20 +891,19 @@ function showDevice(): void {
     if (node.empty()) return;
 
     select({ node: node.id() });
-    const view = {
-        zoom: graph.zoom(),
-        pan: { x: graph.width() / 2 - node.position().x * graph.zoom(), y: graph.height() / 2 - node.position().y * graph.zoom() },
-    };
-    graph.stop(true);
-    if (still.matches) graph.viewport(view);
-    else graph.animate(view, { duration: 700, easing: "ease-in-out-cubic" });
+    const zoom = graph.zoom();
+    const place = layouts.places(layer.value).get(node.id()) ?? node.position();
+    glideView({ zoom, pan: { x: graph.width() / 2 - place.x * zoom, y: graph.height() / 2 - place.y * zoom } });
 }
 
 onBeforeUnmount(() => {
     keepView(layer.value);
+    nodeGlide?.stop();
+    stopView();
     clearInterval(tour);
     clearTimeout(leaving);
     resizing?.disconnect();
+    removeEventListener("resize", follow);
     removeEventListener("keydown", onKey);
     still.removeEventListener("change", restyle);
     scheme.removeEventListener("change", restyle);
@@ -850,9 +921,9 @@ watch(layer, (_next, last) => {
     delete store.graphFocus.path;
     delete store.graphFocus.vlan;
     draw("layer");
-    frameLayer(true);
     // A new layer while presenting is shown whole first, with its full time.
     if (presenting.value) showPresenting();
+    else frameLayer(true);
 });
 
 // The project changed: the drawing keeps its places, its view and what is selected.
@@ -860,6 +931,9 @@ watch(
     () => props.data,
     () => draw()
 );
+
+// An error shown over the page, or a header that wraps again, moves the canvas: the drawing stays put, from the frame the page changes.
+watch(() => [store.data, store.error], follow, { flush: "post" });
 
 // What the graph is asked to light changes the drawing.
 watch(

@@ -1,25 +1,26 @@
-// Raisecom ROS, as on the RAX700 series.
-//
-// An interface, an access-list or an OSPF process opens a block, `!` closes it, and `no` removes a line. Commands apply as they arrive and persist only on `write`. There is no rollback, so a fresh session tests that management is reachable before anything is written: a reboot then restores what was there before.
+// Raisecom ROS on the RAX700 series. Commands apply as they arrive and persist only on `write`. There is no rollback, so a fresh session tests access before anything is written. Until then, a reboot restores what was there before.
 
 import type { ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
 import type { Device } from "../../model";
-import { ConsoleShell, SerialConsole, type ConsoleDialect } from "../../transport/console";
+import { ConsoleShell, SerialConsole } from "../../transport/console";
+import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
-import { LineDiff, type Dialect, type Group } from "../line-diff";
-import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, type Step, Platform } from "../platform";
+import { LineDiff } from "../line-diff";
+import type { Dialect, Group } from "../line-diff";
+import { Platform } from "../platform";
+import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
 import { RaisecomRosRender } from "./render";
 
-/** A session, and how to test access in a fresh login: a new SSH session, or logging out and in again on the console. */
+/** `fresh` tests access in a fresh login: a new SSH session, or logging out and in again on the console. */
 export type Session = { channel: ClientChannel; close: () => void; fresh: () => Promise<Session> };
 
 export class RaisecomRos extends Platform {
-    /** How the console asks for a login and shows its prompt. Not yet tested on a device: the RAX721's console was never cabled to a jump host. */
+    /** Not yet tested on a device: the RAX721's console was never cabled to a jump host. */
     static readonly CONSOLE: ConsoleDialect = {
         login: /login:\s*$/i,
         password: /password:\s*$/i,
@@ -40,7 +41,7 @@ export class RaisecomRos extends Platform {
         "quit",
         "config",
         "exit",
-        // Implied by any layer 2 setting on a port; the plan sends it where needed.
+        // Implied by any layer 2 setting on a port, so the plan sends it where needed.
         "portswitch",
         // A port's speed or duplex set back to auto prints as the default it is, and `no duplex` is refused.
         "speed auto",
@@ -56,7 +57,7 @@ export class RaisecomRos extends Platform {
         [/^switchport mode trunk$/, "switchport mode access"],
         [/^telnet-server disable$/, "telnet-server enable"],
         [/^shutdown$/, "no shutdown"],
-        // The device refuses `no storm-control mode`; kbps is its default and prints nothing.
+        // The device refuses `no storm-control mode`, and kbps is its default and prints nothing.
         [/^storm-control mode pps$/, "storm-control mode kbps"],
     ];
 
@@ -73,12 +74,12 @@ export class RaisecomRos extends Platform {
         leave: "exit",
         // SNMP takes the new access-list before it lets go of the old one, so it is never left without one.
         first: /^snmp-server access-list /,
-        // A password prints as a cipher and renders as a marker; both are a secret.
+        // A password prints as a cipher and renders as a marker, and both are a secret.
         canon: (line) =>
             line
                 .replace(/password (cipher )?(\S+)/, "password <secret>")
                 .replace(/community <secret:\w+>/, "community <redacted>")
-                // An SNMPv3 user prints its localized keys and renders its passphrases; both are secrets.
+                // An SNMPv3 user prints its localized keys and renders its passphrases, and both are secrets.
                 .replace(
                     /^snmp-server user (\S+) (?:authentication|authkey) (\S+) \S+ (?:privacy|privkey)\s+(\S+) \S+$/,
                     "snmp-server user $1 $2 $3 <secret>"
@@ -87,26 +88,37 @@ export class RaisecomRos extends Platform {
                 .replace(/ track bfd-session (\d+)$/, " track bfd $1")
                 // An access group prints a notify view the render leaves to its default.
                 .replace(/^(snmp-server access \S+ read \S+) notify internet (usm \S+)$/, "$1 $2"),
-        // A LAG exists before a port joins it, and an OSPF process comes after the interfaces it uses.
-        order: (path) => {
-            const header = path[0] ?? "";
-            // A BFD session binds to a VLAN interface, so it comes after the interfaces. Only one session binds to a peer, so an old one goes first, with the routes at the top level; a route takes a session that does not exist yet.
-            if (header.startsWith("bfd ")) return 4;
-            if (header.startsWith("interface port-channel")) return 1;
-            if (header.startsWith("interface ")) return 2;
-            if (header.startsWith("router ospf")) return 3;
-            return 0;
-        },
+        order: RaisecomRos.order,
     };
 
-    /** The firmware offers only an `ssh-rsa` host key, so that one is allowed for this platform alone. Key exchange, cipher and MAC still negotiate modern ones. */
+    /** Blocks after the top level. A LAG exists before a port joins it, and an OSPF process comes after its interfaces. A BFD session binds to a VLAN interface, so it comes last. Only one session binds to a peer, so an old one goes first, with the routes at the top level. A route takes a session that does not exist yet. */
+    private static readonly BLOCK_ORDER = [/^interface port-channel/, /^interface /, /^router ospf/, /^bfd /];
+
+    /** The firmware offers only an `ssh-rsa` host key, so that one is allowed for this platform alone. Key exchange, cipher, and MAC still negotiate modern ones. */
     private static readonly HOST_KEYS = ["ssh-rsa"];
 
     /** How long a dump may go quiet before the prompt, as on a lossy path where a retransmit stalls it for seconds, and how long it may take in all. */
-    private static readonly DUMP_QUIET = 30_000;
-    private static readonly DUMP_LIMIT = 150_000;
+    private static readonly DUMP_QUIET_MS = 30_000;
+    private static readonly DUMP_LIMIT_MS = 150_000;
+    private static readonly DUMP_ATTEMPTS = 3;
 
-    /** What the device prints when it refuses a line. */
+    /** How long the rest of a cut dump may take, ending once the device is quiet for the settle. */
+    private static readonly DRAIN_TIMEOUT_MS = 30_000;
+    private static readonly DRAIN_SETTLE_MS = 6000;
+
+    private static readonly COMMAND_TIMEOUT_MS = 10_000;
+    private static readonly PROMPT_TIMEOUT_MS = 15_000;
+    private static readonly LINE_TIMEOUT_MS = 20_000;
+    private static readonly LOGIN_TIMEOUT_MS = 30_000;
+    private static readonly SLOW_TIMEOUT_MS = 60_000;
+    private static readonly SETTLE_MS = 1000;
+    private static readonly VERSION_SETTLE_MS = 1500;
+    private static readonly LINE_SETTLE_MS = 2000;
+    private static readonly WRITE_SETTLE_MS = 3000;
+
+    /** How much of the device's answer an error shows. */
+    private static readonly ANSWER_CHARS = 300;
+
     private static readonly REFUSED = /^(%|Error|Incomplete|Unrecognized)|can not|cannot |is in use|Wrong parameter|invalid|unsuccessful/im;
 
     /** Lines that ask for `y` and do nothing without it. */
@@ -118,23 +130,23 @@ export class RaisecomRos extends Platform {
     /** Lines that each add one more of a kind rather than set a value: `snmp-server access-list 1001` beside `1000` binds both. */
     private static readonly STANDALONE = /^(logging host|snmp-server access-list) /;
 
-    /** Commands that only read. A `?` sent by a script is run, so a line with one is refused. */
+    /** A `?` sent by a script is run, so a line with one is refused. */
     private static readonly READS = /^show\s[^?]*$/;
 
-    readonly name = "raisecom-ros";
+    override readonly name = "raisecom-ros";
 
-    readonly os: OsSupport = {
+    override readonly os: OsSupport = {
         name: "Raisecom ROS",
         versions: "6.5",
         testedOn: "RAX721-C-6C48, ROS 6.5.2",
         checked: false,
     };
 
-    readonly extension = ".txt";
+    override readonly extension = ".txt";
 
     override readonly console = RaisecomRos.CONSOLE;
 
-    unsupported(device: Device): string[] {
+    override unsupported(device: Device): string[] {
         const found: string[] = [];
 
         if (device.management?.interfaces) found.push("management.interfaces, which only FortiOS builds for now");
@@ -240,7 +252,7 @@ export class RaisecomRos extends Platform {
         // Address sets alone build nothing: `management.allow` may name one, and the project has put its addresses there.
         const { address_sets: _addressSets, ...firewall } = device.firewall ?? {};
 
-        const UNSUPPORTED_GROUPS: [string, unknown][] = [
+        const refusedGroups: [string, unknown][] = [
             ["firewall", Object.keys(firewall).length ? firewall : undefined],
             ["services.dhcp_server", device.services?.dhcp_server],
             ["services.dhcp_relay", device.services?.dhcp_relay],
@@ -253,7 +265,7 @@ export class RaisecomRos extends Platform {
             ["monitoring.flow_export", device.monitoring?.flow_export],
         ];
 
-        for (const [path, value] of UNSUPPORTED_GROUPS) {
+        for (const [path, value] of refusedGroups) {
             if (value !== undefined) found.push(path);
         }
 
@@ -290,7 +302,7 @@ export class RaisecomRos extends Platform {
             );
         }
 
-        // SNMP takes its own access-list; SSH and telnet share the management one.
+        // SNMP takes its own access-list, and SSH and telnet share the management one.
         found.push(...Derive.switchUnsupported(device, ["snmp"]));
         found.push(...Derive.untested(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
         found.push(...Derive.unbuilt(device));
@@ -298,42 +310,42 @@ export class RaisecomRos extends Platform {
         return found;
     }
 
-    render(device: Device): string {
+    override render(device: Device): string {
         return RaisecomRosRender.of(device);
     }
 
-    /** What the device runs, credentials scrubbed. */
-    async read(device: Device, _network: readonly Device[], options: ReadOptions = {}): Promise<string> {
+    override async read(device: Device, _network: readonly Device[], options: ReadOptions = {}): Promise<string> {
         const { channel, close } = await RaisecomRos.open(device, options);
 
         try {
-            // Without paging off the dump stops halfway with no error. A complete dump ends at the prompt, so the read waits for it through a pause of the device's own or a stall on a lossy path; one that never gets there is read again rather than planned against.
+            // Without paging off, the dump stops halfway with no error. A complete dump ends at the prompt, so the read waits through a pause or a stall on a lossy path. One that never gets there is read again rather than planned against.
             let dump = "";
             for (let attempt = 1; ; attempt++) {
                 dump = await RaisecomRos.dump(channel);
                 if (/[#>]\s*$/.test(dump.replace(/\r/g, "").trimEnd())) break;
-                if (attempt === 3) throw new Error(`${device.name} returned an incomplete configuration three times`);
+                if (attempt === RaisecomRos.DUMP_ATTEMPTS)
+                    throw new Error(`${device.name} returned an incomplete configuration three times`);
                 // What the device still prints of the cut dump ends before the next one starts.
-                await Ssh.send(channel, "", 30_000, 6000);
+                await Ssh.send(channel, "", RaisecomRos.DRAIN_TIMEOUT_MS, RaisecomRos.DRAIN_SETTLE_MS);
             }
             const lines = dump.replace(/\r/g, "").split("\n");
             const start = lines.findIndex((line) => line.trim().startsWith("!ROS version"));
-            if (start < 0) throw new Error(`${device.name} returned no configuration`);
+            if (start === -1) throw new Error(`${device.name} returned no configuration`);
 
-            // The prompt is not configuration; uptime, clock and boot count change on an untouched device.
+            // The prompt is not configuration, and uptime, clock, and boot count change on an untouched device.
             const body = lines.slice(start).filter((line) => line.startsWith("!") || !/[#>]\s*$/.test(line.trim()));
             const text = body
                 .join("\n")
                 .replace(/^!(System (up )?time|Boot times):.*\n/gm, "")
                 .trim();
             // An SNMPv3 user prints localized keys, which authenticate as well as the passphrase.
-            return LineDiff.scrub(text + "\n").replace(/(authkey \S+|privkey\s+\S+) \S+/g, "$1 <redacted>");
+            return LineDiff.scrub(`${text}\n`).replace(/(authkey \S+|privkey\s+\S+) \S+/g, "$1 <redacted>");
         } finally {
             close();
         }
     }
 
-    /** Read `show running-config` until it ends at the prompt, or until it goes quiet for too long or takes too long in all. */
+    /** Ends at the prompt, or when the dump goes quiet for too long or takes too long in all. */
     private static dump(channel: ClientChannel): Promise<string> {
         const ended = (text: string) => {
             const clean = text.replace(/\r/g, "").trimEnd();
@@ -357,33 +369,29 @@ export class RaisecomRos extends Platform {
                 output += chunk.toString("utf8");
                 clearTimeout(quiet);
                 clearTimeout(settle);
-                quiet = setTimeout(finish, RaisecomRos.DUMP_QUIET);
-                if (ended(output)) settle = setTimeout(finish, 1_000);
+                quiet = setTimeout(finish, RaisecomRos.DUMP_QUIET_MS);
+                if (ended(output)) settle = setTimeout(finish, RaisecomRos.SETTLE_MS);
             };
 
-            const limit = setTimeout(finish, RaisecomRos.DUMP_LIMIT);
-            quiet = setTimeout(finish, RaisecomRos.DUMP_QUIET);
+            const limit = setTimeout(finish, RaisecomRos.DUMP_LIMIT_MS);
+            quiet = setTimeout(finish, RaisecomRos.DUMP_QUIET_MS);
             channel.on("data", onData);
             channel.write("show running-config\n");
         });
     }
 
-    /** The LLDP neighbors from `show lldp remote detail`, which spells each port in full. The short form abbreviates ports (`TGE1/3/3`) and pads columns, so a name with a space cannot be told apart there. */
-    async neighbors(device: Device, _network: readonly Device[], options: ReadOptions = {}): Promise<Neighbor[]> {
+    /** The detail form spells each port in full. The short form abbreviates ports, `TGE1/3/3`, and pads columns, so a name with a space cannot be told apart there. */
+    override async neighbors(device: Device, _network: readonly Device[], options: ReadOptions = {}): Promise<Neighbor[]> {
         const session = await this.session(device, options);
 
         try {
-            return RaisecomRos.lldpRemotes(await session.run("show lldp remote detail", 60_000), device);
+            return RaisecomRos.lldpRemotes(await session.run("show lldp remote detail", RaisecomRos.SLOW_TIMEOUT_MS), device);
         } finally {
             session.close();
         }
     }
 
-    /**
-     * The neighbors in `show lldp remote detail`: a `<port> has N remotes:` line per port, then a block per remote of `Key: value` lines. A long value wraps onto lines that start with spaces, cut mid-word.
-     *
-     * A remote without a system name is named by its chassis ID. A port the catalog does not have, such as the out-of-band port, is left out.
-     */
+    /** A `<port> has N remotes:` line per port, then a block per remote of `Key: value` lines. A long value wraps onto lines that start with spaces, cut mid-word. A remote without a system name is named by its chassis ID. A port the catalog does not have, such as the out-of-band port, is left out. */
     static lldpRemotes(text: string, device: Device): Neighbor[] {
         const tidy = (port: string) => port.replace(/\s+/g, "").toLowerCase();
         const ports = new Map(
@@ -431,11 +439,11 @@ export class RaisecomRos extends Platform {
         return neighbors;
     }
 
-    plan(desired: string, current: string, options: ApplyOptions): Plan {
+    override plan(desired: string, current: string, options: ApplyOptions): Plan {
         const compared = LineDiff.compare(desired, current, RaisecomRos.DIALECT);
         const groups = options.secrets ? LineDiff.withSecrets(compared, desired, RaisecomRos.DIALECT) : compared;
 
-        // An access-list rule is not overwritten by one with the same number; the old one is removed first.
+        // An access-list rule is not overwritten by one with the same number, so the old one is removed first.
         const existing = LineDiff.entries(current, RaisecomRos.DIALECT);
 
         for (const group of groups) {
@@ -504,7 +512,7 @@ export class RaisecomRos extends Platform {
             const acl = /^access-list (\d+)/.exec(group.path[0] ?? "")?.[1];
             if (!acl) return { before: [], after: [] };
 
-            // A port's filter is bound again only where it stays; a port that newly takes it binds it in its own step.
+            // A port's filter is bound again only where it stays. A port that newly takes it binds it in its own step.
             const filter = `filter ingress access-list ${acl}`;
             const ports = RaisecomRos.filteredPorts(current, filter);
             const kept = ports.filter((port) => RaisecomRos.filteredPorts(desired, filter).includes(port));
@@ -558,24 +566,24 @@ export class RaisecomRos extends Platform {
         return { steps: planned, problems: [] };
     }
 
-    async apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
+    override async apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
         const session = await RaisecomRos.open(device, options);
         const { channel } = session;
         // Bindings released for an access-list edit. A failure binds them again before anything else, so the list keeps guarding management.
         const released: string[] = [];
 
         try {
-            await Ssh.send(channel, "config", 10_000);
+            await Ssh.send(channel, "config", RaisecomRos.COMMAND_TIMEOUT_MS);
 
             for (const step of plan.steps) {
                 for (const line of step.send) {
-                    let answer = await Ssh.send(channel, Secrets.substitute(line), 20_000, 2000);
+                    let answer = await Ssh.send(channel, Secrets.substitute(line), RaisecomRos.LINE_TIMEOUT_MS, RaisecomRos.LINE_SETTLE_MS);
                     // A confirming line asks for `y` unless the change needs no confirming, when the device sets it at once.
                     const asks =
                         /[[(]y\/n[\])]|input 'y'/i.test(answer) || (RaisecomRos.CONFIRM.test(line) && !/set successfully/i.test(answer));
-                    if (asks) answer += await Ssh.send(channel, "y", 10_000, 1000);
+                    if (asks) answer += await Ssh.send(channel, "y", RaisecomRos.COMMAND_TIMEOUT_MS, RaisecomRos.SETTLE_MS);
                     if (RaisecomRos.REFUSED.test(answer))
-                        throw new Error(`${step.title}: ${line}\n    device said: ${answer.trim().slice(0, 300)}`);
+                        throw new Error(`${step.title}: ${line}\n    device said: ${answer.trim().slice(0, RaisecomRos.ANSWER_CHARS)}`);
 
                     const release = RaisecomRos.RELEASE.exec(line);
                     if (release) released.push(release[1]!);
@@ -583,11 +591,11 @@ export class RaisecomRos extends Platform {
                 }
             }
 
-            await Ssh.send(channel, "exit", 10_000);
+            await Ssh.send(channel, "exit", RaisecomRos.COMMAND_TIMEOUT_MS);
         } catch (error) {
-            await Ssh.send(channel, "end", 10_000).catch(() => undefined);
-            await Ssh.send(channel, "config", 10_000).catch(() => undefined);
-            for (const binding of released) await Ssh.send(channel, binding, 10_000).catch(() => undefined);
+            await Ssh.send(channel, "end", RaisecomRos.COMMAND_TIMEOUT_MS).catch(() => undefined);
+            await Ssh.send(channel, "config", RaisecomRos.COMMAND_TIMEOUT_MS).catch(() => undefined);
+            for (const binding of released) await Ssh.send(channel, binding, RaisecomRos.COMMAND_TIMEOUT_MS).catch(() => undefined);
             if (released.length) console.log(`  bound again: ${released.join(", ")}`);
             session.close();
             throw error;
@@ -598,32 +606,37 @@ export class RaisecomRos extends Platform {
             throw new Error(
                 "applied, but a fresh login failed. Not written: a reboot restores the previous configuration. Recover from the console."
             );
-        await Ssh.send(proof.channel, "write", 60_000, 3000);
+        await Ssh.send(proof.channel, "write", RaisecomRos.SLOW_TIMEOUT_MS, RaisecomRos.WRITE_SETTLE_MS);
         proof.close();
         console.log("  applied, logged in again, written");
     }
 
-    readOnly(command: string): boolean {
+    override readOnly(command: string): boolean {
         return RaisecomRos.READS.test(command);
     }
 
     /** One shell for every command, as the platform takes commands only there. */
-    async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
+    override async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
         const session = await RaisecomRos.open(device, options);
         const shell = new ConsoleShell(session.channel, RaisecomRos.CONSOLE, ConsoleShell.SETTLE);
 
         return { run: (command, timeout) => shell.run(command, timeout), close: session.close };
     }
 
+    /** The top level, and any block not in the order, comes first. */
+    private static order(path: string[]): number {
+        return RaisecomRos.BLOCK_ORDER.findIndex((pattern) => pattern.test(path[0] ?? "")) + 1;
+    }
+
     private static undo(line: string): string {
         for (const [pattern, opposite] of RaisecomRos.OPPOSITES) if (pattern.test(line)) return opposite;
         if (/^rule \d+/.test(line)) return `no ${line.split(" ").slice(0, 2).join(" ")}`;
 
-        // A VRRP group goes with its address; its other settings return to their defaults by keyword. Preemption is on unless turned off.
+        // A VRRP group goes with its address, and its other settings return to their defaults by keyword. Preemption is on unless turned off.
         const vrrp = /^(no )?vrrp (\d+) (ip \S+|priority|timers advertise-interval|preempt)/.exec(line);
         if (vrrp) return vrrp[1] ? `vrrp ${vrrp[2]} preempt` : `no vrrp ${vrrp[2]} ${vrrp[3]}`;
 
-        // A route goes by its prefix and next hop, whatever it tracks; a BFD session by its number.
+        // A route goes by its prefix and next hop, whatever it tracks. A BFD session goes by its number.
         const route = /^(ip route \S+ \S+ \S+)/.exec(line);
         if (route) return `no ${route[1]}`;
 
@@ -633,7 +646,7 @@ export class RaisecomRos extends Platform {
         const ospfProcess = /^router ospf (\d+)/.exec(line);
         if (ospfProcess) return `no router ospf ${ospfProcess[1]}`;
 
-        // An SNMPv3 user, its group and its access are each removed by their name alone.
+        // An SNMPv3 user, its group, and its access are each removed by their name alone.
         const snmpUser = /^snmp-server user (\S+)/.exec(line);
         if (snmpUser) return `no snmp-server user ${snmpUser[1]}`;
 
@@ -653,21 +666,25 @@ export class RaisecomRos extends Platform {
         return `no ${line}`;
     }
 
-    /** An interactive shell, paging off, over SSH or on the console. A session that does not answer as ROS is refused, so nothing meant for it can reach another shell. */
+    /** A session that does not answer as ROS is refused, so nothing meant for it can reach another shell. */
     private static async open(device: Device, options: ReadOptions = {}): Promise<Session> {
-        const session = options.console ? await RaisecomRos.consoleShell(device) : await RaisecomRos.sshShell(device);
+        const session = options.console ? await RaisecomRos.openConsole(device) : await RaisecomRos.openSsh(device);
 
-        const version = await Ssh.send(session.channel, "show version", 15_000, 1500);
+        const version = await Ssh.send(session.channel, "show version", RaisecomRos.PROMPT_TIMEOUT_MS, RaisecomRos.VERSION_SETTLE_MS);
         if (!version.includes("ROS")) {
             session.close();
             throw new Error(`${device.name} did not answer as ROS`);
         }
 
-        await Ssh.send(session.channel, "terminal page-break disable", 15_000, 1000);
+        await RaisecomRos.pagingOff(session.channel);
         return session;
     }
 
-    private static async sshShell(device: Device): Promise<Session> {
+    private static async pagingOff(channel: ClientChannel): Promise<void> {
+        await Ssh.send(channel, "terminal page-break disable", RaisecomRos.PROMPT_TIMEOUT_MS, RaisecomRos.SETTLE_MS);
+    }
+
+    private static async openSsh(device: Device): Promise<Session> {
         const { port, user, password, keys } = Secrets.loginOf(device);
 
         const client = await Ssh.connect({
@@ -684,7 +701,7 @@ export class RaisecomRos extends Platform {
             client.end();
         };
 
-        const banner = await Ssh.readUntil(channel, (text) => /[#>]\s*$/.test(text.trimEnd()), 30_000);
+        const banner = await Ssh.readUntil(channel, (text) => /[#>]\s*$/.test(text.trimEnd()), RaisecomRos.LOGIN_TIMEOUT_MS);
         if (!/[#>]\s*$/.test(banner.trimEnd())) {
             close();
             throw new Error(`${device.name} did not answer as ROS`);
@@ -700,7 +717,7 @@ export class RaisecomRos extends Platform {
         };
     }
 
-    private static async consoleShell(device: Device): Promise<Session> {
+    private static async openConsole(device: Device): Promise<Session> {
         const { console, user, password } = SerialConsole.of(device);
         const opened = await SerialConsole.open(console);
 
@@ -719,7 +736,7 @@ export class RaisecomRos extends Platform {
             },
             fresh: async () => {
                 await SerialConsole.login(opened.channel, RaisecomRos.CONSOLE, user, password, console.password_only);
-                await Ssh.send(opened.channel, "terminal page-break disable", 15_000, 1000);
+                await RaisecomRos.pagingOff(opened.channel);
                 return session;
             },
         };

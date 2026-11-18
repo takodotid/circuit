@@ -3,7 +3,8 @@
 
 import { computed, onBeforeUnmount, ref } from "vue";
 import { Motion } from "./SwitchLearning";
-import { type Flight, type Race, Races } from "./TcpUdpRace";
+import { Races } from "./TcpUdpRace";
+import type { Flight, Race } from "./TcpUdpRace";
 
 /** Real milliseconds shown for each millisecond of the race, so it can be watched. */
 const SLOW_DOWN = 10;
@@ -231,8 +232,8 @@ const summary = computed(() => {
             A dashed letter on the TCP side has arrived, but it waits until every letter before it is there.
         </p>
         <p v-else class="ac-say hint" aria-live="polite">
-            The laptop sends the word NETWORKING to a server, one letter per packet, once over TCP and once over UDP. Start with some loss,
-            then try heavy loss and no loss. The lost packets are random, but the same pattern number loses the same ones.
+            The laptop sends the word NETWORKING over TCP and over UDP, one letter per packet. Start with some loss, then try heavy loss and
+            no loss. The same loss pattern always loses the same packets.
         </p>
     </div>
 </template>

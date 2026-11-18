@@ -1,9 +1,11 @@
 <script setup lang="ts">
-// Lesson: switches. The reader sends frames between five devices on one switch, and watches the switch learn where each device is, flood a frame it cannot place yet, and copy a broadcast to everyone.
+// Lesson: switches. The reader sends frames between five devices on one switch. The switch learns where each device is, floods a frame it cannot place yet, and copies a broadcast to everyone.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
-import { type Host, Lan, useNarrow, usePause } from "./SwitchLearning";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
+import { Lan, useNarrow, usePause } from "./SwitchLearning";
+import type { Host } from "./SwitchLearning";
 
 type Layout = {
     viewBox: string;
@@ -156,11 +158,10 @@ async function send() {
         };
     } else {
         goals.value.flooded = true;
-        const others = ["no", "one", "two", "three", "four"][receivers.length - 1];
         said.value = {
             kind: "good",
             word: "Flooded",
-            text: `${learned} It has no row for ${target!.mac} yet, so it flooded the frame out of every port except the one it came in on. The ${target!.label.toLowerCase()} kept it. The other ${others} saw it was not for them and ignored it. Now send one back from the ${target!.label.toLowerCase()} to the ${sender.label.toLowerCase()}.`,
+            text: `${learned} It has no row for ${target!.mac} yet, so it flooded the frame out of every port except the one it came in on. Now send one back from the ${target!.label.toLowerCase()} to the ${sender.label.toLowerCase()}.`,
         };
     }
 
@@ -274,7 +275,7 @@ function clearTable() {
         <p v-if="said" class="ac-say" :class="said.kind" :data-word="said.word" aria-live="polite">{{ said.text }}</p>
         <p v-else-if="busy" class="ac-say hint" aria-live="polite">The frame is on its way to the switch.</p>
         <p v-else class="ac-say hint" aria-live="polite">
-            The numbered squares are the switch's ports. Send a frame from the laptop to the printer, and watch which ports it goes out of.
+            The numbered squares are the switch's ports. Send a frame, and watch which ports it goes out of.
         </p>
 
         <div class="panels">

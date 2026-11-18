@@ -7,13 +7,11 @@ description: How a provider reaches each customer, over fiber, copper, radio, or
 
 A provider joins each customer to its network with one link, from the provider's nearest building to the customer's. This link is the <Term means="The link between a provider's nearest point and the customer's building. Also called the local loop.">last mile</Term>, or the local loop, whatever its length. It is fiber, copper, radio, or a satellite.
 
-The choice sets two things the customer feels every day: how much the link carries each second, and how long each message takes to get there and back. A faster plan changes the first, never the second.
-
 ## Speed and delay are different things
 
-**Speed**, or bandwidth, is how many bits a link carries each second, such as 100 Mbit/s or 1 Gbit/s. **Delay**, or <Term means="The time a message takes to cross a link or a network, usually counted there and back, in milliseconds.">latency</Term>, is how long one bit takes to arrive. A wider road carries more cars, but each car still needs the same time to drive the same distance.
+**Speed**, or bandwidth, is how many bits a link carries each second, such as 100 Mbit/s or 1 Gbit/s. **Delay**, or <Term means="The time a message takes to cross a link or a network, usually counted there and back, in milliseconds.">latency</Term>, is how long one bit takes to arrive. A wider road carries more cars, but each car still needs the same time to drive the same distance. A faster plan changes the speed, never the delay.
 
-Delay comes mostly from distance. Light in fiber covers about 200 km each millisecond. So 1,000 km of fiber adds about 5 ms one way, and 10 ms there and back. Radio through the air is faster, at nearly the full speed of light. The equipment on the way adds a little, but over a long path most of the delay is distance.
+Delay comes mostly from distance. Light in fiber covers about 200 km each millisecond. So 1,000 km of fiber adds about 5 ms one way, and 10 ms there and back. Radio through the air is faster, at nearly the full speed of light. The equipment on the way adds a little.
 
 Every link also has a second question: is it **shared**? Most links to homes are shared with the neighbors, so each home gets less when everyone is busy. A link of its own gives a customer its full rate all the time. Businesses pay more for that.
 
@@ -25,13 +23,13 @@ Fiber all the way into a home is <Term means="Fiber to the home: an optical fibe
 2. A <Term means="A small glass part that divides the light from one fiber into many. It needs no power, which is why the network is called passive.">splitter</Term>, in the street or the building, divides that light between 32 or 64 fibers, sometimes 128. It needs no power.
 3. An <Term means="Optical network terminal: the box where the fiber ends in the customer's home. It turns light into an Ethernet port, and is often in one case with the home router.">ONT</Term> in each home turns the light back into an Ethernet port.
 
-If your home internet comes in on a thin fiber cable to a small box, that box is an ONT. It is often in one case with the router. It belongs to the provider, so it is <Term means="Customer premises equipment: the provider's equipment at the customer's site, such as an ONT or a router.">CPE</Term>, customer premises equipment.
+If your home internet comes in on a thin fiber cable to a small box, that box is an ONT. It belongs to the provider, so it is <Term means="Customer premises equipment: the provider's equipment at the customer's site, such as an ONT or a router.">CPE</Term>, customer premises equipment.
 
 One GPON fiber carries about 2.5 Gbit/s toward the homes and 1.25 Gbit/s back. Every home on the splitter shares it, taking turns. A home can be up to about 20 km from the OLT. The newer XGS-PON carries 10 Gbit/s each way on the same fiber, beside GPON, so a provider can move homes over one at a time.
 
 <TryIt title="Share one fiber between homes">
 
-Choose a splitter size and a plan, then add busy homes until the fiber runs out. Try the 1 to 64 splitter with 1,000 Mbit/s plans.
+Try the 1 to 64 splitter with 1,000 Mbit/s plans, then add busy homes until the fiber runs out.
 
 <PonSplitter />
 
@@ -49,7 +47,7 @@ This is why home plans say "up to." The provider counts on most homes not downlo
 
 ## A fiber of its own
 
-A business that needs a rate it can count on gets a fiber of its own. This <Term means="A fiber from the provider's building to one customer, used by that customer alone.">point-to-point fiber</Term> runs from the provider's router straight to the customer's. Nobody shares it, so the optics at both ends set its speed. The provider can then promise a rate and a repair time in the contract. It costs the provider a fiber and a router port for each customer, so it is kept for customers who pay for it. The [next lesson](/academy/professional/internet-products) shows what is sold over it.
+A business that needs a rate it can count on gets a fiber of its own. This <Term means="A fiber from the provider's building to one customer, used by that customer alone.">point-to-point fiber</Term> runs from the provider's router straight to the customer's. Nobody shares it, so the optics at both ends set its speed, and the provider can promise a rate and a repair time in the contract. It costs the provider a fiber and a router port for each customer, so it is kept for customers who pay for it. The [next lesson](/academy/professional/internet-products) shows what is sold over it.
 
 ## Copper: the old phone line
 
@@ -66,11 +64,11 @@ Some radios serve many customers from one tower. Those customers share it, the w
 
 ## Satellite: geostationary and low orbit
 
-Where nothing else reaches, such as an island, a ship, or a mining camp, a satellite can. There are two kinds, and they behave very differently.
+Where nothing else reaches, such as an island, a ship, or a mining camp, a satellite can.
 
 <Term means="Very small aperture terminal: a satellite dish, usually 75 cm to 1.2 m across, linked to a geostationary satellite. A round trip over it takes more than half a second.">VSAT</Term> is internet over a dish that talks to a **geostationary** satellite, 35,786 km over the equator. At that height a satellite circles once a day, so it stays over the same spot and the dish never moves. But every message climbs 35,786 km and comes back down, and so does its reply. The distance alone makes the round trip over 480 ms, and measured round trips are around 600 ms or more. Calls feel awkward, and anything that waits for replies feels slow, whatever the plan's speed.
 
-A **low-orbit** satellite flies far lower. Starlink satellites fly about 550 km up. The trip up and down takes only a few milliseconds, and one study measured round trips of about 30 to 80 ms. Low satellites cross the sky fast, so the dish moves from one to the next about every 15 seconds in that study. The delay shifts each time. Users nearby share the capacity, and one study saw speeds several times higher off-peak than at the busiest hours.
+A **low-orbit** satellite flies far lower: Starlink satellites fly about 550 km up. The trip up and down takes only a few milliseconds, and one study measured round trips of about 30 to 80 ms. Low satellites cross the sky fast, so the dish moves from one to the next about every 15 seconds in that study, and the delay shifts each time. Users nearby share the capacity, and one study saw speeds several times higher off-peak than at the busiest hours.
 
 Both kinds lose signal in heavy rain, as radio links do.
 
@@ -79,8 +77,6 @@ Both kinds lose signal in heavy rain, as radio links do.
 <LastMileSites />
 
 </TryIt>
-
-The line shows the pattern. Fiber, copper, and radio add almost nothing to a round trip. The low satellite adds tens of milliseconds, and the geostationary one more than all the others together.
 
 <Quiz
   question="A plantation on a VSAT link to a geostationary satellite upgrades to a plan twice as fast. What happens to its round-trip delay?"
@@ -109,7 +105,7 @@ The line shows the pattern. Fiber, copper, and radio add almost nothing to a rou
   explain="A fiber of its own is shared with nobody, so the provider can commit to a rate and a repair time. A radio or satellite link makes a good second path beside it."
 />
 
-Whatever the link, a box at the customer's end usually hands it to the router as an Ethernet port. That box is an ONT, a modem, or a radio. From that port on, the router is set up like any other, and Circuit takes over.
+Whatever the link, a box at the customer's end, an ONT, a modem, or a radio, usually hands it to the router as an Ethernet port. From that port on, the router is set up like any other, and Circuit takes over.
 
 ## Further reading
 
@@ -120,11 +116,3 @@ Whatever the link, a box at the customer's end usually hands it to the router as
 - [Very-small-aperture terminal](https://en.wikipedia.org/wiki/Very-small-aperture_terminal): what a VSAT is.
 - [A transport protocol's view of Starlink](https://blog.apnic.net/2024/05/17/a-transport-protocols-view-of-starlink/), APNIC blog: low and geostationary orbits, measured delays, and shared capacity.
 - [Minimizing latency in long-haul networks](https://www.lightwaveonline.com/network-design/article/16649529/minimizing-latency-in-long-haul-networks): how far light travels in fiber each millisecond.
-
-## In short
-
-- The last mile, or local loop, is the link from the provider's nearest building to the customer. It is fiber, copper, radio, or satellite.
-- GPON shares one fiber between up to 64 or 128 homes through a splitter with no power. The OLT is at the provider, and an ONT is in each home.
-- A business that needs a committed rate gets a fiber of its own.
-- Copper slows with distance. Fixed wireless needs a clear line of sight and room for rain.
-- Speed and delay are different. A geostationary satellite adds over half a second to every round trip, a low-orbit one tens of milliseconds, and cables and radio almost nothing.

@@ -34,14 +34,10 @@ Or run `circuit` in an empty folder and pick **Start a new project**. Circuit as
 | Project folder               | Any name.                                                                           |
 | How to run Circuit           | **Simple** (recommended) runs the app. **Full** is a [full install](#full-install). |
 | Your network's AS number     | Yours. Or keep `64500`, and change it later in `circuit.ts`.                        |
-| Start a git repository?      | Yes. Git keeps every change and who made it.                                        |
+| Start a git repository?      | Yes.                                                                                |
 | Open the project in VS Code? | Circuit asks only if you have VS Code.                                              |
 
-Once you add a site and a device, the project has this layout.
-
-<LayoutDiagram />
-
-Next, write [your first project](/guide/project).
+[Your first project](/guide/project) shows the project's layout.
 
 ## Run the install command again
 
@@ -51,11 +47,11 @@ Next, write [your first project](/guide/project).
 | In a project folder, such as a fresh clone | It sets up that project without questions: editor types, git hook. |
 | In any other folder                        | It asks whether to set up a new project there.                     |
 
-So a teammate who clones your project runs the install command once, in that folder, and is ready.
+A teammate who clones your project runs the install command once, in that folder.
 
 ## Each project pins its version
 
-A project keeps its Circuit version, such as `1.0.0`, in `.circuit/version`. You commit that file, and every command in the project runs that version. So two projects on two versions never clash, and everyone on the team runs the same version.
+A project keeps its Circuit version, such as `1.0.0`, in `.circuit/version`. You commit that file, and every command in the project runs that version.
 
 The first time, Circuit asks before it downloads the version. It keeps each version once, in `~/.circuit/versions/`, and removes it when no project uses it any more.
 

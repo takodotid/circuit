@@ -2,7 +2,8 @@
 // Lesson: routers and the gateway. The reader picks an address for a laptop to send to. The laptop decides to send directly or to its gateway, and each router passes the packet on by its routing table, lowering the TTL. With `loop`, a forgotten row sends a packet round in a circle until its TTL runs out.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 import { Motion, useNarrow, usePause } from "./SwitchLearning";
 
 const props = defineProps<{
@@ -153,7 +154,7 @@ const ownerOf = (address: number) => owners.find((owner) => parse(owner.address)
 function lookup(router: RouterId, address: number) {
     const rows = tables.value[router];
     const index = rows.findIndex((row) => row.prefix !== undefined && inside(address, row.network, row.prefix));
-    return index >= 0 ? index : rows.findIndex((row) => row.prefix === undefined);
+    return index !== -1 ? index : rows.findIndex((row) => row.prefix === undefined);
 }
 
 /** The way along the cables from one place to another. */
@@ -303,7 +304,7 @@ async function send() {
             steps.value.push(`The ${routerNames[router]} lowers the TTL to 0 and drops the packet.`);
             said.value = {
                 kind: "bad",
-                text: `The packet went round between the two routers until its TTL reached 0, after ${hops} hops. Then the ${routerNames[router]} dropped it. Without the TTL, it would go round forever.`,
+                text: `The packet went round between the two routers until its TTL reached 0, after ${hops} hops. Then the ${routerNames[router]} dropped it.`,
             };
             break;
         }
@@ -342,7 +343,7 @@ async function send() {
             said.value = {
                 kind: "good",
                 word: "Passed on",
-                text: `The packet left through the provider after ${hops} router${hops > 1 ? "s" : ""} in this drawing. The provider’s routers pass it on the same way. Each one looks up ${text} in its own table and lowers the TTL by one.`,
+                text: `The packet left through the provider after ${hops} router${hops > 1 ? "s" : ""} in this drawing. The provider’s routers pass it on the same way.`,
             };
             break;
         }

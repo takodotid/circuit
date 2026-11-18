@@ -6,6 +6,6 @@ discussion: false
 
 # Elementary entry check
 
-Every Elementary lesson uses what Beginner teaches: packets, addresses, bits, switches, routers, DNS, and ports. If networking is new to you, start with [Beginner](/academy/#beginner) instead.
+Elementary builds on Beginner: packets, addresses, bits, switches, routers, DNS, and ports. If networking is new to you, start with [Beginner](/academy/#beginner).
 
 <LevelCheck level="elementary" />

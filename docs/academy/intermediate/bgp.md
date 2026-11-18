@@ -7,7 +7,7 @@ description: BGP is how networks tell each other which prefixes they reach. Brin
 
 BGP is how autonomous systems tell each other which prefixes they can reach. Two neighboring routers keep a session open over TCP port 179, and each one announces its routes through it. Every announcement carries the prefix and its **AS path**: the list of ASes it has passed through.
 
-Before an AS passes a route on to another AS, it puts its own number at the front of the path. An AS that finds its own number already in a path drops the route. So an announcement never goes round in a circle.
+Before an AS passes a route on to another AS, it puts its own number at the front of the path.
 
 ## Sessions between neighbors
 
@@ -26,7 +26,7 @@ A router shows each session's state by its name in the BGP standard. The states 
 
 </TryIt>
 
-Before you added the policies, the session was up. Yet no route came in, and none went out. In Circuit, a neighbor without an `import_policy` accepts nothing, and one without an `export_policy` announces nothing. So a session you forgot to filter carries nothing, instead of everything. What goes into those policies is the subject of [Route policies](/academy/intermediate/route-policy).
+Before you added the policies, the session was up. Yet no route came in, and none went out. In Circuit, a neighbor without an `import_policy` accepts nothing, and one without an `export_policy` announces nothing. So a session you forgot to filter carries nothing, instead of everything. [Route policies](/academy/intermediate/route-policy) covers what goes into them.
 
 <Quiz
   question="Your session with a neighbor stays in Active and never gets further. What is most likely wrong?"
@@ -51,7 +51,7 @@ Read the AS path from right to left, and you see how the announcement traveled. 
 
 </TryIt>
 
-In this widget, each AS keeps the shortest path it hears. It passes the path on by the rules from [Networks of networks](/academy/intermediate/autonomous-systems). A route from a customer goes to every neighbor, and a route from a provider or a peer goes only to customers. Real routers choose between paths with more than their length, as [Choosing the best route](/academy/intermediate/best-path) shows. Real routers also differ in whether they send a route back to the neighbor it came from. When they do, the loop check you just watched stops it.
+In this widget, each AS keeps the shortest path it hears. It passes the path on by the rules from [Networks of networks](/academy/intermediate/autonomous-systems). Real routers choose between paths with more than their length, as [Choosing the best route](/academy/intermediate/best-path) shows. Real routers also differ in whether they send a route back to the neighbor it came from. When they do, the loop check you just watched stops it.
 
 The AS path does three jobs at once:
 
@@ -77,7 +77,7 @@ The AS path does three jobs at once:
 
 ## eBGP and iBGP
 
-A session between two different ASes is **eBGP**, external BGP, and this lesson has been about it so far. A session between two routers of the same AS is **iBGP**, internal BGP. A network with several edge routers uses iBGP, so that each one knows what the others learned from outside.
+A session between two different ASes is **eBGP**, external BGP. A session between two routers of the same AS is **iBGP**, internal BGP. A network with several edge routers uses iBGP, so that each one knows what the others learned from outside.
 
 iBGP works a little differently. A router doesn't add its own AS number to the path, because the route hasn't left the AS. It also doesn't pass a route learned over iBGP to another iBGP neighbor. So every BGP router in an AS needs a session with every other one, or a router that reflects routes between them. In Circuit, a neighbor whose `remote_as` is your own `asn` is an iBGP session. [BGP inside a network](/academy/professional/ibgp-at-scale) goes further.
 
@@ -133,11 +133,3 @@ routing: {
 ::: warning Not every platform runs BGP
 RouterOS, Junos, and FortiOS run BGP. VRP and Raisecom ROS report `routing.bgp` as an error. Only RouterOS has BGP roles, so the others report `role` as an error. FortiOS has no RPKI, so it refuses the RPKI rule in `presets.bgp_sanity`. See [Platforms](/reference/platforms).
 :::
-
-## In short
-
-- BGP neighbors are written by hand on both sides. They keep a session over TCP port 179: connect, OPEN, KEEPALIVE, and then UPDATE messages.
-- An announcement carries a prefix and its AS path. Each AS puts its own number at the front before it passes the announcement on.
-- An AS that finds its own number in a path drops the route, so announcements can't loop.
-- eBGP runs between ASes. iBGP runs inside one AS, and adds nothing to the path.
-- In Circuit, BGP is `routing.bgp`, with `originated_prefixes` and `neighbors`. A neighbor without an `import_policy` or an `export_policy` accepts or announces nothing.

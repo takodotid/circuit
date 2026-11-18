@@ -4,8 +4,6 @@ description: Validate every push, find drift on a schedule, and apply from a pip
 
 # Run in CI
 
-Circuit runs in CI as it does on your machine, except that nobody is there to answer.
-
 ## Check every push
 
 This GitHub Actions job checks every push:
@@ -71,7 +69,7 @@ If you keep the password in 1Password, set `CIRCUIT_SECRETS_PASSWORD` to its `op
 
 ## Exit codes
 
-Each command exits 0 when all is well. It exits 1, and so fails the job, in these cases.
+Each command exits 0 when all is well, and 1 in these cases.
 
 | Command                       | Exits 1 when                                                                                                      |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |

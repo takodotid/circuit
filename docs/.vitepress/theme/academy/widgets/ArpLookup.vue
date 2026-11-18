@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Lesson: routers and the gateway. The reader sends from a laptop to a printer, the router, and a far server, and watches the laptop find each hardware address it needs with ARP: a broadcast question, one answer, and a line in its ARP table.
+// Lesson: routers and the gateway. The reader sends from a laptop to a printer, the router, and a far server. The laptop finds each hardware address it needs with ARP: a broadcast question, one answer, and a line in its ARP table.
 
 import { computed, ref } from "vue";
-import { useTravel, type Point } from "../travel";
+import { useTravel } from "../travel";
+import type { Point } from "../travel";
 
 type Id = "laptop" | "switch" | "printer" | "phone" | "router" | "server";
 
@@ -86,12 +87,12 @@ async function send() {
         ? {
               kind: "good",
               word: "From the table",
-              text: `${decision} The hardware address was already in the ARP table, so the laptop sent the frame at once without asking.`,
+              text: `${decision} The hardware address was already in the ARP table, so the laptop did not ask.`,
           }
         : {
               kind: "warn",
               word: "Asked first",
-              text: `${decision} The laptop did not know ${ip}'s hardware address, so it broadcast "who has ${ip}?". Every device heard it, but only the ${places[hop].label.toLowerCase()} answered. The laptop wrote the answer into its ARP table before sending.`,
+              text: `${decision} The laptop did not know ${ip}'s hardware address, so it broadcast "who has ${ip}?". Every device heard it, but only the ${places[hop].label.toLowerCase()} answered.`,
           };
 
     busy.value = false;

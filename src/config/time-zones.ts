@@ -1,5 +1,3 @@
-// Every IANA time zone name Circuit knows.
-
 /** An IANA time zone name, such as `Asia/Jakarta`, or `UTC`. */
 export type TimeZone =
     | "UTC"

@@ -1,9 +1,8 @@
-// What it takes to make a RouterOS device run exactly what was rendered. Everything the device holds that the render does not is removed or reset.
-//
-// Two phases. Additions and changes go first, in dependency order, so nothing ever points at something that does not exist yet. Removals go last, in reverse order, so nothing is removed while something still uses it.
+// What the device holds and the render does not is removed or reset. A plan has two phases. Additions and changes go first, in dependency order, so nothing points at what does not exist yet. Removals go last, in reverse order, so nothing is removed while still in use.
 
 import type { ApplyOptions, Plan, Step } from "../platform";
-import { type Command, RouterOsExport } from "./export";
+import { RouterOsExport } from "./export";
+import type { Command } from "./export";
 
 /** What is planned for one menu: changes for the first phase, removals for the last. */
 type MenuPlan = { first: Step[]; last: Step[] };
@@ -16,7 +15,7 @@ export class RouterOsPlan {
     private static readonly ORDER = [
         // Certificates depend on nothing, and services name them.
         "/certificate",
-        // A PPP client names its profile, and every interface kind not listed below goes before what names it, such as a PPPoE client in an interface list. A menu not listed goes last, so it is removed first, and that once left an interface list member pointing at a removed PPPoE client (RB5009, 7.24.6).
+        // A PPP client names its profile, and an interface kind not listed below goes before what names it, such as an interface list. An unlisted menu is removed first, which left a list member naming a removed PPPoE client (RB5009, 7.24.6).
         "/ppp",
         "/interface",
         "/interface bridge",
@@ -88,11 +87,13 @@ export class RouterOsPlan {
         "/interface bridge vlan",
     ]);
 
-    /** Menus where an entry that keeps its name but changes what it is known by is changed with a `set`, so what points at it by name, such as an address on a VLAN interface, stays attached. In every other menu it is removed and added again. */
+    /**
+     * Menus where an entry that keeps its name, but changes what it is known by, is changed with a `set`. What points at it by name, such as an address on a VLAN interface, stays attached. Elsewhere it is removed and added again.
+     */
     private static readonly CHANGED_IN_PLACE = new Set(["/interface vlan"]);
 
     /**
-     * Properties a running entry takes only when it restarts. A BGP session given a new `routing-table` stops announcing at once and keeps its routes in the old table until it restarts (TRAPS.md), so the plan disables the connection, changes it and enables it again: one restart, written in the plan.
+     * Properties a running entry takes only when it restarts. A BGP session given a new `routing-table` stops announcing at once, and keeps its routes in the old table until it restarts (TRAPS.md). So the plan disables the connection, changes it, and enables it again.
      */
     private static readonly RESTART_ON: Record<string, string[]> = { "/routing bgp connection": ["routing-table"] };
 
@@ -111,7 +112,6 @@ export class RouterOsPlan {
     /** Also send every secret, so a rotated value reaches the device. */
     private constructor(private readonly sendSecrets: boolean) {}
 
-    /** What it takes to go from `current` to `desired`. */
     static of(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
         const want = RouterOsExport.parse(desired);
         const have = RouterOsExport.parse(current);
@@ -153,7 +153,7 @@ export class RouterOsPlan {
         let best = RouterOsPlan.ORDER.length;
         let bestLength = 0;
         RouterOsPlan.ORDER.forEach((prefix, index) => {
-            const matches = menu === prefix || menu.startsWith(prefix + " ");
+            const matches = menu === prefix || menu.startsWith(`${prefix} `);
             if (matches && prefix.length > bestLength) {
                 best = index;
                 bestLength = prefix.length;
@@ -162,7 +162,6 @@ export class RouterOsPlan {
         return best;
     }
 
-    /** Quote a value for a command. */
     private static quote(value: string): string {
         return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$")}"`;
     }
@@ -206,7 +205,6 @@ export class RouterOsPlan {
             .join(" ");
     }
 
-    /** Group commands by menu. */
     private static byMenu(commands: Command[]): Map<string, Command[]> {
         const groups = new Map<string, Command[]>();
 
@@ -219,9 +217,7 @@ export class RouterOsPlan {
         return groups;
     }
 
-    /**
-     * The properties to send so that the device's entry matches the rendered one. A property the device holds and the render does not state is reset to its default.
-     */
+    /** The properties to send so that the device's entry matches the rendered one. A property the device holds and the render does not state is reset to its default. */
     private changes(wanted: Command, existing: Command | undefined, label: string): Record<string, string> {
         const want = RouterOsExport.normal(wanted);
         const have = existing ? RouterOsExport.normal(existing) : {};
@@ -388,7 +384,7 @@ export class RouterOsPlan {
     }
 
     /**
-     * Certificates are installed from the config when missing or different, after the old one of that name is removed. One the device holds under another name, with the same fingerprint and key, is renamed rather than imported a second time. One the config does not hold is removed in the last phase.
+     * A certificate missing or different is installed from the config, after the old one of that name is removed. One the device holds under another name, with the same fingerprint and key, is renamed. One the config does not hold is removed in the last phase.
      */
     private static certificates(wanted: Command[], existing: Command[]): MenuPlan {
         const menu = "/certificate";
@@ -438,11 +434,7 @@ export class RouterOsPlan {
     }
 
     /**
-     * An ordered menu is rewritten whole whenever it differs, so the device lists its rules in the order the render gives.
-     *
-     * The old rules are captured, the new ones added after them, then the captured ones removed. Until that moment the old rules keep deciding, so no chain is ever empty or half new.
-     *
-     * In a menu with chains, an old rule is removed in this step only if its chain is still wanted. A chain no longer wanted is removed in the last phase, after whatever pointed at it has been changed.
+     * An ordered menu that differs is rewritten whole, in the render's order. The old rules are captured, the new ones added after them, and then the old ones removed, so no chain is ever empty or half new. A chain no longer wanted is removed in the last phase, after what pointed at it has changed.
      */
     private static ordered(menu: string, wanted: Command[], existing: Command[]): MenuPlan {
         const result: MenuPlan = { first: [], last: [] };

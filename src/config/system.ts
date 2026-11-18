@@ -1,5 +1,3 @@
-// The box itself: `system.timezone`, `.banner`, `.release_channel`, `.ip_stack`, `.alarms`, `.dns`, `.ntp`, `.logging`, `.hardware_offload`, `.users`, `.certificates`, `.vdoms`.
-
 import type { IP, Named, Secret, Severity } from "./common";
 import type { StaticRoute } from "./routing";
 import type { TimeZone } from "./time-zones";
@@ -48,7 +46,7 @@ export type Certificate = {
  * Turn on multi-VDOM mode by hand, not with a plan. It moves the whole configuration into `root` and ends every session.
  */
 export type Vdoms<I extends string> = {
-    /** A VDOM for the device's own traffic. FortiGuard, NTP, DNS and logging leave from it, by its own routes, so they never follow the default route of the routed traffic. Everything not listed here stays in `root`. */
+    /** A VDOM for the device's own traffic. FortiGuard, NTP, DNS, and logging leave from it, by its own routes, so they never follow the default route of the routed traffic. Everything not listed here stays in `root`. */
     management: {
         /** Its name, such as `mgmt`. Not `root`. */
         name: string;

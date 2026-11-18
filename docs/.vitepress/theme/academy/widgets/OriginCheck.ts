@@ -77,9 +77,9 @@ export class Rov {
     }
 
     /**
-     * Route origin validation, after RFC 6811: not found when no ROA covers the route; valid when a covering ROA names the route's origin and allows its length; invalid otherwise.
+     * Route origin validation, after RFC 6811: not found when no ROA covers the route; valid when a covering ROA gives the route's origin and allows its length; invalid otherwise.
      *
-     * An invalid route is called too long when a covering ROA names its origin but none allows its length, and of the wrong origin when no covering ROA names its origin at all.
+     * An invalid route is too long when a covering ROA gives its origin but none allows its length. It has the wrong origin when no covering ROA gives its origin at all.
      */
     static validate(roas: readonly Roa[], prefix: string, origin: number): Verdict {
         const route = Rov.parsePrefix(prefix);

@@ -7,8 +7,6 @@ description: IPv6 addresses are 128 bits, written in hexadecimal. Shorten and ex
 
 IPv6 is the newer version of IP. Its addresses are 128 bits long instead of 32. They are written as eight groups of four hexadecimal digits, such as `2001:0db8:0000:0000:0000:0000:0000:0001`, and usually shortened to `2001:db8::1`.
 
-There are so many IPv6 addresses that every device can have its own public one. Each VLAN gets a block called a /64. A site gets a /48 or a /56 to share out, and nobody needs NAT.
-
 ## Why a second version
 
 IPv4 has 2<sup>32</sup> addresses, about 4.3 billion. That is fewer than the devices online today, so homes and offices share one public address through [NAT](/academy/elementary/nat). IPv6 has 2<sup>128</sup>, a number with 39 digits.
@@ -68,9 +66,9 @@ Three sizes cover almost every plan:
 | **/56** | A small site, often a home                | 256 networks    |
 | **/48** | A site such as an office or a data center | 65,536 networks |
 
-Every LAN gets a whole /64, however few devices it has, because the last 64 bits of an address are for the device. A device can make its own address only on a /64, as you see below. With 2<sup>64</sup> addresses on every LAN, a VLAN never runs out of room.
+Every LAN gets a whole /64, however few devices it has, because the last 64 bits of an address are for the device.
 
-The bits between the site's prefix and the /64 are the subnet number, and you give them out. A common habit is to use a VLAN's number as the subnet's digits: VLAN 20 gets `2001:db8:100:20::/64`. The `20` there is hexadecimal, so it is really 32. But it reads like the VLAN, and that is the point.
+The bits between the site's prefix and the /64 are the subnet number, and you give them out. A common habit is to use a VLAN's number as the subnet's digits: VLAN 20 gets `2001:db8:100:20::/64`. The `20` there is hexadecimal, so it is really 32. But it reads like the VLAN.
 
 <TryIt title="Carve a site into networks">
 
@@ -144,11 +142,3 @@ routing: {
 ::: warning Not every platform takes IPv6
 Raisecom ROS takes no IPv6 addresses or routes, and VRP sends no router advertisements. `circuit validate` reports either as an error. See [Platforms](/reference/platforms).
 :::
-
-## In short
-
-- An IPv6 address is 128 bits, written as eight groups of four hexadecimal digits. Each digit is four bits.
-- Shorten it by dropping leading zeros, and by writing the longest run of zero groups as `::`, once, in lowercase.
-- Each LAN gets a /64. A site gets a /48 or a /56, and numbers its /64 networks, often after its VLANs.
-- Every device has several addresses, including a link-local one in `fe80::/10` that it makes itself.
-- There is no NAT, so the firewall is what keeps connections from outside out. In Circuit, IPv6 addresses go beside IPv4 ones in `addresses`.

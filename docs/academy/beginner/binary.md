@@ -13,9 +13,7 @@ Think of the distance counter in a car, or the counter on a water meter. It is a
 
 1. Each time the counter goes up by one, the wheel on the right turns to its next digit.
 2. When a wheel is at 9 and turns once more, it goes back to 0. On its way round, it pushes the wheel on its left one step.
-3. So 9 becomes 10, 19 becomes 20, and 99 becomes 100. The right wheel goes round and pushes the next one.
-
-That is all counting is. You only need wheels that go round and push their neighbor.
+3. So 9 becomes 10, 19 becomes 20, and 99 becomes 100.
 
 ## Counting with two digits
 
@@ -33,9 +31,9 @@ Computers count with the two-digit counter. Inside a computer, everything is kep
 
 On the ten-digit counter, the second wheel moves once every 10 steps, so a 1 on it means 10. The third wheel moves once every 100 steps, so a 1 on it means 100. So `255` means 2 hundreds, 5 tens, and 5 ones.
 
-The two-digit counter works the same way, with smaller steps. Its right wheel is worth 1. The second wheel moves once every 2 steps, so it is worth 2. The third moves once every 4 steps, so it is worth 4. Each wheel is worth twice the one on its right: 1, 2, 4, 8, 16, 32, 64, and 128. To read a number, add up what each wheel that shows 1 is worth.
+The two-digit counter works the same way, with smaller steps. Its right wheel is worth 1. The second wheel moves once every 2 steps, so it is worth 2. The third moves once every 4 steps, so it is worth 4. Each wheel is worth twice the one on its right: 1, 2, 4, 8, 16, 32, 64, and 128.
 
-In the next widget, the two-digit counter is eight switches. Each switch is worth the number shown on it when it is on.
+In the next widget, the two-digit counter is eight switches.
 
 <TryIt title="Eight switches">
 
@@ -75,9 +73,9 @@ For 192: you need 192, which is at least 128. So turn on 128, and 64 is left. 64
 
 ## A byte: eight bits
 
-Eight bits together are a <Term means="Eight bits together. One byte holds a number from 0 to 255, or one letter of plain English text.">byte</Term>. With all eight switches off, a byte is 0. With all of them on, it is 128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 255. So a byte can hold 256 different numbers, from 0 to 255.
+Eight bits together are a <Term means="Eight bits together. One byte holds a number from 0 to 255, or one letter of plain English text.">byte</Term>. With all eight switches off, a byte is 0. With all of them on, it is 128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 255.
 
-To see why, count the patterns that a few switches can make.
+To see how many numbers a byte holds, count the patterns that a few switches can make.
 
 <TryIt title="Add a switch">
 
@@ -87,7 +85,7 @@ Start with one switch, then add more.
 
 </TryIt>
 
-Each switch you add doubles the number of patterns. This also shows what the new switch is worth. It comes on only after every pattern of the switches on its right is used. With three switches on its right, the fourth comes on at 8.
+Each switch you add doubles the number of patterns. Every old pattern appears twice: once with the new switch off, and once with it on. This also shows what the new switch is worth. It comes on only after every pattern of the switches on its right is used. With three switches on its right, the fourth comes on at 8.
 
 Eight switches make 2 × 2 × 2 × 2 × 2 × 2 × 2 × 2 = 256 patterns. The first pattern, all off, stands for 0, so the last one stands for 255. A car counter with three wheels is the same. It has 1,000 readings, from 000 to 999.
 
@@ -114,7 +112,7 @@ Eight switches make 2 × 2 × 2 × 2 × 2 × 2 × 2 × 2 = 256 patterns. The fir
 
 ## Why this matters for IP addresses
 
-Sizes are counted in bytes too. A packet holds about 1,500 letters, as you saw in [Messages in pieces](/academy/beginner/packets). That is 1,500 bytes, because one letter of plain English text takes one byte. A photo of 3 megabytes is about 3 million bytes, so it fills about two thousand packets.
+Sizes are counted in bytes too. A packet holds about 1,500 bytes, and a photo of 3 megabytes is about 3 million bytes. So the photo fills about two thousand packets.
 
 An IP address is four bytes, which is 32 bits. Your laptop's address at home, such as `192.168.1.23`, is hard to read as bits:
 
@@ -131,11 +129,3 @@ So people write each byte as an ordinary number, with dots between them: 192, 16
   :why="['The last number is 256, and one byte only goes up to 255.', '', 'The third number is 300, and one byte only goes up to 255.']"
   explain="Every one of its four numbers is between 0 and 255, so each one fits in a byte."
 />
-
-## In short
-
-- Computers count like a counter whose wheels have only 0 and 1. One such digit is a bit.
-- Each wheel is worth twice the one on its right: 128, 64, 32, 16, 8, 4, 2, and 1.
-- To read bits, add the values of the ones that are 1. To write a number, take the biggest values that fit, from the left.
-- Each bit you add doubles the patterns. Eight bits are a byte: 256 patterns, for the numbers 0 to 255.
-- An IP address is four bytes, so each of its four numbers is between 0 and 255.

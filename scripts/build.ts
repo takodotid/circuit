@@ -1,4 +1,4 @@
-// Builds the `circuit` binary into dist/: one file with Bun inside, so a user installs nothing else. `bun run build` builds for this system. `bun scripts/build.ts --release` builds every release file into dist/release/, named as `circuit update` downloads them, with SHA256SUMS.
+// The `circuit` binary is one file with Bun inside, so a user installs nothing else. `bun run build` builds it for this system. `--release` builds every release file into dist/release/, named as `circuit update` downloads them, with SHA256SUMS.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -17,14 +17,14 @@ const RELEASE: Record<string, string> = {
     "circuit-windows-x64.exe": "bun-windows-x64-baseline",
 };
 
-// The files Circuit writes for a project's editor, from the sources as they are now.
+// The editor types, from the sources as they are now.
 writeFileSync(join(root, "src", "cli", "editor-types.generated.ts"), generated());
 
 // Studio's page, built and carried into the binary.
 const studio = spawnSync("bun", ["scripts/studio.ts"], { cwd: root, stdio: "inherit" });
 if (studio.status !== 0) process.exit(studio.status ?? 1);
 
-/** Compile one binary. Bun is told not to load a `.env` or `bunfig.toml` from where it runs: a project's secrets come only from its secrets file. */
+/** The binary doesn't load a `.env` or `bunfig.toml` from where it runs, as a project's secrets come only from its secrets file. */
 function compile(outfile: string, target?: string): void {
     const build = spawnSync(
         "bun",

@@ -1,11 +1,11 @@
-// The example projects in examples/, which the docs and the Academy show: each passes the editor's types, as TypeScript 7 and 6 read them, and `circuit validate`.
+// The example projects in examples/, which the docs and the Academy show.
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Validation } from "../../src/checks";
+import { Checks } from "../../src/checks";
 import { EditorTypes } from "../../src/cli/editor-types";
 import { Project } from "../../src/project";
 
@@ -36,7 +36,7 @@ for (const name of readdirSync(examples)) {
 
         test("circuit validate finds nothing", async () => {
             const read = await Project.read(folder);
-            const findings = read.networks.flatMap((network) => Validation.run(Object.values(network.devices), network.settings.checks));
+            const findings = read.networks.flatMap((network) => Checks.run(Object.values(network.devices), network.settings.checks));
 
             expect(read.warnings).toEqual([]);
             expect(findings).toEqual([]);
@@ -68,7 +68,7 @@ describe("colocation with no tenant", () => {
 
     test("circuit validate finds nothing", async () => {
         const read = await Project.read(folder);
-        const findings = read.networks.flatMap((network) => Validation.run(Object.values(network.devices), network.settings.checks));
+        const findings = read.networks.flatMap((network) => Checks.run(Object.values(network.devices), network.settings.checks));
 
         expect(findings).toEqual([]);
         expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("netflix");
@@ -100,7 +100,7 @@ describe("internet exchange with no member", () => {
 
     test("circuit validate finds nothing", async () => {
         const read = await Project.read(folder);
-        const findings = read.networks.flatMap((network) => Validation.run(Object.values(network.devices), network.settings.checks));
+        const findings = read.networks.flatMap((network) => Checks.run(Object.values(network.devices), network.settings.checks));
 
         expect(findings).toEqual([]);
         expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("AS13335");

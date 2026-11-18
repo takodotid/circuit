@@ -1,6 +1,4 @@
-// `circuit sync prometheus`: writes two files in the project, from each device's `monitoring.snmp`. The targets file is what Prometheus reads with `file_sd_configs`; the auths file is the `auths` part of snmp_exporter's config, one auth per device, named after it.
-//
-// Neither file holds a secret. A password is written `${NAME}`, the name of its secret, and snmp_exporter reads its value from its environment when started with `--config.expand-environment-variables`. So both files are committed and reviewed like any other change.
+// The targets file is for Prometheus's `file_sd_configs`, and the auths file is the `auths` part of snmp_exporter's config. Neither holds a secret: a password is written `${NAME}`, which snmp_exporter reads from its environment with `--config.expand-environment-variables`. So both files are committed and reviewed like any other change.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -13,19 +11,20 @@ export type PrometheusTarget = { targets: string[]; labels: Record<string, strin
 /** One file to write: its path in the project and what goes in it. */
 type File = { path: string; text: string };
 
-/** What `circuit sync prometheus` would do. */
 export type PrometheusPlan = SyncPlan & { writes: File[] };
 
 export class Prometheus implements SyncTarget<PrometheusPlan> {
-    /** snmp_exporter's names for the algorithms. */
+    /** Snmp_exporter's names for the algorithms. */
     private static readonly AUTH = { sha1: "SHA", sha256: "SHA256" } as const;
     private static readonly PRIVACY = { aes128: "AES", des: "DES" } as const;
 
     private static readonly AUTHS_HEADER =
         "# Written by `circuit sync prometheus`. Load it beside snmp.yml, with --config.expand-environment-variables.";
 
-    /** Words YAML 1.1 reads as true, false or nothing, which a name must not be written as plainly. */
+    /** Words YAML 1.1 reads as true, false, or nothing, which a name must not be written as plainly. */
     private static readonly YAML_WORDS = /^(y|yes|n|no|true|false|on|off|null|~)$/i;
+
+    private static readonly JSON_INDENT = 4;
 
     readonly name = "Prometheus";
     readonly heading = "Prometheus";
@@ -49,10 +48,11 @@ export class Prometheus implements SyncTarget<PrometheusPlan> {
         this.where = [settings.targets, settings.auths].filter(Boolean).join(" and ");
     }
 
-    /** Compare the files in the project with what they should say. */
     async plan(): Promise<PrometheusPlan> {
         const leftAlone: string[] = [];
-        const wanted: File[] = [{ path: this.targetsPath, text: `${JSON.stringify(this.targets(leftAlone), null, 4)}\n` }];
+        const wanted: File[] = [
+            { path: this.targetsPath, text: `${JSON.stringify(this.targets(leftAlone), null, Prometheus.JSON_INDENT)}\n` },
+        ];
         if (this.authsPath) wanted.push({ path: this.authsPath, text: this.auths(leftAlone) });
 
         const writes: File[] = [];
@@ -81,7 +81,6 @@ export class Prometheus implements SyncTarget<PrometheusPlan> {
         return { changes, summary: [], leftAlone, writes };
     }
 
-    /** Write each file that differs, its folder made when missing. */
     async send(plan: PrometheusPlan): Promise<void> {
         for (const file of plan.writes) {
             const full = join(this.root, file.path);

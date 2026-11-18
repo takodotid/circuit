@@ -48,6 +48,8 @@ const problems = computed(() => (store.data ? store.data.findings.length + Graph
 // Typing more replaces the search's address, so Back leaves the search in one step.
 const query = ref("");
 let searching: ReturnType<typeof setTimeout> | undefined;
+/** How long the search waits after a key, so it runs once the reader stops typing. */
+const TYPING_PAUSE = 250;
 
 function search(event: Event): void {
     const text = (event.target as HTMLInputElement).value;
@@ -57,7 +59,7 @@ function search(event: Event): void {
         if (!text.trim()) return void router.push({ name: "graph" });
         const next = { name: "search", query: { q: text.trim() } };
         void (view.value === "search" ? router.replace(next) : router.push(next));
-    }, 250);
+    }, TYPING_PAUSE);
 }
 
 watch(

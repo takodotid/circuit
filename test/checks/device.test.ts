@@ -1,13 +1,11 @@
-// Rules one device has to satisfy, on the example router.
-
 import { expect, test } from "bun:test";
-import { Validation } from "../../src/checks";
+import { Checks } from "../../src/checks";
 import type { Device } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
 const router = Fixtures.device("platforms--example-router");
 
-const messages = (device: Device) => Validation.run([device], undefined).map((finding) => finding.message);
+const messages = (device: Device) => Checks.run([device], undefined).map((finding) => finding.message);
 
 test("a MAC limit is a whole number above 0, and an ethertype filter lets each kind in once", () => {
     const [port, settings] = Object.entries(router.interfaces?.ethernet ?? {})[0]!;
@@ -76,7 +74,6 @@ test("a static route with bfd needs next_hop, the address BFD watches", () => {
     expect(messages(viaInterface)).toContain("routing.static_routes 198.51.100.128/25 has bfd without next_hop, the address BFD watches");
 });
 
-// The interface of a link-local next hop goes in `interface`, never after a `%` as some devices write it.
 test("a next hop with an interface after % says where the interface goes", () => {
     const device: Device = {
         ...router,
@@ -88,7 +85,7 @@ test("a next hop with an interface after % says where the interface goes", () =>
     );
 });
 
-// A blackhole route drops the traffic, so a next hop or an interface beside it says the opposite, on every platform.
+// A blackhole route drops the traffic, so a next hop or an interface beside it says the opposite.
 test("a blackhole route has neither next_hop nor interface", () => {
     const routes: Device["routing"] = {
         ...router.routing,

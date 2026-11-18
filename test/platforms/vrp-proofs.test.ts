@@ -1,4 +1,4 @@
-// Features proved on a CE6855 on V200R005C00SPC800, against the lines it printed. Addresses are from documentation ranges.
+// Features tested on a CE6855 on V200R005C00SPC800, against the lines it printed. Addresses are from documentation ranges.
 
 import { expect, test } from "bun:test";
 import type { Device } from "../../src/model";

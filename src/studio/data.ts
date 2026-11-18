@@ -1,19 +1,19 @@
-// What Studio shows, gathered from a project in one pass: each device as the model holds it, what each would run, what `validate` finds, the graph, the addresses, every BGP session and every cable.
-
 import { basename } from "node:path";
-import { Validation } from "../checks";
+import { Checks } from "../checks";
 import { Address } from "../core/address";
-import { AddressSpace, type OwnedPrefixes } from "../core/address-space";
+import { AddressSpace } from "../core/address-space";
+import type { OwnedPrefixes } from "../core/address-space";
 import { Secrets } from "../core/secrets";
 import { Topology } from "../core/topology";
 import type { Device, Finding } from "../model";
 import { Platforms } from "../platforms";
 import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
-import { ProjectError, type ProjectRead, Project } from "../project";
+import { ProjectError, Project } from "../project";
+import type { ProjectRead } from "../project";
 import type { AddressRow, Cable, Session, StudioData, StudioError } from "./types";
 
-export class StudioModel {
+export class StudioDataReader {
     /** Read the project and gather what Studio shows, or what stopped the read. */
     static async gather(root: string): Promise<StudioData | StudioError> {
         let read: ProjectRead;
@@ -24,7 +24,7 @@ export class StudioModel {
             return { error: (error as Error).message };
         }
 
-        return StudioModel.build(basename(root), read);
+        return StudioDataReader.build(basename(root), read);
     }
 
     private static attempt<T>(work: () => T, otherwise: (error: Error) => T): T {
@@ -39,7 +39,7 @@ export class StudioModel {
         const devices = read.networks.flatMap((network) => Object.values(network.devices));
         const findings: Finding[] = [
             ...read.warnings.map((warning) => ({ level: "warning" as const, ...warning })),
-            ...read.networks.flatMap((network) => Validation.run(Object.values(network.devices), network.settings.checks)),
+            ...read.networks.flatMap((network) => Checks.run(Object.values(network.devices), network.settings.checks)),
         ];
 
         return {
@@ -59,7 +59,7 @@ export class StudioModel {
             ports: Object.fromEntries(
                 devices.map((device) => [
                     device.name,
-                    StudioModel.attempt(
+                    StudioDataReader.attempt(
                         () => Catalog.ports(device.platform, device.model),
                         () => []
                     ),
@@ -68,7 +68,7 @@ export class StudioModel {
             rendered: Object.fromEntries(
                 devices.map((device) => [
                     device.name,
-                    StudioModel.attempt(
+                    StudioDataReader.attempt(
                         () => Platforms.find(device.platform)?.render(device) ?? `Cannot be rendered: no platform ${device.platform}`,
                         (error) => `Cannot be rendered: ${error.message}`
                     ),
@@ -76,10 +76,10 @@ export class StudioModel {
             ),
             findings,
             graph: Topology.of(devices),
-            addresses: StudioModel.addressesOf(devices),
-            addressSpace: AddressSpace.report(devices, StudioModel.ownedOf(read)),
-            sessions: StudioModel.sessionsOf(devices),
-            cables: StudioModel.cablesOf(devices),
+            addresses: StudioDataReader.addressesOf(devices),
+            addressSpace: AddressSpace.report(devices, StudioDataReader.ownedOf(read)),
+            sessions: StudioDataReader.sessionsOf(devices),
+            cables: StudioDataReader.cablesOf(devices),
             secrets: [...Secrets.referencesIn(read.networks.map((network) => [network.devices, network.settings.integrations]))]
                 .filter((name) => !name.startsWith("file:"))
                 .sort(),

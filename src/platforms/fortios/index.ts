@@ -1,22 +1,23 @@
-// Fortinet FortiOS 6.2, as on the FortiGate 3700D.
-//
-// The configuration is read and written as `config` blocks, the form `show` prints. A change applies as it is sent. Before a plan is sent the device is set to revert: a change not saved within the rollback time is undone by reloading the saved configuration, and Circuit reloads it at once when a line is refused. A fresh login tests access before the change is saved. Configuration transactions are not used: on 6.2 one keeps references its own deletions dropped, and one whose session is cut off keeps what it touched locked.
+// A change applies as it is sent. Configuration transactions are not used: on 6.2 one keeps references its own deletions dropped, and one whose session is cut off keeps what it touched locked.
 
 import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Finding } from "../../model";
-import { SerialConsole, type ConsoleDialect } from "../../transport/console";
+import { SerialConsole } from "../../transport/console";
+import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
-import { type ApplyOptions, type OsSupport, type Plan, type ReadOptions, type ReadSession, Platform } from "../platform";
-import { FortiOsCli, type Guard } from "./cli";
+import { Platform } from "../platform";
+import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession } from "../platform";
+import { FortiOsCli } from "./cli";
+import type { Guard } from "./cli";
 import { FortiOsNames } from "./names";
 import { FortiOsPlan } from "./plan";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
-import { FortiOsBlock, FortiOsTree } from "./tree";
+import { FortiOsNode, FortiOsTree } from "./tree";
 import { FortiOsUnsupported } from "./unsupported";
 import { FortiOsVdoms } from "./vdoms";
 
@@ -24,7 +25,7 @@ import { FortiOsVdoms } from "./vdoms";
 class Reloaded extends Error {}
 
 export class FortiOs extends Platform {
-    /** How the FortiOS console asks for a login, and what moves it on from where the last session left it. */
+    /** The console's login prompts, and what moves it on from where the last session left it. */
     static readonly CONSOLE: ConsoleDialect = {
         login: /login: $/,
         password: /Password: $/,
@@ -37,55 +38,68 @@ export class FortiOs extends Platform {
         ],
     };
 
-    /** The release this adapter renders for, and was tested on. */
     private static readonly SUPPORTED = "6.2";
 
     /** What the device prints when it refuses a line. */
     private static readonly REFUSED =
         /Command fail\. Return code|Unknown action|parse error|discard the setting|MUST be set|Can not config|isn't supported|(?:^|\n)Invalid /;
 
-    /** How long a device may take to come back from a reload of its configuration, and how often to try it. */
-    private static readonly RELOAD = { attempts: 20, interval: 15_000 } as const;
-
-    /** Commands that only read: `show`, `get`, a set of `diagnose` and `execute` commands. `diagnose sys session filter` sets only this session's filter; `diagnose sys session clear`, which ends sessions, is not here. `diagnose lldprx` shows what LLDP received. */
+    /** Commands that only read. `diagnose sys session filter` sets only this session's filter. `diagnose sys session clear` ends sessions, so it is not here. */
     private static readonly READS =
         /^(?:(?:show|get)\s|diagnose (?:sys session (?:filter|list|stat|full-stat)|sys top|hardware deviceinfo nic|npu np6 (?:dce|synproxy-stats|port-list|sse-stats)|netlink aggregate|debug crashlog read|lldprx (?:neighbor|port) (?:summary|details))\b|execute (?:ping|ping6|traceroute|sensor list)\b)/;
 
-    /** A session filter, which holds only in the shell that set it. */
     private static readonly SESSION_FILTER = /^diagnose sys session filter\b/;
 
-    readonly name = "fortios";
+    /** A reload of the configuration takes about two minutes. */
+    private static readonly RELOAD_ATTEMPTS = 20;
+    private static readonly RELOAD_INTERVAL_MS = 15_000;
 
-    readonly os: OsSupport = {
+    private static readonly SHELL_TIMEOUT_MS = 4000;
+    private static readonly LOGOUT_TIMEOUT_MS = 10_000;
+
+    /** For `show` of a large section, and for a save. */
+    private static readonly SLOW_COMMAND_TIMEOUT_MS = 120_000;
+
+    /** The most levels `leave` ends, so a prompt it does not expect cannot keep it looping. */
+    private static readonly MAX_LEVELS = 10;
+
+    /** How much of the device's answer an error quotes. */
+    private static readonly ANSWER_CHARS = 300;
+    private static readonly STATUS_CHARS = 200;
+
+    private static readonly SECONDS_PER_MINUTE = 60;
+
+    override readonly name = "fortios";
+
+    override readonly os: OsSupport = {
         name: "Fortinet FortiOS",
         versions: "6.2",
         testedOn: "FG-3700D, FortiOS 6.2.2",
         checked: true,
     };
 
-    readonly extension = ".conf";
+    override readonly extension = ".conf";
 
     override readonly console = FortiOs.CONSOLE;
 
-    /** A management VDOM that cannot work: named `root`, listing a LAG's port instead of the LAG, or with a route that leaves through an interface outside it or goes nowhere. */
-    checks(device: Device): Finding[] {
+    override checks(device: Device): Finding[] {
         return FortiOsVdoms.problems(device).map((message) => ({ level: "error", device: device.name, message }));
     }
 
-    unsupported(device: Device): string[] {
+    override unsupported(device: Device): string[] {
         return FortiOsUnsupported.of(device);
     }
 
-    render(device: Device): string {
+    override render(device: Device): string {
         return FortiOsRender.of(device);
     }
 
-    read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
+    override read(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<string> {
         return FortiOs.withCli(device, (cli) => FortiOs.readConfig(cli, device), options);
     }
 
-    /** The LLDP neighbors the device received, read with `diagnose lldprx neighbor details`. A port hears LLDP only while it, or the aggregate it is in, has `lldp-reception` on. */
-    neighbors(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<Neighbor[]> {
+    /** A port hears LLDP only while it, or the aggregate it is in, has `lldp-reception` on. */
+    override neighbors(device: Device, _network: readonly Device[] = [], options: ReadOptions = {}): Promise<Neighbor[]> {
         return FortiOs.withCli(
             device,
             async (cli) => {
@@ -97,9 +111,7 @@ export class FortiOs extends Platform {
         );
     }
 
-    /**
-     * The neighbors in what `diagnose lldprx neighbor details` prints, one `lldprx.neighbor.<n>.<field>: <value>` line per field: `port.txt` is our port, `port.id.data` the far port and `system.name.data` the far device. Our port is given Circuit's name. A neighbor that sent no system name or port is left out.
-     */
+    /** `diagnose lldprx neighbor details` prints one `lldprx.neighbor.<n>.<field>: <value>` line per field. `port.txt` is our port, `port.id.data` the far port, and `system.name.data` the far device. */
     static neighborsOf(text: string, device: Device): Neighbor[] {
         const fields = new Map<string, Map<string, string>>();
 
@@ -125,14 +137,14 @@ export class FortiOs extends Platform {
         return found;
     }
 
-    plan(desired: string, current: string, options: ApplyOptions): Plan {
+    override plan(desired: string, current: string, options: ApplyOptions): Plan {
         return FortiOsVdoms.plan(desired, current, (want, have) => FortiOsPlan.of(want, have, options));
     }
 
-    async apply(device: Device, network: readonly Device[], changes: Plan, options: ApplyOptions): Promise<void> {
+    override async apply(device: Device, network: readonly Device[], changes: Plan, options: ApplyOptions): Promise<void> {
         await FortiOs.applyOnce(device, changes, options);
 
-        // Switching the operation mode makes changes of its own, such as a static route in each family and memory logging on, which a plan made before it could not see. One more pass, planned against what the device now runs, takes them back.
+        // Switching the operation mode adds a static route in each family and turns memory logging on. The plan could not see that, so one more pass takes them back.
         const switched = changes.steps.some((step) => step.send.some((line) => line.startsWith("set opmode ")));
         if (!switched) return;
 
@@ -143,8 +155,8 @@ export class FortiOs extends Platform {
         await FortiOs.applyOnce(device, again, options);
     }
 
-    /** Replace a prefix list `refresh` fetched. It cannot cut access, so it is sent without a guard, and saved as it goes. `purge` asks to confirm, and is answered yes. */
-    async fill(device: Device, _network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void> {
+    /** A prefix list cannot cut access, so it is sent without a guard and saved as it goes. `purge` asks to confirm, and is answered yes. */
+    override async fill(device: Device, _network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void> {
         await FortiOs.withCli(device, async (cli) => {
             await FortiOs.checkVersion(cli, device);
 
@@ -152,25 +164,26 @@ export class FortiOs extends Platform {
             for (const line of device.system?.vdoms ? FortiOsVdoms.wrap({ kind: "vdom", vdom: FortiOsVdoms.ROOT }, lines) : lines) {
                 let answer = await cli.run(line);
                 if (FortiOsCli.QUESTION.test(cli.prompt) && line === "purge") answer = await cli.answer("y");
-                if (FortiOs.REFUSED.test(answer)) throw new Error(`${set}: ${line}\n    device said: ${answer.trim().slice(0, 300)}`);
+                if (FortiOs.REFUSED.test(answer))
+                    throw new Error(`${set}: ${line}\n    device said: ${answer.trim().slice(0, FortiOs.ANSWER_CHARS)}`);
             }
 
             console.log(`  ${set}: ${prefixes.length} prefixes on the device`);
         });
     }
 
-    readOnly(command: string): boolean {
+    override readOnly(command: string): boolean {
         return FortiOs.READS.test(command);
     }
 
     /** Over SSH, each command runs on its own until a session filter is set. The filter holds only in the shell that set it, so it and every command after it run in one shell. */
-    async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
+    override async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
         if (options.console) {
             const opened = await FortiOs.openConsole(device);
 
             return {
                 run: (command, timeout) => opened.cli.run(command, timeout),
-                close: () => void FortiOs.consoleLogout(opened.cli).finally(opened.close),
+                close: () => void FortiOs.logOut(opened.cli).finally(opened.close),
             };
         }
 
@@ -182,7 +195,7 @@ export class FortiOs extends Platform {
                 if (!shell && !FortiOs.SESSION_FILTER.test(command)) return Ssh.exec(client, command, timeout);
 
                 if (!shell) {
-                    const channel = await Ssh.shell(client, 4000);
+                    const channel = await Ssh.shell(client, FortiOs.SHELL_TIMEOUT_MS);
                     shell = { channel, cli: new FortiOsCli(channel) };
                     await shell.cli.ready();
                 }
@@ -196,9 +209,9 @@ export class FortiOs extends Platform {
         };
     }
 
-    /** The lines that replace a prefix list's entries with what a registry returned: every entry is purged, then each prefix added, matching it and anything more specific. */
+    /** Each prefix matches itself and anything more specific. */
     static fillLines(set: string, family: Family, prefixes: string[]): string[] {
-        const list = new FortiOsBlock();
+        const list = new FortiOsNode();
         prefixes.forEach((prefix, index) => {
             const rule = list.entry(index + 1);
             const network = FortiOsNames.network(prefix);
@@ -219,7 +232,7 @@ export class FortiOs extends Platform {
     }
 
     /**
-     * A line with each secret's value in place, escaped inside its quotes. A certificate's key from a variable is PEM encoded as one line of base64, and is sent as the PEM it holds. A file saved with Windows line endings is sent with plain ones: the CLI takes each carriage return as a line of its own, and refuses the key, `Invalid private key`. A `?`, which the CLI takes as a call for help, is typed literally.
+     * A certificate's key from a variable is one line of base64, and is sent as the PEM it holds. Windows line endings become plain ones: the CLI takes each carriage return as a line, and refuses the key. A `?` would call for help, so Ctrl-V before it types it literally.
      */
     static withSecrets(line: string): string {
         const key = line.startsWith("set private-key ");
@@ -245,13 +258,12 @@ export class FortiOs extends Platform {
         });
     }
 
-    /** Log out of a console, so no session is left open on it. */
-    private static async consoleLogout(cli: FortiOsCli): Promise<void> {
+    /** A console session left open stays logged in, and inside whatever level it was in. */
+    private static async logOut(cli: FortiOsCli): Promise<void> {
         await FortiOs.leave(cli).catch(() => undefined);
-        await cli.run("exit", 10_000).catch(() => undefined);
+        await cli.run("exit", FortiOs.LOGOUT_TIMEOUT_MS).catch(() => undefined);
     }
 
-    /** Log in on the console and open the CLI. Returns the CLI, a way to log in afresh on the same console, and how to let the console go. */
     private static async openConsole(device: Device) {
         const { console, user, password } = SerialConsole.of(device);
         const opened = await SerialConsole.open(console);
@@ -267,30 +279,25 @@ export class FortiOs extends Platform {
         return { cli: new FortiOsCli(opened.channel), relogin: login, close: opened.close };
     }
 
-    /** Log in on the console, open the CLI, and run `work` in it. `work` is also given a way to log in afresh on the same console. */
-    private static async consoleSession<T>(
-        device: Device,
-        work: (cli: FortiOsCli, relogin: () => Promise<void>) => Promise<T>
-    ): Promise<T> {
+    private static async withConsole<T>(device: Device, work: (cli: FortiOsCli, relogin: () => Promise<void>) => Promise<T>): Promise<T> {
         const opened = await FortiOs.openConsole(device);
 
         try {
             const result = await work(opened.cli, opened.relogin);
-            await FortiOs.consoleLogout(opened.cli);
+            await FortiOs.logOut(opened.cli);
             return result;
         } finally {
             void opened.close();
         }
     }
 
-    /** Log in, open the CLI, and run `work` in it: through the console when asked, else over SSH. */
     private static async withCli<T>(device: Device, work: (cli: FortiOsCli) => Promise<T>, options: ReadOptions = {}): Promise<T> {
-        if (options.console) return FortiOs.consoleSession(device, (cli) => work(cli));
+        if (options.console) return FortiOs.withConsole(device, (cli) => work(cli));
 
         const client = await FortiOs.login(device);
 
         try {
-            const channel = await Ssh.shell(client, 4000);
+            const channel = await Ssh.shell(client, FortiOs.SHELL_TIMEOUT_MS);
             const cli = new FortiOsCli(channel);
             await cli.ready();
 
@@ -302,12 +309,12 @@ export class FortiOs extends Platform {
         }
     }
 
-    /** Refuse a device on a release this adapter was not tested on, before anything is read or sent. Gives what `get system status` printed. */
+    /** Returns what `get system status` printed. */
     private static async checkVersion(cli: FortiOsCli, device: Device): Promise<string> {
         const status = await cli.run("get system status");
         const version = /^Version: \S+ v(\d+)\.(\d+)\.(\d+)/m.exec(status);
 
-        if (!version) throw new Error(`${device.name} did not say which FortiOS it runs: ${status.slice(0, 200)}`);
+        if (!version) throw new Error(`${device.name} did not say which FortiOS it runs: ${status.slice(0, FortiOs.STATUS_CHARS)}`);
         if (`${version[1]}.${version[2]}` !== FortiOs.SUPPORTED) {
             throw new Error(
                 `${device.name} runs FortiOS ${version[1]}.${version[2]}.${version[3]}; this adapter renders for FortiOS ${FortiOs.SUPPORTED}`
@@ -317,7 +324,6 @@ export class FortiOs extends Platform {
         return status;
     }
 
-    /** Run `work` among the device's own settings: inside `config global` on a device with VDOMs, as it is on one without. */
     private static async inGlobal<T>(cli: FortiOsCli, device: Device | boolean, work: () => Promise<T>): Promise<T> {
         const multi = typeof device === "boolean" ? device : Boolean(device.system?.vdoms);
         if (!multi) return work();
@@ -330,7 +336,7 @@ export class FortiOs extends Platform {
         }
     }
 
-    /** Secrets the device prints: a password or an SNMPv3 key as a cipher, a certificate's key encrypted, and the SNMP community in clear. None leave the read. */
+    /** The device prints a password or an SNMPv3 key as an `ENC` cipher, a certificate's key encrypted, and the SNMP community in clear. None leave the read. */
     private static scrub(text: string): string {
         const root = FortiOsTree.parse(text);
 
@@ -338,7 +344,7 @@ export class FortiOs extends Platform {
             if (block.settings.has("name")) block.settings.set("name", '"<redacted>"');
         }
 
-        const hide = (block: FortiOsBlock) => {
+        const hide = (block: FortiOsNode) => {
             for (const [key, value] of block.settings) {
                 if (value.startsWith("ENC ")) block.settings.set(key, "ENC <redacted>");
                 if (key === "private-key") block.settings.set(key, '"<redacted>"');
@@ -352,11 +358,13 @@ export class FortiOs extends Platform {
         return FortiOsTree.print(root);
     }
 
-    /** Every section Circuit manages, as the device holds it, credentials scrubbed. */
     private static async readConfig(cli: FortiOsCli, device: Device): Promise<string> {
         const status = await FortiOs.checkVersion(cli, device);
         const show = (section: string) =>
-            cli.run(`${FortiOsRender.FULL.includes(section) ? "show full-configuration" : "show"} ${section}`, 120_000);
+            cli.run(
+                `${FortiOsRender.FULL.includes(section) ? "show full-configuration" : "show"} ${section}`,
+                FortiOs.SLOW_COMMAND_TIMEOUT_MS
+            );
         const parts: string[] = [];
 
         if (/^Virtual domain configuration: (multiple|split-task)/m.test(status)) {
@@ -371,9 +379,6 @@ export class FortiOs extends Platform {
         return FortiOs.scrub(FortiOsPlan.clean(text));
     }
 
-    /**
-     * A device in multi-VDOM mode, read where each section lives: the device's own under `config global`, the rest in `root`, and a management VDOM's sections named as the render names them. A VDOM that does not exist yet is not entered, since `edit` would make it.
-     */
     private static async readVdoms(cli: FortiOsCli, device: Device, show: (section: string) => Promise<string>): Promise<string[]> {
         const management = FortiOsVdoms.managementOf(device);
         if (!management) throw new Error(`${device.name} runs several VDOMs and its config has no vdoms; write system.vdoms.management`);
@@ -401,6 +406,8 @@ export class FortiOs extends Platform {
             ...FortiOsRender.SECTIONS.filter((one) => !FortiOsVdoms.GLOBAL.has(one)),
             ...FortiOsRender.OPTIONAL_SECTIONS,
         ]);
+
+        // `edit` would create a VDOM that does not exist yet.
         if (listed.includes(management)) await inVdom(management, FortiOsVdoms.MANAGEMENT_SECTIONS);
 
         return parts;
@@ -408,25 +415,25 @@ export class FortiOs extends Platform {
 
     /** Leave every `config` and `edit` level, back to the top prompt. */
     private static async leave(cli: FortiOsCli): Promise<void> {
-        for (let level = 0; level < 10 && /\(.*\) [#$] $/.test(cli.prompt); level++) await cli.run("end");
+        for (let level = 0; level < FortiOs.MAX_LEVELS && /\(.*\) [#$] $/.test(cli.prompt); level++) await cli.run("end");
     }
 
-    /** Send the lines that set how the device saves changes. */
-    private static async saving(cli: FortiOsCli, mode: "revert" | "automatic", multi: boolean, seconds?: number): Promise<void> {
+    private static async setSaveMode(cli: FortiOsCli, mode: "revert" | "automatic", multi: boolean, seconds?: number): Promise<void> {
         const lines = ["config system global", `set cfg-save ${mode}`, ...(seconds ? [`set cfg-revert-timeout ${seconds}`] : []), "end"];
 
         for (const line of multi ? FortiOsVdoms.wrap({ kind: "global" }, lines) : lines) {
             const answer = await cli.run(line);
-            if (FortiOs.REFUSED.test(answer)) throw new Error(`the device refused ${line}: ${answer.trim().slice(0, 300)}`);
+            if (FortiOs.REFUSED.test(answer))
+                throw new Error(`the device refused ${line}: ${answer.trim().slice(0, FortiOs.ANSWER_CHARS)}`);
         }
     }
 
     /**
-     * Send a plan line by line, each applied as it arrives. The device is first set to revert what is not saved, so a refused line or a fresh login that fails reloads its saved configuration. Once access is tested, the change is saved, and changes save themselves again.
+     * The device is first set to revert what is not saved, so a refused line or a failed fresh login reloads its saved configuration. Once access is tested, the change is saved, and saving goes back to automatic.
      */
     private static async configure(cli: FortiOsCli, plan: Plan, guard: Guard, multi: boolean): Promise<void> {
-        const minutes = guard.seconds / 60;
-        await FortiOs.saving(cli, "revert", multi, guard.seconds);
+        const minutes = guard.seconds / FortiOs.SECONDS_PER_MINUTE;
+        await FortiOs.setSaveMode(cli, "revert", multi, guard.seconds);
 
         // The session still open reloads the saved configuration at once; if it cannot, the device does when the time runs out.
         const restore = async (reason: string) => {
@@ -448,7 +455,7 @@ export class FortiOs extends Platform {
                 }
 
                 if (FortiOs.REFUSED.test(answer))
-                    throw await restore(`${step.title}: ${line}\n    device said: ${answer.trim().slice(0, 300)}`);
+                    throw await restore(`${step.title}: ${line}\n    device said: ${answer.trim().slice(0, FortiOs.ANSWER_CHARS)}`);
 
                 // No line of a plan should ask; one that does is answered no and treated as refused.
                 if (FortiOsCli.QUESTION.test(cli.prompt)) {
@@ -466,30 +473,30 @@ export class FortiOs extends Platform {
             throw await restore(`a fresh login failed: ${(error as Error).message}`);
         }
 
-        const saved = await FortiOs.inGlobal(cli, multi, () => cli.run("execute cfg save", 120_000));
+        const saved = await FortiOs.inGlobal(cli, multi, () => cli.run("execute cfg save", FortiOs.SLOW_COMMAND_TIMEOUT_MS));
         if (!/config saved|no config to be saved/.test(saved)) {
             throw new Error(
-                `Circuit logged in again, but the save failed; the device reverts in ${minutes} minutes:\n    ${saved.trim().slice(0, 300)}`
+                `Circuit logged in again, but the save failed; the device reverts in ${minutes} minutes:\n    ${saved.trim().slice(0, FortiOs.ANSWER_CHARS)}`
             );
         }
 
-        await FortiOs.saving(cli, "automatic", multi);
+        await FortiOs.setSaveMode(cli, "automatic", multi);
         console.log("  logged in again, saved");
     }
 
     /**
-     * Once the device is back from a reload, set it to save changes on its own again: the saved configuration still says to revert. Setting it saves what runs, so it is set only once the device says nothing is left to reload; until then the reload is asked for again.
+     * After a reload the saved configuration still says to revert. Setting `cfg-save automatic` saves what runs, so Circuit sets it only once the device says nothing is left to reload.
      */
     private static async settle(device: Device, options: ReadOptions): Promise<string> {
-        for (let attempt = 0; attempt < FortiOs.RELOAD.attempts; attempt++) {
-            await new Promise((done) => setTimeout(done, FortiOs.RELOAD.interval));
+        for (let attempt = 0; attempt < FortiOs.RELOAD_ATTEMPTS; attempt++) {
+            await new Promise((done) => setTimeout(done, FortiOs.RELOAD_INTERVAL_MS));
 
             const settled = await FortiOs.withCli(
                 device,
                 async (cli) => {
                     const reloaded = await FortiOs.inGlobal(cli, device, () => cli.run("execute cfg reload"));
                     if (!/no config to be reloaded/.test(reloaded)) return false;
-                    await FortiOs.saving(cli, "automatic", Boolean(device.system?.vdoms));
+                    await FortiOs.setSaveMode(cli, "automatic", Boolean(device.system?.vdoms));
                     return true;
                 },
                 options
@@ -501,12 +508,12 @@ export class FortiOs extends Platform {
     }
 
     private static async applyOnce(device: Device, plan: Plan, options: ApplyOptions): Promise<void> {
-        const seconds = options.rollback * 60;
+        const seconds = options.rollback * FortiOs.SECONDS_PER_MINUTE;
 
         try {
-            // Through the console, a fresh login on the same console tests that the change left the device's logins working; over SSH, a fresh SSH session tests the management path too.
+            // A fresh login on the console tests the device's logins. A fresh SSH session tests the management path too.
             if (options.console) {
-                await FortiOs.consoleSession(device, async (cli, relogin) => {
+                await FortiOs.withConsole(device, async (cli, relogin) => {
                     await FortiOs.checkVersion(cli, device);
                     await FortiOs.configure(cli, plan, { seconds, prove: relogin }, Boolean(device.system?.vdoms));
                 });
