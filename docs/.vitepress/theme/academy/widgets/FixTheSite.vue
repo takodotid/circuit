@@ -173,7 +173,7 @@ const mistakes: Mistake[] = [
         line: 2,
         output: [
             "$ circuit validate",
-            '  warn   sites/home/switch.ts:23: switch: interfaces.ethernet.10g-1.description: "Router", which doesn\'t name the far end of its link as printed there: router sfp28-1.',
+            '  warn   sites/home/switch.ts:23: switch: interfaces.ethernet.10g-1.description: "Router". Write the far end in it: router sfp28-1.',
             "✔ 2 device(s), no errors.",
         ].join("\n"),
         fixes: [
