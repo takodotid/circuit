@@ -25,6 +25,7 @@
 - `tcp-md5-key` set from the CLI has been seen discarded without an error, and a mismatch logs nothing. Confirm with `/tool sniffer quick port=179`.
 - Incoming GRE is subject to the input chain. Accept it before testing the tunnel.
 - A WireGuard peer's name is unique on the device, and a new key under the same name is refused as a new peer: `entry with this name already exists`. The plan finds a peer by name, so a new key is a `set`.
+- The export prints a WireGuard interface's `mtu=1420` although it is the default. Circuit counts it as the default (CCR2216, 7.24.6).
 - `monitor-traffic` on a VLAN interface counts only what the CPU handles, and not consistently. Measure on the physical port, `/interface ethernet print stats`, which the switch chip counts.
 - A VLAN interface on the bridge adds a dynamic bridge VLAN entry for its VLAN, "added by vlan on bridge", beside the static one. A selector by `vlan-ids` then finds both, and a `set` on the pair fails with `no such item`. Selectors on bridge VLANs skip dynamic entries.
 - Any rule using fasttrack adds a dynamic "special dummy rule to show fasttrack counters" to the filter and the raw table. It cannot be removed, `cannot remove builtin`, so every selector over those menus skips dynamic entries.

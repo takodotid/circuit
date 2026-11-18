@@ -224,6 +224,31 @@ test('a new description is one set, and none is comment="" (7.24.6)', () => {
     ]);
 });
 
+/** The edge router with a WireGuard interface and one peer. */
+function withWireGuard(): Device {
+    const peer = {
+        name: "client",
+        public_key: "BQEfqiXI2qhli4vtMsyLf2PA2zME9/H/LHUOb74xbKA=",
+        allowed_addresses: ["192.0.2.2/32"],
+    } as const;
+    const wireguard = { "wg-test": { listen_port: 51899, private_key: { secret: "WG_TEST_KEY" }, peers: [peer] } };
+
+    return { ...edge, interfaces: { ...edge.interfaces, wireguard } };
+}
+
+test("a WireGuard interface without an MTU reads back as the router printed it, with mtu=1420 (7.24.6)", () => {
+    const desired = platform.render(withWireGuard());
+    const printed = desired.replace(
+        'add listen-port=51899 name=wg-test private-key="<secret:WG_TEST_KEY>"',
+        "add listen-port=51899 mtu=1420 name=wg-test"
+    );
+    expect(printed).toContain("mtu=1420");
+
+    const plan = platform.plan(desired, printed, options);
+    expect(plan.problems).toEqual([]);
+    expect(plan.steps).toEqual([]);
+});
+
 test("an ethertype filter: a switch rule per kind after the port's ACL, then a drop, as the router printed them", () => {
     const filtered = withPorts({ "25g-2": { ...ethernet["25g-2"]!, ethertypes: ["ipv4", "ipv6", "arp"] } });
     const desired = platform.render(filtered);

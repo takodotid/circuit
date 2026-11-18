@@ -41,6 +41,7 @@ export class RouterOsExport {
         "/interface macvlan": { mode: "bridge", mtu: "1500" },
         "/interface vrrp": { priority: "100", "preemption-mode": "yes", interval: "1s", version: "3", "v3-protocol": "ipv4" },
         "/interface vxlan": { port: "4789" },
+        "/interface wireguard": { mtu: "1420" },
         "/interface wireguard peers": {
             "client-allowed-address": "",
             "endpoint-address": "",
