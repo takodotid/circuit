@@ -22,6 +22,7 @@ Nobody in your network asks a `memcached` server across the internet, so a reply
 This rule, added to the `edge` ACL of the [edge router example](/guide/examples#an-edge-router), drops four of them in the switch chip:
 
 ```ts
+// In switching.acls.edge
 {
     description: "Reflected floods",
     if: {

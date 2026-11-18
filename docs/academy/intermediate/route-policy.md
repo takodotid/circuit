@@ -81,6 +81,7 @@ With `sanity` off, the default route, the /25, the /64, and `192.0.2.0/24` all g
 An export accepts your own prefixes, and your customers' if you sell them transit. Then it rejects everything else. The [edge router example](/guide/examples#an-edge-router) writes it like this, where the prefix set `ours` holds your own blocks:
 
 ```ts
+// In routing.policies
 export: [
     { communities: "export" },
     { description: "Our own space", if: { prefix_set: "ours" }, then: "accept" },
