@@ -457,7 +457,7 @@ type AllMaps<T extends readonly unknown[]> = true extends (
  *
  * - **a list** (rules, trunk VLANs, addresses, static routes): one flat list. The editor checks and completes each item as an item of that field, with the device's names. An ordered list keeps every item, in order. Any other list keeps the same item once.
  * - **a map** (a part, VLANs, interfaces, a source keyed by hostname, a tenant): merged key by key, as [Parts and merge](https://circuit.tako.id/guide/parts) shows. Lists inside are joined, and two rule lists that `part` made keep every rule, in order. An ordered list from two items, or two values at one path, is an error that shows both files.
- * - **no field** (`export const tenants = merge([tenant_a])`): the maps merged, if every item is a map. Otherwise a list.
+ * - **no field** (`export const tenants = merge([netflix])`): the maps merged, if every item is a map. Otherwise a list.
  *
  * The same map twice in one `merge` is an error.
  */
@@ -603,7 +603,7 @@ export function bgpNeighbors(): readonly IP[] {
 }
 
 /**
- * A value written once and kept exactly as written, for use in this file or another. `literal(["exchange-a", "exchange-b"])` stays those two VLAN names, so a device can use it where it takes VLANs, and the editor checks each name there. Without `literal`, the editor would see only "some text".
+ * A value written once and kept exactly as written, for use in this file or another. `literal(["transit", "exchange"])` stays those two VLAN names, so a device can use it where it takes VLANs, and the editor checks each name there. Without `literal`, the editor would see only "some text".
  */
 export function literal<const T>(values: T): T {
     return mark(values, caller());
