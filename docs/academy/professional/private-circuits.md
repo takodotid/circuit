@@ -26,8 +26,8 @@ The lower the layer you buy, the more capacity you get, and the more you run you
 
 <Term means="Metro Ethernet: a provider's Ethernet service between sites in one city.">Metro-E</Term> is Ethernet carried across a city by a provider. You plug a router into a port at each office, and the two behave as if a long cable joined them. The industry body MEF defined these services and their names. It is now called Mplify. The common one is the point-to-point line, which comes in two kinds:
 
-- An <Term means="Ethernet private line: a point-to-point Ethernet circuit that takes the whole port. Everything sent on it, tagged or not, arrives at the far end as it was sent.">EPL</Term>, Ethernet private line, takes the whole port. Every frame you send on it, tagged with any VLAN or not, arrives at the far end as it left. The provider never looks at your tags.
-- An <Term means="Ethernet virtual private line: a point-to-point Ethernet circuit chosen by VLAN, so one port can carry several circuits to different places.">EVPL</Term>, Ethernet virtual private line, is chosen by VLAN. One port can carry several EVPL circuits, each a VLAN that goes to a different place, such as VLAN 2010 to the branch and VLAN 2020 to the data center. You agree the VLAN numbers with the provider.
+- An EPL, Ethernet private line, takes the whole port. Every frame you send on it, tagged with any VLAN or not, arrives at the far end as it left. The provider never looks at your tags.
+- An EVPL, Ethernet virtual private line, is chosen by VLAN. One port can carry several EVPL circuits, each a VLAN that goes to a different place, such as VLAN 2010 to the branch and VLAN 2020 to the data center. You agree the VLAN numbers with the provider.
 
 The same Ethernet services between cities are often sold as **L2 transport**, and they come as EPL or EVPL too.
 
@@ -70,9 +70,9 @@ An IP VPN fits a company with many sites that must all reach each other, and tha
 
 ## Between countries with IPLC and IEPL
 
-An <Term means="International private leased circuit: a dedicated point-to-point circuit between two countries, at a fixed capacity kept for one customer.">IPLC</Term>, international private leased circuit, is a dedicated line between two sites in different countries. Its fixed capacity is reserved for the customer alone. It was first built on SONET and SDH, the older circuit technologies of telephone networks. It may be handed over on an interface that isn't Ethernet.
+An IPLC, international private leased circuit, is a dedicated line between two sites in different countries. Its fixed capacity is reserved for the customer alone. It was first built on SONET and SDH, the older circuit technologies of telephone networks. It may be handed over on an interface that isn't Ethernet.
 
-An <Term means="International Ethernet private line: a dedicated point-to-point Ethernet line between two countries.">IEPL</Term>, international Ethernet private line, is the same idea handed over as Ethernet, so it plugs into an ordinary router or switch port. Both are point to point. For many sites in many countries, an IP VPN usually fits better.
+An IEPL, international Ethernet private line, is the same idea handed over as Ethernet, so it plugs into an ordinary router or switch port. Both are point to point. For many sites in many countries, an IP VPN usually fits better.
 
 ## Light itself: dark fiber and wavelengths
 

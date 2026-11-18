@@ -26,7 +26,7 @@ The devices at the ends never see a tag. Only the trunk does.
 
 Network people describe a frame by whether it has that tag:
 
-- An <Term means="A plain frame with no VLAN tag in it. Laptops, printers, and other devices send and receive untagged frames, and an access port sends them out.">untagged</Term> frame is a plain one, with no tag. Laptops, printers, and cameras send and receive only these, and an access port sends only these out.
+- An untagged frame is a plain one, with no tag. Laptops, printers, and cameras send and receive only these, and an access port sends only these out.
 - A tagged frame carries a tag with its VLAN number. A trunk carries these, so the far end can tell the VLANs apart.
 
 So the same two kinds of port are often described by what goes over them:
