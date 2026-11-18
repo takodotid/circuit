@@ -6,9 +6,6 @@ import type { Console, Device, IP, Secret } from "../model";
 import { OnePassword } from "./one-password";
 import { SecretsFile } from "./secrets-file";
 
-/** Anything that holds secret references, such as a network's devices. */
-type Network = object;
-
 export type DeviceLogin = {
     /** Absent for a device reached only through its console. */
     host?: IP;
@@ -30,14 +27,17 @@ export class Secrets {
     private static fileName = SecretsFile.DEFAULT;
 
     private static values: Record<string, string> | undefined;
-    /** Every value read in this run, so `scrub` can hide it. */
-    private static readonly revealed = new Set<string>();
 
     /** What `scrub` puts where a secret was. */
     static readonly REDACTED = "<redacted>";
 
-    /** A value in plain text shorter than this is not hidden: hiding a short one would garble the text. */
-    private static readonly SHORTEST_PLAIN_VALUE = 6;
+    /** A shorter value is not hidden: it would also hide the same letters in ordinary words and numbers, such as `admin` or `65000`. */
+    private static readonly SHORTEST_HIDDEN = 6;
+
+    /** What `scrub` hides, longest first, so a value that holds another is hidden whole. */
+    private static hidden: string[] = [];
+    /** The references `watch` was given whose values were not at hand yet. */
+    private static readonly watched = new Set<string>();
 
     /** A marker anywhere in a command. Its group is the reference. */
     static readonly MARKER = /<secret:([A-Za-z0-9_./:-]+)>/g;
@@ -97,7 +97,7 @@ export class Secrets {
             const value = readFileSync(fullPath, "utf8").trimEnd();
             if (!value) throw new Error(`secret file ${path} is empty`);
 
-            Secrets.revealed.add(value);
+            Secrets.hide(value);
             return value;
         }
 
@@ -116,7 +116,7 @@ export class Secrets {
             : Secrets.file().decrypt(reference, fromFile!);
         if (!revealed) throw new Error(`secret ${reference} is empty in ${Secrets.file().name}`);
 
-        Secrets.revealed.add(revealed);
+        Secrets.hide(revealed);
         return revealed;
     }
 
@@ -146,32 +146,51 @@ export class Secrets {
         return needed && !file.tryUnlock() ? file : undefined;
     }
 
+    /** From now on, `scrub` also hides the value of each reference, as `referenceOf` writes it, once the value is at hand without asking anyone. */
+    static watch(references: Iterable<string>): void {
+        for (const reference of references) Secrets.watched.add(reference);
+    }
+
     /**
-     * Every secret value Circuit knows becomes `<redacted>`, as devices echo what they are sent, passwords too. That is each plain value in the secrets file, each value read in this run, each secret of `network` at hand, and `extra`. A 1Password reference is not read for this.
+     * Every secret value Circuit knows becomes `<redacted>`, as a device echoes what it is sent and quotes it in errors. These are the values read in this run, the plain values in the secrets file, and the watched values at hand. A 1Password reference is not read for this. Each line of a value is hidden on its own too, as a device ends lines its own way.
      */
-    static scrub(text: string, options: { network?: Network; extra?: readonly string[] } = {}): string {
-        const values = new Set<string>(options.extra ?? []);
+    static scrub(text: string): string {
+        Secrets.learn();
+        return Secrets.hidden.reduce((out, value) => out.replaceAll(value, Secrets.REDACTED), text);
+    }
+
+    private static hide(value: string): void {
+        const added = [value, ...value.split(/\r?\n/)].filter(
+            (each) => each.length >= Secrets.SHORTEST_HIDDEN && !Secrets.hidden.includes(each)
+        );
+        if (added.length) Secrets.hidden = [...new Set([...Secrets.hidden, ...added])].sort((a, b) => b.length - a.length);
+    }
+
+    /** Hide the values that came to hand since the last time. `scrub` runs on what is printed, so a value that can't be read now is left for later, and never stops the print. */
+    private static learn(): void {
+        let stored: Record<string, string> = {};
+        try {
+            stored = Secrets.stored();
+        } catch {
+            // The run itself reports a secrets file it can't read.
+        }
 
         // An encrypted value or a reference is not the secret itself.
-        for (const [name, value] of Object.entries(Secrets.stored())) {
-            if (
-                name !== SecretsFile.PASSWORD &&
-                value.length >= Secrets.SHORTEST_PLAIN_VALUE &&
-                SecretsFile.kindOf(value) === "not encrypted"
-            )
-                values.add(value);
+        for (const [name, value] of Object.entries(stored))
+            if (name !== SecretsFile.PASSWORD && SecretsFile.kindOf(value) === "not encrypted") Secrets.hide(value);
+
+        for (const reference of Secrets.watched) {
+            let value: string | undefined;
+            try {
+                value = Secrets.storedValueOf(reference);
+            } catch {
+                continue;
+            }
+            if (value === undefined) continue;
+
+            Secrets.watched.delete(reference);
+            Secrets.hide(value);
         }
-
-        for (const value of Secrets.revealed) values.add(value);
-
-        for (const reference of Secrets.referencesIn(options.network)) {
-            const value = Secrets.storedValueOf(reference);
-            if (value) values.add(value);
-        }
-
-        // Longest first, so a value that holds another is hidden whole.
-        const ordered = [...values].filter(Boolean).sort((a, b) => b.length - a.length);
-        return ordered.reduce((out, value) => out.split(value).join(Secrets.REDACTED), text);
     }
 
     /** The value behind a reference when it can be had without asking anyone: a 1Password reference only once read in this run, an encrypted value only with the file open. Undefined otherwise. */
