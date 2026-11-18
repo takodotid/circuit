@@ -179,5 +179,37 @@
         "firewall.tcp_mss",
         "firewall.conntrack_helpers",
         "firewall.untracked"
-    ]
+    ],
+    "platforms": {
+        "routeros": {
+            "silent": [
+                "interfaces.wireguard.*.endpoint",
+                "routing.bgp.neighbor_groups.*.description",
+                "routing.bgp.neighbors.*.description"
+            ],
+            "untried": []
+        },
+        "vrp": {
+            "silent": [],
+            "untried": ["monitoring.flow_export.collectors[].port", "interfaces.lag.*.stp"]
+        },
+        "raisecom-ros": {
+            "silent": [],
+            "untried": [
+                "interfaces.ethernet.*.stp.edge",
+                "interfaces.ethernet.*.stp.cost",
+                "interfaces.ethernet.*.storm_control.multicast.percent",
+                "interfaces.ethernet.*.storm_control.unknown_unicast.percent",
+                "routing.static_routes[].blackhole"
+            ]
+        },
+        "junos": {
+            "silent": ["services.dhcp_server.*.reservations[].description"],
+            "untried": ["interfaces.gre.*.addresses[].peer_address"]
+        },
+        "fortios": {
+            "silent": ["interfaces.bridge.*.description"],
+            "untried": []
+        }
+    }
 }
