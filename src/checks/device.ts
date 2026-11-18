@@ -588,7 +588,8 @@ export class DeviceChecks {
                 );
 
             const announced = carrying.some(
-                (session) => session.export_policy && (Derive.exportOf(device, session.export_policy, prefix) ?? "reject") !== "reject"
+                (session) =>
+                    session.export_policy && (Derive.exportOf(device, session.export_policy, prefix, "aggregate") ?? "reject") !== "reject"
             );
             if (!announced)
                 report(

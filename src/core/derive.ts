@@ -1,5 +1,6 @@
 // Values derived from a device the same way everywhere: in checks, adapters, and integrations.
 
+import { presets } from "../config/presets";
 import { Address } from "./address";
 import { Utils } from "./utils";
 import type {
@@ -20,6 +21,15 @@ import type {
 
 /** A BGP neighbor's `max_prefixes` in its long form. Without `restart_after` or `warn_only`, the session stays closed. */
 type PrefixLimit = { limit: number; restart_after?: number; warn_only?: boolean };
+
+/** A route the device makes itself: a prefix of `originated_prefixes`, or an aggregate. */
+type OwnRoute = "originated" | "aggregate";
+
+/** What a route policy does with a route, `unknown` when the config can't tell. */
+type PolicyOutcome = "accept" | "reject" | "unknown";
+
+/** A route the config has a BGP neighbor sent, its prefix in one spelling (`Address.canonical`). */
+type Announcement = { neighbor: string; prefix: string };
 
 /** One interface of a device, with the group it is in. */
 export type NamedInterface = { name: string; kind: InterfaceKind; settings: Interface };
@@ -167,52 +177,105 @@ export class Derive {
         return typeof max === "number" ? { limit: max } : max;
     }
 
-    /** What an export policy does with a route the device makes itself, which has no AS path and no communities. It is `unknown` when the config can't tell, and nothing when no rule decides. */
-    static exportOf(device: Device, policy: string, prefix: string, seen: string[] = []): "accept" | "reject" | "unknown" | undefined {
-        if (seen.includes(policy)) return "unknown";
+    /**
+     * What the config has each BGP neighbor sent of the routes the device makes, in its session's families. That is a default route with `send_default_route`, and each of `originated_prefixes` and `aggregates` its export accepts, unless a `summary_only` aggregate holds it. A prefix the export decides by what the config can't tell, such as an AS path, is left out: a check neither waits for it nor fails on it.
+     */
+    static announcements(device: Device): Announcement[] {
+        const bgp = device.routing?.bgp;
+        const aggregates = bgp?.aggregates ?? [];
+        const suppressed = (prefix: string) =>
+            aggregates.some(
+                (aggregate) =>
+                    aggregate.summary_only &&
+                    Address.split(aggregate.prefix).len < Address.split(prefix).len &&
+                    Address.contains(aggregate.prefix, prefix)
+            );
+        const own: { prefix: string; route: OwnRoute }[] = [
+            ...(bgp?.originated_prefixes ?? [])
+                .filter((prefix) => !suppressed(prefix))
+                .map((prefix) => ({ prefix, route: "originated" as const })),
+            ...aggregates.map(({ prefix }) => ({ prefix, route: "aggregate" as const })),
+        ];
+
+        return Object.entries(bgp?.neighbors ?? {}).flatMap(([neighbor, written]) => {
+            const group = written.neighbor_group ? bgp?.neighbor_groups?.[written.neighbor_group] : undefined;
+            const settings = { ...group, ...written };
+            const families = settings.address_families ?? [Address.family(written.address)];
+            const policy = settings.export_policy;
+
+            const defaults = settings.send_default_route ? families.map((family) => presets.default_routes[family]) : [];
+            const exported = own.filter(
+                ({ prefix, route }) =>
+                    families.includes(Address.split(prefix).family) &&
+                    policy !== undefined &&
+                    Derive.exportOf(device, policy, prefix, route) === "accept"
+            );
+            const prefixes = new Set([...defaults, ...exported.map(({ prefix }) => prefix)].map((prefix) => Address.canonical(prefix)));
+
+            return [...prefixes].map((prefix) => ({ neighbor, prefix }));
+        });
+    }
+
+    /**
+     * What an export policy does with a route the device makes itself, whose AS path and RPKI state the config can't tell. An originated route carries no community until a rule adds one. An aggregate may carry those of the routes inside it (RFC 1997), so a match on a community is `unknown` for it. Nothing when no rule decides.
+     */
+    static exportOf(device: Device, policy: string, prefix: string, route: OwnRoute): PolicyOutcome | undefined {
+        return Derive.ownRouteThrough(device, policy, prefix, { tagged: route === "aggregate" }, []);
+    }
+
+    /** `exportOf` from one policy on. `carried.tagged` turns true once the route may carry a community. A policy that calls itself is `unknown`. */
+    private static ownRouteThrough(
+        device: Device,
+        policy: string,
+        prefix: string,
+        carried: { tagged: boolean },
+        running: readonly string[]
+    ): PolicyOutcome | undefined {
+        if (running.includes(policy)) return "unknown";
 
         for (const rule of device.routing?.policies?.[policy] ?? []) {
             if ("call" in rule && rule.call) {
-                const called = Derive.exportOf(device, rule.call, prefix, [...seen, policy]);
+                const called = Derive.ownRouteThrough(device, rule.call, prefix, carried, [...running, policy]);
                 if (called) return called;
                 continue;
             }
 
             if ("communities" in rule && rule.communities) return "unknown";
 
-            const route = rule as RouteRule;
-            const matched = Derive.matchesOwn(device, route.if ?? {}, prefix);
-            if (!matched || !route.then) continue;
+            const { if: match, set, then } = rule as RouteRule;
+            const matched = Derive.matchesOwn(device, match ?? {}, prefix, carried.tagged);
+            if (!matched) continue;
 
-            return matched === "unknown" ? "unknown" : route.then;
+            const added = [set?.standard_communities, set?.add_standard_communities, set?.large_communities, set?.add_large_communities];
+            if (added.some((communities) => communities?.length)) carried.tagged = true;
+            if (!then) continue;
+
+            return matched === "unknown" ? "unknown" : then;
         }
 
         return undefined;
     }
 
-    /** Whether a route the device makes itself matches: `unknown` for a condition the config can't answer, such as a registry's prefix set or the RPKI state. */
-    private static matchesOwn(device: Device, match: RouteMatch, prefix: string): boolean | "unknown" {
+    /** Whether a route the device makes itself matches: `unknown` for a condition the config can't answer, such as a registry's prefix set or the RPKI state. A route that carries no community matches no community. */
+    private static matchesOwn(device: Device, match: RouteMatch, prefix: string, tagged: boolean): boolean | "unknown" {
         const { len, family } = Address.split(prefix);
         const set = match.prefix_set ? device.routing?.prefix_sets?.[match.prefix_set] : undefined;
         const listed = set && "prefixes" in set ? (Array.isArray(set.prefixes) ? set.prefixes : Object.values(set.prefixes)) : undefined;
+        const community = match.standard_community !== undefined || match.large_community !== undefined;
 
         if (match.family && match.family !== family) return false;
         if (match.prefix && Address.canonical(Address.prefixOf(match.prefix)) !== Address.canonical(Address.prefixOf(prefix))) return false;
         if (listed && !listed.some((outer) => Address.contains(outer, prefix))) return false;
         if (match.prefix_length && (len < (match.prefix_length.min ?? 0) || len > (match.prefix_length.max ?? Address.bits(family))))
             return false;
+        if (community && !tagged) return false;
 
         const unknown =
             (match.prefix_set !== undefined && !listed) ||
-            [
-                match.as_path_length,
-                match.as_path_contains,
-                match.first_as,
-                match.origin_as,
-                match.rpki,
-                match.standard_community,
-                match.large_community,
-            ].some((condition) => condition !== undefined);
+            community ||
+            [match.as_path_length, match.as_path_contains, match.first_as, match.origin_as, match.rpki].some(
+                (condition) => condition !== undefined
+            );
         return unknown ? "unknown" : true;
     }
 
