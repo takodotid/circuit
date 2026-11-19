@@ -124,6 +124,9 @@ export class Derive {
     /** Each takes its sources from `management.allow`, on the protocol's own port. */
     private static readonly SWITCH_SERVICES = ["ssh", "telnet", "snmp"] as const;
 
+    /** IPv6 link-local addresses (RFC 4291). */
+    private static readonly LINK_LOCAL = "fe80::/10";
+
     /** The fewest seconds between two router advertisements (RFC 4861, MinRtrAdvInterval). */
     private static readonly MIN_RA_INTERVAL = 3;
     /** The least interval between router advertisements is the most divided by this (RFC 4861). */
@@ -234,6 +237,26 @@ export class Derive {
         const addresses = (settings.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
         const dhcp = family === "ipv4" && "dhcp_client" in settings && Boolean(settings.dhcp_client);
         return dhcp || addresses.some((address) => Address.family(address) === family);
+    }
+
+    /**
+     * Whether `address` is on a network of the device in `vrf`, or in the main table without one. A network is the prefix of an address of a port or an interface there, or its `peer_address`. A link-local address is on a link of its own. Undefined when a DHCP client there leaves the IPv4 networks unknown.
+     */
+    static sharesNetwork(device: Device, address: string, vrf: string | undefined): boolean | undefined {
+        // `fe80::1%ether1`, as some devices write a link-local address.
+        const host = address.split("%")[0]!;
+        const family = Address.family(host);
+        if (family === "ipv6" && Address.contains(Derive.LINK_LOCAL, host)) return true;
+
+        const holders = Derive.holders(device).filter(({ settings }) => settings.vrf === vrf);
+        const onNetwork = (entry: NonNullable<Routed["addresses"]>[number]) =>
+            typeof entry === "string"
+                ? Address.contains(entry, host)
+                : entry.peer_address === host || Address.contains(entry.address, host);
+        if (holders.some(({ settings }) => (settings.addresses ?? []).some(onNetwork))) return true;
+
+        const dhcp = holders.some(({ settings }) => "dhcp_client" in settings && Boolean(settings.dhcp_client));
+        return family === "ipv4" && dhcp ? undefined : false;
     }
 
     /** The one uRPF mode of `family` that `holders` share, for a platform that has one setting for all of them. Loopbacks and bridges have no `urpf`, and are left out. */

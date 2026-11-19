@@ -628,6 +628,14 @@ export class DeviceChecks {
             const ownReflection = neighbor.route_reflector_client !== undefined || neighbor.remote_as !== undefined;
             if (client && external(remoteAs) && ownReflection) reflectedToExternal(where, remoteAs);
 
+            // In a confederation, a neighbor in another member AS is a special case on Junos, so only an AS outside it is checked.
+            const vrf = neighbor.vrf ?? group?.vrf;
+            const outside = external(remoteAs) && !bgp?.confederation?.member_as.includes(remoteAs!);
+            if (outside && !(neighbor.multihop ?? group?.multihop) && Derive.sharesNetwork(device, neighbor.address, vrf) === false)
+                report(
+                    `${where}: ${neighbor.address} is on no network of this device${vrf ? ` in VRF ${vrf}` : ""}, so an eBGP session to it never comes up. ${(neighbor.ttl_security ?? group?.ttl_security) ? "Fix the address: ttl_security takes a directly connected neighbor only" : `Write multihop: true if AS${remoteAs} is more than one hop away, or fix the address`}`
+                );
+
             const role = neighbor.role ?? group?.role;
             if (remoteAs !== undefined && !external(remoteAs) && role)
                 report(`${where} has role, but AS${remoteAs} is ours, and a role is for eBGP neighbors (RFC 9234). Remove role`);

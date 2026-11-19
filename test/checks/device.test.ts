@@ -134,9 +134,40 @@ test("ttl_security with multihop is an error, once at a group that has both", ()
         },
     };
 
-    expect(messages(device).filter((message) => message.includes("ttl_security"))).toEqual([
+    expect(messages(device).filter((message) => message.includes("has ttl_security with multihop"))).toEqual([
         "routing.bgp.neighbor_groups.controllers has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected",
         "routing.bgp.neighbors.cogent has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected",
+    ]);
+});
+
+// RouterOS, Junos, and FortiOS bring up an eBGP session without multihop only to a neighbor on a network they share.
+test("an eBGP neighbor on no network of the device, in its VRF, needs multihop", () => {
+    const bgp = router.routing!.bgp!;
+    const device: Device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            bgp: {
+                ...bgp,
+                neighbor_groups: { ...bgp.neighbor_groups, far: { remote_as: 64501, multihop: true } },
+                neighbors: {
+                    "on-uplink": { address: "203.0.113.1", remote_as: 64501 },
+                    "link-local": { address: "fe80::1", remote_as: 64501 },
+                    far: { address: "198.51.100.200", remote_as: 64501 },
+                    "far-multihop": { address: "198.51.100.201", remote_as: 64501, multihop: true },
+                    "far-group": { address: "198.51.100.202", neighbor_group: "far" },
+                    "far-gtsm": { address: "198.51.100.203", remote_as: 64501, ttl_security: true },
+                    "far-ibgp": { address: "198.51.100.204", remote_as: 64500 },
+                    "uplink-in-guests": { address: "203.0.113.1", remote_as: 64501, vrf: "guests" },
+                },
+            },
+        },
+    };
+
+    expect(messages(device).filter((message) => message.includes("is on no network"))).toEqual([
+        "routing.bgp.neighbors.far: 198.51.100.200 is on no network of this device, so an eBGP session to it never comes up. Write multihop: true if AS64501 is more than one hop away, or fix the address",
+        "routing.bgp.neighbors.far-gtsm: 198.51.100.203 is on no network of this device, so an eBGP session to it never comes up. Fix the address: ttl_security takes a directly connected neighbor only",
+        "routing.bgp.neighbors.uplink-in-guests: 203.0.113.1 is on no network of this device in VRF guests, so an eBGP session to it never comes up. Write multihop: true if AS64501 is more than one hop away, or fix the address",
     ]);
 });
 
