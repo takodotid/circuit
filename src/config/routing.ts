@@ -210,10 +210,12 @@ export type OspfArea<I extends string> = {
     interfaces: Named<I, OspfInterface>;
 };
 
-/** OSPF, version 2 for IPv4 and version 3 for IPv6. */
-export type Ospf<I extends string> = {
+/** OSPF, version 2 for IPv4 and version 3 for IPv6. `F` is the device's VRFs. */
+export type Ospf<I extends string, F extends string = string> = {
     /** Which versions run: `ipv4` for OSPFv2, `ipv6` for OSPFv3. `ipv4` when absent. */
     address_families?: readonly Family[];
+    /** The VRF OSPF runs in, from `routing.vrfs`. Each of its interfaces routes in that VRF, and the routes it learns go there. The main table when absent. */
+    vrf?: F;
     /** Areas keyed by area ID, for example `0.0.0.0`, each with the interfaces in it. */
     areas: Record<OspfAreaId, OspfArea<I>>;
     /** Routes from other sources announced into OSPF. */
@@ -517,8 +519,8 @@ export type Routing<
     static_routes?: readonly StaticRoute<I, NoInfer<F>, NoInfer<T>>[];
     /** BGP sessions and what they exchange. In a part, only what the part adds, such as its neighbor groups and neighbors. */
     bgp?: Part extends true ? Partial<Bgp<NoInfer<P>, G, NoInfer<T>, NoInfer<F>, Net>> : Bgp<NoInfer<P>, G, NoInfer<T>, NoInfer<F>, Net>;
-    /** OSPF areas and interfaces. */
-    ospf?: Ospf<I>;
+    /** OSPF areas and interfaces, in the main table or in one VRF. */
+    ospf?: Ospf<I, NoInfer<F>>;
     /** IS-IS, in the main table. */
     isis?: Isis<I>;
     /** BFD timers for every BFD session on the device: BGP, OSPF, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */

@@ -518,6 +518,7 @@ export class RouterOsRouting {
                 redistribute: ospf.redistribute?.join(","),
                 "router-id": this.device.routing?.router_id,
                 version,
+                vrf: ospf.vrf,
             });
 
             for (const [areaId, area] of Object.entries(ospf.areas)) {

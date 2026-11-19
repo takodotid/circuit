@@ -290,7 +290,6 @@ export class Junos extends Platform {
 
         for (const [areaId, area] of Object.entries(routing?.ospf?.areas ?? {})) {
             for (const [iface, settings] of Object.entries(area.interfaces)) {
-                if (settings && Derive.settings(device, iface)?.vrf) found.push(`routing.ospf on ${iface}, which routes in a VRF`);
                 const algorithm = settings?.authentication?.algorithm;
                 if (algorithm && algorithm !== "md5")
                     found.push(

@@ -724,6 +724,14 @@ export class DeviceChecks {
                 if (!settings) continue;
                 const at = `${where}.interfaces.${name}`;
 
+                const vrf = Derive.settings(device, name)?.vrf;
+                if (vrf && !ospf?.vrf)
+                    report(`${at}: ${name} routes in VRF ${vrf}, and OSPF in the main table. Write vrf: "${vrf}" in routing.ospf`);
+                if (ospf?.vrf && vrf !== ospf.vrf)
+                    report(
+                        `${at}: ${name} routes in ${vrf ? `VRF ${vrf}` : "the main table"}, and OSPF in VRF ${ospf.vrf}. Write vrf: "${ospf.vrf}" on ${name}, or remove it from the area`
+                    );
+
                 for (const key of ["hello_interval", "dead_interval"] as const) {
                     const seconds = settings[key];
                     if (seconds !== undefined && !within(seconds, 1, DeviceChecks.MAX_OSPF_INTERVAL))

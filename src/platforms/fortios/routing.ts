@@ -584,12 +584,11 @@ export class FortiOsRouting {
 
         const ospf = routing?.ospf;
         if (ospf?.address_families?.includes("ipv6") && !routing?.router_id) found.push("routing.ospf for IPv6 without routing.router_id");
+        // `router ospf` and `router ospf6` have no VRF setting (TRAPS.md).
+        if (ospf?.vrf) found.push("routing.ospf.vrf, FortiOS 6.2 runs OSPF in the default VRF only");
 
         for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
             for (const [name, settings] of Object.entries(area.interfaces)) {
-                if (FortiOsNames.settingsOf(device, name)?.vrf)
-                    found.push(`routing.ospf on ${name}, which routes in a VRF: OSPF runs in the default table`);
-
                 const authentication = settings?.authentication;
                 const where = `routing.ospf.areas.${areaId}.interfaces.${name}.authentication`;
                 if (authentication && authentication.algorithm !== "md5")
