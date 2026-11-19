@@ -157,7 +157,10 @@ test("a session moved to another table is restarted, since a running session tak
     const toTable = platform.plan(platform.render(device), platform.render(moved), options).steps.flatMap((step) => step.send);
     const restart = toTable.indexOf(`/routing bgp connection set ${selector} disabled=yes routing-table=block-b`);
     expect(restart).toBeGreaterThan(-1);
-    expect(toTable[restart + 1]).toBe(`/routing bgp connection set ${selector} disabled=no`);
+    expect(toTable[restart + 1]).toBe(
+        ":local waited 0; :while ([:len [/routing bgp session find where remote.address=2001:db8:fffe::1]] > 0 and $waited < 30) do={ :delay 1s; :set waited ($waited + 1) }"
+    );
+    expect(toTable[restart + 2]).toBe(`/routing bgp connection set ${selector} disabled=no`);
 
     // Any other change to a session is sent as it was, with no restart.
     const limited = platform.render({
