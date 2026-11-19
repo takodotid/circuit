@@ -139,6 +139,10 @@ routing: {
 - The blackhole route for the whole /48 does the same job as in [Routing tables](/academy/intermediate/routing-tables). Traffic for a subnet you don't use yet is dropped, instead of looping back to the provider.
 - Link-local addresses are not written anywhere, because the device makes them.
 
+`ipv6_ra` also takes what the advertisements say: the DNS servers, how long an address lasts, or that the devices keep the addresses written on them. The servers of Circuit's [edge router example](/guide/examples#an-edge-router) keep their own addresses and learn the rest from the router:
+
+<<< @/../examples/edge-router/sites/pop-2/edge-02.ts#router-advertisement
+
 ::: warning Not every platform takes IPv6
 Raisecom ROS takes no IPv6 addresses or routes, and VRP sends no router advertisements. `circuit validate` reports either as an error. See [Platforms](/reference/platforms).
 :::

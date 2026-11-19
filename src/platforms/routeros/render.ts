@@ -616,9 +616,11 @@ export class RouterOsRender {
                 if (Address.family(address) === "ipv4") {
                     this.add("/ip address", "add", { address, comment: settings.description, interface: name, network: peer });
                 } else {
+                    // The address announces its own network. Prefixes written in `ipv6_ra` are announced instead, each with its settings.
+                    const ra = Derive.routerAdvertisement(settings);
                     this.add("/ipv6 address", "add", {
                         address,
-                        advertise: RouterOsSyntax.yesNo(settings.ipv6_ra),
+                        advertise: RouterOsSyntax.yesNo(ra && !ra.prefixes),
                         comment: settings.description,
                         interface: name,
                     });
@@ -645,11 +647,39 @@ export class RouterOsRender {
 
     /** The platform's default entry sends router advertisements on every interface. Once one interface sends its own, the default is turned off. A device that sends none keeps it. */
     private routerAdvertisements(): void {
-        const sending = this.routed().filter(({ settings }) => settings.ipv6_ra);
+        const sending = this.routed().flatMap(({ name, settings }) => {
+            const ra = Derive.routerAdvertisement(settings);
+            return ra ? [{ name, ra }] : [];
+        });
         if (!sending.length) return;
 
         this.add("/ipv6 nd", "set [ find default=yes ]", { disabled: "yes" });
-        for (const { name } of sending) this.add("/ipv6 nd", "add", { interface: name });
+
+        for (const { name, ra } of sending) {
+            const { interval, lifetime } = ra;
+            const servers = ra.dns_servers?.length ? ra.dns_servers : undefined;
+            this.add("/ipv6 nd", "add", {
+                // Without `advertise-dns`, the servers are kept but not announced.
+                "advertise-dns": servers && "yes",
+                dns: servers?.join(","),
+                interface: name,
+                "ra-interval":
+                    interval !== undefined &&
+                    `${RouterOsSyntax.duration(Derive.minAdvertisementInterval(interval))}-${RouterOsSyntax.duration(interval)}`,
+                // The device prints a lifetime of 0 as `none`.
+                "ra-lifetime": lifetime !== undefined && (lifetime ? RouterOsSyntax.duration(lifetime) : "none"),
+            });
+
+            for (const advertised of ra.prefixes ?? []) {
+                this.add("/ipv6 nd prefix", "add", {
+                    autonomous: advertised.disable_autoconfiguration && "no",
+                    interface: name,
+                    "preferred-lifetime": RouterOsSyntax.lifetime(advertised.preferred_lifetime),
+                    prefix: Address.prefixOf(advertised.prefix),
+                    "valid-lifetime": RouterOsSyntax.lifetime(advertised.valid_lifetime),
+                });
+            }
+        }
     }
 
     /** A port that takes its address by DHCP. The client is named after its port, and the server's DNS and time servers are never used. */

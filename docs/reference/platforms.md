@@ -59,7 +59,7 @@ A note in a cell means "works, with this limit".
 | Shaping (CAKE)             | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
 | Proxy ARP for an address   | ❌                                                      | ❌             | ❌           | ❌        | ✅                               |
 | VRRP                       | ✅                                                      | IPv4           | IPv4         | IPv4      | IPv4                             |
-| IPv6 router advertisement  | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
+| IPv6 router advertisement  | ✅ no search domains                                    | ❌             | ❌           | ✅        | ✅                               |
 | uRPF (RFC 3704)            | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs | 🧪 loose, IPv4 | ❌           | ✅ strict | 🧪 strict, one mode for the VDOM |
 
 ### Routing

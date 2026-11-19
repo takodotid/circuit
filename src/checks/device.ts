@@ -41,6 +41,14 @@ export class DeviceChecks {
     private static readonly MAX_ASN = 4294967295;
     /** The route match fields that hold AS numbers. */
     private static readonly AS_FIELDS = ["as_path_contains", "first_as", "origin_as"] as const;
+    /** The fewest and most seconds between two router advertisements (RFC 4861, MaxRtrAdvInterval). */
+    private static readonly RA_INTERVAL = { min: 4, max: 1800 } as const;
+    /** The most seconds a router advertisement keeps the router as a gateway (RFC 4861, AdvDefaultLifetime). */
+    private static readonly MAX_RA_LIFETIME = 9000;
+    /** The most seconds a prefix lifetime holds, all ones, which is forever (RFC 4861). */
+    private static readonly MAX_PREFIX_LIFETIME = 4_294_967_295;
+    /** The length of a prefix hosts make their own addresses in: a 64-bit interface ID (RFC 4291, RFC 4862). */
+    private static readonly SLAAC_LENGTH = 64;
     private static readonly FAMILY_NAMES = [
         ["ipv4", "IPv4"],
         ["ipv6", "IPv6"],
@@ -52,7 +60,7 @@ export class DeviceChecks {
         const report: Report = (message) => findings.push({ level: "error", device: device.name, message });
 
         DeviceChecks.check(device, report);
-        findings.push(...DeviceChecks.limits(device), ...DeviceChecks.ospfWarnings(device));
+        findings.push(...DeviceChecks.limits(device), ...DeviceChecks.ospfWarnings(device), ...DeviceChecks.raWarnings(device));
 
         return findings;
     }
@@ -238,6 +246,50 @@ export class DeviceChecks {
                 if (group.id < 1 || group.id > DeviceChecks.MAX_VRRP_ID)
                     report(`${where} VRRP id ${group.id} is outside 1-${DeviceChecks.MAX_VRRP_ID}`);
             }
+
+            DeviceChecks.routerAdvertisement(`${where}.ipv6_ra`, settings, report, ip);
+        }
+    }
+
+    /** Each value is within RFC 4861's range, and each prefix and DNS server is IPv6. */
+    private static routerAdvertisement(where: string, settings: Routed, report: Report, ip: Checker): void {
+        const ra = Derive.routerAdvertisement(settings);
+        if (!ra) return;
+
+        const { interval, lifetime } = ra;
+        const whole = (value: number, min: number, max: number) => Number.isInteger(value) && value >= min && value <= max;
+        const { min, max } = DeviceChecks.RA_INTERVAL;
+        if (interval !== undefined && !whole(interval, min, max))
+            report(`${where}.interval ${interval} is not a whole number from ${min} to ${max}`);
+        if (lifetime !== undefined && !whole(lifetime, 0, DeviceChecks.MAX_RA_LIFETIME))
+            report(`${where}.lifetime ${lifetime} is not a whole number from 0 to ${DeviceChecks.MAX_RA_LIFETIME}`);
+        if (interval !== undefined && lifetime && lifetime < interval)
+            report(`${where}.lifetime ${lifetime} is below interval ${interval}: hosts would drop the router between two advertisements`);
+
+        (ra.prefixes ?? []).forEach((advertised, index) => {
+            const at = `${where}.prefixes[${index}]`;
+            if (!Address.isCidr(advertised.prefix) || Address.family(advertised.prefix) !== "ipv6") {
+                report(`${at}.prefix '${advertised.prefix}' is not an IPv6 prefix, such as 2001:db8:100:1::/64`);
+                return;
+            }
+            if (Address.prefixOf(advertised.prefix) !== Address.canonical(advertised.prefix))
+                report(`${at}.prefix ${advertised.prefix} has bits past its length: write ${Address.prefixOf(advertised.prefix)}`);
+
+            const { valid_lifetime: valid, preferred_lifetime: preferred } = advertised;
+            for (const [key, value] of [
+                ["valid_lifetime", valid],
+                ["preferred_lifetime", preferred],
+            ] as const) {
+                if (value !== undefined && !whole(value, 0, DeviceChecks.MAX_PREFIX_LIFETIME))
+                    report(`${at}.${key} ${value} is not a whole number from 0 to ${DeviceChecks.MAX_PREFIX_LIFETIME}`);
+            }
+            if (valid !== undefined && preferred !== undefined && preferred > valid)
+                report(`${at}.preferred_lifetime ${preferred} is above valid_lifetime ${valid}, so hosts ignore the prefix`);
+        });
+
+        for (const server of ra.dns_servers ?? []) {
+            ip(`${where}.dns_servers`, server);
+            if (Address.isValid(server) && Address.family(server) !== "ipv6") report(`${where}.dns_servers ${server} is not IPv6`);
         }
     }
 
@@ -481,6 +533,20 @@ export class DeviceChecks {
     }
 
     /** What platforms do differently when the config leaves it out: a border router's default route into a stub area or an NSSA, and a dead interval beside a hello interval. */
+    /** A prefix hosts may make their own addresses in, which is not a /64: they make none there. */
+    private static raWarnings(device: Device): Finding[] {
+        return Derive.holders(device).flatMap(({ where, settings }) =>
+            Derive.advertisedPrefixes(settings)
+                .filter((advertised) => !advertised.disable_autoconfiguration && Address.isCidr(advertised.prefix))
+                .filter((advertised) => Address.split(advertised.prefix).len !== DeviceChecks.SLAAC_LENGTH)
+                .map((advertised): Finding => ({
+                    level: "warning",
+                    device: device.name,
+                    message: `${where}.ipv6_ra announces ${advertised.prefix}, where hosts make no address of their own: they do only in a /64. Write disable_autoconfiguration: true for it, or announce a /64`,
+                }))
+        );
+    }
+
     private static ospfWarnings(device: Device): Finding[] {
         const areas = device.routing?.ospf?.areas ?? {};
         const backbone = Object.values(areas[DeviceChecks.OSPF_BACKBONE]?.interfaces ?? {}).some(Boolean);

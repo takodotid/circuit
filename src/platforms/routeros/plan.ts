@@ -89,6 +89,8 @@ export class RouterOsPlan {
         "/ipv6 firewall raw",
         "/ip dhcp-server lease",
         "/interface bridge vlan",
+        // An address that advertises its network makes its prefix's entry.
+        "/ipv6 nd prefix",
     ]);
 
     /**
@@ -103,6 +105,11 @@ export class RouterOsPlan {
      * Properties a running entry takes only when it restarts. A BGP session given a new `routing-table` stops announcing at once, and keeps its routes in the old table until it restarts (TRAPS.md). So the plan disables the connection, changes it, and enables it again.
      */
     private static readonly RESTART_ON: Record<string, string[]> = { "/routing bgp connection": ["routing-table"] };
+
+    /**
+     * Menus where the device makes an entry of its own from another menu, and keeps it a moment after it should go. An address that stops advertising keeps its dynamic `/ipv6 nd prefix` entry for about a second, and an entry added for the same prefix meanwhile is refused (TRAPS.md). An `add` there first waits, at most this many seconds, for that entry to go.
+     */
+    private static readonly LINGERING: Record<string, number> = { "/ipv6 nd prefix": 30 };
 
     /** Menus of routes, whose table a selector names. */
     private static readonly ROUTES = new Set(["/ip route", "/ipv6 route"]);
@@ -210,6 +217,18 @@ export class RouterOsPlan {
         });
         if (RouterOsPlan.DYNAMIC.has(menu)) conditions.push("!dynamic");
         return `[ find ${conditions.join(" and ")} ]`;
+    }
+
+    /** In a menu with `LINGERING` entries, a script that waits until the device's own entry with the identity of `entry` is gone. */
+    private static waitForDynamic(menu: string, entry: Command): string | undefined {
+        const seconds = RouterOsPlan.LINGERING[menu];
+        if (seconds === undefined) return undefined;
+
+        const conditions = Object.entries(RouterOsExport.selector(entry)).map(
+            ([property, raw]) => `${property}=${RouterOsPlan.findValue(property, raw)}`
+        );
+        const dynamic = `[:len [${menu} find ${["dynamic", ...conditions].join(" and ")}]] > 0`;
+        return `:local waited 0; :while (${dynamic} && $waited < ${seconds}) do={ :delay 1s; :set waited ($waited + 1) }`;
     }
 
     /** A whole command as sent: menu, verb, selector, flags, then properties. */
@@ -357,6 +376,8 @@ export class RouterOsPlan {
 
             if (!current) {
                 changeStep.show.push(`+ ${RouterOsExport.canonical(entry)}`);
+                const wait = RouterOsPlan.waitForDynamic(menu, entry);
+                if (wait) changeStep.send.push(wait);
                 changeStep.send.push(RouterOsPlan.line(menu, "add", "", entry.flags, entry.attrs));
                 continue;
             }

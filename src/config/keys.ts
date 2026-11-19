@@ -140,7 +140,13 @@ const STATIC_ROUTE = {
 const ROUTED = {
     addresses: [{ address: 0, peer_address: 0 }],
     urpf: { ipv4: 0, ipv6: 0 },
-    ipv6_ra: 0,
+    ipv6_ra: {
+        interval: 0,
+        lifetime: 0,
+        prefixes: [{ prefix: 0, valid_lifetime: 0, preferred_lifetime: 0, disable_autoconfiguration: 0 }],
+        dns_servers: 0,
+        dns_search_list: 0,
+    },
     hardware_offload: 0,
     vrrp: [{ id: 0, address: 0, priority: 0, preempt: 0, interval: 0 }],
     vrf: 0,
