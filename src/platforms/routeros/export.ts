@@ -29,8 +29,25 @@ export class RouterOsExport {
      */
     private static readonly DEFAULTS: Record<string, Record<string, string>> = {
         "*": { disabled: "no", comment: "", instance: "default", "routing-table": "main", vrf: "main" },
-        "/interface bridge": { "protocol-mode": "rstp", priority: "0x8000", "vlan-filtering": "no", pvid: "1" },
-        "/interface bridge port": { pvid: "1", "frame-types": "admit-all", edge: "auto", "path-cost": "10", priority: "0x80" },
+        "/interface bridge": {
+            "protocol-mode": "rstp",
+            priority: "0x8000",
+            "vlan-filtering": "no",
+            pvid: "1",
+            "dhcp-snooping": "no",
+            "ra-guard": "no",
+        },
+        "/interface bridge port": {
+            pvid: "1",
+            "frame-types": "admit-all",
+            edge: "auto",
+            "path-cost": "10",
+            priority: "0x80",
+            "bpdu-guard": "no",
+            "restricted-role": "no",
+            trusted: "no",
+            "trusted-ra": "no",
+        },
         "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
         // A CHR prints `disable-running-check=no` on every port, as it ships. A RouterBOARD has no such property, so this changes nothing there (TRAPS.md).
         "/interface ethernet": { mtu: "1500", "auto-negotiation": "yes", "disable-running-check": "no" },

@@ -65,6 +65,10 @@ export type Switching<V extends string, A extends string, I extends string, Untr
     vlans?: Named<V, Vlan<Untrusted>>;
     /** Spanning tree on every switched port. A port may override it. */
     stp?: Stp;
+    /** DHCP snooping: a switched port drops DHCP servers' messages, such as offers, unless it has `dhcp_trusted`. So no host hands out IPv4 addresses. DHCPv6 is not covered. */
+    dhcp_snooping?: true;
+    /** RA guard (RFC 6105): a switched port drops IPv6 router advertisements unless it has `ra_trusted`. So no host poses as the gateway. */
+    ra_guard?: true;
     /** Advertise and learn neighbors with LLDP on every port (`true`), or only on the interfaces listed. A port may override it. */
     lldp?:
         | true

@@ -143,8 +143,10 @@ export class VrpRender {
         this.ospf();
         if (this.wantsBfd()) this.block("bfd", []);
         const relays = device.services?.dhcp_relay;
-        if (relays && Object.keys(relays).length) {
+        const snooping = device.switching?.dhcp_snooping;
+        if (snooping || (relays && Object.keys(relays).length)) {
             this.line("dhcp enable");
+            if (snooping) this.line("dhcp snooping enable");
             this.separator();
         }
 
@@ -230,6 +232,9 @@ export class VrpRender {
             // MSTP is the platform's default and is not written.
             if (stp.mode && stp.mode !== "mstp") this.line(`stp mode ${stp.mode}`);
             if (stp.priority !== undefined) this.line(`stp priority ${stp.priority}`);
+            // One setting for every edge port; `unsupported()` holds every edge port to the same.
+            if (Derive.switchedHolders(device).some(({ settings }) => typeof settings.stp === "object" && settings.stp.bpdu_guard))
+                this.line("stp bpdu-protection");
         }
         // LLDP is off by default and turned on by the config.
         if (device.switching?.lldp) this.line("lldp enable");
@@ -356,7 +361,13 @@ export class VrpRender {
             if (settings.stp.edge) lines.push("stp edged-port enable");
             if (settings.stp.cost !== undefined) lines.push(`stp cost ${settings.stp.cost}`);
             if (settings.stp.priority !== undefined) lines.push(`stp port priority ${settings.stp.priority}`);
+            if (settings.stp.guard === "root") lines.push("stp root-protection");
         }
+
+        // Snooping runs on each port, and the device-wide `dhcp snooping enable` comes before the ports in a plan.
+        const switched = settings.access_vlan || settings.trunk_vlans;
+        if (switched && this.device.switching?.dhcp_snooping)
+            lines.push(settings.dhcp_trusted ? "dhcp snooping trusted" : "dhcp snooping enable");
 
         const storm = settings.storm_control;
         if (storm) {

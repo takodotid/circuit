@@ -14,7 +14,7 @@ export const as64500 = circuit({
     sites: {
         "dc-1": {
             description:
-                "The data center: the edge router, which reflects routes to the routers of halls 2 and 3, and one top-of-rack switch for the tenants' servers.",
+                "The data center: the edge router, which reflects routes to the routers of halls 2 and 3, a top-of-rack switch for the tenants' servers, and one for small tenants with a server each.",
         },
     },
     checks: {
