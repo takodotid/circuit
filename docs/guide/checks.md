@@ -36,7 +36,7 @@ Your editor catches most mistakes as you type. `circuit validate` catches the re
 
 ```
 sites/site-a/switch-01.ts:32: switch-01: switching.stp.mod: no such field. Did you mean mode?
-tenants/netflix.ts:21: switch-01: interfaces.ethernet.10g-5.descripton: no such field. Did you mean description?
+tenants/argon.ts:21: switch-01: interfaces.ethernet.10g-5.descripton: no such field. Did you mean description?
 ```
 
 It **stops** on:

@@ -54,13 +54,13 @@ Your AS in two regions, each a member AS of a BGP confederation with its own iBG
 
 ## Colocation with tenants
 
-A router and two top-of-rack switches. Each tenant, here Netflix, has its own file with its VLANs, gateway, ports, and rules, and a VRF that keeps its private network apart, with a BGP session over its private circuit. Devices pull them in with `include`. See [Parts and merge](/guide/parts). Small tenants share a subnet on the second switch, in a private VLAN that keeps their servers apart, and its port guards keep each tenant from harming the others. A tenant's own VLANs reach its racks in another hall inside one VLAN, with QinQ.
+A router and two top-of-rack switches. Each tenant, here Argon, has its own file with its VLANs, gateway, ports, and rules, and a VRF that keeps its private network apart, with a BGP session over its private circuit. Devices pull them in with `include`. See [Parts and merge](/guide/parts). Small tenants share a subnet on the second switch, in a private VLAN that keeps their servers apart, and its port guards keep each tenant from harming the others. A tenant's own VLANs reach its racks in another hall inside one VLAN, with QinQ.
 
 ::: code-group
 
 <<< @/../examples/colocation/circuit.ts
 
-<<< @/../examples/colocation/tenants/netflix.ts
+<<< @/../examples/colocation/tenants/argon.ts
 
 <<< @/../examples/colocation/tenants/index.ts
 

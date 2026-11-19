@@ -12,7 +12,7 @@ Circuit only knows devices. "Tenant" and "provider" are your own ideas, to arran
 
 This tenant from the [colocation example](/guide/examples#colocation-with-tenants) adds VLANs and ports to the router and the switch, and a VRF with its BGP session and an ACL rule to the router:
 
-<<< @/../examples/colocation/tenants/netflix.ts
+<<< @/../examples/colocation/tenants/argon.ts
 
 One file joins every tenant:
 
@@ -30,7 +30,7 @@ Each device takes its parts with `include`, and places the tenants' rules in its
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `part("device", {...})`                     | Part of a device, under its hostname. Checked like a device.                                                              |
 | `part("acl", [...])`                        | Rules for an ordered list that a device file writes. The other kinds are `filter`, `nat`, `policy`, and `policy-routing`. |
-| `merge([netflix, other_tenant])`            | Joins tenants: parts by hostname, and rule lists in order.                                                                |
+| `merge([argon, herza])`                     | Joins tenants: parts by hostname, and rule lists in order.                                                                |
 | `include: [tenants.parts]`                  | The device takes the part under its hostname. The names in the part become the device's own.                              |
 | `merge([own_rule, tenants.rules.edge_acl])` | Places those rules in the device's own list.                                                                              |
 

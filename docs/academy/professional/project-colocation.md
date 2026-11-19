@@ -29,7 +29,7 @@ my-network/
   sites/dc-1/edge-01.ts  the router
   sites/dc-1/tor-01.ts   the top-of-rack switch
   sites/dc-1/tor-02.ts   the switch for small tenants
-  tenants/netflix.ts     one file per tenant
+  tenants/argon.ts       one file per tenant
   tenants/index.ts       every tenant, merged
   lib/checks.ts          a check of your own
 ```
@@ -40,15 +40,15 @@ As in the edge router, the transit is Hurricane Electric and the exchange is DE-
 
 ## A tenant is one file
 
-<<< @/../examples/colocation/tenants/netflix.ts
+<<< @/../examples/colocation/tenants/argon.ts
 
-The file of the tenant Netflix holds everything Netflix has, on every device, as [parts](/guide/parts):
+The file of the tenant Argon holds everything Argon has, on every device, as [parts](/guide/parts):
 
-- **On the router**, `edge-01`, it adds the VLAN `netflix-internet`, carried on the trunk to the switch. It also adds a VLAN interface with the gateways of Netflix, the first address of each of its blocks.
-- **On the switch**, `tor-01`, it adds both VLANs of Netflix: the public one on the uplink to the router, and both on its two server ports.
-- **A rule** for the router's switch chip caps UDP toward the block of Netflix at 1G, so a flood aimed at Netflix can't fill everyone else's uplinks.
+- **On the router**, `edge-01`, it adds the VLAN `argon-internet`, carried on the trunk to the switch. It also adds a VLAN interface with the gateways of Argon, the first address of each of its blocks.
+- **On the switch**, `tor-01`, it adds both VLANs of Argon: the public one on the uplink to the router, and both on its two server ports.
+- **A rule** for the router's switch chip caps UDP toward the block of Argon at 1G, so a flood aimed at Argon can't fill everyone else's uplinks.
 
-The file writes out every name, address, VLAN ID, and port of Netflix by hand, so a search for `netflix` finds every one.
+The file writes out every name, address, VLAN ID, and port of Argon by hand, so a search for `argon` finds every one.
 
 <<< @/../examples/colocation/tenants/index.ts
 
@@ -73,7 +73,7 @@ Here a second tenant, Akamai, has joined. It has a public network and a private 
 </TryIt>
 
 <Quiz
-  question="The first server of Netflix sends a backup to its second server over netflix-private. Which devices does it pass?"
+  question="The first server of Argon sends a backup to its second server over argon-private. Which devices does it pass?"
   :choices="['tor-01 only', 'tor-01, then edge-01, then tor-01 again', 'edge-01 only']"
   :answer="0"
   :why="['', 'That is how traffic between two different public networks goes. VLAN 2001 is not on the trunk, so the router never sees it.', 'The servers are not plugged into the router. Every port they have is on tor-01.']"
@@ -90,7 +90,7 @@ Circuit knows nothing about tenants, so it can't know that two tenants' blocks m
 
 ## Add a tenant
 
-A new tenant, Akamai, wants one server on its public network. Copy `tenants/netflix.ts` to `tenants/akamai.ts`, and change every name, VLAN ID, address, and port to Akamai's. Then add `akamai` to `tenants/index.ts`. Each choice can clash with Netflix, and Circuit says how.
+A new tenant, Akamai, wants one server on its public network. Copy `tenants/argon.ts` to `tenants/akamai.ts`, and change every name, VLAN ID, address, and port to Akamai's. Then add `akamai` to `tenants/index.ts`. Each choice can clash with Argon, and Circuit says how.
 
 <TryIt title="Write the file of Akamai">
 
@@ -107,8 +107,8 @@ Every clash stops `validate`, and each message says where it is:
 The port matters most: without the stop, one tenant would silently take the other's port.
 
 <Quiz
-  question="Akamai is given 10g-1, which Netflix already uses. Which step of the workflow catches it?"
-  :choices="['Your editor, with a red line', 'circuit validate, with an error', 'Reading the plan from circuit diff, where 10GE1/0/1 loses the VLANs of Netflix']"
+  question="Akamai is given 10g-1, which Argon already uses. Which step of the workflow catches it?"
+  :choices="['Your editor, with a red line', 'circuit validate, with an error', 'Reading the plan from circuit diff, where 10GE1/0/1 loses the VLANs of Argon']"
   :answer="1"
   :why="['10g-1 is a valid port name in each file, so the types are happy. It takes Circuit reading both files together.', '', 'There is no plan to read: diff reads the files first, and stops at the error.']"
   explain="Circuit merges every tenant's parts, sees 10g-1 written twice with two descriptions, and names both files. An error stops diff and apply, so the port never changes hands."
@@ -116,7 +116,7 @@ The port matters most: without the stop, one tenant would silently take the othe
 
 ## When a tenant leaves
 
-A tenant leaves when you remove it from `tenants/index.ts`. The next apply takes away everything it had, everywhere. Say Akamai has joined, and then Netflix leaves. `circuit diff` plans 22 commands for the router and 19 for the switch. On the switch:
+A tenant leaves when you remove it from `tenants/index.ts`. The next apply takes away everything it had, everywhere. Say Akamai has joined, and then Argon leaves. `circuit diff` plans 22 commands for the router and 19 for the switch. On the switch:
 
 ```text
 tor-01: 19 command(s) in 4 step(s)
@@ -128,20 +128,20 @@ tor-01: 19 command(s) in 4 step(s)
     - port trunk allow-pass vlan 1001 2001
     - undo port trunk allow-pass vlan 1
     - port link-type trunk
-    - description netflix server 1
+    - description argon server 1
     + shutdown
   interface 10GE1/0/2
     - port trunk allow-pass vlan 1001 2001
     - undo port trunk allow-pass vlan 1
     - port link-type trunk
-    - description netflix server 2
+    - description argon server 2
     + shutdown
   interface 40GE1/0/1
     - port trunk allow-pass vlan 99 1001 to 1002
     + port trunk allow-pass vlan 99 1002
 ```
 
-The ports of Netflix are shut, not left open for whoever plugs in next. On the router, its VLAN, interface, and addresses go. The switch-chip rules are replaced as a whole, because Circuit rewrites an ordered list in its new order rather than editing it in place. The block of Netflix, `198.51.100.8/29`, is free again, but wait until its servers are unplugged before you hand it to someone else.
+The ports of Argon are shut, not left open for whoever plugs in next. On the router, its VLAN, interface, and addresses go. The switch-chip rules are replaced as a whole, because Circuit rewrites an ordered list in its new order rather than editing it in place. The block of Argon, `198.51.100.8/29`, is free again, but wait until its servers are unplugged before you hand it to someone else.
 
 ## Where to go from here
 
