@@ -470,6 +470,7 @@ export class Project {
             "neighbor group": new Set(Project.keys(d.routing?.bgp?.neighbor_groups)),
             table: new Set(["main", ...Project.keys(d.routing?.tables)]),
             VRF: new Set(Project.keys(d.routing?.vrfs)),
+            "VRF or main": new Set(["main", ...Project.keys(d.routing?.vrfs)]),
             "address set": new Set(Project.keys(d.firewall?.address_sets)),
             "interface set": new Set(Project.keys(d.firewall?.interface_sets)),
             user: new Set(Project.keys(d.system?.users)),
@@ -531,6 +532,11 @@ export class Project {
             need("interface", r.interface, `routing.static_routes[${i}].interface`);
             need("table", r.routing_table, `routing.static_routes[${i}].routing_table`);
             need("VRF", r.vrf, `routing.static_routes[${i}].vrf`);
+        });
+        (d.routing?.vrf_imports ?? []).forEach((r: Json, i: number) => {
+            need("VRF or main", r.from, `routing.vrf_imports[${i}].from`);
+            need("VRF or main", r.to, `routing.vrf_imports[${i}].to`);
+            need("policy", r.policy, `routing.vrf_imports[${i}].policy`);
         });
         (d.routing?.policy_routing ?? []).forEach((r: Json, i: number) => {
             need("interface", r.match?.in_interface, `routing.policy_routing[${i}].match.in_interface`);

@@ -300,14 +300,7 @@ export class RouterOs extends Platform {
             }
         }
 
-        // A VRF is also an interface, named after it (TRAPS.md).
-        const interfaceNames = new Set([
-            ...Derive.interfaces(device).map(({ name }) => name),
-            ...Derive.ports(device).map(([name]) => Catalog.spell(device.platform, device.model, name)),
-        ]);
-        for (const name of Object.keys(device.routing?.vrfs ?? {}))
-            if (interfaceNames.has(name))
-                found.push(`routing.vrfs.${name}, the name of an interface: RouterOS makes an interface named after each VRF`);
+        found.push(...RouterOsRouting.vrfGaps(device));
 
         const bgp = device.routing?.bgp;
 
@@ -408,6 +401,7 @@ export class RouterOs extends Platform {
                 "upnp",
                 "nat-state",
                 "urpf",
+                "vrf-imports",
             ])
         );
 

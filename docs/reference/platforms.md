@@ -73,6 +73,7 @@ A note in a cell means "works, with this limit".
 | Next hop with its interface  | ✅                      | ❌         | ❌                       | ❌                    | ✅               |
 | VRFs                         | ✅                      | ✅         | ❌                       | ✅                    | ✅               |
 | BGP in a VRF                 | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
+| Routes taken between VRFs    | ✅                      | ❌         | ❌                       | 🧪                    | ❌               |
 | Policy routing, more tables  | ✅                      | ❌ not yet | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | OSPF                         | ✅                      | IPv4       | IPv4                     | outside VRFs          | outside VRFs     |
 | OSPF stub and NSSA areas     | ✅                      | 🧪         | ❌                       | ✅                    | ✅               |

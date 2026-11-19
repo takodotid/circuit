@@ -59,6 +59,8 @@ export class RouterOsPlan {
         "/routing filter rule",
         "/routing bgp instance",
         "/routing bgp connection",
+        // A VPN entry names its VRF, its instance, and its chains.
+        "/routing bgp vpn",
         "/routing ospf instance",
         "/routing ospf area",
         "/routing ospf interface-template",

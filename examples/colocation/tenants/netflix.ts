@@ -41,6 +41,11 @@ export const netflix = {
             routing: {
                 // The private network's routes stay in a table of their own: they never meet the internet's, or another tenant's.
                 vrfs: { netflix: { description: "Tenant netflix private" } },
+                // Our monitoring, in the management network, reaches the private network. Nothing else crosses.
+                vrf_imports: [
+                    { from: "main", to: "netflix", policy: "management-network" },
+                    { from: "netflix", to: "main", policy: "netflix-private-network" },
+                ],
                 bgp: {
                     // The private VLAN's network, which only the session in the VRF can announce.
                     originated_prefixes: ["10.20.0.0/24"],
@@ -51,14 +56,16 @@ export const netflix = {
                             description: "Netflix, over its private circuit",
                             vrf: "netflix",
                             import_policy: "netflix-private-import",
-                            export_policy: "netflix-private-export",
+                            export_policy: "netflix-private-network",
                         },
                     },
                 },
-                prefix_sets: { "netflix-private": { prefixes: ["10.0.0.0/8"] } },
+                // Netflix's own private space, which its servers here have a part of.
+                prefix_sets: { "netflix-private": { prefixes: ["10.16.0.0/12"] } },
                 policies: {
                     "netflix-private-import": [{ if: { prefix_set: "netflix-private" }, then: "accept" }, { then: "reject" }],
-                    "netflix-private-export": [{ if: { prefix: "10.20.0.0/24" }, then: "accept" }, { then: "reject" }],
+                    "netflix-private-network": [{ if: { prefix: "10.20.0.0/24" }, then: "accept" }, { then: "reject" }],
+                    "management-network": [{ if: { prefix: "10.0.0.0/24" }, then: "accept" }, { then: "reject" }],
                 },
             },
         }),

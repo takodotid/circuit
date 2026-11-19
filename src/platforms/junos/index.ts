@@ -95,6 +95,11 @@ export class Junos extends Platform {
 
     override readonly console = Junos.CONSOLE;
 
+    /** Imports between tables: their statements were committed by hand on a QFX5100 (TRAPS.md). Circuit has not sent them or read them back yet. */
+    override experimental(device: Device): string[] {
+        return device.routing?.vrf_imports ? ["routing.vrf_imports"] : [];
+    }
+
     override unsupported(device: Device): string[] {
         const found: string[] = [];
         const interfaces = Derive.interfaces(device);
@@ -341,7 +346,7 @@ export class Junos extends Platform {
         }
 
         found.push(...Derive.untested(device, Junos.TESTED));
-        found.push(...Derive.unbuilt(device, ["urpf"]));
+        found.push(...Derive.unbuilt(device, ["urpf", "vrf-imports"]));
 
         return found;
     }

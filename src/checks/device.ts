@@ -494,6 +494,20 @@ export class DeviceChecks {
 
         DeviceChecks.tables(device, report, cidr);
 
+        const pairs = new Map<string, number>();
+        (routing?.vrf_imports ?? []).forEach(({ from, to }, index) => {
+            const where = `routing.vrf_imports[${index}]`;
+            if (from === to) report(`${where} takes routes from ${from} into ${from}; give another table in to`);
+
+            const pair = `${from} ${to}`;
+            const first = pairs.get(pair);
+            if (first === undefined) pairs.set(pair, index);
+            else
+                report(
+                    `${where} takes routes from ${from} into ${to}, as routing.vrf_imports[${first}] does; write one import, and put the rules of both policies in its policy`
+                );
+        });
+
         const bgp = routing?.bgp;
 
         for (const prefix of bgp?.originated_prefixes ?? []) cidr("routing.bgp.originated_prefixes", prefix);

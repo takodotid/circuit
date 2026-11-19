@@ -232,6 +232,16 @@ export type Vrf = {
     description?: string;
 };
 
+/** Routes one table takes from another, through a policy. `F` is the device's VRFs, `P` its policies. */
+export type VrfImport<F extends string, P extends string> = {
+    /** Where the routes come from: a VRF of `routing.vrfs`, or `main`. */
+    from: F | "main";
+    /** Where they go: a VRF of `routing.vrfs`, or `main`. */
+    to: F | "main";
+    /** The policy that picks the routes `to` takes, from `routing.policies`. It sees every route `from` holds: connected, static, and learned. Traffic routed by a route taken this way leaves through the interfaces of `from`. */
+    policy: P;
+};
+
 /** The traffic a policy routing rule matches. All conditions must be true. Every packet when absent. */
 export type RoutingRuleMatch<I extends string> = {
     /** Source prefix. */
@@ -474,6 +484,8 @@ export type Routing<
     tables?: Named<T, RoutingTable>;
     /** Separate routing tables with the interfaces that route in them, keyed by name. */
     vrfs?: Named<F, Vrf>;
+    /** Routes a VRF or the main table takes from another, each through a policy. For example, a tenant's VRF takes the main table's default route, and main takes the tenant's prefixes. */
+    vrf_imports?: readonly VrfImport<NoInfer<F>, NoInfer<P>>[];
     /** Rules in order that route the traffic they match by another table. For example, traffic from one address block can use its own transit's default route. The first rule that matches decides. The main table routes traffic that no rule matches. */
     policy_routing?: Ordered<RoutingRule<I, NoInfer<T>>>;
     /** Routes you write by hand. Their order doesn't matter. */
