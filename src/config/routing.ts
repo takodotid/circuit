@@ -267,6 +267,20 @@ export type Isis<I extends string> = {
     overload_bit?: boolean;
 };
 
+/** LDP (RFC 5036): the device gives a label to each route of its IGP and tells its LDP neighbors. */
+export type Ldp<I extends string> = {
+    /** The device's LSR ID, which other LDP routers know it by. LDP sessions run between LSR IDs, so it is the address of a loopback that OSPF or IS-IS announces. */
+    lsr_id: IPv4;
+    /** The ports and interfaces that forward MPLS and run LDP, each toward another LDP router. */
+    interfaces: readonly I[];
+};
+
+/** MPLS (RFC 3031): packets cross the network by their labels. */
+export type Mpls<I extends string> = {
+    /** LDP gives the labels. */
+    ldp: Ldp<I>;
+};
+
 /** A routing table beside the main one. It holds no interfaces. Routes go into it from static routes and BGP neighbors that give it in `routing_table`. `routing.policy_routing` sends traffic to it. */
 export type RoutingTable = {
     /** What the table is for. */
@@ -543,6 +557,8 @@ export type Routing<
     ospf?: Ospf<I, NoInfer<F>>;
     /** IS-IS, in the main table. */
     isis?: Isis<I>;
+    /** MPLS, in the main table, such as `{ ldp: { lsr_id: "192.0.2.1", interfaces: ["100g-1", "100g-2"] } }`. */
+    mpls?: Mpls<I>;
     /** BFD timers for every BFD session on the device: BGP, OSPF, IS-IS, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */
     bfd?: Bfd;
     /** The RPKI validators the device asks for route origin validation. */

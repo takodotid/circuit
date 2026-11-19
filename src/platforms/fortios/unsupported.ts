@@ -56,6 +56,7 @@ export class FortiOsUnsupported {
         for (const [name, vrf] of Object.entries(vrfs)) {
             if (vrf?.description) found.push(`routing.vrfs.${name}.description, the platform numbers a VRF and keeps no description`);
         }
+        if (device.routing?.mpls) found.push("routing.mpls, FortiOS has no MPLS");
         // The device's own traffic leaves from the management VDOM, if there is one (TRAPS.md).
         for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, FortiOS 6.2 has no VRF setting for it`);
 

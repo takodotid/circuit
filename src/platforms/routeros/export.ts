@@ -238,7 +238,7 @@ export class RouterOsExport {
         "/tool mac-server": { "allowed-interface-list": "all" },
         "/tool mac-server mac-winbox": { "allowed-interface-list": "all" },
         "/tool mac-server ping": { enabled: "yes" },
-        "/tool bandwidth-server": { enabled: "yes" },
+        "/tool bandwidth-server": { enabled: "yes", authenticate: "yes" },
         // What `/tool sniffer reset` set them to on an RB5009 on 7.24.6.
         "/tool sniffer": { "filter-direction": "any", "filter-interface": "", "memory-limit": "100KiB" },
         // The default configuration of an RB5009 shares a USB disk on its bridge.
@@ -366,6 +366,10 @@ export class RouterOsExport {
         "/routing ospf interface-template": ["area", "interfaces"],
         "/routing isis interface-template": ["instance", "interfaces"],
         "/routing bfd configuration": ["interfaces"],
+        "/mpls interface": ["interface"],
+        // One LDP instance per VRF.
+        "/mpls ldp": ["vrf"],
+        "/mpls ldp interface": ["interface"],
         // Several routes to one prefix in one table are told apart by their gateway (TRAPS.md). A blackhole route has none.
         "/ip route": ["dst-address", "routing-table", "gateway"],
         "/ipv6 route": ["dst-address", "routing-table", "gateway"],
