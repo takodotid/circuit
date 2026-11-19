@@ -50,15 +50,15 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 
 ## Addresses
 
-| Feature                           | Standard                     | In model                                                  |
-| --------------------------------- | ---------------------------- | --------------------------------------------------------- |
-| Special-purpose (bogon) addresses | BCP 153 (RFC 6890, RFC 8190) | `presets.bogons`                                          |
-| Private IPv4                      | BCP 5 (RFC 1918)             | `presets.rfc1918`                                         |
-| Shared address space (CGNAT)      | BCP 153 (RFC 6598)           | `presets.bogons.ipv4.shared_address_space`                |
-| IPv4 prefixes (CIDR)              | BCP 122 (RFC 4632)           | every prefix; `address` helpers; `presets.default_routes` |
-| IPv6 addressing                   | RFC 4291                     | every IPv6 address; `address` helpers                     |
-| How IPv6 is written               | RFC 5952                     | `address.host`, `.first`, `.last`                         |
-| IPv6 router advertisements        | RFC 4861                     | interface `ipv6_ra`                                       |
+| Feature                           | Standard                                              | In model                                                  |
+| --------------------------------- | ----------------------------------------------------- | --------------------------------------------------------- |
+| Special-purpose (bogon) addresses | BCP 153 (RFC 6890, RFC 8190)                          | `presets.bogons`                                          |
+| Private IPv4                      | BCP 5 (RFC 1918)                                      | `presets.rfc1918`                                         |
+| Shared address space (CGNAT)      | BCP 153 (RFC 6598)                                    | `presets.bogons.ipv4.shared_address_space`                |
+| IPv4 prefixes (CIDR)              | BCP 122 (RFC 4632)                                    | every prefix; `address` helpers; `presets.default_routes` |
+| IPv6 addressing                   | RFC 4291                                              | every IPv6 address; `address` helpers                     |
+| How IPv6 is written               | RFC 5952                                              | `address.host`, `.first`, `.last`                         |
+| IPv6 router advertisements        | RFC 4861; RFC 8106 for DNS servers and search domains | interface `ipv6_ra`                                       |
 
 ## Switching
 

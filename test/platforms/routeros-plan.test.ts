@@ -594,3 +594,17 @@ test("an IPv6 address the device prints with an IPv4 address in it is the same a
 
     expect(adapter.plan(rendered, printed, { secrets: false, rollback: 10 })).toEqual({ steps: [], problems: [] });
 });
+
+// Tested on a CCR2216 with RouterOS 7.24.6: `bgp-path-prepend 1` changes nothing, as it counts the AS the session always sends.
+test("RouterOS sends one AS more than a prepend asks for, and refuses 16", () => {
+    const routeros = Platforms.get("routeros");
+    const device = Fixtures.device("edge-router--edge-01");
+    const withPrepend = (prepend: number): Device => ({
+        ...device,
+        routing: { ...device.routing, policies: { ...device.routing?.policies, OUT: [{ set: { prepend }, then: "accept" }] } },
+    });
+
+    expect(routeros.render(withPrepend(2))).toContain("set bgp-path-prepend 3");
+    expect(routeros.unsupported(withPrepend(15)).filter((field) => field.includes("prepend"))).toEqual([]);
+    expect(routeros.unsupported(withPrepend(16)).filter((field) => field.includes("prepend"))).toHaveLength(1);
+});

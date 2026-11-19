@@ -607,19 +607,6 @@ export class FortiOsRouting {
         return found;
     }
 
-    /** AS path matches, rendered from Fortinet's documentation. A FortiGate puts no AS path on the routes it originates, so without a BGP neighbor no test reaches them (TRAPS.md). */
-    static experimental(device: Device): string[] {
-        return Object.entries(device.routing?.policies ?? {}).flatMap(([name, rules]) =>
-            (rules ?? []).flatMap((rule, index) =>
-                FortiOsRouting.isRouteRule(rule)
-                    ? FortiOsRouting.AS_PATH_FIELDS.filter((field) => rule.if?.[field] !== undefined).map(
-                          (field) => `routing.policies.${name}[${index}].if.${field}`
-                      )
-                    : []
-            )
-        );
-    }
-
     private static ruleGaps(device: Device, where: string, rule: PolicyRule): string[] {
         if (!FortiOsRouting.isRouteRule(rule)) {
             return "communities" in rule && rule.communities !== undefined

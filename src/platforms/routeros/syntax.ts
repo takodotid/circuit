@@ -5,6 +5,9 @@ export class RouterOsSyntax {
     /** Address lists holding the prefixes BGP originates. A session reads the one of its family. */
     static readonly NETWORKS: Record<Family, string> = { ipv4: "bgp-networks-v4", ipv6: "bgp-networks-v6" };
 
+    /** A prefix lifetime of all ones, which RFC 4861 makes forever. */
+    private static readonly INFINITE_LIFETIME = 4_294_967_295;
+
     /** The entries of a map keyed by name, without the names whose value is left out. */
     static entries<V>(map: Readonly<Record<string, V | undefined>> | undefined): [string, V][] {
         return Object.entries(map ?? {}).flatMap(([name, value]) => (value === undefined ? [] : [[name, value] as [string, V]]));
@@ -26,6 +29,12 @@ export class RouterOsSyntax {
 
     static yesNo(on: boolean | undefined): string {
         return on ? "yes" : "no";
+    }
+
+    /** A prefix's lifetime as the device prints it, all ones being `infinity` (RFC 4861). Undefined when absent. */
+    static lifetime(seconds: number | undefined): string | undefined {
+        if (seconds === undefined) return undefined;
+        return seconds === RouterOsSyntax.INFINITE_LIFETIME ? "infinity" : RouterOsSyntax.duration(seconds);
     }
 
     /** Seconds as the platform writes a duration: `3600` becomes `1h`, `90` becomes `1m30s`. */
