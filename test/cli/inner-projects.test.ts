@@ -32,9 +32,9 @@ beforeAll(async () => {
         process.chdir(cwd);
     }
 
-    inner = join(root, "customers", "acme");
+    inner = join(root, "customers", "strathmore");
     mkdirSync(join(inner, ".circuit"), { recursive: true });
-    writeFileSync(join(inner, "circuit.ts"), "export const acme = circuit({});\n");
+    writeFileSync(join(inner, "circuit.ts"), "export const strathmore = circuit({});\n");
 });
 
 afterAll(() => rmSync(parent, { recursive: true, force: true }));
@@ -55,9 +55,9 @@ test("the commit hook stops a secret in plain text in a project inside", () => {
 
     const stopped = hook();
     expect(stopped.status).toBe(1);
-    expect(stopped.stdout).toContain("The project in customers/acme");
-    expect(stopped.stderr).toContain("customers/acme/.circuit/secrets");
-    expect(stopped.stderr).toContain("Commit stopped by the project in customers/acme.");
+    expect(stopped.stdout).toContain("The project in customers/strathmore");
+    expect(stopped.stderr).toContain("customers/strathmore/.circuit/secrets");
+    expect(stopped.stderr).toContain("Commit stopped by the project in customers/strathmore.");
 
     rmSync(join(inner, ".circuit", "secrets"));
     git("add", "-A");
@@ -68,16 +68,18 @@ test("the commit hook stops a secret in plain text in a project inside", () => {
 
 test("a file of a project inside takes the outer project's style", async () => {
     const file = join(inner, "circuit.ts");
-    writeFileSync(file, "export const acme = circuit({sites:{home:{description:'Acme'}}})\n");
+    writeFileSync(file, "export const strathmore = circuit({sites:{home:{description:'Strathmore University'}}})\n");
 
     expect(Format.style(inner)).toEqual(Format.style(root));
     await Format.run(inner, [], false);
-    expect(readFileSync(file, "utf8")).toBe('export const acme = circuit({ sites: { home: { description: "Acme" } } });\n');
+    expect(readFileSync(file, "utf8")).toBe(
+        'export const strathmore = circuit({ sites: { home: { description: "Strathmore University" } } });\n'
+    );
 });
 
 test("a file named outside the project is formatted in its own folder's style", async () => {
     const shared = join(root, "customers", "shared.ts");
-    writeFileSync(shared, "export const shared = {\nname:'acme'}\n");
+    writeFileSync(shared, "export const shared = {\nname:'strathmore'}\n");
 
     const cwd = process.cwd();
     process.chdir(inner);
@@ -86,5 +88,5 @@ test("a file named outside the project is formatted in its own folder's style", 
     } finally {
         process.chdir(cwd);
     }
-    expect(readFileSync(shared, "utf8")).toBe('export const shared = {\n    name: "acme",\n};\n');
+    expect(readFileSync(shared, "utf8")).toBe('export const shared = {\n    name: "strathmore",\n};\n');
 });
