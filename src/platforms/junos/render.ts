@@ -698,17 +698,24 @@ export class JunosRender {
         }
     }
 
-    /** OSPF for IPv4 and OSPFv3 for IPv6, with the same areas and interfaces. */
+    /** OSPF for IPv4 and OSPFv3 for IPv6, with the same areas and interfaces, in the main instance or a VRF's. */
     private ospf(): void {
         const ospf = this.device.routing?.ospf;
         if (!ospf) return;
 
-        const protocols = (ospf.address_families ?? ["ipv4"]).map((family) => (family === "ipv4" ? "ospf" : "ospf3"));
+        const instance = JunosBgp.instance(ospf.vrf);
+        const routerId = this.device.routing?.router_id;
+        // A routing instance otherwise takes the address of one of its own interfaces as its router ID.
+        if (ospf.vrf && routerId) this.out.set(`${instance}routing-options router-id`, routerId);
+
+        const protocols = (ospf.address_families ?? ["ipv4"]).map(
+            (family) => `${instance}protocols ${family === "ipv4" ? "ospf" : "ospf3"}`
+        );
 
         for (const protocol of protocols) {
             for (const [areaId, area] of Object.entries(ospf.areas)) {
                 if (area.type) {
-                    const type = `protocols ${protocol} area ${areaId} ${area.type}`;
+                    const type = `${protocol} area ${areaId} ${area.type}`;
                     this.out.set(type);
                     if (area.no_summaries) this.out.set(type, "no-summaries");
                     // An NSSA's border router announces its default route only with `default-lsa`.
@@ -719,7 +726,7 @@ export class JunosRender {
                 for (const [iface, settings] of Object.entries(area.interfaces)) {
                     if (!settings) continue;
 
-                    const statement = `protocols ${protocol} area ${areaId} interface ${this.names.unit(iface)}`;
+                    const statement = `${protocol} area ${areaId} interface ${this.names.unit(iface)}`;
                     this.out.set(statement);
 
                     if (settings.cost !== undefined) this.out.set(statement, "metric", settings.cost);
@@ -735,7 +742,7 @@ export class JunosRender {
                 }
             }
 
-            if (ospf.redistribute?.length) this.out.set(`protocols ${protocol} export`, JunosRender.OSPF_EXPORT);
+            if (ospf.redistribute?.length) this.out.set(`${protocol} export`, JunosRender.OSPF_EXPORT);
         }
 
         for (const source of ospf.redistribute ?? []) {

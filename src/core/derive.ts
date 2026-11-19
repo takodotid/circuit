@@ -13,6 +13,7 @@ import type {
     FilterRule,
     Interface,
     InterfaceKind,
+    Isis,
     Lag,
     NatRule,
     NeighborSettings,
@@ -22,6 +23,7 @@ import type {
     RouteMatch,
     RouteRule,
     RouterAdvertisement,
+    Secret,
 } from "../model";
 
 /** A BGP neighbor's `max_prefixes` in its long form. Without `restart_after` or `warn_only`, the session stays closed. */
@@ -342,6 +344,11 @@ export class Derive {
     /** AS numbers as ranges, a single number as a range of one. */
     static asRanges(numbers: AsNumbers): AsRange[] {
         return [numbers].flat().map((each) => (typeof each === "number" ? { min: each, max: each } : each));
+    }
+
+    /** The key that signs IS-IS `level`: the level's own, or else the one for every level. */
+    static isisKey(isis: Isis, level: 1 | 2): Secret | undefined {
+        return isis.levels?.[level]?.authentication?.key ?? isis.authentication?.key;
     }
 
     /** The IPv4 networks of a port's or an interface's addresses. */

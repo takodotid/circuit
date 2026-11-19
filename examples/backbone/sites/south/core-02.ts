@@ -31,13 +31,20 @@ export default as64500.device({
         static_routes: [{ prefix: as64500.prefixes.ours.v4, blackhole: true }],
         isis: {
             net: "49.0001.0102.5500.2001.00",
-            level_capability: "level-2",
+            level_capability: "level-1-2",
             address_families: ["ipv4"],
+            // A key per level. Both are core-01's key, since the point-to-point link to it sends one hello for both levels.
+            levels: {
+                1: { authentication: { key: secret("ISIS_KEY") } },
+                2: { authentication: { key: secret("ISIS_KEY") } },
+            },
             interfaces: {
                 // FortiOS has no passive interface, and a loopback forms no adjacency anyway.
                 loopback: {},
                 "40g-1": { network: "point-to-point", metric: 100 },
             },
+            // Drained for maintenance. Remove it to carry traffic through core-02 again.
+            overload_bit: true,
         },
         bgp: {
             // This router's member AS.

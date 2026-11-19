@@ -193,6 +193,8 @@ export class Vrp extends Platform {
         if (routing?.bgp) found.push("routing.bgp");
         if (routing?.isis) found.push("routing.isis");
         if (routing?.rpki) found.push("routing.rpki");
+        // `ospf <process> vpn-instance <vrf>` exists, but no switch has shown how it prints the process, or moves it between tables.
+        if (routing?.ospf?.vrf) found.push("routing.ospf.vrf, not built yet");
         if (routing?.ospf?.address_families?.includes("ipv6")) found.push("routing.ospf for IPv6");
 
         for (const { where, authentication } of Vrp.ospfAuthentications(device)) {

@@ -568,6 +568,7 @@ export class Project {
                 need("policy", rule.call, `routing.policies.${p}[${i}].call`, written);
                 need("prefix set", rule.if?.prefix_set, `routing.policies.${p}[${i}].if.prefix_set`, written);
             });
+        need("VRF", d.routing?.ospf?.vrf, "routing.ospf.vrf");
         for (const [a, area] of Object.entries<Json>(d.routing?.ospf?.areas ?? {}))
             need("interface", Project.keys(area.interfaces), `routing.ospf.areas.${a}.interfaces`);
         need("interface", Project.keys(d.routing?.isis?.interfaces), "routing.isis.interfaces");

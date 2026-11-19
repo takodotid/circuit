@@ -318,7 +318,7 @@ export class FortiOs extends Platform {
         }
     }
 
-    /** The device prints a password or an SNMPv3 key as an `ENC` cipher, a certificate's key encrypted, and the SNMP community in clear. None leave the read. */
+    /** The device prints a password or an SNMPv3 key as an `ENC` cipher, a certificate's key encrypted, and the SNMP community and a key chain's key in clear. None leave the read. */
     private static scrub(text: string): string {
         const root = FortiOsTree.parse(text);
 
@@ -329,7 +329,7 @@ export class FortiOs extends Platform {
         const hide = (block: FortiOsNode) => {
             for (const [key, value] of block.settings) {
                 if (value.startsWith("ENC ")) block.settings.set(key, "ENC <redacted>");
-                if (key === "private-key") block.settings.set(key, '"<redacted>"');
+                if (FortiOsPlan.SECRET_KEYS.has(key)) block.settings.set(key, '"<redacted>"');
             }
 
             for (const child of block.blocks.values()) hide(child);

@@ -198,6 +198,28 @@ test("a session in its own table that would announce nothing names v1's fields",
     expect(finding?.message).toEndWith("in routing.static_routes");
 });
 
+// On two CHRs (7.24.6), a passive multihop connection listened only on the router's loopback, and refused its peer on the link address.
+test("a passive multihop neighbor needs local_address; a passive one on a shared network does not", () => {
+    const edge = Fixtures.device("edge-router--edge-01");
+    const bgp = edge.routing!.bgp!;
+    const transit = bgp.neighbors!["hurricane-electric"]!;
+    const withTransit = (settings: object): Device => ({
+        ...edge,
+        routing: { ...edge.routing, bgp: { ...bgp, neighbors: { "hurricane-electric": { ...transit, ...settings } } } },
+    });
+
+    expect(platform.checks!(withTransit({ passive: true, multihop: true }))).toEqual([
+        {
+            level: "error",
+            device: edge.name,
+            message:
+                "routing.bgp.neighbors.hurricane-electric is passive and multihop without local_address: RouterOS then listens only on one address it picks, and refuses 203.0.113.1 if it connects to another. Write local_address, the address 203.0.113.1 connects to",
+        },
+    ]);
+    expect(platform.checks!(withTransit({ passive: true, multihop: true, local_address: "198.51.100.1" }))).toEqual([]);
+    expect(platform.checks!(withTransit({ passive: true }))).toEqual([]);
+});
+
 test("0.x paths are written as v1's", () => {
     const device = { interfaces: { lag: { members: {} } } } as unknown as Device;
 
