@@ -216,6 +216,31 @@ export type Ospf<I extends string> = {
     redistribute?: readonly ("connected" | "static")[];
 };
 
+/** An IS-IS network entity title: the area, the system ID of three groups, and `00`. */
+export type IsisNet = `${string}.${string}.${string}.${string}.00`;
+
+/** IS-IS on one interface. */
+export type IsisInterface = {
+    /** Cost of sending through this interface, 1 to 16777214, at each level the device runs. Lower is preferred. The platform's own when absent, usually 10. */
+    metric?: number;
+    /** Advertise the interface's networks but form no adjacency on it. */
+    passive?: boolean;
+    /** The link type. `broadcast` when absent. On `point-to-point`, no designated router is elected. */
+    network?: "broadcast" | "point-to-point";
+};
+
+/** IS-IS (ISO/IEC 10589, RFC 1195), with wide metrics (RFC 5305). */
+export type Isis<I extends string> = {
+    /** The device's network entity title (NET): its area, its system ID, and `00`, such as `49.0001.0102.5500.1001.00`. No two devices share a system ID. */
+    net: IsisNet;
+    /** The levels the device runs: `level-1` inside its area, `level-2` between areas, or `level-1-2` for both. */
+    level_capability: "level-1" | "level-2" | "level-1-2";
+    /** What IS-IS routes: `ipv4`, `ipv6`, or both. Both share one topology (RFC 5308), so each link between IS-IS routers needs both. */
+    address_families: readonly Family[];
+    /** The device's ports and interfaces that run IS-IS, each with its settings. */
+    interfaces: Named<I, IsisInterface>;
+};
+
 /** A routing table beside the main one. It holds no interfaces. Routes go into it from static routes and BGP neighbors that give it in `routing_table`. `routing.policy_routing` sends traffic to it. */
 export type RoutingTable = {
     /** What the table is for. */
@@ -478,6 +503,8 @@ export type Routing<
     bgp?: Part extends true ? Partial<Bgp<NoInfer<P>, G, NoInfer<T>, Net>> : Bgp<NoInfer<P>, G, NoInfer<T>, Net>;
     /** OSPF areas and interfaces. */
     ospf?: Ospf<I>;
+    /** IS-IS, in the main table. */
+    isis?: Isis<I>;
     /** BFD timers for every BFD session on the device: BGP, OSPF, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */
     bfd?: Bfd;
     /** The RPKI validators the device asks for route origin validation. */

@@ -29,6 +29,16 @@ export default as64500.device({
     routing: {
         router_id: "10.255.2.1",
         static_routes: [{ prefix: as64500.prefixes.ours.v4, blackhole: true }],
+        isis: {
+            net: "49.0001.0102.5500.2001.00",
+            level_capability: "level-2",
+            address_families: ["ipv4"],
+            interfaces: {
+                // FortiOS has no passive interface, and a loopback forms no adjacency anyway.
+                loopback: {},
+                "40g-1": { network: "point-to-point", metric: 100 },
+            },
+        },
         bgp: {
             // This router's member AS.
             asn: 65002,

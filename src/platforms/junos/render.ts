@@ -19,6 +19,7 @@ import type {
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { JunosBgp } from "./bgp";
+import { JunosIsis } from "./isis";
 import { JunosNames } from "./names";
 import { JunosMonitoring } from "./monitoring";
 import { JunosStatements } from "./statements";
@@ -132,6 +133,7 @@ export class JunosRender {
         render.layer2.raGuard();
         render.lldp();
         render.ospf();
+        JunosIsis.render(render.out, device, render.names);
         render.dhcpRelay();
         render.dhcpServers();
         render.dhcpv6Servers();

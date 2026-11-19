@@ -242,6 +242,7 @@ export class FortiOsPlan {
         "system dhcp server": { "dns-service": "specify" },
         "router ospf": FortiOsPlan.OSPF_DEFAULTS,
         "router ospf6": FortiOsPlan.OSPF_DEFAULTS,
+        "router isis": { "is-type": "level-1-2" },
         "firewall policy": FortiOsPlan.DENY,
         "firewall policy6": FortiOsPlan.DENY,
         "firewall local-in-policy": FortiOsPlan.DENY,

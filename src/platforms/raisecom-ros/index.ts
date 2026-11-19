@@ -214,7 +214,7 @@ export class RaisecomRos extends Platform {
 
         const routing = device.routing;
 
-        for (const field of ["bgp", "rpki"] as const) {
+        for (const field of ["bgp", "isis", "rpki"] as const) {
             if (routing?.[field]) found.push(`routing.${field}`);
         }
 
