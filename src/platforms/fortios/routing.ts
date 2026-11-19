@@ -171,8 +171,8 @@ export class FortiOsRouting {
     /** The route map a session takes when its config states none, so it learns or announces nothing. */
     static readonly REJECT_ALL = "circuit-reject-all";
 
-    /** The start of the comment on a prefix list `refresh` fills. The plan keeps the entries the device holds in one. */
-    static readonly FILLED = "Filled by circuit refresh";
+    /** The start of the comment on a prefix list from a registry that the render did not fetch, as Studio renders it. The plan keeps the entry the device holds. */
+    static readonly UNFETCHED = "Fetched by circuit diff and apply";
 
     static readonly PREFIX_LIST = { ipv4: "router prefix-list", ipv6: "router prefix-list6" } as const;
 
@@ -272,8 +272,8 @@ export class FortiOsRouting {
                 const entry = root
                     .block(FortiOsRouting.PREFIX_LIST[family])
                     .entry(name)
-                    .set("comments", FortiOsTree.quote(`${FortiOsRouting.FILLED} from ${registry} ${query}`));
-                // Until `refresh` fills it, the list refuses every prefix, so a rule matching it matches nothing.
+                    .set("comments", FortiOsTree.quote(`${FortiOsRouting.UNFETCHED} from ${registry} ${query}`));
+                // Without its prefixes, the list refuses every prefix, so a rule matching it matches nothing.
                 const rule = entry.block("rule").entry(1);
                 FortiOsRouting.listRule(rule, family, family === "ipv4" ? "0.0.0.0/0" : "::/0", { le: FortiOsRouting.BITS[family] });
                 rule.set("action", "deny");

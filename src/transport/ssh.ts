@@ -94,14 +94,17 @@ export class Ssh {
     static readonly READY_TIMEOUT_MS = 60_000;
     private static readonly AGENT_TIMEOUT_MS = 5000;
 
-    /** How many times a login that tests access after a change is tried. A device can reset logins for some seconds after a change (junos/TRAPS.md). */
-    static readonly PROOF_TRIES = 4;
+    /** How many times a login the device resets or closes is tried. A device can reset logins for some seconds after a commit (junos/TRAPS.md). */
+    static readonly LOGIN_TRIES = 4;
 
     /** The pause between those tries, which spreads them over 30 seconds. */
-    private static readonly PROOF_PAUSE_MS = 10_000;
+    private static readonly LOGIN_PAUSE_MS = 10_000;
 
-    /** `PROOF_PAUSE_MS`, which a test shortens. */
-    static proofPauseMs = Ssh.PROOF_PAUSE_MS;
+    /** `LOGIN_PAUSE_MS`, which a test shortens. */
+    static loginPauseMs = Ssh.LOGIN_PAUSE_MS;
+
+    /** The devices Circuit logged in to in this run, by host and port. The first login to each is `retrying`, since it can come seconds after another command's commit. */
+    static readonly loggedIn = new Set<string>();
 
     /** What ssh2 calls a login the device refused, and one it never answered. Neither is tried again. */
     private static readonly FINAL_LEVELS = new Set(["client-authentication", "client-timeout"]);
@@ -216,6 +219,15 @@ export class Ssh {
     }
 
     static async connect(login: Login): Promise<Client> {
+        const address = `${login.host}:${login.port ?? Ssh.PORT}`;
+        if (Ssh.loggedIn.has(address)) return Ssh.connectOnce(login);
+
+        const client = await Ssh.retrying(() => Ssh.connectOnce(login));
+        Ssh.loggedIn.add(address);
+        return client;
+    }
+
+    private static async connectOnce(login: Login): Promise<Client> {
         const ways = await Ssh.ways(login);
 
         try {
@@ -228,18 +240,18 @@ export class Ssh {
         }
     }
 
-    /** A login that tests access right after a change. A login the device resets or closes is tried again, up to `PROOF_TRIES` times. A refused one is not, since some devices lock an account after a few. */
-    static async proofLogin<T>(login: () => Promise<T>): Promise<T> {
+    /** A login that the device resets or closes is tried again, up to `LOGIN_TRIES` times. A refused one is not, since some devices lock an account after a few. */
+    static async retrying<T>(login: () => Promise<T>): Promise<T> {
         for (let tried = 1; ; tried++) {
             try {
                 return await login();
             } catch (error) {
                 const level = (error as { level?: string }).level;
                 if (level && Ssh.FINAL_LEVELS.has(level)) throw error;
-                if (tried >= Ssh.PROOF_TRIES) throw new Error(`${(error as Error).message}, on all ${tried} tries`, { cause: error });
+                if (tried >= Ssh.LOGIN_TRIES) throw new Error(`${(error as Error).message}, on all ${tried} tries`, { cause: error });
 
-                const cleared = Ssh.waiting?.(`The fresh login failed (${(error as Error).message}); trying again`);
-                await new Promise((done) => setTimeout(done, Ssh.proofPauseMs));
+                const cleared = Ssh.waiting?.(`The login failed (${(error as Error).message}); trying again`);
+                await new Promise((done) => setTimeout(done, Ssh.loginPauseMs));
                 cleared?.();
             }
         }

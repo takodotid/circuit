@@ -154,7 +154,7 @@ export class RouterOsPlan {
         const have = RouterOsExport.parse(current);
         const planner = new RouterOsPlan(options.secrets);
 
-        // Entries of lists filled by `refresh` belong to it, not to the render.
+        // A list from a registry that the render did not fetch keeps the entries the device holds.
         const owned = (command: Command) => !(command.menu.endsWith("address-list") && want.generated.has(command.attrs.list ?? ""));
         const wantedByMenu = RouterOsPlan.byMenu([...want.commands.filter(owned), ...RouterOsPlan.unnamedPorts(want, have)]);
         const existingByMenu = RouterOsPlan.byMenu(have.commands.filter(owned));

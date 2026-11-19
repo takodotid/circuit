@@ -319,33 +319,46 @@ test("a FortiOS certificate is compared by its text, and its key is a secret", (
     expect(fortiosPlan(desired, current, true).steps.flatMap((step) => step.send)).toContain('set private-key "<secret:WEB_KEY>"');
 });
 
-test("a FortiOS prefix list a registry fills keeps its entries", () => {
-    const list = (rules: string[]) => [
-        "config router prefix-list",
-        '    edit "upstream-origins"',
-        '        set comments "Filled by circuit refresh from ripe-stat AS64501"',
-        ...rules,
-        "    next",
-        "end",
-    ];
+// Studio renders a device without fetching its prefix sets from a registry.
+test("a FortiOS prefix list from a registry that the render did not fetch stays as the device holds it", async () => {
+    const adapter = Platforms.get("fortios");
+    const rules = (list: string) =>
+        FortiOsTree.parse(list).blocks.get("router prefix-list")!.entries.get("upstream-origins")!.block.blocks.get("rule")!;
+    const settings = (list: string) => [...rules(list).entries.values()].map(({ block }) => Object.fromEntries(block.settings));
 
-    const current = list([
+    // Without its prefixes, the list refuses every prefix.
+    expect(settings(adapter.render(firewall))).toEqual([{ prefix: "0.0.0.0 0.0.0.0", ge: FortiOsTree.UNSET, le: "32", action: "deny" }]);
+
+    const list = (lines: string[]) => ["config router prefix-list", '    edit "upstream-origins"', ...lines, "    next", "end"];
+    const unfetched = list([
+        '        set comments "Fetched by circuit diff and apply from ripe-stat AS64501"',
+        "        config rule",
+        "            edit 1",
+        "                set prefix 0.0.0.0 0.0.0.0",
+        "                unset ge",
+        "                set le 32",
+        "                set action deny",
+        "            next",
+        "        end",
+    ]);
+    const held = list([
         "        config rule",
         "            edit 1",
         "                set prefix 198.18.0.0 255.254.0.0",
         "            next",
         "        end",
     ]);
+    expect(fortiosPlan(unfetched, held).steps).toEqual([]);
 
-    expect(fortiosPlan(list([]), current).steps).toEqual([]);
-
-    // Until it is filled, the list refuses every prefix; once filled, each prefix matches what is more specific too.
-    const rendered = FortiOsTree.parse(Platforms.get("fortios").render(firewall));
-    const placeholder = rendered.blocks.get("router prefix-list")!.entries.get("upstream-origins")!.block.blocks.get("rule")!;
-    expect([...placeholder.entries.values()].map(({ block }) => Object.fromEntries(block.settings))).toEqual([
-        { prefix: "0.0.0.0 0.0.0.0", ge: FortiOsTree.UNSET, le: "32", action: "deny" },
-    ]);
-    expect(FortiOs.fillLines("upstream-origins", "ipv4", ["198.18.0.0/15"])).toContain("set le 32");
+    // Fetched, each prefix matches what is more specific too.
+    const fetch = spyOn(Registries, "prefixes").mockResolvedValue(["198.18.0.0/15"]);
+    try {
+        expect(settings(adapter.render(await Registries.resolve(firewall)))).toEqual([
+            { prefix: "198.18.0.0 255.254.0.0", ge: FortiOsTree.UNSET, le: "32" },
+        ]);
+    } finally {
+        fetch.mockRestore();
+    }
 });
 
 test("a FortiOS service without a protocol covers TCP and UDP", () => {
