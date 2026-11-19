@@ -384,6 +384,38 @@ test("a FortiOS policy becomes a route map for each family", () => {
     );
 });
 
+// A 3700D on 6.2.2 kept its decisions on a neighbor's routes after a policy or a list changed, until a soft clear (TRAPS.md).
+test("FortiOS soft-clears each neighbor whose policy, or a list it uses, changes, in that direction", () => {
+    const adapter = Platforms.get("fortios");
+    const current = adapter.render(firewall);
+    const policies = firewall.routing!.policies!;
+    const withPolicy = (name: string, rules: (typeof policies)[string]) =>
+        adapter.render({ ...firewall, routing: { ...firewall.routing, policies: { ...policies, [name]: rules } } });
+    // The last step, after every change and removal.
+    const clears = (desired: string) => {
+        const last = adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps.at(-1);
+        return last?.title === "router bgp, soft clear" ? last.send : [];
+    };
+
+    // Only the prefix list of its third rule changes, which only the IPv4 import uses.
+    const [first, second, , fourth] = policies["UPSTREAM-IN"]!;
+    const narrower = withPolicy("UPSTREAM-IN", [
+        first!,
+        second!,
+        { if: { prefix: "192.0.2.0/24" }, set: { local_pref: 200, add_standard_communities: ["64500:100"] }, then: "accept" },
+        fourth!,
+    ]);
+    expect(clears(narrower)).toEqual(["execute router clear bgp ip 203.0.113.9 soft in"]);
+
+    // A policy both exports call.
+    expect(clears(withPolicy("NOT-TO-UPSTREAMS", [{ if: { standard_community: "64500:998" }, then: "reject" }]))).toEqual([
+        "execute router clear bgp ip 203.0.113.9 soft out",
+        "execute router clear bgp ipv6 2001:db8:fff0::1 soft out",
+    ]);
+
+    expect(clears(current)).toEqual([]);
+});
+
 // The device refuses to delete an OSPF area while a network names it: `could not delete this area; it is used by network 1`.
 test("FortiOS empties OSPF's networks before its areas", () => {
     const current = [
