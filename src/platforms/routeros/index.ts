@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import type { Client } from "ssh2";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
@@ -74,6 +75,8 @@ export class RouterOs extends Platform {
 
     /** A script that lists BGP sessions, advertisements, LLDP neighbors, or the log. */
     private static readonly LIST_TIMEOUT_MS = 60_000;
+    /** How long after an apply the router may still list an announcement a filter change stops (TRAPS.md), read before the first check of what is announced. */
+    private static readonly ANNOUNCE_SETTLE_MS = 5000;
 
     /** Address list entries in one command, so each command stays a sane length. */
     private static readonly FILL_BATCH_ENTRIES = 60;
@@ -863,6 +866,8 @@ export class RouterOs extends Platform {
     ): Promise<string[]> {
         if (!before.length) return [];
 
+        // A read at once could still see what a broken filter has stopped. A short limit, as in a test, waits less.
+        await sleep(Math.min(RouterOs.ANNOUNCE_SETTLE_MS, limits.every * BgpWait.SECOND_MS));
         const missing = (now: string[]) => before.filter((pair) => !now.includes(pair));
         const after = await BgpWait.until(
             () => RouterOs.announced(device, session),
