@@ -13,14 +13,31 @@ export type SnmpUser = {
     privacy_password: Secret;
 };
 
-/** One syslog collector. */
-export type SyslogServer = {
+/** One receiver of SNMP traps (RFC 3416). It gets every trap the platform sends. Write `community` for version 2c, or `user` for version 3. */
+export type SnmpTrapTarget = {
+    /** Where the receiver listens. */
+    address: IP;
+    /** UDP port. 162 when absent. */
+    port?: number;
+    /** Version 2c: the community each trap carries. */
+    community?: Secret;
+    /** Version 3: one of `users`, whose passphrases authenticate and encrypt each trap. */
+    user?: string;
+};
+
+/** One syslog collector. `C` is the device's certificate names. */
+export type SyslogServer<C extends string = string> = {
     /** Where the collector listens. */
     address: IP;
-    /** UDP port. 514 when absent. */
+    /** The port. 514 when absent, or 6514 with `transport_security`. */
     port?: number;
     /** The least severe message sent. */
     level: Severity;
+    /** Send over TLS (RFC 5425) instead of UDP. */
+    transport_security?: {
+        /** The CA that signed the collector's certificate: one of `system.certificates`, without its private key. */
+        ca_certificate: C;
+    };
 };
 
 /** Export flow records or packet samples to collectors. */
@@ -38,10 +55,14 @@ export type FlowExport<I extends string> = {
     sampling?: number;
     /** The ports and interfaces to watch. Every interface when absent. */
     interfaces?: readonly I[];
+    /** Seconds after which a flow still running is exported (RFC 6728 `activeTimeout`). NetFlow v9 and IPFIX only. */
+    active_timeout?: number;
+    /** Seconds without a packet after which a flow ends and is exported (RFC 6728 `idleTimeout`). NetFlow v9 and IPFIX only. */
+    idle_timeout?: number;
 };
 
-/** What the device reports to collectors. `I` is the device's ports and interfaces. */
-export type Monitoring<I extends string> = {
+/** What the device reports to collectors. `I` is the device's ports and interfaces, `C` its certificates. */
+export type Monitoring<I extends string, C extends string = string> = {
     /** SNMP polling. */
     snmp?: Service & {
         /** Read-only community for version 2c. Version 2c is off when absent. */
@@ -52,9 +73,11 @@ export type Monitoring<I extends string> = {
         contact?: string;
         /** Where the device is. */
         location?: string;
+        /** Receivers of SNMP traps. */
+        traps?: readonly SnmpTrapTarget[];
     };
     /** Log messages sent to syslog collectors, each from its own `level` up. */
-    syslog?: readonly SyslogServer[];
+    syslog?: readonly SyslogServer<C>[];
     /** Flow records or packet samples sent to collectors. */
     flow_export?: FlowExport<I>;
     /** Read the optics' temperature, power, and voltage. */

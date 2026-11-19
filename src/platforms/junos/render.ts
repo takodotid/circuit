@@ -42,8 +42,11 @@ export class JunosRender {
     private static readonly SNMP_AUTH = { sha1: "authentication-sha", sha256: "authentication-sha256" } as const;
     private static readonly SNMP_PRIVACY = { aes128: "privacy-aes128", des: "privacy-des" } as const;
 
-    /** The SNMPv3 group every user joins, with read access to everything. */
+    /** The SNMPv3 group every user joins, with read access to everything. Version 3 traps go out under this name too, as the tag of their receivers. */
     private static readonly SNMP_GROUP = "circuit";
+
+    /** The SNMP trap port (RFC 3417). */
+    private static readonly TRAP_PORT = 162;
 
     /** The platform has no debug level, so debug is `any`, which takes everything. */
     private static readonly LEVEL: Record<Severity, string> = {
@@ -328,6 +331,17 @@ export class JunosRender {
         if (snmp.location) this.out.set("snmp location", JunosStatements.quote(snmp.location));
         if (snmp.community) this.out.set("snmp community", Secrets.marker(snmp.community), "authorization read-only");
 
+        const traps = snmp.traps ?? [];
+        // A version 2c trap group is named by the community its traps carry.
+        for (const target of traps) {
+            if (!target.community) continue;
+
+            const group = `snmp trap-group ${Secrets.marker(target.community)}`;
+            this.out.set(group, "version v2");
+            if (target.port !== undefined && target.port !== JunosRender.TRAP_PORT) this.out.set(group, "destination-port", target.port);
+            this.out.set(group, "targets", target.address);
+        }
+
         if (!snmp.users) return;
 
         for (const [name, user] of Object.entries(snmp.users)) {
@@ -338,9 +352,29 @@ export class JunosRender {
         }
 
         this.out.set("snmp view all oid .1 include");
-        this.out.set(
-            `snmp v3 vacm access group ${JunosRender.SNMP_GROUP} default-context-prefix security-model usm security-level privacy read-view all`
-        );
+        const access = `snmp v3 vacm access group ${JunosRender.SNMP_GROUP} default-context-prefix security-model usm security-level privacy`;
+        this.out.set(access, "read-view all");
+
+        // A version 3 receiver is a target address named by its address, which sends as its user.
+        const receivers = traps.flatMap(({ user, address, port }) => (user ? [{ user, address, port }] : []));
+        if (!receivers.length) return;
+
+        this.out.set(access, "notify-view all");
+        for (const { user, address, port } of receivers) {
+            const target = `snmp v3 target-address ${address}`;
+            this.out.set(target, "address", address);
+            if (port !== undefined && port !== JunosRender.TRAP_PORT) this.out.set(target, "port", port);
+            this.out.set(target, "tag-list", JunosRender.SNMP_GROUP);
+            this.out.set(target, "target-parameters", user);
+
+            const parameters = `snmp v3 target-parameters ${user} parameters`;
+            this.out.set(parameters, "message-processing-model v3");
+            this.out.set(parameters, "security-model usm");
+            this.out.set(parameters, "security-level privacy");
+            this.out.set(parameters, "security-name", user);
+        }
+        this.out.set(`snmp v3 notify ${JunosRender.SNMP_GROUP}`, "type trap");
+        this.out.set(`snmp v3 notify ${JunosRender.SNMP_GROUP}`, "tag", JunosRender.SNMP_GROUP);
     }
 
     private vlans(): void {

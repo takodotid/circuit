@@ -107,7 +107,13 @@ export class RouterOsExport {
         "/ip upnp": { enabled: "no" },
         // `yes-if-no-key` refuses the password of a user that has a key (RB5009, 7.24.6).
         "/ip ssh": { "strong-crypto": "no", "password-authentication": "yes-if-no-key" },
-        "/ip traffic-flow": { enabled: "no", interfaces: "all", "packet-sampling": "no" },
+        "/ip traffic-flow": {
+            enabled: "no",
+            interfaces: "all",
+            "packet-sampling": "no",
+            "active-flow-timeout": "30m",
+            "inactive-flow-timeout": "15s",
+        },
         "/tool mac-server": { "allowed-interface-list": "all" },
         "/tool mac-server mac-winbox": { "allowed-interface-list": "all" },
         "/tool mac-server ping": { enabled: "yes" },
@@ -119,7 +125,17 @@ export class RouterOsExport {
         "/ip neighbor discovery-settings": { "discover-interface-list": "!dynamic", protocol: "cdp,lldp,mndp" },
         "/radius": { "authentication-port": "1812", "accounting-port": "1813", "src-address": "0.0.0.0" },
         "/user aaa": { "use-radius": "no", accounting: "yes", "default-group": "read", "exclude-groups": "", "interim-update": "0s" },
-        "/snmp": { enabled: "no", contact: "", location: "" },
+        // As a CCR2216 on 7.24.6 printed them with `export verbose`.
+        "/snmp": {
+            enabled: "no",
+            contact: "",
+            location: "",
+            "trap-community": "public",
+            "trap-generators": "temp-exception",
+            "trap-interfaces": "",
+            "trap-target": "",
+            "trap-version": "1",
+        },
         "/snmp community": {
             addresses: "::/0",
             name: "public",

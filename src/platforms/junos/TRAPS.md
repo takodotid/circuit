@@ -13,7 +13,8 @@ Seen on a QFX5100-48S-6Q running Junos 21.4R3.
 - `operator`, `daemon`, `bind`, `kmem`, `nobody`, `sshd`, `tty`, and `uucp` are system accounts. A user with one of those names fails the commit check: `user name is used by a system account`.
 - Root logs in to a shell, `root@:RE:0%`, and reaches the CLI with `cli`. Every other user lands in the CLI.
 - A password set with `plain-text-password-value` prints as a `$6$` hash. SNMPv3 passwords print as `$9$` keys, which can be turned back into the password. The read redacts both.
-- An SNMP community prints in clear, and its value is also its name, so a new value is a second community. Circuit deletes the old communities by name, looked up during the apply and never printed, then sends the new one.
+- An SNMP community prints in clear, and its value is also its name, so a new value is a second community. Circuit deletes the old communities by name, looked up during the apply and never printed, then sends the new one. A version 2c trap group is named by the community its traps carry, and is handled the same way.
+- A version 3 trap receiver's port is `snmp v3 target-address <name> port`; `address-port` is a syntax error. `system syslog host <host> transport tls` passes `commit check` with no CA at all (21.4R3-S8.5).
 - A firewall filter name is unique across families, so the services filter is `circuit-services` for IPv4 and `circuit-services-v6` for IPv6.
 - A VLAN interface's MTU higher than what its ports carry commits with only a warning: `mtu 9000 is bigger than member link`.
 - There is no `protocols stp`. Plain STP is RSTP limited with `force-version stp`.

@@ -62,6 +62,8 @@ export class RouterOsPlan {
         "/ipv6",
         "/routing",
         "/interface ethernet switch",
+        // `/snmp` names a community to send traps with, so it exists first.
+        "/snmp community",
         "/snmp",
         "/tool",
         "/radius",

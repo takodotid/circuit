@@ -30,6 +30,24 @@ export default as64500.device({
         },
     },
     management: { allow: ["10.0.0.0/16"], ssh: {} },
+    // The NMS polls with SNMPv3 and gets the traps, signed and encrypted as the same user.
+    monitoring: {
+        snmp: {
+            allow: ["10.0.0.30/32"],
+            contact: "noc@example.com",
+            location: "AMS-IX, Amsterdam",
+            users: {
+                nms: {
+                    auth: "sha1",
+                    auth_password: secret("SNMP_AUTH_PASSWORD"),
+                    privacy: "aes128",
+                    privacy_password: secret("SNMP_PRIVACY_PASSWORD"),
+                },
+            },
+            traps: [{ address: "10.0.0.30", user: "nms" }],
+        },
+        syslog: [{ address: "10.0.0.30", level: "info" }],
+    },
 
     interfaces: {
         ethernet: {

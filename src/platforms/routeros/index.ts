@@ -27,6 +27,7 @@ import { RouterOsPlan } from "./plan";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { RouterOsFirewall } from "./firewall";
+import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsRender } from "./render";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSyntax } from "./syntax";
@@ -329,7 +330,6 @@ export class RouterOs extends Platform {
         }
 
         const management = device.management;
-        const snmp = device.monitoring?.snmp;
 
         if (management?.console) found.push("management.console, the console uses the device's users");
         if (device.connection.console && !Catalog.serialConsole(device.platform, device.model))
@@ -337,18 +337,8 @@ export class RouterOs extends Platform {
         if (management?.interfaces) found.push("management.interfaces, which only FortiOS builds for now");
         if (management?.privilege_password) found.push("management.privilege_password, the platform has no privileged mode");
 
-        if (snmp?.port) found.push("monitoring.snmp.port");
-
         if (management?.ssh?.auth_timeout || management?.ssh?.auth_retries) {
             found.push("management.ssh.auth_timeout and auth_retries");
-        }
-
-        for (const [name, user] of Object.entries(snmp?.users ?? {})) {
-            if (user.auth !== "sha1") {
-                found.push(
-                    `monitoring.snmp.users.${name}.auth ${user.auth}: Circuit writes SHA1 only on RouterOS (SHA-2 comes with RouterOS 7.26, not tested yet)`
-                );
-            }
         }
 
         const aaa = device.system?.aaa;
@@ -356,10 +346,7 @@ export class RouterOs extends Platform {
         if (aaa?.accounting_events?.includes("command"))
             found.push("system.aaa.accounting_events command, the platform sends a server its logins only");
 
-        if (device.monitoring?.transceivers === false) found.push("monitoring.transceivers false, it is always on");
-        if (device.monitoring?.flow_export?.protocol === "sflow") {
-            found.push("monitoring.flow_export.protocol sflow, the platform exports NetFlow and IPFIX");
-        }
+        found.push(...RouterOsMonitoring.unsupported(device));
 
         for (const route of device.routing?.static_routes ?? []) {
             if (route.bfd)

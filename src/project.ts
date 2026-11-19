@@ -474,6 +474,7 @@ export class Project {
             "interface set": new Set(Project.keys(d.firewall?.interface_sets)),
             user: new Set(Project.keys(d.system?.users)),
             certificate: new Set(Project.keys(d.system?.certificates)),
+            "SNMP user": new Set(Project.keys(d.monitoring?.snmp?.users)),
         };
         const need = (kind: string, value: unknown, where: string, written = "") => {
             for (const v of Project.list(value)) {
@@ -493,6 +494,10 @@ export class Project {
             }
         }
         need("interface", d.monitoring?.flow_export?.interfaces, "monitoring.flow_export.interfaces");
+        (d.monitoring?.snmp?.traps ?? []).forEach((t: Json, n: number) => need("SNMP user", t.user, `monitoring.snmp.traps[${n}].user`));
+        (d.monitoring?.syslog ?? []).forEach((s: Json, n: number) =>
+            need("certificate", s.transport_security?.ca_certificate, `monitoring.syslog[${n}].transport_security.ca_certificate`)
+        );
         for (const [v, vdom] of Object.entries<Json>(d.system?.vdoms ?? {}))
             need("interface", vdom.interfaces, `system.vdoms.${v}.interfaces`);
 

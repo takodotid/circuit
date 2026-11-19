@@ -52,6 +52,7 @@
 - Narrowing a subnet is a change in several places: the address, the DHCP network, and every switch on the LAN. A mismatch breaks only the return path, so a test from the router passes.
 - `strong-crypto=yes` also hardens the device's own SSH client, which then fails silently toward devices that only speak older algorithms.
 - SNMPv3 authenticates with MD5 or SHA1 only on 7.23.
+- `/snmp` sends every trap with one `trap-version` and one `trap-community`, the name of a `/snmp community` entry, which exists first. For version 3 that entry is the user. `trap-target` takes addresses only, so traps go to port 162. Out of the box `trap-generators` is `temp-exception`, so no trap reports a port going down (CCR2216, 7.24.6).
 - In a quoted string `$` starts a variable. The adapter escapes it.
 - A script sent over SSH exec runs as one line; a multi-line script fails with `expected closing brace`.
 - `:find` on an array returns a number or `nil`. Globals persist between exec commands of one login.
