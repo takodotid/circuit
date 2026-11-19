@@ -6,6 +6,18 @@ import { Fixtures } from "../fixtures";
 
 const router = Fixtures.device("platforms--example-router");
 
+test("a property whose value is a secret, such as a community's name, is left as the device holds it", () => {
+    const desired = '/snmp community\nset [ find default=yes ] addresses=192.0.2.0/24 name="<secret:SNMP_COMMUNITY>"\n';
+    const current = "/snmp community\nset [ find default=yes ] addresses=192.0.2.0/24 name=sesame-snmp\n";
+
+    expect(Platforms.get("routeros").plan(desired, current, { secrets: false, rollback: 10 }).steps).toEqual([]);
+    expect(
+        Platforms.get("routeros")
+            .plan(desired, current, { secrets: true, rollback: 10 })
+            .steps.flatMap((step) => step.send)
+    ).toEqual(['/snmp community set [ find default=yes ] name="<secret:SNMP_COMMUNITY>"']);
+});
+
 test("untracked prefixes skip connection tracking both ways, in their own family", async () => {
     const rendered = Platforms.get("routeros").render({
         ...router,

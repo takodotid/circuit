@@ -276,6 +276,8 @@ export class RouterOsPlan {
 
         for (const property of Object.keys(have)) {
             if (property in want) continue;
+            // A secret, such as a community named by its value, is compared only when secrets are sent.
+            if (RouterOsExport.isSecretMarker(wanted.attrs[property] ?? "")) continue;
 
             const clearedWith = RouterOsExport.CLEARED_WITH[wanted.menu]?.[property];
             if (clearedWith && !(clearedWith in want)) continue;
