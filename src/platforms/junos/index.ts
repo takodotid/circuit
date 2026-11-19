@@ -14,6 +14,7 @@ import type { TestedFeature } from "../../core/derive";
 import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession } from "../platform";
 import { JunosBgp } from "./bgp";
+import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosPlan } from "./plan";
 import { JunosRender } from "./render";
@@ -123,6 +124,7 @@ export class Junos extends Platform {
                 found.push(`interfaces.vlan_interface.${name}.mac, which only RouterOS sets for now`);
         }
         found.push(...JunosSwitching.gaps(device));
+        found.push(...JunosMpls.unsupported(device));
         const names = new JunosNames(device);
         const users = device.system?.users ?? {};
 

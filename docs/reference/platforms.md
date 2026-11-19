@@ -89,6 +89,7 @@ A note in a cell means "works, with this limit".
 | IS-IS authentication         | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
 | IS-IS overload bit           | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
 | BFD for IS-IS                | ❌                      | ❌         | ❌                       | ✅                    | ❌               |
+| MPLS with LDP                | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
 | BFD                          | ✅ not on static routes | ✅         | static routes, no timers | ✅                    | ✅               |
 | BGP                          | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
@@ -111,6 +112,7 @@ A note in a cell means "works, with this limit".
 | -------------------- | --------------------- | --------------------- | ------------ | ------------------------ | -------------------------------------- |
 | Firewall filter      | ✅                    | ❌                    | ❌           | ❌                       | ✅                                     |
 | NAT                  | ✅                    | ❌                    | ❌           | ❌                       | IPv4                                   |
+| CGNAT pool           | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
 | TCP MSS clamp        | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
 | DHCP server          | ✅                    | ❌                    | ❌           | ✅                       | ✅                                     |
 | DHCPv6 server        | ✅ pool is a prefix   | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |

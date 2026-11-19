@@ -211,11 +211,12 @@ test("a BGP session to another device needs its session back, in the AS it expec
 // RFC 5065: a router outside a confederation sees its identifier, and one inside it each member AS.
 test("a session expects a confederation's identifier from outside it, and the member AS from inside it", () => {
     const [r1, r2] = routers();
-    /** The router with its one neighbor in `remoteAs`, in member AS `asn` of confederation 64500 when `others` lists the other member ASes. */
+    /** The router with its one neighbor in `remoteAs`, in member AS `asn` of confederation 64500 when `others` lists the other member ASes. The neighbors meet between loopbacks, so more than one hop away. */
     const inAs = (router: Device, asn: number, remoteAs: number, others?: number[]): Device => {
         const [name, neighbor] = Object.entries(router.routing!.bgp!.neighbors!)[0]!;
         const confederation = others ? { confederation: { identifier: 64500, member_as: others } } : {};
-        return { ...router, routing: { bgp: { asn, ...confederation, neighbors: { [name]: { ...neighbor, remote_as: remoteAs } } } } };
+        const neighbors = { [name]: { ...neighbor, remote_as: remoteAs, multihop: true } };
+        return { ...router, routing: { bgp: { asn, ...confederation, neighbors } } };
     };
     const sessions = (...devices: Device[]) => findings(...devices).filter((finding) => finding.includes("routing.bgp.neighbors"));
 

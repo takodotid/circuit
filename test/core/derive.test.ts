@@ -120,3 +120,39 @@ test("an aggregate the export accepts is sent, and summary_only holds back the p
         { neighbor: "transit", prefix: "2001:db8::/32" },
     ]);
 });
+
+test("an address shares a network of its VRF, a peer address too, and is unknown beside a DHCP client", () => {
+    const base = router({}, {});
+    const device: Device = {
+        ...base,
+        interfaces: {
+            ethernet: {
+                "virtual-1": { addresses: [{ address: "192.0.2.1/32", peer_address: "192.0.2.9" }, "2001:db8::1/64"] },
+                "virtual-2": { dhcp_client: {}, vrf: "isp" },
+            },
+        },
+        routing: { ...base.routing, vrfs: { isp: {} } },
+    };
+
+    expect(Derive.sharesNetwork(device, "192.0.2.9", undefined)).toBe(true);
+    expect(Derive.sharesNetwork(device, "2001:db8::2", undefined)).toBe(true);
+    expect(Derive.sharesNetwork(device, "192.0.2.2", undefined)).toBe(false);
+    expect(Derive.sharesNetwork(device, "fe80::2%virtual-2", "isp")).toBe(true);
+    expect(Derive.sharesNetwork(device, "192.0.2.9", "isp")).toBeUndefined();
+    expect(Derive.sharesNetwork(device, "2001:db8::2", "isp")).toBe(false);
+});
+
+test("a pool gives each address the same number of subscribers, in address order, each with the next block of ports from 1024", () => {
+    const addresses = Derive.poolAddresses({ if: { src: "100.64.0.0/22" }, then: "snat", to_pool: "198.51.100.0/27", port_set_size: 2016 });
+
+    expect(addresses).toHaveLength(32);
+    expect(addresses.every(({ blocks }) => blocks.length === 32)).toBe(true);
+    expect(addresses[0]!.subscribers).toBe("100.64.0.0/27");
+    expect(addresses[0]!.blocks.slice(0, 2)).toEqual([
+        { subscriber: "100.64.0.0", ports: { min: 1024, max: 3039 } },
+        { subscriber: "100.64.0.1", ports: { min: 3040, max: 5055 } },
+    ]);
+    expect(addresses[0]!.blocks.at(-1)).toEqual({ subscriber: "100.64.0.31", ports: { min: 63520, max: 65535 } });
+    expect(addresses[31]).toMatchObject({ address: "198.51.100.31", subscribers: "100.64.3.224/27" });
+    expect(addresses[31]!.blocks.at(-1)).toEqual({ subscriber: "100.64.3.255", ports: { min: 63520, max: 65535 } });
+});

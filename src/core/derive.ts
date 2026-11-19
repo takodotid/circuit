@@ -18,7 +18,9 @@ import type {
     Limit,
     NatRule,
     NeighborSettings,
+    PoolNatRule,
     Port,
+    PortRange,
     Prefix,
     Rate,
     RateLimit,
@@ -60,6 +62,9 @@ export type SharedUrpf = {
     missing: string[];
 };
 
+/** One address of a NAT pool: the subscribers that leave as it, a prefix, and each one's block of ports. */
+export type PoolAddress = { address: string; subscribers: Prefix; blocks: { subscriber: string; ports: PortRange }[] };
+
 /** A feature a platform renders once tested on one of its devices. */
 export type TestedFeature =
     | "bfd-timers"
@@ -91,6 +96,9 @@ export type BuiltFeature =
     | "rate-limit";
 
 export class Derive {
+    /** The ports a NAT pool hands out: the system ports below them stay out (RFC 7422, section 2; RFC 6335). */
+    static readonly POOL_PORTS: PortRange = { min: 1024, max: 65535 };
+
     /** The groups of `interfaces` besides `ethernet`, in the order Circuit reads them. */
     private static readonly KINDS: readonly InterfaceKind[] = [
         "lag",
@@ -123,6 +131,9 @@ export class Derive {
 
     /** Each takes its sources from `management.allow`, on the protocol's own port. */
     private static readonly SWITCH_SERVICES = ["ssh", "telnet", "snmp"] as const;
+
+    /** IPv6 link-local addresses (RFC 4291). */
+    private static readonly LINK_LOCAL = "fe80::/10";
 
     /** The fewest seconds between two router advertisements (RFC 4861, MinRtrAdvInterval). */
     private static readonly MIN_RA_INTERVAL = 3;
@@ -234,6 +245,26 @@ export class Derive {
         const addresses = (settings.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
         const dhcp = family === "ipv4" && "dhcp_client" in settings && Boolean(settings.dhcp_client);
         return dhcp || addresses.some((address) => Address.family(address) === family);
+    }
+
+    /**
+     * Whether `address` is on a network of the device in `vrf`, or in the main table without one. A network is the prefix of an address of a port or an interface there, or its `peer_address`. A link-local address is on a link of its own. Undefined when a DHCP client there leaves the IPv4 networks unknown.
+     */
+    static sharesNetwork(device: Device, address: string, vrf: string | undefined): boolean | undefined {
+        // `fe80::1%ether1`, as some devices write a link-local address.
+        const host = address.split("%")[0]!;
+        const family = Address.family(host);
+        if (family === "ipv6" && Address.contains(Derive.LINK_LOCAL, host)) return true;
+
+        const holders = Derive.holders(device).filter(({ settings }) => settings.vrf === vrf);
+        const onNetwork = (entry: NonNullable<Routed["addresses"]>[number]) =>
+            typeof entry === "string"
+                ? Address.contains(entry, host)
+                : entry.peer_address === host || Address.contains(entry.address, host);
+        if (holders.some(({ settings }) => (settings.addresses ?? []).some(onNetwork))) return true;
+
+        const dhcp = holders.some(({ settings }) => "dhcp_client" in settings && Boolean(settings.dhcp_client));
+        return family === "ipv4" && dhcp ? undefined : false;
     }
 
     /** The one uRPF mode of `family` that `holders` share, for a platform that has one setting for all of them. Loopbacks and bridges have no `urpf`, and are left out. */
@@ -371,6 +402,46 @@ export class Derive {
                 (condition) => condition !== undefined
             );
         return unknown ? "unknown" : true;
+    }
+
+    /** How many subscribers of the prefix `src` share each address of the prefix `pool`, a power of two. 0 when the pool has more addresses than `src`. */
+    static subscribersPerAddress(src: Prefix, pool: Prefix): number {
+        const shift = Address.split(pool).len - Address.split(src).len;
+        return shift < 0 ? 0 : 2 ** shift;
+    }
+
+    /**
+     * Where each subscriber leaves, RFC 7422's sequential mapping. Each pool address takes the same number of subscribers, in address order. Each one's block of `port_set_size` ports follows the block before it, from port 1024. Nothing when `if.src` is not one prefix that `validate` takes.
+     */
+    static poolAddresses(rule: PoolNatRule): PoolAddress[] {
+        const src = [rule.if?.src].flat()[0];
+        if (!src || !Address.isCidr(src) || !Address.isCidr(rule.to_pool)) return [];
+
+        const perAddress = Derive.subscribersPerAddress(src, rule.to_pool);
+        if (!perAddress) return [];
+
+        const pool = Address.range(rule.to_pool);
+        const first = Address.range(src).first;
+        const length = Address.bits("ipv4") - Math.log2(perAddress);
+        const addresses: PoolAddress[] = [];
+
+        for (let index = 0n; pool.first + index <= pool.last; index++) {
+            const start = first + index * BigInt(perAddress);
+            const blocks = Array.from({ length: perAddress }, (_, offset) => {
+                const min = Derive.POOL_PORTS.min + offset * rule.port_set_size;
+                return {
+                    subscriber: Address.fromNumber(start + BigInt(offset), "ipv4"),
+                    ports: { min, max: min + rule.port_set_size - 1 },
+                };
+            });
+            addresses.push({
+                address: Address.fromNumber(pool.first + index, "ipv4"),
+                subscribers: `${Address.fromNumber(start, "ipv4")}/${length}`,
+                blocks,
+            });
+        }
+
+        return addresses;
     }
 
     /** AS numbers as ranges, a single number as a range of one. */

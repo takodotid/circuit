@@ -67,7 +67,7 @@ export type NeighborSettings<P extends string, T extends string, F extends strin
     export_policy?: P;
     /** What the neighbor is to us, such as `provider` for a transit. Both sides then reject a route leak, as RFC 9234 describes. */
     role?: BgpRole;
-    /** The neighbor is more than one hop away. */
+    /** The neighbor is more than one hop away. An eBGP neighbor on no network the device shares needs it, or its session never comes up. */
     multihop?: boolean;
     /** Send with TTL 255, and accept only BGP packets that arrive with TTL 255, so only from a directly connected neighbor (GTSM, RFC 5082). Not with `multihop`. */
     ttl_security?: boolean;
@@ -265,6 +265,20 @@ export type Isis<I extends string> = {
     interfaces: Named<I, IsisInterface>;
     /** Set the overload bit in the device's LSPs (ISO/IEC 10589). Other routers stop routing through the device, and still reach its own networks: for a router drained for maintenance, or a route reflector out of the traffic's path. */
     overload_bit?: boolean;
+};
+
+/** LDP (RFC 5036): the device gives a label to each route of its IGP and tells its LDP neighbors. */
+export type Ldp<I extends string> = {
+    /** The device's LSR ID, which other LDP routers know it by. LDP sessions run between LSR IDs, so it is the address of a loopback that OSPF or IS-IS announces. */
+    lsr_id: IPv4;
+    /** The ports and interfaces that forward MPLS and run LDP, each toward another LDP router. */
+    interfaces: readonly I[];
+};
+
+/** MPLS (RFC 3031): packets cross the network by their labels. */
+export type Mpls<I extends string> = {
+    /** LDP gives the labels. */
+    ldp: Ldp<I>;
 };
 
 /** A routing table beside the main one. It holds no interfaces. Routes go into it from static routes and BGP neighbors that give it in `routing_table`. `routing.policy_routing` sends traffic to it. */
@@ -543,6 +557,8 @@ export type Routing<
     ospf?: Ospf<I, NoInfer<F>>;
     /** IS-IS, in the main table. */
     isis?: Isis<I>;
+    /** MPLS, in the main table, such as `{ ldp: { lsr_id: "192.0.2.1", interfaces: ["100g-1", "100g-2"] } }`. */
+    mpls?: Mpls<I>;
     /** BFD timers for every BFD session on the device: BGP, OSPF, IS-IS, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */
     bfd?: Bfd;
     /** The RPKI validators the device asks for route origin validation. */
