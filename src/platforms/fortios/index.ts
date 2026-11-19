@@ -1,10 +1,9 @@
 // A change applies as it is sent. Configuration transactions are not used: on 6.2 one keeps references its own deletions dropped, and one whose session is cut off keeps what it touched locked.
 
 import type { Client, ClientChannel } from "ssh2";
-import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family, Finding } from "../../model";
+import type { Device, Finding } from "../../model";
 import { SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
@@ -13,11 +12,10 @@ import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession } from "../platform";
 import { FortiOsCli } from "./cli";
 import type { Guard } from "./cli";
-import { FortiOsNames } from "./names";
 import { FortiOsPlan } from "./plan";
 import { FortiOsRender } from "./render";
-import { FortiOsRouting } from "./routing";
-import { FortiOsNode, FortiOsTree } from "./tree";
+import { FortiOsTree } from "./tree";
+import type { FortiOsNode } from "./tree";
 import { FortiOsUnsupported } from "./unsupported";
 import { FortiOsVdoms } from "./vdoms";
 
@@ -173,23 +171,6 @@ export class FortiOs extends Platform {
         await FortiOs.applyOnce(device, again, options);
     }
 
-    /** A prefix list cannot cut access, so it is sent without a guard and saved as it goes. `purge` asks to confirm, and is answered yes. */
-    override async fill(device: Device, _network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void> {
-        await FortiOs.withCli(device, async (cli) => {
-            await FortiOs.checkVersion(cli, device);
-
-            const lines = FortiOs.fillLines(set, family, prefixes);
-            for (const line of device.system?.vdoms ? FortiOsVdoms.wrap({ kind: "vdom", vdom: FortiOsVdoms.ROOT }, lines) : lines) {
-                let answer = await cli.run(line);
-                if (FortiOsCli.QUESTION.test(cli.prompt) && line === "purge") answer = await cli.answer("y");
-                if (FortiOs.REFUSED.test(answer))
-                    throw new Error(`${set}: ${line}\n    device said: ${answer.trim().slice(0, FortiOs.ANSWER_CHARS)}`);
-            }
-
-            console.log(`  ${set}: ${prefixes.length} prefixes on the device`);
-        });
-    }
-
     override readOnly(command: string): boolean {
         return FortiOs.READS.test(command);
     }
@@ -225,28 +206,6 @@ export class FortiOs extends Platform {
                 client.end();
             },
         };
-    }
-
-    /** Each prefix matches itself and anything more specific. */
-    static fillLines(set: string, family: Family, prefixes: string[]): string[] {
-        const list = new FortiOsNode();
-        prefixes.forEach((prefix, index) => {
-            const rule = list.entry(index + 1);
-            const network = FortiOsNames.network(prefix);
-            rule.set(family === "ipv4" ? "prefix" : "prefix6", family === "ipv4" ? FortiOsNames.subnet(network) : network);
-            if (Address.split(network).len < FortiOsRouting.BITS[family]) rule.set("le", FortiOsRouting.BITS[family]);
-        });
-
-        return [
-            `config ${FortiOsRouting.PREFIX_LIST[family]}`,
-            `edit ${FortiOsTree.quote(set)}`,
-            "config rule",
-            "purge",
-            ...FortiOsTree.lines(list).map((line) => line.trim()),
-            "end",
-            "next",
-            "end",
-        ];
     }
 
     /**

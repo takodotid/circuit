@@ -75,7 +75,7 @@ export class JunosPlan {
 
         const printed = lines(current, "set").filter((line) => !JunosPlan.DEVICE_FACTS.some((fact) => fact.test(line)));
 
-        // A path the render marks as generated, such as a prefix list `refresh` fills, keeps what the device holds.
+        // A path the render marks as generated, a prefix list from a registry that it did not fetch, keeps what the device holds.
         const isGenerated = (line: string) =>
             generated.some((path) => JunosPlan.keyOf(line).length > path.length && JunosPlan.startsWith(JunosPlan.keyOf(line), path));
         const existing = printed.filter((line) => !isGenerated(line));
