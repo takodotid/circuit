@@ -23,6 +23,7 @@ export default as64500.device({
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.1.1/24"] },
             "40g-1": { description: "core-02 port1", addresses: ["10.0.12.1/30"], link: { device: "core-02", port: "40g-1" } },
+            "40g-2": { description: "edge-11 et-0/0/48", addresses: ["10.0.11.1/30"] },
             "10g-1": { description: "Hurricane Electric", addresses: ["203.0.113.2/30"] },
         },
         loopback: { loopback: { addresses: ["10.255.1.1/32"] } },
@@ -41,6 +42,8 @@ export default as64500.device({
             interfaces: {
                 loopback: { passive: true },
                 "40g-1": { network: "point-to-point", metric: 100 },
+                // FortiOS has no BFD for IS-IS, so BFD runs to edge-11 only, not to core-02.
+                "40g-2": { network: "point-to-point", metric: 100, bfd: true },
             },
         },
         bgp: {

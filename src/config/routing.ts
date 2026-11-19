@@ -231,6 +231,8 @@ export type IsisInterface = {
     passive?: boolean;
     /** The link type. `broadcast` when absent. On `point-to-point`, no designated router is elected. */
     network?: "broadcast" | "point-to-point";
+    /** Detect a dead neighbor in under a second with BFD. */
+    bfd?: boolean;
 };
 
 /** How IS-IS packets are signed: with HMAC-MD5 (RFC 5304). The device ignores a router without the key. */
@@ -259,6 +261,8 @@ export type Isis<I extends string> = {
     levels?: { 1?: IsisLevel; 2?: IsisLevel };
     /** The device's ports and interfaces that run IS-IS, each with its settings. */
     interfaces: Named<I, IsisInterface>;
+    /** Set the overload bit in the device's LSPs (ISO/IEC 10589). Other routers stop routing through the device, and still reach its own networks: for a router drained for maintenance, or a route reflector out of the traffic's path. */
+    overload_bit?: boolean;
 };
 
 /** A routing table beside the main one. It holds no interfaces. Routes go into it from static routes and BGP neighbors that give it in `routing_table`. `routing.policy_routing` sends traffic to it. */
@@ -537,7 +541,7 @@ export type Routing<
     ospf?: Ospf<I>;
     /** IS-IS, in the main table. */
     isis?: Isis<I>;
-    /** BFD timers for every BFD session on the device: BGP, OSPF, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */
+    /** BFD timers for every BFD session on the device: BGP, OSPF, IS-IS, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */
     bfd?: Bfd;
     /** The RPKI validators the device asks for route origin validation. */
     rpki?: readonly RpkiServer[];

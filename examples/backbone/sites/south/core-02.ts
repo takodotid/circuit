@@ -43,6 +43,8 @@ export default as64500.device({
                 loopback: {},
                 "40g-1": { network: "point-to-point", metric: 100 },
             },
+            // Drained for maintenance. Remove it to carry traffic through core-02 again.
+            overload_bit: true,
         },
         bgp: {
             // This router's member AS.
