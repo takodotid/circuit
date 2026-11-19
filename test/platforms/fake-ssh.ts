@@ -1,8 +1,9 @@
-// A fake device over SSH. It takes one password, for one user or each of a list, such as a user with and without RouterOS's flags. `answer` answers each exec command and each line typed into the shell, and `commands` keeps them.
+// A fake device over SSH. It takes one password, for one user or each of a list, such as a user with and without RouterOS's flags. `answer` answers each exec command and each line typed into the shell, and `commands` keeps them. SFTP reads `files`.
 
 import { generateKeyPairSync } from "node:crypto";
 import type { AddressInfo } from "node:net";
-import { Server } from "ssh2";
+import { Server, utils } from "ssh2";
+import type { SFTPWrapper } from "ssh2";
 
 export type FakeShell = {
     /** What the shell prints when it opens, prompt included. */
@@ -20,6 +21,8 @@ export class FakeSshDevice {
     readonly commands: string[] = [];
     /** The lines typed into a shell, which `commands` holds too. */
     readonly shellLines: string[] = [];
+    /** What SFTP reads, by path. */
+    readonly files = new Map<string, Buffer>();
     private readonly server: Server;
 
     constructor(
@@ -56,6 +59,7 @@ export class FakeSshDevice {
                         stream.end();
                     });
 
+                    session.on("sftp", (acceptSftp) => this.serveFiles(acceptSftp()));
                     session.on("pty", (acceptPty) => acceptPty?.());
                     session.on("shell", (acceptShell, reject) => {
                         if (!this.shell) return reject?.();
@@ -101,6 +105,32 @@ export class FakeSshDevice {
     /** An answer in parts, all at once, for an exec. */
     private static whole(answer: string | FakeParts): string {
         return typeof answer === "string" ? answer : answer.parts.map((part) => part.text).join("");
+    }
+
+    /** Reads of `files`, as a device's SFTP server answers them. Each handle is a file's place among those opened. */
+    private serveFiles(sftp: SFTPWrapper): void {
+        const { STATUS_CODE } = utils.sftp;
+        const opened: Buffer[] = [];
+        const contentOf = (handle: Buffer) => opened[handle.readUInt32BE(0)];
+
+        sftp.on("OPEN", (request, path) => {
+            const content = this.files.get(path);
+            if (!content) return sftp.status(request, STATUS_CODE.NO_SUCH_FILE);
+
+            const handle = Buffer.alloc(4);
+            handle.writeUInt32BE(opened.push(content) - 1);
+            sftp.handle(request, handle);
+        });
+        sftp.on("FSTAT", (request, handle) => {
+            const size = contentOf(handle)?.length ?? 0;
+            sftp.attrs(request, { mode: 0o644, uid: 0, gid: 0, size, atime: 0, mtime: 0 });
+        });
+        sftp.on("READ", (request, handle, offset, length) => {
+            const content = contentOf(handle) ?? Buffer.alloc(0);
+            if (offset >= content.length) return sftp.status(request, STATUS_CODE.EOF);
+            sftp.data(request, content.subarray(offset, offset + length));
+        });
+        sftp.on("CLOSE", (request) => sftp.status(request, STATUS_CODE.OK));
     }
 
     private run(command: string): string | FakeParts {

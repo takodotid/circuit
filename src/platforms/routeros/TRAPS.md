@@ -5,6 +5,7 @@
     - the text inside `rule=`: a routing filter rule is checked only when it is added;
     - a quoted value, which passes whatever it is;
     - a `/system logging` rule whose action does not exist yet, refused with `input does not match any value of action`. The action is added first (CCR2216, 7.23.5).
+- Output over SSH stops at 2 MiB, 2,097,152 bytes, mid-line and with no error. With 10,000 firewall rules, a `:put` after `/export` in the same command never printed. `/export file=` wrote the whole export, 3 MB, and SFTP fetched it whole. So the read prints a mark after the export, and reads one without it again from a file. Writing and fetching the file take the `ftp` and `write` policies, which the groups `write` and `read` lack (CHR, 7.24.6).
 - `find` matches nothing, silently, when:
     - a value with a slash is unquoted, `address=X/Y`;
     - a quoted `"yes"` meets a boolean, since it is a string;
