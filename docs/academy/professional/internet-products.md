@@ -104,7 +104,7 @@ In Circuit, the two products differ only in what the router sends the customer, 
 ```ts
 // In routing.policies
 // What the customer pays for: the whole internet, every route we know.
-"netflix-export": [{ description: "The full table", then: "accept" }],
+"argon-export": [{ description: "The full table", then: "accept" }],
 ```
 
 For IX transit, it accepts only your own space and the routes tagged as learned at an exchange or from another customer:
@@ -112,7 +112,7 @@ For IX transit, it accepts only your own space and the routes tagged as learned 
 ```ts
 // In routing.policies
 // 64500:1:2 tags routes learned from the exchange group, and 64500:1:3 from the customer group.
-"netflix-export": [
+"argon-export": [
     { description: "Learned at an exchange", if: { large_community: "64500:1:2" }, then: "accept" },
     { description: "Our other customers", if: { large_community: "64500:1:3" }, then: "accept" },
     { description: "Our own space", if: { prefix_set: "ours" }, then: "accept" },
