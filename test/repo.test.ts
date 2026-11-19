@@ -489,6 +489,57 @@ describe("samples", () => {
         expect(wrong).toEqual([]);
     });
 
+    // AGENTS.md: a content provider is only a peer. This sees the tenants' files and paths to them, and a neighbor whose own object says role "customer" and remote_as. It can't see a customer in prose or in a widget's data, or a role taken from a neighbor group.
+    test("a content provider is a peer, never a customer or a tenant", () => {
+        const CONTENT: Record<number, string> = {
+            2906: "Netflix",
+            8075: "Microsoft",
+            13335: "Cloudflare",
+            15169: "Google",
+            16509: "Amazon",
+            20940: "Akamai",
+            32934: "Meta",
+            36561: "YouTube",
+            54113: "Fastly",
+            396986: "ByteDance",
+        };
+        const FIX = "A content provider is only a peer: name a little-known network instead, and list it in docs/license.md.";
+        const names = Object.values(CONTENT).join("|");
+        const inTenant = new RegExp(`\\b(?:${names})\\b|\\bremote_as:\\s*(?:${Object.keys(CONTENT).join("|")})\\b`, "gi");
+        const tenantPath = new RegExp(`\\btenants/(?:${names})\\.ts\\b`, "gi");
+
+        /** The object literal around `at` in `text`, from its `{` to its `}`. */
+        const objectAround = (text: string, at: number) => {
+            let start = at;
+            for (let depth = 0; start > 0; start--) {
+                if (text[start] === "}") depth++;
+                if (text[start] === "{" && depth-- === 0) break;
+            }
+            let end = at;
+            for (let depth = 0; end < text.length; end++) {
+                if (text[end] === "{") depth++;
+                if (text[end] === "}" && depth-- === 0) break;
+            }
+            return text.slice(start, end + 1);
+        };
+        const lineOf = (text: string, at: number) => text.slice(0, at).split("\n").length;
+
+        const wrong = samples.flatMap(({ file, lines }) => {
+            const text = lines.join("\n");
+            const tenants = /^examples\/[^/]+\/tenants\//.test(file) ? [...text.matchAll(inTenant)] : [];
+            const asTenant = [...tenants, ...text.matchAll(tenantPath)].map(
+                (match) => `${file}:${lineOf(text, match.index)}: ${match[0]} is a tenant. ${FIX}`
+            );
+            const asCustomer = [...text.matchAll(/\brole:\s*["']customer["']/g)].flatMap((match) => {
+                const asn = Number(/\bremote_as:\s*(\d+)/.exec(objectAround(text, match.index))?.[1]);
+                return CONTENT[asn] ? [`${file}:${lineOf(text, match.index)}: ${CONTENT[asn]}, AS${asn}, is a BGP customer. ${FIX}`] : [];
+            });
+            return [...asTenant, ...asCustomer];
+        });
+
+        expect(wrong).toEqual([]);
+    });
+
     test("a name is real, not a placeholder", () => {
         // A name that stands for another network, such as transit-a, isp1, or customer_b, and words that stand for nothing. Vale checks prose: Circuit.Placeholders.
         const PLACEHOLDER =
