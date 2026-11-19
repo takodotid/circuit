@@ -8,7 +8,7 @@ import { Fixtures } from "../fixtures";
 
 const options = { secrets: false, rollback: 10 };
 
-/** A fixture's device with VRF `netflix`, a loopback in it, and these imports, each policy accepting one prefix. */
+/** A fixture's device with VRFs `netflix` and `services`, a loopback in each, and these imports, each policy accepting one prefix. */
 function withImports(fixture: string, imports: { from: string; to: string; policy: string }[]): Device {
     const device = Fixtures.device(fixture);
     const accepting = (prefix: Prefix): PolicyRule[] => [{ if: { prefix }, then: "accept" }, { then: "reject" }];
@@ -16,15 +16,20 @@ function withImports(fixture: string, imports: { from: string; to: string; polic
         ...device,
         interfaces: {
             ...device.interfaces,
-            loopback: { ...device.interfaces?.loopback, "netflix-loopback": { addresses: ["10.20.0.1/32"], vrf: "netflix" } },
+            loopback: {
+                ...device.interfaces?.loopback,
+                "netflix-loopback": { addresses: ["10.20.0.1/32"], vrf: "netflix" },
+                "services-loopback": { addresses: ["10.0.5.1/24"], vrf: "services" },
+            },
         },
         routing: {
             ...device.routing,
-            vrfs: { netflix: {} },
+            vrfs: { netflix: {}, services: {} },
             vrf_imports: imports,
             policies: {
                 ...device.routing!.policies,
                 "management-network": accepting("10.0.0.0/24"),
+                "monitoring-network": accepting("10.0.5.0/24"),
                 "netflix-private-network": accepting("10.20.0.1/32"),
             },
         },
@@ -32,6 +37,11 @@ function withImports(fixture: string, imports: { from: string; to: string; polic
 }
 
 const BOTH_WAYS = [
+    { from: "services", to: "netflix", policy: "monitoring-network" },
+    { from: "netflix", to: "services", policy: "netflix-private-network" },
+];
+
+const WITH_MAIN = [
     { from: "main", to: "netflix", policy: "management-network" },
     { from: "netflix", to: "main", policy: "netflix-private-network" },
 ];
@@ -41,20 +51,27 @@ test("RouterOS hands routes over through the BGP VPN table, and plans nothing ag
     const desired = routeros.render(withImports("edge-router--edge-01", BOTH_WAYS));
 
     expect(desired).toContain(`/routing bgp vpn
-add export.filter-chain=management-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:1 instance=default label-allocation-policy=per-vrf name=main-to-netflix route-distinguisher=64500:1 vrf=main
-add export.filter-chain=netflix-private-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:2 instance=default label-allocation-policy=per-vrf name=netflix-to-main route-distinguisher=64500:2 vrf=netflix
+add export.filter-chain=monitoring-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:1 instance=default label-allocation-policy=per-vrf name=services-to-netflix route-distinguisher=64500:1 vrf=services
+add export.filter-chain=netflix-private-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:2 instance=default label-allocation-policy=per-vrf name=netflix-to-services route-distinguisher=64500:2 vrf=netflix
 add import.route-targets=64500:1 instance=default label-allocation-policy=per-vrf name=netflix route-distinguisher=64500:3 vrf=netflix
-add import.route-targets=64500:2 instance=default label-allocation-policy=per-vrf name=main route-distinguisher=64500:4 vrf=main
+add import.route-targets=64500:2 instance=default label-allocation-policy=per-vrf name=services route-distinguisher=64500:4 vrf=services
 `);
     // One chain takes both families, since an entry has one.
-    expect(desired).toContain(`add chain=management-network-VRF rule="if (afi ipv4) { jump management-network-V4 }"
-add chain=management-network-VRF rule="if (afi ipv6) { jump management-network-V6 }"
-add chain=management-network-VRF rule=reject
+    expect(desired).toContain(`add chain=monitoring-network-VRF rule="if (afi ipv4) { jump monitoring-network-V4 }"
+add chain=monitoring-network-VRF rule="if (afi ipv6) { jump monitoring-network-V6 }"
+add chain=monitoring-network-VRF rule=reject
 `);
 
     // As the router printed its entries: an export's targets and protocols after its chain, by their group.
     const printed = desired.replace(/export\.redistribute="([^"]+)" export\.route-targets=/g, ".redistribute=$1 .route-targets=");
     expect(routeros.plan(desired, printed, options).steps).toEqual([]);
+});
+
+test("RouterOS refuses an import with main, which took and gave nothing on a CHR", () => {
+    const refused = Platforms.get("routeros").unsupported(withImports("edge-router--edge-01", WITH_MAIN));
+    expect(refused).toContain(
+        "routing.vrf_imports[0], with main: BGP's VPN table takes routes between VRFs only on RouterOS 7.24, and routes neither left main nor arrived there"
+    );
 });
 
 test("RouterOS needs BGP to take routes between tables", () => {
@@ -67,7 +84,7 @@ test("RouterOS needs BGP to take routes between tables", () => {
 
 test("Junos imports into each table through one policy, whose terms match the instance the routes come from", () => {
     const junos = Platforms.get("junos");
-    const device = withImports("platforms--example-aggregation-switch", BOTH_WAYS);
+    const device = withImports("platforms--example-aggregation-switch", WITH_MAIN);
     const desired = junos.render(device);
 
     for (const line of [

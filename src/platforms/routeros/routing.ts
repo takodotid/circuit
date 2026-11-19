@@ -69,7 +69,7 @@ export class RouterOsRouting {
         routing.bfd();
     }
 
-    /** A VRF with the name of an interface, which the router refuses, since a VRF is an interface too (TRAPS.md). Imports between tables without the BGP they go through. */
+    /** A VRF with the name of an interface, which the router refuses, since a VRF is an interface too (TRAPS.md). Imports without the BGP they go through, or with the main table, which that way takes and gives nothing. */
     static vrfGaps(device: Device): string[] {
         const found: string[] = [];
         const interfaceNames = new Set([
@@ -84,6 +84,12 @@ export class RouterOsRouting {
             found.push(
                 "routing.vrf_imports without routing.bgp: RouterOS takes routes between tables through BGP. Write bgp: {} in routing"
             );
+        (device.routing?.vrf_imports ?? []).forEach(({ from, to }, index) => {
+            if (from === "main" || to === "main")
+                found.push(
+                    `routing.vrf_imports[${index}], with main: BGP's VPN table takes routes between VRFs only on RouterOS 7.24, and routes neither left main nor arrived there`
+                );
+        });
         return found;
     }
 

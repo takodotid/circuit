@@ -41,10 +41,10 @@ export const netflix = {
             routing: {
                 // The private network's routes stay in a table of their own: they never meet the internet's, or another tenant's.
                 vrfs: { netflix: { description: "Tenant netflix private" } },
-                // Our monitoring, in the management network, reaches the private network. Nothing else crosses.
+                // Our monitoring reaches the private network. Nothing else crosses.
                 vrf_imports: [
-                    { from: "main", to: "netflix", policy: "management-network" },
-                    { from: "netflix", to: "main", policy: "netflix-private-network" },
+                    { from: "services", to: "netflix", policy: "monitoring-network" },
+                    { from: "netflix", to: "services", policy: "netflix-private-network" },
                 ],
                 bgp: {
                     // The private VLAN's network, which only the session in the VRF can announce.
@@ -65,7 +65,7 @@ export const netflix = {
                 policies: {
                     "netflix-private-import": [{ if: { prefix_set: "netflix-private" }, then: "accept" }, { then: "reject" }],
                     "netflix-private-network": [{ if: { prefix: "10.20.0.0/24" }, then: "accept" }, { then: "reject" }],
-                    "management-network": [{ if: { prefix: "10.0.0.0/24" }, then: "accept" }, { then: "reject" }],
+                    "monitoring-network": [{ if: { prefix: "10.0.5.0/24" }, then: "accept" }, { then: "reject" }],
                 },
             },
         }),
