@@ -1,4 +1,4 @@
-import type { IP, MacAddress, Prefix } from "./common";
+import type { IP, IPv6, MacAddress, Prefix } from "./common";
 
 /** An address a DHCP server keeps for one client. */
 export type Reservation = {
@@ -10,11 +10,11 @@ export type Reservation = {
     description?: string;
 };
 
-/** A DHCP server for one network. */
+/** A DHCP server for one IPv4 network. */
 export type DhcpServer<I extends string> = {
     /** The port or interface it answers on. */
     interface: I;
-    /** The network it serves. */
+    /** The IPv4 network it serves. An IPv6 network is served by `dhcpv6_server`. */
     network: Prefix;
     /** Default gateway given to clients. */
     gateway: IP;
@@ -26,6 +26,28 @@ export type DhcpServer<I extends string> = {
     lease_time?: number;
     /** Addresses fixed to a MAC. */
     reservations?: readonly Reservation[];
+};
+
+/** Prefixes a DHCPv6 server delegates to routers that ask, such as a customer's router (IA_PD, RFC 8415). */
+export type PrefixDelegation = {
+    /** The prefix they come from, such as `2001:db8:100:8000::/49`. */
+    pool: Prefix;
+    /** The length of each prefix delegated, such as 56. */
+    prefix_length: number;
+};
+
+/** A DHCPv6 server on one interface (RFC 8415). Without `pool` and `prefix_delegation`, it gives hosts only its other settings, such as DNS servers (stateless DHCPv6). */
+export type Dhcpv6Server<I extends string> = {
+    /** The port or interface it answers on. */
+    interface: I;
+    /** First and last address given to hosts (IA_NA), in an IPv6 network of `interface`. Hosts ask for one when `ipv6_ra` has `managed: true`. */
+    pool?: readonly [IPv6, IPv6];
+    /** Prefixes delegated to routers that ask. */
+    prefix_delegation?: PrefixDelegation;
+    /** DNS servers given to hosts. Hosts that make their own addresses ask for them when `ipv6_ra` has `other_config: true`. */
+    dns?: readonly IPv6[];
+    /** Seconds an address or prefix lasts. */
+    lease_time?: number;
 };
 
 /** Forward DHCP requests heard on an interface to servers elsewhere. */
@@ -50,6 +72,8 @@ export type Upnp<I extends string> = {
 export type Services<I extends string> = {
     /** DHCP servers, keyed by name, one per network. */
     dhcp_server?: Record<string, DhcpServer<I>>;
+    /** DHCPv6 servers, keyed by name, one per interface. */
+    dhcpv6_server?: Record<string, Dhcpv6Server<I>>;
     /** DHCP relays, keyed by name. */
     dhcp_relay?: Record<string, DhcpRelay<I>>;
     /** Answer DNS queries from others, using `system.dns.servers`. Off when absent. */

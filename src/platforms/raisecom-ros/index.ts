@@ -261,6 +261,7 @@ export class RaisecomRos extends Platform {
         const refusedGroups: [string, unknown][] = [
             ["firewall", Object.keys(firewall).length ? firewall : undefined],
             ["services.dhcp_server", device.services?.dhcp_server],
+            ["services.dhcpv6_server", device.services?.dhcpv6_server],
             ["services.dhcp_relay", device.services?.dhcp_relay],
             ["switching.acls", device.switching?.acls],
             ["routing.policies", routing?.policies],

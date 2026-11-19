@@ -85,6 +85,7 @@ export type Service = C.Service;
 export type Console = C.Console;
 export type Jump = C.Jump;
 export type DhcpServer = C.DhcpServer<string>;
+export type Dhcpv6Server = C.Dhcpv6Server<string>;
 export type DhcpRelay = C.DhcpRelay<string>;
 export type FlowExport = C.FlowExport<string>;
 export type SyslogServer = C.SyslogServer;

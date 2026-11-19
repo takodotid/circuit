@@ -304,7 +304,15 @@ export class Junos extends Platform {
             if (relayed.has(server.interface)) found.push(`services.dhcp_server.${name}.interface, which a DHCP relay also uses`);
 
             if (Derive.settings(device, server.interface)?.vrf) found.push(`services.dhcp_server.${name}.interface, which routes in a VRF`);
-            if (Address.family(Address.host(server.network)) === "ipv6") found.push(`services.dhcp_server.${name}.network, IPv6`);
+        }
+
+        for (const [name, server] of Object.entries(services.dhcpv6_server ?? {})) {
+            const where = `services.dhcpv6_server.${name}`;
+            if (Derive.settings(device, server.interface)?.vrf) found.push(`${where}.interface, which routes in a VRF`);
+            if (!server.pool && !server.prefix_delegation && server.dns?.length)
+                found.push(
+                    `${where} without pool or prefix_delegation: Junos takes the DNS servers it gives from a pool's settings. Write pool or prefix_delegation, or announce the DNS servers in ipv6_ra.dns_servers`
+                );
         }
 
         for (const [name, relay] of Object.entries(services.dhcp_relay ?? {})) {

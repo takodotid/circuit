@@ -231,6 +231,7 @@ export class Vrp extends Platform {
         const refusedGroups = [
             ["firewall", device.firewall],
             ["services.dhcp_server", device.services?.dhcp_server],
+            ["services.dhcpv6_server", device.services?.dhcpv6_server],
             ["switching.acls", device.switching?.acls],
             ["routing.policies", routing?.policies],
             ["routing.prefix_sets", routing?.prefix_sets],
@@ -245,6 +246,7 @@ export class Vrp extends Platform {
         for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {})) {
             if (!device.interfaces?.vlan_interface?.[relay.interface])
                 found.push(`services.dhcp_relay.${name}.interface, relays run on VLAN interfaces`);
+            if (relay.servers.some((server) => Address.family(server) === "ipv6")) found.push(`services.dhcp_relay.${name}.servers, IPv6`);
         }
 
         if (device.system?.users?.admin) found.push("system.users.admin, the platform reserves the name");

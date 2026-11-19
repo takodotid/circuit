@@ -8,6 +8,7 @@ import type { Device, Finding, Interface, NeighborSettings, Routed, StaticRoute,
 import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
+import { ServicesChecks } from "./services";
 
 type Report = (message: string) => void;
 
@@ -60,7 +61,12 @@ export class DeviceChecks {
         const report: Report = (message) => findings.push({ level: "error", device: device.name, message });
 
         DeviceChecks.check(device, report);
-        findings.push(...DeviceChecks.limits(device), ...DeviceChecks.ospfWarnings(device), ...DeviceChecks.raWarnings(device));
+        findings.push(
+            ...DeviceChecks.limits(device),
+            ...DeviceChecks.ospfWarnings(device),
+            ...DeviceChecks.raWarnings(device),
+            ...ServicesChecks.warnings(device)
+        );
 
         return findings;
     }
@@ -94,7 +100,7 @@ export class DeviceChecks {
         DeviceChecks.routing(device, report, cidr, ip);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
-        DeviceChecks.services(device, report, cidr, ip);
+        ServicesChecks.check(device, report, cidr, ip);
         DeviceChecks.certificates(device, report);
         DeviceChecks.vdoms(device, report, cidr, ip);
         DeviceChecks.users(device, report);
@@ -851,46 +857,6 @@ export class DeviceChecks {
                         `switching.acls.${name}${rule.description ? ` (${rule.description})` : ""}: src and dst differ in family, so no packet matches both`
                     );
             }
-        }
-    }
-
-    private static services(device: Device, report: Report, cidr: Checker, ip: Checker): void {
-        for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
-            const where = `services.dhcp_server.${name}`;
-            cidr(where, server.network);
-            if (!Address.isCidr(server.network)) continue;
-
-            const reserved = (server.reservations ?? []).map((reservation) => reservation.address);
-            const addresses = [server.gateway, ...server.pool, ...reserved];
-
-            for (const address of addresses) {
-                if (!Address.contains(server.network, address)) report(`${where}: ${address} is outside ${server.network}`);
-            }
-        }
-
-        // `management.allow` may be an address set's addresses, and a set holds an address alone too.
-        const allow = device.management?.allow;
-        if (Array.isArray(allow)) for (const prefix of allow) if (!Address.isValid(prefix)) cidr("management.allow", prefix);
-
-        const snmp = device.monitoring?.snmp;
-        if (snmp && !snmp.community && !snmp.users) report("monitoring.snmp is on with neither a community nor a user");
-
-        (snmp?.traps ?? []).forEach((target, index) => {
-            const where = `monitoring.snmp.traps[${index}]`;
-            ip(`${where}.address`, target.address);
-            if (Boolean(target.community) === Boolean(target.user))
-                report(`${where}: write community for version 2c, or user for version 3, not both or neither`);
-        });
-
-        const flow = device.monitoring?.flow_export;
-        for (const key of ["active_timeout", "idle_timeout"] as const) {
-            const seconds = flow?.[key];
-            if (seconds === undefined) continue;
-
-            const where = `monitoring.flow_export.${key}`;
-            if (!Number.isInteger(seconds) || seconds < 1) report(`${where} ${seconds}: write a whole number of seconds, from 1`);
-            if (flow?.protocol === "sflow")
-                report(`${where}: sFlow sends packet samples, not flows. Remove it, or export netflow-v9 or ipfix`);
         }
     }
 

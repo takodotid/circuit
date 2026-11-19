@@ -47,6 +47,10 @@ export class RouterOsPlan {
         "/ipv6 address",
         "/ip pool",
         "/ip dhcp-server",
+        // A DHCPv6 server names its pools and its options.
+        "/ipv6 pool",
+        "/ipv6 dhcp-server option",
+        "/ipv6 dhcp-server",
         "/ip firewall address-list",
         "/ipv6 firewall address-list",
         "/ip firewall",

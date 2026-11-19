@@ -5,6 +5,7 @@ import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import { FortiOsFirewall } from "./firewall";
 import { FortiOsNames } from "./names";
+import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
 import { FortiOsVdoms } from "./vdoms";
@@ -100,7 +101,8 @@ export class FortiOsUnsupported {
         }
 
         if (device.firewall?.nat) found.push(`firewall.nat, ${where}`);
-        if (device.services?.dhcp_server && Object.keys(device.services.dhcp_server).length) found.push(`services.dhcp_server, ${where}`);
+        for (const group of ["dhcp_server", "dhcpv6_server"] as const)
+            if (Object.keys(device.services?.[group] ?? {}).length) found.push(`services.${group}, ${where}`);
 
         if (!management) {
             const services = device.management ?? {};
@@ -132,8 +134,8 @@ export class FortiOsUnsupported {
             found.push("system.logging.local.files and lines_per_file, logs kept in memory do not rotate into files");
         }
 
-        if ((device.monitoring?.syslog?.length ?? 0) > FortiOsRender.COLLECTORS)
-            found.push(`monitoring.syslog, at most ${FortiOsRender.COLLECTORS} collectors`);
+        if ((device.monitoring?.syslog?.length ?? 0) > FortiOsMonitoring.COLLECTORS)
+            found.push(`monitoring.syslog, at most ${FortiOsMonitoring.COLLECTORS} collectors`);
 
         const servers = system.dns?.servers ?? [];
         for (const family of ["ipv4", "ipv6"] as const) {
@@ -567,10 +569,21 @@ export class FortiOsUnsupported {
         const found: string[] = [];
 
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
-            if (Address.family(Address.host(server.network)) === "ipv6")
-                found.push(`services.dhcp_server.${name}.network, IPv6: DHCPv6 hands out no gateway`);
             if ((server.dns?.length ?? 0) > FortiOsRender.RESOLVERS.dhcp)
                 found.push(`services.dhcp_server.${name}.dns, at most ${FortiOsRender.RESOLVERS.dhcp}`);
+        }
+
+        for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {})) {
+            const where = `services.dhcpv6_server.${name}`;
+            const { min, max } = FortiOsRender.DHCPV6_LEASE_TIME;
+            if (!server.pool)
+                found.push(
+                    `${where} without pool: FortiOS 6.2 has no setting that keeps a DHCPv6 server from giving addresses. Write pool, or announce the DNS servers in ipv6_ra.dns_servers`
+                );
+            if ((server.dns?.length ?? 0) > FortiOsRender.RESOLVERS.dhcp)
+                found.push(`${where}.dns, at most ${FortiOsRender.RESOLVERS.dhcp}`);
+            if (server.lease_time !== undefined && (server.lease_time < min || server.lease_time > max))
+                found.push(`${where}.lease_time ${server.lease_time}, FortiOS takes ${min} to ${max} seconds`);
         }
 
         const flow = device.monitoring?.flow_export;
@@ -583,7 +596,7 @@ export class FortiOsUnsupported {
         if (flow?.protocol === "netflow-v9" && flow.sampling !== undefined)
             found.push("monitoring.flow_export.sampling, NetFlow here exports every flow");
 
-        const { active, inactive } = FortiOsRender.FLOW_TIMEOUTS;
+        const { active, inactive } = FortiOsMonitoring.FLOW_TIMEOUTS;
         const minutes = flow?.active_timeout;
         if (minutes !== undefined && (minutes % active.min !== 0 || minutes < active.min || minutes > active.max))
             found.push(

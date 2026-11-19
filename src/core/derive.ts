@@ -8,6 +8,7 @@ import type {
     AsNumbers,
     AsRange,
     Device,
+    Dhcpv6Server,
     Family,
     FilterRule,
     Interface,
@@ -16,6 +17,7 @@ import type {
     NatRule,
     NeighborSettings,
     Port,
+    Prefix,
     Routed,
     RouteMatch,
     RouteRule,
@@ -166,9 +168,22 @@ export class Derive {
         if (!ra) return [];
         if (ra.prefixes) return [...ra.prefixes];
 
+        return Derive.ipv6Networks(settings).map((prefix) => ({ prefix }));
+    }
+
+    /** Each IPv6 network the port or interface has an address in, once, in the order of its addresses. */
+    static ipv6Networks(settings: { addresses?: readonly (string | { address: string })[] }): Prefix[] {
         const addresses = (settings.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
         const networks = addresses.filter((address) => Address.family(address) === "ipv6").map((address) => Address.prefixOf(address));
-        return [...new Set(networks)].map((prefix) => ({ prefix }));
+        return [...new Set(networks)];
+    }
+
+    /** The IPv6 network a DHCPv6 server serves: the network of its interface that holds its pool, or else the interface's first. Undefined when the interface has no IPv6 address. */
+    static dhcpv6Network(device: Device, server: Dhcpv6Server): Prefix | undefined {
+        const networks = Derive.ipv6Networks(Derive.settings(device, server.interface) ?? {});
+        const pool = server.pool;
+        if (!pool) return networks[0];
+        return networks.find((network) => pool.every((address) => Address.isValid(address) && Address.contains(network, address)));
     }
 
     /** The least seconds between two router advertisements for the most, `interval`: a third of it and no less than 3, as RFC 4861 sets MinRtrAdvInterval. */

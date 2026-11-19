@@ -83,6 +83,10 @@ export type RouterAdvertisement = {
     dns_servers?: readonly IPv6[];
     /** The domains it announces (DNSSL, RFC 8106). A host adds one to a name without a domain, such as `mail` for `mail.example.net`. */
     dns_search_list?: readonly string[];
+    /** Hosts take an address from a DHCPv6 server, such as `services.dhcpv6_server` (the M flag). */
+    managed?: true;
+    /** Hosts take other settings, such as DNS servers, from a DHCPv6 server (the O flag). */
+    other_config?: true;
 };
 
 /** The uRPF check of each family. */

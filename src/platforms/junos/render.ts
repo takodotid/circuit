@@ -57,6 +57,12 @@ export class JunosRender {
 
     private static readonly OSPF_EXPORT = "circuit-ospf-redistribute";
 
+    /** A DHCPv6 server's address pool is named after the server, with this after it. */
+    private static readonly ADDRESS_POOL_SUFFIX = "-v6";
+
+    /** A DHCPv6 server's pool of delegated prefixes is named after the server, with this after it. */
+    private static readonly DELEGATED_POOL_SUFFIX = "-pd";
+
     /** Strong ciphers, MACs, and key exchanges, offered unless `weak_crypto`. */
     private static readonly SSH_CIPHERS = ["aes256-gcm@openssh.com", "aes128-gcm@openssh.com", "aes256-ctr", "aes192-ctr", "aes128-ctr"];
     private static readonly SSH_MACS = ["hmac-sha2-512", "hmac-sha2-256"];
@@ -129,6 +135,7 @@ export class JunosRender {
         render.ospf();
         render.dhcpRelay();
         render.dhcpServers();
+        render.dhcpv6Servers();
         render.routerAdvertisements();
         render.acls();
         render.ethertypeFilters();
@@ -974,6 +981,47 @@ export class JunosRender {
         }
     }
 
+    /**
+     * Each server is a group on its interface. Its addresses and delegated prefixes are address pools of their own, `<server>-v6` and `<server>-pd`: a pool holds one family, and an IPv4 server may have the server's name. The device finds the address pool by the interface's network, and is told the delegated one. A host that asks only for DNS servers gets them from the first pool.
+     */
+    private dhcpv6Servers(): void {
+        for (const [name, server] of Object.entries(this.device.services?.dhcpv6_server ?? {})) {
+            const group = `system services dhcp-local-server dhcpv6 group ${name}`;
+            this.out.set(group, "interface", this.names.unit(server.interface));
+
+            const pools: string[] = [];
+            const attributes = (at: string) => {
+                for (const resolver of server.dns ?? []) this.out.set(at, "dhcp-attributes dns-server", resolver);
+                if (server.lease_time !== undefined) this.out.set(at, "dhcp-attributes maximum-lease-time", server.lease_time);
+            };
+
+            const network = Derive.dhcpv6Network(this.device, server);
+            if (server.pool && network) {
+                const pool = `${name}${JunosRender.ADDRESS_POOL_SUFFIX}`;
+                const at = `access address-assignment pool ${pool} family inet6`;
+                const [low, high] = server.pool;
+                this.out.set(at, "prefix", network);
+                this.out.set(at, `range ${name} low`, `${low}/${Address.bits("ipv6")}`);
+                this.out.set(at, `range ${name} high`, `${high}/${Address.bits("ipv6")}`);
+                attributes(at);
+                pools.push(pool);
+            }
+
+            const delegation = server.prefix_delegation;
+            if (delegation) {
+                const pool = `${name}${JunosRender.DELEGATED_POOL_SUFFIX}`;
+                const at = `access address-assignment pool ${pool} family inet6`;
+                this.out.set(at, "prefix", delegation.pool);
+                this.out.set(at, `range ${pool} prefix-length`, delegation.prefix_length);
+                attributes(at);
+                this.out.set(group, "overrides delegated-pool", pool);
+                pools.push(pool);
+            }
+
+            if (server.dns?.length && pools[0]) this.out.set(group, "overrides process-inform pool", pools[0]);
+        }
+    }
+
     /** Router advertisements announce their prefixes, each IPv6 network of the interface unless the config lists them. The least interval is the platform's own, a third of the most, as RFC 4861 has it. */
     private routerAdvertisements(): void {
         for (const [name, settings] of this.routed()) {
@@ -983,6 +1031,8 @@ export class JunosRender {
             const at = `protocols router-advertisement interface ${this.names.unit(name)}`;
             if (ra.interval !== undefined) this.out.set(at, "max-advertisement-interval", ra.interval);
             if (ra.lifetime !== undefined) this.out.set(at, "default-lifetime", ra.lifetime);
+            if (ra.managed) this.out.set(at, "managed-configuration");
+            if (ra.other_config) this.out.set(at, "other-stateful-configuration");
 
             for (const advertised of Derive.advertisedPrefixes(settings)) {
                 const prefix = `${at} prefix ${Address.prefixOf(advertised.prefix)}`;

@@ -8,6 +8,7 @@ import type { Device, Lag, Port, Prefix, Service, Severity, VlanInterface } from
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import type { NamedInterface } from "../../core/derive";
+import { RouterOsDhcp } from "./dhcp";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsRouting } from "./routing";
@@ -601,7 +602,7 @@ export class RouterOsRender {
         this.addresses();
         this.routerAdvertisements();
         this.dhcpClients();
-        this.dhcp();
+        RouterOsDhcp.render(this, this.device);
         this.dns();
         this.upnp();
         this.addressLists();
@@ -646,7 +647,7 @@ export class RouterOsRender {
         }
     }
 
-    /** The platform's default entry sends router advertisements on every interface. Once one interface sends its own, the default is turned off. A device that sends none keeps it. */
+    /** The platform's default entry covers every interface, and sends router advertisements only where an address has `advertise=yes` (TRAPS.md). Once one interface sends its own, the default is turned off. A device that sends none keeps it. */
     private routerAdvertisements(): void {
         const sending = this.routed().flatMap(({ name, settings }) => {
             const ra = Derive.routerAdvertisement(settings);
@@ -664,6 +665,8 @@ export class RouterOsRender {
                 "advertise-dns": servers && "yes",
                 dns: servers?.join(","),
                 interface: name,
+                "managed-address-configuration": ra.managed && "yes",
+                "other-configuration": ra.other_config && "yes",
                 "ra-interval":
                     interval !== undefined &&
                     `${RouterOsSyntax.duration(Derive.minAdvertisementInterval(interval))}-${RouterOsSyntax.duration(interval)}`,
@@ -701,37 +704,6 @@ export class RouterOsRender {
                 "use-peer-dns": "no",
                 "use-peer-ntp": "no",
             });
-        }
-    }
-
-    private dhcp(): void {
-        for (const [name, server] of Object.entries(this.device.services?.dhcp_server ?? {})) {
-            const [first, last] = server.pool;
-            this.add("/ip pool", "add", { name, ranges: `${first}-${last}` });
-            this.add("/ip dhcp-server", "add", {
-                "address-pool": name,
-                interface: this.name(server.interface),
-                "lease-time": server.lease_time ? RouterOsSyntax.duration(server.lease_time) : undefined,
-                name,
-            });
-            this.add("/ip dhcp-server network", "add", {
-                address: server.network,
-                "dns-server": server.dns?.join(","),
-                gateway: server.gateway,
-            });
-
-            for (const reservation of server.reservations ?? []) {
-                this.add("/ip dhcp-server lease", "add", {
-                    address: reservation.address,
-                    comment: reservation.description,
-                    "mac-address": reservation.mac,
-                    server: name,
-                });
-            }
-        }
-
-        for (const [name, relay] of Object.entries(this.device.services?.dhcp_relay ?? {})) {
-            this.add("/ip dhcp-relay", "add", { "dhcp-server": relay.servers.join(","), interface: this.name(relay.interface), name });
         }
     }
 

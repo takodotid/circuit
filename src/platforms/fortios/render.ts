@@ -9,16 +9,14 @@ import type {
     Helper,
     RadiusServer,
     RouterAdvertisement,
-    Secret,
-    SnmpTrapTarget,
     Routed,
-    Severity,
     StaticRoute,
     Vxlan,
 } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { FortiOsFirewall } from "./firewall";
+import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsNames } from "./names";
 import { FortiOsRouting } from "./routing";
 import { FortiOsNode, FortiOsTree } from "./tree";
@@ -80,6 +78,7 @@ export class FortiOsRender {
         "system sflow",
         "system netflow",
         "system dhcp server",
+        "system dhcp6 server",
         "router static",
         "router static6",
         "router prefix-list",
@@ -236,36 +235,14 @@ export class FortiOsRender {
     /** The most resolvers the device and a DHCP server hold, per family. */
     static readonly RESOLVERS = { device: 2, dhcp: 4 } as const;
 
-    /** The most syslog collectors the device sends to. */
-    static readonly COLLECTORS = 4;
+    /** Seconds a lease lasts when a DHCP server of either family doesn't say: a week. */
+    private static readonly LEASE_TIME = 604_800;
 
-    /** The SNMP trap port (RFC 3417), the platform's default. */
-    private static readonly TRAP_PORT = 162;
-
-    /** The syslog ports: over UDP (RFC 5426), the platform's default, and over TLS (RFC 5425). */
-    private static readonly SYSLOG_PORT = { udp: 514, tls: 6514 } as const;
-
-    /** NetFlow's flow timeouts: the active one is set in minutes, the inactive one in seconds. */
-    static readonly FLOW_TIMEOUTS = {
-        active: { min: 60, max: 3600, default: 1800 },
-        inactive: { min: 10, max: 600, default: 15 },
-    } as const;
-
-    private static readonly SECONDS_PER_MINUTE = 60;
+    /** The fewest and most seconds a DHCPv6 server's lease lasts. */
+    static readonly DHCPV6_LEASE_TIME = { min: 300, max: 8_640_000 } as const;
 
     /** The most VRFs the device holds besides its default table. */
     static readonly VRFS = 31;
-
-    static readonly LEVEL: Record<Severity, string> = {
-        emergency: "emergency",
-        alert: "alert",
-        critical: "critical",
-        error: "error",
-        warning: "warning",
-        notice: "notification",
-        info: "information",
-        debug: "debug",
-    };
 
     /** The factory's helpers, by the name a config gives them: each as name, IP protocol, and port. */
     static readonly HELPERS: Partial<Record<Helper, readonly [string, number, number][]>> = {
@@ -339,10 +316,11 @@ export class FortiOsRender {
         FortiOsRender.interfaces(root, device);
         FortiOsRender.dns(section("system dns"), section("system dns-server"), device);
         FortiOsRender.ntp(section("system ntp"), device);
-        FortiOsRender.snmp(root, device);
-        FortiOsRender.logging(root, device);
-        FortiOsRender.flowExport(root, device);
+        FortiOsMonitoring.snmp(root, device);
+        FortiOsMonitoring.logging(root, device);
+        FortiOsMonitoring.flowExport(root, device);
         FortiOsRender.dhcpServers(section("system dhcp server"), device);
+        FortiOsRender.dhcpv6Servers(section("system dhcp6 server"), device);
         FortiOsRender.staticRoutes(section("router static"), section("router static6"), device, device.routing?.static_routes ?? []);
         FortiOsRouting.render(root, device);
         FortiOsRender.helpers(section("system session-helper"), device);
@@ -588,6 +566,8 @@ export class FortiOsRender {
         };
 
         block.set("ip6-send-adv", "enable");
+        if (ra.managed) block.set("ip6-manage-flag", "enable");
+        if (ra.other_config) block.set("ip6-other-flag", "enable");
         if (ra.interval !== undefined) {
             unlessDefault(block, "ip6-max-interval", ra.interval);
             unlessDefault(block, "ip6-min-interval", Derive.minAdvertisementInterval(ra.interval));
@@ -754,138 +734,11 @@ export class FortiOsRender {
         }
     }
 
-    private static snmp(root: FortiOsNode, device: Device): void {
-        const snmp = device.monitoring?.snmp;
-        if (!snmp) return;
-
-        const sysinfo = root.block("system snmp sysinfo");
-        sysinfo.set("status", "enable");
-        if (snmp.contact) sysinfo.set("contact-info", FortiOsTree.quote(snmp.contact));
-        if (snmp.location) sysinfo.set("location", FortiOsTree.quote(snmp.location));
-
-        FortiOsRender.communities(root, device);
-
-        const traps = snmp.traps ?? [];
-        for (const [name, user] of Object.entries(snmp.users ?? {})) {
-            const entry = root.block("system snmp user").entry(name);
-            entry.set("security-level", "auth-priv");
-            if (snmp.port) entry.set("query-port", snmp.port);
-            // SHA1 and AES128 are the platform's defaults and are not printed.
-            entry.set("auth-pwd", FortiOsTree.quote(Secrets.marker(user.auth_password)));
-            if (user.privacy === "des") entry.set("priv-proto", "des");
-            entry.set("priv-pwd", FortiOsTree.quote(Secrets.marker(user.privacy_password)));
-
-            // A user sends traps to its notify hosts, on one port, which `unsupported()` requires.
-            const receivers = traps.filter((target) => target.user === name);
-            const ipv4 = receivers.filter((target) => Address.family(target.address) === "ipv4");
-            const ipv6 = receivers.filter((target) => Address.family(target.address) === "ipv6");
-            if (ipv4.length) entry.set("notify-hosts", ipv4.map((target) => target.address).join(" "));
-            if (ipv6.length) entry.set("notify-hosts6", ipv6.map((target) => target.address).join(" "));
-            const port = receivers[0]?.port;
-            if (port && port !== FortiOsRender.TRAP_PORT) entry.set("trap-rport", port);
-        }
-    }
-
-    /**
-     * Version 2c communities: the read community first, then each other community traps carry. A community answers its allowed sources and sends traps to its receivers, each one host, on one port, which `unsupported()` requires. Version 1 is off.
-     */
-    private static communities(root: FortiOsNode, device: Device): void {
-        const snmp = device.monitoring?.snmp;
-        const communities: { community: Secret; read: boolean; receivers: SnmpTrapTarget[] }[] = [];
-        if (snmp?.community) communities.push({ community: snmp.community, read: true, receivers: [] });
-
-        for (const target of snmp?.traps ?? []) {
-            if (!target.community) continue;
-
-            const reference = Secrets.referenceOf(target.community);
-            const known = communities.find((each) => Secrets.referenceOf(each.community) === reference);
-            if (known) known.receivers.push(target);
-            else communities.push({ community: target.community, read: false, receivers: [target] });
-        }
-
-        communities.forEach(({ community, read, receivers }, index) => {
-            const entry = root.block("system snmp community").entry(index + 1);
-            entry.set("name", FortiOsTree.quote(Secrets.marker(community)));
-
-            const hosts: { prefix: string; trap: boolean }[] = [
-                ...(read ? (snmp?.allow ?? FortiOsNames.allowed(device)) : []).map((prefix) => ({ prefix, trap: false })),
-                ...receivers.map((target) => ({ prefix: target.address, trap: true })),
-            ];
-            for (const family of ["ipv4", "ipv6"] as const) {
-                hosts
-                    .filter(({ prefix }) => Address.family(Address.host(prefix)) === family)
-                    .forEach(({ prefix, trap }, number) => {
-                        const network = FortiOsNames.network(prefix);
-                        const host = entry.block(family === "ipv4" ? "hosts" : "hosts6").entry(number + 1);
-                        host.set(family === "ipv4" ? "ip" : "ipv6", family === "ipv4" ? FortiOsNames.subnet(network) : network);
-                        // A host of the default type, `any`, is also sent traps.
-                        if (receivers.length) host.set("host-type", trap ? "trap" : "query");
-                    });
-            }
-
-            entry.set("query-v1-status", "disable");
-            if (!read) entry.set("query-v2c-status", "disable");
-            if (read && snmp?.port) entry.set("query-v2c-port", snmp.port);
-            entry.set("trap-v1-status", "disable");
-            if (!receivers.length) entry.set("trap-v2c-status", "disable");
-            const port = receivers[0]?.port;
-            if (port && port !== FortiOsRender.TRAP_PORT) entry.set("trap-v2c-rport", port);
-        });
-    }
-
-    private static logging(root: FortiOsNode, device: Device): void {
-        const logging = device.system?.logging;
-
-        // The device prints whether it keeps logs in memory either way, and keeps them unless told not to.
-        root.block("log memory setting").set("status", logging?.local ? "enable" : "disable");
-        if (logging?.local && logging.local.level !== "info")
-            root.block("log memory filter").set("severity", FortiOsRender.LEVEL[logging.local.level]);
-
-        // The disk keeps logs unless told not to; the config keeps them only in memory.
-        root.block("log disk setting").set("status", "disable");
-
-        (device.monitoring?.syslog ?? []).slice(0, FortiOsRender.COLLECTORS).forEach((collector, index) => {
-            const number = index === 0 ? "" : String(index + 1);
-            const setting = root.block(`log syslogd${number} setting`);
-            setting.set("status", "enable");
-            setting.set("server", FortiOsTree.quote(collector.address));
-            // TLS runs over TCP, as RFC 6587 frames it, and the device checks the collector's certificate against its CA certificates. Each of the two settings sets the port back to its default, so the port comes last (TRAPS.md).
-            if (collector.transport_security) {
-                setting.set("mode", "reliable");
-                setting.set("enc-algorithm", "high");
-            }
-            const port = collector.port ?? (collector.transport_security ? FortiOsRender.SYSLOG_PORT.tls : FortiOsRender.SYSLOG_PORT.udp);
-            if (port !== FortiOsRender.SYSLOG_PORT.udp) setting.set("port", port);
-
-            if (collector.level !== "info") root.block(`log syslogd${number} filter`).set("severity", FortiOsRender.LEVEL[collector.level]);
-        });
-    }
-
-    private static flowExport(root: FortiOsNode, device: Device): void {
-        const flow = device.monitoring?.flow_export;
-        const collector = flow?.collectors[0];
-        if (!flow || !collector) return;
-
-        if (flow.protocol === "sflow") {
-            const block = root.block("system sflow").set("collector-ip", collector.address);
-            if (collector.port && collector.port !== 6343) block.set("collector-port", collector.port);
-        }
-
-        if (flow.protocol === "netflow-v9") {
-            const block = root.block("system netflow").set("collector-ip", collector.address);
-            if (collector.port && collector.port !== 2055) block.set("collector-port", collector.port);
-
-            const { active, inactive } = FortiOsRender.FLOW_TIMEOUTS;
-            if (flow.active_timeout && flow.active_timeout !== active.default)
-                block.set("active-flow-timeout", flow.active_timeout / FortiOsRender.SECONDS_PER_MINUTE);
-            if (flow.idle_timeout && flow.idle_timeout !== inactive.default) block.set("inactive-flow-timeout", flow.idle_timeout);
-        }
-    }
-
     private static dhcpServers(block: FortiOsNode, device: Device): void {
         Object.values(device.services?.dhcp_server ?? {}).forEach((server, index) => {
             const entry = block.entry(index + 1);
-            if (server.lease_time !== undefined && server.lease_time !== 604_800) entry.set("lease-time", server.lease_time);
+            if (server.lease_time !== undefined && server.lease_time !== FortiOsRender.LEASE_TIME)
+                entry.set("lease-time", server.lease_time);
             entry.set("default-gateway", server.gateway);
             entry.set("netmask", Address.netmask(Address.split(server.network).len));
             entry.set("interface", FortiOsTree.quote(FortiOsNames.of(device, server.interface)));
@@ -900,6 +753,44 @@ export class FortiOsRender {
 
             (server.dns ?? []).forEach((resolver, number) => entry.set(`dns-server${number + 1}`, resolver));
         });
+    }
+
+    /**
+     * A server's subnet is the network of its interface that holds its pool. FortiOS 6.2 delegates only prefixes inside the subnet, so with delegated prefixes it is the smallest prefix that holds both. A server without a pool is refused.
+     */
+    private static dhcpv6Servers(block: FortiOsNode, device: Device): void {
+        Object.values(device.services?.dhcpv6_server ?? {}).forEach((server, index) => {
+            const network = Derive.dhcpv6Network(device, server);
+            if (!server.pool || !network) return;
+
+            const delegation = server.prefix_delegation;
+            const entry = block.entry(index + 1);
+            if (server.lease_time !== undefined && server.lease_time !== FortiOsRender.LEASE_TIME)
+                entry.set("lease-time", server.lease_time);
+            entry.set("subnet", delegation ? FortiOsRender.covering(network, delegation.pool) : network);
+            entry.set("interface", FortiOsTree.quote(FortiOsNames.of(device, server.interface)));
+
+            if (delegation) {
+                const { first, last } = Address.range(delegation.pool);
+                const lastPrefix = Address.prefixOf(`${Address.fromNumber(last, "ipv6")}/${delegation.prefix_length}`);
+                entry
+                    .block("prefix-range")
+                    .entry(1)
+                    .set("start-prefix", Address.fromNumber(first, "ipv6"))
+                    .set("end-prefix", Address.host(lastPrefix))
+                    .set("prefix-length", delegation.prefix_length);
+            }
+
+            entry.block("ip-range").entry(1).set("start-ip", server.pool[0]).set("end-ip", server.pool[1]);
+            (server.dns ?? []).forEach((resolver, number) => entry.set(`dns-server${number + 1}`, resolver));
+        });
+    }
+
+    /** The smallest prefix that holds both `a` and `b`. */
+    private static covering(a: string, b: string): string {
+        let length = Math.min(Address.split(a).len, Address.split(b).len);
+        while (length > 0 && !Address.contains(Address.prefixOf(`${Address.host(a)}/${length}`), b)) length--;
+        return Address.prefixOf(`${Address.host(a)}/${length}`);
     }
 
     /** One entry for each address a VLAN interface answers ARP for, numbered in the config's order. */
