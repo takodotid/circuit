@@ -4,7 +4,17 @@ import { Address } from "../../core/address";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
-import type { AsNumbers, Device, Family, Neighbor, NeighborSettings, OspfAuthentication, PolicyRule, RouteRule } from "../../model";
+import type {
+    AsNumbers,
+    Device,
+    Family,
+    Finding,
+    Neighbor,
+    NeighborSettings,
+    OspfAuthentication,
+    PolicyRule,
+    RouteRule,
+} from "../../model";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
 
@@ -93,6 +103,25 @@ export class RouterOsRouting {
             });
         }
         return found;
+    }
+
+    /** A passive multihop neighbor without `local_address`: the router listens for it only on one address it picks itself, which may not be the one the neighbor connects to (TRAPS.md). */
+    static passiveWithoutAddress(device: Device): Finding[] {
+        const bgp = device.routing?.bgp;
+
+        return Object.entries(bgp?.neighbors ?? {}).flatMap(([name, neighbor]): Finding[] => {
+            const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
+            const settings = { ...group, ...neighbor };
+            if (!settings.passive || !settings.multihop || settings.local_address) return [];
+
+            return [
+                {
+                    level: "error",
+                    device: device.name,
+                    message: `routing.bgp.neighbors.${name} is passive and multihop without local_address: RouterOS then listens only on one address it picks, and refuses ${neighbor.address} if it connects to another. Write local_address, the address ${neighbor.address} connects to`,
+                },
+            ];
+        });
     }
 
     /** A VRF with the name of an interface, which the router refuses, since a VRF is an interface too (TRAPS.md). Imports without the BGP they go through, or with the main table, which that way takes and gives nothing. */
