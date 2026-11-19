@@ -58,6 +58,7 @@
 - An empty array, `:local keep {}`, is a syntax error. A filter, NAT, or mangle table the config empties is removed chain by chain instead (RB5009, 7.24.6).
 - A fixed port speed is named by medium, `speed=10G-baseSR-LR` for an optic or `speed=1G-baseT-full` for copper, and only stays set with `auto-negotiation=no`. With auto-negotiation back on, the export no longer prints the speed, so the plan resets only auto-negotiation. `speed=""` is refused as ambiguous and `unset speed` does not exist.
 - `bgp-path-len` counts every AS in the path, prepends included, and takes the same strict comparisons as `dst-len`.
+- `set bgp-path-prepend N` in an eBGP export filter sends the router's AS N times in all, not N more times: 1 changes nothing, and 16 sends 16 (CCR2216, 7.24.6).
 - A `bgp-as-path` set with a space in it, `[174 64512-65534]`, is refused unquoted: `invalid bgp-as-path regexp`. Quoted inside the rule, `bgp-as-path \"[174 64512-65534]\"`, it is taken, and the export prints it as sent. A set takes ranges of 4-byte AS numbers: `/routing/filter/test-as-path-regexp` matched `[4200000000-4294967294]` against `64501,4200000001`, and not against `64501,4294967295` (CCR2216, 7.24.6).
 - `/routing/filter/filter-wizard` adds the rule it builds; it is not a dry run. `set blackhole yes` was tested with it on 7.23.
 - On the serial console, the prompt can come twice after a login. The console echoes a long command wrapped at 80 columns. A `print` that fills the screen stops at `-- [Q quit|D dump|down]`, where `D` prints the rest.

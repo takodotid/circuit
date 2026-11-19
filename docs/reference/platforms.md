@@ -78,7 +78,7 @@ A note in a cell means "works, with this limit".
 | BGP                          | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | BGP communities              | ✅                      | ❌         | ❌                       | ✅                    | ✅ no large ones |
-| AS path matches              | ✅                      | ❌         | ❌                       | ✅ 21.3 or later      | 🧪 one per rule  |
+| AS path matches              | ✅                      | ❌         | ❌                       | ✅ 21.3 or later      | ✅ one per rule  |
 | RPKI                         | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
 | BGP roles (RFC 9234)         | ✅                      | ❌         | ❌                       | ❌                    | ❌               |
 | GTSM (RFC 5082)              | ✅ eBGP                 | ❌         | ❌                       | ❌                    | ❌               |
