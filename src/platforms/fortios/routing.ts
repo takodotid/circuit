@@ -434,6 +434,8 @@ export class FortiOsRouting {
             const metric = settings?.metric;
             if (metric !== undefined) for (const level of levels) entry.set(`wide-metric-l${level}`, metric);
         }
+
+        if (isis.overload_bit) block.set("overload-bit", "enable");
     }
 
     private static bgp(root: FortiOsNode, device: Device): void {
@@ -611,12 +613,11 @@ export class FortiOsRouting {
 
         const ospf = routing?.ospf;
         if (ospf?.address_families?.includes("ipv6") && !routing?.router_id) found.push("routing.ospf for IPv6 without routing.router_id");
+        // `router ospf` and `router ospf6` have no VRF setting (TRAPS.md).
+        if (ospf?.vrf) found.push("routing.ospf.vrf, FortiOS 6.2 runs OSPF in the default VRF only");
 
         for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
             for (const [name, settings] of Object.entries(area.interfaces)) {
-                if (FortiOsNames.settingsOf(device, name)?.vrf)
-                    found.push(`routing.ospf on ${name}, which routes in a VRF: OSPF runs in the default table`);
-
                 const authentication = settings?.authentication;
                 const where = `routing.ospf.areas.${areaId}.interfaces.${name}.authentication`;
                 if (authentication && authentication.algorithm !== "md5")
@@ -640,6 +641,7 @@ export class FortiOsRouting {
             if (settings?.passive) found.push(`${where}.passive, FortiOS has none: only a loopback forms no adjacency`);
             if (settings?.network && device.interfaces?.loopback?.[name])
                 found.push(`${where}.network, a loopback's link type is loopback on FortiOS`);
+            if (settings?.bfd) found.push(`${where}.bfd, FortiOS 6.2 has no BFD for IS-IS`);
         }
 
         for (const [name, neighbor] of Object.entries(routing?.bgp?.neighbors ?? {})) {

@@ -220,7 +220,10 @@ export class JunosRender {
 
         for (const server of system.dns?.servers ?? []) this.out.set("system name-server", server);
 
-        for (const server of system.ntp?.servers ?? []) this.out.set("system ntp server", server);
+        for (const server of system.ntp?.servers ?? []) {
+            this.out.set("system ntp server", server);
+            if (system.ntp?.vrf) this.out.set("system ntp server", server, "routing-instance", system.ntp.vrf);
+        }
 
         // Redirects are sent unless turned off, for each family.
         if (!system.ip_stack?.icmp_redirects) {
@@ -237,6 +240,7 @@ export class JunosRender {
         for (const remote of this.device.monitoring?.syslog ?? []) {
             this.out.set("system syslog host", remote.address, "any", JunosRender.LEVEL[remote.level]);
             if (remote.port !== undefined && remote.port !== 514) this.out.set("system syslog host", remote.address, "port", remote.port);
+            if (remote.vrf) this.out.set("system syslog host", remote.address, "routing-instance", remote.vrf);
         }
     }
 
@@ -275,6 +279,7 @@ export class JunosRender {
             if (server.acct_port !== undefined) this.out.set(statement, "accounting-port", server.acct_port);
             this.out.set(statement, "secret", Secrets.marker(server.secret_key));
             if (server.source_address) this.out.set(statement, "source-address", server.source_address);
+            if (server.vrf) this.out.set(statement, "routing-instance", server.vrf);
         }
 
         this.out.set("system login user remote class", JunosRender.USER_CLASS[aaa.remote_role]);
@@ -693,17 +698,24 @@ export class JunosRender {
         }
     }
 
-    /** OSPF for IPv4 and OSPFv3 for IPv6, with the same areas and interfaces. */
+    /** OSPF for IPv4 and OSPFv3 for IPv6, with the same areas and interfaces, in the main instance or a VRF's. */
     private ospf(): void {
         const ospf = this.device.routing?.ospf;
         if (!ospf) return;
 
-        const protocols = (ospf.address_families ?? ["ipv4"]).map((family) => (family === "ipv4" ? "ospf" : "ospf3"));
+        const instance = JunosBgp.instance(ospf.vrf);
+        const routerId = this.device.routing?.router_id;
+        // A routing instance otherwise takes the address of one of its own interfaces as its router ID.
+        if (ospf.vrf && routerId) this.out.set(`${instance}routing-options router-id`, routerId);
+
+        const protocols = (ospf.address_families ?? ["ipv4"]).map(
+            (family) => `${instance}protocols ${family === "ipv4" ? "ospf" : "ospf3"}`
+        );
 
         for (const protocol of protocols) {
             for (const [areaId, area] of Object.entries(ospf.areas)) {
                 if (area.type) {
-                    const type = `protocols ${protocol} area ${areaId} ${area.type}`;
+                    const type = `${protocol} area ${areaId} ${area.type}`;
                     this.out.set(type);
                     if (area.no_summaries) this.out.set(type, "no-summaries");
                     // An NSSA's border router announces its default route only with `default-lsa`.
@@ -714,7 +726,7 @@ export class JunosRender {
                 for (const [iface, settings] of Object.entries(area.interfaces)) {
                     if (!settings) continue;
 
-                    const statement = `protocols ${protocol} area ${areaId} interface ${this.names.unit(iface)}`;
+                    const statement = `${protocol} area ${areaId} interface ${this.names.unit(iface)}`;
                     this.out.set(statement);
 
                     if (settings.cost !== undefined) this.out.set(statement, "metric", settings.cost);
@@ -730,7 +742,7 @@ export class JunosRender {
                 }
             }
 
-            if (ospf.redistribute?.length) this.out.set(`protocols ${protocol} export`, JunosRender.OSPF_EXPORT);
+            if (ospf.redistribute?.length) this.out.set(`${protocol} export`, JunosRender.OSPF_EXPORT);
         }
 
         for (const source of ospf.redistribute ?? []) {
@@ -873,9 +885,10 @@ export class JunosRender {
     /** Each server is an address pool, served on its interface. */
     private dhcpServers(): void {
         for (const [name, server] of Object.entries(this.device.services?.dhcp_server ?? {})) {
-            this.out.set(`system services dhcp-local-server group ${name} interface`, this.names.unit(server.interface));
+            const instance = JunosBgp.instance(Derive.settings(this.device, server.interface)?.vrf);
+            this.out.set(`${instance}system services dhcp-local-server group ${name} interface`, this.names.unit(server.interface));
 
-            const pool = `access address-assignment pool ${name} family inet`;
+            const pool = `${instance}access address-assignment pool ${name} family inet`;
             const [low, high] = server.pool;
             this.out.set(pool, "network", server.network);
             this.out.set(pool, `range ${name} low`, low);
@@ -899,7 +912,8 @@ export class JunosRender {
      */
     private dhcpv6Servers(): void {
         for (const [name, server] of Object.entries(this.device.services?.dhcpv6_server ?? {})) {
-            const group = `system services dhcp-local-server dhcpv6 group ${name}`;
+            const instance = JunosBgp.instance(Derive.settings(this.device, server.interface)?.vrf);
+            const group = `${instance}system services dhcp-local-server dhcpv6 group ${name}`;
             this.out.set(group, "interface", this.names.unit(server.interface));
 
             const pools: string[] = [];
@@ -911,7 +925,7 @@ export class JunosRender {
             const network = Derive.dhcpv6Network(this.device, server);
             if (server.pool && network) {
                 const pool = `${name}${JunosRender.ADDRESS_POOL_SUFFIX}`;
-                const at = `access address-assignment pool ${pool} family inet6`;
+                const at = `${instance}access address-assignment pool ${pool} family inet6`;
                 const [low, high] = server.pool;
                 this.out.set(at, "prefix", network);
                 this.out.set(at, `range ${name} low`, `${low}/${Address.bits("ipv6")}`);
@@ -923,7 +937,7 @@ export class JunosRender {
             const delegation = server.prefix_delegation;
             if (delegation) {
                 const pool = `${name}${JunosRender.DELEGATED_POOL_SUFFIX}`;
-                const at = `access address-assignment pool ${pool} family inet6`;
+                const at = `${instance}access address-assignment pool ${pool} family inet6`;
                 this.out.set(at, "prefix", delegation.pool);
                 this.out.set(at, `range ${pool} prefix-length`, delegation.prefix_length);
                 attributes(at);

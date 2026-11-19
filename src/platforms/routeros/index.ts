@@ -355,6 +355,7 @@ export class RouterOs extends Platform {
             found.push(`connection.console, the ${device.model} has no serial console`);
         if (management?.interfaces) found.push("management.interfaces, which only FortiOS builds for now");
         if (management?.privilege_password) found.push("management.privilege_password, the platform has no privileged mode");
+        if (management?.ftp?.vrf) found.push("management.ftp.vrf, the platform answers FTP in the main table only");
 
         if (management?.ssh?.auth_timeout || management?.ssh?.auth_retries) {
             found.push("management.ssh.auth_timeout and auth_retries");

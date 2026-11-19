@@ -44,7 +44,6 @@
         "management.console",
         "management.privilege_password",
         "monitoring.snmp.port",
-        "monitoring.snmp.community",
         "monitoring.snmp.traps[].port",
         "monitoring.snmp.traps[].community",
         "monitoring.syslog[].port",

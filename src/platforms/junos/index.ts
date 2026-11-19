@@ -96,9 +96,16 @@ export class Junos extends Platform {
 
     override readonly console = Junos.CONSOLE;
 
-    /** Imports between tables: their statements were committed by hand on a QFX5100 (TRAPS.md). Circuit has not sent them or read them back yet. */
+    /** Imports between tables: their statements were committed by hand on a QFX5100 (TRAPS.md), but Circuit has not sent them or read them back yet. NTP and AAA servers in a VRF, and a DHCP server on an interface in one, only passed `commit check`. */
     override experimental(device: Device): string[] {
-        return device.routing?.vrf_imports ? ["routing.vrf_imports"] : [];
+        const found = Derive.serviceVrfs(device)
+            .filter(({ where }) => where === "system.ntp.vrf" || where.startsWith("system.aaa."))
+            .map(({ where }) => where);
+        if (device.routing?.vrf_imports) found.push("routing.vrf_imports");
+        for (const group of ["dhcp_server", "dhcpv6_server"] as const)
+            for (const [name, server] of Object.entries(device.services?.[group] ?? {}))
+                if (Derive.settings(device, server.interface)?.vrf) found.push(`services.${group}.${name}.interface`);
+        return found;
     }
 
     override unsupported(device: Device): string[] {
@@ -142,6 +149,13 @@ export class Junos extends Platform {
         if (management.interfaces) found.push("management.interfaces, which only FortiOS builds for now");
         if (management.native_protocol?.interfaces?.length) found.push("management.native_protocol.interfaces, NETCONF runs over IP only");
         if (management.ssh?.auth_timeout || management.ssh?.auth_retries) found.push("management.ssh.auth_timeout and auth_retries");
+
+        // `system services ssh routing-instance` is a syntax error, and a resolver takes only `mgmt_junos` (TRAPS.md).
+        for (const { where } of Derive.serviceVrfs(device)) {
+            if (where.startsWith("management.")) found.push(`${where}, Junos has no VRF setting for its services`);
+            if (where === "system.dns.vrf") found.push(`${where}, Junos 21.4 reaches a resolver through mgmt_junos only`);
+            if (where === "monitoring.snmp.vrf") found.push(`${where}, not built yet`);
+        }
 
         if (management.telnet?.port) found.push("management.telnet.port");
         if (management.ftp?.port) found.push("management.ftp.port");
@@ -290,7 +304,6 @@ export class Junos extends Platform {
 
         for (const [areaId, area] of Object.entries(routing?.ospf?.areas ?? {})) {
             for (const [iface, settings] of Object.entries(area.interfaces)) {
-                if (settings && Derive.settings(device, iface)?.vrf) found.push(`routing.ospf on ${iface}, which routes in a VRF`);
                 const algorithm = settings?.authentication?.algorithm;
                 if (algorithm && algorithm !== "md5")
                     found.push(

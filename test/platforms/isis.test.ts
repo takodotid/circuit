@@ -315,3 +315,77 @@ test("a level's settings are for a level the device runs, and its key is written
         "routing.isis.levels.2.authentication: routing.isis.authentication signs every level already. Remove one of them",
     ]);
 });
+
+test("Junos sets the overload bit, and runs BFD on an interface for each family, as the switch printed them", () => {
+    const junos = Platforms.get("junos");
+    const isis: Isis = { ...both("10g-48"), overload_bit: true, interfaces: { "10g-48": { network: "point-to-point", bfd: true } } };
+    const device = withIsis("platforms--example-aggregation-switch", isis);
+    const desired = junos.render(device);
+
+    // As `show protocols isis | display set` printed them in the candidate of a `commit check`. Nothing was committed.
+    for (const statement of [
+        "set protocols isis overload",
+        "set protocols isis interface xe-0/0/47.0 family inet bfd-liveness-detection minimum-interval 300",
+        "set protocols isis interface xe-0/0/47.0 family inet6 bfd-liveness-detection minimum-interval 300",
+    ])
+        expect(desired).toContain(statement);
+
+    const timed = junos.render({ ...device, routing: { ...device.routing, bfd: { interval: 100, multiplier: 5 } } });
+    expect(timed).toContain("set protocols isis interface xe-0/0/47.0 family inet bfd-liveness-detection minimum-interval 100");
+    expect(timed).toContain("set protocols isis interface xe-0/0/47.0 family inet bfd-liveness-detection multiplier 5");
+
+    const plain = junos.render(
+        withIsis("platforms--example-aggregation-switch", { ...both("10g-48"), interfaces: { "10g-48": { network: "point-to-point" } } })
+    );
+    expect(sent("junos", plain, desired)).toEqual([
+        "delete protocols isis overload",
+        "delete protocols isis interface xe-0/0/47.0 family inet",
+        "delete protocols isis interface xe-0/0/47.0 family inet6",
+    ]);
+});
+
+test("RouterOS refuses the overload bit and BFD, which its IS-IS has neither of", () => {
+    const isis: Isis = { ...core({}, "uplink"), overload_bit: true, interfaces: { uplink: { bfd: true } } };
+    expect(Platforms.get("routeros").unsupported(withIsis("platforms--example-router", isis))).toEqual(
+        expect.arrayContaining([
+            "routing.isis.overload_bit, RouterOS 7.24 has no IS-IS overload bit",
+            "routing.isis.interfaces.uplink.bfd, RouterOS 7.24 has no BFD for IS-IS",
+        ])
+    );
+});
+
+test("FortiOS sets the overload bit, and refuses BFD, which its IS-IS has none of", () => {
+    const fortios = Platforms.get("fortios");
+    const section = /^config router isis\n[\s\S]*?^end\n/m;
+    const render = (isis: Isis) => fortios.render(withIsis("platforms--example-firewall", isis)).match(section)![0];
+    const desired = render({ ...core({}, "10g-2"), overload_bit: true });
+
+    // As the firewall printed it.
+    const printed = `config router isis
+    set is-type level-2-only
+    set overload-bit enable
+    set metric-style wide
+    config isis-net
+        edit 1
+            set net 49.0001.1920.0000.2255.00
+        next
+    end
+    config isis-interface
+        edit "loopback"
+            set status enable
+            set network-type loopback
+        next
+        edit "port6"
+            set status enable
+            set network-type point-to-point
+            set wide-metric-l2 100
+        next
+    end
+end
+`;
+    expect(sent("fortios", desired, printed)).toEqual([]);
+    expect(sent("fortios", render(core({}, "10g-2")), printed)).toEqual(["config router isis", "unset overload-bit", "end"]);
+
+    const bfd = withIsis("platforms--example-firewall", { ...core({}, "10g-2"), interfaces: { "10g-2": { bfd: true } } });
+    expect(fortios.unsupported(bfd)).toContain("routing.isis.interfaces.10g-2.bfd, FortiOS 6.2 has no BFD for IS-IS");
+});

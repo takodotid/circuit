@@ -269,6 +269,7 @@ export class RaisecomRos extends Platform {
             ["system.hardware_offload", device.system?.hardware_offload],
             ["system.certificates", device.system?.certificates],
             ["routing.vrfs", routing?.vrfs],
+            ["routing.ospf.vrf", routing?.ospf?.vrf],
             ["monitoring.flow_export", device.monitoring?.flow_export],
         ];
 
@@ -281,6 +282,7 @@ export class RaisecomRos extends Platform {
         for (const field of ["http", "https", "api", "api_tls", "ftp", "native_protocol", "console"] as const) {
             if (management[field]) found.push(`management.${field}`);
         }
+        for (const { where } of Derive.serviceVrfs(device)) found.push(where);
 
         const snmp = device.monitoring?.snmp;
 

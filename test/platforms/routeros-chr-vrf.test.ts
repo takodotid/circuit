@@ -1,4 +1,4 @@
-// Two RouterOS CHRs, which the devices workflow boots with the first's ether2 linked to the second's. edge-01 (AS64500) holds its link to cpe-01 (AS64501) in a VRF, and runs BGP with cpe-01 there. It then takes routes between that VRF and a second one. The tests run in order on the same two routers. Skipped without both CHRs.
+// Two RouterOS CHRs, which the devices workflow boots with the first's ether2 linked to the second's. edge-01 (AS64500) holds its link to cpe-01 (AS64501) in a VRF, and runs BGP with cpe-01 there. It then takes routes between that VRF and a second one, and last runs OSPF with cpe-01 in the VRF. The tests run in order on the same two routers. Skipped without both CHRs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -30,6 +30,18 @@ const CPE_PREFIX = "203.0.113.0/24";
 const MONITORING = "10.0.5.0/24";
 /** The link between the two, a connected route in the VRF. */
 const LINK = "192.0.2.0/30";
+/** cpe-01's loopback, which it announces into OSPF. */
+const CPE_LOOPBACK = "203.0.113.1/32";
+/** A static route in edge-01's VRF, which its OSPF announces. */
+const VRF_STATIC = "198.51.100.0/24";
+
+/** OSPF in the VRF, over the link to cpe-01, with BFD, announcing the VRF's static routes. */
+const OSPF_IN_VRF = `ospf: {
+            vrf: "${VRF}",
+            areas: { "0.0.0.0": { interfaces: { "virtual-2": { network: "point-to-point", bfd: true } } } },
+            redistribute: ["static"],
+        },
+        static_routes: [{ prefix: "${VRF_STATIC}", blackhole: true, vrf: "${VRF}" }],`;
 
 /** Runs Circuit from the sources in the lab project, and prints what it printed, so the job's log shows each plan. */
 function circuit(...args: string[]): { status: number | null; output: string } {
@@ -86,8 +98,8 @@ function write(path: string, text: string): void {
     writeFileSync(join(folder, path), text);
 }
 
-/** edge-01, with its link to cpe-01 and the session over it in the VRF, these imports between the two VRFs, and these originated prefixes. */
-function writeEdge(imports: string, originated: readonly string[] = [MONITORING]): void {
+/** edge-01, with its link to cpe-01 and the session over it in the VRF, these imports between the two VRFs, these originated prefixes, and this OSPF. */
+function writeEdge(imports: string, originated: readonly string[] = [MONITORING], ospf = ""): void {
     const [host, port] = edgeChr!.split(":");
     write(
         "sites/lab/edge-01.ts",
@@ -115,6 +127,7 @@ export default lab.device({
             "${SERVICES_VRF}": { description: "Our monitoring" },
         },
         vrf_imports: [${imports}],
+        ${ospf}
         bgp: {
             asn: 64500,
             originated_prefixes: ${JSON.stringify(originated)},
@@ -164,10 +177,16 @@ export default lab.device({
             "virtual-1": { description: "Management", addresses: ["10.0.1.1/24"] },
             "virtual-2": { description: "edge-01", addresses: ["192.0.2.2/30"] },
         },
+        loopback: { loopback: { addresses: ["${CPE_LOOPBACK}"] } },
     },
     routing: {
         router_id: "192.0.2.2",
         static_routes: [{ prefix: "${CPE_PREFIX}", blackhole: true }],
+        ospf: {
+            areas: {
+                "0.0.0.0": { interfaces: { "virtual-2": { network: "point-to-point", bfd: true }, loopback: { passive: true } } },
+            },
+        },
         bgp: {
             asn: 64501,
             originated_prefixes: ["${CPE_PREFIX}"],
@@ -253,6 +272,41 @@ export default lab.device({
             expect(eventually(() => activeRoutes("edge-01", MONITORING, VRF) === 0)).toBe(true);
             expect(eventually(() => activeRoutes("cpe-01", MONITORING) === 0)).toBe(true);
             expect(activeRoutes("edge-01", LINK, SERVICES_VRF)).toBe(0);
+        },
+        TEST_MS
+    );
+
+    test(
+        "OSPF runs in the VRF with BFD: what it learns stays there, and it announces the VRF's static route",
+        () => {
+            writeEdge("", [], OSPF_IN_VRF);
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+
+            const learned = eventually(() => activeRoutes("edge-01", CPE_LOOPBACK, VRF) === 1);
+            const announced = eventually(() => activeRoutes("cpe-01", VRF_STATIC) === 1);
+            const bfd = eventually(() => circuit("exec", "edge-01", "/routing bfd session print detail").output.includes("state=up"));
+            // The neighbor and the BFD session, for the job's log.
+            circuit("exec", "edge-01", "/routing ospf neighbor print detail");
+
+            expect({ learned, announced, bfd, inMain: activeRoutes("edge-01", CPE_LOOPBACK) }).toEqual({
+                learned: true,
+                announced: true,
+                bfd: true,
+                inMain: 0,
+            });
+        },
+        TEST_MS
+    );
+
+    test(
+        "without OSPF, the VRF loses what it learned",
+        () => {
+            writeEdge("", []);
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+
+            expect(eventually(() => activeRoutes("edge-01", CPE_LOOPBACK, VRF) === 0)).toBe(true);
         },
         TEST_MS
     );

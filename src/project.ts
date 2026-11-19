@@ -496,9 +496,14 @@ export class Project {
         }
         need("interface", d.monitoring?.flow_export?.interfaces, "monitoring.flow_export.interfaces");
         (d.monitoring?.snmp?.traps ?? []).forEach((t: Json, n: number) => need("SNMP user", t.user, `monitoring.snmp.traps[${n}].user`));
-        (d.monitoring?.syslog ?? []).forEach((s: Json, n: number) =>
-            need("certificate", s.transport_security?.ca_certificate, `monitoring.syslog[${n}].transport_security.ca_certificate`)
-        );
+        (d.monitoring?.syslog ?? []).forEach((s: Json, n: number) => {
+            need("certificate", s.transport_security?.ca_certificate, `monitoring.syslog[${n}].transport_security.ca_certificate`);
+            need("VRF", s.vrf, `monitoring.syslog[${n}].vrf`);
+        });
+        need("VRF", d.monitoring?.snmp?.vrf, "monitoring.snmp.vrf");
+        for (const [s, service] of Object.entries<Json>(d.management ?? {})) need("VRF", service?.vrf, `management.${s}.vrf`);
+        for (const group of ["dns", "ntp"]) need("VRF", d.system?.[group]?.vrf, `system.${group}.vrf`);
+        (d.system?.aaa?.radius ?? []).forEach((s: Json, n: number) => need("VRF", s.vrf, `system.aaa.radius[${n}].vrf`));
         for (const [v, vdom] of Object.entries<Json>(d.system?.vdoms ?? {}))
             need("interface", vdom.interfaces, `system.vdoms.${v}.interfaces`);
 
@@ -563,6 +568,7 @@ export class Project {
                 need("policy", rule.call, `routing.policies.${p}[${i}].call`, written);
                 need("prefix set", rule.if?.prefix_set, `routing.policies.${p}[${i}].if.prefix_set`, written);
             });
+        need("VRF", d.routing?.ospf?.vrf, "routing.ospf.vrf");
         for (const [a, area] of Object.entries<Json>(d.routing?.ospf?.areas ?? {}))
             need("interface", Project.keys(area.interfaces), `routing.ospf.areas.${a}.interfaces`);
         need("interface", Project.keys(d.routing?.isis?.interfaces), "routing.isis.interfaces");

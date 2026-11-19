@@ -164,10 +164,14 @@ export class RouterOsRouting {
         if (isis.authentication) found.push(`routing.isis.authentication, ${noAuthentication}`);
         for (const [level, settings] of Object.entries(isis.levels ?? {}))
             if (settings?.authentication) found.push(`routing.isis.levels.${level}.authentication, ${noAuthentication}`);
+        if (isis.overload_bit) found.push("routing.isis.overload_bit, RouterOS 7.24 has no IS-IS overload bit");
 
-        for (const [name, settings] of Object.entries(isis.interfaces))
+        for (const [name, settings] of Object.entries(isis.interfaces)) {
+            const where = `routing.isis.interfaces.${name}`;
+            if (settings?.bfd) found.push(`${where}.bfd, RouterOS 7.24 has no BFD for IS-IS`);
             if (settings?.passive && settings.metric !== undefined)
-                found.push(`routing.isis.interfaces.${name}.metric with passive, RouterOS refuses a metric on a passive interface`);
+                found.push(`${where}.metric with passive, RouterOS refuses a metric on a passive interface`);
+        }
         return found;
     }
 
@@ -564,6 +568,7 @@ export class RouterOsRouting {
                 redistribute: ospf.redistribute?.join(","),
                 "router-id": this.device.routing?.router_id,
                 version,
+                vrf: ospf.vrf,
             });
 
             for (const [areaId, area] of Object.entries(ospf.areas)) {
