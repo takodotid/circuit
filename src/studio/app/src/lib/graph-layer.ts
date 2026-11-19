@@ -40,7 +40,7 @@ export class GraphLayer {
         l3: "Prefixes that devices share.",
         bgp: "Sessions between our devices, and to each AS outside.",
         ospf: "Interfaces in one area and one prefix, neither passive.",
-        tunnels: "GRE and VXLAN tunnels, and WireGuard peers.",
+        tunnels: "GRE, VXLAN, and IPsec tunnels, and WireGuard peers.",
     };
 
     /** What one line and many lines are called on each layer. */

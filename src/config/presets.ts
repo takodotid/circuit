@@ -2,6 +2,7 @@
 
 import type { Prefix } from "./common";
 import type { FilterRule, Ports } from "./firewall";
+import type { IpsecIke } from "./interfaces";
 import type { AsNumbers, RouteRule } from "./routing";
 
 const bogons = {
@@ -143,6 +144,16 @@ export const presets = {
      * AS numbers no route on the internet should carry, as the NLNOG BGP Filter Guide lists them. They are the IANA special-purpose AS numbers (RFC 7249), less the one RFC 7534 uses, and the AS numbers IANA keeps reserved. A route with one anywhere in its path leaked from a private network or is a mistake: `{ if: { as_path_contains: presets.bogon_asns }, then: "reject" }`.
      */
     bogon_asns,
+
+    /**
+     * IKE algorithms every IKEv2 peer has, since RFC 8247 says each implementation must: AES-CBC with a 256-bit key, HMAC-SHA-256, and Diffie-Hellman group 14. Add the lifetime: `ike: { ...presets.ipsec_rfc8247, lifetime: 86400 }`.
+     */
+    ipsec_rfc8247: {
+        encryption: "aes-256-cbc",
+        integrity: "hmac-sha2-256-128",
+        prf: "hmac-sha2-256",
+        dh_group: 14,
+    } as const satisfies Omit<IpsecIke, "lifetime">,
 
     /** Firewall rules for a forward chain. They drop TCP flag combinations that no valid TCP packet carries (RFC 9293). Place them with `merge`. */
     bad_tcp_flags,

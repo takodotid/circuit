@@ -107,6 +107,7 @@ export class Derive {
         "loopback",
         "gre",
         "vxlan",
+        "ipsec",
         "wireguard",
         "eoip",
     ];

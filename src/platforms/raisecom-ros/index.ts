@@ -209,7 +209,8 @@ export class RaisecomRos extends Platform {
 
         // Only LAGs and VLAN interfaces are built here.
         for (const { name, kind } of interfaces) {
-            if (kind !== "lag" && kind !== "vlan_interface") found.push(`interfaces.${kind}.${name}`);
+            if (kind === "ipsec") found.push(`interfaces.ipsec.${name}, IPsec: the switch does not encrypt the traffic it forwards`);
+            else if (kind !== "lag" && kind !== "vlan_interface") found.push(`interfaces.${kind}.${name}`);
         }
 
         const routing = device.routing;

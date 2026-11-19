@@ -399,3 +399,30 @@ test("a pool's subscribers and blocks of ports fit, and two pools share no addre
         "firewall.nat.source: to_pool 198.51.100.0/27 for 100.64.0.0/22 and to_pool 198.51.100.16/28 for 100.64.16.0/22 share addresses, so two subscribers would get the same ports. Give each its own pool addresses.",
     ]);
 });
+
+test("an IPsec tunnel's endpoints are of one family, a cbc encryption takes integrity and a gcm one none, and a lifetime is whole seconds", () => {
+    const device: Device = {
+        ...router,
+        interfaces: {
+            ...router.interfaces,
+            ipsec: {
+                branch: {
+                    local_address: "192.0.2.1",
+                    remote_address: "2001:db8::2",
+                    pre_shared_key: { secret: "IPSEC_KEY" },
+                    ike: { encryption: "aes-256-cbc", prf: "hmac-sha2-256", dh_group: 14, lifetime: 0.5 },
+                    esp: { encryption: "aes-256-gcm", integrity: "hmac-sha2-256-128", lifetime: 3600 },
+                },
+            },
+        },
+    };
+
+    expect(messages(device)).toEqual(
+        expect.arrayContaining([
+            "interfaces.ipsec.branch: local_address 192.0.2.1 and remote_address 2001:db8::2 differ in family",
+            'interfaces.ipsec.branch.ike has aes-256-cbc without integrity. Add integrity, such as "hmac-sha2-256-128"',
+            "interfaces.ipsec.branch.ike.lifetime 0.5 is not a whole number of seconds above 0",
+            "interfaces.ipsec.branch.esp.integrity: aes-256-gcm protects integrity itself. Remove integrity",
+        ])
+    );
+});

@@ -123,12 +123,12 @@ export class BuiltInChecks {
         return findings;
     }
 
-    /** `tunnels_outside_offered`: a GRE or VXLAN tunnel's local address is outside what the neighbors over it are offered, or their replies route back into the tunnel. */
+    /** `tunnels_outside_offered`: a GRE, VXLAN, or IPsec tunnel's local address is outside what the neighbors over it are offered, or their replies route back into the tunnel. */
     static tunnelsOutsideOffered(devices: readonly Device[]): Finding[] {
         const findings: Finding[] = [];
 
         for (const device of devices) {
-            const tunnels = Derive.interfaces(device).filter(({ kind }) => kind === "gre" || kind === "vxlan");
+            const tunnels = Derive.interfaces(device).filter(({ kind }) => kind === "gre" || kind === "vxlan" || kind === "ipsec");
 
             for (const { name, kind, settings } of tunnels) {
                 const local = (settings as Extract<Interface, { local_address: string }>).local_address;

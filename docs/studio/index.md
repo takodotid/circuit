@@ -39,7 +39,7 @@ The graph draws your network one layer at a time. Pick a layer at the top of the
 | Addresses | Address ranges that devices share.                                                  |
 | BGP       | Sessions between your devices, matched by address, and sessions to each AS outside. |
 | OSPF      | Interfaces in one area and one prefix, where neither side is passive.               |
-| Tunnels   | GRE and VXLAN tunnels, matched by their endpoints, and WireGuard peers.             |
+| Tunnels   | GRE, VXLAN, and IPsec tunnels, matched by their endpoints, and WireGuard peers.     |
 
 - Click a device or a line to see it in the side panel. Esc clears the selection.
 - Double-click a device to open its page.

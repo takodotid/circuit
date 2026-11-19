@@ -133,6 +133,7 @@ export class NetBox implements SyncTarget<NetBoxPlan> {
         loopback: "virtual",
         gre: "virtual",
         vxlan: "virtual",
+        ipsec: "virtual",
         wireguard: "virtual",
         eoip: "virtual",
     };

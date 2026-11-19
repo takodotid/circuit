@@ -306,6 +306,17 @@ export const DEVICE = {
         loopback: { "*": UNCHECKED },
         gre: { "*": { ...BASE, local_address: 0, remote_address: 0 } },
         vxlan: { "*": { ...BASE, vni: 0, local_address: 0, remote_address: 0, port: 0, mac: 0 } },
+        ipsec: {
+            "*": {
+                addresses: ROUTED.addresses,
+                description: 0,
+                local_address: 0,
+                remote_address: 0,
+                pre_shared_key: SECRET,
+                ike: { encryption: 0, integrity: 0, prf: 0, dh_group: 0, lifetime: 0 },
+                esp: { encryption: 0, integrity: 0, pfs_group: 0, lifetime: 0 },
+            },
+        },
         wireguard: {
             "*": {
                 ...BASE,
