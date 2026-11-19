@@ -17,6 +17,7 @@ import { JunosBgp } from "./bgp";
 import { JunosNames } from "./names";
 import { JunosPlan } from "./plan";
 import { JunosRender } from "./render";
+import { JunosSwitching } from "./switching";
 
 /** How a commit that could cut access is guarded: it rolls back after `minutes` unless `prove` shows access survived. */
 export type Guard = { minutes: number; prove: () => Promise<void> };
@@ -104,6 +105,7 @@ export class Junos extends Platform {
             if (kind === "vlan_interface" && device.interfaces?.vlan_interface?.[name]?.mac)
                 found.push(`interfaces.vlan_interface.${name}.mac, which only RouterOS sets for now`);
         }
+        found.push(...JunosSwitching.gaps(device));
         const names = new JunosNames(device);
         const users = device.system?.users ?? {};
 

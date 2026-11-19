@@ -45,6 +45,7 @@ A note in a cell means "works, with this limit".
 | DHCP snooping       | ✅                                 | 🧪            | ❌                | ✅    | ❌                  |
 | ARP inspection      | ❌                                 | ❌            | ❌                | ✅    | ❌                  |
 | Private VLANs       | isolated only, switched by the CPU | ❌            | ❌                | ✅    | ❌                  |
+| QinQ                | ✅                                 | 🧪            | ❌                | ✅    | ❌                  |
 | RA guard            | ✅                                 | ❌            | ❌                | ✅    | ❌                  |
 | Hardware ACLs       | ✅                                 | ❌            | ❌                | ✅    | ✅ drop rules only  |
 | LLDP                | ✅                                 | ✅            | ✅                | ✅    | ✅                  |

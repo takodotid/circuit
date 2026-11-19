@@ -344,6 +344,7 @@ export class VrpRender {
 
     private switching(settings: Port | Lag): string[] {
         const lines: string[] = [];
+        if (settings.qinq_vlan) lines.push("port link-type dot1q-tunnel", `port default vlan ${this.vlanId(settings.qinq_vlan)}`);
         if (settings.access_vlan) lines.push(`port default vlan ${this.vlanId(settings.access_vlan)}`);
         if (settings.trunk_vlans) {
             lines.push("port link-type trunk");

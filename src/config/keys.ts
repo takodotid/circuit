@@ -166,6 +166,7 @@ const SWITCHED = {
     bound_to: [{ mac: 0, addresses: 0 }],
     dhcp_trusted: 0,
     ra_trusted: 0,
+    qinq_vlan: 0,
 } as const;
 const BASE = { ...ROUTED, description: 0, mtu: 0, shaping: { algorithm: 0, mbps: 0 } } as const;
 // No packet arrives on a loopback, and a bridge doesn't route what crosses it.

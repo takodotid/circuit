@@ -48,6 +48,7 @@ export class RouterOsExport {
             trusted: "no",
             "trusted-ra": "no",
             horizon: "none",
+            "tag-stacking": "no",
         },
         "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
         // A CHR prints `disable-running-check=no` on every port, as it ships. A RouterBOARD has no such property, so this changes nothing there (TRAPS.md).

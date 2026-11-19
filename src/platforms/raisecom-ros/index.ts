@@ -306,6 +306,7 @@ export class RaisecomRos extends Platform {
         for (const { where, settings } of Derive.switchedHolders(device)) {
             if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted, ${snooping}`);
             if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${raGuard}`);
+            if (settings.qinq_vlan) found.push(`${where}.qinq_vlan, ${snooping}`);
         }
 
         for (const [name, user] of Object.entries(device.system?.users ?? {})) {

@@ -326,19 +326,22 @@ export class JunosRender {
         return this.device.management?.[service];
     }
 
-    /** The native VLAN is a member too, or its untagged frames are dropped. */
+    /** The native VLAN is a member too, or its untagged frames are dropped. QinQ VLANs take units of their own, and the trunk's other VLANs share unit 0. */
     private switching(physical: string, settings: Switched): void {
         const family = `interfaces ${physical} unit 0 family ethernet-switching`;
+        const trunkVlans = this.layer2.qinq(physical, settings);
 
         if (settings.access_vlan) {
             this.out.set(family, "interface-mode access");
             this.out.set(family, "vlan members", settings.access_vlan);
         }
 
-        if (settings.trunk_vlans) {
+        // A trunk of QinQ VLANs only has no unit 0.
+        const onlyQinq = settings.trunk_vlans?.length && !trunkVlans.length && !settings.native_vlan;
+        if (settings.trunk_vlans && !onlyQinq) {
             this.out.set(family, "interface-mode trunk");
 
-            const members = new Set([...settings.trunk_vlans, ...(settings.native_vlan ? [settings.native_vlan] : [])]);
+            const members = new Set([...trunkVlans, ...(settings.native_vlan ? [settings.native_vlan] : [])]);
             for (const vlan of members) this.out.set(family, "vlan members", vlan);
 
             if (settings.native_vlan)

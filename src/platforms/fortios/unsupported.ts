@@ -241,7 +241,15 @@ export class FortiOsUnsupported {
             if (port.speed && !FortiOsRender.SPEEDS[speedClass]?.[port.speed])
                 found.push(`${where}.speed ${port.speed}, not in a ${speedClass} cage`);
 
-            for (const field of ["access_vlan", "native_vlan", "stp", "storm_control", "dhcp_trusted", "ra_trusted"] as const) {
+            for (const field of [
+                "access_vlan",
+                "native_vlan",
+                "qinq_vlan",
+                "stp",
+                "storm_control",
+                "dhcp_trusted",
+                "ra_trusted",
+            ] as const) {
                 if (port[field] !== undefined) found.push(`${where}.${field}, ports are routed`);
             }
 
@@ -281,7 +289,15 @@ export class FortiOsUnsupported {
             if (kind === "lag") {
                 const lag = iface as Lag;
                 if (lag.id !== undefined) found.push(`${where}.id, the platform names a LAG by its key`);
-                for (const field of ["access_vlan", "native_vlan", "stp", "storm_control", "dhcp_trusted", "ra_trusted"] as const) {
+                for (const field of [
+                    "access_vlan",
+                    "native_vlan",
+                    "qinq_vlan",
+                    "stp",
+                    "storm_control",
+                    "dhcp_trusted",
+                    "ra_trusted",
+                ] as const) {
                     if (lag[field] !== undefined) found.push(`${where}.${field}, LAGs are routed`);
                 }
 

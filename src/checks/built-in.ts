@@ -74,9 +74,9 @@ export class BuiltInChecks {
         });
     }
 
-    /** The VLANs a port or LAG carries, untagged or tagged. */
-    static vlansOf(port: Pick<Switched, "access_vlan" | "trunk_vlans">): string[] {
-        return [port.access_vlan, ...(port.trunk_vlans ?? [])].filter((vlan): vlan is string => vlan !== undefined);
+    /** The VLANs a port or LAG carries, untagged, tagged, or as QinQ. */
+    static vlansOf(port: Pick<Switched, "access_vlan" | "trunk_vlans" | "qinq_vlan">): string[] {
+        return [port.access_vlan, port.qinq_vlan, ...(port.trunk_vlans ?? [])].filter((vlan): vlan is string => vlan !== undefined);
     }
 
     /** `exports_end_in_reject`: every BGP export ends in a reject that matches everything. An export to a neighbor whose `role` is `customer` is left out. */

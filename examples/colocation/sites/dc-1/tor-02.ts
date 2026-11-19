@@ -1,4 +1,4 @@
-// The switch for small tenants: each has a server on one port, in a subnet they all share. Each server reaches the gateway, never another tenant's server, and the guards keep one tenant from harming another.
+// The switch for small tenants: each has a server on one port, in a subnet they all share. Each server reaches the gateway, never another tenant's server, and the guards keep one tenant from harming another. One tenant's switch reaches its racks in hall 2.
 
 import { as64500 } from "../../circuit";
 import { dc_1 } from "./site";
@@ -24,6 +24,9 @@ export default as64500.device({
 
     interfaces: {
         ethernet: {
+            // A tenant's own switch: whatever VLANs it sends reach its racks in hall 2, inside VLAN hall-2.
+            "10g-4": { description: "Switch of a tenant in halls 1 and 2", qinq_vlan: "hall-2", stp: { guard: "root" } },
+            "10g-47": { description: "Core switch of hall 2", trunk_vlans: ["hall-2"] },
             // #region port-guards
             // Only the uplink to the router may carry DHCP offers and router advertisements.
             "10g-48": {
@@ -49,6 +52,7 @@ export default as64500.device({
             shared: dc_1.vlans.shared,
             // Isolated ports reach the uplink, which carries shared, but never each other (RFC 5517).
             tenants: { id: 501, description: "Small tenants, kept apart", private_vlan: { primary: "shared", type: "isolated" } },
+            "hall-2": { id: 600, description: "One tenant's own VLANs, between halls 1 and 2" },
         },
         stp: {},
         dhcp_snooping: true,
