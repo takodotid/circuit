@@ -314,6 +314,48 @@ test("a service's available-from on RouterOS 7.24 is its address", () => {
     expect(other.steps.flatMap((step) => step.send)).toEqual(["/ip service set ssh address=192.168.77.0/24"]);
 });
 
+// The plan kept only the first prefix's length: `10.0.2.0/24,198.51.100.0/30` went out as `10.0.2.0/24,198.51.100.0`, which a CHR took as the one host `198.51.100.0/32` (7.24.6, #313).
+test("each prefix of a service's sources keeps its length, sent and compared", () => {
+    const adapter = Platforms.get("routeros");
+    const options = { secrets: false, rollback: 10 };
+    const desired = (length: number) => `/ip service\nset ssh address=10.0.2.0/24,198.51.100.0/${length}\n`;
+    const printed = (last: string) => `/ip service\nset ssh available-from=10.0.2.0/24,${last}\n`;
+    const sent = (plan: ReturnType<typeof adapter.plan>) => plan.steps.flatMap((step) => step.send);
+
+    expect(sent(adapter.plan(desired(30), printed("198.51.100.0/32"), options))).toEqual([
+        "/ip service set ssh address=10.0.2.0/24,198.51.100.0/30",
+    ]);
+    expect(adapter.plan(desired(30), printed("198.51.100.0/30"), options).steps).toEqual([]);
+    expect(sent(adapter.plan(desired(29), printed("198.51.100.0/30"), options))).toEqual([
+        "/ip service set ssh address=10.0.2.0/24,198.51.100.0/29",
+    ]);
+});
+
+// As a CHR printed them (7.24.6): in the order sent, IPv6 lowercase, and a host with /32 or /128.
+test("a WireGuard peer's and an SNMP community's lists of prefixes compare item by item", () => {
+    const adapter = Platforms.get("routeros");
+    const options = { secrets: false, rollback: 10 };
+    const key = 'public-key="bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmU="';
+    const peer = (allowed: string) => `/interface wireguard peers\nadd allowed-address=${allowed} interface=wg1 name=wg1-alice ${key}\n`;
+    const printedPeer = [
+        "/interface wireguard peers",
+        'add allowed-address="10.9.0.0/24,198.51.100.4/32,2001:db8::/48,2001:db8:1::1/128,2001:db8:2::/64" \\',
+        `    interface=wg1 name=wg1-alice ${key}`,
+    ].join("\n");
+
+    const allowed = "10.9.0.0/24,198.51.100.4/32,2001:db8::/48,2001:db8:1::1/128,2001:DB8:2::/64";
+    expect(adapter.plan(peer(allowed), printedPeer, options).steps).toEqual([]);
+    expect(
+        adapter.plan(peer(allowed.replace("2001:db8::/48", "2001:db8::/56")), printedPeer, options).steps.flatMap((step) => step.send)
+    ).toEqual([
+        "/interface wireguard peers set [ find name=wg1-alice ] allowed-address=10.9.0.0/24,198.51.100.4,2001:db8::/56,2001:db8:1::1/128,2001:db8:2::/64",
+    ]);
+
+    const community = (addresses: string) => `/snmp community\nset [ find default=yes ] addresses=${addresses}\n`;
+    const printedCommunity = community("10.0.2.0/24,198.51.100.4/32,2001:db8::/32");
+    expect(adapter.plan(community("10.0.2.0/24,198.51.100.4/32,2001:DB8::/32"), printedCommunity, options).steps).toEqual([]);
+});
+
 // RouterOS 7.24 prints the default neighbor discovery entry with `advertise-dns=yes` on a device nobody changed, under a comment that it is not started.
 test("the default neighbor discovery entry printed with advertise-dns plans nothing", () => {
     const adapter = Platforms.get("routeros");

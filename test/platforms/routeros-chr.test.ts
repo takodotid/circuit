@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Ssh } from "../../src/transport/ssh";
 
 /** The CHR's SSH, as `host:port`. Its user `operator` has the password in CIRCUIT_TEST_CHR_PASSWORD. */
 const chr = process.env.CIRCUIT_TEST_CHR;
@@ -15,6 +16,22 @@ const deviceFile = join(folder, "sites", "pop-1", "edge-01.ts");
 
 /** An apply reads the device, saves a backup, sends the plan, and logs in again. */
 const APPLY_MS = 600_000;
+
+/** Runs one command on the CHR over SSH, as Circuit logs in. */
+async function onChr(command: string): Promise<string> {
+    const [host, port] = chr!.split(":");
+    const client = await Ssh.connect({
+        host: host!,
+        port: Number(port),
+        user: "operator",
+        password: () => process.env.CIRCUIT_TEST_CHR_PASSWORD ?? "",
+    });
+    try {
+        return await Ssh.exec(client, command);
+    } finally {
+        client.end();
+    }
+}
 
 /** Runs Circuit from the sources in the copy, and prints what it printed, so the job's log shows each plan. */
 function circuit(...args: string[]): { status: number | null; output: string } {
@@ -124,6 +141,32 @@ describe.skipIf(!chr)("a CHR", () => {
 
             writeFileSync(deviceFile, replaced(example, /, urpf: \{ ipv4: "loose" \}/g, ""));
             expect(circuit("diff", "edge-01").output).toContain("rp-filter=no");
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+        },
+        APPLY_MS
+    );
+
+    // The runner reaches the CHR from 10.0.0.2, so each apply's fresh login shows SSH still lets it in (#313).
+    test(
+        "management.allow with two prefixes reaches the device whole, and a change of one length plans one set",
+        async () => {
+            const two = replaced(example, 'allow: ["10.0.0.0/24"]', 'allow: ["10.0.0.0/24", "198.51.100.0/30"]');
+            writeFileSync(deviceFile, two);
+            expect(circuit("diff", "edge-01").output).toContain("~ set ssh address=10.0.0.0/24,198.51.100.0/30");
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(await onChr(":put [/ip service get ssh available-from]")).toBe("10.0.0.0/24;198.51.100.0/30");
+            expect(circuit("diff", "edge-01").status).toBe(0);
+
+            writeFileSync(deviceFile, replaced(two, "198.51.100.0/30", "198.51.100.0/29"));
+            const wider = circuit("diff", "edge-01");
+            expect(wider.output).toContain("1 command(s) in 1 step(s)");
+            expect(wider.output).toContain("~ set ssh address=10.0.0.0/24,198.51.100.0/29");
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(await onChr(":put [/ip service get ssh available-from]")).toBe("10.0.0.0/24;198.51.100.0/29");
+            expect(circuit("diff", "edge-01").status).toBe(0);
+
+            writeFileSync(deviceFile, example);
             expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
             expect(circuit("diff", "edge-01").status).toBe(0);
         },

@@ -23,6 +23,11 @@ test("Address.canonical reads an IPv4 address at the end of an IPv6 one", () => 
     expect(Address.isValid("2001:db8:1:2:3:4:5:192.0.2.1")).toBe(false);
 });
 
+test("Address.canonical gives back a list of prefixes as it is", () => {
+    expect(Address.canonical("10.0.2.0/24,198.51.100.0/30")).toBe("10.0.2.0/24,198.51.100.0/30");
+    expect(Address.canonical("2001:DB8::/32,2001:db8:1::/48")).toBe("2001:DB8::/32,2001:db8:1::/48");
+});
+
 test("Address.isGlobal follows IANA's special-purpose registries, where the longest block decides", () => {
     // IETF assignments, multicast, reserved, the limited broadcast, benchmarking, RFC 9637 documentation, SRv6, and the older ranges.
     const local = [
