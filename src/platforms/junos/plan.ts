@@ -161,13 +161,15 @@ export class JunosPlan {
                 !removed.some((other) => isInside(path, other)) && removed.findIndex((other) => join(other) === join(path)) === index
         );
 
-        const isRemoved = (line: string) => removals.some((path) => JunosPlan.startsWith(JunosPlan.keyOf(line), path.map(JunosPlan.bare)));
+        // A removed path in the form statements compare in, so one through a redacted name, `snmp community <redacted>`, finds what it holds.
+        const keyOfPath = (path: string[]) => JunosPlan.keyOf(`set ${path.join(" ")}`);
+        const isRemoved = (line: string) => removals.some((path) => JunosPlan.startsWith(JunosPlan.keyOf(line), keyOfPath(path)));
 
         for (const path of removals) {
             const section = sectionFor(path.map(JunosPlan.bare));
             section.remove.push(`delete ${path.join(" ")}`);
 
-            const under = existing.filter((line) => JunosPlan.startsWith(JunosPlan.keyOf(line), path.map(JunosPlan.bare)));
+            const under = existing.filter((line) => JunosPlan.startsWith(JunosPlan.keyOf(line), keyOfPath(path)));
             section.show.push(...under.map((line) => `- ${line}`));
         }
 
