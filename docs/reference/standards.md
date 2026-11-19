@@ -32,6 +32,7 @@ Each RFC's status is as the RFC Editor listed it on 2026-11-01.
 | TCP MD5 on BGP sessions                                        | RFC 2385, obsoleted by RFC 5925 (TCP-AO), which the model does not offer                                                  | neighbor `password`                                                  |
 | TTL security (GTSM)                                            | RFC 5082                                                                                                                  | neighbor `ttl_security`                                              |
 | BGP route reflection                                           | RFC 4456                                                                                                                  | neighbor `route_reflector_client`, `routing.bgp.cluster_id`          |
+| BGP confederations                                             | RFC 5065                                                                                                                  | `routing.bgp.confederation`                                          |
 | Graceful restart                                               | RFC 4724                                                                                                                  | neighbor `graceful_restart`                                          |
 | Route origin validation                                        | RFC 6811 (updated by RFC 8481 and RFC 8893)                                                                               | policy `rpki` match, `presets.bgp_sanity`                            |
 | RPKI to router protocol                                        | RFC 8210                                                                                                                  | `routing.rpki`                                                       |
@@ -49,15 +50,15 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 
 ## Addresses
 
-| Feature                           | Standard                     | In model                                                  |
-| --------------------------------- | ---------------------------- | --------------------------------------------------------- |
-| Special-purpose (bogon) addresses | BCP 153 (RFC 6890, RFC 8190) | `presets.bogons`                                          |
-| Private IPv4                      | BCP 5 (RFC 1918)             | `presets.rfc1918`                                         |
-| Shared address space (CGNAT)      | BCP 153 (RFC 6598)           | `presets.bogons.ipv4.shared_address_space`                |
-| IPv4 prefixes (CIDR)              | BCP 122 (RFC 4632)           | every prefix; `address` helpers; `presets.default_routes` |
-| IPv6 addressing                   | RFC 4291                     | every IPv6 address; `address` helpers                     |
-| How IPv6 is written               | RFC 5952                     | `address.host`, `.first`, `.last`                         |
-| IPv6 router advertisements        | RFC 4861                     | interface `ipv6_ra`                                       |
+| Feature                           | Standard                                              | In model                                                  |
+| --------------------------------- | ----------------------------------------------------- | --------------------------------------------------------- |
+| Special-purpose (bogon) addresses | BCP 153 (RFC 6890, RFC 8190)                          | `presets.bogons`                                          |
+| Private IPv4                      | BCP 5 (RFC 1918)                                      | `presets.rfc1918`                                         |
+| Shared address space (CGNAT)      | BCP 153 (RFC 6598)                                    | `presets.bogons.ipv4.shared_address_space`                |
+| IPv4 prefixes (CIDR)              | BCP 122 (RFC 4632)                                    | every prefix; `address` helpers; `presets.default_routes` |
+| IPv6 addressing                   | RFC 4291                                              | every IPv6 address; `address` helpers                     |
+| How IPv6 is written               | RFC 5952                                              | `address.host`, `.first`, `.last`                         |
+| IPv6 router advertisements        | RFC 4861; RFC 8106 for DNS servers and search domains | interface `ipv6_ra`                                       |
 
 ## Switching
 

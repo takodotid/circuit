@@ -385,6 +385,9 @@ export class FortiOsRouting {
         if (bgp.asn !== undefined) block.set("as", bgp.asn);
         if (device.routing?.router_id) block.set("router-id", device.routing.router_id);
         if (bgp.cluster_id) block.set("cluster-id", bgp.cluster_id);
+        if (bgp.confederation) block.set("confederation-identifier", bgp.confederation.identifier);
+        if (bgp.confederation?.member_as.length)
+            block.set("confederation-peers", FortiOsTree.quoteAll(bgp.confederation.member_as.map(String)));
 
         // Each neighbor asks for it, and the device as a whole keeps forwarding while BGP restarts.
         const graceful = Object.values(bgp.neighbors ?? {}).some(
@@ -602,19 +605,6 @@ export class FortiOsRouting {
         }
 
         return found;
-    }
-
-    /** AS path matches, rendered from Fortinet's documentation. A FortiGate puts no AS path on the routes it originates, so without a BGP neighbor no test reaches them (TRAPS.md). */
-    static experimental(device: Device): string[] {
-        return Object.entries(device.routing?.policies ?? {}).flatMap(([name, rules]) =>
-            (rules ?? []).flatMap((rule, index) =>
-                FortiOsRouting.isRouteRule(rule)
-                    ? FortiOsRouting.AS_PATH_FIELDS.filter((field) => rule.if?.[field] !== undefined).map(
-                          (field) => `routing.policies.${name}[${index}].if.${field}`
-                      )
-                    : []
-            )
-        );
     }
 
     private static ruleGaps(device: Device, where: string, rule: PolicyRule): string[] {

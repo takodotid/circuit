@@ -159,7 +159,7 @@ test("FortiOS matches one AS path list per rule, a pattern for each number range
     expect(fortios.unsupported(device)).toContain(
         "routing.policies.as64501-import[4].if.first_as with as_path_length: a route map rule matches one AS path list. Match each in a rule of its own"
     );
-    expect(fortios.experimental?.(device)).toContain("routing.policies.as64501-import[0].if.origin_as");
+    expect(fortios.experimental?.(device)).toEqual([]);
 });
 
 test("FortiOS writes a number range as patterns that match exactly its numbers", () => {

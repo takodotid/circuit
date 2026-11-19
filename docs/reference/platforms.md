@@ -59,7 +59,7 @@ A note in a cell means "works, with this limit".
 | Shaping (CAKE)             | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
 | Proxy ARP for an address   | ❌                                                      | ❌             | ❌           | ❌        | ✅                               |
 | VRRP                       | ✅                                                      | IPv4           | IPv4         | IPv4      | IPv4                             |
-| IPv6 router advertisement  | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
+| IPv6 router advertisement  | ✅ no search domains                                    | ❌             | ❌           | ✅        | ✅                               |
 | uRPF (RFC 3704)            | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs | 🧪 loose, IPv4 | ❌           | ✅ strict | 🧪 strict, one mode for the VDOM |
 
 ### Routing
@@ -78,11 +78,12 @@ A note in a cell means "works, with this limit".
 | BGP                          | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | BGP communities              | ✅                      | ❌         | ❌                       | ✅                    | ✅ no large ones |
-| AS path matches              | ✅                      | ❌         | ❌                       | ✅ 21.3 or later      | 🧪 one per rule  |
+| AS path matches              | ✅                      | ❌         | ❌                       | ✅ 21.3 or later      | ✅ one per rule  |
 | RPKI                         | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
 | BGP roles (RFC 9234)         | ✅                      | ❌         | ❌                       | ❌                    | ❌               |
 | GTSM (RFC 5082)              | ✅ eBGP                 | ❌         | ❌                       | ❌                    | ❌               |
 | Route reflection (RFC 4456)  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
+| Confederations (RFC 5065)    | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
 | Graceful restart (RFC 4724)  | ❌                      | ❌         | ❌                       | ✅ all or no sessions | ✅               |
 | Prefix limit that restarts   | ❌                      | ❌         | ❌                       | ✅ whole minutes      | ❌               |
 | Prefix limit that only warns | ❌                      | ❌         | ❌                       | ✅                    | ✅               |

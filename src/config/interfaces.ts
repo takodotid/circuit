@@ -1,4 +1,4 @@
-import type { HostAddress, IP, InterfaceAddress, MacAddress, Named, Prefix, Secret } from "./common";
+import type { HostAddress, IP, IPv6, InterfaceAddress, MacAddress, Named, Prefix, Secret } from "./common";
 
 /** A storm-control threshold: packets per second, or percent of the link's speed. */
 export type Threshold =
@@ -59,6 +59,32 @@ export type Address =
 /** How a uRPF check decides (RFC 3704). */
 export type UrpfMode = "strict" | "loose";
 
+/** A prefix a router advertisement announces (RFC 4861), with what hosts may do with it. */
+export type AdvertisedPrefix = {
+    /** The prefix, such as `2001:db8:100:1::/64`. Hosts make their own addresses only in a /64. */
+    prefix: Prefix;
+    /** Seconds an address made from it stays valid. Up to 4294967295, which is forever. */
+    valid_lifetime?: number;
+    /** Seconds an address made from it is used for new connections, at most `valid_lifetime`. */
+    preferred_lifetime?: number;
+    /** Hosts make no address from it themselves, such as servers whose addresses are written by hand. It still tells them the prefix is on the link. */
+    disable_autoconfiguration?: true;
+};
+
+/** What this interface's router advertisements say (RFC 4861). A field left out is the device's own default. */
+export type RouterAdvertisement = {
+    /** The most seconds between two advertisements, 4 to 1800. The device sends each one after a random time between a third of it and all of it. */
+    interval?: number;
+    /** Seconds hosts may use this router as their gateway, 0 to 9000. With 0, hosts don't use it as their gateway. Any other value is at least `interval`. */
+    lifetime?: number;
+    /** The prefixes it announces. Each IPv6 network of the interface when absent. */
+    prefixes?: readonly AdvertisedPrefix[];
+    /** The DNS servers it announces (RDNSS, RFC 8106). */
+    dns_servers?: readonly IPv6[];
+    /** The domains it announces (DNSSL, RFC 8106). A host adds one to a name without a domain, such as `mail` for `mail.example.net`. */
+    dns_search_list?: readonly string[];
+};
+
 /** The uRPF check of each family. */
 export type Urpf = {
     /** The check on IPv4 packets. */
@@ -77,8 +103,8 @@ export type Routed<Vrf extends string> = {
      * RouterOS checks IPv4 only, with one mode for the whole router: write the same `ipv4` on every interface with an IPv4 address. Its `strict` beside VRFs or routing tables is experimental. FortiOS checks feasible paths (RFC 3704) by default. There `strict` is one setting for a whole VDOM: write it for each family on every interface in the VDOM with an address of that family. A Junos QFX switch doesn't check a packet whose source has several equal-cost routes. On VRP, `loose` also drops a source whose only route is the default route.
      */
     urpf?: Urpf;
-    /** Send IPv6 router advertisements on this interface. Off when absent. */
-    ipv6_ra?: boolean;
+    /** Send IPv6 router advertisements on this interface, so hosts find their gateway and make their own addresses. `true` announces each IPv6 network of the interface, with the device's own settings. Off when absent. */
+    ipv6_ra?: boolean | RouterAdvertisement;
     /** Overrides `system.hardware_offload` for traffic routed through this interface. The firewall applies only to traffic forwarded in software. */
     hardware_offload?: boolean;
     /** Virtual router addresses on this interface. */

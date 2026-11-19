@@ -89,6 +89,8 @@ export class RouterOsPlan {
         "/ipv6 firewall raw",
         "/ip dhcp-server lease",
         "/interface bridge vlan",
+        // An address that advertises its network makes its prefix's entry.
+        "/ipv6 nd prefix",
     ]);
 
     /**
@@ -100,9 +102,16 @@ export class RouterOsPlan {
     private static readonly FLAGS_SET = new Set(["/routing ospf area", "/routing ospf interface-template"]);
 
     /**
-     * Properties a running entry takes only when it restarts. A BGP session given a new `routing-table` stops announcing at once, and keeps its routes in the old table until it restarts (TRAPS.md). So the plan disables the connection, changes it, and enables it again.
+     * Properties a running entry takes only when it restarts. A BGP session given a new `routing-table` stops announcing at once, and keeps its routes in the old table until it restarts (TRAPS.md). So the plan disables the connection, changes it, waits until its session closes, and enables it again.
      */
     private static readonly RESTART_ON: Record<string, string[]> = { "/routing bgp connection": ["routing-table"] };
+
+    /** How long the plan waits for the session of a disabled BGP connection to close. */
+    private static readonly SESSION_CLOSE_SECONDS = 30;
+    /**
+     * Menus where the device makes an entry of its own from another menu, and keeps it a moment after it should go. An address that stops advertising keeps its dynamic `/ipv6 nd prefix` entry for about a second, and an entry added for the same prefix meanwhile is refused (TRAPS.md). An `add` there first waits, at most this many seconds, for that entry to go.
+     */
+    private static readonly LINGERING: Record<string, number> = { "/ipv6 nd prefix": 30 };
 
     /** Menus of routes, whose table a selector names. */
     private static readonly ROUTES = new Set(["/ip route", "/ipv6 route"]);
@@ -212,6 +221,18 @@ export class RouterOsPlan {
         return `[ find ${conditions.join(" and ")} ]`;
     }
 
+    /** In a menu with `LINGERING` entries, a script that waits until the device's own entry with the identity of `entry` is gone. */
+    private static waitForDynamic(menu: string, entry: Command): string | undefined {
+        const seconds = RouterOsPlan.LINGERING[menu];
+        if (seconds === undefined) return undefined;
+
+        const conditions = Object.entries(RouterOsExport.selector(entry)).map(
+            ([property, raw]) => `${property}=${RouterOsPlan.findValue(property, raw)}`
+        );
+        const dynamic = `[:len [${menu} find ${["dynamic", ...conditions].join(" and ")}]] > 0`;
+        return `:local waited 0; :while (${dynamic} && $waited < ${seconds}) do={ :delay 1s; :set waited ($waited + 1) }`;
+    }
+
     /** A whole command as sent: menu, verb, selector, flags, then properties. */
     private static line(menu: string, verb: string, selector: string, flags: string[], attrs: Record<string, string>): string {
         const properties = Object.entries(attrs).map(([property, raw]) => `${property}=${RouterOsPlan.value(raw)}`);
@@ -225,6 +246,15 @@ export class RouterOsPlan {
         const set = Object.keys(values).length || flags.length ? [RouterOsPlan.line(menu, "set", selector, flags, values)] : [];
 
         return [...cleared.map((property) => `${menu} unset ${selector} ${property}`), ...set];
+    }
+
+    /**
+     * Waits, for up to `SESSION_CLOSE_SECONDS`, until the session of a disabled BGP connection is gone from `/routing bgp session`. An enable sent right after the disable leaves the session running (TRAPS.md). A session's `remote.address` has no prefix length.
+     */
+    private static untilSessionCloses(connection: Command): string {
+        const [address = ""] = (connection.attrs["remote.address"] ?? "").split("/");
+        const open = `[:len [/routing bgp session find where remote.address=${RouterOsPlan.findValue("remote.address", address)}]] > 0`;
+        return `:local waited 0; :while (${open} and $waited < ${RouterOsPlan.SESSION_CLOSE_SECONDS}) do={ :delay 1s; :set waited ($waited + 1) }`;
     }
 
     private static describe(attrs: Record<string, string>): string {
@@ -357,6 +387,8 @@ export class RouterOsPlan {
 
             if (!current) {
                 changeStep.show.push(`+ ${RouterOsExport.canonical(entry)}`);
+                const wait = RouterOsPlan.waitForDynamic(menu, entry);
+                if (wait) changeStep.send.push(wait);
                 changeStep.send.push(RouterOsPlan.line(menu, "add", "", entry.flags, entry.attrs));
                 continue;
             }
@@ -384,6 +416,7 @@ export class RouterOsPlan {
                     `~ ${entryKey} ${RouterOsPlan.describe(update)}, restarting the session: it takes a new ${restartsOn.join(" and ")} only when it restarts`
                 );
                 changeStep.send.push(...RouterOsPlan.setLines(menu, selector, { disabled: "yes", ...update }));
+                changeStep.send.push(RouterOsPlan.untilSessionCloses(current));
                 changeStep.send.push(RouterOsPlan.line(menu, "set", selector, [], { disabled: "no" }));
                 continue;
             }
