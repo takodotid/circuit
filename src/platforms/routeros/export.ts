@@ -1,7 +1,8 @@
-// Reads an export into commands, and normalizes both sides so that only a real difference survives a comparison.
+// Reads the export from the device and into commands, and normalizes both sides so that only a real difference survives a comparison.
 
 import { createHash } from "node:crypto";
 import { Address } from "../../core/address";
+import type { Device } from "../../model";
 
 export type Command = {
     /** The menu the command belongs to, such as `/ip address`. */
@@ -23,7 +24,29 @@ export type Parsed = {
     ports: string[];
 };
 
+/** Where the export is read: over SSH, which can also fetch a file, or on the console. */
+type Reader = {
+    run(command: string, timeout?: number): Promise<string>;
+    download?(path: string): Promise<Buffer>;
+};
+
 export class RouterOsExport {
+    private static readonly READ_TIMEOUT_MS = 300_000;
+
+    /** Printed after the export, in the same command. RouterOS stops SSH output at 2 MiB with no error, and `Ssh.exec` stops at its timeout, so an export without it is cut (TRAPS.md). */
+    static readonly END = "# circuit: end of export";
+
+    static readonly READ = `/export; :put "${RouterOsExport.END}"`;
+
+    /** An export too large for SSH output is written to `<name>-<time>.rsc`, fetched over SFTP, and removed. */
+    private static readonly FILE = "circuit-read";
+
+    /** How the device refuses `/export file=` to a group without `ftp` and `write`, and SFTP to one without `ftp` (CHR, 7.24.6). */
+    private static readonly NO_FILE_RIGHTS = /not enough permissions|Unable to start subsystem: sftp/;
+
+    /** How much of the device's answer an error quotes. */
+    private static readonly QUOTE_CHARS = 200;
+
     /** An IS-IS template's metric at each level, by its link type. */
     private static readonly ISIS_METRICS = ["ptp.l1.metric", "ptp.l2.metric", "bcast.l1.metric", "bcast.l2.metric"];
 
@@ -408,6 +431,46 @@ export class RouterOsExport {
         // RADIUS servers are asked in this order.
         "/radius",
     ]);
+
+    /** The whole export. A console reads until the prompt, so its export is whole. Over SSH, one that is cut is read again from a file. */
+    static async read(reader: Reader, device: Device): Promise<string> {
+        if (!reader.download) return reader.run("/export", RouterOsExport.READ_TIMEOUT_MS);
+
+        const printed = await reader.run(RouterOsExport.READ, RouterOsExport.READ_TIMEOUT_MS);
+        if (printed.endsWith(RouterOsExport.END)) return printed.slice(0, -RouterOsExport.END.length);
+
+        try {
+            return await RouterOsExport.readFile(reader, reader.download);
+        } catch (error) {
+            const reason = (error as Error).message;
+            const role = RouterOsExport.NO_FILE_RIGHTS.test(reason)
+                ? `. Writing the file and fetching it take the ftp and write policies: set system.users.${device.connection.user}.role to "admin"`
+                : "";
+            throw new Error(
+                `${device.name}: the export over SSH stopped before its end, since RouterOS sends at most 2 MiB, and reading it from a file failed: ${reason}${role}`,
+                { cause: error }
+            );
+        }
+    }
+
+    /** The export, written to a file on the device, fetched over SFTP, and removed. */
+    private static async readFile(reader: Reader, download: (path: string) => Promise<Buffer>): Promise<string> {
+        const name = `${RouterOsExport.FILE}-${Date.now()}`;
+        const file = `${name}.rsc`;
+
+        try {
+            // The size prints once the file is written.
+            const size = (await reader.run(`/export file=${name}; :put [/file get ${file} size]`, RouterOsExport.READ_TIMEOUT_MS)).trim();
+            if (!/^\d+$/.test(size)) throw new Error(`/export file=${name} answered ${size.slice(0, RouterOsExport.QUOTE_CHARS)}`);
+
+            const content = await download(file);
+            if (content.length !== Number(size)) throw new Error(`SFTP gave ${content.length} of the file's ${size} bytes`);
+            return content.toString("utf8");
+        } finally {
+            // A connection the device closed cannot remove it. The file holds no secret: an export leaves them out.
+            await reader.run(`/file remove [find name="${file}"]`).catch(() => "");
+        }
+    }
 
     /** Undo the line wrapping an export applies: a backslash at the end of a line continues it. */
     private static unwrap(text: string): string {

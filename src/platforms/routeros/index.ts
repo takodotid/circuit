@@ -24,6 +24,7 @@ import type {
 import { BgpWait } from "../bgp-wait";
 import type { WaitLimits } from "../bgp-wait";
 import { RouterOsDhcp } from "./dhcp";
+import { RouterOsExport } from "./export";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
@@ -38,8 +39,9 @@ import { RouterOsSyntax } from "./syntax";
 /** An SSH session or the console. Commands run one at a time, and each returns what it printed. */
 type Session = {
     run(command: string, timeout?: number): Promise<string>;
-    /** Only SSH can write a file. */
+    /** Only SSH can write or read a file. */
     upload?(path: string, content: string): Promise<void>;
+    download?(path: string): Promise<Buffer>;
     /** A fresh login, which tests that access survived. */
     fresh(): Promise<Session>;
     end(): void;
@@ -69,8 +71,6 @@ export class RouterOs extends Platform {
 
     /** A backup's name holds the time it was taken, to the minute: `pre-apply-202610240312`. */
     private static readonly BACKUP_STAMP_CHARS = 12;
-
-    private static readonly EXPORT_TIMEOUT_MS = 300_000;
 
     /** A command that changes the device: the backup, and each command of a plan. */
     private static readonly CHANGE_TIMEOUT_MS = 120_000;
@@ -499,7 +499,7 @@ export class RouterOs extends Platform {
         try {
             await RouterOs.checkVersion(session, device);
 
-            const config = await session.run("/export", RouterOs.EXPORT_TIMEOUT_MS);
+            const config = await RouterOsExport.read(session, device);
             const users = await session.run("/user export");
             const certificates = (await session.run(RouterOs.LIST_CERTIFICATES)).trim();
             const keys = (await session.run(RouterOs.LIST_SSH_KEYS)).trim();
@@ -930,6 +930,7 @@ export class RouterOs extends Platform {
         return {
             run: (command, timeout) => Ssh.exec(client, command, timeout),
             upload: (path, content) => Ssh.upload(client, path, content),
+            download: (path) => Ssh.download(client, path),
             fresh: async () => {
                 client.end();
                 return RouterOs.sshSession(await Ssh.retrying(() => RouterOs.login(device)), device);
