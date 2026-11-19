@@ -121,7 +121,7 @@ test("a key the user doesn't take is never offered", async () => {
 
 test("a proof login the device refuses is not tried again, since a device may lock the account", async () => {
     accepted = "";
-    const proof = Ssh.proofLogin(() => Ssh.connect({ host: "127.0.0.1", port, user: "netops", password: () => "wrong" }));
+    const proof = Ssh.retrying(() => Ssh.connect({ host: "127.0.0.1", port, user: "netops", password: () => "wrong" }));
 
     await expect(proof).rejects.toThrow("All configured authentication methods failed");
     expect(tries).toEqual(["password"]);

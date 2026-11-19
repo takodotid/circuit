@@ -3,7 +3,7 @@ import type { Client } from "ssh2";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
-import type { Neighbor as BgpNeighbor, Device, Family, Finding } from "../../model";
+import type { Neighbor as BgpNeighbor, Device, Finding } from "../../model";
 import { Secrets } from "../../core/secrets";
 import { SerialConsole, ConsoleShell } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
@@ -79,11 +79,6 @@ export class RouterOs extends Platform {
     private static readonly LIST_TIMEOUT_MS = 60_000;
     /** How long after an apply the router may still list an announcement a filter change stops (TRAPS.md), read before the first check of what is announced. */
     private static readonly ANNOUNCE_SETTLE_MS = 5000;
-
-    /** Address list entries in one command, so each command stays a sane length. */
-    private static readonly FILL_BATCH_ENTRIES = 60;
-
-    private static readonly FILL_BATCH_TIMEOUT_MS = 90_000;
 
     private static readonly MINUTE_MS = 60_000;
 
@@ -766,28 +761,6 @@ export class RouterOs extends Platform {
         return described.length === 1 ? described[0]! : reported;
     }
 
-    override async fill(device: Device, _network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void> {
-        const menu = family === "ipv4" ? "/ip firewall address-list" : "/ipv6 firewall address-list";
-        const size = RouterOs.FILL_BATCH_ENTRIES;
-        const client = await RouterOs.login(device);
-
-        try {
-            await Ssh.exec(client, `${menu} remove [find list="${set}" and !dynamic]`);
-
-            for (let start = 0; start < prefixes.length; start += size) {
-                const batch = prefixes.slice(start, start + size).map((prefix) => `${menu} add list="${set}" address=${prefix}`);
-
-                const answer = (await Ssh.exec(client, batch.join("; "), RouterOs.FILL_BATCH_TIMEOUT_MS)).trim();
-                if (answer) throw new Error(`${set}: ${answer.slice(0, RouterOs.QUOTE_CHARS)}`);
-            }
-
-            const count = (await Ssh.exec(client, `:put [:len [${menu} find list="${set}"]]`)).trim();
-            console.log(`  ${set}: ${count} entries on the device`);
-        } finally {
-            client.end();
-        }
-    }
-
     /** The names of the configured neighbors whose session is established now. None, without logging in, on a device without BGP neighbors. */
     private async establishedSessions(device: Device, options: ReadOptions): Promise<string[]> {
         if (!Object.keys(device.routing?.bgp?.neighbors ?? {}).length) return [];
@@ -949,7 +922,7 @@ export class RouterOs extends Platform {
             upload: (path, content) => Ssh.upload(client, path, content),
             fresh: async () => {
                 client.end();
-                return RouterOs.sshSession(await Ssh.proofLogin(() => RouterOs.login(device)), device);
+                return RouterOs.sshSession(await Ssh.retrying(() => RouterOs.login(device)), device);
             },
             end: () => client.end(),
         };

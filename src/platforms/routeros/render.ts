@@ -736,7 +736,7 @@ export class RouterOsRender {
         });
     }
 
-    /** Address lists come from firewall address sets, prefix sets typed in the config, and what BGP originates. `refresh` fills a prefix set fetched from a registry, so only its name is marked, and the plan leaves its entries alone. */
+    /** Address lists come from firewall address sets, prefix sets typed in the config, and what BGP originates. A prefix set from a registry that was not fetched, as Studio renders it, is only marked, and the plan leaves its entries alone. */
     private addressLists(): void {
         const { device } = this;
         const entries: { list: string; address: string }[] = [];

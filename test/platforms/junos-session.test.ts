@@ -77,7 +77,7 @@ const front = createServer((socket) => {
     upstream.on("error", () => socket.destroy());
 });
 
-const proofPauseMs = Ssh.proofPauseMs;
+const loginPauseMs = Ssh.loginPauseMs;
 const TEST_PAUSE_MS = 10;
 
 const plan: Plan = { steps: [{ title: "interfaces", show: [], send: ["set interfaces xe-0/0/1 description Uplink"] }], problems: [] };
@@ -88,7 +88,7 @@ let fakePort = 0;
 
 beforeAll(async () => {
     process.env.EXAMPLE_NETOPS_PASSWORD = FakeSshDevice.PASSWORD;
-    Ssh.proofPauseMs = TEST_PAUSE_MS;
+    Ssh.loginPauseMs = TEST_PAUSE_MS;
     fakePort = await fake.listen();
     await new Promise<void>((done) => front.listen(0, "127.0.0.1", done));
     device = { ...aggregationSwitch, connection: { host: "127.0.0.1", port: (front.address() as AddressInfo).port, user: "netops" } };
@@ -96,7 +96,7 @@ beforeAll(async () => {
 
 afterAll(() => {
     delete process.env.EXAMPLE_NETOPS_PASSWORD;
-    Ssh.proofPauseMs = proofPauseMs;
+    Ssh.loginPauseMs = loginPauseMs;
     front.close();
     fake.close();
 });
@@ -134,14 +134,14 @@ test("a proof login the switch resets right after the commit is tried again, and
 });
 
 test("a proof login the switch resets on every try rolls the commit back", async () => {
-    resetsAfterCommit = Ssh.PROOF_TRIES;
+    resetsAfterCommit = Ssh.LOGIN_TRIES;
     const count = fake.shellLines.length;
     logins = 0;
 
     // The reset reads as `read ECONNRESET` on macOS, and as `write ECONNRESET` or `write EPIPE` on Linux, by when the write lands.
     await expect(platform.apply(device, [device], plan, options)).rejects.toThrow(
         new RegExp(
-            `a fresh login failed \\(\\w+ (ECONNRESET|EPIPE), on all ${Ssh.PROOF_TRIES} tries\\); the previous configuration is restored`
+            `a fresh login failed \\(\\w+ (ECONNRESET|EPIPE), on all ${Ssh.LOGIN_TRIES} tries\\); the previous configuration is restored`
         )
     );
 
@@ -149,5 +149,30 @@ test("a proof login the switch resets on every try rolls the commit back", async
     expect(typed).toContain("rollback 1");
     expect(typed).toContain("commit comment circuit-restore");
     expect(typed).not.toContain("commit comment circuit-confirmed");
-    expect(logins).toBe(1 + Ssh.PROOF_TRIES);
+    expect(logins).toBe(1 + Ssh.LOGIN_TRIES);
+});
+
+// A command can start seconds after another's commit, as an apply did on a QFX5100 (TRAPS.md).
+test("the first login of a command that the switch resets is tried again", async () => {
+    Ssh.loggedIn.clear();
+    resets = 1;
+    logins = 0;
+
+    await platform.read(device, [device]);
+
+    // The login it reset, and the one that passed.
+    expect(logins).toBe(2);
+});
+
+test("a first login the switch refuses is not tried again, since a device may lock the account", async () => {
+    Ssh.loggedIn.clear();
+    process.env.EXAMPLE_NETOPS_PASSWORD = "wrong";
+    logins = 0;
+
+    try {
+        await expect(platform.read(device, [device])).rejects.toThrow("All configured authentication methods failed");
+    } finally {
+        process.env.EXAMPLE_NETOPS_PASSWORD = FakeSshDevice.PASSWORD;
+    }
+    expect(logins).toBe(1);
 });
