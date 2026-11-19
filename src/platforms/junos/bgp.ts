@@ -56,6 +56,12 @@ export class JunosBgp {
     /** The longest it waits, in minutes. */
     static readonly MAX_IDLE_MINUTES = 2400;
 
+    /** The name of the policy each table's `instance-import` runs, after the table: `circuit-vrf-import-main`. */
+    private static readonly VRF_IMPORT = "circuit-vrf-import";
+
+    /** The policies the device's sessions and imports use, each written once. */
+    private readonly used = new Set<string>();
+
     private constructor(
         private readonly out: JunosStatements,
         private readonly device: Device
@@ -67,6 +73,8 @@ export class JunosBgp {
         bgp.prefixSets();
         bgp.rpki();
         bgp.sessions();
+        bgp.vrfImports();
+        for (const policy of [...bgp.used].sort()) bgp.policyStatement(policy);
     }
 
     /** Where the statements of a VRF's routing instance start, or nothing for the main instance. */
@@ -125,7 +133,6 @@ export class JunosBgp {
             for (const member of [bgp.asn, ...bgp.confederation.member_as]) this.out.set("routing-options confederation members", member);
         }
 
-        const used = new Set<string>();
         // The families that get a default route made for `send_default_route`, in each routing instance: `""` is the main one.
         const defaults = new Map<string, Set<Family>>();
         let rejectAll = false;
@@ -173,7 +180,7 @@ export class JunosBgp {
             } else this.out.set(group, "export", JunosBgp.REJECT_ALL);
 
             for (const policy of [settings.import_policy, settings.export_policy]) {
-                if (policy) used.add(policy);
+                if (policy) this.used.add(policy);
                 else rejectAll = true;
             }
 
@@ -201,8 +208,28 @@ export class JunosBgp {
 
         this.aggregates();
         for (const [vrf, families] of defaults) for (const family of families) this.defaultRoute(family, vrf || undefined);
+    }
 
-        for (const policy of [...used].sort()) this.policyStatement(policy);
+    /**
+     * Each table that takes routes from another runs one policy as its `instance-import`. A term for each table it takes from matches that table's routing instance, then the import's policy as a subroutine, which accepts or rejects the route and may change it. The main instance is `master`.
+     */
+    private vrfImports(): void {
+        const imports = this.device.routing?.vrf_imports ?? [];
+
+        for (const table of new Set(imports.map(({ to }) => to))) {
+            const name = `${JunosBgp.VRF_IMPORT}-${table}`;
+            this.out.set(`${JunosBgp.instance(table === "main" ? undefined : table)}routing-options instance-import`, name);
+
+            const statement = `policy-options policy-statement ${name}`;
+            for (const { from, policy } of imports.filter(({ to }) => to === table)) {
+                this.out.set(`${statement} term ${from} from instance`, from === "main" ? "master" : from);
+                this.out.set(`${statement} term ${from} from policy`, policy);
+                this.out.set(`${statement} term ${from} then accept`);
+                this.used.add(policy);
+            }
+
+            this.out.set(`${statement} term others then reject`);
+        }
     }
 
     private origin(): void {

@@ -192,6 +192,13 @@ export class FortiOsRouting {
     /** The conditions a route map rule matches with its one AS path list. */
     private static readonly AS_PATH_FIELDS = ["as_path_length", ...FortiOsRouting.AS_FIELDS] as const;
 
+    /** IS-IS's `is-type` and the levels its interfaces' metrics are set at, for each level capability. */
+    private static readonly ISIS_LEVELS = {
+        "level-1": { type: "level-1", levels: [1] },
+        "level-2": { type: "level-2-only", levels: [2] },
+        "level-1-2": { type: "level-1-2", levels: [1, 2] },
+    } as const;
+
     /** A neighbor's settings with its group's beneath them. */
     static neighborSettings(device: Device, neighbor: Neighbor): NeighborSettings {
         const group = neighbor.neighbor_group ? device.routing?.bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
@@ -224,6 +231,7 @@ export class FortiOsRouting {
         FortiOsRouting.prefixLists(root, device);
         FortiOsRouting.ospf(root, device);
         FortiOsRouting.ospf6(root, device);
+        FortiOsRouting.isis(root, device);
         FortiOsRouting.bgp(root, device);
     }
 
@@ -375,6 +383,30 @@ export class FortiOsRouting {
 
         if (passive.length) block.set("passive-interface", FortiOsTree.quoteAll(passive));
         for (const source of ospf.redistribute ?? []) block.block(`redistribute "${source}"`).set("status", "enable");
+    }
+
+    /** IS-IS with wide metrics and one NET. Every interface has an entry, turned on for each family; a loopback's link type is `loopback`, which forms no adjacency. */
+    private static isis(root: FortiOsNode, device: Device): void {
+        const isis = device.routing?.isis;
+        if (!isis) return;
+
+        const { type, levels } = FortiOsRouting.ISIS_LEVELS[isis.level_capability];
+        const block = root.block("router isis");
+        block.set("is-type", type);
+        block.set("metric-style", "wide");
+        block.block("isis-net").entry(1).set("net", isis.net);
+
+        for (const [name, settings] of Object.entries(isis.interfaces)) {
+            const iface = FortiOsNames.of(device, name);
+            const entry = block.block("isis-interface").entry(iface);
+            if (isis.address_families.includes("ipv4")) entry.set("status", "enable");
+            if (isis.address_families.includes("ipv6")) entry.set("status6", "enable");
+            // `unsupported()` refuses another link type on a loopback.
+            if (device.interfaces?.loopback?.[name]) entry.set("network-type", "loopback");
+            else if (settings?.network === "point-to-point") entry.set("network-type", "point-to-point");
+            const metric = settings?.metric;
+            if (metric !== undefined) for (const level of levels) entry.set(`wide-metric-l${level}`, metric);
+        }
     }
 
     private static bgp(root: FortiOsNode, device: Device): void {
@@ -576,6 +608,12 @@ export class FortiOsRouting {
         const noVrf = "FortiOS 6.2 runs BGP in the default VRF only";
         for (const [name, group] of Object.entries(routing?.bgp?.neighbor_groups ?? {}))
             if (group?.vrf) found.push(`routing.bgp.neighbor_groups.${name}.vrf, ${noVrf}`);
+        for (const [name, settings] of Object.entries(routing?.isis?.interfaces ?? {})) {
+            const where = `routing.isis.interfaces.${name}`;
+            if (settings?.passive) found.push(`${where}.passive, FortiOS has none: only a loopback forms no adjacency`);
+            if (settings?.network && device.interfaces?.loopback?.[name])
+                found.push(`${where}.network, a loopback's link type is loopback on FortiOS`);
+        }
 
         for (const [name, neighbor] of Object.entries(routing?.bgp?.neighbors ?? {})) {
             if (!neighbor) continue;

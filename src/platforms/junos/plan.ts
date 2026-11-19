@@ -31,6 +31,7 @@ export class JunosPlan {
         "host",
         "interface",
         "interfaces",
+        "level",
         "neighbor",
         "notify",
         "oid",

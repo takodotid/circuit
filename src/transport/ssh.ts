@@ -94,6 +94,18 @@ export class Ssh {
     static readonly READY_TIMEOUT_MS = 60_000;
     private static readonly AGENT_TIMEOUT_MS = 5000;
 
+    /** How many times a login that tests access after a change is tried. A device can reset logins for some seconds after a change (junos/TRAPS.md). */
+    static readonly PROOF_TRIES = 4;
+
+    /** The pause between those tries, which spreads them over 30 seconds. */
+    private static readonly PROOF_PAUSE_MS = 10_000;
+
+    /** `PROOF_PAUSE_MS`, which a test shortens. */
+    static proofPauseMs = Ssh.PROOF_PAUSE_MS;
+
+    /** What ssh2 calls a login the device refused, and one it never answered. Neither is tried again. */
+    private static readonly FINAL_LEVELS = new Set(["client-authentication", "client-timeout"]);
+
     /** Where Circuit says how it logged in to a device, once per device and way. Set by the command line; silent when absent. */
     static report: ((message: string, refused: boolean) => void) | undefined;
 
@@ -213,6 +225,23 @@ export class Ssh {
             const rest = ways.filter((way) => !way.agent);
             if (!(error instanceof AgentTimeout) || rest.length === ways.length) throw error;
             return Ssh.attempt(login, rest, error.message);
+        }
+    }
+
+    /** A login that tests access right after a change. A login the device resets or closes is tried again, up to `PROOF_TRIES` times. A refused one is not, since some devices lock an account after a few. */
+    static async proofLogin<T>(login: () => Promise<T>): Promise<T> {
+        for (let tried = 1; ; tried++) {
+            try {
+                return await login();
+            } catch (error) {
+                const level = (error as { level?: string }).level;
+                if (level && Ssh.FINAL_LEVELS.has(level)) throw error;
+                if (tried >= Ssh.PROOF_TRIES) throw new Error(`${(error as Error).message}, on all ${tried} tries`, { cause: error });
+
+                const cleared = Ssh.waiting?.(`The fresh login failed (${(error as Error).message}); trying again`);
+                await new Promise((done) => setTimeout(done, Ssh.proofPauseMs));
+                cleared?.();
+            }
         }
     }
 

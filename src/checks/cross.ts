@@ -135,9 +135,11 @@ export class CrossChecks {
                     );
                 }
 
+                // Behind a QinQ port, the far end's VLANs are the customer's own.
                 const here = CrossChecks.carried(device, near.settings);
                 const there = CrossChecks.carried(far, away.settings);
-                if (JSON.stringify(here) !== JSON.stringify(there)) {
+                const qinq = near.settings.qinq_vlan || away.settings.qinq_vlan;
+                if (!qinq && JSON.stringify(here) !== JSON.stringify(there)) {
                     report(
                         `${near.where} carries ${CrossChecks.describeCarried(here)}, and ${link.device} ${away.where} carries ${CrossChecks.describeCarried(there)}`
                     );
