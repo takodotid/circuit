@@ -78,7 +78,8 @@ export type BuiltFeature =
     | "wireguard-table"
     | "upnp"
     | "nat-state"
-    | "urpf";
+    | "urpf"
+    | "vrf-imports";
 
 export class Derive {
     /** The groups of `interfaces` besides `ethernet`, in the order Circuit reads them. */
@@ -398,6 +399,8 @@ export class Derive {
 
         if (!has("urpf"))
             for (const { where, settings } of Derive.holders(device)) if (settings.urpf) found.push(`${where}.urpf, ${notBuilt}`);
+
+        if (device.routing?.vrf_imports && !has("vrf-imports")) found.push(`routing.vrf_imports, ${notBuilt}`);
 
         return found;
     }

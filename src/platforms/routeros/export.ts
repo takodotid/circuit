@@ -279,7 +279,8 @@ export class RouterOsExport {
         // One VLAN ID per interface: the device refuses a second, so a rename, such as one a MAC of its own brings, is a rename.
         "/interface vlan": ["interface", "vlan-id"],
         "/interface vxlan vteps": ["interface", "remote-ip"],
-        "/routing bgp connection": ["remote.address"],
+        // Two VRFs may each have a neighbor at one address.
+        "/routing bgp connection": ["remote.address", "vrf"],
         "/routing rpki": ["address"],
         "/routing ospf interface-template": ["area", "interfaces"],
         "/routing isis interface-template": ["instance", "interfaces"],

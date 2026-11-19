@@ -661,10 +661,7 @@ export class JunosRender {
         if (this.device.routing?.router_id) this.out.set("routing-options router-id", this.device.routing.router_id);
 
         for (const route of this.device.routing?.static_routes ?? []) {
-            const ipv6 = Address.family(Address.split(route.prefix).addr) === "ipv6";
-            const table = ipv6 ? ` rib ${route.vrf ? `${route.vrf}.` : ""}inet6.0` : "";
-            const options = route.vrf ? `routing-instances ${route.vrf} routing-options${table}` : `routing-options${table}`;
-            const statement = `${options} static route ${route.prefix}`;
+            const statement = `${JunosBgp.options(Address.family(Address.split(route.prefix).addr), route.vrf)} static route ${route.prefix}`;
 
             if (route.blackhole) {
                 this.out.set(statement, "discard");

@@ -10,7 +10,7 @@ Circuit only knows devices. "Tenant" and "provider" are your own ideas, to arran
 
 ## A tenant in its own file
 
-This tenant from the [colocation example](/guide/examples#colocation-with-tenants) adds VLANs and ports to the router and the switch, and an ACL rule to the router:
+This tenant from the [colocation example](/guide/examples#colocation-with-tenants) adds VLANs and ports to the router and the switch, and a VRF with its BGP session and an ACL rule to the router:
 
 <<< @/../examples/colocation/tenants/netflix.ts
 

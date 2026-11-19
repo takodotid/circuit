@@ -191,6 +191,7 @@ const NEIGHBOR_SETTINGS = {
     bfd: 0,
     graceful_restart: 0,
     routing_table: 0,
+    vrf: 0,
     communities: { groups: 0, blackhole: 0 },
 } as const;
 const CHAIN = { default_action: 0, rules: [FILTER_RULE] } as const;
@@ -338,6 +339,7 @@ export const DEVICE = {
         router_id: 0,
         tables: { "*": { description: 0 } },
         vrfs: { "*": { description: 0 } },
+        vrf_imports: [{ from: 0, to: 0, policy: 0 }],
         policy_routing: [ROUTING_RULE],
         static_routes: [STATIC_ROUTE],
         bgp: {

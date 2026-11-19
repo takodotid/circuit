@@ -147,11 +147,11 @@ test("a session moved to another table is restarted, since a running session tak
     };
 
     const toMain = platform.plan(platform.render(moved), platform.render(device), options).steps;
-    const selector = '[ find remote.address="2001:db8:fffe::1/128" ]';
+    const selector = '[ find remote.address="2001:db8:fffe::1/128" and (vrf=main or !vrf) ]';
     expect(toMain.flatMap((step) => step.send)).toContain(`/routing bgp connection set ${selector} disabled=yes routing-table=main`);
     expect(toMain.flatMap((step) => step.send)).toContain(`/routing bgp connection set ${selector} disabled=no`);
     expect(toMain.flatMap((step) => step.show)).toContain(
-        '~ {"remote.address":"2001:db8:fffe::1/128"} routing-table=main, restarting the session: it takes a new routing-table only when it restarts'
+        '~ {"remote.address":"2001:db8:fffe::1/128","vrf":"main"} routing-table=main, restarting the session: it takes a new routing-table only when it restarts'
     );
 
     const toTable = platform.plan(platform.render(device), platform.render(moved), options).steps.flatMap((step) => step.send);

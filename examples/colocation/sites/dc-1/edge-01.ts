@@ -49,6 +49,7 @@ export default as64500.device({
                 trunk_vlans: ["mgmt", "shared"],
                 link: { device: "tor-02", port: "10g-48" },
             },
+            "25g-5": { description: "Monitoring servers", addresses: ["10.0.5.1/24"], vrf: "services" },
         },
         vlan_interface: {
             mgmt: { vlan: "mgmt", addresses: [dc_1.addresses.router_on_switches] },
@@ -90,6 +91,8 @@ export default as64500.device({
 
     routing: {
         router_id: "203.0.113.2",
+        // Our monitoring, in a VRF of its own, which each tenant's private network takes routes from and gives routes to.
+        vrfs: { services: { description: "Our monitoring" } },
         static_routes: [
             { prefix: as64500.prefixes.ours.v4, blackhole: true, description: "Originate" },
             { prefix: as64500.prefixes.ours.v6, blackhole: true, description: "Originate" },

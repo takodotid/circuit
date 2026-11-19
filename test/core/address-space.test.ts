@@ -10,8 +10,11 @@ const devices = Object.values(network.devices);
 
 test("the space the network owns comes from circuit.ts and from what it originates, each with where it came from", () => {
     const report = AddressSpace.report(devices, network.settings.prefixes);
-    const [v4, v6] = report.spaces;
+    const [tenant, v4, v6] = report.spaces;
 
+    // The tenant's private network, which edge-01 announces in the tenant's VRF.
+    expect(tenant?.prefix).toBe("10.20.0.0/24");
+    expect(tenant?.owner).toBe("originated by edge-01");
     expect(v4?.prefix).toBe("198.51.100.0/24");
     expect(v4?.owner).toBe("prefixes ours.v4 in circuit.ts, originated by edge-01");
     expect(v4?.segments.map((segment) => [segment.prefix, segment.free, segment.next])).toEqual([

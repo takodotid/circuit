@@ -1,6 +1,7 @@
 import { presets } from "../../config/presets";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
+import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import type { AsNumbers, Device, Family, Neighbor, NeighborSettings, OspfAuthentication, PolicyRule, RouteRule } from "../../model";
@@ -9,6 +10,9 @@ import { RouterOsSyntax } from "./syntax";
 
 /** Routing tables and rules, static routes, RPKI, BGP with its policies' filter chains, OSPF, and BFD, added to one device's render. */
 export class RouterOsRouting {
+    /** `bgp-path-prepend` takes 16 at most, and counts the AS a session always sends (TRAPS.md). */
+    private static readonly MOST_PREPENDS = 15;
+
     /** The validator group every RPKI server joins. */
     private static readonly RPKI_GROUP = "rpki";
 
@@ -17,6 +21,12 @@ export class RouterOsRouting {
 
     /** Names the output chain of a session with `send_default_route`, which accepts the default route and hands every other route to its export's chain. */
     private static readonly WITH_DEFAULT = "DEFAULT";
+
+    /** Names the chain of a policy in `routing.vrf_imports`, which hands each route to the policy's chain for its family. */
+    private static readonly IMPORTED = "VRF";
+
+    /** What a table hands to the BGP VPN table for another to take: every route but those of the VPN table itself. */
+    private static readonly EXPORTED = "connected,static,ospf,bgp";
 
     /** The TTL a session with GTSM sends with and requires on arrival, the highest there is (RFC 5082). */
     private static readonly GTSM_TTL = 255;
@@ -61,11 +71,58 @@ export class RouterOsRouting {
             routing.bgpInstance();
             routing.policies();
             routing.bgpConnections();
+            routing.vrfImports();
         }
 
         routing.ospf();
         routing.isis();
         routing.bfd();
+    }
+
+    /** A policy rule's `communities`, which `Project.read` writes out before a platform sees it, and a prepend above what `bgp-path-prepend` takes. */
+    static policyGaps(device: Device): string[] {
+        const found: string[] = [];
+        for (const [name, rules] of Object.entries(device.routing?.policies ?? {})) {
+            (rules ?? []).forEach((rule, index) => {
+                if (rule.communities !== undefined) found.push(`routing.policies.${name}[${index}].communities ${rule.communities}`);
+                const prepend = "set" in rule ? rule.set?.prepend : undefined;
+                if (prepend !== undefined && prepend > RouterOsRouting.MOST_PREPENDS)
+                    found.push(
+                        `routing.policies.${name}[${index}].set.prepend ${prepend}, RouterOS sends its AS at most 16 times, the one it always sends included: write ${RouterOsRouting.MOST_PREPENDS} at most`
+                    );
+            });
+        }
+        return found;
+    }
+
+    /** A VRF with the name of an interface, which the router refuses, since a VRF is an interface too (TRAPS.md). Imports without the BGP they go through, or with the main table, which that way takes and gives nothing. */
+    static vrfGaps(device: Device): string[] {
+        const found: string[] = [];
+        const vrfs = Object.keys(device.routing?.vrfs ?? {});
+        // Port names are spelled only when a VRF could clash with one.
+        const interfaceNames = new Set(
+            vrfs.length
+                ? [
+                      ...Derive.interfaces(device).map(({ name }) => name),
+                      ...Derive.ports(device).map(([name]) => Catalog.spell(device.platform, device.model, name)),
+                  ]
+                : []
+        );
+        for (const name of vrfs)
+            if (interfaceNames.has(name))
+                found.push(`routing.vrfs.${name}, the name of an interface: RouterOS makes an interface named after each VRF`);
+
+        if (device.routing?.vrf_imports && !device.routing.bgp)
+            found.push(
+                "routing.vrf_imports without routing.bgp: RouterOS takes routes between tables through BGP. Write bgp: {} in routing"
+            );
+        (device.routing?.vrf_imports ?? []).forEach(({ from, to }, index) => {
+            if (from === "main" || to === "main")
+                found.push(
+                    `routing.vrf_imports[${index}], with main: BGP's VPN table takes routes between VRFs only on RouterOS 7.24, and routes neither left main nor arrived there`
+                );
+        });
+        return found;
     }
 
     /** A route policy rule on routes: not a call, and not a `{ communities }` rule, which `unsupported()` refuses. */
@@ -312,6 +369,10 @@ export class RouterOsRouting {
             }
         }
 
+        // A table takes routes of both families.
+        const imported = [...new Set((this.device.routing?.vrf_imports ?? []).map(({ policy }) => policy))].sort();
+        for (const policy of imported) for (const family of ["ipv4", "ipv6"] as const) want(policy, family);
+
         const called = new Set(Object.values(policies).flatMap((rules) => (rules ?? []).flatMap((rule) => (rule.call ? [rule.call] : []))));
 
         for (const policy of [...wanted.keys()].sort()) {
@@ -350,6 +411,52 @@ export class RouterOsRouting {
                 this.render.add("/routing filter rule", "add", { chain, rule: `jump ${RouterOsRouting.chainName(policy, family)}` });
             }
         }
+
+        // The VPN table takes both families through one chain (TRAPS.md).
+        for (const policy of imported) {
+            const chain = `${policy}-${RouterOsRouting.IMPORTED}`;
+            for (const family of ["ipv4", "ipv6"] as const)
+                this.render.add("/routing filter rule", "add", {
+                    chain,
+                    rule: `if (afi ${family}) { jump ${RouterOsRouting.chainName(policy, family)} }`,
+                });
+            this.render.add("/routing filter rule", "add", { chain, rule: "reject" });
+        }
+    }
+
+    /**
+     * Routes a table takes from another go through the BGP VPN table, as MikroTik's VRF guide has it, with no session. The table they come from hands them over with a route target of the import's own, through the policy's chain, and the table they go to takes that target. The targets are the router's AS and the import's place in the list.
+     */
+    private vrfImports(): void {
+        const imports = this.device.routing?.vrf_imports ?? [];
+        const asn = this.device.routing!.bgp!.asn;
+        const target = (index: number) => `${asn}:${index + 1}`;
+
+        imports.forEach(({ from, to, policy }, index) => {
+            this.render.add("/routing bgp vpn", "add", {
+                "export.filter-chain": `${policy}-${RouterOsRouting.IMPORTED}`,
+                "export.redistribute": RouterOsRouting.EXPORTED,
+                "export.route-targets": target(index),
+                instance: "default",
+                "label-allocation-policy": "per-vrf",
+                name: `${from}-to-${to}`,
+                "route-distinguisher": target(index),
+                vrf: from,
+            });
+        });
+
+        // Each table that takes routes, after the entries that hand them over, with a route distinguisher of its own.
+        const tables = [...new Set(imports.map(({ to }) => to))];
+        tables.forEach((table, index) => {
+            this.render.add("/routing bgp vpn", "add", {
+                "import.route-targets": imports.flatMap(({ to }, place) => (to === table ? [target(place)] : [])).join(","),
+                instance: "default",
+                "label-allocation-policy": "per-vrf",
+                name: table,
+                "route-distinguisher": target(imports.length + index),
+                vrf: table,
+            });
+        });
     }
 
     /** One connection per neighbor. The platform carries one family per connection. */
@@ -389,9 +496,11 @@ export class RouterOsRouting {
                 "remote.as": settings.remote_as,
                 // The lowest TTL accepted on arrival.
                 "remote.ttl": settings.ttl_security ? RouterOsRouting.GTSM_TTL : undefined,
-                "routing-table": Utils.otherTable(settings.routing_table),
+                // A connection in a VRF names its table too: the VRF's table has the VRF's name.
+                "routing-table": settings.vrf ?? Utils.otherTable(settings.routing_table),
                 "tcp-md5-key": settings.password && Secrets.marker(settings.password),
                 "use-bfd": settings.bfd ? "yes" : undefined,
+                vrf: settings.vrf,
             });
         }
     }

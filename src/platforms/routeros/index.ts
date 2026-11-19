@@ -3,7 +3,7 @@ import type { Client } from "ssh2";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
-import type { Device, Family, Finding } from "../../model";
+import type { Neighbor as BgpNeighbor, Device, Family, Finding } from "../../model";
 import { Secrets } from "../../core/secrets";
 import { SerialConsole, ConsoleShell } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
@@ -77,8 +77,6 @@ export class RouterOs extends Platform {
 
     /** A script that lists BGP sessions, advertisements, LLDP neighbors, or the log. */
     private static readonly LIST_TIMEOUT_MS = 60_000;
-    /** `bgp-path-prepend` takes 16 at most, and counts the AS a session always sends (TRAPS.md). */
-    private static readonly MOST_PREPENDS = 15;
     /** How long after an apply the router may still list an announcement a filter change stops (TRAPS.md), read before the first check of what is announced. */
     private static readonly ANNOUNCE_SETTLE_MS = 5000;
 
@@ -310,6 +308,7 @@ export class RouterOs extends Platform {
             }
         }
 
+        found.push(...RouterOsRouting.vrfGaps(device));
         for (const [name, settings] of Object.entries(device.routing?.isis?.interfaces ?? {}))
             if (settings?.passive && settings.metric !== undefined)
                 found.push(`routing.isis.interfaces.${name}.metric with passive, RouterOS refuses a metric on a passive interface`);
@@ -413,6 +412,7 @@ export class RouterOs extends Platform {
                 "upnp",
                 "nat-state",
                 "urpf",
+                "vrf-imports",
             ])
         );
 
@@ -470,16 +470,7 @@ export class RouterOs extends Platform {
         const allow = device.management?.allow;
         if (typeof allow === "string") found.push(`management.allow ${allow}, an address set by name: write its prefixes`);
 
-        for (const [name, rules] of RouterOsSyntax.entries(device.routing?.policies)) {
-            rules.forEach((rule, index) => {
-                if (rule.communities !== undefined) found.push(`routing.policies.${name}[${index}].communities ${rule.communities}`);
-                const prepend = "set" in rule ? rule.set?.prepend : undefined;
-                if (prepend !== undefined && prepend > RouterOs.MOST_PREPENDS)
-                    found.push(
-                        `routing.policies.${name}[${index}].set.prepend ${prepend}, RouterOS sends its AS at most 16 times, the one it always sends included: write ${RouterOs.MOST_PREPENDS} at most`
-                    );
-            });
-        }
+        found.push(...RouterOsRouting.policyGaps(device));
 
         return found;
     }
@@ -632,7 +623,7 @@ export class RouterOs extends Platform {
 
         return Object.entries(device.routing?.bgp?.neighbors ?? {}).map(([name, neighbor]): BgpSession => {
             const found =
-                live.find(([, remote]) => remote === neighbor.address) ??
+                live.find(([, remote]) => remote === RouterOs.sessionAddress(device, neighbor)) ??
                 live.find(([sessionName]) => sessionName === name || sessionName?.replace(/-\d+$/, "") === name);
 
             if (!found) {
@@ -668,6 +659,13 @@ export class RouterOs extends Platform {
                     : {}),
             };
         });
+    }
+
+    /** A session's remote address as the device prints it: in a VRF, `192.0.2.1@<vrf>`. */
+    private static sessionAddress(device: Device, neighbor: BgpNeighbor): string {
+        const group = neighbor.neighbor_group ? device.routing?.bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
+        const vrf = neighbor.vrf ?? group?.vrf;
+        return vrf ? `${neighbor.address}@${vrf}` : neighbor.address;
     }
 
     override async bgpClearLimit(session: ReadSession, sessions: readonly BgpSession[]): Promise<void> {
@@ -861,7 +859,7 @@ export class RouterOs extends Platform {
         const neighbors = Object.entries(bgp?.neighbors ?? {});
         const neighborOf = (sessionName: string) => {
             const remote = sessions.find(([name]) => name === sessionName)?.[1];
-            const byAddress = neighbors.find(([, neighbor]) => neighbor.address === remote);
+            const byAddress = neighbors.find(([, neighbor]) => RouterOs.sessionAddress(device, neighbor) === remote);
             const byName = neighbors.find(([name]) => name === sessionName.replace(/-\d+$/, ""));
             return (byAddress ?? byName)?.[0];
         };
