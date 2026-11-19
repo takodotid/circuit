@@ -101,15 +101,22 @@ export class RouterOsExport {
         "/routing ospf instance": { version: "2" },
         "/routing ospf area": { "area-id": "0.0.0.0", type: "default", "default-cost": "" },
         "/routing ospf interface-template": { "hello-interval": "10s", "dead-interval": "40s", auth: "", "auth-id": "" },
-        // TTLs never set send 255 and accept any, and cannot be unset (TRAPS.md).
+        // TTLs never set send 255 and accept any. They, `connect`, and `listen` cannot be unset (TRAPS.md).
         "/routing bgp connection": {
             "use-bfd": "no",
             "local.ttl": "255",
             "remote.ttl": "1",
             "output.default-originate": "never",
+            connect: "yes",
+            listen: "yes",
             "hold-time": "",
             "keepalive-time": "",
             "output.network": "",
+            multihop: "",
+            afi: "",
+            "local.address": "",
+            "input.limit-process-routes-ipv4": "",
+            "input.limit-process-routes-ipv6": "",
         },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
@@ -226,7 +233,16 @@ export class RouterOsExport {
     /** Properties the device clears only with `unset`: empty, it refuses them or takes them as another value (TRAPS.md). */
     static readonly UNSET: Record<string, readonly string[]> = {
         "/routing bgp instance": ["cluster-id"],
-        "/routing bgp connection": ["hold-time", "keepalive-time", "output.network"],
+        "/routing bgp connection": [
+            "hold-time",
+            "keepalive-time",
+            "output.network",
+            "multihop",
+            "afi",
+            "local.address",
+            "input.limit-process-routes-ipv4",
+            "input.limit-process-routes-ipv6",
+        ],
         "/routing ospf area": ["default-cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],
     };
