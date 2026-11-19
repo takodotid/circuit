@@ -47,6 +47,7 @@ export default as64500.device({
         vlans: { mgmt: dc_1.vlans.mgmt, shared: dc_1.vlans.shared },
         stp: {},
         dhcp_snooping: true,
+        arp_inspection: true,
         ra_guard: true,
         // #endregion port-guards
         lldp: true,

@@ -39,7 +39,7 @@ export class FortiOsUnsupported {
         found.push(...FortiOsUnsupported.firewallGaps(device));
         found.push(...FortiOsUnsupported.serviceGaps(device));
 
-        for (const field of ["stp", "dhcp_snooping", "ra_guard"] as const)
+        for (const field of ["stp", "dhcp_snooping", "arp_inspection", "ra_guard"] as const)
             if (device.switching?.[field]) found.push(`switching.${field}, ports are routed`);
         found.push(...FortiOsUnsupported.transparentGaps(device));
         found.push(...FortiOsVdoms.gaps(device));

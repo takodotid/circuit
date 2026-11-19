@@ -5,7 +5,7 @@ import { JunosStatements } from "./statements";
 
 type Switched = Port | Lag;
 
-/** Layer 2 that the switched ports share: VLANs, spanning tree, DHCP snooping, and RA guard. */
+/** Layer 2 that the switched ports share: VLANs, spanning tree, DHCP snooping with ARP inspection, and RA guard. */
 export class JunosSwitching {
     /** The DHCP snooping groups of the ports that trust DHCP servers, and of those that don't. */
     private static readonly DHCP_TRUSTED = "circuit-dhcp-trusted";
@@ -56,13 +56,14 @@ export class JunosSwitching {
         }
     }
 
-    /** DHCP snooping on every VLAN. The platform trusts a trunk and distrusts an access port by default, so each port is named in a group that says which it is. */
+    /** DHCP snooping on every VLAN. The platform trusts a trunk and distrusts an access port by default, so each port is named in a group that says which it is. A port trusted for DHCP is trusted by ARP inspection too. */
     dhcpSnooping(): void {
         if (!this.device.switching?.dhcp_snooping) return;
 
         for (const vlan of this.vlanNames()) {
             const security = `vlans ${vlan} forwarding-options dhcp-security`;
             this.out.set(security);
+            if (this.device.switching.arp_inspection) this.out.set(security, "arp-inspection");
 
             for (const [name, settings] of this.inVlan(vlan)) {
                 const group = settings.dhcp_trusted ? JunosSwitching.DHCP_TRUSTED : JunosSwitching.DHCP_UNTRUSTED;

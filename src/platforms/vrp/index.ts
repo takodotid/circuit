@@ -268,6 +268,9 @@ export class Vrp extends Platform {
         if (device.switching?.ra_guard) found.push(`switching.ra_guard, ${noRaGuard}`);
         const holders = Derive.switchedHolders(device).filter(({ settings }) => !("in_lag" in settings && settings.in_lag));
         for (const { where, settings } of holders) if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${noRaGuard}`);
+        // The CE6855 took `arp anti-attack check user-bind enable` in a VLAN's view only (TRAPS.md).
+        if (device.switching?.arp_inspection)
+            found.push("switching.arp_inspection, the platform checks a whole VLAN, and whether it passes dhcp_trusted ports is not known");
 
         // `stp bpdu-protection` guards every edge port at once.
         const stpOf = (settings: Port | Lag) => (typeof settings.stp === "object" ? settings.stp : undefined);

@@ -67,6 +67,8 @@ export type Switching<V extends string, A extends string, I extends string, Untr
     stp?: Stp;
     /** DHCP snooping: a switched port drops DHCP servers' messages, such as offers, unless it has `dhcp_trusted`. So no host hands out IPv4 addresses. DHCPv6 is not covered. */
     dhcp_snooping?: true;
+    /** Dynamic ARP inspection: a switched port drops an ARP packet unless DHCP snooping saw a DHCP server give its sender that MAC and IPv4 address, or the port has `dhcp_trusted`. So no host answers ARP for another's address. Needs `dhcp_snooping`. A host whose address is written by hand needs a port with `dhcp_trusted`. */
+    arp_inspection?: true;
     /** RA guard (RFC 6105): a switched port drops IPv6 router advertisements unless it has `ra_trusted`. So no host poses as the gateway. */
     ra_guard?: true;
     /** Advertise and learn neighbors with LLDP on every port (`true`), or only on the interfaces listed. A port may override it. */

@@ -10,7 +10,7 @@ Seen on a CE6855 running V200R005.
 - Accounts lock after a few failures and the last ten passwords are refused. A retry loop locks the account out.
 - A `?` sent by a script is executed, not treated as help. Never send one.
 - A refused line's caret counts the prompt: its column minus the prompt's length is where the command stopped making sense.
-- `stp bpdu-protection` exists only in the system view, for every edge port at once; in a port's view it is `Unrecognized command`. There is no RA guard: `ipv6 nd raguard`, `ipv6 raguard`, and `nd raguard` are refused in every view. DHCP snooping is `dhcp enable` and `dhcp snooping enable`, then `dhcp snooping enable` or `dhcp snooping trusted` in a port's view (in a candidate, never committed).
+- `stp bpdu-protection` exists only in the system view, for every edge port at once; in a port's view it is `Unrecognized command`. There is no RA guard: `ipv6 nd raguard`, `ipv6 raguard`, and `nd raguard` are refused in every view. DHCP snooping is `dhcp enable` and `dhcp snooping enable`, then `dhcp snooping enable` or `dhcp snooping trusted` in a port's view (in a candidate, never committed). `arp anti-attack check user-bind enable` is `Unrecognized command` in a port's view and taken in a VLAN's view.
 - `reset saved-configuration` erases the management address. Never over the network.
 - The prompt shows commit state: `[~host]` clean, `[*host]` uncommitted. Read `display configuration candidate` when in doubt.
 - LLDP is off by default. A port setting for LLDP is refused until it is on globally.

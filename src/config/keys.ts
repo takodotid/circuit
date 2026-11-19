@@ -308,6 +308,7 @@ export const DEVICE = {
         vlans: { "*": { id: 0, description: 0, untrusted: 0 } },
         stp: { mode: 0, priority: 0 },
         dhcp_snooping: 0,
+        arp_inspection: 0,
         ra_guard: 0,
         lldp: { interfaces: 0 },
         acls: { "*": [ACL_RULE] },

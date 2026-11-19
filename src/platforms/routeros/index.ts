@@ -246,6 +246,8 @@ export class RouterOs extends Platform {
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.bridge)) {
             found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
         }
+        // MikroTik's changelog adds it in 7.25, which no device here runs yet.
+        if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
 
         for (const [name, port] of Derive.ports(device)) {
             if (port.speed && !RouterOsRender.medium(Catalog.spell(device.platform, device.model, name), port.speed)) {

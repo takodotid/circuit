@@ -73,6 +73,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | Ethertypes (IPv4, IPv6, ARP) | IEEE EtherType registry                                                                                                                 | port `ethertypes`                                              |
 | BPDU guard, root guard       | Not a standard: each vendor's own. Names from OpenConfig `openconfig-spanning-tree`                                                     | port `stp.bpdu_guard`, `stp.guard`                             |
 | DHCP snooping                | Not a standard: each vendor's own                                                                                                       | `switching.dhcp_snooping`, port `dhcp_trusted`                 |
+| Dynamic ARP inspection       | Not a standard: each vendor's own                                                                                                       | `switching.arp_inspection`, port `dhcp_trusted`                |
 | RA guard                     | RFC 6105                                                                                                                                | `switching.ra_guard`, port `ra_trusted`                        |
 
 <!-- vale Google.Units = YES -->

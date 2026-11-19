@@ -94,6 +94,8 @@ export class DeviceChecks {
             report("connection has neither a host nor a console to reach the device through");
 
         DeviceChecks.vlans(device, report);
+        if (device.switching?.arp_inspection && !device.switching.dhcp_snooping)
+            report("switching.arp_inspection checks what DHCP snooping saw: write dhcp_snooping: true beside it");
         DeviceChecks.addresses(device, report, cidr, ip);
         DeviceChecks.ports(device, report);
         DeviceChecks.interfaces(device, report, ip);

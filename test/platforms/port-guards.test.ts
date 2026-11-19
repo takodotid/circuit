@@ -1,4 +1,4 @@
-// BPDU guard, root guard, DHCP snooping, and RA guard (RFC 6105). The RouterOS lines are as a CCR2216 with RouterOS 7.24.6 exported them, and the Junos statements as a QFX5100 with Junos 21.4R3 printed them after a commit. The VRP lines went into a CE6855's candidate (V200R005), which was cleared.
+// BPDU guard, root guard, DHCP snooping, ARP inspection, and RA guard (RFC 6105). The RouterOS lines are as a CCR2216 with RouterOS 7.24.6 exported them, and the Junos statements as a QFX5100 with Junos 21.4R3 printed them after a commit. The VRP lines went into a CE6855's candidate (V200R005), which was cleared.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -145,4 +145,30 @@ test("validate says what each guard needs", () => {
             "interfaces.ethernet.10g-39.dhcp_trusted is on a member of uplink: write it on the LAG",
         ])
     );
+});
+
+test("ARP inspection checks each VLAN that Junos snoops, needs snooping, and is refused elsewhere", () => {
+    const device = guarded("junos", "QFX5100-48S-6Q", "10g-37", "10g-38");
+    device.system = { users: { root: { role: "admin", password: { secret: "ROOT" } } } };
+    device.switching!.arp_inspection = true;
+    const desired = Platforms.get("junos").render(device);
+
+    expect(messages(device)).toEqual([]);
+    expect(desired).toContain("set vlans servers forwarding-options dhcp-security arp-inspection");
+    expect(desired).toContain("set vlans storage forwarding-options dhcp-security arp-inspection");
+    expect(sent("junos", desired, desired)).toEqual([]);
+
+    for (const [platform, model] of [
+        ["routeros", "CCR2216-1G-12XS-2XQ"],
+        ["vrp", "CE6855-48S6Q-HI"],
+        ["raisecom-ros", "RAX721-C-6C48"],
+        ["fortios", "FG-3700D"],
+    ] as const) {
+        const refused = Platforms.get(platform).unsupported({ ...device, platform, model });
+        expect(refused.some((message) => message.startsWith("switching.arp_inspection, "))).toBe(true);
+    }
+
+    device.switching = { vlans: device.switching!.vlans, arp_inspection: true };
+    device.interfaces!.ethernet!["10g-38"] = { trunk_vlans: ["servers", "storage"] };
+    expect(messages(device)).toContain("switching.arp_inspection checks what DHCP snooping saw: write dhcp_snooping: true beside it");
 });
