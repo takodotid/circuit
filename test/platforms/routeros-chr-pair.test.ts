@@ -367,14 +367,39 @@ export default lab.device({
                 table: { name: BLOCK_B_TABLE, prefixes: [BLOCK_B] },
             });
 
+            const started = Date.now();
             const applied = circuit("apply", "edge-01", "--confirm");
+            const took = (Date.now() - started) / SECOND_MS;
             expect(applied.status).toBe(1);
             expect(applied.output).toContain(
                 `BGP session cpe-01 announced ${EDGE_PREFIX} before the apply and does not ${BgpWait.AFTER_APPLY.seconds} s after it, though the config says it should`
             );
 
+            // The apply restarted the session, which now announces what its new table holds.
+            expect(seconds(bgp("edge-01").uptime)).toBeLessThan(took);
+            expect(eventually(() => activeRoutes("cpe-01", BLOCK_B) === 1)).toBe(true);
             expect(eventually(() => activeRoutes("cpe-01", EDGE_PREFIX) === 0)).toBe(true);
         },
         FAILING_APPLY_MS
+    );
+
+    test(
+        "a session moved back to main restarts, and announces from main again",
+        () => {
+            writeEdge({ neighbor: "hold_time: 90,", exportRules: ANNOUNCE_BOTH, originated: [EDGE_PREFIX, BLOCK_B] });
+
+            const started = Date.now();
+            const applied = circuit("apply", "edge-01", "--confirm");
+            const took = (Date.now() - started) / SECOND_MS;
+            expect(applied.status).toBe(0);
+            expect(applied.output).toContain("restarting the session");
+            expect(applied.output).toContain("BGP: no session lost an announcement the config still makes");
+
+            expect(seconds(bgp("edge-01").uptime)).toBeLessThan(took);
+            expect(eventually(() => activeRoutes("cpe-01", EDGE_PREFIX) === 1)).toBe(true);
+            expect(activeRoutes("cpe-01", BLOCK_B)).toBe(1);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+        },
+        TEST_MS
     );
 });
