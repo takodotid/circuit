@@ -173,12 +173,12 @@ export class RouterOs extends Platform {
     override readonly console = RouterOs.CONSOLE;
 
     /**
-     * A BGP session with a `routing_table` announces only what that table has a route for (TRAPS.md). A session left with nothing to announce is an error. A prefix missing from its table is a warning, since its export may not announce it anyway.
+     * A BGP session with a `routing_table` announces only what that table has a route for (TRAPS.md). A session left with nothing to announce is an error. A prefix missing from its table is a warning, since its export may not announce it anyway. A passive multihop session needs `local_address`.
      */
     override checks(device: Device): Finding[] {
         const bgp = device.routing?.bgp;
         const statics = device.routing?.static_routes ?? [];
-        const findings: Finding[] = [];
+        const findings: Finding[] = RouterOsRouting.passiveWithoutAddress(device);
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
@@ -304,9 +304,7 @@ export class RouterOs extends Platform {
         }
 
         found.push(...RouterOsRouting.vrfGaps(device));
-        for (const [name, settings] of Object.entries(device.routing?.isis?.interfaces ?? {}))
-            if (settings?.passive && settings.metric !== undefined)
-                found.push(`routing.isis.interfaces.${name}.metric with passive, RouterOS refuses a metric on a passive interface`);
+        found.push(...RouterOsRouting.isisGaps(device));
 
         const bgp = device.routing?.bgp;
 

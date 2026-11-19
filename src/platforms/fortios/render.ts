@@ -88,6 +88,7 @@ export class FortiOsRender {
         "router route-map",
         "router ospf",
         "router ospf6",
+        "router key-chain",
         "router isis",
         "router bgp",
         "system session-helper",
