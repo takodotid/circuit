@@ -226,6 +226,8 @@ export class RouterOsPlan {
             const route = RouterOsPlan.ROUTES.has(menu);
             // A disabled route in the main table has no table at all, so `routing-table=main` misses it (RB5009, 7.24.6).
             if (route && property === "routing-table" && raw === "main") return "(routing-table=main or !routing-table)";
+            // A connection added without a VRF has none at all, so `vrf=main` misses it (CHR, 7.24.6).
+            if (property === "vrf" && raw === "main") return "(vrf=main or !vrf)";
             // A blackhole route has no gateway.
             if (route && property === "gateway" && raw === "") return "!gateway";
             return `${property}=${RouterOsPlan.findValue(property, raw)}`;

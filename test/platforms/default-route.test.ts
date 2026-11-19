@@ -41,7 +41,7 @@ test("RouterOS stops the default route with never, which the router then prints,
 
     const turnedOff = sent(off, on);
     expect(turnedOff).toContain(
-        '/routing bgp connection set [ find remote.address="203.0.113.1/32" and vrf=main ] output.filter-chain=OUT-V4 output.default-originate=never'
+        '/routing bgp connection set [ find remote.address="203.0.113.1/32" and (vrf=main or !vrf) ] output.filter-chain=OUT-V4 output.default-originate=never'
     );
     expect(turnedOff).toContain('/routing filter rule remove [ find chain="OUT-DEFAULT-V4" ]');
 

@@ -164,7 +164,7 @@ test("a BGP connection that keeps its name on a new peer address is removed befo
         .steps.flatMap((step) => step.send);
 
     expect(sent).toEqual([
-        "/routing bgp connection remove [ find remote.address=198.51.100.1 and vrf=main ]",
+        "/routing bgp connection remove [ find remote.address=198.51.100.1 and (vrf=main or !vrf) ]",
         "/routing bgp connection add instance=default local.role=ebgp name=transit-v4 remote.address=198.51.100.9 remote.as=64501",
     ]);
 });
@@ -178,7 +178,7 @@ test("BGP TTLs the config does not state are set back to what the router uses un
         adapter.plan(connection("", ""), current, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
 
     expect(sent(connection(" .ttl=255", " .ttl=255"))).toEqual([
-        '/routing bgp connection set [ find remote.address="198.51.100.1/32" and vrf=main ] remote.ttl=1',
+        '/routing bgp connection set [ find remote.address="198.51.100.1/32" and (vrf=main or !vrf) ] remote.ttl=1',
     ]);
     expect(sent(connection(" .ttl=255", " .ttl=1"))).toEqual([]);
 });
@@ -195,7 +195,7 @@ test("a BGP connection's timers and networks the config drops are unset", () => 
         })
         .steps.flatMap((step) => step.send);
 
-    const selector = '[ find remote.address="198.51.100.1/32" and vrf=main ]';
+    const selector = '[ find remote.address="198.51.100.1/32" and (vrf=main or !vrf) ]';
     expect(sent).toEqual([
         `/routing bgp connection unset ${selector} hold-time`,
         `/routing bgp connection unset ${selector} keepalive-time`,
