@@ -545,17 +545,26 @@ export class RouterOsExport {
         const route = command.menu === "/ip route" || command.menu === "/ipv6 route";
         if (route && property === "gateway") return RouterOsExport.gateway(raw);
 
+        // An IP address property, which a MAC address is not. A service's sources, an SNMP community's addresses, and a WireGuard peer's are a list, each item in one spelling.
+        const isAddress = (/(^|-)address$/.test(property) && !property.endsWith("mac-address")) || property === "addresses";
+        if (!isAddress) return raw;
+
         const onInterface = property === "address" && (command.menu === "/ip address" || command.menu === "/ipv6 address");
-        // An IP address property, which a MAC address is not.
-        const isAddress = /(^|-)address$/.test(property) && !property.endsWith("mac-address");
-        // An address in one spelling, so one spelled otherwise is not another entry. The device prints `::ffff:0:0/96` as `::ffff:0.0.0.0/96` (TRAPS.md).
-        const value = isAddress ? Address.canonical(raw) : raw;
+        return raw
+            .split(",")
+            .map((item) => RouterOsExport.address(item, onInterface))
+            .join(",");
+    }
+
+    /** One address in one spelling, so one spelled otherwise is not another entry. The device prints `::ffff:0:0/96` as `::ffff:0.0.0.0/96` (TRAPS.md). */
+    private static address(raw: string, onInterface: boolean): string {
+        const value = Address.canonical(raw);
         // On an interface, a bare address is shorthand for /32 on IPv4 and /64 on IPv6.
         if (onInterface && !value.includes("/")) return `${value}/${value.includes(":") ? 64 : 32}`;
-        // Elsewhere a host is printed bare on IPv4 and with /128 on IPv6.
-        if (!onInterface && isAddress && /^[\d.]+\/32$/.test(value)) return value.slice(0, -3);
-
-        if (!onInterface && isAddress && value.includes(":") && !value.includes("/") && !value.includes(",")) return `${value}/128`;
+        if (onInterface) return value;
+        // Elsewhere an IPv4 host compares bare and an IPv6 one with /128, however the menu prints it (TRAPS.md).
+        if (/^[\d.]+\/32$/.test(value)) return value.slice(0, -3);
+        if (value.includes(":") && !value.includes("/")) return `${value}/128`;
 
         return value;
     }

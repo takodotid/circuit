@@ -169,9 +169,11 @@ export class Address {
 
     /** An address, with or without its length, in one spelling: IPv6 as RFC 5952 writes it, so `2001:DB8:0:0::1` and `2001:db8::1` compare equal. Text that is not an address comes back as it is. */
     static canonical(text: string): string {
-        const [address, length] = text.split("/");
+        const [address, length, ...rest] = text.split("/");
         const value = Address.toNumber(address!);
-        if (value === null) return text;
+        // A list, `10.0.2.0/24,198.51.100.0/30`, is not one address, so it too comes back whole.
+        const oneAddress = value !== null && !rest.length && (length === undefined || /^\d+$/.test(length));
+        if (!oneAddress) return text;
 
         const spelled = Address.fromNumber(value, Address.family(address!));
         return length === undefined ? spelled : `${spelled}/${length}`;
