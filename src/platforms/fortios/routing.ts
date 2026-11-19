@@ -171,8 +171,8 @@ export class FortiOsRouting {
     /** The route map a session takes when its config states none, so it learns or announces nothing. */
     static readonly REJECT_ALL = "circuit-reject-all";
 
-    /** The start of the comment on a prefix list `refresh` fills. The plan keeps the entries the device holds in one. */
-    static readonly FILLED = "Filled by circuit refresh";
+    /** The start of the comment on a prefix list from a registry that the render did not fetch, as Studio renders it. The plan keeps the entry the device holds. */
+    static readonly UNFETCHED = "Fetched by circuit diff and apply";
 
     static readonly PREFIX_LIST = { ipv4: "router prefix-list", ipv6: "router prefix-list6" } as const;
 
@@ -198,6 +198,12 @@ export class FortiOsRouting {
         "level-2": { type: "level-2-only", levels: [2] },
         "level-1-2": { type: "level-1-2", levels: [1, 2] },
     } as const;
+
+    /** The key chain that holds an IS-IS level's key, before the level's number. */
+    private static readonly ISIS_KEY_CHAIN = "circuit-isis-l";
+
+    /** A key chain's key is valid from 2001, before any date the device's clock shows, with no end. The device needs both lifetimes, and prints them this way. */
+    private static readonly KEY_LIFETIME = "00:00:00 01 01 2001 infinite";
 
     /** A neighbor's settings with its group's beneath them. */
     static neighborSettings(device: Device, neighbor: Neighbor): NeighborSettings {
@@ -266,8 +272,8 @@ export class FortiOsRouting {
                 const entry = root
                     .block(FortiOsRouting.PREFIX_LIST[family])
                     .entry(name)
-                    .set("comments", FortiOsTree.quote(`${FortiOsRouting.FILLED} from ${registry} ${query}`));
-                // Until `refresh` fills it, the list refuses every prefix, so a rule matching it matches nothing.
+                    .set("comments", FortiOsTree.quote(`${FortiOsRouting.UNFETCHED} from ${registry} ${query}`));
+                // Without its prefixes, the list refuses every prefix, so a rule matching it matches nothing.
                 const rule = entry.block("rule").entry(1);
                 FortiOsRouting.listRule(rule, family, family === "ipv4" ? "0.0.0.0/0" : "::/0", { le: FortiOsRouting.BITS[family] });
                 rule.set("action", "deny");
@@ -394,11 +400,32 @@ export class FortiOsRouting {
         const block = root.block("router isis");
         block.set("is-type", type);
         block.set("metric-style", "wide");
+        // MD5 takes its key from a key chain only, one per level. It signs the level's LSPs and sequence number packets here, and its hellos on each interface.
+        const chains = new Map<number, string>();
+        for (const level of levels) {
+            const key = Derive.isisKey(isis, level);
+            if (!key) continue;
+
+            const chain = `${FortiOsRouting.ISIS_KEY_CHAIN}${level}`;
+            chains.set(level, chain);
+            const entry = root.block("router key-chain").entry(chain).block("key").entry(1);
+            entry.set("key-string", FortiOsTree.quote(Secrets.marker(key)));
+            entry.set("accept-lifetime", FortiOsRouting.KEY_LIFETIME);
+            entry.set("send-lifetime", FortiOsRouting.KEY_LIFETIME);
+        }
+        const sign = (node: FortiOsNode) => {
+            for (const [level, chain] of chains) {
+                node.set(`auth-mode-l${level}`, "md5");
+                node.set(`auth-keychain-l${level}`, FortiOsTree.quote(chain));
+            }
+        };
+        sign(block);
         block.block("isis-net").entry(1).set("net", isis.net);
 
         for (const [name, settings] of Object.entries(isis.interfaces)) {
             const iface = FortiOsNames.of(device, name);
             const entry = block.block("isis-interface").entry(iface);
+            sign(entry);
             if (isis.address_families.includes("ipv4")) entry.set("status", "enable");
             if (isis.address_families.includes("ipv6")) entry.set("status6", "enable");
             // `unsupported()` refuses another link type on a loopback.
@@ -407,6 +434,8 @@ export class FortiOsRouting {
             const metric = settings?.metric;
             if (metric !== undefined) for (const level of levels) entry.set(`wide-metric-l${level}`, metric);
         }
+
+        if (isis.overload_bit) block.set("overload-bit", "enable");
     }
 
     private static bgp(root: FortiOsNode, device: Device): void {
@@ -612,6 +641,7 @@ export class FortiOsRouting {
             if (settings?.passive) found.push(`${where}.passive, FortiOS has none: only a loopback forms no adjacency`);
             if (settings?.network && device.interfaces?.loopback?.[name])
                 found.push(`${where}.network, a loopback's link type is loopback on FortiOS`);
+            if (settings?.bfd) found.push(`${where}.bfd, FortiOS 6.2 has no BFD for IS-IS`);
         }
 
         for (const [name, neighbor] of Object.entries(routing?.bgp?.neighbors ?? {})) {

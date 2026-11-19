@@ -488,7 +488,7 @@ export class Vrp extends Platform {
         try {
             await Vrp.commitPlan(channel, plan);
 
-            const proof = await Ssh.proofLogin(() => Vrp.login(device)).catch(() => undefined);
+            const proof = await Ssh.retrying(() => Vrp.login(device)).catch(() => undefined);
             if (!proof)
                 throw new Error(`committed, but a fresh login failed. ${Vrp.NOT_SAVED} Recover over the open session or the console.`);
             proof.end();

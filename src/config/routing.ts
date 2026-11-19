@@ -233,6 +233,20 @@ export type IsisInterface = {
     passive?: boolean;
     /** The link type. `broadcast` when absent. On `point-to-point`, no designated router is elected. */
     network?: "broadcast" | "point-to-point";
+    /** Detect a dead neighbor in under a second with BFD. */
+    bfd?: boolean;
+};
+
+/** How IS-IS packets are signed: with HMAC-MD5 (RFC 5304). The device ignores a router without the key. */
+export type IsisAuthentication = {
+    /** The key, 35 characters at most on FortiOS. Every router at the level uses the same one: in its area at level 1, across areas at level 2. */
+    key: Secret;
+};
+
+/** IS-IS settings of one level. */
+export type IsisLevel = {
+    /** Sign the level's hellos, LSPs, and sequence number packets. */
+    authentication?: IsisAuthentication;
 };
 
 /** IS-IS (ISO/IEC 10589, RFC 1195), with wide metrics (RFC 5305). */
@@ -243,8 +257,14 @@ export type Isis<I extends string> = {
     level_capability: "level-1" | "level-2" | "level-1-2";
     /** What IS-IS routes: `ipv4`, `ipv6`, or both. Both share one topology (RFC 5308), so each link between IS-IS routers needs both. */
     address_families: readonly Family[];
+    /** Sign every IS-IS packet with one key, at each level the device runs. For a key per level, write it in `levels` instead. */
+    authentication?: IsisAuthentication;
+    /** Settings of level 1 or level 2, such as `{ 2: { authentication: { key: secret("ISIS_L2_KEY") } } }`. Only levels the device runs. */
+    levels?: { 1?: IsisLevel; 2?: IsisLevel };
     /** The device's ports and interfaces that run IS-IS, each with its settings. */
     interfaces: Named<I, IsisInterface>;
+    /** Set the overload bit in the device's LSPs (ISO/IEC 10589). Other routers stop routing through the device, and still reach its own networks: for a router drained for maintenance, or a route reflector out of the traffic's path. */
+    overload_bit?: boolean;
 };
 
 /** A routing table beside the main one. It holds no interfaces. Routes go into it from static routes and BGP neighbors that give it in `routing_table`. `routing.policy_routing` sends traffic to it. */
@@ -523,7 +543,7 @@ export type Routing<
     ospf?: Ospf<I, NoInfer<F>>;
     /** IS-IS, in the main table. */
     isis?: Isis<I>;
-    /** BFD timers for every BFD session on the device: BGP, OSPF, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */
+    /** BFD timers for every BFD session on the device: BGP, OSPF, IS-IS, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */
     bfd?: Bfd;
     /** The RPKI validators the device asks for route origin validation. */
     rpki?: readonly RpkiServer[];

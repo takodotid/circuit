@@ -249,14 +249,14 @@ export class FortiOsPlan {
         "firewall local-in-policy6": FortiOsPlan.DENY,
     };
 
-    /** Settings whose value is a secret wherever they appear, such as a certificate's key, which the device prints encrypted. */
-    private static readonly SECRET_KEYS = new Set(["private-key"]);
+    /** Settings whose value is a secret wherever they appear: a certificate's key, which the device prints encrypted, and a key chain's key, which it prints in clear. */
+    static readonly SECRET_KEYS = new Set(["private-key", "key-string"]);
 
     /** Settings holding a certificate's text, compared without its line breaks. */
     private static readonly CERTIFICATES = new Set(["certificate", "ca"]);
 
-    /** Settings undone before a nested list is deleted: NTP refuses to delete its last server while `ntpsync` is on. Any other goes after it. */
-    private static readonly FIRST = new Set(["ntpsync"]);
+    /** Settings undone first. NTP refuses to delete its last server while `ntpsync` is on, and IS-IS hides a level's key chain once its MD5 mode goes. Any other goes after the nested lists. */
+    private static readonly FIRST = new Set(["ntpsync", "auth-keychain-l1", "auth-keychain-l2"]);
 
     /** Settings holding a list in no particular order. */
     private static readonly LISTS = new Set([
@@ -892,7 +892,7 @@ export class FortiOsPlan {
     static of(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
         const want = FortiOsPlan.separateTunnels(FortiOsTree.parse(desired));
         const have = FortiOsPlan.separateTunnels(FortiOsTree.parse(FortiOsPlan.clean(current)));
-        FortiOsPlan.keepFilled(want, have);
+        FortiOsPlan.keepUnfetched(want, have);
         // A section the config doesn't use is still planned when the device has it, so its entries are removed.
         for (const section of FortiOsRender.OPTIONAL_SECTIONS)
             if (have.blocks.has(section) && !want.blocks.has(section)) want.blocks.set(section, new FortiOsNode());
@@ -1007,14 +1007,16 @@ export class FortiOsPlan {
         return root;
     }
 
-    /** A prefix list `refresh` fills keeps the entries the device holds. */
-    private static keepFilled(want: FortiOsNode, have: FortiOsNode): void {
+    /** A prefix list from a registry that the render did not fetch, as Studio renders it, stays as the device holds it. */
+    private static keepUnfetched(want: FortiOsNode, have: FortiOsNode): void {
         for (const table of Object.values(FortiOsRouting.PREFIX_LIST)) {
-            for (const [key, entry] of want.blocks.get(table)?.entries ?? []) {
-                if (!FortiOsTree.bare(entry.block.settings.get("comments") ?? "").startsWith(FortiOsRouting.FILLED)) continue;
+            const wanted = want.blocks.get(table)?.entries;
 
-                const held = have.blocks.get(table)?.entries.get(key)?.block.blocks.get("rule");
-                if (held) entry.block.blocks.set("rule", held);
+            for (const [key, entry] of wanted ?? []) {
+                if (!FortiOsTree.bare(entry.block.settings.get("comments") ?? "").startsWith(FortiOsRouting.UNFETCHED)) continue;
+
+                const held = have.blocks.get(table)?.entries.get(key);
+                if (held) wanted!.set(key, held);
             }
         }
     }
