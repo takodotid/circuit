@@ -220,7 +220,10 @@ export class JunosRender {
 
         for (const server of system.dns?.servers ?? []) this.out.set("system name-server", server);
 
-        for (const server of system.ntp?.servers ?? []) this.out.set("system ntp server", server);
+        for (const server of system.ntp?.servers ?? []) {
+            this.out.set("system ntp server", server);
+            if (system.ntp?.vrf) this.out.set("system ntp server", server, "routing-instance", system.ntp.vrf);
+        }
 
         // Redirects are sent unless turned off, for each family.
         if (!system.ip_stack?.icmp_redirects) {
@@ -237,6 +240,7 @@ export class JunosRender {
         for (const remote of this.device.monitoring?.syslog ?? []) {
             this.out.set("system syslog host", remote.address, "any", JunosRender.LEVEL[remote.level]);
             if (remote.port !== undefined && remote.port !== 514) this.out.set("system syslog host", remote.address, "port", remote.port);
+            if (remote.vrf) this.out.set("system syslog host", remote.address, "routing-instance", remote.vrf);
         }
     }
 
@@ -275,6 +279,7 @@ export class JunosRender {
             if (server.acct_port !== undefined) this.out.set(statement, "accounting-port", server.acct_port);
             this.out.set(statement, "secret", Secrets.marker(server.secret_key));
             if (server.source_address) this.out.set(statement, "source-address", server.source_address);
+            if (server.vrf) this.out.set(statement, "routing-instance", server.vrf);
         }
 
         this.out.set("system login user remote class", JunosRender.USER_CLASS[aaa.remote_role]);
@@ -873,9 +878,10 @@ export class JunosRender {
     /** Each server is an address pool, served on its interface. */
     private dhcpServers(): void {
         for (const [name, server] of Object.entries(this.device.services?.dhcp_server ?? {})) {
-            this.out.set(`system services dhcp-local-server group ${name} interface`, this.names.unit(server.interface));
+            const instance = JunosBgp.instance(Derive.settings(this.device, server.interface)?.vrf);
+            this.out.set(`${instance}system services dhcp-local-server group ${name} interface`, this.names.unit(server.interface));
 
-            const pool = `access address-assignment pool ${name} family inet`;
+            const pool = `${instance}access address-assignment pool ${name} family inet`;
             const [low, high] = server.pool;
             this.out.set(pool, "network", server.network);
             this.out.set(pool, `range ${name} low`, low);
@@ -899,7 +905,8 @@ export class JunosRender {
      */
     private dhcpv6Servers(): void {
         for (const [name, server] of Object.entries(this.device.services?.dhcpv6_server ?? {})) {
-            const group = `system services dhcp-local-server dhcpv6 group ${name}`;
+            const instance = JunosBgp.instance(Derive.settings(this.device, server.interface)?.vrf);
+            const group = `${instance}system services dhcp-local-server dhcpv6 group ${name}`;
             this.out.set(group, "interface", this.names.unit(server.interface));
 
             const pools: string[] = [];
@@ -911,7 +918,7 @@ export class JunosRender {
             const network = Derive.dhcpv6Network(this.device, server);
             if (server.pool && network) {
                 const pool = `${name}${JunosRender.ADDRESS_POOL_SUFFIX}`;
-                const at = `access address-assignment pool ${pool} family inet6`;
+                const at = `${instance}access address-assignment pool ${pool} family inet6`;
                 const [low, high] = server.pool;
                 this.out.set(at, "prefix", network);
                 this.out.set(at, `range ${name} low`, `${low}/${Address.bits("ipv6")}`);
@@ -923,7 +930,7 @@ export class JunosRender {
             const delegation = server.prefix_delegation;
             if (delegation) {
                 const pool = `${name}${JunosRender.DELEGATED_POOL_SUFFIX}`;
-                const at = `access address-assignment pool ${pool} family inet6`;
+                const at = `${instance}access address-assignment pool ${pool} family inet6`;
                 this.out.set(at, "prefix", delegation.pool);
                 this.out.set(at, `range ${pool} prefix-length`, delegation.prefix_length);
                 attributes(at);

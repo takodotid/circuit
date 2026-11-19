@@ -27,6 +27,11 @@ export class RouterOsSyntax {
         return `[ find default-name=${name} ]`;
     }
 
+    /** An address reached through a VRF, as a server's address names it: `192.0.2.1@mgmt`. */
+    static inVrf(address: string, vrf: string | undefined): string {
+        return vrf ? `${address}@${vrf}` : address;
+    }
+
     static yesNo(on: boolean | undefined): string {
         return on ? "yes" : "no";
     }

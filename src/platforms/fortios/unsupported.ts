@@ -55,6 +55,8 @@ export class FortiOsUnsupported {
         for (const [name, vrf] of Object.entries(vrfs)) {
             if (vrf?.description) found.push(`routing.vrfs.${name}.description, the platform numbers a VRF and keeps no description`);
         }
+        // The device's own traffic leaves from the management VDOM, if there is one (TRAPS.md).
+        for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, FortiOS 6.2 has no VRF setting for it`);
 
         // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, with the management VDOM and BFD on a route in a VRF. FortiOsRouting.gaps refuses BFD on a multihop BGP session.
         found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));

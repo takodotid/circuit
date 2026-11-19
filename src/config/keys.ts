@@ -125,7 +125,7 @@ true satisfies Same<(typeof ACTIONS.nat)[number], NatRule<string, string, string
 true satisfies Same<(typeof ACTIONS.acl)[number], AclRule<string>["then"]>;
 true satisfies Same<(typeof ACTIONS.policy)[number], NonNullable<RouteRule<string>["then"]>>;
 
-const SERVICE = { allow: 0, port: 0 } as const;
+const SERVICE = { allow: 0, port: 0, vrf: 0 } as const;
 const STATIC_ROUTE = {
     prefix: 0,
     next_hop: 0,
@@ -215,14 +215,14 @@ export const DEVICE = {
         release_channel: 0,
         ip_stack: { icmp_redirects: 0, syn_cookies: 0 },
         alarms: { "*": { severity: 0 } },
-        dns: { servers: 0 },
-        ntp: { servers: 0 },
+        dns: { servers: 0, vrf: 0 },
+        ntp: { servers: 0, vrf: 0 },
         logging: { local: { level: 0, files: 0, lines_per_file: 0 } },
         hardware_offload: 0,
         users: { "*": { role: 0, password: SECRET, description: 0, ssh_keys: 0 } },
         aaa: {
             tacacs: [{ address: 0, secret_key: SECRET, source_address: 0 }],
-            radius: [{ address: 0, secret_key: SECRET, source_address: 0, auth_port: 0, acct_port: 0 }],
+            radius: [{ address: 0, secret_key: SECRET, source_address: 0, vrf: 0, auth_port: 0, acct_port: 0 }],
             remote_role: 0,
             accounting_events: 0,
         },
@@ -261,7 +261,7 @@ export const DEVICE = {
             location: 0,
             traps: [{ address: 0, port: 0, community: SECRET, user: 0 }],
         },
-        syslog: [{ address: 0, port: 0, level: 0, transport_security: { ca_certificate: 0 } }],
+        syslog: [{ address: 0, vrf: 0, port: 0, level: 0, transport_security: { ca_certificate: 0 } }],
         flow_export: {
             protocol: 0,
             collectors: [{ address: 0, port: 0 }],

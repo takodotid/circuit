@@ -729,10 +729,10 @@ export class RouterOsRender {
     }
 
     private dns(): void {
-        const servers = this.device.system?.dns?.servers;
+        const dns = this.device.system?.dns;
         this.add("/ip dns", "set", {
             "allow-remote-requests": RouterOsSyntax.yesNo(this.device.services?.dns_server),
-            servers: servers?.join(",") ?? "",
+            servers: dns?.servers.map((server) => RouterOsSyntax.inVrf(server, dns.vrf)).join(",") ?? "",
         });
     }
 
@@ -798,6 +798,7 @@ export class RouterOsRender {
                 certificate: service.certificate,
                 disabled: "no",
                 port: service.port,
+                vrf: service.vrf,
             });
         }
 
@@ -845,7 +846,7 @@ export class RouterOsRender {
         for (const server of aaa.radius) {
             this.add("/radius", "add", {
                 "accounting-port": server.acct_port,
-                address: server.address,
+                address: RouterOsSyntax.inVrf(server.address, server.vrf),
                 "authentication-port": server.auth_port,
                 secret: Secrets.marker(server.secret_key),
                 service: "login",
@@ -887,7 +888,7 @@ export class RouterOsRender {
         this.add("/system clock", "set", { "time-zone-autodetect": "no", "time-zone-name": system.timezone ?? "UTC" });
         this.add("/system note", "set", { note: system.banner ?? "", "show-at-login": "yes" });
 
-        this.add("/system ntp client", "set", { enabled: RouterOsSyntax.yesNo(Boolean(system.ntp?.servers.length)) });
+        this.add("/system ntp client", "set", { enabled: RouterOsSyntax.yesNo(Boolean(system.ntp?.servers.length)), vrf: system.ntp?.vrf });
         this.add("/system ntp server", "set", { enabled: RouterOsSyntax.yesNo(this.device.services?.ntp_server) });
         for (const server of system.ntp?.servers ?? []) this.add("/system ntp client servers", "add", { address: server });
 
@@ -921,6 +922,7 @@ export class RouterOsRender {
                 remote: collector.address,
                 "remote-port": collector.port,
                 target: "remote",
+                vrf: collector.vrf,
             });
             for (const topic of RouterOsRender.topicsFrom(collector.level)) this.add("/system logging", "add", { action, topics: topic });
         });

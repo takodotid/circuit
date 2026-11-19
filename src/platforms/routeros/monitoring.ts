@@ -31,6 +31,7 @@ export class RouterOsMonitoring {
             contact: snmp.contact ?? "",
             enabled: "yes",
             location: snmp.location ?? "",
+            vrf: snmp.vrf,
             ...RouterOsMonitoring.trapSettings(snmp),
         });
 

@@ -104,6 +104,9 @@ export class Derive {
     /** The kinds of interface without `urpf`: no packet arrives on a loopback, and a bridge doesn't route. */
     private static readonly UNCHECKED_KINDS: readonly Holder["kind"][] = ["loopback", "bridge"];
 
+    /** The ways into the device in `management`. */
+    private static readonly MANAGEMENT_SERVICES = ["ssh", "telnet", "http", "https", "api", "api_tls", "ftp", "native_protocol"] as const;
+
     /** Each takes its sources from `management.allow`, on the protocol's own port. */
     private static readonly SWITCH_SERVICES = ["ssh", "telnet", "snmp"] as const;
 
@@ -403,6 +406,20 @@ export class Derive {
         if (device.routing?.vrf_imports && !has("vrf-imports")) found.push(`routing.vrf_imports, ${notBuilt}`);
 
         return found;
+    }
+
+    /** Each VRF a service of the device itself names, with where: a management service, SNMP, NTP, DNS, a syslog collector, or a RADIUS server. */
+    static serviceVrfs(device: Device): { where: string; vrf: string }[] {
+        const { management, monitoring, system } = device;
+        const named: { where: string; vrf: string | undefined }[] = [
+            ...Derive.MANAGEMENT_SERVICES.map((name) => ({ where: `management.${name}.vrf`, vrf: management?.[name]?.vrf })),
+            { where: "monitoring.snmp.vrf", vrf: monitoring?.snmp?.vrf },
+            { where: "system.ntp.vrf", vrf: system?.ntp?.vrf },
+            { where: "system.dns.vrf", vrf: system?.dns?.vrf },
+            ...(monitoring?.syslog ?? []).map((collector, index) => ({ where: `monitoring.syslog[${index}].vrf`, vrf: collector.vrf })),
+            ...(system?.aaa?.radius ?? []).map((server, index) => ({ where: `system.aaa.radius[${index}].vrf`, vrf: server.vrf })),
+        ];
+        return named.flatMap(({ where, vrf }) => (vrf ? [{ where, vrf }] : []));
     }
 
     /** SNMP traps, syslog over TLS, and flow timeouts, on a platform that builds none of them. */

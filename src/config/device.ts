@@ -88,11 +88,11 @@ export type Names = {
  */
 export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net extends NetworkFacts = AnyFacts> = {
     /** The device itself: banner, time, the DNS servers it uses, users, certificates, local logs, software, and hardware. */
-    system?: System<N["user"], N["certificate"], NoInfer<N["anyInterface"]>>;
+    system?: System<N["user"], N["certificate"], NoInfer<N["anyInterface"]>, NoInfer<N["vrf"]>>;
     /** How people and tools log in, such as SSH, HTTPS, the API, the native protocol, and the console. */
-    management?: Management<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["addressSet"]>>;
+    management?: Management<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["addressSet"]>, NoInfer<N["vrf"]>>;
     /** What the device reports to collectors: SNMP, syslog, flow export, and optics. */
-    monitoring?: Monitoring<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>>;
+    monitoring?: Monitoring<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["vrf"]>>;
     /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, wireguard, eoip. */
     interfaces?: Interfaces<
         Ethernet,

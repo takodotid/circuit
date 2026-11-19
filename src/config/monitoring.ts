@@ -25,10 +25,12 @@ export type SnmpTrapTarget = {
     user?: string;
 };
 
-/** One syslog collector. `C` is the device's certificate names. */
-export type SyslogServer<C extends string = string> = {
+/** One syslog collector. `C` is the device's certificate names, `F` its VRFs. */
+export type SyslogServer<C extends string = string, F extends string = string> = {
     /** Where the collector listens. */
     address: IP;
+    /** The VRF the device reaches the collector through, from `routing.vrfs`. The main table when absent. */
+    vrf?: F;
     /** The port. 514 when absent, or 6514 with `transport_security`. */
     port?: number;
     /** The least severe message sent. */
@@ -61,10 +63,10 @@ export type FlowExport<I extends string> = {
     idle_timeout?: number;
 };
 
-/** What the device reports to collectors. `I` is the device's ports and interfaces, `C` its certificates. */
-export type Monitoring<I extends string, C extends string = string> = {
+/** What the device reports to collectors. `I` is the device's ports and interfaces, `C` its certificates, `F` its VRFs. */
+export type Monitoring<I extends string, C extends string = string, F extends string = string> = {
     /** SNMP polling. */
-    snmp?: Service & {
+    snmp?: Service<F> & {
         /** Read-only community for version 2c. Version 2c is off when absent. */
         community?: Secret;
         /** Version 3 users, keyed by name. */
@@ -77,7 +79,7 @@ export type Monitoring<I extends string, C extends string = string> = {
         traps?: readonly SnmpTrapTarget[];
     };
     /** Log messages sent to syslog collectors, each from its own `level` up. */
-    syslog?: readonly SyslogServer<C>[];
+    syslog?: readonly SyslogServer<C, F>[];
     /** Flow records or packet samples sent to collectors. */
     flow_export?: FlowExport<I>;
     /** Read the optics' temperature, power, and voltage. */
