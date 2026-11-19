@@ -66,7 +66,7 @@ The router is the edge router, with `include: [tenants.parts]` too. The tenants'
 
 <TryIt title="Send packets through the tenants' networks">
 
-Here a second tenant, Akamai, has joined. It has a public network and a private one.
+Here a second tenant, Herza, has joined. It has a public network and a private one.
 
 <TenantPath />
 
@@ -90,9 +90,9 @@ Circuit knows nothing about tenants, so it can't know that two tenants' blocks m
 
 ## Add a tenant
 
-A new tenant, Akamai, wants one server on its public network. Copy `tenants/argon.ts` to `tenants/akamai.ts`, and change every name, VLAN ID, address, and port to Akamai's. Then add `akamai` to `tenants/index.ts`. Each choice can clash with Argon, and Circuit says how.
+A new tenant, Herza, wants one server on its public network. Copy `tenants/argon.ts` to `tenants/herza.ts`, and change every name, VLAN ID, address, and port to Herza's. Then add `herza` to `tenants/index.ts`. Each choice can clash with Argon, and Circuit says how.
 
-<TryIt title="Write the file of Akamai">
+<TryIt title="Write the file of Herza">
 
 <TenantJoin />
 
@@ -107,7 +107,7 @@ Every clash stops `validate`, and each message says where it is:
 The port matters most: without the stop, one tenant would silently take the other's port.
 
 <Quiz
-  question="Akamai is given 10g-1, which Argon already uses. Which step of the workflow catches it?"
+  question="Herza is given 10g-1, which Argon already uses. Which step of the workflow catches it?"
   :choices="['Your editor, with a red line', 'circuit validate, with an error', 'Reading the plan from circuit diff, where 10GE1/0/1 loses the VLANs of Argon']"
   :answer="1"
   :why="['10g-1 is a valid port name in each file, so the types are happy. It takes Circuit reading both files together.', '', 'There is no plan to read: diff reads the files first, and stops at the error.']"
@@ -116,7 +116,7 @@ The port matters most: without the stop, one tenant would silently take the othe
 
 ## When a tenant leaves
 
-A tenant leaves when you remove it from `tenants/index.ts`. The next apply takes away everything it had, everywhere. Say Akamai has joined, and then Argon leaves. `circuit diff` plans 22 commands for the router and 19 for the switch. On the switch:
+A tenant leaves when you remove it from `tenants/index.ts`. The next apply takes away everything it had, everywhere. Say Herza has joined, and then Argon leaves. `circuit diff` plans 22 commands for the router and 19 for the switch. On the switch:
 
 ```text
 tor-01: 19 command(s) in 4 step(s)

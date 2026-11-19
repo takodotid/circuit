@@ -28,7 +28,7 @@ const decisions: Decision[] = [
                 id: "1001",
                 label: "1001 and 2001",
                 verdict: "bad",
-                text: "Netflix already uses them. Both tenants would be on VLAN 1001, and their traffic would mix on it.",
+                text: "Argon already uses them. Both tenants would be on VLAN 1001, and their traffic would mix on it.",
             },
         ],
     },
@@ -46,7 +46,7 @@ const decisions: Decision[] = [
                 id: "overlap",
                 label: GATEWAYS.overlap,
                 verdict: "bad",
-                text: "Its block, 198.51.100.12/30, lies inside 198.51.100.8/29, the block of Netflix, so two tenants would answer for the same addresses. The example's own check, blocks_apart, catches it.",
+                text: "Its block, 198.51.100.12/30, lies inside 198.51.100.8/29, the block of Argon, so two tenants would answer for the same addresses. The example's own check, blocks_apart, catches it.",
             },
         ],
     },
@@ -59,7 +59,7 @@ const decisions: Decision[] = [
                 id: "10g-1",
                 label: "10g-1",
                 verdict: "bad",
-                text: "The file of Netflix already gives 10g-1 to its server 1. Circuit stops when two files write one port with two values.",
+                text: "The file of Argon already gives 10g-1 to its server 1. Circuit stops when two files write one port with two values.",
             },
         ],
     },
@@ -77,7 +77,7 @@ const decisions: Decision[] = [
                 id: "both",
                 label: "Public and private",
                 verdict: "good",
-                text: "Two tagged VLANs. The private one exists only on the switch, between the servers of Akamai, and never reaches the router.",
+                text: "Two tagged VLANs. The private one exists only on the switch, between the servers of Herza, and never reaches the router.",
             },
         ],
     },
@@ -112,31 +112,31 @@ const chosen = computed(() => ({
 const file = computed(() => {
     const ids = VLANS[chosen.value.vlan];
     const both = chosen.value.networks === "both";
-    const carries = both ? 'trunk_vlans: ["akamai-internet", "akamai-private"]' : 'access_vlan: "akamai-internet"';
+    const carries = both ? 'trunk_vlans: ["herza-internet", "herza-private"]' : 'access_vlan: "herza-internet"';
 
     return [
         "const vlans = literal({",
-        `    "akamai-internet": { id: ${ids.internet}, description: "Tenant akamai internet" },`,
-        `    "akamai-private": { id: ${ids.private}, description: "Tenant akamai private" },`,
+        `    "herza-internet": { id: ${ids.internet}, description: "Tenant herza internet" },`,
+        `    "herza-private": { id: ${ids.private}, description: "Tenant herza private" },`,
         "});",
         "",
-        "export const akamai = {",
+        "export const herza = {",
         "    parts: {",
         '        "edge-01": part("device", {',
-        '            switching: { vlans: { "akamai-internet": vlans["akamai-internet"] } },',
+        '            switching: { vlans: { "herza-internet": vlans["herza-internet"] } },',
         "            interfaces: {",
-        '                ethernet: { "100g-1": { trunk_vlans: ["akamai-internet"] } },',
+        '                ethernet: { "100g-1": { trunk_vlans: ["herza-internet"] } },',
         "                vlan_interface: {",
-        `                    "akamai-internet": { vlan: "akamai-internet", description: "Tenant akamai", addresses: ["${GATEWAYS[chosen.value.block]}", "2001:db8:100:2::1/64"] },`,
+        `                    "herza-internet": { vlan: "herza-internet", description: "Tenant herza", addresses: ["${GATEWAYS[chosen.value.block]}", "2001:db8:100:2::1/64"] },`,
         "                },",
         "            },",
         "        }),",
         '        "tor-01": part("device", {',
-        `            switching: { vlans: ${both ? "vlans" : '{ "akamai-internet": vlans["akamai-internet"] }'} },`,
+        `            switching: { vlans: ${both ? "vlans" : '{ "herza-internet": vlans["herza-internet"] }'} },`,
         "            interfaces: {",
         "                ethernet: {",
-        '                    "40g-1": { trunk_vlans: ["akamai-internet"] },',
-        `                    "${chosen.value.port}": { description: "akamai server 1", ${carries} },`,
+        '                    "40g-1": { trunk_vlans: ["herza-internet"] },',
+        `                    "${chosen.value.port}": { description: "herza server 1", ${carries} },`,
         "                },",
         "            },",
         "        }),",
@@ -169,7 +169,7 @@ const outcome = computed(() => {
     return {
         kind: "good",
         word: "Ready",
-        text: "The router gets the VLAN and gateway of Akamai. The switch gets the VLAN, the port, and the VLAN on its uplink. Nothing of Netflix changes.",
+        text: "The router gets the VLAN and gateway of Herza. The switch gets the VLAN, the port, and the VLAN on its uplink. Nothing of Argon changes.",
     };
 });
 </script>
@@ -203,7 +203,7 @@ const outcome = computed(() => {
             </p>
         </fieldset>
 
-        <CodeView :code="file" title="tenants/akamai.ts" />
+        <CodeView :code="file" title="tenants/herza.ts" />
 
         <div class="ac-row">
             <button type="button" class="ac-button primary" @click="ran = true">Run validate and diff</button>
