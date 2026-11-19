@@ -23,6 +23,9 @@ export class RouterOsRender {
     /** The bridge every switched port joins. One per device. */
     private static readonly BRIDGE = "bridge";
 
+    /** The split horizon of every isolated port: ports with the same horizon never forward to each other. */
+    private static readonly ISOLATED_HORIZON = 1;
+
     /** Destination of spanning tree BPDUs, so a filter can drop them on one port. */
     private static readonly BPDU_DESTINATION = "01:80:C2:00:00:00/FF:FF:FF:FF:FF:FF";
 
@@ -181,8 +184,9 @@ export class RouterOsRender {
 
     /** Ports and LAGs that are layer 2 members of a VLAN, with their settings. A port in a LAG is represented by the LAG. */
     private switched(): [string, Port | Lag][] {
-        const ports = Object.entries(this.ports).filter(([, port]) => !port.in_lag && (port.access_vlan || port.trunk_vlans));
-        const lags = RouterOsSyntax.entries(this.device.interfaces?.lag).filter(([, lag]) => Boolean(lag.access_vlan || lag.trunk_vlans));
+        const switches = (settings: Port | Lag) => Boolean(settings.access_vlan || settings.trunk_vlans || settings.qinq_vlan);
+        const ports = Object.entries(this.ports).filter(([, port]) => !port.in_lag && switches(port));
+        const lags = RouterOsSyntax.entries(this.device.interfaces?.lag).filter(([, lag]) => switches(lag));
         return [...ports, ...lags];
     }
 
@@ -475,16 +479,17 @@ export class RouterOsRender {
         }
     }
 
-    /** A switched port or LAG joins the bridge. Its untagged VLAN is its port VLAN ID. */
+    /** A switched port or LAG joins the bridge. Its untagged VLAN is its port VLAN ID. A port in a secondary VLAN (RFC 5517) is in its primary VLAN, and an isolated one is kept from the others by its split horizon. A QinQ port takes every frame as untagged, and tags it. */
     private bridgePorts(): void {
         for (const [port, settings] of this.switched()) {
             const isTrunk = Boolean(settings.trunk_vlans);
-            const untagged = isTrunk ? settings.native_vlan : settings.access_vlan;
-            const pvid = untagged ? this.vlanId(untagged) : undefined;
+            const untagged = settings.qinq_vlan ?? (isTrunk ? settings.native_vlan : settings.access_vlan);
+            const secondary = untagged ? this.device.switching?.vlans?.[untagged]?.private_vlan : undefined;
+            const pvid = untagged ? this.vlanId(secondary?.primary ?? untagged) : undefined;
 
             // A trunk without a native VLAN takes tagged frames only; an access port untagged only.
             let frameTypes: string | undefined;
-            if (!isTrunk) frameTypes = "admit-only-untagged-and-priority-tagged";
+            if (settings.access_vlan) frameTypes = "admit-only-untagged-and-priority-tagged";
             else if (pvid === undefined) frameTypes = "admit-only-vlan-tagged";
 
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
@@ -493,11 +498,13 @@ export class RouterOsRender {
                 bridge: RouterOsRender.BRIDGE,
                 edge: stp?.edge ? "yes" : undefined,
                 "frame-types": frameTypes,
+                horizon: secondary?.type === "isolated" ? RouterOsRender.ISOLATED_HORIZON : undefined,
                 interface: this.name(port),
                 "path-cost": stp?.cost,
                 priority: RouterOsSyntax.hex(stp?.priority),
                 pvid,
                 "restricted-role": RouterOsSyntax.yesWhen(stp?.guard === "root"),
+                "tag-stacking": RouterOsSyntax.yesWhen(Boolean(settings.qinq_vlan)),
                 trusted: RouterOsSyntax.yesWhen(settings.dhcp_trusted),
                 "trusted-ra": RouterOsSyntax.yesWhen(settings.ra_trusted),
             });

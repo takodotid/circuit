@@ -166,6 +166,7 @@ const SWITCHED = {
     bound_to: [{ mac: 0, addresses: 0 }],
     dhcp_trusted: 0,
     ra_trusted: 0,
+    qinq_vlan: 0,
 } as const;
 const BASE = { ...ROUTED, description: 0, mtu: 0, shaping: { algorithm: 0, mbps: 0 } } as const;
 // No packet arrives on a loopback, and a bridge doesn't route what crosses it.
@@ -305,9 +306,10 @@ export const DEVICE = {
         eoip: { "*": { ...BASE, local_address: 0, remote_address: 0, tunnel_id: 0, in_lag: 0 } },
     },
     switching: {
-        vlans: { "*": { id: 0, description: 0, untrusted: 0 } },
+        vlans: { "*": { id: 0, description: 0, untrusted: 0, private_vlan: { primary: 0, type: 0 } } },
         stp: { mode: 0, priority: 0 },
         dhcp_snooping: 0,
+        arp_inspection: 0,
         ra_guard: 0,
         lldp: { interfaces: 0 },
         acls: { "*": [ACL_RULE] },

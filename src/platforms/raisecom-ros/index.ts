@@ -300,9 +300,13 @@ export class RaisecomRos extends Platform {
         const raGuard = "which only RouterOS and Junos build for now";
         if (switching?.dhcp_snooping) found.push(`switching.dhcp_snooping, ${snooping}`);
         if (switching?.ra_guard) found.push(`switching.ra_guard, ${raGuard}`);
+        if (switching?.arp_inspection) found.push("switching.arp_inspection, which only Junos builds for now");
+        for (const [name, vlan] of Object.entries(switching?.vlans ?? {}))
+            if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
             if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted, ${snooping}`);
             if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${raGuard}`);
+            if (settings.qinq_vlan) found.push(`${where}.qinq_vlan, ${snooping}`);
         }
 
         for (const [name, user] of Object.entries(device.system?.users ?? {})) {

@@ -268,6 +268,15 @@ export class Vrp extends Platform {
         if (device.switching?.ra_guard) found.push(`switching.ra_guard, ${noRaGuard}`);
         const holders = Derive.switchedHolders(device).filter(({ settings }) => !("in_lag" in settings && settings.in_lag));
         for (const { where, settings } of holders) if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${noRaGuard}`);
+        // The CE6855 took `arp anti-attack check user-bind enable` in a VLAN's view only (TRAPS.md).
+        if (device.switching?.arp_inspection)
+            found.push("switching.arp_inspection, the platform checks a whole VLAN, and whether it passes dhcp_trusted ports is not known");
+        // Snooping runs on each port, over all of its VLANs.
+        for (const { where, settings } of device.switching?.dhcp_snooping ? Derive.switchedHolders(device) : [])
+            if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.dhcp_snooping, which the platform runs on every VLAN`);
+        // MUX VLAN, the platform's counterpart, went into a CE6855's candidate, but how a trunk carries it is not known (TRAPS.md).
+        for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
+            if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);
 
         // `stp bpdu-protection` guards every edge port at once.
         const stpOf = (settings: Port | Lag) => (typeof settings.stp === "object" ? settings.stp : undefined);
@@ -340,7 +349,7 @@ export class Vrp extends Platform {
         return found;
     }
 
-    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. The spanning tree guards and DHCP snooping went into a candidate on a CE6855, but were never committed, so how the switch prints them is not known. */
+    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. The spanning tree guards, DHCP snooping, and QinQ's `port link-type dot1q-tunnel` went into a candidate on a CE6855, but were never committed, so how the switch prints them is not known. */
     override experimental(device: Device): string[] {
         const found = Object.entries(device.interfaces?.vlan_interface ?? {})
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
@@ -352,6 +361,7 @@ export class Vrp extends Platform {
             if (stp?.bpdu_guard) found.push(`${where}.stp.bpdu_guard`);
             if (stp?.guard) found.push(`${where}.stp.guard`);
             if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted`);
+            if (settings.qinq_vlan) found.push(`${where}.qinq_vlan`);
         }
 
         for (const [areaId, area] of Object.entries(device.routing?.ospf?.areas ?? {})) {

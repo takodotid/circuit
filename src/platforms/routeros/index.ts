@@ -246,6 +246,16 @@ export class RouterOs extends Platform {
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.bridge)) {
             found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
         }
+        // MikroTik's changelog adds it in 7.25, which no device here runs yet.
+        if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
+        for (const field of ["dhcp_snooping", "ra_guard"] as const)
+            for (const { where, settings } of device.switching?.[field] ? Derive.switchedHolders(device) : [])
+                if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.${field}, which the platform runs on every VLAN`);
+        for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
+            if (vlan.private_vlan?.type === "community")
+                found.push(
+                    `switching.vlans.${name}.private_vlan, a community: the platform keeps isolated ports apart, but has no communities`
+                );
 
         for (const [name, port] of Derive.ports(device)) {
             if (port.speed && !RouterOsRender.medium(Catalog.spell(device.platform, device.model, name), port.speed)) {

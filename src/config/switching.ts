@@ -1,10 +1,18 @@
 import type { Family, Named, OneOrMore, Ordered, Prefix, Rate } from "./common";
 import type { Ports, Protocol } from "./firewall";
 
+/** A secondary VLAN of a private VLAN (RFC 5517): its hosts are in the primary VLAN's subnet, but kept apart at layer 2. */
+export type PrivateVlan<V extends string> = {
+    /** The primary VLAN, from `switching.vlans`. Its access ports, the trunks that carry it, and its VLAN interface are promiscuous: they reach every host of its secondary VLANs. */
+    primary: V;
+    /** `isolated`: a host here reaches the promiscuous ports only. A primary VLAN has one isolated VLAN at most. `community`: a host here also reaches the other hosts of this VLAN. */
+    type: "isolated" | "community";
+};
+
 /**
- * A VLAN. Its key in `switching.vlans` is its name. `Untrusted` is whether the network turns on the check `untrusted_vlans`, which `untrusted` needs.
+ * A VLAN. Its key in `switching.vlans` is its name. `Untrusted` is whether the network turns on the check `untrusted_vlans`, which `untrusted` needs. `V` is the device's VLAN names.
  */
-export type Vlan<Untrusted extends boolean = true> = {
+export type Vlan<Untrusted extends boolean = true, V extends string = string> = {
     /** The VLAN ID on the wire, 1 to 4094. Two VLANs on a device can't share an ID. */
     id: number;
     /** What the VLAN is for. On a platform where a VLAN is only its number (Raisecom, FortiOS), Circuit doesn't write it, so the same VLAN works on every platform. */
@@ -13,6 +21,8 @@ export type Vlan<Untrusted extends boolean = true> = {
      * The VLAN carries traffic straight from outside, such as a transit, an exchange, an ISP handoff, or the native VLAN of one of these. The check `untrusted_vlans` uses it, and the device never gets it. Write it on every device that declares the VLAN. Allowed only when the network's `circuit()` turns on `untrusted_vlans`. Otherwise the editor shows an error and `circuit validate` stops.
      */
     untrusted?: Untrusted extends true ? true : "allowed only when circuit.ts turns on the check untrusted_vlans";
+    /** Makes this a secondary VLAN of a private VLAN (RFC 5517). Only access ports may be in it: a trunk carries its primary VLAN, and the gateway's VLAN interface is on the primary VLAN too. */
+    private_vlan?: PrivateVlan<V>;
 };
 
 /**
@@ -62,11 +72,13 @@ export type Stp = {
 /** Layer 2 that the ports share. `V` is the device's VLAN names, `A` its ACL names, `I` its ports and interfaces. `Untrusted` is whether the network turns on `untrusted_vlans`. */
 export type Switching<V extends string, A extends string, I extends string, Untrusted extends boolean = true> = {
     /** VLANs, keyed by name. Ports, LAGs, and VLAN interfaces use these names. */
-    vlans?: Named<V, Vlan<Untrusted>>;
+    vlans?: Named<V, Vlan<Untrusted, NoInfer<V>>>;
     /** Spanning tree on every switched port. A port may override it. */
     stp?: Stp;
     /** DHCP snooping: a switched port drops DHCP servers' messages, such as offers, unless it has `dhcp_trusted`. So no host hands out IPv4 addresses. DHCPv6 is not covered. */
     dhcp_snooping?: true;
+    /** Dynamic ARP inspection: a switched port drops an ARP packet unless DHCP snooping saw a DHCP server give its sender that MAC and IPv4 address, or the port has `dhcp_trusted`. So no host answers ARP for another's address. Needs `dhcp_snooping`. A host whose address is written by hand needs a port with `dhcp_trusted`. */
+    arp_inspection?: true;
     /** RA guard (RFC 6105): a switched port drops IPv6 router advertisements unless it has `ra_trusted`. So no host poses as the gateway. */
     ra_guard?: true;
     /** Advertise and learn neighbors with LLDP on every port (`true`), or only on the interfaces listed. A port may override it. */
