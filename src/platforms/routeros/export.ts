@@ -24,6 +24,9 @@ export type Parsed = {
 };
 
 export class RouterOsExport {
+    /** An IS-IS template's metric at each level, by its link type. */
+    private static readonly ISIS_METRICS = ["ptp.l1.metric", "ptp.l2.metric", "bcast.l1.metric", "bcast.l2.metric"];
+
     /**
      * Values the platform holds when nothing was set, per menu, and under `*` for every menu. A property at its default is dropped from both sides of a comparison. A property the config does not state is reset to it, and one without a default here is a problem in the plan.
      */
@@ -101,6 +104,8 @@ export class RouterOsExport {
         "/routing ospf instance": { version: "2" },
         "/routing ospf area": { "area-id": "0.0.0.0", type: "default", "default-cost": "" },
         "/routing ospf interface-template": { "hello-interval": "10s", "dead-interval": "40s", auth: "", "auth-id": "" },
+        // A metric never set prints nothing, and the interface then runs at 20.
+        "/routing isis interface-template": Object.fromEntries(RouterOsExport.ISIS_METRICS.map((property) => [property, ""])),
         // TTLs never set send 255 and accept any, and cannot be unset (TRAPS.md).
         "/routing bgp connection": {
             "use-bfd": "no",
@@ -229,6 +234,7 @@ export class RouterOsExport {
         "/routing bgp connection": ["hold-time", "keepalive-time", "output.network"],
         "/routing ospf area": ["default-cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],
+        "/routing isis interface-template": RouterOsExport.ISIS_METRICS,
     };
 
     /** A secret the device takes only with another property: a template given `auth` without `auth-key` is refused (TRAPS.md). It is sent whenever that property changes. */
@@ -258,6 +264,7 @@ export class RouterOsExport {
         "/routing bgp connection": ["remote.address"],
         "/routing rpki": ["address"],
         "/routing ospf interface-template": ["area", "interfaces"],
+        "/routing isis interface-template": ["instance", "interfaces"],
         "/routing bfd configuration": ["interfaces"],
         // Several routes to one prefix in one table are told apart by their gateway (TRAPS.md). A blackhole route has none.
         "/ip route": ["dst-address", "routing-table", "gateway"],

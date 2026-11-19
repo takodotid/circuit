@@ -39,6 +39,12 @@ export class RouterOsRouting {
         "hmac-sha-512": "sha512",
     } as const satisfies Record<OspfAuthentication["algorithm"], string>;
 
+    /** The one IS-IS instance. */
+    private static readonly ISIS_INSTANCE = "isis";
+
+    /** An interface template's `levels` for each level capability. */
+    private static readonly ISIS_LEVELS = { "level-1": ["l1"], "level-2": ["l2"], "level-1-2": ["l1", "l2"] } as const;
+
     private constructor(
         private readonly render: RouterOsRender,
         private readonly device: Device
@@ -58,6 +64,7 @@ export class RouterOsRouting {
         }
 
         routing.ospf();
+        routing.isis();
         routing.bfd();
     }
 
@@ -433,6 +440,35 @@ export class RouterOsRouting {
                     });
                 }
             }
+        }
+    }
+
+    /** One instance, whose areas and system ID come from the NET, and a template per interface. A template's metric is under `ptp` or `bcast`, by its link type. */
+    private isis(): void {
+        const isis = this.device.routing?.isis;
+        if (!isis) return;
+
+        const groups = isis.net.split(".");
+        this.render.add("/routing isis instance", "add", {
+            afi: isis.address_families.map((family) => (family === "ipv4" ? "ip" : "ipv6")).join(","),
+            areas: groups.slice(0, -4).join("."),
+            "metric-type": "wide",
+            name: RouterOsRouting.ISIS_INSTANCE,
+            "system-id": groups.slice(-4, -1).join("."),
+        });
+
+        const levels = RouterOsRouting.ISIS_LEVELS[isis.level_capability];
+        for (const [iface, settings] of Object.entries(isis.interfaces)) {
+            const ptp = settings?.network === "point-to-point";
+            // `passive` and `ptp` are flags, written without a value.
+            const verb = ["add", settings?.passive && "passive", ptp && "ptp"].filter(Boolean).join(" ");
+            const metrics = levels.map((level) => [`${ptp ? "ptp" : "bcast"}.${level}.metric`, settings?.metric]);
+            this.render.add("/routing isis interface-template", verb, {
+                instance: RouterOsRouting.ISIS_INSTANCE,
+                interfaces: this.render.name(iface),
+                levels: levels.join(","),
+                ...Object.fromEntries(metrics),
+            });
         }
     }
 

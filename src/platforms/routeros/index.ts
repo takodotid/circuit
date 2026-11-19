@@ -300,6 +300,10 @@ export class RouterOs extends Platform {
             }
         }
 
+        for (const [name, settings] of Object.entries(device.routing?.isis?.interfaces ?? {}))
+            if (settings?.passive && settings.metric !== undefined)
+                found.push(`routing.isis.interfaces.${name}.metric with passive, RouterOS refuses a metric on a passive interface`);
+
         const bgp = device.routing?.bgp;
 
         if (bgp?.aggregates) found.push("routing.bgp.aggregates, RouterOS 7 BGP has no aggregate routes");

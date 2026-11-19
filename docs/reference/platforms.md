@@ -77,6 +77,7 @@ A note in a cell means "works, with this limit".
 | OSPF stub and NSSA areas     | ✅                      | 🧪         | ❌                       | ✅                    | ✅               |
 | OSPF hello and dead timers   | ✅                      | 🧪         | ❌                       | ✅                    | ✅               |
 | OSPF authentication          | ✅                      | 🧪         | ❌                       | MD5                   | MD5              |
+| IS-IS                        | ✅ no passive metric    | ❌         | ❌                       | ✅                    | ✅ no passive    |
 | BFD                          | ✅ not on static routes | ✅         | static routes, no timers | ✅                    | ✅               |
 | BGP                          | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |

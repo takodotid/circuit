@@ -191,6 +191,7 @@ export class Vrp extends Platform {
         }
 
         if (routing?.bgp) found.push("routing.bgp");
+        if (routing?.isis) found.push("routing.isis");
         if (routing?.rpki) found.push("routing.rpki");
         if (routing?.ospf?.address_families?.includes("ipv6")) found.push("routing.ospf for IPv6");
 

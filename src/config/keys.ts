@@ -369,6 +369,12 @@ export const DEVICE = {
             },
             redistribute: 0,
         },
+        isis: {
+            net: 0,
+            level_capability: 0,
+            address_families: 0,
+            interfaces: { "*": { metric: 0, passive: 0, network: 0 } },
+        },
         bfd: { interval: 0, multiplier: 0 },
         rpki: [{ address: 0, port: 0, description: 0 }],
         policies: { "*": [POLICY_RULE] },

@@ -8,6 +8,7 @@ import type { Device, Finding, Interface, NeighborSettings, Routed, StaticRoute,
 import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
+import { IsisChecks } from "./isis";
 import { ServicesChecks } from "./services";
 
 type Report = (message: string) => void;
@@ -98,6 +99,7 @@ export class DeviceChecks {
         DeviceChecks.ports(device, report);
         DeviceChecks.interfaces(device, report, ip);
         DeviceChecks.routing(device, report, cidr, ip);
+        IsisChecks.check(device, report);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
         ServicesChecks.check(device, report, cidr, ip);
