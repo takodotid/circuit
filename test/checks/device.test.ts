@@ -223,6 +223,37 @@ test("route_reflector_client on an eBGP neighbor is an error, once at a group th
     ]);
 });
 
+// RFC 5065: a member AS is seen only inside the confederation, and the identifier only outside it. RFC 9234 does not recommend roles between member ASes.
+test("a confederation keeps its identifier apart from every member AS, and a neighbor in another member AS has no role", () => {
+    const bgp = router.routing!.bgp!;
+    const member = (asn: number, member_as: number[]): Device => ({
+        ...router,
+        routing: {
+            ...router.routing,
+            bgp: {
+                ...bgp,
+                asn,
+                confederation: { identifier: 64500, member_as },
+                neighbors: {
+                    "core-02": { address: "192.0.2.2", remote_as: 65002, role: "peer" },
+                    "core-03": { address: "192.0.2.3", remote_as: 64500 },
+                },
+            },
+        },
+    });
+    const confederation = (device: Device) => messages(device).filter((message) => /^routing\.bgp\..*confederation/.test(message));
+
+    expect(confederation(member(65001, [65001, 64500, 65002]))).toEqual([
+        "routing.bgp.confederation.member_as has AS65001, this router's own member AS (routing.bgp.asn). List only the other member ASes",
+        "routing.bgp.confederation.member_as has AS64500, the identifier. List only the member ASes",
+        "routing.bgp.neighbors.core-02 has role, but AS65002 is in our confederation, and RFC 9234 does not recommend roles inside one. Remove role",
+        "routing.bgp.neighbors.core-03 has remote_as 64500, the confederation's identifier, which only neighbors outside it see. Write the neighbor's member AS: 65001 if it is in ours, or one of member_as",
+    ]);
+    expect(confederation(member(64500, [65002]))).toContain(
+        "routing.bgp.asn is AS64500, the confederation's identifier. Write this router's member AS in routing.bgp.asn, such as 65001"
+    );
+});
+
 // RFC 2328 and RFC 3101: the backbone is a normal area, and only a stub area or an NSSA takes a default cost.
 test("OSPF areas, timers, and keys are checked, and a border router without a default cost is warned", () => {
     const key = { secret: "OSPF_KEY" };

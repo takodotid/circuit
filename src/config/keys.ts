@@ -317,6 +317,7 @@ export const DEVICE = {
         static_routes: [STATIC_ROUTE],
         bgp: {
             asn: 0,
+            confederation: { identifier: 0, member_as: 0 },
             cluster_id: 0,
             originated_prefixes: 0,
             aggregates: [{ prefix: 0, summary_only: 0 }],

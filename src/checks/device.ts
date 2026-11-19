@@ -423,6 +423,7 @@ export class DeviceChecks {
             report(`routing.bgp.cluster_id: '${bgp.cluster_id}' is not an IPv4 address, such as 192.0.2.1`);
 
         DeviceChecks.aggregates(device, report, cidr);
+        DeviceChecks.confederation(device, report);
 
         const ttlWithMultihop = (where: string) =>
             report(
@@ -473,8 +474,17 @@ export class DeviceChecks {
             const ownReflection = neighbor.route_reflector_client !== undefined || neighbor.remote_as !== undefined;
             if (client && external(remoteAs) && ownReflection) reflectedToExternal(where, remoteAs);
 
-            if (remoteAs !== undefined && !external(remoteAs) && (neighbor.role ?? group?.role))
+            const role = neighbor.role ?? group?.role;
+            if (remoteAs !== undefined && !external(remoteAs) && role)
                 report(`${where} has role, but AS${remoteAs} is ours, and a role is for eBGP neighbors (RFC 9234). Remove role`);
+            if (remoteAs !== undefined && bgp?.confederation?.member_as.includes(remoteAs) && role)
+                report(
+                    `${where} has role, but AS${remoteAs} is in our confederation, and RFC 9234 does not recommend roles inside one. Remove role`
+                );
+            if (remoteAs !== undefined && remoteAs === bgp?.confederation?.identifier)
+                report(
+                    `${where} has remote_as ${remoteAs}, the confederation's identifier, which only neighbors outside it see. Write the neighbor's member AS: ${bgp.asn} if it is in ours, or one of member_as`
+                );
         }
 
         DeviceChecks.ospf(device, report);
@@ -595,6 +605,25 @@ export class DeviceChecks {
                 report(
                     `${where}: no neighbor's export_policy accepts it, so BGP announces it to no one. Add { if: { prefix: "${prefix}" }, then: "accept" } to the export_policy of each neighbor that should get it, before any rule that rejects it`
                 );
+        }
+    }
+
+    /** A member AS number is seen only inside the confederation, and the identifier only outside it (RFC 5065), so neither is the other. */
+    private static confederation(device: Device, report: Report): void {
+        const bgp = device.routing?.bgp;
+        const confederation = bgp?.confederation;
+        if (!confederation) return;
+
+        const where = "routing.bgp.confederation";
+        if (confederation.identifier === bgp.asn)
+            report(
+                `routing.bgp.asn is AS${bgp.asn}, the confederation's identifier. Write this router's member AS in routing.bgp.asn, such as 65001`
+            );
+
+        for (const asn of confederation.member_as) {
+            if (asn === bgp.asn)
+                report(`${where}.member_as has AS${asn}, this router's own member AS (routing.bgp.asn). List only the other member ASes`);
+            if (asn === confederation.identifier) report(`${where}.member_as has AS${asn}, the identifier. List only the member ASes`);
         }
     }
 

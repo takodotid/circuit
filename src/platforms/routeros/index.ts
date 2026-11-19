@@ -296,6 +296,10 @@ export class RouterOs extends Platform {
         const bgp = device.routing?.bgp;
 
         if (bgp?.aggregates) found.push("routing.bgp.aggregates, RouterOS 7 BGP has no aggregate routes");
+        if (bgp?.confederation)
+            found.push(
+                "routing.bgp.confederation, RouterOS 7.24 shows the identifier, not the member AS, to neighbors inside the confederation, which RFC 5065 forbids"
+            );
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
