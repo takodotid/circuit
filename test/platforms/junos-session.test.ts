@@ -138,9 +138,11 @@ test("a proof login the switch resets on every try rolls the commit back", async
     const count = fake.shellLines.length;
     logins = 0;
 
-    // The reset is `read ECONNRESET` on macOS, and `write ECONNRESET` on Linux.
+    // The reset reads as `read ECONNRESET` on macOS, and as `write ECONNRESET` or `write EPIPE` on Linux, by when the write lands.
     await expect(platform.apply(device, [device], plan, options)).rejects.toThrow(
-        new RegExp(`a fresh login failed \\(\\w+ ECONNRESET, on all ${Ssh.PROOF_TRIES} tries\\); the previous configuration is restored`)
+        new RegExp(
+            `a fresh login failed \\(\\w+ (ECONNRESET|EPIPE), on all ${Ssh.PROOF_TRIES} tries\\); the previous configuration is restored`
+        )
     );
 
     const typed = fake.shellLines.slice(count);
