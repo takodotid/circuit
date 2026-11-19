@@ -305,7 +305,7 @@ export const DEVICE = {
         eoip: { "*": { ...BASE, local_address: 0, remote_address: 0, tunnel_id: 0, in_lag: 0 } },
     },
     switching: {
-        vlans: { "*": { id: 0, description: 0, untrusted: 0 } },
+        vlans: { "*": { id: 0, description: 0, untrusted: 0, private_vlan: { primary: 0, type: 0 } } },
         stp: { mode: 0, priority: 0 },
         dhcp_snooping: 0,
         arp_inspection: 0,

@@ -226,6 +226,41 @@ export class DeviceChecks {
             if (ids.has(vlan.id)) report(`switching.vlans ${ids.get(vlan.id)} and ${name} share id ${vlan.id}`);
             ids.set(vlan.id, name);
         }
+
+        DeviceChecks.privateVlans(device, report);
+    }
+
+    /** A secondary VLAN (RFC 5517) hangs off a primary VLAN that is no secondary itself, one isolated VLAN at most each, and holds access ports only. */
+    private static privateVlans(device: Device, report: Report): void {
+        const vlans = device.switching?.vlans ?? {};
+        const isolated = new Map<string, string>();
+
+        for (const [name, vlan] of Object.entries(vlans)) {
+            const secondary = vlan?.private_vlan;
+            if (!secondary) continue;
+
+            const where = `switching.vlans.${name}.private_vlan`;
+            const primary = vlans[secondary.primary];
+            if (!primary) report(`${where}.primary ${secondary.primary} is not in switching.vlans`);
+            else if (primary.private_vlan)
+                report(`${where}.primary ${secondary.primary} is a secondary VLAN itself: name its primary VLAN`);
+
+            if (secondary.type === "isolated" && isolated.has(secondary.primary))
+                report(
+                    `${where}: ${isolated.get(secondary.primary)} is already the isolated VLAN of ${secondary.primary}, which has one at most`
+                );
+            if (secondary.type === "isolated") isolated.set(secondary.primary, name);
+
+            for (const { where: holder, settings } of Derive.switchedHolders(device)) {
+                if (settings.trunk_vlans?.includes(name) || settings.native_vlan === name)
+                    report(
+                        `${holder} carries ${name}, a secondary VLAN, on a trunk: a trunk carries its primary VLAN ${secondary.primary}`
+                    );
+            }
+            for (const [iface, settings] of Object.entries(device.interfaces?.vlan_interface ?? {}))
+                if (settings?.vlan === name)
+                    report(`interfaces.vlan_interface.${iface} is on ${name}, a secondary VLAN: put it on ${secondary.primary}`);
+        }
     }
 
     /** Every address is valid, and no address sits on two interfaces of one routing table. Two VRFs may hold the same address. */

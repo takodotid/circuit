@@ -41,6 +41,8 @@ export class FortiOsUnsupported {
 
         for (const field of ["stp", "dhcp_snooping", "arp_inspection", "ra_guard"] as const)
             if (device.switching?.[field]) found.push(`switching.${field}, ports are routed`);
+        for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
+            if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, ports are routed`);
         found.push(...FortiOsUnsupported.transparentGaps(device));
         found.push(...FortiOsVdoms.gaps(device));
 

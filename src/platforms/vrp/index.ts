@@ -271,6 +271,9 @@ export class Vrp extends Platform {
         // The CE6855 took `arp anti-attack check user-bind enable` in a VLAN's view only (TRAPS.md).
         if (device.switching?.arp_inspection)
             found.push("switching.arp_inspection, the platform checks a whole VLAN, and whether it passes dhcp_trusted ports is not known");
+        // MUX VLAN, the platform's counterpart, went into a CE6855's candidate, but how a trunk carries it is not known (TRAPS.md).
+        for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
+            if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);
 
         // `stp bpdu-protection` guards every edge port at once.
         const stpOf = (settings: Port | Lag) => (typeof settings.stp === "object" ? settings.stp : undefined);

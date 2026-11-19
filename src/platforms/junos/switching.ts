@@ -23,6 +23,12 @@ export class JunosSwitching {
 
             this.out.set(`vlans ${name} vlan-id`, vlan.id);
             if (vlan.description) this.out.set(`vlans ${name} description`, JunosStatements.quote(vlan.description));
+
+            // A secondary VLAN says what it is, and its primary VLAN names it.
+            const secondary = vlan.private_vlan;
+            if (!secondary) continue;
+            this.out.set(`vlans ${name} private-vlan`, secondary.type);
+            this.out.set(`vlans ${secondary.primary}`, secondary.type === "isolated" ? "isolated-vlan" : "community-vlans", name);
         }
 
         for (const [name, iface] of Object.entries(this.device.interfaces?.vlan_interface ?? {})) {
