@@ -167,7 +167,7 @@ test("BFD taken off a session sets use-bfd=no, which the router then prints", ()
     const sent = platform.plan(platform.render(withMultihopBfd(undefined, false)), running, options).steps.flatMap((step) => step.send);
 
     expect(sent).toEqual([
-        '/routing bgp connection set [ find remote.address="198.51.100.7/32" ] use-bfd=no',
+        '/routing bgp connection set [ find remote.address="198.51.100.7/32" and vrf=main ] use-bfd=no',
         '/routing bfd configuration remove [ find addresses="198.51.100.7/32" ]',
     ]);
 
@@ -218,9 +218,9 @@ test('a new description is one set, and none is comment="" (7.24.6)', () => {
 
     expect(
         sent(withDescriptions(undefined, "Circuit test group"), withDescriptions("Circuit test neighbor", "Circuit test group"))
-    ).toEqual(['/routing bgp connection set [ find remote.address="198.51.100.1/32" ] comment="Circuit test group"']);
+    ).toEqual(['/routing bgp connection set [ find remote.address="198.51.100.1/32" and vrf=main ] comment="Circuit test group"']);
     expect(sent(withDescriptions(), withDescriptions(undefined, "Circuit test group"))).toEqual([
-        '/routing bgp connection set [ find remote.address="198.51.100.1/32" ] comment=""',
+        '/routing bgp connection set [ find remote.address="198.51.100.1/32" and vrf=main ] comment=""',
     ]);
 });
 

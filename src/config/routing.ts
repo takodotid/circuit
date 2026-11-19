@@ -53,8 +53,8 @@ export type PrefixLimit =
           restart_after?: never;
       };
 
-/** Settings a BGP neighbor can set itself or take from its group. `P` is the device's policies, `T` its tables, `Net` what the network writes. */
-export type NeighborSettings<P extends string, T extends string, Net extends NetworkFacts = AnyFacts> = {
+/** Settings a BGP neighbor can set itself or take from its group. `P` is the device's policies, `T` its tables, `F` its VRFs, `Net` what the network writes. */
+export type NeighborSettings<P extends string, T extends string, F extends string = string, Net extends NetworkFacts = AnyFacts> = {
     /** The neighbor's AS. If it is our own AS, the session is internal (iBGP). */
     remote_as?: number;
     /** Who the neighbor is. */
@@ -93,6 +93,8 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
     graceful_restart?: boolean;
     /** The table for the routes learned from this neighbor, from `routing.tables`, or `main`. The main table when absent. On RouterOS, the session also announces from that table, so each prefix of `originated_prefixes` it announces needs a route in that table too. A running session uses a new table only after it restarts. */
     routing_table?: T | "main";
+    /** The VRF the session runs in, from `routing.vrfs`. The device reaches the neighbor through the VRF's interfaces and puts the routes it learns in the VRF. The session announces only routes the VRF holds, so each prefix of `originated_prefixes` it announces needs a route in the VRF. A neighbor has a `vrf` or a `routing_table`, not both. */
+    vrf?: F;
     /**
      * Its groups in the network's `communities`, and its own blackhole community, such as `{ groups: ["transit"], blackhole: "64501:666" }`. Circuit uses them to write the `{ communities }` rules of its policies. Allowed only when the network writes `communities`.
      */
@@ -100,11 +102,13 @@ export type NeighborSettings<P extends string, T extends string, Net extends Net
 };
 
 /** One BGP session. Any setting it leaves out comes from its neighbor group. */
-export type Neighbor<P extends string, G extends string, T extends string, Net extends NetworkFacts = AnyFacts> = NeighborSettings<
-    P,
-    T,
-    Net
-> & {
+export type Neighbor<
+    P extends string,
+    G extends string,
+    T extends string,
+    F extends string = string,
+    Net extends NetworkFacts = AnyFacts,
+> = NeighborSettings<P, T, F, Net> & {
     /** The neighbor's address. */
     address: IP;
     /** Its neighbor group, from `routing.bgp.neighbor_groups`. The neighbor takes any setting it leaves out from this group. */
@@ -128,7 +132,7 @@ export type BgpConfederation = {
 };
 
 /** BGP on this device. `G` is the device's neighbor groups. */
-export type Bgp<P extends string, G extends string, T extends string, Net extends NetworkFacts = AnyFacts> = {
+export type Bgp<P extends string, G extends string, T extends string, F extends string = string, Net extends NetworkFacts = AnyFacts> = {
     /** Our AS number. The network's `asn` when absent. In a confederation, this router's member AS. */
     asn?: number;
     /** This router's AS is a member AS of a confederation, such as `{ identifier: 64500, member_as: [65002, 65003] }`. */
@@ -140,9 +144,9 @@ export type Bgp<P extends string, G extends string, T extends string, Net extend
     /** Aggregates BGP announces, such as `{ prefix: "198.51.100.0/24", summary_only: true }`. */
     aggregates?: readonly BgpAggregate[];
     /** Settings shared by several neighbors, keyed by group name. */
-    neighbor_groups?: Named<G, NeighborSettings<P, T, Net>>;
+    neighbor_groups?: Named<G, NeighborSettings<P, T, F, Net>>;
     /** BGP sessions, keyed by name. */
-    neighbors?: Record<string, Neighbor<P, NoInfer<G>, T, Net>>;
+    neighbors?: Record<string, Neighbor<P, NoInfer<G>, T, F, Net>>;
 };
 
 /** How fast BFD notices a dead neighbor. The neighbor is down after `multiplier` packets in a row are missed, so after `interval` times `multiplier` milliseconds. */
@@ -475,7 +479,7 @@ export type Routing<
     /** Routes you write by hand. Their order doesn't matter. */
     static_routes?: readonly StaticRoute<I, NoInfer<F>, NoInfer<T>>[];
     /** BGP sessions and what they exchange. In a part, only what the part adds, such as its neighbor groups and neighbors. */
-    bgp?: Part extends true ? Partial<Bgp<NoInfer<P>, G, NoInfer<T>, Net>> : Bgp<NoInfer<P>, G, NoInfer<T>, Net>;
+    bgp?: Part extends true ? Partial<Bgp<NoInfer<P>, G, NoInfer<T>, NoInfer<F>, Net>> : Bgp<NoInfer<P>, G, NoInfer<T>, NoInfer<F>, Net>;
     /** OSPF areas and interfaces. */
     ospf?: Ospf<I>;
     /** BFD timers for every BFD session on the device: BGP, OSPF, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */

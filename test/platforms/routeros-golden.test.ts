@@ -76,6 +76,11 @@ const PATHS: [RegExp, string][] = [
     [/^routing\.bgp\.neighbors\.([^.]+)\.families/, "routing.bgp.neighbors.$1.address_families"],
 ];
 
+/** What v1 refuses and 0.x rendered, since a device refused it: a VRF with the name of an interface (TRAPS.md). */
+const REFUSED_SINCE: Record<string, string[]> = {
+    "platforms--example-router": ["routing.vrfs.guests, the name of an interface: RouterOS makes an interface named after each VRF"],
+};
+
 function toV1(message: string, device: Device): string {
     for (const [old, now] of PATHS) {
         const match = old.exec(message);
@@ -105,7 +110,10 @@ describe("RouterOS renders each 0.x device as 0.x did", () => {
             const rendered = platform.render(device);
             const old = Fixtures.render(name);
 
-            expect(platform.unsupported(device)).toEqual(Fixtures.unsupported(name).map((message) => toV1(message, device)));
+            expect(platform.unsupported(device)).toEqual([
+                ...(REFUSED_SINCE[name] ?? []),
+                ...Fixtures.unsupported(name).map((message) => toV1(message, device)),
+            ]);
 
             if (!(name in ORDER_ONLY)) {
                 expect(withPrependAsAsked(rendered)).toBe(old);

@@ -546,6 +546,7 @@ export class Project {
                 need("policy", x.import_policy, `routing.bgp.${kind}.${n}.import_policy`, written);
                 need("policy", x.export_policy, `routing.bgp.${kind}.${n}.export_policy`, written);
                 need("table", x.routing_table, `routing.bgp.${kind}.${n}.routing_table`, written);
+                need("VRF", x.vrf, `routing.bgp.${kind}.${n}.vrf`, written);
             }
         for (const [p, rules] of Object.entries<Json>(d.routing?.policies ?? {}))
             rules.forEach((rule: Json, i: number) => {

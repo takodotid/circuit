@@ -119,6 +119,13 @@ export class RouterOsPlan {
      */
     private static readonly LINGERING: Record<string, number> = { "/ipv6 nd prefix": 30 };
 
+    /**
+     * Menus where a new entry makes an entry of the device's own, named after it, in another menu, a moment later. A VRF makes its routing table, and a BGP connection that uses the table before it is there is refused (TRAPS.md). After such an `add`, the plan waits, at most `seconds`, for that entry.
+     */
+    private static readonly MAKES: Record<string, { menu: string; seconds: number }> = {
+        "/ip vrf": { menu: "/routing table", seconds: 30 },
+    };
+
     /** Menus of routes, whose table a selector names. */
     private static readonly ROUTES = new Set(["/ip route", "/ipv6 route"]);
 
@@ -237,6 +244,17 @@ export class RouterOsPlan {
         );
         const dynamic = `[:len [${menu} find ${["dynamic", ...conditions].join(" and ")}]] > 0`;
         return `:local waited 0; :while (${dynamic} && $waited < ${seconds}) do={ :delay 1s; :set waited ($waited + 1) }`;
+    }
+
+    /** The `add` of an entry, then, in a menu that `MAKES` another entry, a script that waits until that entry is there. */
+    private static adding(menu: string, entry: Command): string[] {
+        const add = RouterOsPlan.line(menu, "add", "", entry.flags, entry.attrs);
+        const made = RouterOsPlan.MAKES[menu];
+        const name = entry.attrs.name;
+        if (!made || name === undefined) return [add];
+
+        const missing = `[:len [${made.menu} find name=${RouterOsPlan.findValue("name", name)}]] = 0`;
+        return [add, `:local waited 0; :while (${missing} && $waited < ${made.seconds}) do={ :delay 1s; :set waited ($waited + 1) }`];
     }
 
     /** A whole command as sent: menu, verb, selector, flags, then properties. */
@@ -388,7 +406,7 @@ export class RouterOsPlan {
                 } else {
                     changeStep.show.push(`~ replace ${RouterOsExport.canonical(entry)}`);
                     changeStep.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.selector(namesake))}`);
-                    changeStep.send.push(RouterOsPlan.line(menu, "add", "", entry.flags, entry.attrs));
+                    changeStep.send.push(...RouterOsPlan.adding(menu, entry));
                     continue;
                 }
             }
@@ -397,7 +415,7 @@ export class RouterOsPlan {
                 changeStep.show.push(`+ ${RouterOsExport.canonical(entry)}`);
                 const wait = RouterOsPlan.waitForDynamic(menu, entry);
                 if (wait) changeStep.send.push(wait);
-                changeStep.send.push(RouterOsPlan.line(menu, "add", "", entry.flags, entry.attrs));
+                changeStep.send.push(...RouterOsPlan.adding(menu, entry));
                 continue;
             }
 

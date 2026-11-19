@@ -572,11 +572,18 @@ export class FortiOsRouting {
             }
         }
 
+        // The device has no VRF setting for BGP (TRAPS.md).
+        const noVrf = "FortiOS 6.2 runs BGP in the default VRF only";
+        for (const [name, group] of Object.entries(routing?.bgp?.neighbor_groups ?? {}))
+            if (group?.vrf) found.push(`routing.bgp.neighbor_groups.${name}.vrf, ${noVrf}`);
+
         for (const [name, neighbor] of Object.entries(routing?.bgp?.neighbors ?? {})) {
             if (!neighbor) continue;
 
             const where = `routing.bgp.neighbors.${name}`;
             const settings = FortiOsRouting.neighborSettings(device, neighbor);
+
+            if (neighbor.vrf) found.push(`${where}.vrf, ${noVrf}`);
 
             if (settings.role) found.push(`${where}.role, the platform has no BGP roles`);
             if (settings.ttl_security)

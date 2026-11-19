@@ -37,13 +37,15 @@ test("RouterOS takes GTSM off with remote.ttl=1, since neither TTL can be unset,
     const off = routeros.render(transit());
     const sent = (desired: string, current: string) => routeros.plan(desired, current, options).steps.flatMap((step) => step.send);
 
-    expect(sent(off, on)).toEqual(['/routing bgp connection set [ find remote.address="203.0.113.1/32" ] remote.ttl=1']);
+    expect(sent(off, on)).toEqual(['/routing bgp connection set [ find remote.address="203.0.113.1/32" and vrf=main ] remote.ttl=1']);
     const printedOff = on.replace("remote.ttl=255", "remote.ttl=1");
     expect(sent(off, printedOff)).toEqual([]);
 
     // A session that never had them already sends with TTL 255.
-    expect(sent(on, off)).toEqual(['/routing bgp connection set [ find remote.address="203.0.113.1/32" ] remote.ttl=255']);
-    expect(sent(on, printedOff)).toEqual(['/routing bgp connection set [ find remote.address="203.0.113.1/32" ] remote.ttl=255']);
+    expect(sent(on, off)).toEqual(['/routing bgp connection set [ find remote.address="203.0.113.1/32" and vrf=main ] remote.ttl=255']);
+    expect(sent(on, printedOff)).toEqual([
+        '/routing bgp connection set [ find remote.address="203.0.113.1/32" and vrf=main ] remote.ttl=255',
+    ]);
 });
 
 test("RouterOS refuses GTSM on an iBGP session, whose TTL it does not check", () => {

@@ -1,4 +1,4 @@
-// Tenant netflix: its VLANs, its gateway on the router, its servers' ports on the switch, and a cap on UDP toward it.
+// Tenant netflix: its VLANs, its gateway on the router, its servers' ports on the switch, a cap on UDP toward it, and its private network.
 // Copy this file for a new tenant, and add it to index.ts.
 
 const vlans = literal({
@@ -9,9 +9,12 @@ const vlans = literal({
 export const netflix = {
     parts: {
         "edge-01": part("device", {
-            switching: { vlans: { "netflix-internet": vlans["netflix-internet"] } },
+            switching: { vlans },
             interfaces: {
-                ethernet: { "100g-1": { trunk_vlans: ["netflix-internet"] } },
+                ethernet: {
+                    "100g-1": { trunk_vlans: ["netflix-internet", "netflix-private"] },
+                    "25g-4": { description: "Netflix private circuit", addresses: ["10.20.255.1/30"], vrf: "netflix" },
+                },
                 vlan_interface: {
                     "netflix-internet": {
                         vlan: "netflix-internet",
@@ -26,15 +29,44 @@ export const netflix = {
                             other_config: true,
                         },
                     },
+                    "netflix-private": {
+                        vlan: "netflix-private",
+                        description: "Tenant netflix private",
+                        addresses: ["10.20.0.1/24"],
+                        vrf: "netflix",
+                    },
                 },
             },
             services: { dhcpv6_server: { "netflix-internet": { interface: "netflix-internet", dns: ["2001:db8:100::53"] } } },
+            routing: {
+                // The private network's routes stay in a table of their own: they never meet the internet's, or another tenant's.
+                vrfs: { netflix: { description: "Tenant netflix private" } },
+                bgp: {
+                    // The private VLAN's network, which only the session in the VRF can announce.
+                    originated_prefixes: ["10.20.0.0/24"],
+                    neighbors: {
+                        "netflix-private": {
+                            address: "10.20.255.2",
+                            remote_as: 2906,
+                            description: "Netflix, over its private circuit",
+                            vrf: "netflix",
+                            import_policy: "netflix-private-import",
+                            export_policy: "netflix-private-export",
+                        },
+                    },
+                },
+                prefix_sets: { "netflix-private": { prefixes: ["10.0.0.0/8"] } },
+                policies: {
+                    "netflix-private-import": [{ if: { prefix_set: "netflix-private" }, then: "accept" }, { then: "reject" }],
+                    "netflix-private-export": [{ if: { prefix: "10.20.0.0/24" }, then: "accept" }, { then: "reject" }],
+                },
+            },
         }),
         "tor-01": part("device", {
             switching: { vlans },
             interfaces: {
                 ethernet: {
-                    "40g-1": { trunk_vlans: ["netflix-internet"] },
+                    "40g-1": { trunk_vlans: ["netflix-internet", "netflix-private"] },
                     "10g-1": { description: "netflix server 1", trunk_vlans: ["netflix-internet", "netflix-private"] },
                     "10g-2": { description: "netflix server 2", trunk_vlans: ["netflix-internet", "netflix-private"] },
                 },

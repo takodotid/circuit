@@ -524,8 +524,11 @@ export class DeviceChecks {
                 `${where} has route_reflector_client, but AS${remoteAs} is not ours, AS${bgp?.asn}: a route reflector has iBGP clients only (RFC 4456). Remove route_reflector_client`
             );
 
+        const twoTables = (where: string) => report(`${where} has both vrf and routing_table; a session is in one of them`);
+
         for (const [name, group] of Object.entries(bgp?.neighbor_groups ?? {})) {
             const where = `routing.bgp.neighbor_groups.${name}`;
+            if (group?.vrf && Utils.otherTable(group.routing_table)) twoTables(where);
             if (group?.ttl_security && group.multihop) ttlWithMultihop(where);
             if (group?.route_reflector_client && external(group.remote_as)) reflectedToExternal(where, group.remote_as);
             bothLimits(where, group);
@@ -541,6 +544,11 @@ export class DeviceChecks {
             const local = neighbor.local_address ?? group?.local_address;
             if (local && Address.family(local) !== Address.family(neighbor.address))
                 report(`${where} local_address and address differ in family`);
+
+            // A group that has both is reported once, at the group.
+            const ownTable = neighbor.vrf !== undefined || neighbor.routing_table !== undefined;
+            if ((neighbor.vrf ?? group?.vrf) && Utils.otherTable(neighbor.routing_table ?? group?.routing_table) && ownTable)
+                twoTables(where);
 
             // A group that has both is reported once, at the group.
             const ownChoice = neighbor.ttl_security !== undefined || neighbor.multihop !== undefined;

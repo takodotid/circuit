@@ -775,6 +775,18 @@ export class Junos extends Platform {
     }
 
     /** BGP settings Junos 21 has no statement for, and policy steps it cannot take. */
+    /** Whether a policy, or one it calls, matches a route's RPKI state. */
+    private static matchesRpki(device: Device, policy: string, seen: Set<string>): boolean {
+        if (seen.has(policy)) return false;
+        seen.add(policy);
+
+        return (device.routing?.policies?.[policy] ?? []).some((rule) =>
+            JunosBgp.isRouteRule(rule)
+                ? rule.if?.rpki !== undefined
+                : "call" in rule && !!rule.call && Junos.matchesRpki(device, rule.call, seen)
+        );
+    }
+
     private static bgpGaps(device: Device): string[] {
         const found: string[] = [];
         const bgp = device.routing?.bgp;
@@ -807,6 +819,14 @@ export class Junos extends Platform {
             if (settings.route_reflector_client && !bgp?.cluster_id)
                 found.push(
                     `routing.bgp.neighbors.${name}.route_reflector_client without routing.bgp.cluster_id: Junos needs a cluster ID, so write one`
+                );
+
+            const validated = [settings.import_policy, settings.export_policy].find(
+                (policy) => policy && Junos.matchesRpki(device, policy, new Set())
+            );
+            if (settings.vrf && validated)
+                found.push(
+                    `routing.bgp.neighbors.${name}.vrf with policy ${validated}, which matches rpki: Circuit sets up route validation in the main routing instance only`
                 );
         }
 

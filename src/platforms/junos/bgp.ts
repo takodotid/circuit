@@ -69,6 +69,17 @@ export class JunosBgp {
         bgp.sessions();
     }
 
+    /** Where the statements of a VRF's routing instance start, or nothing for the main instance. */
+    static instance(vrf: string | undefined): string {
+        return vrf ? `routing-instances ${vrf} ` : "";
+    }
+
+    /** The routing options of an instance's table for one family. IPv6 routes are in a table of their own, `inet6.0`. */
+    static options(family: Family, vrf?: string): string {
+        const table = family === "ipv6" ? ` rib ${vrf ? `${vrf}.` : ""}inet6.0` : "";
+        return `${JunosBgp.instance(vrf)}routing-options${table}`;
+    }
+
     /** A neighbor's settings with its group's beneath them. */
     static settingsOf(device: Device, neighbor: Neighbor): NeighborSettings {
         const group = neighbor.neighbor_group ? device.routing?.bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
@@ -115,7 +126,8 @@ export class JunosBgp {
         }
 
         const used = new Set<string>();
-        const defaults = new Set<Family>();
+        // The families that get a default route made for `send_default_route`, in each routing instance: `""` is the main one.
+        const defaults = new Map<string, Set<Family>>();
         let rejectAll = false;
         let exports = false;
 
@@ -124,7 +136,8 @@ export class JunosBgp {
             if (!neighbor) continue;
 
             const settings = JunosBgp.settingsOf(this.device, neighbor);
-            const group = `protocols bgp group ${name}`;
+            const instance = JunosBgp.instance(settings.vrf);
+            const group = `${instance}protocols bgp group ${name}`;
 
             this.out.set(group, "type", settings.remote_as === bgp.asn ? "internal" : "external");
             this.out.set(group, "peer-as", settings.remote_as!);
@@ -138,14 +151,19 @@ export class JunosBgp {
             if (settings.password) this.out.set(group, "authentication-key", Secrets.marker(settings.password));
             if (settings.bfd) this.out.bfd(group, this.device.routing?.bfd);
             // Only the router-wide statement turns it on: a group's own `graceful-restart` alone does nothing (TRAPS.md). `unsupported()` refuses it on only some neighbors.
-            if (settings.graceful_restart) this.out.set("routing-options graceful-restart");
+            if (settings.graceful_restart) this.out.set(`${instance}routing-options graceful-restart`);
+            // A routing instance otherwise takes the address of one of its own interfaces as its router ID.
+            if (settings.vrf && this.device.routing?.router_id)
+                this.out.set(`${instance}routing-options router-id`, this.device.routing.router_id);
 
             this.out.set(group, "import", settings.import_policy ?? JunosBgp.REJECT_ALL);
 
             const families = settings.address_families ?? [Address.family(neighbor.address)];
             if (settings.send_default_route) {
                 this.out.set(group, "export", JunosBgp.DEFAULT_ROUTE);
-                for (const family of families) defaults.add(family);
+                const wanted = defaults.get(settings.vrf ?? "") ?? new Set<Family>();
+                for (const family of families) wanted.add(family);
+                defaults.set(settings.vrf ?? "", wanted);
             }
 
             if (settings.export_policy) {
@@ -182,7 +200,7 @@ export class JunosBgp {
         if (exports) this.origin();
 
         this.aggregates();
-        for (const family of defaults) this.defaultRoute(family);
+        for (const [vrf, families] of defaults) for (const family of families) this.defaultRoute(family, vrf || undefined);
 
         for (const policy of [...used].sort()) this.policyStatement(policy);
     }
@@ -233,8 +251,9 @@ export class JunosBgp {
         if (!bgp.aggregates?.length) return;
 
         for (const { prefix } of bgp.aggregates) {
-            const options = Address.family(Address.host(prefix)) === "ipv6" ? "routing-options rib inet6.0" : "routing-options";
-            this.out.set(`${options} aggregate route ${prefix} policy ${JunosBgp.CONTRIBUTORS}`);
+            this.out.set(
+                `${JunosBgp.options(Address.family(Address.host(prefix)))} aggregate route ${prefix} policy ${JunosBgp.CONTRIBUTORS}`
+            );
         }
 
         const statement = `policy-options policy-statement ${JunosBgp.CONTRIBUTORS}`;
@@ -247,9 +266,8 @@ export class JunosBgp {
     }
 
     /** Junos has no setting that sends a neighbor a default route, so an aggregate makes one that is always there, `passive` even without a route under it. Its preference is the highest, so any other default route wins, and that one is announced instead. */
-    private defaultRoute(family: Family): void {
-        const options = family === "ipv6" ? "routing-options rib inet6.0" : "routing-options";
-        const route = `${options} aggregate route ${presets.default_routes[family]}`;
+    private defaultRoute(family: Family, vrf?: string): void {
+        const route = `${JunosBgp.options(family, vrf)} aggregate route ${presets.default_routes[family]}`;
         this.out.set(route, "passive");
         this.out.set(route, "preference", JunosBgp.LAST_RESORT);
 

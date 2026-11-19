@@ -190,6 +190,7 @@ const NEIGHBOR_SETTINGS = {
     bfd: 0,
     graceful_restart: 0,
     routing_table: 0,
+    vrf: 0,
     communities: { groups: 0, blackhole: 0 },
 } as const;
 const CHAIN = { default_action: 0, rules: [FILTER_RULE] } as const;

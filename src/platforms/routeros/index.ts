@@ -3,7 +3,7 @@ import type { Client } from "ssh2";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
-import type { Device, Family, Finding } from "../../model";
+import type { Neighbor as BgpNeighbor, Device, Family, Finding } from "../../model";
 import { Secrets } from "../../core/secrets";
 import { SerialConsole, ConsoleShell } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
@@ -299,6 +299,15 @@ export class RouterOs extends Platform {
                 if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, on a LAG`);
             }
         }
+
+        // A VRF is also an interface, named after it (TRAPS.md).
+        const interfaceNames = new Set([
+            ...Derive.interfaces(device).map(({ name }) => name),
+            ...Derive.ports(device).map(([name]) => Catalog.spell(device.platform, device.model, name)),
+        ]);
+        for (const name of Object.keys(device.routing?.vrfs ?? {}))
+            if (interfaceNames.has(name))
+                found.push(`routing.vrfs.${name}, the name of an interface: RouterOS makes an interface named after each VRF`);
 
         const bgp = device.routing?.bgp;
 
@@ -618,7 +627,7 @@ export class RouterOs extends Platform {
 
         return Object.entries(device.routing?.bgp?.neighbors ?? {}).map(([name, neighbor]): BgpSession => {
             const found =
-                live.find(([, remote]) => remote === neighbor.address) ??
+                live.find(([, remote]) => remote === RouterOs.sessionAddress(device, neighbor)) ??
                 live.find(([sessionName]) => sessionName === name || sessionName?.replace(/-\d+$/, "") === name);
 
             if (!found) {
@@ -654,6 +663,13 @@ export class RouterOs extends Platform {
                     : {}),
             };
         });
+    }
+
+    /** A session's remote address as the device prints it: in a VRF, `192.0.2.1@<vrf>`. */
+    private static sessionAddress(device: Device, neighbor: BgpNeighbor): string {
+        const group = neighbor.neighbor_group ? device.routing?.bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
+        const vrf = neighbor.vrf ?? group?.vrf;
+        return vrf ? `${neighbor.address}@${vrf}` : neighbor.address;
     }
 
     override async bgpClearLimit(session: ReadSession, sessions: readonly BgpSession[]): Promise<void> {
@@ -847,7 +863,7 @@ export class RouterOs extends Platform {
         const neighbors = Object.entries(bgp?.neighbors ?? {});
         const neighborOf = (sessionName: string) => {
             const remote = sessions.find(([name]) => name === sessionName)?.[1];
-            const byAddress = neighbors.find(([, neighbor]) => neighbor.address === remote);
+            const byAddress = neighbors.find(([, neighbor]) => RouterOs.sessionAddress(device, neighbor) === remote);
             const byName = neighbors.find(([name]) => name === sessionName.replace(/-\d+$/, ""));
             return (byAddress ?? byName)?.[0];
         };

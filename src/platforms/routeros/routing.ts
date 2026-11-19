@@ -382,9 +382,11 @@ export class RouterOsRouting {
                 "remote.as": settings.remote_as,
                 // The lowest TTL accepted on arrival.
                 "remote.ttl": settings.ttl_security ? RouterOsRouting.GTSM_TTL : undefined,
-                "routing-table": Utils.otherTable(settings.routing_table),
+                // A connection in a VRF names its table too: the VRF's table has the VRF's name.
+                "routing-table": settings.vrf ?? Utils.otherTable(settings.routing_table),
                 "tcp-md5-key": settings.password && Secrets.marker(settings.password),
                 "use-bfd": settings.bfd ? "yes" : undefined,
+                vrf: settings.vrf,
             });
         }
     }
