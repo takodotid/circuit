@@ -467,7 +467,7 @@ export class Junos extends Platform {
             await Junos.configure(channel, plan, {
                 minutes: options.rollback,
                 prove: async () => {
-                    const proof = await Junos.login(device);
+                    const proof = await Ssh.proofLogin(() => Junos.login(device));
                     proof.end();
                 },
             });
