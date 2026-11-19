@@ -131,7 +131,8 @@ export class RouterOsRouting {
         const steps: string[] = [];
         if (set.local_pref !== undefined) steps.push(`set bgp-local-pref ${set.local_pref}`);
         if (set.med !== undefined) steps.push(`set bgp-med ${set.med}`);
-        if (set.prepend !== undefined) steps.push(`set bgp-path-prepend ${set.prepend}`);
+        // `bgp-path-prepend` is how many times the AS goes out in all, the one it always sends included (TRAPS.md).
+        if (set.prepend !== undefined) steps.push(`set bgp-path-prepend ${set.prepend + 1}`);
         for (const pattern of set.remove_standard_communities ?? []) {
             steps.push(`delete bgp-communities regexp "${RouterOsRouting.communityPattern([pattern])}"`);
         }

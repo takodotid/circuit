@@ -49,6 +49,11 @@ function withoutNewInV1(text: string): string {
         .join("\n");
 }
 
+/** 0.x sent one AS fewer than each prepend asked for: `bgp-path-prepend` counts the AS the router always sends (TRAPS.md). */
+function withPrependAsAsked(text: string): string {
+    return text.replace(/bgp-path-prepend (\d+)/g, (_, count: string) => `bgp-path-prepend ${Number(count) - 1}`);
+}
+
 function advertises(device: Device): boolean {
     return Object.values(device.interfaces ?? {}).some((group) =>
         Object.values(group ?? {}).some((settings) => typeof settings === "object" && settings !== null && "ipv6_ra" in settings)
@@ -103,7 +108,7 @@ describe("RouterOS renders each 0.x device as 0.x did", () => {
             expect(platform.unsupported(device)).toEqual(Fixtures.unsupported(name).map((message) => toV1(message, device)));
 
             if (!(name in ORDER_ONLY)) {
-                expect(rendered).toBe(old);
+                expect(withPrependAsAsked(rendered)).toBe(old);
                 return;
             }
 
@@ -112,7 +117,10 @@ describe("RouterOS renders each 0.x device as 0.x did", () => {
             // A user with a key keeps its password for SSH too, which Circuit logs in by. 0.x left the platform's default.
             const keys = Object.values(device.system?.users ?? {}).some((user) => user?.ssh_keys?.length);
             if (keys) expect(rendered).toContain("/ip ssh\nset password-authentication=yes ");
-            const compared = withoutNewInV1(withoutRouterAdvertisements(rendered)).replace("set password-authentication=yes ", "set ");
+            const compared = withPrependAsAsked(withoutNewInV1(withoutRouterAdvertisements(rendered))).replace(
+                "set password-authentication=yes ",
+                "set "
+            );
             expect(rendered).not.toBe(old);
             expect(compared.split("\n").sort()).toEqual(old.split("\n").sort());
 

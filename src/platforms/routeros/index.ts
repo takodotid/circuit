@@ -75,6 +75,8 @@ export class RouterOs extends Platform {
 
     /** A script that lists BGP sessions, advertisements, LLDP neighbors, or the log. */
     private static readonly LIST_TIMEOUT_MS = 60_000;
+    /** `bgp-path-prepend` takes 16 at most, and counts the AS a session always sends (TRAPS.md). */
+    private static readonly MOST_PREPENDS = 15;
     /** How long after an apply the router may still list an announcement a filter change stops (TRAPS.md), read before the first check of what is announced. */
     private static readonly ANNOUNCE_SETTLE_MS = 5000;
 
@@ -450,6 +452,11 @@ export class RouterOs extends Platform {
         for (const [name, rules] of RouterOsSyntax.entries(device.routing?.policies)) {
             rules.forEach((rule, index) => {
                 if (rule.communities !== undefined) found.push(`routing.policies.${name}[${index}].communities ${rule.communities}`);
+                const prepend = "set" in rule ? rule.set?.prepend : undefined;
+                if (prepend !== undefined && prepend > RouterOs.MOST_PREPENDS)
+                    found.push(
+                        `routing.policies.${name}[${index}].set.prepend ${prepend}, RouterOS sends its AS at most 16 times, the one it always sends included: write ${RouterOs.MOST_PREPENDS} at most`
+                    );
             });
         }
 
