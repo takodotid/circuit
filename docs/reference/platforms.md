@@ -32,21 +32,24 @@ A note in a cell means "works, with this limit".
 
 ### Switching
 
-| Feature             | RouterOS      | VRP           | Raisecom ROS      | Junos | FortiOS             |
-| ------------------- | ------------- | ------------- | ----------------- | ----- | ------------------- |
-| VLANs, access/trunk | ✅            | ✅            | ✅                | ✅    | ✅ VLAN interfaces  |
-| LAG                 | ✅            | ✅            | ✅                | ✅    | ✅                  |
-| STP                 | ✅            | ✅            | off only          | ✅    | ❌ ports are routed |
-| Storm control       | ✅ in percent | ✅ in percent | broadcast, in pps | ✅    | ❌                  |
-| MAC limit           | ❌            | ✅ ports      | ✅ ports          | ✅    | ❌                  |
-| Ethertype filter    | ✅ ports      | ✅ ports      | ✅ ports          | ✅    | ❌                  |
-| Port bound to hosts | ❌            | ❌            | ❌                | ✅    | ❌                  |
-| BPDU and root guard | ✅ ports      | 🧪            | ❌                | ✅    | ❌                  |
-| DHCP snooping       | ✅            | 🧪            | ❌                | ✅    | ❌                  |
-| RA guard            | ✅            | ❌            | ❌                | ✅    | ❌                  |
-| Hardware ACLs       | ✅            | ❌            | ❌                | ✅    | ✅ drop rules only  |
-| LLDP                | ✅            | ✅            | ✅                | ✅    | ✅                  |
-| Bridge interface    | ❌            | ❌            | ❌                | ❌    | ✅                  |
+| Feature             | RouterOS                           | VRP           | Raisecom ROS      | Junos | FortiOS             |
+| ------------------- | ---------------------------------- | ------------- | ----------------- | ----- | ------------------- |
+| VLANs, access/trunk | ✅                                 | ✅            | ✅                | ✅    | ✅ VLAN interfaces  |
+| LAG                 | ✅                                 | ✅            | ✅                | ✅    | ✅                  |
+| STP                 | ✅                                 | ✅            | off only          | ✅    | ❌ ports are routed |
+| Storm control       | ✅ in percent                      | ✅ in percent | broadcast, in pps | ✅    | ❌                  |
+| MAC limit           | ❌                                 | ✅ ports      | ✅ ports          | ✅    | ❌                  |
+| Ethertype filter    | ✅ ports                           | ✅ ports      | ✅ ports          | ✅    | ❌                  |
+| Port bound to hosts | ❌                                 | ❌            | ❌                | ✅    | ❌                  |
+| BPDU and root guard | ✅ ports                           | 🧪            | ❌                | ✅    | ❌                  |
+| DHCP snooping       | ✅                                 | 🧪            | ❌                | ✅    | ❌                  |
+| ARP inspection      | ❌                                 | ❌            | ❌                | ✅    | ❌                  |
+| Private VLANs       | isolated only, switched by the CPU | ❌            | ❌                | ✅    | ❌                  |
+| QinQ                | ✅                                 | 🧪            | ❌                | ✅    | ❌                  |
+| RA guard            | ✅                                 | ❌            | ❌                | ✅    | ❌                  |
+| Hardware ACLs       | ✅                                 | ❌            | ❌                | ✅    | ✅ drop rules only  |
+| LLDP                | ✅                                 | ✅            | ✅                | ✅    | ✅                  |
+| Bridge interface    | ❌                                 | ❌            | ❌                | ❌    | ✅                  |
 
 ### Interfaces
 

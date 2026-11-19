@@ -119,6 +119,14 @@ test("a key the user doesn't take is never offered", async () => {
     expect(tries).toEqual(["password", "password"]);
 });
 
+test("a proof login the device refuses is not tried again, since a device may lock the account", async () => {
+    accepted = "";
+    const proof = Ssh.proofLogin(() => Ssh.connect({ host: "127.0.0.1", port, user: "netops", password: () => "wrong" }));
+
+    await expect(proof).rejects.toThrow("All configured authentication methods failed");
+    expect(tries).toEqual(["password"]);
+});
+
 test("an SSH key is one public key line, never a private key", () => {
     const router = Fixtures.device("platforms--example-router");
     const admin = Object.values(router.system?.users ?? {})[0];

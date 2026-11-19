@@ -4,7 +4,7 @@ import { X509Certificate } from "node:crypto";
 import { utils } from "ssh2";
 import { Address } from "../core/address";
 import { Utils } from "../core/utils";
-import type { Device, Finding, Interface, NeighborSettings, Routed, StaticRoute, Switched } from "../model";
+import type { Device, Finding, Interface, Lag, NeighborSettings, Port, Routed, StaticRoute, Switched } from "../model";
 import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
@@ -95,6 +95,8 @@ export class DeviceChecks {
             report("connection has neither a host nor a console to reach the device through");
 
         DeviceChecks.vlans(device, report);
+        if (device.switching?.arp_inspection && !device.switching.dhcp_snooping)
+            report("switching.arp_inspection checks what DHCP snooping saw: write dhcp_snooping: true beside it");
         DeviceChecks.addresses(device, report, cidr, ip);
         DeviceChecks.ports(device, report);
         DeviceChecks.interfaces(device, report, ip);
@@ -226,6 +228,48 @@ export class DeviceChecks {
             if (ids.has(vlan.id)) report(`switching.vlans ${ids.get(vlan.id)} and ${name} share id ${vlan.id}`);
             ids.set(vlan.id, name);
         }
+
+        DeviceChecks.privateVlans(device, report);
+
+        const qinq = new Set(Derive.switchedHolders(device).flatMap(({ settings }) => (settings.qinq_vlan ? [settings.qinq_vlan] : [])));
+        for (const [iface, settings] of Object.entries(device.interfaces?.vlan_interface ?? {}))
+            if (settings && qinq.has(settings.vlan))
+                report(
+                    `interfaces.vlan_interface.${iface} is on ${settings.vlan}, which carries customers' frames as a QinQ VLAN: route on another VLAN`
+                );
+    }
+
+    /** A secondary VLAN (RFC 5517) hangs off a primary VLAN that is no secondary itself, one isolated VLAN at most each, and holds access ports only. */
+    private static privateVlans(device: Device, report: Report): void {
+        const vlans = device.switching?.vlans ?? {};
+        const isolated = new Map<string, string>();
+
+        for (const [name, vlan] of Object.entries(vlans)) {
+            const secondary = vlan?.private_vlan;
+            if (!secondary) continue;
+
+            const where = `switching.vlans.${name}.private_vlan`;
+            const primary = vlans[secondary.primary];
+            if (!primary) report(`${where}.primary ${secondary.primary} is not in switching.vlans`);
+            else if (primary.private_vlan)
+                report(`${where}.primary ${secondary.primary} is a secondary VLAN itself: name its primary VLAN`);
+
+            if (secondary.type === "isolated" && isolated.has(secondary.primary))
+                report(
+                    `${where}: ${isolated.get(secondary.primary)} is already the isolated VLAN of ${secondary.primary}, which has one at most`
+                );
+            if (secondary.type === "isolated") isolated.set(secondary.primary, name);
+
+            for (const { where: holder, settings } of Derive.switchedHolders(device)) {
+                if (settings.trunk_vlans?.includes(name) || settings.native_vlan === name)
+                    report(
+                        `${holder} carries ${name}, a secondary VLAN, on a trunk: a trunk carries its primary VLAN ${secondary.primary}`
+                    );
+            }
+            for (const [iface, settings] of Object.entries(device.interfaces?.vlan_interface ?? {}))
+                if (settings?.vlan === name)
+                    report(`interfaces.vlan_interface.${iface} is on ${name}, a secondary VLAN: put it on ${secondary.primary}`);
+        }
     }
 
     /** Every address is valid, and no address sits on two interfaces of one routing table. Two VRFs may hold the same address. */
@@ -304,7 +348,7 @@ export class DeviceChecks {
     private static ports(device: Device, report: Report): void {
         for (const [name, port] of Derive.ports(device)) {
             const where = `interfaces.ethernet.${name}`;
-            const switched = Boolean(port.access_vlan || port.trunk_vlans);
+            const switched = Boolean(port.access_vlan || port.trunk_vlans || port.qinq_vlan);
 
             if (port.access_vlan && port.trunk_vlans) report(`${where} is both access and trunk`);
             if (port.native_vlan && !port.trunk_vlans) report(`${where} has a native VLAN but is not a trunk`);
@@ -316,7 +360,24 @@ export class DeviceChecks {
 
             DeviceChecks.frames(where, port, report);
             DeviceChecks.guards(where, port, device, report);
+            DeviceChecks.qinq(where, port, device, report);
         }
+    }
+
+    /** A QinQ port is in its one VLAN, outside any private VLAN, and looks into no frame, since each carries the customer's own tags. */
+    private static qinq(where: string, settings: Port | Lag, device: Device, report: Report): void {
+        const vlan = settings.qinq_vlan;
+        if (!vlan) return;
+
+        for (const field of ["access_vlan", "trunk_vlans"] as const)
+            if (settings[field]) report(`${where} has qinq_vlan and ${field}: write one of them`);
+        for (const field of ["dhcp_trusted", "ra_trusted", "ethertypes", "ingress_acl"] as const)
+            if ((settings as Port)[field] !== undefined)
+                report(`${where}.${field} is on a QinQ port, whose frames carry the customer's own tags`);
+
+        const vlans = Object.values(device.switching?.vlans ?? {});
+        if (device.switching?.vlans?.[vlan]?.private_vlan || vlans.some((other) => other?.private_vlan?.primary === vlan))
+            report(`${where}.qinq_vlan ${vlan} is in a private VLAN: give the QinQ port a VLAN of its own`);
     }
 
     /** BPDU guard is for a port that faces hosts, both guards need spanning tree, and a trusted port needs what it is trusted by. A LAG holds them for its members. */
@@ -334,7 +395,8 @@ export class DeviceChecks {
         const fields = [...(guarded ? ["stp"] : []), ...(["dhcp_trusted", "ra_trusted"] as const).filter((field) => settings[field])];
         for (const field of fields) {
             if (settings.in_lag) report(`${where}.${field} is on a member of ${settings.in_lag}: write it on the LAG`);
-            else if (!settings.access_vlan && !settings.trunk_vlans) report(`${where}.${field} is on a port that switches no VLAN`);
+            else if (!settings.access_vlan && !settings.trunk_vlans && !settings.qinq_vlan)
+                report(`${where}.${field} is on a port that switches no VLAN`);
         }
     }
 
@@ -429,6 +491,7 @@ export class DeviceChecks {
                 };
                 DeviceChecks.frames(where, settings as Switched, report);
                 DeviceChecks.guards(where, settings as Switched, device, report);
+                DeviceChecks.qinq(where, settings as Lag, device, report);
 
                 const ports = Derive.ports(device).filter(([, port]) => port.in_lag === name);
                 const tunnels = Object.entries(device.interfaces?.eoip ?? {}).filter(([, tunnel]) => tunnel?.in_lag === name);

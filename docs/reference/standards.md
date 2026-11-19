@@ -76,7 +76,10 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | Ethertypes (IPv4, IPv6, ARP) | IEEE EtherType registry                                                                                                                 | port `ethertypes`                                              |
 | BPDU guard, root guard       | Not a standard: each vendor's own. Names from OpenConfig `openconfig-spanning-tree`                                                     | port `stp.bpdu_guard`, `stp.guard`                             |
 | DHCP snooping                | Not a standard: each vendor's own                                                                                                       | `switching.dhcp_snooping`, port `dhcp_trusted`                 |
+| Dynamic ARP inspection       | Not a standard: each vendor's own                                                                                                       | `switching.arp_inspection`, port `dhcp_trusted`                |
 | RA guard                     | RFC 6105                                                                                                                                | `switching.ra_guard`, port `ra_trusted`                        |
+| Private VLANs                | RFC 5517                                                                                                                                | `switching.vlans` `private_vlan`                               |
+| QinQ                         | IEEE 802.1ad stacks a second tag. The outer tag here is 0x8100, as on any trunk, not 802.1ad's 0x88a8                                   | port `qinq_vlan`                                               |
 
 <!-- vale Google.Units = YES -->
 
