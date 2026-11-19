@@ -154,6 +154,23 @@ export class RouterOsRouting {
         return found;
     }
 
+    /** What RouterOS 7.24's IS-IS has no setting for (TRAPS.md), and a metric on a passive interface, which it refuses. */
+    static isisGaps(device: Device): string[] {
+        const isis = device.routing?.isis;
+        if (!isis) return [];
+
+        const found: string[] = [];
+        const noAuthentication = "RouterOS 7.24 has no IS-IS authentication";
+        if (isis.authentication) found.push(`routing.isis.authentication, ${noAuthentication}`);
+        for (const [level, settings] of Object.entries(isis.levels ?? {}))
+            if (settings?.authentication) found.push(`routing.isis.levels.${level}.authentication, ${noAuthentication}`);
+
+        for (const [name, settings] of Object.entries(isis.interfaces))
+            if (settings?.passive && settings.metric !== undefined)
+                found.push(`routing.isis.interfaces.${name}.metric with passive, RouterOS refuses a metric on a passive interface`);
+        return found;
+    }
+
     /** A route policy rule on routes: not a call, and not a `{ communities }` rule, which `unsupported()` refuses. */
     static onRoutes(rule: PolicyRule): rule is RouteRule {
         return rule.call === undefined && rule.communities === undefined;

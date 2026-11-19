@@ -199,6 +199,12 @@ export class FortiOsRouting {
         "level-1-2": { type: "level-1-2", levels: [1, 2] },
     } as const;
 
+    /** The key chain that holds an IS-IS level's key, before the level's number. */
+    private static readonly ISIS_KEY_CHAIN = "circuit-isis-l";
+
+    /** A key chain's key is valid from 2001, before any date the device's clock shows, with no end. The device needs both lifetimes, and prints them this way. */
+    private static readonly KEY_LIFETIME = "00:00:00 01 01 2001 infinite";
+
     /** A neighbor's settings with its group's beneath them. */
     static neighborSettings(device: Device, neighbor: Neighbor): NeighborSettings {
         const group = neighbor.neighbor_group ? device.routing?.bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
@@ -394,11 +400,32 @@ export class FortiOsRouting {
         const block = root.block("router isis");
         block.set("is-type", type);
         block.set("metric-style", "wide");
+        // MD5 takes its key from a key chain only, one per level. It signs the level's LSPs and sequence number packets here, and its hellos on each interface.
+        const chains = new Map<number, string>();
+        for (const level of levels) {
+            const key = Derive.isisKey(isis, level);
+            if (!key) continue;
+
+            const chain = `${FortiOsRouting.ISIS_KEY_CHAIN}${level}`;
+            chains.set(level, chain);
+            const entry = root.block("router key-chain").entry(chain).block("key").entry(1);
+            entry.set("key-string", FortiOsTree.quote(Secrets.marker(key)));
+            entry.set("accept-lifetime", FortiOsRouting.KEY_LIFETIME);
+            entry.set("send-lifetime", FortiOsRouting.KEY_LIFETIME);
+        }
+        const sign = (node: FortiOsNode) => {
+            for (const [level, chain] of chains) {
+                node.set(`auth-mode-l${level}`, "md5");
+                node.set(`auth-keychain-l${level}`, FortiOsTree.quote(chain));
+            }
+        };
+        sign(block);
         block.block("isis-net").entry(1).set("net", isis.net);
 
         for (const [name, settings] of Object.entries(isis.interfaces)) {
             const iface = FortiOsNames.of(device, name);
             const entry = block.block("isis-interface").entry(iface);
+            sign(entry);
             if (isis.address_families.includes("ipv4")) entry.set("status", "enable");
             if (isis.address_families.includes("ipv6")) entry.set("status6", "enable");
             // `unsupported()` refuses another link type on a loopback.

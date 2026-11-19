@@ -1,5 +1,5 @@
 import { Derive } from "../core/derive";
-import type { Device } from "../model";
+import type { Device, Isis } from "../model";
 
 type Report = (message: string) => void;
 
@@ -9,6 +9,12 @@ export class IsisChecks {
     private static readonly NET = /^[0-9a-f]{2}(\.[0-9a-f]{4}){3,9}\.00$/i;
     /** The largest wide metric of a link that SPF uses: one of 2^24 - 1 takes the link out (RFC 5305). */
     private static readonly MAX_METRIC = 16_777_214;
+    /** The levels each level capability runs, as `levels` names them. */
+    private static readonly LEVELS: Record<Isis["level_capability"], readonly string[]> = {
+        "level-1": ["1"],
+        "level-2": ["2"],
+        "level-1-2": ["1", "2"],
+    };
 
     static check(device: Device, report: Report): void {
         const isis = device.routing?.isis;
@@ -20,6 +26,14 @@ export class IsisChecks {
             );
 
         if (!isis.address_families.length) report("routing.isis.address_families is empty: write ipv4, ipv6, or both");
+
+        for (const [level, settings] of Object.entries(isis.levels ?? {})) {
+            const at = `routing.isis.levels.${level}`;
+            if (!IsisChecks.LEVELS[isis.level_capability].includes(level))
+                report(`${at}: level_capability is ${isis.level_capability}, so the device doesn't run level ${level}. Remove it`);
+            if (settings?.authentication && isis.authentication)
+                report(`${at}.authentication: routing.isis.authentication signs every level already. Remove one of them`);
+        }
 
         for (const [name, settings] of Object.entries(isis.interfaces)) {
             const at = `routing.isis.interfaces.${name}`;

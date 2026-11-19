@@ -31,11 +31,13 @@ export default as64500.device({
     routing: {
         router_id: "10.255.1.1",
         static_routes: [{ prefix: as64500.prefixes.ours.v4, blackhole: true }],
-        // One IS-IS level 2 across both regions carries the loopbacks, so BGP runs between them. The system ID is the loopback address.
+        // IS-IS carries the loopbacks, so BGP runs between them. Both core routers are in area 49.0001 and run both levels. The system ID is the loopback address.
         isis: {
             net: "49.0001.0102.5500.1001.00",
-            level_capability: "level-2",
+            level_capability: "level-1-2",
             address_families: ["ipv4"],
+            // One key signs both levels.
+            authentication: { key: secret("ISIS_KEY") },
             interfaces: {
                 loopback: { passive: true },
                 "40g-1": { network: "point-to-point", metric: 100 },
