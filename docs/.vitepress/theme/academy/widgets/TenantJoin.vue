@@ -127,7 +127,7 @@ const file = computed(() => {
         "            interfaces: {",
         '                ethernet: { "100g-1": { trunk_vlans: ["kapsi-internet"] } },',
         "                vlan_interface: {",
-        `                    "kapsi-internet": { vlan: "kapsi-internet", description: "Tenant kapsi", addresses: ["${GATEWAYS[chosen.value.block]}", "2001:db8:100:2::1/64"] },`,
+        `                    "kapsi-internet": { vlan: "kapsi-internet", description: "Tenant kapsi", addresses: ["${GATEWAYS[chosen.value.block]}", "2001:db8:100:3::1/64"] },`,
         "                },",
         "            },",
         "        }),",

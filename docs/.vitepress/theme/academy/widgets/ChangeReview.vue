@@ -38,7 +38,7 @@ const pulls: Pull[] = [
             "},",
         ].join("\n"),
         highlight: [5],
-        ci: "$ circuit validate\n✔ 2 device(s), no errors.",
+        ci: "$ circuit validate\n✔ 3 device(s), no errors.",
         plan: [
             "$ circuit diff tor-01",
             "tor-01: 7 command(s) in 1 step(s)",
@@ -77,8 +77,8 @@ const pulls: Pull[] = [
             "}),",
         ].join("\n"),
         highlight: [6],
-        ci: '$ circuit validate\ntenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "tsukaeru server 1" in tenants/tsukaeru.ts:24, and "kapsi server 1" in tenants/kapsi.ts:9. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
-        plan: '$ circuit diff tor-01\ntenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "tsukaeru server 1" in tenants/tsukaeru.ts:24, and "kapsi server 1" in tenants/kapsi.ts:9. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+        ci: '$ circuit validate\ntenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "tsukaeru server 1" in tenants/tsukaeru.ts:72, and "kapsi server 1" in tenants/kapsi.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
+        plan: '$ circuit diff tor-01\ntenants/index.ts:9: merge: parts.tor-01.interfaces.ethernet.10g-1.description is written twice with two values: "tsukaeru server 1" in tenants/tsukaeru.ts:72, and "kapsi server 1" in tenants/kapsi.ts:17. One name holds one value: rename one, or make both the same.\n\n1 error(s).',
         answers: {
             ci: "No. Circuit stops while reading the files: the files of Tsukaeru and Kapsi both write port 10g-1 on tor-01, with two descriptions. It is the port of Tsukaeru's server 1.",
             scope: "There is no plan yet: an error stops diff and apply. Had it gone out, Tsukaeru's server 1 would have lost its networks.",

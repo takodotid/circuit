@@ -116,7 +116,7 @@ The port matters most: without the stop, one tenant would silently take the othe
 
 ## When a tenant leaves
 
-A tenant leaves when you remove it from `tenants/index.ts`. The next apply takes away everything it had, everywhere. Say Kapsi has joined, and then Tsukaeru leaves. `circuit diff` plans 22 commands for the router and 19 for the switch. On the switch:
+A tenant leaves when you remove it from `tenants/index.ts`. The next apply takes away everything it had, everywhere. Say Kapsi has joined, and then Tsukaeru leaves. `circuit diff` plans 67 commands for the router and 19 for the switch. On the switch:
 
 ```text
 tor-01: 19 command(s) in 4 step(s)
@@ -137,11 +137,11 @@ tor-01: 19 command(s) in 4 step(s)
     - description tsukaeru server 2
     + shutdown
   interface 40GE1/0/1
-    - port trunk allow-pass vlan 99 1001 to 1002
+    - port trunk allow-pass vlan 99 1001 to 1002 2001
     + port trunk allow-pass vlan 99 1002
 ```
 
-The ports of Tsukaeru are shut, not left open for whoever plugs in next. On the router, its VLAN, interface, and addresses go. The switch-chip rules are replaced as a whole, because Circuit rewrites an ordered list in its new order rather than editing it in place. The block of Tsukaeru, `198.51.100.8/29`, is free again, but wait until its servers are unplugged before you hand it to someone else.
+The ports of Tsukaeru are shut, not left open for whoever plugs in next. On the router, its VLANs, interfaces, addresses, VRF, and BGP session go. The switch-chip rules and the routing filters are replaced as a whole, because Circuit rewrites an ordered list in its new order rather than editing it in place. The block of Tsukaeru, `198.51.100.8/29`, is free again, but wait until its servers are unplugged before you hand it to someone else.
 
 ## Where to go from here
 

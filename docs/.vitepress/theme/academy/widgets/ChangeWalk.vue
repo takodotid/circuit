@@ -46,7 +46,7 @@ const steps: Step[] = [
         file: "Terminal",
         lang: "shell",
         text: "validate runs every check, your own included. An error here stops the change before anyone reviews it.",
-        code: ["$ circuit validate", "✔ 2 device(s), no errors."].join("\n"),
+        code: ["$ circuit validate", "✔ 3 device(s), no errors."].join("\n"),
     },
     {
         title: "Diff",
