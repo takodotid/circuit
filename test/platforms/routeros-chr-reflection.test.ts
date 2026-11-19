@@ -27,10 +27,13 @@ const POLL_MS = 3000;
 const CLUSTER_ID = "192.0.2.100";
 
 /**
- * Each client's link to rr-01, rr-01's address on it, the client's, which is also its router ID and so the ORIGINATOR_ID of its routes, and the prefix it originates. The links are not the pair test's, so its BGP connections are removed rather than changed, which the plan cannot do yet (#266).
+ * Each client's link to rr-01, rr-01's address on it, the client's, which is also its router ID, and the prefix it originates. The links are not the pair test's, so its BGP connections are removed rather than changed, which the plan cannot do yet (#266).
  */
 const EDGE_01 = { link: "192.0.2.8/30", reflector: "192.0.2.9", address: "192.0.2.10", prefix: "198.51.100.0/24" };
 const EDGE_02 = { link: "192.0.2.12/30", reflector: "192.0.2.13", address: "192.0.2.14", prefix: "203.0.113.0/24" };
+
+/** rr-01's router ID. RouterOS puts it on a reflected route as its ORIGINATOR_ID, where RFC 4456 has the client's (TRAPS.md). */
+const REFLECTOR_ID = EDGE_01.reflector;
 
 /** Marks the line of `reflected`'s output that holds the attributes. */
 const ATTRIBUTES = "ATTRIBUTES";
@@ -133,7 +136,7 @@ export default lab.device({
         },
     },
     routing: {
-        router_id: "${EDGE_01.reflector}",
+        router_id: "${REFLECTOR_ID}",
         bgp: {
             asn: 64500,
             cluster_id: "${CLUSTER_ID}",
@@ -206,7 +209,7 @@ describe.skipIf(!reflectorChr || !firstClientChr || !secondClientChr)("a CHR ref
     afterAll(() => rmSync(folder, { recursive: true, force: true }));
 
     test(
-        "each client gets the other's prefix through the reflector, with the client's router ID as ORIGINATOR_ID and the cluster ID in CLUSTER_LIST",
+        "each client gets the other's prefix through the reflector, with rr-01's cluster ID in CLUSTER_LIST and its router ID as ORIGINATOR_ID",
         () => {
             // A diff first: the first export after a boot leaves out what the apply's read would then miss (TRAPS.md).
             for (const device of ["rr-01", "edge-01", "edge-02"]) {
@@ -219,8 +222,8 @@ describe.skipIf(!reflectorChr || !firstClientChr || !secondClientChr)("a CHR ref
             expect(eventually(() => activeRoutes("edge-02", EDGE_01.prefix) === 1)).toBe(true);
             expect(eventually(() => activeRoutes("edge-01", EDGE_02.prefix) === 1)).toBe(true);
 
-            expect(reflected("edge-02", EDGE_01.prefix)).toEqual({ originatorId: EDGE_01.address, clusterList: CLUSTER_ID });
-            expect(reflected("edge-01", EDGE_02.prefix)).toEqual({ originatorId: EDGE_02.address, clusterList: CLUSTER_ID });
+            expect(reflected("edge-02", EDGE_01.prefix)).toEqual({ originatorId: REFLECTOR_ID, clusterList: CLUSTER_ID });
+            expect(reflected("edge-01", EDGE_02.prefix)).toEqual({ originatorId: REFLECTOR_ID, clusterList: CLUSTER_ID });
         },
         TEST_MS
     );
