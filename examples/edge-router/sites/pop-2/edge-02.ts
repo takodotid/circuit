@@ -52,7 +52,7 @@ export default as64500.device({
     interfaces: {
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.1.1/24"] },
-            "10g-1": { description: "AMS-IX", addresses: ["203.0.113.130/25", "2001:db8:fffe::130/64"] },
+            "10g-1": { description: "AMS-IX", addresses: ["203.0.113.130/25", "2001:db8:fffe::130/64"], ingress_acl: "ams-ix-in" },
             // #region urpf
             // Strict uRPF drops what arrives from an address not routed back through the same interface. So the customer can send only from the block we route to it and from its end of the link, and a server only from its own subnet (BCP 38).
             "10g-2": {
@@ -87,6 +87,12 @@ export default as64500.device({
     },
     switching: {
         vlans: { servers: { id: 100 }, business: { id: 200 } },
+        // NTP replies are small, so a flood of them from the exchange is a reflection attack. The switch's policer needs a burst.
+        acls: {
+            "ams-ix-in": [
+                { description: "NTP replies", if: { protocol: "udp", src_port: 123 }, then: "accept", rate: { cir: "10M", bc: 125_000 } },
+            ],
+        },
     },
 
     // #region dhcpv6

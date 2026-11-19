@@ -3,6 +3,7 @@
 import type { ApplyOptions, Plan, Step } from "../platform";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
+import { FortiOsShaping } from "./shaping";
 import { FortiOsSoftClear } from "./soft-clear";
 import { FortiOsNode, FortiOsTree } from "./tree";
 import type { Entry } from "./tree";
@@ -188,6 +189,8 @@ export class FortiOsPlan {
         "firewall service custom": { factory: FortiOsPlan.FACTORY_SERVICES },
         "firewall policy": FortiOsPlan.ORDERED,
         "firewall policy6": FortiOsPlan.ORDERED,
+        "firewall shaper traffic-shaper": { factory: FortiOsShaping.FACTORY_SHAPERS },
+        "firewall shaping-policy": { numbered: { keys: [["name"]] } },
         "firewall local-in-policy": FortiOsPlan.ORDERED,
         "firewall local-in-policy6": FortiOsPlan.ORDERED,
         "firewall central-snat-map": FortiOsPlan.ORDERED,

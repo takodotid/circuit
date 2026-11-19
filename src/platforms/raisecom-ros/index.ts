@@ -277,6 +277,8 @@ export class RaisecomRos extends Platform {
         for (const [path, value] of refusedGroups) {
             if (value !== undefined) found.push(path);
         }
+        if (device.services?.pppoe_server)
+            found.push("services.pppoe_server, Raisecom ROS has no PPPoE server: it only adds PPPoE+ tags as an intermediate agent");
 
         const management = device.management ?? {};
 
