@@ -17,7 +17,7 @@ export type Command = {
 
 export type Parsed = {
     commands: Command[];
-    /** Address lists whose entries are filled by `refresh`, not by the render. */
+    /** Address lists from a registry that the render did not fetch, as Studio renders them. The plan keeps the entries the device holds. */
     generated: Set<string>;
     /** The device's ports, `# port ether4`, which the read lists for a virtual router. */
     ports: string[];

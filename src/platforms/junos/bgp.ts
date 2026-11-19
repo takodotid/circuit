@@ -24,7 +24,7 @@ export class JunosBgp {
 
     private static readonly RPKI_GROUP = "circuit";
 
-    /** A comment in the render naming a path whose statements `refresh` fills, so the plan keeps what the device holds there. */
+    /** A comment in the render naming a prefix list from a registry that it did not fetch, as Studio renders it, so the plan keeps what the device holds there. */
     static readonly GENERATED = "# generated ";
 
     private static readonly FAMILY = { ipv4: "inet", ipv6: "inet6" } as const;
@@ -94,7 +94,7 @@ export class JunosBgp {
         return { ...group, ...neighbor };
     }
 
-    /** Written as a list or as a map of named prefixes. A set that `refresh` fetches has none here. */
+    /** Written as a list or as a map of named prefixes. A set from a registry has none until `diff` or `apply` fetches it. */
     static prefixesOf(set: PrefixSet): Prefix[] {
         if (!("prefixes" in set)) return [];
 
