@@ -213,6 +213,21 @@ describe("a device's secret", () => {
         expect(Secrets.scrub("password from-the-file sent")).toBe(`password ${Secrets.REDACTED} sent`);
     });
 
+    test("is hidden once the file is open, though not read, and line by line, but not when shorter than 6 characters", () => {
+        const file = opened();
+        file.set("OSPF_KEY", "first-line\nsecond-line");
+        file.set("SNMP_COMMUNITY", "short");
+        SecretsFile.forget();
+        Secrets.useRoot(root);
+        Secrets.watch(["OSPF_KEY", "SNMP_COMMUNITY"]);
+
+        const answer = "key first-line\r\nsecond-line, community short";
+        expect(Secrets.scrub(answer)).toBe(answer);
+
+        Secrets.file().unlock(PASSWORD);
+        expect(Secrets.scrub(answer)).toBe(`key ${Secrets.REDACTED}\r\n${Secrets.REDACTED}, community short`);
+    });
+
     test("is read from the file the network names", () => {
         opened(".circuit/lab-secrets").set("EDGE_01_PASSWORD", "from-the-lab");
         Secrets.useRoot(root);

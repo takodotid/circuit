@@ -141,6 +141,7 @@ export class StudioServer {
 
         Secrets.useRoot(root);
         Secrets.useFile(data.networks.find((network) => network.devices.includes(name))?.secretsFile);
+        Secrets.watch(Secrets.referencesIn(data.devices));
         const locked = Secrets.lockedFor(device);
         if (locked)
             throw new Error(
@@ -178,14 +179,15 @@ export class StudioServer {
             return value;
         };
 
-        /** Answer with JSON, or with an error the page shows. */
+        /** Answer with JSON, or with an error the page shows. Each text is scrubbed, as a device's answer can quote a secret. */
         const answer = async (response: ServerResponse, work: () => Promise<unknown>) => {
+            const scrubbed = (_key: string, value: unknown) => (typeof value === "string" ? Secrets.scrub(value) : value);
             let body: string;
             try {
                 const result = await work();
-                body = typeof result === "string" ? result : JSON.stringify(result);
+                body = typeof result === "string" ? result : JSON.stringify(result, scrubbed);
             } catch (error) {
-                body = JSON.stringify({ error: (error as Error).message });
+                body = JSON.stringify({ error: (error as Error).message }, scrubbed);
             }
             response.writeHead(StudioServer.OK, { "content-type": "application/json", "cache-control": "no-store" }).end(body);
         };
