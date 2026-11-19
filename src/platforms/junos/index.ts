@@ -343,6 +343,8 @@ export class Junos extends Platform {
         for (const [name, relay] of Object.entries(services.dhcp_relay ?? {})) {
             if (relay.servers.some((server) => Address.family(server) === "ipv6")) found.push(`services.dhcp_relay.${name}.servers, IPv6`);
         }
+        if (services.pppoe_server)
+            found.push("services.pppoe_server, Junos serves PPPoE subscribers on MX routers only, which Circuit does not support");
 
         const flow = device.monitoring?.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);

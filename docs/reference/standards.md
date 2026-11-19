@@ -91,16 +91,17 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 
 ## Tunnels and services
 
-| Feature                       | Standard                                        | In model                            |
-| ----------------------------- | ----------------------------------------------- | ----------------------------------- |
-| GRE                           | RFC 2784                                        | `interfaces.gre`                    |
-| VXLAN                         | Practice: RFC 7348 (Informational)              | `interfaces.vxlan`                  |
-| WireGuard                     | Not a standard: the WireGuard paper (NDSS 2017) | `interfaces.wireguard`              |
-| DHCP server                   | RFC 2131                                        | `services.dhcp_server`              |
-| DHCPv6 server                 | RFC 8415; RFC 3646 for DNS servers              | `services.dhcpv6_server`            |
-| DHCP relay                    | RFC 1542, RFC 2131; RFC 8415 for DHCPv6         | `services.dhcp_relay`               |
-| NTP client and server         | RFC 5905                                        | `system.ntp`, `services.ntp_server` |
-| DNS resolvers used and served | STD 13 (RFC 1034, RFC 1035)                     | `system.dns`, `services.dns_server` |
+| Feature                       | Standard                                                                                                                                                  | In model                            |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| GRE                           | RFC 2784                                                                                                                                                  | `interfaces.gre`                    |
+| VXLAN                         | Practice: RFC 7348 (Informational)                                                                                                                        | `interfaces.vxlan`                  |
+| WireGuard                     | Not a standard: the WireGuard paper (NDSS 2017)                                                                                                           | `interfaces.wireguard`              |
+| DHCP server                   | RFC 2131                                                                                                                                                  | `services.dhcp_server`              |
+| DHCPv6 server                 | RFC 8415; RFC 3646 for DNS servers                                                                                                                        | `services.dhcpv6_server`            |
+| DHCP relay                    | RFC 1542, RFC 2131; RFC 8415 for DHCPv6                                                                                                                   | `services.dhcp_relay`               |
+| PPPoE server for subscribers  | RFC 2516. RADIUS: RFC 2865, RFC 2866 (Informational), RFC 2869 (Informational) for interim accounting, RFC 5176 (Informational) for disconnect and change | `services.pppoe_server`             |
+| NTP client and server         | RFC 5905                                                                                                                                                  | `system.ntp`, `services.ntp_server` |
+| DNS resolvers used and served | STD 13 (RFC 1034, RFC 1035)                                                                                                                               | `system.dns`, `services.dns_server` |
 
 ## Firewall
 

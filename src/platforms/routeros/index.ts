@@ -29,6 +29,7 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsMonitoring } from "./monitoring";
+import { RouterOsPppoe } from "./pppoe";
 import { RouterOsQueues } from "./queues";
 import { RouterOsRender } from "./render";
 import { RouterOsRouting } from "./routing";
@@ -351,6 +352,8 @@ export class RouterOs extends Platform {
                 `services.dhcpv6_server.${name}.pool, RouterOS gives addresses from one whole prefix: write the first and last address of one, such as ${Address.fromNumber(low, "ipv6")} and ${Address.fromNumber(high, "ipv6")} (${largest})`
             );
         }
+
+        found.push(...RouterOsPppoe.unsupported(device));
 
         const management = device.management;
 

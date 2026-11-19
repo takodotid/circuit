@@ -1,4 +1,5 @@
-import type { IP, IPv6, MacAddress, Prefix } from "./common";
+import type { IP, IPv4, IPv6, MacAddress, Prefix } from "./common";
+import type { RadiusServer } from "./system";
 
 /** An address a DHCP server keeps for one client. */
 export type Reservation = {
@@ -68,14 +69,40 @@ export type Upnp<I extends string> = {
     external_address?: IP;
 };
 
-/** What the device serves to hosts. `I` is the device's ports and interfaces. */
-export type Services<I extends string> = {
+/**
+ * A PPPoE server (RFC 2516) for subscribers, such as the homes behind an OLT. The RADIUS servers check each subscriber's name and password (RFC 2865) and get its accounting (RFC 2866). A subscriber's address comes from `pool` unless RADIUS sends one, and its rate comes from RADIUS. Subscribers live in RADIUS: Circuit writes no local users or rates, and removes those it finds.
+ */
+export type PppoeServer<I extends string, F extends string = string> = {
+    /** The ports and interfaces subscribers connect on. */
+    interfaces: readonly I[];
+    /** The service name it offers (RFC 2516), such as the network's name. A client that asks for another name gets no answer. Every client is answered when absent. */
+    service_name?: string;
+    /** The server's own address in every session. */
+    local_address: IPv4;
+    /** First and last address given to subscribers that RADIUS sends no address for. */
+    pool: readonly [IPv4, IPv4];
+    /** Resolvers given to subscribers. */
+    dns?: readonly IPv4[];
+    /** The largest packet a session carries, in bytes. RFC 2516 allows 1492 at most. The platform picks one when absent. */
+    mtu?: number;
+    /** RADIUS servers, in order: the next one is asked only when one does not answer. */
+    radius: readonly RadiusServer<F>[];
+    /** Seconds between reports of each session's use to the RADIUS servers (RFC 2869). Only at the start and the end of a session when absent, unless RADIUS sends an interval. */
+    acct_interim_interval?: number;
+    /** Let the RADIUS servers end a session or change it, such as its rate, on UDP port 3799 (RFC 5176). Off when absent. */
+    dynamic_authorization?: true;
+};
+
+/** What the device serves to hosts. `I` is the device's ports and interfaces, `F` its VRFs. */
+export type Services<I extends string, F extends string = string> = {
     /** DHCP servers, keyed by name, one per network. */
     dhcp_server?: Record<string, DhcpServer<I>>;
     /** DHCPv6 servers, keyed by name, one per interface. */
     dhcpv6_server?: Record<string, Dhcpv6Server<I>>;
     /** DHCP relays, keyed by name. */
     dhcp_relay?: Record<string, DhcpRelay<I>>;
+    /** PPPoE servers for subscribers, keyed by name. */
+    pppoe_server?: Record<string, PppoeServer<I, F>>;
     /** Answer DNS queries from others, using `system.dns.servers`. Off when absent. */
     dns_server?: true;
     /** Answer time queries from others. Off when absent. */

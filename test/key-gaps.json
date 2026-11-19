@@ -170,7 +170,6 @@
         "firewall.filter.output",
         "firewall.nat.source[].if.family",
         "firewall.nat.source[].if.protocol",
-        "firewall.nat.source[].if.src",
         "firewall.nat.source[].if.dst",
         "firewall.nat.source[].if.src_address_set",
         "firewall.nat.source[].if.dst_address_set",

@@ -246,6 +246,9 @@ export class Vrp extends Platform {
             if (value !== undefined) found.push(path);
         }
 
+        if (device.services?.pppoe_server)
+            found.push("services.pppoe_server, VRP serves PPPoE subscribers on NE routers (BRAS) only, which Circuit does not support");
+
         for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {})) {
             if (!device.interfaces?.vlan_interface?.[relay.interface])
                 found.push(`services.dhcp_relay.${name}.interface, relays run on VLAN interfaces`);
