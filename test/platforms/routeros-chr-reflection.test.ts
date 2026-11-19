@@ -26,9 +26,11 @@ const POLL_MS = 3000;
 /** rr-01's cluster ID, unlike any router ID, so a reflected route shows it came from the config. */
 const CLUSTER_ID = "192.0.2.100";
 
-/** What each client originates, and its router ID, which the reflector puts on the route as its ORIGINATOR_ID. */
-const EDGE_01 = { prefix: "198.51.100.0/24", routerId: "192.0.2.2" };
-const EDGE_02 = { prefix: "203.0.113.0/24", routerId: "192.0.2.6" };
+/**
+ * Each client's link to rr-01, rr-01's address on it, the client's, which is also its router ID and so the ORIGINATOR_ID of its routes, and the prefix it originates. The links are not the pair test's, so its BGP connections are removed rather than changed, which the plan cannot do yet (#266).
+ */
+const EDGE_01 = { link: "192.0.2.8/30", reflector: "192.0.2.9", address: "192.0.2.10", prefix: "198.51.100.0/24" };
+const EDGE_02 = { link: "192.0.2.12/30", reflector: "192.0.2.13", address: "192.0.2.14", prefix: "203.0.113.0/24" };
 
 /** Marks the line of `reflected`'s output that holds the attributes. */
 const ATTRIBUTES = "ATTRIBUTES";
@@ -126,18 +128,18 @@ export default lab.device({
     interfaces: {
         ethernet: {
             "virtual-1": { description: "Management", addresses: ["10.0.0.1/24"] },
-            "virtual-2": { description: "edge-01", addresses: ["192.0.2.1/30"] },
-            "virtual-3": { description: "edge-02", addresses: ["192.0.2.5/30"] },
+            "virtual-2": { description: "edge-01", addresses: ["${EDGE_01.reflector}/30"] },
+            "virtual-3": { description: "edge-02", addresses: ["${EDGE_02.reflector}/30"] },
         },
     },
     routing: {
-        router_id: "192.0.2.1",
+        router_id: "${EDGE_01.reflector}",
         bgp: {
             asn: 64500,
             cluster_id: "${CLUSTER_ID}",
             neighbors: {
-                "edge-01": { address: "192.0.2.2", remote_as: 64500, ${client} import_policy: "clients", export_policy: "clients" },
-                "edge-02": { address: "192.0.2.6", remote_as: 64500, ${client} import_policy: "clients", export_policy: "clients" },
+                "edge-01": { address: "${EDGE_01.address}", remote_as: 64500, ${client} import_policy: "clients", export_policy: "clients" },
+                "edge-02": { address: "${EDGE_02.address}", remote_as: 64500, ${client} import_policy: "clients", export_policy: "clients" },
             },
         },
         policies: { clients: ${accepting(EDGE_01.prefix, EDGE_02.prefix)} },
@@ -147,19 +149,10 @@ export default lab.device({
     );
 }
 
-/** A client: its own link to rr-01, and a route to the other client's link, which its routes name as their next hop. */
-type Client = {
-    name: string;
-    chr: string;
-    management: string;
-    address: string;
-    reflector: string;
-    otherLink: string;
-    own: typeof EDGE_01;
-    other: typeof EDGE_01;
-};
+/** A client, with a route to the other client's link, which the other's routes name as their next hop. */
+type Client = { name: string; chr: string; management: string; own: typeof EDGE_01; other: typeof EDGE_01 };
 
-function writeClient({ name, chr, management, address, reflector, otherLink, own, other }: Client): void {
+function writeClient({ name, chr, management, own, other }: Client): void {
     const [host, port] = chr.split(":");
     write(
         `sites/lab/${name}.ts`,
@@ -176,20 +169,20 @@ export default lab.device({
     interfaces: {
         ethernet: {
             "virtual-1": { description: "Management", addresses: ["${management}.1/24"] },
-            "virtual-2": { description: "rr-01", addresses: ["${address}/30"] },
+            "virtual-2": { description: "rr-01", addresses: ["${own.address}/30"] },
         },
     },
     routing: {
-        router_id: "${own.routerId}",
+        router_id: "${own.address}",
         static_routes: [
             { prefix: "${own.prefix}", blackhole: true },
-            { prefix: "${otherLink}", next_hop: "${reflector}" },
+            { prefix: "${other.link}", next_hop: "${own.reflector}" },
         ],
         bgp: {
             asn: 64500,
             originated_prefixes: ["${own.prefix}"],
             neighbors: {
-                "rr-01": { address: "${reflector}", remote_as: 64500, import_policy: "from-rr", export_policy: "to-rr" },
+                "rr-01": { address: "${own.reflector}", remote_as: 64500, import_policy: "from-rr", export_policy: "to-rr" },
             },
         },
         policies: {
@@ -206,26 +199,8 @@ describe.skipIf(!reflectorChr || !firstClientChr || !secondClientChr)("a CHR ref
     beforeAll(() => {
         write("circuit.ts", `export const lab = circuit({ sites: { lab: { description: "A route reflector and two clients." } } });\n`);
         writeReflector(true);
-        writeClient({
-            name: "edge-01",
-            chr: firstClientChr!,
-            management: "10.0.1",
-            address: EDGE_01.routerId,
-            reflector: "192.0.2.1",
-            otherLink: "192.0.2.4/30",
-            own: EDGE_01,
-            other: EDGE_02,
-        });
-        writeClient({
-            name: "edge-02",
-            chr: secondClientChr!,
-            management: "10.0.2",
-            address: EDGE_02.routerId,
-            reflector: "192.0.2.5",
-            otherLink: "192.0.2.0/30",
-            own: EDGE_02,
-            other: EDGE_01,
-        });
+        writeClient({ name: "edge-01", chr: firstClientChr!, management: "10.0.1", own: EDGE_01, other: EDGE_02 });
+        writeClient({ name: "edge-02", chr: secondClientChr!, management: "10.0.2", own: EDGE_02, other: EDGE_01 });
     });
 
     afterAll(() => rmSync(folder, { recursive: true, force: true }));
@@ -244,8 +219,8 @@ describe.skipIf(!reflectorChr || !firstClientChr || !secondClientChr)("a CHR ref
             expect(eventually(() => activeRoutes("edge-02", EDGE_01.prefix) === 1)).toBe(true);
             expect(eventually(() => activeRoutes("edge-01", EDGE_02.prefix) === 1)).toBe(true);
 
-            expect(reflected("edge-02", EDGE_01.prefix)).toEqual({ originatorId: EDGE_01.routerId, clusterList: CLUSTER_ID });
-            expect(reflected("edge-01", EDGE_02.prefix)).toEqual({ originatorId: EDGE_02.routerId, clusterList: CLUSTER_ID });
+            expect(reflected("edge-02", EDGE_01.prefix)).toEqual({ originatorId: EDGE_01.address, clusterList: CLUSTER_ID });
+            expect(reflected("edge-01", EDGE_02.prefix)).toEqual({ originatorId: EDGE_02.address, clusterList: CLUSTER_ID });
         },
         TEST_MS
     );
