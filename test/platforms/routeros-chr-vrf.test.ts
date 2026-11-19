@@ -26,6 +26,8 @@ const VRF = "customers";
 const CPE_PREFIX = "203.0.113.0/24";
 /** edge-01's management network, a connected route in its main table. */
 const MANAGEMENT = "10.0.0.0/24";
+/** The link between the two, a connected route in the VRF. */
+const LINK = "192.0.2.0/30";
 
 /** Runs Circuit from the sources in the lab project, and prints what it printed, so the job's log shows each plan. */
 function circuit(...args: string[]): { status: number | null; output: string } {
@@ -122,6 +124,7 @@ export default lab.device({
         },
         policies: {
             "cpe-prefix": [{ if: { prefix: "${CPE_PREFIX}" }, then: "accept" }, { then: "reject" }],
+            "to-main": [{ if: { prefix: "${CPE_PREFIX}" }, then: "accept" }, { if: { prefix: "${LINK}" }, then: "accept" }, { then: "reject" }],
             management: [{ if: { prefix: "${MANAGEMENT}" }, then: "accept" }, { then: "reject" }],
         },
     },
@@ -131,7 +134,7 @@ export default lab.device({
 }
 
 /** The VRF takes edge-01's management network from main, and main takes cpe-01's prefix from the VRF. */
-const BOTH_WAYS = `{ from: "main", to: "${VRF}", policy: "management" }, { from: "${VRF}", to: "main", policy: "cpe-prefix" }`;
+const BOTH_WAYS = `{ from: "main", to: "${VRF}", policy: "management" }, { from: "${VRF}", to: "main", policy: "to-main" }`;
 
 describe.skipIf(!edgeChr || !cpeChr)("a VRF on a CHR, with BGP in it, and routes taken between it and main", () => {
     beforeAll(() => {
@@ -205,9 +208,23 @@ export default lab.device({
             expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
             expect(circuit("diff", "edge-01").status).toBe(0);
 
-            expect(eventually(() => activeRoutes("edge-01", CPE_PREFIX) === 1)).toBe(true);
-            expect(eventually(() => activeRoutes("edge-01", MANAGEMENT, VRF) === 1)).toBe(true);
-            expect(eventually(() => activeRoutes("cpe-01", MANAGEMENT) === 1)).toBe(true);
+            const managementInVrf = eventually(() => activeRoutes("edge-01", MANAGEMENT, VRF) === 1);
+            const linkInMain = eventually(() => activeRoutes("edge-01", LINK) === 1);
+            const learnedInMain = eventually(() => activeRoutes("edge-01", CPE_PREFIX) === 1);
+            const announced = eventually(() => activeRoutes("cpe-01", MANAGEMENT) === 1);
+            // Every copy of the three routes, for the job's log.
+            circuit(
+                "exec",
+                "edge-01",
+                `/routing route print detail where dst-address="${CPE_PREFIX}" or dst-address="${MANAGEMENT}" or dst-address="${LINK}"`
+            );
+
+            expect({ managementInVrf, linkInMain, learnedInMain, announced }).toEqual({
+                managementInVrf: true,
+                linkInMain: true,
+                learnedInMain: true,
+                announced: true,
+            });
         },
         TEST_MS
     );
