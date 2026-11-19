@@ -3,6 +3,7 @@
 import type { ApplyOptions, Plan, Step } from "../platform";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
+import { FortiOsSoftClear } from "./soft-clear";
 import { FortiOsNode, FortiOsTree } from "./tree";
 import type { Entry } from "./tree";
 
@@ -938,7 +939,15 @@ export class FortiOsPlan {
                   ]
                 : [];
 
-        return { steps: [...first, ...steps, ...removals, ...late], problems };
+        const changed = (section: string, name: string) => {
+            const wanted = want.blocks.get(section)?.entries.get(name)?.block;
+            const held = have.blocks.get(section)?.entries.get(name)?.block;
+            if (!wanted || !held) return wanted !== held;
+
+            return FortiOsPlan.compare([], wanted, held, undefined, false, { section, secrets: false }).send.length > 0;
+        };
+
+        return { steps: [...first, ...steps, ...removals, ...late, ...FortiOsSoftClear.steps(want, have, changed)], problems };
     }
 
     /** Release what names a freed interface, section by section from the last. */
