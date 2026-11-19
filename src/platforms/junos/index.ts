@@ -4,7 +4,7 @@ import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family, Lag, Port, Routed } from "../../model";
+import type { Device, Lag, Port, Routed } from "../../model";
 import { ConsoleShell, SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
@@ -485,24 +485,6 @@ export class Junos extends Platform {
         }
     }
 
-    /** A prefix list cannot cut access, so it is committed without a rollback. */
-    override async fill(device: Device, _network: readonly Device[], set: string, _family: Family, prefixes: string[]): Promise<void> {
-        const client = await Junos.login(device);
-
-        try {
-            await Junos.checkVersion((command) => Ssh.exec(client, command), device);
-
-            const channel = await Ssh.shell(client);
-            await Junos.openCli(channel);
-            await Junos.configure(channel, Junos.fillPlan(set, prefixes));
-            channel.end();
-
-            console.log(`  ${set}: ${prefixes.length} prefixes on the device`);
-        } finally {
-            client.end();
-        }
-    }
-
     override readOnly(command: string): boolean {
         return Junos.READS.test(command);
     }
@@ -755,12 +737,6 @@ export class Junos extends Platform {
             .split("\n")
             .slice(1, 1 + Junos.ANSWER_LINES)
             .join("\n    ");
-    }
-
-    private static fillPlan(set: string, prefixes: string[]): Plan {
-        const list = `policy-options prefix-list ${set}`;
-        const send = [`delete ${list}`, `set ${list}`, ...prefixes.map((prefix) => `set ${list} ${prefix}`)];
-        return { steps: [{ title: list, show: [], send }], problems: [] };
     }
 
     /** The IP MTU of each port and LAG that carries a VLAN, or the default when none does. */

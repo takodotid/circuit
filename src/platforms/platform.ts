@@ -1,5 +1,5 @@
 import type { Neighbor } from "../core/cabling";
-import type { Device, Family, Finding } from "../model";
+import type { Device, Finding } from "../model";
 import type { ConsoleDialect } from "../transport/console";
 import type { WaitLimits } from "./bgp-wait";
 import type { Platform as PlatformName } from "../config/models";
@@ -110,8 +110,6 @@ export abstract class Platform {
     neighbors?(device: Device, network: readonly Device[], options?: ReadOptions): Promise<Neighbor[]>;
     /** What it takes to go from `current` to `desired`. */
     abstract plan(desired: string, current: string, options: ApplyOptions): Plan;
-    /** Replace the contents of a prefix set fetched from a registry. Absent on a platform that can't hold one. */
-    fill?(device: Device, network: readonly Device[], set: string, family: Family, prefixes: string[]): Promise<void>;
     /** Send a plan, keeping the device reachable or restoring it. */
     abstract apply(device: Device, network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void>;
     /** Whether a command only reads, so `circuit exec` may send it. Anything not known to only read is refused. */
