@@ -7,7 +7,7 @@ import { Platforms } from "../../src/platforms";
 
 const options = { secrets: false, rollback: 10 };
 
-/** A switch whose hosts share VLAN `shared`: one isolated, one in the community `kapsi`, and an uplink that carries the primary VLAN. */
+/** A switch whose hosts share VLAN `shared`: one isolated, one in the community `elemech`, and an uplink that carries the primary VLAN. */
 function shared(platform: string, model: string, isolated: string, community: string, uplink: string): Device {
     return {
         name: "sw-01",
@@ -19,13 +19,13 @@ function shared(platform: string, model: string, isolated: string, community: st
             vlans: {
                 shared: { id: 500 },
                 "shared-isolated": { id: 501, private_vlan: { primary: "shared", type: "isolated" } },
-                kapsi: { id: 502, private_vlan: { primary: "shared", type: "community" } },
+                elemech: { id: 502, private_vlan: { primary: "shared", type: "community" } },
             },
         },
         interfaces: {
             ethernet: {
                 [isolated]: { access_vlan: "shared-isolated" },
-                [community]: { access_vlan: "kapsi" },
+                [community]: { access_vlan: "elemech" },
                 [uplink]: { trunk_vlans: ["shared"] },
             },
         },
@@ -48,8 +48,8 @@ test("Junos names each secondary VLAN's type, and the primary VLAN names its sec
     for (const line of [
         "set vlans shared-isolated private-vlan isolated",
         "set vlans shared isolated-vlan shared-isolated",
-        "set vlans kapsi private-vlan community",
-        "set vlans shared community-vlans kapsi",
+        "set vlans elemech private-vlan community",
+        "set vlans shared community-vlans elemech",
         "set interfaces xe-0/0/32 unit 0 family ethernet-switching vlan members shared-isolated",
         "set interfaces xe-0/0/34 unit 0 family ethernet-switching vlan members shared",
     ])
@@ -61,10 +61,10 @@ test("RouterOS puts an isolated port in the primary VLAN behind a split horizon,
     const routeros = Platforms.get("routeros");
     const device = shared("routeros", "CCR2216-1G-12XS-2XQ", "25g-3", "25g-4", "25g-5");
     expect(routeros.unsupported(device)).toEqual([
-        "switching.vlans.kapsi.private_vlan, a community: the platform keeps isolated ports apart, but has no communities",
+        "switching.vlans.elemech.private_vlan, a community: the platform keeps isolated ports apart, but has no communities",
     ]);
 
-    delete device.switching!.vlans!.kapsi;
+    delete device.switching!.vlans!.elemech;
     delete device.interfaces!.ethernet!["25g-4"];
     const desired = routeros.render(device);
 
@@ -93,15 +93,15 @@ test("validate keeps a secondary VLAN on access ports, under a primary VLAN with
     const device = shared("junos", "QFX5100-48S-6Q", "10g-33", "10g-34", "10g-35");
     device.system = { users: { root: { role: "admin", password: { secret: "ROOT" } } } };
     device.switching!.vlans!.more = { id: 503, private_vlan: { primary: "shared", type: "isolated" } };
-    device.switching!.vlans!.nested = { id: 504, private_vlan: { primary: "kapsi", type: "community" } };
-    device.interfaces!.ethernet!["10g-35"] = { trunk_vlans: ["shared", "kapsi"] };
+    device.switching!.vlans!.nested = { id: 504, private_vlan: { primary: "elemech", type: "community" } };
+    device.interfaces!.ethernet!["10g-35"] = { trunk_vlans: ["shared", "elemech"] };
     device.interfaces!.vlan_interface = { gateway: { vlan: "shared-isolated", addresses: ["198.51.100.1/24"] } };
 
     expect(messages(device)).toEqual(
         expect.arrayContaining([
             "switching.vlans.more.private_vlan: shared-isolated is already the isolated VLAN of shared, which has one at most",
-            "switching.vlans.nested.private_vlan.primary kapsi is a secondary VLAN itself: name its primary VLAN",
-            "interfaces.ethernet.10g-35 carries kapsi, a secondary VLAN, on a trunk: a trunk carries its primary VLAN shared",
+            "switching.vlans.nested.private_vlan.primary elemech is a secondary VLAN itself: name its primary VLAN",
+            "interfaces.ethernet.10g-35 carries elemech, a secondary VLAN, on a trunk: a trunk carries its primary VLAN shared",
             "interfaces.vlan_interface.gateway is on shared-isolated, a secondary VLAN: put it on shared",
         ])
     );

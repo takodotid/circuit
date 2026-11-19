@@ -62,15 +62,15 @@ You can also write the check as a list, in the router's switch chip, with an ACL
 ```ts
 interfaces: {
     ethernet: {
-        "25g-3": { description: "Tsukaeru", access_vlan: "tsukaeru", ingress_acl: "from-tsukaeru" },
+        "25g-3": { description: "Terramix", access_vlan: "terramix", ingress_acl: "from-terramix" },
     },
 },
 switching: {
     acls: {
-        // Tsukaeru may only send from its own space, and from its end of the link.
-        "from-tsukaeru": [
-            { description: "Tsukaeru's own IPv4", if: { src: "192.0.2.0/24" }, then: "accept" },
-            { description: "Tsukaeru's end of the link", if: { src: "198.51.100.252/30" }, then: "accept" },
+        // Terramix may only send from its own space, and from its end of the link.
+        "from-terramix": [
+            { description: "Terramix's own IPv4", if: { src: "192.0.2.0/24" }, then: "accept" },
+            { description: "Terramix's end of the link", if: { src: "198.51.100.252/30" }, then: "accept" },
             { description: "Any other IPv4 source", if: { family: "ipv4" }, then: "drop" },
         ],
     },
@@ -114,13 +114,13 @@ The lesson is about where the flood is dropped. A filter on your own router acts
 
 <TryIt title="Blackhole the target, and see who stops sending">
 
-Send a wave of the flood as it is. Then have Tsukaeru ask for a blackhole, and send again. Then add the blackhole communities, one at a time, and watch the link meters.
+Send a wave of the flood as it is. Then have Terramix ask for a blackhole, and send again. Then add the blackhole communities, one at a time, and watch the link meters.
 
 <BlackholeFlood />
 
 </TryIt>
 
-A blackhole on your own router freed Tsukaeru's link, and nothing else. Each upstream that received the route freed your link to it. In every case `192.0.2.10` became unreachable for everyone. Blackholing gives up one address to save every other customer, as RFC 5635 says. Tsukaeru can move its service to another address while the attack lasts.
+A blackhole on your own router freed Terramix's link, and nothing else. Each upstream that received the route freed your link to it. In every case `192.0.2.10` became unreachable for everyone. Blackholing gives up one address to save every other customer, as RFC 5635 says. Terramix can move its service to another address while the attack lasts.
 
 In Circuit, blackholing is part of the [community scheme](/guide/communities). The scheme in `circuit.ts` says which community asks for a blackhole:
 
@@ -140,17 +140,17 @@ Each upstream that takes blackholes carries its own community:
 // hurricane-electric drops traffic to a route it receives with 6939:666. cogent has no blackhole community here, so it never receives the route.
 "hurricane-electric": { address: "203.0.113.1", remote_as: 6939, role: "provider", import_policy: "transit-import", export_policy: "export", communities: { groups: ["transit"], blackhole: "6939:666" } },
 "cogent": { address: "203.0.113.129", remote_as: 174, role: "provider", import_policy: "transit-import", export_policy: "export", communities: { groups: ["transit"] } },
-tsukaeru: { address: "198.51.100.254", remote_as: 63997, role: "customer", import_policy: "tsukaeru-import", export_policy: "tsukaeru-export", communities: { groups: ["customer"] } },
+terramix: { address: "198.51.100.254", remote_as: 274016, role: "customer", import_policy: "terramix-import", export_policy: "terramix-export", communities: { groups: ["customer"] } },
 ```
 
 The import from a customer allowed to ask for a blackhole says so with `accept_requests`:
 
 ```ts
-// edge-01.ts, in routing.policies.tsukaeru-import, the first rule: Tsukaeru may ask for a blackhole. The rest of the import accepts only Tsukaeru's own space, so it can never blackhole someone else.
+// edge-01.ts, in routing.policies.terramix-import, the first rule: Terramix may ask for a blackhole. The rest of the import accepts only Terramix's own space, so it can never blackhole someone else.
 { communities: "import", accept_requests: ["blackhole"] },
 ```
 
-Circuit writes the rest from the scheme. The communities rule in Tsukaeru's import keeps the blackhole request. `{ communities: "export" }` in the export to hurricane-electric passes the route on with `6939:666`, and the export to cogent drops it.
+Circuit writes the rest from the scheme. The communities rule in Terramix's import keeps the blackhole request. `{ communities: "export" }` in the export to hurricane-electric passes the route on with `6939:666`, and the export to cogent drops it.
 
 A blackhole route can also drop what an attacker sends, when the attack comes from a few sources. Route each source's prefix to a blackhole on a router whose interfaces check sources with `urpf`. A source routed to a blackhole fails the check in either mode, so the router drops everything it sends. RFC 5635 calls this source-based blackholing.
 
@@ -180,7 +180,7 @@ In Circuit, that is the input chain, with `default_action: "drop"`, as the [edge
 system: { ip_stack: { syn_cookies: true } },
 
 firewall: {
-    // Tsukaeru's servers: a flood toward them never fills the connection table.
+    // Terramix's servers: a flood toward them never fills the connection table.
     untracked: ["192.0.2.0/24"],
     address_sets: { management: ["10.0.0.0/24"], "bgp-neighbors": bgpNeighbors() },
     filter: {

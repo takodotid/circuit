@@ -441,11 +441,11 @@ describe("samples", () => {
             36561: "YouTube",
             41529: "MediaServe",
             54113: "Fastly",
-            57692: "Kapsi",
-            63997: "Tsukaeru",
             213050: "Nedap",
             264009: "Infix Telecom",
+            274016: "Terramix",
             328225: "Strathmore University",
+            329604: "Elemech",
             396531: "Allegheny",
         };
         // Where an AS number is written: AS6939, as6939, remote_as: 6939, peer-as 6939, and the first part of a community, 6939:666.

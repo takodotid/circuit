@@ -15,13 +15,13 @@ The far end reaches your end of the tunnel over the internet. If you announce a 
 
 `tunnels_outside_offered: true` in `circuit.ts` turns on the check. For each GRE and VXLAN tunnel, it finds the BGP neighbors whose address is on the tunnel. It stops when the tunnel's `local_address` is inside a `prefix` or a `prefix_set` that their export accepts.
 
-Start the tunnel from the address you reach the far end through, such as your end of the transit link. Here Tsukaeru is sent `198.51.100.0/24` through the tunnel, and the tunnel starts from `203.0.113.2`, outside it:
+Start the tunnel from the address you reach the far end through, such as your end of the transit link. Here Terramix is sent `198.51.100.0/24` through the tunnel, and the tunnel starts from `203.0.113.2`, outside it:
 
 ```ts
 interfaces: {
     gre: {
-        tsukaeru: {
-            description: "Tsukaeru",
+        terramix: {
+            description: "Terramix",
             local_address: "203.0.113.2",
             remote_address: "203.0.113.200",
             addresses: ["203.0.113.253/30"],
@@ -31,17 +31,17 @@ interfaces: {
 routing: {
     bgp: {
         neighbors: {
-            tsukaeru: {
+            terramix: {
                 address: "203.0.113.254",
-                remote_as: 63997,
+                remote_as: 274016,
                 role: "customer",
-                import_policy: "tsukaeru-import",
-                export_policy: "tsukaeru-export",
+                import_policy: "terramix-import",
+                export_policy: "terramix-export",
             },
         },
     },
     policies: {
-        "tsukaeru-export": [
+        "terramix-export": [
             { description: "Our own space", if: { prefix: "198.51.100.0/24" }, then: "accept" },
             { description: "Nothing else", then: "reject" },
         ],
@@ -52,7 +52,7 @@ routing: {
 Started from a loopback at `198.51.100.1` instead, the tunnel stops `validate`:
 
 ```text
-  error  edge-01: interfaces.gre.tsukaeru is sourced from 198.51.100.1, inside 198.51.100.0/24, which routing.bgp.neighbors.tsukaeru is offered
+  error  edge-01: interfaces.gre.terramix is sourced from 198.51.100.1, inside 198.51.100.0/24, which routing.bgp.neighbors.terramix is offered
 ```
 
 [Separate networks on one](/academy/professional/vrfs-and-overlays) shows tunnels in Circuit, and [Checks](/guide/checks#built-in-checks) lists every built-in check.
