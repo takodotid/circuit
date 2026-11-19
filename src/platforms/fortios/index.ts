@@ -547,7 +547,7 @@ export class FortiOs extends Platform {
                     {
                         seconds,
                         prove: async () => {
-                            const proof = await Ssh.proofLogin(() => FortiOs.login(device));
+                            const proof = await Ssh.retrying(() => FortiOs.login(device));
                             proof.end();
                         },
                     },

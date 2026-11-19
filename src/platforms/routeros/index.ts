@@ -949,7 +949,7 @@ export class RouterOs extends Platform {
             upload: (path, content) => Ssh.upload(client, path, content),
             fresh: async () => {
                 client.end();
-                return RouterOs.sshSession(await Ssh.proofLogin(() => RouterOs.login(device)), device);
+                return RouterOs.sshSession(await Ssh.retrying(() => RouterOs.login(device)), device);
             },
             end: () => client.end(),
         };
