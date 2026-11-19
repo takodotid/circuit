@@ -151,6 +151,10 @@ export type Switched<Vlan extends string> = {
     trunk_vlans?: readonly Vlan[];
     /** The VLAN for untagged frames on a trunk, from `switching.vlans`. Only with `trunk_vlans`. */
     native_vlan?: Vlan;
+    /**
+     * QinQ: every frame that arrives on this port or LAG, tagged or not, takes this VLAN's tag on top, and a frame that leaves loses it. So a customer's own VLANs cross your network inside one VLAN, from `switching.vlans`. A trunk carries it as any other VLAN, each frame 4 bytes longer. The outer tag is 0x8100, as on any trunk, not IEEE 802.1ad's 0x88a8. DHCP snooping, ARP inspection, and RA guard don't look inside it. Not with `access_vlan` or `trunk_vlans`.
+     */
+    qinq_vlan?: Vlan;
     /** Overrides `switching.stp` for this port. With `false`, the port sends no BPDUs and ignores the ones it gets. */
     stp?: boolean | PortStp;
     /** Drop flooded traffic above these thresholds. */

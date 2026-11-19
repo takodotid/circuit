@@ -64,6 +64,8 @@ export class RouterOsPlan {
         "/routing ospf instance",
         "/routing ospf area",
         "/routing ospf interface-template",
+        "/routing isis instance",
+        "/routing isis interface-template",
         "/ip",
         "/ipv6",
         "/routing",
@@ -107,7 +109,11 @@ export class RouterOsPlan {
     private static readonly CHANGED_IN_PLACE = new Set(["/interface vlan"]);
 
     /** Menus whose flags a `set` changes in place: `set <entry> passive` and `set <entry> !passive`. Elsewhere, as with a route's `blackhole`, the entry is replaced. */
-    private static readonly FLAGS_SET = new Set(["/routing ospf area", "/routing ospf interface-template"]);
+    private static readonly FLAGS_SET = new Set([
+        "/routing ospf area",
+        "/routing ospf interface-template",
+        "/routing isis interface-template",
+    ]);
 
     /**
      * Properties a running entry takes only when it restarts. A BGP session given a new `routing-table` stops announcing at once, and keeps its routes in the old table until it restarts (TRAPS.md). So the plan disables the connection, changes it, waits until its session closes, and enables it again.

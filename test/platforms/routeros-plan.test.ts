@@ -203,6 +203,28 @@ test("a BGP connection's timers and networks the config drops are unset", () => 
     ]);
 });
 
+// Set empty, multihop and the limits were refused, and afi and local.address printed `""`. Unset, the export printed none. connect and listen refuse both, and print `yes` once set to it (CHR, 7.23.5 and 7.24.6).
+test("the BGP connection properties a config drops are unset, and connect is set back to yes", () => {
+    const adapter = Platforms.get("routeros");
+    const connection = (extra: string) =>
+        `/routing bgp connection\nadd${extra} instance=default local.role=ebgp name=transit-v4 remote.address=198.51.100.1/32 .as=64501\n`;
+    const dropped =
+        " afi=ipv6 connect=no input.limit-process-routes-ipv4=1000 .limit-process-routes-ipv6=1000 listen=yes local.address=192.0.2.1 multihop=yes";
+    const options = { secrets: false, rollback: 10 };
+    const sent = adapter.plan(connection(""), connection(dropped), options).steps.flatMap((step) => step.send);
+
+    const selector = '[ find remote.address="198.51.100.1/32" and (vrf=main or !vrf) ]';
+    expect(sent).toEqual([
+        `/routing bgp connection unset ${selector} multihop`,
+        `/routing bgp connection unset ${selector} afi`,
+        `/routing bgp connection unset ${selector} local.address`,
+        `/routing bgp connection unset ${selector} input.limit-process-routes-ipv4`,
+        `/routing bgp connection unset ${selector} input.limit-process-routes-ipv6`,
+        `/routing bgp connection set ${selector} connect=yes`,
+    ]);
+    expect(adapter.plan(connection(""), connection(" connect=yes listen=yes"), options).steps).toEqual([]);
+});
+
 // A VLAN interface on the bridge adds a dynamic bridge VLAN entry beside the static one, which a set must not select.
 test("a change to a bridge VLAN selects only its static entry", () => {
     const adapter = Platforms.get("routeros");

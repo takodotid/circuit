@@ -77,8 +77,6 @@ export class RouterOs extends Platform {
 
     /** A script that lists BGP sessions, advertisements, LLDP neighbors, or the log. */
     private static readonly LIST_TIMEOUT_MS = 60_000;
-    /** `bgp-path-prepend` takes 16 at most, and counts the AS a session always sends (TRAPS.md). */
-    private static readonly MOST_PREPENDS = 15;
     /** How long after an apply the router may still list an announcement a filter change stops (TRAPS.md), read before the first check of what is announced. */
     private static readonly ANNOUNCE_SETTLE_MS = 5000;
 
@@ -246,6 +244,16 @@ export class RouterOs extends Platform {
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.bridge)) {
             found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
         }
+        // MikroTik's changelog adds it in 7.25, which no device here runs yet.
+        if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
+        for (const field of ["dhcp_snooping", "ra_guard"] as const)
+            for (const { where, settings } of device.switching?.[field] ? Derive.switchedHolders(device) : [])
+                if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.${field}, which the platform runs on every VLAN`);
+        for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
+            if (vlan.private_vlan?.type === "community")
+                found.push(
+                    `switching.vlans.${name}.private_vlan, a community: the platform keeps isolated ports apart, but has no communities`
+                );
 
         for (const [name, port] of Derive.ports(device)) {
             if (port.speed && !RouterOsRender.medium(Catalog.spell(device.platform, device.model, name), port.speed)) {
@@ -301,6 +309,9 @@ export class RouterOs extends Platform {
         }
 
         found.push(...RouterOsRouting.vrfGaps(device));
+        for (const [name, settings] of Object.entries(device.routing?.isis?.interfaces ?? {}))
+            if (settings?.passive && settings.metric !== undefined)
+                found.push(`routing.isis.interfaces.${name}.metric with passive, RouterOS refuses a metric on a passive interface`);
 
         const bgp = device.routing?.bgp;
 
@@ -459,16 +470,7 @@ export class RouterOs extends Platform {
         const allow = device.management?.allow;
         if (typeof allow === "string") found.push(`management.allow ${allow}, an address set by name: write its prefixes`);
 
-        for (const [name, rules] of RouterOsSyntax.entries(device.routing?.policies)) {
-            rules.forEach((rule, index) => {
-                if (rule.communities !== undefined) found.push(`routing.policies.${name}[${index}].communities ${rule.communities}`);
-                const prepend = "set" in rule ? rule.set?.prepend : undefined;
-                if (prepend !== undefined && prepend > RouterOs.MOST_PREPENDS)
-                    found.push(
-                        `routing.policies.${name}[${index}].set.prepend ${prepend}, RouterOS sends its AS at most 16 times, the one it always sends included: write ${RouterOs.MOST_PREPENDS} at most`
-                    );
-            });
-        }
+        found.push(...RouterOsRouting.policyGaps(device));
 
         return found;
     }
@@ -947,7 +949,7 @@ export class RouterOs extends Platform {
             upload: (path, content) => Ssh.upload(client, path, content),
             fresh: async () => {
                 client.end();
-                return RouterOs.sshSession(await RouterOs.login(device), device);
+                return RouterOs.sshSession(await Ssh.proofLogin(() => RouterOs.login(device)), device);
             },
             end: () => client.end(),
         };

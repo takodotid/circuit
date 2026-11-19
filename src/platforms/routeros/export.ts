@@ -24,6 +24,9 @@ export type Parsed = {
 };
 
 export class RouterOsExport {
+    /** An IS-IS template's metric at each level, by its link type. */
+    private static readonly ISIS_METRICS = ["ptp.l1.metric", "ptp.l2.metric", "bcast.l1.metric", "bcast.l2.metric"];
+
     /**
      * Values the platform holds when nothing was set, per menu, and under `*` for every menu. A property at its default is dropped from both sides of a comparison. A property the config does not state is reset to it, and one without a default here is a problem in the plan.
      */
@@ -47,6 +50,8 @@ export class RouterOsExport {
             "restricted-role": "no",
             trusted: "no",
             "trusted-ra": "no",
+            horizon: "none",
+            "tag-stacking": "no",
         },
         "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
         // A CHR prints `disable-running-check=no` on every port, as it ships. A RouterBOARD has no such property, so this changes nothing there (TRAPS.md).
@@ -101,15 +106,24 @@ export class RouterOsExport {
         "/routing ospf instance": { version: "2" },
         "/routing ospf area": { "area-id": "0.0.0.0", type: "default", "default-cost": "" },
         "/routing ospf interface-template": { "hello-interval": "10s", "dead-interval": "40s", auth: "", "auth-id": "" },
-        // TTLs never set send 255 and accept any, and cannot be unset (TRAPS.md).
+        // A metric never set prints nothing, and the interface then runs at 20.
+        "/routing isis interface-template": Object.fromEntries(RouterOsExport.ISIS_METRICS.map((property) => [property, ""])),
+        // TTLs never set send 255 and accept any. They, `connect`, and `listen` cannot be unset (TRAPS.md).
         "/routing bgp connection": {
             "use-bfd": "no",
             "local.ttl": "255",
             "remote.ttl": "1",
             "output.default-originate": "never",
+            connect: "yes",
+            listen: "yes",
             "hold-time": "",
             "keepalive-time": "",
             "output.network": "",
+            multihop: "",
+            afi: "",
+            "local.address": "",
+            "input.limit-process-routes-ipv4": "",
+            "input.limit-process-routes-ipv6": "",
         },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
@@ -226,9 +240,19 @@ export class RouterOsExport {
     /** Properties the device clears only with `unset`: empty, it refuses them or takes them as another value (TRAPS.md). */
     static readonly UNSET: Record<string, readonly string[]> = {
         "/routing bgp instance": ["cluster-id"],
-        "/routing bgp connection": ["hold-time", "keepalive-time", "output.network"],
+        "/routing bgp connection": [
+            "hold-time",
+            "keepalive-time",
+            "output.network",
+            "multihop",
+            "afi",
+            "local.address",
+            "input.limit-process-routes-ipv4",
+            "input.limit-process-routes-ipv6",
+        ],
         "/routing ospf area": ["default-cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],
+        "/routing isis interface-template": RouterOsExport.ISIS_METRICS,
     };
 
     /** A secret the device takes only with another property: a template given `auth` without `auth-key` is refused (TRAPS.md). It is sent whenever that property changes. */
@@ -259,6 +283,7 @@ export class RouterOsExport {
         "/routing bgp connection": ["remote.address", "vrf"],
         "/routing rpki": ["address"],
         "/routing ospf interface-template": ["area", "interfaces"],
+        "/routing isis interface-template": ["instance", "interfaces"],
         "/routing bfd configuration": ["interfaces"],
         // Several routes to one prefix in one table are told apart by their gateway (TRAPS.md). A blackhole route has none.
         "/ip route": ["dst-address", "routing-table", "gateway"],

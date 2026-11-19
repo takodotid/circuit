@@ -39,8 +39,10 @@ export class FortiOsUnsupported {
         found.push(...FortiOsUnsupported.firewallGaps(device));
         found.push(...FortiOsUnsupported.serviceGaps(device));
 
-        for (const field of ["stp", "dhcp_snooping", "ra_guard"] as const)
+        for (const field of ["stp", "dhcp_snooping", "arp_inspection", "ra_guard"] as const)
             if (device.switching?.[field]) found.push(`switching.${field}, ports are routed`);
+        for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
+            if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, ports are routed`);
         found.push(...FortiOsUnsupported.transparentGaps(device));
         found.push(...FortiOsVdoms.gaps(device));
 
@@ -239,7 +241,15 @@ export class FortiOsUnsupported {
             if (port.speed && !FortiOsRender.SPEEDS[speedClass]?.[port.speed])
                 found.push(`${where}.speed ${port.speed}, not in a ${speedClass} cage`);
 
-            for (const field of ["access_vlan", "native_vlan", "stp", "storm_control", "dhcp_trusted", "ra_trusted"] as const) {
+            for (const field of [
+                "access_vlan",
+                "native_vlan",
+                "qinq_vlan",
+                "stp",
+                "storm_control",
+                "dhcp_trusted",
+                "ra_trusted",
+            ] as const) {
                 if (port[field] !== undefined) found.push(`${where}.${field}, ports are routed`);
             }
 
@@ -279,7 +289,15 @@ export class FortiOsUnsupported {
             if (kind === "lag") {
                 const lag = iface as Lag;
                 if (lag.id !== undefined) found.push(`${where}.id, the platform names a LAG by its key`);
-                for (const field of ["access_vlan", "native_vlan", "stp", "storm_control", "dhcp_trusted", "ra_trusted"] as const) {
+                for (const field of [
+                    "access_vlan",
+                    "native_vlan",
+                    "qinq_vlan",
+                    "stp",
+                    "storm_control",
+                    "dhcp_trusted",
+                    "ra_trusted",
+                ] as const) {
                     if (lag[field] !== undefined) found.push(`${where}.${field}, LAGs are routed`);
                 }
 

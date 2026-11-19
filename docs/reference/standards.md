@@ -45,6 +45,9 @@ Each RFC's status is as the RFC Editor listed it on 2026-11-01.
 | OSPF stub areas                                                | STD 54 (RFC 2328)                                                                                                         | area `type: "stub"`, `no_summaries`, `stub_default_cost`             |
 | OSPF NSSA                                                      | RFC 3101                                                                                                                  | area `type: "nssa"`                                                  |
 | OSPFv2 authentication                                          | STD 54 (RFC 2328) for MD5, RFC 5709 for HMAC-SHA                                                                          | OSPF interface `authentication`                                      |
+| IS-IS for IP                                                   | ISO/IEC 10589, RFC 1195                                                                                                   | `routing.isis`                                                       |
+| IS-IS wide metrics                                             | RFC 5305                                                                                                                  | IS-IS interface `metric`                                             |
+| IS-IS for IPv6, in one topology with IPv4                      | RFC 5308                                                                                                                  | `routing.isis.address_families` with `ipv6`                          |
 | VRRP                                                           | RFC 9568 (VRRPv3, obsoletes RFC 5798). IPv4 groups run the platform's default version, VRRPv2 on Junos, VRP, and FortiOS. | interface `vrrp`                                                     |
 | Routing security: filtering                                    | Practice: MANRS action 1                                                                                                  | `presets.bgp_sanity`, `routing.prefix_sets`                          |
 
@@ -75,7 +78,10 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | Ethertypes (IPv4, IPv6, ARP) | IEEE EtherType registry                                                                                                                 | port `ethertypes`                                              |
 | BPDU guard, root guard       | Not a standard: each vendor's own. Names from OpenConfig `openconfig-spanning-tree`                                                     | port `stp.bpdu_guard`, `stp.guard`                             |
 | DHCP snooping                | Not a standard: each vendor's own                                                                                                       | `switching.dhcp_snooping`, port `dhcp_trusted`                 |
+| Dynamic ARP inspection       | Not a standard: each vendor's own                                                                                                       | `switching.arp_inspection`, port `dhcp_trusted`                |
 | RA guard                     | RFC 6105                                                                                                                                | `switching.ra_guard`, port `ra_trusted`                        |
+| Private VLANs                | RFC 5517                                                                                                                                | `switching.vlans` `private_vlan`                               |
+| QinQ                         | IEEE 802.1ad stacks a second tag. The outer tag here is 0x8100, as on any trunk, not 802.1ad's 0x88a8                                   | port `qinq_vlan`                                               |
 
 <!-- vale Google.Units = YES -->
 

@@ -10,6 +10,9 @@ import { RouterOsSyntax } from "./syntax";
 
 /** Routing tables and rules, static routes, RPKI, BGP with its policies' filter chains, OSPF, and BFD, added to one device's render. */
 export class RouterOsRouting {
+    /** `bgp-path-prepend` takes 16 at most, and counts the AS a session always sends (TRAPS.md). */
+    private static readonly MOST_PREPENDS = 15;
+
     /** The validator group every RPKI server joins. */
     private static readonly RPKI_GROUP = "rpki";
 
@@ -46,6 +49,12 @@ export class RouterOsRouting {
         "hmac-sha-512": "sha512",
     } as const satisfies Record<OspfAuthentication["algorithm"], string>;
 
+    /** The one IS-IS instance. */
+    private static readonly ISIS_INSTANCE = "isis";
+
+    /** An interface template's `levels` for each level capability. */
+    private static readonly ISIS_LEVELS = { "level-1": ["l1"], "level-2": ["l2"], "level-1-2": ["l1", "l2"] } as const;
+
     private constructor(
         private readonly render: RouterOsRender,
         private readonly device: Device
@@ -66,17 +75,40 @@ export class RouterOsRouting {
         }
 
         routing.ospf();
+        routing.isis();
         routing.bfd();
+    }
+
+    /** A policy rule's `communities`, which `Project.read` writes out before a platform sees it, and a prepend above what `bgp-path-prepend` takes. */
+    static policyGaps(device: Device): string[] {
+        const found: string[] = [];
+        for (const [name, rules] of Object.entries(device.routing?.policies ?? {})) {
+            (rules ?? []).forEach((rule, index) => {
+                if (rule.communities !== undefined) found.push(`routing.policies.${name}[${index}].communities ${rule.communities}`);
+                const prepend = "set" in rule ? rule.set?.prepend : undefined;
+                if (prepend !== undefined && prepend > RouterOsRouting.MOST_PREPENDS)
+                    found.push(
+                        `routing.policies.${name}[${index}].set.prepend ${prepend}, RouterOS sends its AS at most 16 times, the one it always sends included: write ${RouterOsRouting.MOST_PREPENDS} at most`
+                    );
+            });
+        }
+        return found;
     }
 
     /** A VRF with the name of an interface, which the router refuses, since a VRF is an interface too (TRAPS.md). Imports without the BGP they go through, or with the main table, which that way takes and gives nothing. */
     static vrfGaps(device: Device): string[] {
         const found: string[] = [];
-        const interfaceNames = new Set([
-            ...Derive.interfaces(device).map(({ name }) => name),
-            ...Derive.ports(device).map(([name]) => Catalog.spell(device.platform, device.model, name)),
-        ]);
-        for (const name of Object.keys(device.routing?.vrfs ?? {}))
+        const vrfs = Object.keys(device.routing?.vrfs ?? {});
+        // Port names are spelled only when a VRF could clash with one.
+        const interfaceNames = new Set(
+            vrfs.length
+                ? [
+                      ...Derive.interfaces(device).map(({ name }) => name),
+                      ...Derive.ports(device).map(([name]) => Catalog.spell(device.platform, device.model, name)),
+                  ]
+                : []
+        );
+        for (const name of vrfs)
             if (interfaceNames.has(name))
                 found.push(`routing.vrfs.${name}, the name of an interface: RouterOS makes an interface named after each VRF`);
 
@@ -517,6 +549,35 @@ export class RouterOsRouting {
                     });
                 }
             }
+        }
+    }
+
+    /** One instance, whose areas and system ID come from the NET, and a template per interface. A template's metric is under `ptp` or `bcast`, by its link type. */
+    private isis(): void {
+        const isis = this.device.routing?.isis;
+        if (!isis) return;
+
+        const groups = isis.net.split(".");
+        this.render.add("/routing isis instance", "add", {
+            afi: isis.address_families.map((family) => (family === "ipv4" ? "ip" : "ipv6")).join(","),
+            areas: groups.slice(0, -4).join("."),
+            "metric-type": "wide",
+            name: RouterOsRouting.ISIS_INSTANCE,
+            "system-id": groups.slice(-4, -1).join("."),
+        });
+
+        const levels = RouterOsRouting.ISIS_LEVELS[isis.level_capability];
+        for (const [iface, settings] of Object.entries(isis.interfaces)) {
+            const ptp = settings?.network === "point-to-point";
+            // `passive` and `ptp` are flags, written without a value.
+            const verb = ["add", settings?.passive && "passive", ptp && "ptp"].filter(Boolean).join(" ");
+            const metrics = levels.map((level) => [`${ptp ? "ptp" : "bcast"}.${level}.metric`, settings?.metric]);
+            this.render.add("/routing isis interface-template", verb, {
+                instance: RouterOsRouting.ISIS_INSTANCE,
+                interfaces: this.render.name(iface),
+                levels: levels.join(","),
+                ...Object.fromEntries(metrics),
+            });
         }
     }
 

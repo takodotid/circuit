@@ -19,9 +19,11 @@ import type {
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { JunosBgp } from "./bgp";
+import { JunosIsis } from "./isis";
 import { JunosNames } from "./names";
 import { JunosMonitoring } from "./monitoring";
 import { JunosStatements } from "./statements";
+import { JunosSwitching } from "./switching";
 
 type Switched = Port | Lag;
 
@@ -95,10 +97,6 @@ export class JunosRender {
         ["unknown_unicast", "no-unknown-unicast"],
     ] as const;
 
-    /** The DHCP snooping groups of the ports that trust DHCP servers, and of those that don't. */
-    private static readonly DHCP_TRUSTED = "circuit-dhcp-trusted";
-    private static readonly DHCP_UNTRUSTED = "circuit-dhcp-untrusted";
-
     /** `0.0.0.0`, which a host asking DHCP for an address sends from. */
     private static readonly IPV4_ALWAYS = ["0.0.0.0/32"];
 
@@ -107,9 +105,11 @@ export class JunosRender {
 
     private readonly out = new JunosStatements();
     private readonly names: JunosNames;
+    private readonly layer2: JunosSwitching;
 
     private constructor(private readonly device: Device) {
         this.names = new JunosNames(device);
+        this.layer2 = new JunosSwitching(this.out, device, this.names);
     }
 
     static of(device: Device): string {
@@ -120,7 +120,7 @@ export class JunosRender {
         render.aaa();
         render.services();
         JunosMonitoring.snmp(render.out, device);
-        render.vlans();
+        render.layer2.vlans();
         render.ports();
         render.lags();
         render.routedInterfaces();
@@ -128,11 +128,12 @@ export class JunosRender {
         render.servicesFilter();
         render.vrfs();
         render.staticRoutes();
-        render.spanningTree();
-        render.dhcpSnooping();
-        render.raGuard();
+        render.layer2.spanningTree();
+        render.layer2.dhcpSnooping();
+        render.layer2.raGuard();
         render.lldp();
         render.ospf();
+        JunosIsis.render(render.out, device, render.names);
         render.dhcpRelay();
         render.dhcpServers();
         render.dhcpv6Servers();
@@ -327,34 +328,22 @@ export class JunosRender {
         return this.device.management?.[service];
     }
 
-    /** SNMP version 2c with one read community, version 3 with users in one read-only group, or both. */
-
-    private vlans(): void {
-        for (const [name, vlan] of Object.entries(this.device.switching?.vlans ?? {})) {
-            if (!vlan) continue;
-
-            this.out.set(`vlans ${name} vlan-id`, vlan.id);
-            if (vlan.description) this.out.set(`vlans ${name} description`, JunosStatements.quote(vlan.description));
-        }
-
-        for (const [name, iface] of Object.entries(this.device.interfaces?.vlan_interface ?? {})) {
-            if (iface) this.out.set(`vlans ${iface.vlan} l3-interface`, this.names.unit(name));
-        }
-    }
-
-    /** The native VLAN is a member too, or its untagged frames are dropped. */
+    /** The native VLAN is a member too, or its untagged frames are dropped. QinQ VLANs take units of their own, and the trunk's other VLANs share unit 0. */
     private switching(physical: string, settings: Switched): void {
         const family = `interfaces ${physical} unit 0 family ethernet-switching`;
+        const trunkVlans = this.layer2.qinq(physical, settings);
 
         if (settings.access_vlan) {
             this.out.set(family, "interface-mode access");
             this.out.set(family, "vlan members", settings.access_vlan);
         }
 
-        if (settings.trunk_vlans) {
+        // A trunk of QinQ VLANs only has no unit 0.
+        const onlyQinq = settings.trunk_vlans?.length && !trunkVlans.length && !settings.native_vlan;
+        if (settings.trunk_vlans && !onlyQinq) {
             this.out.set(family, "interface-mode trunk");
 
-            const members = new Set([...settings.trunk_vlans, ...(settings.native_vlan ? [settings.native_vlan] : [])]);
+            const members = new Set([...trunkVlans, ...(settings.native_vlan ? [settings.native_vlan] : [])]);
             for (const vlan of members) this.out.set(family, "vlan members", vlan);
 
             if (settings.native_vlan)
@@ -686,79 +675,6 @@ export class JunosRender {
 
             if (route.bfd) this.out.bfd(statement, this.device.routing?.bfd);
         }
-    }
-
-    /** On every switched port and LAG. RSTP when no mode is given. */
-    private spanningTree(): void {
-        const stp = this.device.switching?.stp;
-        if (!stp) return;
-
-        // The platform has no plain STP, so RSTP is held to it.
-        const protocol = `protocols ${stp.mode === "mstp" ? "mstp" : "rstp"}`;
-        if (stp.mode === "stp") this.out.set(protocol, "force-version stp");
-        if (stp.priority !== undefined) this.out.set(protocol, "bridge-priority", stp.priority === 0 ? "0" : `${stp.priority / 1024}k`);
-
-        for (const [name, settings] of this.switched()) {
-            const statement = `${protocol} interface ${name}`;
-            this.out.set(statement);
-
-            if (settings.stp === false) this.out.set(statement, "disable");
-            else if (typeof settings.stp === "object") {
-                if (settings.stp.edge) this.out.set(statement, "edge");
-                if (settings.stp.cost !== undefined) this.out.set(statement, "cost", settings.stp.cost);
-                if (settings.stp.priority !== undefined) this.out.set(statement, "priority", settings.stp.priority);
-                if (settings.stp.guard === "root") this.out.set(statement, "no-root-port");
-                // BPDU protection on one interface; `bpdu-block-on-edge` would cover every edge port at once.
-                if (settings.stp.bpdu_guard) this.out.set("protocols layer2-control bpdu-block interface", name);
-            }
-        }
-    }
-
-    /** Each switched port and LAG, as the physical interface the platform names: `xe-0/0/1`, `ae1`. A port in a LAG is the LAG. */
-    private switched(): [string, Switched][] {
-        const ports = Derive.ports(this.device).filter(([, port]) => !port.in_lag && (port.access_vlan || port.trunk_vlans));
-        const lags = this.lagSettings().filter(([, lag]) => lag.access_vlan || lag.trunk_vlans);
-        return [
-            ...ports.map(([port, settings]): [string, Switched] => [this.names.port(port), settings]),
-            ...lags.map(([name, lag]): [string, Switched] => [this.names.physical(name), lag]),
-        ];
-    }
-
-    private vlanNames(): string[] {
-        return Object.entries(this.device.switching?.vlans ?? {}).flatMap(([name, vlan]) => (vlan ? [name] : []));
-    }
-
-    /** The switched ports and LAGs in a VLAN, its native VLAN too. */
-    private inVlan(vlan: string): [string, Switched][] {
-        return this.switched().filter(([, settings]) =>
-            [settings.access_vlan, settings.native_vlan, ...(settings.trunk_vlans ?? [])].includes(vlan)
-        );
-    }
-
-    /** DHCP snooping on every VLAN. The platform trusts a trunk and distrusts an access port by default, so each port is named in a group that says which it is. */
-    private dhcpSnooping(): void {
-        if (!this.device.switching?.dhcp_snooping) return;
-
-        for (const vlan of this.vlanNames()) {
-            const security = `vlans ${vlan} forwarding-options dhcp-security`;
-            this.out.set(security);
-
-            for (const [name, settings] of this.inVlan(vlan)) {
-                const group = settings.dhcp_trusted ? JunosRender.DHCP_TRUSTED : JunosRender.DHCP_UNTRUSTED;
-                this.out.set(`${security} group ${group} overrides`, settings.dhcp_trusted ? "trusted" : "untrusted");
-                this.out.set(`${security} group ${group} interface`, `${name}.0`);
-            }
-        }
-    }
-
-    /** RA guard on every VLAN, and on each switched port: `block` drops every router advertisement, `trusted` passes them unchecked. */
-    private raGuard(): void {
-        if (!this.device.switching?.ra_guard) return;
-
-        const guard = "forwarding-options access-security router-advertisement-guard";
-        for (const vlan of this.vlanNames()) this.out.set(`${guard} vlans`, vlan);
-        for (const [name, settings] of this.switched())
-            this.out.set(`${guard} interface ${name}.0 mark-interface`, settings.ra_trusted ? "trusted" : "block");
     }
 
     /** A port's own setting wins over the device's, and a LAG runs LLDP on its member ports. The device sends a port's SNMP index as its port ID unless told to send its name: `et-0/0/52` rather than `520`. */

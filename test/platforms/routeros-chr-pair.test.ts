@@ -102,9 +102,9 @@ function seconds(uptime: string): number {
     return (Number(hours) * MINUTES_PER_HOUR + Number(minutes)) * SECONDS_PER_MINUTE + Number(rest);
 }
 
-/** Runs a command on cpe-01 over SSH, for a change Circuit's config cannot make. */
-async function onCpe(command: string): Promise<string> {
-    const [host, port] = cpeChr!.split(":");
+/** Runs a command on a CHR over SSH, for a change Circuit's config cannot make. */
+async function onChr(chr: string, command: string): Promise<string> {
+    const [host, port] = chr.split(":");
     const client = await Ssh.connect({ host: host!, port: Number(port), user: "operator", password: () => password });
     try {
         return await Ssh.exec(client, command);
@@ -123,6 +123,8 @@ function write(path: string, text: string): void {
 type Edge = {
     /** Added to its neighbor cpe-01. */
     neighbor?: string;
+    /** Whether its neighbor cpe-01 has ttl_security, which multihop rules out. */
+    gtsm?: boolean;
     /** The rules of its export to cpe-01. */
     exportRules: string;
     /** Its originated_prefixes, each with a blackhole route in main. EDGE_PREFIX when absent, none when empty. */
@@ -131,7 +133,7 @@ type Edge = {
     table?: { name: string; prefixes: readonly string[] };
 };
 
-function writeEdge({ neighbor = "", exportRules, originated = [EDGE_PREFIX], table }: Edge): void {
+function writeEdge({ neighbor = "", gtsm = true, exportRules, originated = [EDGE_PREFIX], table }: Edge): void {
     const [host, port] = edgeChr!.split(":");
     const staticRoutes = [
         ...originated.map((prefix) => `{ prefix: "${prefix}", blackhole: true }`),
@@ -167,7 +169,7 @@ export default lab.device({
                     address: "192.0.2.2",
                     remote_as: 64501,
                     role: "customer",
-                    ttl_security: true,
+                    ${gtsm ? "ttl_security: true," : ""}
                     import_policy: "from-cpe",
                     export_policy: "to-cpe",
                     ${neighbor}
@@ -295,7 +297,8 @@ export default lab.device({
             // Circuit's config cannot make RouterOS send with TTL 1: a session without ttl_security sends with 255 too (TRAPS.md). So it is set by hand, with the session closed first, so that edge-01 hears the close.
             const connection = '[find name="edge-01"]';
             expect(
-                await onCpe(
+                await onChr(
+                    cpeChr!,
                     `/routing bgp connection disable ${connection}; /routing bgp connection set ${connection} local.ttl=1; /routing bgp connection enable ${connection}`
                 )
             ).toBe("");
@@ -418,6 +421,39 @@ export default lab.device({
             expect(exported.output).not.toMatch(/hold-time|keepalive-time|output\.network/);
             expect(eventually(() => activeRoutes("cpe-01", EDGE_PREFIX) === 0)).toBe(true);
             expect(eventually(() => bgp("edge-01").up)).toBe(true);
+        },
+        TEST_MS
+    );
+
+    test(
+        "the other connection properties a config drops are reset, and the export prints only connect=yes",
+        async () => {
+            writeEdge({
+                neighbor: `passive: true, multihop: true, local_address: "192.0.2.1", max_prefixes: 1000,`,
+                gtsm: false,
+                exportRules: ANNOUNCE_EDGE_PREFIX,
+            });
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(eventually(() => bgp("edge-01").up)).toBe(true);
+
+            // The config sets afi only for routes of the other family than the neighbor's address, which cpe-01 does not carry. So afi, and the limit for IPv6, are set by hand.
+            expect(
+                await onChr(edgeChr!, '/routing bgp connection set [find name="cpe-01"] afi=ip input.limit-process-routes-ipv6=1000')
+            ).toBe("");
+
+            writeEdge({ exportRules: ANNOUNCE_EDGE_PREFIX });
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+
+            // RouterOS cannot unset connect, so the plan sets it back to yes, which the export prints (TRAPS.md).
+            const exported = circuit("exec", "edge-01", "/routing bgp connection export");
+            expect(exported.status).toBe(0);
+            // The export wraps a long line with a backslash, after a value's `=` too.
+            const unwrapped = exported.output.replace(/\\\r?\n\s*/g, "");
+            expect(unwrapped).toContain("connect=yes");
+            expect(unwrapped).not.toMatch(/listen|multihop|afi|local\.address|limit-process-routes/);
+            expect(eventually(() => bgp("edge-01").up)).toBe(true);
+            expect(eventually(() => activeRoutes("cpe-01", EDGE_PREFIX) === 1)).toBe(true);
         },
         TEST_MS
     );

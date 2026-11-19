@@ -565,6 +565,7 @@ export class Project {
             });
         for (const [a, area] of Object.entries<Json>(d.routing?.ospf?.areas ?? {}))
             need("interface", Project.keys(area.interfaces), `routing.ospf.areas.${a}.interfaces`);
+        need("interface", Project.keys(d.routing?.isis?.interfaces), "routing.isis.interfaces");
 
         for (const [s, members] of Object.entries<Json>(d.firewall?.interface_sets ?? {}))
             need("interface", members, `firewall.interface_sets.${s}`, writtenAt(d.firewall.interface_sets, s, ["interface_sets", s]));
