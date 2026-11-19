@@ -407,6 +407,8 @@ export class FortiOsRouting {
             const metric = settings?.metric;
             if (metric !== undefined) for (const level of levels) entry.set(`wide-metric-l${level}`, metric);
         }
+
+        if (isis.overload_bit) block.set("overload-bit", "enable");
     }
 
     private static bgp(root: FortiOsNode, device: Device): void {
@@ -613,6 +615,7 @@ export class FortiOsRouting {
             if (settings?.passive) found.push(`${where}.passive, FortiOS has none: only a loopback forms no adjacency`);
             if (settings?.network && device.interfaces?.loopback?.[name])
                 found.push(`${where}.network, a loopback's link type is loopback on FortiOS`);
+            if (settings?.bfd) found.push(`${where}.bfd, FortiOS 6.2 has no BFD for IS-IS`);
         }
 
         for (const [name, neighbor] of Object.entries(routing?.bgp?.neighbors ?? {})) {

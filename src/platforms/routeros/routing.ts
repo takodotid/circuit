@@ -154,6 +154,23 @@ export class RouterOsRouting {
         return found;
     }
 
+    /** What RouterOS 7.24's IS-IS has no setting for (TRAPS.md), and a metric on a passive interface, which it refuses. */
+    static isisGaps(device: Device): string[] {
+        const isis = device.routing?.isis;
+        if (!isis) return [];
+
+        const found: string[] = [];
+        if (isis.overload_bit) found.push("routing.isis.overload_bit, RouterOS 7.24 has no IS-IS overload bit");
+
+        for (const [name, settings] of Object.entries(isis.interfaces)) {
+            const where = `routing.isis.interfaces.${name}`;
+            if (settings?.bfd) found.push(`${where}.bfd, RouterOS 7.24 has no BFD for IS-IS`);
+            if (settings?.passive && settings.metric !== undefined)
+                found.push(`${where}.metric with passive, RouterOS refuses a metric on a passive interface`);
+        }
+        return found;
+    }
+
     /** A route policy rule on routes: not a call, and not a `{ communities }` rule, which `unsupported()` refuses. */
     static onRoutes(rule: PolicyRule): rule is RouteRule {
         return rule.call === undefined && rule.communities === undefined;
