@@ -14,7 +14,7 @@ export class BgpWait {
     /** Sessions closed on their limit within this many minutes of each other are one burst. */
     static readonly BURST_MINUTES = 5;
 
-    private static readonly SECOND_MS = 1000;
+    static readonly SECOND_MS = 1000;
     private static readonly MINUTE_MS = 60_000;
 
     /** Read until `enough` holds or time runs out, and give the last read. `waiting` is told of each read that fell short, before the pause. */

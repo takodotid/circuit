@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { BgpWait } from "../../src/platforms/bgp-wait";
 import { Ssh } from "../../src/transport/ssh";
 
 /** Each CHR's SSH, as `host:port`. Both have the user `operator`, with the password in CIRCUIT_TEST_CHR_PASSWORD. */
@@ -31,6 +32,13 @@ const GTSM_WATCH_MS = 30_000;
 const EDGE_PREFIX = "198.51.100.0/24";
 const CPE_PREFIX = "203.0.113.0/24";
 const DEFAULT_ROUTE = "0.0.0.0/0";
+
+/** A second block edge-01 originates, and a table of its own for it. */
+const BLOCK_B = "192.0.2.128/25";
+const BLOCK_B_TABLE = "block-b";
+
+/** An apply that fails its check waits for BGP until the end. */
+const FAILING_APPLY_MS = TEST_MS + BgpWait.AFTER_APPLY.seconds * SECOND_MS;
 
 const SECONDS_PER_MINUTE = 60;
 const MINUTES_PER_HOUR = 60;
@@ -111,9 +119,24 @@ function write(path: string, text: string): void {
     writeFileSync(join(folder, path), text);
 }
 
-/** edge-01, with `neighbor` added to its neighbor cpe-01, and `exportRules` as the rules of its export to cpe-01. */
-function writeEdge(neighbor: string, exportRules: string): void {
+/** What the tests change on edge-01. */
+type Edge = {
+    /** Added to its neighbor cpe-01. */
+    neighbor?: string;
+    /** The rules of its export to cpe-01. */
+    exportRules: string;
+    /** Its originated_prefixes, each with a blackhole route in main. EDGE_PREFIX when absent. */
+    originated?: readonly string[];
+    /** Another routing table, with a blackhole route for each of `prefixes`. */
+    table?: { name: string; prefixes: readonly string[] };
+};
+
+function writeEdge({ neighbor = "", exportRules, originated = [EDGE_PREFIX], table }: Edge): void {
     const [host, port] = edgeChr!.split(":");
+    const staticRoutes = [
+        ...originated.map((prefix) => `{ prefix: "${prefix}", blackhole: true }`),
+        ...(table?.prefixes ?? []).map((prefix) => `{ prefix: "${prefix}", blackhole: true, routing_table: "${table!.name}" }`),
+    ];
     write(
         "sites/lab/edge-01.ts",
         `import { lab } from "../../circuit";
@@ -134,10 +157,11 @@ export default lab.device({
     },
     routing: {
         router_id: "192.0.2.1",
-        static_routes: [{ prefix: "${EDGE_PREFIX}", blackhole: true }],
+        ${table ? `tables: { "${table.name}": { description: "Its own way out" } },` : ""}
+        static_routes: [${staticRoutes.join(", ")}],
         bgp: {
             asn: 64500,
-            originated_prefixes: ["${EDGE_PREFIX}"],
+            originated_prefixes: ${JSON.stringify(originated)},
             neighbors: {
                 "cpe-01": {
                     address: "192.0.2.2",
@@ -162,6 +186,9 @@ export default lab.device({
 
 /** edge-01's export to cpe-01 when it sends its own prefix. */
 const ANNOUNCE_EDGE_PREFIX = `{ if: { prefix: "${EDGE_PREFIX}" }, then: "accept" }, { then: "reject" }`;
+
+/** edge-01's export to cpe-01 when it sends both its blocks. */
+const ANNOUNCE_BOTH = `{ if: { prefix: "${EDGE_PREFIX}" }, then: "accept" }, { if: { prefix: "${BLOCK_B}" }, then: "accept" }, { then: "reject" }`;
 
 describe.skipIf(!edgeChr || !cpeChr)("two CHRs linked port to port", () => {
     beforeAll(() => {
@@ -215,11 +242,10 @@ export default lab.device({
 
     afterAll(() => rmSync(folder, { recursive: true, force: true }));
 
-    // First: the check after an apply waits for each announcement it saw before, so a later apply that stops one on purpose could fail it.
     test(
         "after both apply, with GTSM on both sides, cpe-01 gets a default route and nothing else, through an export that rejects everything",
         () => {
-            writeEdge("send_default_route: true,", `{ then: "reject" }`);
+            writeEdge({ neighbor: "send_default_route: true,", exportRules: `{ then: "reject" }` });
 
             // A diff first: the first export after a boot leaves out what the apply's read would then miss (TRAPS.md).
             for (const device of ["edge-01", "cpe-01"]) {
@@ -236,9 +262,22 @@ export default lab.device({
     );
 
     test(
+        "the check after an apply sees the default route the config still sends",
+        () => {
+            writeEdge({ neighbor: `send_default_route: true, description: "AS64501",`, exportRules: `{ then: "reject" }` });
+
+            const applied = circuit("apply", "edge-01", "--confirm");
+            expect(applied.status).toBe(0);
+            // Printed only when the check read an announcement before the apply.
+            expect(applied.output).toContain("BGP: no session lost an announcement the config still makes");
+        },
+        TEST_MS
+    );
+
+    test(
         "each router gets the prefix the other originates",
         () => {
-            writeEdge("", ANNOUNCE_EDGE_PREFIX);
+            writeEdge({ exportRules: ANNOUNCE_EDGE_PREFIX });
             expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
             expect(circuit("diff", "edge-01").status).toBe(0);
 
@@ -281,7 +320,7 @@ export default lab.device({
     test(
         "the check after an apply sees a session the apply restarted come back, announcing what it did",
         () => {
-            writeEdge("hold_time: 90,", ANNOUNCE_EDGE_PREFIX);
+            writeEdge({ neighbor: "hold_time: 90,", exportRules: ANNOUNCE_EDGE_PREFIX });
 
             const started = Date.now();
             const applied = circuit("apply", "edge-01", "--confirm");
@@ -289,12 +328,53 @@ export default lab.device({
             expect(applied.status).toBe(0);
             expect(applied.output).toContain("BGP: 1 session(s) were established before");
             expect(applied.output).toContain("BGP: all 1 established again");
-            expect(applied.output).toContain("BGP: every session announces what it announced before");
+            expect(applied.output).toContain("BGP: no session lost an announcement the config still makes");
 
             // Younger than the apply: it restarted, so the check saw it come back rather than stay up.
             expect(seconds(bgp("edge-01").uptime)).toBeLessThan(took);
             expect(circuit("diff", "edge-01").status).toBe(0);
         },
         TEST_MS
+    );
+
+    test(
+        "an apply whose export stops one announcement on purpose does not wait for it",
+        () => {
+            writeEdge({ neighbor: "hold_time: 90,", exportRules: ANNOUNCE_BOTH, originated: [EDGE_PREFIX, BLOCK_B] });
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(eventually(() => activeRoutes("cpe-01", BLOCK_B) === 1)).toBe(true);
+
+            writeEdge({ neighbor: "hold_time: 90,", exportRules: ANNOUNCE_EDGE_PREFIX, originated: [EDGE_PREFIX, BLOCK_B] });
+            const applied = circuit("apply", "edge-01", "--confirm");
+            expect(applied.status).toBe(0);
+            expect(applied.output).toContain("BGP: no session lost an announcement the config still makes");
+            expect(applied.output).not.toContain("not back yet");
+
+            expect(eventually(() => activeRoutes("cpe-01", BLOCK_B) === 0)).toBe(true);
+            expect(activeRoutes("cpe-01", EDGE_PREFIX)).toBe(1);
+        },
+        TEST_MS
+    );
+
+    test(
+        "an apply that loses an announcement the config still makes fails",
+        () => {
+            // The mistake of #157: the session moves to a table that holds BLOCK_B's route, and not EDGE_PREFIX's, which its export still accepts. validate only warns about it.
+            writeEdge({
+                neighbor: `hold_time: 90, routing_table: "${BLOCK_B_TABLE}",`,
+                exportRules: ANNOUNCE_BOTH,
+                originated: [EDGE_PREFIX, BLOCK_B],
+                table: { name: BLOCK_B_TABLE, prefixes: [BLOCK_B] },
+            });
+
+            const applied = circuit("apply", "edge-01", "--confirm");
+            expect(applied.status).toBe(1);
+            expect(applied.output).toContain(
+                `BGP session cpe-01 announced ${EDGE_PREFIX} before the apply and does not ${BgpWait.AFTER_APPLY.seconds} s after it, though the config says it should`
+            );
+
+            expect(eventually(() => activeRoutes("cpe-01", EDGE_PREFIX) === 0)).toBe(true);
+        },
+        FAILING_APPLY_MS
     );
 });
