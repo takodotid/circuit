@@ -63,8 +63,8 @@ The companies and AS numbers named as customers in the docs and examples are rea
 | PLINQ BV                                | AS35224  | Netherlands |
 | Nedap N.V.                              | AS213050 | Netherlands |
 | MediaServe International B.V.           | AS41529  | Netherlands |
-| Strathmore University                   | AS328225 | Kenya       |
-| INFIX TELECOM LTDA                      | AS264009 | Brazil      |
+| PACHEZ HOLDINGS LTD.                    | AS1645   | Canada      |
+| Inversiones y servicios EL BOLDO S.A    | AS27776  | Chile       |
 
 <!-- vale Vale.Spelling = YES -->
 <!-- vale Vale.Terms = YES -->

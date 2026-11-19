@@ -9,8 +9,8 @@ const networks = [
     { id: "64500", name: "Your network", x: 350, y: 235 },
     { id: "6939", name: "Hurricane Electric", x: 200, y: 60 },
     { id: "174", name: "Cogent", x: 500, y: 60 },
-    { id: "328225", name: "Strathmore University", x: 95, y: 200 },
-    { id: "264009", name: "Infix Telecom", x: 605, y: 200 },
+    { id: "1645", name: "Pachez Holdings", x: 95, y: 200 },
+    { id: "27776", name: "El Boldo", x: 605, y: 200 },
 ];
 
 const at = (id: string) => networks.find((network) => network.id === id)!;
@@ -18,8 +18,8 @@ const named = (id: string) => at(id).name;
 
 const starting: AsLink[] = [
     { kind: "peering", a: "6939", b: "174" },
-    { kind: "transit", customer: "328225", provider: "6939" },
-    { kind: "transit", customer: "264009", provider: "174" },
+    { kind: "transit", customer: "1645", provider: "6939" },
+    { kind: "transit", customer: "27776", provider: "174" },
 ];
 
 const links = ref<AsLink[]>(starting.map((link) => ({ ...link })));
@@ -73,7 +73,7 @@ function reset() {
 
 // Looking from one network.
 const from = ref("64500");
-const to = ref("264009");
+const to = ref("27776");
 
 const reach = computed(() =>
     networks

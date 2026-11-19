@@ -129,10 +129,10 @@ ROAs?
 PEs?
 Akamai('s)?
 Arelion
+Boldo
 (?i)Elemech('s)?
 (?i)Terramix('s)?
 Nedap
-Strathmore
 (?i)memcached
 Telecom
 Starlink

@@ -65,7 +65,7 @@ Buy transit from Hurricane Electric, and see what you can reach. Then remove tha
 
 </TryIt>
 
-With only a peering link to Cogent, you reach Cogent and its customer, Infix Telecom. You don't reach Hurricane Electric or its customer, because Cogent learned their routes from a peer. By rule 2, Cogent passes those routes only to its customers, and you are a peer. To reach everything, you need at least one transit provider, or peers that cover everyone, which only the largest networks have.
+With only a peering link to Cogent, you reach Cogent and its customer, El Boldo. You don't reach Hurricane Electric or its customer, because Cogent learned their routes from a peer. By rule 2, Cogent passes those routes only to its customers, and you are a peer. To reach everything, you need at least one transit provider, or peers that cover everyone, which only the largest networks have.
 
 <Quiz
   question="You peer with another network and buy no transit. Which networks can you reach through it?"
