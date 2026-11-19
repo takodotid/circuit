@@ -9,6 +9,7 @@ import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
 import { IsisChecks } from "./isis";
+import { RateLimitChecks } from "./rate-limit";
 import { ServicesChecks } from "./services";
 
 type Report = (message: string) => void;
@@ -100,6 +101,7 @@ export class DeviceChecks {
         DeviceChecks.addresses(device, report, cidr, ip);
         DeviceChecks.ports(device, report);
         DeviceChecks.interfaces(device, report, ip);
+        RateLimitChecks.check(device, report);
         DeviceChecks.routing(device, report, cidr, ip);
         IsisChecks.check(device, report);
         DeviceChecks.policies(device, report, cidr);

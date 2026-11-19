@@ -36,9 +36,10 @@ export class RouterOsPlan {
         "/interface bridge vlan",
         "/interface bridge filter",
         "/interface list",
-        // A queue tree names its queue type and the interface it shapes.
+        // A queue names its queue type and the interface it limits.
         "/queue type",
         "/queue tree",
+        "/queue simple",
         "/ip vrf",
         // Routes, rules and BGP connections name a table, so it exists first.
         "/routing table",
@@ -101,6 +102,8 @@ export class RouterOsPlan {
         "/interface bridge vlan",
         // An address that advertises its network makes its prefix's entry.
         "/ipv6 nd prefix",
+        // A PPP or hotspot user's rate limit is a simple queue.
+        "/queue simple",
     ]);
 
     /**

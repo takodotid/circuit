@@ -29,6 +29,7 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsMonitoring } from "./monitoring";
+import { RouterOsQueues } from "./queues";
 import { RouterOsRender } from "./render";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSyntax } from "./syntax";
@@ -224,13 +225,16 @@ export class RouterOs extends Platform {
         return findings;
     }
 
-    /** Strict `rp-filter` beside VRFs or routing tables: MikroTik once warned that strict mode does not work with routing tables, and no test has shown it does. */
+    /** Strict `rp-filter` beside VRFs or routing tables: MikroTik once warned that strict mode does not work with routing tables, and no test has shown it does. A LAG's rate limit: no simple queue on a bonding interface was tried. */
     override experimental(device: Device): string[] {
         const urpf = Derive.sharedUrpf(Derive.holders(device), "ipv4");
         const tables = Object.keys(device.routing?.vrfs ?? {}).length + Object.keys(device.routing?.tables ?? {}).length;
-        return urpf.mode === "strict" && tables > 0
-            ? urpf.setting.map(({ where }) => `${where}.urpf.ipv4 strict, beside VRFs or routing tables`)
-            : [];
+        const strict =
+            urpf.mode === "strict" && tables > 0
+                ? urpf.setting.map(({ where }) => `${where}.urpf.ipv4 strict, beside VRFs or routing tables`)
+                : [];
+        const lags = Derive.rateLimited(device).filter(({ kind }) => kind === "lag");
+        return [...strict, ...lags.map(({ where }) => `${where}.rate_limit`)];
     }
 
     override unsupported(device: Device): string[] {
@@ -392,6 +396,7 @@ export class RouterOs extends Platform {
         });
 
         found.push(...RouterOs.unsupportedShapes(device));
+        found.push(...RouterOsQueues.unsupported(device));
         found.push(
             ...Derive.unbuilt(device, [
                 "eoip",
@@ -407,6 +412,7 @@ export class RouterOs extends Platform {
                 "nat-state",
                 "urpf",
                 "vrf-imports",
+                "rate-limit",
             ])
         );
 

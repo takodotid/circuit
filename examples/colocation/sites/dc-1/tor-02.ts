@@ -27,6 +27,15 @@ export default as64500.device({
             // A tenant's own switch: whatever VLANs it sends reach its racks in hall 2, inside VLAN hall-2.
             "10g-4": { description: "Switch of a tenant in halls 1 and 2", qinq_vlan: "hall-2", stp: { guard: "root" } },
             "10g-47": { description: "Core switch of hall 2", trunk_vlans: ["hall-2"] },
+            // #region rate-limit
+            // The tenant buys 200 Mbit/s each way. The switch's policer drops what arrives above it, and needs a burst.
+            "10g-5": {
+                description: "Server of a small tenant",
+                access_vlan: "tenants",
+                stp: { edge: true, bpdu_guard: true },
+                rate_limit: { input: { cir: "200M", bc: 250_000 }, output: "200M" },
+            },
+            // #endregion rate-limit
             // #region port-guards
             // Only the uplink to the router may carry DHCP offers and router advertisements.
             "10g-48": {

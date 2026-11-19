@@ -34,6 +34,8 @@ export type ShapeOf<T> = [Exclude<T, Prim>] extends [never]
 
 const SECRET = { secret: 0, secret_file: 0 } as const;
 const RANGE = { min: 0, max: 0 } as const;
+const LIMIT = { cir: 0, bc: 0 } as const;
+const RATE_LIMIT = { input: LIMIT, output: LIMIT } as const;
 
 const FILTER_MATCH = {
     family: 0,
@@ -65,7 +67,7 @@ export const ACL_RULE = {
     description: 0,
     if: { family: 0, protocol: 0, src: 0, dst: 0, src_port: RANGE, dst_port: RANGE, vlan: 0 },
     then: 0,
-    rate: 0,
+    rate: LIMIT,
 } as const satisfies ShapeOf<AclRule<string>>;
 export const ROUTING_RULE = {
     description: 0,
@@ -286,10 +288,13 @@ export const DEVICE = {
                 link: { device: 0, port: 0, through: 0 },
                 dhcp_client: { default_routes: [{ routing_table: 0, distance: 0 }] },
                 shaping: { algorithm: 0, mbps: 0 },
+                rate_limit: RATE_LIMIT,
             },
         },
-        lag: { "*": { ...BASE, ...SWITCHED, mode: 0, id: 0, link_check: { arp_targets: 0, interval_ms: 0 }, mac: 0 } },
-        vlan_interface: { "*": { ...BASE, vlan: 0, mac: 0, proxy_arp: 0 } },
+        lag: {
+            "*": { ...BASE, ...SWITCHED, mode: 0, id: 0, link_check: { arp_targets: 0, interval_ms: 0 }, mac: 0, rate_limit: RATE_LIMIT },
+        },
+        vlan_interface: { "*": { ...BASE, vlan: 0, mac: 0, proxy_arp: 0, rate_limit: RATE_LIMIT } },
         bridge: { "*": { ...UNCHECKED, member_interfaces: 0 } },
         loopback: { "*": UNCHECKED },
         gre: { "*": { ...BASE, local_address: 0, remote_address: 0 } },
