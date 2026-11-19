@@ -587,6 +587,7 @@ export class FortiOsUnsupported {
 
     private static serviceGaps(device: Device): string[] {
         const found: string[] = [];
+        if (device.services?.pppoe_server) found.push("services.pppoe_server, FortiOS has a PPPoE client only, no server");
 
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
             if ((server.dns?.length ?? 0) > FortiOsRender.RESOLVERS.dhcp)
