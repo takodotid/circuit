@@ -309,9 +309,7 @@ export class RouterOs extends Platform {
         }
 
         found.push(...RouterOsRouting.vrfGaps(device));
-        for (const [name, settings] of Object.entries(device.routing?.isis?.interfaces ?? {}))
-            if (settings?.passive && settings.metric !== undefined)
-                found.push(`routing.isis.interfaces.${name}.metric with passive, RouterOS refuses a metric on a passive interface`);
+        found.push(...RouterOsRouting.isisGaps(device));
 
         const bgp = device.routing?.bgp;
 

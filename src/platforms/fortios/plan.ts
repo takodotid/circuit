@@ -249,14 +249,14 @@ export class FortiOsPlan {
         "firewall local-in-policy6": FortiOsPlan.DENY,
     };
 
-    /** Settings whose value is a secret wherever they appear, such as a certificate's key, which the device prints encrypted. */
-    private static readonly SECRET_KEYS = new Set(["private-key"]);
+    /** Settings whose value is a secret wherever they appear: a certificate's key, which the device prints encrypted, and a key chain's key, which it prints in clear. */
+    static readonly SECRET_KEYS = new Set(["private-key", "key-string"]);
 
     /** Settings holding a certificate's text, compared without its line breaks. */
     private static readonly CERTIFICATES = new Set(["certificate", "ca"]);
 
-    /** Settings undone before a nested list is deleted: NTP refuses to delete its last server while `ntpsync` is on. Any other goes after it. */
-    private static readonly FIRST = new Set(["ntpsync"]);
+    /** Settings undone first. NTP refuses to delete its last server while `ntpsync` is on, and IS-IS hides a level's key chain once its MD5 mode goes. Any other goes after the nested lists. */
+    private static readonly FIRST = new Set(["ntpsync", "auth-keychain-l1", "auth-keychain-l2"]);
 
     /** Settings holding a list in no particular order. */
     private static readonly LISTS = new Set([

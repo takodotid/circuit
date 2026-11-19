@@ -233,6 +233,18 @@ export type IsisInterface = {
     network?: "broadcast" | "point-to-point";
 };
 
+/** How IS-IS packets are signed: with HMAC-MD5 (RFC 5304). The device ignores a router without the key. */
+export type IsisAuthentication = {
+    /** The key, 35 characters at most on FortiOS. Every router at the level uses the same one: in its area at level 1, across areas at level 2. */
+    key: Secret;
+};
+
+/** IS-IS settings of one level. */
+export type IsisLevel = {
+    /** Sign the level's hellos, LSPs, and sequence number packets. */
+    authentication?: IsisAuthentication;
+};
+
 /** IS-IS (ISO/IEC 10589, RFC 1195), with wide metrics (RFC 5305). */
 export type Isis<I extends string> = {
     /** The device's network entity title (NET): its area, its system ID, and `00`, such as `49.0001.0102.5500.1001.00`. No two devices share a system ID. */
@@ -241,6 +253,10 @@ export type Isis<I extends string> = {
     level_capability: "level-1" | "level-2" | "level-1-2";
     /** What IS-IS routes: `ipv4`, `ipv6`, or both. Both share one topology (RFC 5308), so each link between IS-IS routers needs both. */
     address_families: readonly Family[];
+    /** Sign every IS-IS packet with one key, at each level the device runs. For a key per level, write it in `levels` instead. */
+    authentication?: IsisAuthentication;
+    /** Settings of level 1 or level 2, such as `{ 2: { authentication: { key: secret("ISIS_L2_KEY") } } }`. Only levels the device runs. */
+    levels?: { 1?: IsisLevel; 2?: IsisLevel };
     /** The device's ports and interfaces that run IS-IS, each with its settings. */
     interfaces: Named<I, IsisInterface>;
 };

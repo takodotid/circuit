@@ -377,6 +377,8 @@ export const DEVICE = {
             net: 0,
             level_capability: 0,
             address_families: 0,
+            authentication: { key: SECRET },
+            levels: { 1: { authentication: { key: SECRET } }, 2: { authentication: { key: SECRET } } },
             interfaces: { "*": { metric: 0, passive: 0, network: 0 } },
         },
         bfd: { interval: 0, multiplier: 0 },
