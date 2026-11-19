@@ -1,4 +1,4 @@
-import type { Family, Named, OneOrMore, Ordered, Prefix, Rate } from "./common";
+import type { Family, Limit, Named, OneOrMore, Ordered, Prefix } from "./common";
 import type { Ports, Protocol } from "./firewall";
 
 /** A secondary VLAN of a private VLAN (RFC 5517): its hosts are in the primary VLAN's subnet, but kept apart at layer 2. */
@@ -58,7 +58,7 @@ export type AclRule<V extends string> = {
     /** What happens to a matching packet. */
     then: "accept" | "drop";
     /** Accepted traffic above this rate is dropped. On RouterOS it did not limit traffic that the CPU routes. */
-    rate?: Rate;
+    rate?: Limit;
 };
 
 /** Spanning tree on every switched port. A port may override it. */

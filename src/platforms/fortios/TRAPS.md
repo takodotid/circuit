@@ -80,3 +80,4 @@ Seen on a FortiGate 3700D running FortiOS 6.2.2, without a license.
 - `config router bgp` has no `config vrf-leak` on 6.2.2: `command parse error before 'vrf-leak'`. So routes cannot go from one VRF to another.
 - IS-IS has no BFD: `set bfd` is `command parse error` in `router isis` and in an `isis-interface` entry (6.2.2).
 - `system ntp`, `system dns`, and `log syslogd setting` have no VRF setting: the device's own traffic leaves from the management VDOM, or from `root` (6.2.2).
+- A shaping policy takes `any` for `srcintf` and `dstintf`, in either family. `show` prints the `bandwidth-unit` of a shaper unless it is `kbps`, the default, and no `per-policy` on a shared shaper. The factory ships five shapers. All but `shared-1M-pipe` print `per-policy enable` (6.2.2).

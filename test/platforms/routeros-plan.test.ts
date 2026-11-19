@@ -73,6 +73,51 @@ test("an address NAT uses inside an untracked prefix stays tracked, before every
     expect(rendered).not.toContain("Tracked for NAT, to 10.101.0.10");
 });
 
+test("a pool jumps by subscribers to a chain for each pool address, which gives each subscriber its block of ports, and stays tracked whole", () => {
+    const rendered = Platforms.get("routeros").render({
+        ...router,
+        firewall: {
+            ...router.firewall,
+            untracked: ["198.51.100.0/31"],
+            nat: {
+                source: [
+                    {
+                        description: "CGNAT",
+                        if: { src: "100.64.0.0/30", out_interface: "uplink" },
+                        then: "snat",
+                        to_pool: "198.51.100.0/31",
+                        port_set_size: 32256,
+                    },
+                ],
+            },
+        },
+    });
+
+    expect(rendered).toContain(
+        [
+            "/ip firewall raw",
+            'add action=accept chain=prerouting comment="Tracked for NAT, to 198.51.100.0/31" dst-address=198.51.100.0/31',
+        ].join("\n")
+    );
+    expect(rendered).toContain(
+        [
+            "/ip firewall nat",
+            "add action=jump chain=srcnat comment=CGNAT jump-target=cgnat-198.51.100.0/31 out-interface=uplink src-address=100.64.0.0/30",
+            "add action=jump chain=cgnat-198.51.100.0/31 jump-target=cgnat-198.51.100.0 src-address=100.64.0.0/31",
+            "add action=jump chain=cgnat-198.51.100.0/31 jump-target=cgnat-198.51.100.1 src-address=100.64.0.2/31",
+            "add action=src-nat chain=cgnat-198.51.100.0 protocol=tcp src-address=100.64.0.0 to-addresses=198.51.100.0 to-ports=1024-33279",
+            "add action=src-nat chain=cgnat-198.51.100.0 protocol=udp src-address=100.64.0.0 to-addresses=198.51.100.0 to-ports=1024-33279",
+            "add action=src-nat chain=cgnat-198.51.100.0 protocol=tcp src-address=100.64.0.1 to-addresses=198.51.100.0 to-ports=33280-65535",
+            "add action=src-nat chain=cgnat-198.51.100.0 protocol=udp src-address=100.64.0.1 to-addresses=198.51.100.0 to-ports=33280-65535",
+            "add action=src-nat chain=cgnat-198.51.100.0 to-addresses=198.51.100.0",
+            "add action=src-nat chain=cgnat-198.51.100.1 protocol=tcp src-address=100.64.0.2 to-addresses=198.51.100.1 to-ports=1024-33279",
+        ].join("\n")
+    );
+
+    const adapter = Platforms.get("routeros");
+    expect(adapter.plan(rendered, rendered, { secrets: false, rollback: 10 }).steps).toEqual([]);
+});
+
 // The device keeps a dynamic fasttrack counter rule in the raw table, which it refuses to remove.
 test("a rewrite of the raw table never selects a dynamic rule", () => {
     const adapter = Platforms.get("routeros");

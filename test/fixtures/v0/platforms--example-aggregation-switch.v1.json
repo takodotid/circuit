@@ -261,7 +261,10 @@
         },
         {
           "description": "Traceroute",
-          "rate": "10M",
+          "rate": {
+            "cir": "10M",
+            "bc": 12500
+          },
           "if": {
             "protocol": "udp",
             "dst_port": {
@@ -301,7 +304,10 @@
         },
         {
           "description": "Limit ICMP",
-          "rate": "2M",
+          "rate": {
+            "cir": "2M",
+            "bc": 2500
+          },
           "if": {
             "protocol": "icmp"
           },

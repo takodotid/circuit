@@ -324,6 +324,9 @@ export class FortiOsFirewall {
 
         const ports = FortiOsFirewall.portList(match?.src_port);
 
+        // `unsupported()` refuses a pool.
+        if ("to_pool" in rule) return;
+
         if (rule.then === "snat") {
             objects.pool(rule.to_address);
             entry.set("nat-ippool", FortiOsTree.quote(rule.to_address));

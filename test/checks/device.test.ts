@@ -134,9 +134,40 @@ test("ttl_security with multihop is an error, once at a group that has both", ()
         },
     };
 
-    expect(messages(device).filter((message) => message.includes("ttl_security"))).toEqual([
+    expect(messages(device).filter((message) => message.includes("has ttl_security with multihop"))).toEqual([
         "routing.bgp.neighbor_groups.controllers has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected",
         "routing.bgp.neighbors.cogent has ttl_security with multihop, but a packet from more than one hop away never arrives with TTL 255. Remove ttl_security, or remove multihop if the neighbor is directly connected",
+    ]);
+});
+
+// RouterOS, Junos, and FortiOS bring up an eBGP session without multihop only to a neighbor on a network they share.
+test("an eBGP neighbor on no network of the device, in its VRF, needs multihop", () => {
+    const bgp = router.routing!.bgp!;
+    const device: Device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            bgp: {
+                ...bgp,
+                neighbor_groups: { ...bgp.neighbor_groups, far: { remote_as: 64501, multihop: true } },
+                neighbors: {
+                    "on-uplink": { address: "203.0.113.1", remote_as: 64501 },
+                    "link-local": { address: "fe80::1", remote_as: 64501 },
+                    far: { address: "198.51.100.200", remote_as: 64501 },
+                    "far-multihop": { address: "198.51.100.201", remote_as: 64501, multihop: true },
+                    "far-group": { address: "198.51.100.202", neighbor_group: "far" },
+                    "far-gtsm": { address: "198.51.100.203", remote_as: 64501, ttl_security: true },
+                    "far-ibgp": { address: "198.51.100.204", remote_as: 64500 },
+                    "uplink-in-guests": { address: "203.0.113.1", remote_as: 64501, vrf: "guests" },
+                },
+            },
+        },
+    };
+
+    expect(messages(device).filter((message) => message.includes("is on no network"))).toEqual([
+        "routing.bgp.neighbors.far: 198.51.100.200 is on no network of this device, so an eBGP session to it never comes up. Write multihop: true if AS64501 is more than one hop away, or fix the address",
+        "routing.bgp.neighbors.far-gtsm: 198.51.100.203 is on no network of this device, so an eBGP session to it never comes up. Fix the address: ttl_security takes a directly connected neighbor only",
+        "routing.bgp.neighbors.uplink-in-guests: 203.0.113.1 is on no network of this device in VRF guests, so an eBGP session to it never comes up. Write multihop: true if AS64501 is more than one hop away, or fix the address",
     ]);
 });
 
@@ -333,6 +364,39 @@ test("logins through servers name one kind of server, at least one, each once, s
         "system.aaa.radius[0].source_address 192.0.2.1 and address 2001:db8::10 differ in family",
         "system.aaa.radius[1]: 2001:db8:0::10 is listed twice",
         "system.aaa.radius[2].address: '192.0.2.300' is not an address",
+    ]);
+});
+
+test("a pool's subscribers and blocks of ports fit, and two pools share no address unless they map alike", () => {
+    const cgnat = { if: { src: "100.64.0.0/22" }, then: "snat", to_pool: "198.51.100.0/27", port_set_size: 2016 } as const;
+    const device: Device = {
+        ...router,
+        firewall: {
+            nat: {
+                source: [
+                    cgnat,
+                    { ...cgnat, if: { ...cgnat.if, protocol: "tcp" } },
+                    { ...cgnat, port_set_size: 2100 },
+                    { ...cgnat, if: { src: "100.64.4.0/22" }, to_pool: "198.51.100.32/28", port_set_size: 70_000 },
+                    { ...cgnat, if: { src: "100.64.8.0/28" }, to_pool: "198.51.100.64/26" },
+                    { ...cgnat, if: { src: "100.64.12.1/22" }, to_pool: "198.51.100.128/27" },
+                    { ...cgnat, if: {}, to_pool: "198.51.100.160/27" },
+                    { ...cgnat, if: { src: "100.64.16.0/22" }, to_pool: "198.51.100.16/28", port_set_size: 1000 },
+                ],
+                destination: [{ ...cgnat, description: "Inbound" }],
+            },
+        },
+    };
+    const found = messages(device).filter((message) => message.startsWith("firewall.nat"));
+
+    expect(found).toEqual([
+        "firewall.nat.destination, to_pool 198.51.100.0/27 (Inbound): a pool translates the source. Move the rule to firewall.nat.source.",
+        "firewall.nat.source, to_pool 198.51.100.0/27: 32 subscribers on each pool address take 32 × 2100 = 67200 ports, more than the 64512 from 1024 to 65535. Write port_set_size: 2016 or less, or a to_pool of /26 or shorter.",
+        "firewall.nat.source, to_pool 198.51.100.32/28: port_set_size 70000 is not a whole number from 1 to 64512",
+        "firewall.nat.source, to_pool 198.51.100.64/26: the pool has more addresses than if.src 100.64.8.0/28 has subscribers. Write a to_pool of /28 or longer.",
+        "firewall.nat.source, to_pool 198.51.100.128/27: if.src 100.64.12.1/22 has bits past its length: write 100.64.12.0/22",
+        "firewall.nat.source, to_pool 198.51.100.160/27: write the subscribers' IPv4 prefix in if.src",
+        "firewall.nat.source: to_pool 198.51.100.0/27 for 100.64.0.0/22 and to_pool 198.51.100.16/28 for 100.64.16.0/22 share addresses, so two subscribers would get the same ports. Give each its own pool addresses.",
     ]);
 });
 

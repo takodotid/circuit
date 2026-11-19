@@ -203,6 +203,35 @@ export class FortiOsVdoms {
         });
     }
 
+    /** The tree with each tunnel's interface moved from `system interface` to a section of its own, just after the tunnels' tables. The interface it leaves through is its tunnel's, and is left to the tunnel's table. */
+    static separateTunnels(root: FortiOsNode): FortiOsNode {
+        const interfaces = root.blocks.get("system interface");
+        if (!interfaces) return root;
+
+        const tunnels = new FortiOsNode();
+
+        for (const [key, entry] of interfaces.entries) {
+            const type = entry.block.settings.get("type");
+            if (type !== "tunnel" && type !== "vxlan") continue;
+
+            entry.block.settings.delete("interface");
+            tunnels.entries.set(key, entry);
+            interfaces.entries.delete(key);
+        }
+
+        const sections = [...root.blocks];
+        root.blocks.clear();
+
+        for (const [section, block] of sections) {
+            root.blocks.set(section, block);
+            // The last table that makes a tunnel's interface.
+            if (section === "vpn ipsec phase2-interface") root.blocks.set(FortiOsVdoms.TUNNELS, tunnels);
+        }
+
+        if (!root.blocks.has(FortiOsVdoms.TUNNELS)) root.blocks.set(FortiOsVdoms.TUNNELS, tunnels);
+        return root;
+    }
+
     /** Mistakes in a management VDOM: named `root`, a LAG's port listed instead of the LAG, or a route with no next hop or through an interface outside it. */
     static problems(device: Device): string[] {
         const management = device.system?.vdoms?.management;

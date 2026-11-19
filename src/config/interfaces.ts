@@ -1,4 +1,4 @@
-import type { HostAddress, IP, IPv6, InterfaceAddress, MacAddress, Named, Prefix, Secret } from "./common";
+import type { HostAddress, IP, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, Secret } from "./common";
 
 /** A storm-control threshold: packets per second, or percent of the link's speed. */
 export type Threshold =
@@ -230,7 +230,17 @@ export type Port<
         dhcp_client?: DhcpClient<Table>;
         /** Limits the traffic that leaves through this port to a rate, with a queue. Not limited when absent. */
         shaping?: Shaping;
+        /** Limits the traffic through this port, each way. Not limited when absent. */
+        rate_limit?: RateLimit;
     };
+
+/** Limits the traffic through an interface to a rate, each way. Traffic above the rate waits in a queue or is dropped, as the platform does. */
+export type RateLimit = {
+    /** The traffic that arrives on the interface. */
+    input?: Limit;
+    /** The traffic that leaves through the interface. */
+    output?: Limit;
+};
 
 /**
  * Limits the traffic that leaves through an interface to a rate, with a queue. CAKE is FQ-CoDel (RFC 8290) with its own shaper. It keeps latency low under load if the rate is a little below the slowest link on the path.
@@ -264,6 +274,8 @@ export type VlanInterface<Vlan extends string, Vrf extends string> = Base<Vrf> &
      * Addresses in its subnet that are really somewhere else. It answers ARP for them with its own MAC, then routes their traffic. Use it for an address you moved out of the subnet to another link, which the hosts on the subnet still think is a neighbor. None when absent.
      */
     proxy_arp?: readonly IP[];
+    /** Limits the traffic through this VLAN interface, each way. Not limited when absent. */
+    rate_limit?: RateLimit;
 };
 
 /** An interface that is always up and is not on any link. Use it for addresses that must not depend on a link. No packet arrives on it, so it has no `urpf`. */
@@ -292,6 +304,8 @@ export type Lag<Vlan extends string, Vrf extends string> = Base<Vrf> &
         link_check?: LinkCheck;
         /** A fixed MAC address. Without it, the LAG takes a member's MAC. A tunnel may make up a new MAC each time the device starts, while the far end keeps the old one in its ARP table. */
         mac?: MacAddress;
+        /** Limits the traffic through this LAG, each way. Not limited when absent. */
+        rate_limit?: RateLimit;
     };
 
 /** A GRE tunnel. */

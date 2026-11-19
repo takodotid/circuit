@@ -19,6 +19,7 @@ export type {
     IpsecEsp,
     IpsecIke,
     IpsecIntegrity,
+    Limit,
     Link,
     MacAddress,
     PortRange,
@@ -42,6 +43,7 @@ export type {
     OspfInterface,
     PrefixSet,
     RadiusServer,
+    RateLimit,
     RouterAdvertisement,
     RouteSet,
     User,
@@ -77,6 +79,8 @@ export type Address = C.Address;
 export type FilterMatch = C.FilterMatch<string, string, string>;
 export type FilterRule = C.FilterRule<string, string, string>;
 export type NatRule = C.NatRule<string, string, string>;
+/** A source translation to a pool, with a block of ports for each subscriber. */
+export type PoolNatRule = Extract<NatRule, { to_pool: unknown }>;
 export type TcpMssRule = C.TcpMssRule<string, string, string>;
 export type AclRule = C.AclRule<string>;
 export type PolicyRule = C.PolicyRule<string, string>;
@@ -93,11 +97,13 @@ export type Jump = C.Jump;
 export type DhcpServer = C.DhcpServer<string>;
 export type Dhcpv6Server = C.Dhcpv6Server<string>;
 export type DhcpRelay = C.DhcpRelay<string>;
+export type PppoeServer = C.PppoeServer<string, string>;
 export type FlowExport = C.FlowExport<string>;
 export type SyslogServer = C.SyslogServer;
 export type Ospf = C.Ospf<string>;
 export type OspfArea = C.OspfArea<string>;
 export type Isis = C.Isis<string>;
+export type Mpls = C.Mpls<string>;
 
 /** Something wrong with a config, as `circuit validate` reports it. */
 export type Finding = {

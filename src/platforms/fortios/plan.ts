@@ -3,6 +3,7 @@
 import type { ApplyOptions, Plan, Step } from "../platform";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
+import { FortiOsShaping } from "./shaping";
 import { FortiOsSoftClear } from "./soft-clear";
 import { FortiOsNode, FortiOsTree } from "./tree";
 import type { Entry } from "./tree";
@@ -189,6 +190,8 @@ export class FortiOsPlan {
         "firewall service custom": { factory: FortiOsPlan.FACTORY_SERVICES },
         "firewall policy": FortiOsPlan.ORDERED,
         "firewall policy6": FortiOsPlan.ORDERED,
+        "firewall shaper traffic-shaper": { factory: FortiOsShaping.FACTORY_SHAPERS },
+        "firewall shaping-policy": { numbered: { keys: [["name"]] } },
         "firewall local-in-policy": FortiOsPlan.ORDERED,
         "firewall local-in-policy6": FortiOsPlan.ORDERED,
         "firewall central-snat-map": FortiOsPlan.ORDERED,
@@ -894,8 +897,8 @@ export class FortiOsPlan {
      * What changes, by section, in the order the render lists them. Entries that go are deleted last, in the reverse order, so an address goes only after the policies that name it. A secret cannot be read back to compare, so it is sent when its entry is new, or with `secrets` set.
      */
     static of(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
-        const want = FortiOsPlan.separateTunnels(FortiOsTree.parse(desired));
-        const have = FortiOsPlan.separateTunnels(FortiOsTree.parse(FortiOsPlan.clean(current)));
+        const want = FortiOsVdoms.separateTunnels(FortiOsTree.parse(desired));
+        const have = FortiOsVdoms.separateTunnels(FortiOsTree.parse(FortiOsPlan.clean(current)));
         FortiOsPlan.keepUnfetched(want, have);
         // A section the config doesn't use is still planned when the device has it, so its entries are removed.
         for (const section of FortiOsRender.OPTIONAL_SECTIONS)
@@ -981,35 +984,6 @@ export class FortiOsPlan {
         }
 
         return steps;
-    }
-
-    /** The tree with each tunnel's interface moved from `system interface` to a section of its own, just after the tunnels' tables. The interface it leaves through is its tunnel's, and is left to the tunnel's table. */
-    private static separateTunnels(root: FortiOsNode): FortiOsNode {
-        const interfaces = root.blocks.get("system interface");
-        if (!interfaces) return root;
-
-        const tunnels = new FortiOsNode();
-
-        for (const [key, entry] of interfaces.entries) {
-            const type = entry.block.settings.get("type");
-            if (type !== "tunnel" && type !== "vxlan") continue;
-
-            entry.block.settings.delete("interface");
-            tunnels.entries.set(key, entry);
-            interfaces.entries.delete(key);
-        }
-
-        const sections = [...root.blocks];
-        root.blocks.clear();
-
-        for (const [section, block] of sections) {
-            root.blocks.set(section, block);
-            // The last table that makes a tunnel's interface.
-            if (section === "vpn ipsec phase2-interface") root.blocks.set(FortiOsVdoms.TUNNELS, tunnels);
-        }
-
-        if (!root.blocks.has(FortiOsVdoms.TUNNELS)) root.blocks.set(FortiOsVdoms.TUNNELS, tunnels);
-        return root;
     }
 
     /** A prefix list from a registry that the render did not fetch, as Studio renders it, stays as the device holds it. */
