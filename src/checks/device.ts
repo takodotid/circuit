@@ -307,6 +307,26 @@ export class DeviceChecks {
             }
 
             DeviceChecks.frames(where, port, report);
+            DeviceChecks.guards(where, port, device, report);
+        }
+    }
+
+    /** BPDU guard is for a port that faces hosts, both guards need spanning tree, and a trusted port needs what it is trusted by. A LAG holds them for its members. */
+    private static guards(where: string, settings: Switched & { in_lag?: string }, device: Device, report: Report): void {
+        const stp = typeof settings.stp === "object" ? settings.stp : undefined;
+        const guarded = stp?.bpdu_guard || stp?.guard;
+        const switching = device.switching;
+
+        if (stp?.bpdu_guard && !stp.edge) report(`${where}.stp.bpdu_guard is for a port that faces hosts: write edge: true beside it`);
+        if (guarded && !switching?.stp) report(`${where}.stp guards a port while spanning tree is off on the device: write switching.stp`);
+        if (settings.dhcp_trusted && !switching?.dhcp_snooping)
+            report(`${where}.dhcp_trusted needs switching.dhcp_snooping: write dhcp_snooping: true there`);
+        if (settings.ra_trusted && !switching?.ra_guard) report(`${where}.ra_trusted needs switching.ra_guard: write ra_guard: true there`);
+
+        const fields = [...(guarded ? ["stp"] : []), ...(["dhcp_trusted", "ra_trusted"] as const).filter((field) => settings[field])];
+        for (const field of fields) {
+            if (settings.in_lag) report(`${where}.${field} is on a member of ${settings.in_lag}: write it on the LAG`);
+            else if (!settings.access_vlan && !settings.trunk_vlans) report(`${where}.${field} is on a port that switches no VLAN`);
         }
     }
 
@@ -400,6 +420,7 @@ export class DeviceChecks {
                     link_check?: { arp_targets: readonly string[]; interval_ms: number };
                 };
                 DeviceChecks.frames(where, settings as Switched, report);
+                DeviceChecks.guards(where, settings as Switched, device, report);
 
                 const ports = Derive.ports(device).filter(([, port]) => port.in_lag === name);
                 const tunnels = Object.entries(device.interfaces?.eoip ?? {}).filter(([, tunnel]) => tunnel?.in_lag === name);

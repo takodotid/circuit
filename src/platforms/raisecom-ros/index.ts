@@ -171,7 +171,7 @@ export class RaisecomRos extends Platform {
                 found.push(`${where}.mac_limit and ethertypes on a LAG member, tested on a port alone`);
             if (port.mac_limit !== undefined && (port.mac_limit < 1 || port.mac_limit > RaisecomRosRender.MAC_LIMIT_MAX))
                 found.push(`${where}.mac_limit ${port.mac_limit}, port security takes 1 to ${RaisecomRosRender.MAC_LIMIT_MAX}`);
-            if (typeof port.stp === "object" || port.stp === true) found.push(`${where}.stp other than false`);
+            if (typeof port.stp === "object" || port.stp === true) found.push(`${where}.stp, which takes only false here`);
             const storm = port.storm_control;
             if (storm && (storm.multicast || storm.unknown_unicast || (storm.broadcast && "percent" in storm.broadcast))) {
                 found.push(`${where}.storm_control other than broadcast in pps`);
@@ -294,6 +294,15 @@ export class RaisecomRos extends Platform {
         const switching = device.switching;
         if (switching?.lldp && switching.lldp !== true) found.push("switching.lldp.interfaces, LLDP is per device");
         if (switching?.stp?.mode && switching.stp.mode !== "mstp") found.push("switching.stp.mode other than mstp");
+        // No public command reference, and the switch applies each line at once, so nothing here was tried.
+        const snooping = "which only RouterOS, Junos, and VRP build for now";
+        const raGuard = "which only RouterOS and Junos build for now";
+        if (switching?.dhcp_snooping) found.push(`switching.dhcp_snooping, ${snooping}`);
+        if (switching?.ra_guard) found.push(`switching.ra_guard, ${raGuard}`);
+        for (const { where, settings } of Derive.switchedHolders(device)) {
+            if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted, ${snooping}`);
+            if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${raGuard}`);
+        }
 
         for (const [name, user] of Object.entries(device.system?.users ?? {})) {
             if (user && user.role !== "admin") found.push(`system.users.${name}.role other than admin`);

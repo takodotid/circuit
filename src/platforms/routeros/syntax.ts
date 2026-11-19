@@ -31,6 +31,16 @@ export class RouterOsSyntax {
         return on ? "yes" : "no";
     }
 
+    /** A number in hex, as a bridge prints a priority: `0x1000`. Undefined when absent. */
+    static hex(value: number | undefined): string | undefined {
+        return value === undefined ? undefined : `0x${value.toString(16)}`;
+    }
+
+    /** `yes`, or nothing, so a property whose default is `no` stays at its default. */
+    static yesWhen(on: boolean | undefined): "yes" | undefined {
+        return on ? "yes" : undefined;
+    }
+
     /** A prefix's lifetime as the device prints it, all ones being `infinity` (RFC 4861). Undefined when absent. */
     static lifetime(seconds: number | undefined): string | undefined {
         if (seconds === undefined) return undefined;

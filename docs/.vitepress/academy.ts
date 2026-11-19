@@ -297,6 +297,7 @@ export class Academy {
                 { text: "One VLAN name, one ID", link: "/academy/practices/vlan-ids" },
                 { text: "A native VLAN is a dead end", link: "/academy/practices/native-vlans" },
                 { text: "Links written at both ends", link: "/academy/practices/links" },
+                { text: "Guard shared access ports", link: "/academy/practices/port-guards" },
             ],
         },
     ];

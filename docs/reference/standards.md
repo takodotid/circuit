@@ -71,6 +71,9 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | STP, RSTP, MSTP              | IEEE 802.1Q-2022, which now holds 802.1D, 802.1w, and 802.1s. The model only picks MSTP as a mode. It has no MSTP regions or instances. | `switching.stp`, port `stp`                                    |
 | LLDP                         | IEEE 802.1AB-2016                                                                                                                       | `switching.lldp`, port `lldp`                                  |
 | Ethertypes (IPv4, IPv6, ARP) | IEEE EtherType registry                                                                                                                 | port `ethertypes`                                              |
+| BPDU guard, root guard       | Not a standard: each vendor's own. Names from OpenConfig `openconfig-spanning-tree`                                                     | port `stp.bpdu_guard`, `stp.guard`                             |
+| DHCP snooping                | Not a standard: each vendor's own                                                                                                       | `switching.dhcp_snooping`, port `dhcp_trusted`                 |
+| RA guard                     | RFC 6105                                                                                                                                | `switching.ra_guard`, port `ra_trusted`                        |
 
 <!-- vale Google.Units = YES -->
 
