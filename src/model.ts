@@ -15,6 +15,7 @@ export type {
     IP,
     IPv4,
     IPv6,
+    Limit,
     Link,
     MacAddress,
     PortRange,
@@ -38,6 +39,7 @@ export type {
     OspfInterface,
     PrefixSet,
     RadiusServer,
+    RateLimit,
     RouterAdvertisement,
     RouteSet,
     User,
@@ -87,6 +89,7 @@ export type Jump = C.Jump;
 export type DhcpServer = C.DhcpServer<string>;
 export type Dhcpv6Server = C.Dhcpv6Server<string>;
 export type DhcpRelay = C.DhcpRelay<string>;
+export type PppoeServer = C.PppoeServer<string, string>;
 export type FlowExport = C.FlowExport<string>;
 export type SyslogServer = C.SyslogServer;
 export type Ospf = C.Ospf<string>;

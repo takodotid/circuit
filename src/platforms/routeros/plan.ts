@@ -18,6 +18,8 @@ export class RouterOsPlan {
     private static readonly ORDER = [
         // Certificates depend on nothing, and services name them.
         "/certificate",
+        // A PPP profile and a DHCP server name their pool.
+        "/ip pool",
         // A PPP client names its profile, and an interface kind not listed below goes before what names it, such as an interface list. An unlisted menu is removed first, which left a list member naming a removed PPPoE client (RB5009, 7.24.6).
         "/ppp",
         "/interface",
@@ -32,20 +34,23 @@ export class RouterOsPlan {
         "/interface vxlan",
         "/interface wireguard",
         "/interface vrrp",
+        // A PPPoE server names its interface and its profile, and a subscriber's static interface names the server's service.
+        "/interface pppoe-server server",
+        "/interface pppoe-server",
         "/interface bridge port",
         "/interface bridge vlan",
         "/interface bridge filter",
         "/interface list",
-        // A queue tree names its queue type and the interface it shapes.
+        // A queue names its queue type and the interface it limits.
         "/queue type",
         "/queue tree",
+        "/queue simple",
         "/ip vrf",
         // Routes, rules and BGP connections name a table, so it exists first.
         "/routing table",
         "/routing rule",
         "/ip address",
         "/ipv6 address",
-        "/ip pool",
         "/ip dhcp-server",
         // A DHCPv6 server names its pools and its options.
         "/ipv6 pool",
@@ -101,6 +106,8 @@ export class RouterOsPlan {
         "/interface bridge vlan",
         // An address that advertises its network makes its prefix's entry.
         "/ipv6 nd prefix",
+        // A PPP or hotspot user's rate limit is a simple queue.
+        "/queue simple",
     ]);
 
     /**
@@ -367,7 +374,7 @@ export class RouterOsPlan {
             if (!Object.keys(update).length) continue;
 
             step.show.push(`~ set ${selector} ${RouterOsPlan.describe(update)}`.replace(/\s+/g, " "));
-            step.send.push(RouterOsPlan.line(menu, "set", selector, [], update));
+            step.send.push(...RouterOsPlan.setLines(menu, selector, update));
         }
 
         return step.send.length ? step : undefined;

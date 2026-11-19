@@ -46,6 +46,18 @@ export type Family = "ipv4" | "ipv6";
 /** Bits per second, for example `2G`, `500M`, or `64k`. */
 export type Rate = `${number}${"k" | "M" | "G"}`;
 
+/**
+ * A rate limit: a rate alone, such as `200M`, with the device's own burst, or `{ cir, bc }` with a burst of your own, as RFC 2697's committed rate and committed burst.
+ */
+export type Limit =
+    | Rate
+    | {
+          /** The committed information rate. */
+          cir: Rate;
+          /** The committed burst, in bytes: how much may pass at once above the rate. */
+          bc: number;
+      };
+
 /** A log severity, from most to least severe. A threshold also takes every more severe level. */
 export type Severity = "emergency" | "alert" | "critical" | "error" | "warning" | "notice" | "info" | "debug";
 

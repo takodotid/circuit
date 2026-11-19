@@ -17,6 +17,7 @@ description: The device operating systems Circuit works with, their versions, an
 - **Only the models it was tested on.** Another model needs its port list added. See [Contributing](/contributing).
 - **Model limits.** On the CCR2216, a LAG holds at most 8 ports, and the hardware ACLs hold about 5 different port ranges. `circuit validate` checks both. The RB5009 has no serial console, so Circuit refuses `connection.console` on it.
 - **CHR.** MikroTik's Cloud Hosted Router is RouterOS in a virtual machine. Its ports are the machine's network adapters, as many as it has: `virtual-1` is `ether1`, and so on. Circuit disables every adapter the config leaves out.
+- **A RouterOS PPPoE server.** Subscribers live in RADIUS. Before the first `apply` on a router that already serves PPPoE, move every subscriber from `/ppp secret` to RADIUS: the plan removes each local secret, PPP profile, and PPPoE server that `services.pppoe_server` doesn't write, and sets the profiles `default` and `default-encryption` back to RouterOS's defaults.
 
 ## Feature matrix
 
@@ -32,41 +33,42 @@ A note in a cell means "works, with this limit".
 
 ### Switching
 
-| Feature             | RouterOS                           | VRP           | Raisecom ROS      | Junos | FortiOS             |
-| ------------------- | ---------------------------------- | ------------- | ----------------- | ----- | ------------------- |
-| VLANs, access/trunk | ✅                                 | ✅            | ✅                | ✅    | ✅ VLAN interfaces  |
-| LAG                 | ✅                                 | ✅            | ✅                | ✅    | ✅                  |
-| STP                 | ✅                                 | ✅            | off only          | ✅    | ❌ ports are routed |
-| Storm control       | ✅ in percent                      | ✅ in percent | broadcast, in pps | ✅    | ❌                  |
-| MAC limit           | ❌                                 | ✅ ports      | ✅ ports          | ✅    | ❌                  |
-| Ethertype filter    | ✅ ports                           | ✅ ports      | ✅ ports          | ✅    | ❌                  |
-| Port bound to hosts | ❌                                 | ❌            | ❌                | ✅    | ❌                  |
-| BPDU and root guard | ✅ ports                           | 🧪            | ❌                | ✅    | ❌                  |
-| DHCP snooping       | ✅                                 | 🧪            | ❌                | ✅    | ❌                  |
-| ARP inspection      | ❌                                 | ❌            | ❌                | ✅    | ❌                  |
-| Private VLANs       | isolated only, switched by the CPU | ❌            | ❌                | ✅    | ❌                  |
-| QinQ                | ✅                                 | 🧪            | ❌                | ✅    | ❌                  |
-| RA guard            | ✅                                 | ❌            | ❌                | ✅    | ❌                  |
-| Hardware ACLs       | ✅                                 | ❌            | ❌                | ✅    | ✅ drop rules only  |
-| LLDP                | ✅                                 | ✅            | ✅                | ✅    | ✅                  |
-| Bridge interface    | ❌                                 | ❌            | ❌                | ❌    | ✅                  |
+| Feature             | RouterOS                           | VRP           | Raisecom ROS      | Junos                   | FortiOS             |
+| ------------------- | ---------------------------------- | ------------- | ----------------- | ----------------------- | ------------------- |
+| VLANs, access/trunk | ✅                                 | ✅            | ✅                | ✅                      | ✅ VLAN interfaces  |
+| LAG                 | ✅                                 | ✅            | ✅                | ✅                      | ✅                  |
+| STP                 | ✅                                 | ✅            | off only          | ✅                      | ❌ ports are routed |
+| Storm control       | ✅ in percent                      | ✅ in percent | broadcast, in pps | ✅                      | ❌                  |
+| MAC limit           | ❌                                 | ✅ ports      | ✅ ports          | ✅                      | ❌                  |
+| Ethertype filter    | ✅ ports                           | ✅ ports      | ✅ ports          | ✅                      | ❌                  |
+| Port bound to hosts | ❌                                 | ❌            | ❌                | ✅                      | ❌                  |
+| BPDU and root guard | ✅ ports                           | 🧪            | ❌                | ✅                      | ❌                  |
+| DHCP snooping       | ✅                                 | 🧪            | ❌                | ✅                      | ❌                  |
+| ARP inspection      | ❌                                 | ❌            | ❌                | ✅                      | ❌                  |
+| Private VLANs       | isolated only, switched by the CPU | ❌            | ❌                | ✅                      | ❌                  |
+| QinQ                | ✅                                 | 🧪            | ❌                | ✅                      | ❌                  |
+| RA guard            | ✅                                 | ❌            | ❌                | ✅                      | ❌                  |
+| Hardware ACLs       | ✅                                 | ❌            | ❌                | ✅ a rate needs a burst | ✅ drop rules only  |
+| LLDP                | ✅                                 | ✅            | ✅                | ✅                      | ✅                  |
+| Bridge interface    | ❌                                 | ❌            | ❌                | ❌                      | ✅                  |
 
 ### Interfaces
 
-| Feature                    | RouterOS                                                | VRP            | Raisecom ROS | Junos     | FortiOS                          |
-| -------------------------- | ------------------------------------------------------- | -------------- | ------------ | --------- | -------------------------------- |
-| VLAN interface             | ✅                                                      | ✅             | ✅           | ✅        | ✅                               |
-| Routed port, loopback      | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
-| GRE                        | ✅                                                      | ❌             | ❌           | ✅        | ✅                               |
-| VXLAN                      | ✅                                                      | ❌             | ❌           | ❌        | ✅                               |
-| WireGuard                  | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
-| EoIP                       | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
-| Round-robin LAG, ARP check | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
-| Shaping (CAKE)             | ✅                                                      | ❌             | ❌           | ❌        | ❌                               |
-| Proxy ARP for an address   | ❌                                                      | ❌             | ❌           | ❌        | ✅                               |
-| VRRP                       | ✅                                                      | IPv4           | IPv4         | IPv4      | IPv4                             |
-| IPv6 router advertisement  | ✅ no search domains                                    | ❌             | ❌           | ✅        | ✅                               |
-| uRPF (RFC 3704)            | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs | 🧪 loose, IPv4 | ❌           | ✅ strict | 🧪 strict, one mode for the VDOM |
+| Feature                    | RouterOS                                                                                   | VRP               | Raisecom ROS | Junos                                                                      | FortiOS                          |
+| -------------------------- | ------------------------------------------------------------------------------------------ | ----------------- | ------------ | -------------------------------------------------------------------------- | -------------------------------- |
+| VLAN interface             | ✅                                                                                         | ✅                | ✅           | ✅                                                                         | ✅                               |
+| Routed port, loopback      | ✅                                                                                         | ❌                | ❌           | ✅                                                                         | ✅                               |
+| GRE                        | ✅                                                                                         | ❌                | ❌           | ✅                                                                         | ✅                               |
+| VXLAN                      | ✅                                                                                         | ❌                | ❌           | ❌                                                                         | ✅                               |
+| WireGuard                  | ✅                                                                                         | ❌                | ❌           | ❌                                                                         | ❌                               |
+| EoIP                       | ✅                                                                                         | ❌                | ❌           | ❌                                                                         | ❌                               |
+| Round-robin LAG, ARP check | ✅                                                                                         | ❌                | ❌           | ❌                                                                         | ❌                               |
+| Shaping (CAKE)             | ✅                                                                                         | ❌                | ❌           | ❌                                                                         | ❌                               |
+| Rate limit                 | ✅ routed ports and VLAN interfaces, not beside the fast path or hardware offload; 🧪 LAGs | 🧪 ports and LAGs | ❌           | in on switched ports, with a burst; 🧪 LAGs; out on ports, without a burst | ✅ no burst                      |
+| Proxy ARP for an address   | ❌                                                                                         | ❌                | ❌           | ❌                                                                         | ✅                               |
+| VRRP                       | ✅                                                                                         | IPv4              | IPv4         | IPv4                                                                       | IPv4                             |
+| IPv6 router advertisement  | ✅ no search domains                                                                       | ❌                | ❌           | ✅                                                                         | ✅                               |
+| uRPF (RFC 3704)            | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs                                    | 🧪 loose, IPv4    | ❌           | ✅ strict                                                                  | 🧪 strict, one mode for the VDOM |
 
 ### Routing
 
@@ -105,18 +107,19 @@ A note in a cell means "works, with this limit".
 
 ### Firewall and services
 
-| Feature              | RouterOS            | VRP                   | Raisecom ROS | Junos                    | FortiOS                                |
-| -------------------- | ------------------- | --------------------- | ------------ | ------------------------ | -------------------------------------- |
-| Firewall filter      | ✅                  | ❌                    | ❌           | ❌                       | ✅                                     |
-| NAT                  | ✅                  | ❌                    | ❌           | ❌                       | IPv4                                   |
-| TCP MSS clamp        | ✅                  | ❌                    | ❌           | ❌                       | ❌                                     |
-| DHCP server          | ✅                  | ❌                    | ❌           | ✅                       | ✅                                     |
-| DHCPv6 server        | ✅ pool is a prefix | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
-| DHCP relay           | ✅                  | IPv4, VLAN interfaces | ❌           | IPv4                     | ✅                                     |
-| DHCP server in a VRF | ✅                  | ❌                    | ❌           | 🧪                       | 🧪                                     |
-| DNS server           | ✅                  | ❌                    | ❌           | ❌                       | ✅                                     |
-| NTP client           | ✅                  | ✅                    | ✅           | ✅                       | ✅                                     |
-| NTP server           | ✅                  | ✅                    | ❌           | ✅                       | ✅                                     |
+| Feature              | RouterOS              | VRP                   | Raisecom ROS | Junos                    | FortiOS                                |
+| -------------------- | --------------------- | --------------------- | ------------ | ------------------------ | -------------------------------------- |
+| Firewall filter      | ✅                    | ❌                    | ❌           | ❌                       | ✅                                     |
+| NAT                  | ✅                    | ❌                    | ❌           | ❌                       | IPv4                                   |
+| TCP MSS clamp        | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
+| DHCP server          | ✅                    | ❌                    | ❌           | ✅                       | ✅                                     |
+| DHCPv6 server        | ✅ pool is a prefix   | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
+| DHCP relay           | ✅                    | IPv4, VLAN interfaces | ❌           | IPv4                     | ✅                                     |
+| DHCP server in a VRF | ✅                    | ❌                    | ❌           | 🧪                       | 🧪                                     |
+| PPPoE server         | ✅ one RADIUS setting | ❌                    | ❌           | ❌                       | ❌                                     |
+| DNS server           | ✅                    | ❌                    | ❌           | ❌                       | ✅                                     |
+| NTP client           | ✅                    | ✅                    | ✅           | ✅                       | ✅                                     |
+| NTP server           | ✅                    | ✅                    | ❌           | ✅                       | ✅                                     |
 
 ### Management and monitoring
 

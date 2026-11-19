@@ -34,6 +34,9 @@ export type ShapeOf<T> = [Exclude<T, Prim>] extends [never]
 
 const SECRET = { secret: 0, secret_file: 0 } as const;
 const RANGE = { min: 0, max: 0 } as const;
+const RADIUS_SERVER = { address: 0, secret_key: SECRET, source_address: 0, vrf: 0, auth_port: 0, acct_port: 0 } as const;
+const LIMIT = { cir: 0, bc: 0 } as const;
+const RATE_LIMIT = { input: LIMIT, output: LIMIT } as const;
 
 const FILTER_MATCH = {
     family: 0,
@@ -65,7 +68,7 @@ export const ACL_RULE = {
     description: 0,
     if: { family: 0, protocol: 0, src: 0, dst: 0, src_port: RANGE, dst_port: RANGE, vlan: 0 },
     then: 0,
-    rate: 0,
+    rate: LIMIT,
 } as const satisfies ShapeOf<AclRule<string>>;
 export const ROUTING_RULE = {
     description: 0,
@@ -222,7 +225,7 @@ export const DEVICE = {
         users: { "*": { role: 0, password: SECRET, description: 0, ssh_keys: 0 } },
         aaa: {
             tacacs: [{ address: 0, secret_key: SECRET, source_address: 0 }],
-            radius: [{ address: 0, secret_key: SECRET, source_address: 0, vrf: 0, auth_port: 0, acct_port: 0 }],
+            radius: [RADIUS_SERVER],
             remote_role: 0,
             accounting_events: 0,
         },
@@ -286,10 +289,13 @@ export const DEVICE = {
                 link: { device: 0, port: 0, through: 0 },
                 dhcp_client: { default_routes: [{ routing_table: 0, distance: 0 }] },
                 shaping: { algorithm: 0, mbps: 0 },
+                rate_limit: RATE_LIMIT,
             },
         },
-        lag: { "*": { ...BASE, ...SWITCHED, mode: 0, id: 0, link_check: { arp_targets: 0, interval_ms: 0 }, mac: 0 } },
-        vlan_interface: { "*": { ...BASE, vlan: 0, mac: 0, proxy_arp: 0 } },
+        lag: {
+            "*": { ...BASE, ...SWITCHED, mode: 0, id: 0, link_check: { arp_targets: 0, interval_ms: 0 }, mac: 0, rate_limit: RATE_LIMIT },
+        },
+        vlan_interface: { "*": { ...BASE, vlan: 0, mac: 0, proxy_arp: 0, rate_limit: RATE_LIMIT } },
         bridge: { "*": { ...UNCHECKED, member_interfaces: 0 } },
         loopback: { "*": UNCHECKED },
         gre: { "*": { ...BASE, local_address: 0, remote_address: 0 } },
@@ -331,6 +337,19 @@ export const DEVICE = {
             "*": { interface: 0, pool: 0, prefix_delegation: { pool: 0, prefix_length: 0 }, dns: 0, lease_time: 0 },
         },
         dhcp_relay: { "*": { interface: 0, servers: 0 } },
+        pppoe_server: {
+            "*": {
+                interfaces: 0,
+                service_name: 0,
+                local_address: 0,
+                pool: 0,
+                dns: 0,
+                mtu: 0,
+                radius: [RADIUS_SERVER],
+                acct_interim_interval: 0,
+                dynamic_authorization: 0,
+            },
+        },
         dns_server: 0,
         ntp_server: 0,
         upnp: { internal: 0, external: 0, external_address: 0 },

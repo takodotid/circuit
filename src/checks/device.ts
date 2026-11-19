@@ -9,6 +9,7 @@ import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
 import { IsisChecks } from "./isis";
+import { RateLimitChecks } from "./rate-limit";
 import { ServicesChecks } from "./services";
 
 type Report = (message: string) => void;
@@ -100,6 +101,7 @@ export class DeviceChecks {
         DeviceChecks.addresses(device, report, cidr, ip);
         DeviceChecks.ports(device, report);
         DeviceChecks.interfaces(device, report, ip);
+        RateLimitChecks.check(device, report);
         DeviceChecks.routing(device, report, cidr, ip);
         IsisChecks.check(device, report);
         DeviceChecks.policies(device, report, cidr);
@@ -121,21 +123,7 @@ export class DeviceChecks {
         const servers = aaa.tacacs ?? aaa.radius ?? [];
         if (!servers.length) report("system.aaa has no server: write tacacs or radius, with at least one server");
 
-        const seen = new Set<string>();
-        servers.forEach((server, index) => {
-            const where = `system.aaa.${kind}[${index}]`;
-            ip(`${where}.address`, server.address);
-            if (server.source_address !== undefined) ip(`${where}.source_address`, server.source_address);
-            if (!Address.isValid(server.address)) return;
-
-            const address = Address.canonical(server.address);
-            if (seen.has(address)) report(`${where}: ${server.address} is listed twice`);
-            seen.add(address);
-
-            const source = server.source_address;
-            if (source && Address.isValid(source) && Address.family(source) !== Address.family(server.address))
-                report(`${where}.source_address ${source} and address ${server.address} differ in family`);
-        });
+        ServicesChecks.servers(`system.aaa.${kind}`, servers, report, ip);
     }
 
     /** Each SSH key is one public key line whose key reads back, never a private key. */

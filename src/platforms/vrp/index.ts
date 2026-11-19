@@ -246,6 +246,9 @@ export class Vrp extends Platform {
             if (value !== undefined) found.push(path);
         }
 
+        if (device.services?.pppoe_server)
+            found.push("services.pppoe_server, VRP serves PPPoE subscribers on NE routers (BRAS) only, which Circuit does not support");
+
         for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {})) {
             if (!device.interfaces?.vlan_interface?.[relay.interface])
                 found.push(`services.dhcp_relay.${name}.interface, relays run on VLAN interfaces`);
@@ -329,7 +332,17 @@ export class Vrp extends Platform {
                 found.push(`system.users.${name}.ssh_keys, a key named after a user over ${VrpRender.KEY_NAME} characters`);
         }
         found.push(...Derive.untested(device, ["alarm-severity", "bfd-timers", "static-route-bfd", "mac-limit", "ethertype-filter"]));
-        found.push(...Derive.unbuilt(device, ["urpf"]));
+        found.push(...Derive.unbuilt(device, ["urpf", "rate-limit"]));
+
+        for (const { where, kind, rateLimit } of Derive.rateLimited(device)) {
+            if (kind === "vlan_interface") found.push(`${where}.rate_limit, on a VLAN interface, which is not built yet`);
+            for (const direction of ["input", "output"] as const) {
+                const limit = rateLimit[direction];
+                const bits = limit && Derive.bitsPerSecond(Derive.limit(limit).rate);
+                if (bits && !Number.isInteger(bits / VrpRender.BITS_PER_KBIT))
+                    found.push(`${where}.rate_limit.${direction}, the platform takes a rate in whole kbit/s`);
+            }
+        }
 
         for (const { where, kind, settings } of Derive.holders(device)) {
             if (kind === "ethernet" || !settings.urpf) continue;
@@ -353,13 +366,14 @@ export class Vrp extends Platform {
         return found;
     }
 
-    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. The spanning tree guards, DHCP snooping, and QinQ's `port link-type dot1q-tunnel` went into a candidate on a CE6855, but were never committed, so how the switch prints them is not known. */
+    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. The spanning tree guards, DHCP snooping, QinQ's `port link-type dot1q-tunnel`, and rate limits went into a candidate on a CE6855. They were never committed, so how the switch prints them is not known. */
     override experimental(device: Device): string[] {
         const found = Object.entries(device.interfaces?.vlan_interface ?? {})
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
             .map(([name]) => `interfaces.vlan_interface.${name}.urpf.ipv4`);
 
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
+        for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
             if (stp?.bpdu_guard) found.push(`${where}.stp.bpdu_guard`);
@@ -588,6 +602,10 @@ export class Vrp extends Platform {
         if (keyword) return `undo ${keyword[1]}`;
         // A static route is removed by its destination and next hop. Its preference, description, or BFD after them is refused.
         if (/^ipv6 route-static |^ip route-static /.test(line)) return `undo ${line.replace(/ (preference|description|bfd) .*$/, "")}`;
+        // A CAR profile is removed by its name, and a rate limit by its direction.
+        const car = /^qos car (inbound|\S+) /.exec(line);
+        if (car) return `undo qos car ${car[1]}`;
+        if (/^qos lr .* outbound$/.test(line)) return "undo qos lr outbound";
         // Storm control is removed per kind, without its rates.
         if (line.startsWith("storm control ")) return `undo ${line.replace(/ (min-rate|max-rate).*$/, "")}`;
 
