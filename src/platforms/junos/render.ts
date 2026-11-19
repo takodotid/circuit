@@ -977,16 +977,31 @@ export class JunosRender {
         }
     }
 
-    /** Router advertisements announce each IPv6 network of the interface. */
+    /** Router advertisements announce their prefixes, each IPv6 network of the interface unless the config lists them. The least interval is the platform's own, a third of the most, as RFC 4861 has it. */
     private routerAdvertisements(): void {
         for (const [name, settings] of this.routed()) {
-            if (!settings.ipv6_ra) continue;
+            const ra = Derive.routerAdvertisement(settings);
+            if (!ra) continue;
 
-            const addresses = (settings.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
+            const at = `protocols router-advertisement interface ${this.names.unit(name)}`;
+            if (ra.interval !== undefined) this.out.set(at, "max-advertisement-interval", ra.interval);
+            if (ra.lifetime !== undefined) this.out.set(at, "default-lifetime", ra.lifetime);
 
-            for (const address of addresses.filter((address) => Address.family(address) === "ipv6")) {
-                this.out.set(`protocols router-advertisement interface ${this.names.unit(name)} prefix`, Address.prefixOf(address));
+            for (const advertised of Derive.advertisedPrefixes(settings)) {
+                const prefix = `${at} prefix ${Address.prefixOf(advertised.prefix)}`;
+                const options = [
+                    advertised.disable_autoconfiguration && "no-autonomous",
+                    advertised.valid_lifetime !== undefined && `valid-lifetime ${advertised.valid_lifetime}`,
+                    advertised.preferred_lifetime !== undefined && `preferred-lifetime ${advertised.preferred_lifetime}`,
+                ].filter((option) => typeof option === "string");
+
+                // The device prints a prefix alone only when it has no option.
+                if (!options.length) this.out.set(prefix);
+                for (const option of options) this.out.set(prefix, option);
             }
+
+            for (const server of ra.dns_servers ?? []) this.out.set(at, "dns-server-address", server);
+            for (const domain of ra.dns_search_list ?? []) this.out.set(at, "dns-search-list", domain);
         }
     }
 

@@ -270,8 +270,11 @@ export class RouterOs extends Platform {
         }
 
         const holders = Derive.holders(device);
-        for (const { where, settings } of holders)
+        for (const { where, settings } of holders) {
             if (settings.urpf?.ipv6) found.push(`${where}.urpf.ipv6, RouterOS checks IPv4 sources only`);
+            if (Derive.routerAdvertisement(settings)?.dns_search_list)
+                found.push(`${where}.ipv6_ra.dns_search_list, RouterOS announces no search domains (DNSSL)`);
+        }
 
         // `/ip settings rp-filter` is one mode for every interface.
         const urpf = Derive.sharedUrpf(holders, "ipv4");

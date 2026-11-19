@@ -4,6 +4,7 @@ import { presets } from "../config/presets";
 import { Address } from "./address";
 import { Utils } from "./utils";
 import type {
+    AdvertisedPrefix,
     AsNumbers,
     AsRange,
     Device,
@@ -17,6 +18,7 @@ import type {
     Routed,
     RouteMatch,
     RouteRule,
+    RouterAdvertisement,
 } from "../model";
 
 /** A BGP neighbor's `max_prefixes` in its long form. Without `restart_after` or `warn_only`, the session stays closed. */
@@ -101,6 +103,11 @@ export class Derive {
     /** Each takes its sources from `management.allow`, on the protocol's own port. */
     private static readonly SWITCH_SERVICES = ["ssh", "telnet", "snmp"] as const;
 
+    /** The fewest seconds between two router advertisements (RFC 4861, MinRtrAdvInterval). */
+    private static readonly MIN_RA_INTERVAL = 3;
+    /** The least interval between router advertisements is the most divided by this (RFC 4861). */
+    private static readonly RA_INTERVAL_SHARE = 3;
+
     /** Every interface that is not a port, group by group (`KINDS`), each in the order it is written. */
     static interfaces(device: Device): NamedInterface[] {
         return Derive.KINDS.flatMap((kind) =>
@@ -133,6 +140,31 @@ export class Derive {
                 settings,
             })),
         ];
+    }
+
+    /** What the interface's router advertisements say, `{}` for `ipv6_ra: true`. Undefined when it sends none. */
+    static routerAdvertisement(settings: Pick<Routed, "ipv6_ra">): RouterAdvertisement | undefined {
+        const ra = settings.ipv6_ra;
+        if (!ra) return undefined;
+        return ra === true ? {} : ra;
+    }
+
+    /** The prefixes the interface's router advertisements announce: those written, or else each IPv6 network of the interface. None when it sends none. */
+    static advertisedPrefixes(
+        settings: Pick<Routed, "ipv6_ra"> & { addresses?: readonly (string | { address: string })[] }
+    ): AdvertisedPrefix[] {
+        const ra = Derive.routerAdvertisement(settings);
+        if (!ra) return [];
+        if (ra.prefixes) return [...ra.prefixes];
+
+        const addresses = (settings.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
+        const networks = addresses.filter((address) => Address.family(address) === "ipv6").map((address) => Address.prefixOf(address));
+        return [...new Set(networks)].map((prefix) => ({ prefix }));
+    }
+
+    /** The least seconds between two router advertisements for the most, `interval`: a third of it and no less than 3, as RFC 4861 sets MinRtrAdvInterval. */
+    static minAdvertisementInterval(interval: number): number {
+        return Math.max(Derive.MIN_RA_INTERVAL, Math.floor(interval / Derive.RA_INTERVAL_SHARE));
     }
 
     /** Whether a port or an interface has an address of `family`. A DHCP client gives a port IPv4. */
