@@ -129,7 +129,8 @@ ROAs?
 PEs?
 Akamai('s)?
 Arelion
-Herza('s)?
+(?i)Kapsi('s)?
+(?i)Tsukaeru('s)?
 Nedap
 Strathmore
 (?i)memcached

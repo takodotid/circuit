@@ -8,7 +8,7 @@ import { Fixtures } from "../fixtures";
 
 const options = { secrets: false, rollback: 10 };
 
-/** A fixture's device with VRFs `argon` and `services`, a loopback in each, and these imports, each policy accepting one prefix. */
+/** A fixture's device with VRFs `tsukaeru` and `services`, a loopback in each, and these imports, each policy accepting one prefix. */
 function withImports(fixture: string, imports: { from: string; to: string; policy: string }[]): Device {
     const device = Fixtures.device(fixture);
     const accepting = (prefix: Prefix): PolicyRule[] => [{ if: { prefix }, then: "accept" }, { then: "reject" }];
@@ -18,32 +18,32 @@ function withImports(fixture: string, imports: { from: string; to: string; polic
             ...device.interfaces,
             loopback: {
                 ...device.interfaces?.loopback,
-                "argon-loopback": { addresses: ["10.20.0.1/32"], vrf: "argon" },
+                "tsukaeru-loopback": { addresses: ["10.20.0.1/32"], vrf: "tsukaeru" },
                 "services-loopback": { addresses: ["10.0.5.1/24"], vrf: "services" },
             },
         },
         routing: {
             ...device.routing,
-            vrfs: { argon: {}, services: {} },
+            vrfs: { tsukaeru: {}, services: {} },
             vrf_imports: imports,
             policies: {
                 ...device.routing!.policies,
                 "management-network": accepting("10.0.0.0/24"),
                 "monitoring-network": accepting("10.0.5.0/24"),
-                "argon-private-network": accepting("10.20.0.1/32"),
+                "tsukaeru-private-network": accepting("10.20.0.1/32"),
             },
         },
     };
 }
 
 const BOTH_WAYS = [
-    { from: "services", to: "argon", policy: "monitoring-network" },
-    { from: "argon", to: "services", policy: "argon-private-network" },
+    { from: "services", to: "tsukaeru", policy: "monitoring-network" },
+    { from: "tsukaeru", to: "services", policy: "tsukaeru-private-network" },
 ];
 
 const WITH_MAIN = [
-    { from: "main", to: "argon", policy: "management-network" },
-    { from: "argon", to: "main", policy: "argon-private-network" },
+    { from: "main", to: "tsukaeru", policy: "management-network" },
+    { from: "tsukaeru", to: "main", policy: "tsukaeru-private-network" },
 ];
 
 test("RouterOS hands routes over through the BGP VPN table, and plans nothing against how the router prints its entries", () => {
@@ -51,9 +51,9 @@ test("RouterOS hands routes over through the BGP VPN table, and plans nothing ag
     const desired = routeros.render(withImports("edge-router--edge-01", BOTH_WAYS));
 
     expect(desired).toContain(`/routing bgp vpn
-add export.filter-chain=monitoring-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:1 instance=default label-allocation-policy=per-vrf name=services-to-argon route-distinguisher=64500:1 vrf=services
-add export.filter-chain=argon-private-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:2 instance=default label-allocation-policy=per-vrf name=argon-to-services route-distinguisher=64500:2 vrf=argon
-add import.route-targets=64500:1 instance=default label-allocation-policy=per-vrf name=argon route-distinguisher=64500:3 vrf=argon
+add export.filter-chain=monitoring-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:1 instance=default label-allocation-policy=per-vrf name=services-to-tsukaeru route-distinguisher=64500:1 vrf=services
+add export.filter-chain=tsukaeru-private-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:2 instance=default label-allocation-policy=per-vrf name=tsukaeru-to-services route-distinguisher=64500:2 vrf=tsukaeru
+add import.route-targets=64500:1 instance=default label-allocation-policy=per-vrf name=tsukaeru route-distinguisher=64500:3 vrf=tsukaeru
 add import.route-targets=64500:2 instance=default label-allocation-policy=per-vrf name=services route-distinguisher=64500:4 vrf=services
 `);
     // One chain takes both families, since an entry has one.
@@ -89,16 +89,16 @@ test("Junos imports into each table through one policy, whose terms match the in
 
     for (const line of [
         "set routing-options instance-import circuit-vrf-import-main",
-        "set routing-instances argon routing-options instance-import circuit-vrf-import-argon",
-        "set policy-options policy-statement circuit-vrf-import-argon term main from instance master",
-        "set policy-options policy-statement circuit-vrf-import-argon term main from policy management-network",
-        "set policy-options policy-statement circuit-vrf-import-argon term main then accept",
-        "set policy-options policy-statement circuit-vrf-import-argon term others then reject",
-        "set policy-options policy-statement circuit-vrf-import-main term argon from instance argon",
-        "set policy-options policy-statement circuit-vrf-import-main term argon from policy argon-private-network",
+        "set routing-instances tsukaeru routing-options instance-import circuit-vrf-import-tsukaeru",
+        "set policy-options policy-statement circuit-vrf-import-tsukaeru term main from instance master",
+        "set policy-options policy-statement circuit-vrf-import-tsukaeru term main from policy management-network",
+        "set policy-options policy-statement circuit-vrf-import-tsukaeru term main then accept",
+        "set policy-options policy-statement circuit-vrf-import-tsukaeru term others then reject",
+        "set policy-options policy-statement circuit-vrf-import-main term tsukaeru from instance tsukaeru",
+        "set policy-options policy-statement circuit-vrf-import-main term tsukaeru from policy tsukaeru-private-network",
     ])
         expect(desired).toContain(line);
-    expect(desired).toContain("set policy-options policy-statement argon-private-network term");
+    expect(desired).toContain("set policy-options policy-statement tsukaeru-private-network term");
     expect(junos.experimental?.(device)).toEqual(["routing.vrf_imports"]);
 });
 
@@ -115,14 +115,14 @@ test("FortiOS, VRP, and Raisecom ROS refuse imports between tables", () => {
 
 test("a table that takes from itself, or two imports between the same tables, are refused", () => {
     const device = withImports("edge-router--edge-01", [
-        { from: "argon", to: "argon", policy: "management-network" },
-        { from: "main", to: "argon", policy: "management-network" },
-        { from: "main", to: "argon", policy: "argon-private-network" },
+        { from: "tsukaeru", to: "tsukaeru", policy: "management-network" },
+        { from: "main", to: "tsukaeru", policy: "management-network" },
+        { from: "main", to: "tsukaeru", policy: "tsukaeru-private-network" },
     ]);
     const messages = Checks.run([device], undefined).map((finding) => finding.message);
 
-    expect(messages).toContain("routing.vrf_imports[0] takes routes from argon into argon; give another table in to");
+    expect(messages).toContain("routing.vrf_imports[0] takes routes from tsukaeru into tsukaeru; give another table in to");
     expect(messages).toContain(
-        "routing.vrf_imports[2] takes routes from main into argon, as routing.vrf_imports[1] does; write one import, and put the rules of both policies in its policy"
+        "routing.vrf_imports[2] takes routes from main into tsukaeru, as routing.vrf_imports[1] does; write one import, and put the rules of both policies in its policy"
     );
 });

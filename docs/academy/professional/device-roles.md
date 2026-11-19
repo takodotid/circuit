@@ -76,8 +76,8 @@ A few rules keep a naming scheme working for years:
 5. **Write the rule down once,** so the next person names the next device the same way.
 
 <Quiz
-  question="A new rack switch at site A serves one big customer, Argon. Which name follows these rules best?"
-  :choices="['tor-a4', 'Argon-Switch', 'tor-a4-argon']"
+  question="A new rack switch at site A serves one big customer, Tsukaeru. Which name follows these rules best?"
+  :choices="['tor-a4', 'Tsukaeru-Switch', 'tor-a4-tsukaeru']"
   :answer="0"
   :why="['', 'It has the customer in it, who may leave, but not the role or the site. The capital letters also make two spellings possible.', 'The customer may leave while the switch stays. Write the customer in the port descriptions instead.']"
   explain="tor-a4 says the role and the place, and nothing that changes. The customer goes in the description of the ports it uses, where it can change without renaming the device."

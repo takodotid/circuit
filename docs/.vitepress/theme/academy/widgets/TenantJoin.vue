@@ -28,7 +28,7 @@ const decisions: Decision[] = [
                 id: "1001",
                 label: "1001 and 2001",
                 verdict: "bad",
-                text: "Argon already uses them. Both tenants would be on VLAN 1001, and their traffic would mix on it.",
+                text: "Tsukaeru already uses them. Both tenants would be on VLAN 1001, and their traffic would mix on it.",
             },
         ],
     },
@@ -46,7 +46,7 @@ const decisions: Decision[] = [
                 id: "overlap",
                 label: GATEWAYS.overlap,
                 verdict: "bad",
-                text: "Its block, 198.51.100.12/30, lies inside 198.51.100.8/29, the block of Argon, so two tenants would answer for the same addresses. The example's own check, blocks_apart, catches it.",
+                text: "Its block, 198.51.100.12/30, lies inside 198.51.100.8/29, the block of Tsukaeru, so two tenants would answer for the same addresses. The example's own check, blocks_apart, catches it.",
             },
         ],
     },
@@ -59,7 +59,7 @@ const decisions: Decision[] = [
                 id: "10g-1",
                 label: "10g-1",
                 verdict: "bad",
-                text: "The file of Argon already gives 10g-1 to its server 1. Circuit stops when two files write one port with two values.",
+                text: "The file of Tsukaeru already gives 10g-1 to its server 1. Circuit stops when two files write one port with two values.",
             },
         ],
     },
@@ -77,7 +77,7 @@ const decisions: Decision[] = [
                 id: "both",
                 label: "Public and private",
                 verdict: "good",
-                text: "Two tagged VLANs. The private one exists only on the switch, between the servers of Herza, and never reaches the router.",
+                text: "Two tagged VLANs. The private one exists only on the switch, between the servers of Kapsi, and never reaches the router.",
             },
         ],
     },
@@ -112,31 +112,31 @@ const chosen = computed(() => ({
 const file = computed(() => {
     const ids = VLANS[chosen.value.vlan];
     const both = chosen.value.networks === "both";
-    const carries = both ? 'trunk_vlans: ["herza-internet", "herza-private"]' : 'access_vlan: "herza-internet"';
+    const carries = both ? 'trunk_vlans: ["kapsi-internet", "kapsi-private"]' : 'access_vlan: "kapsi-internet"';
 
     return [
         "const vlans = literal({",
-        `    "herza-internet": { id: ${ids.internet}, description: "Tenant herza internet" },`,
-        `    "herza-private": { id: ${ids.private}, description: "Tenant herza private" },`,
+        `    "kapsi-internet": { id: ${ids.internet}, description: "Tenant kapsi internet" },`,
+        `    "kapsi-private": { id: ${ids.private}, description: "Tenant kapsi private" },`,
         "});",
         "",
-        "export const herza = {",
+        "export const kapsi = {",
         "    parts: {",
         '        "edge-01": part("device", {',
-        '            switching: { vlans: { "herza-internet": vlans["herza-internet"] } },',
+        '            switching: { vlans: { "kapsi-internet": vlans["kapsi-internet"] } },',
         "            interfaces: {",
-        '                ethernet: { "100g-1": { trunk_vlans: ["herza-internet"] } },',
+        '                ethernet: { "100g-1": { trunk_vlans: ["kapsi-internet"] } },',
         "                vlan_interface: {",
-        `                    "herza-internet": { vlan: "herza-internet", description: "Tenant herza", addresses: ["${GATEWAYS[chosen.value.block]}", "2001:db8:100:2::1/64"] },`,
+        `                    "kapsi-internet": { vlan: "kapsi-internet", description: "Tenant kapsi", addresses: ["${GATEWAYS[chosen.value.block]}", "2001:db8:100:2::1/64"] },`,
         "                },",
         "            },",
         "        }),",
         '        "tor-01": part("device", {',
-        `            switching: { vlans: ${both ? "vlans" : '{ "herza-internet": vlans["herza-internet"] }'} },`,
+        `            switching: { vlans: ${both ? "vlans" : '{ "kapsi-internet": vlans["kapsi-internet"] }'} },`,
         "            interfaces: {",
         "                ethernet: {",
-        '                    "40g-1": { trunk_vlans: ["herza-internet"] },',
-        `                    "${chosen.value.port}": { description: "herza server 1", ${carries} },`,
+        '                    "40g-1": { trunk_vlans: ["kapsi-internet"] },',
+        `                    "${chosen.value.port}": { description: "kapsi server 1", ${carries} },`,
         "                },",
         "            },",
         "        }),",
@@ -169,7 +169,7 @@ const outcome = computed(() => {
     return {
         kind: "good",
         word: "Ready",
-        text: "The router gets the VLAN and gateway of Herza. The switch gets the VLAN, the port, and the VLAN on its uplink. Nothing of Argon changes.",
+        text: "The router gets the VLAN and gateway of Kapsi. The switch gets the VLAN, the port, and the VLAN on its uplink. Nothing of Tsukaeru changes.",
     };
 });
 </script>
@@ -203,7 +203,7 @@ const outcome = computed(() => {
             </p>
         </fieldset>
 
-        <CodeView :code="file" title="tenants/herza.ts" />
+        <CodeView :code="file" title="tenants/kapsi.ts" />
 
         <div class="ac-row">
             <button type="button" class="ac-button primary" @click="ran = true">Run validate and diff</button>

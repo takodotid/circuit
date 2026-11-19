@@ -30,13 +30,13 @@ const upstreams: Upstream[] = [
 
 /** Every link to an upstream, in Gbit/s. */
 const UPSTREAM_CAPACITY = 10;
-/** Argon's link, in Gbit/s, and Argon's own traffic on it. */
-const ARGON_CAPACITY = 1;
-const ARGON_NORMAL = 0.3;
+/** Tsukaeru's link, in Gbit/s, and Tsukaeru's own traffic on it. */
+const TSUKAERU_CAPACITY = 1;
+const TSUKAERU_NORMAL = 0.3;
 
 const sources = { x: 70, y: 200 };
 const edge = { x: 450, y: 200 };
-const argon = { x: 630, y: 110 };
+const tsukaeru = { x: 630, y: 110 };
 const others = { x: 630, y: 290 };
 
 const asked = ref(false);
@@ -56,15 +56,15 @@ const loads = computed(() =>
     })
 );
 
-/** The flood that reaches your router, and what reaches Argon's link. */
+/** The flood that reaches your router, and what reaches Tsukaeru's link. */
 const atEdge = computed(() => loads.value.reduce((sum, entry) => sum + entry.flood, 0));
-const argonLoad = computed(() => ARGON_NORMAL + (asked.value ? 0 : atEdge.value));
+const tsukaeruLoad = computed(() => TSUKAERU_NORMAL + (asked.value ? 0 : atEdge.value));
 
 const format = (gbits: number) => `${gbits.toLocaleString("en-US", { maximumFractionDigits: 1 })}`;
 
 const overloaded = computed(() => [
     ...loads.value.filter((entry) => entry.load > UPSTREAM_CAPACITY).map((entry) => entry.upstream.label),
-    ...(argonLoad.value > ARGON_CAPACITY ? ["Argon's link"] : []),
+    ...(tsukaeruLoad.value > TSUKAERU_CAPACITY ? ["Tsukaeru's link"] : []),
 ]);
 
 const summary = computed(() => {
@@ -72,7 +72,7 @@ const summary = computed(() => {
         return {
             kind: "bad",
             word: "Flooded",
-            text: `${format(atEdge.value)} Gbit/s of flood is on its way to ${TARGET}. ${overloaded.value.join(", ")} ${overloaded.value.length === 1 ? "is" : "are"} full, so every customer's traffic through ${overloaded.value.length === 1 ? "it" : "them"} loses packets, not only Argon's.`,
+            text: `${format(atEdge.value)} Gbit/s of flood is on its way to ${TARGET}. ${overloaded.value.join(", ")} ${overloaded.value.length === 1 ? "is" : "are"} full, so every customer's traffic through ${overloaded.value.length === 1 ? "it" : "them"} loses packets, not only Tsukaeru's.`,
         };
     }
 
@@ -85,7 +85,7 @@ const summary = computed(() => {
         return {
             kind: "warn",
             word: "Partly",
-            text: `Your router drops everything to ${TARGET}, so Argon's link is free. ${stoppedText}${overloaded.value.join(" and ")} ${overloaded.value.length === 1 ? "is" : "are"} still full.`,
+            text: `Your router drops everything to ${TARGET}, so Tsukaeru's link is free. ${stoppedText}${overloaded.value.join(" and ")} ${overloaded.value.length === 1 ? "is" : "are"} still full.`,
         };
     }
 
@@ -115,7 +115,7 @@ async function send() {
                 [upstream.x, upstream.y],
             ];
             if (!takesIt(upstream)) path.push([edge.x, edge.y]);
-            if (!takesIt(upstream) && !asked.value) path.push([argon.x, argon.y]);
+            if (!takesIt(upstream) && !asked.value) path.push([tsukaeru.x, tsukaeru.y]);
             return travelers[index]!.travel(path);
         })
     );
@@ -128,7 +128,7 @@ const fates = computed(() =>
         if (asked.value) {
             return `${upstream.label} sends it on: no blackhole community is written for it, so it never received the route. Your router drops it.`;
         }
-        return `${upstream.label} sends it on, and your router passes it to Argon.`;
+        return `${upstream.label} sends it on, and your router passes it to Tsukaeru.`;
     })
 );
 
@@ -154,7 +154,7 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
             class="ac-drawing"
             viewBox="0 0 700 400"
             role="img"
-            :aria-label="`A flood from many sources reaches your edge router through Hurricane Electric, Cogent, and DE-CIX, toward Argon's server ${TARGET}. ${summary.text}`"
+            :aria-label="`A flood from many sources reaches your edge router through Hurricane Electric, Cogent, and DE-CIX, toward Tsukaeru's server ${TARGET}. ${summary.text}`"
         >
             <line
                 v-for="upstream in upstreams"
@@ -175,7 +175,14 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
                 :x2="edge.x"
                 :y2="edge.y"
             />
-            <line class="cable" :class="{ full: argonLoad > ARGON_CAPACITY }" :x1="edge.x" :y1="edge.y" :x2="argon.x" :y2="argon.y" />
+            <line
+                class="cable"
+                :class="{ full: tsukaeruLoad > TSUKAERU_CAPACITY }"
+                :x1="edge.x"
+                :y1="edge.y"
+                :x2="tsukaeru.x"
+                :y2="tsukaeru.y"
+            />
             <line class="cable" :x1="edge.x" :y1="edge.y" :x2="others.x" :y2="others.y" />
 
             <SvgDevice kind="cloud" :x="sources.x" :y="sources.y" label="Attack sources" note="thousands" />
@@ -190,7 +197,7 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
                 :lit="takesIt(upstream)"
             />
             <SvgDevice kind="router" :x="edge.x" :y="edge.y" label="Your edge" :note="asked ? `drops ${TARGET}` : 'AS64500'" :lit="asked" />
-            <SvgDevice kind="server" :x="argon.x" :y="argon.y" label="Argon's server" :note="TARGET" :dim="asked" />
+            <SvgDevice kind="server" :x="tsukaeru.x" :y="tsukaeru.y" label="Tsukaeru's server" :note="TARGET" :dim="asked" />
             <SvgDevice kind="cloud" :x="others.x" :y="others.y" label="Other customers" />
 
             <template v-for="(traveler, index) in travelers" :key="`p-${index}`">
@@ -206,7 +213,7 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
 
         <div class="controls">
             <div class="ac-field">
-                <span>1. Argon, under attack, asks you</span>
+                <span>1. Tsukaeru, under attack, asks you</span>
                 <button type="button" class="ac-button small" :aria-pressed="asked" @click="toggleAsk">
                     Announce {{ TARGET }}/32 with 64500:666:0
                 </button>
@@ -239,11 +246,13 @@ const meter = (load: number, capacity: number) => Math.min(100, (load / capacity
                     >{{ format(entry.load) }} of {{ UPSTREAM_CAPACITY }} Gbit/s{{ entry.load > UPSTREAM_CAPACITY ? ", full" : "" }}</span
                 >
             </div>
-            <div class="meter" :class="{ full: argonLoad > ARGON_CAPACITY }">
-                <span class="name">Argon's link</span>
-                <span class="bar"><span :style="{ width: `${meter(argonLoad, ARGON_CAPACITY)}%` }" /></span>
+            <div class="meter" :class="{ full: tsukaeruLoad > TSUKAERU_CAPACITY }">
+                <span class="name">Tsukaeru's link</span>
+                <span class="bar"><span :style="{ width: `${meter(tsukaeruLoad, TSUKAERU_CAPACITY)}%` }" /></span>
                 <span class="value"
-                    >{{ format(argonLoad) }} of {{ ARGON_CAPACITY }} Gbit/s{{ argonLoad > ARGON_CAPACITY ? ", full" : "" }}</span
+                    >{{ format(tsukaeruLoad) }} of {{ TSUKAERU_CAPACITY }} Gbit/s{{
+                        tsukaeruLoad > TSUKAERU_CAPACITY ? ", full" : ""
+                    }}</span
                 >
             </div>
         </div>

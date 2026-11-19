@@ -25,7 +25,7 @@ Every change follows the same steps, whatever its size:
 
 <TryIt title="Walk one change through">
 
-Argon, a tenant of the [colocation example](/guide/examples#colocation-with-tenants), asks for a port for a third server.
+Tsukaeru, a tenant of the [colocation example](/guide/examples#colocation-with-tenants), asks for a port for a third server.
 
 <ChangeWalk />
 

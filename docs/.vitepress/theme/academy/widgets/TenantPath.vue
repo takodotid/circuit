@@ -10,9 +10,9 @@ const places: Place[] = [
     { id: "internet", kind: "cloud", label: "The internet", note: "via the transit", x: 90, y: 70 },
     { id: "edge", kind: "router", label: "edge-01", note: "every gateway", x: 350, y: 70 },
     { id: "tor", kind: "switch", label: "tor-01", note: "", x: 350, y: 200 },
-    { id: "argon1", kind: "server", label: "Argon server 1", note: "198.51.100.10", x: 120, y: 320 },
-    { id: "argon2", kind: "server", label: "Argon server 2", note: "198.51.100.11", x: 350, y: 320 },
-    { id: "herza1", kind: "server", label: "Herza server 1", note: "198.51.100.18", x: 580, y: 320 },
+    { id: "tsukaeru1", kind: "server", label: "Tsukaeru server 1", note: "198.51.100.10", x: 120, y: 320 },
+    { id: "tsukaeru2", kind: "server", label: "Tsukaeru server 2", note: "198.51.100.11", x: 350, y: 320 },
+    { id: "kapsi1", kind: "server", label: "Kapsi server 1", note: "198.51.100.18", x: 580, y: 320 },
 ];
 
 const at = (id: string) => places.find((place) => place.id === id)!;
@@ -20,9 +20,9 @@ const at = (id: string) => places.find((place) => place.id === id)!;
 const cables = [
     { from: "internet", to: "edge", label: "25g-1" },
     { from: "edge", to: "tor", label: "trunk: 99, 1001, 1002" },
-    { from: "tor", to: "argon1", label: "1001, 2001" },
-    { from: "tor", to: "argon2", label: "1001, 2001" },
-    { from: "tor", to: "herza1", label: "1002, 2002" },
+    { from: "tor", to: "tsukaeru1", label: "1001, 2001" },
+    { from: "tor", to: "tsukaeru2", label: "1001, 2001" },
+    { from: "tor", to: "kapsi1", label: "1002, 2002" },
 ];
 
 type Trip = { id: string; label: string; path: string[]; delivered: boolean; text: string };
@@ -30,31 +30,31 @@ type Trip = { id: string; label: string; path: string[]; delivered: boolean; tex
 const trips: Trip[] = [
     {
         id: "in",
-        label: "The internet to Argon server 1",
-        path: ["internet", "edge", "tor", "argon1"],
+        label: "The internet to Tsukaeru server 1",
+        path: ["internet", "edge", "tor", "tsukaeru1"],
         delivered: true,
-        text: "It arrives from the transit, and the edge ACL checks its source. 198.51.100.10 is inside 198.51.100.8/29, the block of Argon, whose gateway is on argon-internet. So the router sends it down the trunk tagged 1001, and tor-01 passes it out of 10g-1, still tagged 1001.",
+        text: "It arrives from the transit, and the edge ACL checks its source. 198.51.100.10 is inside 198.51.100.8/29, the block of Tsukaeru, whose gateway is on tsukaeru-internet. So the router sends it down the trunk tagged 1001, and tor-01 passes it out of 10g-1, still tagged 1001.",
     },
     {
         id: "private",
-        label: "Argon server 1 to Argon server 2, privately",
-        path: ["argon1", "tor", "argon2"],
+        label: "Tsukaeru server 1 to Tsukaeru server 2, privately",
+        path: ["tsukaeru1", "tor", "tsukaeru2"],
         delivered: true,
-        text: "Tagged 2001, argon-private. tor-01 switches it straight to 10g-2. VLAN 2001 is not on the trunk, so it never reaches the router, and never mixes with the internet traffic of Argon.",
+        text: "Tagged 2001, tsukaeru-private. tor-01 switches it straight to 10g-2. VLAN 2001 is not on the trunk, so it never reaches the router, and never mixes with the internet traffic of Tsukaeru.",
     },
     {
         id: "across",
-        label: "Argon server 1 to Herza server 1",
-        path: ["argon1", "tor", "edge", "tor", "herza1"],
+        label: "Tsukaeru server 1 to Kapsi server 1",
+        path: ["tsukaeru1", "tor", "edge", "tor", "kapsi1"],
         delivered: true,
-        text: "Two different public networks, so it goes up to the gateway of Argon on the router. It is routed onto herza-internet, VLAN 1002, and comes back down the same trunk. To each tenant, the other is just another address on the internet.",
+        text: "Two different public networks, so it goes up to the gateway of Tsukaeru on the router. It is routed onto kapsi-internet, VLAN 1002, and comes back down the same trunk. To each tenant, the other is just another address on the internet.",
     },
     {
         id: "sneak",
-        label: "Argon server 1 into the private network of Herza",
-        path: ["argon1", "tor"],
+        label: "Tsukaeru server 1 into the private network of Kapsi",
+        path: ["tsukaeru1", "tor"],
         delivered: false,
-        text: "There is no way in. VLAN 2002 is only on the port of Herza, and the router has no address on it. So nothing Argon sends can be switched or routed into it.",
+        text: "There is no way in. VLAN 2002 is only on the port of Kapsi, and the router has no address on it. So nothing Tsukaeru sends can be switched or routed into it.",
     },
 ];
 
@@ -86,7 +86,7 @@ async function send(trip: Trip) {
             class="ac-drawing"
             viewBox="0 0 700 380"
             role="img"
-            aria-label="The internet joined to edge-01, edge-01 joined by a trunk to the switch tor-01, and three tenant servers on the switch: Argon server 1, Argon server 2, and Herza server 1."
+            aria-label="The internet joined to edge-01, edge-01 joined by a trunk to the switch tor-01, and three tenant servers on the switch: Tsukaeru server 1, Tsukaeru server 2, and Kapsi server 1."
         >
             <g v-for="cable in cables" :key="cable.from + cable.to">
                 <line

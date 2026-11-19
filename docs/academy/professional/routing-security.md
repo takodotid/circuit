@@ -127,16 +127,16 @@ routing: {
     ],
     // bgp: as before, with role and max_prefixes on every neighbor
     prefix_sets: {
-        // Argon's space, checked against its route objects and ROAs before it is written here.
-        "argon-v4": { prefixes: ["192.0.2.0/24"] },
-        "argon-v6": { prefixes: ["2001:db8:200::/48"] },
+        // Tsukaeru's space, checked against its route objects and ROAs before it is written here.
+        "tsukaeru-v4": { prefixes: ["192.0.2.0/24"] },
+        "tsukaeru-v6": { prefixes: ["2001:db8:200::/48"] },
     },
     policies: {
         sanity: presets.bgp_sanity,
-        "argon-import": [
+        "tsukaeru-import": [
             { call: "sanity" },
-            { description: "Their IPv4", if: { prefix_set: "argon-v4" }, then: "accept" },
-            { description: "Their IPv6", if: { prefix_set: "argon-v6" }, then: "accept" },
+            { description: "Their IPv4", if: { prefix_set: "tsukaeru-v4" }, then: "accept" },
+            { description: "Their IPv6", if: { prefix_set: "tsukaeru-v6" }, then: "accept" },
             { description: "Nothing else", then: "reject" },
         ],
     },

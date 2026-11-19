@@ -57,8 +57,8 @@ The companies and AS numbers named as customers in the docs and examples are rea
 
 | Network                       | AS       | Country     |
 | ----------------------------- | -------- | ----------- |
-| Argon Data Communication      | AS58477  | Indonesia   |
-| PT Herza Digital Indonesia    | AS140443 | Indonesia   |
+| Tsukaeru.net                  | AS63997  | Japan       |
+| Kapsi Internet                | AS57692  | Finland     |
 | PLINQ BV                      | AS35224  | Netherlands |
 | Nedap N.V.                    | AS213050 | Netherlands |
 | MediaServe International B.V. | AS41529  | Netherlands |

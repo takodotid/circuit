@@ -68,11 +68,11 @@ The AS path does three jobs at once:
 />
 
 <Quiz
-  question="Argon, AS58477, is your customer and announces its prefix to you. You pass it on to Hurricane Electric, AS6939, which passes it on to Cloudflare, AS13335. What AS path does Cloudflare see?"
-  :choices="['64500 58477', '6939 64500 58477', '64500 58477 6939']"
+  question="Tsukaeru, AS63997, is your customer and announces its prefix to you. You pass it on to Hurricane Electric, AS6939, which passes it on to Cloudflare, AS13335. What AS path does Cloudflare see?"
+  :choices="['64500 63997', '6939 64500 63997', '64500 63997 6939']"
   :answer="1"
-  :why="['Hurricane Electric adds its own number before it passes the route to another AS.', '', 'The new number goes at the front, not the end. The end stays the origin, AS58477.']"
-  explain="Each AS puts its own number at the front as it passes a route on, so the nearest AS is first. The origin, AS58477, stays last."
+  :why="['Hurricane Electric adds its own number before it passes the route to another AS.', '', 'The new number goes at the front, not the end. The end stays the origin, AS63997.']"
+  explain="Each AS puts its own number at the front as it passes a route on, so the nearest AS is first. The origin, AS63997, stays last."
 />
 
 ## eBGP and iBGP

@@ -79,7 +79,7 @@ These decisions are binding. A change to one is a new decision with the next num
 - **16.** No unclear globals in a file. Everything is written in its device first; what to share is decided after.
 - **46.** A device writes its own VLANs. Circuit takes nothing from a site: in `circuit()`, a site is only its name, number, and description.
 - **47.** A device takes a VLAN whole from its site file. Facts a site's devices share are named in its site file. A linked port is described `<far device> <far port>`. Defaults are not written: no `routing_table: "main"`, no `distance: 1`, no BGP `asn`.
-- **60.** Tenants merge whole, `merge([argon, herza])`, one name per tenant.
+- **60.** Tenants merge whole, `merge([tsukaeru, kapsi])`, one name per tenant.
 - **61.** A tenant's secrets are written in its data, never built from its name.
 - **67.** A tenant's addresses, VLAN IDs, and ports are written by hand per tenant, never derived from a number.
 - **68.** A tenant's names (VLANs, interfaces, sets, DHCP server) are written by hand in its data, so a text search finds them.

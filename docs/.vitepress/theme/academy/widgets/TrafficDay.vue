@@ -86,16 +86,16 @@ const flows = computed(() => {
     const sample = cursor.value;
     const normal = ordinary(sample);
     const rows = [
-        { to: "198.51.100.10", who: "Argon server 1", protocol: "TCP", from: "many", gbit: normal * 0.42 },
-        { to: "198.51.100.11", who: "Argon server 2", protocol: "TCP", from: "many", gbit: normal * 0.27 },
-        { to: "198.51.100.18", who: "Herza server 1", protocol: "TCP", from: "many", gbit: normal * 0.19 },
+        { to: "198.51.100.10", who: "Tsukaeru server 1", protocol: "TCP", from: "many", gbit: normal * 0.42 },
+        { to: "198.51.100.11", who: "Tsukaeru server 2", protocol: "TCP", from: "many", gbit: normal * 0.27 },
+        { to: "198.51.100.18", who: "Kapsi server 1", protocol: "TCP", from: "many", gbit: normal * 0.19 },
         { to: "other addresses", who: "", protocol: "mixed", from: "many", gbit: normal * 0.12 },
     ];
 
     if (isFlood(sample)) {
         rows.unshift({
             to: "198.51.100.10",
-            who: "Argon server 1",
+            who: "Tsukaeru server 1",
             protocol: "UDP",
             from: "about 30,000 addresses",
             gbit: flood(sample),
