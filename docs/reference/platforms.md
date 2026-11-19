@@ -78,7 +78,8 @@ A note in a cell means "works, with this limit".
 | BGP in a VRF                 | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
 | Routes taken between VRFs    | ✅ not with main        | ❌         | ❌                       | 🧪                    | ❌               |
 | Policy routing, more tables  | ✅                      | ❌ not yet | ❌ not yet               | ❌ not yet            | ❌ not yet       |
-| OSPF                         | ✅                      | IPv4       | IPv4                     | outside VRFs          | outside VRFs     |
+| OSPF                         | ✅                      | IPv4       | IPv4                     | ✅                    | ✅               |
+| OSPF in a VRF                | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
 | OSPF stub and NSSA areas     | ✅                      | 🧪         | ❌                       | ✅                    | ✅               |
 | OSPF hello and dead timers   | ✅                      | 🧪         | ❌                       | ✅                    | ✅               |
 | OSPF authentication          | ✅                      | 🧪         | ❌                       | MD5                   | MD5              |

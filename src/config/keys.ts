@@ -353,6 +353,7 @@ export const DEVICE = {
         },
         ospf: {
             address_families: 0,
+            vrf: 0,
             areas: {
                 "*": {
                     type: 0,

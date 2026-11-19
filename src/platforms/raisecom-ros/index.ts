@@ -269,6 +269,7 @@ export class RaisecomRos extends Platform {
             ["system.hardware_offload", device.system?.hardware_offload],
             ["system.certificates", device.system?.certificates],
             ["routing.vrfs", routing?.vrfs],
+            ["routing.ospf.vrf", routing?.ospf?.vrf],
             ["monitoring.flow_export", device.monitoring?.flow_export],
         ];
 
