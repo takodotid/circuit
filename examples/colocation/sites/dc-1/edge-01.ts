@@ -43,9 +43,17 @@ export default as64500.device({
                 link: { device: "tor-01", port: "40g-1" },
             },
             "100g-2": { description: "Routers of halls 2 and 3", addresses: ["10.0.1.1/29"] },
+            "25g-3": {
+                description: "tor-02 xe-0/0/47",
+                speed: "10g",
+                trunk_vlans: ["mgmt", "shared"],
+                link: { device: "tor-02", port: "10g-48" },
+            },
         },
         vlan_interface: {
             mgmt: { vlan: "mgmt", addresses: [dc_1.addresses.router_on_switches] },
+            // The gateway of the small tenants on tor-02, which hands them their addresses.
+            shared: { vlan: "shared", addresses: ["198.51.100.65/27", "2001:db8:100:2::1/64"], ipv6_ra: true },
             transit: { vlan: "transit", addresses: ["203.0.113.2/30"] },
             exchange: { vlan: "exchange", addresses: ["192.0.2.10/24", "2001:db8:ffff::10/64"] },
         },
@@ -53,6 +61,7 @@ export default as64500.device({
     switching: {
         vlans: {
             mgmt: dc_1.vlans.mgmt,
+            shared: dc_1.vlans.shared,
             transit: { id: 300, description: "IP transit from Hurricane Electric, AS6939" },
             exchange: { id: 200, description: "DE-CIX peering LAN" },
         },
@@ -66,6 +75,17 @@ export default as64500.device({
             ]),
         },
         // #endregion acls
+    },
+
+    services: {
+        dhcp_server: {
+            shared: {
+                interface: "shared",
+                network: "198.51.100.64/27",
+                gateway: "198.51.100.65",
+                pool: ["198.51.100.70", "198.51.100.94"],
+            },
+        },
     },
 
     routing: {
@@ -160,6 +180,7 @@ export default as64500.device({
                     { description: "Replies", if: { connection_state: ["established", "related"] }, then: "accept" },
                     { description: "Ping", if: { protocol: "icmp" }, then: "accept" },
                     { description: "Management", if: { src_address_set: "management" }, then: "accept" },
+                    { description: "DHCP", if: { in_interface: "shared", protocol: "udp", dst_port: 67 }, then: "accept" },
                     {
                         description: "BGP",
                         if: { src_address_set: "bgp-neighbors", protocol: "tcp", dst_port: presets.ports.bgp },
