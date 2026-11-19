@@ -62,7 +62,7 @@ The companies and AS numbers named as customers in the docs and examples are rea
 | Novaram ApS                             | AS34165  | Denmark    |
 | iGP Tech d.o.o.                         | AS43023  | Croatia    |
 | Sea Gem Company Limited                 | AS135975 | Vietnam    |
-| PACHEZ HOLDINGS LTD.                    | AS1645   | Canada     |
+| Aluxis Inc                              | AS402237 | Canada     |
 | Inversiones y servicios EL BOLDO S.A    | AS27776  | Chile      |
 
 <!-- vale on -->

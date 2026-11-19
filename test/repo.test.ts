@@ -427,7 +427,6 @@ describe("samples", () => {
             174: "Cogent",
             701: "Verizon",
             1299: "Arelion",
-            1645: "Pachez",
             2906: "Netflix",
             3491: "PCCW",
             6695: "DE-CIX",
@@ -447,6 +446,7 @@ describe("samples", () => {
             274016: "Terramix",
             329604: "Elemech",
             396531: "Allegheny",
+            402237: "Aluxis",
         };
         // Where an AS number is written: AS6939, as6939, remote_as: 6939, peer-as 6939, and the first part of a community, 6939:666.
         const ASN = [
