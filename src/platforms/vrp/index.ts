@@ -298,6 +298,7 @@ export class Vrp extends Platform {
         }
 
         if (monitoring.transceivers !== undefined) found.push("monitoring.transceivers");
+        found.push(...Derive.unbuiltMonitoring(device));
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));

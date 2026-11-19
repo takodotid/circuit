@@ -67,6 +67,19 @@ test("a rotated Junos community clears the device's communities first", () => {
     expect(sent).toEqual(["delete snmp community <redacted>", "set snmp community <secret:COMMUNITY> authorization read-only"]);
 });
 
+test("a Junos community the config no longer has is deleted through its redacted name", () => {
+    const adapter = Platforms.get("junos");
+    const desired = "set snmp location Amsterdam\n";
+    const current = `${desired}set snmp community <redacted> authorization read-only\n`;
+
+    const [step] = adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps;
+    expect(step).toEqual({
+        title: "snmp community",
+        show: ["- set snmp community <redacted> authorization read-only"],
+        send: ["delete snmp community <redacted>"],
+    });
+});
+
 test("a deactivated Junos statement the render wants is activated", () => {
     const adapter = Platforms.get("junos");
     const desired = "set protocols lldp interface all\n";

@@ -322,6 +322,7 @@ export class RaisecomRos extends Platform {
         found.push(...Derive.switchUnsupported(device, ["snmp"]));
         found.push(...Derive.untested(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
         found.push(...Derive.unbuilt(device));
+        found.push(...Derive.unbuiltMonitoring(device));
 
         return found;
     }

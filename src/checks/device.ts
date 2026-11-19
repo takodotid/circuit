@@ -94,7 +94,7 @@ export class DeviceChecks {
         DeviceChecks.routing(device, report, cidr, ip);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
-        DeviceChecks.services(device, report, cidr);
+        DeviceChecks.services(device, report, cidr, ip);
         DeviceChecks.certificates(device, report);
         DeviceChecks.vdoms(device, report, cidr, ip);
         DeviceChecks.users(device, report);
@@ -854,7 +854,7 @@ export class DeviceChecks {
         }
     }
 
-    private static services(device: Device, report: Report, cidr: Checker): void {
+    private static services(device: Device, report: Report, cidr: Checker, ip: Checker): void {
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
             const where = `services.dhcp_server.${name}`;
             cidr(where, server.network);
@@ -874,6 +874,24 @@ export class DeviceChecks {
 
         const snmp = device.monitoring?.snmp;
         if (snmp && !snmp.community && !snmp.users) report("monitoring.snmp is on with neither a community nor a user");
+
+        (snmp?.traps ?? []).forEach((target, index) => {
+            const where = `monitoring.snmp.traps[${index}]`;
+            ip(`${where}.address`, target.address);
+            if (Boolean(target.community) === Boolean(target.user))
+                report(`${where}: write community for version 2c, or user for version 3, not both or neither`);
+        });
+
+        const flow = device.monitoring?.flow_export;
+        for (const key of ["active_timeout", "idle_timeout"] as const) {
+            const seconds = flow?.[key];
+            if (seconds === undefined) continue;
+
+            const where = `monitoring.flow_export.${key}`;
+            if (!Number.isInteger(seconds) || seconds < 1) report(`${where} ${seconds}: write a whole number of seconds, from 1`);
+            if (flow?.protocol === "sflow")
+                report(`${where}: sFlow sends packet samples, not flows. Remove it, or export netflow-v9 or ipfix`);
+        }
     }
 
     private static certificates(device: Device, report: Report): void {
@@ -903,5 +921,13 @@ export class DeviceChecks {
                 report(`management.${service}.certificate ${name} has no private key to serve with`);
             }
         }
+
+        (device.monitoring?.syslog ?? []).forEach((collector, index) => {
+            const name = collector.transport_security?.ca_certificate;
+            if (name && certificates[name]?.private_key)
+                report(
+                    `monitoring.syslog[${index}].transport_security.ca_certificate ${name} has a private key: name the CA's certificate alone, which the device only trusts`
+                );
+        });
     }
 }

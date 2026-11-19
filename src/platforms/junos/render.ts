@@ -20,6 +20,7 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { JunosBgp } from "./bgp";
 import { JunosNames } from "./names";
+import { JunosMonitoring } from "./monitoring";
 import { JunosStatements } from "./statements";
 
 type Switched = Port | Lag;
@@ -38,12 +39,6 @@ export class JunosRender {
         "ecdsa-sha2-nistp384": "ssh-ecdsa",
         "ecdsa-sha2-nistp521": "ssh-ecdsa",
     };
-
-    private static readonly SNMP_AUTH = { sha1: "authentication-sha", sha256: "authentication-sha256" } as const;
-    private static readonly SNMP_PRIVACY = { aes128: "privacy-aes128", des: "privacy-des" } as const;
-
-    /** The SNMPv3 group every user joins, with read access to everything. */
-    private static readonly SNMP_GROUP = "circuit";
 
     /** The platform has no debug level, so debug is `any`, which takes everything. */
     private static readonly LEVEL: Record<Severity, string> = {
@@ -118,7 +113,7 @@ export class JunosRender {
         render.users();
         render.aaa();
         render.services();
-        render.snmp();
+        JunosMonitoring.snmp(render.out, device);
         render.vlans();
         render.ports();
         render.lags();
@@ -139,7 +134,7 @@ export class JunosRender {
         render.ethertypeFilters();
         render.boundFilters();
         JunosBgp.render(render.out, device);
-        render.sflow();
+        JunosMonitoring.sflow(render.out, device, render.names);
 
         return render.out.text();
     }
@@ -326,28 +321,6 @@ export class JunosRender {
     }
 
     /** SNMP version 2c with one read community, version 3 with users in one read-only group, or both. */
-    private snmp(): void {
-        const snmp = this.device.monitoring?.snmp;
-        if (!snmp) return;
-
-        if (snmp.contact) this.out.set("snmp contact", JunosStatements.quote(snmp.contact));
-        if (snmp.location) this.out.set("snmp location", JunosStatements.quote(snmp.location));
-        if (snmp.community) this.out.set("snmp community", Secrets.marker(snmp.community), "authorization read-only");
-
-        if (!snmp.users) return;
-
-        for (const [name, user] of Object.entries(snmp.users)) {
-            const usm = `snmp v3 usm local-engine user ${name}`;
-            this.out.set(usm, JunosRender.SNMP_AUTH[user.auth], "authentication-password", Secrets.marker(user.auth_password));
-            this.out.set(usm, JunosRender.SNMP_PRIVACY[user.privacy], "privacy-password", Secrets.marker(user.privacy_password));
-            this.out.set("snmp v3 vacm security-to-group security-model usm security-name", name, "group", JunosRender.SNMP_GROUP);
-        }
-
-        this.out.set("snmp view all oid .1 include");
-        this.out.set(
-            `snmp v3 vacm access group ${JunosRender.SNMP_GROUP} default-context-prefix security-model usm security-level privacy read-view all`
-        );
-    }
 
     private vlans(): void {
         for (const [name, vlan] of Object.entries(this.device.switching?.vlans ?? {})) {
@@ -860,28 +833,6 @@ export class JunosRender {
     }
 
     /** Every declared port is sampled unless `interfaces` lists some, and a LAG on its member ports. The agent is the management address. */
-    private sflow(): void {
-        const flow = this.device.monitoring?.flow_export;
-        if (flow?.protocol !== "sflow") return;
-
-        if (this.device.connection.host) this.out.set("protocols sflow agent-id", this.device.connection.host);
-        if (flow.sampling !== undefined) this.out.set("protocols sflow sample-rate ingress", flow.sampling);
-
-        for (const collector of flow.collectors) {
-            this.out.set("protocols sflow collector", collector.address);
-            if (collector.port !== undefined && collector.port !== 6343) {
-                this.out.set("protocols sflow collector", collector.address, "udp-port", collector.port);
-            }
-        }
-
-        const declared = Derive.ports(this.device).filter(([, settings]) => !settings.in_lag);
-        const observed = flow.interfaces ?? declared.map(([port]) => port);
-
-        for (const name of observed) {
-            for (const port of this.names.members(name))
-                if (!port.startsWith("em")) this.out.set("protocols sflow interfaces", `${port}.0`);
-        }
-    }
 
     /** A switched port takes a filter of the switching family, which matches IPv4 and IPv6 under `ip-version`. A routed port takes one filter per family. Each filter accepts what no rule matched. */
     private acls(): void {

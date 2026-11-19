@@ -90,10 +90,20 @@ export class FortiOs extends Platform {
         return FortiOsUnsupported.of(device);
     }
 
-    /** Not sent to a device yet: strict source checks, which change every interface of the VDOM. */
+    /**
+     * Not sent to a device yet: strict source checks, which change every interface of the VDOM, and NetFlow's timeouts, whose ranges only were tried. Syslog over TLS was sent, but no collector proved that the device checks its certificate.
+     */
     override experimental(device: Device): string[] {
         const check = FortiOsRender.sourceCheck(device);
-        return check.strict ? check.setting : [];
+        const found = check.strict ? [...check.setting] : [];
+
+        (device.monitoring?.syslog ?? []).forEach((collector, index) => {
+            if (collector.transport_security) found.push(`monitoring.syslog[${index}].transport_security`);
+        });
+        for (const key of ["active_timeout", "idle_timeout"] as const)
+            if (device.monitoring?.flow_export?.[key] !== undefined) found.push(`monitoring.flow_export.${key}`);
+
+        return found;
     }
 
     override render(device: Device): string {

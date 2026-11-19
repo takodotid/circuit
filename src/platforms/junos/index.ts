@@ -140,6 +140,24 @@ export class Junos extends Platform {
         if (management.ftp?.port) found.push("management.ftp.port");
         if (device.monitoring?.snmp?.port) found.push("monitoring.snmp.port");
 
+        // A trap group is named by its community and has one port.
+        const ports = new Map<string, number | undefined>();
+        (device.monitoring?.snmp?.traps ?? []).forEach((target, index) => {
+            if (!target.community) return;
+
+            const community = Secrets.referenceOf(target.community);
+            if (ports.has(community) && ports.get(community) !== target.port)
+                found.push(`monitoring.snmp.traps[${index}].port, unlike another receiver of its community: a trap group has one port`);
+            ports.set(community, target.port);
+        });
+
+        (device.monitoring?.syslog ?? []).forEach((collector, index) => {
+            if (collector.transport_security)
+                found.push(
+                    `monitoring.syslog[${index}].transport_security, which needs system.certificates: the platform loads a CA certificate with an operational command`
+                );
+        });
+
         const system = device.system ?? {};
 
         if (system.release_channel) found.push("system.release_channel");
@@ -296,6 +314,8 @@ export class Junos extends Platform {
         const flow = device.monitoring?.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
         if (flow?.protocol === "sflow" && flow.sampling === undefined) found.push("monitoring.flow_export.sampling, the platform samples");
+        for (const key of ["active_timeout", "idle_timeout"] as const)
+            if (flow?.[key] !== undefined) found.push(`monitoring.flow_export.${key}, the platform exports sFlow, which has no flows`);
 
         for (const name of flow?.interfaces ?? []) {
             if (names.members(name).some((port) => port.startsWith("em")))
@@ -491,12 +511,12 @@ export class Junos extends Platform {
         return { run: (command, timeout) => Ssh.exec(client, command, timeout), close: () => client.end() };
     }
 
-    /** The device prints a password as a hash, an SNMP key as a reversible cipher, and a community as itself. None leave the read. */
+    /** The device prints a password as a hash, an SNMP key as a reversible cipher, and a community and a trap group, named by their community, as themselves. None leave the read. */
     private static scrub(text: string): string {
         return text
             .replace(/ ## SECRET-DATA$/gm, "")
             .replace(/((?:encrypted-password|authentication-key|privacy-key) )(?:"[^"]*"|\S+)/g, "$1<redacted>")
-            .replace(/^(set snmp community )(?:"[^"]*"|\S+)/gm, "$1<redacted>")
+            .replace(/^(set snmp (?:community|trap-group) )(?:"[^"]*"|\S+)/gm, "$1<redacted>")
             .replace(/"\$\d\$[^"]*"/g, "<redacted>");
     }
 

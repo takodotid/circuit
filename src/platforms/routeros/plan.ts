@@ -62,6 +62,8 @@ export class RouterOsPlan {
         "/ipv6",
         "/routing",
         "/interface ethernet switch",
+        // `/snmp` names a community to send traps with, so it exists first.
+        "/snmp community",
         "/snmp",
         "/tool",
         "/radius",
@@ -287,6 +289,8 @@ export class RouterOsPlan {
 
         for (const property of Object.keys(have)) {
             if (property in want) continue;
+            // A secret, such as a community named by its value, is compared only when secrets are sent.
+            if (RouterOsExport.isSecretMarker(wanted.attrs[property] ?? "")) continue;
 
             const clearedWith = RouterOsExport.CLEARED_WITH[wanted.menu]?.[property];
             if (clearedWith && !(clearedWith in want)) continue;

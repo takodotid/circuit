@@ -2,6 +2,7 @@ import { Address } from "../../core/address";
 import type { AclRule, Device, FilterRule, Gre, Lag, RadiusServer, VlanInterface, Vxlan } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
+import { Secrets } from "../../core/secrets";
 import { FortiOsFirewall } from "./firewall";
 import { FortiOsNames } from "./names";
 import { FortiOsRender } from "./render";
@@ -162,6 +163,19 @@ export class FortiOsUnsupported {
             if (user.auth === "sha256")
                 found.push(`monitoring.snmp.users.${name}.auth sha256, the platform authenticates with SHA1 or MD5`);
         }
+
+        // A community and a user each send their traps to one port.
+        const ports = new Map<string, number | undefined>();
+        (device.monitoring?.snmp?.traps ?? []).forEach((target, index) => {
+            const sender = target.user ?? (target.community && Secrets.referenceOf(target.community));
+            if (!sender) return;
+
+            if (ports.has(sender) && ports.get(sender) !== target.port)
+                found.push(
+                    `monitoring.snmp.traps[${index}].port, unlike another receiver of its community or user: each has one trap port`
+                );
+            ports.set(sender, target.port);
+        });
 
         for (const [name, user] of Object.entries(device.system?.users ?? {})) {
             if ((user?.ssh_keys?.length ?? 0) > FortiOsRender.SSH_KEYS)
@@ -568,6 +582,16 @@ export class FortiOsUnsupported {
         }
         if (flow?.protocol === "netflow-v9" && flow.sampling !== undefined)
             found.push("monitoring.flow_export.sampling, NetFlow here exports every flow");
+
+        const { active, inactive } = FortiOsRender.FLOW_TIMEOUTS;
+        const minutes = flow?.active_timeout;
+        if (minutes !== undefined && (minutes % active.min !== 0 || minutes < active.min || minutes > active.max))
+            found.push(
+                `monitoring.flow_export.active_timeout, from ${active.min} to ${active.max} seconds in whole minutes: the platform sets it in minutes`
+            );
+        const idle = flow?.idle_timeout;
+        if (idle !== undefined && (idle < inactive.min || idle > inactive.max))
+            found.push(`monitoring.flow_export.idle_timeout, from ${inactive.min} to ${inactive.max} seconds on the platform`);
         if (flow?.protocol === "sflow" && (flow.sampling === undefined || flow.sampling < 10 || flow.sampling > 99999)) {
             found.push("monitoring.flow_export.sampling, required and from 10 to 99999: the platform samples");
         }

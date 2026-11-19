@@ -30,6 +30,8 @@ Seen on a FortiGate 3700D running FortiOS 6.2.2, without a license.
 - A deny policy gets `logtraffic disable`, and its action is not printed, since deny is the default. `send-deny-packet` exists only while a policy denies, and is `command parse error` otherwise. So the render writes `action deny` before it. A plan unsets it before `action accept` and sets it after `action deny`.
 - `show` prints `unset` in two places: an ICMP service's `unset icmptype`, and a prefix list rule's `unset ge` and `unset le` for a bound it does not have.
 - An SNMPv3 user authenticates with MD5 or SHA1 only. Only a community has hosts, not a user. Circuit decides who reaches every service with local-in policies instead.
+- Under `log syslogd setting`, `set mode reliable` and `set enc-algorithm high` each set the port back to their own default, 514 and 6514, saying `Port changed to default (6514)`. So the render sets the port after them. `show` prints `port 6514` although it is the default with TLS. A collector that cannot be reached counts as `failed` in `diagnose test application miglogd 6`.
+- NetFlow's `active-flow-timeout` is in minutes, 1 to 60, and `inactive-flow-timeout` in seconds, 10 to 600.
 - The console ignores a user's trusted hosts.
 - A tunnel's interface takes an IPv4 address only as a host, with the far end in `remote-ip`. `set ip 10.0.0.1 255.255.255.252` on one is dropped without a word.
 - A GRE or VXLAN tunnel creates an interface of its own, named after it, which goes when the tunnel goes. VXLAN has no local address: it leaves from the address of the interface it points to.
