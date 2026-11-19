@@ -9,6 +9,8 @@ import { OnePassword } from "../core/one-password";
 import { SecretsFile } from "../core/secrets-file";
 import { SecretsPassword } from "./secrets-password";
 import { ProjectError, Project } from "../project";
+import { Derive } from "../core/derive";
+import type { Rate } from "../model";
 import { EditorTypes } from "./editor-types";
 import { Setup } from "./setup";
 import { Ui } from "./ui";
@@ -52,6 +54,10 @@ export class Migrate {
 
     /** The longest value `print` writes on one line, in characters. */
     private static readonly LINE_LENGTH = 100;
+
+    /** 0.x's burst for a rate on Junos, in seconds at the rate, and its least, in bytes. */
+    private static readonly BURST_SECONDS = 0.01;
+    private static readonly FULL_FRAME = 1500;
 
     /** A 0.x device in v1's groups and field names, every rule as `{ if, then }`. `certificate` gives the path where a certificate's text is kept. */
     static device(d: Json, site: string, certificate: (name: string, pem: string) => string): Json {
@@ -121,7 +127,12 @@ export class Migrate {
             management: Migrate.clean({ ...managementRest, native_protocol: native }),
             monitoring: Migrate.clean({ snmp, syslog: logging?.remote, flow_export, transceivers: transceiver_monitoring }),
             interfaces: Migrate.clean({ ethernet: Migrate.mapValues(ports, Migrate.routed), ...byType }),
-            switching: Migrate.clean({ vlans, stp, lldp, acls: Migrate.mapValues(acls, (rules) => rules.map(Migrate.aclRule)) }),
+            switching: Migrate.clean({
+                vlans,
+                stp,
+                lldp,
+                acls: Migrate.mapValues(acls, (rules) => rules.map((rule: Json) => Migrate.aclRule(rule, platform))),
+            }),
             services: Migrate.clean({ dhcp_server: dhcp, dhcp_relay, dns_server: dns?.serve, ntp_server: ntp?.serve }),
             routing: Migrate.clean({
                 ...routingRest,
@@ -194,8 +205,15 @@ export class Migrate {
         return Migrate.clean({ ...rest, if: Migrate.filterMatch(match), then: action, to_address: to });
     }
 
-    private static aclRule({ match, action, ...rest }: Json): Json {
+    /** 0.x gave a rate on Junos a burst of its own, which v1 writes out, so the device keeps it. */
+    private static aclRule({ match, action, ...rest }: Json, platform: string): Json {
+        if (rest.rate && platform === "junos") rest.rate = { cir: rest.rate, bc: Migrate.junosBurst(rest.rate) };
         return Migrate.clean({ ...rest, if: match, then: action });
+    }
+
+    /** 0.x's burst on Junos: 10 ms at the rate, and never less than one full frame. */
+    private static junosBurst(rate: Rate): number {
+        return Math.max(Migrate.FULL_FRAME, Math.round((Derive.bitsPerSecond(rate) * Migrate.BURST_SECONDS) / Derive.BITS_PER_BYTE));
     }
 
     private static policyRule(rule: Json): Json {

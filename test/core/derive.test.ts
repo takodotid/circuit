@@ -121,6 +121,27 @@ test("an aggregate the export accepts is sent, and summary_only holds back the p
     ]);
 });
 
+test("an address shares a network of its VRF, a peer address too, and is unknown beside a DHCP client", () => {
+    const base = router({}, {});
+    const device: Device = {
+        ...base,
+        interfaces: {
+            ethernet: {
+                "virtual-1": { addresses: [{ address: "192.0.2.1/32", peer_address: "192.0.2.9" }, "2001:db8::1/64"] },
+                "virtual-2": { dhcp_client: {}, vrf: "isp" },
+            },
+        },
+        routing: { ...base.routing, vrfs: { isp: {} } },
+    };
+
+    expect(Derive.sharesNetwork(device, "192.0.2.9", undefined)).toBe(true);
+    expect(Derive.sharesNetwork(device, "2001:db8::2", undefined)).toBe(true);
+    expect(Derive.sharesNetwork(device, "192.0.2.2", undefined)).toBe(false);
+    expect(Derive.sharesNetwork(device, "fe80::2%virtual-2", "isp")).toBe(true);
+    expect(Derive.sharesNetwork(device, "192.0.2.9", "isp")).toBeUndefined();
+    expect(Derive.sharesNetwork(device, "2001:db8::2", "isp")).toBe(false);
+});
+
 test("a pool gives each address the same number of subscribers, in address order, each with the next block of ports from 1024", () => {
     const addresses = Derive.poolAddresses({ if: { src: "100.64.0.0/22" }, then: "snat", to_pool: "198.51.100.0/27", port_set_size: 2016 });
 

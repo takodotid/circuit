@@ -9,6 +9,8 @@ import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
 import { IsisChecks } from "./isis";
+import { RateLimitChecks } from "./rate-limit";
+import { MplsChecks } from "./mpls";
 import { NatChecks } from "./nat";
 import { ServicesChecks } from "./services";
 
@@ -101,8 +103,10 @@ export class DeviceChecks {
         DeviceChecks.addresses(device, report, cidr, ip);
         DeviceChecks.ports(device, report);
         DeviceChecks.interfaces(device, report, ip);
+        RateLimitChecks.check(device, report);
         DeviceChecks.routing(device, report, cidr, ip);
         IsisChecks.check(device, report);
+        MplsChecks.check(device, report);
         NatChecks.check(device, report);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
@@ -123,21 +127,7 @@ export class DeviceChecks {
         const servers = aaa.tacacs ?? aaa.radius ?? [];
         if (!servers.length) report("system.aaa has no server: write tacacs or radius, with at least one server");
 
-        const seen = new Set<string>();
-        servers.forEach((server, index) => {
-            const where = `system.aaa.${kind}[${index}]`;
-            ip(`${where}.address`, server.address);
-            if (server.source_address !== undefined) ip(`${where}.source_address`, server.source_address);
-            if (!Address.isValid(server.address)) return;
-
-            const address = Address.canonical(server.address);
-            if (seen.has(address)) report(`${where}: ${server.address} is listed twice`);
-            seen.add(address);
-
-            const source = server.source_address;
-            if (source && Address.isValid(source) && Address.family(source) !== Address.family(server.address))
-                report(`${where}.source_address ${source} and address ${server.address} differ in family`);
-        });
+        ServicesChecks.servers(`system.aaa.${kind}`, servers, report, ip);
     }
 
     /** Each SSH key is one public key line whose key reads back, never a private key. */
@@ -641,6 +631,14 @@ export class DeviceChecks {
             const client = neighbor.route_reflector_client ?? group?.route_reflector_client;
             const ownReflection = neighbor.route_reflector_client !== undefined || neighbor.remote_as !== undefined;
             if (client && external(remoteAs) && ownReflection) reflectedToExternal(where, remoteAs);
+
+            // In a confederation, a neighbor in another member AS is a special case on Junos, so only an AS outside it is checked.
+            const vrf = neighbor.vrf ?? group?.vrf;
+            const outside = external(remoteAs) && !bgp?.confederation?.member_as.includes(remoteAs!);
+            if (outside && !(neighbor.multihop ?? group?.multihop) && Derive.sharesNetwork(device, neighbor.address, vrf) === false)
+                report(
+                    `${where}: ${neighbor.address} is on no network of this device${vrf ? ` in VRF ${vrf}` : ""}, so an eBGP session to it never comes up. ${(neighbor.ttl_security ?? group?.ttl_security) ? "Fix the address: ttl_security takes a directly connected neighbor only" : `Write multihop: true if AS${remoteAs} is more than one hop away, or fix the address`}`
+                );
 
             const role = neighbor.role ?? group?.role;
             if (remoteAs !== undefined && !external(remoteAs) && role)

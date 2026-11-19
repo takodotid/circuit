@@ -530,6 +530,11 @@ export class Project {
         for (const group of ["dhcp_server", "dhcpv6_server", "dhcp_relay"])
             for (const [s, x] of Object.entries<Json>(d.services?.[group] ?? {}))
                 need("interface", x.interface, `services.${group}.${s}.interface`, writtenAt(d.services[group], s, [group, s]));
+        for (const [s, x] of Object.entries<Json>(d.services?.pppoe_server ?? {})) {
+            const written = writtenAt(d.services.pppoe_server, s, ["pppoe_server", s]);
+            need("interface", x.interfaces, `services.pppoe_server.${s}.interfaces`, written);
+            (x.radius ?? []).forEach((r: Json, n: number) => need("VRF", r.vrf, `services.pppoe_server.${s}.radius[${n}].vrf`, written));
+        }
         need("interface", d.services?.upnp?.internal, "services.upnp.internal");
         need("interface", d.services?.upnp?.external, "services.upnp.external");
 
@@ -572,6 +577,7 @@ export class Project {
         for (const [a, area] of Object.entries<Json>(d.routing?.ospf?.areas ?? {}))
             need("interface", Project.keys(area.interfaces), `routing.ospf.areas.${a}.interfaces`);
         need("interface", Project.keys(d.routing?.isis?.interfaces), "routing.isis.interfaces");
+        need("interface", d.routing?.mpls?.ldp?.interfaces, "routing.mpls.ldp.interfaces");
 
         for (const [s, members] of Object.entries<Json>(d.firewall?.interface_sets ?? {}))
             need("interface", members, `firewall.interface_sets.${s}`, writtenAt(d.firewall.interface_sets, s, ["interface_sets", s]));

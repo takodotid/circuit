@@ -8,10 +8,10 @@ import type {
     Family,
     Interface,
     Lag,
+    Limit,
     Port,
     Ports,
     RadiusServer,
-    Rate,
     Routed,
     Severity,
     Vrrp,
@@ -20,6 +20,7 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { JunosBgp } from "./bgp";
 import { JunosIsis } from "./isis";
+import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosMonitoring } from "./monitoring";
 import { JunosStatements } from "./statements";
@@ -56,6 +57,14 @@ export class JunosRender {
 
     /** Who reaches the device's own services, one filter per family. A filter's name is unique across families. */
     private static readonly SERVICES_FILTER = { inet: "circuit-services", inet6: "circuit-services-v6" } as const;
+
+    /** The units the device prints a rate or a burst in, largest first, while the number left is below `AMOUNT_UNIT_BELOW`. */
+    private static readonly AMOUNT_UNITS: readonly (readonly [string, number])[] = [
+        ["g", 1e9],
+        ["m", 1e6],
+        ["k", 1e3],
+    ];
+    private static readonly AMOUNT_UNIT_BELOW = 1000;
 
     private static readonly OSPF_EXPORT = "circuit-ospf-redistribute";
 
@@ -134,6 +143,7 @@ export class JunosRender {
         render.lldp();
         render.ospf();
         JunosIsis.render(render.out, device, render.names);
+        JunosMpls.render(render.out, device, render.names);
         render.dhcpRelay();
         render.dhcpServers();
         render.dhcpv6Servers();
@@ -141,6 +151,7 @@ export class JunosRender {
         render.acls();
         render.ethertypeFilters();
         render.boundFilters();
+        render.rateLimits();
         JunosBgp.render(render.out, device);
         JunosMonitoring.sflow(render.out, device, render.names);
 
@@ -171,15 +182,46 @@ export class JunosRender {
         return mtu + (switched ? 18 : 14);
     }
 
-    /** `2g`, a rate as a policer takes it. */
-    private static bandwidth(rate: Rate): string {
-        return rate.toLowerCase();
+    /** A rate in bits per second, or a burst in bytes, as the device prints it. A unit is used only when it leaves a whole number below 1000: `250k`, but `1500000000` for 1500m (TRAPS.md). */
+    private static amount(value: number): string {
+        const [unit, scale] = JunosRender.AMOUNT_UNITS.find(([, each]) => value % each === 0) ?? ["", 1];
+        return value / scale < JunosRender.AMOUNT_UNIT_BELOW ? `${value / scale}${unit}` : String(value);
     }
 
-    /** Bytes a policer lets through at once: 10 ms at its rate, and never less than one full frame. */
-    private static burstOf(rate: Rate): number {
-        const scale = { k: 1e3, m: 1e6, g: 1e9 }[rate.slice(-1).toLowerCase() as "k" | "m" | "g"];
-        return Math.max(1500, Math.round((Number(rate.slice(0, -1)) * scale) / 800));
+    /** A policer that drops what passes above a rate. `unsupported()` refuses a rate without a burst, which the platform needs. */
+    private policer(name: string, limit: Limit): void {
+        const { rate, burst } = Derive.limit(limit);
+        this.out.set(`firewall policer ${name} if-exceeding bandwidth-limit`, JunosRender.amount(Derive.bitsPerSecond(rate)));
+        if (burst !== undefined) this.out.set(`firewall policer ${name} if-exceeding burst-size-limit`, JunosRender.amount(burst));
+        this.out.set(`firewall policer ${name} then discard`);
+    }
+
+    /** A port's or a LAG's rate limit, named after it: `circuit-rate-limit-xe-0-0-1`. A filter and its policer have one name. */
+    private static rateLimitName(physical: string): string {
+        return `circuit-rate-limit-${physical.replaceAll("/", "-")}`;
+    }
+
+    /** What arrives on a switched port or LAG passes a policer, in a filter of the switching family. What leaves a port is shaped. `unsupported()` refuses the rest. */
+    private rateLimits(): void {
+        for (const { name, kind, rateLimit } of Derive.rateLimited(this.device)) {
+            if (kind === "vlan_interface") continue;
+            const physical = this.names.physical(name);
+
+            if (rateLimit.input) {
+                const limiter = JunosRender.rateLimitName(physical);
+                const term = `firewall family ethernet-switching filter ${limiter} term limit`;
+                this.policer(limiter, rateLimit.input);
+                this.out.set(term, "then policer", limiter);
+                this.out.set(term, "then accept");
+                this.out.set(`interfaces ${physical} unit 0 family ethernet-switching filter input`, limiter);
+            }
+
+            if (rateLimit.output)
+                this.out.set(
+                    `class-of-service interfaces ${physical} shaping-rate`,
+                    JunosRender.amount(Derive.bitsPerSecond(Derive.limit(rateLimit.output).rate))
+                );
+        }
     }
 
     /** Each port or range as the platform writes it: `53`, `1000-2000`. */
@@ -803,9 +845,7 @@ export class JunosRender {
         }
 
         if (rule.rate) {
-            this.out.set(`firewall policer ${policer} if-exceeding bandwidth-limit`, JunosRender.bandwidth(rule.rate));
-            this.out.set(`firewall policer ${policer} if-exceeding burst-size-limit`, JunosRender.burstOf(rule.rate));
-            this.out.set(`firewall policer ${policer} then discard`);
+            this.policer(policer, rule.rate);
             this.out.set(term, "then policer", policer);
         }
 

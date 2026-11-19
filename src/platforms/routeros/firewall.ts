@@ -332,7 +332,7 @@ export class RouterOsFirewall {
                 "new-dst-ports": rule.then === "drop" ? "" : undefined,
                 ports: this.render.name(port),
                 protocol: match.protocol,
-                rate: rule.rate && RouterOsFirewall.bitrate(rule.rate),
+                rate: rule.rate && RouterOsFirewall.bitrate(Derive.limit(rule.rate).rate),
                 [ipv6 ? "src-address6" : "src-address"]: address(src),
                 "src-port": srcPort,
                 switch: "switch1",

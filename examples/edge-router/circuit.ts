@@ -13,7 +13,10 @@ export const as64500 = circuit({
         learned_from_as: { code: 3 },
     },
     sites: {
-        "pop-1": { description: "The point of presence: one router with an IP transit and an internet exchange." },
+        "pop-1": {
+            description:
+                "The point of presence: a router with an IP transit and an internet exchange, and a broadband gateway for the homes nearby.",
+        },
         "pop-2": {
             description: "A second point of presence: one router at another internet exchange, with a transit customer and a few servers.",
         },

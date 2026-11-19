@@ -4,7 +4,7 @@ import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { Device, Lag, Port, Routed } from "../../model";
+import type { Device, Lag, Port, Rate, Routed } from "../../model";
 import { ConsoleShell, SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
@@ -14,6 +14,7 @@ import type { TestedFeature } from "../../core/derive";
 import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession } from "../platform";
 import { JunosBgp } from "./bgp";
+import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosPlan } from "./plan";
 import { JunosRender } from "./render";
@@ -32,6 +33,9 @@ export class Junos extends Platform {
         logout: "exit",
         others: [[/# $/, "exit configuration-mode\n"]],
     };
+
+    /** The burst a refusal suggests for a policer, in seconds at its rate. */
+    private static readonly SUGGESTED_BURST_SECONDS = 0.01;
 
     private static readonly SUPPORTED_MAJOR = 21;
     /** The first 21.x that has `as-path-neighbors`, `as-path-origins`, and `as-path-transits`, which route policies use. */
@@ -105,6 +109,8 @@ export class Junos extends Platform {
         for (const group of ["dhcp_server", "dhcpv6_server"] as const)
             for (const [name, server] of Object.entries(device.services?.[group] ?? {}))
                 if (Derive.settings(device, server.interface)?.vrf) found.push(`services.${group}.${name}.interface`);
+        // A port's policer passed `commit check`. A LAG's was not tried.
+        for (const { where, kind } of Derive.rateLimited(device)) if (kind === "lag") found.push(`${where}.rate_limit`);
         return found;
     }
 
@@ -118,6 +124,7 @@ export class Junos extends Platform {
                 found.push(`interfaces.vlan_interface.${name}.mac, which only RouterOS sets for now`);
         }
         found.push(...JunosSwitching.gaps(device));
+        found.push(...JunosMpls.unsupported(device));
         const names = new JunosNames(device);
         const users = device.system?.users ?? {};
 
@@ -338,6 +345,8 @@ export class Junos extends Platform {
         for (const [name, relay] of Object.entries(services.dhcp_relay ?? {})) {
             if (relay.servers.some((server) => Address.family(server) === "ipv6")) found.push(`services.dhcp_relay.${name}.servers, IPv6`);
         }
+        if (services.pppoe_server)
+            found.push("services.pppoe_server, Junos serves PPPoE subscribers on MX routers only, which Circuit does not support");
 
         const flow = device.monitoring?.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
@@ -361,9 +370,54 @@ export class Junos extends Platform {
         }
 
         found.push(...Derive.untested(device, Junos.TESTED));
-        found.push(...Derive.unbuilt(device, ["urpf", "vrf-imports"]));
+        found.push(...Derive.unbuilt(device, ["urpf", "vrf-imports", "rate-limit"]));
+        found.push(...Junos.rateLimitGaps(device));
 
         return found;
+    }
+
+    /**
+     * A policer needs a burst. What arrives is policed in the switching family's input filter, which a port has one of. What leaves is shaped on a port: on a LAG the QFX shapes each member to the rate, and a VLAN interface has no shaper (Juniper's QFX port shaping page).
+     */
+    private static rateLimitGaps(device: Device): string[] {
+        const found: string[] = [];
+
+        for (const { where, kind, name, rateLimit } of Derive.rateLimited(device)) {
+            const settings = kind === "lag" ? device.interfaces?.lag?.[name] : device.interfaces?.ethernet?.[name];
+            const input = rateLimit.input && Derive.limit(rateLimit.input);
+
+            if (input) {
+                if (kind === "vlan_interface") found.push(`${where}.rate_limit.input, on a VLAN interface, which is not built yet`);
+                else if (!settings?.access_vlan && !settings?.trunk_vlans)
+                    found.push(`${where}.rate_limit.input, on a port or LAG that switches no VLAN, which is not built yet`);
+
+                const port = kind === "ethernet" ? device.interfaces?.ethernet?.[name] : undefined;
+                if (port?.ingress_acl) found.push(`${where}.rate_limit.input with an ingress_acl, the port takes one filter`);
+                if (settings?.ethertypes) found.push(`${where}.rate_limit.input with ethertypes, the port takes one filter`);
+                if (settings?.bound_to) found.push(`${where}.rate_limit.input with bound_to, the port takes one filter`);
+                if (input.burst === undefined) found.push(Junos.noBurst(`${where}.rate_limit.input`, input.rate));
+            }
+
+            if (rateLimit.output && Derive.limit(rateLimit.output).burst !== undefined)
+                found.push(`${where}.rate_limit.output.bc, the platform's port shaper takes no burst: write the rate alone`);
+            if (rateLimit.output && kind === "lag")
+                found.push(`${where}.rate_limit.output, on a LAG the platform shapes each member to the rate`);
+            if (rateLimit.output && kind === "vlan_interface") found.push(`${where}.rate_limit.output, the platform shapes ports only`);
+        }
+
+        for (const [name, rules] of Object.entries(device.switching?.acls ?? {}))
+            (rules ?? []).forEach((rule, index) => {
+                const limit = rule.rate && Derive.limit(rule.rate);
+                if (limit && limit.burst === undefined) found.push(Junos.noBurst(`switching.acls.${name}[${index}].rate`, limit.rate));
+            });
+
+        return found;
+    }
+
+    /** A rate without the burst a policer needs, with a burst to write: 10 ms at the rate. */
+    private static noBurst(where: string, rate: Rate): string {
+        const burst = (Derive.bitsPerSecond(rate) * Junos.SUGGESTED_BURST_SECONDS) / Derive.BITS_PER_BYTE;
+        return `${where} without bc, the platform's policer needs a burst: write { cir: "${rate}", bc: ${burst} }, 10 ms at the rate, or a burst of your own`;
     }
 
     override render(device: Device): string {
