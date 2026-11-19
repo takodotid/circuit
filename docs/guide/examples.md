@@ -1,5 +1,5 @@
 ---
-description: Four whole projects to copy from, tested on every change to Circuit.
+description: Five whole projects to copy from, tested on every change to Circuit.
 ---
 
 # Example projects
@@ -35,6 +35,20 @@ Your own AS with two routers. The first has IP transit from Hurricane Electric, 
 <<< @/../examples/edge-router/sites/pop-1/edge-01.ts
 
 <<< @/../examples/edge-router/sites/pop-2/edge-02.ts
+
+:::
+
+## A backbone in two regions
+
+Your AS in two regions, each a member AS of a BGP confederation with its own iBGP. The core routers, one on Junos and one on FortiOS, run eBGP between the regions, and transit providers see only your AS.
+
+::: code-group
+
+<<< @/../examples/backbone/circuit.ts
+
+<<< @/../examples/backbone/sites/north/core-01.ts
+
+<<< @/../examples/backbone/sites/south/core-02.ts
 
 :::
 

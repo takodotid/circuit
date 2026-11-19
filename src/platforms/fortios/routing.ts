@@ -385,6 +385,9 @@ export class FortiOsRouting {
         if (bgp.asn !== undefined) block.set("as", bgp.asn);
         if (device.routing?.router_id) block.set("router-id", device.routing.router_id);
         if (bgp.cluster_id) block.set("cluster-id", bgp.cluster_id);
+        if (bgp.confederation) block.set("confederation-identifier", bgp.confederation.identifier);
+        if (bgp.confederation?.member_as.length)
+            block.set("confederation-peers", FortiOsTree.quoteAll(bgp.confederation.member_as.map(String)));
 
         // Each neighbor asks for it, and the device as a whole keeps forwarding while BGP restarts.
         const graceful = Object.values(bgp.neighbors ?? {}).some(

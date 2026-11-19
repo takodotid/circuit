@@ -208,6 +208,24 @@ test("a BGP session to another device needs its session back, in the AS it expec
     );
 });
 
+// RFC 5065: a router outside a confederation sees its identifier, and one inside it each member AS.
+test("a session expects a confederation's identifier from outside it, and the member AS from inside it", () => {
+    const [r1, r2] = routers();
+    /** The router with its one neighbor in `remoteAs`, in member AS `asn` of confederation 64500 when `others` lists the other member ASes. */
+    const inAs = (router: Device, asn: number, remoteAs: number, others?: number[]): Device => {
+        const [name, neighbor] = Object.entries(router.routing!.bgp!.neighbors!)[0]!;
+        const confederation = others ? { confederation: { identifier: 64500, member_as: others } } : {};
+        return { ...router, routing: { bgp: { asn, ...confederation, neighbors: { [name]: { ...neighbor, remote_as: remoteAs } } } } };
+    };
+    const sessions = (...devices: Device[]) => findings(...devices).filter((finding) => finding.includes("routing.bgp.neighbors"));
+
+    expect(sessions(inAs(r1, 65001, 65002, [65002]), inAs(r2, 65002, 65001, [65001]))).toEqual([]);
+    expect(sessions(inAs(r1, 64496, 64500), inAs(r2, 65002, 64496, [65001]))).toEqual([]);
+    expect(sessions(inAs(r1, 64496, 65002), inAs(r2, 65002, 64496, [65001]))).toEqual([
+        "error r1: routing.bgp.neighbors.r2: expects AS65002, and r2 is AS64500",
+    ]);
+});
+
 test("a session per family is matched to the session back of its own family", () => {
     const dualStack = (n: 1 | 2): Device => {
         const [own, far] = [n, 3 - n];
