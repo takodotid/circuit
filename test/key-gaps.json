@@ -105,7 +105,6 @@
         "services.upnp",
         "routing.tables",
         "routing.policy_routing",
-        "routing.static_routes[].interface",
         "routing.static_routes[].bfd",
         "routing.static_routes[].distance",
         "routing.static_routes[].vrf",

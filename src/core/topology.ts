@@ -1,6 +1,6 @@
 // What `circuit studio` draws: cables, the VLANs they carry, shared segments, BGP sessions, OSPF adjacencies, and tunnels.
 
-import type { Device, Gre, Port, Routed, Switched, Vrrp, Vxlan, WireGuardPeer } from "../model";
+import type { Device, Gre, Ipsec, Port, Routed, Switched, Vrrp, Vxlan, WireGuardPeer } from "../model";
 import { Derive } from "./derive";
 import { Address } from "./address";
 import type { CarriedVlan, Graph, GraphEdge, GraphNode } from "./graph";
@@ -445,9 +445,9 @@ export class Topology {
         return endpoint.replace(/:\d+$/, "").replace(/^\[(.*)\]$/, "$1");
     }
 
-    /** `tunnels`: GRE and VXLAN tunnels matched by their endpoints, and WireGuard peers matched to the device at the far end. */
+    /** `tunnels`: GRE, VXLAN, and IPsec tunnels matched by their endpoints, and WireGuard peers matched to the device at the far end. */
     private static tunnels(devices: readonly Device[], owners: Map<string, Holder>, graph: Builder): void {
-        type End = { device: Device; name: string; kind: "GRE" | "VXLAN"; iface: Gre | Vxlan; vni?: number };
+        type End = { device: Device; name: string; kind: "GRE" | "VXLAN" | "IPsec"; iface: Gre | Vxlan | Ipsec; vni?: number };
 
         const ends: End[] = devices.flatMap((device) => [
             ...Object.entries(device.interfaces?.gre ?? {}).flatMap(([name, iface]) =>
@@ -455,6 +455,9 @@ export class Topology {
             ),
             ...Object.entries(device.interfaces?.vxlan ?? {}).flatMap(([name, iface]) =>
                 iface ? [{ device, name, kind: "VXLAN" as const, iface, vni: iface.vni }] : []
+            ),
+            ...Object.entries(device.interfaces?.ipsec ?? {}).flatMap(([name, iface]) =>
+                iface ? [{ device, name, kind: "IPsec" as const, iface }] : []
             ),
         ]);
 

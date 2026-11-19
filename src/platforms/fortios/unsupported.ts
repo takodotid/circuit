@@ -4,6 +4,7 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import { FortiOsFirewall } from "./firewall";
+import { FortiOsIpsec } from "./ipsec";
 import { FortiOsNames } from "./names";
 import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsRender } from "./render";
@@ -33,6 +34,7 @@ export class FortiOsUnsupported {
         found.push(...FortiOsUnsupported.systemGaps(device));
         found.push(...FortiOsUnsupported.managementGaps(device));
         found.push(...FortiOsUnsupported.interfaceGaps(device));
+        found.push(...FortiOsIpsec.gaps(device));
         found.push(...FortiOsRender.sourceCheck(device).gaps);
         found.push(...FortiOsUnsupported.staticGaps(device));
         found.push(...FortiOsRouting.gaps(device));
@@ -341,7 +343,7 @@ export class FortiOsUnsupported {
                 if (ipv4.length > 1) found.push(`${where}.addresses, one IPv4 address`);
             }
 
-            found.push(...FortiOsUnsupported.routedGaps(where, iface, kind === "gre"));
+            found.push(...FortiOsUnsupported.routedGaps(where, iface, kind === "gre" || kind === "ipsec"));
         }
 
         // LLDP runs on ports and aggregates; a VLAN interface has no LLDP settings.

@@ -45,7 +45,7 @@ export type Checks<D extends string> = {
     imports_end_in_accept_or_reject?: true;
     /** A native VLAN is a dead end. It is native on at most one trunk (a port or a LAG) of a device, and is never an access VLAN or a tagged VLAN anywhere on that device. */
     native_vlans_are_dead_ends?: true;
-    /** A GRE or VXLAN tunnel's local address is outside the routes announced to the neighbors over that tunnel. Otherwise their replies would route back into the tunnel. */
+    /** A GRE, VXLAN, or IPsec tunnel's local address is outside the routes announced to the neighbors over that tunnel. Otherwise their replies would route back into the tunnel. */
     tunnels_outside_offered?: true;
     /**
      * One VLAN name has the same ID on every device of the network. Circuit runs this check when it reads the project. A VLAN name with two IDs stops it, and the error shows each device and where each ID is written.

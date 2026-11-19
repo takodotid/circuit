@@ -6,6 +6,7 @@ import { FortiOsRouting } from "./routing";
 import { FortiOsSoftClear } from "./soft-clear";
 import { FortiOsNode, FortiOsTree } from "./tree";
 import type { Entry } from "./tree";
+import { FortiOsVdoms } from "./vdoms";
 
 /** How the plan treats the entries of one table. */
 type Table = {
@@ -282,21 +283,24 @@ export class FortiOsPlan {
         "extintf",
         "update-source",
         "passive-interface",
+        "phase1name",
     ]);
 
     /** Tables whose entries are named after an interface, so that releasing the interface deletes its entry: `The vxlan device is currently used` otherwise. */
     private static readonly KEYED_BY_INTERFACE = new Set(["system dns-server"]);
 
     /** The tables whose entries are interfaces, so that releasing one frees what names it. */
-    private static readonly INTERFACE_TABLES = new Set(["system interface", "system gre-tunnel", "system vxlan"]);
+    private static readonly INTERFACE_TABLES = new Set([
+        "system interface",
+        "system gre-tunnel",
+        "system vxlan",
+        "vpn ipsec phase1-interface",
+    ]);
 
     /**
      * Lists of interfaces that exist only while a setting is on, by the list. NTP serves only on interfaces it uses, so its list cannot be emptied while it serves, `There aren't any interfaces with NTP server enabled`; turning it off hides the list and lets go of them.
      */
     private static readonly HELD_BY: Record<string, string> = { interface: "server-mode" };
-
-    /** The interfaces of tunnels, which their own tables create, compared after those tables as a section of their own. */
-    private static readonly TUNNELS = "system interface, tunnels";
 
     /** A value that is a secret: a marker in the render, a cipher or a redaction in the read. */
     private static isSecret(value: string): boolean {
@@ -918,15 +922,15 @@ export class FortiOsPlan {
         if (moved) first.push(moved);
 
         for (const [section, block] of want.blocks) {
-            const header = section === FortiOsPlan.TUNNELS ? "system interface" : section;
+            const header = section === FortiOsVdoms.TUNNELS ? "system interface" : section;
             const context = { section: header, secrets: options.secrets };
-            const table = section === FortiOsPlan.TUNNELS ? undefined : FortiOsPlan.TABLES[header];
+            const table = section === FortiOsVdoms.TUNNELS ? undefined : FortiOsPlan.TABLES[header];
             const diff = FortiOsPlan.compare([], block, have.blocks.get(section) ?? new FortiOsNode(), table, true, context);
 
             if (diff.send.length) steps.push({ title: section, show: diff.show, send: [`config ${header}`, ...diff.send, "end"] });
 
             // A tunnel's interface goes with its tunnel.
-            if (diff.removals.length && section !== FortiOsPlan.TUNNELS) {
+            if (diff.removals.length && section !== FortiOsVdoms.TUNNELS) {
                 removals.unshift({ title: `${section}, removed`, show: diff.removed, send: [`config ${header}`, ...diff.removals, "end"] });
             }
         }
@@ -961,7 +965,7 @@ export class FortiOsPlan {
             const block = have.blocks.get(section)!;
 
             // A tunnel's interface goes with its tunnel, which the release deletes.
-            if (section === FortiOsPlan.TUNNELS) {
+            if (section === FortiOsVdoms.TUNNELS) {
                 for (const key of [...block.entries.keys()]) if (freed.has(key)) block.entries.delete(key);
                 continue;
             }
@@ -1000,10 +1004,11 @@ export class FortiOsPlan {
 
         for (const [section, block] of sections) {
             root.blocks.set(section, block);
-            if (section === "system vxlan") root.blocks.set(FortiOsPlan.TUNNELS, tunnels);
+            // The last table that makes a tunnel's interface.
+            if (section === "vpn ipsec phase2-interface") root.blocks.set(FortiOsVdoms.TUNNELS, tunnels);
         }
 
-        if (!root.blocks.has(FortiOsPlan.TUNNELS)) root.blocks.set(FortiOsPlan.TUNNELS, tunnels);
+        if (!root.blocks.has(FortiOsVdoms.TUNNELS)) root.blocks.set(FortiOsVdoms.TUNNELS, tunnels);
         return root;
     }
 

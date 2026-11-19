@@ -330,6 +330,52 @@ export type Eoip<Lag extends string, Vrf extends string> = Base<Vrf> & {
     in_lag?: Lag;
 };
 
+/** An encryption algorithm with its key length in bits (IANA, IKEv2 transform type 1). A `gcm` one also protects integrity (AEAD, RFC 4106 and RFC 5282), so it takes no `integrity`. */
+export type IpsecEncryption = "aes-128-cbc" | "aes-256-cbc" | "aes-128-gcm" | "aes-256-gcm";
+
+/** An integrity algorithm (IANA, IKEv2 transform type 3): HMAC with SHA-256 or SHA-512, which sends the first 128 or 256 bits of the result (RFC 4868). */
+export type IpsecIntegrity = "hmac-sha2-256-128" | "hmac-sha2-512-256";
+
+/** A Diffie-Hellman group by its IANA number: 14, 15, and 16 are MODP groups of 2048, 3072, and 4096 bits (RFC 3526). 19, 20, and 21 are elliptic curve groups of 256, 384, and 521 bits (RFC 5903). */
+export type DhGroup = 14 | 15 | 16 | 19 | 20 | 21;
+
+/** The IKE SA (RFC 7296), which authenticates the peer and makes the keys of the ESP SA. Both ends need the same algorithms. */
+export type IpsecIke = {
+    encryption: IpsecEncryption;
+    /** Needed with a `cbc` encryption, and only with one. */
+    integrity?: IpsecIntegrity;
+    /** The pseudorandom function that makes the keys (IANA, IKEv2 transform type 2, RFC 4868). */
+    prf: "hmac-sha2-256" | "hmac-sha2-512";
+    dh_group: DhGroup;
+    /** Seconds before the IKE SA is made again, with new keys. */
+    lifetime: number;
+};
+
+/** The ESP SA (RFC 4303), which encrypts the packets in the tunnel. Both ends need the same algorithms. */
+export type IpsecEsp = {
+    encryption: IpsecEncryption;
+    /** Needed with a `cbc` encryption, and only with one. */
+    integrity?: IpsecIntegrity;
+    /** A Diffie-Hellman exchange of this group each time the SA is made again (perfect forward secrecy). Without it, the new keys come from the IKE SA's. */
+    pfs_group?: DhGroup;
+    /** Seconds before the SA is made again, with new keys. */
+    lifetime: number;
+};
+
+/**
+ * A route-based IPsec tunnel (RFC 4301) to one peer: what is routed into the interface leaves encrypted with ESP, so BGP or OSPF can run over it. IKEv2 (RFC 7296) authenticates the peer with a key both ends share, and makes the keys. `presets.ipsec_rfc8247` holds IKE algorithms every IKEv2 peer has.
+ */
+export type Ipsec = Pick<Base<never>, "description" | "addresses"> & {
+    /** Our tunnel endpoint, alone or with its length. */
+    local_address: HostAddress;
+    /** The far tunnel endpoint. */
+    remote_address: IP;
+    /** The key both ends share. */
+    pre_shared_key: Secret;
+    ike: IpsecIke;
+    esp: IpsecEsp;
+};
+
 /** A host and a UDP port, `host:port`, for example `203.0.113.10:51820` or `vpn.example.net:51820`. */
 export type Endpoint = `${string}:${number}`;
 
@@ -401,6 +447,8 @@ export type Interfaces<
     gre?: Named<T, Gre<F>>;
     /** Point-to-point VXLAN tunnels, keyed by name. */
     vxlan?: Named<T, Vxlan<F>>;
+    /** Route-based IPsec tunnels, keyed by name. */
+    ipsec?: Named<T, Ipsec>;
     /** WireGuard interfaces, keyed by name. */
     wireguard?: Named<T, WireGuard<F, Table>>;
     /** Ethernet tunnels over IP, keyed by name. Each may be a member of a LAG with `in_lag`. */

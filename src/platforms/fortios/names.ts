@@ -15,7 +15,7 @@ export class FortiOsNames {
     }
 
     static isTunnel(device: Device, name: string): boolean {
-        return Boolean(device.interfaces?.gre?.[name] ?? device.interfaces?.vxlan?.[name]);
+        return Boolean(device.interfaces?.gre?.[name] ?? device.interfaces?.vxlan?.[name] ?? device.interfaces?.ipsec?.[name]);
     }
 
     /** A bridge needs transparent mode. */

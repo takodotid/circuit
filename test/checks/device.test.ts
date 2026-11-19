@@ -335,3 +335,30 @@ test("logins through servers name one kind of server, at least one, each once, s
         "system.aaa.radius[2].address: '192.0.2.300' is not an address",
     ]);
 });
+
+test("an IPsec tunnel's endpoints are of one family, a cbc encryption takes integrity and a gcm one none, and a lifetime is whole seconds", () => {
+    const device: Device = {
+        ...router,
+        interfaces: {
+            ...router.interfaces,
+            ipsec: {
+                branch: {
+                    local_address: "192.0.2.1",
+                    remote_address: "2001:db8::2",
+                    pre_shared_key: { secret: "IPSEC_KEY" },
+                    ike: { encryption: "aes-256-cbc", prf: "hmac-sha2-256", dh_group: 14, lifetime: 0.5 },
+                    esp: { encryption: "aes-256-gcm", integrity: "hmac-sha2-256-128", lifetime: 3600 },
+                },
+            },
+        },
+    };
+
+    expect(messages(device)).toEqual(
+        expect.arrayContaining([
+            "interfaces.ipsec.branch: local_address 192.0.2.1 and remote_address 2001:db8::2 differ in family",
+            'interfaces.ipsec.branch.ike has aes-256-cbc without integrity. Add integrity, such as "hmac-sha2-256-128"',
+            "interfaces.ipsec.branch.ike.lifetime 0.5 is not a whole number of seconds above 0",
+            "interfaces.ipsec.branch.esp.integrity: aes-256-gcm protects integrity itself. Remove integrity",
+        ])
+    );
+});

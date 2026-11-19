@@ -2,7 +2,7 @@
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
-import type { Device, IP, Lag, Port } from "../../src/model";
+import type { Device, IP, Ipsec, Lag, Port } from "../../src/model";
 
 const findings = (...devices: Device[]) =>
     Checks.run(devices, undefined).map((finding) => `${finding.level} ${finding.device}: ${finding.message}`);
@@ -281,4 +281,41 @@ test("a tunnel to another device needs one back, with the same VNI and port", ()
     );
     expect(otherVni).toContain("error r1: interfaces.vxlan.vxlan: VNI 100, and r2 interfaces.vxlan.vxlan has 200");
     expect(otherVni).toContain("error r1: interfaces.vxlan.vxlan: UDP port 4789, and r2 interfaces.vxlan.vxlan has 8472");
+});
+
+test("an IPsec tunnel to another device needs one back with the same algorithms, whatever their lifetimes", () => {
+    const tunnel = (n: 1 | 2, ike: Ipsec["ike"]): Ipsec => ({
+        local_address: `10.255.0.${n}`,
+        remote_address: `10.255.0.${3 - n}`,
+        pre_shared_key: { secret: "IPSEC_KEY" },
+        ike,
+        esp: { encryption: "aes-256-gcm", pfs_group: 19, lifetime: 3600 * n },
+    });
+    const ike: Ipsec["ike"] = {
+        encryption: "aes-256-cbc",
+        integrity: "hmac-sha2-256-128",
+        prf: "hmac-sha2-256",
+        dh_group: 14,
+        lifetime: 86400,
+    };
+    const [r1, r2] = routers();
+    const ipsec = (found: string[]) => found.filter((finding) => finding.includes("interfaces.ipsec.ipsec:"));
+
+    expect(
+        ipsec(findings(withInterfaces(r1, "ipsec", { ipsec: tunnel(1, ike) }), withInterfaces(r2, "ipsec", { ipsec: tunnel(2, ike) })))
+    ).toEqual([]);
+    expect(ipsec(findings(withInterfaces(r1, "ipsec", { ipsec: tunnel(1, ike) }), r2))).toEqual([
+        "error r1: interfaces.ipsec.ipsec: 10.255.0.2 is r2's, which has no IPsec tunnel from there back to 10.255.0.1",
+    ]);
+    expect(
+        ipsec(
+            findings(
+                withInterfaces(r1, "ipsec", { ipsec: tunnel(1, ike) }),
+                withInterfaces(r2, "ipsec", { ipsec: tunnel(2, { ...ike, dh_group: 19 }) })
+            )
+        )
+    ).toEqual([
+        "error r1: interfaces.ipsec.ipsec: its algorithms differ from r2 interfaces.ipsec.ipsec's. Write the same ike and esp, but for their lifetimes",
+        "error r2: interfaces.ipsec.ipsec: its algorithms differ from r1 interfaces.ipsec.ipsec's. Write the same ike and esp, but for their lifetimes",
+    ]);
 });

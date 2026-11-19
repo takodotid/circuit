@@ -448,7 +448,7 @@ export class Project {
 
     /** Every name a device refers to is one it declares. The editor checks the same, and this catches what reaches the device as a plain `string`. */
     private static checkNames(name: string, d: Json): void {
-        const kinds = ["ethernet", "lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "wireguard", "eoip"];
+        const kinds = ["ethernet", "lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "ipsec", "wireguard", "eoip"];
 
         // An interface's name is one interface: a rule or a route that uses it would otherwise not say which.
         const groupsOf = new Map<string, string[]>();
@@ -718,7 +718,7 @@ export class Project {
         if (NUMBERED_VLANS.includes(d.platform)) for (const vlan of Object.values<Json>(d.switching?.vlans ?? {})) delete vlan.description;
 
         if (d.system?.ntp?.servers) d.system.ntp.servers = d.system.ntp.servers.map(Project.alone);
-        for (const kind of ["gre", "vxlan", "eoip"])
+        for (const kind of ["gre", "vxlan", "ipsec", "eoip"])
             for (const tunnel of Object.values<Json>(d.interfaces?.[kind] ?? {}))
                 tunnel.local_address = Project.alone(tunnel.local_address);
         for (const wg of Object.values<Json>(d.interfaces?.wireguard ?? {})) if (wg.endpoint) wg.endpoint = Project.alone(wg.endpoint);
