@@ -12,6 +12,7 @@ import type {
     FilterRule,
     Interface,
     InterfaceKind,
+    Lag,
     NatRule,
     NeighborSettings,
     Port,
@@ -122,6 +123,14 @@ export class Derive {
         return Object.entries<Port | undefined>(device.interfaces?.ethernet ?? {}).flatMap(([name, port]) =>
             port ? [[name, port] as [string, Port]] : []
         );
+    }
+
+    /** Ports, then LAGs: what can switch, with where each is written. */
+    static switchedHolders(device: Device): { where: string; settings: Port | Lag }[] {
+        const lags = Object.entries(device.interfaces?.lag ?? {}).flatMap(([name, lag]) =>
+            lag ? [{ where: `interfaces.lag.${name}`, settings: lag }] : []
+        );
+        return [...Derive.ports(device).map(([name, settings]) => ({ where: `interfaces.ethernet.${name}`, settings })), ...lags];
     }
 
     /** Ports, then interfaces group by group, that can hold an address. */

@@ -28,3 +28,4 @@ discussion: false
 - [One VLAN name, one ID](/academy/practices/vlan-ids): a VLAN has the same ID on every device.
 - [A native VLAN is a dead end](/academy/practices/native-vlans): untagged frames from a trunk go no further than that device.
 - [Links written at both ends](/academy/practices/links): each cable is written on both of its ports, and each port's description gives the far end.
+- [Guard shared access ports](/academy/practices/port-guards): where hosts of different owners share a VLAN, no host may act as a switch, a DHCP server, or a router for the others.

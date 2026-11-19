@@ -183,6 +183,26 @@ test("BGP TTLs the config does not state are set back to what the router uses un
     expect(sent(connection(" .ttl=255", " .ttl=1"))).toEqual([]);
 });
 
+// Set empty, hold-time became infinity, keepalive-time was refused, and output.network printed `""`. Unset, the export printed none (CHR, 7.23.5 and 7.24.6).
+test("a BGP connection's timers and networks the config drops are unset", () => {
+    const adapter = Platforms.get("routeros");
+    const connection = (extra: string) =>
+        `/routing bgp connection\nadd${extra} instance=default local.role=ebgp name=transit-v4 remote.address=198.51.100.1/32 .as=64501\n`;
+    const sent = adapter
+        .plan(connection(""), connection(" hold-time=1m30s keepalive-time=30s output.network=bgp-networks-v4"), {
+            secrets: false,
+            rollback: 10,
+        })
+        .steps.flatMap((step) => step.send);
+
+    const selector = '[ find remote.address="198.51.100.1/32" ]';
+    expect(sent).toEqual([
+        `/routing bgp connection unset ${selector} hold-time`,
+        `/routing bgp connection unset ${selector} keepalive-time`,
+        `/routing bgp connection unset ${selector} output.network`,
+    ]);
+});
+
 // A VLAN interface on the bridge adds a dynamic bridge VLAN entry beside the static one, which a set must not select.
 test("a change to a bridge VLAN selects only its static entry", () => {
     const adapter = Platforms.get("routeros");

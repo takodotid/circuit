@@ -204,8 +204,6 @@
         "raisecom-ros": {
             "silent": [],
             "untried": [
-                "interfaces.ethernet.*.stp.edge",
-                "interfaces.ethernet.*.stp.cost",
                 "interfaces.ethernet.*.storm_control.multicast.percent",
                 "interfaces.ethernet.*.storm_control.unknown_unicast.percent",
                 "routing.static_routes[].blackhole"

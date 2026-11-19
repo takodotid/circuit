@@ -225,16 +225,14 @@ export class RouterOsRender {
     /** One VLAN-filtering bridge carries every switched port. A loopback is a bridge with no ports, the platform's idiom for one. */
     private bridge(): void {
         const { device } = this;
-        const needsBridge = this.switched().length > 0 || this.declaredVlanInterfaces().length > 0;
-
-        if (needsBridge) {
+        if (this.switched().length > 0 || this.declaredVlanInterfaces().length > 0) {
             const stp = device.switching?.stp;
-            const protocolMode = stp ? (stp.mode ?? "rstp") : "none";
-            const priority = stp?.priority === undefined ? undefined : `0x${stp.priority.toString(16)}`;
             this.add("/interface bridge", "add", {
+                "dhcp-snooping": RouterOsSyntax.yesWhen(device.switching?.dhcp_snooping),
                 name: RouterOsRender.BRIDGE,
-                "protocol-mode": protocolMode,
-                priority,
+                "protocol-mode": stp ? (stp.mode ?? "rstp") : "none",
+                priority: RouterOsSyntax.hex(stp?.priority),
+                "ra-guard": RouterOsSyntax.yesWhen(device.switching?.ra_guard),
                 "vlan-filtering": "yes",
             });
         }
@@ -490,13 +488,17 @@ export class RouterOsRender {
 
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
             this.add("/interface bridge port", "add", {
+                "bpdu-guard": RouterOsSyntax.yesWhen(stp?.bpdu_guard),
                 bridge: RouterOsRender.BRIDGE,
                 edge: stp?.edge ? "yes" : undefined,
                 "frame-types": frameTypes,
                 interface: this.name(port),
                 "path-cost": stp?.cost,
-                priority: stp?.priority === undefined ? undefined : `0x${stp.priority.toString(16)}`,
+                priority: RouterOsSyntax.hex(stp?.priority),
                 pvid,
+                "restricted-role": RouterOsSyntax.yesWhen(stp?.guard === "root"),
+                trusted: RouterOsSyntax.yesWhen(settings.dhcp_trusted),
+                "trusted-ra": RouterOsSyntax.yesWhen(settings.ra_trusted),
             });
         }
     }

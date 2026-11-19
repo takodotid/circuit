@@ -41,6 +41,9 @@ A note in a cell means "works, with this limit".
 | MAC limit           | ❌            | ✅ ports      | ✅ ports          | ✅    | ❌                  |
 | Ethertype filter    | ✅ ports      | ✅ ports      | ✅ ports          | ✅    | ❌                  |
 | Port bound to hosts | ❌            | ❌            | ❌                | ✅    | ❌                  |
+| BPDU and root guard | ✅ ports      | 🧪            | ❌                | ✅    | ❌                  |
+| DHCP snooping       | ✅            | 🧪            | ❌                | ✅    | ❌                  |
+| RA guard            | ✅            | ❌            | ❌                | ✅    | ❌                  |
 | Hardware ACLs       | ✅            | ❌            | ❌                | ✅    | ✅ drop rules only  |
 | LLDP                | ✅            | ✅            | ✅                | ✅    | ✅                  |
 | Bridge interface    | ❌            | ❌            | ❌                | ❌    | ✅                  |

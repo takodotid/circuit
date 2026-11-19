@@ -16,8 +16,9 @@ test("the space the network owns comes from circuit.ts and from what it originat
     expect(v4?.owner).toBe("prefixes ours.v4 in circuit.ts, originated by edge-01");
     expect(v4?.segments.map((segment) => [segment.prefix, segment.free, segment.next])).toEqual([
         ["198.51.100.8/29", "5", "198.51.100.10"],
+        ["198.51.100.64/27", "4", "198.51.100.66"],
     ]);
-    expect(v4?.free).toEqual(["198.51.100.0/29", "198.51.100.16/28", "198.51.100.32/27", "198.51.100.64/26", "198.51.100.128/25"]);
+    expect(v4?.free).toEqual(["198.51.100.0/29", "198.51.100.16/28", "198.51.100.32/27", "198.51.100.96/27", "198.51.100.128/25"]);
     expect(v6?.prefix).toBe("2001:db8:100::/48");
 });
 
@@ -41,6 +42,6 @@ test("a prefix asked for is the one space, and free prefixes of one length can b
     expect(asked.spaces[0]?.owner).toBe("asked for");
 
     const [space] = report.spaces;
-    expect(AddressSpace.text(report, 26)).toContain("  free /26: 198.51.100.64/26, 198.51.100.128/26, 198.51.100.192/26");
-    expect(AddressSpace.freeOfLength(space?.free ?? [], 28, 2)).toEqual({ prefixes: ["198.51.100.16/28", "198.51.100.32/28"], total: 15n });
+    expect(AddressSpace.text(report, 26)).toContain("  free /26: 198.51.100.128/26, 198.51.100.192/26");
+    expect(AddressSpace.freeOfLength(space?.free ?? [], 28, 2)).toEqual({ prefixes: ["198.51.100.16/28", "198.51.100.32/28"], total: 13n });
 });

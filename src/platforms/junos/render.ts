@@ -89,6 +89,10 @@ export class JunosRender {
         ["unknown_unicast", "no-unknown-unicast"],
     ] as const;
 
+    /** The DHCP snooping groups of the ports that trust DHCP servers, and of those that don't. */
+    private static readonly DHCP_TRUSTED = "circuit-dhcp-trusted";
+    private static readonly DHCP_UNTRUSTED = "circuit-dhcp-untrusted";
+
     /** `0.0.0.0`, which a host asking DHCP for an address sends from. */
     private static readonly IPV4_ALWAYS = ["0.0.0.0/32"];
 
@@ -119,6 +123,8 @@ export class JunosRender {
         render.vrfs();
         render.staticRoutes();
         render.spanningTree();
+        render.dhcpSnooping();
+        render.raGuard();
         render.lldp();
         render.ospf();
         render.dhcpRelay();
@@ -688,17 +694,7 @@ export class JunosRender {
         if (stp.mode === "stp") this.out.set(protocol, "force-version stp");
         if (stp.priority !== undefined) this.out.set(protocol, "bridge-priority", stp.priority === 0 ? "0" : `${stp.priority / 1024}k`);
 
-        const switched: [string, Switched][] = [];
-
-        for (const [port, settings] of Derive.ports(this.device)) {
-            if (!settings.in_lag && (settings.access_vlan || settings.trunk_vlans)) switched.push([this.names.port(port), settings]);
-        }
-
-        for (const [name, lag] of this.lagSettings()) {
-            if (lag.access_vlan || lag.trunk_vlans) switched.push([this.names.physical(name), lag]);
-        }
-
-        for (const [name, settings] of switched) {
+        for (const [name, settings] of this.switched()) {
             const statement = `${protocol} interface ${name}`;
             this.out.set(statement);
 
@@ -707,8 +703,58 @@ export class JunosRender {
                 if (settings.stp.edge) this.out.set(statement, "edge");
                 if (settings.stp.cost !== undefined) this.out.set(statement, "cost", settings.stp.cost);
                 if (settings.stp.priority !== undefined) this.out.set(statement, "priority", settings.stp.priority);
+                if (settings.stp.guard === "root") this.out.set(statement, "no-root-port");
+                // BPDU protection on one interface; `bpdu-block-on-edge` would cover every edge port at once.
+                if (settings.stp.bpdu_guard) this.out.set("protocols layer2-control bpdu-block interface", name);
             }
         }
+    }
+
+    /** Each switched port and LAG, as the physical interface the platform names: `xe-0/0/1`, `ae1`. A port in a LAG is the LAG. */
+    private switched(): [string, Switched][] {
+        const ports = Derive.ports(this.device).filter(([, port]) => !port.in_lag && (port.access_vlan || port.trunk_vlans));
+        const lags = this.lagSettings().filter(([, lag]) => lag.access_vlan || lag.trunk_vlans);
+        return [
+            ...ports.map(([port, settings]): [string, Switched] => [this.names.port(port), settings]),
+            ...lags.map(([name, lag]): [string, Switched] => [this.names.physical(name), lag]),
+        ];
+    }
+
+    private vlanNames(): string[] {
+        return Object.entries(this.device.switching?.vlans ?? {}).flatMap(([name, vlan]) => (vlan ? [name] : []));
+    }
+
+    /** The switched ports and LAGs in a VLAN, its native VLAN too. */
+    private inVlan(vlan: string): [string, Switched][] {
+        return this.switched().filter(([, settings]) =>
+            [settings.access_vlan, settings.native_vlan, ...(settings.trunk_vlans ?? [])].includes(vlan)
+        );
+    }
+
+    /** DHCP snooping on every VLAN. The platform trusts a trunk and distrusts an access port by default, so each port is named in a group that says which it is. */
+    private dhcpSnooping(): void {
+        if (!this.device.switching?.dhcp_snooping) return;
+
+        for (const vlan of this.vlanNames()) {
+            const security = `vlans ${vlan} forwarding-options dhcp-security`;
+            this.out.set(security);
+
+            for (const [name, settings] of this.inVlan(vlan)) {
+                const group = settings.dhcp_trusted ? JunosRender.DHCP_TRUSTED : JunosRender.DHCP_UNTRUSTED;
+                this.out.set(`${security} group ${group} overrides`, settings.dhcp_trusted ? "trusted" : "untrusted");
+                this.out.set(`${security} group ${group} interface`, `${name}.0`);
+            }
+        }
+    }
+
+    /** RA guard on every VLAN, and on each switched port: `block` drops every router advertisement, `trusted` passes them unchecked. */
+    private raGuard(): void {
+        if (!this.device.switching?.ra_guard) return;
+
+        const guard = "forwarding-options access-security router-advertisement-guard";
+        for (const vlan of this.vlanNames()) this.out.set(`${guard} vlans`, vlan);
+        for (const [name, settings] of this.switched())
+            this.out.set(`${guard} interface ${name}.0 mark-interface`, settings.ra_trusted ? "trusted" : "block");
     }
 
     /** A port's own setting wins over the device's, and a LAG runs LLDP on its member ports. The device sends a port's SNMP index as its port ID unless told to send its name: `et-0/0/52` rather than `520`. */

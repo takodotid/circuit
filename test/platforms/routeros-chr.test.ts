@@ -129,4 +129,35 @@ describe.skipIf(!chr)("a CHR", () => {
         },
         APPLY_MS
     );
+
+    // ether3 has nothing behind it, and the second CHR sends no BPDUs before the pair test, so neither guard blocks a port here.
+    test(
+        "BPDU guard, root guard, DHCP snooping, and RA guard are added, then removed",
+        () => {
+            let changed = replaced(
+                example,
+                "switching: {",
+                "switching: {\n        stp: {},\n        dhcp_snooping: true,\n        ra_guard: true,"
+            );
+            changed = replaced(
+                changed,
+                'access_vlan: "transit" }',
+                'access_vlan: "transit", stp: { guard: "root" }, dhcp_trusted: true, ra_trusted: true }'
+            );
+            changed = replaced(changed, 'access_vlan: "exchange" }', 'access_vlan: "exchange", stp: { edge: true, bpdu_guard: true } }');
+
+            writeFileSync(deviceFile, changed);
+            const added = circuit("diff", "edge-01");
+            expect(added.output).toContain("dhcp-snooping=yes");
+            expect(added.output).toContain("bpdu-guard=yes");
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+
+            writeFileSync(deviceFile, example);
+            expect(circuit("diff", "edge-01").output).toContain("ra-guard=no");
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+        },
+        APPLY_MS
+    );
 });

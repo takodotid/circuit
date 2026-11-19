@@ -1,6 +1,6 @@
 name: devices
 
-# Circuit against emulated devices (#178): two RouterOS CHRs boot in QEMU, the first's ether2 linked to the second's. test/platforms/routeros-chr.test.ts applies to the first, then test/platforms/routeros-chr-pair.test.ts runs BGP between both.
+# Circuit against emulated devices (#178): three RouterOS CHRs boot in QEMU, the first's ether2 linked to the second's ether2, and its ether3 to the third's ether2. test/platforms/routeros-chr.test.ts applies to the first, test/platforms/routeros-chr-pair.test.ts runs BGP between the first two, then test/platforms/routeros-chr-reflection.test.ts makes the first a route reflector for the other two.
 
 on:
     pull_request:
@@ -25,17 +25,21 @@ jobs:
             # RouterOS's long-term release, and the checksum MikroTik publishes beside its CHR image.
             CHR_VERSION: 7.24.6
             CHR_SHA256: 692672e6cac9cfaa4f37c6334d07760d49e074b50befc61f0904270553f17126
-            # Where the runner forwards each CHR's SSH and its REST API. The tests read CIRCUIT_TEST_CHR and CIRCUIT_TEST_CHR_B.
+            # Where the runner forwards each CHR's SSH and its REST API. The tests read CIRCUIT_TEST_CHR, CIRCUIT_TEST_CHR_B, and CIRCUIT_TEST_CHR_C.
             CIRCUIT_TEST_CHR: 127.0.0.1:2222
             CHR_REST: 127.0.0.1:8080
             CIRCUIT_TEST_CHR_B: 127.0.0.1:2223
             CHR_B_REST: 127.0.0.1:8081
-            # The user, and each CHR's management address: the edge router example's, then cpe-01's in the pair test.
+            CIRCUIT_TEST_CHR_C: 127.0.0.1:2224
+            CHR_C_REST: 127.0.0.1:8082
+            # The user, and each CHR's management address: the edge router example's, then cpe-01's in the pair test, then the third's.
             CHR_USER: operator
             CHR_ADDRESS: 10.0.0.1/24
             CHR_B_ADDRESS: 10.0.1.1/24
-            # The TCP port QEMU carries the link between the two CHRs over.
+            CHR_C_ADDRESS: 10.0.2.1/24
+            # The TCP ports QEMU carries the links over: the first CHR to the second, and the first to the third.
             CHR_LINK: 127.0.0.1:10001
+            CHR_LINK_C: 127.0.0.1:10002
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -62,9 +66,10 @@ jobs:
                   unzip -q chr.img.zip
                   mv "chr-$CHR_VERSION.img" chr.img
                   cp chr.img chr-b.img
+                  cp chr.img chr-c.img
 
-            # The first has four adapters: the edge router example names three, so Circuit disables the fourth. The second has two. QEMU's user network serves each ether1 its management address by DHCP, and connects from .2 of it.
-            # Each ether2 is one end of a TCP socket between the two QEMUs: the first listens, so it starts first. Every QEMU numbers its adapters' MACs alike, so the two ends get their own.
+            # The first has four adapters: the edge router example names three, so Circuit disables the fourth. The second and the third have two. QEMU's user network serves each ether1 its management address by DHCP, and connects from .2 of it.
+            # Each link is a TCP socket between two QEMUs: the first CHR listens, so it starts first. Every QEMU numbers its adapters' MACs alike, so the ends of a link get their own.
             - name: boot the CHRs
               working-directory: ${{ runner.temp }}
               run: |
@@ -73,14 +78,19 @@ jobs:
                       -netdev "user,id=ether1,net=10.0.0.0/24,host=10.0.0.2,dhcpstart=${CHR_ADDRESS%/*},hostfwd=tcp:$CIRCUIT_TEST_CHR-:22,hostfwd=tcp:$CHR_REST-:80" \
                       -device virtio-net-pci,netdev=ether1 \
                       -netdev "socket,id=ether2,listen=$CHR_LINK" -device virtio-net-pci,netdev=ether2,mac=52:54:00:00:0a:02 \
-                      -netdev user,id=ether3,restrict=on -device virtio-net-pci,netdev=ether3 \
+                      -netdev "socket,id=ether3,listen=$CHR_LINK_C" -device virtio-net-pci,netdev=ether3,mac=52:54:00:00:0a:03 \
                       -netdev user,id=ether4,restrict=on -device virtio-net-pci,netdev=ether4
                   qemu-system-x86_64 -enable-kvm -m 512 -display none -daemonize -serial file:chr-b-console.log \
                       -drive file=chr-b.img,format=raw \
                       -netdev "user,id=ether1,net=10.0.1.0/24,host=10.0.1.2,dhcpstart=${CHR_B_ADDRESS%/*},hostfwd=tcp:$CIRCUIT_TEST_CHR_B-:22,hostfwd=tcp:$CHR_B_REST-:80" \
                       -device virtio-net-pci,netdev=ether1 \
                       -netdev "socket,id=ether2,connect=$CHR_LINK" -device virtio-net-pci,netdev=ether2,mac=52:54:00:00:0b:02
-                  for rest in "$CHR_REST" "$CHR_B_REST"; do
+                  qemu-system-x86_64 -enable-kvm -m 512 -display none -daemonize -serial file:chr-c-console.log \
+                      -drive file=chr-c.img,format=raw \
+                      -netdev "user,id=ether1,net=10.0.2.0/24,host=10.0.2.2,dhcpstart=${CHR_C_ADDRESS%/*},hostfwd=tcp:$CIRCUIT_TEST_CHR_C-:22,hostfwd=tcp:$CHR_C_REST-:80" \
+                      -device virtio-net-pci,netdev=ether1 \
+                      -netdev "socket,id=ether2,connect=$CHR_LINK_C" -device virtio-net-pci,netdev=ether2,mac=52:54:00:00:0c:02
+                  for rest in "$CHR_REST" "$CHR_B_REST" "$CHR_C_REST"; do
                       for _ in $(seq 60); do curl -fsS -m 5 -u admin: "http://$rest/rest/system/resource" && continue 2; sleep 5; done
                       exit 1
                   done
@@ -102,10 +112,12 @@ jobs:
                   }
                   ready "$CHR_REST" "$CHR_ADDRESS"
                   ready "$CHR_B_REST" "$CHR_B_ADDRESS"
+                  ready "$CHR_C_REST" "$CHR_C_ADDRESS"
 
             - run: bun test test/platforms/routeros-chr.test.ts
             - run: bun test test/platforms/routeros-chr-pair.test.ts
+            - run: bun test test/platforms/routeros-chr-reflection.test.ts
 
             - name: the CHRs' consoles
               if: failure()
-              run: cat "$RUNNER_TEMP/chr-console.log" "$RUNNER_TEMP/chr-b-console.log"
+              run: cat "$RUNNER_TEMP/chr-console.log" "$RUNNER_TEMP/chr-b-console.log" "$RUNNER_TEMP/chr-c-console.log"

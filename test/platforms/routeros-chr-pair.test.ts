@@ -125,7 +125,7 @@ type Edge = {
     neighbor?: string;
     /** The rules of its export to cpe-01. */
     exportRules: string;
-    /** Its originated_prefixes, each with a blackhole route in main. EDGE_PREFIX when absent. */
+    /** Its originated_prefixes, each with a blackhole route in main. EDGE_PREFIX when absent, none when empty. */
     originated?: readonly string[];
     /** Another routing table, with a blackhole route for each of `prefixes`. */
     table?: { name: string; prefixes: readonly string[] };
@@ -161,7 +161,7 @@ export default lab.device({
         static_routes: [${staticRoutes.join(", ")}],
         bgp: {
             asn: 64500,
-            originated_prefixes: ${JSON.stringify(originated)},
+            ${originated.length ? `originated_prefixes: ${JSON.stringify(originated)},` : ""}
             neighbors: {
                 "cpe-01": {
                     address: "192.0.2.2",
@@ -367,14 +367,58 @@ export default lab.device({
                 table: { name: BLOCK_B_TABLE, prefixes: [BLOCK_B] },
             });
 
+            const started = Date.now();
             const applied = circuit("apply", "edge-01", "--confirm");
+            const took = (Date.now() - started) / SECOND_MS;
             expect(applied.status).toBe(1);
             expect(applied.output).toContain(
                 `BGP session cpe-01 announced ${EDGE_PREFIX} before the apply and does not ${BgpWait.AFTER_APPLY.seconds} s after it, though the config says it should`
             );
 
+            // The apply restarted the session, which now announces what its new table holds.
+            expect(seconds(bgp("edge-01").uptime)).toBeLessThan(took);
+            expect(eventually(() => activeRoutes("cpe-01", BLOCK_B) === 1)).toBe(true);
             expect(eventually(() => activeRoutes("cpe-01", EDGE_PREFIX) === 0)).toBe(true);
         },
         FAILING_APPLY_MS
+    );
+
+    test(
+        "a session moved back to main restarts, and announces from main again",
+        () => {
+            writeEdge({ neighbor: "hold_time: 90,", exportRules: ANNOUNCE_BOTH, originated: [EDGE_PREFIX, BLOCK_B] });
+
+            const started = Date.now();
+            const applied = circuit("apply", "edge-01", "--confirm");
+            const took = (Date.now() - started) / SECOND_MS;
+            expect(applied.status).toBe(0);
+            expect(applied.output).toContain("restarting the session");
+            expect(applied.output).toContain("BGP: no session lost an announcement the config still makes");
+
+            expect(seconds(bgp("edge-01").uptime)).toBeLessThan(took);
+            expect(eventually(() => activeRoutes("cpe-01", EDGE_PREFIX) === 1)).toBe(true);
+            expect(activeRoutes("cpe-01", BLOCK_B)).toBe(1);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+        },
+        TEST_MS
+    );
+
+    test(
+        "the timers and the networks a config drops are unset, and the export prints none of them",
+        () => {
+            writeEdge({ neighbor: "hold_time: 90, keepalive: 30,", exportRules: ANNOUNCE_BOTH, originated: [EDGE_PREFIX, BLOCK_B] });
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+
+            writeEdge({ exportRules: ANNOUNCE_BOTH, originated: [] });
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+
+            const exported = circuit("exec", "edge-01", "/routing bgp connection export");
+            expect(exported.status).toBe(0);
+            expect(exported.output).not.toMatch(/hold-time|keepalive-time|output\.network/);
+            expect(eventually(() => activeRoutes("cpe-01", EDGE_PREFIX) === 0)).toBe(true);
+            expect(eventually(() => bgp("edge-01").up)).toBe(true);
+        },
+        TEST_MS
     );
 });
