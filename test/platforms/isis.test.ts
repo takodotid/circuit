@@ -197,6 +197,125 @@ test("a NET ends in 00 after a system ID of three groups, a metric is wide, and 
     ]);
 });
 
+const key = { secret: "ISIS_KEY" };
+
+test("Junos signs each level it runs with the level's key or the one for every level, and plans nothing against the cipher it prints", () => {
+    const junos = Platforms.get("junos");
+    const levels = { 1: { authentication: { key: { secret: "ISIS_L1_KEY" } } }, 2: { authentication: { key } } };
+    const desired = junos.render(withIsis("platforms--example-aggregation-switch", { ...both("10g-48"), levels }));
+
+    for (const statement of [
+        "set protocols isis level 1 authentication-key <secret:ISIS_L1_KEY>",
+        "set protocols isis level 1 authentication-type md5",
+        "set protocols isis level 2 authentication-key <secret:ISIS_KEY>",
+        "set protocols isis level 2 authentication-type md5",
+    ])
+        expect(desired).toContain(statement);
+
+    // A level 2 router signs level 2 only.
+    const instance = junos.render(withIsis("platforms--example-aggregation-switch", { ...core({}, "10g-48"), authentication: { key } }));
+    expect(instance).toContain("set protocols isis level 2 authentication-key <secret:ISIS_KEY>");
+    expect(instance).not.toContain("level 1 authentication");
+
+    // As the switch printed it in the candidate of a `commit check`, each key as a `$9$` cipher. Nothing was committed.
+    const printed = desired
+        .replace("authentication-key <secret:ISIS_L1_KEY>", 'authentication-key "$9$OtF6REyXxdw2aEcYoJU.m1RhSevX7Vg4Z"')
+        .replace("authentication-key <secret:ISIS_KEY>", 'authentication-key "$9$HmPQtpBRclP5hreMN-qmfT36tu1SyKO1"');
+    expect(sent("junos", desired, printed)).toEqual([]);
+});
+
+test("FortiOS keeps each level's key in a key chain, which MD5 needs, and unsets a chain before its MD5 mode", () => {
+    const fortios = Platforms.get("fortios");
+    const sections = /^config router (?:key-chain|isis)\n[\s\S]*?^end\n/gm;
+    const render = (isis: Isis) => fortios.render(withIsis("platforms--example-firewall", isis)).match(sections)!.join("");
+    const desired = render({ ...core({}, "10g-2"), authentication: { key } });
+
+    // As the firewall printed it, with the key the read redacts: the firewall prints it in clear.
+    const signed = `
+            set auth-keychain-l2 "circuit-isis-l2"
+            set auth-mode-l2 md5`;
+    const printed = `config router key-chain
+    edit "circuit-isis-l2"
+        config key
+            edit "1"
+                set accept-lifetime 00:00:00 01 01 2001 infinite
+                set send-lifetime 00:00:00 01 01 2001 infinite
+                set key-string "<redacted>"
+            next
+        end
+    next
+end
+config router isis
+    set is-type level-2-only
+    set auth-mode-l2 md5
+    set auth-keychain-l2 "circuit-isis-l2"
+    set metric-style wide
+    config isis-net
+        edit 1
+            set net 49.0001.1920.0000.2255.00
+        next
+    end
+    config isis-interface
+        edit "loopback"
+            set status enable
+            set network-type loopback${signed}
+        next
+        edit "port6"
+            set status enable
+            set network-type point-to-point${signed}
+            set wide-metric-l2 100
+        next
+    end
+end
+`;
+    expect(sent("fortios", desired, printed)).toEqual([]);
+
+    // The firewall refuses `unset auth-keychain-l2` once the MD5 mode is gone.
+    const unsigned = render(core({}, "10g-2"));
+    const undo = ["unset auth-keychain-l2", "unset auth-mode-l2"];
+    expect(sent("fortios", unsigned, printed)).toEqual([
+        "config router isis",
+        ...undo,
+        "config isis-interface",
+        'edit "loopback"',
+        ...undo,
+        "next",
+        'edit "port6"',
+        ...undo,
+        "next",
+        "end",
+        "end",
+        "config router key-chain",
+        'delete "circuit-isis-l2"',
+        "end",
+    ]);
+});
+
+test("RouterOS refuses IS-IS authentication, which 7.24 has none of", () => {
+    const routeros = Platforms.get("routeros");
+    const refused = (isis: Partial<Isis>) =>
+        routeros.unsupported(withIsis("platforms--example-router", { ...core({}, "uplink"), ...isis }));
+
+    expect(refused({ authentication: { key } })).toContain("routing.isis.authentication, RouterOS 7.24 has no IS-IS authentication");
+    expect(refused({ levels: { 2: { authentication: { key } } } })).toContain(
+        "routing.isis.levels.2.authentication, RouterOS 7.24 has no IS-IS authentication"
+    );
+});
+
+test("a level's settings are for a level the device runs, and its key is written once", () => {
+    const device = withIsis("platforms--example-router", {
+        ...core({}, "uplink"),
+        authentication: { key },
+        levels: { 1: {}, 2: { authentication: { key } } },
+    });
+    const findings = Checks.run([device], undefined).filter((finding) => finding.message.startsWith("routing.isis"));
+
+    expect(findings.map((finding) => finding.message)).toEqual([
+        "routing.isis.levels.1: level_capability is level-2, so the device doesn't run level 1. Remove it",
+        "routing.isis.levels.2.authentication: routing.isis.authentication signs every level already. Remove one of them",
+    ]);
+});
+
 test("Junos sets the overload bit, and runs BFD on an interface for each family, as the switch printed them", () => {
     const junos = Platforms.get("junos");
     const isis: Isis = { ...both("10g-48"), overload_bit: true, interfaces: { "10g-48": { network: "point-to-point", bfd: true } } };
@@ -223,6 +342,16 @@ test("Junos sets the overload bit, and runs BFD on an interface for each family,
         "delete protocols isis interface xe-0/0/47.0 family inet",
         "delete protocols isis interface xe-0/0/47.0 family inet6",
     ]);
+});
+
+test("RouterOS refuses the overload bit and BFD, which its IS-IS has neither of", () => {
+    const isis: Isis = { ...core({}, "uplink"), overload_bit: true, interfaces: { uplink: { bfd: true } } };
+    expect(Platforms.get("routeros").unsupported(withIsis("platforms--example-router", isis))).toEqual(
+        expect.arrayContaining([
+            "routing.isis.overload_bit, RouterOS 7.24 has no IS-IS overload bit",
+            "routing.isis.interfaces.uplink.bfd, RouterOS 7.24 has no BFD for IS-IS",
+        ])
+    );
 });
 
 test("FortiOS sets the overload bit, and refuses BFD, which its IS-IS has none of", () => {
@@ -259,14 +388,4 @@ end
 
     const bfd = withIsis("platforms--example-firewall", { ...core({}, "10g-2"), interfaces: { "10g-2": { bfd: true } } });
     expect(fortios.unsupported(bfd)).toContain("routing.isis.interfaces.10g-2.bfd, FortiOS 6.2 has no BFD for IS-IS");
-});
-
-test("RouterOS refuses the overload bit and BFD, which its IS-IS has neither of", () => {
-    const isis: Isis = { ...core({}, "uplink"), overload_bit: true, interfaces: { uplink: { bfd: true } } };
-    expect(Platforms.get("routeros").unsupported(withIsis("platforms--example-router", isis))).toEqual(
-        expect.arrayContaining([
-            "routing.isis.overload_bit, RouterOS 7.24 has no IS-IS overload bit",
-            "routing.isis.interfaces.uplink.bfd, RouterOS 7.24 has no BFD for IS-IS",
-        ])
-    );
 });

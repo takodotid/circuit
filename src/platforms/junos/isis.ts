@@ -1,3 +1,5 @@
+import { Derive } from "../../core/derive";
+import { Secrets } from "../../core/secrets";
 import type { Device, Family } from "../../model";
 import type { JunosNames } from "./names";
 import type { JunosStatements } from "./statements";
@@ -20,7 +22,20 @@ export class JunosIsis {
         const levels: readonly number[] = JunosIsis.LEVELS[isis.level_capability];
         out.set("interfaces lo0 unit 0 family iso address", isis.net);
 
-        for (const level of [1, 2]) out.set("protocols isis level", level, levels.includes(level) ? "wide-metrics-only" : "disable");
+        for (const level of [1, 2] as const) {
+            if (!levels.includes(level)) {
+                out.set("protocols isis level", level, "disable");
+                continue;
+            }
+
+            out.set("protocols isis level", level, "wide-metrics-only");
+            // The level's key signs its hellos as well as its LSPs and sequence number packets.
+            const key = Derive.isisKey(isis, level);
+            if (!key) continue;
+
+            out.set("protocols isis level", level, "authentication-key", Secrets.marker(key));
+            out.set("protocols isis level", level, "authentication-type md5");
+        }
 
         for (const [family, statement] of Object.entries(JunosIsis.NOT_ROUTED))
             if (!isis.address_families.includes(family as Family)) out.set("protocols isis", statement);

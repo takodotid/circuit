@@ -160,6 +160,10 @@ export class RouterOsRouting {
         if (!isis) return [];
 
         const found: string[] = [];
+        const noAuthentication = "RouterOS 7.24 has no IS-IS authentication";
+        if (isis.authentication) found.push(`routing.isis.authentication, ${noAuthentication}`);
+        for (const [level, settings] of Object.entries(isis.levels ?? {}))
+            if (settings?.authentication) found.push(`routing.isis.levels.${level}.authentication, ${noAuthentication}`);
         if (isis.overload_bit) found.push("routing.isis.overload_bit, RouterOS 7.24 has no IS-IS overload bit");
 
         for (const [name, settings] of Object.entries(isis.interfaces)) {

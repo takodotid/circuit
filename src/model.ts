@@ -91,6 +91,7 @@ export type FlowExport = C.FlowExport<string>;
 export type SyslogServer = C.SyslogServer;
 export type Ospf = C.Ospf<string>;
 export type OspfArea = C.OspfArea<string>;
+export type Isis = C.Isis<string>;
 
 /** Something wrong with a config, as `circuit validate` reports it. */
 export type Finding = {
