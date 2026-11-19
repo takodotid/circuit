@@ -10,7 +10,7 @@ const edge = Fixtures.device("edge-router--edge-01");
 const platform = Platforms.get("routeros");
 const options = { secrets: false, rollback: 10 };
 
-/** The edge router with a block that leaves only through its own transit, in a table of its own. The block's route is in main and in the table, so both announce it. */
+/** The edge router with a block that leaves only through its own transit, met on the exchange's LAN, in a table of its own. The block's route is in main and in the table, so both announce it. */
 function withBlockB(): Device {
     const routing = edge.routing!;
     return {
@@ -42,7 +42,7 @@ function withBlockB(): Device {
                 neighbors: {
                     ...routing.bgp!.neighbors,
                     as64510: {
-                        address: "2001:db8:fffe::1",
+                        address: "2001:db8:ffff::2",
                         remote_as: 64510,
                         role: "provider",
                         import_policy: "TRANSIT-IN",
@@ -147,18 +147,18 @@ test("a session moved to another table is restarted, since a running session tak
     };
 
     const toMain = platform.plan(platform.render(moved), platform.render(device), options).steps;
-    const selector = '[ find remote.address="2001:db8:fffe::1/128" and (vrf=main or !vrf) ]';
+    const selector = '[ find remote.address="2001:db8:ffff::2/128" and (vrf=main or !vrf) ]';
     expect(toMain.flatMap((step) => step.send)).toContain(`/routing bgp connection set ${selector} disabled=yes routing-table=main`);
     expect(toMain.flatMap((step) => step.send)).toContain(`/routing bgp connection set ${selector} disabled=no`);
     expect(toMain.flatMap((step) => step.show)).toContain(
-        '~ {"remote.address":"2001:db8:fffe::1/128","vrf":"main"} routing-table=main, restarting the session: it takes a new routing-table only when it restarts'
+        '~ {"remote.address":"2001:db8:ffff::2/128","vrf":"main"} routing-table=main, restarting the session: it takes a new routing-table only when it restarts'
     );
 
     const toTable = platform.plan(platform.render(device), platform.render(moved), options).steps.flatMap((step) => step.send);
     const restart = toTable.indexOf(`/routing bgp connection set ${selector} disabled=yes routing-table=block-b`);
     expect(restart).toBeGreaterThan(-1);
     expect(toTable[restart + 1]).toBe(
-        ":local waited 0; :while ([:len [/routing bgp session find where remote.address=2001:db8:fffe::1]] > 0 and $waited < 30) do={ :delay 1s; :set waited ($waited + 1) }"
+        ":local waited 0; :while ([:len [/routing bgp session find where remote.address=2001:db8:ffff::2]] > 0 and $waited < 30) do={ :delay 1s; :set waited ($waited + 1) }"
     );
     expect(toTable[restart + 2]).toBe(`/routing bgp connection set ${selector} disabled=no`);
 
@@ -265,9 +265,9 @@ test("a table on a neighbor group installs its sessions in it, as a table on the
                 },
                 neighbors: {
                     ...neighbors,
-                    "as64510-1": { neighbor_group: "as64510", address: "2001:db8:fffe::1" },
+                    "as64510-1": { neighbor_group: "as64510", address: "2001:db8:ffff::2" },
                     as64511: {
-                        address: "2001:db8:fffd::1",
+                        address: "2001:db8:ffff::3",
                         remote_as: 64511,
                         role: "provider",
                         import_policy: "TRANSIT-IN",
