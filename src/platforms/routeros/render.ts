@@ -646,7 +646,7 @@ export class RouterOsRender {
         }
     }
 
-    /** The platform's default entry sends router advertisements on every interface. Once one interface sends its own, the default is turned off. A device that sends none keeps it. */
+    /** The platform's default entry covers every interface, and sends router advertisements only where an address has `advertise=yes` (TRAPS.md). Once one interface sends its own, the default is turned off. A device that sends none keeps it. */
     private routerAdvertisements(): void {
         const sending = this.routed().flatMap(({ name, settings }) => {
             const ra = Derive.routerAdvertisement(settings);
