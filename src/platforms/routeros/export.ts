@@ -132,6 +132,8 @@ export class RouterOsExport {
         "/ip upnp": { enabled: "no" },
         // `yes-if-no-key` refuses the password of a user that has a key (RB5009, 7.24.6).
         "/ip ssh": { "strong-crypto": "no", "password-authentication": "yes-if-no-key" },
+        // A target prints neither its port nor its version while they are the defaults, which the plan matches targets by.
+        "/ip traffic-flow target": { port: "2055", version: "9" },
         "/ip traffic-flow": {
             enabled: "no",
             interfaces: "all",
