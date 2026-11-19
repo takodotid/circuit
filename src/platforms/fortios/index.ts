@@ -90,10 +90,15 @@ export class FortiOs extends Platform {
         return FortiOsUnsupported.of(device);
     }
 
-    /** Not sent to a device yet: strict source checks, which change every interface of the VDOM. */
+    /**
+     * Not sent to a device yet: strict source checks, which change every interface of the VDOM. Not known yet: delegated prefixes, which FortiOS 6.2 takes only inside the server's subnet. The render widens the subnet to hold them, and no host has shown what that does (TRAPS.md).
+     */
     override experimental(device: Device): string[] {
         const check = FortiOsRender.sourceCheck(device);
-        return check.strict ? check.setting : [];
+        const delegating = Object.entries(device.services?.dhcpv6_server ?? {})
+            .filter(([, server]) => server.prefix_delegation)
+            .map(([name]) => `services.dhcpv6_server.${name}.prefix_delegation`);
+        return [...(check.strict ? check.setting : []), ...delegating];
     }
 
     override render(device: Device): string {

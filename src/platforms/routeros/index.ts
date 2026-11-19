@@ -23,6 +23,7 @@ import type {
 } from "../platform";
 import { BgpWait } from "../bgp-wait";
 import type { WaitLimits } from "../bgp-wait";
+import { RouterOsDhcp } from "./dhcp";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
@@ -326,6 +327,18 @@ export class RouterOs extends Platform {
                 found.push(`routing.bgp.neighbors.${name}.max_prefixes.warn_only, RouterOS always closes the session at its limit`);
             if (neighbor.graceful_restart ?? group?.graceful_restart)
                 found.push(`routing.bgp.neighbors.${name}.graceful_restart, RouterOS 7 has no setting for it`);
+        }
+
+        for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {})) {
+            const [first, last] = (server.pool ?? []).map((address) => Address.toNumber(address));
+            if (first === null || last === null || first === undefined || last === undefined || first > last) continue;
+            if (RouterOsDhcp.poolPrefix(server.pool!)) continue;
+
+            const [largest] = Address.prefixesBetween(first, last, "ipv6").sort((a, b) => Address.split(a).len - Address.split(b).len);
+            const { first: low, last: high } = Address.range(largest!);
+            found.push(
+                `services.dhcpv6_server.${name}.pool, RouterOS gives addresses from one whole prefix: write the first and last address of one, such as ${Address.fromNumber(low, "ipv6")} and ${Address.fromNumber(high, "ipv6")} (${largest})`
+            );
         }
 
         const management = device.management;

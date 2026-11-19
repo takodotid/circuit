@@ -89,6 +89,8 @@ export class RouterOsExport {
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
         "/ip dhcp-server": { "lease-time": "30m" },
+        // As a CCR2216 on 7.24.6 printed a server set back to them.
+        "/ipv6 dhcp-server": { "address-pool": "static-only", "prefix-pool": "static-only", "lease-time": "3d", "dhcp-option": "" },
         // As an RB5009 on 7.24.6 printed a client made with nothing but its interface.
         "/ip dhcp-client": {
             "add-default-route": "yes",

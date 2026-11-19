@@ -60,7 +60,12 @@ export class DeviceChecks {
         const report: Report = (message) => findings.push({ level: "error", device: device.name, message });
 
         DeviceChecks.check(device, report);
-        findings.push(...DeviceChecks.limits(device), ...DeviceChecks.ospfWarnings(device), ...DeviceChecks.raWarnings(device));
+        findings.push(
+            ...DeviceChecks.limits(device),
+            ...DeviceChecks.ospfWarnings(device),
+            ...DeviceChecks.raWarnings(device),
+            ...DeviceChecks.dhcpv6Warnings(device)
+        );
 
         return findings;
     }
@@ -557,6 +562,37 @@ export class DeviceChecks {
         );
     }
 
+    /** A DHCPv6 server whose interface's router advertisements don't send hosts to it: DHCPv6 gives no gateway, and hosts ask only for what the M and O flags say. */
+    private static dhcpv6Warnings(device: Device): Finding[] {
+        const holders = Derive.holders(device);
+        const found: Finding[] = [];
+        const warn = (message: string) => found.push({ level: "warning", device: device.name, message });
+
+        for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {})) {
+            const holder = holders.find((each) => each.name === server.interface);
+            if (!holder) continue;
+
+            const where = `services.dhcpv6_server.${name}`;
+            const ra = Derive.routerAdvertisement(holder.settings);
+            const flag = server.pool ? "managed" : server.dns?.length && !server.prefix_delegation ? "other_config" : undefined;
+
+            if (!ra)
+                warn(
+                    `${where}: ${holder.where} sends no router advertisements, so hosts find no gateway and don't ask the server. Write ipv6_ra: ${flag ? `{ ${flag}: true }` : "true"} on it`
+                );
+            else if (flag === "managed" && !ra.managed)
+                warn(
+                    `${where} gives addresses, but ${holder.where}.ipv6_ra has no managed: true, so hosts don't ask for one. Write it there`
+                );
+            else if (flag === "other_config" && !ra.managed && !ra.other_config)
+                warn(
+                    `${where} gives DNS servers, but ${holder.where}.ipv6_ra has no other_config: true, so hosts don't ask for them. Write it there`
+                );
+        }
+
+        return found;
+    }
+
     private static ospfWarnings(device: Device): Finding[] {
         const areas = device.routing?.ospf?.areas ?? {};
         const backbone = Object.values(areas[DeviceChecks.OSPF_BACKBONE]?.interfaces ?? {}).some(Boolean);
@@ -838,6 +874,10 @@ export class DeviceChecks {
             const where = `services.dhcp_server.${name}`;
             cidr(where, server.network);
             if (!Address.isCidr(server.network)) continue;
+            if (Address.family(server.network) === "ipv6") {
+                report(`${where}.network ${server.network} is IPv6, and DHCPv6 gives no gateway: write it in services.dhcpv6_server`);
+                continue;
+            }
 
             const reserved = (server.reservations ?? []).map((reservation) => reservation.address);
             const addresses = [server.gateway, ...server.pool, ...reserved];
@@ -847,12 +887,67 @@ export class DeviceChecks {
             }
         }
 
+        DeviceChecks.dhcpv6(device, report);
+
         // `management.allow` may be an address set's addresses, and a set holds an address alone too.
         const allow = device.management?.allow;
         if (Array.isArray(allow)) for (const prefix of allow) if (!Address.isValid(prefix)) cidr("management.allow", prefix);
 
         const snmp = device.monitoring?.snmp;
         if (snmp && !snmp.community && !snmp.users) report("monitoring.snmp is on with neither a community nor a user");
+    }
+
+    /** One server per interface, giving something: addresses in a network of its interface, prefixes from a pool, or DNS servers. */
+    private static dhcpv6(device: Device, report: Report): void {
+        const isIpv6 = (address: string) => Address.isValid(address) && Address.family(address) === "ipv6";
+        const serverOf = new Map<string, string>();
+
+        for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {})) {
+            const where = `services.dhcpv6_server.${name}`;
+            const other = serverOf.get(server.interface);
+            if (other) report(`${where} and services.dhcpv6_server.${other} both answer on ${server.interface}: write one server for it`);
+            serverOf.set(server.interface, name);
+
+            if (!server.pool && !server.prefix_delegation && !server.dns?.length)
+                report(`${where} gives nothing: write pool, prefix_delegation, or dns`);
+
+            for (const address of [...(server.pool ?? []), ...(server.dns ?? [])]) {
+                if (!isIpv6(address)) report(`${where}: '${address}' is not an IPv6 address, such as 2001:db8:100:20::1000`);
+            }
+
+            if (server.pool?.every(isIpv6)) {
+                const [first, last] = server.pool;
+                const networks = Derive.ipv6Networks(Derive.settings(device, server.interface) ?? {});
+                if (Address.toNumber(first)! > Address.toNumber(last)!)
+                    report(`${where}.pool starts at ${first}, after its last address ${last}`);
+                else if (!networks.length)
+                    report(`${where}.pool: ${server.interface} has no IPv6 address. Give it one in a network that holds the pool`);
+                else if (!Derive.dhcpv6Network(device, server))
+                    report(
+                        `${where}.pool ${first} to ${last} is in no IPv6 network of ${server.interface}: write addresses from one of ${networks.join(", ")}`
+                    );
+            }
+
+            const delegation = server.prefix_delegation;
+            if (delegation) {
+                const at = `${where}.prefix_delegation`;
+                if (!Address.isCidr(delegation.pool) || Address.family(delegation.pool) !== "ipv6") {
+                    report(`${at}.pool '${delegation.pool}' is not an IPv6 prefix, such as 2001:db8:100:8000::/49`);
+                } else {
+                    const { len } = Address.split(delegation.pool);
+                    const most = Address.bits("ipv6");
+                    if (Address.prefixOf(delegation.pool) !== Address.canonical(delegation.pool))
+                        report(`${at}.pool ${delegation.pool} has bits past its length: write ${Address.prefixOf(delegation.pool)}`);
+                    if (!Number.isInteger(delegation.prefix_length) || delegation.prefix_length <= len || delegation.prefix_length > most)
+                        report(
+                            `${at}.prefix_length ${delegation.prefix_length} is not a whole number from ${len + 1} to ${most}: each prefix delegated is a part of pool, a /${len}`
+                        );
+                }
+            }
+
+            if (server.lease_time !== undefined && (!Number.isInteger(server.lease_time) || server.lease_time <= 0))
+                report(`${where}.lease_time ${server.lease_time} is not a whole number of seconds above 0`);
+        }
     }
 
     private static certificates(device: Device, report: Report): void {

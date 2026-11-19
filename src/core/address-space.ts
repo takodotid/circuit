@@ -200,6 +200,19 @@ export class AddressSpace {
                 }
             }
 
+            for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {})) {
+                const [start, end] = server?.pool ?? [];
+                if (start && end && Address.isValid(start) && Address.isValid(end))
+                    take(`${start}-${end}`, `DHCPv6 pool ${name} on ${device.name}`, start, end);
+
+                const delegated = server?.prefix_delegation?.pool;
+                if (delegated && Address.isCidr(delegated))
+                    blocks.push({
+                        prefix: Address.prefixOf(delegated),
+                        what: `prefixes delegated by DHCPv6 server ${name} on ${device.name}`,
+                    });
+            }
+
             for (const route of device.routing?.static_routes ?? []) {
                 if (route.next_hop && Address.isValid(route.next_hop))
                     take(route.next_hop, `next hop for ${route.prefix} on ${device.name}`);

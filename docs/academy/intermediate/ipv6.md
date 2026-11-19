@@ -143,6 +143,10 @@ routing: {
 
 <<< @/../examples/edge-router/sites/pop-2/edge-02.ts#router-advertisement
 
+A DHCPv6 server gives what router advertisements don't: an address the network keeps track of, or a whole prefix for a customer's router to split into networks of its own, called <Term means="A DHCPv6 server gives a router a prefix, such as a /56, and the router makes its own /64s from it.">prefix delegation</Term>. DHCPv6 gives no gateway, so the router still sends advertisements, with `managed: true` to tell the devices to ask the server for an address. The same edge router does this for its business customers:
+
+<<< @/../examples/edge-router/sites/pop-2/edge-02.ts#dhcpv6
+
 ::: warning Not every platform takes IPv6
-Raisecom ROS takes no IPv6 addresses or routes, and VRP sends no router advertisements. `circuit validate` reports either as an error. See [Platforms](/reference/platforms).
+Raisecom ROS takes no IPv6 addresses or routes, and VRP sends no router advertisements and has no DHCPv6 server. `circuit validate` reports each as an error. See [Platforms](/reference/platforms).
 :::

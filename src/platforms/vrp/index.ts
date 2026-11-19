@@ -231,6 +231,7 @@ export class Vrp extends Platform {
         const refusedGroups = [
             ["firewall", device.firewall],
             ["services.dhcp_server", device.services?.dhcp_server],
+            ["services.dhcpv6_server", device.services?.dhcpv6_server],
             ["switching.acls", device.switching?.acls],
             ["routing.policies", routing?.policies],
             ["routing.prefix_sets", routing?.prefix_sets],

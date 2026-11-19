@@ -19,13 +19,16 @@ export const netflix = {
                         addresses: ["198.51.100.9/29", "2001:db8:100:1::1/64"],
                         // The servers make their own addresses in the /64, and use our resolvers.
                         // Once the router stops announcing the /64, the servers stop using it for new connections within a day, and drop it after a week.
+                        // A server that reads no DNS servers from router advertisements asks DHCPv6 for them.
                         ipv6_ra: {
                             prefixes: [{ prefix: "2001:db8:100:1::/64", valid_lifetime: 604_800, preferred_lifetime: 86_400 }],
                             dns_servers: ["2001:db8:100::53"],
+                            other_config: true,
                         },
                     },
                 },
             },
+            services: { dhcpv6_server: { "netflix-internet": { interface: "netflix-internet", dns: ["2001:db8:100::53"] } } },
         }),
         "tor-01": part("device", {
             switching: { vlans },

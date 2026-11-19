@@ -78,6 +78,7 @@ export class FortiOsRender {
         "system sflow",
         "system netflow",
         "system dhcp server",
+        "system dhcp6 server",
         "router static",
         "router static6",
         "router prefix-list",
@@ -234,6 +235,12 @@ export class FortiOsRender {
     /** The most resolvers the device and a DHCP server hold, per family. */
     static readonly RESOLVERS = { device: 2, dhcp: 4 } as const;
 
+    /** Seconds a lease lasts when a DHCP server of either family doesn't say: a week. */
+    private static readonly LEASE_TIME = 604_800;
+
+    /** The fewest and most seconds a DHCPv6 server's lease lasts. */
+    static readonly DHCPV6_LEASE_TIME = { min: 300, max: 8_640_000 } as const;
+
     /** The most syslog collectors the device sends to. */
     static readonly COLLECTORS = 4;
 
@@ -327,6 +334,7 @@ export class FortiOsRender {
         FortiOsRender.logging(root, device);
         FortiOsRender.flowExport(root, device);
         FortiOsRender.dhcpServers(section("system dhcp server"), device);
+        FortiOsRender.dhcpv6Servers(section("system dhcp6 server"), device);
         FortiOsRender.staticRoutes(section("router static"), section("router static6"), device, device.routing?.static_routes ?? []);
         FortiOsRouting.render(root, device);
         FortiOsRender.helpers(section("system session-helper"), device);
@@ -572,6 +580,8 @@ export class FortiOsRender {
         };
 
         block.set("ip6-send-adv", "enable");
+        if (ra.managed) block.set("ip6-manage-flag", "enable");
+        if (ra.other_config) block.set("ip6-other-flag", "enable");
         if (ra.interval !== undefined) {
             unlessDefault(block, "ip6-max-interval", ra.interval);
             unlessDefault(block, "ip6-min-interval", Derive.minAdvertisementInterval(ra.interval));
@@ -826,7 +836,8 @@ export class FortiOsRender {
     private static dhcpServers(block: FortiOsNode, device: Device): void {
         Object.values(device.services?.dhcp_server ?? {}).forEach((server, index) => {
             const entry = block.entry(index + 1);
-            if (server.lease_time !== undefined && server.lease_time !== 604_800) entry.set("lease-time", server.lease_time);
+            if (server.lease_time !== undefined && server.lease_time !== FortiOsRender.LEASE_TIME)
+                entry.set("lease-time", server.lease_time);
             entry.set("default-gateway", server.gateway);
             entry.set("netmask", Address.netmask(Address.split(server.network).len));
             entry.set("interface", FortiOsTree.quote(FortiOsNames.of(device, server.interface)));
@@ -841,6 +852,44 @@ export class FortiOsRender {
 
             (server.dns ?? []).forEach((resolver, number) => entry.set(`dns-server${number + 1}`, resolver));
         });
+    }
+
+    /**
+     * A server's subnet is the network of its interface that holds its pool. FortiOS 6.2 delegates only prefixes inside the subnet, so with delegated prefixes it is the smallest prefix that holds both. A server without a pool is refused.
+     */
+    private static dhcpv6Servers(block: FortiOsNode, device: Device): void {
+        Object.values(device.services?.dhcpv6_server ?? {}).forEach((server, index) => {
+            const network = Derive.dhcpv6Network(device, server);
+            if (!server.pool || !network) return;
+
+            const delegation = server.prefix_delegation;
+            const entry = block.entry(index + 1);
+            if (server.lease_time !== undefined && server.lease_time !== FortiOsRender.LEASE_TIME)
+                entry.set("lease-time", server.lease_time);
+            entry.set("subnet", delegation ? FortiOsRender.covering(network, delegation.pool) : network);
+            entry.set("interface", FortiOsTree.quote(FortiOsNames.of(device, server.interface)));
+
+            if (delegation) {
+                const { first, last } = Address.range(delegation.pool);
+                const lastPrefix = Address.prefixOf(`${Address.fromNumber(last, "ipv6")}/${delegation.prefix_length}`);
+                entry
+                    .block("prefix-range")
+                    .entry(1)
+                    .set("start-prefix", Address.fromNumber(first, "ipv6"))
+                    .set("end-prefix", Address.host(lastPrefix))
+                    .set("prefix-length", delegation.prefix_length);
+            }
+
+            entry.block("ip-range").entry(1).set("start-ip", server.pool[0]).set("end-ip", server.pool[1]);
+            (server.dns ?? []).forEach((resolver, number) => entry.set(`dns-server${number + 1}`, resolver));
+        });
+    }
+
+    /** The smallest prefix that holds both `a` and `b`. */
+    private static covering(a: string, b: string): string {
+        let length = Math.min(Address.split(a).len, Address.split(b).len);
+        while (length > 0 && !Address.contains(Address.prefixOf(`${Address.host(a)}/${length}`), b)) length--;
+        return Address.prefixOf(`${Address.host(a)}/${length}`);
     }
 
     /** One entry for each address a VLAN interface answers ARP for, numbered in the config's order. */

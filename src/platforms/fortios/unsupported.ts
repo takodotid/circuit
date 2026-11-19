@@ -98,7 +98,8 @@ export class FortiOsUnsupported {
         }
 
         if (device.firewall?.nat) found.push(`firewall.nat, ${where}`);
-        if (device.services?.dhcp_server && Object.keys(device.services.dhcp_server).length) found.push(`services.dhcp_server, ${where}`);
+        for (const group of ["dhcp_server", "dhcpv6_server"] as const)
+            if (Object.keys(device.services?.[group] ?? {}).length) found.push(`services.${group}, ${where}`);
 
         if (!management) {
             const services = device.management ?? {};
@@ -552,10 +553,21 @@ export class FortiOsUnsupported {
         const found: string[] = [];
 
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
-            if (Address.family(Address.host(server.network)) === "ipv6")
-                found.push(`services.dhcp_server.${name}.network, IPv6: DHCPv6 hands out no gateway`);
             if ((server.dns?.length ?? 0) > FortiOsRender.RESOLVERS.dhcp)
                 found.push(`services.dhcp_server.${name}.dns, at most ${FortiOsRender.RESOLVERS.dhcp}`);
+        }
+
+        for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {})) {
+            const where = `services.dhcpv6_server.${name}`;
+            const { min, max } = FortiOsRender.DHCPV6_LEASE_TIME;
+            if (!server.pool)
+                found.push(
+                    `${where} without pool: FortiOS 6.2 has no setting that keeps a DHCPv6 server from giving addresses. Write pool, or announce the DNS servers in ipv6_ra.dns_servers`
+                );
+            if ((server.dns?.length ?? 0) > FortiOsRender.RESOLVERS.dhcp)
+                found.push(`${where}.dns, at most ${FortiOsRender.RESOLVERS.dhcp}`);
+            if (server.lease_time !== undefined && (server.lease_time < min || server.lease_time > max))
+                found.push(`${where}.lease_time ${server.lease_time}, FortiOS takes ${min} to ${max} seconds`);
         }
 
         const flow = device.monitoring?.flow_export;

@@ -82,6 +82,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | VXLAN                         | Practice: RFC 7348 (Informational)              | `interfaces.vxlan`                  |
 | WireGuard                     | Not a standard: the WireGuard paper (NDSS 2017) | `interfaces.wireguard`              |
 | DHCP server                   | RFC 2131                                        | `services.dhcp_server`              |
+| DHCPv6 server                 | RFC 8415; RFC 3646 for DNS servers              | `services.dhcpv6_server`            |
 | DHCP relay                    | RFC 1542, RFC 2131                              | `services.dhcp_relay`               |
 | NTP client and server         | RFC 5905                                        | `system.ntp`, `services.ntp_server` |
 | DNS resolvers used and served | STD 13 (RFC 1034, RFC 1035)                     | `system.dns`, `services.dns_server` |

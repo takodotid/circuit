@@ -516,7 +516,7 @@ export class Project {
                 need("VLAN", r.if?.vlan, `switching.acls.${a}[${i}].if.vlan`, writtenAt(d.switching.acls, a, ["acls", a]))
             );
 
-        for (const group of ["dhcp_server", "dhcp_relay"])
+        for (const group of ["dhcp_server", "dhcpv6_server", "dhcp_relay"])
             for (const [s, x] of Object.entries<Json>(d.services?.[group] ?? {}))
                 need("interface", x.interface, `services.${group}.${s}.interface`, writtenAt(d.services[group], s, [group, s]));
         need("interface", d.services?.upnp?.internal, "services.upnp.internal");

@@ -43,6 +43,7 @@ export default as64500.device({
                 urpf: { ipv4: "strict", ipv6: "strict" },
             },
             "10g-3": { description: "Servers", access_vlan: "servers" },
+            "10g-4": { description: "Business customers", access_vlan: "business" },
         },
         vlan_interface: {
             servers: {
@@ -62,11 +63,28 @@ export default as64500.device({
                 },
                 // #endregion router-advertisement
             },
+            // The M flag tells each customer's router to ask the DHCPv6 server below for an address.
+            business: { vlan: "business", addresses: ["2001:db8:100:2::1/64"], ipv6_ra: { managed: true } },
         },
     },
     switching: {
-        vlans: { servers: { id: 100 } },
+        vlans: { servers: { id: 100 }, business: { id: 200 } },
     },
+
+    // #region dhcpv6
+    // Each business customer's router takes an address and a /56 for the networks behind it.
+    services: {
+        dhcpv6_server: {
+            business: {
+                interface: "business",
+                pool: ["2001:db8:100:2::100", "2001:db8:100:2::1ff"],
+                prefix_delegation: { pool: "2001:db8:100:8000::/49", prefix_length: 56 },
+                dns: ["2001:db8:100:1::53"],
+                lease_time: 86_400,
+            },
+        },
+    },
+    // #endregion dhcpv6
 
     routing: {
         router_id: "203.0.113.130",

@@ -146,6 +146,8 @@ const ROUTED = {
         prefixes: [{ prefix: 0, valid_lifetime: 0, preferred_lifetime: 0, disable_autoconfiguration: 0 }],
         dns_servers: 0,
         dns_search_list: 0,
+        managed: 0,
+        other_config: 0,
     },
     hardware_offload: 0,
     vrrp: [{ id: 0, address: 0, priority: 0, preempt: 0, interval: 0 }],
@@ -309,6 +311,9 @@ export const DEVICE = {
                 lease_time: 0,
                 reservations: [{ address: 0, mac: 0, description: 0 }],
             },
+        },
+        dhcpv6_server: {
+            "*": { interface: 0, pool: 0, prefix_delegation: { pool: 0, prefix_length: 0 }, dns: 0, lease_time: 0 },
         },
         dhcp_relay: { "*": { interface: 0, servers: 0 } },
         dns_server: 0,
