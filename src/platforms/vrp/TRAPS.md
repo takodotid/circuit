@@ -52,3 +52,4 @@ Seen on a CE6855 running V200R005.
     - A user takes one key, `ssh user <user> assign rsa-key <name>`. `undo ssh user <user> assign rsa-key` lets go of it, without the name; with it, `Too many parameters`.
     - `authentication-type all` takes the key or the password.
     - `undo rsa peer-public-key <name>` asks nothing once no user has the key. `rsa peer-public-key <name>` again, while it exists, asks `Do you really want to replace it? [Y/N]`.
+- A line the current view refuses runs in the view above it. `qos car inbound cir 200000 cbs 250000` in a port's view left the view, and the system view took it as a CAR profile named `inbound`. A port polices what arrives through a profile: `qos car <name> cir <kbit/s> cbs <bytes>` in the system view, then `qos car inbound <name>` in the port's view. What leaves is `qos lr cir <kbit/s> cbs <bytes> outbound`; `qos lr outbound cir ...` is `Unrecognized command` (in a candidate, never committed).

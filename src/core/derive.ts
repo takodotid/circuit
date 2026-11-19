@@ -15,10 +15,13 @@ import type {
     InterfaceKind,
     Isis,
     Lag,
+    Limit,
     NatRule,
     NeighborSettings,
     Port,
     Prefix,
+    Rate,
+    RateLimit,
     Routed,
     RouteMatch,
     RouteRule,
@@ -37,6 +40,9 @@ type PolicyOutcome = "accept" | "reject" | "unknown";
 
 /** A route the config has a BGP neighbor sent, its prefix in one spelling (`Address.canonical`). */
 type Announcement = { neighbor: string; prefix: string };
+
+/** A port, a LAG, or a VLAN interface with a rate limit, with its path, such as `interfaces.ethernet.10g-1`. */
+export type RateLimited = { where: string; name: string; kind: "ethernet" | "lag" | "vlan_interface"; rateLimit: RateLimit };
 
 /** One interface of a device, with the group it is in. */
 export type NamedInterface = { name: string; kind: InterfaceKind; settings: Interface };
@@ -81,7 +87,8 @@ export type BuiltFeature =
     | "upnp"
     | "nat-state"
     | "urpf"
-    | "vrf-imports";
+    | "vrf-imports"
+    | "rate-limit";
 
 export class Derive {
     /** The groups of `interfaces` besides `ethernet`, in the order Circuit reads them. */
@@ -105,6 +112,11 @@ export class Derive {
 
     /** The kinds of interface without `urpf`: no packet arrives on a loopback, and a bridge doesn't route. */
     private static readonly UNCHECKED_KINDS: readonly Holder["kind"][] = ["loopback", "bridge"];
+
+    /** Bits per second in each unit a `Rate` takes. */
+    static readonly RATE_UNITS = { k: 1e3, M: 1e6, G: 1e9 } as const;
+
+    static readonly BITS_PER_BYTE = 8;
 
     /** The ways into the device in `management`. */
     private static readonly MANAGEMENT_SERVICES = ["ssh", "telnet", "http", "https", "api", "api_tls", "ftp", "native_protocol"] as const;
@@ -139,6 +151,26 @@ export class Derive {
             lag ? [{ where: `interfaces.lag.${name}`, settings: lag }] : []
         );
         return [...Derive.ports(device).map(([name, settings]) => ({ where: `interfaces.ethernet.${name}`, settings })), ...lags];
+    }
+
+    /** Each port, LAG, and VLAN interface with a rate limit. */
+    static rateLimited(device: Device): RateLimited[] {
+        const kinds = ["ethernet", "lag", "vlan_interface"] as const;
+        return kinds.flatMap((kind) =>
+            Object.entries<{ rate_limit?: RateLimit } | undefined>(device.interfaces?.[kind] ?? {}).flatMap(([name, settings]) =>
+                settings?.rate_limit ? [{ where: `interfaces.${kind}.${name}`, name, kind, rateLimit: settings.rate_limit }] : []
+            )
+        );
+    }
+
+    /** A rate limit's rate, and its burst in bytes when it sets one. */
+    static limit(limit: Limit): { rate: Rate; burst?: number } {
+        return typeof limit === "string" ? { rate: limit } : { rate: limit.cir, burst: limit.bc };
+    }
+
+    /** A rate in bits per second: `200M` is 200000000. */
+    static bitsPerSecond(rate: Rate): number {
+        return Number(rate.slice(0, -1)) * Derive.RATE_UNITS[rate.slice(-1) as keyof typeof Derive.RATE_UNITS];
     }
 
     /** Ports, then interfaces group by group, that can hold an address. */
@@ -411,6 +443,8 @@ export class Derive {
             for (const { where, settings } of Derive.holders(device)) if (settings.urpf) found.push(`${where}.urpf, ${notBuilt}`);
 
         if (device.routing?.vrf_imports && !has("vrf-imports")) found.push(`routing.vrf_imports, ${notBuilt}`);
+
+        if (!has("rate-limit")) for (const { where } of Derive.rateLimited(device)) found.push(`${where}.rate_limit, ${notBuilt}`);
 
         return found;
     }

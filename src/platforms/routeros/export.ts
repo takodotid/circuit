@@ -193,6 +193,19 @@ export class RouterOsExport {
         },
         // MikroTik's manual says 1700, but 7.24.6 listens on RFC 5176's 3799 (TRAPS.md).
         "/radius incoming": { accept: "no", port: "3799" },
+        // As a CHR on 7.24.6 printed a queue with `export verbose`.
+        "/queue simple": {
+            "bucket-size": "0.1/0.1",
+            "burst-limit": "0/0",
+            "burst-threshold": "0/0",
+            "burst-time": "0s/0s",
+            "limit-at": "0/0",
+            "max-limit": "0/0",
+            "packet-marks": "",
+            parent: "none",
+            priority: "8/8",
+            queue: "default-small/default-small",
+        },
         // As a CCR2216 on 7.24.6 printed a server set back to them.
         "/ipv6 dhcp-server": { "address-pool": "static-only", "prefix-pool": "static-only", "lease-time": "3d", "dhcp-option": "" },
         // As an RB5009 on 7.24.6 printed a client made with nothing but its interface.

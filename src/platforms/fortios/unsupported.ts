@@ -8,6 +8,7 @@ import { FortiOsNames } from "./names";
 import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
+import { FortiOsShaping } from "./shaping";
 import { FortiOsVdoms } from "./vdoms";
 
 /** The fields of a match that may hold a list or an interface set before Circuit writes them out. */
@@ -60,7 +61,8 @@ export class FortiOsUnsupported {
 
         // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, with the management VDOM and BFD on a route in a VRF. FortiOsRouting.gaps refuses BFD on a multihop BGP session.
         found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
-        found.push(...Derive.unbuilt(device, ["proxy-arp", "urpf"]));
+        found.push(...Derive.unbuilt(device, ["proxy-arp", "urpf", "rate-limit"]));
+        found.push(...FortiOsShaping.gaps(device));
 
         return found;
     }

@@ -122,6 +122,14 @@ For IX transit, it accepts only your own space and the routes tagged as learned 
 
 You also announce the IX transit customer's prefixes only at the exchange, not to your own transit. The customer didn't buy a way in from the whole internet. [BGP communities](/guide/communities) shows how routes are tagged.
 
+## A committed rate in Circuit
+
+`rate_limit` holds a customer's port, LAG, or VLAN interface to the rate sold. `input` is what the customer sends, and `output` is what it gets. Traffic above the rate waits in a queue or is dropped, as the platform does. A rate alone, such as `"200M"`, leaves the burst to the device: how much may pass at once above the rate. `{ cir, bc }` sets the burst in bytes, as RFC 2697 does. A small tenant's port in the [colocation example](/guide/examples#colocation-with-tenants):
+
+<<< @/../examples/colocation/sites/dc-1/tor-02.ts#rate-limit
+
+[Platforms](/reference/platforms#interfaces) lists where it works.
+
 ## Further reading
 
 - [Contention ratio](https://en.wikipedia.org/wiki/Contention_ratio): shared capacity, and why busy hours are slower.
@@ -130,6 +138,7 @@ You also announce the IX transit customer's prefixes only at the exchange, not t
 - [RFC 6598](https://www.rfc-editor.org/rfc/rfc6598): the `100.64.0.0/10` range for carrier-grade NAT. [RFC 6888](https://www.rfc-editor.org/rfc/rfc6888): what carrier-grade NAT must do, and what it breaks.
 - [Dedicated Internet Access: an explanation](https://fiberguide.net/dedicated-internet-access/), Fiber Guide: how DIA differs from broadband, and why to read the contract.
 - [Committed information rate](https://en.wikipedia.org/wiki/Committed_information_rate) and [Service-level agreement](https://en.wikipedia.org/wiki/Service-level_agreement): what is committed and what is promised.
+- [RFC 2697](https://www.rfc-editor.org/rfc/rfc2697): a committed rate and burst, measured with a token bucket.
 - [IP transit](https://en.wikipedia.org/wiki/IP_transit): the full table or a default route, and the commit.
 - [Partial-route internet transit](https://drpeering.net/HTML_IPP/chapters/ch11-07-Partial-Route-Internet-Transit/ch11-07-Partial-Route-Internet-Transit.html), DrPeering: selling the routes learned at an exchange.
 - [Burstable billing](https://en.wikipedia.org/wiki/Burstable_billing): percentile billing step by step, and the ways to count both directions.

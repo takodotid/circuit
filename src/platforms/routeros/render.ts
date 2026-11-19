@@ -12,6 +12,7 @@ import { RouterOsDhcp } from "./dhcp";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsPppoe } from "./pppoe";
+import { RouterOsQueues } from "./queues";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSyntax } from "./syntax";
 
@@ -87,6 +88,7 @@ export class RouterOsRender {
 
         render.interfaceMenus();
         render.addressing();
+        RouterOsQueues.render(render, device);
         RouterOsFirewall.render(render, device);
         RouterOsRouting.render(render, device);
         render.management();

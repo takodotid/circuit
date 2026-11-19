@@ -85,6 +85,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | RA guard                     | RFC 6105                                                                                                                                | `switching.ra_guard`, port `ra_trusted`                        |
 | Private VLANs                | RFC 5517                                                                                                                                | `switching.vlans` `private_vlan`                               |
 | QinQ                         | IEEE 802.1ad stacks a second tag. The outer tag here is 0x8100, as on any trunk, not 802.1ad's 0x88a8                                   | port `qinq_vlan`                                               |
+| Rate limit and burst         | Practice: RFC 2697 (Informational) for the committed rate and burst. Names from OpenConfig `openconfig-qos`: `cir`, `bc`                | `rate_limit` on an interface, ACL rule `rate`                  |
 
 <!-- vale Google.Units = YES -->
 
