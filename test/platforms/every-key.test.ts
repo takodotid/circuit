@@ -56,7 +56,7 @@ const DOCUMENTATION_ONLY: Partial<Record<PlatformName, Record<string, string>>> 
 };
 
 /** A key from another platform's device goes into at most this many of the platform's own devices. That is enough to land where it means something. */
-const BASES = 3;
+const BASES = 4;
 /** At most this many entries of a list, or of a map with any names, are tried. */
 const ENTRIES = 3;
 /** At most this many other values each key is given. */

@@ -2,8 +2,10 @@ import { Address } from "../../core/address";
 import type { AclRule, Device, FilterRule, Gre, Lag, RadiusServer, VlanInterface, Vxlan } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
+import { Secrets } from "../../core/secrets";
 import { FortiOsFirewall } from "./firewall";
 import { FortiOsNames } from "./names";
+import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
 import { FortiOsVdoms } from "./vdoms";
@@ -37,7 +39,8 @@ export class FortiOsUnsupported {
         found.push(...FortiOsUnsupported.firewallGaps(device));
         found.push(...FortiOsUnsupported.serviceGaps(device));
 
-        if (device.switching?.stp) found.push("switching.stp, ports are routed");
+        for (const field of ["stp", "dhcp_snooping", "ra_guard"] as const)
+            if (device.switching?.[field]) found.push(`switching.${field}, ports are routed`);
         found.push(...FortiOsUnsupported.transparentGaps(device));
         found.push(...FortiOsVdoms.gaps(device));
 
@@ -131,8 +134,8 @@ export class FortiOsUnsupported {
             found.push("system.logging.local.files and lines_per_file, logs kept in memory do not rotate into files");
         }
 
-        if ((device.monitoring?.syslog?.length ?? 0) > FortiOsRender.COLLECTORS)
-            found.push(`monitoring.syslog, at most ${FortiOsRender.COLLECTORS} collectors`);
+        if ((device.monitoring?.syslog?.length ?? 0) > FortiOsMonitoring.COLLECTORS)
+            found.push(`monitoring.syslog, at most ${FortiOsMonitoring.COLLECTORS} collectors`);
 
         const servers = system.dns?.servers ?? [];
         for (const family of ["ipv4", "ipv6"] as const) {
@@ -162,6 +165,19 @@ export class FortiOsUnsupported {
             if (user.auth === "sha256")
                 found.push(`monitoring.snmp.users.${name}.auth sha256, the platform authenticates with SHA1 or MD5`);
         }
+
+        // A community and a user each send their traps to one port.
+        const ports = new Map<string, number | undefined>();
+        (device.monitoring?.snmp?.traps ?? []).forEach((target, index) => {
+            const sender = target.user ?? (target.community && Secrets.referenceOf(target.community));
+            if (!sender) return;
+
+            if (ports.has(sender) && ports.get(sender) !== target.port)
+                found.push(
+                    `monitoring.snmp.traps[${index}].port, unlike another receiver of its community or user: each has one trap port`
+                );
+            ports.set(sender, target.port);
+        });
 
         for (const [name, user] of Object.entries(device.system?.users ?? {})) {
             if ((user?.ssh_keys?.length ?? 0) > FortiOsRender.SSH_KEYS)
@@ -223,7 +239,7 @@ export class FortiOsUnsupported {
             if (port.speed && !FortiOsRender.SPEEDS[speedClass]?.[port.speed])
                 found.push(`${where}.speed ${port.speed}, not in a ${speedClass} cage`);
 
-            for (const field of ["access_vlan", "native_vlan", "stp", "storm_control"] as const) {
+            for (const field of ["access_vlan", "native_vlan", "stp", "storm_control", "dhcp_trusted", "ra_trusted"] as const) {
                 if (port[field] !== undefined) found.push(`${where}.${field}, ports are routed`);
             }
 
@@ -263,7 +279,7 @@ export class FortiOsUnsupported {
             if (kind === "lag") {
                 const lag = iface as Lag;
                 if (lag.id !== undefined) found.push(`${where}.id, the platform names a LAG by its key`);
-                for (const field of ["access_vlan", "native_vlan", "stp", "storm_control"] as const) {
+                for (const field of ["access_vlan", "native_vlan", "stp", "storm_control", "dhcp_trusted", "ra_trusted"] as const) {
                     if (lag[field] !== undefined) found.push(`${where}.${field}, LAGs are routed`);
                 }
 
@@ -579,6 +595,16 @@ export class FortiOsUnsupported {
         }
         if (flow?.protocol === "netflow-v9" && flow.sampling !== undefined)
             found.push("monitoring.flow_export.sampling, NetFlow here exports every flow");
+
+        const { active, inactive } = FortiOsMonitoring.FLOW_TIMEOUTS;
+        const minutes = flow?.active_timeout;
+        if (minutes !== undefined && (minutes % active.min !== 0 || minutes < active.min || minutes > active.max))
+            found.push(
+                `monitoring.flow_export.active_timeout, from ${active.min} to ${active.max} seconds in whole minutes: the platform sets it in minutes`
+            );
+        const idle = flow?.idle_timeout;
+        if (idle !== undefined && (idle < inactive.min || idle > inactive.max))
+            found.push(`monitoring.flow_export.idle_timeout, from ${inactive.min} to ${inactive.max} seconds on the platform`);
         if (flow?.protocol === "sflow" && (flow.sampling === undefined || flow.sampling < 10 || flow.sampling > 99999)) {
             found.push("monitoring.flow_export.sampling, required and from 10 to 99999: the platform samples");
         }

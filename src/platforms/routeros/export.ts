@@ -29,8 +29,25 @@ export class RouterOsExport {
      */
     private static readonly DEFAULTS: Record<string, Record<string, string>> = {
         "*": { disabled: "no", comment: "", instance: "default", "routing-table": "main", vrf: "main" },
-        "/interface bridge": { "protocol-mode": "rstp", priority: "0x8000", "vlan-filtering": "no", pvid: "1" },
-        "/interface bridge port": { pvid: "1", "frame-types": "admit-all", edge: "auto", "path-cost": "10", priority: "0x80" },
+        "/interface bridge": {
+            "protocol-mode": "rstp",
+            priority: "0x8000",
+            "vlan-filtering": "no",
+            pvid: "1",
+            "dhcp-snooping": "no",
+            "ra-guard": "no",
+        },
+        "/interface bridge port": {
+            pvid: "1",
+            "frame-types": "admit-all",
+            edge: "auto",
+            "path-cost": "10",
+            priority: "0x80",
+            "bpdu-guard": "no",
+            "restricted-role": "no",
+            trusted: "no",
+            "trusted-ra": "no",
+        },
         "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
         // A CHR prints `disable-running-check=no` on every port, as it ships. A RouterBOARD has no such property, so this changes nothing there (TRAPS.md).
         "/interface ethernet": { mtu: "1500", "auto-negotiation": "yes", "disable-running-check": "no" },
@@ -85,7 +102,15 @@ export class RouterOsExport {
         "/routing ospf area": { "area-id": "0.0.0.0", type: "default", "default-cost": "" },
         "/routing ospf interface-template": { "hello-interval": "10s", "dead-interval": "40s", auth: "", "auth-id": "" },
         // TTLs never set send 255 and accept any, and cannot be unset (TRAPS.md).
-        "/routing bgp connection": { "use-bfd": "no", "local.ttl": "255", "remote.ttl": "1", "output.default-originate": "never" },
+        "/routing bgp connection": {
+            "use-bfd": "no",
+            "local.ttl": "255",
+            "remote.ttl": "1",
+            "output.default-originate": "never",
+            "hold-time": "",
+            "keepalive-time": "",
+            "output.network": "",
+        },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
         "/ip dhcp-server": { "lease-time": "30m" },
@@ -109,7 +134,15 @@ export class RouterOsExport {
         "/ip upnp": { enabled: "no" },
         // `yes-if-no-key` refuses the password of a user that has a key (RB5009, 7.24.6).
         "/ip ssh": { "strong-crypto": "no", "password-authentication": "yes-if-no-key" },
-        "/ip traffic-flow": { enabled: "no", interfaces: "all", "packet-sampling": "no" },
+        // A target prints neither its port nor its version while they are the defaults, which the plan matches targets by.
+        "/ip traffic-flow target": { port: "2055", version: "9" },
+        "/ip traffic-flow": {
+            enabled: "no",
+            interfaces: "all",
+            "packet-sampling": "no",
+            "active-flow-timeout": "30m",
+            "inactive-flow-timeout": "15s",
+        },
         "/tool mac-server": { "allowed-interface-list": "all" },
         "/tool mac-server mac-winbox": { "allowed-interface-list": "all" },
         "/tool mac-server ping": { enabled: "yes" },
@@ -121,7 +154,17 @@ export class RouterOsExport {
         "/ip neighbor discovery-settings": { "discover-interface-list": "!dynamic", protocol: "cdp,lldp,mndp" },
         "/radius": { "authentication-port": "1812", "accounting-port": "1813", "src-address": "0.0.0.0" },
         "/user aaa": { "use-radius": "no", accounting: "yes", "default-group": "read", "exclude-groups": "", "interim-update": "0s" },
-        "/snmp": { enabled: "no", contact: "", location: "" },
+        // As a CCR2216 on 7.24.6 printed them with `export verbose`.
+        "/snmp": {
+            enabled: "no",
+            contact: "",
+            location: "",
+            "trap-community": "public",
+            "trap-generators": "temp-exception",
+            "trap-interfaces": "",
+            "trap-target": "",
+            "trap-version": "1",
+        },
         "/snmp community": {
             addresses: "::/0",
             name: "public",
@@ -180,9 +223,10 @@ export class RouterOsExport {
     /** Properties the device makes up for itself when an entry is created, such as an EoIP tunnel's random MAC. The plan leaves them as they are when the render doesn't state them. */
     static readonly GENERATED: Record<string, readonly string[]> = { "/interface eoip": ["mac-address"] };
 
-    /** Properties the device clears only with `unset`: it refuses them empty (TRAPS.md). */
+    /** Properties the device clears only with `unset`: empty, it refuses them or takes them as another value (TRAPS.md). */
     static readonly UNSET: Record<string, readonly string[]> = {
         "/routing bgp instance": ["cluster-id"],
+        "/routing bgp connection": ["hold-time", "keepalive-time", "output.network"],
         "/routing ospf area": ["default-cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],
     };

@@ -20,6 +20,7 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { JunosBgp } from "./bgp";
 import { JunosNames } from "./names";
+import { JunosMonitoring } from "./monitoring";
 import { JunosStatements } from "./statements";
 
 type Switched = Port | Lag;
@@ -38,12 +39,6 @@ export class JunosRender {
         "ecdsa-sha2-nistp384": "ssh-ecdsa",
         "ecdsa-sha2-nistp521": "ssh-ecdsa",
     };
-
-    private static readonly SNMP_AUTH = { sha1: "authentication-sha", sha256: "authentication-sha256" } as const;
-    private static readonly SNMP_PRIVACY = { aes128: "privacy-aes128", des: "privacy-des" } as const;
-
-    /** The SNMPv3 group every user joins, with read access to everything. */
-    private static readonly SNMP_GROUP = "circuit";
 
     /** The platform has no debug level, so debug is `any`, which takes everything. */
     private static readonly LEVEL: Record<Severity, string> = {
@@ -100,6 +95,10 @@ export class JunosRender {
         ["unknown_unicast", "no-unknown-unicast"],
     ] as const;
 
+    /** The DHCP snooping groups of the ports that trust DHCP servers, and of those that don't. */
+    private static readonly DHCP_TRUSTED = "circuit-dhcp-trusted";
+    private static readonly DHCP_UNTRUSTED = "circuit-dhcp-untrusted";
+
     /** `0.0.0.0`, which a host asking DHCP for an address sends from. */
     private static readonly IPV4_ALWAYS = ["0.0.0.0/32"];
 
@@ -120,7 +119,7 @@ export class JunosRender {
         render.users();
         render.aaa();
         render.services();
-        render.snmp();
+        JunosMonitoring.snmp(render.out, device);
         render.vlans();
         render.ports();
         render.lags();
@@ -130,6 +129,8 @@ export class JunosRender {
         render.vrfs();
         render.staticRoutes();
         render.spanningTree();
+        render.dhcpSnooping();
+        render.raGuard();
         render.lldp();
         render.ospf();
         render.dhcpRelay();
@@ -140,7 +141,7 @@ export class JunosRender {
         render.ethertypeFilters();
         render.boundFilters();
         JunosBgp.render(render.out, device);
-        render.sflow();
+        JunosMonitoring.sflow(render.out, device, render.names);
 
         return render.out.text();
     }
@@ -327,28 +328,6 @@ export class JunosRender {
     }
 
     /** SNMP version 2c with one read community, version 3 with users in one read-only group, or both. */
-    private snmp(): void {
-        const snmp = this.device.monitoring?.snmp;
-        if (!snmp) return;
-
-        if (snmp.contact) this.out.set("snmp contact", JunosStatements.quote(snmp.contact));
-        if (snmp.location) this.out.set("snmp location", JunosStatements.quote(snmp.location));
-        if (snmp.community) this.out.set("snmp community", Secrets.marker(snmp.community), "authorization read-only");
-
-        if (!snmp.users) return;
-
-        for (const [name, user] of Object.entries(snmp.users)) {
-            const usm = `snmp v3 usm local-engine user ${name}`;
-            this.out.set(usm, JunosRender.SNMP_AUTH[user.auth], "authentication-password", Secrets.marker(user.auth_password));
-            this.out.set(usm, JunosRender.SNMP_PRIVACY[user.privacy], "privacy-password", Secrets.marker(user.privacy_password));
-            this.out.set("snmp v3 vacm security-to-group security-model usm security-name", name, "group", JunosRender.SNMP_GROUP);
-        }
-
-        this.out.set("snmp view all oid .1 include");
-        this.out.set(
-            `snmp v3 vacm access group ${JunosRender.SNMP_GROUP} default-context-prefix security-model usm security-level privacy read-view all`
-        );
-    }
 
     private vlans(): void {
         for (const [name, vlan] of Object.entries(this.device.switching?.vlans ?? {})) {
@@ -722,17 +701,7 @@ export class JunosRender {
         if (stp.mode === "stp") this.out.set(protocol, "force-version stp");
         if (stp.priority !== undefined) this.out.set(protocol, "bridge-priority", stp.priority === 0 ? "0" : `${stp.priority / 1024}k`);
 
-        const switched: [string, Switched][] = [];
-
-        for (const [port, settings] of Derive.ports(this.device)) {
-            if (!settings.in_lag && (settings.access_vlan || settings.trunk_vlans)) switched.push([this.names.port(port), settings]);
-        }
-
-        for (const [name, lag] of this.lagSettings()) {
-            if (lag.access_vlan || lag.trunk_vlans) switched.push([this.names.physical(name), lag]);
-        }
-
-        for (const [name, settings] of switched) {
+        for (const [name, settings] of this.switched()) {
             const statement = `${protocol} interface ${name}`;
             this.out.set(statement);
 
@@ -741,8 +710,58 @@ export class JunosRender {
                 if (settings.stp.edge) this.out.set(statement, "edge");
                 if (settings.stp.cost !== undefined) this.out.set(statement, "cost", settings.stp.cost);
                 if (settings.stp.priority !== undefined) this.out.set(statement, "priority", settings.stp.priority);
+                if (settings.stp.guard === "root") this.out.set(statement, "no-root-port");
+                // BPDU protection on one interface; `bpdu-block-on-edge` would cover every edge port at once.
+                if (settings.stp.bpdu_guard) this.out.set("protocols layer2-control bpdu-block interface", name);
             }
         }
+    }
+
+    /** Each switched port and LAG, as the physical interface the platform names: `xe-0/0/1`, `ae1`. A port in a LAG is the LAG. */
+    private switched(): [string, Switched][] {
+        const ports = Derive.ports(this.device).filter(([, port]) => !port.in_lag && (port.access_vlan || port.trunk_vlans));
+        const lags = this.lagSettings().filter(([, lag]) => lag.access_vlan || lag.trunk_vlans);
+        return [
+            ...ports.map(([port, settings]): [string, Switched] => [this.names.port(port), settings]),
+            ...lags.map(([name, lag]): [string, Switched] => [this.names.physical(name), lag]),
+        ];
+    }
+
+    private vlanNames(): string[] {
+        return Object.entries(this.device.switching?.vlans ?? {}).flatMap(([name, vlan]) => (vlan ? [name] : []));
+    }
+
+    /** The switched ports and LAGs in a VLAN, its native VLAN too. */
+    private inVlan(vlan: string): [string, Switched][] {
+        return this.switched().filter(([, settings]) =>
+            [settings.access_vlan, settings.native_vlan, ...(settings.trunk_vlans ?? [])].includes(vlan)
+        );
+    }
+
+    /** DHCP snooping on every VLAN. The platform trusts a trunk and distrusts an access port by default, so each port is named in a group that says which it is. */
+    private dhcpSnooping(): void {
+        if (!this.device.switching?.dhcp_snooping) return;
+
+        for (const vlan of this.vlanNames()) {
+            const security = `vlans ${vlan} forwarding-options dhcp-security`;
+            this.out.set(security);
+
+            for (const [name, settings] of this.inVlan(vlan)) {
+                const group = settings.dhcp_trusted ? JunosRender.DHCP_TRUSTED : JunosRender.DHCP_UNTRUSTED;
+                this.out.set(`${security} group ${group} overrides`, settings.dhcp_trusted ? "trusted" : "untrusted");
+                this.out.set(`${security} group ${group} interface`, `${name}.0`);
+            }
+        }
+    }
+
+    /** RA guard on every VLAN, and on each switched port: `block` drops every router advertisement, `trusted` passes them unchecked. */
+    private raGuard(): void {
+        if (!this.device.switching?.ra_guard) return;
+
+        const guard = "forwarding-options access-security router-advertisement-guard";
+        for (const vlan of this.vlanNames()) this.out.set(`${guard} vlans`, vlan);
+        for (const [name, settings] of this.switched())
+            this.out.set(`${guard} interface ${name}.0 mark-interface`, settings.ra_trusted ? "trusted" : "block");
     }
 
     /** A port's own setting wins over the device's, and a LAG runs LLDP on its member ports. The device sends a port's SNMP index as its port ID unless told to send its name: `et-0/0/52` rather than `520`. */
@@ -821,28 +840,6 @@ export class JunosRender {
     }
 
     /** Every declared port is sampled unless `interfaces` lists some, and a LAG on its member ports. The agent is the management address. */
-    private sflow(): void {
-        const flow = this.device.monitoring?.flow_export;
-        if (flow?.protocol !== "sflow") return;
-
-        if (this.device.connection.host) this.out.set("protocols sflow agent-id", this.device.connection.host);
-        if (flow.sampling !== undefined) this.out.set("protocols sflow sample-rate ingress", flow.sampling);
-
-        for (const collector of flow.collectors) {
-            this.out.set("protocols sflow collector", collector.address);
-            if (collector.port !== undefined && collector.port !== 6343) {
-                this.out.set("protocols sflow collector", collector.address, "udp-port", collector.port);
-            }
-        }
-
-        const declared = Derive.ports(this.device).filter(([, settings]) => !settings.in_lag);
-        const observed = flow.interfaces ?? declared.map(([port]) => port);
-
-        for (const name of observed) {
-            for (const port of this.names.members(name))
-                if (!port.startsWith("em")) this.out.set("protocols sflow interfaces", `${port}.0`);
-        }
-    }
 
     /** A switched port takes a filter of the switching family, which matches IPv4 and IPv6 under `ip-version`. A routed port takes one filter per family. Each filter accepts what no rule matched. */
     private acls(): void {

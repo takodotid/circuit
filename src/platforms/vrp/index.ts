@@ -4,7 +4,7 @@ import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { Device, Lag, OspfAuthentication, VlanInterface } from "../../model";
+import type { Device, Lag, OspfAuthentication, Port, VlanInterface } from "../../model";
 import { ConsoleShell, SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
@@ -263,6 +263,21 @@ export class Vrp extends Platform {
         const lldp = device.switching?.lldp;
         if (lldp && lldp !== true) found.push("switching.lldp.interfaces, use lldp on the ports instead");
 
+        // The CE6855 on V200R005 refused `ipv6 nd raguard`, `ipv6 raguard`, and `nd raguard` in every view.
+        const noRaGuard = "the platform has no RA guard command";
+        if (device.switching?.ra_guard) found.push(`switching.ra_guard, ${noRaGuard}`);
+        const holders = Derive.switchedHolders(device).filter(({ settings }) => !("in_lag" in settings && settings.in_lag));
+        for (const { where, settings } of holders) if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${noRaGuard}`);
+
+        // `stp bpdu-protection` guards every edge port at once.
+        const stpOf = (settings: Port | Lag) => (typeof settings.stp === "object" ? settings.stp : undefined);
+        const edges = holders.filter(({ settings }) => stpOf(settings)?.edge);
+        if (edges.some(({ settings }) => stpOf(settings)?.bpdu_guard)) {
+            for (const { where, settings } of edges)
+                if (!stpOf(settings)?.bpdu_guard)
+                    found.push(`${where}.stp without bpdu_guard, the platform guards every edge port or none: write it on each`);
+        }
+
         const system = device.system ?? {};
 
         if (system.dns || system.release_channel || system.banner) found.push("system.dns, release_channel and banner");
@@ -285,6 +300,7 @@ export class Vrp extends Platform {
         }
 
         if (monitoring.transceivers !== undefined) found.push("monitoring.transceivers");
+        found.push(...Derive.unbuiltMonitoring(device));
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));
@@ -324,11 +340,19 @@ export class Vrp extends Platform {
         return found;
     }
 
-    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. */
+    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. The spanning tree guards and DHCP snooping went into a candidate on a CE6855, but were never committed, so how the switch prints them is not known. */
     override experimental(device: Device): string[] {
         const found = Object.entries(device.interfaces?.vlan_interface ?? {})
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
             .map(([name]) => `interfaces.vlan_interface.${name}.urpf.ipv4`);
+
+        if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
+        for (const { where, settings } of Derive.switchedHolders(device)) {
+            const stp = typeof settings.stp === "object" ? settings.stp : undefined;
+            if (stp?.bpdu_guard) found.push(`${where}.stp.bpdu_guard`);
+            if (stp?.guard) found.push(`${where}.stp.guard`);
+            if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted`);
+        }
 
         for (const [areaId, area] of Object.entries(device.routing?.ospf?.areas ?? {})) {
             const where = `routing.ospf.areas.${areaId}`;

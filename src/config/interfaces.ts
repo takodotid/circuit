@@ -127,6 +127,10 @@ export type PortStp = {
     cost?: number;
     /** Port priority, 0 to 240 in steps of 16. Lower is preferred. */
     priority?: number;
+    /** BPDU guard: a BPDU arriving on the port shuts it down, so a switch plugged into a host's port can't join the spanning tree. It stays down until someone brings it back up. Write it with `edge`. */
+    bpdu_guard?: true;
+    /** `root`, root guard: the port never becomes the root port. While a better root bridge is seen through it, the port blocks. Use it toward a switch that must never be the root, such as a customer's. */
+    guard?: "root";
 };
 
 /** Drop flooded traffic above these thresholds. */
@@ -159,6 +163,10 @@ export type Switched<Vlan extends string> = {
      * The only hosts allowed on this access port. The port takes frames and ARP only from their MAC addresses, and IP packets only from their addresses. It also takes the addresses every host sends from: `0.0.0.0` for DHCP, IPv6 link-local, and `::`. It drops everything else, so a host can't pretend to be its neighbor. For a server with a management card on the same cable, or with virtual machines bridged onto it, list each MAC. Any host when absent.
      */
     bound_to?: readonly BoundHost[];
+    /** DHCP servers' messages may arrive on this port or LAG, such as the uplink toward the DHCP server. Only with `switching.dhcp_snooping`. */
+    dhcp_trusted?: true;
+    /** Router advertisements may arrive on this port or LAG, such as the uplink toward the router. Only with `switching.ra_guard`. */
+    ra_trusted?: true;
 };
 
 /**

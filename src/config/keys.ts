@@ -159,11 +159,13 @@ const SWITCHED = {
     access_vlan: 0,
     trunk_vlans: 0,
     native_vlan: 0,
-    stp: { edge: 0, cost: 0, priority: 0 },
+    stp: { edge: 0, cost: 0, priority: 0, bpdu_guard: 0, guard: 0 },
     storm_control: { broadcast: THRESHOLD, multicast: THRESHOLD, unknown_unicast: THRESHOLD },
     mac_limit: 0,
     ethertypes: 0,
     bound_to: [{ mac: 0, addresses: 0 }],
+    dhcp_trusted: 0,
+    ra_trusted: 0,
 } as const;
 const BASE = { ...ROUTED, description: 0, mtu: 0, shaping: { algorithm: 0, mbps: 0 } } as const;
 // No packet arrives on a loopback, and a bridge doesn't route what crosses it.
@@ -255,9 +257,17 @@ export const DEVICE = {
             users: { "*": { auth: 0, auth_password: SECRET, privacy: 0, privacy_password: SECRET } },
             contact: 0,
             location: 0,
+            traps: [{ address: 0, port: 0, community: SECRET, user: 0 }],
         },
-        syslog: [{ address: 0, port: 0, level: 0 }],
-        flow_export: { protocol: 0, collectors: [{ address: 0, port: 0 }], sampling: 0, interfaces: 0 },
+        syslog: [{ address: 0, port: 0, level: 0, transport_security: { ca_certificate: 0 } }],
+        flow_export: {
+            protocol: 0,
+            collectors: [{ address: 0, port: 0 }],
+            sampling: 0,
+            interfaces: 0,
+            active_timeout: 0,
+            idle_timeout: 0,
+        },
         transceivers: 0,
     },
     interfaces: {
@@ -297,6 +307,8 @@ export const DEVICE = {
     switching: {
         vlans: { "*": { id: 0, description: 0, untrusted: 0 } },
         stp: { mode: 0, priority: 0 },
+        dhcp_snooping: 0,
+        ra_guard: 0,
         lldp: { interfaces: 0 },
         acls: { "*": [ACL_RULE] },
     },

@@ -91,14 +91,21 @@ export class FortiOs extends Platform {
     }
 
     /**
-     * Not sent to a device yet: strict source checks, which change every interface of the VDOM. Not known yet: delegated prefixes, which FortiOS 6.2 takes only inside the server's subnet. The render widens the subnet to hold them, and no host has shown what that does (TRAPS.md).
+     * Not sent to a device yet: strict source checks, which change every interface of the VDOM, and NetFlow's timeouts, whose ranges only were tried. Syslog over TLS was sent, but no collector proved that the device checks its certificate. Delegated prefixes go only inside the server's subnet on 6.2, which the render widens; no host has shown what that does (TRAPS.md).
      */
     override experimental(device: Device): string[] {
         const check = FortiOsRender.sourceCheck(device);
-        const delegating = Object.entries(device.services?.dhcpv6_server ?? {})
-            .filter(([, server]) => server.prefix_delegation)
-            .map(([name]) => `services.dhcpv6_server.${name}.prefix_delegation`);
-        return [...(check.strict ? check.setting : []), ...delegating];
+        const found = check.strict ? [...check.setting] : [];
+
+        (device.monitoring?.syslog ?? []).forEach((collector, index) => {
+            if (collector.transport_security) found.push(`monitoring.syslog[${index}].transport_security`);
+        });
+        for (const key of ["active_timeout", "idle_timeout"] as const)
+            if (device.monitoring?.flow_export?.[key] !== undefined) found.push(`monitoring.flow_export.${key}`);
+        for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {}))
+            if (server.prefix_delegation) found.push(`services.dhcpv6_server.${name}.prefix_delegation`);
+
+        return found;
     }
 
     override render(device: Device): string {

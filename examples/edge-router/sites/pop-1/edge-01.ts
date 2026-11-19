@@ -17,6 +17,16 @@ export default as64500.device({
         users: { operator: { role: "admin", password: secret("EDGE_01_PASSWORD") } },
     },
     management: { allow: ["10.0.0.0/24"], ssh: {} },
+    // Flow records of what crosses the transit and the exchange. A long flow is reported every minute, not only when it ends.
+    monitoring: {
+        flow_export: {
+            protocol: "netflow-v9",
+            collectors: [{ address: "10.0.0.31" }],
+            interfaces: ["25g-1", "25g-2"],
+            active_timeout: 60,
+            idle_timeout: 15,
+        },
+    },
 
     // Loose uRPF drops what arrives from an address no route covers, such as a bogon, or from a prefix routed to a blackhole. RouterOS checks IPv4 only, in one mode for the whole router, so every interface with an IPv4 address says the same.
     interfaces: {

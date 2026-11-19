@@ -13,6 +13,7 @@ import type {
     FilterRule,
     Interface,
     InterfaceKind,
+    Lag,
     NatRule,
     NeighborSettings,
     Port,
@@ -124,6 +125,14 @@ export class Derive {
         return Object.entries<Port | undefined>(device.interfaces?.ethernet ?? {}).flatMap(([name, port]) =>
             port ? [[name, port] as [string, Port]] : []
         );
+    }
+
+    /** Ports, then LAGs: what can switch, with where each is written. */
+    static switchedHolders(device: Device): { where: string; settings: Port | Lag }[] {
+        const lags = Object.entries(device.interfaces?.lag ?? {}).flatMap(([name, lag]) =>
+            lag ? [{ where: `interfaces.lag.${name}`, settings: lag }] : []
+        );
+        return [...Derive.ports(device).map(([name, settings]) => ({ where: `interfaces.ethernet.${name}`, settings })), ...lags];
     }
 
     /** Ports, then interfaces group by group, that can hold an address. */
@@ -389,6 +398,22 @@ export class Derive {
 
         if (!has("urpf"))
             for (const { where, settings } of Derive.holders(device)) if (settings.urpf) found.push(`${where}.urpf, ${notBuilt}`);
+
+        return found;
+    }
+
+    /** SNMP traps, syslog over TLS, and flow timeouts, on a platform that builds none of them. */
+    static unbuiltMonitoring(device: Device): string[] {
+        const monitoring = device.monitoring;
+        const notBuilt = "which the platform does not build";
+        const found: string[] = [];
+
+        if (monitoring?.snmp?.traps) found.push(`monitoring.snmp.traps, ${notBuilt}`);
+        (monitoring?.syslog ?? []).forEach((collector, index) => {
+            if (collector.transport_security) found.push(`monitoring.syslog[${index}].transport_security, ${notBuilt}`);
+        });
+        for (const key of ["active_timeout", "idle_timeout"] as const)
+            if (monitoring?.flow_export?.[key] !== undefined) found.push(`monitoring.flow_export.${key}, ${notBuilt}`);
 
         return found;
     }

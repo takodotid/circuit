@@ -54,7 +54,7 @@ Your AS in two regions, each a member AS of a BGP confederation with its own iBG
 
 ## Colocation with tenants
 
-A router and a top-of-rack switch. Each tenant, here Netflix, has its own file with its VLANs, gateway, ports, and rules. Devices pull them in with `include`. See [Parts and merge](/guide/parts).
+A router and two top-of-rack switches. Each tenant, here Netflix, has its own file with its VLANs, gateway, ports, and rules. Devices pull them in with `include`. See [Parts and merge](/guide/parts). Small tenants share a VLAN on the second switch, whose port guards keep each from harming the others.
 
 ::: code-group
 
@@ -69,6 +69,8 @@ A router and a top-of-rack switch. Each tenant, here Netflix, has its own file w
 <<< @/../examples/colocation/sites/dc-1/edge-01.ts
 
 <<< @/../examples/colocation/sites/dc-1/tor-01.ts
+
+<<< @/../examples/colocation/sites/dc-1/tor-02.ts
 
 :::
 

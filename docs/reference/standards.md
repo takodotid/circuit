@@ -71,6 +71,9 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | STP, RSTP, MSTP              | IEEE 802.1Q-2022, which now holds 802.1D, 802.1w, and 802.1s. The model only picks MSTP as a mode. It has no MSTP regions or instances. | `switching.stp`, port `stp`                                    |
 | LLDP                         | IEEE 802.1AB-2016                                                                                                                       | `switching.lldp`, port `lldp`                                  |
 | Ethertypes (IPv4, IPv6, ARP) | IEEE EtherType registry                                                                                                                 | port `ethertypes`                                              |
+| BPDU guard, root guard       | Not a standard: each vendor's own. Names from OpenConfig `openconfig-spanning-tree`                                                     | port `stp.bpdu_guard`, `stp.guard`                             |
+| DHCP snooping                | Not a standard: each vendor's own                                                                                                       | `switching.dhcp_snooping`, port `dhcp_trusted`                 |
+| RA guard                     | RFC 6105                                                                                                                                | `switching.ra_guard`, port `ra_trusted`                        |
 
 <!-- vale Google.Units = YES -->
 
@@ -107,7 +110,10 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | SNMPv3 AES-128 privacy             | RFC 3826                                                                                    | `privacy: "aes128"`                            |
 | SNMPv3 SHA-256 authentication      | RFC 7860                                                                                    | `auth: "sha256"`                               |
 | SNMPv2c read community             | RFC 1901 (Historic)                                                                         | `monitoring.snmp.community`                    |
+| SNMP traps                         | RFC 3416 (version 2c), RFC 3414 (version 3), port 162 (RFC 3417)                            | `monitoring.snmp.traps`                        |
 | Syslog severities and UDP port 514 | RFC 5424 (the eight severities), RFC 5426 (UDP). The message format is each platform's own. | `monitoring.syslog`, `system.logging`          |
+| Syslog over TLS, port 6514         | RFC 5425                                                                                    | syslog `transport_security`                    |
+| Flow timeouts                      | RFC 6728 (`activeTimeout`, `idleTimeout`)                                                   | `flow_export` `active_timeout`, `idle_timeout` |
 | sFlow                              | Not a standard: sFlow version 5 (sflow.org)                                                 | `flow_export` `sflow`                          |
 | NetFlow v9                         | Practice: RFC 3954 (Informational)                                                          | `flow_export` `netflow-v9`                     |
 | IPFIX                              | STD 77 (RFC 7011)                                                                           | `flow_export` `ipfix`                          |

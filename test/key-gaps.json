@@ -43,7 +43,15 @@
         "management.native_protocol",
         "management.console",
         "management.privilege_password",
-        "monitoring",
+        "monitoring.snmp.port",
+        "monitoring.snmp.community",
+        "monitoring.snmp.traps[].port",
+        "monitoring.snmp.traps[].community",
+        "monitoring.syslog[].port",
+        "monitoring.syslog[].transport_security",
+        "monitoring.flow_export.collectors[].port",
+        "monitoring.flow_export.sampling",
+        "monitoring.transceivers",
         "interfaces.ethernet.*.addresses[].address",
         "interfaces.ethernet.*.addresses[].peer_address",
         "interfaces.ethernet.*.ipv6_ra",
@@ -196,8 +204,6 @@
         "raisecom-ros": {
             "silent": [],
             "untried": [
-                "interfaces.ethernet.*.stp.edge",
-                "interfaces.ethernet.*.stp.cost",
                 "interfaces.ethernet.*.storm_control.multicast.percent",
                 "interfaces.ethernet.*.storm_control.unknown_unicast.percent",
                 "routing.static_routes[].blackhole"

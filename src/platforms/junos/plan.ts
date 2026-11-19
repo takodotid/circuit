@@ -12,7 +12,7 @@ export class JunosPlan {
         [/ (?:privacy-key|privacy-password) (?:"[^"]*"|\S+)/, " privacy-key <secret>"],
         [/ (authentication md5 \d+ key) (?:"[^"]*"|\S+)/, " $1 <secret>"],
         [/ secret (?:"[^"]*"|\S+)/, " secret <secret>"],
-        [/^set snmp community (?:"[^"]*"|\S+)/, "set snmp community <secret>"],
+        [/^set snmp (community|trap-group) (?:"[^"]*"|\S+)/, "set snmp $1 <secret>"],
     ];
 
     /** Lists whose entries are named: a delete cannot stop at the list, `delete interfaces xe-0/0/1 unit`, only at an entry, `unit 0`. A leaf-list such as `vlan members` or `ciphers` can go whole. */
@@ -32,6 +32,7 @@ export class JunosPlan {
         "interface",
         "interfaces",
         "neighbor",
+        "notify",
         "oid",
         "policer",
         "policy-statement",
@@ -49,6 +50,8 @@ export class JunosPlan {
         "server-group",
         "session",
         "storm-control-profiles",
+        "target-address",
+        "target-parameters",
         "term",
         "trap-group",
         "unit",
@@ -161,13 +164,15 @@ export class JunosPlan {
                 !removed.some((other) => isInside(path, other)) && removed.findIndex((other) => join(other) === join(path)) === index
         );
 
-        const isRemoved = (line: string) => removals.some((path) => JunosPlan.startsWith(JunosPlan.keyOf(line), path.map(JunosPlan.bare)));
+        // A removed path in the form statements compare in, so one through a redacted name, `snmp community <redacted>`, finds what it holds.
+        const keyOfPath = (path: string[]) => JunosPlan.keyOf(`set ${path.join(" ")}`);
+        const isRemoved = (line: string) => removals.some((path) => JunosPlan.startsWith(JunosPlan.keyOf(line), keyOfPath(path)));
 
         for (const path of removals) {
             const section = sectionFor(path.map(JunosPlan.bare));
             section.remove.push(`delete ${path.join(" ")}`);
 
-            const under = existing.filter((line) => JunosPlan.startsWith(JunosPlan.keyOf(line), path.map(JunosPlan.bare)));
+            const under = existing.filter((line) => JunosPlan.startsWith(JunosPlan.keyOf(line), keyOfPath(path)));
             section.show.push(...under.map((line) => `- ${line}`));
         }
 
@@ -195,9 +200,10 @@ export class JunosPlan {
             section.add.push(line);
             section.show.push(`+ ${line}`);
 
-            // A community is named by its value, so a new value is a second community. The device's go first.
-            const clear = "delete snmp community <redacted>";
-            if (rotated && line.startsWith("set snmp community ") && !section.remove.includes(clear)) section.remove.push(clear);
+            // A community, and a trap group, is named by its value, so a new value is a second one. The device's go first.
+            const named = /^set snmp (community|trap-group) /.exec(line)?.[1];
+            const clear = `delete snmp ${named} <redacted>`;
+            if (rotated && named && !section.remove.includes(clear)) section.remove.push(clear);
         }
 
         const steps: Step[] = [...sections]

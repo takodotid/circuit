@@ -66,6 +66,8 @@ export class RouterOsPlan {
         "/ipv6",
         "/routing",
         "/interface ethernet switch",
+        // `/snmp` names a community to send traps with, so it exists first.
+        "/snmp community",
         "/snmp",
         "/tool",
         "/radius",
@@ -106,10 +108,12 @@ export class RouterOsPlan {
     private static readonly FLAGS_SET = new Set(["/routing ospf area", "/routing ospf interface-template"]);
 
     /**
-     * Properties a running entry takes only when it restarts. A BGP session given a new `routing-table` stops announcing at once, and keeps its routes in the old table until it restarts (TRAPS.md). So the plan disables the connection, changes it, and enables it again.
+     * Properties a running entry takes only when it restarts. A BGP session given a new `routing-table` stops announcing at once, and keeps its routes in the old table until it restarts (TRAPS.md). So the plan disables the connection, changes it, waits until its session closes, and enables it again.
      */
     private static readonly RESTART_ON: Record<string, string[]> = { "/routing bgp connection": ["routing-table"] };
 
+    /** How long the plan waits for the session of a disabled BGP connection to close. */
+    private static readonly SESSION_CLOSE_SECONDS = 30;
     /**
      * Menus where the device makes an entry of its own from another menu, and keeps it a moment after it should go. An address that stops advertising keeps its dynamic `/ipv6 nd prefix` entry for about a second, and an entry added for the same prefix meanwhile is refused (TRAPS.md). An `add` there first waits, at most this many seconds, for that entry to go.
      */
@@ -250,6 +254,15 @@ export class RouterOsPlan {
         return [...cleared.map((property) => `${menu} unset ${selector} ${property}`), ...set];
     }
 
+    /**
+     * Waits, for up to `SESSION_CLOSE_SECONDS`, until the session of a disabled BGP connection is gone from `/routing bgp session`. An enable sent right after the disable leaves the session running (TRAPS.md). A session's `remote.address` has no prefix length.
+     */
+    private static untilSessionCloses(connection: Command): string {
+        const [address = ""] = (connection.attrs["remote.address"] ?? "").split("/");
+        const open = `[:len [/routing bgp session find where remote.address=${RouterOsPlan.findValue("remote.address", address)}]] > 0`;
+        return `:local waited 0; :while (${open} and $waited < ${RouterOsPlan.SESSION_CLOSE_SECONDS}) do={ :delay 1s; :set waited ($waited + 1) }`;
+    }
+
     private static describe(attrs: Record<string, string>): string {
         return Object.entries(attrs)
             .map(([property, raw]) => `${property}=${raw}`)
@@ -280,6 +293,8 @@ export class RouterOsPlan {
 
         for (const property of Object.keys(have)) {
             if (property in want) continue;
+            // A secret, such as a community named by its value, is compared only when secrets are sent.
+            if (RouterOsExport.isSecretMarker(wanted.attrs[property] ?? "")) continue;
 
             const clearedWith = RouterOsExport.CLEARED_WITH[wanted.menu]?.[property];
             if (clearedWith && !(clearedWith in want)) continue;
@@ -409,6 +424,7 @@ export class RouterOsPlan {
                     `~ ${entryKey} ${RouterOsPlan.describe(update)}, restarting the session: it takes a new ${restartsOn.join(" and ")} only when it restarts`
                 );
                 changeStep.send.push(...RouterOsPlan.setLines(menu, selector, { disabled: "yes", ...update }));
+                changeStep.send.push(RouterOsPlan.untilSessionCloses(current));
                 changeStep.send.push(RouterOsPlan.line(menu, "set", selector, [], { disabled: "no" }));
                 continue;
             }

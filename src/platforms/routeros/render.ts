@@ -10,6 +10,7 @@ import { Derive } from "../../core/derive";
 import type { NamedInterface } from "../../core/derive";
 import { RouterOsDhcp } from "./dhcp";
 import { RouterOsFirewall } from "./firewall";
+import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSyntax } from "./syntax";
 
@@ -54,8 +55,6 @@ export class RouterOsRender {
     } as const;
 
     private static readonly USER_GROUPS = { admin: "full", operator: "write", "read-only": "read" } as const;
-
-    private static readonly SNMP_PRIVACY = { aes128: "AES", des: "DES" } as const;
 
     /** Severity threshold to the topics the platform logs under, most severe first. */
     private static readonly TOPICS: [Severity, string][] = [
@@ -227,16 +226,14 @@ export class RouterOsRender {
     /** One VLAN-filtering bridge carries every switched port. A loopback is a bridge with no ports, the platform's idiom for one. */
     private bridge(): void {
         const { device } = this;
-        const needsBridge = this.switched().length > 0 || this.declaredVlanInterfaces().length > 0;
-
-        if (needsBridge) {
+        if (this.switched().length > 0 || this.declaredVlanInterfaces().length > 0) {
             const stp = device.switching?.stp;
-            const protocolMode = stp ? (stp.mode ?? "rstp") : "none";
-            const priority = stp?.priority === undefined ? undefined : `0x${stp.priority.toString(16)}`;
             this.add("/interface bridge", "add", {
+                "dhcp-snooping": RouterOsSyntax.yesWhen(device.switching?.dhcp_snooping),
                 name: RouterOsRender.BRIDGE,
-                "protocol-mode": protocolMode,
-                priority,
+                "protocol-mode": stp ? (stp.mode ?? "rstp") : "none",
+                priority: RouterOsSyntax.hex(stp?.priority),
+                "ra-guard": RouterOsSyntax.yesWhen(device.switching?.ra_guard),
                 "vlan-filtering": "yes",
             });
         }
@@ -492,13 +489,17 @@ export class RouterOsRender {
 
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
             this.add("/interface bridge port", "add", {
+                "bpdu-guard": RouterOsSyntax.yesWhen(stp?.bpdu_guard),
                 bridge: RouterOsRender.BRIDGE,
                 edge: stp?.edge ? "yes" : undefined,
                 "frame-types": frameTypes,
                 interface: this.name(port),
                 "path-cost": stp?.cost,
-                priority: stp?.priority === undefined ? undefined : `0x${stp.priority.toString(16)}`,
+                priority: RouterOsSyntax.hex(stp?.priority),
                 pvid,
+                "restricted-role": RouterOsSyntax.yesWhen(stp?.guard === "root"),
+                trusted: RouterOsSyntax.yesWhen(settings.dhcp_trusted),
+                "trusted-ra": RouterOsSyntax.yesWhen(settings.ra_trusted),
             });
         }
     }
@@ -761,14 +762,14 @@ export class RouterOsRender {
     private management(): void {
         this.services();
         this.layerTwo();
-        this.snmp();
+        RouterOsMonitoring.snmp(this, this.device);
         this.users();
         this.aaa();
         this.certificates();
     }
 
     /** The sources a service takes: its own, or `management.allow`. `unsupported()` refuses an address set named there. */
-    private allowed(own: readonly Prefix[] | undefined): readonly string[] {
+    allowed(own: readonly Prefix[] | undefined): readonly string[] {
         const shared = this.device.management?.allow;
         return own ?? (typeof shared === "string" ? [] : shared) ?? [];
     }
@@ -815,37 +816,6 @@ export class RouterOsRender {
         if (this.lldpMembers()) discovery = "lldp";
         else if (this.device.switching?.lldp) discovery = "all";
         this.add("/ip neighbor discovery-settings", "set", { "discover-interface-list": discovery, protocol: "lldp" });
-    }
-
-    /** The platform keeps one community it will not delete. With version 2c it becomes the read community; without, it is disabled. Version 3 users are communities of their own. */
-    private snmp(): void {
-        const snmp = this.device.monitoring?.snmp;
-
-        if (!snmp) {
-            this.add("/snmp", "set", { enabled: "no" });
-            this.add("/snmp community", "set [ find default=yes ]", { addresses: "::/0", name: "public" });
-            return;
-        }
-
-        const allow = this.allowed(snmp.allow).join(",");
-        this.add("/snmp", "set", { contact: snmp.contact ?? "", enabled: "yes", location: snmp.location ?? "" });
-
-        if (snmp.community)
-            this.add("/snmp community", "set [ find default=yes ]", { addresses: allow, name: Secrets.marker(snmp.community) });
-        else this.add("/snmp community", "set [ find default=yes ]", { addresses: "::/0", disabled: "yes", name: "public" });
-
-        for (const [name, user] of Object.entries(snmp.users ?? {})) {
-            this.add("/snmp community", "add", {
-                addresses: allow,
-                "authentication-password": Secrets.marker(user.auth_password),
-                // SHA1 only: unsupported() refuses sha256, so it is never written as SHA1.
-                "authentication-protocol": "SHA1",
-                "encryption-password": Secrets.marker(user.privacy_password),
-                "encryption-protocol": RouterOsRender.SNMP_PRIVACY[user.privacy],
-                name,
-                security: "private",
-            });
-        }
     }
 
     private users(): void {
@@ -922,7 +892,7 @@ export class RouterOsRender {
         if (Catalog.serialConsole(platform, model) && !Catalog.virtual(platform, model))
             this.add("/system routerboard settings", "set", { "enter-setup-on": "delete-key" });
 
-        this.flowExport();
+        RouterOsMonitoring.flowExport(this, this.device);
     }
 
     /** Local logging uses the platform's built-in disk action, number 1. Each syslog collector gets an action of its own. */
@@ -947,30 +917,5 @@ export class RouterOsRender {
             });
             for (const topic of RouterOsRender.topicsFrom(collector.level)) this.add("/system logging", "add", { action, topics: topic });
         });
-    }
-
-    /** NetFlow version 9 and IPFIX through traffic flow. The platform has no sFlow, which `unsupported()` reports. */
-    private flowExport(): void {
-        const flow = this.device.monitoring?.flow_export;
-        if (!flow) {
-            this.add("/ip traffic-flow", "set", { enabled: "no" });
-            return;
-        }
-
-        const sampled = flow.sampling !== undefined && flow.sampling > 1;
-        const interfaces = flow.interfaces?.map((iface) => this.name(iface)).join(",") ?? "all";
-        this.add("/ip traffic-flow", "set", {
-            enabled: "yes",
-            interfaces,
-            "packet-sampling": RouterOsSyntax.yesNo(sampled),
-            "sampling-interval": sampled ? flow.sampling : undefined,
-            "sampling-space": sampled ? 1 : undefined,
-        });
-
-        const version = flow.protocol === "ipfix" ? "ipfix" : "9";
-
-        for (const collector of flow.collectors) {
-            this.add("/ip traffic-flow target", "add", { "dst-address": collector.address, port: collector.port ?? 2055, version });
-        }
     }
 }

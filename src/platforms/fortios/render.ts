@@ -10,13 +10,13 @@ import type {
     RadiusServer,
     RouterAdvertisement,
     Routed,
-    Severity,
     StaticRoute,
     Vxlan,
 } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { FortiOsFirewall } from "./firewall";
+import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsNames } from "./names";
 import { FortiOsRouting } from "./routing";
 import { FortiOsNode, FortiOsTree } from "./tree";
@@ -241,22 +241,8 @@ export class FortiOsRender {
     /** The fewest and most seconds a DHCPv6 server's lease lasts. */
     static readonly DHCPV6_LEASE_TIME = { min: 300, max: 8_640_000 } as const;
 
-    /** The most syslog collectors the device sends to. */
-    static readonly COLLECTORS = 4;
-
     /** The most VRFs the device holds besides its default table. */
     static readonly VRFS = 31;
-
-    static readonly LEVEL: Record<Severity, string> = {
-        emergency: "emergency",
-        alert: "alert",
-        critical: "critical",
-        error: "error",
-        warning: "warning",
-        notice: "notification",
-        info: "information",
-        debug: "debug",
-    };
 
     /** The factory's helpers, by the name a config gives them: each as name, IP protocol, and port. */
     static readonly HELPERS: Partial<Record<Helper, readonly [string, number, number][]>> = {
@@ -330,9 +316,9 @@ export class FortiOsRender {
         FortiOsRender.interfaces(root, device);
         FortiOsRender.dns(section("system dns"), section("system dns-server"), device);
         FortiOsRender.ntp(section("system ntp"), device);
-        FortiOsRender.snmp(root, device);
-        FortiOsRender.logging(root, device);
-        FortiOsRender.flowExport(root, device);
+        FortiOsMonitoring.snmp(root, device);
+        FortiOsMonitoring.logging(root, device);
+        FortiOsMonitoring.flowExport(root, device);
         FortiOsRender.dhcpServers(section("system dhcp server"), device);
         FortiOsRender.dhcpv6Servers(section("system dhcp6 server"), device);
         FortiOsRender.staticRoutes(section("router static"), section("router static6"), device, device.routing?.static_routes ?? []);
@@ -745,91 +731,6 @@ export class FortiOsRender {
         if (device.services?.ntp_server) {
             block.set("server-mode", "enable");
             block.set("interface", FortiOsTree.quoteAll(FortiOsNames.addressed(device).map((name) => FortiOsNames.of(device, name))));
-        }
-    }
-
-    private static snmp(root: FortiOsNode, device: Device): void {
-        const snmp = device.monitoring?.snmp;
-        if (!snmp) return;
-
-        const sysinfo = root.block("system snmp sysinfo");
-        sysinfo.set("status", "enable");
-        if (snmp.contact) sysinfo.set("contact-info", FortiOsTree.quote(snmp.contact));
-        if (snmp.location) sysinfo.set("location", FortiOsTree.quote(snmp.location));
-
-        if (snmp.community) {
-            const community = root.block("system snmp community").entry(1);
-            community.set("name", FortiOsTree.quote(Secrets.marker(snmp.community)));
-
-            const allow = snmp.allow ?? FortiOsNames.allowed(device);
-            const ipv4 = allow.filter((prefix) => Address.family(Address.host(prefix)) === "ipv4");
-            const ipv6 = allow.filter((prefix) => Address.family(Address.host(prefix)) === "ipv6");
-            ipv4.forEach((prefix, index) =>
-                community
-                    .block("hosts")
-                    .entry(index + 1)
-                    .set("ip", FortiOsNames.subnet(FortiOsNames.network(prefix)))
-            );
-            ipv6.forEach((prefix, index) =>
-                community
-                    .block("hosts6")
-                    .entry(index + 1)
-                    .set("ipv6", FortiOsNames.network(prefix))
-            );
-
-            // Version 2c only, and no traps: the config has nowhere to send them.
-            community.set("query-v1-status", "disable");
-            if (snmp.port) community.set("query-v2c-port", snmp.port);
-            community.set("trap-v1-status", "disable");
-            community.set("trap-v2c-status", "disable");
-        }
-
-        for (const [name, user] of Object.entries(snmp.users ?? {})) {
-            const entry = root.block("system snmp user").entry(name);
-            entry.set("security-level", "auth-priv");
-            if (snmp.port) entry.set("query-port", snmp.port);
-            // SHA1 and AES128 are the platform's defaults and are not printed.
-            entry.set("auth-pwd", FortiOsTree.quote(Secrets.marker(user.auth_password)));
-            if (user.privacy === "des") entry.set("priv-proto", "des");
-            entry.set("priv-pwd", FortiOsTree.quote(Secrets.marker(user.privacy_password)));
-        }
-    }
-
-    private static logging(root: FortiOsNode, device: Device): void {
-        const logging = device.system?.logging;
-
-        // The device prints whether it keeps logs in memory either way, and keeps them unless told not to.
-        root.block("log memory setting").set("status", logging?.local ? "enable" : "disable");
-        if (logging?.local && logging.local.level !== "info")
-            root.block("log memory filter").set("severity", FortiOsRender.LEVEL[logging.local.level]);
-
-        // The disk keeps logs unless told not to; the config keeps them only in memory.
-        root.block("log disk setting").set("status", "disable");
-
-        (device.monitoring?.syslog ?? []).slice(0, FortiOsRender.COLLECTORS).forEach((collector, index) => {
-            const number = index === 0 ? "" : String(index + 1);
-            const setting = root.block(`log syslogd${number} setting`);
-            setting.set("status", "enable");
-            setting.set("server", FortiOsTree.quote(collector.address));
-            if (collector.port && collector.port !== 514) setting.set("port", collector.port);
-
-            if (collector.level !== "info") root.block(`log syslogd${number} filter`).set("severity", FortiOsRender.LEVEL[collector.level]);
-        });
-    }
-
-    private static flowExport(root: FortiOsNode, device: Device): void {
-        const flow = device.monitoring?.flow_export;
-        const collector = flow?.collectors[0];
-        if (!flow || !collector) return;
-
-        if (flow.protocol === "sflow") {
-            const block = root.block("system sflow").set("collector-ip", collector.address);
-            if (collector.port && collector.port !== 6343) block.set("collector-port", collector.port);
-        }
-
-        if (flow.protocol === "netflow-v9") {
-            const block = root.block("system netflow").set("collector-ip", collector.address);
-            if (collector.port && collector.port !== 2055) block.set("collector-port", collector.port);
         }
     }
 

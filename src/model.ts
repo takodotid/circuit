@@ -26,6 +26,7 @@ export type {
 export type {
     Secret,
     Severity,
+    SnmpTrapTarget,
     SnmpUser,
     Stp,
     Threshold,

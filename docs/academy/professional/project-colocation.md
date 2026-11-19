@@ -28,6 +28,7 @@ my-network/
   sites/dc-1/site.ts     what both devices share
   sites/dc-1/edge-01.ts  the router
   sites/dc-1/tor-01.ts   the top-of-rack switch
+  sites/dc-1/tor-02.ts   the switch for small tenants
   tenants/netflix.ts     one file per tenant
   tenants/index.ts       every tenant, merged
   lib/checks.ts          a check of your own
