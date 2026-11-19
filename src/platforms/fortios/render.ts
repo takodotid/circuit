@@ -1,7 +1,19 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Family, Gre, Helper, RadiusServer, Severity, StaticRoute, Vxlan } from "../../model";
+import type {
+    AdvertisedPrefix,
+    Device,
+    Family,
+    Gre,
+    Helper,
+    RadiusServer,
+    RouterAdvertisement,
+    Routed,
+    Severity,
+    StaticRoute,
+    Vxlan,
+} from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { FortiOsFirewall } from "./firewall";
@@ -17,7 +29,7 @@ type RoutedSettings = {
     vrrp?: readonly { id: number; address: string; priority?: number; preempt?: boolean; interval?: number }[];
     lldp?: boolean;
     vrf?: string;
-    ipv6_ra?: boolean;
+    ipv6_ra?: Routed["ipv6_ra"];
 };
 
 export class FortiOsRender {
@@ -25,6 +37,15 @@ export class FortiOsRender {
         ["ipv4", "IPv4"],
         ["ipv6", "IPv6"],
     ];
+
+    /** Router advertisement settings at their defaults on FortiOS 6.2, which the device doesn't print. */
+    private static readonly RA_DEFAULTS = {
+        "ip6-max-interval": 600,
+        "ip6-min-interval": 198,
+        "ip6-default-life": 1800,
+        "valid-life-time": 2_592_000,
+        "preferred-life-time": 604_800,
+    } as const;
 
     /** Where the pre-login banner's text is kept. */
     static readonly BANNER = 'system replacemsg admin "pre_admin-disclaimer-text"';
@@ -543,6 +564,31 @@ export class FortiOsRender {
         }
     }
 
+    /** Router advertisements, each prefix with its own flags and lifetimes. The DNS servers and domains go on every prefix: the platform has no other place for them. A value at the platform's default is left out, as the device prints it. */
+    private static routerAdvertisement(block: FortiOsNode, ra: RouterAdvertisement, prefixes: readonly AdvertisedPrefix[]): void {
+        const defaults = FortiOsRender.RA_DEFAULTS;
+        const unlessDefault = (node: FortiOsNode, key: keyof typeof defaults, value: number | undefined) => {
+            if (value !== undefined && value !== defaults[key]) node.set(key, value);
+        };
+
+        block.set("ip6-send-adv", "enable");
+        if (ra.interval !== undefined) {
+            unlessDefault(block, "ip6-max-interval", ra.interval);
+            unlessDefault(block, "ip6-min-interval", Derive.minAdvertisementInterval(ra.interval));
+        }
+        unlessDefault(block, "ip6-default-life", ra.lifetime);
+
+        const list = block.block("ip6-prefix-list");
+        for (const advertised of prefixes) {
+            const entry = list.entry(FortiOsNames.network(advertised.prefix), true);
+            if (advertised.disable_autoconfiguration) entry.set("autonomous-flag", "disable");
+            unlessDefault(entry, "valid-life-time", advertised.valid_lifetime);
+            unlessDefault(entry, "preferred-life-time", advertised.preferred_lifetime);
+            if (ra.dns_servers?.length) entry.set("rdnss", ra.dns_servers.join(" "));
+            if (ra.dns_search_list?.length) entry.set("dnssl", FortiOsTree.quoteAll(ra.dns_search_list));
+        }
+    }
+
     /** The platform sends ICMP redirects unless an interface says otherwise; the config sends them only when asked. */
     private static redirects(entry: FortiOsNode, device: Device): void {
         if (!device.system?.ip_stack?.icmp_redirects) entry.set("icmp-send-redirect", "disable");
@@ -612,11 +658,8 @@ export class FortiOsRender {
                 block.set("ip6-allowaccess", access);
             }
 
-            if (settings.ipv6_ra) {
-                block.set("ip6-send-adv", "enable");
-                const prefixes = block.block("ip6-prefix-list");
-                for (const address of ipv6) prefixes.entry(FortiOsNames.network(address), true);
-            }
+            const ra = Derive.routerAdvertisement(settings);
+            if (ra) FortiOsRender.routerAdvertisement(block, ra, Derive.advertisedPrefixes(settings));
 
             if (relayed6.length) block.set("dhcp6-relay-service", "enable").set("dhcp6-relay-ip", relayed6.join(" "));
 

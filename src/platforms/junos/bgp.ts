@@ -108,6 +108,11 @@ export class JunosBgp {
         if (!bgp || bgp.asn === undefined) return;
 
         this.out.set("routing-options autonomous-system", bgp.asn);
+        if (bgp.confederation) {
+            this.out.set("routing-options confederation", bgp.confederation.identifier);
+            // Junos lists every member AS, its own too.
+            for (const member of [bgp.asn, ...bgp.confederation.member_as]) this.out.set("routing-options confederation members", member);
+        }
 
         const used = new Set<string>();
         const defaults = new Set<Family>();

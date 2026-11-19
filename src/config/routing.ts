@@ -119,10 +119,20 @@ export type BgpAggregate = {
     summary_only?: true;
 };
 
+/** A BGP confederation (RFC 5065): one AS to the outside, made of member ASes that each run their own iBGP. */
+export type BgpConfederation = {
+    /** The AS the confederation shows to every neighbor outside it, usually the network's `asn`. */
+    identifier: number;
+    /** The other member ASes, not this router's own. A neighbor whose `remote_as` is one of them is in the confederation, and the router shows it `routing.bgp.asn`. An empty list when the router has no neighbor in another member AS. */
+    member_as: readonly number[];
+};
+
 /** BGP on this device. `G` is the device's neighbor groups. */
 export type Bgp<P extends string, G extends string, T extends string, Net extends NetworkFacts = AnyFacts> = {
-    /** Our AS number. The network's `asn` when absent. */
+    /** Our AS number. The network's `asn` when absent. In a confederation, this router's member AS. */
     asn?: number;
+    /** This router's AS is a member AS of a confederation, such as `{ identifier: 64500, member_as: [65002, 65003] }`. */
+    confederation?: BgpConfederation;
     /** The cluster ID of this route reflector (RFC 4456). Reflectors that serve the same clients share one. The router ID when absent. Junos needs it for `route_reflector_client`. */
     cluster_id?: IPv4;
     /** Prefixes this device originates. Each needs a route, such as a static blackhole route. The export policies still decide who gets them. */

@@ -229,8 +229,12 @@ export class CrossChecks {
                     continue;
                 }
 
-                if (session.remoteAs !== undefined && session.remoteAs !== farBgp.asn) {
-                    report(`expects AS${session.remoteAs}, and ${far.name} is AS${farBgp.asn}`);
+                // A confederation shows its identifier to every router outside it (RFC 5065).
+                const identifier = farBgp.confederation?.identifier;
+                const inside = identifier === undefined || device.routing?.bgp?.confederation?.identifier === identifier;
+                const farAs = inside ? farBgp.asn : identifier;
+                if (session.remoteAs !== undefined && session.remoteAs !== farAs) {
+                    report(`expects AS${session.remoteAs}, and ${far.name} is AS${farAs}`);
                 }
 
                 // Two routers often hold one session per family, and a session of the other family does not answer this one.

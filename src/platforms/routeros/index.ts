@@ -75,6 +75,8 @@ export class RouterOs extends Platform {
 
     /** A script that lists BGP sessions, advertisements, LLDP neighbors, or the log. */
     private static readonly LIST_TIMEOUT_MS = 60_000;
+    /** `bgp-path-prepend` takes 16 at most, and counts the AS a session always sends (TRAPS.md). */
+    private static readonly MOST_PREPENDS = 15;
     /** How long after an apply the router may still list an announcement a filter change stops (TRAPS.md), read before the first check of what is announced. */
     private static readonly ANNOUNCE_SETTLE_MS = 5000;
 
@@ -270,8 +272,11 @@ export class RouterOs extends Platform {
         }
 
         const holders = Derive.holders(device);
-        for (const { where, settings } of holders)
+        for (const { where, settings } of holders) {
             if (settings.urpf?.ipv6) found.push(`${where}.urpf.ipv6, RouterOS checks IPv4 sources only`);
+            if (Derive.routerAdvertisement(settings)?.dns_search_list)
+                found.push(`${where}.ipv6_ra.dns_search_list, RouterOS announces no search domains (DNSSL)`);
+        }
 
         // `/ip settings rp-filter` is one mode for every interface.
         const urpf = Derive.sharedUrpf(holders, "ipv4");
@@ -296,6 +301,10 @@ export class RouterOs extends Platform {
         const bgp = device.routing?.bgp;
 
         if (bgp?.aggregates) found.push("routing.bgp.aggregates, RouterOS 7 BGP has no aggregate routes");
+        if (bgp?.confederation)
+            found.push(
+                "routing.bgp.confederation, RouterOS 7.24 shows the identifier, not the member AS, to neighbors inside the confederation, which RFC 5065 forbids"
+            );
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
@@ -450,6 +459,11 @@ export class RouterOs extends Platform {
         for (const [name, rules] of RouterOsSyntax.entries(device.routing?.policies)) {
             rules.forEach((rule, index) => {
                 if (rule.communities !== undefined) found.push(`routing.policies.${name}[${index}].communities ${rule.communities}`);
+                const prepend = "set" in rule ? rule.set?.prepend : undefined;
+                if (prepend !== undefined && prepend > RouterOs.MOST_PREPENDS)
+                    found.push(
+                        `routing.policies.${name}[${index}].set.prepend ${prepend}, RouterOS sends its AS at most 16 times, the one it always sends included: write ${RouterOs.MOST_PREPENDS} at most`
+                    );
             });
         }
 

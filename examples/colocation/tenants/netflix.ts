@@ -17,6 +17,12 @@ export const netflix = {
                         vlan: "netflix-internet",
                         description: "Tenant netflix",
                         addresses: ["198.51.100.9/29", "2001:db8:100:1::1/64"],
+                        // The servers make their own addresses in the /64, and use our resolvers.
+                        // Once the router stops announcing the /64, the servers stop using it for new connections within a day, and drop it after a week.
+                        ipv6_ra: {
+                            prefixes: [{ prefix: "2001:db8:100:1::/64", valid_lifetime: 604_800, preferred_lifetime: 86_400 }],
+                            dns_servers: ["2001:db8:100::53"],
+                        },
                     },
                 },
             },

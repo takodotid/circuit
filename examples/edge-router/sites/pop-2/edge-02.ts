@@ -45,8 +45,23 @@ export default as64500.device({
             "10g-3": { description: "Servers", access_vlan: "servers" },
         },
         vlan_interface: {
-            servers: { vlan: "servers", addresses: ["198.51.100.65/27", "2001:db8:100:1::1/64"], urpf: { ipv4: "strict", ipv6: "strict" } },
-            // #endregion urpf
+            servers: {
+                vlan: "servers",
+                addresses: ["198.51.100.65/27", "2001:db8:100:1::1/64"],
+                urpf: { ipv4: "strict", ipv6: "strict" },
+                // #endregion urpf
+                // #region router-advertisement
+                // The servers keep the addresses written on them. From the router they learn their gateway, resolvers, and search domain.
+                // They drop the router as their gateway 90 seconds after it falls silent.
+                ipv6_ra: {
+                    interval: 30,
+                    lifetime: 90,
+                    prefixes: [{ prefix: "2001:db8:100:1::/64", disable_autoconfiguration: true }],
+                    dns_servers: ["2001:db8:100:1::53"],
+                    dns_search_list: ["example.net"],
+                },
+                // #endregion router-advertisement
+            },
         },
     },
     switching: {

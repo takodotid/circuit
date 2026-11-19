@@ -3,6 +3,7 @@
 import type * as C from "./config/index";
 
 export type {
+    AdvertisedPrefix,
     AsNumbers,
     AsRange,
     BoundHost,
@@ -36,6 +37,7 @@ export type {
     OspfInterface,
     PrefixSet,
     RadiusServer,
+    RouterAdvertisement,
     RouteSet,
     User,
     Vlan,
