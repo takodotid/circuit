@@ -55,9 +55,14 @@ export class RouterOsDhcp {
         }
     }
 
+    /** A relay with servers of both families is a relay in each menu, by one name. */
     private static relays(render: RouterOsRender, device: Device): void {
         for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {})) {
-            render.add("/ip dhcp-relay", "add", { "dhcp-server": relay.servers.join(","), interface: render.name(relay.interface), name });
+            const interfaceName = render.name(relay.interface);
+            const ipv4 = relay.servers.filter((server) => Address.family(server) === "ipv4");
+            const ipv6 = relay.servers.filter((server) => Address.family(server) === "ipv6");
+            if (ipv4.length) render.add("/ip dhcp-relay", "add", { "dhcp-server": ipv4.join(","), interface: interfaceName, name });
+            if (ipv6.length) render.add("/ipv6 dhcp-relay", "add", { "dhcp-server": ipv6.join(","), interface: interfaceName, name });
         }
     }
 

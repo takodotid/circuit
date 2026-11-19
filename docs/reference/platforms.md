@@ -92,17 +92,17 @@ A note in a cell means "works, with this limit".
 
 ### Firewall and services
 
-| Feature         | RouterOS            | VRP             | Raisecom ROS | Junos                    | FortiOS                                |
-| --------------- | ------------------- | --------------- | ------------ | ------------------------ | -------------------------------------- |
-| Firewall filter | ✅                  | ❌              | ❌           | ❌                       | ✅                                     |
-| NAT             | ✅                  | ❌              | ❌           | ❌                       | IPv4                                   |
-| TCP MSS clamp   | ✅                  | ❌              | ❌           | ❌                       | ❌                                     |
-| DHCP server     | ✅                  | ❌              | ❌           | ✅                       | ✅                                     |
-| DHCPv6 server   | ✅ pool is a prefix | ❌              | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
-| DHCP relay      | ✅                  | VLAN interfaces | ❌           | IPv4                     | ✅                                     |
-| DNS server      | ✅                  | ❌              | ❌           | ❌                       | ✅                                     |
-| NTP client      | ✅                  | ✅              | ✅           | ✅                       | ✅                                     |
-| NTP server      | ✅                  | ✅              | ❌           | ✅                       | ✅                                     |
+| Feature         | RouterOS            | VRP                   | Raisecom ROS | Junos                    | FortiOS                                |
+| --------------- | ------------------- | --------------------- | ------------ | ------------------------ | -------------------------------------- |
+| Firewall filter | ✅                  | ❌                    | ❌           | ❌                       | ✅                                     |
+| NAT             | ✅                  | ❌                    | ❌           | ❌                       | IPv4                                   |
+| TCP MSS clamp   | ✅                  | ❌                    | ❌           | ❌                       | ❌                                     |
+| DHCP server     | ✅                  | ❌                    | ❌           | ✅                       | ✅                                     |
+| DHCPv6 server   | ✅ pool is a prefix | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
+| DHCP relay      | ✅                  | IPv4, VLAN interfaces | ❌           | IPv4                     | ✅                                     |
+| DNS server      | ✅                  | ❌                    | ❌           | ❌                       | ✅                                     |
+| NTP client      | ✅                  | ✅                    | ✅           | ✅                       | ✅                                     |
+| NTP server      | ✅                  | ✅                    | ❌           | ✅                       | ✅                                     |
 
 ### Management and monitoring
 

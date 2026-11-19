@@ -75,6 +75,15 @@ test("RouterOS refuses a pool that is not one prefix, and names one that is", ()
     );
 });
 
+test("RouterOS relays to IPv6 servers in its IPv6 menu, and to IPv4 ones in its IPv4 menu", () => {
+    const device = structuredClone(Fixtures.device("platforms--example-router"));
+    device.services!.dhcp_relay = { guests: { interface: "guests", servers: ["198.51.100.66", "2001:db8:20::547"] } };
+    const desired = Platforms.get("routeros").render(device);
+
+    expect(desired).toContain("/ip dhcp-relay\nadd dhcp-server=198.51.100.66 interface=guests name=guests");
+    expect(desired).toContain("/ipv6 dhcp-relay\nadd dhcp-server=2001:db8:20::547 interface=guests name=guests");
+});
+
 test("Junos writes a group, an address pool, and a pool of delegated prefixes, and plans nothing against how the switch prints them", () => {
     const junos = Platforms.get("junos");
     const desired = junos.render(
