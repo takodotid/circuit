@@ -129,6 +129,9 @@ ROAs?
 PEs?
 Akamai('s)?
 Arelion
+Herza('s)?
+Nedap
+Strathmore
 (?i)memcached
 Telecom
 Starlink
