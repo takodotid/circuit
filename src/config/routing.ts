@@ -67,7 +67,7 @@ export type NeighborSettings<P extends string, T extends string, F extends strin
     export_policy?: P;
     /** What the neighbor is to us, such as `provider` for a transit. Both sides then reject a route leak, as RFC 9234 describes. */
     role?: BgpRole;
-    /** The neighbor is more than one hop away. */
+    /** The neighbor is more than one hop away. An eBGP neighbor on no network the device shares needs it, or its session never comes up. */
     multihop?: boolean;
     /** Send with TTL 255, and accept only BGP packets that arrive with TTL 255, so only from a directly connected neighbor (GTSM, RFC 5082). Not with `multihop`. */
     ttl_security?: boolean;
