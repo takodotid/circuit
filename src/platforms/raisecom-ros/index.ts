@@ -217,6 +217,7 @@ export class RaisecomRos extends Platform {
         for (const field of ["bgp", "isis", "rpki"] as const) {
             if (routing?.[field]) found.push(`routing.${field}`);
         }
+        if (routing?.mpls) found.push("routing.mpls, not built yet");
 
         const ospf = routing?.ospf;
         if (routing?.router_id && !ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");

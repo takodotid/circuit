@@ -383,6 +383,7 @@ export const DEVICE = {
             interfaces: { "*": { metric: 0, passive: 0, network: 0, bfd: 0 } },
             overload_bit: 0,
         },
+        mpls: { ldp: { lsr_id: 0, interfaces: 0 } },
         bfd: { interval: 0, multiplier: 0 },
         rpki: [{ address: 0, port: 0, description: 0 }],
         policies: { "*": [POLICY_RULE] },

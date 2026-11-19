@@ -66,6 +66,10 @@ export class RouterOsPlan {
         "/routing ospf interface-template",
         "/routing isis instance",
         "/routing isis interface-template",
+        // LDP runs on interfaces that forward MPLS.
+        "/mpls interface",
+        "/mpls ldp",
+        "/mpls ldp interface",
         "/ip",
         "/ipv6",
         "/routing",

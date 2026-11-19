@@ -285,6 +285,10 @@ export class RouterOsExport {
         "/routing ospf interface-template": ["area", "interfaces"],
         "/routing isis interface-template": ["instance", "interfaces"],
         "/routing bfd configuration": ["interfaces"],
+        "/mpls interface": ["interface"],
+        // One LDP instance per VRF.
+        "/mpls ldp": ["vrf"],
+        "/mpls ldp interface": ["interface"],
         // Several routes to one prefix in one table are told apart by their gateway (TRAPS.md). A blackhole route has none.
         "/ip route": ["dst-address", "routing-table", "gateway"],
         "/ipv6 route": ["dst-address", "routing-table", "gateway"],

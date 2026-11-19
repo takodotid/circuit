@@ -46,6 +46,8 @@ export default as64500.device({
                 "40g-2": { network: "point-to-point", metric: 100, bfd: true },
             },
         },
+        // Labels from LDP toward edge-11. FortiOS has no MPLS, so none toward core-02. The LSR ID is the loopback, which IS-IS announces.
+        mpls: { ldp: { lsr_id: "10.255.1.1", interfaces: ["40g-2"] } },
         bgp: {
             // This router's member AS.
             asn: 65001,
