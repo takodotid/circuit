@@ -292,6 +292,23 @@ export default lab.device({
     );
 
     test(
+        "a new description reaches the connection without restarting its session",
+        () => {
+            expect(eventually(() => bgp("edge-01").up)).toBe(true);
+            const before = seconds(bgp("edge-01").uptime);
+
+            writeEdge({ exportRules: ANNOUNCE_EDGE_PREFIX, neighbor: `description: "AS64501, a description",` });
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+
+            const after = bgp("edge-01");
+            expect(after.up).toBe(true);
+            expect(seconds(after.uptime)).toBeGreaterThan(before);
+        },
+        TEST_MS
+    );
+
+    test(
         "edge-01 keeps the session down while cpe-01 sends with TTL 1, and Circuit sets cpe-01 back",
         async () => {
             // Circuit's config cannot make RouterOS send with TTL 1: a session without ttl_security sends with 255 too (TRAPS.md). So it is set by hand, with the session closed first, so that edge-01 hears the close.
