@@ -24,11 +24,37 @@ export default as64500.device({
             "10g-1": { description: "Cogent", addresses: ["203.0.113.6/30"] },
         },
         loopback: { loopback: { addresses: ["10.255.2.1/32"] } },
+        // Two branch offices reach the region over the internet, through Cogent. Both ends of a tunnel write the same algorithms.
+        ipsec: {
+            "ipsec-branch-1": {
+                description: "Branch office 1",
+                addresses: [{ address: "10.255.12.1/30", peer_address: "10.255.12.2" }],
+                local_address: "203.0.113.6",
+                remote_address: "192.0.2.20",
+                pre_shared_key: secret("IPSEC_BRANCH_1"),
+                ike: { encryption: "aes-256-gcm", prf: "hmac-sha2-256", dh_group: 19, lifetime: 86400 },
+                esp: { encryption: "aes-256-gcm", pfs_group: 19, lifetime: 3600 },
+            },
+            // Its router has no AES-GCM for IKE: the algorithms every IKEv2 peer has.
+            "ipsec-branch-2": {
+                description: "Branch office 2",
+                addresses: [{ address: "10.255.12.5/30", peer_address: "10.255.12.6" }],
+                local_address: "203.0.113.6",
+                remote_address: "192.0.2.30",
+                pre_shared_key: secret("IPSEC_BRANCH_2"),
+                ike: { ...presets.ipsec_rfc8247, lifetime: 28800 },
+                esp: { encryption: "aes-256-cbc", integrity: "hmac-sha2-256-128", lifetime: 3600 },
+            },
+        },
     },
 
     routing: {
         router_id: "10.255.2.1",
-        static_routes: [{ prefix: as64500.prefixes.ours.v4, blackhole: true }],
+        static_routes: [
+            { prefix: as64500.prefixes.ours.v4, blackhole: true },
+            { prefix: "10.21.0.0/16", interface: "ipsec-branch-1", description: "Branch office 1" },
+            { prefix: "10.22.0.0/16", interface: "ipsec-branch-2", description: "Branch office 2" },
+        ],
         isis: {
             net: "49.0001.0102.5500.2001.00",
             level_capability: "level-1-2",

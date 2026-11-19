@@ -209,7 +209,8 @@ export class RaisecomRos extends Platform {
 
         // Only LAGs and VLAN interfaces are built here.
         for (const { name, kind } of interfaces) {
-            if (kind !== "lag" && kind !== "vlan_interface") found.push(`interfaces.${kind}.${name}`);
+            if (kind === "ipsec") found.push(`interfaces.ipsec.${name}, IPsec: the switch does not encrypt the traffic it forwards`);
+            else if (kind !== "lag" && kind !== "vlan_interface") found.push(`interfaces.${kind}.${name}`);
         }
 
         const routing = device.routing;
@@ -217,6 +218,7 @@ export class RaisecomRos extends Platform {
         for (const field of ["bgp", "isis", "rpki"] as const) {
             if (routing?.[field]) found.push(`routing.${field}`);
         }
+        if (routing?.mpls) found.push("routing.mpls, not built yet");
 
         const ospf = routing?.ospf;
         if (routing?.router_id && !ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");
@@ -276,6 +278,8 @@ export class RaisecomRos extends Platform {
         for (const [path, value] of refusedGroups) {
             if (value !== undefined) found.push(path);
         }
+        if (device.services?.pppoe_server)
+            found.push("services.pppoe_server, Raisecom ROS has no PPPoE server: it only adds PPPoE+ tags as an intermediate agent");
 
         const management = device.management ?? {};
 

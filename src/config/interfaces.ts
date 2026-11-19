@@ -1,4 +1,4 @@
-import type { HostAddress, IP, IPv6, InterfaceAddress, MacAddress, Named, Prefix, Secret } from "./common";
+import type { HostAddress, IP, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, Secret } from "./common";
 
 /** A storm-control threshold: packets per second, or percent of the link's speed. */
 export type Threshold =
@@ -230,7 +230,17 @@ export type Port<
         dhcp_client?: DhcpClient<Table>;
         /** Limits the traffic that leaves through this port to a rate, with a queue. Not limited when absent. */
         shaping?: Shaping;
+        /** Limits the traffic through this port, each way. Not limited when absent. */
+        rate_limit?: RateLimit;
     };
+
+/** Limits the traffic through an interface to a rate, each way. Traffic above the rate waits in a queue or is dropped, as the platform does. */
+export type RateLimit = {
+    /** The traffic that arrives on the interface. */
+    input?: Limit;
+    /** The traffic that leaves through the interface. */
+    output?: Limit;
+};
 
 /**
  * Limits the traffic that leaves through an interface to a rate, with a queue. CAKE is FQ-CoDel (RFC 8290) with its own shaper. It keeps latency low under load if the rate is a little below the slowest link on the path.
@@ -264,6 +274,8 @@ export type VlanInterface<Vlan extends string, Vrf extends string> = Base<Vrf> &
      * Addresses in its subnet that are really somewhere else. It answers ARP for them with its own MAC, then routes their traffic. Use it for an address you moved out of the subnet to another link, which the hosts on the subnet still think is a neighbor. None when absent.
      */
     proxy_arp?: readonly IP[];
+    /** Limits the traffic through this VLAN interface, each way. Not limited when absent. */
+    rate_limit?: RateLimit;
 };
 
 /** An interface that is always up and is not on any link. Use it for addresses that must not depend on a link. No packet arrives on it, so it has no `urpf`. */
@@ -292,6 +304,8 @@ export type Lag<Vlan extends string, Vrf extends string> = Base<Vrf> &
         link_check?: LinkCheck;
         /** A fixed MAC address. Without it, the LAG takes a member's MAC. A tunnel may make up a new MAC each time the device starts, while the far end keeps the old one in its ARP table. */
         mac?: MacAddress;
+        /** Limits the traffic through this LAG, each way. Not limited when absent. */
+        rate_limit?: RateLimit;
     };
 
 /** A GRE tunnel. */
@@ -328,6 +342,52 @@ export type Eoip<Lag extends string, Vrf extends string> = Base<Vrf> & {
     tunnel_id: number;
     /** The LAG this tunnel is a member of, from `interfaces.lag`. */
     in_lag?: Lag;
+};
+
+/** An encryption algorithm with its key length in bits (IANA, IKEv2 transform type 1). A `gcm` one also protects integrity (AEAD, RFC 4106 and RFC 5282), so it takes no `integrity`. */
+export type IpsecEncryption = "aes-128-cbc" | "aes-256-cbc" | "aes-128-gcm" | "aes-256-gcm";
+
+/** An integrity algorithm (IANA, IKEv2 transform type 3): HMAC with SHA-256 or SHA-512, which sends the first 128 or 256 bits of the result (RFC 4868). */
+export type IpsecIntegrity = "hmac-sha2-256-128" | "hmac-sha2-512-256";
+
+/** A Diffie-Hellman group by its IANA number: 14, 15, and 16 are MODP groups of 2048, 3072, and 4096 bits (RFC 3526). 19, 20, and 21 are elliptic curve groups of 256, 384, and 521 bits (RFC 5903). */
+export type DhGroup = 14 | 15 | 16 | 19 | 20 | 21;
+
+/** The IKE SA (RFC 7296), which authenticates the peer and makes the keys of the ESP SA. Both ends need the same algorithms. */
+export type IpsecIke = {
+    encryption: IpsecEncryption;
+    /** Needed with a `cbc` encryption, and only with one. */
+    integrity?: IpsecIntegrity;
+    /** The pseudorandom function that makes the keys (IANA, IKEv2 transform type 2, RFC 4868). */
+    prf: "hmac-sha2-256" | "hmac-sha2-512";
+    dh_group: DhGroup;
+    /** Seconds before the IKE SA is made again, with new keys. */
+    lifetime: number;
+};
+
+/** The ESP SA (RFC 4303), which encrypts the packets in the tunnel. Both ends need the same algorithms. */
+export type IpsecEsp = {
+    encryption: IpsecEncryption;
+    /** Needed with a `cbc` encryption, and only with one. */
+    integrity?: IpsecIntegrity;
+    /** A Diffie-Hellman exchange of this group each time the SA is made again (perfect forward secrecy). Without it, the new keys come from the IKE SA's. */
+    pfs_group?: DhGroup;
+    /** Seconds before the SA is made again, with new keys. */
+    lifetime: number;
+};
+
+/**
+ * A route-based IPsec tunnel (RFC 4301) to one peer: what is routed into the interface leaves encrypted with ESP, so BGP or OSPF can run over it. IKEv2 (RFC 7296) authenticates the peer with a key both ends share, and makes the keys. `presets.ipsec_rfc8247` holds IKE algorithms every IKEv2 peer has.
+ */
+export type Ipsec = Pick<Base<never>, "description" | "addresses"> & {
+    /** Our tunnel endpoint, alone or with its length. */
+    local_address: HostAddress;
+    /** The far tunnel endpoint. */
+    remote_address: IP;
+    /** The key both ends share. */
+    pre_shared_key: Secret;
+    ike: IpsecIke;
+    esp: IpsecEsp;
 };
 
 /** A host and a UDP port, `host:port`, for example `203.0.113.10:51820` or `vpn.example.net:51820`. */
@@ -401,6 +461,8 @@ export type Interfaces<
     gre?: Named<T, Gre<F>>;
     /** Point-to-point VXLAN tunnels, keyed by name. */
     vxlan?: Named<T, Vxlan<F>>;
+    /** Route-based IPsec tunnels, keyed by name. */
+    ipsec?: Named<T, Ipsec>;
     /** WireGuard interfaces, keyed by name. */
     wireguard?: Named<T, WireGuard<F, Table>>;
     /** Ethernet tunnels over IP, keyed by name. Each may be a member of a LAG with `in_lag`. */

@@ -86,6 +86,7 @@ export class RouterOsRouting {
 
         routing.ospf();
         routing.isis();
+        routing.mpls();
         routing.bfd();
     }
 
@@ -630,6 +631,17 @@ export class RouterOsRouting {
                 ...Object.fromEntries(metrics),
             });
         }
+    }
+
+    /** MPLS on each LDP interface, and one LDP instance in the main table, whose sessions start from the LSR ID, as MikroTik's LDP guide sets it up. */
+    private mpls(): void {
+        const ldp = this.device.routing?.mpls?.ldp;
+        if (!ldp) return;
+
+        const interfaces = ldp.interfaces.map((iface) => this.render.name(iface));
+        for (const iface of interfaces) this.render.add("/mpls interface", "add", { interface: iface });
+        this.render.add("/mpls ldp", "add", { afi: "ip", "lsr-id": ldp.lsr_id, "transport-addresses": ldp.lsr_id });
+        for (const iface of interfaces) this.render.add("/mpls ldp interface", "add", { interface: iface });
     }
 
     /**

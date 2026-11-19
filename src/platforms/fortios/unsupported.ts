@@ -4,10 +4,12 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import { FortiOsFirewall } from "./firewall";
+import { FortiOsIpsec } from "./ipsec";
 import { FortiOsNames } from "./names";
 import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
+import { FortiOsShaping } from "./shaping";
 import { FortiOsVdoms } from "./vdoms";
 
 /** The fields of a match that may hold a list or an interface set before Circuit writes them out. */
@@ -33,6 +35,7 @@ export class FortiOsUnsupported {
         found.push(...FortiOsUnsupported.systemGaps(device));
         found.push(...FortiOsUnsupported.managementGaps(device));
         found.push(...FortiOsUnsupported.interfaceGaps(device));
+        found.push(...FortiOsIpsec.gaps(device));
         found.push(...FortiOsRender.sourceCheck(device).gaps);
         found.push(...FortiOsUnsupported.staticGaps(device));
         found.push(...FortiOsRouting.gaps(device));
@@ -55,12 +58,14 @@ export class FortiOsUnsupported {
         for (const [name, vrf] of Object.entries(vrfs)) {
             if (vrf?.description) found.push(`routing.vrfs.${name}.description, the platform numbers a VRF and keeps no description`);
         }
+        if (device.routing?.mpls) found.push("routing.mpls, FortiOS has no MPLS");
         // The device's own traffic leaves from the management VDOM, if there is one (TRAPS.md).
         for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, FortiOS 6.2 has no VRF setting for it`);
 
         // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, with the management VDOM and BFD on a route in a VRF. FortiOsRouting.gaps refuses BFD on a multihop BGP session.
         found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
-        found.push(...Derive.unbuilt(device, ["proxy-arp", "urpf"]));
+        found.push(...Derive.unbuilt(device, ["proxy-arp", "urpf", "rate-limit"]));
+        found.push(...FortiOsShaping.gaps(device));
 
         return found;
     }
@@ -341,7 +346,7 @@ export class FortiOsUnsupported {
                 if (ipv4.length > 1) found.push(`${where}.addresses, one IPv4 address`);
             }
 
-            found.push(...FortiOsUnsupported.routedGaps(where, iface, kind === "gre"));
+            found.push(...FortiOsUnsupported.routedGaps(where, iface, kind === "gre" || kind === "ipsec"));
         }
 
         // LLDP runs on ports and aggregates; a VLAN interface has no LLDP settings.
@@ -491,6 +496,10 @@ export class FortiOsUnsupported {
             }
 
             if (rule.then === "dnat") found.push(`${where}.then dnat, in source NAT`);
+            if ("to_pool" in rule) {
+                found.push(`${where}, a pool: a fixed port range pool does not keep a subscriber's sessions in its block of ports`);
+                return;
+            }
             if (rule.then === "snat" && Address.family(rule.to_address) === "ipv6")
                 found.push(`${where}.to_address, IPv6: central NAT translates IPv4`);
             if (match?.dst_port !== undefined) found.push(`${where}.if.dst_port, central NAT matches the source port only`);
@@ -587,6 +596,7 @@ export class FortiOsUnsupported {
 
     private static serviceGaps(device: Device): string[] {
         const found: string[] = [];
+        if (device.services?.pppoe_server) found.push("services.pppoe_server, FortiOS has a PPPoE client only, no server");
 
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
             if ((server.dns?.length ?? 0) > FortiOsRender.RESOLVERS.dhcp)

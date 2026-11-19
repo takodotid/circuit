@@ -55,7 +55,7 @@ export type Names = {
     lag: string;
     /** Keys of `interfaces.vlan_interface`. */
     vlanInterface: string;
-    /** Keys of `interfaces.bridge`, `.loopback`, `.gre`, `.vxlan`, `.wireguard`, and `.eoip`. */
+    /** Keys of `interfaces.bridge`, `.loopback`, `.gre`, `.vxlan`, `.ipsec`, `.wireguard`, and `.eoip`. */
     interface: string;
     /** Keys of `switching.vlans`. */
     vlan: string;
@@ -93,7 +93,7 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     management?: Management<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["addressSet"]>, NoInfer<N["vrf"]>>;
     /** What the device reports to collectors: SNMP, syslog, flow export, and optics. */
     monitoring?: Monitoring<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["vrf"]>>;
-    /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, wireguard, eoip. */
+    /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, ipsec, wireguard, eoip. */
     interfaces?: Interfaces<
         Ethernet,
         N["lag"],
@@ -105,8 +105,8 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     >;
     /** Layer 2 settings the ports share: VLANs, STP, LLDP, and ACLs. */
     switching?: Switching<N["vlan"], N["acl"], NoInfer<N["anyInterface"]>, Net["untrusted"]>;
-    /** What the device serves to hosts: DHCP server, DHCP relay, DNS server, NTP server, and UPnP. */
-    services?: Services<NoInfer<N["anyInterface"]>>;
+    /** What the device serves to hosts: DHCP server, DHCP relay, PPPoE server, DNS server, NTP server, and UPnP. */
+    services?: Services<NoInfer<N["anyInterface"]>, NoInfer<N["vrf"]>>;
     /** Where packets go: routing tables, VRFs, policy routing, static routes, BGP, OSPF, BFD, RPKI, route policies, and prefix sets. */
     routing?: Routing<N["policy"], N["prefixSet"], N["neighborGroup"], N["table"], N["vrf"], NoInfer<N["anyInterface"]>, Part, Net>;
     /** Which packets pass, and how they are rewritten: address sets, interface sets, filter, NAT, TCP MSS clamps, untracked prefixes, and connection-tracking helpers. */

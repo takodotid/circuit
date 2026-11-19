@@ -35,6 +35,7 @@ Seen on a FortiGate 3700D running FortiOS 6.2.2, without a license.
 - The console ignores a user's trusted hosts.
 - A tunnel's interface takes an IPv4 address only as a host, with the far end in `remote-ip`. `set ip 10.0.0.1 255.255.255.252` on one is dropped without a word.
 - A GRE or VXLAN tunnel creates an interface of its own, named after it, which goes when the tunnel goes. VXLAN has no local address: it leaves from the address of the interface it points to.
+- An IPsec phase 1 makes its tunnel's interface too, and `show` prints a new one with `peertype any` and `net-device disable`, which Circuit writes. It leaves out `keylife 86400`, and a phase 2's `keylifeseconds 43200`. A phase 2 hides `dhgrp` while `pfs` is `disable`. The tunnel's interface takes no MTU: `set mtu-override` is `command parse error`. In multi-VDOM mode the phase 1 belongs to a VDOM and its interface is global. All of it seen on 6.2.2.
 - A static route has no VRF of its own. It lands in the VRF of the interface it leaves through, as `get router info routing-table all` shows, so a blackhole route cannot go in a VRF. OSPF and BGP have no VRF setting.
 - BFD's timers under `config system settings`, `bfd-desired-min-tx`, `bfd-required-min-rx`, and `bfd-detect-mult`, exist only while `bfd` is on there. `get` hides them otherwise. Their defaults, 250, 250, and 3, are not printed. So the render sets `bfd` before them, and a plan unsets them before `bfd`.
 - A static route takes `set bfd enable`, IPv4 and IPv6, in a VRF too. The route stays in the table while its BFD session has never come up.
@@ -79,3 +80,4 @@ Seen on a FortiGate 3700D running FortiOS 6.2.2, without a license.
 - `config router bgp` has no `config vrf-leak` on 6.2.2: `command parse error before 'vrf-leak'`. So routes cannot go from one VRF to another.
 - IS-IS has no BFD: `set bfd` is `command parse error` in `router isis` and in an `isis-interface` entry (6.2.2).
 - `system ntp`, `system dns`, and `log syslogd setting` have no VRF setting: the device's own traffic leaves from the management VDOM, or from `root` (6.2.2).
+- A shaping policy takes `any` for `srcintf` and `dstintf`, in either family. `show` prints the `bandwidth-unit` of a shaper unless it is `kbps`, the default, and no `per-policy` on a shared shaper. The factory ships five shapers. All but `shared-1M-pipe` print `per-policy enable` (6.2.2).

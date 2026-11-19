@@ -1,5 +1,5 @@
 import { Address } from "../../core/address";
-import type { AclRule, Device, Ethertype, Family, FilterMatch, NatRule, Ports } from "../../model";
+import type { AclRule, Device, Ethertype, Family, FilterMatch, NatRule, PoolNatRule, Ports } from "../../model";
 import { Derive } from "../../core/derive";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
@@ -16,6 +16,12 @@ export class RouterOsFirewall {
     private static readonly HELPERS = ["ftp", "tftp", "irc", "h323", "sip", "pptp", "rtsp"] as const;
 
     private static readonly CHAINS = ["input", "forward", "output"] as const;
+
+    /** The start of the name of each chain a NAT pool makes: `cgnat-198.51.100.0/27` for the pool, `cgnat-198.51.100.1` for one of its addresses. */
+    private static readonly POOL_CHAIN = "cgnat";
+
+    /** The protocols a NAT pool gives each subscriber a block of ports in. */
+    private static readonly POOL_PROTOCOLS = ["tcp", "udp"] as const;
 
     private constructor(
         private readonly render: RouterOsRender,
@@ -78,8 +84,12 @@ export class RouterOsFirewall {
         const menu = family === "ipv4" ? "/ip firewall raw" : "/ipv6 firewall raw";
         const untracked = (this.device.firewall?.untracked ?? []).filter((prefix) => Address.family(prefix) === family);
 
+        // A pool may hold an untracked prefix, or be inside one.
+        const meets = (address: string) =>
+            untracked.some((prefix) => Address.contains(prefix, address) || (address.includes("/") && Address.contains(address, prefix)));
+
         for (const address of RouterOsFirewall.natAddresses(this.device)) {
-            if (Address.family(address) !== family || !untracked.some((prefix) => Address.contains(prefix, address))) continue;
+            if (Address.family(address) !== family || !meets(address)) continue;
 
             for (const [direction, property] of [
                 ["to", "dst-address"],
@@ -109,10 +119,13 @@ export class RouterOsFirewall {
         }
     }
 
-    /** Every address NAT translates to or from: each translation's target, and the address a destination translation matches. Once each, in rule order. */
+    /** Every address NAT translates to or from: each translation's target, a pool whole, and the address a destination translation matches. Once each, in rule order. */
     private static natAddresses(device: Device): string[] {
         const nat = device.firewall?.nat;
-        const translatedTo = (rule: NatRule) => (rule.then === "masquerade" ? [] : [Address.host(rule.to_address)]);
+        const translatedTo = (rule: NatRule) => {
+            if (rule.then === "masquerade") return [];
+            return "to_pool" in rule ? [rule.to_pool] : [Address.host(rule.to_address)];
+        };
         const addresses = [
             ...(nat?.source ?? []).flatMap(translatedTo),
             ...(nat?.destination ?? []).flatMap((rule) => {
@@ -192,9 +205,28 @@ export class RouterOsFirewall {
             ["dstnat", this.device.firewall?.nat?.destination],
         ];
 
+        const pools = new Set<string>();
+
         for (const [chain, rules] of chains) {
             for (const rule of rules ?? []) {
                 if (!this.families(rule.if).includes(family)) continue;
+
+                if ("to_pool" in rule) {
+                    if (Address.family(rule.to_pool) !== family) continue;
+
+                    this.render.add(menu, "add", {
+                        action: "jump",
+                        chain,
+                        comment: rule.description,
+                        "jump-target": RouterOsFirewall.poolChain(rule.to_pool),
+                        ...this.matchProperties(rule.if, family),
+                    });
+                    // Each interface of a set makes a rule of its own, all with the same pool.
+                    if (!pools.has(rule.to_pool)) this.pool(menu, rule);
+                    pools.add(rule.to_pool);
+                    continue;
+                }
+
                 // A translation to an address belongs to that address's family.
                 if (rule.then !== "masquerade" && Address.family(rule.to_address) !== family) continue;
 
@@ -208,6 +240,46 @@ export class RouterOsFirewall {
                           };
                 this.render.add(menu, "add", { ...action, chain, comment: rule.description, ...this.matchProperties(rule.if, family) });
             }
+        }
+    }
+
+    /** The chain a NAT pool's rule jumps to, or one of its addresses' chains. */
+    private static poolChain(poolOrAddress: string): string {
+        return `${RouterOsFirewall.POOL_CHAIN}-${poolOrAddress}`;
+    }
+
+    /**
+     * A NAT pool, as MikroTik's NAT page writes RFC 7422: the pool's chain jumps to a chain for each pool address, by the subscribers that leave as it. There, each subscriber's TCP and UDP go to its block of ports, and anything else to the address alone.
+     */
+    private pool(menu: string, rule: PoolNatRule): void {
+        const addresses = Derive.poolAddresses(rule);
+
+        for (const { address, subscribers } of addresses) {
+            this.render.add(menu, "add", {
+                action: "jump",
+                chain: RouterOsFirewall.poolChain(rule.to_pool),
+                "jump-target": RouterOsFirewall.poolChain(address),
+                "src-address": subscribers,
+            });
+        }
+
+        for (const { address, blocks } of addresses) {
+            const chain = RouterOsFirewall.poolChain(address);
+
+            for (const { subscriber, ports } of blocks) {
+                for (const protocol of RouterOsFirewall.POOL_PROTOCOLS) {
+                    this.render.add(menu, "add", {
+                        action: "src-nat",
+                        chain,
+                        protocol,
+                        "src-address": subscriber,
+                        "to-addresses": address,
+                        "to-ports": `${ports.min}-${ports.max}`,
+                    });
+                }
+            }
+
+            this.render.add(menu, "add", { action: "src-nat", chain, "to-addresses": address });
         }
     }
 
@@ -260,7 +332,7 @@ export class RouterOsFirewall {
                 "new-dst-ports": rule.then === "drop" ? "" : undefined,
                 ports: this.render.name(port),
                 protocol: match.protocol,
-                rate: rule.rate && RouterOsFirewall.bitrate(rule.rate),
+                rate: rule.rate && RouterOsFirewall.bitrate(Derive.limit(rule.rate).rate),
                 [ipv6 ? "src-address6" : "src-address"]: address(src),
                 "src-port": srcPort,
                 switch: "switch1",

@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Lag, OspfArea, OspfAuthentication, Port, VlanInterface, Vrrp } from "../../model";
+import type { Device, Lag, Limit, OspfArea, OspfAuthentication, Port, RateLimit, VlanInterface, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 
@@ -15,6 +15,8 @@ export class VrpRender {
 
     /** What the switch writes after a key that came without a comment. */
     static readonly KEY_COMMENT = "rsa-key";
+
+    static readonly BITS_PER_KBIT = 1000;
 
     /** The ACL that guards every management service. */
     private static readonly MANAGEMENT_ACL = 2000;
@@ -126,9 +128,15 @@ export class VrpRender {
         this.ethertypeAclBlocks();
         this.users();
         this.vrfs();
+        this.carProfiles();
 
         for (const [name, lag] of Object.entries(this.lags)) {
-            if (lag) this.block(`interface ${this.nameOf(name)}`, [...VrpRender.lagMode(lag), ...this.switching(lag)]);
+            if (lag)
+                this.block(`interface ${this.nameOf(name)}`, [
+                    ...VrpRender.lagMode(lag),
+                    ...this.switching(lag),
+                    ...VrpRender.rateLimitLines(name, lag.rate_limit),
+                ]);
         }
 
         for (const [name, iface] of Object.entries(this.vlanInterfaces)) {
@@ -180,6 +188,33 @@ export class VrpRender {
 
     private line(text: string): void {
         this.lines.push(text);
+    }
+
+    /** What arrives on a port or a LAG is policed by a CAR profile of its own, named after it. Rates are in kbit/s and bursts in bytes. */
+    private carProfiles(): void {
+        const limited = Derive.rateLimited(this.device).filter(({ kind, rateLimit }) => kind !== "vlan_interface" && rateLimit.input);
+        for (const { name, rateLimit } of limited) this.line(`qos car ${VrpRender.carName(name)} ${VrpRender.rate(rateLimit.input!)}`);
+        if (limited.length) this.separator();
+    }
+
+    /** A port's or a LAG's rate limit: its CAR profile on what arrives, and a rate limit on what leaves. */
+    private static rateLimitLines(name: string, rateLimit: RateLimit | undefined): string[] {
+        const lines: string[] = [];
+        if (rateLimit?.input) lines.push(`qos car inbound ${VrpRender.carName(name)}`);
+        if (rateLimit?.output) lines.push(`qos lr ${VrpRender.rate(rateLimit.output)} outbound`);
+        return lines;
+    }
+
+    /** The CAR profile of a port or a LAG, by its name in the config: `rate-limit-10g-1`. */
+    private static carName(name: string): string {
+        return `rate-limit-${name}`;
+    }
+
+    /** `cir 200000 cbs 250000`: the rate in kbit/s, then the burst when the config sets one. */
+    private static rate(limit: Limit): string {
+        const { rate, burst } = Derive.limit(limit);
+        const cir = `cir ${Derive.bitsPerSecond(rate) / VrpRender.BITS_PER_KBIT}`;
+        return burst === undefined ? cir : `${cir} cbs ${burst}`;
     }
 
     /** A header and its lines. A block with nothing in it is still written, so that its header exists. */
@@ -457,6 +492,7 @@ export class VrpRender {
         const lines: string[] = [];
         if (settings.description) lines.push(`description ${settings.description}`);
         lines.push(...this.switching(settings));
+        lines.push(...VrpRender.rateLimitLines(port, settings.rate_limit));
         if (settings.lldp === false) lines.push("lldp disable");
         if (settings.mac_limit !== undefined) lines.push(`mac-address limit maximum ${settings.mac_limit}`);
         if (settings.ethertypes) lines.push(`traffic-filter acl ${this.ethertypeAcls.get(settings.ethertypes.join(" "))} inbound`);

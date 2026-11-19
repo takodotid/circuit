@@ -7,6 +7,7 @@ import type {
     Family,
     Gre,
     Helper,
+    Ipsec,
     RadiusServer,
     RouterAdvertisement,
     Routed,
@@ -16,7 +17,9 @@ import type {
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { FortiOsFirewall } from "./firewall";
+import { FortiOsIpsec } from "./ipsec";
 import { FortiOsMonitoring } from "./monitoring";
+import { FortiOsShaping } from "./shaping";
 import { FortiOsNames } from "./names";
 import { FortiOsRouting } from "./routing";
 import { FortiOsNode, FortiOsTree } from "./tree";
@@ -65,6 +68,8 @@ export class FortiOsRender {
         "system interface",
         "system gre-tunnel",
         "system vxlan",
+        "vpn ipsec phase1-interface",
+        "vpn ipsec phase2-interface",
         "system dns",
         "system dns-server",
         "system ntp",
@@ -101,6 +106,8 @@ export class FortiOsRender {
         "firewall vip",
         "firewall policy",
         "firewall policy6",
+        "firewall shaper traffic-shaper",
+        "firewall shaping-policy",
         "firewall local-in-policy",
         "firewall local-in-policy6",
         "firewall central-snat-map",
@@ -316,6 +323,7 @@ export class FortiOsRender {
         FortiOsRender.users(section("system accprofile"), section("system admin"), device);
         FortiOsRender.aaa(root, device);
         FortiOsRender.interfaces(root, device);
+        FortiOsIpsec.render(section("vpn ipsec phase1-interface"), section("vpn ipsec phase2-interface"), device);
         FortiOsRender.dns(section("system dns"), section("system dns-server"), device);
         FortiOsRender.ntp(section("system ntp"), device);
         FortiOsMonitoring.snmp(root, device);
@@ -327,6 +335,7 @@ export class FortiOsRender {
         FortiOsRouting.render(root, device);
         FortiOsRender.helpers(section("system session-helper"), device);
         FortiOsFirewall.render(root, device);
+        FortiOsShaping.render(root, device);
         FortiOsRender.managementVdom(root, device);
         if (Object.values(device.interfaces?.vlan_interface ?? {}).some((iface) => iface?.proxy_arp?.length))
             FortiOsRender.proxyArp(root.block("system proxy-arp"), device);
@@ -526,22 +535,22 @@ export class FortiOsRender {
 
         // A tunnel's interface is created by its own table, which uses the interface it leaves through.
         for (const { name, kind, settings } of FortiOsNames.interfacesOf(device)) {
-            if (kind !== "gre" && kind !== "vxlan") continue;
+            if (kind !== "gre" && kind !== "vxlan" && kind !== "ipsec") continue;
 
-            const iface = settings as Gre | Vxlan;
+            const iface = settings as Gre | Vxlan | Ipsec;
             const vxlan = kind === "vxlan" ? (settings as Vxlan) : undefined;
 
-            const outgoing = FortiOsNames.holderOf(device, iface.local_address);
+            const outgoing = FortiOsNames.holderOf(device, Address.host(iface.local_address));
             const via = outgoing ? FortiOsTree.quote(FortiOsNames.of(device, outgoing)) : '""';
 
             // Between IPv6 endpoints the family is stated first: the addresses of the other family are not settings until it is.
             const ipv6 = Address.family(iface.remote_address) === "ipv6";
 
-            if (!vxlan) {
+            if (kind === "gre") {
                 const tunnel = root.block("system gre-tunnel").entry(name).set("interface", via);
                 if (ipv6) tunnel.set("ip-version", 6).set("remote-gw6", iface.remote_address).set("local-gw6", iface.local_address);
                 else tunnel.set("remote-gw", iface.remote_address).set("local-gw", iface.local_address);
-            } else {
+            } else if (vxlan) {
                 const tunnel = root.block("system vxlan").entry(name).set("interface", via).set("vni", vxlan.vni);
                 if (ipv6) tunnel.set("ip-version", "ipv6-unicast").set("remote-ip6", FortiOsTree.quote(vxlan.remote_address));
                 else tunnel.set("remote-ip", FortiOsTree.quote(vxlan.remote_address));

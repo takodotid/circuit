@@ -73,6 +73,51 @@ test("an address NAT uses inside an untracked prefix stays tracked, before every
     expect(rendered).not.toContain("Tracked for NAT, to 10.101.0.10");
 });
 
+test("a pool jumps by subscribers to a chain for each pool address, which gives each subscriber its block of ports, and stays tracked whole", () => {
+    const rendered = Platforms.get("routeros").render({
+        ...router,
+        firewall: {
+            ...router.firewall,
+            untracked: ["198.51.100.0/31"],
+            nat: {
+                source: [
+                    {
+                        description: "CGNAT",
+                        if: { src: "100.64.0.0/30", out_interface: "uplink" },
+                        then: "snat",
+                        to_pool: "198.51.100.0/31",
+                        port_set_size: 32256,
+                    },
+                ],
+            },
+        },
+    });
+
+    expect(rendered).toContain(
+        [
+            "/ip firewall raw",
+            'add action=accept chain=prerouting comment="Tracked for NAT, to 198.51.100.0/31" dst-address=198.51.100.0/31',
+        ].join("\n")
+    );
+    expect(rendered).toContain(
+        [
+            "/ip firewall nat",
+            "add action=jump chain=srcnat comment=CGNAT jump-target=cgnat-198.51.100.0/31 out-interface=uplink src-address=100.64.0.0/30",
+            "add action=jump chain=cgnat-198.51.100.0/31 jump-target=cgnat-198.51.100.0 src-address=100.64.0.0/31",
+            "add action=jump chain=cgnat-198.51.100.0/31 jump-target=cgnat-198.51.100.1 src-address=100.64.0.2/31",
+            "add action=src-nat chain=cgnat-198.51.100.0 protocol=tcp src-address=100.64.0.0 to-addresses=198.51.100.0 to-ports=1024-33279",
+            "add action=src-nat chain=cgnat-198.51.100.0 protocol=udp src-address=100.64.0.0 to-addresses=198.51.100.0 to-ports=1024-33279",
+            "add action=src-nat chain=cgnat-198.51.100.0 protocol=tcp src-address=100.64.0.1 to-addresses=198.51.100.0 to-ports=33280-65535",
+            "add action=src-nat chain=cgnat-198.51.100.0 protocol=udp src-address=100.64.0.1 to-addresses=198.51.100.0 to-ports=33280-65535",
+            "add action=src-nat chain=cgnat-198.51.100.0 to-addresses=198.51.100.0",
+            "add action=src-nat chain=cgnat-198.51.100.1 protocol=tcp src-address=100.64.0.2 to-addresses=198.51.100.1 to-ports=1024-33279",
+        ].join("\n")
+    );
+
+    const adapter = Platforms.get("routeros");
+    expect(adapter.plan(rendered, rendered, { secrets: false, rollback: 10 }).steps).toEqual([]);
+});
+
 // The device keeps a dynamic fasttrack counter rule in the raw table, which it refuses to remove.
 test("a rewrite of the raw table never selects a dynamic rule", () => {
     const adapter = Platforms.get("routeros");
@@ -312,6 +357,48 @@ test("a service's available-from on RouterOS 7.24 is its address", () => {
     const other = adapter.plan(desired, otherOnDevice, { secrets: false, rollback: 10 });
     expect(other.problems).toEqual([]);
     expect(other.steps.flatMap((step) => step.send)).toEqual(["/ip service set ssh address=192.168.77.0/24"]);
+});
+
+// The plan kept only the first prefix's length: `10.0.2.0/24,198.51.100.0/30` went out as `10.0.2.0/24,198.51.100.0`, which a CHR took as the one host `198.51.100.0/32` (7.24.6, #313).
+test("each prefix of a service's sources keeps its length, sent and compared", () => {
+    const adapter = Platforms.get("routeros");
+    const options = { secrets: false, rollback: 10 };
+    const desired = (length: number) => `/ip service\nset ssh address=10.0.2.0/24,198.51.100.0/${length}\n`;
+    const printed = (last: string) => `/ip service\nset ssh available-from=10.0.2.0/24,${last}\n`;
+    const sent = (plan: ReturnType<typeof adapter.plan>) => plan.steps.flatMap((step) => step.send);
+
+    expect(sent(adapter.plan(desired(30), printed("198.51.100.0/32"), options))).toEqual([
+        "/ip service set ssh address=10.0.2.0/24,198.51.100.0/30",
+    ]);
+    expect(adapter.plan(desired(30), printed("198.51.100.0/30"), options).steps).toEqual([]);
+    expect(sent(adapter.plan(desired(29), printed("198.51.100.0/30"), options))).toEqual([
+        "/ip service set ssh address=10.0.2.0/24,198.51.100.0/29",
+    ]);
+});
+
+// As a CHR printed them (7.24.6): in the order sent, IPv6 lowercase, and a host with /32 or /128.
+test("a WireGuard peer's and an SNMP community's lists of prefixes compare item by item", () => {
+    const adapter = Platforms.get("routeros");
+    const options = { secrets: false, rollback: 10 };
+    const key = 'public-key="bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmV3S2V5bmU="';
+    const peer = (allowed: string) => `/interface wireguard peers\nadd allowed-address=${allowed} interface=wg1 name=wg1-alice ${key}\n`;
+    const printedPeer = [
+        "/interface wireguard peers",
+        'add allowed-address="10.9.0.0/24,198.51.100.4/32,2001:db8::/48,2001:db8:1::1/128,2001:db8:2::/64" \\',
+        `    interface=wg1 name=wg1-alice ${key}`,
+    ].join("\n");
+
+    const allowed = "10.9.0.0/24,198.51.100.4/32,2001:db8::/48,2001:db8:1::1/128,2001:DB8:2::/64";
+    expect(adapter.plan(peer(allowed), printedPeer, options).steps).toEqual([]);
+    expect(
+        adapter.plan(peer(allowed.replace("2001:db8::/48", "2001:db8::/56")), printedPeer, options).steps.flatMap((step) => step.send)
+    ).toEqual([
+        "/interface wireguard peers set [ find name=wg1-alice ] allowed-address=10.9.0.0/24,198.51.100.4,2001:db8::/56,2001:db8:1::1/128,2001:db8:2::/64",
+    ]);
+
+    const community = (addresses: string) => `/snmp community\nset [ find default=yes ] addresses=${addresses}\n`;
+    const printedCommunity = community("10.0.2.0/24,198.51.100.4/32,2001:db8::/32");
+    expect(adapter.plan(community("10.0.2.0/24,198.51.100.4/32,2001:DB8::/32"), printedCommunity, options).steps).toEqual([]);
 });
 
 // RouterOS 7.24 prints the default neighbor discovery entry with `advertise-dns=yes` on a device nobody changed, under a comment that it is not started.

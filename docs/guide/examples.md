@@ -26,7 +26,7 @@ A home, an office, or an internal network. It has a router, a switch, three VLAN
 
 ## An edge router
 
-Your own AS with two routers. The first has IP transit from Hurricane Electric, peering at DE-CIX, filters both ways, and BGP communities. The second, on Junos, peers at AMS-IX, sells transit to a customer that takes only a default route, and has a few servers. Both routers check the source of what arrives with uRPF.
+Your own AS with two edge routers and a broadband gateway. The first edge router has IP transit from Hurricane Electric, peering at DE-CIX, filters both ways, BGP communities, and CGNAT for the access network's subscribers. The second, on Junos, peers at AMS-IX, sells transit to a customer that takes only a default route, and has a few servers. Both check the source of what arrives with uRPF. Behind the first, the broadband gateway serves homes on an OLT with PPPoE, and RADIUS checks each home.
 
 ::: code-group
 
@@ -36,11 +36,13 @@ Your own AS with two routers. The first has IP transit from Hurricane Electric, 
 
 <<< @/../examples/edge-router/sites/pop-2/edge-02.ts
 
+<<< @/../examples/edge-router/sites/pop-1/bng-01.ts
+
 :::
 
 ## A backbone in two regions
 
-Your AS in two regions, each a member AS of a BGP confederation with its own iBGP. The core routers, one on Junos and one on FortiOS, run eBGP between the regions, and transit providers see only your AS. IS-IS carries the loopbacks.
+Your AS in two regions, each a member AS of a BGP confederation with its own iBGP. The core routers, one on Junos and one on FortiOS, run eBGP between the regions, and transit providers see only your AS. IS-IS carries the loopbacks, and core-01 runs MPLS with LDP toward a router of its region. Two branch offices reach the south region over IPsec tunnels.
 
 ::: code-group
 

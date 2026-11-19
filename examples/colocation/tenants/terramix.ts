@@ -13,13 +13,20 @@ export const terramix = {
             interfaces: {
                 ethernet: {
                     "100g-1": { trunk_vlans: ["terramix-internet", "terramix-private"] },
-                    "25g-4": { description: "Terramix private circuit", addresses: ["10.20.255.1/30"], vrf: "terramix" },
+                    // Terramix buys 1 Gbit/s on its private circuit, and 10 Gbit/s of internet, each way.
+                    "25g-4": {
+                        description: "Terramix private circuit",
+                        addresses: ["10.20.255.1/30"],
+                        vrf: "terramix",
+                        rate_limit: { input: "1G", output: { cir: "1G", bc: 1_250_000 } },
+                    },
                 },
                 vlan_interface: {
                     "terramix-internet": {
                         vlan: "terramix-internet",
                         description: "Tenant terramix",
                         addresses: ["198.51.100.9/29", "2001:db8:100:1::1/64"],
+                        rate_limit: { input: { cir: "10G", bc: 12_500_000 }, output: { cir: "10G", bc: 12_500_000 } },
                         // The servers make their own addresses in the /64, and use our resolvers.
                         // Once the router stops announcing the /64, the servers stop using it for new connections within a day, and drop it after a week.
                         // A server that reads no DNS servers from router advertisements asks DHCPv6 for them.

@@ -1,6 +1,6 @@
 name: devices
 
-# Circuit against emulated devices (#178): three RouterOS CHRs boot in QEMU, the first's ether2 linked to the second's ether2, and its ether3 to the third's ether2. test/platforms/routeros-chr.test.ts applies to the first, test/platforms/routeros-chr-pair.test.ts runs BGP between the first two, then test/platforms/routeros-chr-reflection.test.ts makes the first a route reflector for the other two, and test/platforms/routeros-chr-vrf.test.ts runs BGP, then OSPF, between the first two in a VRF of the first.
+# Circuit against emulated devices (#178): three RouterOS CHRs boot in QEMU, the first's ether2 linked to the second's ether2, and its ether3 to the third's ether2. test/platforms/routeros-chr.test.ts applies to the first, test/platforms/routeros-chr-pair.test.ts runs BGP between the first two, then test/platforms/routeros-chr-reflection.test.ts makes the first a route reflector for the other two, and test/platforms/routeros-chr-vrf.test.ts runs BGP, then OSPF, between the first two in a VRF of the first. test/platforms/routeros-chr-pppoe.test.ts makes the first a PPPoE server for the second, checked by FreeRADIUS on the runner. test/platforms/routeros-chr-mpls.test.ts runs LDP across all three. test/platforms/routeros-chr-cgnat.test.ts shares a NAT pool of the first among subscribers, the second one of them and the third the internet.
 
 on:
     pull_request:
@@ -40,6 +40,11 @@ jobs:
             # The TCP ports QEMU carries the links over: the first CHR to the second, and the first to the third.
             CHR_LINK: 127.0.0.1:10001
             CHR_LINK_C: 127.0.0.1:10002
+            # Where the runner forwards UDP to the first CHR's port for RADIUS requests (RFC 5176), the key it shares with FreeRADIUS, and the subscriber FreeRADIUS lets in. Lab values only.
+            CHR_COA: 127.0.0.1:3799
+            CHR_RADIUS_SECRET: circuit-lab-secret
+            CHR_SUBSCRIBER: subscriber
+            CHR_SUBSCRIBER_PASSWORD: lab-subscriber
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -55,8 +60,14 @@ jobs:
                   echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
                   sudo udevadm control --reload-rules
                   sudo udevadm trigger --name-match=kvm
-            - name: QEMU
-              run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends qemu-system-x86
+            - name: QEMU and FreeRADIUS
+              run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends qemu-system-x86 freeradius freeradius-utils
+            # The CHRs reach the runner from its loopback, FreeRADIUS's own client. The subscriber goes first in the users file: the PPP entry after it ends the search.
+            - name: a key and a subscriber for FreeRADIUS
+              run: |
+                  sudo sed -i "s/testing123/$CHR_RADIUS_SECRET/" /etc/freeradius/3.0/clients.conf
+                  sudo sed -i "1i $CHR_SUBSCRIBER Cleartext-Password := \"$CHR_SUBSCRIBER_PASSWORD\"" /etc/freeradius/3.0/mods-config/files/authorize
+                  sudo systemctl restart freeradius
 
             - name: the CHR image, checked against MikroTik's checksum
               working-directory: ${{ runner.temp }}
@@ -75,7 +86,7 @@ jobs:
               run: |
                   qemu-system-x86_64 -enable-kvm -m 512 -display none -daemonize -serial file:chr-console.log \
                       -drive file=chr.img,format=raw \
-                      -netdev "user,id=ether1,net=10.0.0.0/24,host=10.0.0.2,dhcpstart=${CHR_ADDRESS%/*},hostfwd=tcp:$CIRCUIT_TEST_CHR-:22,hostfwd=tcp:$CHR_REST-:80" \
+                      -netdev "user,id=ether1,net=10.0.0.0/24,host=10.0.0.2,dhcpstart=${CHR_ADDRESS%/*},hostfwd=tcp:$CIRCUIT_TEST_CHR-:22,hostfwd=tcp:$CHR_REST-:80,hostfwd=udp:$CHR_COA-:3799" \
                       -device virtio-net-pci,netdev=ether1 \
                       -netdev "socket,id=ether2,listen=$CHR_LINK" -device virtio-net-pci,netdev=ether2,mac=52:54:00:00:0a:02 \
                       -netdev "socket,id=ether3,listen=$CHR_LINK_C" -device virtio-net-pci,netdev=ether3,mac=52:54:00:00:0a:03 \
@@ -119,6 +130,10 @@ jobs:
             - run: bun test test/platforms/routeros-chr-reflection.test.ts
             - run: bun test test/platforms/routeros-chr-vrf.test.ts
             - run: bun test test/platforms/routeros-chr-vrf-services.test.ts
+            - run: bun test test/platforms/routeros-chr-pppoe.test.ts
+            - run: bun test test/platforms/routeros-chr-rate-limit.test.ts
+            - run: bun test test/platforms/routeros-chr-mpls.test.ts
+            - run: bun test test/platforms/routeros-chr-cgnat.test.ts
 
             - name: the CHRs' consoles
               if: failure()

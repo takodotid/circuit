@@ -271,15 +271,15 @@ export default as64500.device({
 
 These are built in, so a file uses them without an import.
 
-| Global                             | What                                                                                                                                                    |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `circuit({...})`                   | A network. Its `device({...})` declares one device, in its own file.                                                                                    |
-| `part(kind, value)`                | A part written in one file and used in another: `"device"`, or a rule list: `"filter"`, `"nat"`, `"acl"`, `"policy"`, `"policy-routing"`.               |
-| `merge([...])`                     | Items made into one list or one map, by the field it lands in.                                                                                          |
-| `literal(value)`                   | A value kept exactly as written, so the editor checks it where it is used.                                                                              |
-| `secret(name)`, `secretFile(path)` | A value read when a device is applied, never kept in the project.                                                                                       |
-| `bgpNeighbors()`                   | An address set Circuit fills with every BGP neighbor address of the device.                                                                             |
-| `presets`                          | Values from public standards: `bogons` (RFC 6890), `bogon_asns`, `rfc1918`, `default_routes`, `ports`, `bgp_sanity`, `bad_tcp_flags`, `udp_amplifiers`. |
-| `address`                          | IP math for your own checks (RFC 4632, RFC 4291).                                                                                                       |
+| Global                             | What                                                                                                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `circuit({...})`                   | A network. Its `device({...})` declares one device, in its own file.                                                                                                     |
+| `part(kind, value)`                | A part written in one file and used in another: `"device"`, or a rule list: `"filter"`, `"nat"`, `"acl"`, `"policy"`, `"policy-routing"`.                                |
+| `merge([...])`                     | Items made into one list or one map, by the field it lands in.                                                                                                           |
+| `literal(value)`                   | A value kept exactly as written, so the editor checks it where it is used.                                                                                               |
+| `secret(name)`, `secretFile(path)` | A value read when a device is applied, never kept in the project.                                                                                                        |
+| `bgpNeighbors()`                   | An address set Circuit fills with every BGP neighbor address of the device.                                                                                              |
+| `presets`                          | Values from public standards: `bogons` (RFC 6890), `bogon_asns`, `rfc1918`, `default_routes`, `ports`, `bgp_sanity`, `bad_tcp_flags`, `udp_amplifiers`, `ipsec_rfc8247`. |
+| `address`                          | IP math for your own checks (RFC 4632, RFC 4291).                                                                                                                        |
 
 Data is `snake_case` (fields, `presets`, your variables). Functions are `camelCase`.

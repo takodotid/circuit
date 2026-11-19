@@ -27,6 +27,32 @@ export class RouterOsExport {
     /** An IS-IS template's metric at each level, by its link type. */
     private static readonly ISIS_METRICS = ["ptp.l1.metric", "ptp.l2.metric", "bcast.l1.metric", "bcast.l2.metric"];
 
+    /** A PPP profile's properties that `export verbose` prints as `!name` while they are not set (CHR, 7.24.6). */
+    private static readonly PPP_PROFILE_UNSET = [
+        "bridge",
+        "bridge-horizon",
+        "bridge-path-cost",
+        "bridge-port-priority",
+        "bridge-port-trusted",
+        "bridge-port-vid",
+        "dhcpv6-lease-time",
+        "dhcpv6-use-radius",
+        "dns-server",
+        "idle-timeout",
+        "incoming-filter",
+        "insert-queue-before",
+        "interface-list",
+        "local-address",
+        "outgoing-filter",
+        "parent-queue",
+        "queue-type",
+        "rate-limit",
+        "remote-address",
+        "remote-ipv6-prefix-reuse",
+        "session-timeout",
+        "wins-server",
+    ];
+
     /**
      * Values the platform holds when nothing was set, per menu, and under `*` for every menu. A property at its default is dropped from both sides of a comparison. A property the config does not state is reset to it, and one without a default here is a problem in the plan.
      */
@@ -128,6 +154,58 @@ export class RouterOsExport {
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
         "/ip dhcp-server": { "lease-time": "30m" },
+        // As a CHR on 7.24.6 printed them with `export verbose`. A PPPoE server is added disabled.
+        "/interface pppoe-server server": {
+            disabled: "yes",
+            "accept-untagged": "yes",
+            authentication: "pap,chap,mschap1,mschap2",
+            "default-profile": "default",
+            "keepalive-timeout": "10",
+            "max-mru": "auto",
+            "max-mtu": "auto",
+            "max-sessions": "unlimited",
+            mrru: "disabled",
+            "one-session-per-host": "no",
+            "pado-delay": "0",
+            "pppoe-over-vlan-range": "",
+            "service-name": "",
+        },
+        "/ppp profile": {
+            "address-list": "",
+            "bridge-learning": "default",
+            "change-tcp-mss": "default",
+            "on-down": "",
+            "on-up": "",
+            "only-one": "default",
+            "use-compression": "default",
+            "use-encryption": "default",
+            "use-ipv6": "yes",
+            "use-mpls": "default",
+            "use-upnp": "default",
+            ...Object.fromEntries(RouterOsExport.PPP_PROFILE_UNSET.map((property) => [property, ""])),
+        },
+        "/ppp aaa": {
+            accounting: "yes",
+            "enable-ipv6-accounting": "no",
+            "interim-update": "0s",
+            "use-circuit-id-in-nas-port-id": "no",
+            "use-radius": "no",
+        },
+        // MikroTik's manual says 1700, but 7.24.6 listens on RFC 5176's 3799 (TRAPS.md).
+        "/radius incoming": { accept: "no", port: "3799" },
+        // As a CHR on 7.24.6 printed a queue with `export verbose`.
+        "/queue simple": {
+            "bucket-size": "0.1/0.1",
+            "burst-limit": "0/0",
+            "burst-threshold": "0/0",
+            "burst-time": "0s/0s",
+            "limit-at": "0/0",
+            "max-limit": "0/0",
+            "packet-marks": "",
+            parent: "none",
+            priority: "8/8",
+            queue: "default-small/default-small",
+        },
         // As a CCR2216 on 7.24.6 printed a server set back to them.
         "/ipv6 dhcp-server": { "address-pool": "static-only", "prefix-pool": "static-only", "lease-time": "3d", "dhcp-option": "" },
         // As an RB5009 on 7.24.6 printed a client made with nothing but its interface.
@@ -160,7 +238,7 @@ export class RouterOsExport {
         "/tool mac-server": { "allowed-interface-list": "all" },
         "/tool mac-server mac-winbox": { "allowed-interface-list": "all" },
         "/tool mac-server ping": { enabled: "yes" },
-        "/tool bandwidth-server": { enabled: "yes" },
+        "/tool bandwidth-server": { enabled: "yes", authenticate: "yes" },
         // What `/tool sniffer reset` set them to on an RB5009 on 7.24.6.
         "/tool sniffer": { "filter-direction": "any", "filter-interface": "", "memory-limit": "100KiB" },
         // The default configuration of an RB5009 shares a USB disk on its bridge.
@@ -221,6 +299,8 @@ export class RouterOsExport {
     /** Defaults of one entry addressed by a selector, where they differ from the menu's (TRAPS.md). */
     private static readonly SELECTOR_DEFAULTS: Record<string, Record<string, Record<string, string>>> = {
         "/ipv6 nd": { "[ find default=yes ]": { "advertise-dns": "yes" } },
+        // The PPP profiles `default` and `default-encryption`, as the export addresses them.
+        "/ppp profile": { "*0": { "change-tcp-mss": "yes" }, "*FFFFFFFE": { "change-tcp-mss": "yes", "use-encryption": "yes" } },
     };
 
     /** Properties RouterOS 7.24 prints under another name, read as the name the render writes (TRAPS.md). */
@@ -253,6 +333,7 @@ export class RouterOsExport {
         "/routing ospf area": ["default-cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],
         "/routing isis interface-template": RouterOsExport.ISIS_METRICS,
+        "/ppp profile": RouterOsExport.PPP_PROFILE_UNSET,
     };
 
     /** A secret the device takes only with another property: a template given `auth` without `auth-key` is refused (TRAPS.md). It is sent whenever that property changes. */
@@ -285,6 +366,10 @@ export class RouterOsExport {
         "/routing ospf interface-template": ["area", "interfaces"],
         "/routing isis interface-template": ["instance", "interfaces"],
         "/routing bfd configuration": ["interfaces"],
+        "/mpls interface": ["interface"],
+        // One LDP instance per VRF.
+        "/mpls ldp": ["vrf"],
+        "/mpls ldp interface": ["interface"],
         // Several routes to one prefix in one table are told apart by their gateway (TRAPS.md). A blackhole route has none.
         "/ip route": ["dst-address", "routing-table", "gateway"],
         "/ipv6 route": ["dst-address", "routing-table", "gateway"],
@@ -293,6 +378,8 @@ export class RouterOsExport {
         "/ip dhcp-server network": ["address"],
         "/ip dhcp-server lease": ["address"],
         "/ip traffic-flow target": ["dst-address", "port"],
+        // One interface may have several servers, each with its own service name.
+        "/interface pppoe-server server": ["interface", "service-name"],
         "/system ntp client servers": ["address"],
         "/system logging": ["action", "topics"],
         // The device keeps a key's fingerprint, never the key: both sides compare by it.
@@ -458,17 +545,26 @@ export class RouterOsExport {
         const route = command.menu === "/ip route" || command.menu === "/ipv6 route";
         if (route && property === "gateway") return RouterOsExport.gateway(raw);
 
+        // An IP address property, which a MAC address is not. A service's sources, an SNMP community's addresses, and a WireGuard peer's are a list, each item in one spelling.
+        const isAddress = (/(^|-)address$/.test(property) && !property.endsWith("mac-address")) || property === "addresses";
+        if (!isAddress) return raw;
+
         const onInterface = property === "address" && (command.menu === "/ip address" || command.menu === "/ipv6 address");
-        // An IP address property, which a MAC address is not.
-        const isAddress = /(^|-)address$/.test(property) && !property.endsWith("mac-address");
-        // An address in one spelling, so one spelled otherwise is not another entry. The device prints `::ffff:0:0/96` as `::ffff:0.0.0.0/96` (TRAPS.md).
-        const value = isAddress ? Address.canonical(raw) : raw;
+        return raw
+            .split(",")
+            .map((item) => RouterOsExport.address(item, onInterface))
+            .join(",");
+    }
+
+    /** One address in one spelling, so one spelled otherwise is not another entry. The device prints `::ffff:0:0/96` as `::ffff:0.0.0.0/96` (TRAPS.md). */
+    private static address(raw: string, onInterface: boolean): string {
+        const value = Address.canonical(raw);
         // On an interface, a bare address is shorthand for /32 on IPv4 and /64 on IPv6.
         if (onInterface && !value.includes("/")) return `${value}/${value.includes(":") ? 64 : 32}`;
-        // Elsewhere a host is printed bare on IPv4 and with /128 on IPv6.
-        if (!onInterface && isAddress && /^[\d.]+\/32$/.test(value)) return value.slice(0, -3);
-
-        if (!onInterface && isAddress && value.includes(":") && !value.includes("/") && !value.includes(",")) return `${value}/128`;
+        if (onInterface) return value;
+        // Elsewhere an IPv4 host compares bare and an IPv6 one with /128, however the menu prints it (TRAPS.md).
+        if (/^[\d.]+\/32$/.test(value)) return value.slice(0, -3);
+        if (value.includes(":") && !value.includes("/")) return `${value}/128`;
 
         return value;
     }

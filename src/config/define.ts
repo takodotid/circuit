@@ -87,7 +87,7 @@ type NamesOf<D> = {
     port: KeysAt<D, "interfaces", "ethernet">;
     lag: KeysAt<D, "interfaces", "lag">;
     vlanInterface: KeysAt<D, "interfaces", "vlan_interface">;
-    interface: KeysAt<D, "interfaces", "bridge" | "loopback" | "gre" | "vxlan" | "wireguard" | "eoip">;
+    interface: KeysAt<D, "interfaces", "bridge" | "loopback" | "gre" | "vxlan" | "ipsec" | "wireguard" | "eoip">;
     vlan: KeysAt<D, "switching", "vlans">;
     acl: KeysAt<D, "switching", "acls">;
     policy: KeysAt<D, "routing", "policies">;
@@ -102,7 +102,7 @@ type NamesOf<D> = {
     anyInterface: KeysAt<
         D,
         "interfaces",
-        "ethernet" | "lag" | "vlan_interface" | "bridge" | "loopback" | "gre" | "vxlan" | "wireguard" | "eoip"
+        "ethernet" | "lag" | "vlan_interface" | "bridge" | "loopback" | "gre" | "vxlan" | "ipsec" | "wireguard" | "eoip"
     >;
 };
 

@@ -31,6 +31,11 @@ export class FortiOsVdoms {
         "system session-helper",
     ]);
 
+    /** The interfaces of tunnels, which their own tables create, as the plan compares them: a section of their own, after those tables. */
+    static readonly TUNNELS = "system interface, tunnels";
+
+    private static readonly INTERFACES = "system interface";
+
     /** The global section of the administrators. */
     private static readonly ADMINS = "system admin";
 
@@ -148,6 +153,11 @@ export class FortiOsVdoms {
             : { steps: [], problems: [] };
         const inScope = (scope: Scope, step: Step): Step => ({ ...step, send: FortiOsVdoms.wrap(scope, step.send) });
         const removal = (step: Step) => step.title.endsWith(", removed");
+        const tunnels = (step: Step) => step.title === FortiOsVdoms.TUNNELS;
+        // An IPsec tunnel's interface is global, and root's phase 1 makes it. So the tunnels' interfaces, and the global sections after the interfaces, which may name one, such as NTP's, wait for the VDOMs' additions. The VDOMs' removals wait for them in turn.
+        const sections = [...FortiOsVdoms.GLOBAL];
+        const later = (step: Step) =>
+            tunnels(step) || sections.indexOf(step.title.split(",")[0]!) > sections.indexOf(FortiOsVdoms.INTERFACES);
 
         const vdomPlans = [...scopes.values()]
             .filter(({ scope }) => scope.kind === "vdom")
@@ -155,6 +165,7 @@ export class FortiOsVdoms {
         const vdomSteps = vdomPlans.flatMap(({ scope, plan }) =>
             plan.steps.map((step) => inScope(scope, { ...step, title: `${scope.kind === "vdom" ? scope.vdom : ""}: ${step.title}` }))
         );
+        const vdomRemoved = vdomSteps.filter(removal);
 
         // An administrator who logs in through servers names a group in root: it changes once the group exists, and goes before the group does.
         const admins = (step: Step) => step.title.startsWith(FortiOsVdoms.ADMINS);
@@ -165,9 +176,12 @@ export class FortiOsVdoms {
         return {
             problems: [...globalPlan.problems, ...vdomPlans.flatMap(({ plan }) => plan.problems)],
             steps: [
-                ...inGlobal(added.filter((step) => !admins(step))),
+                ...inGlobal(added.filter((step) => !admins(step) && !later(step))),
                 ...inGlobal(removed.filter(admins)),
-                ...vdomSteps,
+                ...vdomSteps.filter((step) => !removal(step)),
+                ...inGlobal(added.filter(tunnels)),
+                ...inGlobal(added.filter((step) => later(step) && !tunnels(step) && !admins(step))),
+                ...vdomRemoved,
                 ...inGlobal(added.filter(admins)),
                 ...inGlobal(removed.filter((step) => !admins(step))),
             ],
@@ -187,6 +201,35 @@ export class FortiOsVdoms {
                 ? [{ name, from: FortiOsTree.bare(from), to: FortiOsTree.bare(to) }]
                 : [];
         });
+    }
+
+    /** The tree with each tunnel's interface moved from `system interface` to a section of its own, just after the tunnels' tables. The interface it leaves through is its tunnel's, and is left to the tunnel's table. */
+    static separateTunnels(root: FortiOsNode): FortiOsNode {
+        const interfaces = root.blocks.get("system interface");
+        if (!interfaces) return root;
+
+        const tunnels = new FortiOsNode();
+
+        for (const [key, entry] of interfaces.entries) {
+            const type = entry.block.settings.get("type");
+            if (type !== "tunnel" && type !== "vxlan") continue;
+
+            entry.block.settings.delete("interface");
+            tunnels.entries.set(key, entry);
+            interfaces.entries.delete(key);
+        }
+
+        const sections = [...root.blocks];
+        root.blocks.clear();
+
+        for (const [section, block] of sections) {
+            root.blocks.set(section, block);
+            // The last table that makes a tunnel's interface.
+            if (section === "vpn ipsec phase2-interface") root.blocks.set(FortiOsVdoms.TUNNELS, tunnels);
+        }
+
+        if (!root.blocks.has(FortiOsVdoms.TUNNELS)) root.blocks.set(FortiOsVdoms.TUNNELS, tunnels);
+        return root;
     }
 
     /** Mistakes in a management VDOM: named `root`, a LAG's port listed instead of the LAG, or a route with no next hop or through an interface outside it. */
@@ -226,6 +269,11 @@ export class FortiOsVdoms {
             found.push(
                 `system.vdoms with GRE or VXLAN tunnels (${tunnels.map(({ name }) => name).join(", ")}), whose tables belong to a VDOM`
             );
+        for (const [name, tunnel] of Object.entries(device.interfaces?.ipsec ?? {})) {
+            const outgoing = tunnel && FortiOsNames.holderOf(device, tunnel.local_address);
+            if (outgoing && FortiOsVdoms.of(device, outgoing) !== FortiOsVdoms.ROOT)
+                found.push(`interfaces.ipsec.${name}.local_address, on ${outgoing} in system.vdoms.management: a tunnel goes in root`);
+        }
         if (FortiOsNames.isTransparent(device)) found.push("system.vdoms with a bridge, which needs transparent mode");
 
         const inManagement = (name: string | undefined) =>
