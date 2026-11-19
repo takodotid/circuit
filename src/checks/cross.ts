@@ -1,7 +1,7 @@
 // What one device declares about another has to agree with what the other declares.
 
 import { Address } from "../core/address";
-import type { Device, Finding, Gre, Prefix, Routed, Switched, Vxlan } from "../model";
+import type { Device, Finding, Gre, Ipsec, Prefix, Routed, Switched, Vxlan } from "../model";
 import { Derive } from "../core/derive";
 import { DeviceChecks } from "./device";
 import { Topology } from "../core/topology";
@@ -10,13 +10,22 @@ import type { Holder } from "../core/topology";
 /** What a port's settings are kept on, as a path: the LAG when the port is in one, otherwise the port. */
 type Carrier = { where: string; settings: Routed & Switched & { mtu?: number } };
 
-type TunnelEnd = { device: Device; where: string; kind: "gre" | "vxlan"; tunnel: Gre | Vxlan };
+type TunnelEnd = { device: Device; where: string; kind: "gre" | "vxlan" | "ipsec"; tunnel: Gre | Vxlan | Ipsec };
 
 export class CrossChecks {
     /** An interface's MTU when the config gives none. */
     private static readonly ETHERNET_MTU = 1500;
     /** IANA's VXLAN port (RFC 7348), when the config gives none. */
     private static readonly VXLAN_PORT = 4789;
+
+    private static readonly TUNNEL_NAMES: Record<TunnelEnd["kind"], string> = { gre: "GRE", vxlan: "VXLAN", ipsec: "IPsec" };
+
+    /** What both ends of an IPsec tunnel must agree on: everything in `ike` and `esp` but the lifetimes, which each end keeps for itself (RFC 7296). */
+    private static algorithms(tunnel: Ipsec): unknown {
+        const { lifetime: _ike, ...ike } = tunnel.ike;
+        const { lifetime: _esp, ...esp } = tunnel.esp;
+        return { ike, esp };
+    }
 
     static run(devices: readonly Device[]): Finding[] {
         const holders = Topology.holders(devices);
@@ -310,7 +319,7 @@ export class CrossChecks {
         return findings;
     }
 
-    /** A GRE or VXLAN tunnel to another of our devices has a tunnel back there, with the endpoints mirrored and, for VXLAN, the same VNI and port. */
+    /** A GRE, VXLAN, or IPsec tunnel to another of our devices has a tunnel back there, with the endpoints mirrored. VXLAN's has the same VNI and port, and IPsec's the same algorithms. */
     private static tunnels(devices: readonly Device[], owners: Map<string, Holder>): Finding[] {
         const findings: Finding[] = [];
 
@@ -320,6 +329,9 @@ export class CrossChecks {
             ),
             ...Object.entries(device.interfaces?.vxlan ?? {}).flatMap(([name, tunnel]) =>
                 tunnel ? [{ device, where: `interfaces.vxlan.${name}`, kind: "vxlan" as const, tunnel }] : []
+            ),
+            ...Object.entries(device.interfaces?.ipsec ?? {}).flatMap(([name, tunnel]) =>
+                tunnel ? [{ device, where: `interfaces.ipsec.${name}`, kind: "ipsec" as const, tunnel }] : []
             ),
         ]);
 
@@ -332,7 +344,7 @@ export class CrossChecks {
 
             const report = (message: string) =>
                 findings.push({ level: "error", device: end.device.name, message: `${end.where}: ${message}` });
-            const kind = end.kind === "gre" ? "GRE" : "VXLAN";
+            const kind = CrossChecks.TUNNEL_NAMES[end.kind];
 
             // Two routers may run several VXLAN tunnels between them, one for each VNI, so a tunnel pairs with the one of its own VNI first.
             const back = ends.filter(
@@ -348,6 +360,13 @@ export class CrossChecks {
                 report(
                     `${end.tunnel.remote_address} is ${far.name}'s, which has no ${kind} tunnel from there back to ${end.tunnel.local_address}`
                 );
+                continue;
+            }
+
+            if (end.kind === "ipsec") {
+                const algorithms = (tunnel: Ipsec) => JSON.stringify(CrossChecks.algorithms(tunnel));
+                if (algorithms(end.tunnel as Ipsec) !== algorithms(mirror.tunnel as Ipsec))
+                    report(`its algorithms differ from ${far.name} ${mirror.where}'s. Write the same ike and esp, but for their lifetimes`);
                 continue;
             }
 

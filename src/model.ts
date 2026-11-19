@@ -15,6 +15,10 @@ export type {
     IP,
     IPv4,
     IPv6,
+    IpsecEncryption,
+    IpsecEsp,
+    IpsecIke,
+    IpsecIntegrity,
     Limit,
     Link,
     MacAddress,
@@ -56,15 +60,17 @@ export type VlanInterface = C.VlanInterface<string, string>;
 export type Loopback = C.Loopback<string>;
 export type Gre = C.Gre<string>;
 export type Vxlan = C.Vxlan<string>;
+/** The settings of other interfaces an IPsec tunnel has none of are never there, so code reads them from any interface alike. */
+export type Ipsec = C.Ipsec & Partial<Record<Exclude<keyof C.Base<string>, keyof C.Ipsec>, never>>;
 export type WireGuard = C.WireGuard<string, string>;
 export type Eoip = C.Eoip<string, string>;
 export type Bridge = C.Bridge<string, string>;
 
 /** Any interface that is not a port: what `interfaces` holds besides `ethernet`. */
-export type Interface = Lag | VlanInterface | Loopback | Gre | Vxlan | WireGuard | Bridge | Eoip;
+export type Interface = Lag | VlanInterface | Loopback | Gre | Vxlan | Ipsec | WireGuard | Bridge | Eoip;
 
 /** The kinds of interface `interfaces` groups by, besides `ethernet`. */
-export type InterfaceKind = "lag" | "vlan_interface" | "loopback" | "gre" | "vxlan" | "wireguard" | "bridge" | "eoip";
+export type InterfaceKind = "lag" | "vlan_interface" | "loopback" | "gre" | "vxlan" | "ipsec" | "wireguard" | "bridge" | "eoip";
 
 export type Switched = C.Switched<string>;
 export type Routed = C.Routed<string>;
@@ -73,6 +79,8 @@ export type Address = C.Address;
 export type FilterMatch = C.FilterMatch<string, string, string>;
 export type FilterRule = C.FilterRule<string, string, string>;
 export type NatRule = C.NatRule<string, string, string>;
+/** A source translation to a pool, with a block of ports for each subscriber. */
+export type PoolNatRule = Extract<NatRule, { to_pool: unknown }>;
 export type TcpMssRule = C.TcpMssRule<string, string, string>;
 export type AclRule = C.AclRule<string>;
 export type PolicyRule = C.PolicyRule<string, string>;
@@ -95,6 +103,7 @@ export type SyslogServer = C.SyslogServer;
 export type Ospf = C.Ospf<string>;
 export type OspfArea = C.OspfArea<string>;
 export type Isis = C.Isis<string>;
+export type Mpls = C.Mpls<string>;
 
 /** Something wrong with a config, as `circuit validate` reports it. */
 export type Finding = {

@@ -33,10 +33,10 @@ device
 ├─ management            how people and tools log in: ssh, https, api, native_protocol, console
 ├─ monitoring            what the box reports to collectors: snmp, syslog, flow export, optics
 ├─ interfaces            every port and interface, by kind:
-│                          ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, wireguard, eoip
+│                          ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, ipsec, wireguard, eoip
 ├─ switching             layer 2 shared by ports: vlans, stp, dhcp_snooping, arp_inspection, ra_guard, lldp, acls
 ├─ services              what the box serves to hosts: dhcp server, dhcpv6 server, dhcp relay, pppoe server, dns server, ntp server
-├─ routing               where packets go: tables, vrfs, policy_routing, static_routes, bgp, ospf, isis, bfd, rpki, policies, prefix sets
+├─ routing               where packets go: tables, vrfs, policy_routing, static_routes, bgp, ospf, isis, mpls, bfd, rpki, policies, prefix sets
 └─ firewall              which packets pass and how they are rewritten: address sets, filter, nat, tcp_mss, untracked, conntrack_helpers
 ```
 

@@ -51,6 +51,8 @@ Each RFC's status is as the RFC Editor listed it on 2026-11-01.
 | IS-IS for IPv6, in one topology with IPv4                      | RFC 5308                                                                                                                  | `routing.isis.address_families` with `ipv6`                          |
 | IS-IS authentication with HMAC-MD5                             | RFC 5304                                                                                                                  | `routing.isis.authentication`, a level's `authentication`            |
 | IS-IS overload bit                                             | ISO/IEC 10589                                                                                                             | `routing.isis.overload_bit`                                          |
+| MPLS forwarding                                                | RFC 3031, RFC 3032                                                                                                        | `routing.mpls.ldp.interfaces`                                        |
+| LDP                                                            | RFC 5036                                                                                                                  | `routing.mpls.ldp`                                                   |
 | VRRP                                                           | RFC 9568 (VRRPv3, obsoletes RFC 5798). IPv4 groups run the platform's default version, VRRPv2 on Junos, VRP, and FortiOS. | interface `vrrp`                                                     |
 | Routing security: filtering                                    | Practice: MANRS action 1                                                                                                  | `presets.bgp_sanity`, `routing.prefix_sets`                          |
 
@@ -91,29 +93,32 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 
 ## Tunnels and services
 
-| Feature                       | Standard                                                                                                                                                  | In model                            |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| GRE                           | RFC 2784                                                                                                                                                  | `interfaces.gre`                    |
-| VXLAN                         | Practice: RFC 7348 (Informational)                                                                                                                        | `interfaces.vxlan`                  |
-| WireGuard                     | Not a standard: the WireGuard paper (NDSS 2017)                                                                                                           | `interfaces.wireguard`              |
-| DHCP server                   | RFC 2131                                                                                                                                                  | `services.dhcp_server`              |
-| DHCPv6 server                 | RFC 8415; RFC 3646 for DNS servers                                                                                                                        | `services.dhcpv6_server`            |
-| DHCP relay                    | RFC 1542, RFC 2131; RFC 8415 for DHCPv6                                                                                                                   | `services.dhcp_relay`               |
-| PPPoE server for subscribers  | RFC 2516. RADIUS: RFC 2865, RFC 2866 (Informational), RFC 2869 (Informational) for interim accounting, RFC 5176 (Informational) for disconnect and change | `services.pppoe_server`             |
-| NTP client and server         | RFC 5905                                                                                                                                                  | `system.ntp`, `services.ntp_server` |
-| DNS resolvers used and served | STD 13 (RFC 1034, RFC 1035)                                                                                                                               | `system.dns`, `services.dns_server` |
+| Feature                       | Standard                                                                                                                                                  | In model                              |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| GRE                           | RFC 2784                                                                                                                                                  | `interfaces.gre`                      |
+| VXLAN                         | Practice: RFC 7348 (Informational)                                                                                                                        | `interfaces.vxlan`                    |
+| IPsec, route-based            | RFC 4301, ESP (RFC 4303), IKEv2 (RFC 7296)                                                                                                                | `interfaces.ipsec`                    |
+| IPsec algorithms              | RFC 8221 (ESP), RFC 8247 (IKEv2)                                                                                                                          | `ike`, `esp`, `presets.ipsec_rfc8247` |
+| WireGuard                     | Not a standard: the WireGuard paper (NDSS 2017)                                                                                                           | `interfaces.wireguard`                |
+| DHCP server                   | RFC 2131                                                                                                                                                  | `services.dhcp_server`                |
+| DHCPv6 server                 | RFC 8415; RFC 3646 for DNS servers                                                                                                                        | `services.dhcpv6_server`              |
+| DHCP relay                    | RFC 1542, RFC 2131; RFC 8415 for DHCPv6                                                                                                                   | `services.dhcp_relay`                 |
+| PPPoE server for subscribers  | RFC 2516. RADIUS: RFC 2865, RFC 2866 (Informational), RFC 2869 (Informational) for interim accounting, RFC 5176 (Informational) for disconnect and change | `services.pppoe_server`               |
+| NTP client and server         | RFC 5905                                                                                                                                                  | `system.ntp`, `services.ntp_server`   |
+| DNS resolvers used and served | STD 13 (RFC 1034, RFC 1035)                                                                                                                               | `system.dns`, `services.dns_server`   |
 
 ## Firewall
 
-| Feature                     | Standard                                                                                                                             | In model                                   |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| Bad TCP flag combinations   | STD 7 (RFC 9293) defines the flags. Which ones to drop is practice.                                                                  | `tcp_flags` match, `presets.bad_tcp_flags` |
-| Service ports               | IANA port registry, BCP 165 (RFC 6335)                                                                                               | `presets.ports`                            |
-| Amplification ports         | Practice: CISA alert TA14-017A (archived, last revised 2019). Six preset ports are not in it: SLP, MS-SQL, ARD, CoAP, Ubiquiti, DVR. | `presets.udp_amplifiers`                   |
-| SYN cookies                 | Practice: RFC 4987 (Informational)                                                                                                   | `system.ip_stack.syn_cookies`              |
-| ICMP redirects on or off    | STD 5 (RFC 792); RFC 4861 for IPv6                                                                                                   | `system.ip_stack.icmp_redirects`           |
-| Source address check (uRPF) | BCP 84 (RFC 3704, updated by RFC 8704)                                                                                               | interface `urpf`                           |
-| Source-based blackholing    | Practice: RFC 5635 (Informational)                                                                                                   | a blackhole route, with `urpf`             |
+| Feature                                               | Standard                                                                                                                             | In model                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Bad TCP flag combinations                             | STD 7 (RFC 9293) defines the flags. Which ones to drop is practice.                                                                  | `tcp_flags` match, `presets.bad_tcp_flags` |
+| Service ports                                         | IANA port registry, BCP 165 (RFC 6335)                                                                                               | `presets.ports`                            |
+| Amplification ports                                   | Practice: CISA alert TA14-017A (archived, last revised 2019). Six preset ports are not in it: SLP, MS-SQL, ARD, CoAP, Ubiquiti, DVR. | `presets.udp_amplifiers`                   |
+| SYN cookies                                           | Practice: RFC 4987 (Informational)                                                                                                   | `system.ip_stack.syn_cookies`              |
+| ICMP redirects on or off                              | STD 5 (RFC 792); RFC 4861 for IPv6                                                                                                   | `system.ip_stack.icmp_redirects`           |
+| Source address check (uRPF)                           | BCP 84 (RFC 3704, updated by RFC 8704)                                                                                               | interface `urpf`                           |
+| Source-based blackholing                              | Practice: RFC 5635 (Informational)                                                                                                   | a blackhole route, with `urpf`             |
+| CGNAT with a fixed block of ports for each subscriber | Practice: RFC 7422 (Informational); a port limit per subscriber, BCP 127 (RFC 6888) REQ-4                                            | `to_pool`, `port_set_size`                 |
 
 ## Monitoring and management
 

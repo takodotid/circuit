@@ -366,3 +366,63 @@ test("logins through servers name one kind of server, at least one, each once, s
         "system.aaa.radius[2].address: '192.0.2.300' is not an address",
     ]);
 });
+
+test("a pool's subscribers and blocks of ports fit, and two pools share no address unless they map alike", () => {
+    const cgnat = { if: { src: "100.64.0.0/22" }, then: "snat", to_pool: "198.51.100.0/27", port_set_size: 2016 } as const;
+    const device: Device = {
+        ...router,
+        firewall: {
+            nat: {
+                source: [
+                    cgnat,
+                    { ...cgnat, if: { ...cgnat.if, protocol: "tcp" } },
+                    { ...cgnat, port_set_size: 2100 },
+                    { ...cgnat, if: { src: "100.64.4.0/22" }, to_pool: "198.51.100.32/28", port_set_size: 70_000 },
+                    { ...cgnat, if: { src: "100.64.8.0/28" }, to_pool: "198.51.100.64/26" },
+                    { ...cgnat, if: { src: "100.64.12.1/22" }, to_pool: "198.51.100.128/27" },
+                    { ...cgnat, if: {}, to_pool: "198.51.100.160/27" },
+                    { ...cgnat, if: { src: "100.64.16.0/22" }, to_pool: "198.51.100.16/28", port_set_size: 1000 },
+                ],
+                destination: [{ ...cgnat, description: "Inbound" }],
+            },
+        },
+    };
+    const found = messages(device).filter((message) => message.startsWith("firewall.nat"));
+
+    expect(found).toEqual([
+        "firewall.nat.destination, to_pool 198.51.100.0/27 (Inbound): a pool translates the source. Move the rule to firewall.nat.source.",
+        "firewall.nat.source, to_pool 198.51.100.0/27: 32 subscribers on each pool address take 32 × 2100 = 67200 ports, more than the 64512 from 1024 to 65535. Write port_set_size: 2016 or less, or a to_pool of /26 or shorter.",
+        "firewall.nat.source, to_pool 198.51.100.32/28: port_set_size 70000 is not a whole number from 1 to 64512",
+        "firewall.nat.source, to_pool 198.51.100.64/26: the pool has more addresses than if.src 100.64.8.0/28 has subscribers. Write a to_pool of /28 or longer.",
+        "firewall.nat.source, to_pool 198.51.100.128/27: if.src 100.64.12.1/22 has bits past its length: write 100.64.12.0/22",
+        "firewall.nat.source, to_pool 198.51.100.160/27: write the subscribers' IPv4 prefix in if.src",
+        "firewall.nat.source: to_pool 198.51.100.0/27 for 100.64.0.0/22 and to_pool 198.51.100.16/28 for 100.64.16.0/22 share addresses, so two subscribers would get the same ports. Give each its own pool addresses.",
+    ]);
+});
+
+test("an IPsec tunnel's endpoints are of one family, a cbc encryption takes integrity and a gcm one none, and a lifetime is whole seconds", () => {
+    const device: Device = {
+        ...router,
+        interfaces: {
+            ...router.interfaces,
+            ipsec: {
+                branch: {
+                    local_address: "192.0.2.1",
+                    remote_address: "2001:db8::2",
+                    pre_shared_key: { secret: "IPSEC_KEY" },
+                    ike: { encryption: "aes-256-cbc", prf: "hmac-sha2-256", dh_group: 14, lifetime: 0.5 },
+                    esp: { encryption: "aes-256-gcm", integrity: "hmac-sha2-256-128", lifetime: 3600 },
+                },
+            },
+        },
+    };
+
+    expect(messages(device)).toEqual(
+        expect.arrayContaining([
+            "interfaces.ipsec.branch: local_address 192.0.2.1 and remote_address 2001:db8::2 differ in family",
+            'interfaces.ipsec.branch.ike has aes-256-cbc without integrity. Add integrity, such as "hmac-sha2-256-128"',
+            "interfaces.ipsec.branch.ike.lifetime 0.5 is not a whole number of seconds above 0",
+            "interfaces.ipsec.branch.esp.integrity: aes-256-gcm protects integrity itself. Remove integrity",
+        ])
+    );
+});

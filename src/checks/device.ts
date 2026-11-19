@@ -4,12 +4,15 @@ import { X509Certificate } from "node:crypto";
 import { utils } from "ssh2";
 import { Address } from "../core/address";
 import { Utils } from "../core/utils";
-import type { Device, Finding, Interface, Lag, NeighborSettings, Port, Routed, StaticRoute, Switched } from "../model";
+import type { Device, Finding, Interface, Ipsec, Lag, NeighborSettings, Port, Routed, StaticRoute, Switched } from "../model";
 import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
+import { IpsecChecks } from "./ipsec";
 import { IsisChecks } from "./isis";
 import { RateLimitChecks } from "./rate-limit";
+import { MplsChecks } from "./mpls";
+import { NatChecks } from "./nat";
 import { ServicesChecks } from "./services";
 
 type Report = (message: string) => void;
@@ -104,6 +107,8 @@ export class DeviceChecks {
         RateLimitChecks.check(device, report);
         DeviceChecks.routing(device, report, cidr, ip);
         IsisChecks.check(device, report);
+        MplsChecks.check(device, report);
+        NatChecks.check(device, report);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
         ServicesChecks.check(device, report, cidr, ip);
@@ -444,11 +449,13 @@ export class DeviceChecks {
             const where = `interfaces.${kind}.${name}`;
             if (Catalog.isPort(device.platform, device.model, name)) report(`${where} has the name of a port`);
 
-            if (kind === "gre" || kind === "vxlan" || kind === "eoip") {
+            if (kind === "gre" || kind === "vxlan" || kind === "ipsec" || kind === "eoip") {
                 const tunnel = settings as Extract<Interface, { remote_address: string }>;
                 ip(where, tunnel.local_address);
                 ip(where, tunnel.remote_address);
             }
+
+            if (kind === "ipsec") IpsecChecks.check(where, settings as Ipsec, report);
 
             if (kind === "eoip") {
                 const id = (settings as Extract<Interface, { tunnel_id: number }>).tunnel_id;
