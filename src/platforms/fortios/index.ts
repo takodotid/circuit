@@ -12,6 +12,7 @@ import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession } from "../platform";
 import { FortiOsCli } from "./cli";
 import type { Guard } from "./cli";
+import { FortiOsNames } from "./names";
 import { FortiOsPlan } from "./plan";
 import { FortiOsRender } from "./render";
 import { FortiOsTree } from "./tree";
@@ -102,6 +103,10 @@ export class FortiOs extends Platform {
             if (device.monitoring?.flow_export?.[key] !== undefined) found.push(`monitoring.flow_export.${key}`);
         for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {}))
             if (server.prefix_delegation) found.push(`services.dhcpv6_server.${name}.prefix_delegation`);
+        // A server answers on its interface, but none has been tried on an interface in a VRF.
+        for (const group of ["dhcp_server", "dhcpv6_server"] as const)
+            for (const [name, server] of Object.entries(device.services?.[group] ?? {}))
+                if (FortiOsNames.settingsOf(device, server.interface)?.vrf) found.push(`services.${group}.${name}.interface`);
 
         return found;
     }

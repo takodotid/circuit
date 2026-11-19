@@ -15,25 +15,45 @@ export default as64500.device({
     model: "CCR2216-1G-12XS-2XQ",
     connection: { host: "10.0.0.1", user: "operator" },
 
+    // Managed in a VRF of its own, so no route learned from the internet carries management traffic.
     system: {
         timezone: dc_1.timezone,
-        ntp: { servers: ["pool.ntp.org"] },
+        ntp: { servers: ["10.0.5.123"], vrf: "services" },
+        dns: { servers: ["10.0.5.53"], vrf: "services" },
         users: { operator: { role: "admin", password: secret("EDGE_01_PASSWORD") } },
         // Each engineer logs in with their own name, which the RADIUS servers check, and may look but change nothing. The servers are older ones, on the ports used before RFC 2865 assigned 1812 and 1813.
         aaa: {
             radius: [
-                { address: "10.0.0.11", secret_key: secret("RADIUS_KEY"), source_address: "10.0.0.1", auth_port: 1645, acct_port: 1646 },
-                { address: "10.0.0.12", secret_key: secret("RADIUS_KEY"), source_address: "10.0.0.1", auth_port: 1645, acct_port: 1646 },
+                {
+                    address: "10.0.0.11",
+                    secret_key: secret("RADIUS_KEY"),
+                    source_address: "10.0.0.1",
+                    vrf: "management",
+                    auth_port: 1645,
+                    acct_port: 1646,
+                },
+                {
+                    address: "10.0.0.12",
+                    secret_key: secret("RADIUS_KEY"),
+                    source_address: "10.0.0.1",
+                    vrf: "management",
+                    auth_port: 1645,
+                    acct_port: 1646,
+                },
             ],
             remote_role: "read-only",
             accounting_events: ["login"],
         },
     },
-    management: { allow: [dc_1.addresses.management], ssh: {} },
+    management: { allow: [dc_1.addresses.management], ssh: { vrf: "management" } },
+    monitoring: {
+        snmp: { allow: ["10.0.5.0/24"], community: secret("SNMP_COMMUNITY"), vrf: "services" },
+        syslog: [{ address: "10.0.5.10", level: "warning", vrf: "services" }],
+    },
 
     interfaces: {
         ethernet: {
-            "1g-1": { description: "Management", addresses: ["10.0.0.1/24"] },
+            "1g-1": { description: "Management", addresses: ["10.0.0.1/24"], vrf: "management" },
             "25g-1": { description: "Hurricane Electric", access_vlan: "transit", ingress_acl: "edge" },
             "25g-2": { description: "DE-CIX", access_vlan: "exchange", ingress_acl: "edge" },
             "100g-1": {
@@ -52,7 +72,7 @@ export default as64500.device({
             "25g-5": { description: "Monitoring servers", addresses: ["10.0.5.1/24"], vrf: "services" },
         },
         vlan_interface: {
-            mgmt: { vlan: "mgmt", addresses: [dc_1.addresses.router_on_switches] },
+            mgmt: { vlan: "mgmt", addresses: [dc_1.addresses.router_on_switches], vrf: "management" },
             // The gateway of the small tenants on tor-02, which hands them their addresses.
             shared: { vlan: "shared", addresses: ["198.51.100.65/27", "2001:db8:100:2::1/64"], ipv6_ra: true },
             transit: { vlan: "transit", addresses: ["203.0.113.2/30"] },
@@ -91,8 +111,11 @@ export default as64500.device({
 
     routing: {
         router_id: "203.0.113.2",
-        // Our monitoring, in a VRF of its own, which each tenant's private network takes routes from and gives routes to.
-        vrfs: { services: { description: "Our monitoring" } },
+        // Each tenant's private network takes routes from the services VRF, and gives routes to it.
+        vrfs: {
+            management: { description: "Out-of-band management of the router and the switches" },
+            services: { description: "Our monitoring, time, and name servers" },
+        },
         static_routes: [
             { prefix: as64500.prefixes.ours.v4, blackhole: true, description: "Originate" },
             { prefix: as64500.prefixes.ours.v6, blackhole: true, description: "Originate" },

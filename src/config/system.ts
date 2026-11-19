@@ -31,8 +31,10 @@ export type TacacsServer = {
     source_address?: IP;
 };
 
-/** A RADIUS server (RFC 2865, RFC 2866). */
-export type RadiusServer = TacacsServer & {
+/** A RADIUS server (RFC 2865, RFC 2866). `F` is the device's VRFs. */
+export type RadiusServer<F extends string = string> = TacacsServer & {
+    /** The VRF the device reaches the server through, from `routing.vrfs`. The main table when absent. */
+    vrf?: F;
     /** The UDP port for logins. 1812 when absent. On FortiOS, every server's is the same. */
     auth_port?: number;
     /** The UDP port for accounting. 1813 when absent. */
@@ -42,11 +44,11 @@ export type RadiusServer = TacacsServer & {
 /**
  * Logins checked with TACACS+ or RADIUS servers. A name in `system.users` logs in on the device first. Any other name is checked with the servers, in order: the next one is asked only when one does not answer. Accounting goes to the same servers.
  */
-export type Aaa = {
+export type Aaa<F extends string = string> = {
     /** TACACS+ servers. Not with `radius`. */
     tacacs?: readonly TacacsServer[];
     /** RADIUS servers. Not with `tacacs`. */
-    radius?: readonly RadiusServer[];
+    radius?: readonly RadiusServer<F>[];
     /** The role of every user a server accepts. */
     remote_role: User["role"];
     /** What the device reports to the servers: each `login` and logout, and each `command` typed. Nothing when absent. */
@@ -88,8 +90,8 @@ export type Vdoms<I extends string> = {
     };
 };
 
-/** Device-wide settings: the box itself. `U` is the device's user names, `C` its certificate names, `I` its ports and interfaces. */
-export type System<U extends string, C extends string, I extends string> = {
+/** Device-wide settings: the box itself. `U` is the device's user names, `C` its certificate names, `I` its ports and interfaces, `F` its VRFs. */
+export type System<U extends string, C extends string, I extends string, F extends string = string> = {
     /** The IANA time zone, for example `Asia/Jakarta`. The editor suggests every name. UTC when absent. */
     timezone?: TimeZone;
     /** Shown at login. */
@@ -115,11 +117,15 @@ export type System<U extends string, C extends string, I extends string> = {
     dns?: {
         /** Resolvers, in order of preference. */
         servers: readonly IP[];
+        /** The VRF the device reaches them through, from `routing.vrfs`. The main table when absent. */
+        vrf?: F;
     };
     /** How the device keeps time. To answer time queries from others, see `services.ntp_server`. */
     ntp?: {
         /** Time sources, by address (alone or with its length) or name, in order of preference. */
         servers: readonly string[];
+        /** The VRF the device reaches them through, from `routing.vrfs`. The main table when absent. */
+        vrf?: F;
     };
     /** Log messages kept on the device itself. To send them to collectors, see `monitoring.syslog`. */
     logging?: {
@@ -138,7 +144,7 @@ export type System<U extends string, C extends string, I extends string> = {
     /** Logins, keyed by user name. Circuit removes users not listed here. */
     users?: Named<U, User>;
     /** Logins checked with TACACS+ or RADIUS servers, for names not in `users`. */
-    aaa?: Aaa;
+    aaa?: Aaa<F>;
     /** Certificates the device presents or trusts, keyed by name. `management.https` and `management.api_tls` use one by name. */
     certificates?: Named<C, Certificate>;
     /** Virtual domains, on FortiOS only. Use them for a management VDOM apart from the routed traffic. */

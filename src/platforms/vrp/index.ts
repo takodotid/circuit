@@ -262,6 +262,7 @@ export class Vrp extends Platform {
         }
 
         if (management.ssh?.auth_timeout || management.ssh?.auth_retries) found.push("management.ssh.auth_timeout and auth_retries");
+        for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, not built yet`);
 
         const lldp = device.switching?.lldp;
         if (lldp && lldp !== true) found.push("switching.lldp.interfaces, use lldp on the ports instead");

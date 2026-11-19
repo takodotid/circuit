@@ -105,33 +105,37 @@ A note in a cell means "works, with this limit".
 
 ### Firewall and services
 
-| Feature         | RouterOS            | VRP                   | Raisecom ROS | Junos                    | FortiOS                                |
-| --------------- | ------------------- | --------------------- | ------------ | ------------------------ | -------------------------------------- |
-| Firewall filter | ✅                  | ❌                    | ❌           | ❌                       | ✅                                     |
-| NAT             | ✅                  | ❌                    | ❌           | ❌                       | IPv4                                   |
-| TCP MSS clamp   | ✅                  | ❌                    | ❌           | ❌                       | ❌                                     |
-| DHCP server     | ✅                  | ❌                    | ❌           | ✅                       | ✅                                     |
-| DHCPv6 server   | ✅ pool is a prefix | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
-| DHCP relay      | ✅                  | IPv4, VLAN interfaces | ❌           | IPv4                     | ✅                                     |
-| DNS server      | ✅                  | ❌                    | ❌           | ❌                       | ✅                                     |
-| NTP client      | ✅                  | ✅                    | ✅           | ✅                       | ✅                                     |
-| NTP server      | ✅                  | ✅                    | ❌           | ✅                       | ✅                                     |
+| Feature              | RouterOS            | VRP                   | Raisecom ROS | Junos                    | FortiOS                                |
+| -------------------- | ------------------- | --------------------- | ------------ | ------------------------ | -------------------------------------- |
+| Firewall filter      | ✅                  | ❌                    | ❌           | ❌                       | ✅                                     |
+| NAT                  | ✅                  | ❌                    | ❌           | ❌                       | IPv4                                   |
+| TCP MSS clamp        | ✅                  | ❌                    | ❌           | ❌                       | ❌                                     |
+| DHCP server          | ✅                  | ❌                    | ❌           | ✅                       | ✅                                     |
+| DHCPv6 server        | ✅ pool is a prefix | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
+| DHCP relay           | ✅                  | IPv4, VLAN interfaces | ❌           | IPv4                     | ✅                                     |
+| DHCP server in a VRF | ✅                  | ❌                    | ❌           | 🧪                       | 🧪                                     |
+| DNS server           | ✅                  | ❌                    | ❌           | ❌                       | ✅                                     |
+| NTP client           | ✅                  | ✅                    | ✅           | ✅                       | ✅                                     |
+| NTP server           | ✅                  | ✅                    | ❌           | ✅                       | ✅                                     |
 
 ### Management and monitoring
 
-| Feature                | RouterOS                        | VRP                  | Raisecom ROS      | Junos    | FortiOS                           |
-| ---------------------- | ------------------------------- | -------------------- | ----------------- | -------- | --------------------------------- |
-| Users                  | ✅                              | ✅                   | `admin` role only | ✅       | ✅                                |
-| SSH keys               | ✅                              | one RSA key per user | ❌                | ✅       | ✅                                |
-| Logins through servers | RADIUS, no command accounting   | ❌                   | ❌                | ✅       | ✅ up to 3 servers, no accounting |
-| SNMP v2c and v3        | ✅ v3 SHA1 only                 | ✅                   | ✅ v3 SHA1 only   | ✅       | ✅ v3 SHA1 only                   |
-| SNMP traps             | one community or user, port 162 | ❌                   | ❌                | ✅       | ✅                                |
-| Syslog                 | ✅                              | ✅                   | ✅                | ✅       | ✅ up to 4                        |
-| Syslog over TLS        | ❌                              | ❌                   | ❌                | ❌       | 🧪                                |
-| Flow export            | NetFlow 9, IPFIX                | sFlow                | ❌                | sFlow    | sFlow, NetFlow 9                  |
-| Flow timeouts          | ✅                              | ❌                   | ❌                | ❌       | 🧪                                |
-| Web, API, certificates | ✅                              | ❌                   | ❌                | web, API | ✅                                |
-| Management VDOM        | ❌                              | ❌                   | ❌                | ❌       | ✅                                |
+| Feature                           | RouterOS                        | VRP                  | Raisecom ROS      | Junos                  | FortiOS                           |
+| --------------------------------- | ------------------------------- | -------------------- | ----------------- | ---------------------- | --------------------------------- |
+| Users                             | ✅                              | ✅                   | `admin` role only | ✅                     | ✅                                |
+| SSH keys                          | ✅                              | one RSA key per user | ❌                | ✅                     | ✅                                |
+| Logins through servers            | RADIUS, no command accounting   | ❌                   | ❌                | ✅                     | ✅ up to 3 servers, no accounting |
+| SNMP v2c and v3                   | ✅ v3 SHA1 only                 | ✅                   | ✅ v3 SHA1 only   | ✅                     | ✅ v3 SHA1 only                   |
+| SNMP traps                        | one community or user, port 162 | ❌                   | ❌                | ✅                     | ✅                                |
+| Syslog                            | ✅                              | ✅                   | ✅                | ✅                     | ✅ up to 4                        |
+| Syslog over TLS                   | ❌                              | ❌                   | ❌                | ❌                     | 🧪                                |
+| Flow export                       | NetFlow 9, IPFIX                | sFlow                | ❌                | sFlow                  | sFlow, NetFlow 9                  |
+| Flow timeouts                     | ✅                              | ❌                   | ❌                | ❌                     | 🧪                                |
+| Web, API, certificates            | ✅                              | ❌                   | ❌                | web, API               | ✅                                |
+| Management in a VRF               | ✅ not FTP                      | ❌                   | ❌                | ❌                     | ❌                                |
+| SNMP in a VRF                     | ✅                              | ❌                   | ❌                | ❌                     | ❌                                |
+| NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ❌                   | ❌                | syslog; 🧪 NTP, RADIUS | ❌                                |
+| Management VDOM                   | ❌                              | ❌                   | ❌                | ❌                     | ✅                                |
 
 ### Circuit's own tools
 

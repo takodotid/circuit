@@ -118,6 +118,7 @@ jobs:
             - run: bun test test/platforms/routeros-chr-pair.test.ts
             - run: bun test test/platforms/routeros-chr-reflection.test.ts
             - run: bun test test/platforms/routeros-chr-vrf.test.ts
+            - run: bun test test/platforms/routeros-chr-vrf-services.test.ts
 
             - name: the CHRs' consoles
               if: failure()
