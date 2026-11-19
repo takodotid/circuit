@@ -1,6 +1,6 @@
 name: devices
 
-# Circuit against emulated devices (#178): three RouterOS CHRs boot in QEMU, the first's ether2 linked to the second's ether2, and its ether3 to the third's ether2. test/platforms/routeros-chr.test.ts applies to the first, test/platforms/routeros-chr-pair.test.ts runs BGP between the first two, then test/platforms/routeros-chr-reflection.test.ts makes the first a route reflector for the other two, and test/platforms/routeros-chr-vrf.test.ts runs BGP, then OSPF, between the first two in a VRF of the first.
+# Circuit against emulated devices (#178): three RouterOS CHRs boot in QEMU, the first's ether2 linked to the second's ether2, and its ether3 to the third's ether2. test/platforms/routeros-chr.test.ts applies to the first, test/platforms/routeros-chr-pair.test.ts runs BGP between the first two, then test/platforms/routeros-chr-reflection.test.ts makes the first a route reflector for the other two, and test/platforms/routeros-chr-vrf.test.ts runs BGP, then OSPF, between the first two in a VRF of the first. test/platforms/routeros-chr-cgnat.test.ts shares a NAT pool of the first among subscribers, the second one of them and the third the internet.
 
 on:
     pull_request:
@@ -119,6 +119,7 @@ jobs:
             - run: bun test test/platforms/routeros-chr-reflection.test.ts
             - run: bun test test/platforms/routeros-chr-vrf.test.ts
             - run: bun test test/platforms/routeros-chr-vrf-services.test.ts
+            - run: bun test test/platforms/routeros-chr-cgnat.test.ts
 
             - name: the CHRs' consoles
               if: failure()
