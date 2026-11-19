@@ -734,7 +734,7 @@ export class RaisecomRos extends Platform {
             close,
             fresh: async () => {
                 close();
-                return RaisecomRos.open(device);
+                return Ssh.proofLogin(() => RaisecomRos.open(device));
             },
         };
     }

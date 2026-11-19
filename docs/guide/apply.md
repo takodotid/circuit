@@ -54,7 +54,7 @@ Before it changes anything, Circuit tests the plan where the platform allows it:
 
 ## Not locking you out
 
-After every change, Circuit logs in again in a new session. The change stays only if that works.
+After every change, Circuit logs in again in a new session. The change stays only if that works. If the device resets or closes that login, Circuit tries again, up to 4 times in 30 seconds.
 
 | Platform       | Change goes live                | If Circuit can't log back in                                                               |
 | -------------- | ------------------------------- | ------------------------------------------------------------------------------------------ |

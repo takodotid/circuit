@@ -1,4 +1,5 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
+import { Registries } from "../../src/core/registries";
 import { Platforms } from "../../src/platforms";
 import { FortiOsFirewall } from "../../src/platforms/fortios/firewall";
 import { FortiOs } from "../../src/platforms/fortios/index";
@@ -414,6 +415,25 @@ test("FortiOS soft-clears each neighbor whose policy, or a list it uses, changes
     ]);
 
     expect(clears(current)).toEqual([]);
+});
+
+// `diff` and `apply` fetch a prefix set from a registry before the render, so a list that changes there changes in the plan.
+test("FortiOS soft-clears the import of a neighbor whose prefix set from a registry fetches other prefixes", async () => {
+    const adapter = Platforms.get("fortios");
+    const renderWith = async (prefixes: string[]) => {
+        const fetch = spyOn(Registries, "prefixes").mockResolvedValue(prefixes);
+        try {
+            return adapter.render(await Registries.resolve(firewall));
+        } finally {
+            fetch.mockRestore();
+        }
+    };
+
+    const current = await renderWith(["192.0.2.0/25"]);
+    const steps = adapter.plan(await renderWith(["192.0.2.0/25", "192.0.2.128/25"]), current, { secrets: false, rollback: 10 }).steps;
+
+    expect(steps.map((step) => step.title)).toEqual(["router prefix-list", "router bgp, soft clear"]);
+    expect(steps.at(-1)!.send).toEqual(["execute router clear bgp ip 203.0.113.9 soft in"]);
 });
 
 // The device refuses to delete an OSPF area while a network names it: `could not delete this area; it is used by network 1`.
