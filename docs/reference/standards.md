@@ -107,15 +107,16 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 
 ## Firewall
 
-| Feature                     | Standard                                                                                                                             | In model                                   |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| Bad TCP flag combinations   | STD 7 (RFC 9293) defines the flags. Which ones to drop is practice.                                                                  | `tcp_flags` match, `presets.bad_tcp_flags` |
-| Service ports               | IANA port registry, BCP 165 (RFC 6335)                                                                                               | `presets.ports`                            |
-| Amplification ports         | Practice: CISA alert TA14-017A (archived, last revised 2019). Six preset ports are not in it: SLP, MS-SQL, ARD, CoAP, Ubiquiti, DVR. | `presets.udp_amplifiers`                   |
-| SYN cookies                 | Practice: RFC 4987 (Informational)                                                                                                   | `system.ip_stack.syn_cookies`              |
-| ICMP redirects on or off    | STD 5 (RFC 792); RFC 4861 for IPv6                                                                                                   | `system.ip_stack.icmp_redirects`           |
-| Source address check (uRPF) | BCP 84 (RFC 3704, updated by RFC 8704)                                                                                               | interface `urpf`                           |
-| Source-based blackholing    | Practice: RFC 5635 (Informational)                                                                                                   | a blackhole route, with `urpf`             |
+| Feature                                               | Standard                                                                                                                             | In model                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Bad TCP flag combinations                             | STD 7 (RFC 9293) defines the flags. Which ones to drop is practice.                                                                  | `tcp_flags` match, `presets.bad_tcp_flags` |
+| Service ports                                         | IANA port registry, BCP 165 (RFC 6335)                                                                                               | `presets.ports`                            |
+| Amplification ports                                   | Practice: CISA alert TA14-017A (archived, last revised 2019). Six preset ports are not in it: SLP, MS-SQL, ARD, CoAP, Ubiquiti, DVR. | `presets.udp_amplifiers`                   |
+| SYN cookies                                           | Practice: RFC 4987 (Informational)                                                                                                   | `system.ip_stack.syn_cookies`              |
+| ICMP redirects on or off                              | STD 5 (RFC 792); RFC 4861 for IPv6                                                                                                   | `system.ip_stack.icmp_redirects`           |
+| Source address check (uRPF)                           | BCP 84 (RFC 3704, updated by RFC 8704)                                                                                               | interface `urpf`                           |
+| Source-based blackholing                              | Practice: RFC 5635 (Informational)                                                                                                   | a blackhole route, with `urpf`             |
+| CGNAT with a fixed block of ports for each subscriber | Practice: RFC 7422 (Informational); a port limit per subscriber, BCP 127 (RFC 6888) REQ-4                                            | `to_pool`, `port_set_size`                 |
 
 ## Monitoring and management
 

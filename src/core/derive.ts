@@ -18,7 +18,9 @@ import type {
     Limit,
     NatRule,
     NeighborSettings,
+    PoolNatRule,
     Port,
+    PortRange,
     Prefix,
     Rate,
     RateLimit,
@@ -60,6 +62,9 @@ export type SharedUrpf = {
     missing: string[];
 };
 
+/** One address of a NAT pool: the subscribers that leave as it, a prefix, and each one's block of ports. */
+export type PoolAddress = { address: string; subscribers: Prefix; blocks: { subscriber: string; ports: PortRange }[] };
+
 /** A feature a platform renders once tested on one of its devices. */
 export type TestedFeature =
     | "bfd-timers"
@@ -91,6 +96,9 @@ export type BuiltFeature =
     | "rate-limit";
 
 export class Derive {
+    /** The ports a NAT pool hands out: the system ports below them stay out (RFC 7422, section 2; RFC 6335). */
+    static readonly POOL_PORTS: PortRange = { min: 1024, max: 65535 };
+
     /** The groups of `interfaces` besides `ethernet`, in the order Circuit reads them. */
     private static readonly KINDS: readonly InterfaceKind[] = [
         "lag",
@@ -394,6 +402,46 @@ export class Derive {
                 (condition) => condition !== undefined
             );
         return unknown ? "unknown" : true;
+    }
+
+    /** How many subscribers of the prefix `src` share each address of the prefix `pool`, a power of two. 0 when the pool has more addresses than `src`. */
+    static subscribersPerAddress(src: Prefix, pool: Prefix): number {
+        const shift = Address.split(pool).len - Address.split(src).len;
+        return shift < 0 ? 0 : 2 ** shift;
+    }
+
+    /**
+     * Where each subscriber leaves, RFC 7422's sequential mapping. Each pool address takes the same number of subscribers, in address order. Each one's block of `port_set_size` ports follows the block before it, from port 1024. Nothing when `if.src` is not one prefix that `validate` takes.
+     */
+    static poolAddresses(rule: PoolNatRule): PoolAddress[] {
+        const src = [rule.if?.src].flat()[0];
+        if (!src || !Address.isCidr(src) || !Address.isCidr(rule.to_pool)) return [];
+
+        const perAddress = Derive.subscribersPerAddress(src, rule.to_pool);
+        if (!perAddress) return [];
+
+        const pool = Address.range(rule.to_pool);
+        const first = Address.range(src).first;
+        const length = Address.bits("ipv4") - Math.log2(perAddress);
+        const addresses: PoolAddress[] = [];
+
+        for (let index = 0n; pool.first + index <= pool.last; index++) {
+            const start = first + index * BigInt(perAddress);
+            const blocks = Array.from({ length: perAddress }, (_, offset) => {
+                const min = Derive.POOL_PORTS.min + offset * rule.port_set_size;
+                return {
+                    subscriber: Address.fromNumber(start + BigInt(offset), "ipv4"),
+                    ports: { min, max: min + rule.port_set_size - 1 },
+                };
+            });
+            addresses.push({
+                address: Address.fromNumber(pool.first + index, "ipv4"),
+                subscribers: `${Address.fromNumber(start, "ipv4")}/${length}`,
+                blocks,
+            });
+        }
+
+        return addresses;
     }
 
     /** AS numbers as ranges, a single number as a range of one. */

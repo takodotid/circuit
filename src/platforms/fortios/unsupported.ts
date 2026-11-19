@@ -494,6 +494,10 @@ export class FortiOsUnsupported {
             }
 
             if (rule.then === "dnat") found.push(`${where}.then dnat, in source NAT`);
+            if ("to_pool" in rule) {
+                found.push(`${where}, a pool: a fixed port range pool does not keep a subscriber's sessions in its block of ports`);
+                return;
+            }
             if (rule.then === "snat" && Address.family(rule.to_address) === "ipv6")
                 found.push(`${where}.to_address, IPv6: central NAT translates IPv4`);
             if (match?.dst_port !== undefined) found.push(`${where}.if.dst_port, central NAT matches the source port only`);

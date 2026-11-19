@@ -1,4 +1,4 @@
-import type { Family, HostAddress, IP, Named, OneOrMore, Ordered, Prefix } from "./common";
+import type { Family, HostAddress, IP, IPv4, Named, OneOrMore, Ordered, Prefix } from "./common";
 
 /** An IP protocol. `icmp` means ICMPv6 in an IPv6 rule. */
 export type Protocol = "tcp" | "udp" | "icmp" | "gre" | "esp" | "ah" | "ospf" | "vrrp";
@@ -105,6 +105,16 @@ export type NatRule<I extends string, AS extends string, IS extends string> = {
           to_address: HostAddress;
           /** The port to rewrite to. Unchanged when absent. */
           to_port?: number;
+      }
+    | {
+          /** `snat` to a pool shares IPv4 addresses among subscribers, as carrier-grade NAT does (RFC 7422). Source NAT only. */
+          then: "snat";
+          /**
+           * The IPv4 addresses the subscribers in `if.src`, one IPv4 prefix, leave as. Each pool address takes the same number of subscribers: a /22 of subscribers on a /27 pool is 32 on each. Each subscriber always leaves as the same pool address, with the same block of `port_set_size` TCP and UDP ports. The blocks go in address order. The first subscriber gets the first pool address from port 1024, and the next subscriber gets the next block, until that address is full. Other protocols, such as ICMP, leave as the same pool address.
+           */
+          to_pool: `${IPv4}/${number}`;
+          /** The ports in each subscriber's block. The subscribers on one pool address times this must fit in the ports from 1024 to 65535: 32 subscribers take 2016 ports each at most. */
+          port_set_size: number;
       }
 );
 

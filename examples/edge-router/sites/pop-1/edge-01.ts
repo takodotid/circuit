@@ -170,5 +170,20 @@ export default as64500.device({
                 rules: presets.bad_tcp_flags,
             },
         },
+        interface_sets: { uplinks: ["transit", "exchange"] },
+        // #region cgnat
+        // The access network's subscribers have shared addresses (RFC 6598). Each one always leaves as the same address of our pool, with the same block of ports, so an abuse report's address and port name one subscriber (RFC 7422).
+        nat: {
+            source: [
+                {
+                    description: "CGNAT, 32 subscribers on each address",
+                    if: { src: "100.64.0.0/22", out_interface_set: "uplinks" },
+                    then: "snat",
+                    to_pool: "198.51.100.0/27",
+                    port_set_size: 2016,
+                },
+            ],
+        },
+        // #endregion cgnat
     },
 });

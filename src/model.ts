@@ -73,6 +73,8 @@ export type Address = C.Address;
 export type FilterMatch = C.FilterMatch<string, string, string>;
 export type FilterRule = C.FilterRule<string, string, string>;
 export type NatRule = C.NatRule<string, string, string>;
+/** A source translation to a pool, with a block of ports for each subscriber. */
+export type PoolNatRule = Extract<NatRule, { to_pool: unknown }>;
 export type TcpMssRule = C.TcpMssRule<string, string, string>;
 export type AclRule = C.AclRule<string>;
 export type PolicyRule = C.PolicyRule<string, string>;

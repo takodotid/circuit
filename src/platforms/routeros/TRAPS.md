@@ -5,6 +5,7 @@
     - the text inside `rule=`: a routing filter rule is checked only when it is added;
     - a quoted value, which passes whatever it is;
     - a `/system logging` rule whose action does not exist yet, refused with `input does not match any value of action`. The action is added first (CCR2216, 7.23.5).
+- Output over SSH stops at 2 MiB, mid-line and with no error. `/export`, plain or not, came back 2,097,152 characters long with 20,000 and 40,000 NAT rules, while `/export file=` wrote all of them, 2.8 MB and 5.7 MB. Circuit's read stops there too, so a device whose export passes 2 MiB never converges: one with a pool of a /18, 33,281 NAT rules, did not (CHR, 7.24.6).
 - `find` matches nothing, silently, when:
     - a value with a slash is unquoted, `address=X/Y`;
     - a quoted `"yes"` meets a boolean, since it is a string;

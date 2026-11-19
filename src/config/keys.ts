@@ -59,9 +59,15 @@ const FILTER_MATCH = {
 export const FILTER_RULE = { description: 0, if: FILTER_MATCH, then: 0, fast_path: 0 } as const satisfies ShapeOf<
     FilterRule<string, string, string>
 >;
-export const NAT_RULE = { description: 0, if: FILTER_MATCH, then: 0, to_address: 0, to_port: 0 } as const satisfies ShapeOf<
-    NatRule<string, string, string>
->;
+export const NAT_RULE = {
+    description: 0,
+    if: FILTER_MATCH,
+    then: 0,
+    to_address: 0,
+    to_port: 0,
+    to_pool: 0,
+    port_set_size: 0,
+} as const satisfies ShapeOf<NatRule<string, string, string>>;
 const { protocol: _protocol, tcp_flags: _tcpFlags, connection_state: _state, ...TCP_MSS_MATCH } = FILTER_MATCH;
 const TCP_MSS_RULE = { description: 0, if: TCP_MSS_MATCH, mss: 0 } as const satisfies ShapeOf<TcpMssRule<string, string, string>>;
 export const ACL_RULE = {

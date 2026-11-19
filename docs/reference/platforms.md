@@ -112,6 +112,7 @@ A note in a cell means "works, with this limit".
 | -------------------- | --------------------- | --------------------- | ------------ | ------------------------ | -------------------------------------- |
 | Firewall filter      | ✅                    | ❌                    | ❌           | ❌                       | ✅                                     |
 | NAT                  | ✅                    | ❌                    | ❌           | ❌                       | IPv4                                   |
+| CGNAT pool           | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
 | TCP MSS clamp        | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
 | DHCP server          | ✅                    | ❌                    | ❌           | ✅                       | ✅                                     |
 | DHCPv6 server        | ✅ pool is a prefix   | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
