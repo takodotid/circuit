@@ -34,6 +34,7 @@ export type ShapeOf<T> = [Exclude<T, Prim>] extends [never]
 
 const SECRET = { secret: 0, secret_file: 0 } as const;
 const RANGE = { min: 0, max: 0 } as const;
+const RADIUS_SERVER = { address: 0, secret_key: SECRET, source_address: 0, vrf: 0, auth_port: 0, acct_port: 0 } as const;
 
 const FILTER_MATCH = {
     family: 0,
@@ -222,7 +223,7 @@ export const DEVICE = {
         users: { "*": { role: 0, password: SECRET, description: 0, ssh_keys: 0 } },
         aaa: {
             tacacs: [{ address: 0, secret_key: SECRET, source_address: 0 }],
-            radius: [{ address: 0, secret_key: SECRET, source_address: 0, vrf: 0, auth_port: 0, acct_port: 0 }],
+            radius: [RADIUS_SERVER],
             remote_role: 0,
             accounting_events: 0,
         },
@@ -331,6 +332,19 @@ export const DEVICE = {
             "*": { interface: 0, pool: 0, prefix_delegation: { pool: 0, prefix_length: 0 }, dns: 0, lease_time: 0 },
         },
         dhcp_relay: { "*": { interface: 0, servers: 0 } },
+        pppoe_server: {
+            "*": {
+                interfaces: 0,
+                service_name: 0,
+                local_address: 0,
+                pool: 0,
+                dns: 0,
+                mtu: 0,
+                radius: [RADIUS_SERVER],
+                acct_interim_interval: 0,
+                dynamic_authorization: 0,
+            },
+        },
         dns_server: 0,
         ntp_server: 0,
         upnp: { internal: 0, external: 0, external_address: 0 },

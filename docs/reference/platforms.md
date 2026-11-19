@@ -17,6 +17,7 @@ description: The device operating systems Circuit works with, their versions, an
 - **Only the models it was tested on.** Another model needs its port list added. See [Contributing](/contributing).
 - **Model limits.** On the CCR2216, a LAG holds at most 8 ports, and the hardware ACLs hold about 5 different port ranges. `circuit validate` checks both. The RB5009 has no serial console, so Circuit refuses `connection.console` on it.
 - **CHR.** MikroTik's Cloud Hosted Router is RouterOS in a virtual machine. Its ports are the machine's network adapters, as many as it has: `virtual-1` is `ether1`, and so on. Circuit disables every adapter the config leaves out.
+- **A RouterOS PPPoE server.** Subscribers live in RADIUS. Before the first `apply` on a router that already serves PPPoE, move every subscriber from `/ppp secret` to RADIUS: the plan removes each local secret, PPP profile, and PPPoE server that `services.pppoe_server` doesn't write, and sets the profiles `default` and `default-encryption` back to RouterOS's defaults.
 
 ## Feature matrix
 
@@ -105,18 +106,19 @@ A note in a cell means "works, with this limit".
 
 ### Firewall and services
 
-| Feature              | RouterOS            | VRP                   | Raisecom ROS | Junos                    | FortiOS                                |
-| -------------------- | ------------------- | --------------------- | ------------ | ------------------------ | -------------------------------------- |
-| Firewall filter      | ✅                  | ❌                    | ❌           | ❌                       | ✅                                     |
-| NAT                  | ✅                  | ❌                    | ❌           | ❌                       | IPv4                                   |
-| TCP MSS clamp        | ✅                  | ❌                    | ❌           | ❌                       | ❌                                     |
-| DHCP server          | ✅                  | ❌                    | ❌           | ✅                       | ✅                                     |
-| DHCPv6 server        | ✅ pool is a prefix | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
-| DHCP relay           | ✅                  | IPv4, VLAN interfaces | ❌           | IPv4                     | ✅                                     |
-| DHCP server in a VRF | ✅                  | ❌                    | ❌           | 🧪                       | 🧪                                     |
-| DNS server           | ✅                  | ❌                    | ❌           | ❌                       | ✅                                     |
-| NTP client           | ✅                  | ✅                    | ✅           | ✅                       | ✅                                     |
-| NTP server           | ✅                  | ✅                    | ❌           | ✅                       | ✅                                     |
+| Feature              | RouterOS              | VRP                   | Raisecom ROS | Junos                    | FortiOS                                |
+| -------------------- | --------------------- | --------------------- | ------------ | ------------------------ | -------------------------------------- |
+| Firewall filter      | ✅                    | ❌                    | ❌           | ❌                       | ✅                                     |
+| NAT                  | ✅                    | ❌                    | ❌           | ❌                       | IPv4                                   |
+| TCP MSS clamp        | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
+| DHCP server          | ✅                    | ❌                    | ❌           | ✅                       | ✅                                     |
+| DHCPv6 server        | ✅ pool is a prefix   | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
+| DHCP relay           | ✅                    | IPv4, VLAN interfaces | ❌           | IPv4                     | ✅                                     |
+| DHCP server in a VRF | ✅                    | ❌                    | ❌           | 🧪                       | 🧪                                     |
+| PPPoE server         | ✅ one RADIUS setting | ❌                    | ❌           | ❌                       | ❌                                     |
+| DNS server           | ✅                    | ❌                    | ❌           | ❌                       | ✅                                     |
+| NTP client           | ✅                    | ✅                    | ✅           | ✅                       | ✅                                     |
+| NTP server           | ✅                    | ✅                    | ❌           | ✅                       | ✅                                     |
 
 ### Management and monitoring
 

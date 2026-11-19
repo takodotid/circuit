@@ -1,12 +1,38 @@
 import { Address } from "../core/address";
 import { Derive } from "../core/derive";
-import type { Device, Finding } from "../model";
+import type { Device, Finding, IP } from "../model";
 
 type Report = (message: string) => void;
 type Checker = (where: string, value: string) => void;
 
-/** What a device serves to hosts: DHCP and DHCPv6 servers. */
+/** What a device serves to hosts: DHCP, DHCPv6, and PPPoE servers. */
 export class ServicesChecks {
+    /** The largest packet a PPPoE session may carry (RFC 2516). */
+    private static readonly PPPOE_MTU = 1492;
+    /** The smallest datagram every IPv4 host takes (RFC 791). */
+    private static readonly MIN_MTU = 576;
+    /** The shortest time RFC 2869 allows between interim accounting reports, in seconds. */
+    private static readonly MIN_INTERIM_SECONDS = 60;
+
+    /** Servers a device logs in to, such as RADIUS servers: each a valid address, listed once, and sending from an address of its own family. */
+    static servers(where: string, servers: readonly { address: IP; source_address?: IP }[], report: Report, ip: Checker): void {
+        const seen = new Set<string>();
+        servers.forEach((server, index) => {
+            const at = `${where}[${index}]`;
+            ip(`${at}.address`, server.address);
+            if (server.source_address !== undefined) ip(`${at}.source_address`, server.source_address);
+            if (!Address.isValid(server.address)) return;
+
+            const address = Address.canonical(server.address);
+            if (seen.has(address)) report(`${at}: ${server.address} is listed twice`);
+            seen.add(address);
+
+            const source = server.source_address;
+            if (source && Address.isValid(source) && Address.family(source) !== Address.family(server.address))
+                report(`${at}.source_address ${source} and address ${server.address} differ in family`);
+        });
+    }
+
     /** A DHCPv6 server whose interface's router advertisements don't send hosts to it: DHCPv6 gives no gateway, and hosts ask only for what the M and O flags say. */
     static warnings(device: Device): Finding[] {
         const holders = Derive.holders(device);
@@ -35,6 +61,12 @@ export class ServicesChecks {
                 );
         }
 
+        for (const [name, server] of Object.entries(device.services?.pppoe_server ?? {}))
+            if (server.mtu === undefined)
+                warn(
+                    `services.pppoe_server.${name} has no mtu, so the platform picks one, which may be below the ${ServicesChecks.PPPOE_MTU} RFC 2516 allows. Write mtu: ${ServicesChecks.PPPOE_MTU}`
+                );
+
         return found;
     }
 
@@ -57,6 +89,7 @@ export class ServicesChecks {
         }
 
         ServicesChecks.dhcpv6(device, report);
+        ServicesChecks.pppoe(device, report, ip);
 
         // `management.allow` may be an address set's addresses, and a set holds an address alone too.
         const allow = device.management?.allow;
@@ -134,6 +167,52 @@ export class ServicesChecks {
 
             if (server.lease_time !== undefined && (!Number.isInteger(server.lease_time) || server.lease_time <= 0))
                 report(`${where}.lease_time ${server.lease_time} is not a whole number of seconds above 0`);
+        }
+    }
+
+    /** Each PPPoE server answers on some interface, as the only one there with its service name, and gives IPv4 addresses from a pool that holds no address of its own. */
+    private static pppoe(device: Device, report: Report, ip: Checker): void {
+        const isIpv4 = (address: string) => Address.isValid(address) && Address.family(address) === "ipv4";
+        const answering = new Map<string, string>();
+
+        for (const [name, server] of Object.entries(device.services?.pppoe_server ?? {})) {
+            const where = `services.pppoe_server.${name}`;
+            if (!server.interfaces.length) report(`${where}.interfaces is empty: write the ports or interfaces subscribers connect on`);
+
+            const service = server.service_name ?? "";
+            for (const iface of server.interfaces) {
+                const other = answering.get(`${iface} ${service}`);
+                if (other) report(`${where} and services.pppoe_server.${other} both answer on ${iface}: give each its own service_name`);
+                answering.set(`${iface} ${service}`, name);
+            }
+
+            for (const [at, address] of [
+                ["local_address", server.local_address],
+                ...server.pool.map((address) => ["pool", address] as const),
+                ...(server.dns ?? []).map((address) => ["dns", address] as const),
+            ] as const)
+                if (!isIpv4(address)) report(`${where}.${at}: '${address}' is not an IPv4 address, such as 192.0.2.1`);
+
+            const [first, last] = server.pool.map((address) => (isIpv4(address) ? Address.toNumber(address)! : null));
+            const local = isIpv4(server.local_address) ? Address.toNumber(server.local_address)! : null;
+            if (first !== null && first !== undefined && last !== null && last !== undefined) {
+                if (first > last) report(`${where}.pool starts at ${server.pool[0]}, after its last address ${server.pool[1]}`);
+                else if (local !== null && local >= first && local <= last)
+                    report(`${where}.local_address ${server.local_address} is in pool: write a pool without it`);
+            }
+
+            const { mtu, acct_interim_interval: interval } = server;
+            if (mtu !== undefined && (!Number.isInteger(mtu) || mtu < ServicesChecks.MIN_MTU || mtu > ServicesChecks.PPPOE_MTU))
+                report(
+                    `${where}.mtu ${mtu} is not a whole number from ${ServicesChecks.MIN_MTU} to ${ServicesChecks.PPPOE_MTU}, the most RFC 2516 allows`
+                );
+            if (interval !== undefined && (!Number.isInteger(interval) || interval < ServicesChecks.MIN_INTERIM_SECONDS))
+                report(
+                    `${where}.acct_interim_interval ${interval} is not a whole number of seconds from ${ServicesChecks.MIN_INTERIM_SECONDS}, the least RFC 2869 allows`
+                );
+
+            if (!server.radius.length) report(`${where}.radius is empty: write the RADIUS servers that check subscribers`);
+            ServicesChecks.servers(`${where}.radius`, server.radius, report, ip);
         }
     }
 }

@@ -4,13 +4,14 @@ import { X509Certificate } from "node:crypto";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
-import type { Device, Lag, Port, Prefix, Service, Severity, VlanInterface } from "../../model";
+import type { Device, Lag, Port, Prefix, RadiusServer, Service, Severity, VlanInterface } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import type { NamedInterface } from "../../core/derive";
 import { RouterOsDhcp } from "./dhcp";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsMonitoring } from "./monitoring";
+import { RouterOsPppoe } from "./pppoe";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSyntax } from "./syntax";
 
@@ -610,6 +611,7 @@ export class RouterOsRender {
         this.routerAdvertisements();
         this.dhcpClients();
         RouterOsDhcp.render(this, this.device);
+        RouterOsPppoe.render(this, this.device);
         this.dns();
         this.upnp();
         this.addressLists();
@@ -843,23 +845,26 @@ export class RouterOsRender {
         const aaa = this.device.system?.aaa;
         if (!aaa?.radius) return;
 
-        for (const server of aaa.radius) {
-            this.add("/radius", "add", {
-                "accounting-port": server.acct_port,
-                address: RouterOsSyntax.inVrf(server.address, server.vrf),
-                "authentication-port": server.auth_port,
-                secret: Secrets.marker(server.secret_key),
-                service: "login",
-                "src-address": server.source_address,
-            });
-        }
-
+        this.radius(aaa.radius, "login");
         this.add("/user aaa", "set", {
             accounting: RouterOsSyntax.yesNo(aaa.accounting_events?.includes("login")),
             "default-group": RouterOsRender.USER_GROUPS[aaa.remote_role],
             "exclude-groups": Object.values(RouterOsRender.USER_GROUPS).sort().join(","),
             "use-radius": "yes",
         });
+    }
+
+    /** RADIUS servers for one service of the router, such as `login` or `ppp`, in the order they are asked. */
+    radius(servers: readonly RadiusServer[], service: string): void {
+        for (const server of servers)
+            this.add("/radius", "add", {
+                "accounting-port": server.acct_port,
+                address: RouterOsSyntax.inVrf(server.address, server.vrf),
+                "authentication-port": server.auth_port,
+                secret: Secrets.marker(server.secret_key),
+                service,
+                "src-address": server.source_address,
+            });
     }
 
     /** An export leaves certificates out, so the reader lists them in this same form: the name, the SHA-256 fingerprint, and whether the device holds the private key. A difference is installed from the config, not edited. */
