@@ -131,8 +131,8 @@ Akamai('s)?
 Arelion
 Boldo
 (?i)Elemech('s)?
+Novaram('s)?
 (?i)Terramix('s)?
-Nedap
 (?i)memcached
 Telecom
 Starlink

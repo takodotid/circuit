@@ -422,7 +422,7 @@ describe("samples", () => {
             [64496, 65551],
             [4200000000, 4294967295],
         ];
-        // Real networks the samples name, as RIPEstat gave their holders on 2026-11-19. The customers are listed in docs/license.md.
+        // Real networks the samples name, as RIPEstat gave their holders on 2026-11-20. The customers are listed in docs/license.md.
         const NETWORKS: Record<number, string> = {
             174: "Cogent",
             701: "Verizon",
@@ -439,11 +439,11 @@ describe("samples", () => {
             20940: "Akamai",
             27776: "El Boldo",
             33154: "DQE",
-            35224: "PLINQ",
+            34165: "Novaram",
             36561: "YouTube",
-            41529: "MediaServe",
+            43023: "iGP Tech",
             54113: "Fastly",
-            213050: "Nedap",
+            135975: "Sea Gem",
             274016: "Terramix",
             329604: "Elemech",
             396531: "Allegheny",

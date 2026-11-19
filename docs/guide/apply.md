@@ -100,12 +100,12 @@ The password keeps working beside the keys. On RouterOS, Circuit writes `/ip ssh
 
 ## Prefix sets from a registry
 
-Circuit fetches a prefix set with a `source` each time you run `diff` or `apply`. This one holds every prefix that the customer PLINQ, AS35224, announces, from RIPEstat:
+Circuit fetches a prefix set with a `source` each time you run `diff` or `apply`. This one holds every prefix that the customer Novaram, AS34165, announces, from RIPEstat:
 
 ```ts
 // In routing
 prefix_sets: {
-    "plinq-v4": { source: { registry: "ripe-stat", query: "AS35224", family: "ipv4" } },
+    "novaram-v4": { source: { registry: "ripe-stat", query: "AS34165", family: "ipv4" } },
 },
 ```
 

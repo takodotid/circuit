@@ -53,18 +53,16 @@ Circuit is maintained by the {{ circuit.author.name }}, <a :href="`mailto:${circ
 
 The companies and AS numbers named as customers in the docs and examples are real networks, chosen as samples. None of them is a customer of Circuit's authors, and nothing here describes their real setup. A company that would rather not appear can [open an issue](https://github.com/takodotid/circuit/issues), and it will be replaced.
 
-<!-- vale Vale.Terms = NO -->
-<!-- vale Vale.Spelling = NO -->
+<!-- vale off -->
 
-| Network                                 | AS       | Country     |
-| --------------------------------------- | -------- | ----------- |
-| Terramix S.A.                           | AS274016 | Costa Rica  |
-| Elemech Contractors Proprietary Limited | AS329604 | Botswana    |
-| PLINQ BV                                | AS35224  | Netherlands |
-| Nedap N.V.                              | AS213050 | Netherlands |
-| MediaServe International B.V.           | AS41529  | Netherlands |
-| PACHEZ HOLDINGS LTD.                    | AS1645   | Canada      |
-| Inversiones y servicios EL BOLDO S.A    | AS27776  | Chile       |
+| Network                                 | AS       | Country    |
+| --------------------------------------- | -------- | ---------- |
+| Terramix S.A.                           | AS274016 | Costa Rica |
+| Elemech Contractors Proprietary Limited | AS329604 | Botswana   |
+| Novaram ApS                             | AS34165  | Denmark    |
+| iGP Tech d.o.o.                         | AS43023  | Croatia    |
+| Sea Gem Company Limited                 | AS135975 | Vietnam    |
+| PACHEZ HOLDINGS LTD.                    | AS1645   | Canada     |
+| Inversiones y servicios EL BOLDO S.A    | AS27776  | Chile      |
 
-<!-- vale Vale.Spelling = YES -->
-<!-- vale Vale.Terms = YES -->
+<!-- vale on -->

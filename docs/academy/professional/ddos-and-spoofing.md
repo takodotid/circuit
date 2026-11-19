@@ -50,7 +50,7 @@ An interface checks sources with `urpf`, one mode for each family:
 ```ts
 interfaces: {
     ethernet: {
-        "10g-2": { description: "PLINQ", addresses: ["198.51.100.129/30"], urpf: { ipv4: "strict" } },
+        "10g-2": { description: "Novaram", addresses: ["198.51.100.129/30"], urpf: { ipv4: "strict" } },
     },
 },
 ```

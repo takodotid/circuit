@@ -21,11 +21,11 @@ function withNeighbor(fixture: string, name: string, settings: Partial<Neighbor>
 
 const sent = (desired: string, current: string) => routeros.plan(desired, current, options).steps.flatMap((step) => step.send);
 
-/** PLINQ, AS35224, a customer that takes the default route. */
-const plinq: Partial<Neighbor> = { address: "198.51.100.130", remote_as: 35224, role: "customer", export_policy: "OUT" };
+/** Novaram, AS34165, a customer that takes the default route. */
+const novaram: Partial<Neighbor> = { address: "198.51.100.130", remote_as: 34165, role: "customer", export_policy: "OUT" };
 
 test("RouterOS sends the default route through a chain that accepts it before the export's own, and reads it back as the router printed it", () => {
-    const desired = routeros.render(withNeighbor("edge-router--edge-01", "plinq", { ...plinq, send_default_route: true }));
+    const desired = routeros.render(withNeighbor("edge-router--edge-01", "novaram", { ...novaram, send_default_route: true }));
 
     expect(desired).toContain('add chain=OUT-DEFAULT-V4 rule="if (dst==0.0.0.0/0) { accept }"');
     expect(desired).toContain('add chain=OUT-DEFAULT-V4 rule="jump OUT-V4"');
@@ -40,8 +40,8 @@ test("RouterOS sends the default route through a chain that accepts it before th
 });
 
 test("RouterOS stops the default route with never, which the router then prints, and removes its chain", () => {
-    const on = routeros.render(withNeighbor("edge-router--edge-01", "plinq", { ...plinq, send_default_route: true }));
-    const off = routeros.render(withNeighbor("edge-router--edge-01", "plinq", plinq));
+    const on = routeros.render(withNeighbor("edge-router--edge-01", "novaram", { ...novaram, send_default_route: true }));
+    const off = routeros.render(withNeighbor("edge-router--edge-01", "novaram", novaram));
 
     const turnedOff = sent(off, on);
     expect(turnedOff).toContain(
@@ -50,16 +50,16 @@ test("RouterOS stops the default route with never, which the router then prints,
     expect(turnedOff).toContain('/routing filter rule remove [ find chain="OUT-DEFAULT-V4" ]');
 
     const printedOff = off.replace(
-        "name=plinq output.filter-chain=OUT-V4",
-        "name=plinq output.default-originate=never output.filter-chain=OUT-V4"
+        "name=novaram output.filter-chain=OUT-V4",
+        "name=novaram output.default-originate=never output.filter-chain=OUT-V4"
     );
     expect(printedOff).not.toBe(off);
     expect(sent(off, printedOff)).toEqual([]);
 });
 
 test("FortiOS sends a default route in each family of the session", () => {
-    const device = withNeighbor("platforms--example-firewall", "plinq", {
-        ...plinq,
+    const device = withNeighbor("platforms--example-firewall", "novaram", {
+        ...novaram,
         address_families: ["ipv4", "ipv6"],
         send_default_route: true,
     });
