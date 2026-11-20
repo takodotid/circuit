@@ -42,7 +42,7 @@ Your own AS with two edge routers and a broadband gateway. The first edge router
 
 ## A backbone in two regions
 
-Your AS in two regions, each a member AS of a BGP confederation with its own iBGP. The core routers, one on Junos and one on FortiOS, run eBGP between the regions, and transit providers see only your AS. IS-IS carries the loopbacks. Two branch offices reach the south region over IPsec tunnels.
+Your AS in two regions, each a member AS of a BGP confederation with its own iBGP. The core routers, one on Junos and one on FortiOS, run eBGP between the regions, and transit providers see only your AS. IS-IS carries the loopbacks. Two branch offices reach the south region over IPsec tunnels, and the internet from a pool of your addresses that hands out blocks of ports and logs each.
 
 ::: code-group
 

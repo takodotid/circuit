@@ -1,6 +1,6 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
-import type { Device, Secret, Severity, SnmpTrapTarget } from "../../model";
+import type { Device, Finding, Secret, Severity, SnmpTrapTarget } from "../../model";
 import { FortiOsNames } from "./names";
 import type { FortiOsNode } from "./tree";
 import { FortiOsTree } from "./tree";
@@ -34,6 +34,24 @@ export class FortiOsMonitoring {
         info: "information",
         debug: "debug",
     };
+
+    /** The collector levels that take a dynamic pool's log of its blocks. The device logs each block given and taken back at notice, log IDs 22015 and 22016 (FortiOS 6.2 log message reference). */
+    private static readonly BLOCK_LOG_LEVELS: readonly Severity[] = ["notice", "info", "debug"];
+
+    /** A dynamic pool names a subscriber only in its block log, so a warning when no collector keeps it. */
+    static blockLogs(device: Device): Finding[] {
+        const pools = (device.firewall?.nat?.source ?? []).flatMap((rule) =>
+            "to_pool" in rule && rule.port_allocation === "dynamic" ? [rule.to_pool] : []
+        );
+        const collectors = (device.monitoring?.syslog ?? []).slice(0, FortiOsMonitoring.COLLECTORS);
+        if (collectors.some((collector) => FortiOsMonitoring.BLOCK_LOG_LEVELS.includes(collector.level))) return [];
+
+        return [...new Set(pools)].map((pool) => ({
+            level: "warning",
+            device: device.name,
+            message: `firewall.nat.source, to_pool ${pool}: the device logs each block of ports it gives and takes back at notice, and only that log finds the subscriber behind a pool address and port. No collector in monitoring.syslog takes notice: write one with level "notice" or "info".`,
+        }));
+    }
 
     static snmp(root: FortiOsNode, device: Device): void {
         const snmp = device.monitoring?.snmp;

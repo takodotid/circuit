@@ -172,7 +172,7 @@ For an abuse report, give the public address and port. Each device with a source
 edge-01: 198.51.100.7:40000 is 100.64.0.243 (to_pool 198.51.100.0/27, ports 39328-41343)
 ```
 
-A subscriber's address (in `if.src`) gives its pool address and its block of ports. A pool address without a port lists its subscribers, 64 at most in text, and all of them in JSON. A port below 1024 or past the last block is in no block, and Circuit says so. An address in no pool lists the pools there are. The command exits 1 when it finds nothing.
+A subscriber's address (in `if.src`) gives its pool address and its block of ports. A pool address without a port lists its subscribers, 64 at most in text, and all of them in JSON. A port below 1024 or past the last block is in no block, and Circuit says so. An address in no pool lists the pools there are. An address of a `dynamic` pool is answered only by the device's log of its blocks, and Circuit says so. The command exits 1 when it finds nothing.
 
 It reads only the project and never contacts a device. So it answers for a past day only if the config was the same then. Check out the commit of that day first, found with `git log --until=<date>`, and run it there. See [Shared addresses](/guide/rules#shared-addresses).
 

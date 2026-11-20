@@ -84,8 +84,12 @@ export type Address = C.Address;
 export type FilterMatch = C.FilterMatch<string, string, string>;
 export type FilterRule = C.FilterRule<string, string, string>;
 export type NatRule = C.NatRule<string, string, string>;
-/** A source translation to a pool, with a block of ports for each subscriber. */
+/** A source translation to a pool, with blocks of ports for each subscriber. */
 export type PoolNatRule = Extract<NatRule, { to_pool: unknown }>;
+/** A pool whose blocks follow from each subscriber's address (RFC 7422). */
+export type DeterministicPoolNatRule = Extract<PoolNatRule, { port_allocation: "deterministic" }>;
+/** A pool that hands out blocks of ports as subscribers need them, and logs each. */
+export type DynamicPoolNatRule = Extract<PoolNatRule, { port_allocation: "dynamic" }>;
 export type TcpMssRule = C.TcpMssRule<string, string, string>;
 export type AclRule = C.AclRule<string>;
 export type PolicyRule = C.PolicyRule<string, string>;

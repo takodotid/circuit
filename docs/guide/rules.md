@@ -42,8 +42,16 @@ In other lists the order doesn't matter, except in DNS and NTP `servers`, which 
 
 ## Shared addresses
 
-A source `snat` with `to_pool` and `port_set_size` shares a pool of public addresses among subscribers, as carrier-grade NAT does. Each subscriber always leaves as the same pool address, with the same block of ports, so the address and port in an abuse report name one subscriber (RFC 7422). `circuit validate` checks that the blocks fit, and says what to change when they don't. On RouterOS, each subscriber takes two firewall rules, so it warns about a pool of more subscribers than a /20, the largest tested.
+A source `snat` with `to_pool` shares a pool of public addresses among subscribers, as carrier-grade NAT does. Each subscriber leaves as one pool address, with blocks of `port_set_size` TCP and UDP ports. `port_allocation` says how it gets them, and `circuit validate` checks that the blocks fit, and says what to change when they don't.
+
+`deterministic`: each subscriber always leaves as the same pool address, with the same block of ports, worked out from its address (RFC 7422). The address and port in an abuse report name one subscriber, from the config alone. On RouterOS, each subscriber takes two firewall rules, so `validate` warns about a pool of more subscribers than a /20, the largest tested.
 
 <<< @/../examples/edge-router/sites/pop-1/edge-01.ts#cgnat
 
-To find the subscriber behind an address and port, run `circuit nat lookup 198.51.100.7 40000`. It reads the project and asks no device, so it is right for a past report only if the config was the same on that day. Check out the commit of that day first, found with `git log --until=<date>`. Circuit does not log translations, so the config is the only record ([#227](https://github.com/takodotid/circuit/issues/227)).
+To find the subscriber behind an address and port, run `circuit nat lookup 198.51.100.7 40000`. It reads the project and asks no device, so it is right for a past report only if the config was the same on that day. Check out the commit of that day first, found with `git log --until=<date>`. The config is the record: a deterministic pool needs no log of each translation, which is what RFC 7422 is for, so Circuit writes none.
+
+`dynamic`: the device gives a subscriber a block when it needs one, up to `port_sets_per_subscriber` blocks, and takes it back once the block's last connection ends. Ports are used better, but only the device knows who had a block. It logs each block it gives and takes back, with the subscriber, the pool address, and the ports, so send the log to a collector in `monitoring.syslog`. FortiOS writes it at notice, and `validate` warns when no collector takes notice.
+
+<<< @/../examples/backbone/sites/south/core-02.ts#cgnat-dynamic
+
+RouterOS builds deterministic pools, and FortiOS dynamic ones: see [Platforms](/reference/platforms). NAT64 is not built yet ([#227](https://github.com/takodotid/circuit/issues/227)).
