@@ -21,6 +21,8 @@ export type Dialect = {
     canon?: (line: string) => string;
     /** Where a block is sent among the others, lowest first, so nothing is referenced before it exists. Absent, blocks go in the order they differ. */
     order?: (path: string[]) => number;
+    /** The part of a line that says which setting it is, when `LineDiff.head` would take too little or too much of it. */
+    head?: (line: string) => string;
 };
 
 /** A line with the blocks it sits in, outermost first. */
@@ -96,6 +98,7 @@ export class LineDiff {
     /** What differs, by block. A device line replaced by a desired line with the same head isn't undone: sending the new one is enough. A block the render doesn't hold goes with its header, and its lines with it. */
     static compare(desired: string, current: string, dialect: Dialect): Group[] {
         const canon = dialect.canon ?? ((line: string) => line);
+        const head = dialect.head ?? LineDiff.head;
         const keyOf = (entry: Entry) => [...entry.path, canon(entry.line)].join("\u0000");
         const pathKey = (path: string[]) => path.join("\u0000");
 
@@ -140,7 +143,7 @@ export class LineDiff {
             const replaced = wanted.some((other) => {
                 const sameBlock = pathKey(other.path) === pathKey(entry.path);
                 const isNew = !existingKeys.has(keyOf(other));
-                return sameBlock && isNew && LineDiff.head(other.line) === LineDiff.head(entry.line);
+                return sameBlock && isNew && head(other.line) === head(entry.line);
             });
             if (!replaced) groupFor(entry.path).remove.push(entry.line);
         }

@@ -121,5 +121,5 @@ test("fields a VRP switch can't take are refused, not skipped", () => {
 
     const found = vrp.unsupported(device);
     expect(found).toContain(`interfaces.ethernet.${port}.ipv6_ra, ports are switched; use a VLAN interface`);
-    expect(found).toContain("routing.router_id without routing.ospf, only OSPF uses it here");
+    expect(found).toContain("routing.router_id without routing.ospf or routing.bgp, only they use it here");
 });
