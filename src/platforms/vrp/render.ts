@@ -4,6 +4,7 @@ import { Utils } from "../../core/utils";
 import type { Device, Lag, Limit, OspfArea, OspfAuthentication, Port, RateLimit, VlanInterface, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
+import { VrpAaa } from "./aaa";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
 export class VrpRender {
@@ -126,6 +127,7 @@ export class VrpRender {
         this.managementAcl();
         this.snmpAcl();
         this.ethertypeAclBlocks();
+        this.lines.push(...VrpAaa.serverLines(device));
         this.users();
         this.vrfs();
         this.carProfiles();
@@ -362,6 +364,7 @@ export class VrpRender {
             lines.push(`local-user ${name} level ${VrpRender.USER_LEVEL[user.role]}`);
         }
 
+        lines.push(...VrpAaa.schemeLines(this.device, VrpRender.USER_LEVEL));
         this.block("aaa", lines);
     }
 

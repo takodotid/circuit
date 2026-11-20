@@ -11,7 +11,8 @@ export type Dialect = {
     terminator: string;
     /** Lines that describe the device rather than configure it, or that the device prints whatever is set. */
     ignore: (line: string) => boolean;
-    undo: (line: string) => string;
+    /** The command that takes a line away, given the blocks it sits in. */
+    undo: (line: string, path: readonly string[]) => string;
     /** The command that leaves one block level. */
     leave: string;
     /** Lines sent before their block's undos, because the platform refuses an undo until they are in place. */
@@ -32,9 +33,9 @@ export type Group = { path: string[]; remove: string[]; add: string[] };
 export type Around = (group: Group) => { before: string[]; after: string[] };
 
 export class LineDiff {
-    /** What a switch prints in place of a secret: the cipher of a password, a community, an SNMPv3 key, or an OSPF key, and a Raisecom community in clear. Never an algorithm list such as `ssh server cipher`. */
+    /** What a switch prints in place of a secret: the cipher of a password, a community, or a key, and a Raisecom community in clear. Never an algorithm list such as `ssh server cipher`. */
     private static readonly STORED_CREDENTIAL =
-        /((?:password|community read|-mode \S+(?: \d+)?) (?:irreversible-)?cipher|^snmp-server community)( +)\S+/gm;
+        /((?:password|community read|-mode \S+(?: \d+)?) (?:irreversible-)?cipher|^snmp-server community|shared-key(?:-| )cipher)( +)\S+/gm;
 
     private static indentOf(raw: string): number {
         return raw.length - raw.trimStart().length;
@@ -214,7 +215,7 @@ export class LineDiff {
             // A block header sent on its own, such as an empty `bfd`, enters its view; it is left at once so the next line is not sent into it.
             const added = late.flatMap((line) => (dialect.block.test(line) ? [line, dialect.leave] : [line]));
 
-            const inner = [...early, ...group.remove.map(dialect.undo), ...added];
+            const inner = [...early, ...group.remove.map((line) => dialect.undo(line, group.path)), ...added];
             const leave = group.path.map(() => dialect.leave);
 
             return {

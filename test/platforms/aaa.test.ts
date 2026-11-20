@@ -207,12 +207,9 @@ end
     );
 });
 
-test("VRP and Raisecom ROS refuse logins through servers", () => {
-    for (const [platform, fixture] of [
-        ["vrp", "single-site--switch"],
-        ["raisecom-ros", "platforms--example-switch"],
-    ] as const) {
-        const device = { ...withAaa(Fixtures.device(fixture), tacacs), platform } as Device;
-        expect(Platforms.get(platform).unsupported(device)).toContain("system.aaa, which only RouterOS, Junos, and FortiOS build for now");
-    }
+test("Raisecom ROS refuses logins through servers, as it has no role for a user a server accepts", () => {
+    const device = { ...withAaa(Fixtures.device("platforms--example-switch"), tacacs), platform: "raisecom-ros" } as Device;
+    expect(Platforms.get("raisecom-ros").unsupported(device)).toContain(
+        "system.aaa, the platform has no setting for the role of a user a server accepts"
+    );
 });
