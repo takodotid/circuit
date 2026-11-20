@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01, and LDP gives each loopback a label, so traffic between the two crosses the core by label.
+// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01, and LDP labels each loopback, so traffic between the two crosses the core by label. iBGP carries the routes of the bank's VRF to pe-01 (L3VPN, RFC 4364). A pseudowire carries the clinic's frames to its other site there (VPWS).
 
 import { as64500 } from "../../circuit";
 
@@ -18,13 +18,33 @@ export default as64500.device({
     interfaces: {
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.2.1/24"] },
+            "25g-1": { description: "Bank, office 2", vrf: "bank", addresses: ["172.16.2.1/30"] },
+            "25g-2": { description: "Clinic, site 2", access_vlan: "clinic" },
             "100g-1": { description: "pe-01 qsfp28-1-1", addresses: ["10.0.12.2/30"], link: { device: "pe-01", port: "100g-1" } },
         },
         loopback: { loopback: { addresses: ["10.255.0.2/32"] } },
+        // The clinic's frames cross the core to pe-01 on this pseudowire, which has the same pw_id there.
+        pseudowire: {
+            "pw-clinic": { description: "Clinic, to site 1 at pe-01", peer: "10.255.0.1", pw_id: 201, access_vlan: "clinic" },
+        },
+    },
+
+    switching: {
+        // The clinic's port and its pseudowire, alone in one VLAN.
+        vlans: { clinic: { id: 201, description: "Clinic, sites 1 and 2" } },
     },
 
     routing: {
         router_id: "10.255.0.2",
+        // The bank's VRF, in an L3VPN with its VRF on pe-01: both export and import the bank's route target.
+        vrfs: {
+            bank: {
+                description: "Bank, offices 1 and 2",
+                route_distinguisher: "64500:101",
+                route_targets: { import: ["64500:101"], export: ["64500:101"] },
+            },
+        },
+        static_routes: [{ prefix: "10.1.2.0/24", next_hop: "172.16.2.2", vrf: "bank", description: "Bank, office 2's network" }],
         // Both routers are in area 49.0001, at level 2 only. The system ID is the loopback address.
         isis: {
             net: "49.0001.0102.5500.0002.00",
@@ -37,5 +57,17 @@ export default as64500.device({
         },
         // The LSR ID is the loopback, which IS-IS announces. LDP runs on the link to pe-01.
         mpls: { ldp: { lsr_id: "10.255.0.2", interfaces: ["100g-1"] } },
+        // The iBGP session between the loopbacks carries the VRFs' routes, each with its label, and no other routes.
+        bgp: {
+            neighbors: {
+                "pe-01": {
+                    description: "pe-01, VPN routes",
+                    address: "10.255.0.1",
+                    remote_as: 64500,
+                    local_address: "10.255.0.2",
+                    address_families: ["vpnv4"],
+                },
+            },
+        },
     },
 });

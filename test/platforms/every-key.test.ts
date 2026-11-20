@@ -213,7 +213,7 @@ function kindOf(path: string): [Shape, string] {
 }
 
 Utils.root = Fixtures.FOLDER;
-const devices: Device[] = [...(await KeyPaths.examples()).devices, ...Fixtures.names().map((name) => Fixtures.device(name))];
+const devices: Device[] = [...(await KeyPaths.examples(Fixtures.FOLDER)).devices, ...Fixtures.names().map((name) => Fixtures.device(name))];
 const paths = KeyPaths.all(DEVICE);
 const held = byPath(devices);
 

@@ -62,6 +62,8 @@ A note in a cell means "works, with this limit".
 | GRE                        | ✅                                                                                         | ❌                | ❌                                  | ✅                                                                         | ✅                               |
 | VXLAN                      | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ✅                               |
 | IPsec, route-based (IKEv2) | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | ✅                               |
+| IPsec liveness, NAT-T      | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | ✅                               |
+| IPsec with certificates    | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | ✅                               |
 | WireGuard                  | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ❌                               |
 | EoIP                       | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ❌                               |
 | Round-robin LAG, ARP check | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ❌                               |
@@ -92,6 +94,8 @@ A note in a cell means "works, with this limit".
 | IS-IS overload bit           | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
 | BFD for IS-IS                | ❌                      | ❌         | ❌                       | ✅                    | ❌               |
 | MPLS with LDP                | ✅                      | ❌         | ❌                       | 🧪                    | ❌               |
+| L3VPN over MPLS              | ✅ IPv4, no VRF imports | ❌         | ❌                       | ❌                    | ❌               |
+| Ethernet pseudowires, VPLS   | ✅ VLAN interfaces 1496 | ❌         | ❌                       | ❌                    | ❌               |
 | BFD                          | ✅ not on static routes | ✅         | static routes, no timers | ✅                    | ✅               |
 | BGP                          | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |

@@ -176,6 +176,7 @@ export class Vrp extends Platform {
         for (const { name, kind, settings } of interfaces) {
             const where = `interfaces.${kind}.${name}`;
             if (kind === "ipsec") found.push(`${where}, IPsec: a CloudEngine switch does not encrypt the traffic it forwards`);
+            else if (kind === "pseudowire") found.push(`${where}, a pseudowire, not built yet`);
             else if (kind !== "vlan_interface" && kind !== "lag") found.push(`${where}, a ${kind}`);
             if (kind === "lag" && settings.addresses?.length) found.push(`${where}.addresses, LAGs are switched`);
             if (kind === "lag" && (settings as Lag).mac_limit !== undefined) found.push(`${where}.mac_limit, on a LAG is not tested`);
@@ -195,6 +196,7 @@ export class Vrp extends Platform {
         if (routing?.bgp) found.push("routing.bgp");
         if (routing?.isis) found.push("routing.isis");
         if (routing?.mpls) found.push("routing.mpls, not built yet");
+        for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
         if (routing?.rpki) found.push("routing.rpki");
         // `ospf <process> vpn-instance <vrf>` exists, but no switch has shown how it prints the process, or moves it between tables.
         if (routing?.ospf?.vrf) found.push("routing.ospf.vrf, not built yet");
