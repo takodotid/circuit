@@ -272,6 +272,10 @@ export class Junos extends Platform {
                 found.push(`${where}, IPsec: a QFX switch does not encrypt the traffic it forwards`);
                 continue;
             }
+            if (kind === "pppoe_client") {
+                found.push(`${where}, a PPPoE client: Junos runs one on SRX firewalls only, and a QFX switch has none`);
+                continue;
+            }
 
             if (settings.hardware_offload !== undefined) found.push(`${where}.hardware_offload`);
             if (kind === "loopback" && settings.ipv6_ra) found.push(`${where}.ipv6_ra, on a loopback`);

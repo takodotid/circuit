@@ -14,6 +14,7 @@ import { L3vpnChecks } from "./l3vpn";
 import { RateLimitChecks } from "./rate-limit";
 import { MplsChecks } from "./mpls";
 import { NatChecks } from "./nat";
+import { PppoeClientChecks } from "./pppoe-client";
 import { PseudowireChecks } from "./pseudowire";
 import { ServicesChecks } from "./services";
 import { VlanTranslationChecks } from "./vlan-translation";
@@ -118,6 +119,7 @@ export class DeviceChecks {
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
         ServicesChecks.check(device, report, cidr, ip);
+        PppoeClientChecks.check(device, report);
         DeviceChecks.certificates(device, report);
         DeviceChecks.vdoms(device, report, cidr, ip);
         DeviceChecks.users(device, report);
