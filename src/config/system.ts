@@ -27,7 +27,7 @@ export type TacacsServer = {
     address: IP;
     /** The key the device and the server share. */
     secret_key: Secret;
-    /** The device's own address it sends from. On FortiOS, every server's is the same, on an interface of the VDOM `root`. */
+    /** The device's own address it sends from. On FortiOS, every server's is the same, on an interface of the VDOM `root`. On VRP, every TACACS+ server's is the same. */
     source_address?: IP;
 };
 
@@ -49,7 +49,7 @@ export type Aaa<F extends string = string> = {
     tacacs?: readonly TacacsServer[];
     /** RADIUS servers. Not with `tacacs`. */
     radius?: readonly RadiusServer<F>[];
-    /** The role of every user a server accepts. */
+    /** The role of every user a server accepts. On VRP, a level the server sends comes first. */
     remote_role: User["role"];
     /** What the device reports to the servers: each `login` and logout, and each `command` typed. Nothing when absent. */
     accounting_events?: readonly ("login" | "command")[];
