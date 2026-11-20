@@ -1,5 +1,5 @@
 import { Address } from "../../core/address";
-import type { AclRule, Device, Ethertype, Family, FilterMatch, NatRule, PoolNatRule, Ports } from "../../model";
+import type { AclRule, Device, Ethertype, Family, FilterMatch, Finding, NatRule, PoolNatRule, Ports } from "../../model";
 import { Derive } from "../../core/derive";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
@@ -23,10 +23,42 @@ export class RouterOsFirewall {
     /** The protocols a NAT pool gives each subscriber a block of ports in. */
     private static readonly POOL_PROTOCOLS = ["tcp", "udp"] as const;
 
+    /** The most subscribers of one pool proven: a /20, whose 8449 rules took 89 s to apply on a CHR (7.24.6). */
+    private static readonly PROVEN_SUBSCRIBERS = 4096;
+
     private constructor(
         private readonly render: RouterOsRender,
         private readonly device: Device
     ) {}
+
+    /** A pool with more subscribers than were proven. Each subscriber takes a rule for each protocol, and each pool address two, so its apply takes minutes. */
+    static largePools(device: Device): Finding[] {
+        const findings: Finding[] = [];
+        const seen = new Set<string>();
+
+        for (const rule of device.firewall?.nat?.source ?? []) {
+            if (!("to_pool" in rule)) continue;
+
+            const src = [rule.if?.src].flat()[0];
+            // NatChecks reports a pool without clean IPv4 prefixes.
+            if (!src || !Address.isCidr(src) || !Address.isCidr(rule.to_pool) || Address.family(src) !== "ipv4") continue;
+            if (seen.has(`${rule.to_pool} ${src}`)) continue;
+            seen.add(`${rule.to_pool} ${src}`);
+
+            const subscribers = 2 ** (32 - Address.split(src).len);
+            if (subscribers <= RouterOsFirewall.PROVEN_SUBSCRIBERS) continue;
+
+            const addresses = 2 ** (32 - Address.split(rule.to_pool).len);
+            const rules = subscribers * RouterOsFirewall.POOL_PROTOCOLS.length + addresses * 2 + 1;
+            findings.push({
+                level: "warning",
+                device: device.name,
+                message: `firewall.nat.source, to_pool ${rule.to_pool}: if.src ${src} has ${subscribers} subscribers, which take about ${rules} firewall rules on RouterOS. The largest pool proven is a /20 of ${RouterOsFirewall.PROVEN_SUBSCRIBERS} subscribers, whose apply took 89 s on a CHR. Try this one on a lab device first, or split the subscribers among routers.`,
+            });
+        }
+
+        return findings;
+    }
 
     static render(render: RouterOsRender, device: Device): void {
         const firewall = new RouterOsFirewall(render, device);

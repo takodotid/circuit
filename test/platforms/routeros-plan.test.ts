@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
 import { Platforms } from "../../src/platforms";
-import type { Device, StaticRoute } from "../../src/model";
+import type { Device, Prefix, StaticRoute } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
 const router = Fixtures.device("platforms--example-router");
@@ -116,6 +116,28 @@ test("a pool jumps by subscribers to a chain for each pool address, which gives 
 
     const adapter = Platforms.get("routeros");
     expect(adapter.plan(rendered, rendered, { secrets: false, rollback: 10 }).steps).toEqual([]);
+});
+
+// A /20 of subscribers, 8449 rules, took 89 s to apply on a CHR. A /18 took 340 s, and its export passed 2 MiB (7.24.6, #312).
+test("a pool with more subscribers than a /20 is a warning on RouterOS", () => {
+    const pool = (src: Prefix, to_pool: `${number}.${number}.${number}.${number}/${number}`) =>
+        ({ if: { src }, then: "snat", to_pool, port_set_size: 1008 }) as const;
+    const device: Device = {
+        ...router,
+        firewall: {
+            ...router.firewall,
+            nat: { source: [pool("100.64.0.0/20", "198.51.100.0/25"), pool("100.64.64.0/18", "203.0.113.0/24")] },
+        },
+    };
+
+    expect(Platforms.get("routeros").checks!(device)).toEqual([
+        {
+            level: "warning",
+            device: router.name,
+            message:
+                "firewall.nat.source, to_pool 203.0.113.0/24: if.src 100.64.64.0/18 has 16384 subscribers, which take about 33281 firewall rules on RouterOS. The largest pool proven is a /20 of 4096 subscribers, whose apply took 89 s on a CHR. Try this one on a lab device first, or split the subscribers among routers.",
+        },
+    ]);
 });
 
 // The device keeps a dynamic fasttrack counter rule in the raw table, which it refuses to remove.

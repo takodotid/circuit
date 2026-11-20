@@ -42,6 +42,6 @@ In other lists the order doesn't matter, except in DNS and NTP `servers`, which 
 
 ## Shared addresses
 
-A source `snat` with `to_pool` and `port_set_size` shares a pool of public addresses among subscribers, as carrier-grade NAT does. Each subscriber always leaves as the same pool address, with the same block of ports, so the address and port in an abuse report name one subscriber (RFC 7422). `circuit validate` checks that the blocks fit, and says what to change when they don't.
+A source `snat` with `to_pool` and `port_set_size` shares a pool of public addresses among subscribers, as carrier-grade NAT does. Each subscriber always leaves as the same pool address, with the same block of ports, so the address and port in an abuse report name one subscriber (RFC 7422). `circuit validate` checks that the blocks fit, and says what to change when they don't. On RouterOS, each subscriber takes two firewall rules, so it warns about a pool of more subscribers than a /20, the largest tested.
 
 <<< @/../examples/edge-router/sites/pop-1/edge-01.ts#cgnat
