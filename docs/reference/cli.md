@@ -20,14 +20,14 @@ Run `circuit` alone for a menu, or run a command straight away, such as `circuit
 | `diff [device]`  | Reads the device and shows what would change. Sends nothing. Exits 1 if something would change. |
 | `apply [device]` | Shows the same plan, then sends it once you say yes. See [Make a change](/guide/apply).         |
 
-| Option                 | For                         | Does                                                                                                                         |
-| ---------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `--confirm`            | `apply`                     | Sends without asking.                                                                                                        |
-| `--secrets`            | `apply`, `diff`             | Sends every secret again. Use it to change a password, because devices never show passwords.                                 |
-| `--rollback <minutes>` | `apply`                     | RouterOS, Junos, and FortiOS: how long before the device undoes the change if Circuit can't log back in. Default 10.         |
-| `--force`              | `apply`                     | Sends even when the [path check](/guide/apply#the-path-check) fails.                                                         |
-| `--console`            | `apply`, `diff`             | Goes through the serial console on a jump host instead of SSH.                                                               |
-| `--experimental`       | `validate`, `diff`, `apply` | Lets a field marked 🧪 in the [feature matrix](/reference/platforms#feature-matrix) through, as a warning. Test it yourself. |
+| Option                 | For                         | Does                                                                                                                                                                                                                              |
+| ---------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--confirm`            | `apply`                     | Sends without asking.                                                                                                                                                                                                             |
+| `--secrets`            | `apply`, `diff`             | Sends every secret again. Use it to change a password, because devices never show passwords.                                                                                                                                      |
+| `--rollback <minutes>` | `apply`                     | RouterOS, Junos, and FortiOS: how long before the device undoes the change if Circuit can't log back in. Default 10.                                                                                                              |
+| `--force`              | `apply`                     | Sends even when the [path check](/guide/apply#the-path-check) fails.                                                                                                                                                              |
+| `--console`            | `apply`, `diff`             | Goes through the serial console on a jump host instead of SSH.                                                                                                                                                                    |
+| `--experimental`       | `validate`, `diff`, `apply` | Lets a field marked 🧪 in the [feature matrix](/reference/platforms#feature-matrix) through, as a warning. Test it yourself. With `apply`, also runs [the checks afterwards](/guide/apply#checking-afterwards) where they are 🧪. |
 
 ## Utilities
 
@@ -71,7 +71,7 @@ Secrets in the output show as `<redacted>`. In Git Bash on Windows, set `MSYS_NO
 
 ### `bgp`
 
-RouterOS only for now.
+Works on RouterOS. On Junos and FortiOS it is 🧪: add `--experimental`, and compare what it shows with the device.
 
 ```sh
 circuit bgp edge-01
@@ -89,13 +89,14 @@ circuit bgp edge-01 --log 10                       # plus 10 minutes of BGP log
 1/2 up
 ```
 
-| Option                | Does                                                                                                              |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `--neighbors <regex>` | Shows only the neighbors whose name matches this regular expression.                                              |
-| `--wait [count]`      | Reads again every 15 seconds until every neighbor shown is up, or `count` of them. Exits 1 if time runs out.      |
-| `--max <seconds>`     | How long `--wait` waits at most. Default 600.                                                                     |
-| `--log [minutes]`     | Also prints the device's BGP log of the last minutes. Default 5.                                                  |
-| `--clear-limit`       | Clears the sessions that closed on their prefix limit. If several closed at once, look for a leak upstream first. |
+| Option                | Does                                                                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--neighbors <regex>` | Shows only the neighbors whose name matches this regular expression.                                                             |
+| `--wait [count]`      | Reads again every 15 seconds until every neighbor shown is up, or `count` of them. Exits 1 if time runs out.                     |
+| `--max <seconds>`     | How long `--wait` waits at most. Default 600.                                                                                    |
+| `--log [minutes]`     | Also prints the device's BGP log of the last minutes. Default 5. RouterOS only.                                                  |
+| `--clear-limit`       | Clears the sessions that closed on their prefix limit. If several closed at once, look for a leak upstream first. RouterOS only. |
+| `--experimental`      | Reads a platform where `circuit bgp` is 🧪 in the [feature matrix](/reference/platforms#feature-matrix).                         |
 
 ### `access-console`
 

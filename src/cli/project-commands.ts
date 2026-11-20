@@ -10,7 +10,7 @@ import { Secrets } from "../core/secrets";
 import type { Device, Finding } from "../model";
 import { Platforms } from "../platforms";
 import { BgpWait } from "../platforms/bgp-wait";
-import type { ApplyOptions, BgpLogLine, BgpSession, Plan, Platform, ReadSession } from "../platforms/platform";
+import type { ApplyOptions, BgpLogLine, BgpSession, Plan, Platform, ReadSession, Tool } from "../platforms/platform";
 import { ProjectError, Project } from "../project";
 import type { ProjectRead } from "../project";
 import { ConsoleScript, SerialConsole } from "../transport/console";
@@ -51,7 +51,7 @@ export class ProjectCommands {
         readonly project: ProjectRead,
         /** `apply`'s flags, or the defaults for every other command. */
         private readonly options: ApplyOptions,
-        /** `--experimental`: fields a platform renders but has not tested are warnings, not errors. */
+        /** `--experimental`: fields a platform renders but has not tested are warnings, not errors, and its untested tools run. */
         private readonly experimental = false
     ) {
         this.devices = project.networks.flatMap((network) => Object.values(network.devices));
@@ -210,6 +210,11 @@ export class ProjectCommands {
         }
     }
 
+    /** Whether a tool runs on this platform: one built from the vendor's documentation only with `--experimental`. */
+    private allows(adapter: Platform, tool: Tool): boolean {
+        return this.experimental || !adapter.experimentalTools.includes(tool);
+    }
+
     /** Opens the device's secrets file, asking the person for its password when nothing else gives it. */
     private async withSecrets(device: Device): Promise<Device> {
         const network = this.project.networks.find((each) => device.name in each.devices);
@@ -342,8 +347,15 @@ export class ProjectCommands {
         }
 
         // What the checks after the apply compare against, such as the BGP sessions up now, is read before anything is sent.
+        const untested = !this.allows(adapter, "health");
+        // Where the checks are untested, BGP is all they look at.
+        if (adapter.health && untested && Object.keys(device.routing?.bgp?.neighbors ?? {}).length)
+            console.log(
+                `\nNot checking the BGP sessions after the change: on ${device.platform} the check is built from the vendor's documentation, not tested on a device yet. Add --experimental to check them.`
+            );
         const health =
             adapter.health &&
+            !untested &&
             (await Ui.step(`Reading ${device.name}'s state before the change`, () =>
                 adapter.health!(device, plan, this.optionsFor(device))
             ));
@@ -486,6 +498,10 @@ export class ProjectCommands {
             .map((platform) => platform.name)
             .join(", ");
         if (!adapter.bgpSessions) Ui.fail(`circuit bgp doesn't support ${device.platform} yet. It supports ${supported}.`);
+        if (!this.allows(adapter, "bgp"))
+            Ui.fail(
+                `circuit bgp on ${device.platform} is built from the vendor's documentation, not tested on a device with BGP sessions yet. Add --experimental to run it, and compare what it shows with the device.`
+            );
         if (flags.log && !adapter.bgpLog) Ui.fail(`circuit bgp --log doesn't support ${device.platform} yet.`);
         if (flags.clearLimit && !adapter.bgpClearLimit) Ui.fail(`circuit bgp --clear-limit doesn't support ${device.platform} yet.`);
         if (flags.clearLimit && flags.wait !== undefined) Ui.fail("Use --clear-limit and --wait in two runs: clear first, then wait.");

@@ -184,7 +184,8 @@ class Cli {
                 Cli.whole("minutes", ProjectCommands.BGP_LOG_MINUTES)
             )
             .option("--clear-limit", "clear the sessions shown that closed on their prefix limit")
-            .action(async (device, flags) => (await ProjectCommands.open()).bgp(device, flags));
+            .option("--experimental", "also read a platform whose BGP sessions are not yet tested on a real device")
+            .action(async (device, flags) => (await ProjectCommands.open({ experimental: flags.experimental })).bgp(device, flags));
 
         program
             .command("addresses")

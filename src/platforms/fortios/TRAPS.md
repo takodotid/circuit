@@ -81,3 +81,4 @@ Seen on a FortiGate 3700D running FortiOS 6.2.2, without a license.
 - IS-IS has no BFD: `set bfd` is `command parse error` in `router isis` and in an `isis-interface` entry (6.2.2).
 - `system ntp`, `system dns`, and `log syslogd setting` have no VRF setting: the device's own traffic leaves from the management VDOM, or from `root` (6.2.2).
 - A shaping policy takes `any` for `srcintf` and `dstintf`, in either family. `show` prints the `bandwidth-unit` of a shaper unless it is `kbps`, the default, and no `per-policy` on a shared shaper. The factory ships five shapers. All but `shared-1M-pipe` print `per-policy enable` (6.2.2).
+- In multi-VDOM mode `get router info bgp summary` at the top prompt is `command parse error`, and `sudo root get router info bgp summary` is `Unknown action 0`. It runs after `config vdom` and `edit root`. Without BGP there, it and `get router info6 bgp summary` print nothing (6.2.2).
