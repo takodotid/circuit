@@ -18,6 +18,7 @@ description: The device operating systems Circuit works with, their versions, an
 - **Model limits.** On the CCR2216, a LAG holds at most 8 ports, and the hardware ACLs hold about 5 different port ranges. `circuit validate` checks both. The RB5009 has no serial console, so Circuit refuses `connection.console` on it.
 - **CHR.** MikroTik's Cloud Hosted Router is RouterOS in a virtual machine. Its ports are the machine's network adapters, as many as it has: `virtual-1` is `ether1`, and so on. Circuit disables every adapter the config leaves out.
 - **A RouterOS PPPoE server.** Subscribers live in RADIUS. Before the first `apply` on a router that already serves PPPoE, move every subscriber from `/ppp secret` to RADIUS: the plan removes each local secret, PPP profile, and PPPoE server that `services.pppoe_server` doesn't write, and sets the profiles `default` and `default-encryption` back to RouterOS's defaults.
+- **VRP.** A CloudEngine filters with ACLs on its ports, so write hardware ACLs. Circuit refuses the firewall's chains there: the switch's traffic filter checks what it switches as well as what it routes, V200R005 filters traffic to the switch only with a blacklist, and nothing filters what the switch sends. A DHCP server is an address pool, and nothing on the switch ties it to its interface.
 - **Raisecom ROS.** The switch answers time queries whenever it takes time from `system.ntp`, and nothing stops it, so write `services.ntp_server`, or `validate` warns. BPDU guard is one setting for the whole switch, and the switch finds edge ports by itself: with `bpdu_guard`, write `edge` on each port that runs spanning tree. Raisecom's guide doesn't say how an ACL rule matches a TCP or UDP port, and a switch's SSH key belongs to no user, so hardware ACLs and SSH keys wait.
 
 ## Feature matrix
@@ -34,25 +35,25 @@ A note in a cell means "works, with this limit".
 
 ### Switching
 
-| Feature             | RouterOS                           | VRP           | Raisecom ROS                          | Junos                   | FortiOS             |
-| ------------------- | ---------------------------------- | ------------- | ------------------------------------- | ----------------------- | ------------------- |
-| VLANs, access/trunk | ✅                                 | ✅            | ✅                                    | ✅                      | ✅ VLAN interfaces  |
-| LAG                 | ✅                                 | ✅            | ✅                                    | ✅                      | ✅                  |
-| STP                 | ✅                                 | ✅            | MSTP, no port cost                    | ✅                      | ❌ ports are routed |
-| Storm control       | ✅ in percent                      | ✅ in percent | broadcast and unknown unicast, in pps | ✅                      | ❌                  |
-| MAC limit           | ❌                                 | ✅ ports      | ✅ ports                              | ✅                      | ❌                  |
-| Ethertype filter    | ✅ ports                           | ✅ ports      | ✅ ports                              | ✅                      | ❌                  |
-| Port bound to hosts | ❌                                 | ❌            | ❌                                    | ✅                      | ❌                  |
-| BPDU and root guard | ✅ ports                           | 🧪            | root guard; 🧪 BPDU guard             | ✅                      | ❌                  |
-| DHCP snooping       | ✅                                 | 🧪            | 🧪                                    | ✅                      | ❌                  |
-| ARP inspection      | ❌                                 | ❌            | ❌                                    | ✅                      | ❌                  |
-| Private VLANs       | isolated only, switched by the CPU | ❌            | ❌                                    | ✅                      | ❌                  |
-| QinQ                | ✅                                 | 🧪            | ✅ ports                              | ✅                      | ❌                  |
-| VLAN translation    | ❌                                 | ❌            | ❌                                    | 🧪 no native VLAN       | ❌                  |
-| RA guard            | ✅                                 | ❌            | ❌                                    | ✅                      | ❌                  |
-| Hardware ACLs       | ✅                                 | ❌            | ❌                                    | ✅ a rate needs a burst | ✅ drop rules only  |
-| LLDP                | ✅                                 | ✅            | ✅                                    | ✅                      | ✅                  |
-| Bridge interface    | ❌                                 | ❌            | ❌                                    | ❌                      | ✅                  |
+| Feature             | RouterOS                           | VRP                 | Raisecom ROS                          | Junos                   | FortiOS             |
+| ------------------- | ---------------------------------- | ------------------- | ------------------------------------- | ----------------------- | ------------------- |
+| VLANs, access/trunk | ✅                                 | ✅                  | ✅                                    | ✅                      | ✅ VLAN interfaces  |
+| LAG                 | ✅                                 | ✅                  | ✅                                    | ✅                      | ✅                  |
+| STP                 | ✅                                 | ✅                  | MSTP, no port cost                    | ✅                      | ❌ ports are routed |
+| Storm control       | ✅ in percent                      | ✅ in percent       | broadcast and unknown unicast, in pps | ✅                      | ❌                  |
+| MAC limit           | ❌                                 | ✅ ports            | ✅ ports                              | ✅                      | ❌                  |
+| Ethertype filter    | ✅ ports                           | ✅ ports            | ✅ ports                              | ✅                      | ❌                  |
+| Port bound to hosts | ❌                                 | ❌                  | ❌                                    | ✅                      | ❌                  |
+| BPDU and root guard | ✅ ports                           | 🧪                  | root guard; 🧪 BPDU guard             | ✅                      | ❌                  |
+| DHCP snooping       | ✅                                 | 🧪                  | 🧪                                    | ✅                      | ❌                  |
+| ARP inspection      | ❌                                 | ❌                  | ❌                                    | ✅                      | ❌                  |
+| Private VLANs       | isolated only, switched by the CPU | ❌                  | ❌                                    | ✅                      | ❌                  |
+| QinQ                | ✅                                 | 🧪                  | ✅ ports                              | ✅                      | ❌                  |
+| VLAN translation    | ❌                                 | ❌                  | ❌                                    | 🧪 no native VLAN       | ❌                  |
+| RA guard            | ✅                                 | ❌                  | ❌                                    | ✅                      | ❌                  |
+| Hardware ACLs       | ✅                                 | ✅ no rate, no VLAN | ❌                                    | ✅ a rate needs a burst | ✅ drop rules only  |
+| LLDP                | ✅                                 | ✅                  | ✅                                    | ✅                      | ✅                  |
+| Bridge interface    | ❌                                 | ❌                  | ❌                                    | ❌                      | ✅                  |
 
 ### Interfaces
 
@@ -125,10 +126,10 @@ A note in a cell means "works, with this limit".
 | CGNAT pool, dynamic                | ❌                    | ❌                    | ❌                         | ❌                       | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
 | TCP MSS clamp                      | ✅                    | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DSCP and PCP marking               | ✅ not with fast path | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DHCP server                        | ✅                    | ❌                    | ❌                         | ✅                       | ✅                                              |
+| DHCP server                        | ✅                    | 🧪                    | ❌                         | ✅                       | ✅                                              |
 | DHCPv6 server                      | ✅ pool is a prefix   | ❌                    | ❌                         | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes          |
 | DHCP relay                         | ✅                    | IPv4, VLAN interfaces | ❌                         | IPv4                     | ✅                                              |
-| DHCP server in a VRF               | ✅                    | ❌                    | ❌                         | 🧪                       | 🧪                                              |
+| DHCP server in a VRF               | ✅                    | 🧪                    | ❌                         | 🧪                       | 🧪                                              |
 | PPPoE server                       | ✅ one RADIUS setting | ❌                    | ❌                         | ❌                       | ❌                                              |
 | Delegated IPv6 prefixes over PPPoE | ✅                    | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DNS server                         | ✅                    | ❌                    | ❌                         | ❌                       | ✅                                              |
