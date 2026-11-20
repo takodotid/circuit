@@ -6,6 +6,7 @@ export type {
     AdvertisedPrefix,
     AsNumbers,
     AsRange,
+    BgpFamily,
     BoundHost,
     Certificate,
     Ethertype,

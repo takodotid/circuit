@@ -164,12 +164,37 @@ routing: {
 
 `pe-02` has the same two tunnels the other way round. When both routers are in your network, `circuit validate` checks that each tunnel has one back at the far end. The ends must be swapped, and the VNI and port must match.
 
-Circuit doesn't do the rest of this lesson:
+Tunnels and static routes written in files suit a few sites. A provider with hundreds of customers needs PEs that announce the customers' routes to each other.
 
-- **No L3VPN.** Circuit runs MPLS with LDP, which gives labels to the routers' loopbacks, but it has no route distinguishers or route targets, so a VRF's routes don't travel over the labels.
-- **No EVPN.** Each VXLAN tunnel is point to point, with its far end written by hand, and the routes through it are static.
+## L3VPN in Circuit
 
-Tunnels and static routes written in files suit a few sites. A provider with hundreds of customers needs PEs that announce routes to each other with L3VPN or EVPN, which Circuit doesn't write yet.
+With MPLS in the core, the PEs announce each VRF's routes to each other over iBGP, as an L3VPN. Each VRF gets a route distinguisher and route targets, and one iBGP session between the two loopbacks carries the routes of every VRF. This is `pe-01` again, without the VXLAN tunnels:
+
+```ts
+// pe-01.ts, in routing
+vrfs: {
+    bank: { route_distinguisher: "64500:101", route_targets: { import: ["64500:101"], export: ["64500:101"] } },
+    school: { route_distinguisher: "64500:102", route_targets: { import: ["64500:102"], export: ["64500:102"] } },
+},
+bgp: {
+    neighbors: {
+        "pe-02": { address: "192.0.2.2", remote_as: 64500, local_address: "192.0.2.1", address_families: ["vpnv4"] },
+    },
+},
+```
+
+| Field                         | What it does                                                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------------------- |
+| `route_distinguisher`         | Keeps this VRF's routes apart from another VRF's with the same prefix, inside BGP.            |
+| `route_targets.export`        | The tags on every route this VRF holds, when it goes to the other PEs.                        |
+| `route_targets.import`        | The VRF takes each route that comes with one of these tags.                                   |
+| `vpnv4` in `address_families` | The session carries the VRFs' IPv4 routes. It runs between the loopbacks, inside your own AS. |
+
+`pe-02` writes the same two VRFs with the same route targets. Now office 2 of the bank, at `pe-02`, learns the network of office 1 with no static route for it at `pe-02`. The school's routes carry another tag, so they stay in the school's VRF. A new customer is a new VRF on the PEs it uses, and the P routers in between don't change.
+
+The core needs MPLS for this, which `routing.mpls` runs with LDP. The [MPLS core example](/guide/examples#an-mpls-core) has it all, on two RouterOS routers. On other platforms, Circuit doesn't write an L3VPN yet: [Platforms](/reference/platforms) says which.
+
+Circuit doesn't do the rest of this lesson: **no EVPN.** Each VXLAN tunnel is point to point, with its far end written by hand, and the routes through it are static.
 
 ## Further reading
 

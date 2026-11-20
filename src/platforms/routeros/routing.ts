@@ -6,6 +6,7 @@ import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import type {
     AsNumbers,
+    BgpFamily,
     Device,
     Family,
     Finding,
@@ -37,6 +38,12 @@ export class RouterOsRouting {
 
     /** What a table hands to the BGP VPN table for another to take: every route but those of the VPN table itself. */
     private static readonly EXPORTED = "connected,static,ospf,bgp";
+
+    /** The chain of a session that carries VPN routes only. It takes them, which their route targets pick, and rejects the rest (TRAPS.md). */
+    private static readonly VPN = "VPN";
+
+    /** A connection's `afi` for each family, in the order the device prints them. */
+    private static readonly AFI = { ipv4: "ip", ipv6: "ipv6", vpnv4: "vpnv4", vpnv6: "vpnv6" } as const satisfies Record<BgpFamily, string>;
 
     /** The TTL a session with GTSM sends with and requires on arrival, the highest there is (RFC 5082). */
     private static readonly GTSM_TTL = 255;
@@ -82,6 +89,7 @@ export class RouterOsRouting {
             routing.policies();
             routing.bgpConnections();
             routing.vrfImports();
+            routing.vpns();
         }
 
         routing.ospf();
@@ -145,6 +153,11 @@ export class RouterOsRouting {
         if (device.routing?.vrf_imports && !device.routing.bgp)
             found.push(
                 "routing.vrf_imports without routing.bgp: RouterOS takes routes between tables through BGP. Write bgp: {} in routing"
+            );
+        // The imports' route targets are the router's AS and a number, which a VPN session would carry to the other PEs.
+        if (device.routing?.vrf_imports && Derive.l3vpn(device).length)
+            found.push(
+                "routing.vrf_imports beside an L3VPN: RouterOS takes routes between VRFs by route targets of its own, which its VPN sessions would carry to the other PEs. Not built yet"
             );
         (device.routing?.vrf_imports ?? []).forEach(({ from, to }, index) => {
             if (from === "main" || to === "main")
@@ -360,9 +373,17 @@ export class RouterOsRouting {
         return { ...group, ...neighbor };
     }
 
-    /** The families a neighbor exchanges: the ones it states, or its address's. */
+    /** The `ipv4` and `ipv6` routes a neighbor exchanges: the families it states, or its address's. Its VPN routes are not among them. */
     private familiesOf(neighbor: Neighbor): readonly Family[] {
-        return this.settingsOf(neighbor).address_families ?? [Address.family(neighbor.address)];
+        return Derive.unicastFamilies(this.settingsOf(neighbor), neighbor.address);
+    }
+
+    /**
+     * A session's input or output chain. One that carries VPN routes takes them first, since route targets pick them, and `afi ipv4` doesn't match them (TRAPS.md). Its other routes go on to its policy's chain for its family. One that carries VPN routes only uses `VPN`.
+     */
+    private static sessionChain(chain: string | undefined, vpn: boolean): string | undefined {
+        if (!vpn) return chain;
+        return chain ? `${chain}-${RouterOsRouting.VPN}` : RouterOsRouting.VPN;
     }
 
     /** Whether a rule belongs on a family's chain. A rule naming another family, or a prefix or prefix set of another family, does not. A set of both families belongs on both. */
@@ -463,6 +484,8 @@ export class RouterOsRouting {
             }
         }
 
+        this.vpnChains();
+
         // The VPN table takes both families through one chain (TRAPS.md).
         for (const policy of imported) {
             const chain = `${policy}-${RouterOsRouting.IMPORTED}`;
@@ -472,6 +495,27 @@ export class RouterOsRouting {
                     rule: `if (afi ${family}) { jump ${RouterOsRouting.chainName(policy, family)} }`,
                 });
             this.render.add("/routing filter rule", "add", { chain, rule: "reject" });
+        }
+    }
+
+    /** The chains of sessions that carry VPN routes: each takes them, then hands the rest to the session's own chain, or rejects them. */
+    private vpnChains(): void {
+        const chains = new Map<string, string | undefined>();
+        for (const neighbor of Object.values(this.device.routing!.bgp!.neighbors ?? {})) {
+            const settings = this.settingsOf(neighbor);
+            if (!Derive.vpnFamilies(settings).length) continue;
+
+            const [family] = this.familiesOf(neighbor);
+            const own = family && [
+                RouterOsRouting.chainName(settings.import_policy ?? RouterOsRouting.REJECT_ALL, family),
+                RouterOsRouting.exportChain(settings, family),
+            ];
+            for (const chain of own || [undefined]) chains.set(RouterOsRouting.sessionChain(chain, true)!, chain);
+        }
+
+        for (const [chain, next] of [...chains].sort(([a], [b]) => a.localeCompare(b))) {
+            this.render.add("/routing filter rule", "add", { chain, rule: `if (afi ${RouterOsRouting.AFI.vpnv4}) { accept }` });
+            this.render.add("/routing filter rule", "add", { chain, rule: next ? `jump ${next}` : "reject" });
         }
     }
 
@@ -510,29 +554,39 @@ export class RouterOsRouting {
         });
     }
 
-    /** One connection per neighbor. The platform carries one family per connection. */
+    /** One connection per neighbor. The platform carries one family of `ipv4` and `ipv6` per connection, and VPN routes beside it. */
     private bgpConnections(): void {
         const bgp = this.device.routing!.bgp!;
 
         for (const [name, neighbor] of Object.entries(bgp.neighbors ?? {})) {
             const settings = this.settingsOf(neighbor);
-            const [family] = this.familiesOf(neighbor) as [Family];
+            const [family] = this.familiesOf(neighbor);
             const addressFamily = Address.family(neighbor.address);
+            const families = settings.address_families ?? [addressFamily];
+            const vpn = Derive.vpnFamilies(settings).length > 0;
             const internal = settings.remote_as === bgp.asn;
             const originates = bgp.originated_prefixes?.some((prefix) => Address.family(Address.host(prefix)) === family);
             const role = RouterOsRouting.roleOf(settings, internal);
+            const importChain = family && RouterOsRouting.chainName(settings.import_policy ?? RouterOsRouting.REJECT_ALL, family);
 
             this.render.add("/routing bgp connection", "add", {
                 // Only stated when the routes differ in family from the address they are carried over.
-                afi: addressFamily === family ? undefined : family === "ipv6" ? "ipv6" : "ip",
+                afi:
+                    families.length === 1 && families[0] === addressFamily
+                        ? undefined
+                        : Object.entries(RouterOsRouting.AFI)
+                              .filter(([written]) => families.includes(written as BgpFamily))
+                              .map(([, afi]) => afi)
+                              .join(","),
                 as: bgp.asn,
                 comment: settings.description,
                 connect: settings.passive ? "no" : undefined,
                 "hold-time": settings.hold_time ? RouterOsSyntax.duration(settings.hold_time) : undefined,
-                "input.filter": RouterOsRouting.chainName(settings.import_policy ?? RouterOsRouting.REJECT_ALL, family),
+                "input.filter": RouterOsRouting.sessionChain(importChain, vpn),
                 // The one instance bgpInstance adds. 7.23 refuses a new connection without it.
                 instance: "default",
-                [`input.limit-process-routes-${family}`]: Derive.prefixLimit(settings)?.limit,
+                // `unsupported()` refuses a limit on a session with VPN routes, which this would not count.
+                [`input.limit-process-routes-${family}`]: family && Derive.prefixLimit(settings)?.limit,
                 "keepalive-time": settings.keepalive ? RouterOsSyntax.duration(settings.keepalive) : undefined,
                 listen: settings.passive ? "yes" : undefined,
                 "local.address": settings.local_address && Address.host(settings.local_address),
@@ -541,8 +595,8 @@ export class RouterOsRouting {
                 multihop: settings.multihop ? "yes" : undefined,
                 name,
                 "output.default-originate": settings.send_default_route ? "always" : undefined,
-                "output.filter-chain": RouterOsRouting.exportChain(settings, family),
-                "output.network": originates ? RouterOsSyntax.NETWORKS[family] : undefined,
+                "output.filter-chain": RouterOsRouting.sessionChain(family && RouterOsRouting.exportChain(settings, family), vpn),
+                "output.network": family && originates ? RouterOsSyntax.NETWORKS[family] : undefined,
                 "remote.address": `${neighbor.address}/${addressFamily === "ipv4" ? 32 : 128}`,
                 "remote.as": settings.remote_as,
                 // The lowest TTL accepted on arrival.
@@ -629,6 +683,29 @@ export class RouterOsRouting {
                 interfaces: this.render.name(iface),
                 levels: levels.join(","),
                 ...Object.fromEntries(metrics),
+            });
+        }
+    }
+
+    /**
+     * Each VRF in an L3VPN (RFC 4364) hands every route it holds to the BGP VPN table with its export targets. It takes the VPN routes with an import target, as MikroTik's VRF guide sets it up. One label stands for the whole VRF, not one per prefix.
+     */
+    private vpns(): void {
+        for (const [vrf, settings] of RouterOsSyntax.entries(this.device.routing?.vrfs)) {
+            const distinguisher = settings.route_distinguisher;
+            if (distinguisher === undefined) continue;
+
+            const exported = settings.route_targets?.export ?? [];
+            const imported = settings.route_targets?.import ?? [];
+            this.render.add("/routing bgp vpn", "add", {
+                "export.redistribute": exported.length ? RouterOsRouting.EXPORTED : undefined,
+                "export.route-targets": exported.length ? exported.join(",") : undefined,
+                "import.route-targets": imported.length ? imported.join(",") : undefined,
+                instance: "default",
+                "label-allocation-policy": "per-vrf",
+                name: vrf,
+                "route-distinguisher": distinguisher,
+                vrf,
             });
         }
     }

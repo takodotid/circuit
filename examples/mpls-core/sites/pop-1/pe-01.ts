@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-02, and LDP gives each loopback a label, so traffic between the two crosses the core by label.
+// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-02, and LDP gives each loopback a label, so traffic between the two crosses the core by label. The bank's office 1 is on 25g-1, in the VRF bank, and iBGP carries the VRF's routes to pe-02 as VPN routes (RFC 4364).
 
 import { as64500 } from "../../circuit";
 
@@ -18,6 +18,7 @@ export default as64500.device({
     interfaces: {
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.1.1/24"] },
+            "25g-1": { description: "Bank, office 1", vrf: "bank", addresses: ["172.16.1.1/30"] },
             "100g-1": { description: "pe-02 qsfp28-1-1", addresses: ["10.0.12.1/30"], link: { device: "pe-02", port: "100g-1" } },
         },
         loopback: { loopback: { addresses: ["10.255.0.1/32"] } },
@@ -25,6 +26,15 @@ export default as64500.device({
 
     routing: {
         router_id: "10.255.0.1",
+        // The bank's VRF, in an L3VPN with its VRF on pe-02: both export and import the bank's route target.
+        vrfs: {
+            bank: {
+                description: "Bank, offices 1 and 2",
+                route_distinguisher: "64500:101",
+                route_targets: { import: ["64500:101"], export: ["64500:101"] },
+            },
+        },
+        static_routes: [{ prefix: "10.1.1.0/24", next_hop: "172.16.1.2", vrf: "bank", description: "Bank, office 1's network" }],
         // Both routers are in area 49.0001, at level 2 only. The system ID is the loopback address.
         isis: {
             net: "49.0001.0102.5500.0001.00",
@@ -37,5 +47,17 @@ export default as64500.device({
         },
         // The LSR ID is the loopback, which IS-IS announces. LDP runs on the link to pe-02.
         mpls: { ldp: { lsr_id: "10.255.0.1", interfaces: ["100g-1"] } },
+        // The iBGP session between the loopbacks carries the VRFs' routes, each with its label, and no other routes.
+        bgp: {
+            neighbors: {
+                "pe-02": {
+                    description: "pe-02, VPN routes",
+                    address: "10.255.0.2",
+                    remote_as: 64500,
+                    local_address: "10.255.0.1",
+                    address_families: ["vpnv4"],
+                },
+            },
+        },
     },
 });

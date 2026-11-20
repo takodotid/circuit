@@ -63,6 +63,10 @@ export class RouterOs extends Platform {
 
     private static readonly NO_MAC_LIMIT = "the platform has no MAC learning limit on a bridge port or a switch port on 7.23";
 
+    /** A far PE took no IPv6 route of a VRF into its own (TRAPS.md). */
+    private static readonly NO_VPNV6 =
+        "RouterOS 7.24 keeps the IPv6 VPN routes it learns unreachable, since it does not resolve their IPv4-mapped next hop (RFC 4659)";
+
     /** Version 6 has another BGP and filter language. */
     private static readonly SUPPORTED_MAJOR = 7;
 
@@ -323,9 +327,13 @@ export class RouterOs extends Platform {
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
-            const families = neighbor.address_families ?? group?.address_families ?? [Address.family(neighbor.address)];
-
-            if (families.length > 1) found.push(`routing.bgp.neighbors.${name}.address_families, one family per session`);
+            const settings = { ...group, ...neighbor };
+            if (Derive.unicastFamilies(settings, neighbor.address).length > 1)
+                found.push(`routing.bgp.neighbors.${name}.address_families, one of ipv4 and ipv6 per session`);
+            const vpn = Derive.vpnFamilies(settings);
+            if (vpn.includes("vpnv6")) found.push(`routing.bgp.neighbors.${name}.address_families vpnv6, ${RouterOs.NO_VPNV6}`);
+            if (vpn.length && settings.max_prefixes !== undefined)
+                found.push(`routing.bgp.neighbors.${name}.max_prefixes, with VPN routes: RouterOS limits only ipv4 and ipv6 routes`);
 
             // MikroTik's reference: `remote.ttl` "only affects EBGP peers".
             const internal = (neighbor.remote_as ?? group?.remote_as) === bgp?.asn;

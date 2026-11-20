@@ -374,7 +374,7 @@ export const DEVICE = {
     routing: {
         router_id: 0,
         tables: { "*": { description: 0 } },
-        vrfs: { "*": { description: 0 } },
+        vrfs: { "*": { description: 0, route_distinguisher: 0, route_targets: { import: 0, export: 0 } } },
         vrf_imports: [{ from: 0, to: 0, policy: 0 }],
         policy_routing: [ROUTING_RULE],
         static_routes: [STATIC_ROUTE],

@@ -127,6 +127,9 @@ export class Junos extends Platform {
         }
         found.push(...JunosSwitching.gaps(device));
         found.push(...JunosMpls.unsupported(device));
+        // MPLS here passed `commit check` only, on a QFX5100 without the license to run it.
+        for (const where of Derive.l3vpn(device))
+            found.push(`${where}, L3VPN, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`);
         const names = new JunosNames(device);
         const users = device.system?.users ?? {};
 

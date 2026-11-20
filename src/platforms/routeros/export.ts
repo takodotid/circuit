@@ -174,6 +174,13 @@ export class RouterOsExport {
             "input.limit-process-routes-ipv4": "",
             "input.limit-process-routes-ipv6": "",
         },
+        // A VPN entry's lists print nothing until they are set.
+        "/routing bgp vpn": {
+            "export.redistribute": "",
+            "export.route-targets": "",
+            "import.route-targets": "",
+            "export.filter-chain": "",
+        },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
         "/ip dhcp-server": { "lease-time": "30m" },
@@ -353,6 +360,7 @@ export class RouterOsExport {
             "input.limit-process-routes-ipv4",
             "input.limit-process-routes-ipv6",
         ],
+        "/routing bgp vpn": ["export.redistribute", "export.route-targets", "import.route-targets", "export.filter-chain"],
         "/routing ospf area": ["default-cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],
         "/routing isis interface-template": RouterOsExport.ISIS_METRICS,
