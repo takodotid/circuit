@@ -256,7 +256,7 @@ describe.skipIf(!edgeChr || !cpeChr || !hostChr)("a CHR marks what it routes", (
             expect(planned.output).toContain("change-dscp");
             expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
             expect(circuit("diff", "edge-01").status).toBe(0);
-            for (const { menu } of FAMILIES) expect((await onChr(edgeChr!, `:put [${menu} print count-only]`)).trim()).toBe("0");
+            for (const { menu } of FAMILIES) expect((await onChr(edgeChr!, `:put [:len [${menu} find]]`)).trim()).toBe("0");
 
             await ping();
             for (const { menu } of FAMILIES) {
