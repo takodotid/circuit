@@ -1,7 +1,9 @@
 // Each mistake that spans two devices is found on the device that makes it.
 
 import { expect, test } from "bun:test";
+import { join } from "node:path";
 import { Checks } from "../../src/checks";
+import { Utils } from "../../src/core/utils";
 import type { Device, IP, Ipsec, Lag, Port } from "../../src/model";
 
 const findings = (...devices: Device[]) =>
@@ -319,4 +321,43 @@ test("an IPsec tunnel to another device needs one back with the same algorithms,
         "error r1: interfaces.ipsec.ipsec: its algorithms differ from r2 interfaces.ipsec.ipsec's. Write the same ike and esp, but for their lifetimes",
         "error r2: interfaces.ipsec.ipsec: its algorithms differ from r1 interfaces.ipsec.ipsec's. Write the same ike and esp, but for their lifetimes",
     ]);
+});
+
+test("both ends of an IPsec tunnel authenticate the same way, and with certificates each end's CA signed the other's", () => {
+    const signed = "examples/backbone/certificates/core-02.pem";
+    const ca = "examples/backbone/certificates/as64500-ipsec-ca.pem";
+    const other = "test/fixtures/v0/platforms--example-router.web.pem";
+    const algorithms = {
+        ike: { encryption: "aes-256-gcm", prf: "hmac-sha2-256", dh_group: 19, lifetime: 86400 },
+        esp: { encryption: "aes-256-gcm", lifetime: 3600 },
+    } as const;
+    type Authentication = { pre_shared_key: { secret: string } } | { certificate: string; ca_certificate: string };
+    const end = (n: 1 | 2, authentication: Authentication, trusted = ca): Device => {
+        const [r1, r2] = routers();
+        const tunnel: Ipsec = { local_address: `10.255.0.${n}`, remote_address: `10.255.0.${3 - n}`, ...algorithms, ...authentication };
+        const device = withInterfaces(n === 1 ? r1 : r2, "ipsec", { ipsec: tunnel });
+        const certificates = {
+            own: { certificate_file: signed, private_key: { secret: "IPSEC_CERTIFICATE_KEY" } },
+            ca: { certificate_file: trusted },
+        };
+        return { ...device, system: { ...device.system, certificates } };
+    };
+    const key = { pre_shared_key: { secret: "IPSEC_KEY" } };
+    const certificate = { certificate: "own", ca_certificate: "ca" };
+    const ipsec = (found: string[]) => found.filter((finding) => finding.includes("interfaces.ipsec.ipsec:"));
+
+    const root = Utils.root;
+    Utils.root = join(import.meta.dir, "..", "..");
+    try {
+        expect(ipsec(findings(end(1, certificate), end(2, certificate)))).toEqual([]);
+        expect(ipsec(findings(end(1, key), end(2, certificate)))).toEqual([
+            "error r1: interfaces.ipsec.ipsec: it authenticates with pre_shared_key, and r2 interfaces.ipsec.ipsec with a certificate. Write the same way at both ends",
+            "error r2: interfaces.ipsec.ipsec: it authenticates with a certificate, and r1 interfaces.ipsec.ipsec with pre_shared_key. Write the same way at both ends",
+        ]);
+        expect(ipsec(findings(end(1, certificate), end(2, certificate, other)))).toEqual([
+            "error r2: interfaces.ipsec.ipsec: ca_certificate ca did not sign r1's certificate own. Write the CA that signed it",
+        ]);
+    } finally {
+        Utils.root = root;
+    }
 });
