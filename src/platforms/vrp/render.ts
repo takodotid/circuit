@@ -5,6 +5,7 @@ import type { Device, Lag, Limit, OspfArea, OspfAuthentication, Port, RateLimit,
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { VrpAaa } from "./aaa";
+import { VrpBgp } from "./bgp";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
 export class VrpRender {
@@ -151,6 +152,7 @@ export class VrpRender {
 
         this.staticRoutes();
         this.ospf();
+        this.lines.push(...VrpBgp.lines(device));
         if (this.wantsBfd()) this.block("bfd", []);
         const relays = device.services?.dhcp_relay;
         const snooping = device.switching?.dhcp_snooping;

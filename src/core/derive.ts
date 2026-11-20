@@ -479,9 +479,40 @@ export class Derive {
         return addresses;
     }
 
+    /** The base AS numbers are written in, for `numberPatterns`. */
+    private static readonly BASE = 10;
+
     /** AS numbers as ranges, a single number as a range of one. */
     static asRanges(numbers: AsNumbers): AsRange[] {
         return [numbers].flat().map((each) => (typeof each === "number" ? { min: each, max: each } : each));
+    }
+
+    /**
+     * Patterns that together match the numbers from `min` to `max`, with no repetition count, as the NLNOG BGP Filter Guide writes them. 65552 to 131071 is `6555[2-9]`, `655[6-9][0-9]`, and on to `13107[0-1]`.
+     */
+    static numberPatterns(min: number, max: number): string[] {
+        const patterns: string[] = [];
+
+        for (let low = min; low <= max;) {
+            // One length of number at a time, so no pattern needs a leading zero.
+            const length = String(low).length;
+            const high = Math.min(max, Derive.BASE ** length - 1);
+
+            // The most trailing digits that can be any digit, then how far the digit before them goes.
+            let any = 0;
+            while (any < length - 1 && low % Derive.BASE ** (any + 1) === 0 && low + Derive.BASE ** (any + 1) - 1 <= high) any++;
+            const block = Derive.BASE ** any;
+            const first = Math.floor(low / block) % Derive.BASE;
+            let last = first;
+            while (last < Derive.BASE - 1 && low + (last - first + 2) * block - 1 <= high) last++;
+
+            const above = Math.floor(low / (block * Derive.BASE));
+            const digit = first === last ? `${first}` : `[${first}-${last}]`;
+            patterns.push(`${above || ""}${digit}${"[0-9]".repeat(any)}`);
+            low += (last - first + 1) * block;
+        }
+
+        return patterns;
     }
 
     /** The key that signs IS-IS `level`: the level's own, or else the one for every level. */
