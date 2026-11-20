@@ -16,6 +16,7 @@ import { MplsChecks } from "./mpls";
 import { NatChecks } from "./nat";
 import { PseudowireChecks } from "./pseudowire";
 import { ServicesChecks } from "./services";
+import { VlanTranslationChecks } from "./vlan-translation";
 
 type Report = (message: string) => void;
 
@@ -107,6 +108,7 @@ export class DeviceChecks {
         DeviceChecks.ports(device, report);
         DeviceChecks.interfaces(device, report, ip);
         RateLimitChecks.check(device, report);
+        VlanTranslationChecks.check(device, report);
         DeviceChecks.routing(device, report, cidr, ip);
         IsisChecks.check(device, report);
         MplsChecks.check(device, report);

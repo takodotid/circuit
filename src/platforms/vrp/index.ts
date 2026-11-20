@@ -286,6 +286,8 @@ export class Vrp extends Platform {
         // Snooping runs on each port, over all of its VLANs.
         for (const { where, settings } of device.switching?.dhcp_snooping ? Derive.switchedHolders(device) : [])
             if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.dhcp_snooping, which the platform runs on every VLAN`);
+        for (const { where, settings } of Derive.switchedHolders(device))
+            if (settings.vlan_translation) found.push(`${where}.vlan_translation, which only Junos builds for now`);
         // MUX VLAN, the platform's counterpart, went into a CE6855's candidate, but how a trunk carries it is not known (TRAPS.md).
         for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
             if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);

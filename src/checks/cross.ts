@@ -71,12 +71,17 @@ export class CrossChecks {
 
     /** The VLAN ids a port or LAG carries, by how it carries them, so two ends can be compared across devices. */
     private static carried(device: Device, settings: Switched) {
-        const id = (vlan: string | undefined) => (vlan ? device.switching?.vlans?.[vlan]?.id : undefined);
+        const id = (vlan: string | undefined) => (vlan ? CrossChecks.cableId(device, settings, vlan) : undefined);
         return {
             access: id(settings.access_vlan),
             native: id(settings.native_vlan),
             trunk: (settings.trunk_vlans ?? []).map(id).sort((a, b) => (a ?? 0) - (b ?? 0)),
         };
+    }
+
+    /** The ID a VLAN has on the port's cable: the one `vlan_translation` gives it, or its own. */
+    private static cableId(device: Device, settings: Switched, vlan: string): number | undefined {
+        return settings.vlan_translation?.find((translation) => translation.to === vlan)?.from ?? device.switching?.vlans?.[vlan]?.id;
     }
 
     /** How a port carries its VLANs, in words: "VLANs 10, 20 tagged and VLAN 30 untagged as native". */
@@ -91,12 +96,16 @@ export class CrossChecks {
         return parts.length ? parts.join(" and ") : "no VLANs";
     }
 
-    /** VLAN names by id, for the VLANs a port or LAG carries. */
+    /** VLAN names by the ID each has on the cable, for the VLANs a port or LAG carries. */
     private static vlanNames(device: Device, settings: Switched): Map<number, string> {
         const names = [settings.access_vlan, settings.native_vlan, ...(settings.trunk_vlans ?? [])].filter((name) => name !== undefined);
-        const vlans = device.switching?.vlans ?? {};
 
-        return new Map(names.flatMap((name) => (vlans[name] ? [[vlans[name].id, name] as const] : [])));
+        return new Map(
+            names.flatMap((name) => {
+                const id = CrossChecks.cableId(device, settings, name);
+                return id === undefined ? [] : [[id, name] as const];
+            })
+        );
     }
 
     private static carrierOf(device: Device, portName: string): Carrier {

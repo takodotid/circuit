@@ -315,6 +315,7 @@ export class RaisecomRos extends Platform {
             if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted, ${snooping}`);
             if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${raGuard}`);
             if (settings.qinq_vlan) found.push(`${where}.qinq_vlan, ${snooping}`);
+            if (settings.vlan_translation) found.push(`${where}.vlan_translation, which only Junos builds for now`);
         }
 
         for (const [name, user] of Object.entries(device.system?.users ?? {})) {

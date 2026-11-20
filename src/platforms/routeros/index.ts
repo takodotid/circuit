@@ -271,6 +271,9 @@ export class RouterOs extends Platform {
         for (const field of ["dhcp_snooping", "ra_guard"] as const)
             for (const { where, settings } of device.switching?.[field] ? Derive.switchedHolders(device) : [])
                 if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.${field}, which the platform runs on every VLAN`);
+        // A switch rule changes a VLAN ID as a frame comes in only, and exactly between two ports only.
+        for (const { where, settings } of Derive.switchedHolders(device))
+            if (settings.vlan_translation) found.push(`${where}.vlan_translation, RouterOS changes a VLAN ID only as a frame comes in`);
         for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
             if (vlan.private_vlan?.type === "community")
                 found.push(

@@ -47,6 +47,7 @@ A note in a cell means "works, with this limit".
 | ARP inspection      | ❌                                 | ❌            | ❌                | ✅                      | ❌                  |
 | Private VLANs       | isolated only, switched by the CPU | ❌            | ❌                | ✅                      | ❌                  |
 | QinQ                | ✅                                 | 🧪            | ❌                | ✅                      | ❌                  |
+| VLAN translation    | ❌                                 | ❌            | ❌                | ✅ no native VLAN       | ❌                  |
 | RA guard            | ✅                                 | ❌            | ❌                | ✅                      | ❌                  |
 | Hardware ACLs       | ✅                                 | ❌            | ❌                | ✅ a rate needs a burst | ✅ drop rules only  |
 | LLDP                | ✅                                 | ✅            | ✅                | ✅                      | ✅                  |
