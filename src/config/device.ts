@@ -4,6 +4,7 @@ import type { Interfaces, Port } from "./interfaces";
 import type { Management } from "./management";
 import type { Monitoring } from "./monitoring";
 import type { AnyFacts, NetworkFacts } from "./network";
+import type { Qos } from "./qos";
 import type { Routing } from "./routing";
 import type { Services } from "./services";
 import type { Switching } from "./switching";
@@ -112,6 +113,8 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     routing?: Routing<N["policy"], N["prefixSet"], N["neighborGroup"], N["table"], N["vrf"], NoInfer<N["anyInterface"]>, Part, Net>;
     /** Which packets pass, and how they are rewritten: address sets, interface sets, filter, NAT, TCP MSS clamps, untracked prefixes, and connection-tracking helpers. */
     firewall?: Firewall<N["addressSet"], NoInfer<N["anyInterface"]>, N["interfaceSet"]>;
+    /** How traffic is told apart by its class: marking. */
+    qos?: Qos<NoInfer<N["anyInterface"]>, NoInfer<N["addressSet"]>, NoInfer<N["interfaceSet"]>>;
 };
 
 /**

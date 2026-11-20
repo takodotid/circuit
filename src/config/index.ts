@@ -13,6 +13,7 @@ export type * from "./management";
 export type * from "./models";
 export type * from "./monitoring";
 export type * from "./network";
+export type * from "./qos";
 export type * from "./routing";
 export type * from "./services";
 export type * from "./switching";

@@ -4,6 +4,7 @@ import type { CommunityScheme, CommunitiesExport, CommunitiesImport } from "./co
 import type { AnyDevice } from "./device";
 import type { FilterRule, NatRule, TcpMssRule } from "./firewall";
 import type { Checks, Integrations, NetworkSecrets, NetworkSettings, Prefixes, Site } from "./network";
+import type { MarkingRule } from "./qos";
 import type { CallRule, PolicyRule, RouteMatch, RouteRule, RouteSet, RoutingRule } from "./routing";
 import type { AclRule } from "./switching";
 
@@ -70,6 +71,12 @@ export const NAT_RULE = {
 } as const satisfies ShapeOf<NatRule<string, string, string>>;
 const { protocol: _protocol, tcp_flags: _tcpFlags, connection_state: _state, ...TCP_MSS_MATCH } = FILTER_MATCH;
 const TCP_MSS_RULE = { description: 0, if: TCP_MSS_MATCH, mss: 0 } as const satisfies ShapeOf<TcpMssRule<string, string, string>>;
+const { tcp_flags: _flags, connection_state: _connection, connection_nat_state: _nat, ...MARKING_MATCH } = FILTER_MATCH;
+const MARKING_RULE = {
+    description: 0,
+    if: { ...MARKING_MATCH, dscp: 0 },
+    then: { dscp: 0, pcp: 0 },
+} as const satisfies ShapeOf<MarkingRule<string, string, string>>;
 export const ACL_RULE = {
     description: 0,
     if: { family: 0, protocol: 0, src: 0, dst: 0, src_port: RANGE, dst_port: RANGE, vlan: 0 },
@@ -439,6 +446,7 @@ export const DEVICE = {
         conntrack_helpers: 0,
         untracked: 0,
     },
+    qos: { marking: [MARKING_RULE] },
 } as const satisfies ShapeOf<AnyDevice>;
 
 const OPTION = { code: 0, description: 0 } as const;
@@ -487,6 +495,7 @@ true satisfies Same<typeof DEVICE, ShapeOf<AnyDevice>>;
 true satisfies Same<typeof FILTER_RULE, ShapeOf<FilterRule<string, string, string>>>;
 true satisfies Same<typeof NAT_RULE, ShapeOf<NatRule<string, string, string>>>;
 true satisfies Same<typeof ACL_RULE, ShapeOf<AclRule<string>>>;
+true satisfies Same<typeof MARKING_RULE, ShapeOf<MarkingRule<string, string, string>>>;
 true satisfies Same<typeof ROUTING_RULE, ShapeOf<RoutingRule<string, string>>>;
 true satisfies Same<typeof ROUTE_RULE, ShapeOf<RouteRule<string>>>;
 true satisfies Same<typeof CALL_RULE, ShapeOf<CallRule<string>>>;

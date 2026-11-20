@@ -119,6 +119,7 @@ A note in a cell means "works, with this limit".
 | NAT                  | ✅                    | ❌                    | ❌           | ❌                       | IPv4                                   |
 | CGNAT pool           | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
 | TCP MSS clamp        | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
+| DSCP and PCP marking | ✅ not with fast path | ❌                    | ❌           | ❌                       | ❌                                     |
 | DHCP server          | ✅                    | ❌                    | ❌           | ✅                       | ✅                                     |
 | DHCPv6 server        | ✅ pool is a prefix   | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
 | DHCP relay           | ✅                    | IPv4, VLAN interfaces | ❌           | IPv4                     | ✅                                     |
@@ -127,6 +128,12 @@ A note in a cell means "works, with this limit".
 | DNS server           | ✅                    | ❌                    | ❌           | ❌                       | ✅                                     |
 | NTP client           | ✅                    | ✅                    | ✅           | ✅                       | ✅                                     |
 | NTP server           | ✅                    | ✅                    | ❌           | ✅                       | ✅                                     |
+
+Marking is refused on RouterOS beside a `fast_path` rule, and with `system.hardware_offload` unless the rule names a VLAN interface with `hardware_offload: false`: traffic on the fast path or offloaded skips it. The other platforms don't build marking:
+
+- **Junos.** A QFX5100 marks in a filter on each interface where traffic arrives. That filter also marks what goes to the switch itself, can't match the interface a packet leaves through, and can't set a PCP.
+- **FortiOS.** A DSCP is set for a whole session, in the firewall policy or the shaping policy the session takes. A session takes one shaping policy, and rate limits already use them.
+- **VRP and Raisecom ROS.** Not built yet.
 
 ### Management and monitoring
 

@@ -60,6 +60,35 @@ export class RouterOsFirewall {
         return findings;
     }
 
+    /**
+     * Marking that would miss packets. A flow on the fast path skips the mangle table (MikroTik's manual, Mangle). So does what the switch chip routes with hardware offload on (TRAPS.md). A VLAN interface with `hardware_offload: false` is routed by the CPU, so a rule on one sees its traffic.
+     */
+    static markingGaps(device: Device): string[] {
+        const rules = device.qos?.marking ?? [];
+        if (!rules.length) return [];
+
+        const found: string[] = [];
+        const fastPath = Object.values(device.firewall?.filter ?? {}).some((chain) => chain?.rules?.some((rule) => rule.fast_path));
+        if (fastPath) found.push("qos.marking beside a fast_path rule, whose flows skip the mangle table: take fast_path off");
+
+        const software = (iface: string | readonly string[] | undefined) =>
+            [iface].flat().some((name) => name !== undefined && device.interfaces?.vlan_interface?.[name]?.hardware_offload === false);
+        if (device.system?.hardware_offload)
+            rules.forEach((rule, index) => {
+                if (software(rule.if?.in_interface) || software(rule.if?.out_interface)) return;
+                found.push(
+                    `qos.marking[${index}] while system.hardware_offload is on, whose routed traffic skips the mangle table: name in if.in_interface or if.out_interface a VLAN interface with hardware_offload: false`
+                );
+            });
+
+        rules.forEach((rule, index) => {
+            if (Array.isArray(rule.if?.dscp) && rule.if.dscp.length > 1)
+                found.push(`qos.marking[${index}].if.dscp, a list: write one rule for each`);
+        });
+
+        return found;
+    }
+
     static render(render: RouterOsRender, device: Device): void {
         const firewall = new RouterOsFirewall(render, device);
 
@@ -68,6 +97,7 @@ export class RouterOsFirewall {
             firewall.filter(family);
             firewall.nat(family);
             firewall.tcpMss(family);
+            firewall.marking(family);
         }
 
         firewall.helpers();
@@ -333,6 +363,32 @@ export class RouterOsFirewall {
             };
             // In the order the device exports them, so the rule reads back the same.
             this.render.add(menu, "add", Object.fromEntries(Object.entries(properties).sort(([a], [b]) => a.localeCompare(b))));
+        }
+    }
+
+    /**
+     * Marking rewrites what the device routes, in the mangle table's forward chain, after the TCP MSS clamps. Its rules end with `passthrough=no`, so the first rule that matches marks the packet and the next are skipped. A PCP is the packet's priority, which the VLAN tag it leaves with carries (TRAPS.md). The priority is set first: a DSCP changed first would no longer match the next rule's `dscp`.
+     */
+    private marking(family: Family): void {
+        const menu = family === "ipv4" ? "/ip firewall mangle" : "/ipv6 firewall mangle";
+
+        for (const rule of this.device.qos?.marking ?? []) {
+            if (!this.families(rule.if).includes(family)) continue;
+
+            const dscp = RouterOsFirewall.one(rule.if?.dscp);
+            const match = { ...this.matchProperties(rule.if, family), dscp: dscp && Derive.DSCP[dscp] };
+            const { dscp: newDscp, pcp } = rule.then;
+            const actions = [
+                ...(pcp === undefined ? [] : [{ action: "set-priority", "new-priority": pcp }]),
+                ...(newDscp === undefined ? [] : [{ action: "change-dscp", "new-dscp": Derive.DSCP[newDscp] }]),
+            ];
+
+            actions.forEach((action, index) => {
+                const passthrough = index === actions.length - 1 ? "no" : undefined;
+                const properties = { ...action, chain: "forward", comment: rule.description, ...match, passthrough };
+                // In the order the device exports them, so the rule reads back the same.
+                this.render.add(menu, "add", Object.fromEntries(Object.entries(properties).sort(([a], [b]) => a.localeCompare(b))));
+            });
         }
     }
 

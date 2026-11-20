@@ -127,6 +127,18 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | Source-based blackholing                              | Practice: RFC 5635 (Informational)                                                                                                   | a blackhole route, with `urpf`             |
 | CGNAT with a fixed block of ports for each subscriber | Practice: RFC 7422 (Informational); a port limit per subscriber, BCP 127 (RFC 6888) REQ-4                                            | `to_pool`, `port_set_size`                 |
 
+## Quality of service
+
+| Feature                                     | Standard                                           | In model       |
+| ------------------------------------------- | -------------------------------------------------- | -------------- |
+| DSCP, class selectors `cs0` to `cs7`        | RFC 2474, with the names of the IANA DSCP registry | marking `dscp` |
+| Marking where a network's DiffServ begins   | Practice: RFC 2475 (Informational)                 | `qos.marking`  |
+| Assured forwarding `af11` to `af43`         | RFC 2597                                           | marking `dscp` |
+| Expedited forwarding `ef`, `voice-admit`    | RFC 3246, RFC 5865                                 | marking `dscp` |
+| Lower effort `le`, non-queue-building `nqb` | RFC 8622, RFC 9956                                 | marking `dscp` |
+| Which DSCP each kind of traffic takes       | Practice: RFC 4594 (Informational)                 | marking `dscp` |
+| Priority in a VLAN tag (PCP)                | IEEE 802.1Q-2022                                   | marking `pcp`  |
+
 ## Monitoring and management
 
 | Feature                            | Standard                                                                                    | In model                                       |

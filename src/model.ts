@@ -9,6 +9,7 @@ export type {
     BgpFamily,
     BoundHost,
     Certificate,
+    Dscp,
     Ethertype,
     Exchange,
     Family,
@@ -87,6 +88,7 @@ export type NatRule = C.NatRule<string, string, string>;
 /** A source translation to a pool, with a block of ports for each subscriber. */
 export type PoolNatRule = Extract<NatRule, { to_pool: unknown }>;
 export type TcpMssRule = C.TcpMssRule<string, string, string>;
+export type MarkingRule = C.MarkingRule<string, string, string>;
 export type AclRule = C.AclRule<string>;
 export type PolicyRule = C.PolicyRule<string, string>;
 export type RouteRule = C.RouteRule<string>;
