@@ -23,10 +23,10 @@ export default as64500.device({
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.1.1/24"] },
             "40g-1": { description: "core-02 port1", addresses: ["10.0.12.1/30"], link: { device: "core-02", port: "40g-1" } },
-            "40g-2": { description: "edge-11 et-0/0/48", addresses: ["10.0.11.1/30", "2001:db8:100:11::1/64"] },
+            "40g-2": { description: "edge-11 et-0/0/48", addresses: ["10.0.11.1/30"] },
             "10g-1": { description: "Hurricane Electric", addresses: ["203.0.113.2/30"] },
         },
-        loopback: { loopback: { addresses: ["10.255.1.1/32", "2001:db8:100:ffff::1/128"] } },
+        loopback: { loopback: { addresses: ["10.255.1.1/32"] } },
     },
 
     routing: {
@@ -36,9 +36,7 @@ export default as64500.device({
         isis: {
             net: "49.0001.0102.5500.1001.00",
             level_capability: "level-1-2",
-            address_families: ["ipv4", "ipv6"],
-            // IPv6 runs in the north region only, so it has a topology of its own: core-02 routes IPv4 alone, and still forms its adjacency.
-            multi_topology: true,
+            address_families: ["ipv4"],
             // One key signs both levels.
             authentication: { key: secret("ISIS_KEY") },
             interfaces: {

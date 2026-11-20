@@ -21,6 +21,18 @@ export class KeyPaths {
     /** The keys each test has not reached yet: a list that may only shrink. */
     private static readonly GAPS = join(import.meta.dir, "key-gaps.json");
 
+    /**
+     * Keys that are experimental on every platform that has them, each with why. Examples validate without `--experimental`, so no example writes one of these, and it needs no example until a platform has it tested. Then it leaves this list for an example.
+     */
+    static readonly EXPERIMENTAL_EVERYWHERE: Readonly<Record<string, string>> = {
+        "routing.isis.multi_topology": "Junos only, where only `commit check` ran on a QFX5100",
+    };
+
+    /** Whether `path` is a key of `EXPERIMENTAL_EVERYWHERE`, or inside one. */
+    static experimentalEverywhere(path: string): boolean {
+        return Object.keys(KeyPaths.EXPERIMENTAL_EVERYWHERE).some((key) => path === key || KeyPaths.inside(path, key));
+    }
+
     /** Every key path of `shape`, each before the keys inside it. */
     static all(shape: Shape, path = ""): string[] {
         if (shape === 0 || KeyPaths.secret(shape)) return [];

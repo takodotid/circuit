@@ -91,7 +91,7 @@ A note in a cell means "works, with this limit".
 | OSPF hello and dead timers   | ✅                      | 🧪                         | ❌                       | ✅                    | ✅               |
 | OSPF authentication          | ✅                      | 🧪                         | ❌                       | MD5                   | MD5              |
 | IS-IS                        | ✅ no passive metric    | ❌                         | ❌                       | ✅                    | ✅ no passive    |
-| IS-IS multi-topology         | ❌                      | ❌                         | ❌                       | ✅                    | ❌               |
+| IS-IS multi-topology         | ❌                      | ❌                         | ❌                       | 🧪                    | ❌               |
 | IS-IS authentication         | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
 | IS-IS overload bit           | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
 | BFD for IS-IS                | ❌                      | ❌                         | ❌                       | ✅                    | ❌               |
