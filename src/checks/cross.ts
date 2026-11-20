@@ -1,8 +1,10 @@
 // What one device declares about another has to agree with what the other declares.
 
+import { X509Certificate } from "node:crypto";
 import { Address } from "../core/address";
 import type { Device, Finding, Gre, Ipsec, Prefix, Routed, Switched, Vxlan } from "../model";
 import { Derive } from "../core/derive";
+import { Utils } from "../core/utils";
 import { DeviceChecks } from "./device";
 import { Topology } from "../core/topology";
 import type { Holder } from "../core/topology";
@@ -25,6 +27,32 @@ export class CrossChecks {
         const { lifetime: _ike, ...ike } = tunnel.ike;
         const { lifetime: _esp, ...esp } = tunnel.esp;
         return { ike, esp };
+    }
+
+    /** Both ends of an IPsec tunnel authenticate the same way, and with certificates each end's CA signed the other's certificate. A file that can't be read is reported where it is written. */
+    private static authentication(end: TunnelEnd, mirror: TunnelEnd): string | undefined {
+        const ours = end.tunnel as Ipsec;
+        const theirs = mirror.tunnel as Ipsec;
+        const far = mirror.device.name;
+        const way = (tunnel: Ipsec) => (tunnel.pre_shared_key ? "pre_shared_key" : "a certificate");
+
+        if (way(ours) !== way(theirs))
+            return `it authenticates with ${way(ours)}, and ${far} ${mirror.where} with ${way(theirs)}. Write the same way at both ends`;
+        if (!ours.ca_certificate || !theirs.certificate) return undefined;
+
+        const pem = (device: Device, name: string): X509Certificate | undefined => {
+            const file = device.system?.certificates?.[name]?.certificate_file;
+            try {
+                return file ? new X509Certificate(Utils.projectFile(file)) : undefined;
+            } catch {
+                return undefined;
+            }
+        };
+        const ca = pem(end.device, ours.ca_certificate);
+        const certificate = pem(mirror.device, theirs.certificate);
+        if (!ca || !certificate || (certificate.checkIssued(ca) && certificate.verify(ca.publicKey))) return undefined;
+
+        return `ca_certificate ${ours.ca_certificate} did not sign ${far}'s certificate ${theirs.certificate}. Write the CA that signed it`;
     }
 
     static run(devices: readonly Device[]): Finding[] {
@@ -398,6 +426,9 @@ export class CrossChecks {
                 const algorithms = (tunnel: Ipsec) => JSON.stringify(CrossChecks.algorithms(tunnel));
                 if (algorithms(end.tunnel as Ipsec) !== algorithms(mirror.tunnel as Ipsec))
                     report(`its algorithms differ from ${far.name} ${mirror.where}'s. Write the same ike and esp, but for their lifetimes`);
+
+                const authentication = CrossChecks.authentication(end, mirror);
+                if (authentication) report(authentication);
                 continue;
             }
 

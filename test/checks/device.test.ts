@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
-import type { Device } from "../../src/model";
+import type { Device, Ipsec } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
 const router = Fixtures.device("platforms--example-router");
@@ -423,6 +423,45 @@ test("an IPsec tunnel's endpoints are of one family, a cbc encryption takes inte
             'interfaces.ipsec.branch.ike has aes-256-cbc without integrity. Add integrity, such as "hmac-sha2-256-128"',
             "interfaces.ipsec.branch.ike.lifetime 0.5 is not a whole number of seconds above 0",
             "interfaces.ipsec.branch.esp.integrity: aes-256-gcm protects integrity itself. Remove integrity",
+        ])
+    );
+});
+
+test("an IPsec tunnel authenticates one way, with a certificate that has its key and a CA that has none, and checks liveness in whole numbers", () => {
+    const tunnel = {
+        local_address: "192.0.2.1",
+        remote_address: "192.0.2.2",
+        ike: { encryption: "aes-256-gcm", prf: "hmac-sha2-256", dh_group: 19, lifetime: 86400 },
+        esp: { encryption: "aes-256-gcm", lifetime: 3600 },
+    } as const;
+    // A project's types refuse the first three; a file Circuit reads without them may still hold them.
+    const loose = (value: object) => value as Ipsec;
+    const device: Device = {
+        ...router,
+        system: {
+            ...router.system,
+            certificates: { ...router.system?.certificates, ca: { certificate_file: "platforms--example-router.web.pem" } },
+        },
+        interfaces: {
+            ...router.interfaces,
+            ipsec: {
+                both: loose({ ...tunnel, pre_shared_key: { secret: "IPSEC_KEY" }, certificate: "web", ca_certificate: "ca" }),
+                none: loose(tunnel),
+                alone: loose({ ...tunnel, certificate: "web" }),
+                swapped: { ...tunnel, certificate: "ca", ca_certificate: "web", liveness_check: { interval: 0, retries: 2.5 } },
+            },
+        },
+    };
+
+    expect(messages(device)).toEqual(
+        expect.arrayContaining([
+            "interfaces.ipsec.both: pre_shared_key and a certificate. Keep one: pre_shared_key, or certificate with ca_certificate",
+            "interfaces.ipsec.none has no way to authenticate. Add pre_shared_key, or certificate with ca_certificate",
+            "interfaces.ipsec.alone.certificate needs ca_certificate: the CA that signed the peer's certificate",
+            "interfaces.ipsec.swapped.certificate ca has no private key to sign with. Add its private_key",
+            "interfaces.ipsec.swapped.ca_certificate web has a private key: write the CA's certificate alone, which the device only trusts",
+            "interfaces.ipsec.swapped.liveness_check.interval 0 is not a whole number of seconds above 0",
+            "interfaces.ipsec.swapped.liveness_check.retries 2.5 is not a whole number above 0",
         ])
     );
 });

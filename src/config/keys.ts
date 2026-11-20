@@ -313,8 +313,12 @@ export const DEVICE = {
                 local_address: 0,
                 remote_address: 0,
                 pre_shared_key: SECRET,
+                certificate: 0,
+                ca_certificate: 0,
                 ike: { encryption: 0, integrity: 0, prf: 0, dh_group: 0, lifetime: 0 },
                 esp: { encryption: 0, integrity: 0, pfs_group: 0, lifetime: 0 },
+                liveness_check: { interval: 0, retries: 0 },
+                nat_traversal: 0,
             },
         },
         wireguard: {

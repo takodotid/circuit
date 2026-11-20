@@ -102,6 +102,7 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
         NoInfer<N["vlan"]>,
         NoInfer<N["vrf"]>,
         NoInfer<N["table"]>,
+        NoInfer<N["certificate"]>,
         NoInfer<N["anyInterface"]>
     >;
     /** Layer 2 settings the ports share: VLANs, STP, LLDP, and ACLs. */
