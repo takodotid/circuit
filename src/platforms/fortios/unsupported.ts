@@ -290,6 +290,11 @@ export class FortiOsUnsupported {
                 found.push(`${where}, a pseudowire: FortiOS has no MPLS`);
                 continue;
             }
+            // FortiOS dials PPPoE on an interface with `set mode pppoe`, but no FortiGate could test it without touching a live firewall.
+            if (kind === "pppoe_client") {
+                found.push(`${where}, a PPPoE client, not built yet: no FortiGate was free to test it on`);
+                continue;
+            }
 
             if (name.length > FortiOsUnsupported.NAME_LENGTH.interface)
                 found.push(`${where}, a name longer than ${FortiOsUnsupported.NAME_LENGTH.interface} characters`);
