@@ -91,6 +91,8 @@ export type PppoeServer<I extends string, F extends string = string> = {
     acct_interim_interval?: number;
     /** Let the RADIUS servers end a session or change it, such as its rate, on UDP port 3799 (RFC 5176). Off when absent. */
     dynamic_authorization?: true;
+    /** IPv6 prefixes delegated to subscribers' routers that ask over their session (DHCPv6 over IPv6CP, RFC 5072), as `dhcpv6_server` delegates them. No IPv6 prefix when absent. */
+    prefix_delegation?: PrefixDelegation;
 };
 
 /** What the device serves to hosts. `I` is the device's ports and interfaces, `F` its VRFs. */

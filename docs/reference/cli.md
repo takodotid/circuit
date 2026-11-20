@@ -146,7 +146,7 @@ Your space is each prefix in `circuit({ prefixes })` and in a device's `originat
   free: 198.51.100.0/29, 198.51.100.16/28, 198.51.100.32/27, 198.51.100.96/27, 198.51.100.128/25
 ```
 
-A NAT pool (`to_pool`) and the subscribers it serves (`if.src`) are in use, and so is a PPPoE server's `pool` and `local_address`. Each is listed with its device. A pool that is no prefix shows as a range:
+A NAT pool (`to_pool`) and the subscribers it serves (`if.src`) are in use, and so are a PPPoE server's `pool`, `local_address`, and the pool of the prefixes it delegates. Each is listed with its device. A pool that is no prefix shows as a range:
 
 ```
 198.51.100.0/27  NAT pool for 100.64.0.0/22 on edge-01

@@ -175,6 +175,8 @@ export class Vrp extends Platform {
         for (const { name, kind, settings } of interfaces) {
             const where = `interfaces.${kind}.${name}`;
             if (kind === "ipsec") found.push(`${where}, IPsec: a CloudEngine switch does not encrypt the traffic it forwards`);
+            else if (kind === "pppoe_client")
+                found.push(`${where}, a PPPoE client: VRP runs one on AR routers, and a CloudEngine switch has none`);
             else if (kind !== "vlan_interface" && kind !== "lag") found.push(`${where}, a ${kind}`);
             if (kind === "lag" && settings.addresses?.length) found.push(`${where}.addresses, LAGs are switched`);
             if (kind === "lag" && (settings as Lag).mac_limit !== undefined) found.push(`${where}.mac_limit, on a LAG is not tested`);

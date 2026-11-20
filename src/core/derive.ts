@@ -110,6 +110,7 @@ export class Derive {
         "ipsec",
         "wireguard",
         "eoip",
+        "pppoe_client",
     ];
 
     /** Fields a platform renders only once they are tested on one of its devices. */

@@ -136,6 +136,7 @@ export class NetBox implements SyncTarget<NetBoxPlan> {
         ipsec: "virtual",
         wireguard: "virtual",
         eoip: "virtual",
+        pppoe_client: "virtual",
     };
 
     /** A port's fixed speed in kbit/s, as NetBox counts it. */
