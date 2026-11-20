@@ -438,6 +438,7 @@ export class RouterOs extends Platform {
 
         found.push(...RouterOs.unsupportedShapes(device));
         found.push(...RouterOsQueues.unsupported(device));
+        found.push(...RouterOsFirewall.markingGaps(device));
         found.push(
             ...Derive.unbuilt(device, [
                 "eoip",
@@ -454,6 +455,7 @@ export class RouterOs extends Platform {
                 "urpf",
                 "vrf-imports",
                 "rate-limit",
+                "marking",
             ])
         );
 
@@ -483,12 +485,13 @@ export class RouterOs extends Platform {
         const chains = (["input", "forward", "output"] as const).map(
             (chain) => [`firewall.filter.${chain}.rules`, firewall?.filter?.[chain]?.rules] as const
         );
-        const nat = [
+        const others = [
             ["firewall.nat.source", firewall?.nat?.source],
             ["firewall.nat.destination", firewall?.nat?.destination],
+            ["qos.marking", device.qos?.marking],
         ] as const;
 
-        for (const [where, rules] of [...chains, ...nat]) {
+        for (const [where, rules] of [...chains, ...others]) {
             (rules ?? []).forEach((rule, index) => {
                 for (const field of ["src", "dst", "in_interface", "out_interface"] as const) {
                     if (list(rule.if?.[field])) found.push(`${where}[${index}].if.${field}, a list: write one rule for each`);

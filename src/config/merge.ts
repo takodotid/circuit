@@ -107,10 +107,10 @@ export function writtenAt(map: unknown, key: string, path: string[] = [key]): st
 export const lineOf = (written: string, path: string[]): string => `${find(written, path) ?? written}: `;
 
 /**
- * An ordered list, by its path: a chain's rules, NAT, an ACL, a route policy, policy routing. Under a source, the hostname comes first (`edge-01.firewall.nat.source`). It is written whole in one place, never joined.
+ * An ordered list, by its path: a chain's rules, NAT, an ACL, a route policy, policy routing, marking. Under a source, the hostname comes first (`edge-01.firewall.nat.source`). It is written whole in one place, never joined.
  */
 const ORDERED =
-    /(^|\.)(firewall\.filter\.[^.]+\.rules|firewall\.nat\.(source|destination)|switching\.acls\.[^.]+|routing\.policies\.[^.]+|routing\.policy_routing)$/;
+    /(^|\.)(firewall\.filter\.[^.]+\.rules|firewall\.nat\.(source|destination)|switching\.acls\.[^.]+|routing\.policies\.[^.]+|routing\.policy_routing|qos\.marking)$/;
 export const isOrdered = (path: string) => ORDERED.test(path);
 
 /** A value that is one value, compared whole and never merged key by key: a secret, a link, a threshold, a port range. */
@@ -294,7 +294,8 @@ type OrderedPath =
     | `${string}firewall.nat.${"source" | "destination"}`
     | `${string}switching.acls.${string}`
     | `${string}routing.policies.${string}`
-    | `${string}routing.policy_routing`;
+    | `${string}routing.policy_routing`
+    | `${string}qos.marking`;
 
 /**
  * Every place where part `B` clashes with what came before it, `A`, said in words: an ordered list both write, or another value at one path. Any other list never clashes: it joins.

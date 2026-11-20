@@ -605,6 +605,7 @@ export class Project {
             ["firewall.nat.source", d.firewall?.nat?.source] as const,
             ["firewall.nat.destination", d.firewall?.nat?.destination] as const,
             ["firewall.tcp_mss", d.firewall?.tcp_mss] as const,
+            ["qos.marking", d.qos?.marking] as const,
         ];
         for (const [at, rules] of lists)
             (rules ?? []).forEach((r: Json, i: number) => {
@@ -672,6 +673,7 @@ export class Project {
                 ...(d.firewall?.nat?.source ?? []),
                 ...(d.firewall?.nat?.destination ?? []),
                 ...(d.firewall?.tcp_mss ?? []),
+                ...(d.qos?.marking ?? []),
             ];
             for (const rule of rules)
                 for (const way of ["in", "out"])
@@ -729,6 +731,13 @@ export class Project {
         return Project.combinations(rule, fields, ["in_interface", "out_interface", "in_interface_set", "out_interface_set", "src", "dst"]);
     }
 
+    /** A marking rule: as a filter rule, then one rule for each DSCP it matches. */
+    private static marking(rule: Json, sets: Record<string, string[]>): Json[] {
+        return Project.filter(rule, sets).flatMap((r) =>
+            Array.isArray(r.if?.dscp) && r.if.dscp.length ? r.if.dscp.map((dscp: string) => ({ ...r, if: { ...r.if, dscp } })) : [r]
+        );
+    }
+
     /** `192.0.2.1/32` as `192.0.2.1`. Anything else as it is. */
     private static alone(v: unknown): unknown {
         return typeof v === "string" ? v.replace(/\/\d+$/, "") : v;
@@ -773,8 +782,9 @@ export class Project {
         for (const set of Object.values<Json>(d.routing?.prefix_sets ?? {}))
             if (set.prefixes && !Array.isArray(set.prefixes)) set.prefixes = Object.values(set.prefixes);
 
+        const sets = d.firewall?.interface_sets ?? {};
+        if (d.qos?.marking) d.qos.marking = d.qos.marking.flatMap((r: Json) => Project.marking(r, sets));
         if (d.firewall) {
-            const sets = d.firewall.interface_sets ?? {};
             delete d.firewall.interface_sets;
             for (const chain of Object.values<Json>(d.firewall.filter ?? {}))
                 if (chain.rules) chain.rules = chain.rules.flatMap((r: Json) => Project.filter(r, sets));

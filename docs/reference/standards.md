@@ -132,6 +132,18 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | CGNAT with a fixed block of ports for each subscriber | Practice: RFC 7422 (Informational); a port limit per subscriber, BCP 127 (RFC 6888) REQ-4                                            | `to_pool`, `port_allocation: "deterministic"`, `port_set_size`                       |
 | CGNAT that hands out blocks of ports, and logs each   | RFC 8512 port range allocation, `port-set-size`; a port limit per subscriber and less to log, BCP 127 (RFC 6888) REQ-4 and REQ-14    | `to_pool`, `port_allocation: "dynamic"`, `port_set_size`, `port_sets_per_subscriber` |
 
+## Quality of service
+
+| Feature                                     | Standard                                           | In model       |
+| ------------------------------------------- | -------------------------------------------------- | -------------- |
+| DSCP, class selectors `cs0` to `cs7`        | RFC 2474, with the names of the IANA DSCP registry | marking `dscp` |
+| Marking where a network's DiffServ begins   | Practice: RFC 2475 (Informational)                 | `qos.marking`  |
+| Assured forwarding `af11` to `af43`         | RFC 2597                                           | marking `dscp` |
+| Expedited forwarding `ef`, `voice-admit`    | RFC 3246, RFC 5865                                 | marking `dscp` |
+| Lower effort `le`, non-queue-building `nqb` | RFC 8622, RFC 9956                                 | marking `dscp` |
+| Which DSCP each kind of traffic takes       | Practice: RFC 4594 (Informational)                 | marking `dscp` |
+| Priority in a VLAN tag (PCP)                | IEEE 802.1Q-2022                                   | marking `pcp`  |
+
 ## Monitoring and management
 
 | Feature                            | Standard                                                                                    | In model                                       |

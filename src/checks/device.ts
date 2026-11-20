@@ -16,6 +16,7 @@ import { MplsChecks } from "./mpls";
 import { NatChecks } from "./nat";
 import { PppoeClientChecks } from "./pppoe-client";
 import { PseudowireChecks } from "./pseudowire";
+import { QosChecks } from "./qos";
 import { ServicesChecks } from "./services";
 import { VlanTagChecks } from "./vlan-tag";
 
@@ -118,6 +119,7 @@ export class DeviceChecks {
         NatChecks.check(device, report);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
+        QosChecks.check(device, report);
         ServicesChecks.check(device, report, cidr, ip);
         PppoeClientChecks.check(device, report);
         DeviceChecks.certificates(device, report);
@@ -910,6 +912,7 @@ export class DeviceChecks {
             { where: "firewall.nat.source", rules: firewall?.nat?.source ?? [] },
             { where: "firewall.nat.destination", rules: firewall?.nat?.destination ?? [] },
             { where: "firewall.tcp_mss", rules: firewall?.tcp_mss ?? [] },
+            { where: "qos.marking", rules: device.qos?.marking ?? [] },
         ];
 
         (firewall?.tcp_mss ?? []).forEach((rule, index) => {

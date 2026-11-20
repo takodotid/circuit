@@ -42,6 +42,8 @@ const WRITTEN_OUT: Record<string, string> = {
     "firewall.interface_sets": "each set's interfaces",
     "firewall.**.in_interface_set": "each set's interfaces",
     "firewall.**.out_interface_set": "each set's interfaces",
+    "qos.marking[].if.in_interface_set": "each set's interfaces",
+    "qos.marking[].if.out_interface_set": "each set's interfaces",
 };
 
 /** Keys `Project.read` takes out on some platforms. */

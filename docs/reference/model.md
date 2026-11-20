@@ -37,7 +37,8 @@ device
 ├─ switching             layer 2 shared by ports: vlans, stp, dhcp_snooping, arp_inspection, ra_guard, lldp, acls
 ├─ services              what the box serves to hosts: dhcp server, dhcpv6 server, dhcp relay, pppoe server, dns server, ntp server
 ├─ routing               where packets go: tables, vrfs, policy_routing, static_routes, bgp, ospf, isis, mpls, bfd, rpki, policies, prefix sets
-└─ firewall              which packets pass and how they are rewritten: address sets, filter, nat, tcp_mss, untracked, conntrack_helpers
+├─ firewall              which packets pass and how they are rewritten: address sets, filter, nat, tcp_mss, untracked, conntrack_helpers
+└─ qos                   how traffic is told apart by its class: marking
 ```
 
 Each field's doc comment in `src/config/` says what it means.
