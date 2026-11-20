@@ -1,5 +1,5 @@
 ---
-description: Five whole projects to copy from, tested on every change to Circuit.
+description: Six whole projects to copy from, tested on every change to Circuit.
 ---
 
 # Example projects
@@ -42,7 +42,7 @@ Your own AS with two edge routers and a broadband gateway. The first edge router
 
 ## A backbone in two regions
 
-Your AS in two regions, each a member AS of a BGP confederation with its own iBGP. The core routers, one on Junos and one on FortiOS, run eBGP between the regions, and transit providers see only your AS. IS-IS carries the loopbacks, and core-01 runs MPLS with LDP toward a router of its region. Two branch offices reach the south region over IPsec tunnels.
+Your AS in two regions, each a member AS of a BGP confederation with its own iBGP. The core routers, one on Junos and one on FortiOS, run eBGP between the regions, and transit providers see only your AS. IS-IS carries the loopbacks. Two branch offices reach the south region over IPsec tunnels.
 
 ::: code-group
 
@@ -51,6 +51,20 @@ Your AS in two regions, each a member AS of a BGP confederation with its own iBG
 <<< @/../examples/backbone/sites/north/core-01.ts
 
 <<< @/../examples/backbone/sites/south/core-02.ts
+
+:::
+
+## An MPLS core
+
+Two provider edge routers, one in each point of presence. IS-IS carries their loopbacks, and LDP gives each loopback a label, so traffic between them crosses the core by label.
+
+::: code-group
+
+<<< @/../examples/mpls-core/circuit.ts
+
+<<< @/../examples/mpls-core/sites/pop-1/pe-01.ts
+
+<<< @/../examples/mpls-core/sites/pop-2/pe-02.ts
 
 :::
 

@@ -1,4 +1,4 @@
-// MPLS with LDP. RouterOS 7.24.6 ran it on three CHRs (test/platforms/routeros-chr-mpls.test.ts). Junos 21.4R3 took the statements in a `commit check` on a QFX5100, nothing committed (TRAPS.md).
+// MPLS with LDP. RouterOS 7.24.6 ran it on three CHRs (test/platforms/routeros-chr-mpls.test.ts). Junos 21.4R3 took the statements in a `commit check` on a QFX5100, nothing committed (TRAPS.md), so it is experimental there.
 
 import { expect, test } from "bun:test";
 import { DeviceChecks } from "../../src/checks/device";
@@ -78,6 +78,13 @@ test("Junos puts the MPLS family on each LDP interface, runs MPLS and LDP there,
         "delete protocols mpls",
         "delete protocols ldp",
     ]);
+});
+
+// Nothing was committed, and the switch has no license to run MPLS or LDP.
+test("MPLS on Junos is experimental", () => {
+    const device = withMpls("platforms--example-aggregation-switch", { ldp: { lsr_id: "203.0.113.65", interfaces: ["10g-48"] } });
+
+    expect(Platforms.get("junos").experimental!(device)).toEqual(["routing.mpls"]);
 });
 
 test("Junos refuses an LSR ID other than the router ID, which LDP takes as its own", () => {

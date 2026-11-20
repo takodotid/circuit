@@ -77,7 +77,7 @@ pe-01: routing.static_routes[3].vrf: no VRF shop
 
 The same idea keeps a network's own management apart. Give each edge router a VRF such as `oob` for its out-of-band port, with a default route of its own. Then the operators' way in never mixes with customer or internet traffic.
 
-Most platforms run VRFs, but Raisecom ROS doesn't, and some platforms have limits. [Platforms](/reference/platforms) lists them. Circuit has no field for running BGP inside a VRF, or for passing routes from one VRF to another. So the routes in a VRF are static ones you write.
+Most platforms run VRFs, but Raisecom ROS doesn't, and some platforms have limits. [Platforms](/reference/platforms) lists them. A VRF can also learn its routes: a BGP neighbor or OSPF with `vrf` runs in it, and `routing.vrf_imports` takes routes from one VRF into another through a policy.
 
 ## Carrying a customer across the core
 
@@ -166,11 +166,10 @@ routing: {
 
 Circuit doesn't do the rest of this lesson:
 
-- **No MPLS.** It has no labels, no L3VPN, and no route distinguishers or route targets.
+- **No L3VPN.** Circuit runs MPLS with LDP, which gives labels to the routers' loopbacks, but it has no route distinguishers or route targets, so a VRF's routes don't travel over the labels.
 - **No EVPN.** Each VXLAN tunnel is point to point, with its far end written by hand, and the routes through it are static.
-- **No BGP inside a VRF.**
 
-Tunnels and static routes written in files suit a few sites. A provider with hundreds of customers needs PEs that announce routes to each other with MPLS or EVPN, which Circuit doesn't write.
+Tunnels and static routes written in files suit a few sites. A provider with hundreds of customers needs PEs that announce routes to each other with L3VPN or EVPN, which Circuit doesn't write yet.
 
 ## Further reading
 
