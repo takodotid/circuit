@@ -82,7 +82,7 @@ test("RouterOS refuses marking that packets would skip", () => {
 
     expect(marking(Platforms.get("routeros").unsupported(sample))).toEqual([
         "qos.marking beside a fast_path rule, whose flows skip the mangle table: take fast_path off",
-        "qos.marking[1] while system.hardware_offload is on, whose routed traffic skips the mangle table: name in if.in_interface or if.out_interface a VLAN interface with hardware_offload: false",
+        "qos.marking[1] while system.hardware_offload is on, whose routed traffic skips the mangle table: match in if.in_interface or if.out_interface a VLAN interface with hardware_offload: false",
         "qos.marking[1].if.dscp, a list: write one rule for each",
     ]);
 });

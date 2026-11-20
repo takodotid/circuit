@@ -77,7 +77,7 @@ export class RouterOsFirewall {
             rules.forEach((rule, index) => {
                 if (software(rule.if?.in_interface) || software(rule.if?.out_interface)) return;
                 found.push(
-                    `qos.marking[${index}] while system.hardware_offload is on, whose routed traffic skips the mangle table: name in if.in_interface or if.out_interface a VLAN interface with hardware_offload: false`
+                    `qos.marking[${index}] while system.hardware_offload is on, whose routed traffic skips the mangle table: match in if.in_interface or if.out_interface a VLAN interface with hardware_offload: false`
                 );
             });
 
