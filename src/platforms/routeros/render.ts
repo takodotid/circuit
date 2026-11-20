@@ -4,7 +4,7 @@ import { X509Certificate } from "node:crypto";
 import { Utils } from "../../core/utils";
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
-import type { Device, Lag, Port, Prefix, RadiusServer, Service, Severity, VlanInterface } from "../../model";
+import type { Device, Lag, Port, Prefix, Pseudowire, RadiusServer, Service, Severity, VlanInterface } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import type { NamedInterface } from "../../core/derive";
@@ -27,6 +27,9 @@ export class RouterOsRender {
 
     /** The split horizon of every isolated port: ports with the same horizon never forward to each other. */
     private static readonly ISOLATED_HORIZON = 1;
+
+    /** The split horizon of every pseudowire, so a frame from one never leaves by another (RFC 4762, section 4.4). */
+    private static readonly PSEUDOWIRE_HORIZON = 2;
 
     /** Destination of spanning tree BPDUs, so a filter can drop them on one port. */
     private static readonly BPDU_DESTINATION = "01:80:C2:00:00:00/FF:FF:FF:FF:FF:FF";
@@ -185,12 +188,12 @@ export class RouterOsRender {
         return declared.id;
     }
 
-    /** Ports and LAGs that are layer 2 members of a VLAN, with their settings. A port in a LAG is represented by the LAG. */
-    private switched(): [string, Port | Lag][] {
+    /** Ports, LAGs, and pseudowires that are layer 2 members of a VLAN, with their settings. A port in a LAG is represented by the LAG. */
+    private switched(): [string, Port | Lag | Pseudowire][] {
         const switches = (settings: Port | Lag) => Boolean(settings.access_vlan || settings.trunk_vlans || settings.qinq_vlan);
         const ports = Object.entries(this.ports).filter(([, port]) => !port.in_lag && switches(port));
         const lags = RouterOsSyntax.entries(this.device.interfaces?.lag).filter(([, lag]) => switches(lag));
-        return [...ports, ...lags];
+        return [...ports, ...lags, ...RouterOsSyntax.entries(this.device.interfaces?.pseudowire)];
     }
 
     private declaredVlanInterfaces(): [string, VlanInterface][] {
@@ -214,7 +217,9 @@ export class RouterOsRender {
         this.vlanInterfaces();
         this.tunnels();
         this.wireguard();
+        RouterOsPppoe.clients(this, this.device);
         this.vrrp();
+        this.pseudowires();
         this.bridgePorts();
         this.bridgeVlans();
         this.bridgeFilters();
@@ -482,6 +487,19 @@ export class RouterOsRender {
         }
     }
 
+    /** A pseudowire is a VPLS interface that LDP sets up with the PWid FEC, MikroTik's `cisco-static-id` (RFC 8077). The device adds one disabled (TRAPS.md). */
+    private pseudowires(): void {
+        for (const [name, pseudowire] of RouterOsSyntax.entries(this.device.interfaces?.pseudowire)) {
+            this.add("/interface vpls", "add", {
+                "cisco-static-id": pseudowire.pw_id,
+                comment: pseudowire.description,
+                disabled: "no",
+                name,
+                peer: pseudowire.peer,
+            });
+        }
+    }
+
     /** A switched port or LAG joins the bridge. Its untagged VLAN is its port VLAN ID. A port in a secondary VLAN (RFC 5517) is in its primary VLAN, and an isolated one is kept from the others by its split horizon. A QinQ port takes every frame as untagged, and tags it. */
     private bridgePorts(): void {
         for (const [port, settings] of this.switched()) {
@@ -501,7 +519,7 @@ export class RouterOsRender {
                 bridge: RouterOsRender.BRIDGE,
                 edge: stp?.edge ? "yes" : undefined,
                 "frame-types": frameTypes,
-                horizon: secondary?.type === "isolated" ? RouterOsRender.ISOLATED_HORIZON : undefined,
+                horizon: this.horizon(port, secondary?.type === "isolated"),
                 interface: this.name(port),
                 "path-cost": stp?.cost,
                 priority: RouterOsSyntax.hex(stp?.priority),
@@ -512,6 +530,12 @@ export class RouterOsRender {
                 "trusted-ra": RouterOsSyntax.yesWhen(settings.ra_trusted),
             });
         }
+    }
+
+    /** The split horizon of a bridge port: an isolated port's, a pseudowire's, or none. */
+    private horizon(port: string, isolated: boolean): number | undefined {
+        if (isolated) return RouterOsRender.ISOLATED_HORIZON;
+        return this.device.interfaces?.pseudowire?.[port] ? RouterOsRender.PSEUDOWIRE_HORIZON : undefined;
     }
 
     /** A VLAN is tagged on every trunk carrying it, and on the bridge itself when the router has an interface in it. */

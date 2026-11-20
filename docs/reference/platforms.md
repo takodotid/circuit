@@ -61,7 +61,10 @@ A note in a cell means "works, with this limit".
 | GRE                        | ✅                                                                                         | ❌                | ❌           | ✅                                                                         | ✅                               |
 | VXLAN                      | ✅                                                                                         | ❌                | ❌           | ❌                                                                         | ✅                               |
 | IPsec, route-based (IKEv2) | ❌                                                                                         | ❌                | ❌           | ❌                                                                         | ✅                               |
+| IPsec liveness, NAT-T      | ❌                                                                                         | ❌                | ❌           | ❌                                                                         | ✅                               |
+| IPsec with certificates    | ❌                                                                                         | ❌                | ❌           | ❌                                                                         | ✅                               |
 | WireGuard                  | ✅                                                                                         | ❌                | ❌           | ❌                                                                         | ❌                               |
+| PPPoE client               | ✅ with a delegated IPv6 prefix                                                            | ❌                | ❌           | ❌                                                                         | ❌ not built yet                 |
 | EoIP                       | ✅                                                                                         | ❌                | ❌           | ❌                                                                         | ❌                               |
 | Round-robin LAG, ARP check | ✅                                                                                         | ❌                | ❌           | ❌                                                                         | ❌                               |
 | Shaping (CAKE)             | ✅                                                                                         | ❌                | ❌           | ❌                                                                         | ❌                               |
@@ -91,6 +94,8 @@ A note in a cell means "works, with this limit".
 | IS-IS overload bit           | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
 | BFD for IS-IS                | ❌                      | ❌                         | ❌                       | ✅                    | ❌               |
 | MPLS with LDP                | ✅                      | ❌                         | ❌                       | 🧪                    | ❌               |
+| L3VPN over MPLS              | ✅ IPv4, no VRF imports | ❌                         | ❌                       | ❌                    | ❌               |
+| Ethernet pseudowires, VPLS   | ✅ VLAN interfaces 1496 | ❌                         | ❌                       | ❌                    | ❌               |
 | BFD                          | ✅ not on static routes | ✅                         | static routes, no timers | ✅                    | ✅               |
 | BGP                          | ✅                      | ✅ one family per session  | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                      | ✅ each rule decides       | ❌                       | ✅                    | ✅               |
@@ -109,20 +114,21 @@ A note in a cell means "works, with this limit".
 
 ### Firewall and services
 
-| Feature              | RouterOS              | VRP                   | Raisecom ROS | Junos                    | FortiOS                                |
-| -------------------- | --------------------- | --------------------- | ------------ | ------------------------ | -------------------------------------- |
-| Firewall filter      | ✅                    | ❌                    | ❌           | ❌                       | ✅                                     |
-| NAT                  | ✅                    | ❌                    | ❌           | ❌                       | IPv4                                   |
-| CGNAT pool           | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
-| TCP MSS clamp        | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
-| DHCP server          | ✅                    | ❌                    | ❌           | ✅                       | ✅                                     |
-| DHCPv6 server        | ✅ pool is a prefix   | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
-| DHCP relay           | ✅                    | IPv4, VLAN interfaces | ❌           | IPv4                     | ✅                                     |
-| DHCP server in a VRF | ✅                    | ❌                    | ❌           | 🧪                       | 🧪                                     |
-| PPPoE server         | ✅ one RADIUS setting | ❌                    | ❌           | ❌                       | ❌                                     |
-| DNS server           | ✅                    | ❌                    | ❌           | ❌                       | ✅                                     |
-| NTP client           | ✅                    | ✅                    | ✅           | ✅                       | ✅                                     |
-| NTP server           | ✅                    | ✅                    | ❌           | ✅                       | ✅                                     |
+| Feature                            | RouterOS              | VRP                   | Raisecom ROS | Junos                    | FortiOS                                |
+| ---------------------------------- | --------------------- | --------------------- | ------------ | ------------------------ | -------------------------------------- |
+| Firewall filter                    | ✅                    | ❌                    | ❌           | ❌                       | ✅                                     |
+| NAT                                | ✅                    | ❌                    | ❌           | ❌                       | IPv4                                   |
+| CGNAT pool                         | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
+| TCP MSS clamp                      | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
+| DHCP server                        | ✅                    | ❌                    | ❌           | ✅                       | ✅                                     |
+| DHCPv6 server                      | ✅ pool is a prefix   | ❌                    | ❌           | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
+| DHCP relay                         | ✅                    | IPv4, VLAN interfaces | ❌           | IPv4                     | ✅                                     |
+| DHCP server in a VRF               | ✅                    | ❌                    | ❌           | 🧪                       | 🧪                                     |
+| PPPoE server                       | ✅ one RADIUS setting | ❌                    | ❌           | ❌                       | ❌                                     |
+| Delegated IPv6 prefixes over PPPoE | ✅                    | ❌                    | ❌           | ❌                       | ❌                                     |
+| DNS server                         | ✅                    | ❌                    | ❌           | ❌                       | ✅                                     |
+| NTP client                         | ✅                    | ✅                    | ✅           | ✅                       | ✅                                     |
+| NTP server                         | ✅                    | ✅                    | ❌           | ✅                       | ✅                                     |
 
 ### Management and monitoring
 

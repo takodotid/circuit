@@ -71,7 +71,7 @@ const edgeRouter = await Project.read(scratch);
 const [access] = edgeRouter.networks;
 if (!access) throw new Error("the edge-router example has no network");
 
-test("a NAT pool and its subscribers, and a PPPoE pool, are address space in use, each with its device", () => {
+test("a NAT pool and its subscribers, and a PPPoE server's pools, are address space in use, each with its device", () => {
     const report = AddressSpace.report(Object.values(access.devices), access.settings.prefixes);
     const ours = report.spaces.find((space) => space.prefix === "198.51.100.0/24");
 
@@ -88,6 +88,11 @@ test("a NAT pool and its subscribers, and a PPPoE pool, are address space in use
         what: "PPPoE pool olt-1 on bng-01",
     });
     expect(report.elsewhere.blocks).toContainEqual({ prefix: "100.64.0.1/32", what: "PPPoE server olt-1 on bng-01" });
+
+    // The prefixes it delegates are in the IPv6 space the network owns.
+    const ours6 = report.spaces.find((space) => space.prefix === "2001:db8:100::/48");
+    expect(ours6?.blocks).toContainEqual({ prefix: "2001:db8:100:4000::/50", what: "prefixes delegated by PPPoE server olt-1 on bng-01" });
+    expect(ours6?.free).not.toContain("2001:db8:100:4000::/50");
 });
 
 test("the text prints a pool as its range, and asking for the pool's prefix shows what uses it", () => {

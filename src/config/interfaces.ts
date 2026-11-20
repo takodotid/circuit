@@ -1,4 +1,4 @@
-import type { HostAddress, IP, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, Secret } from "./common";
+import type { HostAddress, IP, IPv4, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, Secret } from "./common";
 
 /** A storm-control threshold: packets per second, or percent of the link's speed. */
 export type Threshold =
@@ -344,6 +344,20 @@ export type Eoip<Lag extends string, Vrf extends string> = Base<Vrf> & {
     in_lag?: Lag;
 };
 
+/**
+ * An Ethernet pseudowire (RFC 4448) across the MPLS core to another PE, set up by LDP with the PWid FEC (RFC 8077). It is a port of the device in a VLAN. With a customer's port in the same VLAN, it carries that port's frames to the far PE: a point-to-point service, VPWS. With several pseudowires in one VLAN, the PEs make a VPLS (RFC 4762), and a frame from one pseudowire never leaves by another. Needs `routing.mpls`.
+ */
+export type Pseudowire<Vlan extends string> = {
+    /** What it carries, such as the customer and its far site. */
+    description?: string;
+    /** The far PE's LSR ID, its `routing.mpls.ldp.lsr_id`. */
+    peer: IPv4;
+    /** The pseudowire's ID, 1 to 4294967295, the same at both ends. Each pseudowire of the device to one peer has its own. */
+    pw_id: number;
+    /** The VLAN it is in, from `switching.vlans`. Its frames cross the pseudowire without the VLAN's tag, raw mode (RFC 4448, section 4.4.1). */
+    access_vlan: Vlan;
+};
+
 /** An encryption algorithm with its key length in bits (IANA, IKEv2 transform type 1). A `gcm` one also protects integrity (AEAD, RFC 4106 and RFC 5282), so it takes no `integrity`. */
 export type IpsecEncryption = "aes-128-cbc" | "aes-256-cbc" | "aes-128-gcm" | "aes-256-gcm";
 
@@ -377,18 +391,50 @@ export type IpsecEsp = {
 };
 
 /**
- * A route-based IPsec tunnel (RFC 4301) to one peer: what is routed into the interface leaves encrypted with ESP, so BGP or OSPF can run over it. IKEv2 (RFC 7296) authenticates the peer with a key both ends share, and makes the keys. `presets.ipsec_rfc8247` holds IKE algorithms every IKEv2 peer has.
+ * Liveness checks (RFC 7296 §2.4), also called dead peer detection. When nothing has come from the peer for `interval` seconds, the device asks whether it is still there, with an empty IKE request. A peer that leaves `retries` requests in a row unanswered is dead, and the tunnel goes down until IKE sets it up again.
  */
-export type Ipsec = Pick<Base<never>, "description" | "addresses"> & {
+export type IpsecLivenessCheck = {
+    /** Seconds without a packet from the peer before the device asks, and between two requests. */
+    interval: number;
+    /** How many requests in a row may go unanswered before the peer is dead. */
+    retries: number;
+};
+
+/** How each end proves who it is (RFC 7296 §2.15): with a key both ends share, or with its own certificate, signed by a CA the other end trusts. */
+export type IpsecAuthentication<C extends string> =
+    | {
+          /** The key both ends share. */
+          pre_shared_key: Secret;
+          certificate?: never;
+          ca_certificate?: never;
+      }
+    | {
+          /** This end's certificate, one of `system.certificates` with its private key. The device signs with it, and sends it to the peer (RFC 7296 §3.6). */
+          certificate: C;
+          /**
+           * The CA that signed the peer's certificate: one of `system.certificates`, without its private key. The device takes any certificate this CA signed, so use a CA that signs only your own tunnel ends.
+           */
+          ca_certificate: C;
+          pre_shared_key?: never;
+      };
+
+/**
+ * A route-based IPsec tunnel (RFC 4301) to one peer: what is routed into the interface leaves encrypted with ESP, so BGP or OSPF can run over it. IKEv2 (RFC 7296) authenticates the peer, with a key both ends share or with certificates, and makes the keys. `presets.ipsec_rfc8247` holds IKE algorithms every IKEv2 peer has.
+ */
+export type Ipsec<C extends string = string> = Pick<Base<never>, "description" | "addresses"> & {
     /** Our tunnel endpoint, alone or with its length. */
     local_address: HostAddress;
     /** The far tunnel endpoint. */
     remote_address: IP;
-    /** The key both ends share. */
-    pre_shared_key: Secret;
     ike: IpsecIke;
     esp: IpsecEsp;
-};
+    /** Ask a silent peer whether it is still there, so a dead peer takes the tunnel down. The device's own default when absent. */
+    liveness_check?: IpsecLivenessCheck;
+    /**
+     * NAT traversal (RFC 7296 §2.23). When IKE finds a NAT between the ends, both put ESP in UDP on port 4500 (RFC 3948). The end behind the NAT sends keepalives, so the NAT keeps its mapping. `always` puts ESP in UDP even when there is no NAT, for a path that drops ESP. Only when IKE finds a NAT, when absent.
+     */
+    nat_traversal?: "always";
+} & IpsecAuthentication<C>;
 
 /** A host and a UDP port, `host:port`, for example `203.0.113.10:51820` or `vpn.example.net:51820`. */
 export type Endpoint = `${string}:${number}`;
@@ -434,9 +480,37 @@ export type Bridge<VlanInterface extends string, Vrf extends string> = Omit<Base
 };
 
 /**
+ * An IPv6 prefix a PPPoE client asks its server for (DHCPv6 prefix delegation, RFC 9915), as a home router does (RFC 7084). The router gives each of `interfaces` a /64 of it, so a /64 delegated serves one.
+ */
+export type ClientPrefixDelegation<I extends string> = {
+    /** The ports and interfaces that each take a /64 of the delegated prefix, with the router's address in it written by its last 64 bits, such as `{ home: "::1" }`. One with `ipv6_ra` announces its /64, so hosts there make their own addresses. */
+    interfaces: Named<I, IPv6>;
+};
+
+/**
+ * A PPPoE client (RFC 2516): the session the router opens over `interface` to its provider's PPPoE server, logged in with `user` and `password`. The server gives it its IPv4 address (IPCP, RFC 1332), so it has no `addresses`. A route through it, such as the default route, is a static route with `interface`, and a source NAT matches it with `out_interface`. The router uses `system.dns`, not the resolvers the server offers.
+ */
+export type PppoeClient<Carrier extends string, I extends string> = {
+    /** The port, LAG, or VLAN interface it runs over, toward the provider. It holds no address for the session. */
+    interface: Carrier;
+    /** What the link is for, such as the provider and the circuit ID. */
+    description?: string;
+    /** The name it logs in with, as the provider gave it. */
+    user: string;
+    /** The password it logs in with. */
+    password: Secret;
+    /** The service name it asks for (RFC 2516). A server that offers another name does not answer. Any server answers when absent. */
+    service_name?: string;
+    /** The largest packet the session carries, in bytes. RFC 2516 allows 1492 at most. The platform agrees on one with the server when absent. */
+    mtu?: number;
+    /** Ask the server for an IPv6 prefix over the session. No IPv6 prefix when absent. */
+    prefix_delegation?: ClientPrefixDelegation<I>;
+};
+
+/**
  * Every port and interface, by kind, each keyed by its name. A port's key is `<speed>-<position>` from the model.
  *
- * The type parameters are the names the device declares: `Ethernet` the ports, `L` LAGs, `VI` VLAN interfaces, `T` the other interfaces, `V` VLANs, `F` VRFs, `Table` routing tables.
+ * The type parameters are the names the device declares: `Ethernet` the ports, `L` LAGs, `VI` VLAN interfaces, `T` the other interfaces, `V` VLANs, `F` VRFs, `Table` routing tables, `Certificate` certificates. `I` is every port and interface.
  */
 export type Interfaces<
     Ethernet,
@@ -446,6 +520,8 @@ export type Interfaces<
     V extends string,
     F extends string,
     Table extends string = string,
+    Certificate extends string = string,
+    I extends string = string,
 > = {
     /** Physical ports, keyed by `<speed>-<position>` from the model, such as `10g-4`. Ports not listed are shut down. */
     ethernet?: Ethernet;
@@ -462,9 +538,13 @@ export type Interfaces<
     /** Point-to-point VXLAN tunnels, keyed by name. */
     vxlan?: Named<T, Vxlan<F>>;
     /** Route-based IPsec tunnels, keyed by name. */
-    ipsec?: Named<T, Ipsec>;
+    ipsec?: Named<T, Ipsec<Certificate>>;
     /** WireGuard interfaces, keyed by name. */
     wireguard?: Named<T, WireGuard<F, Table>>;
     /** Ethernet tunnels over IP, keyed by name. Each may be a member of a LAG with `in_lag`. */
     eoip?: Named<T, Eoip<NoInfer<L>, F>>;
+    /** Ethernet pseudowires to other PEs, keyed by name. Each is a port in its `access_vlan`. */
+    pseudowire?: Named<T, Pseudowire<V>>;
+    /** PPPoE clients, keyed by name: each a session to a provider over a port, a LAG, or a VLAN interface. */
+    pppoe_client?: Named<T, PppoeClient<NoInfer<(keyof Ethernet & string) | L | VI>, I>>;
 };

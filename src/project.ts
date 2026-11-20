@@ -448,7 +448,20 @@ export class Project {
 
     /** Every name a device refers to is one it declares. The editor checks the same, and this catches what reaches the device as a plain `string`. */
     private static checkNames(name: string, d: Json): void {
-        const kinds = ["ethernet", "lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "ipsec", "wireguard", "eoip"];
+        const kinds = [
+            "ethernet",
+            "lag",
+            "vlan_interface",
+            "bridge",
+            "loopback",
+            "gre",
+            "vxlan",
+            "ipsec",
+            "wireguard",
+            "eoip",
+            "pseudowire",
+            "pppoe_client",
+        ];
 
         // An interface's name is one interface: a rule or a route that uses it would otherwise not say which.
         const groupsOf = new Map<string, string[]>();
@@ -463,6 +476,7 @@ export class Project {
             VLAN: new Set(Project.keys(d.switching?.vlans)),
             interface: new Set(kinds.flatMap((k) => Project.keys(d.interfaces?.[k]))),
             LAG: new Set(Project.keys(d.interfaces?.lag)),
+            "port, LAG, or VLAN interface": new Set(["ethernet", "lag", "vlan_interface"].flatMap((k) => Project.keys(d.interfaces?.[k]))),
             "VLAN interface": new Set(Project.keys(d.interfaces?.vlan_interface)),
             ACL: new Set(Project.keys(d.switching?.acls)),
             policy: new Set(Project.keys(d.routing?.policies)),
@@ -517,9 +531,14 @@ export class Project {
                 need("VRF", x.vrf, `${at}.vrf`, written);
                 need("VLAN interface", x.member_interfaces, `${at}.member_interfaces`, written);
                 need("table", x.routing_table, `${at}.routing_table`, written);
+                need("certificate", x.certificate, `${at}.certificate`, written);
+                need("certificate", x.ca_certificate, `${at}.ca_certificate`, written);
                 (x.dhcp_client?.default_routes ?? []).forEach((r: Json, n: number) =>
                     need("table", r.routing_table, `${at}.dhcp_client.default_routes[${n}].routing_table`, written)
                 );
+                if (kind !== "pppoe_client") continue;
+                need("port, LAG, or VLAN interface", x.interface, `${at}.interface`, written);
+                need("interface", Project.keys(x.prefix_delegation?.interfaces), `${at}.prefix_delegation.interfaces`, written);
             }
         if (typeof d.switching?.lldp === "object") need("interface", d.switching.lldp.interfaces, "switching.lldp.interfaces");
         for (const [a, rules] of Object.entries<Json>(d.switching?.acls ?? {}))

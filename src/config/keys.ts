@@ -313,8 +313,12 @@ export const DEVICE = {
                 local_address: 0,
                 remote_address: 0,
                 pre_shared_key: SECRET,
+                certificate: 0,
+                ca_certificate: 0,
                 ike: { encryption: 0, integrity: 0, prf: 0, dh_group: 0, lifetime: 0 },
                 esp: { encryption: 0, integrity: 0, pfs_group: 0, lifetime: 0 },
+                liveness_check: { interval: 0, retries: 0 },
+                nat_traversal: 0,
             },
         },
         wireguard: {
@@ -328,6 +332,18 @@ export const DEVICE = {
             },
         },
         eoip: { "*": { ...BASE, local_address: 0, remote_address: 0, tunnel_id: 0, in_lag: 0 } },
+        pseudowire: { "*": { description: 0, peer: 0, pw_id: 0, access_vlan: 0 } },
+        pppoe_client: {
+            "*": {
+                interface: 0,
+                description: 0,
+                user: 0,
+                password: SECRET,
+                service_name: 0,
+                mtu: 0,
+                prefix_delegation: { interfaces: { "*": 0 } },
+            },
+        },
     },
     switching: {
         vlans: { "*": { id: 0, description: 0, untrusted: 0, private_vlan: { primary: 0, type: 0 } } },
@@ -365,6 +381,7 @@ export const DEVICE = {
                 radius: [RADIUS_SERVER],
                 acct_interim_interval: 0,
                 dynamic_authorization: 0,
+                prefix_delegation: { pool: 0, prefix_length: 0 },
             },
         },
         dns_server: 0,
@@ -374,7 +391,7 @@ export const DEVICE = {
     routing: {
         router_id: 0,
         tables: { "*": { description: 0 } },
-        vrfs: { "*": { description: 0 } },
+        vrfs: { "*": { description: 0, route_distinguisher: 0, route_targets: { import: 0, export: 0 } } },
         vrf_imports: [{ from: 0, to: 0, policy: 0 }],
         policy_routing: [ROUTING_RULE],
         static_routes: [STATIC_ROUTE],

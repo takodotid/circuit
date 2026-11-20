@@ -1,4 +1,4 @@
-// The broadband gateway: homes behind the OLT log in with PPPoE, and the billing system's RADIUS servers check each one and set its rate. It reaches the internet through edge-01.
+// The broadband gateway: homes behind the OLT log in with PPPoE, and the billing system's RADIUS servers check each one and set its rate. A home router that asks gets an IPv6 prefix for its own networks. It reaches the internet through edge-01.
 
 import { as64500 } from "../../circuit";
 
@@ -21,7 +21,7 @@ export default as64500.device({
     interfaces: {
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.0.2/24"], vrf: "management" },
-            "25g-1": { description: "edge-01", addresses: ["198.51.100.2/30"] },
+            "25g-1": { description: "edge-01", addresses: ["198.51.100.2/30", "2001:db8:100:ffff::2/64"] },
             "25g-2": { description: "OLT", trunk_vlans: ["olt-1"] },
         },
         vlan_interface: {
@@ -34,7 +34,7 @@ export default as64500.device({
         },
     },
 
-    // Each home gets a shared address (RFC 6598), and source NAT gives it the router's own on the way out. The RADIUS servers are older ones, on the ports used before RFC 2865 assigned 1812 and 1813.
+    // Each home gets a shared address (RFC 6598), and source NAT gives it the router's own on the way out. Its router may ask for a /56 of our IPv6 space too, which needs no NAT. The RADIUS servers are older ones, on the ports used before RFC 2865 assigned 1812 and 1813.
     services: {
         pppoe_server: {
             "olt-1": {
@@ -64,13 +64,17 @@ export default as64500.device({
                 ],
                 acct_interim_interval: 300,
                 dynamic_authorization: true,
+                prefix_delegation: { pool: "2001:db8:100:4000::/50", prefix_length: 56 },
             },
         },
     },
 
     routing: {
         vrfs: { management: { description: "Out-of-band management and the RADIUS servers" } },
-        static_routes: [{ prefix: "0.0.0.0/0", next_hop: "198.51.100.1", description: "edge-01" }],
+        static_routes: [
+            { prefix: presets.default_routes.ipv4, next_hop: "198.51.100.1", description: "edge-01" },
+            { prefix: presets.default_routes.ipv6, next_hop: "2001:db8:100:ffff::1", description: "edge-01" },
+        ],
     },
     firewall: {
         nat: {

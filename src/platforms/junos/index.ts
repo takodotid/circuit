@@ -127,11 +127,18 @@ export class Junos extends Platform {
 
         for (const { name, kind } of interfaces) {
             if (kind === "bridge") found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
+            if (kind === "pseudowire")
+                found.push(
+                    `interfaces.pseudowire.${name}, a pseudowire, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`
+                );
             if (kind === "vlan_interface" && device.interfaces?.vlan_interface?.[name]?.mac)
                 found.push(`interfaces.vlan_interface.${name}.mac, which only RouterOS sets for now`);
         }
         found.push(...JunosSwitching.gaps(device));
         found.push(...JunosMpls.unsupported(device));
+        // MPLS here passed `commit check` only, on a QFX5100 without the license to run it.
+        for (const where of Derive.l3vpn(device))
+            found.push(`${where}, L3VPN, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`);
         const names = new JunosNames(device);
         const users = device.system?.users ?? {};
 
@@ -263,6 +270,10 @@ export class Junos extends Platform {
             }
             if (kind === "ipsec") {
                 found.push(`${where}, IPsec: a QFX switch does not encrypt the traffic it forwards`);
+                continue;
+            }
+            if (kind === "pppoe_client") {
+                found.push(`${where}, a PPPoE client: Junos runs one on SRX firewalls only, and a QFX switch has none`);
                 continue;
             }
 

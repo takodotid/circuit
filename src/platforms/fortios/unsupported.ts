@@ -59,6 +59,7 @@ export class FortiOsUnsupported {
             if (vrf?.description) found.push(`routing.vrfs.${name}.description, the platform numbers a VRF and keeps no description`);
         }
         if (device.routing?.mpls) found.push("routing.mpls, FortiOS has no MPLS");
+        for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN: FortiOS has no MPLS`);
         // The device's own traffic leaves from the management VDOM, if there is one (TRAPS.md).
         for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, FortiOS 6.2 has no VRF setting for it`);
 
@@ -283,6 +284,15 @@ export class FortiOsUnsupported {
 
             if (kind === "wireguard") {
                 found.push(`${where}, a wireguard: the platform has no WireGuard`);
+                continue;
+            }
+            if (kind === "pseudowire") {
+                found.push(`${where}, a pseudowire: FortiOS has no MPLS`);
+                continue;
+            }
+            // FortiOS dials PPPoE on an interface with `set mode pppoe`, but no FortiGate could test it without touching a live firewall.
+            if (kind === "pppoe_client") {
+                found.push(`${where}, a PPPoE client, not built yet: no FortiGate was free to test it on`);
                 continue;
             }
 
