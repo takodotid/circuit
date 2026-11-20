@@ -53,6 +53,7 @@ const TAKEN_OUT: Record<string, readonly string[]> = Object.fromEntries(
 const DOCUMENTATION_ONLY: Partial<Record<PlatformName, Record<string, string>>> = {
     junos: { "services.dhcp_server.*.reservations[].description": "a static binding, `host` in an address pool, has no description" },
     fortios: { "interfaces.bridge.*.description": "a bridge is a forward domain, a number set on each member" },
+    "raisecom-ros": { "services.ntp_server": "the switch answers time queries whenever it takes time from servers" },
 };
 
 /** A key from another platform's device goes into at most this many of the platform's own devices. That is enough to land where it means something. */
