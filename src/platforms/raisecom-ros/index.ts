@@ -1,10 +1,9 @@
 // Raisecom ROS on the RAX700 series. Commands apply as they arrive and persist only on `write`. There is no rollback, so a fresh session tests access before anything is written. Until then, a reboot restores what was there before.
 
 import type { ClientChannel } from "ssh2";
-import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { Device } from "../../model";
+import type { Device, Finding } from "../../model";
 import { ConsoleShell, SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
@@ -15,6 +14,7 @@ import type { Dialect, Group } from "../line-diff";
 import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
 import { RaisecomRosRender } from "./render";
+import { RaisecomRosUnsupported } from "./unsupported";
 
 /** `fresh` tests access in a fresh login: a new SSH session, or logging out and in again on the console. */
 export type Session = { channel: ClientChannel; close: () => void; fresh: () => Promise<Session> };
@@ -57,13 +57,17 @@ export class RaisecomRos extends Platform {
         [/^switchport mode trunk$/, "switchport mode access"],
         [/^telnet-server disable$/, "telnet-server enable"],
         [/^shutdown$/, "no shutdown"],
+        // `no` is refused for these, and `auto` is the default edge setting.
+        [/^spanning-tree rootguard enable$/, "spanning-tree rootguard disable"],
+        [/^spanning-tree bpduguard enable$/, "spanning-tree bpduguard disable"],
+        [/^spanning-tree edged-port force-(true|false)$/, "spanning-tree edged-port auto"],
         // The device refuses `no storm-control mode`, and kbps is its default and prints nothing.
         [/^storm-control mode pps$/, "storm-control mode kbps"],
     ];
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|ip address|port-channel|ip ospf cost|ip ospf network|switchport port-security maximum)\b/;
+        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|ip address|port-channel|ip ospf cost|ip ospf network|switchport port-security maximum)\b/;
 
     private static readonly DIALECT: Dialect = {
         block: /^(interface |access-list |router ospf |bfd \d+ bind )/,
@@ -119,7 +123,8 @@ export class RaisecomRos extends Platform {
     /** How much of the device's answer an error shows. */
     private static readonly ANSWER_CHARS = 300;
 
-    private static readonly REFUSED = /^(%|Error|Incomplete|Unrecognized)|can not|cannot |is in use|Wrong parameter|invalid|unsuccessful/im;
+    private static readonly REFUSED =
+        /^(%|Error|Incomplete|Unrecognized|Exceed)|can not|cannot |is in use|Wrong parameter|invalid|unsuccessful/im;
 
     /** Lines that ask for `y` and do nothing without it. */
     private static readonly CONFIRM = /^(portswitch|switchport trunk allowed vlan|switchport mode)/;
@@ -129,6 +134,9 @@ export class RaisecomRos extends Platform {
 
     /** Lines that each add one more of a kind rather than set a value: `snmp-server access-list 1001` beside `1000` binds both. */
     private static readonly STANDALONE = /^(logging host|snmp-server access-list) /;
+
+    /** Turns DHCP snooping on for the whole switch. */
+    private static readonly SNOOPING = "ip dhcp snooping";
 
     /** A `?` sent by a script is run, so a line with one is refused. */
     private static readonly READS = /^show\s[^?]*$/;
@@ -147,200 +155,29 @@ export class RaisecomRos extends Platform {
     override readonly console = RaisecomRos.CONSOLE;
 
     override unsupported(device: Device): string[] {
+        return RaisecomRosUnsupported.of(device);
+    }
+
+    /** Each turns on a setting for the whole switch, so on tako-mmr-01, which carries live traffic, its line was only parsed, never sent. A trusted port's line was sent to a spare port and read back. */
+    override experimental(device: Device): string[] {
         const found: string[] = [];
+        if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
 
-        if (device.management?.interfaces) found.push("management.interfaces, which only FortiOS builds for now");
-
-        const interfaces = Derive.interfaces(device);
-
-        for (const { name, kind, settings } of interfaces) {
-            if (kind === "bridge") found.push(`interfaces.bridge.${name}, which only FortiOS builds for now`);
-            if (kind === "vlan_interface" && "mac" in settings && settings.mac)
-                found.push(`interfaces.vlan_interface.${name}.mac, which only RouterOS sets for now`);
-        }
-
-        for (const [name, port] of Derive.ports(device)) {
-            const where = `interfaces.ethernet.${name}`;
-
-            for (const field of ["speed", "ingress_acl", "mtu", "addresses", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
-                if (port[field] !== undefined) found.push(`${where}.${field}`);
-            }
-
-            if (port.lldp === true) found.push(`${where}.lldp true, LLDP is turned on per device`);
-            if (port.in_lag && (port.mac_limit !== undefined || port.ethertypes))
-                found.push(`${where}.mac_limit and ethertypes on a LAG member, tested on a port alone`);
-            if (port.mac_limit !== undefined && (port.mac_limit < 1 || port.mac_limit > RaisecomRosRender.MAC_LIMIT_MAX))
-                found.push(`${where}.mac_limit ${port.mac_limit}, port security takes 1 to ${RaisecomRosRender.MAC_LIMIT_MAX}`);
-            if (typeof port.stp === "object" || port.stp === true) found.push(`${where}.stp, which takes only false here`);
-            const storm = port.storm_control;
-            if (storm && (storm.multicast || storm.unknown_unicast || (storm.broadcast && "percent" in storm.broadcast))) {
-                found.push(`${where}.storm_control other than broadcast in pps`);
-            }
-        }
-
-        for (const [name, lag] of Object.entries(device.interfaces?.lag ?? {})) {
-            if (!lag) continue;
-
-            for (const field of ["addresses", "vrrp", "vrf", "mtu", "storm_control", "stp", "ipv6_ra", "hardware_offload"] as const) {
-                if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, a LAG here only switches`);
-            }
-            for (const field of ["mac_limit", "ethertypes"] as const) {
-                if (lag[field] !== undefined) found.push(`interfaces.lag.${name}.${field}, tested on a port alone`);
-            }
-        }
-
-        for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {})) {
-            if (!iface) continue;
-            const where = `interfaces.vlan_interface.${name}`;
-
-            for (const field of ["vrf", "description", "mtu", "ipv6_ra", "hardware_offload"] as const) {
-                if (iface[field] !== undefined) found.push(`${where}.${field}`);
-            }
-
-            for (const entry of iface.addresses ?? []) {
-                const address = typeof entry === "string" ? entry : entry.address;
-                if (Address.family(address) === "ipv6") found.push(`${where}.addresses ${address}, only IPv4 here`);
-            }
-
-            for (const group of iface.vrrp ?? []) {
-                if (Address.family(group.address) === "ipv6") found.push(`${where}.vrrp for IPv6`);
-            }
-        }
-
-        // Only LAGs and VLAN interfaces are built here.
-        for (const { name, kind } of interfaces) {
-            if (kind === "ipsec") found.push(`interfaces.ipsec.${name}, IPsec: the switch does not encrypt the traffic it forwards`);
-            else if (kind === "pseudowire") found.push(`interfaces.pseudowire.${name}, a pseudowire, not built yet`);
-            else if (kind === "pppoe_client")
-                found.push(`interfaces.pppoe_client.${name}, a PPPoE client: Raisecom ROS only adds PPPoE+ tags to what it switches`);
-            else if (kind !== "lag" && kind !== "vlan_interface") found.push(`interfaces.${kind}.${name}`);
-        }
-
-        const routing = device.routing;
-
-        for (const field of ["bgp", "isis", "rpki"] as const) {
-            if (routing?.[field]) found.push(`routing.${field}`);
-        }
-        if (routing?.mpls) found.push("routing.mpls, not built yet");
-        for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
-
-        const ospf = routing?.ospf;
-        if (routing?.router_id && !ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");
-        if (ospf?.address_families?.includes("ipv6")) found.push("routing.ospf.address_families ipv6, OSPF runs for IPv4 here");
-
-        for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
-            const where = `routing.ospf.areas.${areaId}`;
-            for (const key of ["type", "no_summaries", "stub_default_cost"] as const)
-                if (area[key] !== undefined) found.push(`${where}.${key}, not tested on the platform`);
-
-            for (const [name, settings] of Object.entries(area.interfaces)) {
-                if (settings && !device.interfaces?.vlan_interface?.[name])
-                    found.push(`${where}.interfaces.${name}, OSPF runs on VLAN interfaces here`);
-                for (const key of ["hello_interval", "dead_interval", "authentication"] as const)
-                    if (settings?.[key] !== undefined) found.push(`${where}.interfaces.${name}.${key}, not tested on the platform`);
-            }
-        }
-
-        for (const route of routing?.static_routes ?? []) {
-            const where = `routing.static_routes ${route.prefix}`;
-
-            if (!route.next_hop || route.vrf || Address.family(route.prefix) === "ipv6") {
-                found.push(`${where}, only an IPv4 next_hop in the default table`);
-            }
-
-            if (route.next_hop && route.interface) found.push(`${where} next_hop with interface, write the next_hop alone`);
-
-            if (route.description || route.distance) found.push(`${where} description and distance`);
-
-            if (route.bfd && route.next_hop && !RaisecomRosRender.bfdSessions(device).has(route.next_hop)) {
-                found.push(`${where} bfd, the next hop must be on a VLAN interface's network`);
-            }
-        }
-
-        for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {})) {
-            if (vlan?.description) found.push(`switching.vlans.${name}.description`);
-        }
-
-        // Address sets alone build nothing: `management.allow` may name one, and the project has put its addresses there.
-        const { address_sets: _addressSets, ...firewall } = device.firewall ?? {};
-
-        const refusedGroups: [string, unknown][] = [
-            ["firewall", Object.keys(firewall).length ? firewall : undefined],
-            ["services.dhcp_server", device.services?.dhcp_server],
-            ["services.dhcpv6_server", device.services?.dhcpv6_server],
-            ["services.dhcp_relay", device.services?.dhcp_relay],
-            ["switching.acls", device.switching?.acls],
-            ["routing.policies", routing?.policies],
-            ["routing.prefix_sets", routing?.prefix_sets],
-            ["system.hardware_offload", device.system?.hardware_offload],
-            ["system.certificates", device.system?.certificates],
-            ["routing.vrfs", routing?.vrfs],
-            ["routing.ospf.vrf", routing?.ospf?.vrf],
-            ["monitoring.flow_export", device.monitoring?.flow_export],
-        ];
-
-        for (const [path, value] of refusedGroups) {
-            if (value !== undefined) found.push(path);
-        }
-        if (device.services?.pppoe_server)
-            found.push("services.pppoe_server, Raisecom ROS has no PPPoE server: it only adds PPPoE+ tags as an intermediate agent");
-
-        const management = device.management ?? {};
-
-        for (const field of ["http", "https", "api", "api_tls", "ftp", "native_protocol", "console"] as const) {
-            if (management[field]) found.push(`management.${field}`);
-        }
-        for (const { where } of Derive.serviceVrfs(device)) found.push(where);
-
-        const snmp = device.monitoring?.snmp;
-
-        for (const [name, user] of Object.entries(snmp?.users ?? {})) {
-            if (!RaisecomRosRender.SNMP_AUTH[user.auth])
-                found.push(`monitoring.snmp.users.${name}.auth ${user.auth}, the platform authenticates with SHA1 or MD5`);
-        }
-
-        if (snmp?.contact || snmp?.location) found.push("monitoring.snmp.contact and location");
-        if (management.ssh?.weak_crypto) found.push("management.ssh.weak_crypto");
-
-        const switching = device.switching;
-        if (switching?.lldp && switching.lldp !== true) found.push("switching.lldp.interfaces, LLDP is per device");
-        if (switching?.stp?.mode && switching.stp.mode !== "mstp") found.push("switching.stp.mode other than mstp");
-        // No public command reference, and the switch applies each line at once, so nothing here was tried.
-        const snooping = "which only RouterOS, Junos, and VRP build for now";
-        const raGuard = "which only RouterOS and Junos build for now";
-        if (switching?.dhcp_snooping) found.push(`switching.dhcp_snooping, ${snooping}`);
-        if (switching?.ra_guard) found.push(`switching.ra_guard, ${raGuard}`);
-        if (switching?.arp_inspection) found.push("switching.arp_inspection, which only Junos builds for now");
-        for (const [name, vlan] of Object.entries(switching?.vlans ?? {}))
-            if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
-            if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted, ${snooping}`);
-            if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${raGuard}`);
-            if (settings.qinq_vlan) found.push(`${where}.qinq_vlan, ${snooping}`);
+            if (typeof settings.stp === "object" && settings.stp.bpdu_guard) found.push(`${where}.stp.bpdu_guard`);
+            if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted`);
         }
-
-        for (const [name, user] of Object.entries(device.system?.users ?? {})) {
-            if (user && user.role !== "admin") found.push(`system.users.${name}.role other than admin`);
-        }
-        // Raisecom's RAX721 guide gives the servers and `user login local-radius`, but no level for a user a server accepts.
-        if (device.system?.aaa) found.push("system.aaa, the platform has no setting for the role of a user a server accepts");
-
-        const system = device.system ?? {};
-        const services = device.services ?? {};
-
-        if (system.dns || system.logging?.local || system.release_channel || system.banner || services.dns_server || services.ntp_server) {
-            found.push(
-                "system.dns, system.logging.local, system.release_channel, system.banner, services.dns_server and services.ntp_server"
-            );
-        }
-
-        // SNMP takes its own access-list, and SSH and telnet share the management one.
-        found.push(...Derive.switchUnsupported(device, ["snmp"]));
-        found.push(...Derive.untested(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
-        found.push(...Derive.unbuilt(device));
-        found.push(...Derive.unbuiltMonitoring(device));
 
         return found;
+    }
+
+    /** The switch answers time queries while it takes time from servers, and Raisecom's guide has no setting to stop it. */
+    override checks(device: Device): Finding[] {
+        if (!device.system?.ntp?.servers.length || device.services?.ntp_server) return [];
+
+        const message =
+            "system.ntp: the switch also answers time queries from others, and Raisecom ROS has no setting to stop it. Write services.ntp_server: true to say so";
+        return [{ level: "warning", device: device.name, message }];
     }
 
     override render(device: Device): string {
@@ -571,6 +408,15 @@ export class RaisecomRos extends Platform {
             group.add = group.add.filter((line) => !line.startsWith("hostname "));
         }
 
+        // The switch snoops once the trusted ports are set, so a DHCP server behind one is never cut off.
+        const snooping: string[] = [];
+
+        for (const group of groups) {
+            if (group.path.length) continue;
+            snooping.push(...group.add.filter((line) => line === RaisecomRos.SNOOPING));
+            group.add = group.add.filter((line) => line !== RaisecomRos.SNOOPING);
+        }
+
         const planned = LineDiff.steps(
             groups.filter((group) => group.add.length || group.remove.length),
             RaisecomRos.DIALECT,
@@ -579,11 +425,13 @@ export class RaisecomRos extends Platform {
 
         for (const line of hostnames) planned.unshift({ title: "hostname", show: [`+ ${line}`], send: ["exit", line, "config"] });
 
+        if (snooping.length) planned.push({ title: "DHCP snooping", show: snooping.map((line) => `+ ${line}`), send: snooping });
+
         if (aclRemovals.length) {
             planned.push({
                 title: "access-lists no longer used",
                 show: aclRemovals.map((line) => `- ${line}`),
-                send: aclRemovals.map(RaisecomRos.undo),
+                send: aclRemovals.map((line) => RaisecomRos.undo(line)),
             });
         }
 
@@ -591,7 +439,7 @@ export class RaisecomRos extends Platform {
             const removeLags: Step = {
                 title: "LAGs no longer used",
                 show: lagRemovals.map((line) => `- ${line}`),
-                send: lagRemovals.map(RaisecomRos.undo),
+                send: lagRemovals.map((line) => RaisecomRos.undo(line)),
             };
             planned.push(removeLags);
         }
@@ -661,8 +509,11 @@ export class RaisecomRos extends Platform {
         return RaisecomRos.BLOCK_ORDER.findIndex((pattern) => pattern.test(path[0] ?? "")) + 1;
     }
 
-    private static undo(line: string): string {
+    private static undo(line: string, path: readonly string[] = []): string {
         for (const [pattern, opposite] of RaisecomRos.OPPOSITES) if (pattern.test(line)) return opposite;
+        // A port's spanning tree priority goes back to its default by keyword.
+        if (path[0]?.startsWith("interface ") && line.startsWith("spanning-tree instance 0 priority "))
+            return "no spanning-tree instance 0 priority";
         if (/^rule \d+/.test(line)) return `no ${line.split(" ").slice(0, 2).join(" ")}`;
 
         // A VRRP group goes with its address, and its other settings return to their defaults by keyword. Preemption is on unless turned off.
