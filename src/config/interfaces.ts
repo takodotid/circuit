@@ -480,9 +480,37 @@ export type Bridge<VlanInterface extends string, Vrf extends string> = Omit<Base
 };
 
 /**
+ * An IPv6 prefix a PPPoE client asks its server for (DHCPv6 prefix delegation, RFC 9915), as a home router does (RFC 7084). The router gives each of `interfaces` a /64 of it, so a /64 delegated serves one.
+ */
+export type ClientPrefixDelegation<I extends string> = {
+    /** The ports and interfaces that each take a /64 of the delegated prefix, with the router's address in it written by its last 64 bits, such as `{ home: "::1" }`. One with `ipv6_ra` announces its /64, so hosts there make their own addresses. */
+    interfaces: Named<I, IPv6>;
+};
+
+/**
+ * A PPPoE client (RFC 2516): the session the router opens over `interface` to its provider's PPPoE server, logged in with `user` and `password`. The server gives it its IPv4 address (IPCP, RFC 1332), so it has no `addresses`. A route through it, such as the default route, is a static route with `interface`, and a source NAT matches it with `out_interface`. The router uses `system.dns`, not the resolvers the server offers.
+ */
+export type PppoeClient<Carrier extends string, I extends string> = {
+    /** The port, LAG, or VLAN interface it runs over, toward the provider. It holds no address for the session. */
+    interface: Carrier;
+    /** What the link is for, such as the provider and the circuit ID. */
+    description?: string;
+    /** The name it logs in with, as the provider gave it. */
+    user: string;
+    /** The password it logs in with. */
+    password: Secret;
+    /** The service name it asks for (RFC 2516). A server that offers another name does not answer. Any server answers when absent. */
+    service_name?: string;
+    /** The largest packet the session carries, in bytes. RFC 2516 allows 1492 at most. The platform agrees on one with the server when absent. */
+    mtu?: number;
+    /** Ask the server for an IPv6 prefix over the session. No IPv6 prefix when absent. */
+    prefix_delegation?: ClientPrefixDelegation<I>;
+};
+
+/**
  * Every port and interface, by kind, each keyed by its name. A port's key is `<speed>-<position>` from the model.
  *
- * The type parameters are the names the device declares: `Ethernet` the ports, `L` LAGs, `VI` VLAN interfaces, `T` the other interfaces, `V` VLANs, `F` VRFs, `Table` routing tables, `Certificate` certificates.
+ * The type parameters are the names the device declares: `Ethernet` the ports, `L` LAGs, `VI` VLAN interfaces, `T` the other interfaces, `V` VLANs, `F` VRFs, `Table` routing tables, `Certificate` certificates. `I` is every port and interface.
  */
 export type Interfaces<
     Ethernet,
@@ -493,6 +521,7 @@ export type Interfaces<
     F extends string,
     Table extends string = string,
     Certificate extends string = string,
+    I extends string = string,
 > = {
     /** Physical ports, keyed by `<speed>-<position>` from the model, such as `10g-4`. Ports not listed are shut down. */
     ethernet?: Ethernet;
@@ -516,4 +545,6 @@ export type Interfaces<
     eoip?: Named<T, Eoip<NoInfer<L>, F>>;
     /** Ethernet pseudowires to other PEs, keyed by name. Each is a port in its `access_vlan`. */
     pseudowire?: Named<T, Pseudowire<V>>;
+    /** PPPoE clients, keyed by name: each a session to a provider over a port, a LAG, or a VLAN interface. */
+    pppoe_client?: Named<T, PppoeClient<NoInfer<(keyof Ethernet & string) | L | VI>, I>>;
 };

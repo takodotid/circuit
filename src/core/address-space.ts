@@ -251,6 +251,13 @@ export class AddressSpace {
                 const local = `PPPoE server ${name} on ${device.name}`;
                 if (Address.isValid(server.local_address) && !take(server.local_address, local))
                     blocks.push({ prefix: `${server.local_address}/${Address.bits("ipv4")}`, what: local });
+
+                const delegated = server.prefix_delegation?.pool;
+                if (delegated && Address.isCidr(delegated))
+                    blocks.push({
+                        prefix: Address.prefixOf(delegated),
+                        what: `prefixes delegated by PPPoE server ${name} on ${device.name}`,
+                    });
             }
 
             // A pool and the subscribers it serves are both address space in use. A rule with no pool, such as masquerade, uses none.
