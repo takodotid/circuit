@@ -56,7 +56,7 @@ export type Names = {
     lag: string;
     /** Keys of `interfaces.vlan_interface`. */
     vlanInterface: string;
-    /** Keys of `interfaces.bridge`, `.loopback`, `.gre`, `.vxlan`, `.ipsec`, `.wireguard`, `.eoip`, and `.pseudowire`. */
+    /** Keys of `interfaces.bridge`, `.loopback`, `.gre`, `.vxlan`, `.ipsec`, `.wireguard`, `.eoip`, `.pseudowire`, and `.pppoe_client`. */
     interface: string;
     /** Keys of `switching.vlans`. */
     vlan: string;
@@ -94,7 +94,7 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     management?: Management<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["addressSet"]>, NoInfer<N["vrf"]>>;
     /** What the device reports to collectors: SNMP, syslog, flow export, and optics. */
     monitoring?: Monitoring<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["vrf"]>>;
-    /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, ipsec, wireguard, eoip, pseudowire. */
+    /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, ipsec, wireguard, eoip, pseudowire, pppoe_client. */
     interfaces?: Interfaces<
         Ethernet,
         N["lag"],
@@ -103,7 +103,8 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
         NoInfer<N["vlan"]>,
         NoInfer<N["vrf"]>,
         NoInfer<N["table"]>,
-        NoInfer<N["certificate"]>
+        NoInfer<N["certificate"]>,
+        NoInfer<N["anyInterface"]>
     >;
     /** Layer 2 settings the ports share: VLANs, STP, LLDP, and ACLs. */
     switching?: Switching<N["vlan"], N["acl"], NoInfer<N["anyInterface"]>, Net["untrusted"]>;

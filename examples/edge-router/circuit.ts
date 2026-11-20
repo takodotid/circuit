@@ -20,6 +20,9 @@ export const as64500 = circuit({
         "pop-2": {
             description: "A second point of presence: one router at another internet exchange, with a transit customer and a few servers.",
         },
+        "office-1": {
+            description: "A business customer's office on the OLT, whose router AS64500 runs for the customer.",
+        },
     },
     checks: {
         exports_end_in_reject: true,

@@ -27,6 +27,7 @@ export type {
     PortRange,
     Ports,
     Prefix,
+    PrefixDelegation,
     Protocol,
     Rate,
 } from "./config/index";
@@ -71,12 +72,16 @@ export type Bridge = C.Bridge<string, string>;
 export type Pseudowire = C.Pseudowire<string> &
     Partial<Record<Exclude<keyof C.Base<string> | keyof C.Switched<string>, keyof C.Pseudowire<string>>, never>>;
 
+/** The settings of other interfaces a PPPoE client has none of are never there, so code reads them from any interface alike. */
+export type PppoeClient = C.PppoeClient<string, string> &
+    Partial<Record<Exclude<keyof C.Base<string>, keyof C.PppoeClient<string, string>>, never>>;
+
 /** Any interface that is not a port: what `interfaces` holds besides `ethernet`. */
-export type Interface = Lag | VlanInterface | Loopback | Gre | Vxlan | Ipsec | WireGuard | Bridge | Eoip | Pseudowire;
+export type Interface = Lag | VlanInterface | Loopback | Gre | Vxlan | Ipsec | WireGuard | Bridge | Eoip | Pseudowire | PppoeClient;
 
 /** The kinds of interface `interfaces` groups by, besides `ethernet`. */
 export type InterfaceKind =
-    "lag" | "vlan_interface" | "loopback" | "gre" | "vxlan" | "ipsec" | "wireguard" | "bridge" | "eoip" | "pseudowire";
+    "lag" | "vlan_interface" | "loopback" | "gre" | "vxlan" | "ipsec" | "wireguard" | "bridge" | "eoip" | "pseudowire" | "pppoe_client";
 
 export type Switched = C.Switched<string>;
 export type Routed = C.Routed<string>;
