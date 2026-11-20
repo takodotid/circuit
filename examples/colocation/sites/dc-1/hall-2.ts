@@ -21,7 +21,7 @@ export default as64500.device({
     interfaces: {
         ethernet: {
             "40g-1": { description: "edge-01, routers of halls 2 and 3", access_vlan: "core" },
-            "10g-1": { description: "AS64501", access_vlan: "as64501" },
+            "10g-1": { description: "AS64501", access_vlan: "as64501", ingress_acl: "as64501-in" },
         },
         vlan_interface: {
             core: { vlan: "core", addresses: ["10.0.1.2/29"] },
@@ -32,6 +32,13 @@ export default as64500.device({
         vlans: {
             core: { id: 10, description: "edge-01 and the halls' routers" },
             as64501: { id: 101, description: "AS64501, a transit customer" },
+        },
+        // Source address validation (BCP 38, RFC 2827): AS64501 sends from the block we gave it and its end of the link, nothing else.
+        acls: {
+            "as64501-in": [
+                { description: "Its own addresses", if: { src: ["198.51.100.128/26", "198.51.100.250/32"] }, then: "accept" },
+                { description: "Any other source", then: "drop" },
+            ],
         },
     },
 

@@ -11,11 +11,13 @@ import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { LineDiff } from "../line-diff";
-import type { Dialect, Group } from "../line-diff";
+import type { Dialect, Entry, Group } from "../line-diff";
 import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
 import { VrpAaa } from "./aaa";
+import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
+import { VrpDhcp } from "./dhcp";
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
@@ -63,7 +65,7 @@ export class Vrp extends Platform {
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl number |aaa$|user-interface |ospf \d+|ip vpn-instance |bfd$|alarm$|route-policy |bgp )/,
+        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |aaa$|user-interface |ospf \d+|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp )/,
         indented: true,
         terminator: "#",
         // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
@@ -74,12 +76,12 @@ export class Vrp extends Platform {
         first: /^authentication-mode /,
         canon: Vrp.canon,
         order: Vrp.order,
-        head: (line) => VrpBgp.head(line) ?? LineDiff.head(line),
+        head: (line) => VrpBgp.head(line) ?? Vrp.head(line),
     };
 
     /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, and BFD. Then come device-wide lines, such as prefix lists, LAGs, ports, VLAN interfaces, OSPF, route-policies, BGP, and the rest, such as logins. */
     private static readonly BLOCK_ORDER = [
-        /^(ip vpn-instance|vlan |acl number|radius server group|hwtacacs server template|aaa|bfd)/,
+        /^(ip vpn-instance|vlan |acl |radius server group|hwtacacs server template|aaa|bfd)/,
         /^$/,
         /^interface Eth-Trunk/,
         /^interface (?!Vlanif)/,
@@ -151,17 +153,7 @@ export class Vrp extends Platform {
         }
 
         for (const [name, port] of Derive.ports(device)) {
-            for (const field of [
-                "speed",
-                "ingress_acl",
-                "mtu",
-                "addresses",
-                "urpf",
-                "vrrp",
-                "vrf",
-                "ipv6_ra",
-                "hardware_offload",
-            ] as const) {
+            for (const field of ["speed", "mtu", "addresses", "urpf", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
                 if (port[field] !== undefined) found.push(`interfaces.ethernet.${name}.${field}, ports are switched; use a VLAN interface`);
             }
 
@@ -242,11 +234,10 @@ export class Vrp extends Platform {
                 found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
         }
 
+        found.push(...Vrp.firewallGaps(device), ...VrpAcls.unsupported(device), ...VrpDhcp.unsupported(device));
+
         const refusedGroups = [
-            ["firewall", device.firewall],
-            ["services.dhcp_server", device.services?.dhcp_server],
             ["services.dhcpv6_server", device.services?.dhcpv6_server],
-            ["switching.acls", device.switching?.acls],
             ["system.hardware_offload", device.system?.hardware_offload],
             ["system.certificates", device.system?.certificates],
         ] as const;
@@ -385,6 +376,8 @@ export class Vrp extends Platform {
             .map(([name]) => `interfaces.vlan_interface.${name}.urpf.ipv4`);
 
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
+        // A pool was committed on a CE6855, but `dhcp enable` went into a candidate only, and no client has asked it for an address.
+        for (const name of Object.keys(device.services?.dhcp_server ?? {})) found.push(`services.dhcp_server.${name}`);
         found.push(...VrpBgp.experimental(device));
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
@@ -408,6 +401,33 @@ export class Vrp extends Platform {
         }
 
         return found;
+    }
+
+    /** Each filter chain is refused with what stands in its way. `Derive.unbuilt` refuses TCP MSS clamps. */
+    private static firewallGaps(device: Device): string[] {
+        const { filter, tcp_mss: _tcpMss, ...rest } = device.firewall ?? {};
+        const found = Object.keys(rest).map((key) => `firewall.${key}`);
+
+        if (filter?.input)
+            found.push(
+                "firewall.filter.input, V200R005 filters traffic to the switch only with a blacklist, which drops what it lists; management.allow guards SSH and SNMP"
+            );
+        if (filter?.forward)
+            found.push(
+                "firewall.filter.forward, the switch's traffic filter checks what it switches as well as what it routes: use switching.acls on the ports"
+            );
+        if (filter?.output) found.push("firewall.filter.output, the switch filters nothing it sends itself");
+
+        return found;
+    }
+
+    /** An ACL rule's description is a setting of its own beside the rule. A pool's lists take more than one value, so a line that changes is undone whole. */
+    private static head(line: string): string {
+        const description = /^rule \d+ description/.exec(line);
+        if (description) return description[0];
+        if (/^(gateway-list|dns-list|excluded-ip-address|static-bind) /.test(line)) return line;
+
+        return LineDiff.head(line);
     }
 
     /** Each OSPF interface's authentication, with where it is written. */
@@ -456,7 +476,8 @@ export class Vrp extends Platform {
         );
 
         Vrp.removeLoghosts(groups, desired, current);
-        Vrp.replaceRules(groups, current);
+        Vrp.replaceRules(groups, desired, current);
+        VrpDhcp.rebuild(groups, desired, current, Vrp.DIALECT);
         Vrp.emptyAlarmView(groups, current);
         Vrp.keepReplacedWhole(groups);
         VrpAaa.order(groups, desired, current, Vrp.DIALECT);
@@ -474,7 +495,7 @@ export class Vrp extends Platform {
         ];
 
         // An ACL still bound to a service cannot be removed, so ACLs go after every binding has moved.
-        const lastRemovals = top?.remove.filter((line) => /^acl number \d+$/.test(line)) ?? [];
+        const lastRemovals = top?.remove.filter((line) => /^acl (number \d+|(ipv6 )?name \S+ advance)$/.test(line)) ?? [];
         const unused = VrpBgp.order(groups, desired, Vrp.DIALECT);
 
         if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line) && !lastRemovals.includes(line));
@@ -628,8 +649,15 @@ export class Vrp extends Platform {
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
         const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);
         if (assigned) return `undo ${assigned[1]}`;
+        // A named ACL is removed by its name, and a rule's description by its rule's number.
+        const named = /^(acl (?:ipv6 )?name \S+) advance$/.exec(line);
+        if (named) return `undo ${named[1]}`;
+        const description = /^rule \d+ description/.exec(line);
+        if (description) return `undo ${description[0]}`;
         // An ACL rule is removed by its number.
         if (/^rule \d+/.test(line)) return `undo ${line.split(" ").slice(0, 2).join(" ")}`;
+        const pool = Vrp.undoInPool(line, path);
+        if (pool) return pool;
 
         const keyword = Vrp.UNDO_BY_KEYWORD.exec(line);
         if (keyword) return `undo ${keyword[1]}`;
@@ -643,6 +671,16 @@ export class Vrp extends Platform {
         if (line.startsWith("storm control ")) return `undo ${line.replace(/ (min-rate|max-rate).*$/, "")}`;
 
         return `undo ${line}`;
+    }
+
+    /** A pool's network, lease, and VRF are undone by their keyword, and a static binding by its address. */
+    private static undoInPool(line: string, path: readonly string[]): string | undefined {
+        if (!path[0]?.startsWith("ip pool ")) return undefined;
+
+        const keyword = /^(network|lease|vpn-instance) /.exec(line);
+        if (keyword) return `undo ${keyword[1]}`;
+        const binding = /^(static-bind ip-address \S+) /.exec(line);
+        return binding ? `undo ${binding[1]}` : undefined;
     }
 
     /** Secrets the device prints as ciphers and the render writes as markers compare equal. */
@@ -680,19 +718,39 @@ export class Vrp extends Platform {
         }
     }
 
-    /** An ACL rule sent over a rule of the same number merges into it: `rule 10 deny` over `rule 10 permit source A` leaves `rule 10 deny source A`. A changed rule is undone first. */
-    private static replaceRules(groups: Group[], current: string): void {
+    /**
+     * An ACL rule sent over a rule of the same number merges into it: `rule 10 deny` over `rule 10 permit source A` leaves `rule 10 deny source A`. A changed rule is undone first, which takes its description with it, so the description is sent again. A rule that goes takes its description too.
+     */
+    private static replaceRules(groups: Group[], desired: string, current: string): void {
         const existing = LineDiff.entries(current, Vrp.DIALECT);
+        const wanted = LineDiff.entries(desired, Vrp.DIALECT);
+        const isDescription = (line: string) => /^rule \d+ description /.test(line);
 
         for (const group of groups) {
-            if (!group.path[0]?.startsWith("acl number ")) continue;
+            if (!group.path[0]?.startsWith("acl ")) continue;
+
+            const inBlock = (entries: Entry[]) => entries.filter((entry) => entry.path.join("\n") === group.path.join("\n"));
+            const rulesUndone = new Set<string>();
 
             for (const line of group.add) {
                 const rule = /^rule \d+ /.exec(line)?.[0];
-                if (!rule) continue;
+                if (!rule || isDescription(line)) continue;
 
-                const old = existing.find((entry) => entry.path.join("\n") === group.path.join("\n") && entry.line.startsWith(rule));
+                const old = inBlock(existing).find((entry) => entry.line.startsWith(rule) && !isDescription(entry.line));
                 if (old && !group.remove.includes(old.line)) group.remove.push(old.line);
+                if (old) rulesUndone.add(rule);
+            }
+
+            for (const line of group.remove) {
+                const rule = /^rule \d+ /.exec(line)?.[0];
+                if (rule && !isDescription(line)) rulesUndone.add(rule);
+            }
+
+            const undoneWith = (line: string) => [...rulesUndone].some((rule) => line.startsWith(`${rule}description `));
+            group.remove = group.remove.filter((line) => !(isDescription(line) && undoneWith(line)));
+
+            for (const { line } of inBlock(wanted)) {
+                if (isDescription(line) && undoneWith(line) && !group.add.includes(line)) group.add.push(line);
             }
         }
     }
