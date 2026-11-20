@@ -459,6 +459,7 @@ export class Project {
             "ipsec",
             "wireguard",
             "eoip",
+            "pseudowire",
             "pppoe_client",
         ];
 

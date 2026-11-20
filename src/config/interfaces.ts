@@ -1,4 +1,4 @@
-import type { HostAddress, IP, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, Secret } from "./common";
+import type { HostAddress, IP, IPv4, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, Secret } from "./common";
 
 /** A storm-control threshold: packets per second, or percent of the link's speed. */
 export type Threshold =
@@ -344,6 +344,20 @@ export type Eoip<Lag extends string, Vrf extends string> = Base<Vrf> & {
     in_lag?: Lag;
 };
 
+/**
+ * An Ethernet pseudowire (RFC 4448) across the MPLS core to another PE, set up by LDP with the PWid FEC (RFC 8077). It is a port of the device in a VLAN. With a customer's port in the same VLAN, it carries that port's frames to the far PE: a point-to-point service, VPWS. With several pseudowires in one VLAN, the PEs make a VPLS (RFC 4762), and a frame from one pseudowire never leaves by another. Needs `routing.mpls`.
+ */
+export type Pseudowire<Vlan extends string> = {
+    /** What it carries, such as the customer and its far site. */
+    description?: string;
+    /** The far PE's LSR ID, its `routing.mpls.ldp.lsr_id`. */
+    peer: IPv4;
+    /** The pseudowire's ID, 1 to 4294967295, the same at both ends. Each pseudowire of the device to one peer has its own. */
+    pw_id: number;
+    /** The VLAN it is in, from `switching.vlans`. Its frames cross the pseudowire without the VLAN's tag, raw mode (RFC 4448, section 4.4.1). */
+    access_vlan: Vlan;
+};
+
 /** An encryption algorithm with its key length in bits (IANA, IKEv2 transform type 1). A `gcm` one also protects integrity (AEAD, RFC 4106 and RFC 5282), so it takes no `integrity`. */
 export type IpsecEncryption = "aes-128-cbc" | "aes-256-cbc" | "aes-128-gcm" | "aes-256-gcm";
 
@@ -496,6 +510,8 @@ export type Interfaces<
     wireguard?: Named<T, WireGuard<F, Table>>;
     /** Ethernet tunnels over IP, keyed by name. Each may be a member of a LAG with `in_lag`. */
     eoip?: Named<T, Eoip<NoInfer<L>, F>>;
+    /** Ethernet pseudowires to other PEs, keyed by name. Each is a port in its `access_vlan`. */
+    pseudowire?: Named<T, Pseudowire<V>>;
     /** PPPoE clients, keyed by name: each a session to a provider over a port, a LAG, or a VLAN interface. */
     pppoe_client?: Named<T, PppoeClient<NoInfer<(keyof Ethernet & string) | L | VI>, I>>;
 };
