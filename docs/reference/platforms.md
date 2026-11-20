@@ -115,21 +115,22 @@ A note in a cell means "works, with this limit".
 
 ### Firewall and services
 
-| Feature                            | RouterOS              | VRP                   | Raisecom ROS               | Junos                    | FortiOS                                |
-| ---------------------------------- | --------------------- | --------------------- | -------------------------- | ------------------------ | -------------------------------------- |
-| Firewall filter                    | ✅                    | ❌                    | ❌                         | ❌                       | ✅                                     |
-| NAT                                | ✅                    | ❌                    | ❌                         | ❌                       | IPv4                                   |
-| CGNAT pool                         | ✅                    | ❌                    | ❌                         | ❌                       | ❌                                     |
-| TCP MSS clamp                      | ✅                    | ❌                    | ❌                         | ❌                       | ❌                                     |
-| DHCP server                        | ✅                    | ❌                    | ❌                         | ✅                       | ✅                                     |
-| DHCPv6 server                      | ✅ pool is a prefix   | ❌                    | ❌                         | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes |
-| DHCP relay                         | ✅                    | IPv4, VLAN interfaces | ❌                         | IPv4                     | ✅                                     |
-| DHCP server in a VRF               | ✅                    | ❌                    | ❌                         | 🧪                       | 🧪                                     |
-| PPPoE server                       | ✅ one RADIUS setting | ❌                    | ❌                         | ❌                       | ❌                                     |
-| Delegated IPv6 prefixes over PPPoE | ✅                    | ❌                    | ❌                         | ❌                       | ❌                                     |
-| DNS server                         | ✅                    | ❌                    | ❌                         | ❌                       | ✅                                     |
-| NTP client                         | ✅                    | ✅                    | ✅                         | ✅                       | ✅                                     |
-| NTP server                         | ✅                    | ✅                    | always, with an NTP client | ✅                       | ✅                                     |
+| Feature                            | RouterOS              | VRP                   | Raisecom ROS               | Junos                    | FortiOS                                         |
+| ---------------------------------- | --------------------- | --------------------- | -------------------------- | ------------------------ | ----------------------------------------------- |
+| Firewall filter                    | ✅                    | ❌                    | ❌                         | ❌                       | ✅                                              |
+| NAT                                | ✅                    | ❌                    | ❌                         | ❌                       | IPv4                                            |
+| CGNAT pool, deterministic          | ✅                    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| CGNAT pool, dynamic                | ❌                    | ❌                    | ❌                         | ❌                       | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
+| TCP MSS clamp                      | ✅                    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DHCP server                        | ✅                    | ❌                    | ❌                         | ✅                       | ✅                                              |
+| DHCPv6 server                      | ✅ pool is a prefix   | ❌                    | ❌                         | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes          |
+| DHCP relay                         | ✅                    | IPv4, VLAN interfaces | ❌                         | IPv4                     | ✅                                              |
+| DHCP server in a VRF               | ✅                    | ❌                    | ❌                         | 🧪                       | 🧪                                              |
+| PPPoE server                       | ✅ one RADIUS setting | ❌                    | ❌                         | ❌                       | ❌                                              |
+| Delegated IPv6 prefixes over PPPoE | ✅                    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DNS server                         | ✅                    | ❌                    | ❌                         | ❌                       | ✅                                              |
+| NTP client                         | ✅                    | ✅                    | ✅                         | ✅                       | ✅                                              |
+| NTP server                         | ✅                    | ✅                    | always, with an NTP client | ✅                       | ✅                                              |
 
 ### Management and monitoring
 
